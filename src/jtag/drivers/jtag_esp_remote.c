@@ -531,14 +531,14 @@ static int jtag_esp_remote_stableclocks(int cycles)
 	return ERROR_OK;
 }
 
-static int jtag_esp_remote_execute_queue(void)
+static int jtag_esp_remote_execute_queue(struct jtag_command *cmd_queue)
 {
 	struct jtag_command *cmd;
 	int retval = ERROR_OK;
 	size_t read_size = 0;
 	size_t cmd_read_size;
 
-	for (cmd = jtag_command_queue; retval == ERROR_OK && cmd != NULL;
+	for (cmd = cmd_queue; retval == ERROR_OK && cmd != NULL;
 		cmd = cmd->next) {
 		switch (cmd->type) {
 		case JTAG_RESET:
@@ -577,7 +577,7 @@ static int jtag_esp_remote_execute_queue(void)
 	}
 
 	if (read_size > 0) {
-		for (cmd = jtag_command_queue; retval == ERROR_OK && cmd != NULL;
+		for (cmd = cmd_queue; retval == ERROR_OK && cmd != NULL;
 			cmd = cmd->next) {
 			if (cmd->type == JTAG_SCAN)
 				retval = jtag_esp_remote_scan_read(cmd->cmd.scan);
