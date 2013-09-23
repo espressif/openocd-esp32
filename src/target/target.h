@@ -93,7 +93,7 @@ enum target_endianness {
 };
 
 struct working_area {
-	uint32_t address;
+	target_addr_t address;
 	uint32_t size;
 	bool free;
 	uint8_t *backup;
@@ -126,9 +126,9 @@ struct working_area_config {
 	uint32_t area;				/* working area (initialised RAM). Evaluated
 										 * upon first allocation from virtual/physical address. */
 	bool virt_spec;		/* virtual address specified? */
-	uint32_t virt;			/* virtual address */
+	target_addr_t virt;			/* virtual address */
 	bool phys_spec;		/* physical address specified? */
-	uint32_t phys;			/* physical address */
+	target_addr_t phys;			/* physical address */
 	uint32_t size;			/* size in bytes */
 	uint32_t backup;		/* whether the content of the working area has to be preserved */
 	struct working_area *areas;/* list of allocated working areas */
@@ -368,7 +368,7 @@ int target_register_exit_callback(
  * yet it is possible to detect error conditions.
  */
 int target_poll(struct target *target);
-int target_resume(struct target *target, int current, uint32_t address,
+int target_resume(struct target *target, int current, target_addr_t address,
 		int handle_breakpoints, int debug_execution);
 int target_halt(struct target *target);
 int target_call_event_callbacks(struct target *target, enum target_event event);
@@ -491,7 +491,7 @@ int target_get_gdb_reg_list(struct target *target,
  * This routine is a wrapper for target->type->step.
  */
 int target_step(struct target *target,
-		int current, uint32_t address, int handle_breakpoints);
+		int current, target_addr_t address, int handle_breakpoints);
 /**
  * Run an algorithm on the @a target given.
  *
@@ -544,9 +544,9 @@ int target_run_flash_async_algorithm(struct target *target,
  * This routine is a wrapper for target->type->read_memory.
  */
 int target_read_memory(struct target *target,
-		uint32_t address, uint32_t size, uint32_t count, uint8_t *buffer);
+		target_addr_t address, uint32_t size, uint32_t count, uint8_t *buffer);
 int target_read_phys_memory(struct target *target,
-		uint32_t address, uint32_t size, uint32_t count, uint8_t *buffer);
+		target_addr_t address, uint32_t size, uint32_t count, uint8_t *buffer);
 /**
  * Write @a count items of @a size bytes to the memory of @a target at
  * the @a address given. @a address must be aligned to @a size
@@ -565,9 +565,9 @@ int target_read_phys_memory(struct target *target,
  * This routine is wrapper for target->type->write_memory.
  */
 int target_write_memory(struct target *target,
-		uint32_t address, uint32_t size, uint32_t count, const uint8_t *buffer);
+		target_addr_t address, uint32_t size, uint32_t count, const uint8_t *buffer);
 int target_write_phys_memory(struct target *target,
-		uint32_t address, uint32_t size, uint32_t count, const uint8_t *buffer);
+		target_addr_t address, uint32_t size, uint32_t count, const uint8_t *buffer);
 
 /*
  * Write to target memory using the virtual address.
@@ -594,13 +594,13 @@ int target_write_phys_memory(struct target *target,
  * peripheral registers which do not support byte operations.
  */
 int target_write_buffer(struct target *target,
-		uint32_t address, uint32_t size, const uint8_t *buffer);
+		target_addr_t address, uint32_t size, const uint8_t *buffer);
 int target_read_buffer(struct target *target,
-		uint32_t address, uint32_t size, uint8_t *buffer);
+		target_addr_t address, uint32_t size, uint8_t *buffer);
 int target_checksum_memory(struct target *target,
-		uint32_t address, uint32_t size, uint32_t *crc);
+		target_addr_t address, uint32_t size, uint32_t *crc);
 int target_blank_check_memory(struct target *target,
-		uint32_t address, uint32_t size, uint32_t *blank, uint8_t erased_value);
+		target_addr_t address, uint32_t size, uint32_t *blank, uint8_t erased_value);
 int target_wait_state(struct target *target, enum target_state state, int ms);
 
 /**
@@ -682,14 +682,19 @@ void target_buffer_set_u64_array(struct target *target, uint8_t *buffer, uint32_
 void target_buffer_set_u32_array(struct target *target, uint8_t *buffer, uint32_t count, const uint32_t *srcbuf);
 void target_buffer_set_u16_array(struct target *target, uint8_t *buffer, uint32_t count, const uint16_t *srcbuf);
 
-int target_read_u64(struct target *target, uint64_t address, uint64_t *value);
-int target_read_u32(struct target *target, uint32_t address, uint32_t *value);
-int target_read_u16(struct target *target, uint32_t address, uint16_t *value);
-int target_read_u8(struct target *target, uint32_t address, uint8_t *value);
-int target_write_u64(struct target *target, uint64_t address, uint64_t value);
-int target_write_u32(struct target *target, uint32_t address, uint32_t value);
-int target_write_u16(struct target *target, uint32_t address, uint16_t value);
-int target_write_u8(struct target *target, uint32_t address, uint8_t value);
+int target_read_u64(struct target *target, target_addr_t address, uint64_t *value);
+int target_read_u32(struct target *target, target_addr_t address, uint32_t *value);
+int target_read_u16(struct target *target, target_addr_t address, uint16_t *value);
+int target_read_u8(struct target *target, target_addr_t address, uint8_t *value);
+int target_write_u64(struct target *target, target_addr_t address, uint64_t value);
+int target_write_u32(struct target *target, target_addr_t address, uint32_t value);
+int target_write_u16(struct target *target, target_addr_t address, uint16_t value);
+int target_write_u8(struct target *target, target_addr_t address, uint8_t value);
+
+int target_write_phys_u64(struct target *target, target_addr_t address, uint64_t value);
+int target_write_phys_u32(struct target *target, target_addr_t address, uint32_t value);
+int target_write_phys_u16(struct target *target, target_addr_t address, uint16_t value);
+int target_write_phys_u8(struct target *target, target_addr_t address, uint8_t value);
 
 /* Issues USER() statements with target state information */
 int target_arch_state(struct target *target);
