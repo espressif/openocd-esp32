@@ -1999,6 +1999,8 @@ static void target_destroy(struct target *target)
 
 void target_quit(void)
 {
+	target_call_exit_callbacks();
+
 	struct target_event_callback *pe = target_event_callbacks;
 	while (pe) {
 		struct target_event_callback *t = pe->next;
