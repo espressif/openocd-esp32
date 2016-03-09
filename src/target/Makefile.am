@@ -35,6 +35,7 @@ libtarget_la_SOURCES = \
 	$(AVR32_SRC) \
 	$(MIPS32_SRC) \
 	$(NDS32_SRC) \
+	$(ESP108_SRC) \
 	$(INTEL_IA32_SRC) \
 	avrt.c \
 	dsp563xx.c \
@@ -127,6 +128,9 @@ NDS32_SRC = \
 	nds32_v3m.c \
 	nds32_aice.c
 
+ESP108_SRC= \
+	esp108.c
+
 INTEL_IA32_SRC = \
 	quark_x10xx.c \
 	quark_d20xx.c \
@@ -204,7 +208,8 @@ noinst_HEADERS = \
 	nds32_v3m.h \
 	nds32_aice.h \
 	lakemont.h \
-	x86_32_common.h
+	x86_32_common.h \
+	esp108.h
 
 ocddatadir = $(pkglibdir)
 nobase_dist_ocddata_DATA =
