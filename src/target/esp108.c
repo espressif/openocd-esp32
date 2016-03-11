@@ -415,6 +415,10 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
 					 | ((SR & 0xFF) << 8)	\
 					 | ((T & 0x0F) << 4))
 
+#define _XT_INS_FORMAT_RRR(OPCODE,ST,R) (OPCODE			\
+					 | ((ST & 0xFF) << 4)	\
+					 | ((R & 0x0F) << 12))
+
 #define _XT_INS_FORMAT_RRI8(OPCODE,R,S,T,IMM8) (OPCODE			\
 						| ((IMM8 & 0xFF) << 16) \
 						| ((R & 0x0F) << 12 )	\
@@ -427,8 +431,8 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
  */
 #define XT_SR_DDR         (esp108_regs[XT_REG_IDX_DDR].reg_num)
 
-//Same thing for A0
-#define XT_REG_A0         (esp108_regs[XT_REG_IDX_AR0].reg_num)
+//Same thing for A3
+#define XT_REG_A3         (esp108_regs[XT_REG_IDX_AR3].reg_num)
 
 
 /* Xtensa processor instruction opcodes
@@ -463,9 +467,9 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
 #define XT_INS_ROTW(N) ((0x408000)|((N&15)<<4))
 
 /* Read User Register */
-#define XT_INS_RUR(SR,T) _XT_INS_FORMAT_RSR(0xE30000,SR,T)
+#define XT_INS_RUR(UR,T) _XT_INS_FORMAT_RRR(0xE30000,UR,T)
 /* Write User Register */
-#define XT_INS_WUR(SR,T) _XT_INS_FORMAT_RSR(0xF30000,SR,T)
+#define XT_INS_WUR(UR,T) _XT_INS_FORMAT_RRR(0xF30000,UR,T)
 
 
 //Set the PWRCTL TAP register to a value
@@ -518,7 +522,6 @@ static uint32_t intfromchars(uint8_t *c)
 	return c[0]+(c[1]<<8)+(c[2]<<16)+(c[3]<<24);
 }
 
-
 static int esp108_fetch_all_regs(struct target *target)
 {
 	int i, j;
@@ -535,7 +538,7 @@ static int esp108_fetch_all_regs(struct target *target)
 	//Start out with A0-A63; we can reach those immediately. Grab them per 16 registers.
 	for (j=0; j<64; j+=16) {
 		//Grab the 16 registers we can see
-		for (i=0; i<15; i++) {
+		for (i=0; i<16; i++) {
 			esp108_queue_exec_ins(target, XT_INS_WSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i].reg_num));
 			esp108_queue_nexus_reg_read(target, NARADR_DDR, regvals[XT_REG_IDX_AR0+i+j]);
 		}
@@ -545,15 +548,15 @@ static int esp108_fetch_all_regs(struct target *target)
 	}
 
 	//We're now free to use any of A0-A15 as scratch registers
-	//Grab the SFRs and user registers first. We use A0 as a scratch register.
+	//Grab the SFRs and user registers first. We use A3 as a scratch register.
 	for (i=0; i<XT_NUM_REGS; i++) {
 		if (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER) {
 			if (esp108_regs[i].type==XT_REG_USER) {
-				esp108_queue_exec_ins(target, XT_INS_RUR(esp108_regs[i].reg_num, XT_REG_A0));
+				esp108_queue_exec_ins(target, XT_INS_RUR(esp108_regs[i].reg_num, XT_REG_A3));
 			} else { //SFR
-				esp108_queue_exec_ins(target, XT_INS_RSR(esp108_regs[i].reg_num, XT_REG_A0));
+				esp108_queue_exec_ins(target, XT_INS_RSR(esp108_regs[i].reg_num, XT_REG_A3));
 			}
-			esp108_queue_exec_ins(target, XT_INS_WSR(XT_SR_DDR, XT_REG_A0));
+			esp108_queue_exec_ins(target, XT_INS_WSR(XT_SR_DDR, XT_REG_A3));
 			esp108_queue_nexus_reg_read(target, NARADR_DDR, regvals[i]);
 		}
 	}
@@ -570,8 +573,8 @@ static int esp108_fetch_all_regs(struct target *target)
 		*((uint32_t*)reg_list[i].value)=regval;
 		LOG_INFO("Register %s: 0x%X", esp108_regs[i].name, regval);
 	}
-	//We have used A0 as a scratch register and we will need to write that back.
-	reg_list[XT_REG_IDX_AR0].dirty=1;
+	//We have used A3 as a scratch register and we will need to write that back.
+	reg_list[XT_REG_IDX_AR3].dirty=1;
 
 	return ERROR_OK;
 }
@@ -585,29 +588,33 @@ static int esp108_write_dirty_registers(struct target *target)
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	struct reg *reg_list=esp108->core_cache->reg_list;
 
+	LOG_INFO("%s", __FUNCTION__);
+
 	//We need to write the dirty registers in the cache list back to the processor.
 	//Start by writing the SFR/user registers.
 	for (i=0; i<XT_NUM_REGS; i++) {
 		if (reg_list[i].dirty) {
 			if (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER) {
+				LOG_INFO("Writing back reg %s", esp108_regs[i].name);
 				regval=*((uint32_t *)reg_list[i].value);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
-				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A0));
+				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A3));
 				if (esp108_regs[i].type==XT_REG_USER) {
-					esp108_queue_exec_ins(target, XT_INS_WUR(esp108_regs[i].reg_num, XT_REG_A0));
+					esp108_queue_exec_ins(target, XT_INS_WUR(esp108_regs[i].reg_num, XT_REG_A3));
 				} else { //SFR
-					esp108_queue_exec_ins(target, XT_INS_WSR(esp108_regs[i].reg_num, XT_REG_A0));
+					esp108_queue_exec_ins(target, XT_INS_WSR(esp108_regs[i].reg_num, XT_REG_A3));
 				}
-			}	
-			reg_list[i].dirty=0;
+				reg_list[i].dirty=0;
+			}
 		}
 	}
 
 	//Now write AR0-AR63.
 	for (j=0; j<64; j+=16) {
 		//Write the 16 registers we can see
-		for (i=0; i<15; i++) {
+		for (i=0; i<16; i++) {
 			if (reg_list[XT_REG_IDX_AR0+i+j].dirty) {
+				LOG_INFO("Writing back reg %s", esp108_regs[XT_REG_IDX_AR0+i+j].name);
 				regval=*((uint32_t *)reg_list[XT_REG_IDX_AR0+i+j].value);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i+j].reg_num));
@@ -650,7 +657,7 @@ static int xtensa_resume(struct target *target,
 {
 //	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 //	uint8_t buf[4];
-	int res;
+	int res=ERROR_OK;
 
 	LOG_INFO("%s current=%d address=%04" PRIx32, __func__, current, address);
 
