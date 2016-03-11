@@ -397,7 +397,7 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
 	{ "windowstart",		0x49, XT_REG_SPECIAL }, 
 	{ "configid0",			0xB0, XT_REG_SPECIAL }, 
 	{ "configid1",			0xD0, XT_REG_SPECIAL }, 
-	{ "ps",					0xE6, XT_REG_SPECIAL }, 
+	{ "ps",					0xE6, XT_REG_SPECIAL }, //actually EPS[debuglevel]
 	{ "threadptr",			0xE7, XT_REG_USER }, 
 	{ "br",					0x04, XT_REG_SPECIAL }, 
 	{ "scompare1",			0x0C, XT_REG_SPECIAL }, 
@@ -434,9 +434,9 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
 /* Xtensa processor instruction opcodes
 */
 /* "Return From Debug Operation" to Normal */
-#define XT_INS_RFDO_0      0xf1e000
-/* "Return From Debug Operation" to OCD Run */
-#define XT_INS_RFDO_1      0xf1e100
+#define XT_INS_RFDO      0xf1e000
+/* "Return From Debug and Dispatch" - allow sw debugging stuff to take over */
+#define XT_INS_RFDD      0xf1e010
 
 /* Load 32-bit Indirect from A(S)+4*IMM8 to A(T) */
 #define XT_INS_L32I(S,T,IMM8)  _XT_INS_FORMAT_RRI8(0x002002,0,S,T,IMM8)
@@ -461,6 +461,12 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
 
 /* Rotate Window by (-8..7) */
 #define XT_INS_ROTW(N) ((0x408000)|((N&15)<<4))
+
+/* Read User Register */
+#define XT_INS_RUR(SR,T) _XT_INS_FORMAT_RSR(0xE30000,SR,T)
+/* Write User Register */
+#define XT_INS_WUR(SR,T) _XT_INS_FORMAT_RSR(0xF30000,SR,T)
+
 
 //Set the PWRCTL TAP register to a value
 static void esp108_queue_pwrctl_set(struct target *target, uint8_t value) 
@@ -515,7 +521,7 @@ static uint32_t intfromchars(uint8_t *c)
 
 static int esp108_fetch_all_regs(struct target *target)
 {
-	int i;
+	int i, j;
 	int res;
 	uint32_t regval;
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
@@ -526,23 +532,31 @@ static int esp108_fetch_all_regs(struct target *target)
 	//register contents GDB needs. For speed, we pipeline all the read operations, execute them
 	//in one go, then sort everything out from the regvals variable.
 
-	//Start out with A0-A15; we can reach those immediately.
-	for (i=0; i<15; i++) {
-		esp108_queue_exec_ins(target, XT_INS_WSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i].reg_num));
-		esp108_queue_nexus_reg_read(target, NARADR_DDR, regvals[XT_REG_IDX_AR0+i]);
+	//Start out with A0-A63; we can reach those immediately. Grab them per 16 registers.
+	for (j=0; j<64; j+=16) {
+		//Grab the 16 registers we can see
+		for (i=0; i<15; i++) {
+			esp108_queue_exec_ins(target, XT_INS_WSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i].reg_num));
+			esp108_queue_nexus_reg_read(target, NARADR_DDR, regvals[XT_REG_IDX_AR0+i+j]);
+		}
+		//Now rotate the window so we'll see the next 16 registers. The final rotate will wraparound, 
+		//leaving us in the state we were.
+		esp108_queue_exec_ins(target, XT_INS_ROTW(4));
 	}
+
 	//We're now free to use any of A0-A15 as scratch registers
-	//Grab the SFRs first. We use A0 as a scratch register.
+	//Grab the SFRs and user registers first. We use A0 as a scratch register.
 	for (i=0; i<XT_NUM_REGS; i++) {
-		if (esp108_regs[i].type==XT_REG_SPECIAL) {
-			esp108_queue_exec_ins(target, XT_INS_RSR(esp108_regs[i].reg_num, XT_REG_A0));
+		if (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER) {
+			if (esp108_regs[i].type==XT_REG_USER) {
+				esp108_queue_exec_ins(target, XT_INS_RUR(esp108_regs[i].reg_num, XT_REG_A0));
+			} else { //SFR
+				esp108_queue_exec_ins(target, XT_INS_RSR(esp108_regs[i].reg_num, XT_REG_A0));
+			}
 			esp108_queue_exec_ins(target, XT_INS_WSR(XT_SR_DDR, XT_REG_A0));
 			esp108_queue_nexus_reg_read(target, NARADR_DDR, regvals[i]);
 		}
 	}
-
-//ToDo: A16-A63
-//ToDo: User registers
 
 	//Ok, send the whole mess to the CPU.
 	res=jtag_execute_queue();
@@ -556,9 +570,57 @@ static int esp108_fetch_all_regs(struct target *target)
 		*((uint32_t*)reg_list[i].value)=regval;
 		LOG_INFO("Register %s: 0x%X", esp108_regs[i].name, regval);
 	}
+	//We have used A0 as a scratch register and we will need to write that back.
+	reg_list[XT_REG_IDX_AR0].dirty=1;
+
 	return ERROR_OK;
 }
 
+
+static int esp108_write_dirty_registers(struct target *target)
+{
+	int i, j;
+	int res;
+	uint32_t regval;
+	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
+	struct reg *reg_list=esp108->core_cache->reg_list;
+
+	//We need to write the dirty registers in the cache list back to the processor.
+	//Start by writing the SFR/user registers.
+	for (i=0; i<XT_NUM_REGS; i++) {
+		if (reg_list[i].dirty) {
+			if (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER) {
+				regval=*((uint32_t *)reg_list[i].value);
+				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
+				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A0));
+				if (esp108_regs[i].type==XT_REG_USER) {
+					esp108_queue_exec_ins(target, XT_INS_WUR(esp108_regs[i].reg_num, XT_REG_A0));
+				} else { //SFR
+					esp108_queue_exec_ins(target, XT_INS_WSR(esp108_regs[i].reg_num, XT_REG_A0));
+				}
+			}	
+			reg_list[i].dirty=0;
+		}
+	}
+
+	//Now write AR0-AR63.
+	for (j=0; j<64; j+=16) {
+		//Write the 16 registers we can see
+		for (i=0; i<15; i++) {
+			if (reg_list[XT_REG_IDX_AR0+i+j].dirty) {
+				regval=*((uint32_t *)reg_list[XT_REG_IDX_AR0+i+j].value);
+				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
+				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i+j].reg_num));
+				reg_list[XT_REG_IDX_AR0+i+j].dirty=0;
+			}
+		}
+		//Now rotate the window so we'll see the next 16 registers. The final rotate will wraparound, 
+		//leaving us in the state we were.
+		esp108_queue_exec_ins(target, XT_INS_ROTW(4));
+	}
+	res=jtag_execute_queue();
+	return res;
+}
 
 static int xtensa_halt(struct target *target)
 {
@@ -597,7 +659,14 @@ static int xtensa_resume(struct target *target,
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	esp108_queue_nexus_reg_write(target, NARADR_DCRCLR, OCDDCR_DEBUGINTERRUPT);
+	res=esp108_write_dirty_registers(target);
+	if(res != ERROR_OK) {
+		LOG_ERROR("Failed to write back register cache.");
+		return ERROR_FAIL;
+	}
+
+	//Execute return from debug exception instruction
+	esp108_queue_exec_ins(target, XT_INS_RFDO);
 	res=jtag_execute_queue();
 	if(res != ERROR_OK) {
 		LOG_ERROR("Failed to clear OCDDCR_DEBUGINTERRUPT and resume execution.");
@@ -732,7 +801,7 @@ static int xtensa_poll(struct target *target)
 	esp108_queue_nexus_reg_read(target, NARADR_DSR, dsr);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
-//	LOG_INFO("esp8266: ocdid 0x%X dsr 0x%X", intfromchars(ocdid), intfromchars(dsr));
+	LOG_INFO("esp8266: ocdid 0x%X dsr 0x%X", intfromchars(ocdid), intfromchars(dsr));
 	
 	if (intfromchars(dsr)&OCDDSR_STOPPED) {
 		if(target->state != TARGET_HALTED) {
@@ -750,6 +819,7 @@ static int xtensa_poll(struct target *target)
 			*/
 		}
 	} else {
+		if (target->state!=TARGET_RUNNING) LOG_INFO("esp108: Core running again.");
 		target->state = TARGET_RUNNING;
 	}
 	
