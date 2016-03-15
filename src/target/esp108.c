@@ -381,7 +381,7 @@ enum esp108_reg_t {
 	XT_REG_USER = 1,		//User register, needs RUR to read
 	XT_REG_SPECIAL = 2,		//Special register, needs RSR to read
 	XT_REG_DEBUG = 3,		//Register used for the debug interface. Don't mess with this.
-	XT_REG_ALIAS = 4,		//Alias. Reg_num describes aliased register index.
+	XT_REG_RELGEN = 4,		//Relative general address. Points to the absolute addresses plus the window index
 };
 
 enum esp108_regflags_t {
@@ -531,22 +531,22 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
 	{ "misc1",				0xF5, XT_REG_SPECIAL, 0 }, 
 	{ "misc2",				0xF6, XT_REG_SPECIAL, 0 }, 
 	{ "misc3",				0xF7, XT_REG_SPECIAL, 0 }, 
-	{ "a0",					XT_REG_IDX_AR0, XT_REG_ALIAS, 0 },
-	{ "a1",					XT_REG_IDX_AR1, XT_REG_ALIAS, 0 },
-	{ "a2",					XT_REG_IDX_AR2, XT_REG_ALIAS, 0 },
-	{ "a3",					XT_REG_IDX_AR3, XT_REG_ALIAS, 0 },
-	{ "a4",					XT_REG_IDX_AR4, XT_REG_ALIAS, 0 },
-	{ "a5",					XT_REG_IDX_AR5, XT_REG_ALIAS, 0 },
-	{ "a6",					XT_REG_IDX_AR6, XT_REG_ALIAS, 0 },
-	{ "a7",					XT_REG_IDX_AR7, XT_REG_ALIAS, 0 },
-	{ "a8",					XT_REG_IDX_AR8, XT_REG_ALIAS, 0 },
-	{ "a9",					XT_REG_IDX_AR9, XT_REG_ALIAS, 0 },
-	{ "a10",				XT_REG_IDX_AR0, XT_REG_ALIAS, 0 },
-	{ "a11",				XT_REG_IDX_AR11, XT_REG_ALIAS, 0 },
-	{ "a12",				XT_REG_IDX_AR12, XT_REG_ALIAS, 0 },
-	{ "a13",				XT_REG_IDX_AR13, XT_REG_ALIAS, 0 },
-	{ "a14",				XT_REG_IDX_AR14, XT_REG_ALIAS, 0 },
-	{ "a15",				XT_REG_IDX_AR15, XT_REG_ALIAS, 0 },
+	{ "a0",					XT_REG_IDX_AR0, XT_REG_RELGEN, 0 },
+	{ "a1",					XT_REG_IDX_AR1, XT_REG_RELGEN, 0 },
+	{ "a2",					XT_REG_IDX_AR2, XT_REG_RELGEN, 0 },
+	{ "a3",					XT_REG_IDX_AR3, XT_REG_RELGEN, 0 },
+	{ "a4",					XT_REG_IDX_AR4, XT_REG_RELGEN, 0 },
+	{ "a5",					XT_REG_IDX_AR5, XT_REG_RELGEN, 0 },
+	{ "a6",					XT_REG_IDX_AR6, XT_REG_RELGEN, 0 },
+	{ "a7",					XT_REG_IDX_AR7, XT_REG_RELGEN, 0 },
+	{ "a8",					XT_REG_IDX_AR8, XT_REG_RELGEN, 0 },
+	{ "a9",					XT_REG_IDX_AR9, XT_REG_RELGEN, 0 },
+	{ "a10",				XT_REG_IDX_AR0, XT_REG_RELGEN, 0 },
+	{ "a11",				XT_REG_IDX_AR11, XT_REG_RELGEN, 0 },
+	{ "a12",				XT_REG_IDX_AR12, XT_REG_RELGEN, 0 },
+	{ "a13",				XT_REG_IDX_AR13, XT_REG_RELGEN, 0 },
+	{ "a14",				XT_REG_IDX_AR14, XT_REG_RELGEN, 0 },
+	{ "a15",				XT_REG_IDX_AR15, XT_REG_RELGEN, 0 },
 };
 
 #define _XT_INS_FORMAT_RSR(OPCODE,SR,T) (OPCODE			\
@@ -678,6 +678,7 @@ static int esp108_fetch_all_regs(struct target *target)
 	int i, j;
 	int res;
 	uint32_t regval;
+	uint32_t windowbase;
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	struct reg *reg_list=esp108->core_cache->reg_list;
 	uint8_t regvals[XT_NUM_REGS][4];
@@ -727,28 +728,34 @@ static int esp108_fetch_all_regs(struct target *target)
 	//Ok, send the whole mess to the CPU.
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
-	
+
+	//We need the windowbase to decode the general addresses.
+	windowbase=intfromchars(regvals[XT_REG_IDX_WINDOWBASE]);
+	LOG_INFO("Windowbase*4: %d", windowbase*4);
 	//Decode the result and update the cache.
 	for (i=0; i<XT_NUM_REGS; i++) {
 		if (!(esp108_regs[i].flags&XT_REGF_NOREAD)) {
-			if (esp108_regs[i].type==XT_REG_ALIAS) {
-				reg_list[i].valid=reg_list[esp108_regs[i].reg_num].valid;
-				reg_list[i].dirty=reg_list[esp108_regs[i].reg_num].dirty;
-				reg_list[i].value=reg_list[esp108_regs[i].reg_num].value;
+			reg_list[i].valid=1;
+			reg_list[i].dirty=0;
+			if (esp108_regs[i].type==XT_REG_GENERAL) {
+				//The 64-value general register set is read from (windowbase) on down. We need
+				//to get the real data address by subtracting windowbase and wrapping around.
+				int realadr=(esp108_regs[i].reg_num-(windowbase*4))&63;
+				regval=intfromchars(regvals[XT_REG_IDX_AR0+realadr]);
+			}else if (esp108_regs[i].type==XT_REG_RELGEN) {
+				regval=intfromchars(regvals[esp108_regs[i].reg_num]);
 			} else {
-				reg_list[i].valid=1;
-				reg_list[i].dirty=0;
 				regval=intfromchars(regvals[i]);
-				*((uint32_t*)reg_list[i].value)=regval;
 //				LOG_INFO("Register %s: 0x%X", esp108_regs[i].name, regval);
 			}
+			*((uint32_t*)reg_list[i].value)=regval;
 		} else {
 			reg_list[i].valid=0;
 		}
 	}
 	//We have used A3 as a scratch register and we will need to write that back.
-	reg_list[XT_REG_IDX_AR3].dirty=1;
 	reg_list[XT_REG_IDX_A3].dirty=1;
+	//ToDo: also mark AR3 dirty?
 
 	return ERROR_OK;
 }
