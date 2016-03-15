@@ -721,7 +721,6 @@ static int esp108_fetch_all_regs(struct target *target)
 
 	//We need the windowbase to decode the general addresses.
 	windowbase=intfromchars(regvals[XT_REG_IDX_WINDOWBASE]);
-	LOG_INFO("Windowbase*4: %d", windowbase*4);
 	//Decode the result and update the cache.
 	for (i=0; i<XT_NUM_REGS; i++) {
 		if (!(esp108_regs[i].flags&XT_REGF_NOREAD)) {
@@ -732,7 +731,7 @@ static int esp108_fetch_all_regs(struct target *target)
 				//to get the real data address by subtracting windowbase and wrapping around.
 				int realadr=(esp108_regs[i].reg_num-(windowbase*4))&63;
 				regval=intfromchars(regvals[XT_REG_IDX_AR0+realadr]);
-			}else if (esp108_regs[i].type==XT_REG_RELGEN) {
+			} else if (esp108_regs[i].type==XT_REG_RELGEN) {
 				regval=intfromchars(regvals[esp108_regs[i].reg_num]);
 			} else {
 				regval=intfromchars(regvals[i]);
@@ -785,13 +784,27 @@ static int esp108_write_dirty_registers(struct target *target)
 	for (j=0; j<64; j+=16) {
 		//Write the 16 registers we can see
 		for (i=0; i<16; i++) {
-			if (reg_list[XT_REG_IDX_AR0+i+j].dirty) {
-				int realadr=(esp108_regs[XT_REG_IDX_AR0+i+j].reg_num-(windowbase*4))&63;
+			//THIS DOES NOT WORK YET! Find out what goes wrong in realadr calculation.
+			int realadr=(esp108_regs[XT_REG_IDX_AR0+i+j].reg_num-(windowbase*4))&63;
+			//Write back any dirty un-windowed registers
+			if (reg_list[XT_REG_IDX_AR0+realadr].dirty) {
 				LOG_INFO("Writing back reg %s", esp108_regs[XT_REG_IDX_AR0+i+j].name);
-				regval=*((uint32_t *)reg_list[realadr].value);
+				regval=*((uint32_t *)reg_list[realadr+XT_REG_IDX_AR0].value);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i+j].reg_num));
 				reg_list[XT_REG_IDX_AR0+i+j].dirty=0;
+				//Throw an error if the A-register also is dirty. ToDo: does this check always work?
+				if (j==0 && reg_list[XT_REG_IDX_A0+j].dirty && regval!=*((uint32_t *)reg_list[realadr+XT_REG_IDX_AR0].value)) {
+					LOG_ERROR("Error! Register A%d is dirty in the windowed and non-windowed register sets, and contain different values!\n", i);
+				}
+			}
+			//Write back any dirty windowed registers
+			if (j==0 && reg_list[XT_REG_IDX_A0+i].dirty) {
+				LOG_INFO("Writing back reg %s", esp108_regs[XT_REG_IDX_A0+i].name);
+				regval=*((uint32_t *)reg_list[i+XT_REG_IDX_A0].value);
+				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
+				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i].reg_num));
+				reg_list[XT_REG_IDX_A0+i].dirty=0;
 			}
 		}
 		//Now rotate the window so we'll see the next 16 registers. The final rotate will wraparound, 
@@ -853,6 +866,7 @@ static int xtensa_resume(struct target *target,
 		return ERROR_FAIL;
 	}
 
+	target->state = TARGET_RUNNING;
 
 /*
 	if(address && !current) {
@@ -1171,6 +1185,7 @@ static int xtensa_poll(struct target *target)
 		if (target->state!=TARGET_RUNNING) LOG_INFO("esp108: Core running again.");
 		target->state = TARGET_RUNNING;
 	}
+
 	
 	
 //	struct xtensa_common *xtensa = target_to_xtensa(target);
