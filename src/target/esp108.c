@@ -687,16 +687,6 @@ static int esp108_fetch_all_regs(struct target *target)
 	//register contents GDB needs. For speed, we pipeline all the read operations, execute them
 	//in one go, then sort everything out from the regvals variable.
 
-	//Invalidate all regvals first
-	for (i=0; i<XT_NUM_REGS; i++) {
-		regvals[i][0]=0xef;
-		regvals[i][1]=0xbe;
-		regvals[i][2]=0xad;
-		regvals[i][3]=0xde;
-		
-	}
-
-
 	//Start out with A0-A63; we can reach those immediately. Grab them per 16 registers.
 	for (j=0; j<64; j+=16) {
 		//Grab the 16 registers we can see
@@ -765,7 +755,7 @@ static int esp108_write_dirty_registers(struct target *target)
 {
 	int i, j;
 	int res;
-	uint32_t regval;
+	uint32_t regval, windowbase;
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	struct reg *reg_list=esp108->core_cache->reg_list;
 
@@ -791,12 +781,14 @@ static int esp108_write_dirty_registers(struct target *target)
 	}
 
 	//Now write AR0-AR63.
+	windowbase=*((uint32_t *)reg_list[XT_REG_IDX_WINDOWBASE].value);
 	for (j=0; j<64; j+=16) {
 		//Write the 16 registers we can see
 		for (i=0; i<16; i++) {
 			if (reg_list[XT_REG_IDX_AR0+i+j].dirty) {
+				int realadr=(esp108_regs[XT_REG_IDX_AR0+i+j].reg_num-(windowbase*4))&63;
 				LOG_INFO("Writing back reg %s", esp108_regs[XT_REG_IDX_AR0+i+j].name);
-				regval=*((uint32_t *)reg_list[XT_REG_IDX_AR0+i+j].value);
+				regval=*((uint32_t *)reg_list[realadr].value);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i+j].reg_num));
 				reg_list[XT_REG_IDX_AR0+i+j].dirty=0;
@@ -1036,6 +1028,7 @@ static int xtensa_get_gdb_reg_list(struct target *target,
 	if (!*reg_list)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 
+	//ToDo: Maybe fix up windowed/non windowed aliasing here?
 	for (i = 0; i < XT_NUM_REGS; i++)
 		(*reg_list)[i] = &esp108->core_cache->reg_list[i];
 
@@ -1044,9 +1037,13 @@ static int xtensa_get_gdb_reg_list(struct target *target,
 
 static int xtensa_get_core_reg(struct reg *reg)
 {
+//We don't need this because we read all registers on halt anyway.
+
 //	struct xtensa_core_reg *xt_reg = reg->arch_info;
 //	struct target *target = xt_reg->target;
 //	return xtensa_read_register(xt_reg->target, xt_reg->idx, 1);
+//	if (target->state != TARGET_HALTED)
+//		return ERROR_TARGET_NOT_HALTED;
 	return ERROR_OK;
 }
 
@@ -1162,7 +1159,7 @@ static int xtensa_poll(struct target *target)
 			target->state = TARGET_HALTED;
 			
 			esp108_fetch_all_regs(target);
-
+			
 			//Call any event callbacks that are applicable
 			if(oldstate == TARGET_DEBUG_RUNNING) {
 				target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
