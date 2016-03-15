@@ -484,7 +484,7 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
 	{ "ibreakenable",				0x60, XT_REG_SPECIAL, 0 }, 
 	{ "memctl",				0x61, XT_REG_SPECIAL, 0 }, 
 	{ "atomctl",				0x63, XT_REG_SPECIAL, 0 }, 
-	{ "ddr",				0x68, XT_REG_DEBUG, 0 }, 
+	{ "ddr",				0x68, XT_REG_DEBUG, XT_REGF_NOREAD }, 
 	{ "ibreaka0",				0x80, XT_REG_SPECIAL, 0 }, 
 	{ "ibreaka1",				0x81, XT_REG_SPECIAL, 0 }, 
 	{ "dbreaka0",				0x90, XT_REG_SPECIAL, 0 }, 
@@ -686,6 +686,16 @@ static int esp108_fetch_all_regs(struct target *target)
 	//register contents GDB needs. For speed, we pipeline all the read operations, execute them
 	//in one go, then sort everything out from the regvals variable.
 
+	//Invalidate all regvals first
+	for (i=0; i<XT_NUM_REGS; i++) {
+		regvals[i][0]=0xef;
+		regvals[i][1]=0xbe;
+		regvals[i][2]=0xad;
+		regvals[i][3]=0xde;
+		
+	}
+
+
 	//Start out with A0-A63; we can reach those immediately. Grab them per 16 registers.
 	for (j=0; j<64; j+=16) {
 		//Grab the 16 registers we can see
@@ -712,12 +722,6 @@ static int esp108_fetch_all_regs(struct target *target)
 		}
 	}
 
-	for (i=0; i<XT_NUM_REGS; i++) {
-		regvals[i][0]=0xef;
-		regvals[i][1]=0xbe;
-		regvals[i][2]=0xad;
-		regvals[i][3]=0xde;
-	}
 
 
 	//Ok, send the whole mess to the CPU.
@@ -726,16 +730,20 @@ static int esp108_fetch_all_regs(struct target *target)
 	
 	//Decode the result and update the cache.
 	for (i=0; i<XT_NUM_REGS; i++) {
-		if (esp108_regs[i].type==XT_REG_ALIAS) {
-			reg_list[i].valid=reg_list[esp108_regs[i].reg_num].valid;
-			reg_list[i].dirty=reg_list[esp108_regs[i].reg_num].dirty;
-			reg_list[i].value=reg_list[esp108_regs[i].reg_num].value;
+		if (!(esp108_regs[i].flags&XT_REGF_NOREAD)) {
+			if (esp108_regs[i].type==XT_REG_ALIAS) {
+				reg_list[i].valid=reg_list[esp108_regs[i].reg_num].valid;
+				reg_list[i].dirty=reg_list[esp108_regs[i].reg_num].dirty;
+				reg_list[i].value=reg_list[esp108_regs[i].reg_num].value;
+			} else {
+				reg_list[i].valid=1;
+				reg_list[i].dirty=0;
+				regval=intfromchars(regvals[i]);
+				*((uint32_t*)reg_list[i].value)=regval;
+//				LOG_INFO("Register %s: 0x%X", esp108_regs[i].name, regval);
+			}
 		} else {
-			reg_list[i].valid=1;
-			reg_list[i].dirty=0;
-			regval=intfromchars(regvals[i]);
-			*((uint32_t*)reg_list[i].value)=regval;
-//			LOG_INFO("Register %s: 0x%X", esp108_regs[i].name, regval);
+			reg_list[i].valid=0;
 		}
 	}
 	//We have used A3 as a scratch register and we will need to write that back.
@@ -876,7 +884,7 @@ static int xtensa_read_memory(struct target *target,
 			      uint8_t *buffer)
 {
 	//We are going to read memory in 32-bit increments. This may not be what the calling function expects, so we may need to allocate a temp buffer and read into that first.
-	uint32_t addrstart_al=(address+3)&~3;
+	uint32_t addrstart_al=(address)&~3;
 	uint32_t addrend_al=(address+(size*count)+3)&~3;
 	uint32_t adr=addrstart_al;
 	int i=0;
@@ -915,10 +923,95 @@ static int xtensa_read_buffer(struct target *target,
 			      uint8_t *buffer)
 {
 //xtensa_read_memory can also read unaligned stuff. Just pass through to that routine.
-	return xtensa_read_memory(target, address,
-				 1, count,
-				 buffer);
+	return xtensa_read_memory(target, address, 1, count, buffer);
 }
+
+static int xtensa_write_memory(struct target *target,
+			       uint32_t address,
+			       uint32_t size,
+			       uint32_t count,
+			       const uint8_t *buffer)
+{
+	//This memory write function can get thrown nigh everything into it, from
+	//aligned uint32 writes to unaligned uint8ths. The Xtensa memory doesn't always
+	//accept anything but aligned uint32 writes, though. That is why we convert 
+	//everything into that.
+	
+	uint32_t addrstart_al=(address)&~3;
+	uint32_t addrend_al=(address+(size*count)+3)&~3;
+	uint32_t adr=addrstart_al;
+	
+	int i=0;
+	int res;
+	uint8_t *albuff;
+
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	if ((size==0) || (count == 0) || !(buffer)) return ERROR_COMMAND_SYNTAX_ERROR;
+
+	//Allocate a temporary buffer to put the aligned bytes in, if needed.
+	if (addrstart_al==address && addrend_al==address+(size*count)) {
+		//We discard the const here because albuff can also be non-const
+		albuff=(uint8_t*)buffer;
+	} else {
+		albuff=malloc(size*count);
+	}
+
+	//We're going to use A3 here
+	esp108_mark_register_dirty(target, XT_REG_IDX_AR3);
+
+	//If we're using a temp aligned buffer, we need to fill the head and/or tail bit of it.
+	if (albuff!=buffer) {
+		//See if we need to read the first and/or last word.
+		if (address&3) {
+			esp108_queue_nexus_reg_write(target, NARADR_DDR, addrstart_al);
+			esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A3));
+			esp108_queue_exec_ins(target, XT_INS_LDDR32P(XT_REG_A3));
+			esp108_queue_nexus_reg_read(target, NARADR_DDR, &albuff[0]);
+		}
+		if ((address+(size*count))&3) {
+			esp108_queue_nexus_reg_write(target, NARADR_DDR, addrend_al-4);
+			esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A3));
+			esp108_queue_exec_ins(target, XT_INS_LDDR32P(XT_REG_A3));
+			esp108_queue_nexus_reg_read(target, NARADR_DDR, &albuff[addrend_al-addrstart_al-4]);
+		}
+		//Grab bytes
+		res=jtag_execute_queue();
+		//Copy data to be written into the aligned buffer
+		memcpy(&albuff[address&3], buffer, addrend_al-addrstart_al);
+		//Now we can write albuff in aligned uint32s.
+	}
+
+	//Write start address to A3
+	esp108_queue_nexus_reg_write(target, NARADR_DDR, addrstart_al);
+	esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A3));
+	//Write the aligned buffer
+	while (adr!=addrend_al) {
+		esp108_queue_nexus_reg_write(target, NARADR_DDR, intfromchars(&albuff[i]));
+		esp108_queue_exec_ins(target, XT_INS_SDDR32P(XT_REG_A3));
+		adr+=4;
+		i+=4;
+	}
+	res=jtag_execute_queue();
+
+	/* NB: if we were supporting the ICACHE option, we would need
+	 * to invalidate it here */
+
+	return res;
+}
+
+static int xtensa_write_buffer(struct target *target,
+			       uint32_t address,
+			       uint32_t count,
+			       const uint8_t *buffer)
+{
+	//xtensa_write_memory can handle everything. Just pass on to that.
+	return xtensa_write_memory(target, address, 1, count, buffer);
+}
+
 
 
 static int xtensa_get_gdb_reg_list(struct target *target,
@@ -1144,10 +1237,10 @@ struct target_type esp108_target = {
 //	.deassert_reset = xtensa_deassert_reset,
 
 	.read_memory = xtensa_read_memory,
-//	.write_memory = xtensa_write_memory,
+	.write_memory = xtensa_write_memory,
 
 	.read_buffer = xtensa_read_buffer,
-//	.write_buffer = xtensa_write_buffer,
+	.write_buffer = xtensa_write_buffer,
 
 	.get_gdb_reg_list = xtensa_get_gdb_reg_list,
 
@@ -1493,6 +1586,44 @@ static int xtensa_read_memory(struct target *target,
 
 
 
+
+static int xtensa_read_buffer(struct target *target,
+			      uint32_t address,
+			      uint32_t count,
+			      uint8_t *buffer)
+{
+	uint8_t *aligned_buffer;
+	uint32_t aligned_address;
+	uint32_t aligned_count;
+	int res;
+
+	/* In case we are reading IRAM/IROM, extend our read to be
+	 * 32-bit aligned 32-bit reads */
+	aligned_address = address & ~3;
+	aligned_count = ((address + count + 3) & ~3) - aligned_address;
+
+	if (aligned_count != count)
+		aligned_buffer = malloc(aligned_count);
+	else
+		aligned_buffer = buffer;
+
+	LOG_DEBUG("%s: aligned_address=0x%" PRIx32 " aligned_count=0x%"
+		  PRIx32, __func__, aligned_address, aligned_count);
+
+	res = xtensa_read_memory(target, aligned_address,
+				 4, aligned_count/4,
+				 aligned_buffer);
+
+	if(aligned_count != count) {
+		if(res == ERROR_OK) {
+			memcpy(buffer, aligned_buffer + (address & 3), count);
+		}
+		free(aligned_buffer);
+	}
+
+	return res;
+}
+
 static int xtensa_write_memory_inner(struct target *target,
 				     uint32_t address,
 				     uint32_t size,
@@ -1593,43 +1724,6 @@ static int xtensa_write_memory(struct target *target,
 
 	/* NB: if we were supporting the ICACHE option, we would need
 	 * to invalidate it here */
-
-	return res;
-}
-
-static int xtensa_read_buffer(struct target *target,
-			      uint32_t address,
-			      uint32_t count,
-			      uint8_t *buffer)
-{
-	uint8_t *aligned_buffer;
-	uint32_t aligned_address;
-	uint32_t aligned_count;
-	int res;
-
-	/* In case we are reading IRAM/IROM, extend our read to be
-	 * 32-bit aligned 32-bit reads */
-	aligned_address = address & ~3;
-	aligned_count = ((address + count + 3) & ~3) - aligned_address;
-
-	if (aligned_count != count)
-		aligned_buffer = malloc(aligned_count);
-	else
-		aligned_buffer = buffer;
-
-	LOG_DEBUG("%s: aligned_address=0x%" PRIx32 " aligned_count=0x%"
-		  PRIx32, __func__, aligned_address, aligned_count);
-
-	res = xtensa_read_memory(target, aligned_address,
-				 4, aligned_count/4,
-				 aligned_buffer);
-
-	if(aligned_count != count) {
-		if(res == ERROR_OK) {
-			memcpy(buffer, aligned_buffer + (address & 3), count);
-		}
-		free(aligned_buffer);
-	}
 
 	return res;
 }
