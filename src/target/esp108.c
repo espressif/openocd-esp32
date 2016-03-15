@@ -220,7 +220,7 @@ appear to be any the ESP108.
 //gdb wants the registers in the order gdb/regformats/reg-xtensa.dat describes
 //them. The enum and esp108_regs structs should be in the same order.
 
-#define XT_NUM_REGS 85
+#define XT_NUM_REGS (151)
 
 enum xtensa_reg_idx {
 	XT_REG_IDX_PC=0,
@@ -307,108 +307,246 @@ enum xtensa_reg_idx {
 	XT_REG_IDX_M2,
 	XT_REG_IDX_M3,
 	XT_REG_IDX_EXPSTATE,
-	XT_REG_IDX_DDR
+	XT_REG_IDX_MMID,
+	XT_REG_IDX_IBREAKENABLE,
+	XT_REG_IDX_MEMCTL,
+	XT_REG_IDX_ATOMCTL,
+	XT_REG_IDX_DDR,
+	XT_REG_IDX_IBREAKA0,
+	XT_REG_IDX_IBREAKA1,
+	XT_REG_IDX_DBREAKA0,
+	XT_REG_IDX_DBREAKA1,
+	XT_REG_IDX_DBREAKC0,
+	XT_REG_IDX_DBREAKC1,
+	XT_REG_IDX_EPC1,
+	XT_REG_IDX_EPC2,
+	XT_REG_IDX_EPC3,
+	XT_REG_IDX_EPC4,
+	XT_REG_IDX_EPC5,
+	XT_REG_IDX_EPC6,
+	XT_REG_IDX_EPC7,
+	XT_REG_IDX_DEPC,
+	XT_REG_IDX_EPS2,
+	XT_REG_IDX_EPS3,
+	XT_REG_IDX_EPS4,
+	XT_REG_IDX_EPS5,
+	XT_REG_IDX_EPS6,
+	XT_REG_IDX_EPS7,
+	XT_REG_IDX_EXCSAVE1,
+	XT_REG_IDX_EXCSAVE2,
+	XT_REG_IDX_EXCSAVE3,
+	XT_REG_IDX_EXCSAVE4,
+	XT_REG_IDX_EXCSAVE5,
+	XT_REG_IDX_EXCSAVE6,
+	XT_REG_IDX_EXCSAVE7,
+	XT_REG_IDX_INTERRUPT,
+	XT_REG_IDX_INTSET,
+	XT_REG_IDX_INTCLEAR,
+	XT_REG_IDX_INTENABLE,
+	XT_REG_IDX_VECBASE,
+	XT_REG_IDX_EXCCAUSE,
+	XT_REG_IDX_DEBUGCAUSE,
+	XT_REG_IDX_CCOUNT,
+	XT_REG_IDX_PRID,
+	XT_REG_IDX_ICOUNT,
+	XT_REG_IDX_ICOUNTLEVEL,
+	XT_REG_IDX_EXCVADDR,
+	XT_REG_IDX_CCOMPARE0,
+	XT_REG_IDX_CCOMPARE1,
+	XT_REG_IDX_CCOMPARE2,
+	XT_REG_IDX_MISC0,
+	XT_REG_IDX_MISC1,
+	XT_REG_IDX_MISC2,
+	XT_REG_IDX_MISC3,
+	XT_REG_IDX_A0,
+	XT_REG_IDX_A1,
+	XT_REG_IDX_A2,
+	XT_REG_IDX_A3,
+	XT_REG_IDX_A4,
+	XT_REG_IDX_A5,
+	XT_REG_IDX_A6,
+	XT_REG_IDX_A7,
+	XT_REG_IDX_A8,
+	XT_REG_IDX_A9,
+	XT_REG_IDX_A10,
+	XT_REG_IDX_A11,
+	XT_REG_IDX_A12,
+	XT_REG_IDX_A13,
+	XT_REG_IDX_A14,
+	XT_REG_IDX_A15,
 };
 
 enum esp108_reg_t {
-	XT_REG_GENERAL = 0,
-	XT_REG_USER = 1,
-	XT_REG_SPECIAL = 2,
-	XT_REG_DEBUG = 3
+	XT_REG_GENERAL = 0,		//General-purpose register; part of the windowed register set
+	XT_REG_USER = 1,		//User register, needs RUR to read
+	XT_REG_SPECIAL = 2,		//Special register, needs RSR to read
+	XT_REG_DEBUG = 3,		//Register used for the debug interface. Don't mess with this.
+	XT_REG_ALIAS = 4,		//Alias. Reg_num describes aliased register index.
+};
+
+enum esp108_regflags_t {
+	XT_REGF_NOREAD = 0x01,	//Register is write-only
 };
 
 struct esp108_reg_desc {
 	const char *name;
-	uint8_t reg_num; /* ISA register num (meaning depends on register type) */
+	int reg_num; /* ISA register num (meaning depends on register type) */
 	enum esp108_reg_t type;
+	enum esp108_regflags_t flags;
 };
 
 static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
-	{ "pc",					176+XT_DEBUGLEVEL, XT_REG_SPECIAL }, //actually epc[debuglevel]
-	{ "ar0",				0x00, XT_REG_GENERAL }, 
-	{ "ar1",				0x01, XT_REG_GENERAL }, 
-	{ "ar2",				0x02, XT_REG_GENERAL }, 
-	{ "ar3",				0x03, XT_REG_GENERAL }, 
-	{ "ar4",				0x04, XT_REG_GENERAL }, 
-	{ "ar5",				0x05, XT_REG_GENERAL }, 
-	{ "ar6",				0x06, XT_REG_GENERAL }, 
-	{ "ar7",				0x07, XT_REG_GENERAL }, 
-	{ "ar8",				0x08, XT_REG_GENERAL }, 
-	{ "ar9",				0x09, XT_REG_GENERAL }, 
-	{ "ar10",				0x0A, XT_REG_GENERAL }, 
-	{ "ar11",				0x0B, XT_REG_GENERAL }, 
-	{ "ar12",				0x0C, XT_REG_GENERAL }, 
-	{ "ar13",				0x0D, XT_REG_GENERAL }, 
-	{ "ar14",				0x0E, XT_REG_GENERAL }, 
-	{ "ar15",				0x0F, XT_REG_GENERAL }, 
-	{ "ar16",				0x10, XT_REG_GENERAL }, 
-	{ "ar17",				0x11, XT_REG_GENERAL }, 
-	{ "ar18",				0x12, XT_REG_GENERAL }, 
-	{ "ar19",				0x13, XT_REG_GENERAL }, 
-	{ "ar20",				0x14, XT_REG_GENERAL }, 
-	{ "ar21",				0x15, XT_REG_GENERAL }, 
-	{ "ar22",				0x16, XT_REG_GENERAL }, 
-	{ "ar23",				0x17, XT_REG_GENERAL }, 
-	{ "ar24",				0x18, XT_REG_GENERAL }, 
-	{ "ar25",				0x19, XT_REG_GENERAL }, 
-	{ "ar26",				0x1A, XT_REG_GENERAL }, 
-	{ "ar27",				0x1B, XT_REG_GENERAL }, 
-	{ "ar28",				0x1C, XT_REG_GENERAL }, 
-	{ "ar29",				0x1D, XT_REG_GENERAL }, 
-	{ "ar30",				0x1E, XT_REG_GENERAL }, 
-	{ "ar31",				0x1F, XT_REG_GENERAL }, 
-	{ "ar32",				0x20, XT_REG_GENERAL }, 
-	{ "ar33",				0x21, XT_REG_GENERAL }, 
-	{ "ar34",				0x22, XT_REG_GENERAL }, 
-	{ "ar35",				0x23, XT_REG_GENERAL }, 
-	{ "ar36",				0x24, XT_REG_GENERAL }, 
-	{ "ar37",				0x25, XT_REG_GENERAL }, 
-	{ "ar38",				0x26, XT_REG_GENERAL }, 
-	{ "ar39",				0x27, XT_REG_GENERAL }, 
-	{ "ar40",				0x28, XT_REG_GENERAL }, 
-	{ "ar41",				0x29, XT_REG_GENERAL }, 
-	{ "ar42",				0x2A, XT_REG_GENERAL }, 
-	{ "ar43",				0x2B, XT_REG_GENERAL }, 
-	{ "ar44",				0x2C, XT_REG_GENERAL }, 
-	{ "ar45",				0x2D, XT_REG_GENERAL }, 
-	{ "ar46",				0x2E, XT_REG_GENERAL }, 
-	{ "ar47",				0x2F, XT_REG_GENERAL }, 
-	{ "ar48",				0x30, XT_REG_GENERAL }, 
-	{ "ar49",				0x31, XT_REG_GENERAL }, 
-	{ "ar50",				0x32, XT_REG_GENERAL }, 
-	{ "ar51",				0x33, XT_REG_GENERAL }, 
-	{ "ar52",				0x34, XT_REG_GENERAL }, 
-	{ "ar53",				0x35, XT_REG_GENERAL }, 
-	{ "ar54",				0x36, XT_REG_GENERAL }, 
-	{ "ar55",				0x37, XT_REG_GENERAL }, 
-	{ "ar56",				0x38, XT_REG_GENERAL }, 
-	{ "ar57",				0x39, XT_REG_GENERAL }, 
-	{ "ar58",				0x3A, XT_REG_GENERAL }, 
-	{ "ar59",				0x3B, XT_REG_GENERAL }, 
-	{ "ar60",				0x3C, XT_REG_GENERAL }, 
-	{ "ar61",				0x3D, XT_REG_GENERAL }, 
-	{ "ar62",				0x3E, XT_REG_GENERAL }, 
-	{ "ar63",				0x3F, XT_REG_GENERAL }, 
-	{ "lbeg",				0x00, XT_REG_SPECIAL }, 
-	{ "lend",				0x01, XT_REG_SPECIAL }, 
-	{ "lcount",				0x02, XT_REG_SPECIAL }, 
-	{ "sar",				0x03, XT_REG_SPECIAL }, 
-	{ "windowbase",			0x48, XT_REG_SPECIAL }, 
-	{ "windowstart",		0x49, XT_REG_SPECIAL }, 
-	{ "configid0",			0xB0, XT_REG_SPECIAL }, 
-	{ "configid1",			0xD0, XT_REG_SPECIAL }, 
-	{ "ps",					0xE6, XT_REG_SPECIAL }, //actually EPS[debuglevel]
-	{ "threadptr",			0xE7, XT_REG_USER }, 
-	{ "br",					0x04, XT_REG_SPECIAL }, 
-	{ "scompare1",			0x0C, XT_REG_SPECIAL }, 
-	{ "acclo",				0x10, XT_REG_SPECIAL }, 
-	{ "acchi",				0x11, XT_REG_SPECIAL }, 
-	{ "m0",					0x20, XT_REG_SPECIAL }, 
-	{ "m1",					0x21, XT_REG_SPECIAL }, 
-	{ "m2",					0x22, XT_REG_SPECIAL }, 
-	{ "m3",					0x23, XT_REG_SPECIAL }, 
-	{ "expstate",			0xE6, XT_REG_USER },
-	{ "ddr",				0x68, XT_REG_DEBUG }
+	{ "pc",					176+XT_DEBUGLEVEL, XT_REG_SPECIAL, 0 }, //actually epc[debuglevel]
+	{ "ar0",				0x00, XT_REG_GENERAL, 0 }, 
+	{ "ar1",				0x01, XT_REG_GENERAL, 0 }, 
+	{ "ar2",				0x02, XT_REG_GENERAL, 0 }, 
+	{ "ar3",				0x03, XT_REG_GENERAL, 0 }, 
+	{ "ar4",				0x04, XT_REG_GENERAL, 0 }, 
+	{ "ar5",				0x05, XT_REG_GENERAL, 0 }, 
+	{ "ar6",				0x06, XT_REG_GENERAL, 0 }, 
+	{ "ar7",				0x07, XT_REG_GENERAL, 0 }, 
+	{ "ar8",				0x08, XT_REG_GENERAL, 0 }, 
+	{ "ar9",				0x09, XT_REG_GENERAL, 0 }, 
+	{ "ar10",				0x0A, XT_REG_GENERAL, 0 }, 
+	{ "ar11",				0x0B, XT_REG_GENERAL, 0 }, 
+	{ "ar12",				0x0C, XT_REG_GENERAL, 0 }, 
+	{ "ar13",				0x0D, XT_REG_GENERAL, 0 }, 
+	{ "ar14",				0x0E, XT_REG_GENERAL, 0 }, 
+	{ "ar15",				0x0F, XT_REG_GENERAL, 0 }, 
+	{ "ar16",				0x10, XT_REG_GENERAL, 0 }, 
+	{ "ar17",				0x11, XT_REG_GENERAL, 0 }, 
+	{ "ar18",				0x12, XT_REG_GENERAL, 0 }, 
+	{ "ar19",				0x13, XT_REG_GENERAL, 0 }, 
+	{ "ar20",				0x14, XT_REG_GENERAL, 0 }, 
+	{ "ar21",				0x15, XT_REG_GENERAL, 0 }, 
+	{ "ar22",				0x16, XT_REG_GENERAL, 0 }, 
+	{ "ar23",				0x17, XT_REG_GENERAL, 0 }, 
+	{ "ar24",				0x18, XT_REG_GENERAL, 0 }, 
+	{ "ar25",				0x19, XT_REG_GENERAL, 0 }, 
+	{ "ar26",				0x1A, XT_REG_GENERAL, 0 }, 
+	{ "ar27",				0x1B, XT_REG_GENERAL, 0 }, 
+	{ "ar28",				0x1C, XT_REG_GENERAL, 0 }, 
+	{ "ar29",				0x1D, XT_REG_GENERAL, 0 }, 
+	{ "ar30",				0x1E, XT_REG_GENERAL, 0 }, 
+	{ "ar31",				0x1F, XT_REG_GENERAL, 0 }, 
+	{ "ar32",				0x20, XT_REG_GENERAL, 0 }, 
+	{ "ar33",				0x21, XT_REG_GENERAL, 0 }, 
+	{ "ar34",				0x22, XT_REG_GENERAL, 0 }, 
+	{ "ar35",				0x23, XT_REG_GENERAL, 0 }, 
+	{ "ar36",				0x24, XT_REG_GENERAL, 0 }, 
+	{ "ar37",				0x25, XT_REG_GENERAL, 0 }, 
+	{ "ar38",				0x26, XT_REG_GENERAL, 0 }, 
+	{ "ar39",				0x27, XT_REG_GENERAL, 0 }, 
+	{ "ar40",				0x28, XT_REG_GENERAL, 0 }, 
+	{ "ar41",				0x29, XT_REG_GENERAL, 0 }, 
+	{ "ar42",				0x2A, XT_REG_GENERAL, 0 }, 
+	{ "ar43",				0x2B, XT_REG_GENERAL, 0 }, 
+	{ "ar44",				0x2C, XT_REG_GENERAL, 0 }, 
+	{ "ar45",				0x2D, XT_REG_GENERAL, 0 }, 
+	{ "ar46",				0x2E, XT_REG_GENERAL, 0 }, 
+	{ "ar47",				0x2F, XT_REG_GENERAL, 0 }, 
+	{ "ar48",				0x30, XT_REG_GENERAL, 0 }, 
+	{ "ar49",				0x31, XT_REG_GENERAL, 0 }, 
+	{ "ar50",				0x32, XT_REG_GENERAL, 0 }, 
+	{ "ar51",				0x33, XT_REG_GENERAL, 0 }, 
+	{ "ar52",				0x34, XT_REG_GENERAL, 0 }, 
+	{ "ar53",				0x35, XT_REG_GENERAL, 0 }, 
+	{ "ar54",				0x36, XT_REG_GENERAL, 0 }, 
+	{ "ar55",				0x37, XT_REG_GENERAL, 0 }, 
+	{ "ar56",				0x38, XT_REG_GENERAL, 0 }, 
+	{ "ar57",				0x39, XT_REG_GENERAL, 0 }, 
+	{ "ar58",				0x3A, XT_REG_GENERAL, 0 }, 
+	{ "ar59",				0x3B, XT_REG_GENERAL, 0 }, 
+	{ "ar60",				0x3C, XT_REG_GENERAL, 0 }, 
+	{ "ar61",				0x3D, XT_REG_GENERAL, 0 }, 
+	{ "ar62",				0x3E, XT_REG_GENERAL, 0 }, 
+	{ "ar63",				0x3F, XT_REG_GENERAL, 0 }, 
+	{ "lbeg",				0x00, XT_REG_SPECIAL, 0 }, 
+	{ "lend",				0x01, XT_REG_SPECIAL, 0 }, 
+	{ "lcount",				0x02, XT_REG_SPECIAL, 0 }, 
+	{ "sar",				0x03, XT_REG_SPECIAL, 0 }, 
+	{ "windowbase",			0x48, XT_REG_SPECIAL, 0 }, 
+	{ "windowstart",		0x49, XT_REG_SPECIAL, 0 }, 
+	{ "configid0",			0xB0, XT_REG_SPECIAL, 0 }, 
+	{ "configid1",			0xD0, XT_REG_SPECIAL, 0 }, 
+	{ "ps",					0xE6, XT_REG_SPECIAL, 0 }, //actually EPS[debuglevel]
+	{ "threadptr",			0xE7, XT_REG_USER, 0 }, 
+	{ "br",					0x04, XT_REG_SPECIAL, 0 }, 
+	{ "scompare1",			0x0C, XT_REG_SPECIAL, 0 }, 
+	{ "acclo",				0x10, XT_REG_SPECIAL, 0 }, 
+	{ "acchi",				0x11, XT_REG_SPECIAL, 0 }, 
+	{ "m0",					0x20, XT_REG_SPECIAL, 0 }, 
+	{ "m1",					0x21, XT_REG_SPECIAL, 0 }, 
+	{ "m2",					0x22, XT_REG_SPECIAL, 0 }, 
+	{ "m3",					0x23, XT_REG_SPECIAL, 0 }, 
+	{ "expstate",			0xE6, XT_REG_USER, 0 },
+	{ "mmid",				0x59, XT_REG_SPECIAL, XT_REGF_NOREAD }, 
+	{ "ibreakenable",				0x60, XT_REG_SPECIAL, 0 }, 
+	{ "memctl",				0x61, XT_REG_SPECIAL, 0 }, 
+	{ "atomctl",				0x63, XT_REG_SPECIAL, 0 }, 
+	{ "ddr",				0x68, XT_REG_DEBUG, 0 }, 
+	{ "ibreaka0",				0x80, XT_REG_SPECIAL, 0 }, 
+	{ "ibreaka1",				0x81, XT_REG_SPECIAL, 0 }, 
+	{ "dbreaka0",				0x90, XT_REG_SPECIAL, 0 }, 
+	{ "dbreaka1",				0x91, XT_REG_SPECIAL, 0 }, 
+	{ "dbreakc0",				0xA0, XT_REG_SPECIAL, 0 }, 
+	{ "dbreakc1",				0xA1, XT_REG_SPECIAL, 0 }, 
+	{ "epc1",				0xB1, XT_REG_SPECIAL, 0 }, 
+	{ "epc2",				0xB2, XT_REG_SPECIAL, 0 }, 
+	{ "epc3",				0xB3, XT_REG_SPECIAL, 0 }, 
+	{ "epc4",				0xB4, XT_REG_SPECIAL, 0 }, 
+	{ "epc5",				0xB5, XT_REG_SPECIAL, 0 }, 
+	{ "epc6",				0xB6, XT_REG_SPECIAL, 0 }, 
+	{ "epc7",				0xB7, XT_REG_SPECIAL, 0 }, 
+	{ "depc",				0xC0, XT_REG_SPECIAL, 0 }, 
+	{ "eps2",				0xC2, XT_REG_SPECIAL, 0 }, 
+	{ "eps3",				0xC3, XT_REG_SPECIAL, 0 }, 
+	{ "eps4",				0xC4, XT_REG_SPECIAL, 0 }, 
+	{ "eps5",				0xC5, XT_REG_SPECIAL, 0 }, 
+	{ "eps6",				0xC6, XT_REG_SPECIAL, 0 }, 
+	{ "eps7",				0xC7, XT_REG_SPECIAL, 0 }, 
+	{ "excsave1",				0xD1, XT_REG_SPECIAL, 0 }, 
+	{ "excsave2",				0xD2, XT_REG_SPECIAL, 0 }, 
+	{ "excsave3",				0xD3, XT_REG_SPECIAL, 0 }, 
+	{ "excsave4",				0xD4, XT_REG_SPECIAL, 0 }, 
+	{ "excsave5",				0xD5, XT_REG_SPECIAL, 0 }, 
+	{ "excsave6",				0xD6, XT_REG_SPECIAL, 0 }, 
+	{ "excsave7",				0xD7, XT_REG_SPECIAL, 0 }, 
+	{ "interrupt",				0xE2, XT_REG_SPECIAL, 0 }, 
+	{ "intset",				0xE2, XT_REG_SPECIAL, XT_REGF_NOREAD }, 
+	{ "intclear",				0xE3, XT_REG_SPECIAL, XT_REGF_NOREAD }, 
+	{ "intenable",				0xE4, XT_REG_SPECIAL, 0 }, 
+	{ "vecbase",				0xE7, XT_REG_SPECIAL, 0 }, 
+	{ "exccause",				0xE8, XT_REG_SPECIAL, 0 }, 
+	{ "debugcause",				0xE9, XT_REG_SPECIAL, 0 }, 
+	{ "ccount",				0xEA, XT_REG_SPECIAL, 0 }, 
+	{ "prid",				0xEB, XT_REG_SPECIAL, 0 }, 
+	{ "icount",				0xEC, XT_REG_SPECIAL, 0 }, 
+	{ "icountlevel",				0xED, XT_REG_SPECIAL, 0 }, 
+	{ "excvaddr",				0xEE, XT_REG_SPECIAL, 0 }, 
+	{ "ccompare0",				0xF0, XT_REG_SPECIAL, 0 }, 
+	{ "ccompare1",				0xF1, XT_REG_SPECIAL, 0 }, 
+	{ "ccompare2",				0xF2, XT_REG_SPECIAL, 0 }, 
+	{ "misc0",				0xF4, XT_REG_SPECIAL, 0 }, 
+	{ "misc1",				0xF5, XT_REG_SPECIAL, 0 }, 
+	{ "misc2",				0xF6, XT_REG_SPECIAL, 0 }, 
+	{ "misc3",				0xF7, XT_REG_SPECIAL, 0 }, 
+	{ "a0",					XT_REG_IDX_AR0, XT_REG_ALIAS, 0 },
+	{ "a1",					XT_REG_IDX_AR1, XT_REG_ALIAS, 0 },
+	{ "a2",					XT_REG_IDX_AR2, XT_REG_ALIAS, 0 },
+	{ "a3",					XT_REG_IDX_AR3, XT_REG_ALIAS, 0 },
+	{ "a4",					XT_REG_IDX_AR4, XT_REG_ALIAS, 0 },
+	{ "a5",					XT_REG_IDX_AR5, XT_REG_ALIAS, 0 },
+	{ "a6",					XT_REG_IDX_AR6, XT_REG_ALIAS, 0 },
+	{ "a7",					XT_REG_IDX_AR7, XT_REG_ALIAS, 0 },
+	{ "a8",					XT_REG_IDX_AR8, XT_REG_ALIAS, 0 },
+	{ "a9",					XT_REG_IDX_AR9, XT_REG_ALIAS, 0 },
+	{ "a10",				XT_REG_IDX_AR0, XT_REG_ALIAS, 0 },
+	{ "a11",				XT_REG_IDX_AR11, XT_REG_ALIAS, 0 },
+	{ "a12",				XT_REG_IDX_AR12, XT_REG_ALIAS, 0 },
+	{ "a13",				XT_REG_IDX_AR13, XT_REG_ALIAS, 0 },
+	{ "a14",				XT_REG_IDX_AR14, XT_REG_ALIAS, 0 },
+	{ "a15",				XT_REG_IDX_AR15, XT_REG_ALIAS, 0 },
 };
 
 #define _XT_INS_FORMAT_RSR(OPCODE,SR,T) (OPCODE			\
@@ -441,6 +579,11 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
 #define XT_INS_RFDO      0xf1e000
 /* "Return From Debug and Dispatch" - allow sw debugging stuff to take over */
 #define XT_INS_RFDD      0xf1e010
+
+/* Load to DDR register, increase addr register */
+#define XT_INS_LDDR32P(S) (0x0070E0|(S<<8))
+/* Store from DDR register, increase addr register */
+#define XT_INS_SDDR32P(S) (0x0070F0|(S<<8))
 
 /* Load 32-bit Indirect from A(S)+4*IMM8 to A(T) */
 #define XT_INS_L32I(S,T,IMM8)  _XT_INS_FORMAT_RRI8(0x002002,0,S,T,IMM8)
@@ -522,6 +665,14 @@ static uint32_t intfromchars(uint8_t *c)
 	return c[0]+(c[1]<<8)+(c[2]<<16)+(c[3]<<24);
 }
 
+static void esp108_mark_register_dirty(struct target *target, int regidx)
+{
+	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
+	struct reg *reg_list=esp108->core_cache->reg_list;
+	reg_list[regidx].dirty=1;
+}
+
+
 static int esp108_fetch_all_regs(struct target *target)
 {
 	int i, j;
@@ -550,7 +701,7 @@ static int esp108_fetch_all_regs(struct target *target)
 	//We're now free to use any of A0-A15 as scratch registers
 	//Grab the SFRs and user registers first. We use A3 as a scratch register.
 	for (i=0; i<XT_NUM_REGS; i++) {
-		if (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER) {
+		if ((!(esp108_regs[i].flags&XT_REGF_NOREAD)) && (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER)) {
 			if (esp108_regs[i].type==XT_REG_USER) {
 				esp108_queue_exec_ins(target, XT_INS_RUR(esp108_regs[i].reg_num, XT_REG_A3));
 			} else { //SFR
@@ -561,20 +712,35 @@ static int esp108_fetch_all_regs(struct target *target)
 		}
 	}
 
+	for (i=0; i<XT_NUM_REGS; i++) {
+		regvals[i][0]=0xef;
+		regvals[i][1]=0xbe;
+		regvals[i][2]=0xad;
+		regvals[i][3]=0xde;
+	}
+
+
 	//Ok, send the whole mess to the CPU.
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
 	
 	//Decode the result and update the cache.
 	for (i=0; i<XT_NUM_REGS; i++) {
-		reg_list[i].valid=1;
-		reg_list[i].dirty=0;
-		regval=intfromchars(regvals[i]);
-		*((uint32_t*)reg_list[i].value)=regval;
-		LOG_INFO("Register %s: 0x%X", esp108_regs[i].name, regval);
+		if (esp108_regs[i].type==XT_REG_ALIAS) {
+			reg_list[i].valid=reg_list[esp108_regs[i].reg_num].valid;
+			reg_list[i].dirty=reg_list[esp108_regs[i].reg_num].dirty;
+			reg_list[i].value=reg_list[esp108_regs[i].reg_num].value;
+		} else {
+			reg_list[i].valid=1;
+			reg_list[i].dirty=0;
+			regval=intfromchars(regvals[i]);
+			*((uint32_t*)reg_list[i].value)=regval;
+//			LOG_INFO("Register %s: 0x%X", esp108_regs[i].name, regval);
+		}
 	}
 	//We have used A3 as a scratch register and we will need to write that back.
 	reg_list[XT_REG_IDX_AR3].dirty=1;
+	reg_list[XT_REG_IDX_A3].dirty=1;
 
 	return ERROR_OK;
 }
@@ -703,6 +869,56 @@ static int xtensa_resume(struct target *target,
 }
 
 
+static int xtensa_read_memory(struct target *target,
+			      uint32_t address,
+			      uint32_t size,
+			      uint32_t count,
+			      uint8_t *buffer)
+{
+	//We are going to read memory in 32-bit increments. This may not be what the calling function expects, so we may need to allocate a temp buffer and read into that first.
+	uint32_t addrstart_al=(address+3)&~3;
+	uint32_t addrend_al=(address+(size*count)+3)&~3;
+	uint32_t adr=addrstart_al;
+	int i=0;
+	int res;
+	uint8_t *albuff;
+	if (addrstart_al==address && addrend_al==address+(size*count)) {
+		albuff=buffer;
+	} else {
+		albuff=malloc(size*count);
+	}
+	
+	//We're going to use A3 here
+	esp108_mark_register_dirty(target, XT_REG_IDX_AR3);
+	//Write start address to A3
+	esp108_queue_nexus_reg_write(target, NARADR_DDR, addrstart_al);
+	esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A3));
+	//Now we can safely read data from addrstart_al up to addrend_al into albuff
+	while (adr!=addrend_al) {
+		esp108_queue_exec_ins(target, XT_INS_LDDR32P(XT_REG_A3));
+		esp108_queue_nexus_reg_read(target, NARADR_DDR, &albuff[i]);
+		adr+=4;
+		i+=4;
+	}
+	res=jtag_execute_queue();
+	
+	if (albuff!=buffer) {
+		memcpy(buffer, albuff+(address&3), (size*count));
+		free(albuff);
+	}
+	return res;
+}
+
+static int xtensa_read_buffer(struct target *target,
+			      uint32_t address,
+			      uint32_t count,
+			      uint8_t *buffer)
+{
+//xtensa_read_memory can also read unaligned stuff. Just pass through to that routine.
+	return xtensa_read_memory(target, address,
+				 1, count,
+				 buffer);
+}
 
 
 static int xtensa_get_gdb_reg_list(struct target *target,
@@ -725,6 +941,36 @@ static int xtensa_get_gdb_reg_list(struct target *target,
 
 	return ERROR_OK;
 }
+
+static int xtensa_get_core_reg(struct reg *reg)
+{
+//	struct xtensa_core_reg *xt_reg = reg->arch_info;
+//	struct target *target = xt_reg->target;
+//	return xtensa_read_register(xt_reg->target, xt_reg->idx, 1);
+	return ERROR_OK;
+}
+
+static int xtensa_set_core_reg(struct reg *reg, uint8_t *buf)
+{
+//	struct esp108_core_reg *xt_reg = reg->arch_info;
+//	struct target *target = xt_reg->target;
+
+	uint32_t value = buf_get_u32(buf, 0, 32);
+
+//	if (target->state != TARGET_HALTED)
+//		return ERROR_TARGET_NOT_HALTED;
+
+	buf_set_u32(reg->value, 0, reg->size, value);
+	reg->dirty = 1;
+	reg->valid = 1;
+	return ERROR_OK;
+}
+
+
+static const struct reg_arch_type esp108_reg_type = {
+	.get = xtensa_get_core_reg,
+	.set = xtensa_set_core_reg,
+};
 
 
 static int xtensa_target_create(struct target *target, Jim_Interp *interp)
@@ -759,7 +1005,7 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 		reg_list[i].value = calloc(1,4);
 		reg_list[i].dirty = 0;
 		reg_list[i].valid = 0;
-//		reg_list[i].type = &esp108_reg_type;
+		reg_list[i].type = &esp108_reg_type;
 	}
 
 	return ERROR_OK;
@@ -808,22 +1054,21 @@ static int xtensa_poll(struct target *target)
 	esp108_queue_nexus_reg_read(target, NARADR_DSR, dsr);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
-	LOG_INFO("esp8266: ocdid 0x%X dsr 0x%X", intfromchars(ocdid), intfromchars(dsr));
+//	LOG_INFO("esp8266: ocdid 0x%X dsr 0x%X", intfromchars(ocdid), intfromchars(dsr));
 	
 	if (intfromchars(dsr)&OCDDSR_STOPPED) {
 		if(target->state != TARGET_HALTED) {
-//			int oldstate=target->state;
+			int oldstate=target->state;
 			target->state = TARGET_HALTED;
 			
 			esp108_fetch_all_regs(target);
-			/*
+
 			//Call any event callbacks that are applicable
 			if(oldstate == TARGET_DEBUG_RUNNING) {
 				target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
 			} else {
 				target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 			}
-			*/
 		}
 	} else {
 		if (target->state!=TARGET_RUNNING) LOG_INFO("esp108: Core running again.");
@@ -878,13 +1123,18 @@ static int xtensa_poll(struct target *target)
 }
 
 
+static int xtensa_arch_state(struct target *target)
+{
+	LOG_DEBUG("%s", __func__);
+	return ERROR_OK;
+}
 
 /** Holds methods for Xtensa targets. */
 struct target_type esp108_target = {
 	.name = "esp108",
 
 	.poll = xtensa_poll,
-//	.arch_state = xtensa_arch_state,
+	.arch_state = xtensa_arch_state,
 
 	.halt = xtensa_halt,
 	.resume = xtensa_resume,
@@ -893,10 +1143,10 @@ struct target_type esp108_target = {
 //	.assert_reset = xtensa_assert_reset,
 //	.deassert_reset = xtensa_deassert_reset,
 
-//	.read_memory = xtensa_read_memory,
+	.read_memory = xtensa_read_memory,
 //	.write_memory = xtensa_write_memory,
 
-//	.read_buffer = xtensa_read_buffer,
+	.read_buffer = xtensa_read_buffer,
 //	.write_buffer = xtensa_write_buffer,
 
 	.get_gdb_reg_list = xtensa_get_gdb_reg_list,
@@ -1240,6 +1490,8 @@ static int xtensa_read_memory(struct target *target,
 
 	return res;
 }
+
+
 
 static int xtensa_write_memory_inner(struct target *target,
 				     uint32_t address,
@@ -1663,26 +1915,6 @@ static int xtensa_write_register(struct target *target, enum xtensa_reg_idx idx)
 	return ERROR_OK;
 }
 
-static int xtensa_get_core_reg(struct reg *reg)
-{
-	struct xtensa_core_reg *xt_reg = reg->arch_info;
-	return xtensa_read_register(xt_reg->target, xt_reg->idx, 1);
-}
-
-static int xtensa_set_core_reg(struct reg *reg, uint8_t *buf)
-{
-	struct xtensa_core_reg *xt_reg = reg->arch_info;
-	struct target *target = xt_reg->target;
-	uint32_t value = buf_get_u32(buf, 0, 32);
-
-	if (target->state != TARGET_HALTED)
-		return ERROR_TARGET_NOT_HALTED;
-
-	buf_set_u32(reg->value, 0, reg->size, value);
-	reg->dirty = 1;
-	reg->valid = 1;
-	return ERROR_OK;
-}
 
 /* Save context from target */
 static int xtensa_save_context(struct target *target)
