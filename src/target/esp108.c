@@ -783,8 +783,8 @@ static int esp108_write_dirty_registers(struct target *target)
 	for (i=0; i<XT_NUM_REGS; i++) {
 		if (reg_list[i].dirty) {
 			if (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER) {
-				LOG_INFO("Writing back reg %s", esp108_regs[i].name);
 				regval=*((uint32_t *)reg_list[i].value);
+				LOG_INFO("Writing back reg %s val %08X", esp108_regs[i].name, regval);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A3));
 				if (esp108_regs[i].type==XT_REG_USER) {
@@ -923,6 +923,9 @@ static int xtensa_read_memory(struct target *target,
 	int i=0;
 	int res;
 	uint8_t *albuff;
+
+	LOG_INFO("%s: reading %d bytes from addr %08X", __FUNCTION__, size*count, address);
+
 	if (addrstart_al==address && addrend_al==address+(size*count)) {
 		albuff=buffer;
 	} else {
@@ -983,6 +986,9 @@ static int xtensa_write_memory(struct target *target,
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
+	LOG_INFO("%s: writing %d bytes to addr %08X", __FUNCTION__, size*count, address);
+	LOG_INFO("al start %x al end %x", addrstart_al, addrend_al);
+
 	if ((size==0) || (count == 0) || !(buffer)) return ERROR_COMMAND_SYNTAX_ERROR;
 
 	//Allocate a temporary buffer to put the aligned bytes in, if needed.
@@ -1014,7 +1020,7 @@ static int xtensa_write_memory(struct target *target,
 		//Grab bytes
 		res=jtag_execute_queue();
 		//Copy data to be written into the aligned buffer
-		memcpy(&albuff[address&3], buffer, addrend_al-addrstart_al);
+		memcpy(&albuff[address&3], buffer, size*count);
 		//Now we can write albuff in aligned uint32s.
 	}
 
@@ -1161,6 +1167,7 @@ static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *br
 	struct reg *reg_list = esp108->core_cache->reg_list;
 	size_t slot;
 
+	LOG_INFO("%s: %x", __FUNCTION__, breakpoint->address);
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
 		return ERROR_TARGET_NOT_HALTED;
@@ -1173,9 +1180,75 @@ static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *br
 	if (slot==esp108->num_brps) return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	/* Clear bit #slot in IBREAKENABLE */
 	*((int*)reg_list[XT_REG_IDX_IBREAKENABLE].value)&=~(1<<slot);
-	reg_list[XT_REG_IDX_IBREAKA0+slot].dirty=1;
+	reg_list[XT_REG_IDX_IBREAKENABLE].dirty=1;
 	esp108->hw_brps[slot] = NULL;
 	return ERROR_OK;
+}
+
+static int xtensa_step(struct target *target,
+	int current,
+	uint32_t address,
+	int handle_breakpoints)
+{
+	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
+	struct reg *reg_list = esp108->core_cache->reg_list;
+	int res;
+	static const uint32_t icount_val = -2; /* ICOUNT value to load for 1 step */
+
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("%s: target not halted", __func__);
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	/* Load debug level into ICOUNTLEVEL
+
+	   (This bit of text copied from the ESP8266 JTAG code.
+	   No idea if it's still relevant. ToDo: check. -JD)
+
+	   Originally had DEBUGLEVEL (ie 2) set here, not 1, but
+	   seemed to result in occasionally stepping out into
+	   inaccessible bits of ROM (low level interrupt handlers?)
+	   and never quite recovering... One loop started at
+	   0x40000050. Re-attaching with ICOUNTLEVEL 1 caused this to
+	   immediately step into an interrupt handler.
+
+	   ICOUNTLEVEL 1 still steps into interrupt handlers, but also
+	   seems to recover.
+
+	   TODO: Experiment more, look into CPU exception nuances,
+	   consider making this step level a configuration command.
+	 */
+	*((int*)reg_list[XT_REG_IDX_ICOUNTLEVEL].value)=1;
+	reg_list[XT_REG_IDX_ICOUNTLEVEL].dirty=1;
+	*((int*)reg_list[XT_REG_IDX_ICOUNT].value)=icount_val;
+	reg_list[XT_REG_IDX_ICOUNT].dirty=1;
+
+	/* Now ICOUNT is set, we can resume as if we were going to run */
+	res = xtensa_resume(target, current, address, 0, 0);
+	if(res != ERROR_OK) {
+		LOG_ERROR("%s: Failed to resume after setting up single step", __func__);
+		return res;
+	}
+
+	/* Wait for stepping to complete */
+	int64_t start = timeval_ms();
+	while(target->state != TARGET_HALTED && timeval_ms() < start+500) {
+		res = target_poll(target);
+		if(res != ERROR_OK)
+			return res;
+		if(target->state != TARGET_HALTED)
+			usleep(50000);
+	}
+	if(target->state != TARGET_HALTED) {
+		LOG_ERROR("%s: Timed out waiting for target to finish stepping.", __func__);
+		return ERROR_TARGET_TIMEOUT;
+	}
+
+	/* write ICOUNTLEVEL back to zero */
+	*((int*)reg_list[XT_REG_IDX_ICOUNTLEVEL].value)=0;
+	reg_list[XT_REG_IDX_ICOUNTLEVEL].dirty=1;
+
+	return res;
 }
 
 
@@ -1278,6 +1351,7 @@ static int xtensa_poll(struct target *target)
 			int oldstate=target->state;
 			target->state = TARGET_HALTED;
 			
+			LOG_INFO("%s: Target halted. Fetching register contents.", __FUNCTION__);
 			esp108_fetch_all_regs(target);
 			
 			//Call any event callbacks that are applicable
@@ -1312,7 +1386,7 @@ struct target_type esp108_target = {
 
 	.halt = xtensa_halt,
 	.resume = xtensa_resume,
-//	.step = xtensa_step,
+	.step = xtensa_step,
 
 	.assert_reset = xtensa_assert_reset,
 	.deassert_reset = xtensa_deassert_reset,
