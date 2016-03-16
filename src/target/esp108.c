@@ -1075,7 +1075,6 @@ static int xtensa_get_gdb_reg_list(struct target *target,
 static int xtensa_get_core_reg(struct reg *reg)
 {
 //We don't need this because we read all registers on halt anyway.
-
 	struct esp108_common *esp108 = reg->arch_info;
 	struct target *target = esp108->target;
 	if (target->state != TARGET_HALTED)
@@ -1097,6 +1096,31 @@ static int xtensa_set_core_reg(struct reg *reg, uint8_t *buf)
 	reg->dirty = 1;
 	reg->valid = 1;
 	return ERROR_OK;
+}
+
+
+static int xtensa_assert_reset(struct target *target)
+{
+	int res;
+	LOG_INFO("%s", __func__);
+	target->state = TARGET_RESET;
+	esp108_queue_pwrctl_set(target, PWRCTL_JTAGDEBUGUSE|PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP|PWRCTL_CORERESET);
+	res=jtag_execute_queue();
+
+	return res;
+}
+
+static int xtensa_deassert_reset(struct target *target)
+{
+	int res;
+	LOG_INFO("%s", __func__);
+	if (target->reset_halt) {
+		esp108_queue_nexus_reg_write(target, NARADR_DCRSET, OCDDCR_DEBUGINTERRUPT);
+	}
+	esp108_queue_pwrctl_set(target, PWRCTL_JTAGDEBUGUSE|PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP);
+	res=jtag_execute_queue();
+	target->state = TARGET_RUNNING;
+	return res;
 }
 
 
@@ -1169,6 +1193,7 @@ static int xtensa_poll(struct target *target)
 {
 	uint8_t pwrstat;
 	int res;
+	int cmd;
 	uint8_t dsr[4], ocdid[4];
 
 	//Read reset state
@@ -1179,8 +1204,10 @@ static int xtensa_poll(struct target *target)
 	if (pwrstat&PWRSTAT_COREWASRESET) LOG_INFO("esp108: Core was reset.");
 
 	//Enable JTAG
-	esp108_queue_pwrctl_set(target, PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP);
-	esp108_queue_pwrctl_set(target, PWRCTL_JTAGDEBUGUSE|PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP);
+	cmd=PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP;
+	if (target->state==TARGET_RESET) cmd|=PWRCTL_CORERESET;
+	esp108_queue_pwrctl_set(target, cmd);
+	esp108_queue_pwrctl_set(target, cmd|PWRCTL_JTAGDEBUGUSE);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
 	
@@ -1232,8 +1259,8 @@ struct target_type esp108_target = {
 	.resume = xtensa_resume,
 //	.step = xtensa_step,
 
-//	.assert_reset = xtensa_assert_reset,
-//	.deassert_reset = xtensa_deassert_reset,
+	.assert_reset = xtensa_assert_reset,
+	.deassert_reset = xtensa_deassert_reset,
 
 	.read_memory = xtensa_read_memory,
 	.write_memory = xtensa_write_memory,
@@ -1430,54 +1457,6 @@ static int xtensa_arch_state(struct target *target)
 	return ERROR_OK;
 }
 
-static int xtensa_assert_reset(struct target *target)
-{
-	struct xtensa_common *xtensa = target_to_xtensa(target);
-	enum reset_types jtag_reset_config = jtag_get_reset_config();
-
-	if (jtag_reset_config & RESET_HAS_SRST) {
-		/* default to asserting srst */
-		if (jtag_reset_config & RESET_SRST_PULLS_TRST)
-			jtag_add_reset(1, 1);
-		else
-			jtag_add_reset(0, 1);
-	}
-
-	target->state = TARGET_RESET;
-	jtag_add_sleep(5000);
-
-	register_cache_invalidate(xtensa->core_cache);
-
-	LOG_DEBUG("%s", __func__);
-	return ERROR_OK;
-}
-
-static int xtensa_deassert_reset(struct target *target)
-{
-	int res;
-
-	/* deassert reset lines */
-	jtag_add_reset(0, 0);
-
-	usleep(100000);
-	res = xtensa_poll(target);
-	if (res != ERROR_OK)
-		return res;
-
-	if (target->reset_halt) {
-		/* TODO: work out if possible to halt on reset (I think "no" */
-		res = target_halt(target);
-		if (res != ERROR_OK) {
-			LOG_ERROR("%s: failed to halt afte reset", __func__);
-			return res;
-		}
-		LOG_WARNING("%s: 'reset halt' is not supported for Xtensa. "
-			    "Have halted some time after resetting (not the same thing!)", __func__);
-	}
-
-	LOG_DEBUG("%s", __func__);
-	return ERROR_OK;
-}
 
 static int xtensa_read_memory_inner(struct target *target,
 				    uint32_t address,
