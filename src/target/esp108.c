@@ -1124,6 +1124,62 @@ static int xtensa_deassert_reset(struct target *target)
 }
 
 
+static int xtensa_add_breakpoint(struct target *target, struct breakpoint *breakpoint)
+{
+	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
+	struct reg *reg_list=esp108->core_cache->reg_list;
+	size_t slot;
+
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	if (breakpoint->type == BKPT_SOFT) {
+		LOG_ERROR("sw breakpoint requested, but software breakpoints not enabled");
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	}
+
+	for(slot = 0; slot < esp108->num_brps; slot++) {
+		if (esp108->hw_brps[slot] == NULL || esp108->hw_brps[slot] == breakpoint) break;
+	}
+	if (slot==esp108->num_brps) return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+
+	/* Write IBREAKA[slot] and set bit #slot in IBREAKENABLE */
+	*((int*)reg_list[XT_REG_IDX_IBREAKA0+slot].value)=breakpoint->address;
+	reg_list[XT_REG_IDX_IBREAKA0+slot].dirty=1;
+	*((int*)reg_list[XT_REG_IDX_IBREAKENABLE].value)|=(1<<slot);
+	reg_list[XT_REG_IDX_IBREAKENABLE].dirty=1;
+	esp108->hw_brps[slot] = breakpoint;
+
+	return ERROR_OK;
+}
+
+static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *breakpoint)
+{
+	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
+	struct reg *reg_list = esp108->core_cache->reg_list;
+	size_t slot;
+
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	for(slot = 0; slot < esp108->num_brps; slot++) {
+		if(esp108->hw_brps[slot] == breakpoint)
+			break;
+	}
+	if (slot==esp108->num_brps) return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	/* Clear bit #slot in IBREAKENABLE */
+	*((int*)reg_list[XT_REG_IDX_IBREAKENABLE].value)&=~(1<<slot);
+	reg_list[XT_REG_IDX_IBREAKA0+slot].dirty=1;
+	esp108->hw_brps[slot] = NULL;
+	return ERROR_OK;
+}
+
+
+
 static const struct reg_arch_type esp108_reg_type = {
 	.get = xtensa_get_core_reg,
 	.set = xtensa_set_core_reg,
@@ -1145,9 +1201,8 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 	esp108->target=target;
 //	xtensa->tap = target->tap;
 
-//	xtensa->num_brps = XT_NUM_BREAKPOINTS;
-//	xtensa->free_brps = XT_NUM_BREAKPOINTS;
-//	xtensa->hw_brps = calloc(XT_NUM_BREAKPOINTS, sizeof(struct breakpoint *));
+	esp108->num_brps = XT_NUM_BREAKPOINTS;
+	esp108->hw_brps = calloc(XT_NUM_BREAKPOINTS, sizeof(struct breakpoint *));
 
 	//Create the register cache
 	cache->name = "Xtensa registers";
@@ -1270,8 +1325,8 @@ struct target_type esp108_target = {
 
 	.get_gdb_reg_list = xtensa_get_gdb_reg_list,
 
-//	.add_breakpoint = xtensa_add_breakpoint,
-//	.remove_breakpoint = xtensa_remove_breakpoint,
+	.add_breakpoint = xtensa_add_breakpoint,
+	.remove_breakpoint = xtensa_remove_breakpoint,
 	/*
 	.add_watchpoint = xtensa_add_watchpoint,
 	.remove_watchpoint = xtensa_remove_watchpoint,
@@ -1752,108 +1807,6 @@ static int xtensa_write_buffer(struct target *target,
 		free(aligned_buffer);
 	}
 
-	return res;
-}
-
-static int xtensa_set_breakpoint(struct target *target, struct breakpoint *breakpoint)
-{
-	struct xtensa_common *xtensa = target_to_xtensa(target);
-	struct reg *reg_list = xtensa->core_cache->reg_list;
-	size_t slot;
-	int res;
-
-	for(slot = 0; slot < xtensa->num_brps; slot++) {
-		if(xtensa->hw_brps[slot] == NULL || xtensa->hw_brps[slot] == breakpoint)
-			break;
-	}
-	assert(slot < xtensa->num_brps && "Breakpoint slot should always be available to set breakpoint");
-
-	/* Write IBREAKA[slot] and set bit #slot in IBREAKENABLE */
-	enum xtensa_reg_idx bp_reg_idx = XT_REG_IDX_IBREAKA0+slot;
-	xtensa_tap_queue_write_sr(target, bp_reg_idx, breakpoint->address);
-	uint32_t ibe_val = buf_get_u32(reg_list[XT_REG_IDX_IBREAKENABLE].value, 0, 32);
-	ibe_val |= (1<<slot);
-	xtensa_tap_queue_write_sr(target, XT_REG_IDX_IBREAKENABLE, ibe_val);
-
-	res = jtag_execute_queue();
-	if(res != ERROR_OK)
-		return res;
-
-	xtensa->hw_brps[slot] = breakpoint;
-
-	/* invalidate register cache */
-	reg_list[XT_REG_IDX_IBREAKENABLE].valid = 0;
-	reg_list[bp_reg_idx].valid = 0;
-
-	return ERROR_OK;
-}
-
-static int xtensa_add_breakpoint(struct target *target, struct breakpoint *breakpoint)
-{
-	struct xtensa_common *xtensa = target_to_xtensa(target);
-
-	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("target not halted");
-		return ERROR_TARGET_NOT_HALTED;
-	}
-
-	if (breakpoint->type == BKPT_SOFT) {
-		LOG_ERROR("sw breakpoint requested, but software breakpoints not enabled");
-		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
-	}
-
-	if (!xtensa->free_brps) {
-		LOG_ERROR("no free breakpoint available for hardware breakpoint");
-		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
-	}
-	xtensa->free_brps--;
-
-	return xtensa_set_breakpoint(target, breakpoint);
-}
-
-static int xtensa_unset_breakpoint(struct target *target, struct breakpoint *breakpoint)
-{
-	struct xtensa_common *xtensa = target_to_xtensa(target);
-	struct reg *reg_list = xtensa->core_cache->reg_list;
-	size_t slot;
-	int res;
-
-	for(slot = 0; slot < xtensa->num_brps; slot++) {
-		if(xtensa->hw_brps[slot] == breakpoint)
-			break;
-	}
-	assert(slot < xtensa->num_brps && "Breakpoint slot not found");
-
-	uint32_t ibe_val = buf_get_u32(reg_list[XT_REG_IDX_IBREAKENABLE].value, 0, 32);
-	ibe_val &= ~(1<<slot);
-	xtensa_tap_queue_write_sr(target, XT_REG_IDX_IBREAKENABLE, ibe_val);
-
-	res = jtag_execute_queue();
-	if(res != ERROR_OK)
-		return res;
-
-	xtensa->hw_brps[slot] = NULL;
-
-	/* invalidate register cache */
-	reg_list[XT_REG_IDX_IBREAKENABLE].valid = 0;
-	return ERROR_OK;
-}
-
-static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *breakpoint)
-{
-	struct xtensa_common *xtensa = target_to_xtensa(target);
-	int res;
-
-	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("target not halted");
-		return ERROR_TARGET_NOT_HALTED;
-	}
-
-	res = xtensa_unset_breakpoint(target, breakpoint);
-	if(res == ERROR_OK) {
-		xtensa->free_brps++;
-		assert(xtensa->free_brps <= xtensa->num_brps && "Free breakpoint count should always be less than max breakpoints");
-	}
 	return res;
 }
 
