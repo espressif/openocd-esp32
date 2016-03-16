@@ -672,6 +672,24 @@ static void esp108_mark_register_dirty(struct target *target, int regidx)
 	reg_list[regidx].dirty=1;
 }
 
+//Convert a register index that's indexed relative to windowbase, to the real address.
+static enum xtensa_reg_idx windowbase_offset_to_canonical(const enum xtensa_reg_idx reg, const int windowbase) {
+	int idx;
+	if (reg>=XT_REG_IDX_AR0 && reg<=XT_REG_IDX_AR63) {
+		idx=reg-XT_REG_IDX_AR0;
+	} else if (reg>=XT_REG_IDX_A0 && reg<=XT_REG_IDX_A15) {
+		idx=reg-XT_REG_IDX_A0;
+	} else {
+		LOG_ERROR("Error: can't convert register %d to non-windowbased register!\n", reg);
+		return -1;
+	}
+	return ((idx+(windowbase*4))&63)+XT_REG_IDX_AR0;
+}
+
+static enum xtensa_reg_idx canonical_to_windowbase_offset(const enum xtensa_reg_idx reg, const int windowbase) {
+	return windowbase_offset_to_canonical(reg, -windowbase);
+}
+
 
 static int esp108_fetch_all_regs(struct target *target)
 {
@@ -728,9 +746,9 @@ static int esp108_fetch_all_regs(struct target *target)
 			reg_list[i].dirty=0;
 			if (esp108_regs[i].type==XT_REG_GENERAL) {
 				//The 64-value general register set is read from (windowbase) on down. We need
-				//to get the real data address by subtracting windowbase and wrapping around.
-				int realadr=(esp108_regs[i].reg_num-(windowbase*4))&63;
-				regval=intfromchars(regvals[XT_REG_IDX_AR0+realadr]);
+				//to get the real register address by subtracting windowbase and wrapping around.
+				int realadr=canonical_to_windowbase_offset(i, windowbase);
+				regval=intfromchars(regvals[realadr]);
 			} else if (esp108_regs[i].type==XT_REG_RELGEN) {
 				regval=intfromchars(regvals[esp108_regs[i].reg_num]);
 			} else {
@@ -779,32 +797,42 @@ static int esp108_write_dirty_registers(struct target *target)
 		}
 	}
 
-	//Now write AR0-AR63.
+	//Grab the windowbase, we need it.
 	windowbase=*((uint32_t *)reg_list[XT_REG_IDX_WINDOWBASE].value);
+
+	//Check if there are problems with both the ARx as well as the corresponding Rx registers set and dirty.
+	//Warn the user if this happens, not much else we can do...
+	for (i=XT_REG_IDX_A0; i<=XT_REG_IDX_A15; i++) {
+		j=windowbase_offset_to_canonical(i, windowbase);
+		if (reg_list[i].dirty && reg_list[j].dirty) {
+			if (memcmp(reg_list[i].value, reg_list[j].value, 4)!=0) {
+				LOG_INFO("Warning: Both A%d as well as the physical register it points to (AR%d) are dirty and differs in value. Results are undefined!", i-XT_REG_IDX_A0, j-XT_REG_IDX_AR0);
+			}
+		}
+	}
+
+	//Write A0-A16
+	for (i=0; i<16; i++) {
+		if (reg_list[XT_REG_IDX_A0+i].dirty) {
+			regval=*((uint32_t *)reg_list[XT_REG_IDX_A0+i].value);
+			esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
+			esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, i));
+			reg_list[XT_REG_IDX_A0+i].dirty=0;
+		}
+	}
+
+	//Now write AR0-AR63.
 	for (j=0; j<64; j+=16) {
 		//Write the 16 registers we can see
 		for (i=0; i<16; i++) {
-			//THIS DOES NOT WORK YET! Find out what goes wrong in realadr calculation.
-			int realadr=(esp108_regs[XT_REG_IDX_AR0+i+j].reg_num-(windowbase*4))&63;
+			int realadr=windowbase_offset_to_canonical(XT_REG_IDX_AR0+i+j, windowbase);
 			//Write back any dirty un-windowed registers
-			if (reg_list[XT_REG_IDX_AR0+realadr].dirty) {
-				LOG_INFO("Writing back reg %s", esp108_regs[XT_REG_IDX_AR0+i+j].name);
-				regval=*((uint32_t *)reg_list[realadr+XT_REG_IDX_AR0].value);
+			if (reg_list[realadr].dirty) {
+				LOG_INFO("Writing back reg %s", esp108_regs[realadr].name);
+				regval=*((uint32_t *)reg_list[realadr].value);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i+j].reg_num));
-				reg_list[XT_REG_IDX_AR0+i+j].dirty=0;
-				//Throw an error if the A-register also is dirty. ToDo: does this check always work?
-				if (j==0 && reg_list[XT_REG_IDX_A0+j].dirty && regval!=*((uint32_t *)reg_list[realadr+XT_REG_IDX_AR0].value)) {
-					LOG_ERROR("Error! Register A%d is dirty in the windowed and non-windowed register sets, and contain different values!\n", i);
-				}
-			}
-			//Write back any dirty windowed registers
-			if (j==0 && reg_list[XT_REG_IDX_A0+i].dirty) {
-				LOG_INFO("Writing back reg %s", esp108_regs[XT_REG_IDX_A0+i].name);
-				regval=*((uint32_t *)reg_list[i+XT_REG_IDX_A0].value);
-				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
-				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i].reg_num));
-				reg_list[XT_REG_IDX_A0+i].dirty=0;
+				reg_list[realadr].dirty=0;
 			}
 		}
 		//Now rotate the window so we'll see the next 16 registers. The final rotate will wraparound, 
@@ -852,6 +880,11 @@ static int xtensa_resume(struct target *target,
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
+//	if(address && !current) {
+//		buf_set_u32(buf, 0, 32, address);
+//		xtensa_set_core_reg(&xtensa->core_cache->reg_list[XT_REG_IDX_PC], buf);
+//	}
+
 	res=esp108_write_dirty_registers(target);
 	if(res != ERROR_OK) {
 		LOG_ERROR("Failed to write back register cache.");
@@ -866,25 +899,12 @@ static int xtensa_resume(struct target *target,
 		return ERROR_FAIL;
 	}
 
-	target->state = TARGET_RUNNING;
-
-/*
-	if(address && !current) {
-		buf_set_u32(buf, 0, 32, address);
-		xtensa_set_core_reg(&xtensa->core_cache->reg_list[XT_REG_IDX_PC], buf);
-	}
-	xtensa_restore_context(target);
-	register_cache_invalidate(xtensa->core_cache);
-
-	res = xtensa_tap_exec(target, TAP_INS_LOAD_DI, XT_INS_RFDO_1, 0);
-
 	target->debug_reason = DBG_REASON_NOTHALTED;
 	if (!debug_execution)
 		target->state = TARGET_RUNNING;
 	else
 		target->state = TARGET_DEBUG_RUNNING;
 	res = target_call_event_callbacks(target, TARGET_EVENT_RESUMED);
-*/
 
 	return res;
 }
@@ -1033,8 +1053,12 @@ static int xtensa_get_gdb_reg_list(struct target *target,
 	enum target_register_class reg_class)
 {
 	int i;
-	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
+	struct esp108_common *esp108 = target->arch_info;
 	LOG_INFO("%s", __func__);
+
+	if (target->state != TARGET_HALTED)
+		return ERROR_TARGET_NOT_HALTED;
+
 
 	*reg_list_size = XT_NUM_REGS;
 	*reg_list = malloc(sizeof(struct reg *) * (*reg_list_size));
@@ -1042,7 +1066,6 @@ static int xtensa_get_gdb_reg_list(struct target *target,
 	if (!*reg_list)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 
-	//ToDo: Maybe fix up windowed/non windowed aliasing here?
 	for (i = 0; i < XT_NUM_REGS; i++)
 		(*reg_list)[i] = &esp108->core_cache->reg_list[i];
 
@@ -1053,23 +1076,22 @@ static int xtensa_get_core_reg(struct reg *reg)
 {
 //We don't need this because we read all registers on halt anyway.
 
-//	struct xtensa_core_reg *xt_reg = reg->arch_info;
-//	struct target *target = xt_reg->target;
-//	return xtensa_read_register(xt_reg->target, xt_reg->idx, 1);
-//	if (target->state != TARGET_HALTED)
-//		return ERROR_TARGET_NOT_HALTED;
+	struct esp108_common *esp108 = reg->arch_info;
+	struct target *target = esp108->target;
+	if (target->state != TARGET_HALTED)
+		return ERROR_TARGET_NOT_HALTED;
 	return ERROR_OK;
 }
 
 static int xtensa_set_core_reg(struct reg *reg, uint8_t *buf)
 {
-//	struct esp108_core_reg *xt_reg = reg->arch_info;
-//	struct target *target = xt_reg->target;
+	struct esp108_common *esp108 = reg->arch_info;
+	struct target *target = esp108->target;
 
 	uint32_t value = buf_get_u32(buf, 0, 32);
 
-//	if (target->state != TARGET_HALTED)
-//		return ERROR_TARGET_NOT_HALTED;
+	if (target->state != TARGET_HALTED)
+		return ERROR_TARGET_NOT_HALTED;
 
 	buf_set_u32(reg->value, 0, reg->size, value);
 	reg->dirty = 1;
@@ -1096,6 +1118,7 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 
 	target->arch_info = esp108;
+	esp108->target=target;
 //	xtensa->tap = target->tap;
 
 //	xtensa->num_brps = XT_NUM_BREAKPOINTS;
@@ -1117,6 +1140,7 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 		reg_list[i].dirty = 0;
 		reg_list[i].valid = 0;
 		reg_list[i].type = &esp108_reg_type;
+		reg_list[i].arch_info=esp108;
 	}
 
 	return ERROR_OK;
@@ -1182,55 +1206,11 @@ static int xtensa_poll(struct target *target)
 			}
 		}
 	} else {
-		if (target->state!=TARGET_RUNNING) LOG_INFO("esp108: Core running again.");
-		target->state = TARGET_RUNNING;
-	}
-
-	
-	
-//	struct xtensa_common *xtensa = target_to_xtensa(target);
-//	struct reg *reg;
-
-	
-	
-	
-	/*
-	res = xtensa_tap_exec(target, TAP_INS_READ_DOSR, 0, &dosr);
-	if(res != ERROR_OK) {
-		LOG_ERROR("Failed to read DOSR. Not Xtensa OCD?");
-		return ERROR_FAIL;
-	}
-
-	if(dosr & (DOSR_IN_OCD_MODE)) {
-		if(target->state != TARGET_HALTED) {
-			if(target->state != TARGET_UNKNOWN && (dosr & DOSR_EXCEPTION) == 0) {
-				LOG_WARNING("%s: DOSR has set InOCDMode without the Exception flag. Unexpected. DOSR=0x%02x",
-					    __func__, dosr);
-			}
-			int state = target->state;
-
-			xtensa->state = XT_OCD_HALT;
-			target->state = TARGET_HALTED;
-			register_cache_invalidate(xtensa->core_cache);
-			xtensa_save_context(target);
-
-			if(state == TARGET_DEBUG_RUNNING) {
-				target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
-			} else {
-				target_call_event_callbacks(target, TARGET_EVENT_HALTED);
-			}
-
-			LOG_DEBUG("target->state: %s", target_state_name(target));
-			reg = &xtensa->core_cache->reg_list[XT_REG_IDX_PC];
-			LOG_INFO("halted: PC: 0x%" PRIx32, buf_get_u32(reg->value, 0, 32));
-			reg = &xtensa->core_cache->reg_list[XT_REG_IDX_DEBUGCAUSE];
-			LOG_INFO("debug cause: 0x%" PRIx32, buf_get_u32(reg->value, 0, 32));
+		if (target->state!=TARGET_RUNNING && target->state!=TARGET_DEBUG_RUNNING) {
+			LOG_INFO("esp108: Core running again.");
+			target->state = TARGET_RUNNING;
 		}
-	} else if(target->state != TARGET_RUNNING && target->state != TARGET_DEBUG_RUNNING){
-		xtensa->state = XT_OCD_RUN;
-		target->state = TARGET_RUNNING;
 	}
-	*/
 	return ERROR_OK;
 }
 

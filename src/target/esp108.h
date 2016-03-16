@@ -34,6 +34,7 @@ struct esp108_common {
 //	struct jtag_tap *tap;
 	enum xtensa_state state;
 	struct reg_cache *core_cache;
+	struct target *target;
 
 //	uint32_t num_brps; /* Number of breakpoints available */
 //	uint32_t free_brps; /* Number of free breakpoints */
