@@ -211,6 +211,13 @@ appear to be any the ESP108.
 #define OCDDSR_BREAKINITI		(1<<26)
 
 
+#define DEBUGCAUSE_IC			(1<<0)
+#define DEBUGCAUSE_IB			(1<<1)
+#define DEBUGCAUSE_DB			(1<<2)
+#define DEBUGCAUSE_BI			(1<<3)
+#define DEBUGCAUSE_BN			(1<<4)
+#define DEBUGCAUSE_DI			(1<<5)
+
 #define XT_INS_NUM_BITS 24
 #define XT_DEBUGLEVEL    6 /* XCHAL_DEBUGLEVEL in xtensa-config.h */
 #define XT_NUM_BREAKPOINTS 2
@@ -1363,6 +1370,8 @@ static int xtensa_examine(struct target *target)
 
 static int xtensa_poll(struct target *target)
 {
+	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
+	struct reg *reg_list=esp108->core_cache->reg_list;
 	uint8_t pwrstat;
 	int res;
 	int cmd;
@@ -1397,6 +1406,13 @@ static int xtensa_poll(struct target *target)
 			
 			LOG_INFO("%s: Target halted (dsr=%08X). Fetching register contents.", __FUNCTION__, intfromchars(dsr));
 			esp108_fetch_all_regs(target);
+
+			//Examine why the target was halted
+			int cause=*((int*)reg_list[XT_REG_IDX_DEBUGCAUSE].value);
+			target->debug_reason = DBG_REASON_DBGRQ;
+			if (cause&DEBUGCAUSE_IC) target->debug_reason = DBG_REASON_SINGLESTEP;
+			if (cause&(DEBUGCAUSE_IB|DEBUGCAUSE_BN|DEBUGCAUSE_BI)) target->debug_reason = DBG_REASON_BREAKPOINT;
+			if (cause&DEBUGCAUSE_DB) target->debug_reason = DBG_REASON_WATCHPOINT;
 			
 			//Call any event callbacks that are applicable
 			if(oldstate == TARGET_DEBUG_RUNNING) {
