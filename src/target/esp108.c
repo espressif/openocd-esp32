@@ -622,6 +622,12 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
 #define XT_INS_WUR(UR,T) _XT_INS_FORMAT_RRR(0xF30000,UR,T)
 
 
+static int xtensa_step(struct target *target,
+	int current,
+	uint32_t address,
+	int handle_breakpoints);
+
+
 //Set the PWRCTL TAP register to a value
 static void esp108_queue_pwrctl_set(struct target *target, uint8_t value) 
 {
@@ -916,8 +922,8 @@ static int xtensa_resume(struct target *target,
 			 int handle_breakpoints,
 			 int debug_execution)
 {
-//	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
-//	uint8_t buf[4];
+	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
+	struct reg *reg_list=esp108->core_cache->reg_list;
 	int res=ERROR_OK;
 
 	LOG_INFO("%s current=%d address=%04" PRIx32, __func__, current, address);
@@ -927,10 +933,18 @@ static int xtensa_resume(struct target *target,
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-//	if(address && !current) {
+	if(address && !current) {
 //		buf_set_u32(buf, 0, 32, address);
 //		xtensa_set_core_reg(&xtensa->core_cache->reg_list[XT_REG_IDX_PC], buf);
-//	}
+	} else {
+		int cause=*((int*)reg_list[XT_REG_IDX_DEBUGCAUSE].value);
+		if (cause&DEBUGCAUSE_DB) {
+			//We stopped due to a watchpoint. We can't just resume executing the instruction again because
+			//that would trigger the watchpoint again. To fix this, we single-step, which ignores watchpoints.
+			xtensa_step(target, current, address, handle_breakpoints);
+		}
+	}
+
 
 	res=esp108_write_dirty_registers(target);
 	if(res != ERROR_OK) {
@@ -1318,7 +1332,10 @@ static int xtensa_step(struct target *target,
 {
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	struct reg *reg_list = esp108->core_cache->reg_list;
-	int res;
+	int res, cause;
+	uint32_t dbreakc[esp108->num_wps*4];
+	size_t slot;
+	uint8_t dsr[4];
 	static const uint32_t icount_val = -2; /* ICOUNT value to load for 1 step */
 
 	if (target->state != TARGET_HALTED) {
@@ -1349,6 +1366,21 @@ static int xtensa_step(struct target *target,
 	*((int*)reg_list[XT_REG_IDX_ICOUNT].value)=icount_val;
 	reg_list[XT_REG_IDX_ICOUNT].dirty=1;
 
+	cause=*((int*)reg_list[XT_REG_IDX_DEBUGCAUSE].value);
+	if (cause&DEBUGCAUSE_DB) {
+		//We stopped due to a watchpoint. We can't just resume executing the instruction again because
+		//that would trigger the watchpoint again. To fix this, we remove watchpoints, single-step and
+		//re-enable the watchpoint.
+		LOG_INFO("Single-stepping to get past instruction that triggered the watchpoint...");
+		*((int*)reg_list[XT_REG_IDX_DEBUGCAUSE].value)=0; //so we don't recurse into the same routine
+		//Save all DBREAKCx registers and set to 0 to disable watchpoints
+		for(slot = 0; slot < esp108->num_wps; slot++) {
+			dbreakc[slot]=*((uint32_t*)reg_list[XT_REG_IDX_DBREAKC0+slot].value);
+			*((uint32_t*)reg_list[XT_REG_IDX_DBREAKC0+slot].value)=0;
+			reg_list[XT_REG_IDX_DBREAKC0+slot].dirty=1;
+		}
+	}
+
 	/* Now ICOUNT is set, we can resume as if we were going to run */
 	res = xtensa_resume(target, current, address, 0, 0);
 	if(res != ERROR_OK) {
@@ -1358,16 +1390,30 @@ static int xtensa_step(struct target *target,
 
 	/* Wait for stepping to complete */
 	int64_t start = timeval_ms();
-	while(target->state != TARGET_HALTED && timeval_ms() < start+500) {
-		res = target_poll(target);
-		if(res != ERROR_OK)
-			return res;
-		if(target->state != TARGET_HALTED)
+	while(timeval_ms() < start+500) {
+		//Do not use target_poll here, it also triggers other things... just manually read the DSR until stepping
+		//is complete.
+		esp108_queue_nexus_reg_read(target, NARADR_DSR, dsr);
+		res=jtag_execute_queue();
+		if(res != ERROR_OK) return res;
+		if (intfromchars(dsr)&OCDDSR_STOPPED) {
+			break;
+		} else {
 			usleep(50000);
+		}
 	}
-	if(target->state != TARGET_HALTED) {
+	if(!(intfromchars(dsr)&OCDDSR_STOPPED)) {
 		LOG_ERROR("%s: Timed out waiting for target to finish stepping.", __func__);
 		return ERROR_TARGET_TIMEOUT;
+	}
+
+	if (cause&DEBUGCAUSE_DB) {
+		LOG_INFO("...Done, re-instating watchpoints.");
+		//Restore the DBREAKCx registers
+		for(slot = 0; slot < esp108->num_wps; slot++) {
+			*((uint32_t*)reg_list[XT_REG_IDX_DBREAKC0+slot].value)=dbreakc[slot];
+			reg_list[XT_REG_IDX_DBREAKC0+slot].dirty=1;
+		}
 	}
 
 	/* write ICOUNTLEVEL back to zero */
@@ -1422,6 +1468,11 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 		reg_list[i].type = &esp108_reg_type;
 		reg_list[i].arch_info=esp108;
 	}
+
+	//Assume running target. If different, the first poll will fix this.
+	target->state=TARGET_RUNNING;
+	target->debug_reason = DBG_REASON_NOTHALTED;
+
 
 	return ERROR_OK;
 }
@@ -1499,9 +1550,11 @@ static int xtensa_poll(struct target *target)
 			}
 		}
 	} else {
+		target->debug_reason = DBG_REASON_NOTHALTED;
 		if (target->state!=TARGET_RUNNING && target->state!=TARGET_DEBUG_RUNNING) {
 			LOG_INFO("esp108: Core running again.");
 			target->state = TARGET_RUNNING;
+			target->debug_reason = DBG_REASON_NOTHALTED;
 		}
 	}
 	return ERROR_OK;
