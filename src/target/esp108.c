@@ -1218,7 +1218,6 @@ static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *br
 	struct reg *reg_list = esp108->core_cache->reg_list;
 	size_t slot;
 
-	LOG_INFO("%s: %x", __FUNCTION__, breakpoint->address);
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
 		return ERROR_TARGET_NOT_HALTED;
@@ -1234,6 +1233,82 @@ static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *br
 	reg_list[XT_REG_IDX_IBREAKENABLE].dirty=1;
 	esp108->hw_brps[slot] = NULL;
 	return ERROR_OK;
+}
+
+static int xtensa_add_watchpoint(struct target *target, struct watchpoint *watchpoint)
+{
+	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
+	struct reg *reg_list=esp108->core_cache->reg_list;
+	size_t slot;
+	int dbreakcval;
+
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	if (watchpoint->mask != ~(uint32_t)0) {
+		LOG_DEBUG("watchpoint value masks not supported");
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	}
+
+	for(slot = 0; slot < esp108->num_wps; slot++) {
+		if (esp108->hw_wps[slot] == NULL || esp108->hw_wps[slot] == watchpoint) break;
+	}
+	if (slot==esp108->num_wps) return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+
+	/* Figure out value for dbreakc5..0 */
+	dbreakcval=0xaa; //invalid, so we can check if this is changed later
+	if (watchpoint->length==1 && (watchpoint->address&0x00)==0) dbreakcval=0x3F;
+	if (watchpoint->length==2 && (watchpoint->address&0x01)==0) dbreakcval=0x3E;
+	if (watchpoint->length==4 && (watchpoint->address&0x03)==0) dbreakcval=0x3C;
+	if (watchpoint->length==8 && (watchpoint->address&0x07)==0) dbreakcval=0x38;
+	if (watchpoint->length==16 && (watchpoint->address&0x0F)==0) dbreakcval=0x30;
+	if (watchpoint->length==32 && (watchpoint->address&0x1F)==0) dbreakcval=0x20;
+	if (watchpoint->length==64 && (watchpoint->address&0x3F)==0) dbreakcval=0x00;
+	if (dbreakcval==0xaa) {
+		LOG_WARNING("Watchpoint with length %d on address 0x%X not supported by hardware.", watchpoint->length, watchpoint->address);
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	}
+
+	if (watchpoint->rw==WPT_READ) dbreakcval|=(1<<30);
+	if (watchpoint->rw==WPT_WRITE) dbreakcval|=(1<<31);
+	if (watchpoint->rw==WPT_ACCESS) dbreakcval|=(1<<30)+(1<<31);
+
+	/* Write DBREAKA[slot] and DBCREAKC[slot]*/
+	*((int*)reg_list[XT_REG_IDX_DBREAKA0+slot].value)=watchpoint->address;
+	reg_list[XT_REG_IDX_DBREAKA0+slot].dirty=1;
+	*((int*)reg_list[XT_REG_IDX_DBREAKC0+slot].value)|=dbreakcval;
+	reg_list[XT_REG_IDX_DBREAKC0+slot].dirty=1;
+	esp108->hw_wps[slot] = watchpoint;
+
+	return ERROR_OK;
+}
+
+static int xtensa_remove_watchpoint(struct target *target, struct watchpoint *watchpoint)
+{
+	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
+	struct reg *reg_list = esp108->core_cache->reg_list;
+	size_t slot;
+
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	for(slot = 0; slot < esp108->num_wps; slot++) {
+		if(esp108->hw_wps[slot] == watchpoint)
+			break;
+	}
+	if (slot==esp108->num_wps) return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+
+	/* Clear DBREAKC[slot] to disable watchpoint */
+	*((int*)reg_list[XT_REG_IDX_DBREAKC0+slot].value)=0;
+	reg_list[XT_REG_IDX_DBREAKC0+slot].dirty=1;
+	esp108->hw_wps[slot] = NULL;
+
+	return ERROR_OK;
+
 }
 
 static int xtensa_step(struct target *target,
@@ -1327,6 +1402,8 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 
 	esp108->num_brps = XT_NUM_BREAKPOINTS;
 	esp108->hw_brps = calloc(XT_NUM_BREAKPOINTS, sizeof(struct breakpoint *));
+	esp108->num_wps = XT_NUM_WATCHPOINTS;
+	esp108->hw_wps = calloc(XT_NUM_WATCHPOINTS, sizeof(struct watchpoint *));
 
 	//Create the register cache
 	cache->name = "Xtensa registers";
@@ -1461,10 +1538,9 @@ struct target_type esp108_target = {
 
 	.add_breakpoint = xtensa_add_breakpoint,
 	.remove_breakpoint = xtensa_remove_breakpoint,
-	/*
+
 	.add_watchpoint = xtensa_add_watchpoint,
 	.remove_watchpoint = xtensa_remove_watchpoint,
-	*/
 
 	.target_create = xtensa_target_create,
 	.init_target = xtensa_init_target,

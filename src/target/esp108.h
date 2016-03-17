@@ -38,6 +38,10 @@ struct esp108_common {
 
 	uint32_t num_brps; /* Number of breakpoints available */
 	struct breakpoint **hw_brps;
+	uint32_t num_wps; /* Number of watchpoints available */
+	struct watchpoint **hw_wps;
+
+	
 };
 
 
