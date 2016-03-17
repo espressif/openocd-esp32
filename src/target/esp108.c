@@ -665,6 +665,44 @@ static uint32_t intfromchars(uint8_t *c)
 	return c[0]+(c[1]<<8)+(c[2]<<16)+(c[3]<<24);
 }
 
+//Utility function: check DSR for any weirdness and report.
+#define esp108_checkdsr(target) esp108_do_checkdsr(target, __FUNCTION__, __LINE__)
+static int esp108_do_checkdsr(struct target *target, const char *function, const int line)
+{
+	uint8_t dsr[4];
+	int res;
+	int needclear=0;
+	esp108_queue_nexus_reg_read(target, NARADR_DSR, dsr);
+	res=jtag_execute_queue();
+	if (res!=ERROR_OK) {
+		LOG_ERROR("%s (line %d): reading DSR failed!", function, line);
+		return ERROR_FAIL;
+	}
+	if (intfromchars(dsr)&OCDDSR_EXECBUSY) {
+		LOG_ERROR("%s (line %d): DSR (%08X) indicates target still busy!", function, line, intfromchars(dsr));
+		needclear=1;
+	}
+	if (intfromchars(dsr)&OCDDSR_EXECEXCEPTION) {
+		LOG_ERROR("%s (line %d): DSR (%08X) indicates DIR instruction generated an exception!", function, line, intfromchars(dsr));
+		needclear=1;
+	}
+	if (intfromchars(dsr)&OCDDSR_EXECOVERRUN) {
+		LOG_ERROR("%s (line %d): DSR (%08X) indicates DIR instruction generated an overrun!", function, line, intfromchars(dsr));
+		needclear=1;
+	}
+	if (needclear) {
+		esp108_queue_nexus_reg_write(target, NARADR_DSR, OCDDSR_EXECEXCEPTION|OCDDSR_EXECOVERRUN);
+		res=jtag_execute_queue();
+		if (res!=ERROR_OK) {
+			LOG_ERROR("%s (line %d): clearing DSR failed!", function, line);
+		}
+		return ERROR_FAIL;
+	}
+	return ERROR_OK;
+}
+
+
+
 static void esp108_mark_register_dirty(struct target *target, int regidx)
 {
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
@@ -736,6 +774,7 @@ static int esp108_fetch_all_regs(struct target *target)
 	//Ok, send the whole mess to the CPU.
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
+	esp108_checkdsr(target);
 
 	//We need the windowbase to decode the general addresses.
 	windowbase=intfromchars(regvals[XT_REG_IDX_WINDOWBASE]);
@@ -840,6 +879,7 @@ static int esp108_write_dirty_registers(struct target *target)
 		esp108_queue_exec_ins(target, XT_INS_ROTW(4));
 	}
 	res=jtag_execute_queue();
+	esp108_checkdsr(target);
 	return res;
 }
 
@@ -898,6 +938,7 @@ static int xtensa_resume(struct target *target,
 		LOG_ERROR("Failed to clear OCDDCR_DEBUGINTERRUPT and resume execution.");
 		return ERROR_FAIL;
 	}
+	esp108_checkdsr(target);
 
 	target->debug_reason = DBG_REASON_NOTHALTED;
 	if (!debug_execution)
@@ -945,6 +986,7 @@ static int xtensa_read_memory(struct target *target,
 		i+=4;
 	}
 	res=jtag_execute_queue();
+	if (res==ERROR_OK) res=esp108_checkdsr(target);
 	
 	if (albuff!=buffer) {
 		memcpy(buffer, albuff+(address&3), (size*count));
@@ -1019,6 +1061,7 @@ static int xtensa_write_memory(struct target *target,
 		}
 		//Grab bytes
 		res=jtag_execute_queue();
+		esp108_checkdsr(target);
 		//Copy data to be written into the aligned buffer
 		memcpy(&albuff[address&3], buffer, size*count);
 		//Now we can write albuff in aligned uint32s.
@@ -1035,6 +1078,7 @@ static int xtensa_write_memory(struct target *target,
 		i+=4;
 	}
 	res=jtag_execute_queue();
+	if (res==ERROR_OK) res=esp108_checkdsr(target);
 
 	/* NB: if we were supporting the ICACHE option, we would need
 	 * to invalidate it here */
@@ -1351,7 +1395,7 @@ static int xtensa_poll(struct target *target)
 			int oldstate=target->state;
 			target->state = TARGET_HALTED;
 			
-			LOG_INFO("%s: Target halted. Fetching register contents.", __FUNCTION__);
+			LOG_INFO("%s: Target halted (dsr=%08X). Fetching register contents.", __FUNCTION__, intfromchars(dsr));
 			esp108_fetch_all_regs(target);
 			
 			//Call any event callbacks that are applicable
@@ -1539,6 +1583,7 @@ static int xtensa_step(struct target *target,
 	res = jtag_execute_queue();
 	if(res != ERROR_OK)
 		return res;
+	esp108_checkdsr(target);
 
 	/* Wait for everything to settle, seems necessary to avoid bad resumes */
 	do {
