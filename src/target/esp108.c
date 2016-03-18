@@ -476,7 +476,7 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
 	{ "windowstart",		0x49, XT_REG_SPECIAL, 0 }, 
 	{ "configid0",			0xB0, XT_REG_SPECIAL, 0 }, 
 	{ "configid1",			0xD0, XT_REG_SPECIAL, 0 }, 
-	{ "ps",					0xE6, XT_REG_SPECIAL, 0 }, //actually EPS[debuglevel]
+	{ "ps",					0xC6, XT_REG_SPECIAL, 0 }, //actually EPS[debuglevel]
 	{ "threadptr",			0xE7, XT_REG_USER, 0 }, 
 	{ "br",					0x04, XT_REG_SPECIAL, 0 }, 
 	{ "scompare1",			0x0C, XT_REG_SPECIAL, 0 }, 
@@ -577,7 +577,7 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
 #define XT_SR_DDR         (esp108_regs[XT_REG_IDX_DDR].reg_num)
 
 //Same thing for A3
-#define XT_REG_A3         (esp108_regs[XT_REG_IDX_AR3].reg_num)
+#define XT_REG_A3         (esp108_regs[XT_REG_IDX_A3].reg_num)
 
 
 /* Xtensa processor instruction opcodes
@@ -801,6 +801,7 @@ static int esp108_fetch_all_regs(struct target *target)
 				//to get the real register address by subtracting windowbase and wrapping around.
 				int realadr=canonical_to_windowbase_offset(i, windowbase);
 				regval=intfromchars(regvals[realadr]);
+//				LOG_INFO("mapping: %s -> %s (windowbase off %d)\n",esp108_regs[i].name, esp108_regs[realadr].name, windowbase*4);
 			} else if (esp108_regs[i].type==XT_REG_RELGEN) {
 				regval=intfromchars(regvals[esp108_regs[i].reg_num]);
 			} else {
@@ -814,7 +815,6 @@ static int esp108_fetch_all_regs(struct target *target)
 	}
 	//We have used A3 as a scratch register and we will need to write that back.
 	reg_list[XT_REG_IDX_A3].dirty=1;
-	//ToDo: also mark AR3 dirty?
 
 	return ERROR_OK;
 }
@@ -867,6 +867,7 @@ static int esp108_write_dirty_registers(struct target *target)
 	for (i=0; i<16; i++) {
 		if (reg_list[XT_REG_IDX_A0+i].dirty) {
 			regval=*((uint32_t *)reg_list[XT_REG_IDX_A0+i].value);
+			LOG_INFO("Writing back reg %s value %08X", esp108_regs[XT_REG_IDX_A0+i].name, regval);
 			esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 			esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, i));
 			reg_list[XT_REG_IDX_A0+i].dirty=0;
@@ -880,8 +881,8 @@ static int esp108_write_dirty_registers(struct target *target)
 			int realadr=windowbase_offset_to_canonical(XT_REG_IDX_AR0+i+j, windowbase);
 			//Write back any dirty un-windowed registers
 			if (reg_list[realadr].dirty) {
-				LOG_INFO("Writing back reg %s", esp108_regs[realadr].name);
 				regval=*((uint32_t *)reg_list[realadr].value);
+				LOG_INFO("Writing back reg %s value %08X", esp108_regs[realadr].name, regval);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i+j].reg_num));
 				reg_list[realadr].dirty=0;
@@ -987,6 +988,7 @@ static int xtensa_read_memory(struct target *target,
 	uint8_t *albuff;
 
 	LOG_INFO("%s: reading %d bytes from addr %08X", __FUNCTION__, size*count, address);
+	LOG_INFO("Converted to aligned addresses: read from %08X to %08X", addrstart_al, addrend_al);
 
 	if (addrstart_al==address && addrend_al==address+(size*count)) {
 		albuff=buffer;
@@ -995,7 +997,7 @@ static int xtensa_read_memory(struct target *target,
 	}
 	
 	//We're going to use A3 here
-	esp108_mark_register_dirty(target, XT_REG_IDX_AR3);
+	esp108_mark_register_dirty(target, XT_REG_IDX_A3);
 	//Write start address to A3
 	esp108_queue_nexus_reg_write(target, NARADR_DDR, addrstart_al);
 	esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A3));
@@ -1063,7 +1065,7 @@ static int xtensa_write_memory(struct target *target,
 	}
 
 	//We're going to use A3 here
-	esp108_mark_register_dirty(target, XT_REG_IDX_AR3);
+	esp108_mark_register_dirty(target, XT_REG_IDX_A3);
 
 	//If we're using a temp aligned buffer, we need to fill the head and/or tail bit of it.
 	if (albuff!=buffer) {
