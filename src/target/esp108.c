@@ -75,7 +75,7 @@ data register that's directly readable/writable from the JTAG port.
 To execute an instruction, either write it into DIR0EXEC and it will
 immediately execute. Alternatively, write it into DIR0 and write
 the data for the DDR register into DDREXEC, and that also will execute
-the instruction. DIR1-DIRn are for longer instructions, oif which there don't
+the instruction. DIR1-DIRn are for longer instructions, of which there don't
 appear to be any the ESP108.
 */
 
@@ -628,42 +628,61 @@ static int xtensa_step(struct target *target,
 	int handle_breakpoints);
 
 
+static void esp108_add_set_ir(struct target *target, uint8_t value)
+{
+	uint8_t t[4];
+	struct scan_field field;
+	memset(&field, 0, sizeof field);
+	field.num_bits = target->tap->ir_length;
+	field.out_value = t;
+	buf_set_u32(t, 0, field.num_bits, value);
+
+	jtag_add_ir_scan(target->tap, &field, TAP_IDLE);
+}
+
+
+static void esp108_add_dr_scan(struct target *target, int len, const uint8_t *src, uint8_t *dest, tap_state_t endstate)
+{
+	struct scan_field field;
+	memset(&field, 0, sizeof field);
+	field.num_bits=len;
+	field.out_value=src;
+	field.in_value=dest;
+	jtag_add_dr_scan(target->tap, 1, &field, endstate);
+}
+
 //Set the PWRCTL TAP register to a value
 static void esp108_queue_pwrctl_set(struct target *target, uint8_t value) 
 {
-	const uint8_t pwrctlIns=TAPINS_PWRCTL;
-	jtag_add_plain_ir_scan(target->tap->ir_length, &pwrctlIns, NULL, TAP_IDLE);
+	esp108_add_set_ir(target, TAPINS_PWRCTL);
 	jtag_add_plain_dr_scan(TAPINS_PWRCTL_LEN, &value, NULL, TAP_IDLE);
 }
 
 //Read the PWRSTAT TAP register and clear the XWASRESET bits.
 static void esp108_queue_pwrstat_readclear(struct target *target, uint8_t *value) 
 {
-	const uint8_t pwrctlIns=TAPINS_PWRSTAT;
 	const uint8_t pwrstatClr=PWRSTAT_DEBUGWASRESET|PWRSTAT_COREWASRESET;
-	jtag_add_plain_ir_scan(target->tap->ir_length, &pwrctlIns, NULL, TAP_IDLE);
-	jtag_add_plain_dr_scan(TAPINS_PWRCTL_LEN, &pwrstatClr, value, TAP_IDLE);
+	esp108_add_set_ir(target, TAPINS_PWRSTAT);
+	esp108_add_dr_scan(target, TAPINS_PWRCTL_LEN, &pwrstatClr, value, TAP_IDLE);
 }
 
 
 static void esp108_queue_nexus_reg_write(struct target *target, const uint8_t reg, const uint32_t value) 
 {
-	const uint8_t narselIns=TAPINS_NARSEL;
 	uint8_t regdata=(reg<<1)|1;
 	uint8_t valdata[]={value, value>>8, value>>16, value>>24};
-	jtag_add_plain_ir_scan(target->tap->ir_length, &narselIns, NULL, TAP_IDLE);
-	jtag_add_plain_dr_scan(TAPINS_NARSEL_ADRLEN, &regdata, NULL, TAP_IDLE);
-	jtag_add_plain_dr_scan(TAPINS_NARSEL_DATALEN, valdata, NULL, TAP_IDLE);
+	esp108_add_set_ir(target, TAPINS_NARSEL);
+	esp108_add_dr_scan(target, TAPINS_NARSEL_ADRLEN, &regdata, NULL, TAP_IDLE);
+	esp108_add_dr_scan(target, TAPINS_NARSEL_DATALEN, valdata, NULL, TAP_IDLE);
 }
 
 static void esp108_queue_nexus_reg_read(struct target *target, const uint8_t reg, uint8_t *value) 
 {
-	const uint8_t narselIns=TAPINS_NARSEL;
 	uint8_t regdata=(reg<<1)|0;
 	uint8_t dummy[4]={0,0,0,0};
-	jtag_add_plain_ir_scan(target->tap->ir_length, &narselIns, NULL, TAP_IDLE);
-	jtag_add_plain_dr_scan(TAPINS_NARSEL_ADRLEN, &regdata, NULL, TAP_IDLE);
-	jtag_add_plain_dr_scan(TAPINS_NARSEL_DATALEN, dummy, value, TAP_IDLE);
+	esp108_add_set_ir(target, TAPINS_NARSEL);
+	esp108_add_dr_scan(target, TAPINS_NARSEL_ADRLEN, &regdata, NULL, TAP_IDLE);
+	esp108_add_dr_scan(target, TAPINS_NARSEL_DATALEN, dummy, value, TAP_IDLE);
 }
 
 static void esp108_queue_exec_ins(struct target *target, int32_t ins)
