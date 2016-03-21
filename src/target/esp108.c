@@ -688,26 +688,26 @@ static int esp108_do_checkdsr(struct target *target, const char *function, const
 	esp108_queue_nexus_reg_read(target, NARADR_DSR, dsr);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) {
-		LOG_ERROR("%s (line %d): reading DSR failed!", function, line);
+		LOG_ERROR("%s: %s (line %d): reading DSR failed!", target->cmd_name, function, line);
 		return ERROR_FAIL;
 	}
 	if (intfromchars(dsr)&OCDDSR_EXECBUSY) {
-		LOG_ERROR("%s (line %d): DSR (%08X) indicates target still busy!", function, line, intfromchars(dsr));
+		LOG_ERROR("%s: %s (line %d): DSR (%08X) indicates target still busy!", target->cmd_name, function, line, intfromchars(dsr));
 		needclear=1;
 	}
 	if (intfromchars(dsr)&OCDDSR_EXECEXCEPTION) {
-		LOG_ERROR("%s (line %d): DSR (%08X) indicates DIR instruction generated an exception!", function, line, intfromchars(dsr));
+		LOG_ERROR("%s: %s (line %d): DSR (%08X) indicates DIR instruction generated an exception!", target->cmd_name, function, line, intfromchars(dsr));
 		needclear=1;
 	}
 	if (intfromchars(dsr)&OCDDSR_EXECOVERRUN) {
-		LOG_ERROR("%s (line %d): DSR (%08X) indicates DIR instruction generated an overrun!", function, line, intfromchars(dsr));
+		LOG_ERROR("%s: %s (line %d): DSR (%08X) indicates DIR instruction generated an overrun!", target->cmd_name, function, line, intfromchars(dsr));
 		needclear=1;
 	}
 	if (needclear) {
 		esp108_queue_nexus_reg_write(target, NARADR_DSR, OCDDSR_EXECEXCEPTION|OCDDSR_EXECOVERRUN);
 		res=jtag_execute_queue();
 		if (res!=ERROR_OK) {
-			LOG_ERROR("%s (line %d): clearing DSR failed!", function, line);
+			LOG_ERROR("%s: %s (line %d): clearing DSR failed!", target->cmd_name, function, line);
 		}
 		return ERROR_FAIL;
 	}
@@ -828,7 +828,7 @@ static int esp108_write_dirty_registers(struct target *target)
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	struct reg *reg_list=esp108->core_cache->reg_list;
 
-	LOG_INFO("%s", __FUNCTION__);
+	LOG_INFO("%s: %s", target->cmd_name, __FUNCTION__);
 
 	//We need to write the dirty registers in the cache list back to the processor.
 	//Start by writing the SFR/user registers.
@@ -836,7 +836,7 @@ static int esp108_write_dirty_registers(struct target *target)
 		if (reg_list[i].dirty) {
 			if (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER) {
 				regval=*((uint32_t *)reg_list[i].value);
-				LOG_INFO("Writing back reg %s val %08X", esp108_regs[i].name, regval);
+				LOG_INFO("%s: Writing back reg %s val %08X", target->cmd_name, esp108_regs[i].name, regval);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A3));
 				if (esp108_regs[i].type==XT_REG_USER) {
@@ -867,7 +867,7 @@ static int esp108_write_dirty_registers(struct target *target)
 	for (i=0; i<16; i++) {
 		if (reg_list[XT_REG_IDX_A0+i].dirty) {
 			regval=*((uint32_t *)reg_list[XT_REG_IDX_A0+i].value);
-			LOG_INFO("Writing back reg %s value %08X", esp108_regs[XT_REG_IDX_A0+i].name, regval);
+			LOG_INFO("%s: Writing back reg %s value %08X", target->cmd_name, esp108_regs[XT_REG_IDX_A0+i].name, regval);
 			esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 			esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, i));
 			reg_list[XT_REG_IDX_A0+i].dirty=0;
@@ -882,7 +882,7 @@ static int esp108_write_dirty_registers(struct target *target)
 			//Write back any dirty un-windowed registers
 			if (reg_list[realadr].dirty) {
 				regval=*((uint32_t *)reg_list[realadr].value);
-				LOG_INFO("Writing back reg %s value %08X", esp108_regs[realadr].name, regval);
+				LOG_INFO("%s: Writing back reg %s value %08X", target->cmd_name, esp108_regs[realadr].name, regval);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i+j].reg_num));
 				reg_list[realadr].dirty=0;
@@ -903,7 +903,7 @@ static int xtensa_halt(struct target *target)
 
 	LOG_INFO("%s", __func__);
 	if (target->state == TARGET_HALTED) {
-		LOG_DEBUG("target was already halted");
+		LOG_DEBUG("%s: target was already halted", target->cmd_name);
 		return ERROR_OK;
 	}
 
@@ -911,7 +911,7 @@ static int xtensa_halt(struct target *target)
 	res=jtag_execute_queue();
 
 	if(res != ERROR_OK) {
-		LOG_ERROR("Failed to set OCDDCR_DEBUGINTERRUPT. Can't halt.");
+		LOG_ERROR("%s: Failed to set OCDDCR_DEBUGINTERRUPT. Can't halt.", target->cmd_name);
 		return ERROR_FAIL;
 	}
 	return ERROR_OK;
@@ -927,10 +927,10 @@ static int xtensa_resume(struct target *target,
 	struct reg *reg_list=esp108->core_cache->reg_list;
 	int res=ERROR_OK;
 
-	LOG_INFO("%s current=%d address=%04" PRIx32, __func__, current, address);
+	LOG_INFO("%s: %s current=%d address=%04" PRIx32, target->cmd_name, __func__, current, address);
 
 	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("%s: target not halted", __func__);
+		LOG_WARNING("%s: %s: target not halted", target->cmd_name, __func__);
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
@@ -949,7 +949,7 @@ static int xtensa_resume(struct target *target,
 
 	res=esp108_write_dirty_registers(target);
 	if(res != ERROR_OK) {
-		LOG_ERROR("Failed to write back register cache.");
+		LOG_ERROR("%s: Failed to write back register cache.", target->cmd_name);
 		return ERROR_FAIL;
 	}
 
@@ -957,7 +957,7 @@ static int xtensa_resume(struct target *target,
 	esp108_queue_exec_ins(target, XT_INS_RFDO);
 	res=jtag_execute_queue();
 	if(res != ERROR_OK) {
-		LOG_ERROR("Failed to clear OCDDCR_DEBUGINTERRUPT and resume execution.");
+		LOG_ERROR("%s: Failed to clear OCDDCR_DEBUGINTERRUPT and resume execution.", target->cmd_name);
 		return ERROR_FAIL;
 	}
 	esp108_checkdsr(target);
@@ -987,7 +987,7 @@ static int xtensa_read_memory(struct target *target,
 	int res;
 	uint8_t *albuff;
 
-	LOG_INFO("%s: reading %d bytes from addr %08X", __FUNCTION__, size*count, address);
+	LOG_INFO("%s: %s: reading %d bytes from addr %08X", target->cmd_name, __FUNCTION__, size*count, address);
 	LOG_INFO("Converted to aligned addresses: read from %08X to %08X", addrstart_al, addrend_al);
 
 	if (addrstart_al==address && addrend_al==address+(size*count)) {
@@ -1047,11 +1047,11 @@ static int xtensa_write_memory(struct target *target,
 	uint8_t *albuff;
 
 	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("target not halted");
+		LOG_WARNING("%s: target not halted", target->cmd_name);
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	LOG_INFO("%s: writing %d bytes to addr %08X", __FUNCTION__, size*count, address);
+	LOG_INFO("%s: %s: writing %d bytes to addr %08X", target->cmd_name, __FUNCTION__, size*count, address);
 	LOG_INFO("al start %x al end %x", addrstart_al, addrend_al);
 
 	if ((size==0) || (count == 0) || !(buffer)) return ERROR_COMMAND_SYNTAX_ERROR;
@@ -1204,12 +1204,12 @@ static int xtensa_add_breakpoint(struct target *target, struct breakpoint *break
 	size_t slot;
 
 	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("target not halted");
+		LOG_WARNING("%s: target not halted", target->cmd_name);
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
 	if (breakpoint->type == BKPT_SOFT) {
-		LOG_ERROR("sw breakpoint requested, but software breakpoints not enabled");
+		LOG_ERROR("%s: sw breakpoint requested, but software breakpoints not enabled", target->cmd_name);
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
@@ -1235,7 +1235,7 @@ static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *br
 	size_t slot;
 
 	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("target not halted");
+		LOG_WARNING("%s: target not halted", target->cmd_name);
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
@@ -1259,12 +1259,12 @@ static int xtensa_add_watchpoint(struct target *target, struct watchpoint *watch
 	int dbreakcval;
 
 	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("target not halted");
+		LOG_WARNING("%s:target not halted", target->cmd_name);
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
 	if (watchpoint->mask != ~(uint32_t)0) {
-		LOG_DEBUG("watchpoint value masks not supported");
+		LOG_DEBUG("%s: watchpoint value masks not supported", target->cmd_name);
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
@@ -1283,7 +1283,7 @@ static int xtensa_add_watchpoint(struct target *target, struct watchpoint *watch
 	if (watchpoint->length==32 && (watchpoint->address&0x1F)==0) dbreakcval=0x20;
 	if (watchpoint->length==64 && (watchpoint->address&0x3F)==0) dbreakcval=0x00;
 	if (dbreakcval==0xaa) {
-		LOG_WARNING("Watchpoint with length %d on address 0x%X not supported by hardware.", watchpoint->length, watchpoint->address);
+		LOG_WARNING("%s: Watchpoint with length %d on address 0x%X not supported by hardware.", target->cmd_name, watchpoint->length, watchpoint->address);
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
@@ -1308,7 +1308,7 @@ static int xtensa_remove_watchpoint(struct target *target, struct watchpoint *wa
 	size_t slot;
 
 	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("target not halted");
+		LOG_WARNING("%s: target not halted", target->cmd_name);
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
@@ -1341,7 +1341,7 @@ static int xtensa_step(struct target *target,
 	static const uint32_t icount_val = -2; /* ICOUNT value to load for 1 step */
 
 	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("%s: target not halted", __func__);
+		LOG_WARNING("%s: %s: target not halted", target->cmd_name, __func__);
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
@@ -1373,7 +1373,7 @@ static int xtensa_step(struct target *target,
 		//We stopped due to a watchpoint. We can't just resume executing the instruction again because
 		//that would trigger the watchpoint again. To fix this, we remove watchpoints, single-step and
 		//re-enable the watchpoint.
-		LOG_INFO("Single-stepping to get past instruction that triggered the watchpoint...");
+		LOG_INFO("%s: Single-stepping to get past instruction that triggered the watchpoint...", target->cmd_name);
 		*((int*)reg_list[XT_REG_IDX_DEBUGCAUSE].value)=0; //so we don't recurse into the same routine
 		//Save all DBREAKCx registers and set to 0 to disable watchpoints
 		for(slot = 0; slot < esp108->num_wps; slot++) {
@@ -1386,7 +1386,7 @@ static int xtensa_step(struct target *target,
 	/* Now ICOUNT is set, we can resume as if we were going to run */
 	res = xtensa_resume(target, current, address, 0, 0);
 	if(res != ERROR_OK) {
-		LOG_ERROR("%s: Failed to resume after setting up single step", __func__);
+		LOG_ERROR("%s: %s: Failed to resume after setting up single step", target->cmd_name, __func__);
 		return res;
 	}
 
@@ -1405,12 +1405,12 @@ static int xtensa_step(struct target *target,
 		}
 	}
 	if(!(intfromchars(dsr)&OCDDSR_STOPPED)) {
-		LOG_ERROR("%s: Timed out waiting for target to finish stepping.", __func__);
+		LOG_ERROR("%s: %s: Timed out waiting for target to finish stepping.", target->cmd_name, __func__);
 		return ERROR_TARGET_TIMEOUT;
 	}
 
 	if (cause&DEBUGCAUSE_DB) {
-		LOG_INFO("...Done, re-instating watchpoints.");
+		LOG_INFO("%s: ...Done, re-instating watchpoints.", target->cmd_name);
 		//Restore the DBREAKCx registers
 		for(slot = 0; slot < esp108->num_wps; slot++) {
 			*((uint32_t*)reg_list[XT_REG_IDX_DBREAKC0+slot].value)=dbreakc[slot];
@@ -1511,8 +1511,8 @@ static int xtensa_poll(struct target *target)
 	esp108_queue_pwrstat_readclear(target, &pwrstat);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
-	if (pwrstat&PWRSTAT_DEBUGWASRESET) LOG_INFO("esp108: Debug controller was reset.");
-	if (pwrstat&PWRSTAT_COREWASRESET) LOG_INFO("esp108: Core was reset.");
+	if (pwrstat&PWRSTAT_DEBUGWASRESET) LOG_INFO("%s: Debug controller was reset (pwrstat=0x%08X).", target->cmd_name, pwrstat);
+	if (pwrstat&PWRSTAT_COREWASRESET) LOG_INFO("%s: Core was reset (pwrstat=0x%08X).", target->cmd_name, pwrstat);
 
 	//Enable JTAG
 	cmd=PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP;
@@ -1534,7 +1534,7 @@ static int xtensa_poll(struct target *target)
 			int oldstate=target->state;
 			target->state = TARGET_HALTED;
 			
-			LOG_INFO("%s: Target halted (dsr=%08X). Fetching register contents.", __FUNCTION__, intfromchars(dsr));
+			LOG_INFO("%s: %s: Target halted (dsr=%08X). Fetching register contents.", target->cmd_name, __FUNCTION__, intfromchars(dsr));
 			esp108_fetch_all_regs(target);
 
 			//Examine why the target was halted
@@ -1554,7 +1554,7 @@ static int xtensa_poll(struct target *target)
 	} else {
 		target->debug_reason = DBG_REASON_NOTHALTED;
 		if (target->state!=TARGET_RUNNING && target->state!=TARGET_DEBUG_RUNNING) {
-			LOG_INFO("esp108: Core running again.");
+			LOG_INFO("%s: Core running again.", target->cmd_name);
 			target->state = TARGET_RUNNING;
 			target->debug_reason = DBG_REASON_NOTHALTED;
 		}
