@@ -35,6 +35,7 @@ struct esp108_common {
 	enum xtensa_state state;
 	struct reg_cache *core_cache;
 	struct target *target;
+	uint8_t prevpwrstat;
 
 	uint32_t num_brps; /* Number of breakpoints available */
 	struct breakpoint **hw_brps;

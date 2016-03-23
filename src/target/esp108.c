@@ -954,8 +954,8 @@ static int xtensa_resume(struct target *target,
 	}
 
 	if(address && !current) {
-//		buf_set_u32(buf, 0, 32, address);
-//		xtensa_set_core_reg(&xtensa->core_cache->reg_list[XT_REG_IDX_PC], buf);
+		reg_list[XT_REG_IDX_PC].dirty=1;
+		*((int*)reg_list[XT_REG_IDX_PC].value)=address;
 	} else {
 		int cause=*((int*)reg_list[XT_REG_IDX_DEBUGCAUSE].value);
 		if (cause&DEBUGCAUSE_DB) {
@@ -964,7 +964,6 @@ static int xtensa_resume(struct target *target,
 			xtensa_step(target, current, address, handle_breakpoints);
 		}
 	}
-
 
 	res=esp108_write_dirty_registers(target);
 	if(res != ERROR_OK) {
@@ -1530,8 +1529,9 @@ static int xtensa_poll(struct target *target)
 	esp108_queue_pwrstat_readclear(target, &pwrstat);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
-	if (pwrstat&PWRSTAT_DEBUGWASRESET) LOG_INFO("%s: Debug controller was reset (pwrstat=0x%08X).", target->cmd_name, pwrstat);
-	if (pwrstat&PWRSTAT_COREWASRESET) LOG_INFO("%s: Core was reset (pwrstat=0x%08X).", target->cmd_name, pwrstat);
+	if (!(esp108->prevpwrstat&PWRSTAT_DEBUGWASRESET) && pwrstat&PWRSTAT_DEBUGWASRESET) LOG_INFO("%s: Debug controller was reset (pwrstat=0x%08X).", target->cmd_name, pwrstat);
+	if (!(esp108->prevpwrstat&PWRSTAT_COREWASRESET) && pwrstat&PWRSTAT_COREWASRESET) LOG_INFO("%s: Core was reset (pwrstat=0x%08X).", target->cmd_name, pwrstat);
+	esp108->prevpwrstat=pwrstat;
 
 	//Enable JTAG
 	cmd=PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP;
