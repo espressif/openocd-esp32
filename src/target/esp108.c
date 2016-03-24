@@ -1193,17 +1193,19 @@ static int xtensa_set_core_reg(struct reg *reg, uint8_t *buf)
 
 static int xtensa_assert_reset(struct target *target)
 {
+	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	int res;
 	LOG_DEBUG("%s", __func__);
 	target->state = TARGET_RESET;
 	esp108_queue_pwrctl_set(target, PWRCTL_JTAGDEBUGUSE|PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP|PWRCTL_CORERESET);
 	res=jtag_execute_queue();
-
+	esp108->resetAsserted=1;
 	return res;
 }
 
 static int xtensa_deassert_reset(struct target *target)
 {
+	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	int res;
 	LOG_DEBUG("%s", __func__);
 	if (target->reset_halt) {
@@ -1212,6 +1214,7 @@ static int xtensa_deassert_reset(struct target *target)
 	esp108_queue_pwrctl_set(target, PWRCTL_JTAGDEBUGUSE|PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP);
 	res=jtag_execute_queue();
 	target->state = TARGET_RUNNING;
+	esp108->resetAsserted=0;
 	return res;
 }
 
@@ -1558,7 +1561,7 @@ static int xtensa_poll(struct target *target)
 
 	//Enable JTAG
 	cmd=PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP;
-	if (target->state==TARGET_RESET) cmd|=PWRCTL_CORERESET;
+	if (esp108->resetAsserted) cmd|=PWRCTL_CORERESET;
 	esp108_queue_pwrctl_set(target, cmd);
 	esp108_queue_pwrctl_set(target, cmd|PWRCTL_JTAGDEBUGUSE);
 	res=jtag_execute_queue();
