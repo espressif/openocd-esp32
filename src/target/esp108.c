@@ -1357,6 +1357,7 @@ static int xtensa_step(struct target *target,
 	size_t slot;
 	uint8_t dsr[4];
 	static const uint32_t icount_val = -2; /* ICOUNT value to load for 1 step */
+	uint32_t oldps, newps;
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("%s: %s: target not halted", target->cmd_name, __func__);
@@ -1381,10 +1382,18 @@ static int xtensa_step(struct target *target,
 	   TODO: Experiment more, look into CPU exception nuances,
 	   consider making this step level a configuration command.
 	 */
-	*((int*)reg_list[XT_REG_IDX_ICOUNTLEVEL].value)=1;
+	*((int*)reg_list[XT_REG_IDX_ICOUNTLEVEL].value)=6;
 	reg_list[XT_REG_IDX_ICOUNTLEVEL].dirty=1;
 	*((int*)reg_list[XT_REG_IDX_ICOUNT].value)=icount_val;
 	reg_list[XT_REG_IDX_ICOUNT].dirty=1;
+
+	//Save old ps
+	oldps=*((int*)reg_list[XT_REG_IDX_PS].value);
+	//If intlevel precludes single-stepping, downgrade it
+	if ((oldps&0xF)>6) {
+		*((int*)reg_list[XT_REG_IDX_PS].value)=(oldps&~0xf)|5;
+		reg_list[XT_REG_IDX_PS].dirty=1;
+	}
 
 	cause=*((int*)reg_list[XT_REG_IDX_DEBUGCAUSE].value);
 	if (cause&DEBUGCAUSE_DB) {
@@ -1434,6 +1443,16 @@ static int xtensa_step(struct target *target,
 			*((uint32_t*)reg_list[XT_REG_IDX_DBREAKC0+slot].value)=dbreakc[slot];
 			reg_list[XT_REG_IDX_DBREAKC0+slot].dirty=1;
 		}
+	}
+
+	//Restore int level
+	//ToDo: Theoretically, this can mess up stepping over an instruction that modifies ps.intlevel
+	//by itself. Hmmm. ToDo: Look into this.
+	newps=*((int*)reg_list[XT_REG_IDX_PS].value);
+	if (((oldps&0xF)>6) && (newps&0xf)!=(oldps&0xf)) {
+		newps=(newps&~0xf)|(oldps&0xf);
+		*((int*)reg_list[XT_REG_IDX_PS].value)=newps;
+		reg_list[XT_REG_IDX_PS].dirty=1;
 	}
 
 	/* write ICOUNTLEVEL back to zero */
@@ -1520,18 +1539,21 @@ static int xtensa_poll(struct target *target)
 {
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	struct reg *reg_list=esp108->core_cache->reg_list;
-	uint8_t pwrstat;
+	uint8_t pwrstat, pwrstath;
 	int res;
 	int cmd;
 	uint8_t dsr[4], ocdid[4];
 
 	//Read reset state
 	esp108_queue_pwrstat_readclear(target, &pwrstat);
+	//Read again, to see if the state holds...
+	esp108_queue_pwrstat_readclear(target, &pwrstath);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
-	if (!(esp108->prevpwrstat&PWRSTAT_DEBUGWASRESET) && pwrstat&PWRSTAT_DEBUGWASRESET) LOG_INFO("%s: Debug controller was reset (pwrstat=0x%08X).", target->cmd_name, pwrstat);
-	if (!(esp108->prevpwrstat&PWRSTAT_COREWASRESET) && pwrstat&PWRSTAT_COREWASRESET) LOG_INFO("%s: Core was reset (pwrstat=0x%08X).", target->cmd_name, pwrstat);
-	esp108->prevpwrstat=pwrstat;
+	if (!(esp108->prevpwrstat&PWRSTAT_DEBUGWASRESET) && pwrstat&PWRSTAT_DEBUGWASRESET) LOG_INFO("%s: Debug controller was reset (pwrstat=0x%02X, after clear 0x%02X).", target->cmd_name, pwrstat, pwrstath);
+	if (!(esp108->prevpwrstat&PWRSTAT_COREWASRESET) && pwrstat&PWRSTAT_COREWASRESET) LOG_INFO("%s: Core was reset (pwrstat=0x%02X, after clear 0x%02X).", target->cmd_name, pwrstat, pwrstath);
+	esp108->prevpwrstat=pwrstath;
+
 
 	//Enable JTAG
 	cmd=PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP;
@@ -1548,7 +1570,9 @@ static int xtensa_poll(struct target *target)
 	if (res!=ERROR_OK) return res;
 //	LOG_INFO("esp8266: ocdid 0x%X dsr 0x%X", intfromchars(ocdid), intfromchars(dsr));
 	
-	if (intfromchars(dsr)&OCDDSR_STOPPED) {
+	if (pwrstath&PWRSTAT_COREWASRESET) {
+		target->state = TARGET_RESET;
+	} else if (intfromchars(dsr)&OCDDSR_STOPPED) {
 		if(target->state != TARGET_HALTED) {
 			int oldstate=target->state;
 			target->state = TARGET_HALTED;
