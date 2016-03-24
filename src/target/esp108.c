@@ -636,7 +636,6 @@ static void esp108_add_set_ir(struct target *target, uint8_t value)
 	field.num_bits = target->tap->ir_length;
 	field.out_value = t;
 	buf_set_u32(t, 0, field.num_bits, value);
-
 	jtag_add_ir_scan(target->tap, &field, TAP_IDLE);
 }
 
@@ -1028,6 +1027,7 @@ static int xtensa_read_memory(struct target *target,
 	}
 	res=jtag_execute_queue();
 	if (res==ERROR_OK) res=esp108_checkdsr(target);
+	if (res!=ERROR_OK) LOG_WARNING("%s: Failed reading %d bytes at address 0x%08X",target->cmd_name, count*size, address);
 	
 	if (albuff!=buffer) {
 		memcpy(buffer, albuff+(address&3), (size*count));
@@ -1120,6 +1120,7 @@ static int xtensa_write_memory(struct target *target,
 	}
 	res=jtag_execute_queue();
 	if (res==ERROR_OK) res=esp108_checkdsr(target);
+	if (res!=ERROR_OK) LOG_WARNING("%s: Failed writing %d bytes at address 0x%08X",target->cmd_name, count*size, address);
 
 	/* NB: if we were supporting the ICACHE option, we would need
 	 * to invalidate it here */
