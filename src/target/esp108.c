@@ -655,7 +655,7 @@ static void esp108_add_dr_scan(struct target *target, int len, const uint8_t *sr
 static void esp108_queue_pwrctl_set(struct target *target, uint8_t value) 
 {
 	esp108_add_set_ir(target, TAPINS_PWRCTL);
-	jtag_add_plain_dr_scan(TAPINS_PWRCTL_LEN, &value, NULL, TAP_IDLE);
+	esp108_add_dr_scan(target, TAPINS_PWRCTL_LEN, &value, NULL, TAP_IDLE);
 }
 
 //Read the PWRSTAT TAP register and clear the XWASRESET bits.
@@ -847,7 +847,7 @@ static int esp108_write_dirty_registers(struct target *target)
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	struct reg *reg_list=esp108->core_cache->reg_list;
 
-	LOG_INFO("%s: %s", target->cmd_name, __FUNCTION__);
+	LOG_DEBUG("%s: %s", target->cmd_name, __FUNCTION__);
 
 	//We need to write the dirty registers in the cache list back to the processor.
 	//Start by writing the SFR/user registers.
@@ -855,7 +855,7 @@ static int esp108_write_dirty_registers(struct target *target)
 		if (reg_list[i].dirty) {
 			if (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER) {
 				regval=*((uint32_t *)reg_list[i].value);
-				LOG_INFO("%s: Writing back reg %s val %08X", target->cmd_name, esp108_regs[i].name, regval);
+				LOG_DEBUG("%s: Writing back reg %s val %08X", target->cmd_name, esp108_regs[i].name, regval);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A3));
 				if (esp108_regs[i].type==XT_REG_USER) {
@@ -877,7 +877,7 @@ static int esp108_write_dirty_registers(struct target *target)
 		j=windowbase_offset_to_canonical(i, windowbase);
 		if (reg_list[i].dirty && reg_list[j].dirty) {
 			if (memcmp(reg_list[i].value, reg_list[j].value, 4)!=0) {
-				LOG_INFO("Warning: Both A%d as well as the physical register it points to (AR%d) are dirty and differs in value. Results are undefined!", i-XT_REG_IDX_A0, j-XT_REG_IDX_AR0);
+				LOG_WARNING("Warning: Both A%d as well as the physical register it points to (AR%d) are dirty and differs in value. Results are undefined!", i-XT_REG_IDX_A0, j-XT_REG_IDX_AR0);
 			}
 		}
 	}
@@ -886,7 +886,7 @@ static int esp108_write_dirty_registers(struct target *target)
 	for (i=0; i<16; i++) {
 		if (reg_list[XT_REG_IDX_A0+i].dirty) {
 			regval=*((uint32_t *)reg_list[XT_REG_IDX_A0+i].value);
-			LOG_INFO("%s: Writing back reg %s value %08X", target->cmd_name, esp108_regs[XT_REG_IDX_A0+i].name, regval);
+			LOG_DEBUG("%s: Writing back reg %s value %08X", target->cmd_name, esp108_regs[XT_REG_IDX_A0+i].name, regval);
 			esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 			esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, i));
 			reg_list[XT_REG_IDX_A0+i].dirty=0;
@@ -901,7 +901,7 @@ static int esp108_write_dirty_registers(struct target *target)
 			//Write back any dirty un-windowed registers
 			if (reg_list[realadr].dirty) {
 				regval=*((uint32_t *)reg_list[realadr].value);
-				LOG_INFO("%s: Writing back reg %s value %08X", target->cmd_name, esp108_regs[realadr].name, regval);
+				LOG_DEBUG("%s: Writing back reg %s value %08X", target->cmd_name, esp108_regs[realadr].name, regval);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i+j].reg_num));
 				reg_list[realadr].dirty=0;
@@ -920,7 +920,7 @@ static int xtensa_halt(struct target *target)
 {
 	int res;
 
-	LOG_INFO("%s", __func__);
+	LOG_DEBUG("%s", __func__);
 	if (target->state == TARGET_HALTED) {
 		LOG_DEBUG("%s: target was already halted", target->cmd_name);
 		return ERROR_OK;
@@ -946,7 +946,7 @@ static int xtensa_resume(struct target *target,
 	struct reg *reg_list=esp108->core_cache->reg_list;
 	int res=ERROR_OK;
 
-	LOG_INFO("%s: %s current=%d address=%04" PRIx32, target->cmd_name, __func__, current, address);
+	LOG_DEBUG("%s: %s current=%d address=%04" PRIx32, target->cmd_name, __func__, current, address);
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("%s: %s: target not halted", target->cmd_name, __func__);
@@ -1005,8 +1005,8 @@ static int xtensa_read_memory(struct target *target,
 	int res;
 	uint8_t *albuff;
 
-	LOG_INFO("%s: %s: reading %d bytes from addr %08X", target->cmd_name, __FUNCTION__, size*count, address);
-	LOG_INFO("Converted to aligned addresses: read from %08X to %08X", addrstart_al, addrend_al);
+//	LOG_INFO("%s: %s: reading %d bytes from addr %08X", target->cmd_name, __FUNCTION__, size*count, address);
+//	LOG_INFO("Converted to aligned addresses: read from %08X to %08X", addrstart_al, addrend_al);
 
 	if (addrstart_al==address && addrend_al==address+(size*count)) {
 		albuff=buffer;
@@ -1069,8 +1069,8 @@ static int xtensa_write_memory(struct target *target,
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	LOG_INFO("%s: %s: writing %d bytes to addr %08X", target->cmd_name, __FUNCTION__, size*count, address);
-	LOG_INFO("al start %x al end %x", addrstart_al, addrend_al);
+//	LOG_INFO("%s: %s: writing %d bytes to addr %08X", target->cmd_name, __FUNCTION__, size*count, address);
+//	LOG_INFO("al start %x al end %x", addrstart_al, addrend_al);
 
 	if ((size==0) || (count == 0) || !(buffer)) return ERROR_COMMAND_SYNTAX_ERROR;
 
@@ -1145,7 +1145,7 @@ static int xtensa_get_gdb_reg_list(struct target *target,
 {
 	int i;
 	struct esp108_common *esp108 = target->arch_info;
-	LOG_INFO("%s", __func__);
+	LOG_DEBUG("%s", __func__);
 
 	if (target->state != TARGET_HALTED)
 		return ERROR_TARGET_NOT_HALTED;
@@ -1193,7 +1193,7 @@ static int xtensa_set_core_reg(struct reg *reg, uint8_t *buf)
 static int xtensa_assert_reset(struct target *target)
 {
 	int res;
-	LOG_INFO("%s", __func__);
+	LOG_DEBUG("%s", __func__);
 	target->state = TARGET_RESET;
 	esp108_queue_pwrctl_set(target, PWRCTL_JTAGDEBUGUSE|PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP|PWRCTL_CORERESET);
 	res=jtag_execute_queue();
@@ -1204,7 +1204,7 @@ static int xtensa_assert_reset(struct target *target)
 static int xtensa_deassert_reset(struct target *target)
 {
 	int res;
-	LOG_INFO("%s", __func__);
+	LOG_DEBUG("%s", __func__);
 	if (target->reset_halt) {
 		esp108_queue_nexus_reg_write(target, NARADR_DCRSET, OCDDCR_DEBUGINTERRUPT);
 	}
@@ -1282,7 +1282,7 @@ static int xtensa_add_watchpoint(struct target *target, struct watchpoint *watch
 	}
 
 	if (watchpoint->mask != ~(uint32_t)0) {
-		LOG_DEBUG("%s: watchpoint value masks not supported", target->cmd_name);
+		LOG_ERROR("%s: watchpoint value masks not supported", target->cmd_name);
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
@@ -1391,7 +1391,7 @@ static int xtensa_step(struct target *target,
 		//We stopped due to a watchpoint. We can't just resume executing the instruction again because
 		//that would trigger the watchpoint again. To fix this, we remove watchpoints, single-step and
 		//re-enable the watchpoint.
-		LOG_INFO("%s: Single-stepping to get past instruction that triggered the watchpoint...", target->cmd_name);
+		//LOG_INFO("%s: Single-stepping to get past instruction that triggered the watchpoint...", target->cmd_name);
 		*((int*)reg_list[XT_REG_IDX_DEBUGCAUSE].value)=0; //so we don't recurse into the same routine
 		//Save all DBREAKCx registers and set to 0 to disable watchpoints
 		for(slot = 0; slot < esp108->num_wps; slot++) {
@@ -1428,7 +1428,7 @@ static int xtensa_step(struct target *target,
 	}
 
 	if (cause&DEBUGCAUSE_DB) {
-		LOG_INFO("%s: ...Done, re-instating watchpoints.", target->cmd_name);
+		//LOG_INFO("%s: ...Done, re-instating watchpoints.", target->cmd_name);
 		//Restore the DBREAKCx registers
 		for(slot = 0; slot < esp108->num_wps; slot++) {
 			*((uint32_t*)reg_list[XT_REG_IDX_DBREAKC0+slot].value)=dbreakc[slot];
@@ -1499,7 +1499,7 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 
 static int xtensa_init_target(struct command_context *cmd_ctx, struct target *target)
 {
-	LOG_INFO("%s", __func__);
+	LOG_DEBUG("%s", __func__);
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 
 
@@ -1553,8 +1553,9 @@ static int xtensa_poll(struct target *target)
 			int oldstate=target->state;
 			target->state = TARGET_HALTED;
 			
-			LOG_INFO("%s: %s: Target halted (dsr=%08X). Fetching register contents.", target->cmd_name, __FUNCTION__, intfromchars(dsr));
+			//LOG_INFO("%s: %s: Target halted (dsr=%08X). Fetching register contents.", target->cmd_name, __FUNCTION__, intfromchars(dsr));
 			esp108_fetch_all_regs(target);
+			LOG_INFO("%s: Target halted, pc=0x%08X", target->cmd_name, *((int*)reg_list[XT_REG_IDX_PC].value));
 
 			//Examine why the target was halted
 			int cause=*((int*)reg_list[XT_REG_IDX_DEBUGCAUSE].value);
@@ -1573,7 +1574,7 @@ static int xtensa_poll(struct target *target)
 	} else {
 		target->debug_reason = DBG_REASON_NOTHALTED;
 		if (target->state!=TARGET_RUNNING && target->state!=TARGET_DEBUG_RUNNING) {
-			LOG_INFO("%s: Core running again.", target->cmd_name);
+			//LOG_INFO("%s: Core running again.", target->cmd_name);
 			target->state = TARGET_RUNNING;
 			target->debug_reason = DBG_REASON_NOTHALTED;
 		}
