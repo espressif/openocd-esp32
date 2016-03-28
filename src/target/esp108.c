@@ -538,9 +538,9 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
 	{ "misc1",				0xF5, XT_REG_SPECIAL, 0 }, 
 	{ "misc2",				0xF6, XT_REG_SPECIAL, 0 }, 
 	{ "misc3",				0xF7, XT_REG_SPECIAL, 0 }, 
-	{ "a0",					XT_REG_IDX_AR0, XT_REG_RELGEN, 0 },
-	{ "a1",					XT_REG_IDX_AR1, XT_REG_RELGEN, 0 },
-	{ "a2",					XT_REG_IDX_AR2, XT_REG_RELGEN, 0 },
+	{ "a0",					XT_REG_IDX_AR0, XT_REG_RELGEN, 0 }, //WARNING: For these registers, regnum points to the
+	{ "a1",					XT_REG_IDX_AR1, XT_REG_RELGEN, 0 }, //index of the corresponding ARx registers, NOT to
+	{ "a2",					XT_REG_IDX_AR2, XT_REG_RELGEN, 0 }, //the processor register number!
 	{ "a3",					XT_REG_IDX_AR3, XT_REG_RELGEN, 0 },
 	{ "a4",					XT_REG_IDX_AR4, XT_REG_RELGEN, 0 },
 	{ "a5",					XT_REG_IDX_AR5, XT_REG_RELGEN, 0 },
@@ -577,7 +577,7 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
 #define XT_SR_DDR         (esp108_regs[XT_REG_IDX_DDR].reg_num)
 
 //Same thing for A3
-#define XT_REG_A3         (esp108_regs[XT_REG_IDX_A3].reg_num)
+#define XT_REG_A3         (esp108_regs[XT_REG_IDX_AR3].reg_num)
 
 
 /* Xtensa processor instruction opcodes
@@ -799,8 +799,6 @@ static int esp108_fetch_all_regs(struct target *target)
 			esp108_queue_nexus_reg_read(target, NARADR_DDR, regvals[i]);
 		}
 	}
-
-
 
 	//Ok, send the whole mess to the CPU.
 	res=jtag_execute_queue();
@@ -1394,8 +1392,9 @@ static int xtensa_step(struct target *target,
 	//Save old ps
 	oldps=*((int*)reg_list[XT_REG_IDX_PS].value);
 	//If intlevel precludes single-stepping, downgrade it
-	if ((oldps&0xF)>6) {
-		*((int*)reg_list[XT_REG_IDX_PS].value)=(oldps&~0xf)|5;
+	if ((oldps&0xF)>=6) {
+		LOG_INFO("PS is %d, which is too high for single-stepping. Resetting to 1.", oldps&0xF);
+		*((int*)reg_list[XT_REG_IDX_PS].value)=(oldps&~0xf)|1;
 		reg_list[XT_REG_IDX_PS].dirty=1;
 	}
 
@@ -1404,7 +1403,7 @@ static int xtensa_step(struct target *target,
 		//We stopped due to a watchpoint. We can't just resume executing the instruction again because
 		//that would trigger the watchpoint again. To fix this, we remove watchpoints, single-step and
 		//re-enable the watchpoint.
-		//LOG_INFO("%s: Single-stepping to get past instruction that triggered the watchpoint...", target->cmd_name);
+		LOG_DEBUG("%s: Single-stepping to get past instruction that triggered the watchpoint...", target->cmd_name);
 		*((int*)reg_list[XT_REG_IDX_DEBUGCAUSE].value)=0; //so we don't recurse into the same routine
 		//Save all DBREAKCx registers and set to 0 to disable watchpoints
 		for(slot = 0; slot < esp108->num_wps; slot++) {
@@ -1441,7 +1440,7 @@ static int xtensa_step(struct target *target,
 	}
 
 	if (cause&DEBUGCAUSE_DB) {
-		//LOG_INFO("%s: ...Done, re-instating watchpoints.", target->cmd_name);
+		LOG_DEBUG("%s: ...Done, re-instating watchpoints.", target->cmd_name);
 		//Restore the DBREAKCx registers
 		for(slot = 0; slot < esp108->num_wps; slot++) {
 			*((uint32_t*)reg_list[XT_REG_IDX_DBREAKC0+slot].value)=dbreakc[slot];
