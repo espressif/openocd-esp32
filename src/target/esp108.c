@@ -1009,6 +1009,10 @@ static int xtensa_read_memory(struct target *target,
 		albuff=buffer;
 	} else {
 		albuff=malloc(size*count);
+		if (!albuff) {
+			LOG_ERROR("%s: Out of memory allocating %d bytes!", __FUNCTION__, size*count);
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
 	}
 	
 	//We're going to use A3 here
@@ -1078,6 +1082,10 @@ static int xtensa_write_memory(struct target *target,
 		albuff=(uint8_t*)buffer;
 	} else {
 		albuff=malloc(size*count);
+		if (!albuff) {
+			LOG_ERROR("%s: Out of memory allocating %d bytes!", __FUNCTION__, size*count);
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
 	}
 
 	//We're going to use A3 here
