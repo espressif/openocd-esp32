@@ -1008,9 +1008,9 @@ static int xtensa_read_memory(struct target *target,
 	if (addrstart_al==address && addrend_al==address+(size*count)) {
 		albuff=buffer;
 	} else {
-		albuff=malloc(size*count);
+		albuff=malloc(addrend_al-addrstart_al);
 		if (!albuff) {
-			LOG_ERROR("%s: Out of memory allocating %d bytes!", __FUNCTION__, size*count);
+			LOG_ERROR("%s: Out of memory allocating %d bytes!", __FUNCTION__, addrend_al-addrstart_al);
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
 	}
@@ -1081,9 +1081,9 @@ static int xtensa_write_memory(struct target *target,
 		//We discard the const here because albuff can also be non-const
 		albuff=(uint8_t*)buffer;
 	} else {
-		albuff=malloc(size*count);
+		albuff=malloc(addrend_al-addrstart_al);
 		if (!albuff) {
-			LOG_ERROR("%s: Out of memory allocating %d bytes!", __FUNCTION__, size*count);
+			LOG_ERROR("%s: Out of memory allocating %d bytes!", __FUNCTION__, addrend_al-addrstart_al);
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
 	}
