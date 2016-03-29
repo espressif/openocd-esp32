@@ -1659,8 +1659,9 @@ static int xtensa_arch_state(struct target *target)
 COMMAND_HANDLER(esp108_cmd_smpbreak)
 {
 	struct target *target = get_current_target(CMD_CTX);
-	int i, res;
-	uint32_t set, clear;
+	unsigned int i;
+	int res;
+	uint32_t set=0, clear=0;
 	uint8_t dsr[4];
 
 	if (target->state != TARGET_HALTED) {
@@ -1669,28 +1670,42 @@ COMMAND_HANDLER(esp108_cmd_smpbreak)
 	}
 
 	if (CMD_ARGC >= 1) {
-		set=0xdeadbeef;
-		if (!strcmp(CMD_ARGV[0], "none")) set=0;
-		if (!strcmp(CMD_ARGV[0], "breakinout")) set=OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN;
-		if (!strcmp(CMD_ARGV[0], "runstall")) set=OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN;
-		if (set==0xdeadbeef) {
-			command_print(CMD_CTX, "%s: Invalid argument.", CMD_ARGV[0]);
-		} else {
-			clear=set^(OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN|OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN);
-			esp108_queue_nexus_reg_write(target, NARADR_DCRSET, set);
-			esp108_queue_nexus_reg_write(target, NARADR_DCRCLR, clear);
+		for (i=0; i<CMD_ARGC; i++) {
+			if (!strcasecmp(CMD_ARGV[0], "none")) {
+				set=0;
+			} else if (!strcasecmp(CMD_ARGV[i], "BreakIn")) {
+				set|=OCDDCR_BREAKINEN;
+			} else if (!strcasecmp(CMD_ARGV[i], "BreakOut")) {
+				set|=OCDDCR_BREAKOUTEN;
+			} else if (!strcasecmp(CMD_ARGV[i], "RunStallIn")) {
+				set|=OCDDCR_RUNSTALLINEN;
+			} else if (!strcasecmp(CMD_ARGV[i], "DebugModeOut")) {
+				set|=OCDDCR_DEBUGMODEOUTEN;
+			} else if (!strcasecmp(CMD_ARGV[i], "BreakInOut")) {
+				set|=OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN;
+			} else if (!strcasecmp(CMD_ARGV[i], "RunStall")) {
+				set|=OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN;
+			} else {
+				command_print(CMD_CTX, "Unknown arg %s", CMD_ARGV[i]);
+				command_print(CMD_CTX, "use either BreakInOut, None or RunStall as arguments, or any combination of BreakIn, BreakOut, RunStallIn and DebugModeOut.");
+				return ERROR_OK;
+			}
 		}
+		clear=set^(OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN|OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN);
+		esp108_queue_nexus_reg_write(target, NARADR_DCRSET, set);
+		esp108_queue_nexus_reg_write(target, NARADR_DCRCLR, clear);
 	}
 	esp108_queue_nexus_reg_read(target, NARADR_DCRSET, dsr);
 	res=jtag_execute_queue();
 	if (res==ERROR_OK) {
 		i=intfromchars(dsr)&(OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN|OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN);
-		command_print(CMD_CTX, "Current bits set:%s%s%s%s%s", 
+		command_print(CMD_CTX, "%s: Current bits set:%s%s%s%s%s", 
+					target->cmd_name,
 					(i==0)?" none":"",
-					(i&OCDDCR_BREAKINEN)?" BreakInEn":"",
-					(i&OCDDCR_BREAKOUTEN)?" BreakOutEn":"",
-					(i&OCDDCR_RUNSTALLINEN)?" RunStallinEn":"",
-					(i&OCDDCR_DEBUGMODEOUTEN)?" DebugModeOutEn":""
+					(i&OCDDCR_BREAKINEN)?" BreakIn":"",
+					(i&OCDDCR_BREAKOUTEN)?" BreakOut":"",
+					(i&OCDDCR_RUNSTALLINEN)?" RunStallIn":"",
+					(i&OCDDCR_DEBUGMODEOUTEN)?" DebugModeOut":""
 				);
 	}
 	return res;
@@ -1704,7 +1719,7 @@ static const struct command_registration esp108_any_command_handlers[] = {
 		.handler = esp108_cmd_smpbreak,
 		.mode = COMMAND_ANY,
 		.help = "Set the way the CPU chains OCD breaks",
-		.usage = "[none|breakinout|runstall]",
+		.usage = "[none|breakinout|runstall] | [BreakIn] [BreakOut] [RunStallIn] [DebugModeOut]",
 	},
 	COMMAND_REGISTRATION_DONE
 };
