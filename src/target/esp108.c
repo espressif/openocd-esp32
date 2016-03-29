@@ -79,6 +79,34 @@ the instruction. DIR1-DIRn are for longer instructions, of which there don't
 appear to be any the ESP108.
 */
 
+/*
+Multiprocessor stuff:
+
+The ESP32 has two ESP108 processors in it, which can run in SMP-mode if an 
+SMP-capable OS is running. The hardware has a few features which make 
+debugging this much easier. 
+
+First of all, there's something called a 'break network', consisting of a 
+BreakIn input  and a BreakOut output on each CPU. The idea is that as soon 
+as a CPU goes into debug mode for whatever reason, it'll signal that using 
+its DebugOut pin. This signal is connected to the other CPU's DebugIn 
+input, causing this CPU also to go into debugging mode. To resume execution
+when using only this break network, we will need to manually resume both 
+CPUs.
+
+An alternative to this is the XOCDMode output and the RunStall (or DebugStall)
+input. When these are cross-connected, a CPU that goes into debug mode will
+halt execution entirely on the other CPU. Execution on the other CPU can be
+resumed by either the first CPU going out of debug mode, or the second CPU
+going into debug mode: the stall is temporarily lifted as long as the stalled
+CPU is in debug mode.
+
+A third, separate, signal is CrossTrigger. This is connected in the same way 
+as the breakIn/breakOut network, but is for the TRAX (trace memory) feature;
+it does not affect OCD in any way.
+*/
+
+
 #define TAPINS_PWRCTL	0x08
 #define TAPINS_PWRSTAT	0x09
 #define TAPINS_NARSEL	0x1C
