@@ -251,6 +251,7 @@ it does not affect OCD in any way.
 #define XT_NUM_BREAKPOINTS 2
 #define XT_NUM_WATCHPOINTS 2
 
+
 //Xtensa register list taken from gdb/gdb/xtensa-config.c
 //gdb wants the registers in the order gdb/regformats/reg-xtensa.dat describes
 //them. The enum and esp108_regs structs should be in the same order.
@@ -650,10 +651,12 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
 #define XT_INS_WUR(UR,T) _XT_INS_FORMAT_RRR(0xF30000,UR,T)
 
 
+//forward declarations
 static int xtensa_step(struct target *target,
 	int current,
 	uint32_t address,
 	int handle_breakpoints);
+static int xtensa_poll(struct target *target);
 
 
 static void esp108_add_set_ir(struct target *target, uint8_t value)
@@ -1595,8 +1598,7 @@ static int xtensa_poll(struct target *target)
 	if (!(esp108->prevpwrstat&PWRSTAT_COREWASRESET) && pwrstat&PWRSTAT_COREWASRESET) LOG_INFO("%s: Core was reset (pwrstat=0x%02X, after clear 0x%02X).", target->cmd_name, pwrstat, pwrstath);
 	esp108->prevpwrstat=pwrstath;
 
-
-	//Enable JTAG
+	//Enable JTAG, set reset if needed
 	cmd=PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP;
 	if (esp108->resetAsserted) cmd|=PWRCTL_CORERESET;
 	esp108_queue_pwrctl_set(target, cmd);
@@ -1654,6 +1656,71 @@ static int xtensa_arch_state(struct target *target)
 	return ERROR_OK;
 }
 
+COMMAND_HANDLER(esp108_cmd_smpbreak)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	int i, res;
+	uint32_t set, clear;
+	uint8_t dsr[4];
+
+	if (target->state != TARGET_HALTED) {
+		command_print(CMD_CTX, "target must be stopped for \"%s\" command", CMD_NAME);
+		return ERROR_OK;
+	}
+
+	if (CMD_ARGC >= 1) {
+		set=0xdeadbeef;
+		if (!strcmp(CMD_ARGV[0], "none")) set=0;
+		if (!strcmp(CMD_ARGV[0], "breakinout")) set=OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN;
+		if (!strcmp(CMD_ARGV[0], "runstall")) set=OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN;
+		if (set==0xdeadbeef) {
+			command_print(CMD_CTX, "%s: Invalid argument.", CMD_ARGV[0]);
+		} else {
+			clear=set^(OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN|OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN);
+			esp108_queue_nexus_reg_write(target, NARADR_DCRSET, set);
+			esp108_queue_nexus_reg_write(target, NARADR_DCRCLR, clear);
+		}
+	}
+	esp108_queue_nexus_reg_read(target, NARADR_DCRSET, dsr);
+	res=jtag_execute_queue();
+	if (res==ERROR_OK) {
+		i=intfromchars(dsr)&(OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN|OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN);
+		command_print(CMD_CTX, "Current bits set:%s%s%s%s%s", 
+					(i==0)?" none":"",
+					(i&OCDDCR_BREAKINEN)?" BreakInEn":"",
+					(i&OCDDCR_BREAKOUTEN)?" BreakOutEn":"",
+					(i&OCDDCR_RUNSTALLINEN)?" RunStallinEn":"",
+					(i&OCDDCR_DEBUGMODEOUTEN)?" DebugModeOutEn":""
+				);
+	}
+	return res;
+}
+
+
+
+static const struct command_registration esp108_any_command_handlers[] = {
+	{
+		.name = "smpbreak",
+		.handler = esp108_cmd_smpbreak,
+		.mode = COMMAND_ANY,
+		.help = "Set the way the CPU chains OCD breaks",
+		.usage = "[none|breakinout|runstall]",
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
+static const struct command_registration esp108_command_handlers[] = {
+	{
+		.name = "esp108",
+		.mode = COMMAND_ANY,
+		.help = "ESP108 command group",
+		.usage = "",
+		.chain = esp108_any_command_handlers,
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
+
 /** Holds methods for Xtensa targets. */
 struct target_type esp108_target = {
 	.name = "esp108",
@@ -1685,5 +1752,7 @@ struct target_type esp108_target = {
 	.target_create = xtensa_target_create,
 	.init_target = xtensa_init_target,
 	.examine = xtensa_examine,
+
+	.commands = esp108_command_handlers,
 };
 
