@@ -1035,6 +1035,7 @@ static int xtensa_read_memory(struct target *target,
 		memcpy(buffer, albuff+(address&3), (size*count));
 		free(albuff);
 	}
+
 	return res;
 }
 
@@ -1154,10 +1155,6 @@ static int xtensa_get_gdb_reg_list(struct target *target,
 	struct esp108_common *esp108 = target->arch_info;
 	LOG_DEBUG("%s", __func__);
 
-	if (target->state != TARGET_HALTED)
-		return ERROR_TARGET_NOT_HALTED;
-
-
 	*reg_list_size = XT_NUM_REGS;
 	*reg_list = malloc(sizeof(struct reg *) * (*reg_list_size));
 
@@ -1253,6 +1250,7 @@ static int xtensa_add_breakpoint(struct target *target, struct breakpoint *break
 	reg_list[XT_REG_IDX_IBREAKENABLE].dirty=1;
 	esp108->hw_brps[slot] = breakpoint;
 
+	LOG_INFO("%s: placed hw breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
 	return ERROR_OK;
 }
 
@@ -1276,6 +1274,7 @@ static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *br
 	*((int*)reg_list[XT_REG_IDX_IBREAKENABLE].value)&=~(1<<slot);
 	reg_list[XT_REG_IDX_IBREAKENABLE].dirty=1;
 	esp108->hw_brps[slot] = NULL;
+	LOG_INFO("%s: cleared hw breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
 	return ERROR_OK;
 }
 
@@ -1469,6 +1468,9 @@ static int xtensa_step(struct target *target,
 	/* write ICOUNTLEVEL back to zero */
 	*((int*)reg_list[XT_REG_IDX_ICOUNTLEVEL].value)=0;
 	reg_list[XT_REG_IDX_ICOUNTLEVEL].dirty=1;
+	*((int*)reg_list[XT_REG_IDX_ICOUNT].value)=0;
+	reg_list[XT_REG_IDX_ICOUNT].dirty=1;
+
 
 	return res;
 }
