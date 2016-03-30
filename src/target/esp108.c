@@ -730,7 +730,7 @@ static void esp108_reg_set(struct reg *reg, uint32_t value)
 	uint32_t oldval;
 	oldval=*((uint32_t*)reg->value);
 	if (oldval==value) return;
-	*((uint32_t*)reg->value)=oldval;
+	*((uint32_t*)reg->value)=value;
 	reg->dirty=1;
 }
 
