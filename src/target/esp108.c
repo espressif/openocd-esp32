@@ -973,6 +973,8 @@ static int xtensa_resume(struct target *target,
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	struct reg *reg_list=esp108->core_cache->reg_list;
 	int res=ERROR_OK;
+	size_t slot;
+	uint32_t bpena;
 
 	LOG_DEBUG("%s: %s current=%d address=%04" PRIx32, target->cmd_name, __func__, current, address);
 
@@ -992,6 +994,20 @@ static int xtensa_resume(struct target *target,
 			xtensa_step(target, current, address, handle_breakpoints);
 		}
 	}
+
+	//Write back hw breakpoints. Current FreeRTOS SMP code can set a hw breakpoint on an
+	//exception; we need to clear that and return to the breakpoints gdb has set on resume.
+	bpena=0;
+	for(slot = 0; slot < esp108->num_brps; slot++) {
+		if (esp108->hw_brps[slot]!=NULL) {
+			/* Write IBREAKA[slot] and set bit #slot in IBREAKENABLE */
+			*((int*)reg_list[XT_REG_IDX_IBREAKA0+slot].value)=esp108->hw_brps[slot]->address;
+			reg_list[XT_REG_IDX_IBREAKA0+slot].dirty=1;
+			bpena|=(1<<slot);
+		}
+	}
+	*((int*)reg_list[XT_REG_IDX_IBREAKENABLE].value)=bpena;
+	reg_list[XT_REG_IDX_IBREAKENABLE].dirty=1;
 
 	res=esp108_write_dirty_registers(target);
 	if(res != ERROR_OK) {
@@ -1256,7 +1272,6 @@ static int xtensa_deassert_reset(struct target *target)
 static int xtensa_add_breakpoint(struct target *target, struct breakpoint *breakpoint)
 {
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
-	struct reg *reg_list=esp108->core_cache->reg_list;
 	size_t slot;
 
 	if (target->state != TARGET_HALTED) {
@@ -1274,16 +1289,13 @@ static int xtensa_add_breakpoint(struct target *target, struct breakpoint *break
 	}
 	if (slot==esp108->num_brps) return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 
-	/* Write IBREAKA[slot] and set bit #slot in IBREAKENABLE */
-	*((int*)reg_list[XT_REG_IDX_IBREAKA0+slot].value)=breakpoint->address;
-	reg_list[XT_REG_IDX_IBREAKA0+slot].dirty=1;
-	*((int*)reg_list[XT_REG_IDX_IBREAKENABLE].value)|=(1<<slot);
-	reg_list[XT_REG_IDX_IBREAKENABLE].dirty=1;
 	esp108->hw_brps[slot] = breakpoint;
+	//We will actually write the breakpoints when we resume the target.
 
 	LOG_INFO("%s: placed hw breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
 	return ERROR_OK;
 }
+
 
 static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *breakpoint)
 {
