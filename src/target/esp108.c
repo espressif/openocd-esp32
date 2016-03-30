@@ -720,6 +720,21 @@ static void esp108_queue_exec_ins(struct target *target, int32_t ins)
 	esp108_queue_nexus_reg_write(target, NARADR_DIR0EXEC, ins);
 }
 
+static uint32_t esp108_reg_get(struct reg *reg)
+{
+	return *((uint32_t*)reg->value);
+}
+
+static void esp108_reg_set(struct reg *reg, uint32_t value)
+{
+	uint32_t oldval;
+	oldval=*((uint32_t*)reg->value);
+	if (oldval==value) return;
+	*((uint32_t*)reg->value)=oldval;
+	reg->dirty=1;
+}
+
+
 //Small helper function to convert the char arrays that result from a jtag
 //call to a well-formatted uint32_t.
 static uint32_t intfromchars(uint8_t *c) 
@@ -763,8 +778,6 @@ static int esp108_do_checkdsr(struct target *target, const char *function, const
 	return ERROR_OK;
 }
 
-
-
 static void esp108_mark_register_dirty(struct target *target, int regidx)
 {
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
@@ -773,7 +786,8 @@ static void esp108_mark_register_dirty(struct target *target, int regidx)
 }
 
 //Convert a register index that's indexed relative to windowbase, to the real address.
-static enum xtensa_reg_idx windowbase_offset_to_canonical(const enum xtensa_reg_idx reg, const int windowbase) {
+static enum xtensa_reg_idx windowbase_offset_to_canonical(const enum xtensa_reg_idx reg, const int windowbase)
+{
 	int idx;
 	if (reg>=XT_REG_IDX_AR0 && reg<=XT_REG_IDX_AR63) {
 		idx=reg-XT_REG_IDX_AR0;
@@ -786,7 +800,8 @@ static enum xtensa_reg_idx windowbase_offset_to_canonical(const enum xtensa_reg_
 	return ((idx+(windowbase*4))&63)+XT_REG_IDX_AR0;
 }
 
-static enum xtensa_reg_idx canonical_to_windowbase_offset(const enum xtensa_reg_idx reg, const int windowbase) {
+static enum xtensa_reg_idx canonical_to_windowbase_offset(const enum xtensa_reg_idx reg, const int windowbase)
+{
 	return windowbase_offset_to_canonical(reg, -windowbase);
 }
 
@@ -841,8 +856,6 @@ static int esp108_fetch_all_regs(struct target *target)
 	//Decode the result and update the cache.
 	for (i=0; i<XT_NUM_REGS; i++) {
 		if (!(esp108_regs[i].flags&XT_REGF_NOREAD)) {
-			reg_list[i].valid=1;
-			reg_list[i].dirty=0;
 			if (esp108_regs[i].type==XT_REG_GENERAL) {
 				//The 64-value general register set is read from (windowbase) on down. We need
 				//to get the real register address by subtracting windowbase and wrapping around.
@@ -855,13 +868,15 @@ static int esp108_fetch_all_regs(struct target *target)
 				regval=intfromchars(regvals[i]);
 //				LOG_INFO("Register %s: 0x%X", esp108_regs[i].name, regval);
 			}
-			*((uint32_t*)reg_list[i].value)=regval;
+			esp108_reg_set(&reg_list[i], regval);
+			reg_list[i].valid=1;
+			reg_list[i].dirty=0; //always do this _after_ esp108_reg_set!
 		} else {
 			reg_list[i].valid=0;
 		}
 	}
 	//We have used A3 as a scratch register and we will need to write that back.
-	reg_list[XT_REG_IDX_A3].dirty=1;
+	esp108_mark_register_dirty(target, XT_REG_IDX_A3);
 
 	return ERROR_OK;
 }
@@ -882,7 +897,7 @@ static int esp108_write_dirty_registers(struct target *target)
 	for (i=0; i<XT_NUM_REGS; i++) {
 		if (reg_list[i].dirty) {
 			if (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER) {
-				regval=*((uint32_t *)reg_list[i].value);
+				regval=esp108_reg_get(&reg_list[i]);
 				LOG_DEBUG("%s: Writing back reg %s val %08X", target->cmd_name, esp108_regs[i].name, regval);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A3));
@@ -897,7 +912,7 @@ static int esp108_write_dirty_registers(struct target *target)
 	}
 
 	//Grab the windowbase, we need it.
-	windowbase=*((uint32_t *)reg_list[XT_REG_IDX_WINDOWBASE].value);
+	windowbase=esp108_reg_get(&reg_list[XT_REG_IDX_WINDOWBASE]);
 
 	//Check if there are problems with both the ARx as well as the corresponding Rx registers set and dirty.
 	//Warn the user if this happens, not much else we can do...
@@ -913,7 +928,7 @@ static int esp108_write_dirty_registers(struct target *target)
 	//Write A0-A16
 	for (i=0; i<16; i++) {
 		if (reg_list[XT_REG_IDX_A0+i].dirty) {
-			regval=*((uint32_t *)reg_list[XT_REG_IDX_A0+i].value);
+			regval=esp108_reg_get(&reg_list[XT_REG_IDX_A0+i]);
 			LOG_DEBUG("%s: Writing back reg %s value %08X", target->cmd_name, esp108_regs[XT_REG_IDX_A0+i].name, regval);
 			esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 			esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, i));
@@ -928,7 +943,7 @@ static int esp108_write_dirty_registers(struct target *target)
 			int realadr=windowbase_offset_to_canonical(XT_REG_IDX_AR0+i+j, windowbase);
 			//Write back any dirty un-windowed registers
 			if (reg_list[realadr].dirty) {
-				regval=*((uint32_t *)reg_list[realadr].value);
+				regval=esp108_reg_get(&reg_list[realadr]);
 				LOG_DEBUG("%s: Writing back reg %s value %08X", target->cmd_name, esp108_regs[realadr].name, regval);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i+j].reg_num));
@@ -984,10 +999,9 @@ static int xtensa_resume(struct target *target,
 	}
 
 	if(address && !current) {
-		reg_list[XT_REG_IDX_PC].dirty=1;
-		*((int*)reg_list[XT_REG_IDX_PC].value)=address;
+		esp108_reg_set(&reg_list[XT_REG_IDX_PC], address);
 	} else {
-		int cause=*((int*)reg_list[XT_REG_IDX_DEBUGCAUSE].value);
+		int cause=esp108_reg_get(&reg_list[XT_REG_IDX_DEBUGCAUSE]);
 		if (cause&DEBUGCAUSE_DB) {
 			//We stopped due to a watchpoint. We can't just resume executing the instruction again because
 			//that would trigger the watchpoint again. To fix this, we single-step, which ignores watchpoints.
@@ -1001,13 +1015,11 @@ static int xtensa_resume(struct target *target,
 	for(slot = 0; slot < esp108->num_brps; slot++) {
 		if (esp108->hw_brps[slot]!=NULL) {
 			/* Write IBREAKA[slot] and set bit #slot in IBREAKENABLE */
-			*((int*)reg_list[XT_REG_IDX_IBREAKA0+slot].value)=esp108->hw_brps[slot]->address;
-			reg_list[XT_REG_IDX_IBREAKA0+slot].dirty=1;
+			esp108_reg_set(&reg_list[XT_REG_IDX_IBREAKA0+slot], esp108->hw_brps[slot]->address);
 			bpena|=(1<<slot);
 		}
 	}
-	*((int*)reg_list[XT_REG_IDX_IBREAKENABLE].value)=bpena;
-	reg_list[XT_REG_IDX_IBREAKENABLE].dirty=1;
+	esp108_reg_set(&reg_list[XT_REG_IDX_IBREAKENABLE], bpena);
 
 	res=esp108_write_dirty_registers(target);
 	if(res != ERROR_OK) {
@@ -1205,11 +1217,13 @@ static int xtensa_get_gdb_reg_list(struct target *target,
 	*reg_list_size = XT_NUM_REGS;
 	*reg_list = malloc(sizeof(struct reg *) * (*reg_list_size));
 
-	if (!*reg_list)
+	if (!*reg_list) {
 		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
 
-	for (i = 0; i < XT_NUM_REGS; i++)
+	for (i = 0; i < XT_NUM_REGS; i++) {
 		(*reg_list)[i] = &esp108->core_cache->reg_list[i];
+	}
 
 	return ERROR_OK;
 }
@@ -1219,8 +1233,7 @@ static int xtensa_get_core_reg(struct reg *reg)
 //We don't need this because we read all registers on halt anyway.
 	struct esp108_common *esp108 = reg->arch_info;
 	struct target *target = esp108->target;
-	if (target->state != TARGET_HALTED)
-		return ERROR_TARGET_NOT_HALTED;
+	if (target->state != TARGET_HALTED) return ERROR_TARGET_NOT_HALTED;
 	return ERROR_OK;
 }
 
@@ -1231,8 +1244,7 @@ static int xtensa_set_core_reg(struct reg *reg, uint8_t *buf)
 
 	uint32_t value = buf_get_u32(buf, 0, 32);
 
-	if (target->state != TARGET_HALTED)
-		return ERROR_TARGET_NOT_HALTED;
+	if (target->state != TARGET_HALTED) return ERROR_TARGET_NOT_HALTED;
 
 	buf_set_u32(reg->value, 0, reg->size, value);
 	reg->dirty = 1;
@@ -1300,7 +1312,6 @@ static int xtensa_add_breakpoint(struct target *target, struct breakpoint *break
 static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *breakpoint)
 {
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
-	struct reg *reg_list = esp108->core_cache->reg_list;
 	size_t slot;
 
 	if (target->state != TARGET_HALTED) {
@@ -1313,9 +1324,6 @@ static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *br
 			break;
 	}
 	if (slot==esp108->num_brps) return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
-	/* Clear bit #slot in IBREAKENABLE */
-	*((int*)reg_list[XT_REG_IDX_IBREAKENABLE].value)&=~(1<<slot);
-	reg_list[XT_REG_IDX_IBREAKENABLE].dirty=1;
 	esp108->hw_brps[slot] = NULL;
 	LOG_INFO("%s: cleared hw breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
 	return ERROR_OK;
@@ -1343,7 +1351,9 @@ static int xtensa_add_watchpoint(struct target *target, struct watchpoint *watch
 	}
 	if (slot==esp108->num_wps) return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 
-	/* Figure out value for dbreakc5..0 */
+	//Figure out value for dbreakc5..0
+	//It's basically 0x3F with an incremental bit removed from the LSB for each extra length power of 2.
+	//Yes, I could have calculated this, but for 7 options...
 	dbreakcval=0xaa; //invalid, so we can check if this is changed later
 	if (watchpoint->length==1 && (watchpoint->address&0x00)==0) dbreakcval=0x3F;
 	if (watchpoint->length==2 && (watchpoint->address&0x01)==0) dbreakcval=0x3E;
@@ -1362,10 +1372,8 @@ static int xtensa_add_watchpoint(struct target *target, struct watchpoint *watch
 	if (watchpoint->rw==WPT_ACCESS) dbreakcval|=(1<<30)+(1<<31);
 
 	/* Write DBREAKA[slot] and DBCREAKC[slot]*/
-	*((int*)reg_list[XT_REG_IDX_DBREAKA0+slot].value)=watchpoint->address;
-	reg_list[XT_REG_IDX_DBREAKA0+slot].dirty=1;
-	*((int*)reg_list[XT_REG_IDX_DBREAKC0+slot].value)|=dbreakcval;
-	reg_list[XT_REG_IDX_DBREAKC0+slot].dirty=1;
+	esp108_reg_set(&reg_list[XT_REG_IDX_DBREAKA0+slot], watchpoint->address);
+	esp108_reg_set(&reg_list[XT_REG_IDX_DBREAKC0+slot], dbreakcval);
 	esp108->hw_wps[slot] = watchpoint;
 
 	return ERROR_OK;
@@ -1389,8 +1397,7 @@ static int xtensa_remove_watchpoint(struct target *target, struct watchpoint *wa
 	if (slot==esp108->num_wps) return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 
 	/* Clear DBREAKC[slot] to disable watchpoint */
-	*((int*)reg_list[XT_REG_IDX_DBREAKC0+slot].value)=0;
-	reg_list[XT_REG_IDX_DBREAKC0+slot].dirty=1;
+	esp108_reg_set(&reg_list[XT_REG_IDX_DBREAKC0+slot], 0);
 	esp108->hw_wps[slot] = NULL;
 
 	return ERROR_OK;
@@ -1434,32 +1441,28 @@ static int xtensa_step(struct target *target,
 	   TODO: Experiment more, look into CPU exception nuances,
 	   consider making this step level a configuration command.
 	 */
-	*((int*)reg_list[XT_REG_IDX_ICOUNTLEVEL].value)=6;
-	reg_list[XT_REG_IDX_ICOUNTLEVEL].dirty=1;
-	*((int*)reg_list[XT_REG_IDX_ICOUNT].value)=icount_val;
-	reg_list[XT_REG_IDX_ICOUNT].dirty=1;
+	esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], 6);
+	esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNT], icount_val);
 
 	//Save old ps
-	oldps=*((int*)reg_list[XT_REG_IDX_PS].value);
+	oldps=esp108_reg_get(&reg_list[XT_REG_IDX_PS]);
 	//If intlevel precludes single-stepping, downgrade it
 	if ((oldps&0xF)>=6) {
 		LOG_INFO("PS is %d, which is too high for single-stepping. Resetting to 1.", oldps&0xF);
-		*((int*)reg_list[XT_REG_IDX_PS].value)=(oldps&~0xf)|1;
-		reg_list[XT_REG_IDX_PS].dirty=1;
+		esp108_reg_set(&reg_list[XT_REG_IDX_PS], (oldps&~0xf)|1);
 	}
 
-	cause=*((int*)reg_list[XT_REG_IDX_DEBUGCAUSE].value);
+	cause=esp108_reg_get(&reg_list[XT_REG_IDX_DEBUGCAUSE]);
 	if (cause&DEBUGCAUSE_DB) {
 		//We stopped due to a watchpoint. We can't just resume executing the instruction again because
 		//that would trigger the watchpoint again. To fix this, we remove watchpoints, single-step and
 		//re-enable the watchpoint.
 		LOG_DEBUG("%s: Single-stepping to get past instruction that triggered the watchpoint...", target->cmd_name);
-		*((int*)reg_list[XT_REG_IDX_DEBUGCAUSE].value)=0; //so we don't recurse into the same routine
+		esp108_reg_set(&reg_list[XT_REG_IDX_DEBUGCAUSE], 0); //so we don't recurse into the same routine
 		//Save all DBREAKCx registers and set to 0 to disable watchpoints
 		for(slot = 0; slot < esp108->num_wps; slot++) {
-			dbreakc[slot]=*((uint32_t*)reg_list[XT_REG_IDX_DBREAKC0+slot].value);
-			*((uint32_t*)reg_list[XT_REG_IDX_DBREAKC0+slot].value)=0;
-			reg_list[XT_REG_IDX_DBREAKC0+slot].dirty=1;
+			dbreakc[slot]=esp108_reg_get(&reg_list[XT_REG_IDX_DBREAKC0+slot]);
+			esp108_reg_set(&reg_list[XT_REG_IDX_DBREAKC0+slot], 0);
 		}
 	}
 
@@ -1493,27 +1496,21 @@ static int xtensa_step(struct target *target,
 		LOG_DEBUG("%s: ...Done, re-instating watchpoints.", target->cmd_name);
 		//Restore the DBREAKCx registers
 		for(slot = 0; slot < esp108->num_wps; slot++) {
-			*((uint32_t*)reg_list[XT_REG_IDX_DBREAKC0+slot].value)=dbreakc[slot];
-			reg_list[XT_REG_IDX_DBREAKC0+slot].dirty=1;
+			esp108_reg_set(&reg_list[XT_REG_IDX_DBREAKC0+slot], dbreakc[slot]);
 		}
 	}
 
 	//Restore int level
 	//ToDo: Theoretically, this can mess up stepping over an instruction that modifies ps.intlevel
 	//by itself. Hmmm. ToDo: Look into this.
-	newps=*((int*)reg_list[XT_REG_IDX_PS].value);
+	newps=esp108_reg_get(&reg_list[XT_REG_IDX_PS]);
 	if (((oldps&0xF)>6) && (newps&0xf)!=(oldps&0xf)) {
 		newps=(newps&~0xf)|(oldps&0xf);
-		*((int*)reg_list[XT_REG_IDX_PS].value)=newps;
-		reg_list[XT_REG_IDX_PS].dirty=1;
+		esp108_reg_set(&reg_list[XT_REG_IDX_PS], newps);
 	}
 
 	/* write ICOUNTLEVEL back to zero */
-	*((int*)reg_list[XT_REG_IDX_ICOUNTLEVEL].value)=0;
-	reg_list[XT_REG_IDX_ICOUNTLEVEL].dirty=1;
-	*((int*)reg_list[XT_REG_IDX_ICOUNT].value)=0;
-	reg_list[XT_REG_IDX_ICOUNT].dirty=1;
-
+	esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], 0);
 
 	return res;
 }
@@ -1634,10 +1631,10 @@ static int xtensa_poll(struct target *target)
 			
 			//LOG_INFO("%s: %s: Target halted (dsr=%08X). Fetching register contents.", target->cmd_name, __FUNCTION__, intfromchars(dsr));
 			esp108_fetch_all_regs(target);
-			LOG_INFO("%s: Target halted, pc=0x%08X", target->cmd_name, *((int*)reg_list[XT_REG_IDX_PC].value));
+			LOG_INFO("%s: Target halted, pc=0x%08X", target->cmd_name, esp108_reg_get(&reg_list[XT_REG_IDX_PC]));
 
 			//Examine why the target was halted
-			int cause=*((int*)reg_list[XT_REG_IDX_DEBUGCAUSE].value);
+			int cause=esp108_reg_get(&reg_list[XT_REG_IDX_DEBUGCAUSE]);
 			target->debug_reason = DBG_REASON_DBGRQ;
 			if (cause&DEBUGCAUSE_IC) target->debug_reason = DBG_REASON_SINGLESTEP;
 			if (cause&(DEBUGCAUSE_IB|DEBUGCAUSE_BN|DEBUGCAUSE_BI)) target->debug_reason = DBG_REASON_BREAKPOINT;
