@@ -1517,6 +1517,7 @@ static int xtensa_step(struct target *target,
 
 	/* write ICOUNTLEVEL back to zero */
 	esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], 0);
+	res=esp108_write_dirty_registers(target);
 
 	//Make sure the poll routine will pick up that something has changed by artificially
 	//triggering a running->halted state change
