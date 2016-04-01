@@ -1019,6 +1019,7 @@ static int xtensa_resume(struct target *target,
 			bpena|=(1<<slot);
 		}
 	}
+	LOG_INFO("%s: IBREAKENABLE: %x", __FUNCTION__, bpena);
 	esp108_reg_set(&reg_list[XT_REG_IDX_IBREAKENABLE], bpena);
 
 	res=esp108_write_dirty_registers(target);
@@ -1416,40 +1417,23 @@ static int xtensa_step(struct target *target,
 	size_t slot;
 	uint8_t dsr[4];
 	static const uint32_t icount_val = -2; /* ICOUNT value to load for 1 step */
-	uint32_t oldps, newps;
+	uint32_t icountlvl;
+	uint32_t oldps, newps, oldpc;
+	int tries=100;
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("%s: %s: target not halted", target->cmd_name, __func__);
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	/* Load debug level into ICOUNTLEVEL
-
-	   (This bit of text copied from the ESP8266 JTAG code.
-	   No idea if it's still relevant. ToDo: check. -JD)
-
-	   Originally had DEBUGLEVEL (ie 2) set here, not 1, but
-	   seemed to result in occasionally stepping out into
-	   inaccessible bits of ROM (low level interrupt handlers?)
-	   and never quite recovering... One loop started at
-	   0x40000050. Re-attaching with ICOUNTLEVEL 1 caused this to
-	   immediately step into an interrupt handler.
-
-	   ICOUNTLEVEL 1 still steps into interrupt handlers, but also
-	   seems to recover.
-
-	   TODO: Experiment more, look into CPU exception nuances,
-	   consider making this step level a configuration command.
-	 */
-	esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], 6);
-	esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNT], icount_val);
-
-	//Save old ps
+	//Save old ps/pc
 	oldps=esp108_reg_get(&reg_list[XT_REG_IDX_PS]);
+	oldpc=esp108_reg_get(&reg_list[XT_REG_IDX_PC]);
+
 	//If intlevel precludes single-stepping, downgrade it
-	if ((oldps&0xF)>=6) {
-		LOG_INFO("PS is %d, which is too high for single-stepping. Resetting to 1.", oldps&0xF);
-		esp108_reg_set(&reg_list[XT_REG_IDX_PS], (oldps&~0xf)|1);
+	if ((oldps&0xF)==0xF) {
+		LOG_INFO("PS is %d, which is too high for single-stepping. Resetting to 6.", oldps&0xF);
+		esp108_reg_set(&reg_list[XT_REG_IDX_PS], (oldps&~0xf)|6);
 	}
 
 	cause=esp108_reg_get(&reg_list[XT_REG_IDX_DEBUGCAUSE]);
@@ -1459,6 +1443,7 @@ static int xtensa_step(struct target *target,
 		//re-enable the watchpoint.
 		LOG_DEBUG("%s: Single-stepping to get past instruction that triggered the watchpoint...", target->cmd_name);
 		esp108_reg_set(&reg_list[XT_REG_IDX_DEBUGCAUSE], 0); //so we don't recurse into the same routine
+		reg_list[XT_REG_IDX_DEBUGCAUSE].dirty=0;
 		//Save all DBREAKCx registers and set to 0 to disable watchpoints
 		for(slot = 0; slot < esp108->num_wps; slot++) {
 			dbreakc[slot]=esp108_reg_get(&reg_list[XT_REG_IDX_DBREAKC0+slot]);
@@ -1466,30 +1451,51 @@ static int xtensa_step(struct target *target,
 		}
 	}
 
-	/* Now ICOUNT is set, we can resume as if we were going to run */
-	res = xtensa_resume(target, current, address, 0, 0);
-	if(res != ERROR_OK) {
-		LOG_ERROR("%s: %s: Failed to resume after setting up single step", target->cmd_name, __func__);
-		return res;
-	}
+	//Sometimes (because of eg an interrupt) the pc won't actually increment. In that case, we repeat the
+	//step.
+	//(Later edit: Not sure about that actually... may have been a glitch in my logic. I'm keeping in this 
+	//loop anyway, it probably doesn't hurt anyway.)
+	do {
+		icountlvl=(esp108_reg_get(&reg_list[XT_REG_IDX_PS])&15)+1;
+		if (icountlvl>15) icountlvl=15;
+		
+		/* Load debug level into ICOUNTLEVEL. We'll make this one more than the current intlevel. */
+		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
+		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNT], icount_val);
 
-	/* Wait for stepping to complete */
-	int64_t start = timeval_ms();
-	while(timeval_ms() < start+500) {
-		//Do not use target_poll here, it also triggers other things... just manually read the DSR until stepping
-		//is complete.
-		esp108_queue_nexus_reg_read(target, NARADR_DSR, dsr);
-		res=jtag_execute_queue();
-		if(res != ERROR_OK) return res;
-		if (intfromchars(dsr)&OCDDSR_STOPPED) {
-			break;
-		} else {
-			usleep(50000);
+		/* Now ICOUNT is set, we can resume as if we were going to run */
+		res = xtensa_resume(target, current, address, 0, 0);
+		if(res != ERROR_OK) {
+			LOG_ERROR("%s: %s: Failed to resume after setting up single step", target->cmd_name, __func__);
+			return res;
 		}
-	}
-	if(!(intfromchars(dsr)&OCDDSR_STOPPED)) {
-		LOG_ERROR("%s: %s: Timed out waiting for target to finish stepping.", target->cmd_name, __func__);
-		return ERROR_TARGET_TIMEOUT;
+
+		/* Wait for stepping to complete */
+		int64_t start = timeval_ms();
+		while(timeval_ms() < start+500) {
+			//Do not use target_poll here, it also triggers other things... just manually read the DSR until stepping
+			//is complete.
+			esp108_queue_nexus_reg_read(target, NARADR_DSR, dsr);
+			res=jtag_execute_queue();
+			if(res != ERROR_OK) return res;
+			if (intfromchars(dsr)&OCDDSR_STOPPED) {
+				break;
+			} else {
+				usleep(50000);
+			}
+		}
+		if(!(intfromchars(dsr)&OCDDSR_STOPPED)) {
+			LOG_ERROR("%s: %s: Timed out waiting for target to finish stepping.", target->cmd_name, __func__);
+			return ERROR_TARGET_TIMEOUT;
+		} else {
+			target->state = TARGET_HALTED;
+			esp108_fetch_all_regs(target);
+		}
+	} while (esp108_reg_get(&reg_list[XT_REG_IDX_PC])==oldpc && --tries);
+	LOG_DEBUG("Stepped from %X to %X", oldpc, esp108_reg_get(&reg_list[XT_REG_IDX_PC]));
+
+	if (!tries) {
+		LOG_ERROR("%s: %s: Stepping doesn't seem to change PC!", target->cmd_name, __func__);
 	}
 
 	if (cause&DEBUGCAUSE_DB) {
@@ -1511,6 +1517,11 @@ static int xtensa_step(struct target *target,
 
 	/* write ICOUNTLEVEL back to zero */
 	esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], 0);
+
+	//Make sure the poll routine will pick up that something has changed by artificially
+	//triggering a running->halted state change
+	target->state = TARGET_RUNNING;
+
 
 	return res;
 }
