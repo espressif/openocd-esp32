@@ -1778,8 +1778,48 @@ COMMAND_HANDLER(esp108_cmd_smpbreak)
 }
 
 
+COMMAND_HANDLER(esp108_cmd_tracestart)
+{
+//	struct target *target = get_current_target(CMD_CTX);
+	return ERROR_OK;
+}
+
+
+COMMAND_HANDLER(esp108_cmd_tracestop)
+{
+//	struct target *target = get_current_target(CMD_CTX);
+	return ERROR_OK;
+}
+
+COMMAND_HANDLER(esp108_cmd_tracedump)
+{
+//	struct target *target = get_current_target(CMD_CTX);
+	return ERROR_OK;
+}
+
 
 static const struct command_registration esp108_any_command_handlers[] = {
+	{
+		.name = "tracestart",
+		.handler = esp108_cmd_tracestart,
+		.mode = COMMAND_ANY,
+		.help = "Tracing: Set up and start a trace. Optionally set stop trigger address and amount of data captured after.",
+		.usage = "[pc <pcval>/[maskbitcount]] [after <n> [ins|words]]",
+	},
+	{
+		.name = "tracestop",
+		.handler = esp108_cmd_tracestop,
+		.mode = COMMAND_ANY,
+		.help = "Tracing: Stop current trace as started by the tracestart command",
+		.usage = "",
+	},
+	{
+		.name = "tracedump",
+		.handler = esp108_cmd_tracedump,
+		.mode = COMMAND_ANY,
+		.help = "Tracing: Dump trace memory to a file",
+		.usage = "outfile",
+	},
 	{
 		.name = "smpbreak",
 		.handler = esp108_cmd_smpbreak,
@@ -1787,7 +1827,6 @@ static const struct command_registration esp108_any_command_handlers[] = {
 		.help = "Set the way the CPU chains OCD breaks",
 		.usage = "[none|breakinout|runstall] | [BreakIn] [BreakOut] [RunStallIn] [DebugModeOut]",
 	},
-
 	COMMAND_REGISTRATION_DONE
 };
 
