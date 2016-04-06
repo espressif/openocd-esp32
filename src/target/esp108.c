@@ -1670,7 +1670,7 @@ static int xtensa_poll(struct target *target)
 	uint8_t pwrstat, pwrstath;
 	int res;
 	int cmd;
-	uint8_t dsr[4], ocdid[4];
+	uint8_t dsr[4], ocdid[4], traxstat[4], traxctl[4];
 
 	//Read reset state
 	esp108_queue_pwrstat_readclear(target, &pwrstat);
@@ -1693,6 +1693,8 @@ static int xtensa_poll(struct target *target)
 	esp108_queue_nexus_reg_write(target, NARADR_DCRSET, OCDDCR_ENABLEOCD);
 	esp108_queue_nexus_reg_read(target, NARADR_OCDID, ocdid);
 	esp108_queue_nexus_reg_read(target, NARADR_DSR, dsr);
+	esp108_queue_nexus_reg_read(target, NARADR_TRAXSTAT, traxstat);
+	esp108_queue_nexus_reg_read(target, NARADR_TRAXCTRL, traxctl);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
 //	LOG_INFO("esp8266: ocdid 0x%X dsr 0x%X", intfromchars(ocdid), intfromchars(dsr));
@@ -1730,6 +1732,20 @@ static int xtensa_poll(struct target *target)
 			target->debug_reason = DBG_REASON_NOTHALTED;
 		}
 	}
+
+
+	if (esp108->traceActive) {
+		LOG_INFO("tracestat %x tracectl %x\n", intfromchars(traxstat), intfromchars(traxctl));
+		//Detect if tracing was active but has stopped.
+		if ((intfromchars(traxctl)&TRAXCTRL_TREN) && (!(intfromchars(traxstat)&TRAXSTAT_TRACT))) {
+			LOG_INFO("Detected end of trace.");
+			if (intfromchars(traxstat)&TRAXSTAT_PCMTG) LOG_INFO("%s: Trace stop triggered by PC match", target->cmd_name);
+			if (intfromchars(traxstat)&TRAXSTAT_PTITG) LOG_INFO("%s: Trace stop triggered by Processor Trigger Input", target->cmd_name);
+			if (intfromchars(traxstat)&TRAXSTAT_CTITG) LOG_INFO("%s: Trace stop triggered by Cross-trigger Input", target->cmd_name);
+			esp108->traceActive=0;
+		}
+	}
+
 	return ERROR_OK;
 }
 
@@ -1799,6 +1815,7 @@ COMMAND_HANDLER(esp108_cmd_smpbreak)
 COMMAND_HANDLER(esp108_cmd_tracestart)
 {
 	struct target *target = get_current_target(CMD_CTX);
+	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	uint32_t stoppc=0;
 	int stopmask=-1;
 	int after=0;
@@ -1835,6 +1852,11 @@ COMMAND_HANDLER(esp108_cmd_tracestart)
 		}
 	}
 
+	//Turn off trace unit so we can start a new trace.
+	esp108_queue_nexus_reg_write(target, NARADR_TRAXCTRL, 0);
+	res=jtag_execute_queue();
+	if (res!=ERROR_OK) return res;
+
 	esp108_queue_nexus_reg_write(target, NARADR_TRIGGERPC, stoppc);
 	if (stopmask!=-1) {
 		esp108_queue_nexus_reg_write(target, NARADR_PCMATCHCTRL, (stopmask<<PCMATCHCTRL_PCML_SHIFT));
@@ -1851,6 +1873,8 @@ COMMAND_HANDLER(esp108_cmd_tracestart)
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
 
+	LOG_INFO("Trace started.\n");
+	esp108->traceActive=1;
 	return ERROR_OK;
 }
 
@@ -1881,8 +1905,8 @@ COMMAND_HANDLER(esp108_cmd_tracestop)
 COMMAND_HANDLER(esp108_cmd_tracedump)
 {
 	struct target *target = get_current_target(CMD_CTX);
-	uint8_t traxstat[4], memadrstart[4], memadrend[4], adr[4];
-	int memsz;
+	uint8_t traxstat[4], memadrstart[4], memadrend[4], adr[4], traxctl[4];
+	int memsz, wmem;
 	uint8_t *tracemem;
 	int i, f, res;
 
@@ -1892,13 +1916,19 @@ COMMAND_HANDLER(esp108_cmd_tracedump)
 	}
 	
 	esp108_queue_nexus_reg_read(target, NARADR_TRAXSTAT, traxstat);
+	esp108_queue_nexus_reg_read(target, NARADR_TRAXCTRL, traxctl);
 	esp108_queue_nexus_reg_read(target, NARADR_MEMADDRSTART, memadrstart);
 	esp108_queue_nexus_reg_read(target, NARADR_MEMADDREND, memadrend);
 	esp108_queue_nexus_reg_read(target, NARADR_TRAXADDR, adr);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
 	if (intfromchars(traxstat)&TRAXSTAT_TRACT) {
-		command_print(CMD_CTX, "Tracing is already active. Please stop it first.");
+		command_print(CMD_CTX, "Tracing is still active. Please stop it first.");
+		return ERROR_FAIL;
+	}
+
+	if (!intfromchars(traxctl)&TRAXCTRL_TREN) {
+		command_print(CMD_CTX, "No active trace found; nothing to dump.");
 		return ERROR_FAIL;
 	}
 
@@ -1908,18 +1938,32 @@ COMMAND_HANDLER(esp108_cmd_tracedump)
 		return ERROR_FAIL;
 	}
 
-	memsz=(intfromchars(memadrend)-intfromchars(memadrstart))/4; //Memadr* is in bytes, memsz in words
+	memsz=(intfromchars(memadrend)-intfromchars(memadrstart)+1)/4; //Memadr* is in bytes, memsz in words
+	LOG_INFO("Total trace memory: %d words", memsz);
 	if ((intfromchars(adr)&((TRAXADDR_TWRAP_MASK<<TRAXADDR_TWRAP_SHIFT)|TRAXADDR_TWSAT))==0) {
 		//Memory hasn't overwritten itself yet.
-		memsz=intfromchars(adr)&TRAXADDR_TADDR_MASK;
+		wmem=intfromchars(adr)&TRAXADDR_TADDR_MASK;
+		LOG_INFO("...but trace is only %d words", wmem);
+		if (wmem<memsz) memsz=wmem;
+	} else {
+		if (intfromchars(adr)&TRAXADDR_TWSAT) {
+			LOG_INFO("Real trace is many times longer than that (overflow)");
+		} else {
+			i=(intfromchars(adr)>>TRAXADDR_TWRAP_SHIFT)&TRAXADDR_TWRAP_MASK;
+			i=(i*memsz)+(intfromchars(adr)&TRAXADDR_TADDR_MASK);
+			LOG_INFO("Real trace is %d words, but the start has been truncated.", i);
+		}
 	}
-	tracemem=malloc(memsz);
+	tracemem=malloc(memsz*4);
 	for (i=0; i<memsz; i++) {
 		esp108_queue_nexus_reg_read(target, NARADR_TRAXDATA, &tracemem[i*4]);
 	}
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
-	write(f, tracemem, memsz*4);
+	if (write(f, tracemem, memsz*4)!=memsz*4) {
+		command_print(CMD_CTX, "Unable to write to file %s", CMD_ARGV[0]);
+	}
+	close(f);
 	command_print(CMD_CTX, "Written %d bytes of trace data to %s", memsz*4, CMD_ARGV[0]);
 
 	return ERROR_OK;

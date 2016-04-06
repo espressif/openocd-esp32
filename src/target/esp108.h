@@ -37,6 +37,7 @@ struct esp108_common {
 	struct target *target;
 	uint8_t prevpwrstat;
 	int resetAsserted;
+	int traceActive;
 
 	uint32_t num_brps; /* Number of breakpoints available */
 	struct breakpoint **hw_brps;
