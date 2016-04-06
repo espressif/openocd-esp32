@@ -107,6 +107,24 @@ it does not affect OCD in any way.
 */
 
 
+/*
+Tracing:
+
+The ESP108 core has some trace memory that can be used to trace program
+flow up to a trigger point. Barebone tracing support is included in this
+driver in the form of trace* commands. OpenOCD does have some existing
+infrastructure for tracing hardware, but it's all very undocumented and
+seems to have some ARM-specific things, so we do not use that.
+
+The tracing infrastructure does have the option to stop at a certain PC
+and trigger a debugging interrupt. Theoretically, if we do not use
+the trace functionality, we might be able to use that as a 3rd hardware 
+breakpoint. ToDo: look into that. I asked, seems with the trace memory 
+disabled any traces done will disappear in the bitbucket, so this may be
+very much a viable option.
+*/
+
+
 #define TAPINS_PWRCTL	0x08
 #define TAPINS_PWRSTAT	0x09
 #define TAPINS_NARSEL	0x1C
@@ -255,8 +273,8 @@ it does not affect OCD in any way.
 #define TRAXCTRL_TSEN			(1<<11)	//Undocumented/deprecated?
 #define TRAXCTRL_SMPER_SHIFT	12		//Send sync every 2^(9-smper) messages. 7=reserved, 0=no sync msg
 #define TRAXCTRL_SMPER_MASK		0x7		//Synchronization message period
-#define TRAXCTRL_PTOWT			(1<<16) //Processor Trigger Out enabled when stop triggered
-#define TRAXCTRL_PTOWS			(1<<17) //Processor Trigger Out enabled when trace stop completes
+#define TRAXCTRL_PTOWT			(1<<16) //Processor Trigger Out (OCD halt) enabled when stop triggered
+#define TRAXCTRL_PTOWS			(1<<17) //Processor Trigger Out (OCD halt) enabled when trace stop completes
 #define TRAXCTRL_CTOWT			(1<<20) //Cross-trigger Out enabled when stop triggered
 #define TRAXCTRL_CTOWS			(1<<21) //Cross-trigger Out enabled when trace stop completes
 #define TRAXCTRL_ITCTO			(1<<22) //Integration mode: cross-trigger output
@@ -1780,20 +1798,130 @@ COMMAND_HANDLER(esp108_cmd_smpbreak)
 
 COMMAND_HANDLER(esp108_cmd_tracestart)
 {
-//	struct target *target = get_current_target(CMD_CTX);
+	struct target *target = get_current_target(CMD_CTX);
+	uint32_t stoppc=0;
+	int stopmask=-1;
+	int after=0;
+	int afterIsWords=0;
+	int res;
+	unsigned int i;
+	uint8_t traxstat[8];
+	
+	esp108_queue_nexus_reg_read(target, NARADR_TRAXSTAT, traxstat);
+	res=jtag_execute_queue();
+	if (res!=ERROR_OK) return res;
+	if (intfromchars(traxstat)&TRAXSTAT_TRACT) {
+		command_print(CMD_CTX, "Tracing is already active. Please stop it first.");
+		return ERROR_FAIL;
+	}
+
+	for (i=0; i<CMD_ARGC; i++) {
+		if ((!strcasecmp(CMD_ARGV[i], "pc")) && CMD_ARGC>i) {
+			char *e;
+			i++;
+			stoppc=strtol(CMD_ARGV[i], &e, 0);
+			stopmask=0;
+			if (*e=='/') stopmask=strtol(e, NULL, 0);
+		} else if ((!strcasecmp(CMD_ARGV[i], "after")) && CMD_ARGC>i) {
+			i++;
+			after=strtol(CMD_ARGV[i], NULL, 0);
+		} else if (!strcasecmp(CMD_ARGV[i], "ins")) {
+			afterIsWords=0;
+		} else if (!strcasecmp(CMD_ARGV[i], "words")) {
+			afterIsWords=1;
+		} else {
+			command_print(CMD_CTX, "Did not understand %s", CMD_ARGV[i]);
+			return ERROR_FAIL;
+		}
+	}
+
+	esp108_queue_nexus_reg_write(target, NARADR_TRIGGERPC, stoppc);
+	if (stopmask!=-1) {
+		esp108_queue_nexus_reg_write(target, NARADR_PCMATCHCTRL, (stopmask<<PCMATCHCTRL_PCML_SHIFT));
+		esp108_queue_nexus_reg_write(target, NARADR_TRIGGERPC, stoppc);
+	}
+
+	esp108_queue_nexus_reg_write(target, NARADR_DELAYCNT, after);
+	esp108_queue_nexus_reg_write(target, NARADR_TRAXADDR, 0);
+
+	//Options are mostly hardcoded for now. ToDo: make this configurable.
+	esp108_queue_nexus_reg_write(target, NARADR_TRAXCTRL,
+			TRAXCTRL_TREN | (stopmask!=-1?TRAXCTRL_PCMEN:0) | TRAXCTRL_TMEN |
+			(afterIsWords?0:TRAXCTRL_CNTU) | (0<<TRAXCTRL_SMPER_SHIFT) | TRAXCTRL_PTOWS );
+	res=jtag_execute_queue();
+	if (res!=ERROR_OK) return res;
+
 	return ERROR_OK;
 }
 
 
 COMMAND_HANDLER(esp108_cmd_tracestop)
 {
-//	struct target *target = get_current_target(CMD_CTX);
+	struct target *target = get_current_target(CMD_CTX);
+	uint8_t traxctl[4], traxstat[4];
+	int res;
+
+	esp108_queue_nexus_reg_read(target, NARADR_TRAXSTAT, traxstat);
+	esp108_queue_nexus_reg_read(target, NARADR_TRAXCTRL, traxctl);
+	res=jtag_execute_queue();
+	if (res!=ERROR_OK) return res;
+	if (!(intfromchars(traxstat)&TRAXSTAT_TRACT)) {
+		command_print(CMD_CTX, "No trace is currently active.");
+		return ERROR_FAIL;
+	}
+
+	esp108_queue_nexus_reg_write(target, NARADR_TRAXCTRL, intfromchars(traxctl)|TRAXCTRL_TRSTP);
+	res=jtag_execute_queue();
+	if (res!=ERROR_OK) return res;
+	
+	command_print(CMD_CTX, "Trace stop triggered.");
 	return ERROR_OK;
 }
 
 COMMAND_HANDLER(esp108_cmd_tracedump)
 {
-//	struct target *target = get_current_target(CMD_CTX);
+	struct target *target = get_current_target(CMD_CTX);
+	uint8_t traxstat[4], memadrstart[4], memadrend[4], adr[4];
+	int memsz;
+	uint8_t *tracemem;
+	int i, f, res;
+
+	if (CMD_ARGC != 1) {
+		command_print(CMD_CTX, "Need filename to dump to as output!");
+		return ERROR_FAIL;
+	}
+	
+	esp108_queue_nexus_reg_read(target, NARADR_TRAXSTAT, traxstat);
+	esp108_queue_nexus_reg_read(target, NARADR_MEMADDRSTART, memadrstart);
+	esp108_queue_nexus_reg_read(target, NARADR_MEMADDREND, memadrend);
+	esp108_queue_nexus_reg_read(target, NARADR_TRAXADDR, adr);
+	res=jtag_execute_queue();
+	if (res!=ERROR_OK) return res;
+	if (intfromchars(traxstat)&TRAXSTAT_TRACT) {
+		command_print(CMD_CTX, "Tracing is already active. Please stop it first.");
+		return ERROR_FAIL;
+	}
+
+	f=open(CMD_ARGV[0], O_WRONLY|O_CREAT|O_TRUNC, 0666);
+	if (f<=0) {
+		command_print(CMD_CTX, "Unable to open file %s", CMD_ARGV[0]);
+		return ERROR_FAIL;
+	}
+
+	memsz=(intfromchars(memadrend)-intfromchars(memadrstart))/4; //Memadr* is in bytes, memsz in words
+	if ((intfromchars(adr)&((TRAXADDR_TWRAP_MASK<<TRAXADDR_TWRAP_SHIFT)|TRAXADDR_TWSAT))==0) {
+		//Memory hasn't overwritten itself yet.
+		memsz=intfromchars(adr)&TRAXADDR_TADDR_MASK;
+	}
+	tracemem=malloc(memsz);
+	for (i=0; i<memsz; i++) {
+		esp108_queue_nexus_reg_read(target, NARADR_TRAXDATA, &tracemem[i*4]);
+	}
+	res=jtag_execute_queue();
+	if (res!=ERROR_OK) return res;
+	write(f, tracemem, memsz*4);
+	command_print(CMD_CTX, "Written %d bytes of trace data to %s", memsz*4, CMD_ARGV[0]);
+
 	return ERROR_OK;
 }
 
