@@ -319,7 +319,7 @@ very much a viable option.
 //gdb wants the registers in the order gdb/regformats/reg-xtensa.dat describes
 //them. The enum and esp108_regs structs should be in the same order.
 
-#define XT_NUM_REGS (151)
+#define XT_NUM_REGS (152)
 
 enum xtensa_reg_idx {
 	XT_REG_IDX_PC=0,
@@ -612,7 +612,7 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
 	{ "excsave5",				0xD5, XT_REG_SPECIAL, 0 }, 
 	{ "excsave6",				0xD6, XT_REG_SPECIAL, 0 }, 
 	{ "excsave7",				0xD7, XT_REG_SPECIAL, 0 }, 
-	{ "cpenable",				0xE0, XT_REG_SPECIAL }, 
+	{ "cpenable",				0xE0, XT_REG_SPECIAL, 0 }, 
 	{ "interrupt",				0xE2, XT_REG_SPECIAL, 0 }, 
 	{ "intset",				0xE2, XT_REG_SPECIAL, XT_REGF_NOREAD }, 
 	{ "intclear",				0xE3, XT_REG_SPECIAL, XT_REGF_NOREAD }, 
