@@ -321,6 +321,10 @@ very much a viable option.
 
 #define XT_NUM_REGS (152)
 
+//Number of registers returned directly by the G command
+//Corresponds to the amount of regs listed in regformats/reg-xtensa.dat in the gdb source
+#define XT_NUM_REGS_G_COMMAND (84)
+
 enum xtensa_reg_idx {
 	XT_REG_IDX_PC=0,
 	XT_REG_IDX_AR0,
@@ -1280,14 +1284,14 @@ static int xtensa_get_gdb_reg_list(struct target *target,
 	struct esp108_common *esp108 = target->arch_info;
 	LOG_DEBUG("%s", __func__);
 
-	*reg_list_size = XT_NUM_REGS;
+	*reg_list_size = XT_NUM_REGS_G_COMMAND;
 	*reg_list = malloc(sizeof(struct reg *) * (*reg_list_size));
 
 	if (!*reg_list) {
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
-	for (i = 0; i < XT_NUM_REGS; i++) {
+	for (i = 0; i < XT_NUM_REGS_G_COMMAND; i++) {
 		(*reg_list)[i] = &esp108->core_cache->reg_list[i];
 	}
 
