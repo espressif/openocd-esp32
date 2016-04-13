@@ -468,6 +468,18 @@ int rtos_generic_stack_read(struct target *target,
 	if (stacking->stack_growth_direction == 1)
 		address -= stacking->stack_registers_size;
 	retval = target_read_buffer(target, address, stacking->stack_registers_size, stack_data);
+
+//HUGE_ARSE HACKS FOR XTENSA!!! -JD
+//Modify PS to get rid of exception bit. This works.
+	stack_data[8]&=~0x10;
+//If unsollicited switch, fix up stack better. This does not work yet.
+	if (*((uint32_t *)stack_data)==0) {
+		//Kill call bits
+		((uint32_t *)stack_data)[4]=0x40074840;
+	}
+//End of hacks.
+
+	
 	if (retval != ERROR_OK) {
 		free(stack_data);
 		LOG_ERROR("Error reading stack frame from thread");

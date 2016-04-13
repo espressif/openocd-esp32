@@ -31,6 +31,9 @@
 #include "helper/types.h"
 #include "rtos_standard_stackings.h"
 
+const struct rtos_register_stacking *esp108_pick_stacking_info(struct rtos *rtos, int64_t thread_id);
+
+
 #define FREERTOS_MAX_PRIORITIES	63
 
 #define FreeRTOS_STRUCT(int_type, ptr_type, list_prev_offset)
@@ -46,6 +49,7 @@ struct FreeRTOS_params {
 	const unsigned char thread_stack_offset;
 	const unsigned char thread_name_offset;
 	const struct rtos_register_stacking *stacking_info;
+	const struct rtos_register_stacking* (*stacking_info_pick_fn)(struct rtos *rtos, int64_t thread_id);
 };
 
 static const struct FreeRTOS_params FreeRTOS_params_list[] = {
@@ -60,6 +64,7 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 	0,						/* thread_stack_offset; */
 	52,						/* thread_name_offset; */
 	&rtos_standard_Cortex_M3_stacking,	/* stacking_info */
+	NULL,					/* fn to pick stacking_info */
 	},
 	{
 	"hla_target",			/* target_name */
@@ -72,6 +77,7 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 	0,						/* thread_stack_offset; */
 	52,						/* thread_name_offset; */
 	&rtos_standard_Cortex_M3_stacking,	/* stacking_info */
+	NULL,					/* fn to pick stacking_info */
 	},
 	{
 	"nds32_v3",			/* target_name */
@@ -84,8 +90,65 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 	0,						/* thread_stack_offset; */
 	52,						/* thread_name_offset; */
 	&rtos_standard_NDS32_N1068_stacking,	/* stacking_info */
+	NULL,					/* fn to pick stacking_info */
 	},
+	{
+	"esp108",				/* target_name */
+	4,						/* thread_count_width; */
+	4,						/* pointer_width; */
+	16,						/* list_next_offset; */
+	20,						/* list_width; */
+	8,						/* list_elem_next_offset; */
+	12,						/* list_elem_content_offset */
+	0,						/* thread_stack_offset; */
+	52,						/* thread_name_offset; */
+	NULL,					/* stacking_info */
+	esp108_pick_stacking_info, /* fn to pick stacking_info */
+	},
+
 };
+
+const struct rtos_register_stacking *esp108_pick_stacking_info(struct rtos *rtos, int64_t thread_id)
+{
+	int retval;
+	const struct FreeRTOS_params *param;
+	int64_t stack_ptr = 0;
+	uint64_t stk_exit;
+
+	if (rtos == NULL)
+		return &rtos_standard_esp108_stacking;
+
+	if (thread_id == 0)
+		return &rtos_standard_esp108_stacking;
+
+	if (rtos->rtos_specific_params == NULL)
+		return &rtos_standard_esp108_stacking;
+
+	param = (const struct FreeRTOS_params *) rtos->rtos_specific_params;
+
+	LOG_INFO("Figuring out stack type for thread %lx", thread_id);
+	/* Read the stack pointer */
+	retval = target_read_buffer(rtos->target,
+			thread_id + param->thread_stack_offset,
+			param->pointer_width,
+			(uint8_t *)&stack_ptr);
+	LOG_INFO("SP: %lx", stack_ptr);
+
+	/* Read the XT_STK_EXIT variable */
+	if (retval!=ERROR_OK) return &rtos_standard_esp108_stacking;
+	retval = target_read_buffer(rtos->target,
+			stack_ptr,
+			4,
+			(uint8_t *)&stk_exit);
+	
+	LOG_INFO("Thread %lx stk_exit %lx", thread_id, stk_exit);
+	
+	if (stk_exit) {
+		return &rtos_standard_esp108_stacking;
+	} else {
+		return &rtos_standard_voluntary_esp108_stacking;
+	}
+}
 
 #define FREERTOS_NUM_PARAMS ((int)(sizeof(FreeRTOS_params_list)/sizeof(struct FreeRTOS_params)))
 
@@ -417,8 +480,11 @@ static int FreeRTOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id, ch
 	LOG_DEBUG("FreeRTOS: Read stack pointer at 0x%" PRIx64 ", value 0x%" PRIx64 "\r\n",
 										thread_id + param->thread_stack_offset,
 										stack_ptr);
-
-	return rtos_generic_stack_read(rtos->target, param->stacking_info, stack_ptr, hex_reg_list);
+	if (param->stacking_info_pick_fn) {
+		return rtos_generic_stack_read(rtos->target, param->stacking_info_pick_fn(rtos, thread_id), stack_ptr, hex_reg_list);
+	} else {
+		return rtos_generic_stack_read(rtos->target, param->stacking_info, stack_ptr, hex_reg_list);
+	}
 }
 
 static int FreeRTOS_get_symbol_list_to_lookup(symbol_table_elem_t *symbol_list[])
