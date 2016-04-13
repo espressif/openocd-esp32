@@ -321,6 +321,10 @@ very much a viable option.
 
 #define XT_NUM_REGS (152)
 
+//Number of registers returned directly by the G command
+//Corresponds to the amount of regs listed in regformats/reg-xtensa.dat in the gdb source
+#define XT_NUM_REGS_G_COMMAND (84)
+
 enum xtensa_reg_idx {
 	XT_REG_IDX_PC=0,
 	XT_REG_IDX_AR0,
@@ -1084,7 +1088,6 @@ static int xtensa_resume(struct target *target,
 			bpena|=(1<<slot);
 		}
 	}
-	LOG_INFO("%s: IBREAKENABLE: %x", __FUNCTION__, bpena);
 	esp108_reg_set(&reg_list[XT_REG_IDX_IBREAKENABLE], bpena);
 
 	res=esp108_write_dirty_registers(target);
@@ -1280,14 +1283,14 @@ static int xtensa_get_gdb_reg_list(struct target *target,
 	struct esp108_common *esp108 = target->arch_info;
 	LOG_DEBUG("%s", __func__);
 
-	*reg_list_size = XT_NUM_REGS;
+	*reg_list_size = XT_NUM_REGS_G_COMMAND;
 	*reg_list = malloc(sizeof(struct reg *) * (*reg_list_size));
 
 	if (!*reg_list) {
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
-	for (i = 0; i < XT_NUM_REGS; i++) {
+	for (i = 0; i < XT_NUM_REGS_G_COMMAND; i++) {
 		(*reg_list)[i] = &esp108->core_cache->reg_list[i];
 	}
 
@@ -1737,7 +1740,7 @@ static int xtensa_poll(struct target *target)
 
 
 	if (esp108->traceActive) {
-		LOG_INFO("tracestat %x tracectl %x\n", intfromchars(traxstat), intfromchars(traxctl));
+//		LOG_INFO("tracestat %x tracectl %x", intfromchars(traxstat), intfromchars(traxctl));
 		//Detect if tracing was active but has stopped.
 		if ((intfromchars(traxctl)&TRAXCTRL_TREN) && (!(intfromchars(traxstat)&TRAXSTAT_TRACT))) {
 			LOG_INFO("Detected end of trace.");
@@ -1826,6 +1829,7 @@ COMMAND_HANDLER(esp108_cmd_tracestart)
 	unsigned int i;
 	uint8_t traxstat[8];
 	
+	//Check current status of trace hardware
 	esp108_queue_nexus_reg_read(target, NARADR_TRAXSTAT, traxstat);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
@@ -1834,6 +1838,7 @@ COMMAND_HANDLER(esp108_cmd_tracestart)
 		return ERROR_FAIL;
 	}
 
+	//Parse arguments
 	for (i=0; i<CMD_ARGC; i++) {
 		if ((!strcasecmp(CMD_ARGV[i], "pc")) && CMD_ARGC>i) {
 			char *e;
@@ -1859,18 +1864,17 @@ COMMAND_HANDLER(esp108_cmd_tracestart)
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
 
-	esp108_queue_nexus_reg_write(target, NARADR_TRIGGERPC, stoppc);
+	//Set up parameters
+	esp108_queue_nexus_reg_write(target, NARADR_TRAXADDR, 0);
 	if (stopmask!=-1) {
 		esp108_queue_nexus_reg_write(target, NARADR_PCMATCHCTRL, (stopmask<<PCMATCHCTRL_PCML_SHIFT));
 		esp108_queue_nexus_reg_write(target, NARADR_TRIGGERPC, stoppc);
 	}
-
 	esp108_queue_nexus_reg_write(target, NARADR_DELAYCNT, after);
-	esp108_queue_nexus_reg_write(target, NARADR_TRAXADDR, 0);
 
-	//Options are mostly hardcoded for now. ToDo: make this configurable.
+	//Options are mostly hardcoded for now. ToDo: make this more configurable.
 	esp108_queue_nexus_reg_write(target, NARADR_TRAXCTRL,
-			TRAXCTRL_TREN | (stopmask!=-1?TRAXCTRL_PCMEN:0) | TRAXCTRL_TMEN |
+			TRAXCTRL_TREN | ((stopmask!=-1)?TRAXCTRL_PCMEN:0) | TRAXCTRL_TMEN |
 			(afterIsWords?0:TRAXCTRL_CNTU) | (0<<TRAXCTRL_SMPER_SHIFT) | TRAXCTRL_PTOWS );
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
@@ -1940,7 +1944,7 @@ COMMAND_HANDLER(esp108_cmd_tracedump)
 		return ERROR_FAIL;
 	}
 
-	memsz=(intfromchars(memadrend)-intfromchars(memadrstart)+1)/4; //Memadr* is in bytes, memsz in words
+	memsz=(intfromchars(memadrend)-intfromchars(memadrstart)+1);
 	LOG_INFO("Total trace memory: %d words", memsz);
 	if ((intfromchars(adr)&((TRAXADDR_TWRAP_MASK<<TRAXADDR_TWRAP_SHIFT)|TRAXADDR_TWSAT))==0) {
 		//Memory hasn't overwritten itself yet.
