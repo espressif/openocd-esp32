@@ -327,7 +327,6 @@ static int rtos_freertos_esp108_stack_read_voluntary(struct target *target, int6
 	uint32_t prevsp;
 	uint32_t *stackregs=(uint32_t *)stack_data; //alias so we can read/write entire words. Little-endian hosts only!
 
-	LOG_INFO("REading sol stk fr");
 	retval = target_read_buffer(target, stack_ptr-0x10, 4*8, stack_data);
 	if (retval!=ERROR_OK) return retval;
 	
@@ -335,7 +334,6 @@ static int rtos_freertos_esp108_stack_read_voluntary(struct target *target, int6
 	callno=stackregs[5]>>30;
 	stackregs[5]=(stackregs[5]&0x3FFFFFFF)|0x40000000; //Hardcoded for now.
 	prevsp=stackregs[1];
-	LOG_INFO("Curr sp %x, prev sp %x\n", (int)stack_ptr, (int)prevsp);
 
 	//Fill unknown regs with dummy value
 	for (i=12; i<20; i++) stackregs[i]=0xdeadbeef;
