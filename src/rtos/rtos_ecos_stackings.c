@@ -49,5 +49,6 @@ const struct rtos_register_stacking rtos_eCos_Cortex_M3_stacking = {
 	-1,						/* stack_growth_direction */
 	ARMV7M_NUM_CORE_REGS,	/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
-	rtos_eCos_Cortex_M3_stack_offsets	/* register_offsets */
+	rtos_eCos_Cortex_M3_stack_offsets,	/* register_offsets */
+	NULL					/* Custom stack frame read function */
 };

@@ -93,6 +93,11 @@ struct rtos_register_stacking {
 		const struct rtos_register_stacking *stacking,
 		int64_t stack_ptr);
 	const struct stack_register_offset *register_offsets;
+	/* Some targets have to implement their own stack read function,
+	 * because the stack is formatted weird or needs mangling before
+	 * passing it on to gdb.
+	 */
+	int (*custom_stack_read_fn)(struct target *target, int64_t stack_ptr, const struct rtos_register_stacking *stacking, uint8_t *stack_data);
 };
 
 #define GDB_THREAD_PACKET_NOT_CONSUMED (-40)

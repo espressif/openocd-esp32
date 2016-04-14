@@ -446,6 +446,7 @@ int rtos_get_gdb_reg_list(struct connection *connection)
 	return ERROR_FAIL;
 }
 
+
 int rtos_generic_stack_read(struct target *target,
 	const struct rtos_register_stacking *stacking,
 	int64_t stack_ptr,
@@ -465,19 +466,13 @@ int rtos_generic_stack_read(struct target *target,
 	uint8_t *stack_data = malloc(stacking->stack_registers_size);
 	uint32_t address = stack_ptr;
 
-	if (stacking->stack_growth_direction == 1)
-		address -= stacking->stack_registers_size;
-	retval = target_read_buffer(target, address, stacking->stack_registers_size, stack_data);
-
-//HUGE_ARSE HACKS FOR XTENSA!!! -JD
-//Modify PS to get rid of exception bit. This works.
-	stack_data[8]&=~0x10;
-//If unsollicited switch, fix up stack better. This does not work yet.
-	if (*((uint32_t *)stack_data)==0) {
-		//Kill call bits
-		((uint32_t *)stack_data)[4]=0x40074840;
+	if (stacking->custom_stack_read_fn) {
+		retval = stacking->custom_stack_read_fn(target, stack_ptr, stacking, stack_data);
+	} else {
+		if (stacking->stack_growth_direction == 1)
+			address -= stacking->stack_registers_size;
+		retval = target_read_buffer(target, address, stacking->stack_registers_size, stack_data);
 	}
-//End of hacks.
 
 	
 	if (retval != ERROR_OK) {

@@ -113,185 +113,6 @@ static const struct stack_register_offset rtos_standard_NDS32_N1068_stack_offset
 	{ 0x10, 32 },		/* IFC_LP */
 };
 
-/*
-The XTensa FreeRTOS implementation has *two* types of stack frames; one for 
-involuntatrily swapped out tasks and another one for tasks which voluntarily yielded.
-*/
-static const struct stack_register_offset rtos_standard_esp108_stack_offsets[] = {
-	{ 0x04, 32 },		/* PC */
-	{ 0x0c, 32 },		/* A0 */
-	{   -2, 32 },		/* A1 */ //0x10
-	{ 0x14, 32 },		/* A2 */
-	{ 0x18, 32 },		/* A3 */
-	{ 0x1c, 32 },		/* A4 */
-	{ 0x20, 32 },		/* A5 */
-	{ 0x24, 32 },		/* A6 */
-	{ 0x28, 32 },		/* A7 */
-	{ 0x2c, 32 },		/* A8 */
-	{ 0x30, 32 },		/* A9 */
-	{ 0x34, 32 },		/* A10 */
-	{ 0x38, 32 },		/* A11 */
-	{ 0x3c, 32 },		/* A12 */
-	{ 0x40, 32 },		/* A13 */
-	{ 0x44, 32 },		/* A14 */
-	{ 0x48, 32 },		/* A15 */
-	{   -1, 32 },		/* A16 */ /* A16-A63 aren't in the stack frame because they've been flushed to the stack earlier */
-	{   -1, 32 },		/* A17 */
-	{   -1, 32 },		/* A18 */
-	{   -1, 32 },		/* A19 */
-	{   -1, 32 },		/* A20 */
-	{   -1, 32 },		/* A21 */
-	{   -1, 32 },		/* A22 */
-	{   -1, 32 },		/* A23 */
-	{   -1, 32 },		/* A24 */
-	{   -1, 32 },		/* A25 */
-	{   -1, 32 },		/* A26 */
-	{   -1, 32 },		/* A27 */
-	{   -1, 32 },		/* A28 */
-	{   -1, 32 },		/* A29 */
-	{   -1, 32 },		/* A30 */
-	{   -1, 32 },		/* A31 */
-	{   -1, 32 },		/* A32 */
-	{   -1, 32 },		/* A33 */
-	{   -1, 32 },		/* A34 */
-	{   -1, 32 },		/* A35 */
-	{   -1, 32 },		/* A36 */
-	{   -1, 32 },		/* A37 */
-	{   -1, 32 },		/* A38 */
-	{   -1, 32 },		/* A39 */
-	{   -1, 32 },		/* A40 */
-	{   -1, 32 },		/* A41 */
-	{   -1, 32 },		/* A42 */
-	{   -1, 32 },		/* A43 */
-	{   -1, 32 },		/* A44 */
-	{   -1, 32 },		/* A45 */
-	{   -1, 32 },		/* A46 */
-	{   -1, 32 },		/* A47 */
-	{   -1, 32 },		/* A48 */
-	{   -1, 32 },		/* A49 */
-	{   -1, 32 },		/* A50 */
-	{   -1, 32 },		/* A51 */
-	{   -1, 32 },		/* A52 */
-	{   -1, 32 },		/* A53 */
-	{   -1, 32 },		/* A54 */
-	{   -1, 32 },		/* A55 */
-	{   -1, 32 },		/* A56 */
-	{   -1, 32 },		/* A57 */
-	{   -1, 32 },		/* A58 */
-	{   -1, 32 },		/* A59 */
-	{   -1, 32 },		/* A60 */
-	{   -1, 32 },		/* A61 */
-	{   -1, 32 },		/* A62 */
-	{   -1, 32 },		/* A63 */
-	{ 0x58, 32 },		/* lbeg */
-	{ 0x5c, 32 },		/* lend */
-	{ 0x60, 32 },		/* lcount */
-	{ 0x4c, 32 },		/* sar */
-	{   -1, 32 },		/* windowbase */
-	{   -1, 32 },		/* windowstart */
-	{   -1, 32 },		/* configid0 */
-	{   -1, 32 },		/* configid1 */
-	{ 0x08, 32 },		/* ps */
-	{   -1, 32 },		/* threadptr */
-	{   -1, 32 },		/* br */
-	{   -1, 32 },		/* scompare1 */
-	{   -1, 32 },		/* acclo */
-	{   -1, 32 },		/* acchi */
-	{   -1, 32 },		/* m0 */
-	{   -1, 32 },		/* m1 */
-	{   -1, 32 },		/* m2 */
-	{   -1, 32 },		/* m3 */
-	{   -1, 32 },		/* expstate */
-};
-
-
-static const struct stack_register_offset rtos_standard_esp108_voluntary_stack_offsets[] = {
-	{ 0x10, 32 },		/* PC */ //0x4
-	{ 0x04, 32 },		/* A0 */ //0x10
-	{   -2, 32 },		/* A1 */ //0x14
-	{ 0x18, 32 },		/* A2 */
-	{ 0x1C, 32 },		/* A3 */
-	{   -1, 32 },		/* A4 */
-	{   -1, 32 },		/* A5 */
-	{   -1, 32 },		/* A6 */
-	{   -1, 32 },		/* A7 */
-	{   -1, 32 },		/* A8 */
-	{   -1, 32 },		/* A9 */
-	{   -1, 32 },		/* A10 */
-	{   -1, 32 },		/* A11 */
-	{   -1, 32 },		/* A12 */
-	{   -1, 32 },		/* A13 */
-	{   -1, 32 },		/* A14 */
-	{   -1, 32 },		/* A15 */
-	{   -1, 32 },		/* A16 */ /* A16-A63 aren't in the stack frame because they've been flushed to the stack earlier */
-	{   -1, 32 },		/* A17 */
-	{   -1, 32 },		/* A18 */
-	{   -1, 32 },		/* A19 */
-	{   -1, 32 },		/* A20 */
-	{   -1, 32 },		/* A21 */
-	{   -1, 32 },		/* A22 */
-	{   -1, 32 },		/* A23 */
-	{   -1, 32 },		/* A24 */
-	{   -1, 32 },		/* A25 */
-	{   -1, 32 },		/* A26 */
-	{   -1, 32 },		/* A27 */
-	{   -1, 32 },		/* A28 */
-	{   -1, 32 },		/* A29 */
-	{   -1, 32 },		/* A30 */
-	{   -1, 32 },		/* A31 */
-	{   -1, 32 },		/* A32 */
-	{   -1, 32 },		/* A33 */
-	{   -1, 32 },		/* A34 */
-	{   -1, 32 },		/* A35 */
-	{   -1, 32 },		/* A36 */
-	{   -1, 32 },		/* A37 */
-	{   -1, 32 },		/* A38 */
-	{   -1, 32 },		/* A39 */
-	{   -1, 32 },		/* A40 */
-	{   -1, 32 },		/* A41 */
-	{   -1, 32 },		/* A42 */
-	{   -1, 32 },		/* A43 */
-	{   -1, 32 },		/* A44 */
-	{   -1, 32 },		/* A45 */
-	{   -1, 32 },		/* A46 */
-	{   -1, 32 },		/* A47 */
-	{   -1, 32 },		/* A48 */
-	{   -1, 32 },		/* A49 */
-	{   -1, 32 },		/* A50 */
-	{   -1, 32 },		/* A51 */
-	{   -1, 32 },		/* A52 */
-	{   -1, 32 },		/* A53 */
-	{   -1, 32 },		/* A54 */
-	{   -1, 32 },		/* A55 */
-	{   -1, 32 },		/* A56 */
-	{   -1, 32 },		/* A57 */
-	{   -1, 32 },		/* A58 */
-	{   -1, 32 },		/* A59 */
-	{   -1, 32 },		/* A60 */
-	{   -1, 32 },		/* A61 */
-	{   -1, 32 },		/* A62 */
-	{   -1, 32 },		/* A63 */
-	{   -1, 32 },		/* lbeg */
-	{   -1, 32 },		/* lend */
-	{   -1, 32 },		/* lcount */
-	{   -1, 32 },		/* sar */
-	{   -1, 32 },		/* windowbase */
-	{   -1, 32 },		/* windowstart */
-	{   -1, 32 },		/* configid0 */
-	{   -1, 32 },		/* configid1 */
-	{ 0x08, 32 },		/* ps */
-	{   -1, 32 },		/* threadptr */
-	{   -1, 32 },		/* br */
-	{   -1, 32 },		/* scompare1 */
-	{   -1, 32 },		/* acclo */
-	{   -1, 32 },		/* acchi */
-	{   -1, 32 },		/* m0 */
-	{   -1, 32 },		/* m1 */
-	{   -1, 32 },		/* m2 */
-	{   -1, 32 },		/* m3 */
-	{   -1, 32 },		/* expstate */
-};
-
 
 
 static int64_t rtos_generic_stack_align(struct target *target,
@@ -376,7 +197,8 @@ const struct rtos_register_stacking rtos_standard_Cortex_M3_stacking = {
 	-1,						/* stack_growth_direction */
 	ARMV7M_NUM_CORE_REGS,	/* num_output_registers */
 	rtos_standard_Cortex_M3_stack_align,	/* stack_alignment */
-	rtos_standard_Cortex_M3_stack_offsets	/* register_offsets */
+	rtos_standard_Cortex_M3_stack_offsets,	/* register_offsets */
+	NULL					/* Custom stack frame read function */
 };
 
 const struct rtos_register_stacking rtos_standard_Cortex_R4_stacking = {
@@ -384,7 +206,8 @@ const struct rtos_register_stacking rtos_standard_Cortex_R4_stacking = {
 	-1,					/* stack_growth_direction */
 	26,					/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
-	rtos_standard_Cortex_R4_stack_offsets	/* register_offsets */
+	rtos_standard_Cortex_R4_stack_offsets,	/* register_offsets */
+	NULL					/* Custom stack frame read function */
 };
 
 const struct rtos_register_stacking rtos_standard_NDS32_N1068_stacking = {
@@ -392,26 +215,7 @@ const struct rtos_register_stacking rtos_standard_NDS32_N1068_stacking = {
 	-1,					/* stack_growth_direction */
 	32,					/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
-	rtos_standard_NDS32_N1068_stack_offsets	/* register_offsets */
+	rtos_standard_NDS32_N1068_stack_offsets,	/* register_offsets */
+	NULL					/* Custom stack frame read function */
 };
-
-//ToDo: move to rtos_freertos_stackings.c
-
-const struct rtos_register_stacking rtos_standard_esp108_stacking = {
-	30*4,				/* stack_registers_size */
-	-1,					/* stack_growth_direction */
-	84,					/* num_output_registers */
-	rtos_generic_stack_align8,	/* stack_alignment */
-	rtos_standard_esp108_stack_offsets	/* register_offsets */
-};
-
-const struct rtos_register_stacking rtos_standard_voluntary_esp108_stacking = {
-	8*4,				/* stack_registers_size */
-	-1,					/* stack_growth_direction */
-	84,					/* num_output_registers */
-	rtos_generic_stack_align8,	/* stack_alignment */
-	rtos_standard_esp108_voluntary_stack_offsets	/* register_offsets */
-};
-
-
 

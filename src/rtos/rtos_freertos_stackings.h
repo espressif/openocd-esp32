@@ -18,41 +18,18 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
+#ifndef INCLUDED_RTOS_FREERTOS_STACKINGS_H_
+#define INCLUDED_RTOS_FREERTOS_STACKINGS_H_
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
 #include "rtos.h"
-#include "target/armv7m.h"
-#include "rtos_standard_stackings.h"
 
-static const struct stack_register_offset rtos_embkernel_Cortex_M_stack_offsets[ARMV7M_NUM_CORE_REGS] = {
-	{ 0x24, 32 },		/* r0   */
-	{ 0x28, 32 },		/* r1   */
-	{ 0x2c, 32 },		/* r2   */
-	{ 0x30, 32 },		/* r3   */
-	{ 0x00, 32 },		/* r4   */
-	{ 0x04, 32 },		/* r5   */
-	{ 0x08, 32 },		/* r6   */
-	{ 0x0c, 32 },		/* r7   */
-	{ 0x10, 32 },		/* r8   */
-	{ 0x14, 32 },		/* r9   */
-	{ 0x18, 32 },		/* r10  */
-	{ 0x1c, 32 },		/* r11  */
-	{ 0x34, 32 },		/* r12  */
-	{ -2, 32 },		    /* sp   */
-	{ 0x38, 32 },		/* lr   */
-	{ 0x3c, 32 },		/* pc   */
-	{ 0x40, 32 },		/* xPSR */
-};
+extern const struct rtos_register_stacking rtos_freertos_esp108_stacking;
+extern const struct rtos_register_stacking rtos_freertos_voluntary_esp108_stacking;
 
-const struct rtos_register_stacking rtos_embkernel_Cortex_M_stacking = {
-	0x40,					/* stack_registers_size */
-	-1,						/* stack_growth_direction */
-	ARMV7M_NUM_CORE_REGS,	/* num_output_registers */
-	rtos_generic_stack_align8,	/* stack_alignment */
-	rtos_embkernel_Cortex_M_stack_offsets,	/* register_offsets */
-	NULL					/* Custom stack frame read function */
-};
+const struct rtos_register_stacking *rtos_freertos_esp108_pick_stacking_info(struct rtos *rtos, int64_t thread_id, int64_t stack_addr);
 
-
+#endif	/* ifndef INCLUDED_RTOS_STANDARD_STACKINGS_H_ */

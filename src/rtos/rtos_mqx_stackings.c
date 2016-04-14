@@ -76,6 +76,7 @@ const struct rtos_register_stacking rtos_mqx_arm_v7m_stacking = {
 	-1,						/* stack_growth_direction */
 	ARMV7M_NUM_CORE_REGS,	/* num_output_registers */
 	NULL,					/* stack_alignment */
-	rtos_mqx_arm_v7m_stack_offsets	/* register_offsets */
+	rtos_mqx_arm_v7m_stack_offsets,	/* register_offsets */
+	NULL					/* Custom stack frame read function */
 };
 
