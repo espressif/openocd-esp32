@@ -1915,6 +1915,7 @@ COMMAND_HANDLER(esp108_cmd_tracedump)
 	int memsz, wmem;
 	uint8_t *tracemem;
 	int i, f, res;
+	int isAllZeroes;
 
 	if (CMD_ARGC != 1) {
 		command_print(CMD_CTX, "Need filename to dump to as output!");
@@ -1961,8 +1962,10 @@ COMMAND_HANDLER(esp108_cmd_tracedump)
 		}
 	}
 	tracemem=malloc(memsz*4);
+	isAllZeroes=1;
 	for (i=0; i<memsz; i++) {
 		esp108_queue_nexus_reg_read(target, NARADR_TRAXDATA, &tracemem[i*4]);
+		if (tracemem[i*4]!=0) isAllZeroes=0;
 	}
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
@@ -1971,6 +1974,9 @@ COMMAND_HANDLER(esp108_cmd_tracedump)
 	}
 	close(f);
 	command_print(CMD_CTX, "Written %d bytes of trace data to %s", memsz*4, CMD_ARGV[0]);
+	if (isAllZeroes) {
+		command_print(CMD_CTX, "WARNING: File written is all zeroes. Are you sure you enabled trace memory?");
+	}
 
 	return ERROR_OK;
 }
