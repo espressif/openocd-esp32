@@ -51,14 +51,6 @@ function parseRegs() {
 				hwreg="0xC6"
 				cmt="//actually EPS[debuglevel]"
 			fi
-			if [ "$name" = "fcr" ]; then
-				hwreg="0"
-				tp=XT_REG_FCR
-			fi
-			if [ "$name" = "fsr" ]; then
-				hwreg="0"
-				tp=XT_REG_FSR
-			fi
 			if [ "$name" = "a0" ]; then cmt=" //WARNING: For these registers, regnum points to the"; fi
 			if [ "$name" = "a1" ]; then cmt=" //index of the corresponding ARx registers, NOT to"; fi
 			if [ "$name" = "a2" ]; then cmt=" //the processor register number!"; fi
