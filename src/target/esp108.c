@@ -404,6 +404,11 @@ struct esp108_reg_desc {
 /* Write User Register */
 #define XT_INS_WUR(UR,T) _XT_INS_FORMAT_RRR(0xF30000,UR,T)
 
+/* Read Floating-Point Register */
+#define XT_INS_RFR(FR,T) _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x4),T)
+/* Write Floating-Point Register */
+#define XT_INS_WFR(FR,T) _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x5),T)
+
 
 //forward declarations
 static int xtensa_step(struct target *target,
@@ -592,6 +597,8 @@ static int esp108_fetch_all_regs(struct target *target)
 		if ((!(esp108_regs[i].flags&XT_REGF_NOREAD)) && (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER)) {
 			if (esp108_regs[i].type==XT_REG_USER) {
 				esp108_queue_exec_ins(target, XT_INS_RUR(esp108_regs[i].reg_num, XT_REG_A3));
+			} else if (esp108_regs[i].type==XT_REG_FR) {
+				esp108_queue_exec_ins(target, XT_INS_RFR(esp108_regs[i].reg_num, XT_REG_A3));
 			} else { //SFR
 				esp108_queue_exec_ins(target, XT_INS_RSR(esp108_regs[i].reg_num, XT_REG_A3));
 			}
@@ -657,6 +664,8 @@ static int esp108_write_dirty_registers(struct target *target)
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A3));
 				if (esp108_regs[i].type==XT_REG_USER) {
 					esp108_queue_exec_ins(target, XT_INS_WUR(esp108_regs[i].reg_num, XT_REG_A3));
+				} else if (esp108_regs[i].type==XT_REG_FR) {
+					esp108_queue_exec_ins(target, XT_INS_WFR(esp108_regs[i].reg_num, XT_REG_A3));
 				} else { //SFR
 					esp108_queue_exec_ins(target, XT_INS_WSR(esp108_regs[i].reg_num, XT_REG_A3));
 				}
