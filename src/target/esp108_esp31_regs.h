@@ -1,10 +1,14 @@
+//This file is for the ESP31. If you want to compile openocd for the esp31
+//replace esp108_regs.h with this file. The ESP31 only saw a very limited
+//release (only a few 100 chips) so there's no nicer way to do this.
+
 //Xtensa register list taken from gdb/gdb/xtensa-config.c
 //gdb wants the registers in the order gdb/regformats/reg-xtensa.dat describes
 //them. The enum and esp108_regs structs should be in the same order.
 
 #define XT_NUM_REGS (151)
 
-#define XT_NUM_REGS_G_COMMAND (84)
+#define XT_NUM_REGS_G_COMMAND (151) //According to the overlay, this should be 84... no idea why gdb for the esp31 wants all the regs.
 
 enum xtensa_reg_idx {
 	XT_REG_IDX_PC=0,
