@@ -467,7 +467,7 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 			}
 			if (thread_running != 0) {
 				char details_buf[32];
-				snprintf(details_buf, sizeof(details_buf), "Running @CPU%d", thread_running_at_core);
+				snprintf(details_buf, sizeof(details_buf), "State: Running @CPU%d", thread_running_at_core);
 				rtos->thread_details[tasks_found].extra_info_str = strdup(details_buf);
 			}
 			else
