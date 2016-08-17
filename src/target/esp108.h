@@ -30,6 +30,13 @@ enum xtensa_state {
 	XT_OCD_HALT,
 };
 
+
+enum FlashBootstrap {
+	FBS_DONTCARE = 0,
+	FBS_TMSLOW,
+	FBS_TMSHIGH,
+};
+
 struct esp108_common {
 //	struct jtag_tap *tap;
 	enum xtensa_state state;
@@ -44,7 +51,7 @@ struct esp108_common {
 	uint32_t num_wps; /* Number of watchpoints available */
 	struct watchpoint **hw_wps;
 
-	
+	enum FlashBootstrap flashBootstrap; /* 0 - don't care, 1 - TMS low, 2 - TMS high */
 };
 
 

@@ -124,6 +124,13 @@ disabled any traces done will disappear in the bitbucket, so this may be
 very much a viable option.
 */
 
+/*
+ToDo:
+This code very much assumes the host machines endianness is the same as that 
+of the target CPU, which isn't necessarily always the case. Specifically the
+esp108_reg_set etc functions are suspect.
+*/
+
 
 #define TAPINS_PWRCTL	0x08
 #define TAPINS_PWRSTAT	0x09
@@ -359,8 +366,9 @@ struct esp108_reg_desc {
  */
 #define XT_SR_DDR         (esp108_regs[XT_REG_IDX_DDR].reg_num)
 
-//Same thing for A3
+//Same thing for A3/A4
 #define XT_REG_A3         (esp108_regs[XT_REG_IDX_AR3].reg_num)
+#define XT_REG_A4         (esp108_regs[XT_REG_IDX_AR4].reg_num)
 
 
 /* Xtensa processor instruction opcodes
@@ -405,9 +413,11 @@ struct esp108_reg_desc {
 #define XT_INS_WUR(UR,T) _XT_INS_FORMAT_RRR(0xF30000,UR,T)
 
 /* Read Floating-Point Register */
-#define XT_INS_RFR(FR,T) _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x4),T)
+#define XT_INS_RFR(FR, T)  _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x4),T)		//read lower 32 bits of fr into t
+#define XT_INS_RFRD(FR, T) _XT_INS_FORMAT_RRR(0xFF0000,((FR<<4)|0x4),T)		//read upper 32 bits of fr into t
 /* Write Floating-Point Register */
-#define XT_INS_WFR(FR,T) _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x5),T)
+#define XT_INS_WFR(FR,S)  _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x5),S)		//write s into lower 32bit of fr
+#define XT_INS_WFRD(FR,S1,S2) _XT_INS_FORMAT_RRR(0x8E0000,((S1<<4)|S2),FR)	//write ((s1<<32)|s2) into fr
 
 
 //forward declarations
@@ -479,17 +489,17 @@ static void esp108_queue_exec_ins(struct target *target, int32_t ins)
 	esp108_queue_nexus_reg_write(target, NARADR_DIR0EXEC, ins);
 }
 
-static uint32_t esp108_reg_get(struct reg *reg)
+static uint64_t esp108_reg_get(struct reg *reg)
 {
-	return *((uint32_t*)reg->value);
+	return *((uint64_t*)reg->value);
 }
 
-static void esp108_reg_set(struct reg *reg, uint32_t value)
+static void esp108_reg_set(struct reg *reg, uint64_t value)
 {
-	uint32_t oldval;
-	oldval=*((uint32_t*)reg->value);
+	uint64_t oldval;
+	oldval=*((uint64_t*)reg->value);
 	if (oldval==value) return;
-	*((uint32_t*)reg->value)=value;
+	*((uint64_t*)reg->value)=value;
 	reg->dirty=1;
 }
 
@@ -501,7 +511,36 @@ static uint32_t intfromchars(uint8_t *c)
 	return c[0]+(c[1]<<8)+(c[2]<<16)+(c[3]<<24);
 }
 
+static uint64_t longfromchars(uint8_t *c) 
+{
+	return (uint64_t)intfromchars(&c[0])+((uint64_t)intfromchars(&c[4])<<32);
+}
+
+/*
+The TMS pin is also used as a flash Vcc bootstrap pin. If we reset the CPU externally, the last state of the TMS pin can
+allow the power to an 1.8V flash chip to be raised to 3.3V, or the other way around. Users can use the
+esp108 flashbootstrap command to set a level, and this routine will make sure the tms line will return to
+that when the jtag port is idle.
+*/
+static void esp108_queue_tms_reset(struct target *target) {
+	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
+	uint8_t seq;
+	if (esp108->flashBootstrap==FBS_TMSLOW) {
+		//Make sure tms is 0 at the exit of queue execution
+		jtag_add_statemove(TAP_IDLE);
+		seq=0;
+		jtag_add_tms_seq(1, &seq, TAP_IDLE);
+	} else if (esp108->flashBootstrap==FBS_TMSHIGH) {
+		//Make sure tms is 1 at the exit of queue execution
+		jtag_add_statemove(TAP_IDLE);
+		seq=0xff;
+		jtag_add_tms_seq(1, &seq, TAP_DRSELECT);
+	}
+}
+
+
 //Utility function: check DSR for any weirdness and report.
+//Also does tms_reset to bootstrap level indicated.
 #define esp108_checkdsr(target) esp108_do_checkdsr(target, __FUNCTION__, __LINE__)
 static int esp108_do_checkdsr(struct target *target, const char *function, const int line)
 {
@@ -509,6 +548,7 @@ static int esp108_do_checkdsr(struct target *target, const char *function, const
 	int res;
 	int needclear=0;
 	esp108_queue_nexus_reg_read(target, NARADR_DSR, dsr);
+	esp108_queue_tms_reset(target);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) {
 		LOG_ERROR("%s: %s (line %d): reading DSR failed!", target->cmd_name, function, line);
@@ -569,11 +609,11 @@ static int esp108_fetch_all_regs(struct target *target)
 {
 	int i, j;
 	int res;
-	uint32_t regval;
+	uint64_t regval;
 	uint32_t windowbase;
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	struct reg *reg_list=esp108->core_cache->reg_list;
-	uint8_t regvals[XT_NUM_REGS][4];
+	uint8_t regvals[XT_NUM_REGS][8];
 	
 	//Assume the CPU has just halted. We now want to fill the register cache with all the 
 	//register contents GDB needs. For speed, we pipeline all the read operations, execute them
@@ -599,11 +639,17 @@ static int esp108_fetch_all_regs(struct target *target)
 				esp108_queue_exec_ins(target, XT_INS_RUR(esp108_regs[i].reg_num, XT_REG_A3));
 			} else if (esp108_regs[i].type==XT_REG_FR) {
 				esp108_queue_exec_ins(target, XT_INS_RFR(esp108_regs[i].reg_num, XT_REG_A3));
+				esp108_queue_exec_ins(target, XT_INS_RFRD(esp108_regs[i].reg_num, XT_REG_A4));
 			} else { //SFR
 				esp108_queue_exec_ins(target, XT_INS_RSR(esp108_regs[i].reg_num, XT_REG_A3));
 			}
 			esp108_queue_exec_ins(target, XT_INS_WSR(XT_SR_DDR, XT_REG_A3));
 			esp108_queue_nexus_reg_read(target, NARADR_DDR, regvals[i]);
+			if (esp108_regs[i].type==XT_REG_FR) {
+				//Also read the upper 32 bit.
+				esp108_queue_exec_ins(target, XT_INS_WSR(XT_SR_DDR, XT_REG_A4));
+				esp108_queue_nexus_reg_read(target, NARADR_DDR, &regvals[i][4]);
+			}
 		}
 	}
 
@@ -625,6 +671,9 @@ static int esp108_fetch_all_regs(struct target *target)
 //				LOG_INFO("mapping: %s -> %s (windowbase off %d)\n",esp108_regs[i].name, esp108_regs[realadr].name, windowbase*4);
 			} else if (esp108_regs[i].type==XT_REG_RELGEN) {
 				regval=intfromchars(regvals[esp108_regs[i].reg_num]);
+			} else if (esp108_regs[i].type==XT_REG_FR) {
+				//These are 64 bit.
+				regval=longfromchars(regvals[esp108_regs[i].reg_num]);
 			} else {
 				regval=intfromchars(regvals[i]);
 //				LOG_INFO("Register %s: 0x%X", esp108_regs[i].name, regval);
@@ -638,6 +687,9 @@ static int esp108_fetch_all_regs(struct target *target)
 	}
 	//We have used A3 as a scratch register and we will need to write that back.
 	esp108_mark_register_dirty(target, XT_REG_IDX_A3);
+	//Same for A4 if we had FPU registers
+	esp108_mark_register_dirty(target, XT_REG_IDX_A4);
+
 
 	return ERROR_OK;
 }
@@ -647,7 +699,8 @@ static int esp108_write_dirty_registers(struct target *target)
 {
 	int i, j;
 	int res;
-	uint32_t regval, windowbase;
+	uint64_t regval;
+	uint32_t windowbase;
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	struct reg *reg_list=esp108->core_cache->reg_list;
 
@@ -659,13 +712,16 @@ static int esp108_write_dirty_registers(struct target *target)
 		if (reg_list[i].dirty) {
 			if (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER) {
 				regval=esp108_reg_get(&reg_list[i]);
-				LOG_DEBUG("%s: Writing back reg %s val %08X", target->cmd_name, esp108_regs[i].name, regval);
-				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
+				LOG_DEBUG("%s: Writing back reg %s val %08lX", target->cmd_name, esp108_regs[i].name, regval);
+				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval&0xffffffff);
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A3));
 				if (esp108_regs[i].type==XT_REG_USER) {
 					esp108_queue_exec_ins(target, XT_INS_WUR(esp108_regs[i].reg_num, XT_REG_A3));
 				} else if (esp108_regs[i].type==XT_REG_FR) {
-					esp108_queue_exec_ins(target, XT_INS_WFR(esp108_regs[i].reg_num, XT_REG_A3));
+					//Double-precision: use A4 for the top bits
+					esp108_queue_nexus_reg_write(target, NARADR_DDR, regval>>32);
+					esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A4));
+					esp108_queue_exec_ins(target, XT_INS_WFRD(esp108_regs[i].reg_num, XT_REG_A3, XT_REG_A4));
 				} else { //SFR
 					esp108_queue_exec_ins(target, XT_INS_WSR(esp108_regs[i].reg_num, XT_REG_A3));
 				}
@@ -692,7 +748,7 @@ static int esp108_write_dirty_registers(struct target *target)
 	for (i=0; i<16; i++) {
 		if (reg_list[XT_REG_IDX_A0+i].dirty) {
 			regval=esp108_reg_get(&reg_list[XT_REG_IDX_A0+i]);
-			LOG_DEBUG("%s: Writing back reg %s value %08X", target->cmd_name, esp108_regs[XT_REG_IDX_A0+i].name, regval);
+			LOG_DEBUG("%s: Writing back reg %s value %08lX", target->cmd_name, esp108_regs[XT_REG_IDX_A0+i].name, regval);
 			esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 			esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, i));
 			reg_list[XT_REG_IDX_A0+i].dirty=0;
@@ -707,7 +763,7 @@ static int esp108_write_dirty_registers(struct target *target)
 			//Write back any dirty un-windowed registers
 			if (reg_list[realadr].dirty) {
 				regval=esp108_reg_get(&reg_list[realadr]);
-				LOG_DEBUG("%s: Writing back reg %s value %08X", target->cmd_name, esp108_regs[realadr].name, regval);
+				LOG_DEBUG("%s: Writing back reg %s value %08lX", target->cmd_name, esp108_regs[realadr].name, regval);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i+j].reg_num));
 				reg_list[realadr].dirty=0;
@@ -733,6 +789,7 @@ static int xtensa_halt(struct target *target)
 	}
 
 	esp108_queue_nexus_reg_write(target, NARADR_DCRSET, OCDDCR_DEBUGINTERRUPT);
+	esp108_queue_tms_reset(target);
 	res=jtag_execute_queue();
 
 	if(res != ERROR_OK) {
@@ -1024,6 +1081,7 @@ static int xtensa_assert_reset(struct target *target)
 	target->state = TARGET_RESET;
 	esp108_queue_pwrctl_set(target, PWRCTL_JTAGDEBUGUSE|PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP|PWRCTL_CORERESET);
 	res=jtag_execute_queue();
+	esp108_queue_tms_reset(target);
 	esp108->resetAsserted=1;
 	return res;
 }
@@ -1037,6 +1095,7 @@ static int xtensa_deassert_reset(struct target *target)
 		esp108_queue_nexus_reg_write(target, NARADR_DCRSET, OCDDCR_DEBUGINTERRUPT);
 	}
 	esp108_queue_pwrctl_set(target, PWRCTL_JTAGDEBUGUSE|PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP);
+	esp108_queue_tms_reset(target);
 	res=jtag_execute_queue();
 	target->state = TARGET_RUNNING;
 	esp108->resetAsserted=0;
@@ -1238,6 +1297,7 @@ static int xtensa_step(struct target *target,
 			//Do not use target_poll here, it also triggers other things... just manually read the DSR until stepping
 			//is complete.
 			esp108_queue_nexus_reg_read(target, NARADR_DSR, dsr);
+			esp108_queue_tms_reset(target);
 			res=jtag_execute_queue();
 			if(res != ERROR_OK) return res;
 			if (intfromchars(dsr)&OCDDSR_STOPPED) {
@@ -1254,7 +1314,7 @@ static int xtensa_step(struct target *target,
 			esp108_fetch_all_regs(target);
 		}
 	} while (esp108_reg_get(&reg_list[XT_REG_IDX_PC])==oldpc && --tries);
-	LOG_DEBUG("Stepped from %X to %X", oldpc, esp108_reg_get(&reg_list[XT_REG_IDX_PC]));
+	LOG_DEBUG("Stepped from %X to %lX", oldpc, esp108_reg_get(&reg_list[XT_REG_IDX_PC]));
 
 	if (!tries) {
 		LOG_ERROR("%s: %s: Stepping doesn't seem to change PC!", target->cmd_name, __func__);
@@ -1325,10 +1385,19 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 	*cache_p = cache;
 	esp108->core_cache = cache;
 
+	esp108->flashBootstrap=FBS_DONTCARE;
+
 	for(i = 0; i < XT_NUM_REGS; i++) {
 		reg_list[i].name = esp108_regs[i].name;
-		reg_list[i].size = 32;
-		reg_list[i].value = calloc(1,4);
+		if (esp108_regs[i].type==XT_REG_FR) {
+			//We assume any fpu is double-precision, so 64-bit fpu registers are needed.
+			//Unfortunately, gdb somehow doesn't understand that the registers are 64-bit... so mark them as 32-bit for now.
+			reg_list[i].size = 32; //64;
+			reg_list[i].value = calloc(1,8);
+		} else {
+			reg_list[i].size = 32;
+			reg_list[i].value = calloc(1,4);
+		}
 		reg_list[i].dirty = 0;
 		reg_list[i].valid = 0;
 		reg_list[i].type = &esp108_reg_type;
@@ -1376,6 +1445,7 @@ static int xtensa_poll(struct target *target)
 	//Read again, to see if the state holds...
 	esp108_queue_pwrstat_readclear(target, &pwrstath);
 	res=jtag_execute_queue();
+	esp108_queue_tms_reset(target);
 	if (res!=ERROR_OK) return res;
 	if (!(esp108->prevpwrstat&PWRSTAT_DEBUGWASRESET) && pwrstat&PWRSTAT_DEBUGWASRESET) LOG_INFO("%s: Debug controller was reset (pwrstat=0x%02X, after clear 0x%02X).", target->cmd_name, pwrstat, pwrstath);
 	if (!(esp108->prevpwrstat&PWRSTAT_COREWASRESET) && pwrstat&PWRSTAT_COREWASRESET) LOG_INFO("%s: Core was reset (pwrstat=0x%02X, after clear 0x%02X).", target->cmd_name, pwrstat, pwrstath);
@@ -1386,6 +1456,7 @@ static int xtensa_poll(struct target *target)
 	if (esp108->resetAsserted) cmd|=PWRCTL_CORERESET;
 	esp108_queue_pwrctl_set(target, cmd);
 	esp108_queue_pwrctl_set(target, cmd|PWRCTL_JTAGDEBUGUSE);
+	esp108_queue_tms_reset(target);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
 	
@@ -1394,6 +1465,7 @@ static int xtensa_poll(struct target *target)
 	esp108_queue_nexus_reg_read(target, NARADR_DSR, dsr);
 	esp108_queue_nexus_reg_read(target, NARADR_TRAXSTAT, traxstat);
 	esp108_queue_nexus_reg_read(target, NARADR_TRAXCTRL, traxctl);
+	esp108_queue_tms_reset(target);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
 //	LOG_INFO("esp8266: ocdid 0x%X dsr 0x%X", intfromchars(ocdid), intfromchars(dsr));
@@ -1407,7 +1479,7 @@ static int xtensa_poll(struct target *target)
 			
 			//LOG_INFO("%s: %s: Target halted (dsr=%08X). Fetching register contents.", target->cmd_name, __FUNCTION__, intfromchars(dsr));
 			esp108_fetch_all_regs(target);
-			LOG_INFO("%s: Target halted, pc=0x%08X", target->cmd_name, esp108_reg_get(&reg_list[XT_REG_IDX_PC]));
+			LOG_INFO("%s: Target halted, pc=0x%08lX", target->cmd_name, esp108_reg_get(&reg_list[XT_REG_IDX_PC]));
 
 			//Examine why the target was halted
 			int cause=esp108_reg_get(&reg_list[XT_REG_IDX_DEBUGCAUSE]);
@@ -1495,6 +1567,7 @@ COMMAND_HANDLER(esp108_cmd_smpbreak)
 		esp108_queue_nexus_reg_write(target, NARADR_DCRCLR, clear);
 	}
 	esp108_queue_nexus_reg_read(target, NARADR_DCRSET, dsr);
+	esp108_queue_tms_reset(target);
 	res=jtag_execute_queue();
 	if (res==ERROR_OK) {
 		i=intfromchars(dsr)&(OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN|OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN);
@@ -1525,6 +1598,7 @@ COMMAND_HANDLER(esp108_cmd_tracestart)
 	
 	//Check current status of trace hardware
 	esp108_queue_nexus_reg_read(target, NARADR_TRAXSTAT, traxstat);
+	esp108_queue_tms_reset(target);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
 	if (intfromchars(traxstat)&TRAXSTAT_TRACT) {
@@ -1555,6 +1629,7 @@ COMMAND_HANDLER(esp108_cmd_tracestart)
 
 	//Turn off trace unit so we can start a new trace.
 	esp108_queue_nexus_reg_write(target, NARADR_TRAXCTRL, 0);
+	esp108_queue_tms_reset(target);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
 
@@ -1570,6 +1645,7 @@ COMMAND_HANDLER(esp108_cmd_tracestart)
 	esp108_queue_nexus_reg_write(target, NARADR_TRAXCTRL,
 			TRAXCTRL_TREN | ((stopmask!=-1)?TRAXCTRL_PCMEN:0) | TRAXCTRL_TMEN |
 			(afterIsWords?0:TRAXCTRL_CNTU) | (0<<TRAXCTRL_SMPER_SHIFT) | TRAXCTRL_PTOWS );
+	esp108_queue_tms_reset(target);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
 
@@ -1595,6 +1671,7 @@ COMMAND_HANDLER(esp108_cmd_tracestop)
 	}
 
 	esp108_queue_nexus_reg_write(target, NARADR_TRAXCTRL, intfromchars(traxctl)|TRAXCTRL_TRSTP);
+	esp108_queue_tms_reset(target);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
 	
@@ -1621,6 +1698,7 @@ COMMAND_HANDLER(esp108_cmd_tracedump)
 	esp108_queue_nexus_reg_read(target, NARADR_MEMADDRSTART, memadrstart);
 	esp108_queue_nexus_reg_read(target, NARADR_MEMADDREND, memadrend);
 	esp108_queue_nexus_reg_read(target, NARADR_TRAXADDR, adr);
+	esp108_queue_tms_reset(target);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
 	if (intfromchars(traxstat)&TRAXSTAT_TRACT) {
@@ -1656,18 +1734,23 @@ COMMAND_HANDLER(esp108_cmd_tracedump)
 		}
 	}
 	tracemem=malloc(memsz*4);
-	isAllZeroes=1;
 	for (i=0; i<memsz; i++) {
 		esp108_queue_nexus_reg_read(target, NARADR_TRAXDATA, &tracemem[i*4]);
-		if (tracemem[i*4]!=0) isAllZeroes=0;
 	}
+	esp108_queue_tms_reset(target);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
+
 	if (write(f, tracemem, memsz*4)!=memsz*4) {
 		command_print(CMD_CTX, "Unable to write to file %s", CMD_ARGV[0]);
 	}
 	close(f);
 	command_print(CMD_CTX, "Written %d bytes of trace data to %s", memsz*4, CMD_ARGV[0]);
+
+	isAllZeroes=1;
+	for (i=0; i<memsz*4; i++) {
+		if (tracemem[i]!=0) isAllZeroes=0;
+	}
 	if (isAllZeroes) {
 		command_print(CMD_CTX, "WARNING: File written is all zeroes. Are you sure you enabled trace memory?");
 	}
@@ -1675,6 +1758,36 @@ COMMAND_HANDLER(esp108_cmd_tracedump)
 	return ERROR_OK;
 }
 
+
+COMMAND_HANDLER(esp108_cmd_flashbootstrap)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
+	int state=-1;
+	if (CMD_ARGC != 1) {
+		const char *st;
+		if (esp108->flashBootstrap==FBS_DONTCARE) st="Don't care";
+		if (esp108->flashBootstrap==FBS_TMSLOW) st="Low (3.3V)";
+		if (esp108->flashBootstrap==FBS_TMSHIGH) st="High (1.8V)";
+		command_print(CMD_CTX, "Current idle tms state: %s", st);
+		return ERROR_OK;
+	}
+
+	if (!strcasecmp(CMD_ARGV[0], "none")) state=FBS_DONTCARE;
+	if (!strcasecmp(CMD_ARGV[0], "1.8")) state=FBS_TMSHIGH;
+	if (!strcasecmp(CMD_ARGV[0], "3.3")) state=FBS_TMSLOW;
+	if (!strcasecmp(CMD_ARGV[0], "high")) state=FBS_TMSHIGH;
+	if (!strcasecmp(CMD_ARGV[0], "low")) state=FBS_TMSLOW;
+
+	if (state==-1) {
+		command_print(CMD_CTX, "Argument unknown. Please pick one of none, high, low, 1.8 or 3.3");
+		return ERROR_FAIL;
+	}
+
+	esp108->flashBootstrap=state;
+
+	return ERROR_OK;
+}
 
 static const struct command_registration esp108_any_command_handlers[] = {
 	{
@@ -1704,6 +1817,13 @@ static const struct command_registration esp108_any_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "Set the way the CPU chains OCD breaks",
 		.usage = "[none|breakinout|runstall] | [BreakIn] [BreakOut] [RunStallIn] [DebugModeOut]",
+	},
+	{
+		.name = "flashbootstrap",
+		.handler = esp108_cmd_flashbootstrap,
+		.mode = COMMAND_ANY,
+		.help = "Set the idle state of the TMS pin, which at reset also is the voltage selector for the flash chip.",
+		.usage = "none|1.8|3.3|high|low",
 	},
 	COMMAND_REGISTRATION_DONE
 };
