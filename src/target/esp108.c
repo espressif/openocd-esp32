@@ -517,17 +517,19 @@ that when the jtag port is idle.
 */
 static void esp108_queue_tms_reset(struct target *target) {
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
-	uint8_t seq;
+//	uint8_t seq;
 	if (esp108->flashBootstrap==FBS_TMSLOW) {
 		//Make sure tms is 0 at the exit of queue execution
+		jtag_add_statemove(TAP_DRSELECT);
 		jtag_add_statemove(TAP_IDLE);
-		seq=0;
-		jtag_add_tms_seq(1, &seq, TAP_IDLE);
+//		seq=0;
+//		jtag_add_tms_seq(1, &seq, TAP_IDLE);
 	} else if (esp108->flashBootstrap==FBS_TMSHIGH) {
 		//Make sure tms is 1 at the exit of queue execution
 		jtag_add_statemove(TAP_IDLE);
-		seq=0xff;
-		jtag_add_tms_seq(1, &seq, TAP_DRSELECT);
+		jtag_add_statemove(TAP_DRSELECT);
+//		seq=0xff;
+//		jtag_add_tms_seq(1, &seq, TAP_DRSELECT);
 	}
 }
 
