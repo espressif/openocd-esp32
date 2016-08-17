@@ -413,11 +413,9 @@ struct esp108_reg_desc {
 #define XT_INS_WUR(UR,T) _XT_INS_FORMAT_RRR(0xF30000,UR,T)
 
 /* Read Floating-Point Register */
-#define XT_INS_RFR(FR, T)  _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x4),T)		//read lower 32 bits of fr into t
-#define XT_INS_RFRD(FR, T) _XT_INS_FORMAT_RRR(0xFF0000,((FR<<4)|0x4),T)		//read upper 32 bits of fr into t
+#define XT_INS_RFR(FR,T) _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x4),T)
 /* Write Floating-Point Register */
-#define XT_INS_WFR(FR,S)  _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x5),S)		//write s into lower 32bit of fr
-#define XT_INS_WFRD(FR,S1,S2) _XT_INS_FORMAT_RRR(0x8E0000,((S1<<4)|S2),FR)	//write ((s1<<32)|s2) into fr
+#define XT_INS_WFR(FR,T) _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x5),T)
 
 
 //forward declarations
@@ -489,17 +487,17 @@ static void esp108_queue_exec_ins(struct target *target, int32_t ins)
 	esp108_queue_nexus_reg_write(target, NARADR_DIR0EXEC, ins);
 }
 
-static uint64_t esp108_reg_get(struct reg *reg)
+static uint32_t esp108_reg_get(struct reg *reg)
 {
-	return *((uint64_t*)reg->value);
+	return *((uint32_t*)reg->value);
 }
 
-static void esp108_reg_set(struct reg *reg, uint64_t value)
+static void esp108_reg_set(struct reg *reg, uint32_t value)
 {
-	uint64_t oldval;
-	oldval=*((uint64_t*)reg->value);
+	uint32_t oldval;
+	oldval=*((uint32_t*)reg->value);
 	if (oldval==value) return;
-	*((uint64_t*)reg->value)=value;
+	*((uint32_t*)reg->value)=value;
 	reg->dirty=1;
 }
 
@@ -509,11 +507,6 @@ static void esp108_reg_set(struct reg *reg, uint64_t value)
 static uint32_t intfromchars(uint8_t *c) 
 {
 	return c[0]+(c[1]<<8)+(c[2]<<16)+(c[3]<<24);
-}
-
-static uint64_t longfromchars(uint8_t *c) 
-{
-	return (uint64_t)intfromchars(&c[0])+((uint64_t)intfromchars(&c[4])<<32);
 }
 
 /*
@@ -609,11 +602,11 @@ static int esp108_fetch_all_regs(struct target *target)
 {
 	int i, j;
 	int res;
-	uint64_t regval;
+	uint32_t regval;
 	uint32_t windowbase;
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	struct reg *reg_list=esp108->core_cache->reg_list;
-	uint8_t regvals[XT_NUM_REGS][8];
+	uint8_t regvals[XT_NUM_REGS][4];
 	
 	//Assume the CPU has just halted. We now want to fill the register cache with all the 
 	//register contents GDB needs. For speed, we pipeline all the read operations, execute them
@@ -639,17 +632,11 @@ static int esp108_fetch_all_regs(struct target *target)
 				esp108_queue_exec_ins(target, XT_INS_RUR(esp108_regs[i].reg_num, XT_REG_A3));
 			} else if (esp108_regs[i].type==XT_REG_FR) {
 				esp108_queue_exec_ins(target, XT_INS_RFR(esp108_regs[i].reg_num, XT_REG_A3));
-				esp108_queue_exec_ins(target, XT_INS_RFRD(esp108_regs[i].reg_num, XT_REG_A4));
 			} else { //SFR
 				esp108_queue_exec_ins(target, XT_INS_RSR(esp108_regs[i].reg_num, XT_REG_A3));
 			}
 			esp108_queue_exec_ins(target, XT_INS_WSR(XT_SR_DDR, XT_REG_A3));
 			esp108_queue_nexus_reg_read(target, NARADR_DDR, regvals[i]);
-			if (esp108_regs[i].type==XT_REG_FR) {
-				//Also read the upper 32 bit.
-				esp108_queue_exec_ins(target, XT_INS_WSR(XT_SR_DDR, XT_REG_A4));
-				esp108_queue_nexus_reg_read(target, NARADR_DDR, &regvals[i][4]);
-			}
 		}
 	}
 
@@ -671,9 +658,6 @@ static int esp108_fetch_all_regs(struct target *target)
 //				LOG_INFO("mapping: %s -> %s (windowbase off %d)\n",esp108_regs[i].name, esp108_regs[realadr].name, windowbase*4);
 			} else if (esp108_regs[i].type==XT_REG_RELGEN) {
 				regval=intfromchars(regvals[esp108_regs[i].reg_num]);
-			} else if (esp108_regs[i].type==XT_REG_FR) {
-				//These are 64 bit.
-				regval=longfromchars(regvals[esp108_regs[i].reg_num]);
 			} else {
 				regval=intfromchars(regvals[i]);
 //				LOG_INFO("Register %s: 0x%X", esp108_regs[i].name, regval);
@@ -687,8 +671,6 @@ static int esp108_fetch_all_regs(struct target *target)
 	}
 	//We have used A3 as a scratch register and we will need to write that back.
 	esp108_mark_register_dirty(target, XT_REG_IDX_A3);
-	//Same for A4 if we had FPU registers
-	esp108_mark_register_dirty(target, XT_REG_IDX_A4);
 
 
 	return ERROR_OK;
@@ -699,8 +681,7 @@ static int esp108_write_dirty_registers(struct target *target)
 {
 	int i, j;
 	int res;
-	uint64_t regval;
-	uint32_t windowbase;
+	uint32_t regval, windowbase;
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	struct reg *reg_list=esp108->core_cache->reg_list;
 
@@ -712,16 +693,13 @@ static int esp108_write_dirty_registers(struct target *target)
 		if (reg_list[i].dirty) {
 			if (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER) {
 				regval=esp108_reg_get(&reg_list[i]);
-				LOG_DEBUG("%s: Writing back reg %s val %08lX", target->cmd_name, esp108_regs[i].name, regval);
-				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval&0xffffffff);
+				LOG_DEBUG("%s: Writing back reg %s val %08X", target->cmd_name, esp108_regs[i].name, regval);
+				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A3));
 				if (esp108_regs[i].type==XT_REG_USER) {
 					esp108_queue_exec_ins(target, XT_INS_WUR(esp108_regs[i].reg_num, XT_REG_A3));
 				} else if (esp108_regs[i].type==XT_REG_FR) {
-					//Double-precision: use A4 for the top bits
-					esp108_queue_nexus_reg_write(target, NARADR_DDR, regval>>32);
-					esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, XT_REG_A4));
-					esp108_queue_exec_ins(target, XT_INS_WFRD(esp108_regs[i].reg_num, XT_REG_A3, XT_REG_A4));
+					esp108_queue_exec_ins(target, XT_INS_WFR(esp108_regs[i].reg_num, XT_REG_A3));
 				} else { //SFR
 					esp108_queue_exec_ins(target, XT_INS_WSR(esp108_regs[i].reg_num, XT_REG_A3));
 				}
@@ -748,7 +726,7 @@ static int esp108_write_dirty_registers(struct target *target)
 	for (i=0; i<16; i++) {
 		if (reg_list[XT_REG_IDX_A0+i].dirty) {
 			regval=esp108_reg_get(&reg_list[XT_REG_IDX_A0+i]);
-			LOG_DEBUG("%s: Writing back reg %s value %08lX", target->cmd_name, esp108_regs[XT_REG_IDX_A0+i].name, regval);
+			LOG_DEBUG("%s: Writing back reg %s value %08X", target->cmd_name, esp108_regs[XT_REG_IDX_A0+i].name, regval);
 			esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 			esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, i));
 			reg_list[XT_REG_IDX_A0+i].dirty=0;
@@ -763,7 +741,7 @@ static int esp108_write_dirty_registers(struct target *target)
 			//Write back any dirty un-windowed registers
 			if (reg_list[realadr].dirty) {
 				regval=esp108_reg_get(&reg_list[realadr]);
-				LOG_DEBUG("%s: Writing back reg %s value %08lX", target->cmd_name, esp108_regs[realadr].name, regval);
+				LOG_DEBUG("%s: Writing back reg %s value %08X", target->cmd_name, esp108_regs[realadr].name, regval);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
 				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i+j].reg_num));
 				reg_list[realadr].dirty=0;
@@ -1314,7 +1292,7 @@ static int xtensa_step(struct target *target,
 			esp108_fetch_all_regs(target);
 		}
 	} while (esp108_reg_get(&reg_list[XT_REG_IDX_PC])==oldpc && --tries);
-	LOG_DEBUG("Stepped from %X to %lX", oldpc, esp108_reg_get(&reg_list[XT_REG_IDX_PC]));
+	LOG_DEBUG("Stepped from %X to %X", oldpc, esp108_reg_get(&reg_list[XT_REG_IDX_PC]));
 
 	if (!tries) {
 		LOG_ERROR("%s: %s: Stepping doesn't seem to change PC!", target->cmd_name, __func__);
@@ -1389,15 +1367,8 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 
 	for(i = 0; i < XT_NUM_REGS; i++) {
 		reg_list[i].name = esp108_regs[i].name;
-		if (esp108_regs[i].type==XT_REG_FR) {
-			//We assume any fpu is double-precision, so 64-bit fpu registers are needed.
-			//Unfortunately, gdb somehow doesn't understand that the registers are 64-bit... so mark them as 32-bit for now.
-			reg_list[i].size = 32; //64;
-			reg_list[i].value = calloc(1,8);
-		} else {
-			reg_list[i].size = 32;
-			reg_list[i].value = calloc(1,4);
-		}
+		reg_list[i].size = 32;
+		reg_list[i].value = calloc(1,4);
 		reg_list[i].dirty = 0;
 		reg_list[i].valid = 0;
 		reg_list[i].type = &esp108_reg_type;
@@ -1479,7 +1450,7 @@ static int xtensa_poll(struct target *target)
 			
 			//LOG_INFO("%s: %s: Target halted (dsr=%08X). Fetching register contents.", target->cmd_name, __FUNCTION__, intfromchars(dsr));
 			esp108_fetch_all_regs(target);
-			LOG_INFO("%s: Target halted, pc=0x%08lX", target->cmd_name, esp108_reg_get(&reg_list[XT_REG_IDX_PC]));
+			LOG_INFO("%s: Target halted, pc=0x%08X", target->cmd_name, esp108_reg_get(&reg_list[XT_REG_IDX_PC]));
 
 			//Examine why the target was halted
 			int cause=esp108_reg_get(&reg_list[XT_REG_IDX_DEBUGCAUSE]);
