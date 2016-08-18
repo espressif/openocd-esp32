@@ -518,7 +518,7 @@ that when the jtag port is idle.
 static void esp108_queue_tdi_idle(struct target *target) {
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	static uint8_t value;
-	uint8_t t[4];
+	uint8_t t[4]={0,0,0,0};
 
 	if (esp108->flashBootstrap==FBS_TMSLOW) {
 		//Make sure tdi is 0 at the exit of queue execution
