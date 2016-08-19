@@ -601,7 +601,6 @@ static enum xtensa_reg_idx canonical_to_windowbase_offset(const enum xtensa_reg_
 	return windowbase_offset_to_canonical(reg, -windowbase);
 }
 
-
 static int esp108_fetch_all_regs(struct target *target)
 {
 	int i, j;
@@ -611,6 +610,7 @@ static int esp108_fetch_all_regs(struct target *target)
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	struct reg *reg_list=esp108->core_cache->reg_list;
 	uint8_t regvals[XT_NUM_REGS][4];
+	uint8_t dsrs[XT_NUM_REGS][4];
 	
 	//Assume the CPU has just halted. We now want to fill the register cache with all the 
 	//register contents GDB needs. For speed, we pipeline all the read operations, execute them
@@ -622,6 +622,7 @@ static int esp108_fetch_all_regs(struct target *target)
 		for (i=0; i<16; i++) {
 			esp108_queue_exec_ins(target, XT_INS_WSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i].reg_num));
 			esp108_queue_nexus_reg_read(target, NARADR_DDR, regvals[XT_REG_IDX_AR0+i+j]);
+			esp108_queue_nexus_reg_read(target, NARADR_DSR, dsrs[XT_REG_IDX_AR0+i+j]);
 		}
 		//Now rotate the window so we'll see the next 16 registers. The final rotate will wraparound, 
 		//leaving us in the state we were.
@@ -641,6 +642,7 @@ static int esp108_fetch_all_regs(struct target *target)
 			}
 			esp108_queue_exec_ins(target, XT_INS_WSR(XT_SR_DDR, XT_REG_A3));
 			esp108_queue_nexus_reg_read(target, NARADR_DDR, regvals[i]);
+			esp108_queue_nexus_reg_read(target, NARADR_DSR, dsrs[i]);
 		}
 	}
 
@@ -648,6 +650,17 @@ static int esp108_fetch_all_regs(struct target *target)
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
 	esp108_checkdsr(target);
+
+
+	//DSR checking: follows order in which registers are requested. Assumes 
+	for (i=0; i<XT_NUM_REGS; i++) {
+		if ((!(esp108_regs[i].flags&XT_REGF_NOREAD)) && (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER)) {
+			if (intfromchars(dsrs[i])&OCDDSR_EXECEXCEPTION) {
+				LOG_ERROR("Exception reading %s!\n", esp108_regs[i].name);
+				return ERROR_FAIL;
+			}
+		}
+	}
 
 	//We need the windowbase to decode the general addresses.
 	windowbase=intfromchars(regvals[XT_REG_IDX_WINDOWBASE]);
