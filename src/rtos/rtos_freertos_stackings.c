@@ -325,10 +325,15 @@ static int rtos_freertos_esp108_stack_read_voluntary(struct target *target, int6
 	int callno;
 	int i;
 	uint32_t prevsp;
+//ToDo: Get rid of the mess that requires this heap of processor meta stuff.
+#if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wcast-align"
+#endif
 	uint32_t *stackregs=(uint32_t *)stack_data; //alias so we can read/write entire words. Little-endian hosts only!
+#if defined(__clang__)
 #pragma clang diagnostic pop
+#endif
 
 	retval = target_read_buffer(target, stack_ptr-0x10, 4*8, stack_data);
 	if (retval!=ERROR_OK) return retval;
