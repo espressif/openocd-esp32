@@ -31,10 +31,13 @@ function parseRegs() {
 					hwreg="XT_REG_IDX_AR"$((tgbo&255))
 			fi
 			if [ $((group)) -eq $((0x1010)) ]; then tp=IGNORE; fi
-			if [ $((group)) -eq $((0x401)) ]; 
-					then tp=XT_REG_FR; 
+			if [ $((group)) -eq $((0x401)) ]; then 
+					tp=XT_REG_FR
+					flags=XT_REGF_COPROC0
 					hwreg=`printf "0x%02X" $(((tgbo&255)-48))`
 			fi
+			if [ "$name" = "fcr" ]; then flags=XT_REGF_COPROC0; fi
+			if [ "$name" = "fsr" ]; then flags=XT_REGF_COPROC0; fi
 			if [ "$name" = "intset" ]; then flags="XT_REGF_NOREAD"; fi
 			if [ "$name" = "intclear" ]; then flags="XT_REGF_NOREAD"; fi
 			if [ "$name" = "ddr" ]; then 

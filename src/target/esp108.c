@@ -333,6 +333,7 @@ enum esp108_reg_t {
 
 enum esp108_regflags_t {
 	XT_REGF_NOREAD = 0x01,	//Register is write-only
+	XT_REGF_COPROC0 = 0x02	//Can't be read if coproc0 isn't enabled
 };
 
 struct esp108_reg_desc {
@@ -601,9 +602,17 @@ static enum xtensa_reg_idx canonical_to_windowbase_offset(const enum xtensa_reg_
 	return windowbase_offset_to_canonical(reg, -windowbase);
 }
 
+static int regReadable(int flags, int cpenable) {
+	if (flags&XT_REGF_NOREAD) return 0;
+	if ((flags&XT_REGF_COPROC0) && (cpenable&(1<<0))==0) return 0;
+	return 1;
+
+}
+
 static int esp108_fetch_all_regs(struct target *target)
 {
 	int i, j;
+	int cpenable;
 	int res;
 	uint32_t regval;
 	uint32_t windowbase;
@@ -615,6 +624,16 @@ static int esp108_fetch_all_regs(struct target *target)
 	//Assume the CPU has just halted. We now want to fill the register cache with all the 
 	//register contents GDB needs. For speed, we pipeline all the read operations, execute them
 	//in one go, then sort everything out from the regvals variable.
+
+	//As the very first thing, go grab the CPENABLE registers. It indicates if we can also grab the FP
+	//(and theoretically other coprocessor) registers, or if this is a bad thing to do.
+	esp108_queue_exec_ins(target, XT_INS_RSR(esp108_regs[XT_REG_IDX_CPENABLE].reg_num, XT_REG_A3));
+	esp108_queue_exec_ins(target, XT_INS_WSR(XT_SR_DDR, XT_REG_A3));
+	esp108_queue_nexus_reg_read(target, NARADR_DDR, regvals[XT_REG_IDX_CPENABLE]);
+	res=jtag_execute_queue();
+	if (res!=ERROR_OK) return res;
+	esp108_checkdsr(target);
+	cpenable=intfromchars(regvals[XT_REG_IDX_CPENABLE]);
 
 	//Start out with A0-A63; we can reach those immediately. Grab them per 16 registers.
 	for (j=0; j<64; j+=16) {
@@ -632,7 +651,7 @@ static int esp108_fetch_all_regs(struct target *target)
 	//We're now free to use any of A0-A15 as scratch registers
 	//Grab the SFRs and user registers first. We use A3 as a scratch register.
 	for (i=0; i<XT_NUM_REGS; i++) {
-		if ((!(esp108_regs[i].flags&XT_REGF_NOREAD)) && (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER)) {
+		if (regReadable(esp108_regs[i].flags, cpenable) && (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER)) {
 			if (esp108_regs[i].type==XT_REG_USER) {
 				esp108_queue_exec_ins(target, XT_INS_RUR(esp108_regs[i].reg_num, XT_REG_A3));
 			} else if (esp108_regs[i].type==XT_REG_FR) {
@@ -652,9 +671,9 @@ static int esp108_fetch_all_regs(struct target *target)
 	esp108_checkdsr(target);
 
 
-	//DSR checking: follows order in which registers are requested. Assumes 
+	//DSR checking: follows order in which registers are requested.
 	for (i=0; i<XT_NUM_REGS; i++) {
-		if ((!(esp108_regs[i].flags&XT_REGF_NOREAD)) && (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER)) {
+		if (regReadable(esp108_regs[i].flags, cpenable) && (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER)) {
 			if (intfromchars(dsrs[i])&OCDDSR_EXECEXCEPTION) {
 				LOG_ERROR("Exception reading %s!\n", esp108_regs[i].name);
 				return ERROR_FAIL;
@@ -666,7 +685,7 @@ static int esp108_fetch_all_regs(struct target *target)
 	windowbase=intfromchars(regvals[XT_REG_IDX_WINDOWBASE]);
 	//Decode the result and update the cache.
 	for (i=0; i<XT_NUM_REGS; i++) {
-		if (!(esp108_regs[i].flags&XT_REGF_NOREAD)) {
+		if (regReadable(esp108_regs[i].flags, cpenable)) {
 			if (esp108_regs[i].type==XT_REG_GENERAL) {
 				//The 64-value general register set is read from (windowbase) on down. We need
 				//to get the real register address by subtracting windowbase and wrapping around.
