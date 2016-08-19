@@ -16,9 +16,7 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
 #ifdef HAVE_CONFIG_H
@@ -134,7 +132,7 @@ COMMAND_HELPER(nand_fileio_parse_args, struct nand_fileio_state *state,
 
 	if (NULL == nand->device) {
 		command_print(CMD_CTX, "#%s: not probed", CMD_ARGV[0]);
-		return ERROR_OK;
+		return ERROR_NAND_DEVICE_NOT_PROBED;
 	}
 
 	COMMAND_PARSE_NUMBER(u32, CMD_ARGV[2], state->address);

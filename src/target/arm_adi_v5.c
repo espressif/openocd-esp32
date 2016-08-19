@@ -24,9 +24,7 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
 /**
@@ -962,70 +960,93 @@ static const struct {
 	const char *type;
 	const char *full;
 } dap_partnums[] = {
-	{ ARM_ID, 0x000, "Cortex-M3 SCS",    "(System Control Space)", },
-	{ ARM_ID, 0x001, "Cortex-M3 ITM",    "(Instrumentation Trace Module)", },
-	{ ARM_ID, 0x002, "Cortex-M3 DWT",    "(Data Watchpoint and Trace)", },
-	{ ARM_ID, 0x003, "Cortex-M3 FBP",    "(Flash Patch and Breakpoint)", },
-	{ ARM_ID, 0x008, "Cortex-M0 SCS",    "(System Control Space)", },
-	{ ARM_ID, 0x00a, "Cortex-M0 DWT",    "(Data Watchpoint and Trace)", },
-	{ ARM_ID, 0x00b, "Cortex-M0 BPU",    "(Breakpoint Unit)", },
-	{ ARM_ID, 0x00c, "Cortex-M4 SCS",    "(System Control Space)", },
-	{ ARM_ID, 0x00d, "CoreSight ETM11",  "(Embedded Trace)", },
-	{ ARM_ID, 0x490, "Cortex-A15 GIC",   "(Generic Interrupt Controller)", },
-	{ ARM_ID, 0x4c7, "Cortex-M7 PPB",    "(Private Peripheral Bus ROM Table)", },
-	{ ARM_ID, 0x906, "CoreSight CTI",    "(Cross Trigger)", },
-	{ ARM_ID, 0x907, "CoreSight ETB",    "(Trace Buffer)", },
-	{ ARM_ID, 0x908, "CoreSight CSTF",   "(Trace Funnel)", },
-	{ ARM_ID, 0x910, "CoreSight ETM9",   "(Embedded Trace)", },
-	{ ARM_ID, 0x912, "CoreSight TPIU",   "(Trace Port Interface Unit)", },
-	{ ARM_ID, 0x913, "CoreSight ITM",    "(Instrumentation Trace Macrocell)", },
-	{ ARM_ID, 0x914, "CoreSight SWO",    "(Single Wire Output)", },
-	{ ARM_ID, 0x917, "CoreSight HTM",    "(AHB Trace Macrocell)", },
-	{ ARM_ID, 0x920, "CoreSight ETM11",  "(Embedded Trace)", },
-	{ ARM_ID, 0x921, "Cortex-A8 ETM",    "(Embedded Trace)", },
-	{ ARM_ID, 0x922, "Cortex-A8 CTI",    "(Cross Trigger)", },
-	{ ARM_ID, 0x923, "Cortex-M3 TPIU",   "(Trace Port Interface Unit)", },
-	{ ARM_ID, 0x924, "Cortex-M3 ETM",    "(Embedded Trace)", },
-	{ ARM_ID, 0x925, "Cortex-M4 ETM",    "(Embedded Trace)", },
-	{ ARM_ID, 0x930, "Cortex-R4 ETM",    "(Embedded Trace)", },
-	{ ARM_ID, 0x931, "Cortex-R5 ETM",    "(Embedded Trace)", },
-	{ ARM_ID, 0x941, "CoreSight TPIU-Lite", "(Trace Port Interface Unit)", },
-	{ ARM_ID, 0x950, "Cortex-A9 PTM", "(Program Trace Macrocell)", },
-	{ ARM_ID, 0x955, "Cortex-A5 ETM", "(Embedded Trace)", },
-	{ ARM_ID, 0x95a, "Cortex-A72 ETM",   "(Embedded Trace)", },
-	{ ARM_ID, 0x95b, "Cortex-A17 PTM",   "(Program Trace Macrocell)", },
-	{ ARM_ID, 0x95d, "Cortex-A53 ETM",   "(Embedded Trace)", },
-	{ ARM_ID, 0x95e, "Cortex-A57 ETM",   "(Embedded Trace)", },
-	{ ARM_ID, 0x95f, "Cortex-A15 PTM",   "(Program Trace Macrocell)", },
-	{ ARM_ID, 0x961, "CoreSight TMC",    "(Trace Memory Controller)", },
-	{ ARM_ID, 0x962, "CoreSight STM",    "(System Trace Macrocell)", },
-	{ ARM_ID, 0x9a0, "CoreSight PMU",    "(Performance Monitoring Unit)", },
-	{ ARM_ID, 0x9a1, "Cortex-M4 TPIU",   "(Trace Port Interface Unit)", },
-	{ ARM_ID, 0x9a5, "Cortex-A5 PMU",    "(Performance Monitor Unit)", },
-	{ ARM_ID, 0x9a7, "Cortex-A7 PMU",    "(Performance Monitor Unit)", },
-	{ ARM_ID, 0x9a8, "Cortex-A53 CTI",    "(Cross Trigger)", },
-	{ ARM_ID, 0x9ae, "Cortex-A17 PMU",    "(Performance Monitor Unit)", },
-	{ ARM_ID, 0x9af, "Cortex-A15 PMU",   "(Performance Monitor Unit)", },
-	{ ARM_ID, 0x9b7, "Cortex-R7 PMU",    "(Performance Monitoring Unit)", },
-	{ ARM_ID, 0x9d3, "Cortex-A53 PMU",    "(Performance Monitor Unit)", },
-	{ ARM_ID, 0x9d7, "Cortex-A57 PMU",    "(Performance Monitor Unit)", },
-	{ ARM_ID, 0x9d8, "Cortex-A72 PMU",    "(Performance Monitor Unit)", },
-	{ ARM_ID, 0xc05, "Cortex-A5 Debug",  "(Debug Unit)", },
-	{ ARM_ID, 0xc07, "Cortex-A7 Debug",  "(Debug Unit)", },
-	{ ARM_ID, 0xc08, "Cortex-A8 Debug",  "(Debug Unit)", },
-	{ ARM_ID, 0xc09, "Cortex-A9 Debug",  "(Debug Unit)", },
-	{ ARM_ID, 0xc0e, "Cortex-A17 Debug", "(Debug Unit)", },
-	{ ARM_ID, 0xc0f, "Cortex-A15 Debug", "(Debug Unit)", },
-	{ ARM_ID, 0xc14, "Cortex-R4 Debug",  "(Debug Unit)", },
-	{ ARM_ID, 0xc15, "Cortex-R5 Debug",  "(Debug Unit)", },
-	{ ARM_ID, 0xc17, "Cortex-R7 Debug",  "(Debug Unit)", },
-	{ ARM_ID, 0xd03, "Cortex-A53 Debug",  "(Debug Unit)", },
-	{ ARM_ID, 0xd07, "Cortex-A57 Debug",  "(Debug Unit)", },
-	{ ARM_ID, 0xd08, "Cortex-A72 Debug",  "(Debug Unit)", },
-	{ 0x0E5,  0x000, "SHARC+/Blackfin+", "", },
+	{ ARM_ID, 0x000, "Cortex-M3 SCS",              "(System Control Space)", },
+	{ ARM_ID, 0x001, "Cortex-M3 ITM",              "(Instrumentation Trace Module)", },
+	{ ARM_ID, 0x002, "Cortex-M3 DWT",              "(Data Watchpoint and Trace)", },
+	{ ARM_ID, 0x003, "Cortex-M3 FPB",              "(Flash Patch and Breakpoint)", },
+	{ ARM_ID, 0x008, "Cortex-M0 SCS",              "(System Control Space)", },
+	{ ARM_ID, 0x00a, "Cortex-M0 DWT",              "(Data Watchpoint and Trace)", },
+	{ ARM_ID, 0x00b, "Cortex-M0 BPU",              "(Breakpoint Unit)", },
+	{ ARM_ID, 0x00c, "Cortex-M4 SCS",              "(System Control Space)", },
+	{ ARM_ID, 0x00d, "CoreSight ETM11",            "(Embedded Trace)", },
+	{ ARM_ID, 0x00e, "Cortex-M7 FPB",              "(Flash Patch and Breakpoint)", },
+	{ ARM_ID, 0x490, "Cortex-A15 GIC",             "(Generic Interrupt Controller)", },
+	{ ARM_ID, 0x4a1, "Cortex-A53 ROM",             "(v8 Memory Map ROM Table)", },
+	{ ARM_ID, 0x4a2, "Cortex-A57 ROM",             "(ROM Table)", },
+	{ ARM_ID, 0x4a3, "Cortex-A53 ROM",             "(v7 Memory Map ROM Table)", },
+	{ ARM_ID, 0x4a4, "Cortex-A72 ROM",             "(ROM Table)", },
+	{ ARM_ID, 0x4af, "Cortex-A15 ROM",             "(ROM Table)", },
+	{ ARM_ID, 0x4c0, "Cortex-M0+ ROM",             "(ROM Table)", },
+	{ ARM_ID, 0x4c3, "Cortex-M3 ROM",              "(ROM Table)", },
+	{ ARM_ID, 0x4c4, "Cortex-M4 ROM",              "(ROM Table)", },
+	{ ARM_ID, 0x4c7, "Cortex-M7 PPB ROM",          "(Private Peripheral Bus ROM Table)", },
+	{ ARM_ID, 0x4c8, "Cortex-M7 ROM",              "(ROM Table)", },
+	{ ARM_ID, 0x470, "Cortex-M1 ROM",              "(ROM Table)", },
+	{ ARM_ID, 0x471, "Cortex-M0 ROM",              "(ROM Table)", },
+	{ ARM_ID, 0x906, "CoreSight CTI",              "(Cross Trigger)", },
+	{ ARM_ID, 0x907, "CoreSight ETB",              "(Trace Buffer)", },
+	{ ARM_ID, 0x908, "CoreSight CSTF",             "(Trace Funnel)", },
+	{ ARM_ID, 0x909, "CoreSight ATBR",             "(Advanced Trace Bus Replicator)", },
+	{ ARM_ID, 0x910, "CoreSight ETM9",             "(Embedded Trace)", },
+	{ ARM_ID, 0x912, "CoreSight TPIU",             "(Trace Port Interface Unit)", },
+	{ ARM_ID, 0x913, "CoreSight ITM",              "(Instrumentation Trace Macrocell)", },
+	{ ARM_ID, 0x914, "CoreSight SWO",              "(Single Wire Output)", },
+	{ ARM_ID, 0x917, "CoreSight HTM",              "(AHB Trace Macrocell)", },
+	{ ARM_ID, 0x920, "CoreSight ETM11",            "(Embedded Trace)", },
+	{ ARM_ID, 0x921, "Cortex-A8 ETM",              "(Embedded Trace)", },
+	{ ARM_ID, 0x922, "Cortex-A8 CTI",              "(Cross Trigger)", },
+	{ ARM_ID, 0x923, "Cortex-M3 TPIU",             "(Trace Port Interface Unit)", },
+	{ ARM_ID, 0x924, "Cortex-M3 ETM",              "(Embedded Trace)", },
+	{ ARM_ID, 0x925, "Cortex-M4 ETM",              "(Embedded Trace)", },
+	{ ARM_ID, 0x930, "Cortex-R4 ETM",              "(Embedded Trace)", },
+	{ ARM_ID, 0x931, "Cortex-R5 ETM",              "(Embedded Trace)", },
+	{ ARM_ID, 0x932, "CoreSight MTB-M0+",          "(Micro Trace Buffer)", },
+	{ ARM_ID, 0x941, "CoreSight TPIU-Lite",        "(Trace Port Interface Unit)", },
+	{ ARM_ID, 0x950, "Cortex-A9 PTM",              "(Program Trace Macrocell)", },
+	{ ARM_ID, 0x955, "Cortex-A5 ETM",              "(Embedded Trace)", },
+	{ ARM_ID, 0x95a, "Cortex-A72 ETM",             "(Embedded Trace)", },
+	{ ARM_ID, 0x95b, "Cortex-A17 PTM",             "(Program Trace Macrocell)", },
+	{ ARM_ID, 0x95d, "Cortex-A53 ETM",             "(Embedded Trace)", },
+	{ ARM_ID, 0x95e, "Cortex-A57 ETM",             "(Embedded Trace)", },
+	{ ARM_ID, 0x95f, "Cortex-A15 PTM",             "(Program Trace Macrocell)", },
+	{ ARM_ID, 0x961, "CoreSight TMC",              "(Trace Memory Controller)", },
+	{ ARM_ID, 0x962, "CoreSight STM",              "(System Trace Macrocell)", },
+	{ ARM_ID, 0x975, "Cortex-M7 ETM",              "(Embedded Trace)", },
+	{ ARM_ID, 0x9a0, "CoreSight PMU",              "(Performance Monitoring Unit)", },
+	{ ARM_ID, 0x9a1, "Cortex-M4 TPIU",             "(Trace Port Interface Unit)", },
+	{ ARM_ID, 0x9a4, "CoreSight GPR",              "(Granular Power Requester)", },
+	{ ARM_ID, 0x9a5, "Cortex-A5 PMU",              "(Performance Monitor Unit)", },
+	{ ARM_ID, 0x9a7, "Cortex-A7 PMU",              "(Performance Monitor Unit)", },
+	{ ARM_ID, 0x9a8, "Cortex-A53 CTI",             "(Cross Trigger)", },
+	{ ARM_ID, 0x9a9, "Cortex-M7 TPIU",             "(Trace Port Interface Unit)", },
+	{ ARM_ID, 0x9ae, "Cortex-A17 PMU",             "(Performance Monitor Unit)", },
+	{ ARM_ID, 0x9af, "Cortex-A15 PMU",             "(Performance Monitor Unit)", },
+	{ ARM_ID, 0x9b7, "Cortex-R7 PMU",              "(Performance Monitoring Unit)", },
+	{ ARM_ID, 0x9d3, "Cortex-A53 PMU",             "(Performance Monitor Unit)", },
+	{ ARM_ID, 0x9d7, "Cortex-A57 PMU",             "(Performance Monitor Unit)", },
+	{ ARM_ID, 0x9d8, "Cortex-A72 PMU",             "(Performance Monitor Unit)", },
+	{ ARM_ID, 0xc05, "Cortex-A5 Debug",            "(Debug Unit)", },
+	{ ARM_ID, 0xc07, "Cortex-A7 Debug",            "(Debug Unit)", },
+	{ ARM_ID, 0xc08, "Cortex-A8 Debug",            "(Debug Unit)", },
+	{ ARM_ID, 0xc09, "Cortex-A9 Debug",            "(Debug Unit)", },
+	{ ARM_ID, 0xc0e, "Cortex-A17 Debug",           "(Debug Unit)", },
+	{ ARM_ID, 0xc0f, "Cortex-A15 Debug",           "(Debug Unit)", },
+	{ ARM_ID, 0xc14, "Cortex-R4 Debug",            "(Debug Unit)", },
+	{ ARM_ID, 0xc15, "Cortex-R5 Debug",            "(Debug Unit)", },
+	{ ARM_ID, 0xc17, "Cortex-R7 Debug",            "(Debug Unit)", },
+	{ ARM_ID, 0xd03, "Cortex-A53 Debug",           "(Debug Unit)", },
+	{ ARM_ID, 0xd07, "Cortex-A57 Debug",           "(Debug Unit)", },
+	{ ARM_ID, 0xd08, "Cortex-A72 Debug",           "(Debug Unit)", },
+	{ 0x097,  0x9af, "MSP432 ROM",                 "(ROM Table)" },
+	{ 0x09f,  0xcd0, "Atmel CPU with DSU",         "(CPU)" },
+	{ 0x0c1,  0x1db, "XMC4500 ROM",                "(ROM Table)" },
+	{ 0x0c1,  0x1df, "XMC4700/4800 ROM",           "(ROM Table)" },
+	{ 0x0c1,  0x1ed, "XMC1000 ROM",                "(ROM Table)" },
+	{ 0x0E5,  0x000, "SHARC+/Blackfin+",           "", },
+	{ 0x0F0,  0x440, "Qualcomm QDSS Component v1", "(Qualcomm Designed CoreSight Component v1)", },
 	/* legacy comment: 0x113: what? */
-	{ ANY_ID,  0x120, "TI SDTI",         "(System Debug Trace Interface)", }, /* from OMAP3 memmap */
-	{ ANY_ID,  0x343, "TI DAPCTL",       "", }, /* from OMAP3 memmap */
+	{ ANY_ID, 0x120, "TI SDTI",                    "(System Debug Trace Interface)", }, /* from OMAP3 memmap */
+	{ ANY_ID, 0x343, "TI DAPCTL",                  "", }, /* from OMAP3 memmap */
 };
 
 static int dap_rom_display(struct command_context *cmd_ctx,
@@ -1535,6 +1556,45 @@ COMMAND_HANDLER(dap_apid_command)
 	return retval;
 }
 
+COMMAND_HANDLER(dap_apreg_command)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	struct arm *arm = target_to_arm(target);
+	struct adiv5_dap *dap = arm->dap;
+
+	uint32_t apsel, reg, value;
+	int retval;
+
+	if (CMD_ARGC < 2 || CMD_ARGC > 3)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], apsel);
+	/* AP address is in bits 31:24 of DP_SELECT */
+	if (apsel >= 256)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	COMMAND_PARSE_NUMBER(u32, CMD_ARGV[1], reg);
+	if (reg >= 256 || (reg & 3))
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	if (CMD_ARGC == 3) {
+		COMMAND_PARSE_NUMBER(u32, CMD_ARGV[2], value);
+		retval = dap_queue_ap_write(dap_ap(dap, apsel), reg, value);
+	} else {
+		retval = dap_queue_ap_read(dap_ap(dap, apsel), reg, &value);
+	}
+	if (retval == ERROR_OK)
+		retval = dap_run(dap);
+
+	if (retval != ERROR_OK)
+		return retval;
+
+	if (CMD_ARGC == 2)
+		command_print(CMD_CTX, "0x%08" PRIx32, value);
+
+	return retval;
+}
+
 COMMAND_HANDLER(dap_ti_be_32_quirks_command)
 {
 	struct target *target = get_current_target(CMD_CTX);
@@ -1593,6 +1653,14 @@ static const struct command_registration dap_commands[] = {
 		.help = "return ID register from AP "
 			"(default currently selected AP)",
 		.usage = "[ap_num]",
+	},
+	{
+		.name = "apreg",
+		.handler = dap_apreg_command,
+		.mode = COMMAND_EXEC,
+		.help = "read/write a register from AP "
+			"(reg is byte address of a word register, like 0 4 8...)",
+		.usage = "ap_num reg [value]",
 	},
 	{
 		.name = "baseaddr",

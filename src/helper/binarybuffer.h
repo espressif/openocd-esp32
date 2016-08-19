@@ -16,13 +16,11 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef BINARYBUFFER_H
-#define BINARYBUFFER_H
+#ifndef OPENOCD_HELPER_BINARYBUFFER_H
+#define OPENOCD_HELPER_BINARYBUFFER_H
 
 #include "list.h"
 
@@ -240,4 +238,4 @@ int unhexify(char *bin, const char *hex, int count);
 int hexify(char *hex, const char *bin, int count, int out_maxlen);
 void buffer_shr(void *_buf, unsigned buf_len, unsigned count);
 
-#endif /* BINARYBUFFER_H */
+#endif /* OPENOCD_HELPER_BINARYBUFFER_H */

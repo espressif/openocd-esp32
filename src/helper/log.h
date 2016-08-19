@@ -19,13 +19,11 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef ERROR_H
-#define ERROR_H
+#ifndef OPENOCD_HELPER_LOG_H
+#define OPENOCD_HELPER_LOG_H
 
 #include <helper/command.h>
 
@@ -141,4 +139,4 @@ extern int debug_level;
 #define ERROR_WAIT						(-5)
 
 
-#endif	/* LOG_H */
+#endif /* OPENOCD_HELPER_LOG_H */
