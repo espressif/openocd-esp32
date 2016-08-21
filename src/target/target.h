@@ -127,7 +127,7 @@ struct working_area_config {
 										 * upon first allocation from virtual/physical address. */
 	bool virt_spec;		/* virtual address specified? */
 	uint32_t virt;			/* virtual address */
-	bool phys_spec;		/* virtual address specified? */
+	bool phys_spec;		/* physical address specified? */
 	uint32_t phys;			/* physical address */
 	uint32_t size;			/* size in bytes */
 	uint32_t backup;		/* whether the content of the working area has to be preserved */
