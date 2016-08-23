@@ -50,7 +50,9 @@ struct FreeRTOS_params {
 	const unsigned char list_elem_content_offset;
 	const unsigned char thread_stack_offset;
 	const unsigned char thread_name_offset;
-	const struct rtos_register_stacking *stacking_info;
+	const struct rtos_register_stacking *stacking_info_cm3;
+	const struct rtos_register_stacking *stacking_info_cm4f;
+	const struct rtos_register_stacking *stacking_info_cm4f_fpu;
 	const struct rtos_register_stacking* (*stacking_info_pick_fn)(struct rtos *rtos, int64_t thread_id, int64_t stack_addr);
 };
 
@@ -66,6 +68,8 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 	0,						/* thread_stack_offset; */
 	52,						/* thread_name_offset; */
 	&rtos_standard_Cortex_M3_stacking,	/* stacking_info */
+	&rtos_standard_Cortex_M4F_stacking,
+	&rtos_standard_Cortex_M4F_FPU_stacking,
 	NULL,					/* fn to pick stacking_info */
 	},
 	{
@@ -79,6 +83,8 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 	0,						/* thread_stack_offset; */
 	52,						/* thread_name_offset; */
 	&rtos_standard_Cortex_M3_stacking,	/* stacking_info */
+	&rtos_standard_Cortex_M4F_stacking,
+	&rtos_standard_Cortex_M4F_FPU_stacking,
 	NULL,					/* fn to pick stacking_info */
 	},
 	{
@@ -92,6 +98,8 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 	0,						/* thread_stack_offset; */
 	52,						/* thread_name_offset; */
 	&rtos_standard_NDS32_N1068_stacking,	/* stacking_info */
+	&rtos_standard_Cortex_M4F_stacking,
+	&rtos_standard_Cortex_M4F_FPU_stacking,
 	NULL,					/* fn to pick stacking_info */
 	},
 	{
@@ -105,6 +113,8 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 	0,						/* thread_stack_offset; */
 	52,						/* thread_name_offset; */
 	NULL,					/* stacking_info */
+	&rtos_standard_Cortex_M4F_stacking,
+	&rtos_standard_Cortex_M4F_FPU_stacking,
 	rtos_freertos_esp108_pick_stacking_info, /* fn to pick stacking_info */
 	},
 
@@ -440,11 +450,8 @@ static int FreeRTOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id, ch
 										stack_ptr);
 	if (param->stacking_info_pick_fn) {
 		return rtos_generic_stack_read(rtos->target, param->stacking_info_pick_fn(rtos, thread_id, thread_id + param->thread_stack_offset), stack_ptr, hex_reg_list);
-	} else {
-		return rtos_generic_stack_read(rtos->target, param->stacking_info, stack_ptr, hex_reg_list);
 	}
 
-#if 0
 	/* Check for armv7m with *enabled* FPU, i.e. a Cortex-M4F */
 	int cm4_fpu_enabled = 0;
 	struct armv7m_common *armv7m_target = target_to_armv7m(rtos->target);
@@ -484,7 +491,6 @@ static int FreeRTOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id, ch
 			return rtos_generic_stack_read(rtos->target, param->stacking_info_cm4f, stack_ptr, hex_reg_list);
 	} else
 		return rtos_generic_stack_read(rtos->target, param->stacking_info_cm3, stack_ptr, hex_reg_list);
-#endif
 }
 
 static int FreeRTOS_get_symbol_list_to_lookup(symbol_table_elem_t *symbol_list[])
