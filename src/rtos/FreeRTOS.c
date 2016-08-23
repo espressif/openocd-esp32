@@ -111,7 +111,7 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 	8,						/* list_elem_next_offset; */
 	12,						/* list_elem_content_offset */
 	0,						/* thread_stack_offset; */
-	52,						/* thread_name_offset; */
+	60,						/* thread_name_offset; */
 	NULL,					/* stacking_info */
 	&rtos_standard_Cortex_M4F_stacking,
 	&rtos_standard_Cortex_M4F_FPU_stacking,
