@@ -246,6 +246,7 @@ const struct rtos_register_stacking rtos_standard_Cortex_M4F_stacking = {
 	ARMV7M_NUM_CORE_REGS,	/* num_output_registers */
 	rtos_standard_Cortex_M3_stack_align,	/* stack_alignment */
 	rtos_standard_Cortex_M4F_stack_offsets	/* register_offsets */
+	NULL					/* Custom stack frame read function */
 };
 
 const struct rtos_register_stacking rtos_standard_Cortex_M4F_FPU_stacking = {
@@ -254,6 +255,7 @@ const struct rtos_register_stacking rtos_standard_Cortex_M4F_FPU_stacking = {
 	ARMV7M_NUM_CORE_REGS,	/* num_output_registers */
 	rtos_standard_Cortex_M3_stack_align,	/* stack_alignment */
 	rtos_standard_Cortex_M4F_FPU_stack_offsets	/* register_offsets */
+	NULL					/* Custom stack frame read function */
 };
 
 const struct rtos_register_stacking rtos_standard_Cortex_R4_stacking = {
