@@ -22,9 +22,7 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
 #ifdef HAVE_CONFIG_H
@@ -470,6 +468,13 @@ reset_pg_and_lock:
 free_buffer:
 	if (new_buffer)
 		free(new_buffer);
+
+	/* read some bytes bytes to flush buffer in flash accelerator.
+	 * See errata for 1986VE1T and 1986VE3. Error 0007 */
+	if ((retval == ERROR_OK) && (!mdr_info->mem_type)) {
+		uint32_t tmp;
+		target_checksum_memory(bank->target, bank->base, 64, &tmp);
+	}
 
 	return retval;
 }

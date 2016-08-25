@@ -23,9 +23,7 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
 #ifdef HAVE_CONFIG_H
@@ -1249,7 +1247,7 @@ COMMAND_HANDLER(handle_wait_srst_deassert)
 
 	LOG_USER("Waiting for srst assert + deassert for at most %dms", timeout_ms);
 	int asserted_yet;
-	long long then = timeval_ms();
+	int64_t then = timeval_ms();
 	while (jtag_srst_asserted(&asserted_yet) == ERROR_OK) {
 		if ((timeval_ms() - then) > timeout_ms) {
 			LOG_ERROR("Timed out");

@@ -21,9 +21,7 @@
  *   GNU General Public License for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the
- *   Free Software Foundation, Inc.,
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>.
  ***************************************************************************/
 
 /**
@@ -359,7 +357,7 @@ static int jtagdp_overrun_check(struct adiv5_dap *dap)
 	int retval;
 	struct dap_cmd *el, *tmp, *prev = NULL;
 	int found_wait = 0;
-	uint64_t time_now;
+	int64_t time_now;
 	LIST_HEAD(replay_list);
 
 	/* make sure all queued transactions are complete */
@@ -450,7 +448,12 @@ static int jtagdp_overrun_check(struct adiv5_dap *dap)
 					/* timeout happened */
 					if (tmp->ack != JTAG_ACK_OK_FAULT) {
 						LOG_ERROR("Timeout during WAIT recovery");
+						dap->select = DP_SELECT_INVALID;
 						jtag_ap_q_abort(dap, NULL);
+						/* clear the sticky overrun condition */
+						adi_jtag_scan_inout_check_u32(dap, JTAG_DP_DPACC,
+							DP_CTRL_STAT, DPAP_WRITE,
+							dap->dp_ctrl_stat | SSTICKYORUN, NULL, 0);
 						retval = ERROR_JTAG_DEVICE_ERROR;
 					}
 				}
@@ -527,8 +530,14 @@ static int jtagdp_overrun_check(struct adiv5_dap *dap)
 			if (retval == ERROR_OK) {
 				if (el->ack != JTAG_ACK_OK_FAULT) {
 					LOG_ERROR("Timeout during WAIT recovery");
+					dap->select = DP_SELECT_INVALID;
 					jtag_ap_q_abort(dap, NULL);
+					/* clear the sticky overrun condition */
+					adi_jtag_scan_inout_check_u32(dap, JTAG_DP_DPACC,
+						DP_CTRL_STAT, DPAP_WRITE,
+						dap->dp_ctrl_stat | SSTICKYORUN, NULL, 0);
 					retval = ERROR_JTAG_DEVICE_ERROR;
+					break;
 				}
 			} else
 				break;

@@ -11,6 +11,8 @@
 *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
 *   GNU General Public License for more details.                          *
 *                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
 ***************************************************************************/
 
 #ifdef HAVE_CONFIG_H
@@ -620,7 +622,7 @@ static int xmc4xxx_enter_page_mode(struct flash_bank *bank)
  * implement our own */
 
 /** Checks whether a memory region is zeroed. */
-int xmc4xxx_blank_check_memory(struct target *target,
+static int xmc4xxx_blank_check_memory(struct target *target,
 	uint32_t address, uint32_t count, uint32_t *blank)
 {
 	struct working_area *erase_check_algorithm;
@@ -640,7 +642,7 @@ int xmc4xxx_blank_check_memory(struct target *target,
 	retval = target_write_buffer(target, erase_check_algorithm->address,
 			sizeof(erase_check_code), (uint8_t *)erase_check_code);
 	if (retval != ERROR_OK)
-		return retval;
+		goto cleanup;
 
 	armv7m_info.common_magic = ARMV7M_COMMON_MAGIC;
 	armv7m_info.core_mode = ARM_MODE_THREAD;
@@ -671,6 +673,7 @@ int xmc4xxx_blank_check_memory(struct target *target,
 	destroy_reg_param(&reg_params[1]);
 	destroy_reg_param(&reg_params[2]);
 
+cleanup:
 	target_free_working_area(target, erase_check_algorithm);
 
 	return retval;
@@ -680,7 +683,7 @@ static int xmc4xxx_flash_blank_check(struct flash_bank *bank)
 {
 	struct target *target = bank->target;
 	int i;
-	int retval;
+	int retval = ERROR_OK;
 	uint32_t blank;
 
 	if (bank->target->state != TARGET_HALTED) {
@@ -704,7 +707,7 @@ static int xmc4xxx_flash_blank_check(struct flash_bank *bank)
 			bank->sectors[i].is_erased = 0;
 	}
 
-	return ERROR_OK;
+	return retval;
 }
 
 static int xmc4xxx_write_page(struct flash_bank *bank, const uint8_t *pg_buf,

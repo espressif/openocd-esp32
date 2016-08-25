@@ -118,6 +118,27 @@ static const struct stack_register_offset rtos_freertos_esp108_stack_offsets[] =
 	{   -1, 32 },		/* m2 */
 	{   -1, 32 },		/* m3 */
 	{   -1, 32 },		/* expstate */
+	{   -1, 32 },		/* f64r_lo */
+	{   -1, 32 },		/* f64r_hi */
+	{   -1, 32 },		/* f64s */
+	{   -1, 32 },		/* f0 */
+	{   -1, 32 },		/* f1 */
+	{   -1, 32 },		/* f2 */
+	{   -1, 32 },		/* f3 */
+	{   -1, 32 },		/* f4 */
+	{   -1, 32 },		/* f5 */
+	{   -1, 32 },		/* f6 */
+	{   -1, 32 },		/* f7 */
+	{   -1, 32 },		/* f8 */
+	{   -1, 32 },		/* f9 */
+	{   -1, 32 },		/* f10 */
+	{   -1, 32 },		/* f11 */
+	{   -1, 32 },		/* f12 */
+	{   -1, 32 },		/* f13 */
+	{   -1, 32 },		/* f14 */
+	{   -1, 32 },		/* f15 */
+	{   -1, 32 },		/* fcr */
+	{   -1, 32 },		/* fsr */
 };
 
 //WARNING: There's some deeper magic going on when reading this. Please
@@ -208,13 +229,34 @@ static const struct stack_register_offset rtos_freertos_esp108_voluntary_stack_o
 	{   -1, 32 },		/* m2 */
 	{   -1, 32 },		/* m3 */
 	{   -1, 32 },		/* expstate */
+	{   -1, 32 },		/* f64r_lo */
+	{   -1, 32 },		/* f64r_hi */
+	{   -1, 32 },		/* f64s */
+	{   -1, 32 },		/* f0 */
+	{   -1, 32 },		/* f1 */
+	{   -1, 32 },		/* f2 */
+	{   -1, 32 },		/* f3 */
+	{   -1, 32 },		/* f4 */
+	{   -1, 32 },		/* f5 */
+	{   -1, 32 },		/* f6 */
+	{   -1, 32 },		/* f7 */
+	{   -1, 32 },		/* f8 */
+	{   -1, 32 },		/* f9 */
+	{   -1, 32 },		/* f10 */
+	{   -1, 32 },		/* f11 */
+	{   -1, 32 },		/* f12 */
+	{   -1, 32 },		/* f13 */
+	{   -1, 32 },		/* f14 */
+	{   -1, 32 },		/* f15 */
+	{   -1, 32 },		/* fcr */
+	{   -1, 32 },		/* fsr */
 };
 
 
 const struct rtos_register_stacking rtos_freertos_esp108_stacking = {
 	30*4,				/* stack_registers_size */
 	-1,					/* stack_growth_direction */
-	84,					/* num_output_registers */
+	105,					/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
 	rtos_freertos_esp108_stack_offsets,		/* register_offsets */
 	rtos_freertos_esp108_stack_read_involuntary		/* Custom stack frame read function */
@@ -223,7 +265,7 @@ const struct rtos_register_stacking rtos_freertos_esp108_stacking = {
 const struct rtos_register_stacking rtos_freertos_voluntary_esp108_stacking = {
 	0x50,				/* stack_registers_size, including 'faked' stack values */
 	-1,					/* stack_growth_direction */
-	84,					/* num_output_registers */
+	105,					/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
 	rtos_freertos_esp108_voluntary_stack_offsets,	/* register_offsets */
 	rtos_freertos_esp108_stack_read_voluntary		/* Custom stack frame read function */
