@@ -16,6 +16,6 @@ push_master_to_github:
     - base64 --decode --ignore-garbage ~/.ssh/id_rsa_base64 > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     - echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
-    - git remote add github git@github.com:espressif/esp32-openocd.git
+    - git remote add github git@github.com:espressif/openocd-esp32.git
     - git push github HEAD:master
 
