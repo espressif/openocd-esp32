@@ -625,15 +625,6 @@ static int esp108_fetch_all_regs(struct target *target)
 	//register contents GDB needs. For speed, we pipeline all the read operations, execute them
 	//in one go, then sort everything out from the regvals variable.
 
-	//As the very first thing, go grab the CPENABLE registers. It indicates if we can also grab the FP
-	//(and theoretically other coprocessor) registers, or if this is a bad thing to do.
-	esp108_queue_exec_ins(target, XT_INS_RSR(esp108_regs[XT_REG_IDX_CPENABLE].reg_num, XT_REG_A3));
-	esp108_queue_exec_ins(target, XT_INS_WSR(XT_SR_DDR, XT_REG_A3));
-	esp108_queue_nexus_reg_read(target, NARADR_DDR, regvals[XT_REG_IDX_CPENABLE]);
-	res=jtag_execute_queue();
-	if (res!=ERROR_OK) return res;
-	esp108_checkdsr(target);
-	cpenable=intfromchars(regvals[XT_REG_IDX_CPENABLE]);
 
 	//Start out with A0-A63; we can reach those immediately. Grab them per 16 registers.
 	for (j=0; j<64; j+=16) {
@@ -647,6 +638,17 @@ static int esp108_fetch_all_regs(struct target *target)
 		//leaving us in the state we were.
 		esp108_queue_exec_ins(target, XT_INS_ROTW(4));
 	}
+
+	//As the very first thing after A0-A63, go grab the CPENABLE registers. It indicates if we can also grab the FP
+	//(and theoretically other coprocessor) registers, or if this is a bad thing to do.
+	esp108_queue_exec_ins(target, XT_INS_RSR(esp108_regs[XT_REG_IDX_CPENABLE].reg_num, XT_REG_A3));
+	esp108_queue_exec_ins(target, XT_INS_WSR(XT_SR_DDR, XT_REG_A3));
+	esp108_queue_nexus_reg_read(target, NARADR_DDR, regvals[XT_REG_IDX_CPENABLE]);
+	res=jtag_execute_queue();
+	if (res!=ERROR_OK) return res;
+	esp108_checkdsr(target);
+	cpenable=intfromchars(regvals[XT_REG_IDX_CPENABLE]);
+
 
 	//We're now free to use any of A0-A15 as scratch registers
 	//Grab the SFRs and user registers first. We use A3 as a scratch register.
