@@ -98,7 +98,8 @@ ARM_DEBUG_SRC = \
 	%D%/etb.c \
 	%D%/etm.c \
 	$(OOCD_TRACE_FILES) \
-	%D%/etm_dummy.c
+	%D%/etm_dummy.c \
+	%D%/arm_cti.c
 
 AVR32_SRC = \
 	%D%/avr32_ap7k.c \
@@ -216,6 +217,7 @@ INTEL_IA32_SRC = \
 	%D%/nds32_aice.h \
 	%D%/lakemont.h \
 	%D%/x86_32_common.h \
+	%D%/arm_cti.h \
 	%D%/esp108_common.h \
 	%D%/esp108.h        \
 	%D%/esp32.h
