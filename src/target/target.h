@@ -123,7 +123,7 @@ enum target_register_class {
 };
 
 struct working_area_config {
-	uint32_t area;				/* working area (initialised RAM). Evaluated
+	target_addr_t area;				/* working area (initialised RAM). Evaluated
 										 * upon first allocation from virtual/physical address. */
 	bool virt_spec;		/* virtual address specified? */
 	target_addr_t virt;			/* virtual address */
