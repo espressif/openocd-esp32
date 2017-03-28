@@ -1,26 +1,26 @@
 /***************************************************************************
- *   ESP108 target for OpenOCD                                             *
- *   Copyright (C) 2016 Espressif Systems Ltd.                             *
- *   <jeroen@espressif.com>                                                *
- *                                                                         *
- *   Derived from original ESP8266 target.                                 *
- *   Copyright (C) 2015 by Angus Gratton                                   *
- *   gus@projectgus.com                                                    *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *	 ESP108 target for OpenOCD											   *
+ *	 Copyright (C) 2016 Espressif Systems Ltd.							   *
+ *	 <jeroen@espressif.com>												   *
+ *																		   *
+ *	 Derived from original ESP8266 target.								   *
+ *	 Copyright (C) 2015 by Angus Gratton								   *
+ *	 gus@projectgus.com													   *
+ *																		   *
+ *	 This program is free software; you can redistribute it and/or modify  *
+ *	 it under the terms of the GNU General Public License as published by  *
+ *	 the Free Software Foundation; either version 2 of the License, or	   *
+ *	 (at your option) any later version.								   *
+ *																		   *
+ *	 This program is distributed in the hope that it will be useful,	   *
+ *	 but WITHOUT ANY WARRANTY; without even the implied warranty of		   *
+ *	 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the		   *
+ *	 GNU General Public License for more details.						   *
+ *																		   *
+ *	 You should have received a copy of the GNU General Public License	   *
+ *	 along with this program; if not, write to the						   *
+ *	 Free Software Foundation, Inc.,									   *
+ *	 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.		   *
  ***************************************************************************/
 
 
@@ -134,7 +134,7 @@ esp108_reg_set etc functions are suspect.
 
 
 #define XT_INS_NUM_BITS 24
-#define XT_DEBUGLEVEL    6 /* XCHAL_DEBUGLEVEL in xtensa-config.h */
+#define XT_DEBUGLEVEL	 6 /* XCHAL_DEBUGLEVEL in xtensa-config.h */
 #define XT_NUM_BREAKPOINTS 2
 #define XT_NUM_WATCHPOINTS 2
 
@@ -172,10 +172,10 @@ struct esp108_reg_desc {
 					 | ((ST & 0xFF) << 4)	\
 					 | ((R & 0x0F) << 12))
 
-#define _XT_INS_FORMAT_RRRN(OPCODE,S, T,IMM4) (OPCODE         \
-                     | ((T & 0x0F) << 4)   \
-                     | ((S & 0x0F) << 8)   \
-                     | ((IMM4 & 0x0F) << 12))
+#define _XT_INS_FORMAT_RRRN(OPCODE,S, T,IMM4) (OPCODE		  \
+					 | ((T & 0x0F) << 4)   \
+					 | ((S & 0x0F) << 8)   \
+					 | ((IMM4 & 0x0F) << 12))
 
 #define _XT_INS_FORMAT_RRI8(OPCODE,R,S,T,IMM8) (OPCODE			\
 						| ((IMM8 & 0xFF) << 16) \
@@ -187,19 +187,19 @@ struct esp108_reg_desc {
  * this gets used a lot so making a shortcut to it is
  * useful.
  */
-#define XT_SR_DDR         (esp108_regs[XT_REG_IDX_DDR].reg_num)
+#define XT_SR_DDR		  (esp108_regs[XT_REG_IDX_DDR].reg_num)
 
 //Same thing for A3/A4
-#define XT_REG_A3         (esp108_regs[XT_REG_IDX_AR3].reg_num)
-#define XT_REG_A4         (esp108_regs[XT_REG_IDX_AR4].reg_num)
+#define XT_REG_A3		  (esp108_regs[XT_REG_IDX_AR3].reg_num)
+#define XT_REG_A4		  (esp108_regs[XT_REG_IDX_AR4].reg_num)
 
 
 /* Xtensa processor instruction opcodes
 */
 /* "Return From Debug Operation" to Normal */
-#define XT_INS_RFDO      0xf1e000
+#define XT_INS_RFDO		 0xf1e000
 /* "Return From Debug and Dispatch" - allow sw debugging stuff to take over */
-#define XT_INS_RFDD      0xf1e010
+#define XT_INS_RFDD		 0xf1e010
 
 /* Load to DDR register, increase addr register */
 #define XT_INS_LDDR32P(S) (0x0070E0|(S<<8))
@@ -222,7 +222,7 @@ struct esp108_reg_desc {
 /* S32I.N is similar to S32I, but has a 16-bit encoding and supports a smaller range of
 offset values encoded in the instruction word. */
 #define XT_INS_S32I_N(S,T,IMM4) _XT_INS_FORMAT_RRRN(0x0009,S,T,IMM4)
-#define XT_INS_S32I_N_GET_T(INSN)   ((INSN >> 4) & 0x0F)
+#define XT_INS_S32I_N_GET_T(INSN)	((INSN >> 4) & 0x0F)
 
 /* Read Special Register */
 #define XT_INS_RSR(SR,T) _XT_INS_FORMAT_RSR(0x030000,SR,T)
@@ -246,6 +246,7 @@ offset values encoded in the instruction word. */
 
 
 extern int esp108_cmd_apptrace(struct command_invocation *cmd);
+extern int esp108_cmd_sysview(struct command_invocation *cmd);
 
 //forward declarations
 static int xtensa_step(struct target *target,
@@ -705,10 +706,10 @@ static int xtensa_resume(struct target *target,
 
 
 static int xtensa_read_memory(struct target *target,
-			      uint32_t address,
-			      uint32_t size,
-			      uint32_t count,
-			      uint8_t *buffer)
+				  uint32_t address,
+				  uint32_t size,
+				  uint32_t count,
+				  uint8_t *buffer)
 {
 	//We are going to read memory in 32-bit increments. This may not be what the calling function expects, so we may need to allocate a temp buffer and read into that first.
 	uint32_t addrstart_al=(address)&~3;
@@ -756,19 +757,19 @@ static int xtensa_read_memory(struct target *target,
 }
 
 static int xtensa_read_buffer(struct target *target,
-			      uint32_t address,
-			      uint32_t count,
-			      uint8_t *buffer)
+				  uint32_t address,
+				  uint32_t count,
+				  uint8_t *buffer)
 {
 //xtensa_read_memory can also read unaligned stuff. Just pass through to that routine.
 	return xtensa_read_memory(target, address, 1, count, buffer);
 }
 
 static int xtensa_write_memory(struct target *target,
-			       uint32_t address,
-			       uint32_t size,
-			       uint32_t count,
-			       const uint8_t *buffer)
+				   uint32_t address,
+				   uint32_t size,
+				   uint32_t count,
+				   const uint8_t *buffer)
 {
 	//This memory write function can get thrown nigh everything into it, from
 	//aligned uint32 writes to unaligned uint8ths. The Xtensa memory doesn't always
@@ -852,9 +853,9 @@ static int xtensa_write_memory(struct target *target,
 }
 
 static int xtensa_write_buffer(struct target *target,
-			       uint32_t address,
-			       uint32_t count,
-			       const uint8_t *buffer)
+				   uint32_t address,
+				   uint32_t count,
+				   const uint8_t *buffer)
 {
 	//xtensa_write_memory can handle everything. Just pass on to that.
 	return xtensa_write_memory(target, address, 1, count, buffer);
@@ -1812,7 +1813,6 @@ COMMAND_HANDLER(esp108_cmd_flashbootstrap)
 	return ERROR_OK;
 }
 
-
 static const struct command_registration esp108_any_command_handlers[] = {
 	{
 		.name = "tracestart",
@@ -1835,13 +1835,20 @@ static const struct command_registration esp108_any_command_handlers[] = {
 		.help = "Tracing: Dump trace memory to a file",
 		.usage = "outfile",
 	},
-    {
-        .name = "apptrace",
-        .handler = esp108_cmd_apptrace,
-        .mode = COMMAND_ANY,
-        .help = "Tracing: app tracing control and status. Starts, stops or queries tracing process status.",
-        .usage = "[start outfile [trace_size [stop_tmo [skip_size [poll_period [wait4halt]]]]]] | [stop] | [status] | [dump outfile]",
-    },
+	{
+		.name = "apptrace",
+		.handler = esp108_cmd_apptrace,
+		.mode = COMMAND_ANY,
+		.help = "App Tracing: application level trace control and status. Starts, stops or queries tracing process status.",
+		.usage = "[start cores_num outfile1 [outfile2] [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]] | [stop] | [status] | [dump cores_num outfile]",
+	},
+	{
+		.name = "sysview",
+		.handler = esp108_cmd_sysview,
+		.mode = COMMAND_ANY,
+		.help = "App Tracing: SEGGER SystemView compatible trace control and status. Starts, stops or queries tracing process status.",
+		.usage = "[start cores_num outfile1 [outfile2] [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]] | [stop] | [status]",
+	},
 	{
 		.name = "smpbreak",
 		.handler = esp108_cmd_smpbreak,
