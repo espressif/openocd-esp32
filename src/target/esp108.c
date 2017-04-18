@@ -37,38 +37,39 @@
 #include "time_support.h"
 
 #include "esp108.h"
+#include "esp108_dbg_regs.h"
 
 /*
-This is a JTAG driver for the ESP108, the Tensilica core inside the ESP32 
+This is a JTAG driver for the ESP108, the Tensilica core inside the ESP32
 chips. The ESP108 actually is specific configuration of the configurable
-Tensilica Diamons 108Mini Xtensa core. Although this driver could also be 
-used to control other Diamond 108Mini implementations, we have none to 
+Tensilica Diamons 108Mini Xtensa core. Although this driver could also be
+used to control other Diamond 108Mini implementations, we have none to
 test this code on, so for now, this code is ESP108 specific.
 
 The code is fairly different from the LX106 JTAG code as written by
-projectgus etc for the ESP8266, because the debug controller in the LX106 
+projectgus etc for the ESP8266, because the debug controller in the LX106
 is different from that in the 108Mini.
 
 Quick reminder how everything works:
-The JTAG-pins communicate with a TAP. Using serial shifting, you can set 
+The JTAG-pins communicate with a TAP. Using serial shifting, you can set
 two registers: the Instruction Register (IR) and a Data Register (DR) for
 every instruction. The idea is that you select the IR first, then clock
 data in and out of the DR belonging to that IR. (By the way, setting IR/DR
-both sets it to the value you clock in, as well as gives you the value it 
+both sets it to the value you clock in, as well as gives you the value it
 used to contain. You essentially read and write it at the same time.)
 
 The ESP108 has a 5-bit IR, with (for debug) one important instruction:
-11100/0x1C aka NARSEL. Selecting this instruction alternatingly presents 
+11100/0x1C aka NARSEL. Selecting this instruction alternatingly presents
 the NAR and NDR (Nexus Address/Data Register) as the DR.
 
-The 8-bit NAR that's written to the chip should contains an address in bit 
-7-1 and a read/write bit as bit 0 that should be one if you want to write 
+The 8-bit NAR that's written to the chip should contains an address in bit
+7-1 and a read/write bit as bit 0 that should be one if you want to write
 data to one of the 128 Nexus registers and zero if you want to read from it. The
 data that's read from the NAR register indicates the status: Busy (bit 1) and
-Error (bit 0). The 32-bit NDR then can be used to read or write the actual 
+Error (bit 0). The 32-bit NDR then can be used to read or write the actual
 register (and execute whatever function is tied to a write).
 
-For OCD, the OCD registers are important. Debugging is mostly done by using 
+For OCD, the OCD registers are important. Debugging is mostly done by using
 these to feed the Xtensa core instructions to execute, combined with a
 data register that's directly readable/writable from the JTAG port.
 
@@ -82,16 +83,16 @@ appear to be any the ESP108.
 /*
 Multiprocessor stuff:
 
-The ESP32 has two ESP108 processors in it, which can run in SMP-mode if an 
-SMP-capable OS is running. The hardware has a few features which make 
-debugging this much easier. 
+The ESP32 has two ESP108 processors in it, which can run in SMP-mode if an
+SMP-capable OS is running. The hardware has a few features which make
+debugging this much easier.
 
-First of all, there's something called a 'break network', consisting of a 
-BreakIn input  and a BreakOut output on each CPU. The idea is that as soon 
-as a CPU goes into debug mode for whatever reason, it'll signal that using 
-its DebugOut pin. This signal is connected to the other CPU's DebugIn 
+First of all, there's something called a 'break network', consisting of a
+BreakIn input  and a BreakOut output on each CPU. The idea is that as soon
+as a CPU goes into debug mode for whatever reason, it'll signal that using
+its DebugOut pin. This signal is connected to the other CPU's DebugIn
 input, causing this CPU also to go into debugging mode. To resume execution
-when using only this break network, we will need to manually resume both 
+when using only this break network, we will need to manually resume both
 CPUs.
 
 An alternative to this is the XOCDMode output and the RunStall (or DebugStall)
@@ -101,7 +102,7 @@ resumed by either the first CPU going out of debug mode, or the second CPU
 going into debug mode: the stall is temporarily lifted as long as the stalled
 CPU is in debug mode.
 
-A third, separate, signal is CrossTrigger. This is connected in the same way 
+A third, separate, signal is CrossTrigger. This is connected in the same way
 as the breakIn/breakOut network, but is for the TRAX (trace memory) feature;
 it does not affect OCD in any way.
 */
@@ -118,203 +119,19 @@ seems to have some ARM-specific things, so we do not use that.
 
 The tracing infrastructure does have the option to stop at a certain PC
 and trigger a debugging interrupt. Theoretically, if we do not use
-the trace functionality, we might be able to use that as a 3rd hardware 
-breakpoint. ToDo: look into that. I asked, seems with the trace memory 
+the trace functionality, we might be able to use that as a 3rd hardware
+breakpoint. ToDo: look into that. I asked, seems with the trace memory
 disabled any traces done will disappear in the bitbucket, so this may be
 very much a viable option.
 */
 
 /*
 ToDo:
-This code very much assumes the host machines endianness is the same as that 
+This code very much assumes the host machines endianness is the same as that
 of the target CPU, which isn't necessarily always the case. Specifically the
 esp108_reg_set etc functions are suspect.
 */
 
-
-#define TAPINS_PWRCTL	0x08
-#define TAPINS_PWRSTAT	0x09
-#define TAPINS_NARSEL	0x1C
-#define TAPINS_IDCODE	0x1E
-#define TAPINS_BYPASS	0x1F
-
-#define TAPINS_PWRCTL_LEN		8
-#define TAPINS_PWRSTAT_LEN		8
-#define TAPINS_NARSEL_ADRLEN	8
-#define TAPINS_NARSEL_DATALEN	32
-#define TAPINS_IDCODE_LEN		32
-#define TAPINS_BYPASS_LEN		1
-
-/* 
- From the manual:
- To properly use Debug registers through JTAG, software must ensure that:
- - Tap is out of reset
- - Xtensa Debug Module is out of reset
- - Other bits of PWRCTL are set to their desired values, and finally
- - JtagDebugUse transitions from 0 to 1
- The bit must continue to be 1 in order for JTAG accesses to the Debug 
- Module to happen correctly. When it is set, any write to this bit clears it.
- Either don't access it, or re-write it to 1 so JTAG accesses continue. 
-*/
-#define PWRCTL_JTAGDEBUGUSE	(1<<7)
-#define PWRCTL_DEBUGRESET	(1<<6)
-#define PWRCTL_CORERESET	(1<<4)
-#define PWRCTL_DEBUGWAKEUP	(1<<2)
-#define PWRCTL_MEMWAKEUP	(1<<1)
-#define PWRCTL_COREWAKEUP	(1<<0)
-
-#define PWRSTAT_DEBUGWASRESET	(1<<6)
-#define PWRSTAT_COREWASRESET	(1<<4)
-#define PWRSTAT_CORESTILLNEEDED	(1<<3)
-#define PWRSTAT_DEBUGDOMAINON	(1<<2)
-#define PWRSTAT_MEMDOMAINON		(1<<1)
-#define PWRSTAT_COREDOMAINON	(1<<0)
-
-
-// *** NAR addresses ***
-//TRAX registers
-#define NARADR_TRAXID		0x00
-#define NARADR_TRAXCTRL		0x01
-#define NARADR_TRAXSTAT		0x02
-#define NARADR_TRAXDATA		0x03
-#define NARADR_TRAXADDR		0x04
-#define NARADR_TRIGGERPC	0x05
-#define NARADR_PCMATCHCTRL	0x06
-#define NARADR_DELAYCNT		0x07
-#define NARADR_MEMADDRSTART	0x08
-#define NARADR_MEMADDREND	0x09
-//Performance monitor registers
-#define NARADR_PMG			0x20
-#define NARADR_INTPC		0x24
-#define NARADR_PM0			0x28
-//...
-#define NARADR_PM7			0x2F
-#define NARADR_PMCTRL0		0x30
-//...
-#define NARADR_PMCTRL7		0x37
-#define NARADR_PMSTAT0		0x38
-//...
-#define NARADR_PMSTAT7		0x3F
-//OCD registers
-#define NARADR_OCDID		0x40
-#define NARADR_DCRCLR		0x42
-#define NARADR_DCRSET		0x43
-#define NARADR_DSR			0x44
-#define NARADR_DDR			0x45
-#define NARADR_DDREXEC		0x46
-#define NARADR_DIR0EXEC		0x47
-#define NARADR_DIR0			0x48
-#define NARADR_DIR1			0x49
-//...
-#define NARADR_DIR7			0x4F
-//Misc registers
-#define NARADR_PWRCTL		0x58
-#define NARADR_PWRSTAT		0x69
-#define NARADR_ERISTAT		0x5A
-//CoreSight registers
-#define NARADR_ITCTRL		0x60
-#define NARADR_CLAIMSET		0x68
-#define NARADR_CLAIMCLR		0x69
-#define NARADR_LOCKACCESS	0x6c
-#define NARADR_LOCKSTATUS	0x6d
-#define NARADR_AUTHSTATUS	0x6e
-#define NARADR_DEVID		0x72
-#define NARADR_DEVTYPE		0x73
-#define NARADR_PERID4		0x74
-//...
-#define NARADR_PERID7		0x77
-#define NARADR_PERID0		0x78
-//...
-#define NARADR_PERID3		0x7b
-#define NARADR_COMPID0		0x7c
-//...
-#define NARADR_COMPID3		0x7f
-
-//OCD registers, bit definitions
-#define OCDDCR_ENABLEOCD		(1<<0)
-#define OCDDCR_DEBUGINTERRUPT	(1<<1)
-#define OCDDCR_INTERRUPTALLCONDS	(1<<2)
-#define OCDDCR_BREAKINEN		(1<<16)
-#define OCDDCR_BREAKOUTEN		(1<<17)
-#define OCDDCR_DEBUGSWACTIVE	(1<<20)
-#define OCDDCR_RUNSTALLINEN		(1<<21)
-#define OCDDCR_DEBUGMODEOUTEN	(1<<22)
-#define OCDDCR_BREAKOUTITO		(1<<24)
-#define OCDDCR_BREAKACKITO		(1<<25)
-
-#define OCDDSR_EXECDONE			(1<<0)
-#define OCDDSR_EXECEXCEPTION	(1<<1)
-#define OCDDSR_EXECBUSY			(1<<2)
-#define OCDDSR_EXECOVERRUN		(1<<3)
-#define OCDDSR_STOPPED			(1<<4)
-#define OCDDSR_COREWROTEDDR		(1<<10)
-#define OCDDSR_COREREADDDR		(1<<11)
-#define OCDDSR_HOSTWROTEDDR		(1<<14)
-#define OCDDSR_HOSTREADDDR		(1<<15)
-#define OCDDSR_DEBUGPENDBREAK	(1<<16)
-#define OCDDSR_DEBUGPENDHOST	(1<<17)
-#define OCDDSR_DEBUGPENDTRAX	(1<<18)
-#define OCDDSR_DEBUGINTBREAK	(1<<20)
-#define OCDDSR_DEBUGINTHOST		(1<<21)
-#define OCDDSR_DEBUGINTTRAX		(1<<22)
-#define OCDDSR_RUNSTALLTOGGLE	(1<<23)
-#define OCDDSR_RUNSTALLSAMPLE	(1<<24)
-#define OCDDSR_BREACKOUTACKITI	(1<<25)
-#define OCDDSR_BREAKINITI		(1<<26)
-
-#define DEBUGCAUSE_IC			(1<<0)	//ICOUNT exception
-#define DEBUGCAUSE_IB			(1<<1)	//IBREAK exception
-#define DEBUGCAUSE_DB			(1<<2)	//DBREAK exception
-#define DEBUGCAUSE_BI			(1<<3)	//BREAK instruction encountered
-#define DEBUGCAUSE_BN			(1<<4)	//BREAK.N instruction encountered
-#define DEBUGCAUSE_DI			(1<<5)	//Debug Interrupt
-
-#define TRAXCTRL_TREN			(1<<0)	//Trace enable. Tracing starts on 0->1
-#define TRAXCTRL_TRSTP			(1<<1)	//Trace Stop. Make 1 to stop trace.
-#define TRAXCTRL_PCMEN			(1<<2)	//PC match enable
-#define TRAXCTRL_PTIEN			(1<<4)	//Processor-trigger enable
-#define TRAXCTRL_CTIEN			(1<<5)	//Cross-trigger enable
-#define TRAXCTRL_TMEN			(1<<7)	//Tracemem Enable. Always set.
-#define TRAXCTRL_CNTU			(1<<9)	//Post-stop-trigger countdown units; selects when DelayCount-- happens.
-										//0 - every 32-bit word written to tracemem, 1 - every cpu instruction
-#define TRAXCTRL_TSEN			(1<<11)	//Undocumented/deprecated?
-#define TRAXCTRL_SMPER_SHIFT	12		//Send sync every 2^(9-smper) messages. 7=reserved, 0=no sync msg
-#define TRAXCTRL_SMPER_MASK		0x7		//Synchronization message period
-#define TRAXCTRL_PTOWT			(1<<16) //Processor Trigger Out (OCD halt) enabled when stop triggered
-#define TRAXCTRL_PTOWS			(1<<17) //Processor Trigger Out (OCD halt) enabled when trace stop completes
-#define TRAXCTRL_CTOWT			(1<<20) //Cross-trigger Out enabled when stop triggered
-#define TRAXCTRL_CTOWS			(1<<21) //Cross-trigger Out enabled when trace stop completes
-#define TRAXCTRL_ITCTO			(1<<22) //Integration mode: cross-trigger output
-#define TRAXCTRL_ITCTIA			(1<<23) //Integration mode: cross-trigger ack
-#define TRAXCTRL_ITATV			(1<<24) //replaces ATID when in integration mode: ATVALID output
-#define TRAXCTRL_ATID_MASK		0x7F	//ARB source ID
-#define TRAXCTRL_ATID_SHIFT		24
-#define TRAXCTRL_ATEN			(1<<31) //ATB interface enable
-
-#define TRAXSTAT_TRACT			(1<<0)	//Trace active flag.
-#define TRAXSTAT_TRIG			(1<<1)	//Trace stop trigger. Clears on TREN 1->0
-#define TRAXSTAT_PCMTG			(1<<2)	//Stop trigger caused by PC match. Clears on TREN 1->0
-#define TRAXSTAT_PJTR			(1<<3)	//JTAG transaction result. 1=err in preceding jtag transaction.
-#define TRAXSTAT_PTITG			(1<<4)	//Stop trigger caused by Processor Trigger Input. Clears on TREN 1->0
-#define TRAXSTAT_CTITG			(1<<5)	//Stop trigger caused by Cross-Trigger Input. Clears on TREN 1->0
-#define TRAXSTAT_MEMSZ_SHIFT	8		//Traceram size inducator. Usable trace ram is 2^MEMSZ bytes.
-#define TRAXSTAT_MEMSZ_MASK		0x1F
-#define TRAXSTAT_PTO			(1<<16) //Processor Trigger Output: current value
-#define TRAXSTAT_CTO			(1<<17) //Cross-Trigger Output: current value
-#define TRAXSTAT_ITCTOA			(1<<22) //Cross-Trigger Out Ack: current value
-#define TRAXSTAT_ITCTI			(1<<23) //Cross-Trigger Input: current value
-#define TRAXSTAT_ITATR			(1<<24) //ATREADY Input: current value
-
-#define TRAXADDR_TADDR_SHIFT	0		//Trax memory address, in 32-bit words.
-#define TRAXADDR_TADDR_MASK		0x1FFFFF //Actually is only as big as the trace buffer size max addr.
-#define TRAXADDR_TWRAP_SHIFT	21		//Amount of times TADDR has overflown
-#define TRAXADDR_TWRAP_MASK		0x3FF
-#define TRAXADDR_TWSAT			(1<<31) //1 if TWRAP has overflown, clear by disabling tren.
-
-#define PCMATCHCTRL_PCML_SHIFT	0		//Amount of lower bits to ignore in pc trigger register
-#define PCMATCHCTRL_PCML_MASK	0x1F 
-#define PCMATCHCTRL_PCMS		(1<<31) //PC Match Sense, 0 - match when procs PC is in-range, 1 - match when
-										//out-of-range
 
 #define XT_INS_NUM_BITS 24
 #define XT_DEBUGLEVEL    6 /* XCHAL_DEBUGLEVEL in xtensa-config.h */
@@ -354,6 +171,11 @@ struct esp108_reg_desc {
 #define _XT_INS_FORMAT_RRR(OPCODE,ST,R) (OPCODE			\
 					 | ((ST & 0xFF) << 4)	\
 					 | ((R & 0x0F) << 12))
+
+#define _XT_INS_FORMAT_RRRN(OPCODE,S, T,IMM4) (OPCODE         \
+                     | ((T & 0x0F) << 4)   \
+                     | ((S & 0x0F) << 8)   \
+                     | ((IMM4 & 0x0F) << 12))
 
 #define _XT_INS_FORMAT_RRI8(OPCODE,R,S,T,IMM8) (OPCODE			\
 						| ((IMM8 & 0xFF) << 16) \
@@ -397,6 +219,10 @@ struct esp108_reg_desc {
 #define XT_INS_S16I(S,T,IMM8) _XT_INS_FORMAT_RRI8(0x005002,0,S,T,IMM8)
 /* Store 8-bit to A(S)+IMM8 from A(T) */
 #define XT_INS_S8I(S,T,IMM8)  _XT_INS_FORMAT_RRI8(0x004002,0,S,T,IMM8)
+/* S32I.N is similar to S32I, but has a 16-bit encoding and supports a smaller range of
+offset values encoded in the instruction word. */
+#define XT_INS_S32I_N(S,T,IMM4) _XT_INS_FORMAT_RRRN(0x0009,S,T,IMM4)
+#define XT_INS_S32I_N_GET_T(INSN)   ((INSN >> 4) & 0x0F)
 
 /* Read Special Register */
 #define XT_INS_RSR(SR,T) _XT_INS_FORMAT_RSR(0x030000,SR,T)
@@ -419,6 +245,8 @@ struct esp108_reg_desc {
 #define XT_INS_WFR(FR,T) _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x5),T)
 
 
+extern int esp108_cmd_apptrace(struct command_invocation *cmd);
+
 //forward declarations
 static int xtensa_step(struct target *target,
 	int current,
@@ -427,7 +255,7 @@ static int xtensa_step(struct target *target,
 static int xtensa_poll(struct target *target);
 
 
-static void esp108_add_set_ir(struct target *target, uint8_t value)
+void esp108_add_set_ir(struct target *target, uint8_t value)
 {
 	uint8_t t[4];
 	struct scan_field field;
@@ -439,7 +267,7 @@ static void esp108_add_set_ir(struct target *target, uint8_t value)
 }
 
 
-static void esp108_add_dr_scan(struct target *target, int len, const uint8_t *src, uint8_t *dest, tap_state_t endstate)
+void esp108_add_dr_scan(struct target *target, int len, const uint8_t *src, uint8_t *dest, tap_state_t endstate)
 {
 	struct scan_field field;
 	memset(&field, 0, sizeof field);
@@ -450,14 +278,14 @@ static void esp108_add_dr_scan(struct target *target, int len, const uint8_t *sr
 }
 
 //Set the PWRCTL TAP register to a value
-static void esp108_queue_pwrctl_set(struct target *target, uint8_t value) 
+static void esp108_queue_pwrctl_set(struct target *target, uint8_t value)
 {
 	esp108_add_set_ir(target, TAPINS_PWRCTL);
 	esp108_add_dr_scan(target, TAPINS_PWRCTL_LEN, &value, NULL, TAP_IDLE);
 }
 
 //Read the PWRSTAT TAP register and clear the XWASRESET bits.
-static void esp108_queue_pwrstat_readclear(struct target *target, uint8_t *value) 
+static void esp108_queue_pwrstat_readclear(struct target *target, uint8_t *value)
 {
 	const uint8_t pwrstatClr=PWRSTAT_DEBUGWASRESET|PWRSTAT_COREWASRESET;
 	esp108_add_set_ir(target, TAPINS_PWRSTAT);
@@ -465,7 +293,7 @@ static void esp108_queue_pwrstat_readclear(struct target *target, uint8_t *value
 }
 
 
-static void esp108_queue_nexus_reg_write(struct target *target, const uint8_t reg, const uint32_t value) 
+void esp108_queue_nexus_reg_write(struct target *target, const uint8_t reg, const uint32_t value)
 {
 	uint8_t regdata=(reg<<1)|1;
 	uint8_t valdata[]={value, value>>8, value>>16, value>>24};
@@ -474,7 +302,7 @@ static void esp108_queue_nexus_reg_write(struct target *target, const uint8_t re
 	esp108_add_dr_scan(target, TAPINS_NARSEL_DATALEN, valdata, NULL, TAP_IDLE);
 }
 
-static void esp108_queue_nexus_reg_read(struct target *target, const uint8_t reg, uint8_t *value) 
+void esp108_queue_nexus_reg_read(struct target *target, const uint8_t reg, uint8_t *value)
 {
 	uint8_t regdata=(reg<<1)|0;
 	uint8_t dummy[4]={0,0,0,0};
@@ -503,20 +331,13 @@ static void esp108_reg_set(struct reg *reg, uint32_t value)
 }
 
 
-//Small helper function to convert the char arrays that result from a jtag
-//call to a well-formatted uint32_t.
-static uint32_t intfromchars(uint8_t *c) 
-{
-	return c[0]+(c[1]<<8)+(c[2]<<16)+(c[3]<<24);
-}
-
 /*
 The TDI pin is also used as a flash Vcc bootstrap pin. If we reset the CPU externally, the last state of the TDI pin can
 allow the power to an 1.8V flash chip to be raised to 3.3V, or the other way around. Users can use the
 esp108 flashbootstrap command to set a level, and this routine will make sure the tdi line will return to
 that when the jtag port is idle.
 */
-static void esp108_queue_tdi_idle(struct target *target) {
+void esp108_queue_tdi_idle(struct target *target) {
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	static uint8_t value;
 	uint8_t t[4]={0,0,0,0};
@@ -620,8 +441,8 @@ static int esp108_fetch_all_regs(struct target *target)
 	struct reg *reg_list=esp108->core_cache->reg_list;
 	uint8_t regvals[XT_NUM_REGS][4];
 	uint8_t dsrs[XT_NUM_REGS][4];
-	
-	//Assume the CPU has just halted. We now want to fill the register cache with all the 
+
+	//Assume the CPU has just halted. We now want to fill the register cache with all the
 	//register contents GDB needs. For speed, we pipeline all the read operations, execute them
 	//in one go, then sort everything out from the regvals variable.
 
@@ -634,7 +455,7 @@ static int esp108_fetch_all_regs(struct target *target)
 			esp108_queue_nexus_reg_read(target, NARADR_DDR, regvals[XT_REG_IDX_AR0+i+j]);
 			esp108_queue_nexus_reg_read(target, NARADR_DSR, dsrs[XT_REG_IDX_AR0+i+j]);
 		}
-		//Now rotate the window so we'll see the next 16 registers. The final rotate will wraparound, 
+		//Now rotate the window so we'll see the next 16 registers. The final rotate will wraparound,
 		//leaving us in the state we were.
 		esp108_queue_exec_ins(target, XT_INS_ROTW(4));
 	}
@@ -785,7 +606,7 @@ static int esp108_write_dirty_registers(struct target *target)
 				reg_list[realadr].dirty=0;
 			}
 		}
-		//Now rotate the window so we'll see the next 16 registers. The final rotate will wraparound, 
+		//Now rotate the window so we'll see the next 16 registers. The final rotate will wraparound,
 		//leaving us in the state we were.
 		esp108_queue_exec_ins(target, XT_INS_ROTW(4));
 	}
@@ -909,7 +730,7 @@ static int xtensa_read_memory(struct target *target,
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
 	}
-	
+
 	//We're going to use A3 here
 	esp108_mark_register_dirty(target, XT_REG_IDX_A3);
 	//Write start address to A3
@@ -925,7 +746,7 @@ static int xtensa_read_memory(struct target *target,
 	res=jtag_execute_queue();
 	if (res==ERROR_OK) res=esp108_checkdsr(target);
 	if (res!=ERROR_OK) LOG_WARNING("%s: Failed reading %d bytes at address 0x%08X",target->cmd_name, count*size, address);
-	
+
 	if (albuff!=buffer) {
 		memcpy(buffer, albuff+(address&3), (size*count));
 		free(albuff);
@@ -951,13 +772,13 @@ static int xtensa_write_memory(struct target *target,
 {
 	//This memory write function can get thrown nigh everything into it, from
 	//aligned uint32 writes to unaligned uint8ths. The Xtensa memory doesn't always
-	//accept anything but aligned uint32 writes, though. That is why we convert 
+	//accept anything but aligned uint32 writes, though. That is why we convert
 	//everything into that.
-	
+
 	uint32_t addrstart_al=(address)&~3;
 	uint32_t addrend_al=(address+(size*count)+3)&~3;
 	uint32_t adr=addrstart_al;
-	
+
 	int i=0;
 	int res;
 	uint8_t *albuff;
@@ -1290,12 +1111,12 @@ static int xtensa_step(struct target *target,
 
 	//Sometimes (because of eg an interrupt) the pc won't actually increment. In that case, we repeat the
 	//step.
-	//(Later edit: Not sure about that actually... may have been a glitch in my logic. I'm keeping in this 
+	//(Later edit: Not sure about that actually... may have been a glitch in my logic. I'm keeping in this
 	//loop anyway, it probably doesn't hurt anyway.)
 	do {
 		icountlvl=(esp108_reg_get(&reg_list[XT_REG_IDX_PS])&15)+1;
 		if (icountlvl>15) icountlvl=15;
-		
+
 		/* Load debug level into ICOUNTLEVEL. We'll make this one more than the current intlevel. */
 		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
 		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNT], icount_val);
@@ -1381,7 +1202,7 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 	struct reg *reg_list = calloc(XT_NUM_REGS, sizeof(struct reg));
 	uint8_t i;
 
-	if (!esp108) 
+	if (!esp108)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 
 	target->arch_info = esp108;
@@ -1468,7 +1289,7 @@ static int xtensa_poll(struct target *target)
 	esp108_queue_tdi_idle(target);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
-	
+
 	esp108_queue_nexus_reg_write(target, NARADR_DCRSET, OCDDCR_ENABLEOCD);
 	esp108_queue_nexus_reg_read(target, NARADR_OCDID, ocdid);
 	esp108_queue_nexus_reg_read(target, NARADR_DSR, dsr);
@@ -1479,14 +1300,14 @@ static int xtensa_poll(struct target *target)
 
 	if (res!=ERROR_OK) return res;
 //	LOG_INFO("esp8266: ocdid 0x%X dsr 0x%X", intfromchars(ocdid), intfromchars(dsr));
-	
+
 	if (pwrstath&PWRSTAT_COREWASRESET) {
 		target->state = TARGET_RESET;
 	} else if (intfromchars(dsr)&OCDDSR_STOPPED) {
 		if(target->state != TARGET_HALTED) {
 			int oldstate=target->state;
 			target->state = TARGET_HALTED;
-			
+
 			//LOG_INFO("%s: %s: Target halted (dsr=%08X). Fetching register contents.", target->cmd_name, __FUNCTION__, intfromchars(dsr));
 			esp108_fetch_all_regs(target);
 			LOG_INFO("%s: Target halted, pc=0x%08X", target->cmd_name, esp108_reg_get(&reg_list[XT_REG_IDX_PC]));
@@ -1497,7 +1318,7 @@ static int xtensa_poll(struct target *target)
 			if (cause&DEBUGCAUSE_IC) target->debug_reason = DBG_REASON_SINGLESTEP;
 			if (cause&(DEBUGCAUSE_IB|DEBUGCAUSE_BN|DEBUGCAUSE_BI)) target->debug_reason = DBG_REASON_BREAKPOINT;
 			if (cause&DEBUGCAUSE_DB) target->debug_reason = DBG_REASON_WATCHPOINT;
-			
+
 			//Call any event callbacks that are applicable
 			if(oldstate == TARGET_DEBUG_RUNNING) {
 				target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
@@ -1581,7 +1402,7 @@ COMMAND_HANDLER(esp108_cmd_smpbreak)
 	res=jtag_execute_queue();
 	if (res==ERROR_OK) {
 		i=intfromchars(dsr)&(OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN|OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN);
-		command_print(CMD_CTX, "%s: Current bits set:%s%s%s%s%s", 
+		command_print(CMD_CTX, "%s: Current bits set:%s%s%s%s%s",
 					target->cmd_name,
 					(i==0)?" none":"",
 					(i&OCDDCR_BREAKINEN)?" BreakIn":"",
@@ -1605,7 +1426,7 @@ COMMAND_HANDLER(esp108_cmd_tracestart)
 	int res;
 	unsigned int i;
 	uint8_t traxstat[8];
-	
+
 	//Check current status of trace hardware
 	esp108_queue_nexus_reg_read(target, NARADR_TRAXSTAT, traxstat);
 	esp108_queue_tdi_idle(target);
@@ -1684,7 +1505,7 @@ COMMAND_HANDLER(esp108_cmd_tracestop)
 	esp108_queue_tdi_idle(target);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
-	
+
 	command_print(CMD_CTX, "Trace stop triggered.");
 	return ERROR_OK;
 }
@@ -1702,7 +1523,7 @@ COMMAND_HANDLER(esp108_cmd_tracedump)
 		command_print(CMD_CTX, "Need filename to dump to as output!");
 		return ERROR_FAIL;
 	}
-	
+
 	esp108_queue_nexus_reg_read(target, NARADR_TRAXSTAT, traxstat);
 	esp108_queue_nexus_reg_read(target, NARADR_TRAXCTRL, traxctl);
 	esp108_queue_nexus_reg_read(target, NARADR_MEMADDRSTART, memadrstart);
@@ -1768,7 +1589,6 @@ COMMAND_HANDLER(esp108_cmd_tracedump)
 	return ERROR_OK;
 }
 
-
 COMMAND_HANDLER(esp108_cmd_flashbootstrap)
 {
 	struct target *target = get_current_target(CMD_CTX);
@@ -1799,6 +1619,7 @@ COMMAND_HANDLER(esp108_cmd_flashbootstrap)
 	return ERROR_OK;
 }
 
+
 static const struct command_registration esp108_any_command_handlers[] = {
 	{
 		.name = "tracestart",
@@ -1821,6 +1642,13 @@ static const struct command_registration esp108_any_command_handlers[] = {
 		.help = "Tracing: Dump trace memory to a file",
 		.usage = "outfile",
 	},
+    {
+        .name = "apptrace",
+        .handler = esp108_cmd_apptrace,
+        .mode = COMMAND_ANY,
+        .help = "Tracing: app tracing control and status. Starts, stops or queries tracing process status.",
+        .usage = "[start outfile [trace_size [stop_tmo [skip_size [poll_period [wait4halt]]]]]] | [stop] | [status] | [dump outfile]",
+    },
 	{
 		.name = "smpbreak",
 		.handler = esp108_cmd_smpbreak,

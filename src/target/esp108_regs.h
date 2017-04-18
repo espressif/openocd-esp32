@@ -345,9 +345,9 @@ static const struct esp108_reg_desc esp108_regs[XT_NUM_REGS] = {
 	{ "misc1",				0xF5, XT_REG_SPECIAL, 0 }, 
 	{ "misc2",				0xF6, XT_REG_SPECIAL, 0 }, 
 	{ "misc3",				0xF7, XT_REG_SPECIAL, 0 }, 
-	{ "a0",				XT_REG_IDX_AR0, XT_REG_RELGEN, 0 },  //WARNING: For these registers, regnum points to the
-	{ "a1",				XT_REG_IDX_AR1, XT_REG_RELGEN, 0 },  //index of the corresponding ARx registers, NOT to
-	{ "a2",				XT_REG_IDX_AR2, XT_REG_RELGEN, 0 },  //the processor register number!
+	{ "a0",				XT_REG_IDX_AR0, XT_REG_RELGEN, 0 },	 //WARNING: For these registers, regnum points to the
+	{ "a1",				XT_REG_IDX_AR1, XT_REG_RELGEN, 0 },	 //index of the corresponding ARx registers, NOT to
+	{ "a2",				XT_REG_IDX_AR2, XT_REG_RELGEN, 0 },	 //the processor register number!
 	{ "a3",				XT_REG_IDX_AR3, XT_REG_RELGEN, 0 }, 
 	{ "a4",				XT_REG_IDX_AR4, XT_REG_RELGEN, 0 }, 
 	{ "a5",				XT_REG_IDX_AR5, XT_REG_RELGEN, 0 }, 
