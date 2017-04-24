@@ -48,7 +48,7 @@ static struct service *services;
 
 /* shutdown_openocd == 1: exit the main event loop, and quit the
  * debugger; 2: quit with non-zero return code */
-static int shutdown_openocd;
+int shutdown_openocd;
 
 /* store received signal to exit application by killing ourselves */
 static int last_signal;

@@ -130,7 +130,8 @@ NDS32_SRC = \
 	nds32_aice.c
 
 ESP108_SRC= \
-	esp108.c
+	esp108.c \
+	esp108_apptrace.c
 
 INTEL_IA32_SRC = \
 	quark_x10xx.c \
