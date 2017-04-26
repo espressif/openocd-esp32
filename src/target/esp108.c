@@ -619,7 +619,7 @@ static int xtensa_halt(struct target *target)
 {
 	int res;
 
-	LOG_DEBUG("%s", __func__);
+	LOG_DEBUG("%s, target: %s", __func__, target->cmd_name);
 	if (target->state == TARGET_HALTED) {
 		LOG_DEBUG("%s: target was already halted", target->cmd_name);
 		return ERROR_OK;
@@ -720,6 +720,10 @@ static int xtensa_read_memory(struct target *target,
 
 //	LOG_INFO("%s: %s: reading %d bytes from addr %08X", target->cmd_name, __FUNCTION__, size*count, address);
 //	LOG_INFO("Converted to aligned addresses: read from %08X to %08X", addrstart_al, addrend_al);
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("%s: %s: target not halted", __func__, target->cmd_name);
+		return ERROR_TARGET_NOT_HALTED;
+	}
 
 	if (addrstart_al==address && addrend_al==address+(size*count)) {
 		albuff=buffer;
@@ -784,7 +788,7 @@ static int xtensa_write_memory(struct target *target,
 	uint8_t *albuff;
 
 	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("%s: target not halted", target->cmd_name);
+		LOG_WARNING("%s: %s: target not halted", __func__, target->cmd_name);
 		return ERROR_TARGET_NOT_HALTED;
 	}
 

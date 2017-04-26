@@ -1561,7 +1561,7 @@ static int gdb_breakpoint_watchpoint_packet(struct connection *connection,
 	char *separator;
 	int retval;
 
-	LOG_DEBUG("-");
+	LOG_DEBUG("gdb_breakpoint_watchpoint_packet");
 
 	type = strtoul(packet + 1, &separator, 16);
 
