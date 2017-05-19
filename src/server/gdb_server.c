@@ -1382,6 +1382,7 @@ static int gdb_read_memory_packet(struct connection *connection,
 	LOG_DEBUG("addr: 0x%8.8" PRIx32 ", len: 0x%8.8" PRIx32 "", addr, len);
 
 	retval = target_read_buffer(target, addr, len, buffer);
+	LOG_DEBUG("gdb_read_memory_packet - addr: 0x%8.8" PRIx32 ", len: 0x%8.8" PRIx32 ", result = %08x, retval=%08x", addr, len, *(int*)buffer, retval);
 
 	if ((retval != ERROR_OK) && !gdb_report_data_abort) {
 		/* TODO : Here we have to lie and send back all zero's lest stack traces won't work.
@@ -2670,9 +2671,11 @@ static int gdb_input_inner(struct connection *connection)
 			} else
 				LOG_DEBUG("received packet: '%s'", packet);
 		}
+		LOG_DEBUG("gdb_input_inner = %s", packet);
 
 		if (packet_size > 0) {
 			retval = ERROR_OK;
+			LOG_DEBUG("gdb_input_inner cmd = %c", packet[0]);
 			switch (packet[0]) {
 				case 'T':	/* Is thread alive? */
 					gdb_thread_packet(connection, packet, packet_size);
@@ -2756,6 +2759,7 @@ static int gdb_input_inner(struct connection *connection)
 						 * register values without modifying the target state.
 						 *
 						 */
+						LOG_DEBUG("!already_running && nostep");
 						gdb_sig_halted(connection);
 
 						/* stop forwarding log packets! */
@@ -2764,6 +2768,8 @@ static int gdb_input_inner(struct connection *connection)
 						/* We're running/stepping, in which case we can
 						 * forward log output until the target is halted
 						 */
+						LOG_DEBUG("!already_running && nostep else, target=%s", target->cmd_name);
+
 						gdb_con->frontend_state = TARGET_RUNNING;
 						target_call_event_callbacks(target, TARGET_EVENT_GDB_START);
 
@@ -2771,10 +2777,12 @@ static int gdb_input_inner(struct connection *connection)
 							/* Here we don't want packet processing to stop even if this fails,
 							 * so we use a local variable instead of retval. */
 							retval = gdb_step_continue_packet(connection, packet, packet_size);
+							LOG_DEBUG("!already_running && nostep else !already_running. retval = %i", retval);
 							if (retval != ERROR_OK) {
 								/* we'll never receive a halted
 								 * condition... issue a false one..
 								 */
+								LOG_DEBUG("!already_running && nostep else !already_running - gdb_frontend_halted");
 								gdb_frontend_halted(target, connection);
 							}
 						}

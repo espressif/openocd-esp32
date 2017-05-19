@@ -102,6 +102,7 @@ extern struct target_type nds32_v2_target;
 extern struct target_type nds32_v3_target;
 extern struct target_type nds32_v3m_target;
 extern struct target_type esp108_target;
+extern struct target_type esp32_target;
 extern struct target_type or1k_target;
 extern struct target_type quark_x10xx_target;
 extern struct target_type quark_d20xx_target;
@@ -134,6 +135,7 @@ static struct target_type *target_types[] = {
 	&nds32_v3_target,
 	&nds32_v3m_target,
 	&esp108_target,
+	&esp32_target,
 	&or1k_target,
 	&quark_x10xx_target,
 	&quark_d20xx_target,
@@ -488,6 +490,19 @@ struct target *get_target(const char *id)
 	}
 
 	return NULL;
+}
+
+/* returns a amount of targets*/
+int get_targets_count()
+{
+	int result = 0;
+	struct target *target = all_targets;
+
+	while (target) {
+		target = target->next;
+		result++;
+	}
+	return result;
 }
 
 /* returns a pointer to the n-th configured target */
@@ -1526,7 +1541,7 @@ int target_call_reset_callbacks(struct target *target, enum target_reset_mode re
 {
 	struct target_reset_callback *callback;
 
-	LOG_DEBUG("target reset %i (%s)", reset_mode,
+	LOG_DEBUG("target[%s] reset %i (%s)", target->cmd_name, reset_mode,
 			Jim_Nvp_value2name_simple(nvp_reset_modes, reset_mode)->name);
 
 	list_for_each_entry(callback, &target_reset_callback_list, list)
@@ -2768,7 +2783,7 @@ COMMAND_HANDLER(handle_wait_halt_command)
 		if (ERROR_OK != retval)
 			return ERROR_COMMAND_SYNTAX_ERROR;
 	}
-
+	LOG_INFO("%s", __func__);
 	struct target *target = get_current_target(CMD_CTX);
 	return target_wait_state(target, TARGET_HALTED, ms);
 }
@@ -4935,7 +4950,7 @@ static int jim_target_reset(Jim_Interp *interp, int argc, Jim_Obj *const *argv)
 {
 	Jim_GetOptInfo goi;
 	Jim_GetOpt_Setup(&goi, interp, argc - 1, argv + 1);
-
+	LOG_DEBUG("%s begin\n", __func__);
 	if (goi.argc != 2) {
 		Jim_WrongNumArgs(interp, 0, argv,
 				"([tT]|[fF]|assert|deassert) BOOL");
