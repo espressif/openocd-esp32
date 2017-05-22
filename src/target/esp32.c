@@ -1266,7 +1266,6 @@ static int xtensa_assert_reset(struct target *target)
 	esp32->resetAsserted=1;
 	return res;
 }
-//esp32_queue_pwrstat_readclear(target, &pwrstat);
 
 static int xtensa_deassert_reset(struct target *target)
 {
@@ -1285,7 +1284,6 @@ static int xtensa_deassert_reset(struct target *target)
 	res=jtag_execute_queue();
 	LOG_DEBUG("%s[%s] begin reset_halt=%i, state=%i \n", __func__, target->cmd_name, target->reset_halt, target->state);
 	target->state = TARGET_RUNNING;
-//	target->state = TARGET_HALTED;
 	esp32->resetAsserted=0;
 	return res;
 }
@@ -1492,12 +1490,7 @@ static int xtensa_step(struct target *target,
 		}
 
 		/* Now ICOUNT is set, we can resume as if we were going to run */
-		//res = xtensa_resume(target, current, address, 0, 0);
-		//if (res != ERROR_OK)
-		{
-			res = xtensa_resume_cpu(target, current, address, 0, 0);
-			//target->state = esp32->esp32_targets[esp32->active_cpu]->state;
-		}
+		res = xtensa_resume_cpu(target, current, address, 0, 0);
 		if(res != ERROR_OK) {
 			LOG_ERROR("%s: %s: Failed to resume after setting up single step", target->cmd_name, __func__);
 			return res;
@@ -1615,9 +1608,6 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 			esp32->esp32_targets[i]->tap->tapname = "slave";
 			esp32->esp32_targets[i]->tap->dotted_name = "esp32.slave";
 			jtag_tap_init(esp32->esp32_targets[i]->tap);
-			//esp32_targets[i]->tap->abs_chain_position = i;
-			//esp32_targets[i]->tap->
-			//abs_chain_position
 		}
 		esp32->esp32_targets[i]->coreid = i;
 	}
@@ -1788,20 +1778,7 @@ static int xtensa_poll(struct target *target)
 			esp32_fetch_all_regs(target);
 			//Examine why the target was halted
 			// DYA: exemine two cores
-			{ // DYA: here reason should be detected
-				//int cause = esp32_reg_get(&reg_list[XT_REG_IDX_DEBUGCAUSE]);
-				target->debug_reason = DBG_REASON_DBGRQ;
-//#define DEBUGCAUSE_IC			(1<<0)	//ICOUNT exception
-//#define DEBUGCAUSE_IB			(1<<1)	//IBREAK exception
-//#define DEBUGCAUSE_DB			(1<<2)	//DBREAK exception
-//#define DEBUGCAUSE_BI			(1<<3)	//BREAK instruction encountered
-//#define DEBUGCAUSE_BN			(1<<4)	//BREAK.N instruction encountered
-//#define DEBUGCAUSE_DI			(1<<5)	//Debug Interrupt
-
-				//if (cause&DEBUGCAUSE_IC) target->debug_reason = DBG_REASON_SINGLESTEP;
-				//if (cause&(DEBUGCAUSE_IB | DEBUGCAUSE_BN | DEBUGCAUSE_BI)) target->debug_reason = DBG_REASON_BREAKPOINT;
-				//if (cause&DEBUGCAUSE_DB) target->debug_reason = DBG_REASON_WATCHPOINT;
-			}
+			target->debug_reason = DBG_REASON_DBGRQ;
 			//esp32->active_cpu = ESP32_APP_CPU_ID; // default is application CPU
 			for (int i = 0; i < ESP32_CPU_COUNT; i++)
 			{
@@ -1835,7 +1812,7 @@ static int xtensa_poll(struct target *target)
 			if (target->debug_reason == DBG_REASON_BREAKPOINT)
 			{
 				// DYA:we have to switch off all cores
-				//				target_halt(target);
+				// But anyway all cores already switched off
 			}
 
 			target->reg_cache = esp32->core_caches[esp32->active_cpu & 1];
@@ -1848,18 +1825,6 @@ static int xtensa_poll(struct target *target)
 			else {
 				target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 			}
-
-			//for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
-			//{
-			//	esp32->esp32_targets[i]->state = TARGET_HALTED;
-			//	if (oldstate == TARGET_DEBUG_RUNNING) {
-			//		target_call_event_callbacks(esp32->esp32_targets[i], TARGET_EVENT_DEBUG_HALTED);
-			//	}
-			//	else {
-			//		target_call_event_callbacks(esp32->esp32_targets[i], TARGET_EVENT_HALTED);
-			//	}
-			//}
-
 		}
 	} else {
 		target->debug_reason = DBG_REASON_NOTHALTED;
