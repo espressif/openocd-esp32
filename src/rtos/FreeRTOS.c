@@ -398,8 +398,9 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 					(uint8_t *)&tmp_str);
 			if (retval != ERROR_OK) {
 				LOG_ERROR("Error reading first thread item location in FreeRTOS thread list");
-				free(list_of_lists);
-				return retval;
+				sprintf(tmp_str, "Undefined %i", tasks_found);
+				//free(list_of_lists);
+				//return retval;
 			}
 			tmp_str[FREERTOS_THREAD_NAME_STR_SIZE-1] = '\x00';
 			LOG_DEBUG("FreeRTOS: Read Thread Name at 0x%" PRIx64 ", value \"%s\"\r\n",

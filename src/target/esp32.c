@@ -1182,7 +1182,15 @@ static int xtensa_write_memory(struct target *target,
 	}
 	res=jtag_execute_queue();
 	if (res == ERROR_OK) res = esp32_checkdsr(esp32->esp32_targets[ESP32_MAIN_ID]);
-	if (res!=ERROR_OK) LOG_WARNING("%s: Failed writing %d bytes at address 0x%08X",target->cmd_name, count*size, address);
+	if (res != ERROR_OK)
+	{
+		LOG_WARNING("%s: Failed writing %d bytes at address 0x%08X, data - %02x, %02x, %02x, %02x, %02x, %02x, %02x, %02x", 
+			target->cmd_name, count*size, address,
+			buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7]
+			);
+
+		res = ERROR_OK; // DYA: for debug only!!!
+	}
 
 	/* NB: if we were supporting the ICACHE option, we would need
 	 * to invalidate it here */
@@ -1208,7 +1216,7 @@ static int xtensa_get_gdb_reg_list(struct target *target,
 {
 	int i;
 	struct esp32_common *esp32 = target->arch_info;
-	LOG_DEBUG("%s", __func__);
+	LOG_DEBUG("%s, reg_class=%i", __func__, (int)reg_class);
 
 	*reg_list_size = XT_NUM_REGS_G_COMMAND;
 	*reg_list = malloc(sizeof(struct reg *) * (*reg_list_size));
