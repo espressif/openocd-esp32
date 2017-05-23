@@ -449,10 +449,10 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 	rtos->thread_count = tasks_found;
 	// DYA: just for debug
 	LOG_DEBUG("Availible threads:");
-	for (int ii = 0; ii < rtos->thread_count; ii++)
-	{
-		LOG_DEBUG("Thread[%i]: 0x%08x/ %i, name: %s, ext_name: %s", ii, *(unsigned int*)&rtos->thread_details[ii].threadid, *(unsigned int*)&rtos->thread_details[ii].threadid, rtos->thread_details[ii].thread_name_str, rtos->thread_details[ii].extra_info_str);
-	}
+	//for (int ii = 0; ii < rtos->thread_count; ii++)
+	//{
+	//	LOG_DEBUG("Thread[%i]: 0x%08x/ %i, name: %s, ext_name: %s", ii, *(unsigned int*)&rtos->thread_details[ii].threadid, *(unsigned int*)&rtos->thread_details[ii].threadid, rtos->thread_details[ii].thread_name_str, rtos->thread_details[ii].extra_info_str);
+	//}
 
 	return 0;
 }

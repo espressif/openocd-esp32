@@ -2356,7 +2356,7 @@ static int gdb_query_packet(struct connection *connection,
 			&buffer,
 			&pos,
 			&size,
-			"PacketSize=%x;qXfer:memory-map:read%c;qXfer:features:read%c;QStartNoAckMode+",
+			"multiprocess+;PacketSize=%x;qXfer:memory-map:read%c;qXfer:features:read%c;QStartNoAckMode+",
 			(GDB_BUFFER_SIZE - 1),
 			((gdb_use_memory_map == 1) && (flash_get_bank_count() > 0)) ? '+' : '-',
 			(gdb_target_desc_supported == 1) ? '+' : '-');
