@@ -1382,7 +1382,9 @@ static int gdb_read_memory_packet(struct connection *connection,
 	LOG_DEBUG("addr: 0x%8.8" PRIx32 ", len: 0x%8.8" PRIx32 "", addr, len);
 
 	retval = target_read_buffer(target, addr, len, buffer);
-	LOG_DEBUG("gdb_read_memory_packet - addr: 0x%8.8" PRIx32 ", len: 0x%8.8" PRIx32 ", result = %08x, retval=%08x", addr, len, *(int*)buffer, retval);
+	int buffer_word;
+	memcpy(&buffer_word, buffer, sizeof(buffer_word));
+	LOG_DEBUG("gdb_read_memory_packet - addr: 0x%8.8" PRIx32 ", len: 0x%8.8" PRIx32 ", result = %08x, retval=%08x", addr, len, buffer_word, retval);
 
 	if ((retval != ERROR_OK) && !gdb_report_data_abort) {
 		/* TODO : Here we have to lie and send back all zero's lest stack traces won't work.
@@ -2356,7 +2358,7 @@ static int gdb_query_packet(struct connection *connection,
 			&buffer,
 			&pos,
 			&size,
-			"multiprocess+;PacketSize=%x;qXfer:memory-map:read%c;qXfer:features:read%c;QStartNoAckMode+",
+			"PacketSize=%x;qXfer:memory-map:read%c;qXfer:features:read%c;QStartNoAckMode+",
 			(GDB_BUFFER_SIZE - 1),
 			((gdb_use_memory_map == 1) && (flash_get_bank_count() > 0)) ? '+' : '-',
 			(gdb_target_desc_supported == 1) ? '+' : '-');

@@ -397,9 +397,7 @@ int rtos_thread_packet(struct connection *connection, char const *packet, int pa
 	} else if (packet[0] == 'H') {	/* Set current thread ( 'c' for step and continue, 'g' for
 					 * all other operations ) */
 		if ((packet[1] == 'g') && (target->rtos != NULL)) {
-			//sscanf(packet, "Hg%16" SCNx64, &target->rtos->current_threadid); // original code
-			//example: Hgpa410.3ffaf25c
-			sscanf(packet, "Hgpa410.%08" SCNx64, &target->rtos->current_threadid);
+			sscanf(packet, "Hg%16" SCNx64, &target->rtos->current_threadid);
 			LOG_DEBUG("RTOS: GDB requested to set current thread to 0x%" PRIx64 "\r\n",
 										target->rtos->current_threadid);
 		}
