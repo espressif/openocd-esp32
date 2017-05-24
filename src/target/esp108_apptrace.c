@@ -612,7 +612,11 @@ static int esp108_apptrace_poll(void *priv)
 				at_cmd_ctx->stats.min_blk_read_time = brt;
 
 			for (uint32_t i = 0; i < data_len;) {
-				struct apptrace_data_hdr *hdr = (struct apptrace_data_hdr *)&at_cmd_ctx->trax_block_data[i];
+
+				struct apptrace_data_hdr tmp_hdr;
+				struct apptrace_data_hdr *hdr = &tmp_hdr;
+				memcpy(hdr, &at_cmd_ctx->trax_block_data[i], sizeof(*hdr));
+				
 				if (hdr->block_sz != hdr->wr_sz) {
 					LOG_ERROR("Incomplete block sz %u, wr %u", hdr->block_sz, hdr->wr_sz);
 					at_cmd_ctx->stats.incompl_blocks++;
