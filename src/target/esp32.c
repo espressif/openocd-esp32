@@ -1256,11 +1256,145 @@ static int xtensa_set_core_reg(struct reg *reg, uint8_t *buf)
 	return ERROR_OK;
 }
 
+static int xtensa_write_uint32(struct target *target, uint32_t addr, uint32_t val)
+{
+	return xtensa_write_memory(target, addr, 4, 1, (uint8_t*) &val);
+}
+
+static int xtenas_write_uint32_list(struct target *target, const uint32_t* addr_value_pairs_list, size_t count)
+{
+	int res;
+	for (size_t i = 0; i < count; ++i) 
+	{
+		res = xtensa_write_uint32(target, addr_value_pairs_list[2 * i], addr_value_pairs_list[2 * i + 1]);
+		if (res != ERROR_OK) {
+			LOG_ERROR("%s: error writing to %08x", __func__, addr_value_pairs_list[2 * i]);
+			return res;
+		}
+	}
+	return ERROR_OK;
+}
+
+/* Reset ESP32's peripherals.
+   Preconditions: target halted.
+   Postconditions: all peripherals except RTC_CNTL are reset, CPU's PC is undefined, PRO CPU is halted, APP CPU is in reset 
+   How this works:
+    1. set CPU initial PC to 0x50000000 (RTC_SLOW_MEM) by clearing RTC_CNTL_{PRO,APP}CPU_STAT_VECTOR_SEL
+    2. load stub code into RTC_SLOW_MEM; once executed, stub code will disable watchdogs and make CPU spin in an idle loop.
+    3. trigger SoC reset using RTC_CNTL_SW_SYS_RST bit
+    4. wait for the OCD to be reset
+    5. halt the target and wait for it to be halted (at this point CPU is in the idle loop)
+    6. restore initial PC and the contents of RTC_SLOW_MEM
+   TODO: some state of RTC_CNTL is not reset during SW_SYS_RST. Need to reset that manually.
+ */
+static int esp32_soc_reset(struct target *target)
+{
+	LOG_DEBUG("%s %d", __func__, __LINE__);
+	int res;
+
+	const uint32_t esp32_post_reset_code[] = {
+		0x00000806, 0x50d83aa1, 0x00000000, 0x3ff480a4, 0x3ff4808c, 0x3ff5f064, 0x3ff5f048, 0x3ff60064, 
+		0x3ff60048, 0x41fff831, 0x0439fff9, 0x39fffa41, 0xfffa4104, 0xf4310439, 0xfff541ff, 0xf6410439, 
+		0x410439ff, 0x0439fff7, 0x46007000,
+	};
+
+	uint32_t slow_mem_save[sizeof(esp32_post_reset_code) / sizeof(uint32_t)];
+
+	const int RTC_SLOW_MEM_BASE = 0x50000000;
+	/* Save contents of RTC_SLOW_MEM which we are about to overwrite */
+	res = xtensa_read_buffer(target, RTC_SLOW_MEM_BASE, sizeof(slow_mem_save), (uint8_t*) slow_mem_save);
+	if (res != ERROR_OK)  {
+		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
+		return res;
+	}
+
+	/* Write stub code into RTC_SLOW_MEM */
+	res = xtensa_write_buffer(target, RTC_SLOW_MEM_BASE, sizeof(esp32_post_reset_code), (const uint8_t*) esp32_post_reset_code);
+	if (res != ERROR_OK)  {
+		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
+		return res;
+	}
+
+	const int RTC_CNTL_RESET_STATE_REG = 0x3ff48034;
+	const int RTC_CNTL_RESET_STATE_DEF = 0x3000;
+	const int RTC_CNTL_CLK_CONF_REG = 0x3ff48070;
+	const int RTC_CNTL_CLK_CONF_DEF = 0x2210;
+	const int RTC_CNTL_STORE4_REG = 0x3ff480b0;
+	const int RTC_CNTL_STORE5_REG = 0x3ff480b4;
+	const int RTC_CNTL_OPTIONS0_REG = 0x3ff48000;
+	const int RTC_CNTL_OPTIONS0_DEF = 0x1c492000;
+	const int RTC_CNTL_SW_SYS_RST = 0x80000000;
+
+	/* Set a list of registers to these values */
+	const uint32_t reg_value_pairs[] = {
+		/* Set entry point to RTC_SLOW_MEM */
+		RTC_CNTL_RESET_STATE_REG, 0,
+		/* Reset SoC clock to XTAL, in case it was running from PLL */
+		RTC_CNTL_CLK_CONF_REG, RTC_CNTL_CLK_CONF_DEF,
+		/* Reset RTC_CNTL_STORE{4,5}_REG, which are related to clock state */
+		RTC_CNTL_STORE4_REG, 0,
+		RTC_CNTL_STORE5_REG, 0,
+		/* Perform reset */
+		RTC_CNTL_OPTIONS0_REG, RTC_CNTL_OPTIONS0_DEF | RTC_CNTL_SW_SYS_RST
+	};
+	res = xtenas_write_uint32_list(target, reg_value_pairs, sizeof(reg_value_pairs) / 8);
+	if (res != ERROR_OK)  {
+		LOG_WARNING("%s xtenas_write_uint32_list err=%d", __func__, res);
+		return res;
+	}
+
+	/* Wait for SoC to reset */
+	int timeout = 50;
+	while (target->state != TARGET_RESET && target->state != TARGET_RUNNING && --timeout > 0) {
+		alive_sleep(100);
+		xtensa_poll(target);
+	}
+	if (timeout == 0) {
+		LOG_ERROR("%s: Timed out waiting for CPU to be reset", __func__);
+		return ERROR_TARGET_TIMEOUT;
+	}
+
+	/* Halt and wait for it to be halted */
+	xtensa_halt(target);
+	timeout = 50;
+	while (target->state != TARGET_HALTED && --timeout > 0) {
+		alive_sleep(100);
+		xtensa_poll(target);
+	}
+	if (timeout == 0) {
+		LOG_ERROR("%s: Timed out waiting for CPU to be halted after SoC reset", __func__);
+		return ERROR_TARGET_TIMEOUT;
+	}
+
+	/* Reset entry point back to the reset vector */
+	res = xtensa_write_uint32(target, RTC_CNTL_RESET_STATE_REG, RTC_CNTL_RESET_STATE_DEF);
+	if (res != ERROR_OK)  {
+		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
+		return res;
+	}
+
+	/* Restore the original contents of RTC_SLOW_MEM */
+	res = xtensa_write_buffer(target, RTC_SLOW_MEM_BASE, sizeof(slow_mem_save), (const uint8_t*) slow_mem_save);
+	if (res != ERROR_OK)  {
+		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
+		return res;
+	}
+
+	LOG_DEBUG("%s %d", __func__, __LINE__);
+
+	return ERROR_OK;
+}
 
 static int xtensa_assert_reset(struct target *target)
 {
-	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
 	int res;
+	/* Reset the SoC first */
+	res = esp32_soc_reset(target);
+	if (res != ERROR_OK) {
+		return res;
+	}
+
+	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
 
 	LOG_DEBUG("%s[%s] coreid=%i, target_number=%i, begin", __func__, target->cmd_name, target->coreid, target->target_number);
 	target->state = TARGET_RESET;
@@ -1770,10 +1904,7 @@ static int xtensa_poll(struct target *target)
 		esp32->current_threadid = target->rtos->current_threadid;
 	}
 
-	if (common_pwrstath & PWRSTAT_COREWASRESET) {
-		target->state = TARGET_RESET;
-	}
-	else if (common_reason & OCDDSR_STOPPED) {
+	if (common_reason & OCDDSR_STOPPED) {
 		if(target->state != TARGET_HALTED) {
 			int oldstate=target->state;
 			// DYA: to read registers here I have to stop all CPUs
@@ -1834,6 +1965,8 @@ static int xtensa_poll(struct target *target)
 				target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 			}
 		}
+	} else if (common_pwrstath & PWRSTAT_COREWASRESET) {
+		target->state = TARGET_RESET;
 	} else {
 		target->debug_reason = DBG_REASON_NOTHALTED;
 		if (target->state!=TARGET_RUNNING && target->state!=TARGET_DEBUG_RUNNING) {
