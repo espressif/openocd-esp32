@@ -734,6 +734,7 @@ static int esp32_fetch_all_regs(struct target *target)
 		//We have used A3 as a scratch register and we will need to write that back.
 		esp32_mark_register_dirty(esp32->esp32_targets[c], XT_REG_IDX_A3);
 	}
+	esp32_checkdsr(esp32->esp32_targets[0]);
 	return ERROR_OK;
 }
 
@@ -842,6 +843,7 @@ static int xtensa_halt(struct target *target)
 
 		if (0 == (intfromchars(dsr) & OCDDSR_STOPPED))
 		{
+			LOG_DEBUG("Need to halt CPU %d", (int) i);
 			esp32_queue_nexus_reg_write(esp32->esp32_targets[i], NARADR_DCRSET, OCDDCR_DEBUGINTERRUPT);
 			esp32_queue_tdi_idle(esp32->esp32_targets[i]);
 			res = jtag_execute_queue();
@@ -850,6 +852,8 @@ static int xtensa_halt(struct target *target)
 				LOG_ERROR("%s: Failed to set OCDDCR_DEBUGINTERRUPT. Can't halt.", target->cmd_name);
 				return ERROR_FAIL;
 			}
+		} else {
+			LOG_DEBUG("CPU %d already halted", (int) i);
 		}
 	}
 	return ERROR_OK;
@@ -1939,7 +1943,9 @@ static int xtensa_poll(struct target *target)
 		if (res != ERROR_OK) return res;
 	}
 
-	unsigned int common_reason = intfromchars(dsr[0]) | intfromchars(dsr[1]); // We should know if even one of CPU was stopped
+	unsigned int dsr0 = intfromchars(dsr[0]);
+	unsigned int dsr1 = intfromchars(dsr[1]);
+	unsigned int common_reason = dsr0 | dsr1; // We should know if even one of CPU was stopped
 
 	//	LOG_INFO("esp8266: ocdid 0x%X dsr 0x%X", intfromchars(ocdid), intfromchars(dsr));
 	unsigned int common_pwrstath = pwrstath[0] | pwrstath[1];
@@ -1952,6 +1958,7 @@ static int xtensa_poll(struct target *target)
 
 	if (common_reason & OCDDSR_STOPPED) {
 		if(target->state != TARGET_HALTED) {
+			LOG_DEBUG("Stopped: CPU0: %d CPU1: %d", (dsr0 & OCDDSR_STOPPED) ? 1 : 0, (dsr1 & OCDDSR_STOPPED) ? 1 : 0);
 			int oldstate=target->state;
 			// DYA: to read registers here I have to stop all CPUs
 			xtensa_halt(target); 
