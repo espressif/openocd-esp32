@@ -517,19 +517,19 @@ esp32 flashbootstrap command to set a level, and this routine will make sure the
 that when the jtag port is idle.
 */
 static void esp32_queue_tdi_idle(struct target *target) {
-//	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
+	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
 	static uint8_t value = 0;
 	uint8_t t[4]={0,0,0,0};
 
-	//if (esp32->flashBootstrap==FBS_TMSLOW) {
-	//	//Make sure tdi is 0 at the exit of queue execution
-	//	value=0;
-	//} else if (esp32->flashBootstrap==FBS_TMSHIGH) {
-	//	//Make sure tdi is 1 at the exit of queue execution
-	//	value=1;
-	//} else {
-	//	return;
-	//}
+	if (esp32->flashBootstrap==FBS_TMSLOW) {
+		//Make sure tdi is 0 at the exit of queue execution
+		value=0;
+	} else if (esp32->flashBootstrap==FBS_TMSHIGH) {
+		//Make sure tdi is 1 at the exit of queue execution
+		value=1;
+	} else {
+		return;
+	}
 
 	//Scan out 1 bit, do not move from IRPAUSE after we're done.
 	buf_set_u32(t, 0, 1, value);
