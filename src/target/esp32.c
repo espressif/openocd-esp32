@@ -424,6 +424,15 @@ static int xtensa_step(struct target *target,
 	uint32_t address,
 	int handle_breakpoints);
 static int xtensa_poll(struct target *target);
+static int xtensa_assert_reset(struct target *target);
+static int xtensa_deassert_reset(struct target *target);
+static int xtensa_write_uint32_list(struct target *target, const uint32_t* addr_value_pairs_list, size_t count);
+static int xtensa_write_uint32(struct target *target, uint32_t addr, uint32_t val);
+static int xtensa_read_memory(struct target *target,
+	uint32_t address,
+	uint32_t size,
+	uint32_t count,
+	uint8_t *buffer);
 
 
 static void esp32_add_set_ir(struct target *target, uint8_t value)
@@ -548,7 +557,6 @@ static int esp32_do_checkdsr(struct target *target, const char *function, const 
 	esp32_queue_nexus_reg_read(target, NARADR_DSR, dsr);
 	esp32_queue_tdi_idle(target);
 	res=jtag_execute_queue();
-	//printf("esp32_checkdsr: res=%08x, dsr=%08x\n", res, *ttt);
 	if (res!=ERROR_OK) {
 		LOG_ERROR("%s: %s (line %d): reading DSR failed!", target->cmd_name, function, line);
 		return ERROR_FAIL;
@@ -1026,7 +1034,6 @@ static int xtensa_resume_cpu(struct target *target,
 }
 
 
-static int xtensa_assert_reset(struct target *target);
 static int xtensa_read_memory(struct target *target,
 			      uint32_t address,
 			      uint32_t size,
@@ -1188,8 +1195,6 @@ static int xtensa_write_memory(struct target *target,
 			target->cmd_name, count*size, address,
 			buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7]
 			);
-
-		res = ERROR_OK; // DYA: for debug only!!!
 	}
 
 	/* NB: if we were supporting the ICACHE option, we would need
@@ -1261,7 +1266,7 @@ static int xtensa_write_uint32(struct target *target, uint32_t addr, uint32_t va
 	return xtensa_write_memory(target, addr, 4, 1, (uint8_t*) &val);
 }
 
-static int xtenas_write_uint32_list(struct target *target, const uint32_t* addr_value_pairs_list, size_t count)
+static int xtensa_write_uint32_list(struct target *target, const uint32_t* addr_value_pairs_list, size_t count)
 {
 	int res;
 	for (size_t i = 0; i < count; ++i) 
@@ -1274,9 +1279,6 @@ static int xtenas_write_uint32_list(struct target *target, const uint32_t* addr_
 	}
 	return ERROR_OK;
 }
-
-static int xtensa_assert_reset(struct target *target);
-static int xtensa_deassert_reset(struct target *target);
 
 /* Reset ESP32's peripherals.
    Postconditions: all peripherals except RTC_CNTL are reset, CPU's PC is undefined, PRO CPU is halted, APP CPU is in reset 
@@ -1380,7 +1382,7 @@ static int esp32_soc_reset(struct target *target)
 		/* Perform reset */
 		RTC_CNTL_OPTIONS0_REG, RTC_CNTL_OPTIONS0_DEF | RTC_CNTL_SW_SYS_RST
 	};
-	res = xtenas_write_uint32_list(target, reg_value_pairs_pre, sizeof(reg_value_pairs_pre) / 8);
+	res = xtensa_write_uint32_list(target, reg_value_pairs_pre, sizeof(reg_value_pairs_pre) / 8);
 	if (res != ERROR_OK)  {
 		LOG_WARNING("%s xtensa_write_uint32_list (reg_value_pairs_pre) err=%d", __func__, res);
 		return res;
@@ -1389,7 +1391,7 @@ static int esp32_soc_reset(struct target *target)
 	/* Wait for SoC to reset */
 	res = target_wait_state(target, TARGET_RUNNING, 1000);
 	if (res != ERROR_OK) {
-		LOG_ERROR("%s: Timed out waiting for CPU to be reset", __func__);
+		LOG_ERROR("%s: Timed out waiting for CPU to be reset, target->state=%d", __func__, target->state);
 		return ERROR_TARGET_TIMEOUT;
 	}
 
@@ -1411,7 +1413,7 @@ static int esp32_soc_reset(struct target *target)
 		/* Take APP CPU out of reset */
 		DPORT_APPCPU_CTRL_A_REG, 0,
 	};
-	res = xtenas_write_uint32_list(target, reg_value_pairs_post, sizeof(reg_value_pairs_post) / 8);
+	res = xtensa_write_uint32_list(target, reg_value_pairs_post, sizeof(reg_value_pairs_post) / 8);
 	if (res != ERROR_OK)  {
 		LOG_WARNING("%s xtensa_write_uint32_list (reg_value_pairs_post) err=%d", __func__, res);
 		return res;
