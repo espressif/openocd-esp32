@@ -909,6 +909,199 @@ static int xtensa_set_core_reg(struct reg *reg, uint8_t *buf)
 	return ERROR_OK;
 }
 
+static int xtensa_write_uint32(struct target *target, uint32_t addr, uint32_t val)
+{
+	return xtensa_write_memory(target, addr, 4, 1, (uint8_t*) &val);
+}
+
+static int xtensa_write_uint32_list(struct target *target, const uint32_t* addr_value_pairs_list, size_t count)
+{
+	int res;
+	for (size_t i = 0; i < count; ++i) 
+	{
+		res = xtensa_write_uint32(target, addr_value_pairs_list[2 * i], addr_value_pairs_list[2 * i + 1]);
+		if (res != ERROR_OK) {
+			LOG_ERROR("%s: error writing to %08x", __func__, addr_value_pairs_list[2 * i]);
+			return res;
+		}
+	}
+	return ERROR_OK;
+}
+
+static int xtensa_assert_reset(struct target *target);
+static int xtensa_deassert_reset(struct target *target);
+
+/* Reset ESP32's peripherals.
+   Postconditions: all peripherals except RTC_CNTL are reset, CPU's PC is undefined, PRO CPU is halted, APP CPU is in reset 
+   How this works:
+    0. make sure target is halted; if not, try to halt it; if that fails, try to reset it (via OCD) and then halt
+    1. set CPU initial PC to 0x50000000 (RTC_SLOW_MEM) by clearing RTC_CNTL_{PRO,APP}CPU_STAT_VECTOR_SEL
+    2. load stub code into RTC_SLOW_MEM; once executed, stub code will disable watchdogs and make CPU spin in an idle loop.
+    3. trigger SoC reset using RTC_CNTL_SW_SYS_RST bit
+    4. wait for the OCD to be reset
+    5. halt the target and wait for it to be halted (at this point CPU is in the idle loop)
+    6. restore initial PC and the contents of RTC_SLOW_MEM
+   TODO: some state of RTC_CNTL is not reset during SW_SYS_RST. Need to reset that manually.
+ */
+static int esp32_soc_reset(struct target *target)
+{
+	LOG_DEBUG("%s %d", __func__, __LINE__);
+	int res;
+
+	/* In order to write to peripheral registers, target must be halted first */
+	if (target->state != TARGET_HALTED) {
+		LOG_DEBUG("%s: Target not halted before SoC reset, trying to halt it first", __func__);
+		xtensa_halt(target);
+		res = target_wait_state(target, TARGET_HALTED, 1000);
+		if (res != ERROR_OK) {
+			LOG_DEBUG("%s: Couldn't halt target before SoC reset, trying to do reset-halt", __func__);
+			res = xtensa_assert_reset(target);
+			if (res != ERROR_OK) {
+				LOG_ERROR("%s: Couldn't halt target before SoC reset! (xtensa_assert_reset returned %d)", __func__, res);
+				return res;
+			}
+			alive_sleep(10);
+			xtensa_poll(target);
+			int reset_halt_save = target->reset_halt;
+			target->reset_halt = 1;
+			res = xtensa_deassert_reset(target);
+			target->reset_halt = reset_halt_save;
+			if (res != ERROR_OK) {
+				LOG_ERROR("%s: Couldn't halt target before SoC reset! (xtensa_deassert_reset returned %d)", __func__, res);
+				return res;
+			}
+			alive_sleep(10);
+			xtensa_poll(target);
+			xtensa_halt(target);
+			res = target_wait_state(target, TARGET_HALTED, 1000);
+			if (res != ERROR_OK) {
+				LOG_ERROR("%s: Couldn't halt target before SoC reset", __func__);
+				return res;
+			}
+		}
+	}
+
+	assert(target->state == TARGET_HALTED);
+
+
+	const uint32_t esp32_post_reset_code[] = {
+		0x00000806, 0x50d83aa1, 0x00000000, 0x3ff480a4, 0x3ff4808c, 0x3ff5f064, 0x3ff5f048, 0x3ff60064, 
+		0x3ff60048, 0x41fff831, 0x0439fff9, 0x39fffa41, 0xfffa4104, 0xf4310439, 0xfff541ff, 0xf6410439, 
+		0x410439ff, 0x0439fff7, 0x46007000,
+	};
+
+	uint32_t slow_mem_save[sizeof(esp32_post_reset_code) / sizeof(uint32_t)];
+
+	const int RTC_SLOW_MEM_BASE = 0x50000000;
+	/* Save contents of RTC_SLOW_MEM which we are about to overwrite */
+	res = xtensa_read_buffer(target, RTC_SLOW_MEM_BASE, sizeof(slow_mem_save), (uint8_t*) slow_mem_save);
+	if (res != ERROR_OK)  {
+		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
+		return res;
+	}
+
+	/* Write stub code into RTC_SLOW_MEM */
+	res = xtensa_write_buffer(target, RTC_SLOW_MEM_BASE, sizeof(esp32_post_reset_code), (const uint8_t*) esp32_post_reset_code);
+	if (res != ERROR_OK)  {
+		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
+		return res;
+	}
+
+	const int RTC_CNTL_RESET_STATE_REG = 0x3ff48034;
+	const int RTC_CNTL_RESET_STATE_DEF = 0x3000;
+	const int RTC_CNTL_CLK_CONF_REG = 0x3ff48070;
+	const int RTC_CNTL_CLK_CONF_DEF = 0x2210;
+	const int RTC_CNTL_STORE4_REG = 0x3ff480b0;
+	const int RTC_CNTL_STORE5_REG = 0x3ff480b4;
+	const int RTC_CNTL_OPTIONS0_REG = 0x3ff48000;
+	const int RTC_CNTL_OPTIONS0_DEF = 0x1c492000;
+	const int RTC_CNTL_SW_SYS_RST = 0x80000000;
+	const int DPORT_APPCPU_CTRL_A_REG = 0x3ff0002c;
+	const int DPORT_APPCPU_CTRL_B_REG = 0x3ff00030;
+	const int DPORT_APPCPU_CLKGATE_EN = 0x1;
+	const int DPORT_APPCPU_CTRL_D_REG = 0x3ff00038;
+
+	/* Set a list of registers to these values */
+	const uint32_t reg_value_pairs_pre[] = {
+		/* Set entry point to RTC_SLOW_MEM */
+		RTC_CNTL_RESET_STATE_REG, 0,
+		/* Reset SoC clock to XTAL, in case it was running from PLL */
+		RTC_CNTL_CLK_CONF_REG, RTC_CNTL_CLK_CONF_DEF,
+		/* Reset RTC_CNTL_STORE{4,5}_REG, which are related to clock state */
+		RTC_CNTL_STORE4_REG, 0,
+		RTC_CNTL_STORE5_REG, 0,
+		/* Perform reset */
+		RTC_CNTL_OPTIONS0_REG, RTC_CNTL_OPTIONS0_DEF | RTC_CNTL_SW_SYS_RST
+	};
+	res = xtensa_write_uint32_list(target, reg_value_pairs_pre, sizeof(reg_value_pairs_pre) / 8);
+	if (res != ERROR_OK)  {
+		LOG_WARNING("%s xtensa_write_uint32_list (reg_value_pairs_pre) err=%d", __func__, res);
+		return res;
+	}
+
+	/* Wait for SoC to reset */
+	res = target_wait_state(target, TARGET_RUNNING, 1000);
+	if (res != ERROR_OK) {
+		LOG_ERROR("%s: Timed out waiting for CPU to be reset", __func__);
+		return ERROR_TARGET_TIMEOUT;
+	}
+
+	/* Halt the CPU again */
+	xtensa_halt(target);
+	res = target_wait_state(target, TARGET_HALTED, 1000);
+	if (res != ERROR_OK) {
+		LOG_ERROR("%s: Timed out waiting for CPU to be halted after SoC reset", __func__);
+		return res;
+	}
+
+	const uint32_t reg_value_pairs_post[] = {
+		/* Reset entry point back to the reset vector */
+		RTC_CNTL_RESET_STATE_REG, RTC_CNTL_RESET_STATE_DEF,
+		/* Clear APP CPU boot address */
+		DPORT_APPCPU_CTRL_D_REG, 0,
+		/* Enable clock to APP CPU */
+		DPORT_APPCPU_CTRL_B_REG, DPORT_APPCPU_CLKGATE_EN,
+		/* Take APP CPU out of reset */
+		DPORT_APPCPU_CTRL_A_REG, 0,
+	};
+	res = xtensa_write_uint32_list(target, reg_value_pairs_post, sizeof(reg_value_pairs_post) / 8);
+	if (res != ERROR_OK)  {
+		LOG_WARNING("%s xtensa_write_uint32_list (reg_value_pairs_post) err=%d", __func__, res);
+		return res;
+	}
+
+	/* Restore the original contents of RTC_SLOW_MEM */
+	res = xtensa_write_buffer(target, RTC_SLOW_MEM_BASE, sizeof(slow_mem_save), (const uint8_t*) slow_mem_save);
+	if (res != ERROR_OK)  {
+		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
+		return res;
+	}
+
+	LOG_DEBUG("%s %d", __func__, __LINE__);
+
+	return ERROR_OK;
+}
+
+static int xtensa_assert_reset_full(struct target *target)
+{
+	int res;
+	LOG_DEBUG("%s coreid=%d", __func__, target->coreid);
+	/* Reset the SoC first */
+
+	if (target->coreid != 1) {
+		res = esp32_soc_reset(target);
+		if (res != ERROR_OK) {
+			LOG_WARNING("%s: failed to reset SoC; continuing anyway", __func__);
+		}
+	} else {
+		res = target_wait_state(target, TARGET_RUNNING, 1000);
+		if (res != ERROR_OK) {
+			LOG_WARNING("%s: timed out waiting for APP CPU to start running", __func__);
+		}
+	}
+	return xtensa_assert_reset(target);
+}
+
 
 static int xtensa_assert_reset(struct target *target)
 {
@@ -927,7 +1120,7 @@ static int xtensa_deassert_reset(struct target *target)
 {
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	int res;
-	LOG_DEBUG("%s", __func__);
+	LOG_DEBUG("%s coreid=%d halt=%d", __func__, target->coreid, target->reset_halt);
 	if (target->reset_halt) {
 		esp108_queue_nexus_reg_write(target, NARADR_DCRSET, OCDDCR_DEBUGINTERRUPT);
 	}
@@ -1689,7 +1882,7 @@ struct target_type esp108_target = {
 	.resume = xtensa_resume,
 	.step = xtensa_step,
 
-	.assert_reset = xtensa_assert_reset,
+	.assert_reset = xtensa_assert_reset_full,
 	.deassert_reset = xtensa_deassert_reset,
 
 	.read_memory = xtensa_read_memory,
