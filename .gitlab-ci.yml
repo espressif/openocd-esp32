@@ -1,14 +1,47 @@
 stages:
+  - build
   - deploy
+
+before_script:
+  # add gitlab ssh key
+  - mkdir -p ~/.ssh
+  - chmod 700 ~/.ssh
+  - echo -n $GITLAB_KEY > ~/.ssh/id_rsa_base64
+  - base64 --decode --ignore-garbage ~/.ssh/id_rsa_base64 > ~/.ssh/id_rsa
+  - chmod 600 ~/.ssh/id_rsa
+  - echo -e "Host gitlab.espressif.cn\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+  # reconfigure submodules
+  - git config --file=.gitmodules submodule.tools/git2cl.url $GITLAB_SSH_SERVER/idf/git2cl.git
+  - git config --file=.gitmodules submodule.src/jimtcl.url $GITLAB_SSH_SERVER/idf/jimtcl.git
+  - git config --file=.gitmodules submodule.src/jtag/drivers/libjaylink.url $GITLAB_SSH_SERVER/idf/libjaylink.git
+
+build_linux:
+  stage: build
+  image: $CI_DOCKER_REGISTRY/esp32-toolchain
+  tags:
+    - build
+
+  artifacts:
+    paths:
+      - dist
+    expire_in: 2 weeks
+
+  script:
+    - git submodule update --init
+    - ./bootstrap
+    - ./configure --prefix=$PWD/openocd-esp32
+    - make install-strip
+    - export REL_NAME=openocd-esp32-linux64-`git describe --always`
+    - tar czvf ${REL_NAME}.tar.gz openocd-esp32/
+    - mkdir -p dist
+    - mv ${REL_NAME}.tar.gz dist/
 
 push_master_to_github:
   stage: deploy
   only:
     - master
-#  when: on_success
+  when: on_success
   image: espressif/esp32-ci-env
-  variables:
-    GIT_STRATEGY: clone
   script:
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
