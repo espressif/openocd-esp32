@@ -270,12 +270,12 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 			LOG_ERROR("Error allocating memory for %d threads", thread_list_size);
 			return ERROR_FAIL;
 		}
-		rtos->thread_details->threadid = 1;
+		rtos->thread_details->threadid = 0;
 		rtos->thread_details->exists = true;
 		rtos->thread_details->extra_info_str = NULL;
 		rtos->thread_details->thread_name_str = malloc(sizeof(tmp_str));
 		strcpy(rtos->thread_details->thread_name_str, tmp_str);
-		rtos->current_thread = 1;
+		rtos->current_thread = 0;
 
 		if (thread_list_size == 1) {
 			rtos->thread_count = 1;
@@ -630,7 +630,7 @@ static int FreeRTOS_clean(struct target *target)
 {
 	LOG_DEBUG("FreeRTOS_clean");
 	rtos_free_threadlist(target->rtos);
-	target->rtos->current_thread = 1;
+	target->rtos->current_thread = 0;
 	return ERROR_OK;
 }
 
