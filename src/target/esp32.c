@@ -1434,6 +1434,14 @@ static int esp32_soc_reset(struct target *target)
 		return res;
 	}
 
+	/* Clear memory which is used by RTOS layer to get the task count */
+	if (target->rtos && target->rtos->type->post_reset_cleanup) {
+		res = (*target->rtos->type->post_reset_cleanup)(target);
+		if (res != ERROR_OK) {
+			LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
+		}
+	}
+
 	LOG_DEBUG("%s %d", __func__, __LINE__);
 
 	return ERROR_OK;

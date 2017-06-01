@@ -142,6 +142,7 @@ static int FreeRTOS_create(struct target *target);
 static int FreeRTOS_update_threads(struct rtos *rtos);
 static int FreeRTOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id, char **hex_reg_list);
 static int FreeRTOS_get_symbol_list_to_lookup(symbol_table_elem_t *symbol_list[]);
+static int FreeRTOS_post_reset_cleanup(struct target *target);
 static int FreeRTOS_clean(struct target *target);
 
 struct rtos_type FreeRTOS_rtos = {
@@ -153,6 +154,7 @@ struct rtos_type FreeRTOS_rtos = {
 	.get_thread_reg_list = FreeRTOS_get_thread_reg_list,
 	.get_symbol_list_to_lookup = FreeRTOS_get_symbol_list_to_lookup,
 	.clean = FreeRTOS_clean,
+	.post_reset_cleanup = FreeRTOS_post_reset_cleanup,
 };
 
 enum FreeRTOS_symbol_values {
@@ -595,6 +597,34 @@ static int FreeRTOS_get_thread_ascii_info(struct rtos *rtos, threadid_t thread_i
 }
 
 #endif
+
+
+static int FreeRTOS_post_reset_cleanup(struct target *target)
+{
+	LOG_DEBUG("FreeRTOS_post_reset_cleanup");
+	int ret;
+	if ((target->rtos->symbols != NULL) &&
+			(target->rtos->symbols[FreeRTOS_VAL_uxCurrentNumberOfTasks].address != 0)) {
+		ret = target_write_u32(target, target->rtos->symbols[FreeRTOS_VAL_uxCurrentNumberOfTasks].address, 0);
+		if (ret != ERROR_OK) {
+			LOG_ERROR("Failed clearing uxCurrentNumberOfTasks");
+			return ret;
+		}
+
+		ret = target_write_u32(target, target->rtos->symbols[FreeRTOS_VAL_pxCurrentTCB].address, 0);
+		if (ret != ERROR_OK) {
+			LOG_ERROR("Failed clearing FreeRTOS_VAL_pxCurrentTCB");
+			return ret;
+		}
+		ret = target_write_u32(target, target->rtos->symbols[FreeRTOS_VAL_pxCurrentTCB].address + 4, 0);
+		if (ret != ERROR_OK) {
+			LOG_ERROR("Failed clearing FreeRTOS_VAL_pxCurrentTCB");
+			return ret;
+		}
+		FreeRTOS_update_threads(target->rtos);
+	}
+	return ERROR_OK;
+}
 
 static int FreeRTOS_clean(struct target *target)
 {
