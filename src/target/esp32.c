@@ -1393,8 +1393,12 @@ static int esp32_soc_reset(struct target *target)
 	}
 
 	/* Wait for SoC to reset */
-	res = target_wait_state(target, TARGET_RESET, 1000);
-	if (res != ERROR_OK) {
+	int timeout = 100;
+	while (target->state != TARGET_RESET && target->state != TARGET_RUNNING && --timeout > 0) {
+		alive_sleep(10);
+		xtensa_poll(target);
+	}
+	if (timeout == 0) {
 		LOG_ERROR("%s: Timed out waiting for CPU to be reset, target->state=%d", __func__, target->state);
 		return ERROR_TARGET_TIMEOUT;
 	}
