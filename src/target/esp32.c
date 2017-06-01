@@ -871,7 +871,7 @@ static int xtensa_resume(struct target *target,
 	size_t slot;
 	uint32_t bpena;
 
-	LOG_INFO("%s: %s current=%d address=%04" PRIx32, target->cmd_name, __func__, current, address);
+	LOG_DEBUG("%s: %s current=%d address=%04" PRIx32, target->cmd_name, __func__, current, address);
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("%s: %s: target not halted", target->cmd_name, __func__);
@@ -958,7 +958,7 @@ static int xtensa_resume_cpu(struct target *target,
 	size_t slot;
 	uint32_t bpena;
 
-	LOG_INFO("%s: %s current=%d address=%04" PRIx32, target->cmd_name, __func__, current, address);
+	LOG_DEBUG("%s: %s current=%d address=%04" PRIx32, target->cmd_name, __func__, current, address);
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("%s: %s: target not halted", target->cmd_name, __func__);
@@ -1519,7 +1519,7 @@ static int xtensa_add_breakpoint(struct target *target, struct breakpoint *break
 	esp32->hw_brps[slot] = breakpoint;
 	//We will actually write the breakpoints when we resume the target.
 
-	LOG_INFO("%s: placed hw breakpoint %d at 0x%X, num_brps=%i", target->cmd_name, (int)slot, breakpoint->address, esp32->num_brps);
+	LOG_DEBUG("%s: placed hw breakpoint %d at 0x%X, num_brps=%i", target->cmd_name, (int)slot, breakpoint->address, esp32->num_brps);
 	return ERROR_OK;
 }
 
@@ -1540,7 +1540,7 @@ static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *br
 	}
 	if (slot==esp32->num_brps) return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	esp32->hw_brps[slot] = NULL;
-	LOG_INFO("%s: cleared hw breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
+	LOG_DEBUG("%s: cleared hw breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
 	return ERROR_OK;
 }
 
@@ -1990,7 +1990,7 @@ static int xtensa_poll(struct target *target)
 				volatile int temp_cause = xtensa_read_reg_direct(esp32->esp32_targets[i], XT_REG_IDX_DEBUGCAUSE);
 
 				int cause = esp32_reg_get(&cpu_reg_list[XT_REG_IDX_DEBUGCAUSE]);
-				LOG_INFO("%s: Halt reason =0x%08X, temp_cause =%08x", esp32->esp32_targets[i]->cmd_name, cause, temp_cause);
+				LOG_DEBUG("%s: Halt reason =0x%08X, temp_cause =%08x", esp32->esp32_targets[i]->cmd_name, cause, temp_cause);
 				if (cause&DEBUGCAUSE_IC)
 				{
 					target->debug_reason = DBG_REASON_SINGLESTEP;
