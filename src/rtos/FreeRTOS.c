@@ -271,6 +271,7 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 		rtos->thread_details->extra_info_str = NULL;
 		rtos->thread_details->thread_name_str = malloc(sizeof(tmp_str));
 		strcpy(rtos->thread_details->thread_name_str, tmp_str);
+		rtos->current_thread = 1;
 
 		if (thread_list_size == 1) {
 			rtos->thread_count = 1;
