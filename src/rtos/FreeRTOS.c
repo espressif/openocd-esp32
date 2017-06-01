@@ -127,6 +127,7 @@ static int FreeRTOS_create(struct target *target);
 static int FreeRTOS_update_threads(struct rtos *rtos);
 static int FreeRTOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id, char **hex_reg_list);
 static int FreeRTOS_get_symbol_list_to_lookup(symbol_table_elem_t *symbol_list[]);
+static int FreeRTOS_clean(struct target *target);
 
 struct rtos_type FreeRTOS_rtos = {
 	.name = "FreeRTOS",
@@ -136,6 +137,7 @@ struct rtos_type FreeRTOS_rtos = {
 	.update_threads = FreeRTOS_update_threads,
 	.get_thread_reg_list = FreeRTOS_get_thread_reg_list,
 	.get_symbol_list_to_lookup = FreeRTOS_get_symbol_list_to_lookup,
+	.clean = FreeRTOS_clean,
 };
 
 enum FreeRTOS_symbol_values {
@@ -553,6 +555,14 @@ static int FreeRTOS_get_thread_ascii_info(struct rtos *rtos, threadid_t thread_i
 }
 
 #endif
+
+static int FreeRTOS_clean(struct target *target)
+{
+	LOG_DEBUG("FreeRTOS_clean");
+	rtos_free_threadlist(target->rtos);
+	target->rtos->current_thread = 1;
+	return ERROR_OK;
+}
 
 static int FreeRTOS_detect_rtos(struct target *target)
 {
