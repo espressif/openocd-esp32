@@ -434,6 +434,7 @@ static int xtensa_read_memory(struct target *target,
 	uint32_t count,
 	uint8_t *buffer);
 
+static unsigned int xtensa_read_dsr(struct target *target);
 
 static void esp32_add_set_ir(struct target *target, uint8_t value)
 {
@@ -816,6 +817,33 @@ static int esp32_write_dirty_registers(struct target *target, struct reg *reg_li
 	return res;
 }
 
+static unsigned int xtensa_read_dsr(struct target *target)
+{
+	uint8_t dsr[4];
+	int res;
+	
+	esp32_queue_nexus_reg_write(target, NARADR_DCRSET, OCDDCR_ENABLEOCD);
+	esp32_queue_nexus_reg_read(target, NARADR_DSR, dsr);
+	esp32_queue_tdi_idle(target);
+	res = jtag_execute_queue();
+	if (res != ERROR_OK)
+	{
+		LOG_ERROR("%s: Failed to read NARADR_DSR. Can't halt.", target->cmd_name);
+		return res;
+	}
+	uint32_t regval = intfromchars(dsr);
+	esp32_queue_nexus_reg_write(target, NARADR_DSR, regval);
+	esp32_queue_tdi_idle(target);
+	res = jtag_execute_queue();
+	if (res != ERROR_OK)
+	{
+		LOG_ERROR("%s: Failed to write NARADR_DSR. Can't halt.", target->cmd_name);
+		return res;
+	}
+
+	return intfromchars(dsr);
+}
+
 static int xtensa_halt(struct target *target)
 {
 	int res;
@@ -828,7 +856,8 @@ static int xtensa_halt(struct target *target)
 	//	return ERROR_OK;
 	//}
 	struct esp32_common* esp32 = (struct esp32_common*)target->arch_info;
-	for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
+	int i = esp32->active_cpu;
+	//for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
 	{
 		// DYA: Fist we have to check dsr
 		esp32_queue_nexus_reg_write(esp32->esp32_targets[i], NARADR_DCRSET, OCDDCR_ENABLEOCD);
@@ -1001,9 +1030,9 @@ static int xtensa_resume_cpu(struct target *target,
 	}
 
 	// DYA: Here we write all registers to the targets
-	for (int i = 0; i < ESP32_CPU_COUNT; i++)
+	//for (int i = 0; i < ESP32_CPU_COUNT; i++)
 	{
-		//int i = esp32->active_cpu;
+		int i = esp32->active_cpu;
 		struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
 		//if (i == esp32->active_cpu)
 		{
@@ -1471,6 +1500,29 @@ static int xtensa_assert_reset(struct target *target)
 	return res;
 }
 
+
+static int xtensa_smpbreak_set(struct target *target)
+{
+	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
+	int res;
+	uint32_t dsr_data = 0x00110000;
+	uint32_t set = 0, clear = 0;
+	set |= OCDDCR_BREAKINEN | OCDDCR_BREAKOUTEN;
+	clear = set ^ (OCDDCR_BREAKINEN | OCDDCR_BREAKOUTEN | OCDDCR_RUNSTALLINEN | OCDDCR_DEBUGMODEOUTEN);
+
+	for (int core = 0; core < ESP32_CPU_COUNT; core++)
+	{
+		esp32_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_DCRSET, set);
+		esp32_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_DCRCLR, clear);
+		esp32_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_DSR, dsr_data);
+		esp32_queue_tdi_idle(esp32->esp32_targets[core]);
+	}
+	res = jtag_execute_queue();
+	LOG_INFO("%s[%s] set smpbreak=%i, state=%i", __func__, target->cmd_name, target->reset_halt, target->state);
+	return res;
+}
+
+
 static int xtensa_deassert_reset(struct target *target)
 {
 	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
@@ -1686,11 +1738,11 @@ static int xtensa_step(struct target *target,
 				esp32_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
 				esp32_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNT], icount_val);
 			}
-			else
-			{
-				esp32_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNTLEVEL], 0);
-				esp32_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNT], 0);
-			}
+			//else
+			//{
+			//	esp32_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNTLEVEL], 0);
+			//	esp32_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNT], 0);
+			//}
 		}
 
 		/* Now ICOUNT is set, we can resume as if we were going to run */
@@ -1728,6 +1780,12 @@ static int xtensa_step(struct target *target,
 
 	if (!tries) {
 		LOG_ERROR("%s: %s: Stepping doesn't seem to change PC!", target->cmd_name, __func__);
+	}
+
+	// This operation required to clear state
+	for (int cp = 0; cp < ESP32_CPU_COUNT; cp++)
+	{
+		if (cp != esp32->active_cpu) xtensa_read_dsr(esp32->esp32_targets[cp]);
 	}
 
 	if (cause&DEBUGCAUSE_DB) {
@@ -1973,7 +2031,12 @@ static int xtensa_poll(struct target *target)
 			LOG_DEBUG("Stopped: CPU0: %d CPU1: %d", (dsr0 & OCDDSR_STOPPED) ? 1 : 0, (dsr1 & OCDDSR_STOPPED) ? 1 : 0);
 			int oldstate=target->state;
 			// DYA: to read registers here I have to stop all CPUs
-			xtensa_halt(target); 
+			xtensa_halt(target);
+			if ((dsr0 & OCDDSR_STOPPED) != (dsr1 & OCDDSR_STOPPED))
+			{
+				LOG_INFO("%s: dsr0=0x%08x, dsr1=0x%08x", __func__, dsr0, dsr1);
+				xtensa_smpbreak_set(target);
+			}
 			target->state = TARGET_HALTED;
 
 			// DYA: here we have to read all registers from two cores
@@ -1988,29 +2051,30 @@ static int xtensa_poll(struct target *target)
 			{
 				struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
 				volatile int temp_cause = xtensa_read_reg_direct(esp32->esp32_targets[i], XT_REG_IDX_DEBUGCAUSE);
+				int cause = esp32_reg_get(&cpu_reg_list[XT_REG_IDX_DEBUGCAUSE]);				
 
-				int cause = esp32_reg_get(&cpu_reg_list[XT_REG_IDX_DEBUGCAUSE]);
-				LOG_DEBUG("%s: Halt reason =0x%08X, temp_cause =%08x", esp32->esp32_targets[i]->cmd_name, cause, temp_cause);
+				volatile unsigned int dsr_core = xtensa_read_dsr(esp32->esp32_targets[i]);
+				if ((dsr_core&OCDDSR_DEBUGPENDBREAK) != 0) esp32->active_cpu = i;
+				//else esp32->active_cpu = i^1;
+
+				LOG_INFO("%s: Halt reason =0x%08X, temp_cause =%08x, dsr=0x%08x", esp32->esp32_targets[i]->cmd_name, cause, temp_cause, dsr_core);
 				if (cause&DEBUGCAUSE_IC)
 				{
 					target->debug_reason = DBG_REASON_SINGLESTEP;
-					esp32->active_cpu = i;
 				}
 				if (cause&(DEBUGCAUSE_IB | DEBUGCAUSE_BN | DEBUGCAUSE_BI))
 				{
 					target->debug_reason = DBG_REASON_BREAKPOINT;
-					esp32->active_cpu = i;
 				}
 				if (cause&DEBUGCAUSE_DB)
 				{
 					target->debug_reason = DBG_REASON_WATCHPOINT;
-					esp32->active_cpu = i;
 				}
 			}
 			for (int i = 0; i < ESP32_CPU_COUNT; i++)
 			{
 				struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
-				LOG_INFO("%s: Target halted, pc=0x%08X, debug_reason=%08x, oldstate=%08x", esp32->esp32_targets[i]->cmd_name, esp32_reg_get(&cpu_reg_list[XT_REG_IDX_PC]), target->debug_reason, oldstate);
+				LOG_INFO("%s: Target halted, pc=0x%08X, debug_reason=%08x, oldstate=%08x, active=%s", esp32->esp32_targets[i]->cmd_name, esp32_reg_get(&cpu_reg_list[XT_REG_IDX_PC]), target->debug_reason, oldstate, (i == esp32->active_cpu) ? "true" : "false");
 			}
 //			LOG_INFO("%s: Target halted, pc=0x%08X, debug_reason=%08x, oldstate=%08x", target->cmd_name, esp32_reg_get(&reg_list[XT_REG_IDX_PC]), target->debug_reason, oldstate);
 			if (target->debug_reason == DBG_REASON_BREAKPOINT)
@@ -2067,15 +2131,16 @@ static int xtensa_arch_state(struct target *target)
 COMMAND_HANDLER(esp32_cmd_smpbreak)
 {
 	struct target *target = get_current_target(CMD_CTX);
+	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
 	unsigned int i;
 	int res;
 	uint32_t set=0, clear=0;
 	uint8_t dsr[4];
 
-	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, "target must be stopped for \"%s\" command", CMD_NAME);
-		return ERROR_OK;
-	}
+	//if (target->state != TARGET_HALTED) {
+	//	command_print(CMD_CTX, "target must be stopped for \"%s\" command", CMD_NAME);
+	//	return ERROR_OK;
+	//}
 
 	if (CMD_ARGC >= 1) {
 		for (i=0; i<CMD_ARGC; i++) {
@@ -2100,22 +2165,32 @@ COMMAND_HANDLER(esp32_cmd_smpbreak)
 			}
 		}
 		clear=set^(OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN|OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN);
-		esp32_queue_nexus_reg_write(target, NARADR_DCRSET, set);
-		esp32_queue_nexus_reg_write(target, NARADR_DCRCLR, clear);
+		for (int core = 0; core < ESP32_CPU_COUNT; core++)
+		{
+			esp32_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_DCRSET, set);
+			esp32_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_DCRCLR, clear);
+		}
 	}
-	esp32_queue_nexus_reg_read(target, NARADR_DCRSET, dsr);
-	esp32_queue_tdi_idle(target);
-	res=jtag_execute_queue();
-	if (res==ERROR_OK) {
-		i=intfromchars(dsr)&(OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN|OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN);
-		command_print(CMD_CTX, "%s: Current bits set:%s%s%s%s%s", 
-					target->cmd_name,
-					(i==0)?" none":"",
-					(i&OCDDCR_BREAKINEN)?" BreakIn":"",
-					(i&OCDDCR_BREAKOUTEN)?" BreakOut":"",
-					(i&OCDDCR_RUNSTALLINEN)?" RunStallIn":"",
-					(i&OCDDCR_DEBUGMODEOUTEN)?" DebugModeOut":""
-				);
+	for (int core = 0; core < ESP32_CPU_COUNT; core++)
+	{
+		esp32_queue_nexus_reg_read(esp32->esp32_targets[core], NARADR_DCRSET, dsr);
+		esp32_queue_tdi_idle(esp32->esp32_targets[core]);
+		res = jtag_execute_queue();
+		if (res==ERROR_OK) {
+			i=intfromchars(dsr)&(OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN|OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN);
+			command_print(CMD_CTX, "%s: Current bits set:%s%s%s%s%s", 
+				esp32->esp32_targets[core]->cmd_name,
+						(i==0)?" none":"",
+						(i&OCDDCR_BREAKINEN)?" BreakIn":"",
+						(i&OCDDCR_BREAKOUTEN)?" BreakOut":"",
+						(i&OCDDCR_RUNSTALLINEN)?" RunStallIn":"",
+						(i&OCDDCR_DEBUGMODEOUTEN)?" DebugModeOut":""
+					);
+		}
+		else
+		{
+			return res;
+		}
 	}
 	return res;
 }
