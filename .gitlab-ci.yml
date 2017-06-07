@@ -14,6 +14,8 @@ before_script:
   - git config --file=.gitmodules submodule.tools/git2cl.url $GITLAB_SSH_SERVER/idf/git2cl.git
   - git config --file=.gitmodules submodule.src/jimtcl.url $GITLAB_SSH_SERVER/idf/jimtcl.git
   - git config --file=.gitmodules submodule.src/jtag/drivers/libjaylink.url $GITLAB_SSH_SERVER/idf/libjaylink.git
+  # remove Github remote, if configured
+  - git remote rm github || true
 
 build_linux:
   stage: build
@@ -42,10 +44,13 @@ push_master_to_github:
     - master
   when: on_success
   image: espressif/esp32-ci-env
+  before_script:
+    - echo "not switching submodules to Gitlab"
+    - git remote rm github || true
   script:
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
-    - echo -n $GH_PUSH_KEY >> ~/.ssh/id_rsa_base64
+    - echo -n $GH_PUSH_KEY > ~/.ssh/id_rsa_base64
     - base64 --decode --ignore-garbage ~/.ssh/id_rsa_base64 > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     - echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
