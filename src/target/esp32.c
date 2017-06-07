@@ -1518,7 +1518,7 @@ static int xtensa_smpbreak_set(struct target *target)
 		esp32_queue_tdi_idle(esp32->esp32_targets[core]);
 	}
 	res = jtag_execute_queue();
-	LOG_INFO("%s[%s] set smpbreak=%i, state=%i", __func__, target->cmd_name, target->reset_halt, target->state);
+	LOG_DEBUG("%s[%s] set smpbreak=%i, state=%i", __func__, target->cmd_name, target->reset_halt, target->state);
 	return res;
 }
 
@@ -2034,7 +2034,7 @@ static int xtensa_poll(struct target *target)
 			xtensa_halt(target);
 			if ((dsr0 & OCDDSR_STOPPED) != (dsr1 & OCDDSR_STOPPED))
 			{
-				LOG_INFO("%s: dsr0=0x%08x, dsr1=0x%08x", __func__, dsr0, dsr1);
+				LOG_DEBUG("%s: dsr0=0x%08x, dsr1=0x%08x", __func__, dsr0, dsr1);
 				xtensa_smpbreak_set(target);
 			}
 			target->state = TARGET_HALTED;
@@ -2057,7 +2057,7 @@ static int xtensa_poll(struct target *target)
 				if ((dsr_core&OCDDSR_DEBUGPENDBREAK) != 0) esp32->active_cpu = i;
 				//else esp32->active_cpu = i^1;
 
-				LOG_INFO("%s: Halt reason =0x%08X, temp_cause =%08x, dsr=0x%08x", esp32->esp32_targets[i]->cmd_name, cause, temp_cause, dsr_core);
+				LOG_DEBUG("%s: Halt reason =0x%08X, temp_cause =%08x, dsr=0x%08x", esp32->esp32_targets[i]->cmd_name, cause, temp_cause, dsr_core);
 				if (cause&DEBUGCAUSE_IC)
 				{
 					target->debug_reason = DBG_REASON_SINGLESTEP;
@@ -2074,14 +2074,14 @@ static int xtensa_poll(struct target *target)
 			for (int i = 0; i < ESP32_CPU_COUNT; i++)
 			{
 				struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
-				LOG_INFO("%s: Target halted, pc=0x%08X, debug_reason=%08x, oldstate=%08x, active=%s", esp32->esp32_targets[i]->cmd_name, esp32_reg_get(&cpu_reg_list[XT_REG_IDX_PC]), target->debug_reason, oldstate, (i == esp32->active_cpu) ? "true" : "false");
+				LOG_DEBUG("%s: Target halted, pc=0x%08X, debug_reason=%08x, oldstate=%08x, active=%s", esp32->esp32_targets[i]->cmd_name, esp32_reg_get(&cpu_reg_list[XT_REG_IDX_PC]), target->debug_reason, oldstate, (i == esp32->active_cpu) ? "true" : "false");
 			}
-//			LOG_INFO("%s: Target halted, pc=0x%08X, debug_reason=%08x, oldstate=%08x", target->cmd_name, esp32_reg_get(&reg_list[XT_REG_IDX_PC]), target->debug_reason, oldstate);
-			if (target->debug_reason == DBG_REASON_BREAKPOINT)
-			{
-				// DYA:we have to switch off all cores
-				// But anyway all cores already switched off
-			}
+
+			LOG_INFO("Target halted. PRO_CPU: PC=0x%08X %s    APP_CPU: PC=0x%08X %s", 
+				esp32_reg_get(&esp32->core_caches[0]->reg_list[XT_REG_IDX_PC]),
+				esp32->active_cpu == 0 ? "(active)" : "        ",
+				esp32_reg_get(&esp32->core_caches[1]->reg_list[XT_REG_IDX_PC]),
+				esp32->active_cpu == 1 ? "(active)" : "" );
 
 			target->reg_cache = esp32->core_caches[esp32->active_cpu & 1];
 			target->coreid = esp32->active_cpu;
