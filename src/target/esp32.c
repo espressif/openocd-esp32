@@ -585,10 +585,8 @@ static int esp32_do_checkdsr(struct target *target, const char *function, const 
 	return ERROR_OK;
 }
 
-static void esp32_mark_register_dirty(struct target *target, int regidx)
+static void esp32_mark_register_dirty(struct reg *reg_list, int regidx)
 {
-	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
-	struct reg *reg_list=esp32->core_cache->reg_list;
 	reg_list[regidx].dirty=1;
 }
 
@@ -727,13 +725,16 @@ static int esp32_fetch_all_regs(struct target *target)
 				esp32_reg_set(&reg_list[c][i], regval);
 				reg_list[c][i].valid = 1;
 				reg_list[c][i].dirty = 0; //always do this _after_ esp32_reg_set!
+				//LOG_DEBUG("Register %s: 0x%X", reg_list[c][i].name, regval);
 			}
 			else {
 				reg_list[c][i].valid = 0;
+				//LOG_DEBUG("Register NOT READBLE %s: 0x%X", reg_list[c][i].name, 0);
 			}
 		}
 		//We have used A3 as a scratch register and we will need to write that back.
-		esp32_mark_register_dirty(esp32->esp32_targets[c], XT_REG_IDX_A3);
+		struct reg *cpu_reg_list = esp32->core_caches[c]->reg_list;
+		esp32_mark_register_dirty(cpu_reg_list, XT_REG_IDX_A3);
 	}
 	esp32_checkdsr(esp32->esp32_targets[0]);
 	return ERROR_OK;
@@ -787,7 +788,7 @@ static int esp32_write_dirty_registers(struct target *target, struct reg *reg_li
 	for (i=0; i<16; i++) {
 		if (reg_list[XT_REG_IDX_A0+i].dirty) {
 			regval=esp32_reg_get(&reg_list[XT_REG_IDX_A0+i]);
-			LOG_DEBUG("%s: Writing back reg %s value %08X", target->cmd_name, esp32_regs[XT_REG_IDX_A0+i].name, regval);
+			LOG_DEBUG("%s: Writing back reg %s value %08X, num =%i", target->cmd_name, esp32_regs[XT_REG_IDX_A0 + i].name, regval, esp32_regs[XT_REG_IDX_A0 + i].reg_num);
 			esp32_queue_nexus_reg_write(target, NARADR_DDR, regval);
 			esp32_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, i));
 			reg_list[XT_REG_IDX_A0+i].dirty=0;
@@ -802,7 +803,7 @@ static int esp32_write_dirty_registers(struct target *target, struct reg *reg_li
 			//Write back any dirty un-windowed registers
 			if (reg_list[realadr].dirty) {
 				regval=esp32_reg_get(&reg_list[realadr]);
-				LOG_DEBUG("%s: Writing back reg %s value %08X", target->cmd_name, esp32_regs[realadr].name, regval);
+				LOG_DEBUG("%s: Writing back reg %s value %08X, num =%i", target->cmd_name, esp32_regs[realadr].name, regval, esp32_regs[realadr].reg_num);
 				esp32_queue_nexus_reg_write(target, NARADR_DDR, regval);
 				esp32_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp32_regs[XT_REG_IDX_AR0+i+j].reg_num));
 				reg_list[realadr].dirty=0;
@@ -1103,7 +1104,7 @@ static int xtensa_read_memory(struct target *target,
 	}
 	
 	//We're going to use A3 here
-	esp32_mark_register_dirty(esp32->esp32_targets[ESP32_MAIN_ID], XT_REG_IDX_A3);
+	esp32_mark_register_dirty(esp32->core_caches[ESP32_MAIN_ID]->reg_list, XT_REG_IDX_A3);
 	//Write start address to A3
 	esp32_queue_nexus_reg_write(esp32->esp32_targets[ESP32_MAIN_ID], NARADR_DDR, addrstart_al);
 	esp32_queue_exec_ins(esp32->esp32_targets[ESP32_MAIN_ID], XT_INS_RSR(XT_SR_DDR, XT_REG_A3));
@@ -1185,7 +1186,7 @@ static int xtensa_write_memory(struct target *target,
 	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
 
 	//We're going to use A3 here
-	esp32_mark_register_dirty(esp32->esp32_targets[ESP32_MAIN_ID], XT_REG_IDX_A3);
+	esp32_mark_register_dirty(esp32->core_caches[ESP32_MAIN_ID]->reg_list, XT_REG_IDX_A3);
 
 	//If we're using a temp aligned buffer, we need to fill the head and/or tail bit of it.
 	if (albuff!=buffer) {
@@ -1874,7 +1875,7 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 		esp32->esp32_targets[i]->coreid = i;
 	}
 	esp32->esp32_targets[0]->cmd_name = "master";
-	esp32->esp32_targets[1]->cmd_name = "slave";
+	esp32->esp32_targets[1]->cmd_name = "slave ";
 
 	for (int cp = 0; cp < ESP32_CPU_COUNT; cp++)
 	{
@@ -1958,6 +1959,15 @@ static uint32_t xtensa_read_reg_direct(struct target *target, uint8_t reg)
 	if (res != ERROR_OK) return result;
 	result = intfromchars(dsr);
 	return result;
+}
+
+static int read_reg_direct(struct target *target, uint8_t addr)
+{
+	uint8_t dsr[4];
+	esp32_queue_nexus_reg_read(target, addr, dsr);
+	esp32_queue_tdi_idle(target);
+	jtag_execute_queue();
+	return intfromchars(dsr);
 }
 
 
@@ -2056,8 +2066,9 @@ static int xtensa_poll(struct target *target)
 				volatile unsigned int dsr_core = xtensa_read_dsr(esp32->esp32_targets[i]);
 				if ((dsr_core&OCDDSR_DEBUGPENDBREAK) != 0) esp32->active_cpu = i;
 				//else esp32->active_cpu = i^1;
+				int dcrset = read_reg_direct(esp32->esp32_targets[i], NARADR_DCRSET);
 
-				LOG_DEBUG("%s: Halt reason =0x%08X, temp_cause =%08x, dsr=0x%08x", esp32->esp32_targets[i]->cmd_name, cause, temp_cause, dsr_core);
+				LOG_INFO("%s: Halt reason =0x%08X, temp_cause =%08x, dsr=0x%08x, dcrset=0x%08x", esp32->esp32_targets[i]->cmd_name, cause, temp_cause, dsr_core, dcrset);
 				if (cause&DEBUGCAUSE_IC)
 				{
 					target->debug_reason = DBG_REASON_SINGLESTEP;
