@@ -12,12 +12,12 @@ before_script:
   - echo -e "Host gitlab.espressif.cn\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
   # reconfigure submodules
   - git config submodule.tools/git2cl.url $GITLAB_SSH_SERVER/idf/git2cl.git
-  - git config submodule.src/jimtcl.url $GITLAB_SSH_SERVER/idf/jimtcl.git
+  - git config submodule.jimtcl.url $GITLAB_SSH_SERVER/idf/jimtcl.git
   - git config submodule.src/jtag/drivers/libjaylink.url $GITLAB_SSH_SERVER/idf/libjaylink.git
   # Gitlab doesn't clean submodule contents
   - (cd tools/git2cl && git clean -fxd) || true
-  - (cd src/jimtcl && git clean -fxd) || true
-  - (cd jtag/drivers/libjaylink && git clean -fxd) || true
+  - (cd jimtcl && git clean -fxd) || true
+  - (cd src/jtag/drivers/libjaylink && git clean -fxd) || true
   # remove Github remote, if configured
   - git remote rm github || true
   # OpenOCD configuration options
