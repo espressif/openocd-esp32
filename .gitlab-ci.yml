@@ -11,11 +11,23 @@ before_script:
   - chmod 600 ~/.ssh/id_rsa
   - echo -e "Host gitlab.espressif.cn\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
   # reconfigure submodules
-  - git config --file=.gitmodules submodule.tools/git2cl.url $GITLAB_SSH_SERVER/idf/git2cl.git
-  - git config --file=.gitmodules submodule.src/jimtcl.url $GITLAB_SSH_SERVER/idf/jimtcl.git
-  - git config --file=.gitmodules submodule.src/jtag/drivers/libjaylink.url $GITLAB_SSH_SERVER/idf/libjaylink.git
+  - git config submodule.tools/git2cl.url $GITLAB_SSH_SERVER/idf/git2cl.git
+  - git config submodule.src/jimtcl.url $GITLAB_SSH_SERVER/idf/jimtcl.git
+  - git config submodule.src/jtag/drivers/libjaylink.url $GITLAB_SSH_SERVER/idf/libjaylink.git
+  # Gitlab doesn't clean submodule contents
+  - (cd tools/git2cl && git clean -fxd) || true
+  - (cd src/jimtcl && git clean -fxd) || true
+  - (cd jtag/drivers/libjaylink && git clean -fxd) || true
   # remove Github remote, if configured
   - git remote rm github || true
+  # OpenOCD configuration options
+  - "export OPENOCD_CONFIGURE_OPTS=\"
+        --disable-doxygen-html
+        --disable-doxygen-pdf
+        --enable-ftdi
+        --enable-jlink
+        --enable-ulink
+    \""
 
 build_linux:
   stage: build
@@ -31,19 +43,59 @@ build_linux:
   script:
     - git submodule update --init
     - ./bootstrap
-    - ./configure --prefix=$PWD/openocd-esp32
+    - ./configure --prefix=$PWD/openocd-esp32 $OPENOCD_CONFIGURE_OPTS
+    - make -j `nproc`
     - make install-strip
     - export REL_NAME=openocd-esp32-linux64-`git describe --always`
-    - tar czvf ${REL_NAME}.tar.gz openocd-esp32/
+    - tar czvf $REL_NAME.tar.gz openocd-esp32/
     - mkdir -p dist
-    - mv ${REL_NAME}.tar.gz dist/
+    - mv $REL_NAME.tar.gz dist/
+
+
+build_windows:
+  stage: build
+  image: $CI_DOCKER_REGISTRY/esp32-toolchain
+  tags:
+    - build
+
+  artifacts:
+    paths:
+      - dist
+    expire_in: 2 weeks
+
+  variables:
+    GIT_STRATEGY: fetch
+
+  script:
+    # Build libusb-1.0
+    - export LIBUSB_VER=libusb-1.0.21
+    - wget https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
+    - tar xzf $LIBUSB_VER.tar.gz && rm $LIBUSB_VER.tar.gz
+    - pushd $LIBUSB_VER
+    - ./bootstrap.sh
+    - ./configure --prefix=$PWD/dist  --host=i686-w64-mingw32 --enable-shared=no --enable-static=yes
+    - make -j `nproc`
+    - make install-strip
+    - popd
+    # Build OpenOCD
+    - git submodule update --init
+    - ./bootstrap
+    - export LIBUSB1_CFLAGS=-I$PWD/$LIBUSB_VER/dist/include/libusb-1.0
+    - export LIBUSB1_LIBS=-L$PWD/$LIBUSB_VER/dist/lib
+    - ./configure --prefix=$PWD/openocd-esp32 --host=i686-w64-mingw32 $OPENOCD_CONFIGURE_OPTS
+    - make -j `nproc`
+    - make install-strip
+    - export REL_NAME=openocd-esp32-win32-`git describe --always`
+    - zip -r $REL_NAME.zip openocd-esp32/
+    - mkdir -p dist
+    - mv $REL_NAME.zip dist/
 
 push_master_to_github:
   stage: deploy
   only:
     - master
   when: on_success
-  image: espressif/esp32-ci-env
+  image: $CI_DOCKER_REGISTRY/esp32-ci-env
   before_script:
     - echo "not switching submodules to Gitlab"
     - git remote rm github || true
