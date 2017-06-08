@@ -631,7 +631,7 @@ static int esp108_apptrace_poll(void *priv)
 					if (at_cmd_ctx->tot_len + wr_chunk_len > at_cmd_ctx->max_len)
 						wr_chunk_len -= (at_cmd_ctx->tot_len + wr_chunk_len - at_cmd_ctx->skip_len) - at_cmd_ctx->max_len;
 					if (wr_chunk_len > 0) {
-						if (write(at_cmd_ctx->fout, (uint8_t *)(hdr + 1) + wr_idx, wr_chunk_len) != wr_chunk_len) {
+						if (write(at_cmd_ctx->fout, (uint8_t *)(hdr + 1) + wr_idx, wr_chunk_len) != (signed)wr_chunk_len) {
 							at_cmd_ctx->running = 0;
 							LOG_ERROR("Failed to write %u bytes to out file!", wr_chunk_len);
 							return ERROR_FAIL;
