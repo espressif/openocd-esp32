@@ -418,6 +418,34 @@ struct esp32_reg_desc {
 /* Write Floating-Point Register */
 #define XT_INS_WFR(FR,T) _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x5),T)
 
+
+/* ESP32 memory map */
+#define ESP32_DROM_LOW      0x3F400000
+#define ESP32_DROM_HIGH     0x3F800000
+#define ESP32_EXT_RAM_LOW   0x3F800000
+#define ESP32_EXT_RAM_HIGH  0x3FC00000
+#define ESP32_DPORT_LOW     0x3ff00000
+#define ESP32_DPORT_HIGH    0x3ff80000
+#define ESP32_DRAM_LOW      0x3ffA0000
+#define ESP32_DRAM_HIGH     0x40000000
+#define ESP32_IRAM00_LOW    0x40000000
+#define ESP32_IRAM00_HIGH   0x40070000
+#define ESP32_IRAM02_LOW    0x40070000
+#define ESP32_IRAM02_HIGH   0x400C0000
+#define ESP32_RTC_IRAM_LOW  0x400C0000
+#define ESP32_RTC_IRAM_HIGH 0x400C2000
+#define ESP32_IROM_LOW      0x400D0000
+#define ESP32_IROM_HIGH     0x40400000
+#define ESP32_RTC_DATA_LOW  0x50000000
+#define ESP32_RTC_DATA_HIGH 0x50002000
+
+typedef enum
+{
+	INVALID,
+	READONLY,
+	READWRITE
+} addr_type_t;
+
 //forward declarations
 static int xtensa_step(struct target *target,
 	int current,
@@ -1067,6 +1095,31 @@ static int xtensa_resume_cpu(struct target *target,
 	return res;
 }
 
+static addr_type_t esp32_get_addr_type(uint32_t address)
+{
+	const uint32_t valid_ranges[] = {
+		ESP32_DROM_LOW, ESP32_DROM_HIGH, READONLY,
+		ESP32_EXT_RAM_LOW, ESP32_EXT_RAM_HIGH, READWRITE,
+		ESP32_DPORT_LOW, ESP32_DPORT_HIGH, READWRITE,
+		ESP32_DRAM_LOW, ESP32_DRAM_HIGH, READWRITE,
+		ESP32_IRAM00_LOW, ESP32_IRAM00_HIGH, READONLY,
+		ESP32_IRAM02_LOW, ESP32_IRAM02_HIGH, READWRITE,
+		ESP32_RTC_IRAM_LOW, ESP32_RTC_IRAM_HIGH, READWRITE,
+		ESP32_IROM_LOW, ESP32_IROM_HIGH, READONLY, 
+		ESP32_RTC_DATA_LOW, ESP32_RTC_DATA_HIGH, READWRITE
+	};
+
+	const size_t range_count = sizeof(valid_ranges) / sizeof(uint32_t) / 3;
+
+	for (size_t i = 0; i < range_count; ++i) {
+		uint32_t low = valid_ranges[3 * i];
+		uint32_t high = valid_ranges[3 * i + 1];
+		addr_type_t type = valid_ranges[3 * i + 2];
+		if (address < low) return INVALID;
+		if (address < high) return type;
+	}
+	return INVALID;
+}
 
 static int xtensa_read_memory(struct target *target,
 			      uint32_t address,
@@ -1081,6 +1134,11 @@ static int xtensa_read_memory(struct target *target,
 	int i=0;
 	int res;
 	uint8_t *albuff;
+
+	if (esp32_get_addr_type(address) == INVALID) {
+		LOG_DEBUG("%s: address 0x%08x not readable", __func__, address);
+		return ERROR_FAIL;
+	}
 
 	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
 	
@@ -1161,6 +1219,11 @@ static int xtensa_write_memory(struct target *target,
 	int i=0;
 	int res;
 	uint8_t *albuff;
+
+	if (esp32_get_addr_type(address) != READWRITE) {
+		LOG_DEBUG("%s: address 0x%08x not writable", __func__, address);
+		return ERROR_FAIL;
+	}
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("%s: %s: target not halted", __func__, target->cmd_name);
@@ -2068,7 +2131,7 @@ static int xtensa_poll(struct target *target)
 				//else esp32->active_cpu = i^1;
 				int dcrset = read_reg_direct(esp32->esp32_targets[i], NARADR_DCRSET);
 
-				LOG_INFO("%s: Halt reason =0x%08X, temp_cause =%08x, dsr=0x%08x, dcrset=0x%08x", esp32->esp32_targets[i]->cmd_name, cause, temp_cause, dsr_core, dcrset);
+				LOG_DEBUG("%s: Halt reason =0x%08X, temp_cause =%08x, dsr=0x%08x, dcrset=0x%08x", esp32->esp32_targets[i]->cmd_name, cause, temp_cause, dsr_core, dcrset);
 				if (cause&DEBUGCAUSE_IC)
 				{
 					target->debug_reason = DBG_REASON_SINGLESTEP;
