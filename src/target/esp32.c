@@ -753,7 +753,7 @@ static int esp32_fetch_all_regs(struct target *target)
 				esp32_reg_set(&reg_list[c][i], regval);
 				reg_list[c][i].valid = 1;
 				reg_list[c][i].dirty = 0; //always do this _after_ esp32_reg_set!
-				//LOG_DEBUG("Register %s: 0x%X", reg_list[c][i].name, regval);
+				//LOG_DEBUG("%s Register %s: 0x%X", esp32->esp32_targets[c]->cmd_name, reg_list[c][i].name, regval);
 			}
 			else {
 				reg_list[c][i].valid = 0;
@@ -946,6 +946,11 @@ static int xtensa_resume(struct target *target,
 			//that would trigger the watchpoint again. To fix this, we single-step, which ignores watchpoints.
 			xtensa_step(target, current, address, handle_breakpoints);
 		}
+		if (cause&DEBUGCAUSE_BI) {
+			//We stopped due to a brake instruction. We can't just resume executing the instruction again because
+			//that would trigger the breake again. To fix this, we single-step, which ignores brake.
+			xtensa_step(target, current, address, handle_breakpoints);
+		}
 	}
 
 	//Write back hw breakpoints. Current FreeRTOS SMP code can set a hw breakpoint on an
@@ -1059,9 +1064,8 @@ static int xtensa_resume_cpu(struct target *target,
 	}
 
 	// DYA: Here we write all registers to the targets
-	//for (int i = 0; i < ESP32_CPU_COUNT; i++)
-	{
-		int i = esp32->active_cpu;
+	for (int i = 0; i < ESP32_CPU_COUNT; i++){
+		//int i = esp32->active_cpu;
 		struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
 		//if (i == esp32->active_cpu)
 		{
@@ -1071,13 +1075,14 @@ static int xtensa_resume_cpu(struct target *target,
 				return ERROR_FAIL;
 			}
 		}
-
-		//Execute return from debug exception instruction
-		esp32_queue_exec_ins(esp32->esp32_targets[i], XT_INS_RFDO);
-		res = jtag_execute_queue();
-		if (res != ERROR_OK) {
-			LOG_ERROR("%s: Failed to clear OCDDCR_DEBUGINTERRUPT and resume execution. res=%i", __func__, res);
-			return ERROR_FAIL;
+		if (i == esp32->active_cpu){
+			//Execute return from debug exception instruction
+			esp32_queue_exec_ins(esp32->esp32_targets[i], XT_INS_RFDO);
+			res = jtag_execute_queue();
+			if (res != ERROR_OK) {
+				LOG_ERROR("%s: Failed to clear OCDDCR_DEBUGINTERRUPT and resume execution. res=%i", __func__, res);
+				return ERROR_FAIL;
+			}
 		}
 	}
 
@@ -1749,7 +1754,7 @@ static int xtensa_step(struct target *target,
 	static const uint32_t icount_val = -2; /* ICOUNT value to load for 1 step */
 	uint32_t icountlvl;
 	uint32_t oldps, newps, oldpc;
-	int tries=100;
+	int tries=10; 
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("%s: %s: target not halted", __func__, target->cmd_name);
@@ -1780,7 +1785,12 @@ static int xtensa_step(struct target *target,
 			esp32_reg_set(&reg_list[XT_REG_IDX_DBREAKC0+slot], 0);
 		}
 	}
-
+	if (cause&DEBUGCAUSE_BI) {
+		LOG_DEBUG("%s: Increment PC to pass break instruction...", esp32->esp32_targets[esp32->active_cpu]->cmd_name);
+		address = oldpc + 3; // PC = PC+3
+		current = 0;		 // The PC was modified.
+	}
+	
 	//Sometimes (because of eg an interrupt) the pc won't actually increment. In that case, we repeat the
 	//step.
 	//(Later edit: Not sure about that actually... may have been a glitch in my logic. I'm keeping in this 
@@ -2183,12 +2193,16 @@ static int xtensa_poll(struct target *target)
 	if (esp32->traceActive) {
 //		LOG_INFO("tracestat %x tracectl %x", intfromchars(traxstat), intfromchars(traxctl));
 		//Detect if tracing was active but has stopped.
-		if ((intfromchars(traxctl[ESP32_MAIN_ID])&TRAXCTRL_TREN) && (!(intfromchars(traxstat[ESP32_MAIN_ID])&TRAXSTAT_TRACT))) {
-			LOG_INFO("Detected end of trace.");
-			if (intfromchars(traxstat[ESP32_MAIN_ID])&TRAXSTAT_PCMTG) LOG_INFO("%s: Trace stop triggered by PC match", target->cmd_name);
-			if (intfromchars(traxstat[ESP32_MAIN_ID])&TRAXSTAT_PTITG) LOG_INFO("%s: Trace stop triggered by Processor Trigger Input", target->cmd_name);
-			if (intfromchars(traxstat[ESP32_MAIN_ID])&TRAXSTAT_CTITG) LOG_INFO("%s: Trace stop triggered by Cross-trigger Input", target->cmd_name);
-			esp32->traceActive=0;
+		for (int core = 0; core < ESP32_CPU_COUNT; core++)
+		{
+			if ((intfromchars(traxctl[core])&TRAXCTRL_TREN) && (!(intfromchars(traxstat[core])&TRAXSTAT_TRACT))) {
+				LOG_INFO("Detected end of trace.");
+				LOG_INFO("TRAXSTAT[%s]= 0x%08x", esp32->esp32_targets[core]->cmd_name, intfromchars(traxstat[core]));
+				if (intfromchars(traxstat[core])&TRAXSTAT_PCMTG) LOG_INFO("%s: Trace stop triggered by PC match", esp32->esp32_targets[core]->cmd_name);
+				if (intfromchars(traxstat[core])&TRAXSTAT_PTITG) LOG_INFO("%s: Trace stop triggered by Processor Trigger Input", esp32->esp32_targets[core]->cmd_name);
+				if (intfromchars(traxstat[core])&TRAXSTAT_CTITG) LOG_INFO("%s: Trace stop triggered by Cross-trigger Input", esp32->esp32_targets[core]->cmd_name);
+				esp32->traceActive=0;
+			}
 		}
 	}
 
@@ -2280,16 +2294,33 @@ COMMAND_HANDLER(esp32_cmd_tracestart)
 	int afterIsWords=0;
 	int res;
 	unsigned int i;
-	uint8_t traxstat[8];
-	
-	//Check current status of trace hardware
-	esp32_queue_nexus_reg_read(target, NARADR_TRAXSTAT, traxstat);
-	esp32_queue_tdi_idle(target);
-	res=jtag_execute_queue();
-	if (res!=ERROR_OK) return res;
-	if (intfromchars(traxstat)&TRAXSTAT_TRACT) {
-		command_print(CMD_CTX, "Tracing is already active. Please stop it first.");
-		return ERROR_FAIL;
+	uint8_t traxstat[8], traxctl[4];
+
+	for (int core = 0; core < ESP32_CPU_COUNT; core++)
+	{
+		esp32_queue_nexus_reg_read(esp32->esp32_targets[core], NARADR_TRAXSTAT, traxstat);
+		esp32_queue_nexus_reg_read(esp32->esp32_targets[core], NARADR_TRAXCTRL, traxctl);
+		res = jtag_execute_queue();
+		if (res != ERROR_OK) return res;
+		//if (!(intfromchars(traxstat)&TRAXSTAT_TRACT)) {
+		//	command_print(CMD_CTX, "No trace is currently active.");
+		//	return ERROR_FAIL;
+		//}
+
+		esp32_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_TRAXCTRL, intfromchars(traxctl) | TRAXCTRL_TRSTP);
+		esp32_queue_tdi_idle(esp32->esp32_targets[core]);
+		res = jtag_execute_queue();
+		if (res != ERROR_OK) return res;
+
+		//Check current status of trace hardware
+		esp32_queue_nexus_reg_read(esp32->esp32_targets[core], NARADR_TRAXSTAT, traxstat);
+		esp32_queue_tdi_idle(esp32->esp32_targets[core]);
+		res = jtag_execute_queue();
+		if (res != ERROR_OK) return res;
+		if (intfromchars(traxstat)&TRAXSTAT_TRACT) {
+			command_print(CMD_CTX, "Tracing is already active. Please stop it first.");
+			return ERROR_FAIL;
+		}
 	}
 
 	//Parse arguments
@@ -2312,28 +2343,32 @@ COMMAND_HANDLER(esp32_cmd_tracestart)
 			return ERROR_FAIL;
 		}
 	}
+	stopmask = 1;
+	for (int core = 0; core < ESP32_CPU_COUNT; core++)
+	{
 
-	//Turn off trace unit so we can start a new trace.
-	esp32_queue_nexus_reg_write(target, NARADR_TRAXCTRL, 0);
-	esp32_queue_tdi_idle(target);
-	res=jtag_execute_queue();
-	if (res!=ERROR_OK) return res;
+		//Turn off trace unit so we can start a new trace.
+		esp32_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_TRAXCTRL, 0);
+		esp32_queue_tdi_idle(esp32->esp32_targets[core]);
+		res = jtag_execute_queue();
+		if (res != ERROR_OK) return res;
 
-	//Set up parameters
-	esp32_queue_nexus_reg_write(target, NARADR_TRAXADDR, 0);
-	if (stopmask!=-1) {
-		esp32_queue_nexus_reg_write(target, NARADR_PCMATCHCTRL, (stopmask<<PCMATCHCTRL_PCML_SHIFT));
-		esp32_queue_nexus_reg_write(target, NARADR_TRIGGERPC, stoppc);
+		//Set up parameters
+		esp32_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_TRAXADDR, 0);
+		if (stopmask != -1) {
+			esp32_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_PCMATCHCTRL, (stopmask << PCMATCHCTRL_PCML_SHIFT));
+			esp32_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_TRIGGERPC, stoppc);
+		}
+		esp32_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_DELAYCNT, after);
+		//stopmask = TRAXCTRL_PCMEN;
+		//Options are mostly hardcoded for now. ToDo: make this more configurable.
+		esp32_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_TRAXCTRL,
+			TRAXCTRL_TREN | ((stopmask != -1) ? TRAXCTRL_PCMEN : 0) | TRAXCTRL_TMEN |
+			(afterIsWords ? 0 : TRAXCTRL_CNTU) | (0 << TRAXCTRL_SMPER_SHIFT) | TRAXCTRL_PTOWS);
+		esp32_queue_tdi_idle(esp32->esp32_targets[core]);
+		res = jtag_execute_queue();
+		if (res != ERROR_OK) return res;
 	}
-	esp32_queue_nexus_reg_write(target, NARADR_DELAYCNT, after);
-
-	//Options are mostly hardcoded for now. ToDo: make this more configurable.
-	esp32_queue_nexus_reg_write(target, NARADR_TRAXCTRL,
-			TRAXCTRL_TREN | ((stopmask!=-1)?TRAXCTRL_PCMEN:0) | TRAXCTRL_TMEN |
-			(afterIsWords?0:TRAXCTRL_CNTU) | (0<<TRAXCTRL_SMPER_SHIFT) | TRAXCTRL_PTOWS );
-	esp32_queue_tdi_idle(target);
-	res=jtag_execute_queue();
-	if (res!=ERROR_OK) return res;
 
 	LOG_INFO("Trace started.\n");
 	esp32->traceActive=1;
