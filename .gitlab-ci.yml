@@ -3,13 +3,16 @@ stages:
   - deploy
 
 before_script:
-  # add gitlab ssh key
-  - mkdir -p ~/.ssh
-  - chmod 700 ~/.ssh
-  - echo -n $GITLAB_KEY > ~/.ssh/id_rsa_base64
-  - base64 --decode --ignore-garbage ~/.ssh/id_rsa_base64 > ~/.ssh/id_rsa
-  - chmod 600 ~/.ssh/id_rsa
-  - echo -e "Host gitlab.espressif.cn\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+  # add gitlab ssh key (on Linux only)
+  - >
+    test $(uname -s) != "Darwin" &&
+    echo "Setting up Gitlab SSH key"
+    mkdir -p ~/.ssh &&
+    chmod 700 ~/.ssh &&
+    echo -n $GITLAB_KEY > ~/.ssh/id_rsa_base64 &&
+    base64 --decode --ignore-garbage ~/.ssh/id_rsa_base64 > ~/.ssh/id_rsa &&
+    chmod 600 ~/.ssh/id_rsa &&
+    echo -e "Host gitlab.espressif.cn\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
   # reconfigure submodules
   - git config submodule.tools/git2cl.url $GITLAB_SSH_SERVER/idf/git2cl.git
   - git config submodule.jimtcl.url $GITLAB_SSH_SERVER/idf/jimtcl.git
@@ -89,6 +92,33 @@ build_windows:
     - zip -r $REL_NAME.zip openocd-esp32/
     - mkdir -p dist
     - mv $REL_NAME.zip dist/
+
+
+build_macos:
+  stage: build
+  tags:
+    - build_macos
+
+  artifacts:
+    paths:
+      - dist
+    expire_in: 2 weeks
+
+  variables:
+    GIT_STRATEGY: fetch
+
+  script:
+    # Build OpenOCD
+    - git submodule update --init
+    - make distclean || true
+    - ./bootstrap
+    - ./configure --prefix=$PWD/openocd-esp32 $OPENOCD_CONFIGURE_OPTS
+    - make -j 4
+    - make install-strip
+    - export REL_NAME=openocd-esp32-macos-`git describe --always`
+    - tar czvf $REL_NAME.tar.gz openocd-esp32/
+    - mkdir -p dist
+    - mv $REL_NAME.tar.gz dist/
 
 push_master_to_github:
   stage: deploy
