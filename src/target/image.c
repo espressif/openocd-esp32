@@ -407,11 +407,16 @@ static int image_elf_read_headers(struct image *image)
 
 	/* count useful segments (loadable), ignore BSS section */
 	image->num_sections = 0;
-	for (i = 0; i < elf->segment_count; i++)
+	for (i = 0; i < elf->segment_count; i++) {
+		LOG_INFO("ELF segment %d, addr 0x%x (%x) / 0x%x (%x), sz %d", i,
+			elf->segments[i].p_paddr, field32(elf, elf->segments[i].p_paddr),
+			elf->segments[i].p_vaddr, field32(elf, elf->segments[i].p_vaddr),
+			elf->segments[i].p_filesz);
 		if ((field32(elf,
 			elf->segments[i].p_type) == PT_LOAD) &&
 			(field32(elf, elf->segments[i].p_filesz) != 0))
 			image->num_sections++;
+	}
 
 	assert(image->num_sections > 0);
 
@@ -443,12 +448,17 @@ static int image_elf_read_headers(struct image *image)
 			elf->segments[i].p_type) == PT_LOAD) &&
 			(field32(elf, elf->segments[i].p_filesz) != 0)) {
 			image->sections[j].size = field32(elf, elf->segments[i].p_filesz);
+			LOG_INFO("ELF segment3 %d, addr 0x%x (%x) / 0x%x (%x), sz %d", i,
+				elf->segments[i].p_paddr, field32(elf, elf->segments[i].p_paddr),
+				elf->segments[i].p_vaddr, field32(elf, elf->segments[i].p_vaddr),
+			elf->segments[i].p_filesz);
 			if (load_to_vaddr)
 				image->sections[j].base_address = field32(elf,
 						elf->segments[i].p_vaddr);
 			else
 				image->sections[j].base_address = field32(elf,
 						elf->segments[i].p_paddr);
+			LOG_INFO("IMAGE sect %d, addr 0x%x, sz %d", i, image->sections[j].base_address, image->sections[j].size);
 			image->sections[j].private = &elf->segments[i];
 			image->sections[j].flags = field32(elf, elf->segments[i].p_flags);
 			j++;

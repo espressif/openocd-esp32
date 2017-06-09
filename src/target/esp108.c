@@ -34,6 +34,7 @@
 #include "register.h"
 #include "assert.h"
 #include "time_support.h"
+#include "algorithm.h"
 
 #include "esp108.h"
 #include "esp108_dbg_regs.h"
@@ -131,9 +132,8 @@ of the target CPU, which isn't necessarily always the case. Specifically the
 esp108_reg_set etc functions are suspect.
 */
 
+#include "esp108_apptrace.h"
 
-extern int esp108_cmd_apptrace(struct command_invocation *cmd);
-extern int esp108_cmd_sysview(struct command_invocation *cmd);
 
 //forward declarations
 static int xtensa_step(struct target *target,
@@ -1089,6 +1089,201 @@ static int xtensa_poll(struct target *target)
 	return ERROR_OK;
 }
 
+int xtensa_start_algorithm(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	uint32_t entry_point, uint32_t exit_point,
+	void *arch_info)
+{
+	struct esp108_common *esp108 = (struct esp108_common*)target->arch_info;
+	struct xtensa_algorithm *algorithm_info = arch_info;
+	enum xtensa_mode core_mode;;
+	int retval = ERROR_OK;
+	int usr_ps = 0;
+
+	/* NOTE: xtensa_run_algorithm requires that each algorithm uses a software breakpoint
+	 * at the exit point */
+
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	/* refresh core register cache */
+	for (unsigned i = 0; i < esp108->core_cache->num_regs; i++) {
+		algorithm_info->context[i] = esp108_reg_get(&esp108->core_cache->reg_list[i]);
+		//buf_get_u32(esp108->core_cache->reg_list[i].value, 0, 32);
+	}
+	/* write mem params */
+	for (int i = 0; i < num_mem_params; i++) {
+		retval = target_write_buffer(target, mem_params[i].address,
+				mem_params[i].size,
+				mem_params[i].value);
+		if (retval != ERROR_OK)
+			return retval;
+	}
+	/* write reg params */
+	for (int i = 0; i < num_reg_params; i++) {
+		struct reg *reg = register_get_by_name(esp108->core_cache, reg_params[i].reg_name, 0);
+		if (!reg) {
+			LOG_ERROR("BUG: register '%s' not found", reg_params[i].reg_name);
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		}
+		if (reg->size != reg_params[i].size) {
+			LOG_ERROR("BUG: register '%s' size doesn't match reg_params[i].size",
+				reg_params[i].reg_name);
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		}
+		if (memcmp(reg_params[i].reg_name, "ps", 3)) {
+			usr_ps = 1;
+		}
+		//armv7m_set_core_reg(reg, reg_params[i].value);
+		// buf_set_u32(reg_params[i].value, 0, 32, buf_get_u32(reg->value, 0, 32));
+		esp108_reg_set(reg, buf_get_u32(reg_params[i].value, 0, 32));
+		reg->valid = 1;
+	}
+	uint32_t ps = esp108_reg_get(&esp108->core_cache->reg_list[XT_REG_IDX_PS]);
+	uint32_t new_ps = ps;
+	LOG_INFO("ASTART PS = 0x%x", ps);
+	// ignore custom core mode if custom PS value is specified
+	if (!usr_ps) {
+		core_mode = XT_PS_RING_GET(ps);
+		if (algorithm_info->core_mode != XT_MODE_ANY && algorithm_info->core_mode != core_mode) {
+			LOG_DEBUG("setting core_mode: 0x%x", algorithm_info->core_mode);
+			// buf_set_u32(armv7m->arm.core_cache->reg_list[ARMV7M_CONTROL].value,
+			// 	0, 1, armv7m_algorithm_info->core_mode);
+			new_ps = (new_ps & ~XT_PS_RING_MSK) | XT_PS_RING(algorithm_info->core_mode);
+			/* save previous core mode */
+			algorithm_info->core_mode = core_mode;
+		}
+	}
+	esp108_reg_set(&esp108->core_cache->reg_list[XT_REG_IDX_PS], new_ps);
+	esp108->core_cache->reg_list[XT_REG_IDX_PS].valid = 1;
+
+	retval = target_resume(target, 0, entry_point, 1, 1);
+
+	return retval;
+}
+
+/** Waits for an algorithm in the target. */
+int xtensa_wait_algorithm(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	uint32_t exit_point, int timeout_ms,
+	void *arch_info)
+{
+	struct esp108_common *esp108 = (struct esp108_common*)target->arch_info;
+	struct xtensa_algorithm *algorithm_info = arch_info;
+	int retval = ERROR_OK;
+	uint32_t pc;
+
+	/* NOTE: armv7m_run_algorithm requires that each algorithm uses a software breakpoint
+	 * at the exit point */
+
+	retval = target_wait_state(target, TARGET_HALTED, timeout_ms);
+	LOG_INFO("xtensa_wait_algorithm: halted %d", target->debug_reason);
+	/* If the target fails to halt due to the breakpoint, force a halt */
+	if (retval != ERROR_OK || target->state != TARGET_HALTED) {
+		retval = target_halt(target);
+		if (retval != ERROR_OK)
+			return retval;
+		retval = target_wait_state(target, TARGET_HALTED, 500);
+		if (retval != ERROR_OK)
+			return retval;
+		LOG_ERROR("xtensa_wait_algorithm: not halted %d, pc 0x%x, ps 0x%x", retval,
+			esp108_reg_get(&esp108->core_cache->reg_list[XT_REG_IDX_PC]), esp108_reg_get(&esp108->core_cache->reg_list[XT_REG_IDX_PS]));
+		return ERROR_TARGET_TIMEOUT;
+	}
+	// uint8_t dsr[4];
+	// esp108_queue_nexus_reg_read(target, NARADR_DSR, dsr);
+	// LOG_INFO("DSR = 0x%x", intfromchars(dsr));
+
+//	armv7m->load_core_reg_u32(target, 15, &pc);
+	pc = esp108_reg_get(&esp108->core_cache->reg_list[XT_REG_IDX_PC]);
+	if (exit_point && (pc != exit_point)) {
+		LOG_ERROR("failed algorithm halted at 0x%" PRIx32 ", expected 0x%" PRIx32,
+			pc,
+			exit_point);
+		return ERROR_TARGET_TIMEOUT;
+	}
+	/* Read memory values to mem_params[] */
+	for (int i = 0; i < num_mem_params; i++) {
+		if (mem_params[i].direction != PARAM_OUT) {
+			retval = target_read_buffer(target, mem_params[i].address,
+					mem_params[i].size,
+					mem_params[i].value);
+			if (retval != ERROR_OK)
+				return retval;
+		}
+	}
+	/* Copy core register values to reg_params[] */
+	for (int i = 0; i < num_reg_params; i++) {
+		if (reg_params[i].direction != PARAM_OUT) {
+			struct reg *reg = register_get_by_name(esp108->core_cache, reg_params[i].reg_name, 0);
+			if (!reg) {
+				LOG_ERROR("BUG: register '%s' not found", reg_params[i].reg_name);
+				return ERROR_COMMAND_SYNTAX_ERROR;
+			}
+			if (reg->size != reg_params[i].size) {
+				LOG_ERROR("BUG: register '%s' size doesn't match reg_params[i].size",
+					reg_params[i].reg_name);
+				return ERROR_COMMAND_SYNTAX_ERROR;
+			}
+			// buf_set_u32(reg_params[i].value, 0, 32, buf_get_u32(reg->value, 0, 32));
+			buf_set_u32(reg_params[i].value, 0, 32, esp108_reg_get(reg));
+		}
+	}
+
+	for (int i = esp108->core_cache->num_regs - 1; i >= 0; i--) {
+		uint32_t regvalue;
+		//regvalue = buf_get_u32(armv7m->arm.core_cache->reg_list[i].value, 0, 32);
+		regvalue = esp108_reg_get(&esp108->core_cache->reg_list[i]);
+		// LOG_DEBUG("check register %s with value 0x%x -> 0x%8.8" PRIx32,
+		// 		esp108->core_cache->reg_list[i].name, regvalue, algorithm_info->context[i]);
+		if (i == XT_REG_IDX_DEBUGCAUSE) {
+			//FIXME: restoring DEBUGCAUSE causes exception when executing corresponding instruction in DIR
+			LOG_DEBUG("Skip restoring register %s with value 0x%x -> 0x%8.8" PRIx32,
+					esp108->core_cache->reg_list[i].name, regvalue, algorithm_info->context[i]);
+			continue;
+		}
+		if (regvalue != algorithm_info->context[i]) {
+			LOG_DEBUG("restoring register %s with value 0x%x -> 0x%8.8" PRIx32,
+					esp108->core_cache->reg_list[i].name, regvalue, algorithm_info->context[i]);
+			// buf_set_u32(armv7m->arm.core_cache->reg_list[i].value,
+			// 	0, 32, armv7m_algorithm_info->context[i]);
+			// armv7m->arm.core_cache->reg_list[i].valid = 1;
+			// armv7m->arm.core_cache->reg_list[i].dirty = 1;
+			esp108_reg_set(&esp108->core_cache->reg_list[i], algorithm_info->context[i]);
+			esp108->core_cache->reg_list[i].valid = 1;
+		}
+	}
+
+	return retval;
+}
+
+int xtensa_run_algorithm(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	uint32_t entry_point, uint32_t exit_point,
+	int timeout_ms, void *arch_info)
+{
+	int retval;
+
+	retval = xtensa_start_algorithm(target,
+			num_mem_params, mem_params,
+			num_reg_params, reg_params,
+			entry_point, exit_point,
+			arch_info);
+
+	if (retval == ERROR_OK)
+		retval = xtensa_wait_algorithm(target,
+				num_mem_params, mem_params,
+				num_reg_params, reg_params,
+				exit_point, timeout_ms,
+				arch_info);
+
+	return retval;
+}
 
 static int xtensa_arch_state(struct target *target)
 {
@@ -1443,6 +1638,10 @@ struct target_type esp108_target = {
 	.write_buffer = xtensa_write_buffer,
 
 	.get_gdb_reg_list = xtensa_get_gdb_reg_list,
+
+	.run_algorithm = xtensa_run_algorithm,
+	.start_algorithm = xtensa_start_algorithm,
+	.wait_algorithm = xtensa_wait_algorithm,
 
 	.add_breakpoint = xtensa_add_breakpoint,
 	.remove_breakpoint = xtensa_remove_breakpoint,

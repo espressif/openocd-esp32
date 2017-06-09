@@ -2876,8 +2876,8 @@ int target_wait_state(struct target *target, enum target_state state, int ms)
 			keep_alive();
 
 		if ((cur-then) > ms) {
-			LOG_ERROR("timed out while waiting for target %s",
-				Jim_Nvp_value2name_simple(nvp_target_state, state)->name);
+			LOG_ERROR("timed out while waiting for target %s / %d - %d",
+				Jim_Nvp_value2name_simple(nvp_target_state, state)->name, target->state, state);
 			return ERROR_FAIL;
 		}
 	}

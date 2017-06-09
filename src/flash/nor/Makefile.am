@@ -55,7 +55,8 @@ NOR_DRIVERS = \
 	tms470.c \
 	virtual.c \
 	xmc1xxx.c \
-	xmc4xxx.c
+	xmc4xxx.c \
+	esp32.c
 
 noinst_HEADERS = \
 	core.h \
