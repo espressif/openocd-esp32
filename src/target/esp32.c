@@ -885,8 +885,8 @@ static int xtensa_halt(struct target *target)
 	//	return ERROR_OK;
 	//}
 	struct esp32_common* esp32 = (struct esp32_common*)target->arch_info;
-	int i = esp32->active_cpu;
-	//for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
+	//int i = esp32->active_cpu;
+	for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
 	{
 		// DYA: Fist we have to check dsr
 		esp32_queue_nexus_reg_write(esp32->esp32_targets[i], NARADR_DCRSET, OCDDCR_ENABLEOCD);
