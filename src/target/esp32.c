@@ -1597,6 +1597,9 @@ static int xtensa_deassert_reset(struct target *target)
 	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
 	int res;
 
+	res = xtensa_smpbreak_set(target);
+	if (res != ERROR_OK) return res;
+
 	LOG_DEBUG("%s begin reset_halt=%i", __func__, target->reset_halt);
 	for (int i = 0; i < ESP32_CPU_COUNT; i++)
 	{
@@ -2066,8 +2069,12 @@ static int xtensa_poll(struct target *target)
 		res = jtag_execute_queue();
 		if (res != ERROR_OK) return res;
 	}
-	if (!(esp32->prevpwrstat&PWRSTAT_DEBUGWASRESET) && pwrstat[ESP32_MAIN_ID] & PWRSTAT_DEBUGWASRESET) LOG_INFO("%s: Debug controller was reset (pwrstat=0x%02X, after clear 0x%02X).", target->cmd_name, pwrstat[ESP32_MAIN_ID], pwrstath[ESP32_MAIN_ID]);
-	if (!(esp32->prevpwrstat&PWRSTAT_COREWASRESET) && pwrstat[ESP32_MAIN_ID] & PWRSTAT_COREWASRESET) LOG_INFO("%s: Core was reset (pwrstat=0x%02X, after clear 0x%02X).", target->cmd_name, pwrstat[ESP32_MAIN_ID], pwrstath[ESP32_MAIN_ID]);
+	if (!(esp32->prevpwrstat&PWRSTAT_DEBUGWASRESET) && pwrstat[ESP32_MAIN_ID] & PWRSTAT_DEBUGWASRESET) {
+		LOG_INFO("%s: Debug controller was reset (pwrstat=0x%02X, after clear 0x%02X).", target->cmd_name, pwrstat[ESP32_MAIN_ID], pwrstath[ESP32_MAIN_ID]);
+	}
+	if (!(esp32->prevpwrstat&PWRSTAT_COREWASRESET) && pwrstat[ESP32_MAIN_ID] & PWRSTAT_COREWASRESET) {
+		LOG_INFO("%s: Core was reset (pwrstat=0x%02X, after clear 0x%02X).", target->cmd_name, pwrstat[ESP32_MAIN_ID], pwrstath[ESP32_MAIN_ID]);
+	}
 	esp32->prevpwrstat = pwrstath[ESP32_MAIN_ID];
 	// Check CPU2 state and change id reguired...
 	// ------------------------------------------
@@ -2112,17 +2119,19 @@ static int xtensa_poll(struct target *target)
 		esp32->current_threadid = target->rtos->current_threadid;
 	}
 
+	if ((dsr0 & OCDDSR_STOPPED) != (dsr1 & OCDDSR_STOPPED))
+	{
+		LOG_DEBUG("%s: dsr0=0x%08x, dsr1=0x%08x", __func__, dsr0, dsr1);
+		res = xtensa_smpbreak_set(target);
+		if (res != ERROR_OK) return res;
+	}
+
 	if (common_reason & OCDDSR_STOPPED) {
 		if(target->state != TARGET_HALTED) {
 			LOG_DEBUG("Stopped: CPU0: %d CPU1: %d", (dsr0 & OCDDSR_STOPPED) ? 1 : 0, (dsr1 & OCDDSR_STOPPED) ? 1 : 0);
 			int oldstate=target->state;
 			// DYA: to read registers here I have to stop all CPUs
 			xtensa_halt(target);
-			if ((dsr0 & OCDDSR_STOPPED) != (dsr1 & OCDDSR_STOPPED))
-			{
-				LOG_DEBUG("%s: dsr0=0x%08x, dsr1=0x%08x", __func__, dsr0, dsr1);
-				xtensa_smpbreak_set(target);
-			}
 			target->state = TARGET_HALTED;
 
 			// DYA: here we have to read all registers from two cores
@@ -2141,7 +2150,7 @@ static int xtensa_poll(struct target *target)
 
 				volatile unsigned int dsr_core = xtensa_read_dsr(esp32->esp32_targets[i]);
 				if ((dsr_core&OCDDSR_DEBUGPENDBREAK) != 0) esp32->active_cpu = i;
-				//else esp32->active_cpu = i^1;
+
 				int dcrset = read_reg_direct(esp32->esp32_targets[i], NARADR_DCRSET);
 
 				LOG_DEBUG("%s: Halt reason =0x%08X, temp_cause =%08x, dsr=0x%08x, dcrset=0x%08x", esp32->esp32_targets[i]->cmd_name, cause, temp_cause, dsr_core, dcrset);
