@@ -1600,6 +1600,9 @@ static int xtensa_deassert_reset(struct target *target)
 	LOG_DEBUG("%s begin reset_halt=%i", __func__, target->reset_halt);
 	for (int i = 0; i < ESP32_CPU_COUNT; i++)
 	{
+		esp32_queue_nexus_reg_write(esp32->esp32_targets[i], NARADR_DCRSET, OCDDCR_ENABLEOCD);
+		uint8_t dsr[4];
+		esp32_queue_nexus_reg_read(esp32->esp32_targets[i], NARADR_DSR, dsr);
 		if (target->reset_halt) {
 			esp32_queue_nexus_reg_write(esp32->esp32_targets[i], NARADR_DCRSET, OCDDCR_DEBUGINTERRUPT);
 		}
