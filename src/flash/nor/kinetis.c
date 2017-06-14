@@ -949,8 +949,8 @@ static int kinetis_write_block(struct flash_bank *bank, const uint8_t *buffer,
 	 */
 
 	/* Increase buffer_size if needed */
-	if (buffer_size < (target->working_area_size/2))
-		buffer_size = (target->working_area_size/2);
+	if (buffer_size < (target->working_area_cfg.size/2))
+		buffer_size = (target->working_area_cfg.size/2);
 
 	/* allocate working area with flash programming code */
 	if (target_alloc_working_area(target, sizeof(kinetis_flash_write_code),

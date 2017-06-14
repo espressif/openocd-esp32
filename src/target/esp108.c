@@ -1194,11 +1194,6 @@ int xtensa_wait_algorithm(struct target *target,
 			esp108_reg_get(&esp108->core_cache->reg_list[XT_REG_IDX_PC]), esp108_reg_get(&esp108->core_cache->reg_list[XT_REG_IDX_PS]));
 		return ERROR_TARGET_TIMEOUT;
 	}
-	// uint8_t dsr[4];
-	// esp108_queue_nexus_reg_read(target, NARADR_DSR, dsr);
-	// LOG_INFO("DSR = 0x%x", intfromchars(dsr));
-
-//	armv7m->load_core_reg_u32(target, 15, &pc);
 	pc = esp108_reg_get(&esp108->core_cache->reg_list[XT_REG_IDX_PC]);
 	if (exit_point && (pc != exit_point)) {
 		LOG_ERROR("failed algorithm halted at 0x%" PRIx32 ", expected 0x%" PRIx32,
@@ -1229,14 +1224,12 @@ int xtensa_wait_algorithm(struct target *target,
 					reg_params[i].reg_name);
 				return ERROR_COMMAND_SYNTAX_ERROR;
 			}
-			// buf_set_u32(reg_params[i].value, 0, 32, buf_get_u32(reg->value, 0, 32));
 			buf_set_u32(reg_params[i].value, 0, 32, esp108_reg_get(reg));
 		}
 	}
 
 	for (int i = esp108->core_cache->num_regs - 1; i >= 0; i--) {
 		uint32_t regvalue;
-		//regvalue = buf_get_u32(armv7m->arm.core_cache->reg_list[i].value, 0, 32);
 		regvalue = esp108_reg_get(&esp108->core_cache->reg_list[i]);
 		// LOG_DEBUG("check register %s with value 0x%x -> 0x%8.8" PRIx32,
 		// 		esp108->core_cache->reg_list[i].name, regvalue, algorithm_info->context[i]);
@@ -1249,13 +1242,14 @@ int xtensa_wait_algorithm(struct target *target,
 		if (regvalue != algorithm_info->context[i]) {
 			LOG_DEBUG("restoring register %s with value 0x%x -> 0x%8.8" PRIx32,
 					esp108->core_cache->reg_list[i].name, regvalue, algorithm_info->context[i]);
-			// buf_set_u32(armv7m->arm.core_cache->reg_list[i].value,
-			// 	0, 32, armv7m_algorithm_info->context[i]);
-			// armv7m->arm.core_cache->reg_list[i].valid = 1;
-			// armv7m->arm.core_cache->reg_list[i].dirty = 1;
 			esp108_reg_set(&esp108->core_cache->reg_list[i], algorithm_info->context[i]);
 			esp108->core_cache->reg_list[i].valid = 1;
 		}
+	}
+
+	retval = esp108_write_dirty_registers(target);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Failed to write dirty regs (%d)!", retval);
 	}
 
 	return retval;

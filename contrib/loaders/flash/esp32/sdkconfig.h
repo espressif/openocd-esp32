@@ -1,0 +1,6 @@
+#ifndef _STUB_SDKCONFIG_H_
+#define _STUB_SDKCONFIG_H_
+
+#define CONFIG_SPI_FLASH_ROM_DRIVER_PATCH	1
+
+#endif //_STUB_SDKCONFIG_H_
