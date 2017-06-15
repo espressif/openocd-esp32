@@ -16,9 +16,20 @@
  */
 
 MEMORY {
+/*
   iram : org = 0x40090000, len = 0x10000
   dram : org = 0x3FFC0000, len = 0x20000
-  //dram2 : org = 0x3FFD0000, len = 0x10000
+*/
+  /* place stub at the beginning of the OpenOCD working area, 
+     remaining space will be used for other chunks */
+  iram : org = 0x400A0000, len = 0x1000
+  dram : org = 0x3FFF8000, len = 0x400
+}
+
+PHDRS 
+{
+  text_phdr PT_LOAD;
+  data_phdr PT_LOAD;
 }
 
 ENTRY(stub_main)
@@ -27,22 +38,18 @@ SECTIONS {
   .text : ALIGN(4) {
     *(.literal)
     *(.text .text.*)
-  } > iram
+  } > iram : text_phdr
 
   .bss (NOLOAD) : ALIGN(4) {
     _bss_start = ABSOLUTE(.);
     *(.bss)
     _bss_end = ABSOLUTE(.);
-  } > dram
+  } > dram : data_phdr
 
   .data : ALIGN(4) {
     *(.data)
     *(.rodata .rodata.*)
-  } > dram
-  
-  /*.stub_stack : ALIGN(4) {
-    *(.stub_stack)
-  } > dram2*/
+  } > dram : data_phdr
 }
 
 INCLUDE "esp32.rom.ld"

@@ -1112,7 +1112,6 @@ int xtensa_start_algorithm(struct target *target,
 	/* refresh core register cache */
 	for (unsigned i = 0; i < esp108->core_cache->num_regs; i++) {
 		algorithm_info->context[i] = esp108_reg_get(&esp108->core_cache->reg_list[i]);
-		//buf_get_u32(esp108->core_cache->reg_list[i].value, 0, 32);
 	}
 	/* write mem params */
 	for (int i = 0; i < num_mem_params; i++) {
@@ -1150,8 +1149,6 @@ int xtensa_start_algorithm(struct target *target,
 		core_mode = XT_PS_RING_GET(ps);
 		if (algorithm_info->core_mode != XT_MODE_ANY && algorithm_info->core_mode != core_mode) {
 			LOG_DEBUG("setting core_mode: 0x%x", algorithm_info->core_mode);
-			// buf_set_u32(armv7m->arm.core_cache->reg_list[ARMV7M_CONTROL].value,
-			// 	0, 1, armv7m_algorithm_info->core_mode);
 			new_ps = (new_ps & ~XT_PS_RING_MSK) | XT_PS_RING(algorithm_info->core_mode);
 			/* save previous core mode */
 			algorithm_info->core_mode = core_mode;

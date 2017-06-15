@@ -990,7 +990,7 @@ int target_run_flash_async_algorithm(struct target *target,
 		}
 
 		if (((rp - fifo_start_addr) & (block_size - 1)) || rp < fifo_start_addr || rp >= fifo_end_addr) {
-			LOG_ERROR("corrupted fifo read pointer 0x%" PRIx32, rp);
+			LOG_ERROR("corrupted fifo read pointer 0x%" PRIx32" 0x%" PRIx32" 0x%" PRIx32, rp, fifo_start_addr, fifo_end_addr);
 			break;
 		}
 

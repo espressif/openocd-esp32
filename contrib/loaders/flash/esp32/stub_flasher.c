@@ -37,25 +37,47 @@
 #include "soc/rtc_cntl_reg.h"
 #include "rom/ets_sys.h"
 #include "rom/spi_flash.h"
+#include "rom/uart.h"
 
-#define SPI_FLASH_SEC_SIZE  4096    /**< SPI Flash sector size */
+#define STUB_ASYNC_WRITE_ALGO   0
+
+#define SPI_FLASH_SEC_SIZE      4096    /**< SPI Flash sector size */
 
 #define STUB_ERR_OK             0
 #define STUB_ERR_FAIL           (-1)
 #define STUB_ERR_NOT_SUPPORTED  (-2)
 
-#define STUB_CMD_TEST         0
-#define STUB_CMD_FLASH_READ   1
-#define STUB_CMD_FLASH_WRITE  2
-#define STUB_CMD_FLASH_ERASE  3
-#define STUB_CMD_FLASH_TEST   4
+#define STUB_CMD_TEST           0
+#define STUB_CMD_FLASH_READ     1
+#define STUB_CMD_FLASH_WRITE    2
+#define STUB_CMD_FLASH_ERASE    3
+#define STUB_CMD_FLASH_TEST     4
+
+#define STUB_LOG_NONE           0
+#define STUB_LOG_ERROR          1
+#define STUB_LOG_WARN           2
+#define STUB_LOG_INFO           3
+#define STUB_LOG_DEBUG          4
+#define STUB_LOG_VERBOSE        5
+
+#define STUB_LOG_LOCAL_LEVEL  STUB_LOG_VERBOSE
+
+#define STUB_LOG( level, format, ... )   \
+    do { \
+        if (STUB_LOG_LOCAL_LEVEL >= level) { \
+            ets_printf(format, ##__VA_ARGS__); \
+        } \
+    } while(0)
+
+#define STUB_LOGE( format, ... )  STUB_LOG(STUB_LOG_ERROR, "STUB_E: " format, ##__VA_ARGS__)
+#define STUB_LOGW( format, ... )  STUB_LOG(STUB_LOG_WARN, "STUB_W: "format, ##__VA_ARGS__)
+#define STUB_LOGI( format, ... )  STUB_LOG(STUB_LOG_INFO, "STUB_I: "format, ##__VA_ARGS__)
+#define STUB_LOGD( format, ... )  STUB_LOG(STUB_LOG_DEBUG, "STUB_D: "format, ##__VA_ARGS__)
+#define STUB_LOGV( format, ... )  STUB_LOG(STUB_LOG_VERBOSE, "STUB_V: "format, ##__VA_ARGS__)
+#define STUB_LOGO( format, ... )  STUB_LOG(STUB_LOG_NONE, format, ##__VA_ARGS__)
 
 extern uint32_t _bss_start;
 extern uint32_t _bss_end;
-
-volatile int g_count_off = 90;
-
-//volatile uint8_t g_stub_stack[STUB_STACK_SZ] __attribute__((section(".stub_stack")));
 
 /**
  * The following two functions are replacements for Cache_Read_Disable and Cache_Read_Enable
@@ -105,12 +127,6 @@ static inline uint32_t stub_get_coreid() {
     return id;
 }
 
-static int stub_test(int cnt)
-{
-  g_count_off += 16;
-  return cnt + g_count_off;
-}
-
 static int stub_flash_test(void)
 {
   int ret = STUB_ERR_OK;
@@ -119,27 +135,27 @@ static int stub_flash_test(void)
 
   esp_rom_spiflash_result_t rc = esp_rom_spiflash_erase_sector(flash_addr/SPI_FLASH_SEC_SIZE);
   if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-    ets_printf("STUB: Failed to erase flash (%d)\n", rc);
+    STUB_LOGE("Failed to erase flash (%d)\n", rc);
     return STUB_ERR_FAIL;
   }
 
   rc = esp_rom_spiflash_write(flash_addr, (uint32_t *)buf, sizeof(buf));
   if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-    ets_printf("STUB: Failed to write flash (%d)\n", rc);
+    STUB_LOGE("Failed to write flash (%d)\n", rc);
     return STUB_ERR_FAIL;
   }
 
   rc = esp_rom_spiflash_read(flash_addr, (uint32_t *)buf, sizeof(buf));
   if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-    ets_printf("STUB: Failed to read flash (%d)\n", rc);
+    STUB_LOGE("Failed to read flash (%d)\n", rc);
     return STUB_ERR_FAIL;
   }
 
-  ets_printf("STUB: ");
+  STUB_LOGD("Data: ");
   for (int i = 0; i < 10; i++) {
-    ets_printf("%x ", buf[i]);
+    STUB_LOGO("%x ", buf[i]);
   }
-  ets_printf("\n");
+  STUB_LOGO("\n");
 
   return ret;
 }
@@ -154,11 +170,11 @@ static int stub_flash_read(uint32_t addr, uint8_t *data, uint32_t size)
   if (flash_addr & 0x3UL) {
     rc = esp_rom_spiflash_read(flash_addr & ~0x3UL, (uint32_t *)dummy_buf, sizeof(dummy_buf));
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-      ets_printf("STUB: Failed to read flash @ 0x%x (%d)\n", flash_addr & ~0x3UL, rc);
+      STUB_LOGE("Failed to read flash @ 0x%x (%d)\n", flash_addr & ~0x3UL, rc);
       return STUB_ERR_FAIL;
     }
     uint32_t sz = 4 - (flash_addr & 0x3UL);
-    ets_printf("STUB: Read flash dword @ 0x%x sz %d\n", flash_addr & ~0x3UL, sz);
+    STUB_LOGD("Read flash dword @ 0x%x sz %d\n", flash_addr & ~0x3UL, sz);
     memcpy(data, &dummy_buf[flash_addr & 0x3UL], sz);
     rd_sz -= sz;
     read += sz;
@@ -168,32 +184,33 @@ static int stub_flash_read(uint32_t addr, uint8_t *data, uint32_t size)
   if (rd_sz & 0x3UL) {
     rd_sz = rd_sz & ~0x3UL;
   }
-  ets_printf("STUB: Read flash @ 0x%x sz %d\n", flash_addr, rd_sz);
+  STUB_LOGD("Read flash @ 0x%x sz %d\n", flash_addr, rd_sz);
   rc = esp_rom_spiflash_read(flash_addr, (uint32_t *)&data[read], rd_sz);
   if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-    ets_printf("STUB: Failed to read flash (%d)\n", rc);
+    STUB_LOGE("Failed to read flash (%d)\n", rc);
     return STUB_ERR_FAIL;
   }
   read += rd_sz;
   if (read < size) {
     rc = esp_rom_spiflash_read(flash_addr + rd_sz, (uint32_t *)dummy_buf, sizeof(dummy_buf));
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-      ets_printf("STUB: Failed to read flash @ 0x%x (%d)\n", flash_addr + rd_sz, rc);
+      STUB_LOGE("Failed to read flash @ 0x%x (%d)\n", flash_addr + rd_sz, rc);
       return STUB_ERR_FAIL;
     }
-    ets_printf("STUB: Read flash dword @ 0x%x sz %d\n", flash_addr + rd_sz, size - read);
+    STUB_LOGD("Read flash dword @ 0x%x sz %d\n", flash_addr + rd_sz, size - read);
     memcpy(&data[read], dummy_buf, size - read);
   }
   //TODO: remove debug print
-  ets_printf("STUB: ");
+  STUB_LOGD("DATA: ");
   for (int i = 0; i < size; i++) {
-    ets_printf("%x ", data[i]);
+    STUB_LOGO("%x ", data[i]);
   }
-  ets_printf("\n");
+  STUB_LOGO("\n");
 
   return ret;
 }
 
+#if STUB_ASYNC_WRITE_ALGO == 0
 static int stub_flash_write(uint32_t addr, uint8_t *data, uint32_t size)
 {
   int ret = STUB_ERR_OK;
@@ -204,15 +221,15 @@ static int stub_flash_write(uint32_t addr, uint8_t *data, uint32_t size)
   if (flash_addr & 0x3UL) {
     rc = esp_rom_spiflash_read(flash_addr & ~0x3UL, (uint32_t *)dummy_buf, sizeof(dummy_buf));
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-      ets_printf("STUB: Failed to read flash @ 0x%x (%d)\n", flash_addr & ~0x3UL, rc);
+      STUB_LOGE("Failed to read flash @ 0x%x (%d)\n", flash_addr & ~0x3UL, rc);
       return STUB_ERR_FAIL;
     }
     uint32_t sz = 4 - (flash_addr & 0x3UL);
-    ets_printf("STUB: Write flash dword @ 0x%x sz %d\n", flash_addr & ~0x3UL, sz);
+    STUB_LOGD("Write flash dword @ 0x%x sz %d\n", flash_addr & ~0x3UL, sz);
     memcpy(&dummy_buf[flash_addr & 0x3UL], data, sz);
     rc = esp_rom_spiflash_write(flash_addr & ~0x3UL, (uint32_t *)dummy_buf, sizeof(dummy_buf));
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-      ets_printf("STUB: Failed to write flash (%d)\n", rc);
+      STUB_LOGE("Failed to write flash (%d)\n", rc);
       return STUB_ERR_FAIL;
     }
     wr_sz -= sz;
@@ -223,10 +240,10 @@ static int stub_flash_write(uint32_t addr, uint8_t *data, uint32_t size)
   if (wr_sz & 0x3UL) {
     wr_sz = wr_sz & ~0x3UL;
   }
-  ets_printf("STUB: Write flash @ 0x%x sz %d\n", flash_addr, wr_sz);
+  STUB_LOGD("Write flash @ 0x%x sz %d\n", flash_addr, wr_sz);
   rc = esp_rom_spiflash_write(flash_addr, (uint32_t *)&data[written], wr_sz);
   if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-    ets_printf("STUB: Failed to write flash (%d)\n", rc);
+    STUB_LOGE("Failed to write flash (%d)\n", rc);
     return STUB_ERR_FAIL;
   }
 
@@ -234,19 +251,66 @@ static int stub_flash_write(uint32_t addr, uint8_t *data, uint32_t size)
   if (written < size) {
     rc = esp_rom_spiflash_read(flash_addr + wr_sz, (uint32_t *)dummy_buf, sizeof(dummy_buf));
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-      ets_printf("STUB: Failed to read flash @ 0x%x (%d)\n", flash_addr + wr_sz, rc);
+      STUB_LOGE("Failed to read flash @ 0x%x (%d)\n", flash_addr + wr_sz, rc);
       return STUB_ERR_FAIL;
     }
-    ets_printf("STUB: Write flash dword @ 0x%x sz %d\n", flash_addr + wr_sz, size - written);
+    STUB_LOGD("Write flash dword @ 0x%x sz %d\n", flash_addr + wr_sz, size - written);
     memcpy(dummy_buf, &data[written], size - written);
     rc = esp_rom_spiflash_write(flash_addr + wr_sz, (uint32_t *)dummy_buf, sizeof(dummy_buf));
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-      ets_printf("STUB: Failed to write flash (%d)\n", rc);
+      STUB_LOGE("Failed to write flash (%d)\n", rc);
       return STUB_ERR_FAIL;
     }
   }
   return ret;
 }
+#else
+// fifo size must be greater then this value
+#define STUB_FLASH_WRITE_CHUNK_SZ   32 //must multiple of 4
+static int stub_flash_write(uint32_t addr, uint32_t size, uint8_t *buf_start, uint8_t *buf_end)
+{
+  int ret = STUB_ERR_OK;
+  esp_rom_spiflash_result_t rc;
+  //uint8_t dummy_buf[4];
+  uint32_t wr_sz, written = 0;
+  volatile uint32_t *wr_p = (uint32_t *)buf_start, *rd_p = (uint32_t *)(buf_start + sizeof(uint32_t));
+
+  buf_start += 2*sizeof(uint32_t);
+  for (uint32_t wr = *wr_p, rd = *rd_p; wr != 0 && written < size; wr = *wr_p, rd = *rd_p) {
+    STUB_LOGD("Write wr 0x%x (0x%x) rd 0x%x (0x%x)\n", *wr_p, wr_p, *rd_p, rd_p);
+    if (wr == rd) {
+      continue;
+    }
+    if (wr > rd) {
+      if ((wr - rd) < STUB_FLASH_WRITE_CHUNK_SZ) {
+        continue; //wait for full chunk
+      }
+      wr_sz = STUB_FLASH_WRITE_CHUNK_SZ;
+    } else {
+      // in case of wrapping write the remainder
+      wr_sz = (uint32_t)buf_end - rd;
+    }
+
+    STUB_LOGD("Write flash @ 0x%x sz %d\n", addr, wr_sz);
+    rc = esp_rom_spiflash_write(addr, (uint32_t *)rd, wr_sz);
+    if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
+      STUB_LOGE("Failed to write flash (%d)\n", rc);
+      *rd_p = 0;
+      return STUB_ERR_FAIL;
+    }
+
+    written += wr_sz;
+    addr += wr_sz;
+    rd += wr_sz;
+    if (rd == (uint32_t)buf_end) {
+      *rd_p = (uint32_t)buf_start;
+    } else {
+      *rd_p  = rd;
+    }
+  }
+  return ret;
+}
+#endif
 
 static int stub_flash_erase(uint32_t flash_addr, uint32_t size)
 {
@@ -260,10 +324,10 @@ static int stub_flash_erase(uint32_t flash_addr, uint32_t size)
     size = (size + (SPI_FLASH_SEC_SIZE-1)) & ~(SPI_FLASH_SEC_SIZE-1);
   }
 
-  ets_printf("STUB: erase flash @ 0x%x, sz %d \n", flash_addr, size);
+  STUB_LOGD("erase flash @ 0x%x, sz %d \n", flash_addr, size);
   esp_rom_spiflash_result_t rc = esp_rom_spiflash_erase_area(flash_addr, size);
   if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-    ets_printf("STUB: Failed to erase flash (%d)\n", rc);
+    STUB_LOGE("Failed to erase flash (%d)\n", rc);
     return STUB_ERR_FAIL;
   }
 
@@ -279,15 +343,18 @@ static int stub_flash_handler(int cmd, va_list ap)
   uint32_t flash_addr = va_arg(ap, uint32_t);
   uint32_t size = va_arg(ap, uint32_t);
   uint8_t *buf = va_arg(ap, uint8_t *);
+#if STUB_ASYNC_WRITE_ALGO
+  uint8_t *buf_end = va_arg(ap, uint8_t *);
+#endif
 
-  ets_printf("STUB: flash a %x, b %x, s %d\n", flash_addr, buf, size);
+  STUB_LOGD("flash a %x, b %x, s %d\n", flash_addr, buf, size);
 
   stub_spi_flash_disable_cache(other_core_id, &flags[1]);
   stub_spi_flash_disable_cache(core_id, &flags[0]);
 
   esp_rom_spiflash_result_t rc = esp_rom_spiflash_unlock();
   if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-    ets_printf("STUB: Failed to unlock flash (%d)\n", rc);
+    STUB_LOGE("Failed to unlock flash (%d)\n", rc);
     ret = STUB_ERR_FAIL;
     goto _flash_end;
   }
@@ -300,7 +367,11 @@ static int stub_flash_handler(int cmd, va_list ap)
       ret = stub_flash_erase(flash_addr, size);
       break;
     case STUB_CMD_FLASH_WRITE:
+#if STUB_ASYNC_WRITE_ALGO == 0
       ret = stub_flash_write(flash_addr, buf, size);
+#else
+      ret = stub_flash_write(flash_addr, size, buf, buf_end);
+#endif
       break;
     case STUB_CMD_FLASH_TEST:
       ret = stub_flash_test();
@@ -321,27 +392,30 @@ int stub_main(int cmd, ...)
   va_list ap;
   int ret = 0;
 
-  //TODO: temporarily relocate vector
-
-  /* this points to stub_main now, clear for next boot */
-  //FIXME: do we need this for JTAG flasher?
-  ets_set_user_start(0);
-
   /* zero bss */
   for(uint32_t *p = &_bss_start; p < &_bss_end; p++) {
     *p = 0;
   }
 
-  //TODO: disable interrupts globally
-  //TODO: UART initialization
-  ets_printf("STUB: main %d\n", cmd);
-  //g_stub_stack[0] = 1;
+  // we get here after just after OpenOCD jumper stub
+  // up to 3 parameters are passed via registers by that jumping code
+  // interrupts level in PS is set to zero to allow high prio IRQs only (including Debug Interrupt)
+  // We need Debug Interrupt to allow breakpoints handling by OpenOCD
+
+  //TODO: temporarily relocate vector
+
+#if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
+  uartAttach();
+  ets_install_uart_printf();
+#endif
+
+  STUB_LOGD("cmd %d\n", cmd);
 
   va_start(ap, cmd);
 
   switch (cmd) {
     case STUB_CMD_TEST:
-      ret = stub_test(cmd);
+      STUB_LOGD("TEST %d\n", cmd);
       break;
     case STUB_CMD_FLASH_READ:
     case STUB_CMD_FLASH_ERASE:
