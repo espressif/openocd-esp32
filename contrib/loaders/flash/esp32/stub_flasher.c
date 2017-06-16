@@ -38,8 +38,11 @@
 #include "rom/ets_sys.h"
 #include "rom/spi_flash.h"
 #include "rom/uart.h"
+#include "xtensa/hal.h"
+#include "esp_app_trace.h"
 
 #define STUB_ASYNC_WRITE_ALGO   0
+#define STUB_USE_APPTRACE       1
 
 #define SPI_FLASH_SEC_SIZE      4096    /**< SPI Flash sector size */
 
@@ -160,6 +163,9 @@ static int stub_flash_test(void)
   return ret;
 }
 
+#define XT_CLOCK_FREQ 240000000UL
+#define CPUTICKS2US(_t_)       ((_t_)/(XT_CLOCK_FREQ/1000000))
+
 static int stub_flash_read(uint32_t addr, uint8_t *data, uint32_t size)
 {
   int ret = STUB_ERR_OK;
@@ -184,8 +190,10 @@ static int stub_flash_read(uint32_t addr, uint8_t *data, uint32_t size)
   if (rd_sz & 0x3UL) {
     rd_sz = rd_sz & ~0x3UL;
   }
-  STUB_LOGD("Read flash @ 0x%x sz %d\n", flash_addr, rd_sz);
+  uint32_t start = xthal_get_ccount();
   rc = esp_rom_spiflash_read(flash_addr, (uint32_t *)&data[read], rd_sz);
+  uint32_t end = xthal_get_ccount();
+  STUB_LOGD("Read flash @ 0x%x sz %d in %d ms\n", flash_addr, rd_sz, CPUTICKS2US(end - start)/1000);
   if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
     STUB_LOGE("Failed to read flash (%d)\n", rc);
     return STUB_ERR_FAIL;
@@ -202,7 +210,7 @@ static int stub_flash_read(uint32_t addr, uint8_t *data, uint32_t size)
   }
   //TODO: remove debug print
   STUB_LOGD("DATA: ");
-  for (int i = 0; i < size; i++) {
+  for (int i = 0; i < 32; i++) {
     STUB_LOGO("%x ", data[i]);
   }
   STUB_LOGO("\n");
@@ -240,8 +248,10 @@ static int stub_flash_write(uint32_t addr, uint8_t *data, uint32_t size)
   if (wr_sz & 0x3UL) {
     wr_sz = wr_sz & ~0x3UL;
   }
-  STUB_LOGD("Write flash @ 0x%x sz %d\n", flash_addr, wr_sz);
+  uint32_t start = xthal_get_ccount();
   rc = esp_rom_spiflash_write(flash_addr, (uint32_t *)&data[written], wr_sz);
+  uint32_t end = xthal_get_ccount();
+  STUB_LOGD("Write flash @ 0x%x sz %d in %d ms\n", flash_addr, wr_sz, CPUTICKS2US(end - start)/1000);
   if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
     STUB_LOGE("Failed to write flash (%d)\n", rc);
     return STUB_ERR_FAIL;
@@ -361,6 +371,7 @@ static int stub_flash_handler(int cmd, va_list ap)
 
   switch (cmd) {
     case STUB_CMD_FLASH_READ:
+//  #if STUB_USE_APPTRACE
       ret = stub_flash_read(flash_addr, buf, size);
       break;
     case STUB_CMD_FLASH_ERASE:
@@ -397,9 +408,9 @@ int stub_main(int cmd, ...)
     *p = 0;
   }
 
-  // we get here after just after OpenOCD jumper stub
+  // we get here just after OpenOCD jumper stub
   // up to 3 parameters are passed via registers by that jumping code
-  // interrupts level in PS is set to zero to allow high prio IRQs only (including Debug Interrupt)
+  // interrupts level in PS is set to one to allow high prio IRQs only (including Debug Interrupt)
   // We need Debug Interrupt to allow breakpoints handling by OpenOCD
 
   //TODO: temporarily relocate vector
@@ -409,6 +420,7 @@ int stub_main(int cmd, ...)
   ets_install_uart_printf();
 #endif
 
+  STUB_LOGD("BSS 0x%x..0x%x\n", &_bss_start, &_bss_end);
   STUB_LOGD("cmd %d\n", cmd);
 
   va_start(ap, cmd);

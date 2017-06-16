@@ -32,6 +32,7 @@
 #include <target/image.h>
 #include <target/register.h>
 #include <target/esp108.h>
+#include "time_support.h"
 
 /* Regarding performance:
  *
@@ -112,9 +113,9 @@
 
 #define ESP32_STUB_STACK_SZ		(1024)
 #define ESP32_STUB_STACK_STAMP	0xCE
-#define ESP32_STUB_STACK_DEBUG	1
+#define ESP32_STUB_STACK_DEBUG	32
 
-#define ESP32_STUB_ALGO_TMO		1000 //ms
+#define ESP32_STUB_ALGO_TMO		10000 //ms
 
 #define SPI_FLASH_SEC_SIZE  	4096    /**< SPI Flash sector size */
 
@@ -142,6 +143,7 @@ struct esp32_flash_bank {
 };
 
 struct esp32_flash_stub {
+	uint32_t entry;
 	struct working_area *code;
 	struct working_area *data;
 	struct working_area *algo;
@@ -225,29 +227,14 @@ static int esp32_stub_load(struct target *target, struct esp32_flash_stub *stub)
 	}
 	image_close(&image);
 
+	stub->entry = image.start_address;
+
 	if (target_alloc_alt_working_area(target, ESP32_STUB_STACK_SZ, &stub->stack) != ERROR_OK) {
 		LOG_ERROR("no working area available, can't alloc stub stack!");
 		image_close(&image);
 		retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		goto _on_error;
 	}
-	uint32_t stack_addr = stub->stack->address + ESP32_STUB_STACK_SZ;
-	if (stack_addr % 16) {
-		LOG_INFO("Adjust stack addr 0x%x", stack_addr);
-		stack_addr &= ~0xFUL;
-	}
-
-	init_reg_param(&stub->reg_params[0], "a0", 			32, PARAM_OUT);
-	init_reg_param(&stub->reg_params[1], "a1", 			32, PARAM_OUT);
-	init_reg_param(&stub->reg_params[2], "windowbase", 	32, PARAM_OUT);
-	init_reg_param(&stub->reg_params[3], "windowstart", 32, PARAM_OUT);
-	init_reg_param(&stub->reg_params[4], "ps", 			32, PARAM_OUT);
-
-	buf_set_u32(stub->reg_params[0].value, 0, 32, image.start_address);
-	buf_set_u32(stub->reg_params[1].value, 0, 32, stack_addr);
-	buf_set_u32(stub->reg_params[2].value, 0, 32, 0x0); // initial window base
-	buf_set_u32(stub->reg_params[3].value, 0, 32, 0x1); // initial window start
-	buf_set_u32(stub->reg_params[4].value, 0, 32, 0x60021); // enable WOE, UM and debug interrupts level
 
 	if (target_alloc_working_area(target, sizeof(esp32_stub_wrapper), &stub->algo) != ERROR_OK) {
 		LOG_ERROR("no working area available, can't alloc space for stub jumper!");
@@ -260,6 +247,12 @@ static int esp32_stub_load(struct target *target, struct esp32_flash_stub *stub)
 		LOG_ERROR("Failed to write stub jumper!");
 		goto _on_error;
 	}
+
+	init_reg_param(&stub->reg_params[0], "a0", 			32, PARAM_OUT);
+	init_reg_param(&stub->reg_params[1], "a1", 			32, PARAM_OUT);
+	init_reg_param(&stub->reg_params[2], "windowbase", 	32, PARAM_OUT);
+	init_reg_param(&stub->reg_params[3], "windowstart", 32, PARAM_OUT);
+	init_reg_param(&stub->reg_params[4], "ps", 			32, PARAM_OUT);
 
 	return ERROR_OK;
 
@@ -282,25 +275,25 @@ _on_error:
 
 static void esp32_stub_cleanup(struct target *target, struct esp32_flash_stub *stub)
 {
-	target_free_working_area(target, stub->algo);
-	target_free_working_area(target, stub->code);
-	target_free_alt_working_area(target, stub->stack);
-	target_free_alt_working_area(target, stub->data);
 	destroy_reg_param(&stub->reg_params[4]);
 	destroy_reg_param(&stub->reg_params[3]);
 	destroy_reg_param(&stub->reg_params[2]);
 	destroy_reg_param(&stub->reg_params[1]);
 	destroy_reg_param(&stub->reg_params[0]);
+	target_free_working_area(target, stub->algo);
+	target_free_working_area(target, stub->code);
+	target_free_alt_working_area(target, stub->stack);
+	target_free_alt_working_area(target, stub->data);
 }
 
 #if ESP32_STUB_STACK_DEBUG
-static int esp32_stub_fill_stack(struct target *target, uint32_t stack_addr)
+static int esp32_stub_fill_stack(struct target *target, uint32_t stack_addr, uint32_t sz)
 {
 	uint8_t buf[256];
 
 	// fill stub stack with canary bytes
 	memset(buf, ESP32_STUB_STACK_STAMP, sizeof(buf));
-	for (uint32_t i = 0; i < ESP32_STUB_STACK_SZ;) {
+	for (uint32_t i = 0; i < sz;) {
 		uint32_t wr_sz = ESP32_STUB_STACK_SZ - i >= sizeof(buf) ? sizeof(buf) : ESP32_STUB_STACK_SZ - i;
 		int retval = target_write_buffer(target, stack_addr + i, wr_sz, buf);
 		if (retval != ERROR_OK) {
@@ -312,14 +305,14 @@ static int esp32_stub_fill_stack(struct target *target, uint32_t stack_addr)
 	return ERROR_OK;
 }
 
-static int esp32_stub_check_stack(struct target *target, uint32_t stack_addr)
+static int esp32_stub_check_stack(struct target *target, uint32_t stack_addr, uint32_t sz)
 {
 	int retval = ERROR_OK;
 	uint8_t buf[256];
 
 	// check stub stack for overflow
-	for (uint32_t i = 0; i < ESP32_STUB_STACK_SZ;) {
-		uint32_t rd_sz = ESP32_STUB_STACK_SZ - i >= sizeof(buf) ? sizeof(buf) : ESP32_STUB_STACK_SZ - i;
+	for (uint32_t i = 0; i < sz;) {
+		uint32_t rd_sz = sz - i >= sizeof(buf) ? sizeof(buf) : sz - i;
 		retval = target_read_buffer(target, stack_addr + i, rd_sz, buf);
 		if (retval != ERROR_OK) {
 			LOG_ERROR("Failed to read stub stack (%d)!", retval);
@@ -329,7 +322,7 @@ static int esp32_stub_check_stack(struct target *target, uint32_t stack_addr)
 		for (uint32_t j = 0; j < rd_sz; j++) {
 			if (buf[j] != ESP32_STUB_STACK_STAMP) {
 				if (i+j > 0) {
-					LOG_ERROR("Stub stack bytes unused %d out of %d", i+j, ESP32_STUB_STACK_SZ);
+					LOG_INFO("Stub stack bytes unused %d / %d", i+j, ESP32_STUB_STACK_SZ);
 				} else {
 					LOG_ERROR("Stub stack OVF!!!");
 					retval = ERROR_FAIL;
@@ -388,9 +381,15 @@ static int esp32_run_flash_async_algo(struct target *target, struct esp32_flash_
 static int esp32_run_algo(struct target *target, struct esp32_flash_stub *stub)
 {
 	int retval;
+	struct duration algo_time;
+
+	if (duration_start(&algo_time) != 0) {
+		LOG_ERROR("Failed to start algo time measurement!");
+		return ERROR_FAIL;
+	}
 
 #if ESP32_STUB_STACK_DEBUG
-	retval = esp32_stub_fill_stack(target, stub->stack->address);
+	retval = esp32_stub_fill_stack(target, stub->stack->address, ESP32_STUB_STACK_DEBUG);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Failed to init stub stack (%d)!", retval);
 		return retval;
@@ -410,129 +409,37 @@ static int esp32_run_algo(struct target *target, struct esp32_flash_stub *stub)
 	}
 
 #if ESP32_STUB_STACK_DEBUG
-	retval = esp32_stub_check_stack(target, stub->stack->address);
+	retval = esp32_stub_check_stack(target, stub->stack->address, ESP32_STUB_STACK_DEBUG);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Failed to check stub stack (%d)!", retval);
 		return retval;
 	}
 #endif
+	if (duration_measure(&algo_time) != 0) {
+		LOG_ERROR("Failed to stop algo run measurement!");
+		return ERROR_FAIL;
+	}
+	float tm = duration_elapsed(&algo_time);
+	LOG_INFO("Algo completed in %g ms", tm*1000);
+
 	return retval;
 }
 
-#if 0
-static int esp32_stub_cmd_do(struct target *target, int cmd, ...)
+static void esp32_algo_init_args(struct esp32_flash_stub *stub)
 {
-	va_list ap;
-	struct esp32_flash_stub stub;
-	struct working_area *target_buf = NULL;
-	uint32_t total_count = 0;
-	uint32_t offset = 0;
-	uint32_t count = 0;
-	uint8_t *buffer = NULL;
-
-	va_start(ap, cmd);
-
-	switch (cmd)
-	{
-		case STUB_CMD_FLASH_READ:
-		case STUB_CMD_FLASH_WRITE:
-			offset = va_arg(ap, uint32_t);
-			count = va_arg(ap, uint32_t);
-			buffer = va_arg(ap, uint8_t *);
-			break;
-		case STUB_CMD_FLASH_ERASE:
-			offset = va_arg(ap, uint32_t);
-			count = va_arg(ap, uint32_t);
-			break;
-		default:
-			break;
+	uint32_t stack_addr = stub->stack->address + ESP32_STUB_STACK_SZ;
+	if (stack_addr % 16) {
+		LOG_INFO("Adjust stack addr 0x%x", stack_addr);
+		stack_addr &= ~0xFUL;
 	}
-
-	stub.algorithm_info.core_mode = XT_MODE_ANY; //TODO: run in ring0 mode
-
-	/* memory buffer */
-	uint32_t buffer_size = count;
-	if (cmd == STUB_CMD_FLASH_READ || cmd == STUB_CMD_FLASH_WRITE) {
-		while (target_alloc_alt_working_area_try(target, buffer_size, &target_buf) != ERROR_OK) {
-			buffer_size /= 2;
-			if (buffer_size == 0) {
-				LOG_ERROR("Failed to alloc target buffer for flash data!");
-				va_end(ap);
-				return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
-			}
-		}
-	}
-
-	int retval = esp32_stub_load(target, &stub);
-	if (retval != ERROR_OK) {
-		LOG_ERROR("Failed to load stub (%d)!", retval);
-		if (target_buf) {
-			target_free_alt_working_area(target, target_buf);
-		}
-		return retval;
-	}
-
-	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+0], "a2", 32, PARAM_IN_OUT);
-	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+1], "a3", 32, PARAM_OUT);
-	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+2], "a4", 32, PARAM_OUT);
-	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+3], "a5", 32, PARAM_OUT);
-
-	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+0].value, 0, 32, cmd);
-	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+1].value, 0, 32, offset); // flash addr
-	if (cmd == STUB_CMD_FLASH_READ || cmd == STUB_CMD_FLASH_WRITE) {
-		buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+3].value, 0, 32, target_buf->address); // buffer
-	}
-
-	while (total_count < count) {
-		uint32_t data_sz = target_buf && target_buf->size < (count - total_count) ? target_buf->size : count - total_count;
-		buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+2].value, 0, 32, data_sz); // size
-
-		if (cmd == STUB_CMD_FLASH_WRITE) {
-			/*retval = target_write_buffer(target, target_buf->address, data_sz, &buffer[total_count]);
-			if (retval != ERROR_OK) {
-				LOG_ERROR("Failed to write flash data to target's memory (%d)!", retval);
-				goto _on_error;
-			}*/
-			retval = esp32_run_flash_async_algo(target, &stub, STUB_ARGS_FUNC_START+4, buffer, );
-			if (retval != ERROR_OK) {
-				LOG_ERROR("Failed to run algo (%d)!", retval);
-				goto _on_error;
-			}
-		} else {
-			retval = esp32_run_algo(target, &stub, STUB_ARGS_FUNC_START+4);
-			if (retval != ERROR_OK) {
-				LOG_ERROR("Failed to run algo (%d)!", retval);
-				goto _on_error;
-			}
-		}
-		int flasher_rc = buf_get_u32(stub.reg_params[STUB_ARGS_FUNC_START+0].value, 0, 32);
-		if (flasher_rc != STUB_ERR_OK) {
-			LOG_ERROR("Failed to read flash (%d)!", flasher_rc);
-			retval = ERROR_FAIL;
-			goto _on_error;
-		}
-		if (cmd == STUB_CMD_FLASH_READ) {
-			retval = target_read_buffer(target, target_buf->address, data_sz, &buffer[total_count]);
-			if (retval != ERROR_OK) {
-				LOG_ERROR("Failed to read flash data from target's memory (%d)!", retval);
-				goto _on_error;
-			}
-		}
-		total_count += data_sz;
-	}
-
-_on_error:
-	destroy_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+0]);
-	destroy_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+1]);
-	destroy_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+2]);
-	destroy_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+3]);
-	esp32_stub_cleanup(target, &stub);
-	if (target_buf) {
-		target_free_alt_working_area(target, target_buf);
-	}
-	return  retval;
+	buf_set_u32(stub->reg_params[0].value, 0, 32, stub->entry);
+	buf_set_u32(stub->reg_params[1].value, 0, 32, stack_addr);
+	buf_set_u32(stub->reg_params[2].value, 0, 32, 0x0); // initial window base
+	buf_set_u32(stub->reg_params[3].value, 0, 32, 0x1); // initial window start
+	buf_set_u32(stub->reg_params[4].value, 0, 32, 0x60021); // enable WOE, UM and debug interrupts level
 }
 
+#if 0
 static int esp32_size_get(struct target *target, struct esp32_flash_stub *stub, uint32_t *size)
 {
 	//TODO: implement
@@ -574,6 +481,11 @@ static int esp32_erase(struct flash_bank *bank, int first, int last)
 	int retval = ERROR_OK;
 	struct esp32_flash_stub stub;
 
+	if (first*SPI_FLASH_SEC_SIZE < 0x10000) {
+		LOG_ERROR("Invalid offset!");
+		return ERROR_FAIL;
+	}
+
 	if (bank->target->state != TARGET_HALTED) {
 		LOG_ERROR("Target not halted");
 		return ERROR_TARGET_NOT_HALTED;
@@ -599,6 +511,7 @@ static int esp32_erase(struct flash_bank *bank, int first, int last)
 	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+1], "a3", 32, PARAM_OUT);
 	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+2], "a4", 32, PARAM_OUT);
 
+	esp32_algo_init_args(&stub);
 	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+0].value, 0, 32, STUB_CMD_FLASH_ERASE);
 	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+1].value, 0, 32, first*SPI_FLASH_SEC_SIZE); // flash addr
 	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+2].value, 0, 32, (last-first+1)*SPI_FLASH_SEC_SIZE); // size
@@ -635,30 +548,40 @@ static int esp32_write(struct flash_bank *bank, const uint8_t *buffer,
 	int retval = ERROR_OK;
 	struct esp32_flash_stub stub;
 	struct working_area *target_buf = NULL;
+	struct duration algo_time;
 #if ESP32_STUB_ASYNC_WRITE_ALGO == 0
 	uint32_t total_count = 0;
+
+	if (offset < 0x10000) {
+		LOG_ERROR("Invalid offset!");
+		return ERROR_FAIL;
+	}
 
 	if (bank->target->state != TARGET_HALTED) {
 		LOG_ERROR("Target not halted");
 		return ERROR_TARGET_NOT_HALTED;
 	}
 	//TODO: check range
-	// int retval = esp32_stub_cmd_do(bank->target, STUB_CMD_FLASH_READ, offset, count, buffer);
-	// if (retval != ERROR_OK) {
-	// 	LOG_ERROR("Failed to exec read flash cmd (%d)!", retval);
-	// 	return retval;
-	// }
 	stub.ainfo.core_mode = XT_MODE_ANY; //TODO: run in ring0 mode
 	stub.reg_params_count = STUB_ARGS_FUNC_START+4;
 
+	if (duration_start(&algo_time) != 0) {
+		LOG_ERROR("Failed to start algo time measurement!");
+		return ERROR_FAIL;
+	}
 	retval = esp32_stub_load(bank->target, &stub);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Failed to load stub (%d)!", retval);
 		return retval;
 	}
+	if (duration_measure(&algo_time) != 0) {
+		LOG_ERROR("Failed to stop algo run measurement!");
+		return ERROR_FAIL;
+	}
+	LOG_INFO("Stub loaded in %g ms", duration_elapsed(&algo_time)*1000);
 
 	/* memory buffer */
-	uint32_t buffer_size = count;
+	uint32_t buffer_size = 64*1024;
 	while (target_alloc_alt_working_area_try(bank->target, buffer_size, &target_buf) != ERROR_OK) {
 		buffer_size /= 2;
 		if (buffer_size == 0) {
@@ -667,25 +590,38 @@ static int esp32_write(struct flash_bank *bank, const uint8_t *buffer,
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
 	}
+	LOG_INFO("Allocated target buffer %d bytes", buffer_size);
 
 	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+0], "a2", 32, PARAM_IN_OUT);
 	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+1], "a3", 32, PARAM_OUT);
 	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+2], "a4", 32, PARAM_OUT);
 	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+3], "a5", 32, PARAM_OUT);
 
-	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+0].value, 0, 32, STUB_CMD_FLASH_WRITE);
-	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+1].value, 0, 32, offset); // flash addr
-	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+3].value, 0, 32, target_buf->address); // buffer
-
 	while (total_count < count) {
 		uint32_t data_sz = target_buf->size < (count - total_count) ? target_buf->size : count - total_count;
-		buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+2].value, 0, 32, data_sz); // size
 
+		if (duration_start(&algo_time) != 0) {
+			LOG_ERROR("Failed to start algo time measurement!");
+			retval = ERROR_FAIL;
+			goto _on_error;
+		}
 		retval = target_write_buffer(bank->target, target_buf->address, data_sz, &buffer[total_count]);
 		if (retval != ERROR_OK) {
 			LOG_ERROR("Failed to write flash data to target's memory (%d)!", retval);
 			goto _on_error;
 		}
+		if (duration_measure(&algo_time) != 0) {
+			LOG_ERROR("Failed to stop algo run measurement!");
+			retval = ERROR_FAIL;
+			goto _on_error;
+		}
+		LOG_INFO("Data written in %g ms", duration_elapsed(&algo_time)*1000);
+
+		esp32_algo_init_args(&stub);
+		buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+0].value, 0, 32, STUB_CMD_FLASH_WRITE);
+		buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+1].value, 0, 32, offset + total_count); // flash addr
+		buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+3].value, 0, 32, target_buf->address); // buffer
+		buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+2].value, 0, 32, data_sz); // size
 		retval = esp32_run_algo(bank->target, &stub);
 		if (retval != ERROR_OK) {
 			LOG_ERROR("Failed to run algo (%d)!", retval);
@@ -756,7 +692,7 @@ _on_error:
 	}
 
 	/* memory buffer */
-	uint32_t buffer_size = 16384;
+	uint32_t buffer_size = 64*1024;
 	while (target_alloc_alt_working_area_try(bank->target, buffer_size, &target_buf) != ERROR_OK) {
 		buffer_size /= 2;
 		if (buffer_size <= 32) { //TODO: avoid hardcoding
@@ -814,28 +750,34 @@ static int esp32_read(struct flash_bank *bank, uint8_t *buffer,
 	struct esp32_flash_stub stub;
 	struct working_area *target_buf = NULL;
 	uint32_t total_count = 0;
+	struct duration algo_time;
 
 	if (bank->target->state != TARGET_HALTED) {
 		LOG_ERROR("Target not halted");
 		return ERROR_TARGET_NOT_HALTED;
 	}
 	//TODO: check range
-	// int retval = esp32_stub_cmd_do(bank->target, STUB_CMD_FLASH_READ, offset, count, buffer);
-	// if (retval != ERROR_OK) {
-	// 	LOG_ERROR("Failed to exec read flash cmd (%d)!", retval);
-	// 	return retval;
-	// }
 	stub.ainfo.core_mode = XT_MODE_ANY; //TODO: run in ring0 mode
 	stub.reg_params_count = STUB_ARGS_FUNC_START+4;
 
+	if (duration_start(&algo_time) != 0) {
+		LOG_ERROR("Failed to start algo time measurement!");
+		return ERROR_FAIL;
+	}
 	retval = esp32_stub_load(bank->target, &stub);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Failed to load stub (%d)!", retval);
 		return retval;
 	}
+	if (duration_measure(&algo_time) != 0) {
+		LOG_ERROR("Failed to stop algo run measurement!");
+		return ERROR_FAIL;
+	}
+	float tm = duration_elapsed(&algo_time);
+	LOG_INFO("Stub loaded in %g ms", tm*1000);
 
 	/* memory buffer */
-	uint32_t buffer_size = count;
+	uint32_t buffer_size = 64*1024;
 	while (target_alloc_alt_working_area_try(bank->target, buffer_size, &target_buf) != ERROR_OK) {
 		buffer_size /= 2;
 		if (buffer_size == 0) {
@@ -844,20 +786,21 @@ static int esp32_read(struct flash_bank *bank, uint8_t *buffer,
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
 	}
+	LOG_INFO("Allocated target buffer %d bytes", buffer_size);
 
 	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+0], "a2", 32, PARAM_IN_OUT);
 	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+1], "a3", 32, PARAM_OUT);
 	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+2], "a4", 32, PARAM_OUT);
 	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+3], "a5", 32, PARAM_OUT);
 
-	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+0].value, 0, 32, STUB_CMD_FLASH_READ);
-	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+1].value, 0, 32, offset); // flash addr
-	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+3].value, 0, 32, target_buf->address); // buffer
-
 	while (total_count < count) {
 		uint32_t data_sz = target_buf->size < (count - total_count) ? target_buf->size : count - total_count;
-		buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+2].value, 0, 32, data_sz); // size
 
+		esp32_algo_init_args(&stub);
+		buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+0].value, 0, 32, STUB_CMD_FLASH_READ);
+		buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+1].value, 0, 32, offset + total_count); // flash addr
+		buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+3].value, 0, 32, target_buf->address); // buffer
+		buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+2].value, 0, 32, data_sz); // size
 		retval = esp32_run_algo(bank->target, &stub);
 		if (retval != ERROR_OK) {
 			LOG_ERROR("Failed to run algo (%d)!", retval);
@@ -869,11 +812,23 @@ static int esp32_read(struct flash_bank *bank, uint8_t *buffer,
 			retval = ERROR_FAIL;
 			goto _on_error;
 		}
+		if (duration_start(&algo_time) != 0) {
+			LOG_ERROR("Failed to start algo time measurement!");
+			retval = ERROR_FAIL;
+			goto _on_error;
+		}
 		retval = target_read_buffer(bank->target, target_buf->address, data_sz, &buffer[total_count]);
 		if (retval != ERROR_OK) {
 			LOG_ERROR("Failed to read flash data from target's memory (%d)!", retval);
 			goto _on_error;
 		}
+		if (duration_measure(&algo_time) != 0) {
+			LOG_ERROR("Failed to stop algo run measurement!");
+			retval = ERROR_FAIL;
+			goto _on_error;
+		}
+		tm = duration_elapsed(&algo_time);
+		LOG_INFO("Data read in %g ms", tm*1000);
 		total_count += data_sz;
 	}
 
