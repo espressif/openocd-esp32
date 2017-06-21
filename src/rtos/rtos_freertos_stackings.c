@@ -358,8 +358,6 @@ static int rtos_freertos_esp108_stack_read_involuntary(struct target *target, in
 
  If we're called using CALL8/CALL12, register A4-A7 and in the case of CALL12 A8-A11 are stored in the 
  *callers* stack frame. We need some extra logic to dump them in the stack_data.
-
- ToDo: This only works on little-endian hosts for now.
 */
 static int rtos_freertos_esp108_stack_read_voluntary(struct target *target, int64_t stack_ptr, const struct rtos_register_stacking *stacking, uint8_t *stack_data)
 {
@@ -367,34 +365,28 @@ static int rtos_freertos_esp108_stack_read_voluntary(struct target *target, int6
 	int callno;
 	int i;
 	uint32_t prevsp;
-//ToDo: Get rid of the mess that requires this heap of processor meta stuff.
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wcast-align"
-#endif
-	uint32_t *stackregs=(uint32_t *)stack_data; //alias so we can read/write entire words. Little-endian hosts only!
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+	uint32_t xt_sol_pc_reg;
 
 	retval = target_read_buffer(target, stack_ptr-0x10, 4*8, stack_data);
 	if (retval!=ERROR_OK) return retval;
 	
 	stack_data[0x18]&=~0x10; //clear exception bit in PS
-	callno=stackregs[5]>>30;
-	stackregs[5]=(stackregs[5]&0x3FFFFFFF)|0x40000000; //Hardcoded for now.
-	prevsp=stackregs[1];
+	xt_sol_pc_reg = le_to_h_u32(stack_data + 5 * sizeof(uint32_t));
+	callno = xt_sol_pc_reg >> 30;
+	xt_sol_pc_reg = (xt_sol_pc_reg & 0x3FFFFFFF) | 0x40000000; //Hardcoded for now.
+	h_u32_to_le(stack_data + 5 * sizeof(uint32_t), xt_sol_pc_reg);
+	prevsp = le_to_h_u32(stack_data + 1 * sizeof(uint32_t));
 
 	//Fill unknown regs with dummy value
-	for (i=12; i<20; i++) stackregs[i]=0xdeadbeef;
+	for (i=12; i<20; i++) {
+		h_u32_to_le(stack_data + i * sizeof(uint32_t), 0xdeadbeef);
+	}
 
 	if (callno==2) { //call8
 		retval = target_read_buffer(target, prevsp-32, 4*4, stack_data+0x30);
 	} else if (callno==3) { //call12
 		retval = target_read_buffer(target, prevsp-48, 8*4, stack_data+0x30);
 	}
-
-
 	return retval;
 }
 
