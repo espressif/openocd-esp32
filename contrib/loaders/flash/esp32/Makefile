@@ -44,7 +44,10 @@ endif
 
 STUB = stub_flasher
 SRCS = stub_flasher.c \
-	$(IDF_PATH)/components/spi_flash/spi_flash_rom_patch.c
+	$(IDF_PATH)/components/spi_flash/spi_flash_rom_patch.c \
+	$(IDF_PATH)/components/app_trace/app_trace.c \
+	$(IDF_PATH)/components/app_trace/app_trace_util.c \
+	$(IDF_PATH)/components/xtensa-debug-module/eri.c
 
 BUILD_DIR = build
 
@@ -62,13 +65,21 @@ CFLAGS = -std=c99 -Wall -Werror -Os \
          -mtext-section-literals -mlongcalls -nostdlib -fno-builtin -flto \
          -Wl,-static -g -ffunction-sections -Wl,--gc-sections
 
-CFLAGS += -I. -I$(IDF_PATH)/components/esp32/include -I$(IDF_PATH)/components/soc/esp32/include -L$(IDF_PATH)/components/esp32/ld
+INCLUDES += -I. -I$(IDF_PATH)/components/esp32/include -I$(IDF_PATH)/components/soc/esp32/include \
+		-I$(IDF_PATH)/components/app_trace/include -I$(IDF_PATH)/components/xtensa-debug-module/include \
+		-I$(IDF_PATH)/components/freertos/include -I$(IDF_PATH)/components/log/include \
+		-L$(IDF_PATH)/components/esp32/ld
 
-$(STUB_ELF): $(SRCS) stub.ld $(BUILD_DIR)
+DEFINES = -Dasm=__asm__
+#-DNDEBUG
+
+CFLAGS += $(INCLUDES) $(DEFINES)
+
+$(STUB_ELF): $(SRCS) sdkconfig.h stub.ld $(BUILD_DIR)
 	@echo "  CC(32)   $^ -> $@"
 	$(Q) $(CROSS)gcc $(CFLAGS) -Tstub.ld -Wl,-Map=$(@:.elf=.map) -o $@ $(filter %.c, $^)
 
-$(STUB_OBJ): $(SRCS) $(BUILD_DIR)
+$(STUB_OBJ): $(SRCS) sdkconfig.h $(BUILD_DIR)
 	@echo "  CC(32)   $^ -> $@"
 	$(Q) $(CROSS)gcc $(CFLAGS) -c $(filter %.c, $^) -o $@
 

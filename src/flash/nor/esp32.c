@@ -32,6 +32,7 @@
 #include <target/image.h>
 #include <target/register.h>
 #include <target/esp108.h>
+#include <target/esp108_apptrace.h>
 #include "time_support.h"
 
 /* Regarding performance:
@@ -111,7 +112,7 @@
 
 #define ESP32_STUB_ASYNC_WRITE_ALGO   0
 
-#define ESP32_STUB_STACK_SZ		(1024)
+#define ESP32_STUB_STACK_SZ		(2*1024)
 #define ESP32_STUB_STACK_STAMP	0xCE
 #define ESP32_STUB_STACK_DEBUG	32
 
@@ -542,6 +543,7 @@ static int esp32_protect(struct flash_bank *bank, int set, int first, int last)
 	return ERROR_OK;
 }
 
+#if 0
 static int esp32_write(struct flash_bank *bank, const uint8_t *buffer,
 		uint32_t offset, uint32_t count)
 {
@@ -742,7 +744,198 @@ _on_error:
 #endif
 	return  retval;
 }
+#else
+static int esp32_write(struct flash_bank *bank, const uint8_t *buffer,
+		uint32_t offset, uint32_t count)
+{
+	int retval = ERROR_OK;
+	struct esp32_flash_stub stub;
+	struct working_area *target_buf = NULL;
+	struct duration algo_time;//, tmp_time;
+	uint32_t total_count = 0;
 
+	if (offset < 0x10000) {
+		LOG_ERROR("Invalid offset!");
+		return ERROR_FAIL;
+	}
+
+	if (offset & 0x3UL) {
+		LOG_ERROR("Unaligned offset!");
+		return ERROR_FAIL;
+	}
+
+	if (bank->target->state != TARGET_HALTED) {
+		LOG_ERROR("Target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+	//TODO: check range
+	stub.ainfo.core_mode = XT_MODE_ANY; //TODO: run in ring0 mode
+	stub.reg_params_count = STUB_ARGS_FUNC_START+5;
+
+	if (duration_start(&algo_time) != 0) {
+		LOG_ERROR("Failed to start algo time measurement!");
+		return ERROR_FAIL;
+	}
+	retval = esp32_stub_load(bank->target, &stub);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Failed to load stub (%d)!", retval);
+		return retval;
+	}
+	if (duration_measure(&algo_time) != 0) {
+		LOG_ERROR("Failed to stop algo run measurement!");
+		return ERROR_FAIL;
+	}
+	LOG_INFO("PROF: Stub loaded in %g ms", duration_elapsed(&algo_time)*1000);
+
+	/* memory buffer */
+	if (duration_start(&algo_time) != 0) {
+		LOG_ERROR("Failed to start workarea alloc time measurement!");
+		esp32_stub_cleanup(bank->target, &stub);
+		return ERROR_FAIL;
+	}
+	uint32_t buffer_size = 64*1024;
+	while (target_alloc_alt_working_area_try(bank->target, buffer_size, &target_buf) != ERROR_OK) {
+		buffer_size /= 2;
+		if (buffer_size == 0) {
+			LOG_ERROR("Failed to alloc target buffer for flash data!");
+			esp32_stub_cleanup(bank->target, &stub);
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+	}
+	if (duration_measure(&algo_time) != 0) {
+		LOG_ERROR("Failed to stop workarea alloc measurement!");
+		esp32_stub_cleanup(bank->target, &stub);
+		return ERROR_FAIL;
+	}
+	LOG_INFO("PROF: Allocated target buffer %d bytes in %g ms", buffer_size, duration_elapsed(&algo_time)*1000);
+
+	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+0], "a2", 32, PARAM_IN_OUT);
+	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+1], "a3", 32, PARAM_OUT);
+	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+2], "a4", 32, PARAM_OUT);
+	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+3], "a5", 32, PARAM_OUT);
+	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+4], "a6", 32, PARAM_OUT);
+
+	esp32_algo_init_args(&stub);
+	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+0].value, 0, 32, STUB_CMD_FLASH_WRITE);
+	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+1].value, 0, 32, offset); // flash addr
+	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+2].value, 0, 32, count); // size
+	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+3].value, 0, 32, target_buf->address); // down buffer
+	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+4].value, 0, 32, target_buf->size); // down buffer size
+
+#if ESP32_STUB_STACK_DEBUG
+	retval = esp32_stub_fill_stack(bank->target, stub.stack->address, ESP32_STUB_STACK_DEBUG);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Failed to init stub stack (%d)!", retval);
+		goto _on_error;
+	}
+#endif
+	LOG_INFO("Algorithm start @ 0x%x, stack %d bytes @ 0x%x ", stub.algo->address,
+			ESP32_STUB_STACK_SZ, stub.stack->address + ESP32_STUB_STACK_SZ);
+	retval = target_start_algorithm(bank->target,
+			0, NULL,
+			stub.reg_params_count, stub.reg_params,
+			stub.algo->address, 0,
+			&stub.ainfo);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Faied to start algorithm (%d)!", retval);
+		goto _on_error;
+	}
+
+	if (duration_start(&algo_time) != 0) {
+		LOG_ERROR("Failed to start data write time measurement!");
+		target_halt(bank->target);
+		target_wait_state(bank->target, TARGET_HALTED, 1000);
+		retval = ERROR_FAIL;
+		goto _on_error;
+	}
+	uint32_t prev_block_id = (uint32_t)-1;
+	while (total_count < count) {
+		uint32_t block_id = 0, len = 0;
+		retval = esp108_apptrace_read_data_len(bank->target, &block_id, &len);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Failed to read apptrace status (%d)!", retval);
+			target_halt(bank->target);
+			target_wait_state(bank->target, TARGET_HALTED, 1000);
+			goto _on_error;
+		}
+		if (prev_block_id != block_id) {
+			uint32_t wr_sz = count - total_count < ESP32_USR_BLOCK_SZ_MAX ? count - total_count : ESP32_USR_BLOCK_SZ_MAX;
+			retval = esp108_apptrace_usr_block_write(bank->target, block_id, buffer + total_count, wr_sz);
+			if (retval != ERROR_OK) {
+				LOG_ERROR("Failed to write apptrace data (%d)!", retval);
+				target_halt(bank->target);
+				target_wait_state(bank->target, TARGET_HALTED, 1000);
+				goto _on_error;
+			}
+			prev_block_id = block_id;
+			total_count += wr_sz;
+		}
+		//target_poll(bank->target);
+		alive_sleep(10);
+		if (bank->target->state != TARGET_DEBUG_RUNNING) {
+			LOG_ERROR("Algorithm accidentally stopped (%d)!", bank->target->state);
+			break;
+		}
+	}
+	if (duration_measure(&algo_time) != 0) {
+		LOG_ERROR("Failed to stop data write measurement!");
+		target_halt(bank->target);
+		target_wait_state(bank->target, TARGET_HALTED, 1000);
+		retval = ERROR_FAIL;
+		goto _on_error;
+	}
+	LOG_INFO("PROF: Data written in %g ms @ %g KB/s", duration_elapsed(&algo_time)*1000, duration_kbps(&algo_time, total_count));
+	LOG_INFO("Wait algorithm completion");
+	retval = target_wait_algorithm(bank->target,
+			0, NULL,
+			stub.reg_params_count, stub.reg_params,
+			0, 5000,
+			&stub.ainfo);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Faied to wait algorithm (%d)!", retval);
+		target_halt(bank->target);
+		target_wait_state(bank->target, TARGET_HALTED, 1000);
+		goto _on_error;
+	}
+	LOG_INFO("Check algorithm RC");
+	int flasher_rc = buf_get_u32(stub.reg_params[STUB_ARGS_FUNC_START+0].value, 0, 32);
+	if (flasher_rc != STUB_ERR_OK) {
+		LOG_ERROR("Failed to read flash (%d)!", flasher_rc);
+		retval = ERROR_FAIL;
+		goto _on_error;
+	}
+
+#if ESP32_STUB_STACK_DEBUG
+	retval = esp32_stub_check_stack(bank->target, stub.stack->address, ESP32_STUB_STACK_DEBUG+2);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Failed to check stub stack (%d)!", retval);
+		goto _on_error;
+	}
+#endif
+
+_on_error:
+	destroy_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+0]);
+	destroy_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+1]);
+	destroy_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+2]);
+	destroy_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+3]);
+	destroy_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+4]);
+	if (target_buf) {
+		if (duration_start(&algo_time) != 0) {
+			LOG_ERROR("Failed to start workarea alloc time measurement!");
+		}
+		target_free_alt_working_area(bank->target, target_buf);
+		if (duration_measure(&algo_time) != 0) {
+			LOG_ERROR("Failed to stop data write measurement!");
+		}
+		LOG_INFO("PROF: Workarea freed in %g ms", duration_elapsed(&algo_time)*1000);
+	}
+	esp32_stub_cleanup(bank->target, &stub);
+
+	return  retval;
+}
+#endif
+
+#if 0
 static int esp32_read(struct flash_bank *bank, uint8_t *buffer,
 		uint32_t offset, uint32_t count)
 {
@@ -842,6 +1035,185 @@ _on_error:
 
 	return  retval;
 }
+#else
+static int esp32_read(struct flash_bank *bank, uint8_t *buffer,
+		uint32_t offset, uint32_t count)
+{
+	int retval = ERROR_OK;
+	struct esp32_flash_stub stub;
+	struct duration algo_time;
+
+	if (offset & 0x3UL) {
+		LOG_ERROR("Unaligned offset!");
+		return ERROR_FAIL;
+	}
+
+	if (bank->target->state != TARGET_HALTED) {
+		LOG_ERROR("Target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+	//TODO: check range
+	stub.ainfo.core_mode = XT_MODE_ANY; //TODO: run in ring0 mode
+	stub.reg_params_count = STUB_ARGS_FUNC_START+4;
+
+	uint8_t *rd_buf = malloc(ESP32_TRACEMEM_BLOCK_SZ);
+	if (!rd_buf) {
+		LOG_ERROR("Failed to alloc read buffer!");
+		return ERROR_FAIL;
+	}
+
+	if (duration_start(&algo_time) != 0) {
+		LOG_ERROR("Failed to start algo time measurement!");
+		free(rd_buf);
+		return ERROR_FAIL;
+	}
+	retval = esp32_stub_load(bank->target, &stub);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Failed to load stub (%d)!", retval);
+		free(rd_buf);
+		return retval;
+	}
+	if (duration_measure(&algo_time) != 0) {
+		LOG_ERROR("Failed to stop algo run measurement!");
+		free(rd_buf);
+		return ERROR_FAIL;
+	}
+	float tm = duration_elapsed(&algo_time);
+	LOG_INFO("Stub loaded in %g ms", tm*1000);
+
+	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+0], "a2", 32, PARAM_IN_OUT);
+	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+1], "a3", 32, PARAM_OUT);
+	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+2], "a4", 32, PARAM_OUT);
+	init_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+3], "a5", 32, PARAM_OUT);
+
+	esp32_algo_init_args(&stub);
+	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+0].value, 0, 32, STUB_CMD_FLASH_READ);
+	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+1].value, 0, 32, offset); // flash addr
+	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+2].value, 0, 32, count); // size
+	buf_set_u32(stub.reg_params[STUB_ARGS_FUNC_START+3].value, 0, 32, 0); // buffer
+
+#if ESP32_STUB_STACK_DEBUG
+	retval = esp32_stub_fill_stack(bank->target, stub.stack->address, ESP32_STUB_STACK_DEBUG);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Failed to init stub stack (%d)!", retval);
+		goto _on_error;
+	}
+#endif
+	LOG_INFO("Algorithm start @ 0x%x, stack %d bytes @ 0x%x ", stub.algo->address,
+			ESP32_STUB_STACK_SZ, stub.stack->address + ESP32_STUB_STACK_SZ);
+	retval = target_start_algorithm(bank->target,
+			0, NULL,
+			stub.reg_params_count, stub.reg_params,
+			stub.algo->address, 0,
+			&stub.ainfo);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Faied to start algorithm (%d)!", retval);
+		goto _on_error;
+	}
+
+	uint32_t total_count = 0;
+	if (duration_start(&algo_time) != 0) {
+		LOG_ERROR("Failed to start algo time measurement!");
+		target_halt(bank->target);
+		target_wait_state(bank->target, TARGET_HALTED, 1000);
+		retval = ERROR_FAIL;
+		goto _on_error;
+	}
+	while (total_count < count) {
+		uint32_t block_id = 0, len = 0;
+		retval = esp108_apptrace_read_data_len(bank->target, &block_id, &len);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Failed to read apptrace status (%d)!", retval);
+			target_halt(bank->target);
+			target_wait_state(bank->target, TARGET_HALTED, 1000);
+			goto _on_error;
+		}
+		if (len) {
+			//TODO: do we need to read whole block?
+			retval = esp108_apptrace_read_data(bank->target, len/*ESP32_TRACEMEM_BLOCK_SZ*/, rd_buf, block_id, 1/*ack*/, NULL);
+			if (retval != ERROR_OK) {
+				LOG_ERROR("Failed to read apptrace status (%d)!", retval);
+				target_halt(bank->target);
+				target_wait_state(bank->target, TARGET_HALTED, 1000);
+				goto _on_error;
+			}
+			LOG_INFO("DATA (%d/%d): %x %x %x %x %x %x %x %x", len, ESP32_TRACEMEM_BLOCK_SZ,
+				rd_buf[0], rd_buf[1], rd_buf[2], rd_buf[3],
+				rd_buf[4], rd_buf[5], rd_buf[6], rd_buf[7]);
+
+			uint8_t *ptr = rd_buf;
+			while (ptr < rd_buf + len) {
+				uint32_t data_sz = 0;
+				ptr = esp108_apptrace_usr_block_get(ptr, &data_sz);
+				if (data_sz > 0) {
+					memcpy(buffer + total_count, ptr, data_sz);
+				}
+				ptr += data_sz;
+				total_count += data_sz;
+			}
+			if (duration_start(&algo_time) != 0) {
+				LOG_ERROR("Failed to start algo time measurement!");
+				target_halt(bank->target);
+				target_wait_state(bank->target, TARGET_HALTED, 1000);
+				retval = ERROR_FAIL;
+				goto _on_error;
+			}
+		} else {
+			if (duration_measure(&algo_time) != 0) {
+				LOG_ERROR("Failed to stop algo run measurement!");
+				target_halt(bank->target);
+				target_wait_state(bank->target, TARGET_HALTED, 1000);
+				retval = ERROR_FAIL;
+				goto _on_error;
+			}
+			if (1000*duration_elapsed(&algo_time) > 3000) {
+				LOG_ERROR("Read data tmo!");
+				target_halt(bank->target);
+				target_wait_state(bank->target, TARGET_HALTED, 1000);
+				retval = ERROR_FAIL;
+				goto _on_error;
+			}
+		}
+	}
+	LOG_INFO("Wait algorithm completion");
+	retval = target_wait_algorithm(bank->target,
+			0, NULL,
+			stub.reg_params_count, stub.reg_params,
+			0, 10000,
+			&stub.ainfo);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Faied to wait algorithm (%d)!", retval);
+		target_halt(bank->target);
+		target_wait_state(bank->target, TARGET_HALTED, 1000);
+		goto _on_error;
+	}
+	LOG_INFO("Check algorithm RC");
+	int flasher_rc = buf_get_u32(stub.reg_params[STUB_ARGS_FUNC_START+0].value, 0, 32);
+	if (flasher_rc != STUB_ERR_OK) {
+		LOG_ERROR("Failed to read flash (%d)!", flasher_rc);
+		retval = ERROR_FAIL;
+		goto _on_error;
+	}
+
+#if ESP32_STUB_STACK_DEBUG
+	retval = esp32_stub_check_stack(bank->target, stub.stack->address, ESP32_STUB_STACK_DEBUG);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Failed to check stub stack (%d)!", retval);
+		goto _on_error;
+	}
+#endif
+
+_on_error:
+	destroy_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+0]);
+	destroy_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+1]);
+	destroy_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+2]);
+	destroy_reg_param(&stub.reg_params[STUB_ARGS_FUNC_START+3]);
+	esp32_stub_cleanup(bank->target, &stub);
+	free(rd_buf);
+
+	return  retval;
+}
+#endif
 
 static int esp32_probe(struct flash_bank *bank)
 {

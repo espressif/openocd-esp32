@@ -28,7 +28,8 @@
  * a2 = count, result (out)
  * a3 = command arg1: flash addr
  * a4 = command arg2: size
- * a5 = command arg3: buffer start
+ * a5 = command arg3: down buffer start
+ * a6 = command arg3: down buffer size
  */
     .text
 
@@ -37,7 +38,8 @@ _stub_enter:
     mov     a10, a2
     mov     a11, a3
     mov 	a12, a4
-    mov     a13, a5
+    mov 	a13, a5
+    mov 	a14, a6
 	callx8	a0
     mov 	a2, a10
     break 0,0

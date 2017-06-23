@@ -16,14 +16,12 @@
  */
 
 MEMORY {
-/*
-  iram : org = 0x40090000, len = 0x10000
-  dram : org = 0x3FFC0000, len = 0x20000
-*/
   /* place stub at the beginning of the OpenOCD working area, 
      remaining space will be used for other chunks */
-  iram : org = 0x400A0000, len = 0x1000
-  dram : org = 0x3FFF8000, len = 0x400
+  iram : org = 0x40090000, len = 0x1800
+  dram : org = 0x3FFC0000, len = 0x5000
+/*  iram : org = 0x400A0000, len = 0x1400
+  dram : org = 0x3FFF8000, len = 0x400*/
 }
 
 PHDRS 

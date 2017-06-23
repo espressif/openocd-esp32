@@ -39,12 +39,17 @@
 #include "rom/spi_flash.h"
 #include "rom/uart.h"
 #include "xtensa/hal.h"
+#include "eri.h"
+#include "trax.h"
 #include "esp_app_trace.h"
 
 #define STUB_ASYNC_WRITE_ALGO   0
 #define STUB_USE_APPTRACE       1
 
 #define SPI_FLASH_SEC_SIZE      4096    /**< SPI Flash sector size */
+
+#define ESP_APPTRACE_TRAX_BLOCK_SIZE            (0x4000UL)
+#define ESP_APPTRACE_USR_DATA_LEN_MAX           (ESP_APPTRACE_TRAX_BLOCK_SIZE - 2)
 
 #define STUB_ERR_OK             0
 #define STUB_ERR_FAIL           (-1)
@@ -55,6 +60,9 @@
 #define STUB_CMD_FLASH_WRITE    2
 #define STUB_CMD_FLASH_ERASE    3
 #define STUB_CMD_FLASH_TEST     4
+
+#define ESP_APPTRACE_TRAX_CTRL_REG              ERI_TRAX_DELAYCNT
+#define ESP_APPTRACE_TRAX_HOST_CONNECT          (1 << 23)
 
 #define STUB_LOG_NONE           0
 #define STUB_LOG_ERROR          1
@@ -79,8 +87,25 @@
 #define STUB_LOGV( format, ... )  STUB_LOG(STUB_LOG_VERBOSE, "STUB_V: "format, ##__VA_ARGS__)
 #define STUB_LOGO( format, ... )  STUB_LOG(STUB_LOG_NONE, format, ##__VA_ARGS__)
 
+//#define XT_CLOCK_FREQ 240000000UL // TODO: get clock from PLL config
+#define CPUTICKS2US(_t_)       ((_t_)/(XT_CLOCK_FREQ/1000000))
+
 extern uint32_t _bss_start;
 extern uint32_t _bss_end;
+
+#if STUB_USE_APPTRACE
+/* used in app trace module */
+uint32_t esp_log_early_timestamp()
+{
+  return 0;//xthal_get_ccount();
+}
+#endif
+
+void __assert_func(const char *path, int line, const char *func, const char *msg)// _ATTRIBUTE ((__noreturn__))
+{
+    STUB_LOGO("ASSERT at %s:%d '%s'\n", func, line, msg);
+    while (1);
+}
 
 /**
  * The following two functions are replacements for Cache_Read_Disable and Cache_Read_Enable
@@ -163,9 +188,91 @@ static int stub_flash_test(void)
   return ret;
 }
 
-#define XT_CLOCK_FREQ 240000000UL
-#define CPUTICKS2US(_t_)       ((_t_)/(XT_CLOCK_FREQ/1000000))
+#if STUB_USE_APPTRACE
+static int stub_flash_read_loop(uint32_t addr, uint32_t size)
+{
+    esp_rom_spiflash_result_t rc;
+    uint32_t total_cnt = 0;
+    STUB_LOGD("Start reading %d bytes @ 0x%x\n", size, addr);
 
+    while (total_cnt < size) {
+      uint32_t rd_sz = size - total_cnt > ESP_APPTRACE_USR_DATA_LEN_MAX ? ESP_APPTRACE_USR_DATA_LEN_MAX : size - total_cnt;
+      if (rd_sz & 0x3UL) {
+        rd_sz &= ~0x3UL;
+      }
+      if (rd_sz == 0) {
+        break;
+      }
+      uint32_t start = xthal_get_ccount();
+      uint8_t *buf = esp_apptrace_buffer_get(ESP_APPTRACE_DEST_TRAX, rd_sz, ESP_APPTRACE_TMO_INFINITE);
+      if (!buf) {
+        STUB_LOGE("Failed to get trace buf!\n");
+        return STUB_ERR_FAIL;
+      }
+      uint32_t end = xthal_get_ccount();
+      STUB_LOGD("Got trace buf %d bytes @ 0x%x in %d ms\n", rd_sz, buf, CPUTICKS2US(end - start)/1000);
+
+      start = xthal_get_ccount();
+      rc = esp_rom_spiflash_read(addr + total_cnt, (uint32_t *)buf, rd_sz);
+      end = xthal_get_ccount();
+      STUB_LOGD("Read flash @ 0x%x sz %d in %d ms\n", addr + total_cnt, rd_sz, CPUTICKS2US(end - start)/1000);
+      if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
+        STUB_LOGE("Failed to read flash (%d)!\n", rc);
+        esp_apptrace_buffer_put(ESP_APPTRACE_DEST_TRAX, buf, ESP_APPTRACE_TMO_INFINITE);
+        return STUB_ERR_FAIL;
+      }
+      total_cnt += rd_sz;
+
+      esp_err_t err = esp_apptrace_buffer_put(ESP_APPTRACE_DEST_TRAX, buf, ESP_APPTRACE_TMO_INFINITE);
+      if (err != ESP_OK) {
+        STUB_LOGE("Failed to put trace buf!\n");
+        return STUB_ERR_FAIL;
+      }
+      err = esp_apptrace_flush(ESP_APPTRACE_DEST_TRAX, ESP_APPTRACE_TMO_INFINITE);
+      if (err != ESP_OK) {
+        STUB_LOGE("Failed to flush trace buf!\n");
+        return STUB_ERR_FAIL;
+      }
+      STUB_LOGE("Sent trace buf %d bytes @ 0x%x\n", rd_sz, buf);
+    }
+
+    if (total_cnt < size) {
+      if ((size - total_cnt) >= 4) {
+        STUB_LOGE("Exited loop when remaing data size is more the 4 bytes!\n");
+        return STUB_ERR_FAIL; /*should never get here*/
+      }
+      // if we exited loop because remaing data size is less than 4 bytes
+      uint8_t last_bytes[4];
+      rc = esp_rom_spiflash_read(addr + total_cnt, (uint32_t *)last_bytes, 4);
+      STUB_LOGD("Read padded word from flash @ 0x%x\n", addr + total_cnt);
+      if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
+        STUB_LOGE("Failed to read last word from flash (%d)!\n", rc);
+        return STUB_ERR_FAIL;
+      }
+      uint8_t *buf = esp_apptrace_buffer_get(ESP_APPTRACE_DEST_TRAX, size - total_cnt, ESP_APPTRACE_TMO_INFINITE);
+      if (!buf) {
+        STUB_LOGE("Failed to get trace buf!\n");
+        return STUB_ERR_FAIL;
+      }
+      memcpy(buf, last_bytes, size - total_cnt);
+      esp_err_t err = esp_apptrace_buffer_put(ESP_APPTRACE_DEST_TRAX, buf, ESP_APPTRACE_TMO_INFINITE);
+      if (err != ESP_OK) {
+        STUB_LOGE("Failed to put trace buf!\n");
+        return STUB_ERR_FAIL;
+      }
+      err = esp_apptrace_flush(ESP_APPTRACE_DEST_TRAX, ESP_APPTRACE_TMO_INFINITE);
+      if (err != ESP_OK) {
+        STUB_LOGE("Failed to flush trace buf!\n");
+        return STUB_ERR_FAIL;
+      }
+      STUB_LOGE("Sent last trace buf %d bytes @ 0x%x\n", size - total_cnt, buf);
+    }
+
+    STUB_LOGD("Read %d bytes @ 0x%x\n", size, addr);
+
+    return STUB_ERR_OK;
+}
+#else
 static int stub_flash_read(uint32_t addr, uint8_t *data, uint32_t size)
 {
   int ret = STUB_ERR_OK;
@@ -217,8 +324,90 @@ static int stub_flash_read(uint32_t addr, uint8_t *data, uint32_t size)
 
   return ret;
 }
+#endif
 
-#if STUB_ASYNC_WRITE_ALGO == 0
+#if STUB_USE_APPTRACE
+static int stub_flash_write_loop(uint32_t addr, uint32_t size)
+{
+    esp_rom_spiflash_result_t rc;
+    uint32_t total_cnt = 0;
+    uint8_t cached_bytes_num = 0, cached_bytes[4];
+    STUB_LOGD("Start writing %d bytes @ 0x%x\n", size, addr);
+
+    //TODO: check alignment
+    while (total_cnt < size) {
+      uint32_t wr_sz = size - total_cnt - cached_bytes_num;
+      STUB_LOGD("Req trace down buf %d bytes %d-%d-%d\n", wr_sz, size, total_cnt, cached_bytes_num);
+      uint32_t start = xthal_get_ccount();
+      uint8_t *wr_p, *buf = esp_apptrace_down_buffer_get(ESP_APPTRACE_DEST_TRAX, &wr_sz, ESP_APPTRACE_TMO_INFINITE);
+      if (!buf) {
+        STUB_LOGE("Failed to get trace down buf!\n");
+        return STUB_ERR_FAIL;
+      }
+      uint32_t end = xthal_get_ccount();
+      STUB_LOGD("Got trace down buf %d bytes @ 0x%x in %d ms\n", wr_sz, buf, CPUTICKS2US(end - start)/1000);
+
+      wr_p = buf;
+      if (cached_bytes_num != 0) {
+        // add cached bytes from the end of the prev buffer to the starting bytes of the current one
+        memcpy(&cached_bytes[cached_bytes_num], buf, 4-cached_bytes_num);
+        rc = esp_rom_spiflash_write(addr + total_cnt, (uint32_t *)cached_bytes, 4);
+        STUB_LOGD("Write padded word to flash @ 0x%x\n", addr + total_cnt);
+        if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
+          STUB_LOGE("Failed to write flash (%d)\n", rc);
+          esp_apptrace_down_buffer_put(ESP_APPTRACE_DEST_TRAX, buf, ESP_APPTRACE_TMO_INFINITE);
+          return STUB_ERR_FAIL;
+        }
+        wr_p += 4-cached_bytes_num;
+        wr_sz -= 4-cached_bytes_num;
+        total_cnt += 4;
+        cached_bytes_num = 0;
+      }
+      if (wr_sz & 0x3UL) {
+        cached_bytes_num = wr_sz & 0x3UL;
+        wr_sz &= ~0x3UL;
+        memcpy(cached_bytes, wr_p + wr_sz, cached_bytes_num);
+      }
+      // write buffer with aligned size
+      if (wr_sz) {
+        start = xthal_get_ccount();
+        rc = esp_rom_spiflash_write(addr + total_cnt, (uint32_t *)wr_p, wr_sz);
+        end = xthal_get_ccount();
+        STUB_LOGD("Write flash @ 0x%x sz %d in %d ms\n", addr + total_cnt, wr_sz, CPUTICKS2US(end - start)/1000);
+        if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
+          STUB_LOGE("Failed to write flash (%d)\n", rc);
+          esp_apptrace_down_buffer_put(ESP_APPTRACE_DEST_TRAX, buf, ESP_APPTRACE_TMO_INFINITE);
+          return STUB_ERR_FAIL;
+        }
+        total_cnt += wr_sz;
+      }
+      // free buffer
+      esp_err_t err = esp_apptrace_down_buffer_put(ESP_APPTRACE_DEST_TRAX, buf, ESP_APPTRACE_TMO_INFINITE);
+      if (err != ESP_OK) {
+        STUB_LOGE("Failed to put trace buf!\n");
+        return STUB_ERR_FAIL;
+      }
+      // STUB_LOGE("Recvd trace down buf %d bytes @ 0x%x\n", wr_sz, buf);
+    }
+
+    if (cached_bytes_num != 0) {
+      // add padding to cached bytes from the end of the last buffer
+      while (cached_bytes_num & 0x3UL) {
+        cached_bytes[cached_bytes_num++] = 0xFF;
+      }
+      rc = esp_rom_spiflash_write(addr + total_cnt, (uint32_t *)cached_bytes, 4);
+      STUB_LOGD("Write last padded word to flash @ 0x%x\n", addr + total_cnt);
+      if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
+        STUB_LOGE("Failed to write flash (%d)\n", rc);
+        return STUB_ERR_FAIL;
+      }
+    }
+
+    STUB_LOGD("Wrote %d bytes @ 0x%x\n", size, addr);
+
+    return STUB_ERR_OK;
+}
+#else
 static int stub_flash_write(uint32_t addr, uint8_t *data, uint32_t size)
 {
   int ret = STUB_ERR_OK;
@@ -274,52 +463,6 @@ static int stub_flash_write(uint32_t addr, uint8_t *data, uint32_t size)
   }
   return ret;
 }
-#else
-// fifo size must be greater then this value
-#define STUB_FLASH_WRITE_CHUNK_SZ   32 //must multiple of 4
-static int stub_flash_write(uint32_t addr, uint32_t size, uint8_t *buf_start, uint8_t *buf_end)
-{
-  int ret = STUB_ERR_OK;
-  esp_rom_spiflash_result_t rc;
-  //uint8_t dummy_buf[4];
-  uint32_t wr_sz, written = 0;
-  volatile uint32_t *wr_p = (uint32_t *)buf_start, *rd_p = (uint32_t *)(buf_start + sizeof(uint32_t));
-
-  buf_start += 2*sizeof(uint32_t);
-  for (uint32_t wr = *wr_p, rd = *rd_p; wr != 0 && written < size; wr = *wr_p, rd = *rd_p) {
-    STUB_LOGD("Write wr 0x%x (0x%x) rd 0x%x (0x%x)\n", *wr_p, wr_p, *rd_p, rd_p);
-    if (wr == rd) {
-      continue;
-    }
-    if (wr > rd) {
-      if ((wr - rd) < STUB_FLASH_WRITE_CHUNK_SZ) {
-        continue; //wait for full chunk
-      }
-      wr_sz = STUB_FLASH_WRITE_CHUNK_SZ;
-    } else {
-      // in case of wrapping write the remainder
-      wr_sz = (uint32_t)buf_end - rd;
-    }
-
-    STUB_LOGD("Write flash @ 0x%x sz %d\n", addr, wr_sz);
-    rc = esp_rom_spiflash_write(addr, (uint32_t *)rd, wr_sz);
-    if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-      STUB_LOGE("Failed to write flash (%d)\n", rc);
-      *rd_p = 0;
-      return STUB_ERR_FAIL;
-    }
-
-    written += wr_sz;
-    addr += wr_sz;
-    rd += wr_sz;
-    if (rd == (uint32_t)buf_end) {
-      *rd_p = (uint32_t)buf_start;
-    } else {
-      *rd_p  = rd;
-    }
-  }
-  return ret;
-}
 #endif
 
 static int stub_flash_erase(uint32_t flash_addr, uint32_t size)
@@ -352,12 +495,25 @@ static int stub_flash_handler(int cmd, va_list ap)
   uint32_t flags[2];
   uint32_t flash_addr = va_arg(ap, uint32_t);
   uint32_t size = va_arg(ap, uint32_t);
-  uint8_t *buf = va_arg(ap, uint8_t *);
-#if STUB_ASYNC_WRITE_ALGO
-  uint8_t *buf_end = va_arg(ap, uint8_t *);
-#endif
+  uint8_t *down_buf = va_arg(ap, uint8_t *);
+  uint32_t down_size = va_arg(ap, uint32_t);
 
-  STUB_LOGD("flash a %x, b %x, s %d\n", flash_addr, buf, size);
+  STUB_LOGD("flash a %x, s %d\n", flash_addr, size);
+
+  STUB_LOGI("Init apptrace module db 0x%x, sz %d\n", down_buf, down_size);
+  esp_err_t err = esp_apptrace_init();
+  if (err != ESP_OK) {
+    STUB_LOGE("Failed to init apptrace module (%d)!\n", err);
+    return STUB_ERR_FAIL;
+  }
+  // imply that host is auto-connected
+  uint32_t reg = eri_read(ESP_APPTRACE_TRAX_CTRL_REG);
+  reg |= ESP_APPTRACE_TRAX_HOST_CONNECT;
+  eri_write(ESP_APPTRACE_TRAX_CTRL_REG, reg);
+
+  if (down_size) {
+    esp_apptrace_down_buffer_config(down_buf, down_size);
+  }
 
   stub_spi_flash_disable_cache(other_core_id, &flags[1]);
   stub_spi_flash_disable_cache(core_id, &flags[0]);
@@ -371,17 +527,20 @@ static int stub_flash_handler(int cmd, va_list ap)
 
   switch (cmd) {
     case STUB_CMD_FLASH_READ:
-//  #if STUB_USE_APPTRACE
+#if STUB_USE_APPTRACE
+      ret = stub_flash_read_loop(flash_addr, size);
+#else
       ret = stub_flash_read(flash_addr, buf, size);
+#endif
       break;
     case STUB_CMD_FLASH_ERASE:
       ret = stub_flash_erase(flash_addr, size);
       break;
     case STUB_CMD_FLASH_WRITE:
-#if STUB_ASYNC_WRITE_ALGO == 0
-      ret = stub_flash_write(flash_addr, buf, size);
+#if STUB_USE_APPTRACE
+      ret = stub_flash_write_loop(flash_addr, size);
 #else
-      ret = stub_flash_write(flash_addr, size, buf, buf_end);
+      ret = stub_flash_write(flash_addr, buf, size);
 #endif
       break;
     case STUB_CMD_FLASH_TEST:
@@ -409,11 +568,12 @@ int stub_main(int cmd, ...)
   }
 
   // we get here just after OpenOCD jumper stub
-  // up to 3 parameters are passed via registers by that jumping code
+  // up to 5 parameters are passed via registers by that jumping code
   // interrupts level in PS is set to one to allow high prio IRQs only (including Debug Interrupt)
-  // We need Debug Interrupt to allow breakpoints handling by OpenOCD
+  // We need Debug Interrupt Level to allow breakpoints handling by OpenOCD
 
   //TODO: temporarily relocate vector
+  //TODO: reset all SW memory mappings (it is better to do in OpenOCD)
 
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
   uartAttach();
@@ -422,6 +582,14 @@ int stub_main(int cmd, ...)
 
   STUB_LOGD("BSS 0x%x..0x%x\n", &_bss_start, &_bss_end);
   STUB_LOGD("cmd %d\n", cmd);
+
+  // for (;;){//uint32_t i = 0; ; i++) {
+  //   uint32_t reg = eri_read(ESP_APPTRACE_TRAX_CTRL_REG);
+  //   //reg |= ESP_APPTRACE_TRAX_HOST_CONNECT;
+  //   //eri_write(ESP_APPTRACE_TRAX_CTRL_REG, i & 0x7FFFUL);
+  //   STUB_LOGI("TRAX_CTRL 0x%x\n", reg);
+  // }
+  // return ret;
 
   va_start(ap, cmd);
 
@@ -441,5 +609,6 @@ int stub_main(int cmd, ...)
 
   va_end(ap);
 
+  STUB_LOGD("exit %d\n", ret);
   return ret;
 }
