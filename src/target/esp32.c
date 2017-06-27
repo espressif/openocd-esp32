@@ -38,6 +38,7 @@
 
 #include "esp32.h"
 #include "esp108_dbg_regs.h"
+#include "esp108_apptrace.h"
 
 /*
 This is a JTAG driver for the ESP32, the are two Tensilica cores inside 
@@ -1654,6 +1655,16 @@ COMMAND_HANDLER(esp32_cmd_flashbootstrap)
 	return ERROR_OK;
 }
 
+COMMAND_HANDLER(esp32_cmd_apptrace)
+{
+	return esp_cmd_apptrace_generic(get_current_target(CMD_CTX), 0, CMD_ARGV, CMD_ARGC);
+}
+
+COMMAND_HANDLER(esp32_cmd_sysview)
+{
+	return esp_cmd_apptrace_generic(get_current_target(CMD_CTX), 1, CMD_ARGV, CMD_ARGC);
+}
+
 static const struct command_registration esp32_any_command_handlers[] = {
 	{
 		.name = "tracestart",
@@ -1675,6 +1686,20 @@ static const struct command_registration esp32_any_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "Tracing: Dump trace memory to a file",
 		.usage = "outfile",
+	},
+	{
+		.name = "apptrace",
+		.handler = esp32_cmd_apptrace,
+		.mode = COMMAND_ANY,
+		.help = "App Tracing: application level trace control. Starts, stops or queries tracing process status.",
+		.usage = "[start outfile1 [outfile2] [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]] | [stop] | [status] | [dump cores_num outfile]",
+	},
+	{
+		.name = "sysview",
+		.handler = esp32_cmd_sysview,
+		.mode = COMMAND_ANY,
+		.help = "App Tracing: SEGGER SystemView compatible trace control. Starts, stops or queries tracing process status.",
+		.usage = "[start outfile1 [outfile2] [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]] | [stop] | [status]",
 	},
 	{
 		.name = "smpbreak",
