@@ -33,6 +33,7 @@
 #include <target/register.h>
 #include <target/esp108.h>
 #include <target/esp108_apptrace.h>
+#include <target/esp32.h>
 #include "time_support.h"
 
 /* Regarding performance:
@@ -284,7 +285,9 @@ static void esp32_stub_cleanup(struct target *target, struct esp32_flash_stub *s
 	target_free_working_area(target, stub->algo);
 	target_free_working_area(target, stub->code);
 	target_free_alt_working_area(target, stub->stack);
-	target_free_alt_working_area(target, stub->data);
+	if (stub->data) {
+		target_free_alt_working_area(target, stub->data);
+	}
 }
 
 #if ESP32_STUB_STACK_DEBUG
@@ -437,7 +440,7 @@ static void esp32_algo_init_args(struct esp32_flash_stub *stub)
 	buf_set_u32(stub->reg_params[1].value, 0, 32, stack_addr);
 	buf_set_u32(stub->reg_params[2].value, 0, 32, 0x0); // initial window base
 	buf_set_u32(stub->reg_params[3].value, 0, 32, 0x1); // initial window start
-	buf_set_u32(stub->reg_params[4].value, 0, 32, 0x60021); // enable WOE, UM and debug interrupts level
+	buf_set_u32(stub->reg_params[4].value, 0, 32, 0x60021);//0x0001f); // enable WOE, UM and debug interrupts level
 }
 
 #if 0
@@ -493,12 +496,6 @@ static int esp32_erase(struct flash_bank *bank, int first, int last)
 	}
 	assert((0 <= first) && (first <= last) && (last < bank->num_sectors));
 	//TODO: check range
-	// int retval = esp32_stub_cmd_do(bank->target, STUB_CMD_FLASH_ERASE,
-	// 		first*SPI_FLASH_SEC_SIZE, (last-first+1)*SPI_FLASH_SEC_SIZE);
-	// if (retval != ERROR_OK) {
-	// 	LOG_ERROR("Failed to exec erase flash cmd (%d)!", retval);
-	// 	return retval;
-	// }
 	stub.ainfo.core_mode = XT_MODE_ANY; //TODO: run in ring0 mode
 	stub.reg_params_count = STUB_ARGS_FUNC_START+3;
 
@@ -753,6 +750,7 @@ static int esp32_write(struct flash_bank *bank, const uint8_t *buffer,
 	struct working_area *target_buf = NULL;
 	struct duration algo_time;//, tmp_time;
 	uint32_t total_count = 0;
+	struct target *core_target;
 
 	if (offset < 0x10000) {
 		LOG_ERROR("Invalid offset!");
@@ -768,6 +766,16 @@ static int esp32_write(struct flash_bank *bank, const uint8_t *buffer,
 		LOG_ERROR("Target not halted");
 		return ERROR_TARGET_NOT_HALTED;
 	}
+
+	if (memcmp(target_type_name(bank->target), "esp32", 6) == 0) {
+		struct esp32_common *esp32 = (struct esp32_common *)bank->target->arch_info;
+		LOG_INFO("Use core0 of target '%s'", target_type_name(bank->target));
+		core_target = esp32->esp32_targets[esp32->active_cpu];
+	} else {
+		core_target = bank->target;
+		LOG_INFO("Use target '%s'", target_type_name(bank->target));
+	}
+//	core_target = bank->target;
 	//TODO: check range
 	stub.ainfo.core_mode = XT_MODE_ANY; //TODO: run in ring0 mode
 	stub.reg_params_count = STUB_ARGS_FUNC_START+5;
@@ -843,29 +851,23 @@ static int esp32_write(struct flash_bank *bank, const uint8_t *buffer,
 
 	if (duration_start(&algo_time) != 0) {
 		LOG_ERROR("Failed to start data write time measurement!");
-		target_halt(bank->target);
-		target_wait_state(bank->target, TARGET_HALTED, 1000);
 		retval = ERROR_FAIL;
-		goto _on_error;
+		goto _wait_algo;
 	}
 	uint32_t prev_block_id = (uint32_t)-1;
 	while (total_count < count) {
 		uint32_t block_id = 0, len = 0;
-		retval = esp108_apptrace_read_data_len(bank->target, &block_id, &len);
+		retval = esp108_apptrace_read_data_len(core_target, &block_id, &len);
 		if (retval != ERROR_OK) {
 			LOG_ERROR("Failed to read apptrace status (%d)!", retval);
-			target_halt(bank->target);
-			target_wait_state(bank->target, TARGET_HALTED, 1000);
-			goto _on_error;
+			goto _wait_algo;
 		}
 		if (prev_block_id != block_id) {
 			uint32_t wr_sz = count - total_count < ESP32_USR_BLOCK_SZ_MAX ? count - total_count : ESP32_USR_BLOCK_SZ_MAX;
-			retval = esp108_apptrace_usr_block_write(bank->target, block_id, buffer + total_count, wr_sz);
+			retval = esp108_apptrace_usr_block_write(core_target, block_id, buffer + total_count, wr_sz);
 			if (retval != ERROR_OK) {
 				LOG_ERROR("Failed to write apptrace data (%d)!", retval);
-				target_halt(bank->target);
-				target_wait_state(bank->target, TARGET_HALTED, 1000);
-				goto _on_error;
+				goto _wait_algo;
 			}
 			prev_block_id = block_id;
 			total_count += wr_sz;
@@ -879,22 +881,25 @@ static int esp32_write(struct flash_bank *bank, const uint8_t *buffer,
 	}
 	if (duration_measure(&algo_time) != 0) {
 		LOG_ERROR("Failed to stop data write measurement!");
-		target_halt(bank->target);
-		target_wait_state(bank->target, TARGET_HALTED, 1000);
 		retval = ERROR_FAIL;
-		goto _on_error;
+		goto _wait_algo;
 	}
 	LOG_INFO("PROF: Data written in %g ms @ %g KB/s", duration_elapsed(&algo_time)*1000, duration_kbps(&algo_time, total_count));
+
+_wait_algo:
 	LOG_INFO("Wait algorithm completion");
-	retval = target_wait_algorithm(bank->target,
+	int rc = target_wait_algorithm(bank->target,
 			0, NULL,
 			stub.reg_params_count, stub.reg_params,
 			0, 5000,
 			&stub.ainfo);
-	if (retval != ERROR_OK) {
+	if (rc != ERROR_OK) {
 		LOG_ERROR("Faied to wait algorithm (%d)!", retval);
 		target_halt(bank->target);
 		target_wait_state(bank->target, TARGET_HALTED, 1000);
+		if (retval == ERROR_OK) {
+			retval = rc;
+		}
 		goto _on_error;
 	}
 	LOG_INFO("Check algorithm RC");
@@ -1042,6 +1047,7 @@ static int esp32_read(struct flash_bank *bank, uint8_t *buffer,
 	int retval = ERROR_OK;
 	struct esp32_flash_stub stub;
 	struct duration algo_time;
+	struct target *core_target;
 
 	if (offset & 0x3UL) {
 		LOG_ERROR("Unaligned offset!");
@@ -1052,6 +1058,17 @@ static int esp32_read(struct flash_bank *bank, uint8_t *buffer,
 		LOG_ERROR("Target not halted");
 		return ERROR_TARGET_NOT_HALTED;
 	}
+
+	if (memcmp(target_type_name(bank->target), "esp32", 6) == 0) {
+		struct esp32_common *esp32 = (struct esp32_common *)bank->target->arch_info;
+		LOG_INFO("Use core0 of target '%s'", target_type_name(bank->target));
+		core_target = esp32->esp32_targets[esp32->active_cpu];
+	} else {
+		core_target = bank->target;
+		LOG_INFO("Use target '%s'", target_type_name(bank->target));
+	}
+//	core_target = bank->target;
+
 	//TODO: check range
 	stub.ainfo.core_mode = XT_MODE_ANY; //TODO: run in ring0 mode
 	stub.reg_params_count = STUB_ARGS_FUNC_START+4;
@@ -1114,28 +1131,22 @@ static int esp32_read(struct flash_bank *bank, uint8_t *buffer,
 	uint32_t total_count = 0;
 	if (duration_start(&algo_time) != 0) {
 		LOG_ERROR("Failed to start algo time measurement!");
-		target_halt(bank->target);
-		target_wait_state(bank->target, TARGET_HALTED, 1000);
 		retval = ERROR_FAIL;
-		goto _on_error;
+		goto _wait_algo;
 	}
 	while (total_count < count) {
 		uint32_t block_id = 0, len = 0;
-		retval = esp108_apptrace_read_data_len(bank->target, &block_id, &len);
+		retval = esp108_apptrace_read_data_len(core_target, &block_id, &len);
 		if (retval != ERROR_OK) {
 			LOG_ERROR("Failed to read apptrace status (%d)!", retval);
-			target_halt(bank->target);
-			target_wait_state(bank->target, TARGET_HALTED, 1000);
-			goto _on_error;
+			goto _wait_algo;
 		}
 		if (len) {
 			//TODO: do we need to read whole block?
-			retval = esp108_apptrace_read_data(bank->target, len/*ESP32_TRACEMEM_BLOCK_SZ*/, rd_buf, block_id, 1/*ack*/, NULL);
+			retval = esp108_apptrace_read_data(core_target, len/*ESP32_TRACEMEM_BLOCK_SZ*/, rd_buf, block_id, 1/*ack*/, NULL);
 			if (retval != ERROR_OK) {
 				LOG_ERROR("Failed to read apptrace status (%d)!", retval);
-				target_halt(bank->target);
-				target_wait_state(bank->target, TARGET_HALTED, 1000);
-				goto _on_error;
+				goto _wait_algo;
 			}
 			LOG_INFO("DATA (%d/%d): %x %x %x %x %x %x %x %x", len, ESP32_TRACEMEM_BLOCK_SZ,
 				rd_buf[0], rd_buf[1], rd_buf[2], rd_buf[3],
@@ -1153,38 +1164,37 @@ static int esp32_read(struct flash_bank *bank, uint8_t *buffer,
 			}
 			if (duration_start(&algo_time) != 0) {
 				LOG_ERROR("Failed to start algo time measurement!");
-				target_halt(bank->target);
-				target_wait_state(bank->target, TARGET_HALTED, 1000);
 				retval = ERROR_FAIL;
-				goto _on_error;
+				goto _wait_algo;
 			}
 		} else {
 			if (duration_measure(&algo_time) != 0) {
 				LOG_ERROR("Failed to stop algo run measurement!");
-				target_halt(bank->target);
-				target_wait_state(bank->target, TARGET_HALTED, 1000);
 				retval = ERROR_FAIL;
-				goto _on_error;
+				goto _wait_algo;
 			}
 			if (1000*duration_elapsed(&algo_time) > 3000) {
 				LOG_ERROR("Read data tmo!");
-				target_halt(bank->target);
-				target_wait_state(bank->target, TARGET_HALTED, 1000);
 				retval = ERROR_FAIL;
-				goto _on_error;
+				goto _wait_algo;
 			}
 		}
 	}
+
+_wait_algo:
 	LOG_INFO("Wait algorithm completion");
-	retval = target_wait_algorithm(bank->target,
+	int rc = target_wait_algorithm(bank->target,
 			0, NULL,
 			stub.reg_params_count, stub.reg_params,
-			0, 10000,
+			0, 3000,
 			&stub.ainfo);
-	if (retval != ERROR_OK) {
+	if (rc != ERROR_OK) {
 		LOG_ERROR("Faied to wait algorithm (%d)!", retval);
 		target_halt(bank->target);
 		target_wait_state(bank->target, TARGET_HALTED, 1000);
+		if (retval == ERROR_OK) {
+			retval = rc;
+		}
 		goto _on_error;
 	}
 	LOG_INFO("Check algorithm RC");

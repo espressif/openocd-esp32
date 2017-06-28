@@ -34,10 +34,10 @@
 #include "register.h"
 #include "assert.h"
 #include "time_support.h"
-#include "algorithm.h"
-
 #include "esp108.h"
 #include "esp108_dbg_regs.h"
+#include "esp108_apptrace.h"
+#include "esp108_common.h"
 
 /*
 This is a JTAG driver for the ESP108, the Tensilica core inside the ESP32
@@ -132,8 +132,10 @@ of the target CPU, which isn't necessarily always the case. Specifically the
 esp108_reg_set etc functions are suspect.
 */
 
-#include "esp108_apptrace.h"
 
+//Utility function: check DSR for any weirdness and report.
+//Also does tms_reset to bootstrap level indicated.
+#define esp108_checkdsr(target) esp108_do_checkdsr(target, __FUNCTION__, __LINE__)
 
 //forward declarations
 static int xtensa_step(struct target *target,
@@ -141,10 +143,6 @@ static int xtensa_step(struct target *target,
 	uint32_t address,
 	int handle_breakpoints);
 static int xtensa_poll(struct target *target);
-
-//Utility function: check DSR for any weirdness and report.
-//Also does tms_reset to bootstrap level indicated.
-#define esp108_checkdsr(target) esp108_do_checkdsr(target, __FUNCTION__, __LINE__)
 
 static void esp108_mark_register_dirty(struct target *target, int regidx)
 {
@@ -258,8 +256,7 @@ static int esp108_fetch_all_regs(struct target *target)
 	return ERROR_OK;
 }
 
-
-static int esp108_write_dirty_registers(struct target *target)
+int esp108_write_dirty_registers(struct target *target)
 {
 	int i, j;
 	int res;
@@ -450,7 +447,7 @@ static int xtensa_read_memory(struct target *target,
 		LOG_DEBUG("%s: address 0x%08x not readable", __func__, address);
 		return ERROR_FAIL;
 	}
-	
+
 //	LOG_INFO("%s: %s: reading %d bytes from addr %08X", target->cmd_name, __FUNCTION__, size*count, address);
 //	LOG_INFO("Converted to aligned addresses: read from %08X to %08X", addrstart_al, addrend_al);
 	if (target->state != TARGET_HALTED) {
@@ -932,8 +929,6 @@ static int xtensa_step(struct target *target,
 	return res;
 }
 
-
-
 static const struct reg_arch_type esp108_reg_type = {
 	.get = xtensa_get_core_reg,
 	.set = xtensa_set_core_reg,
@@ -1089,7 +1084,7 @@ static int xtensa_poll(struct target *target)
 	return ERROR_OK;
 }
 
-int xtensa_start_algorithm(struct target *target,
+static int xtensa_start_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
 	uint32_t entry_point, uint32_t exit_point,
@@ -1163,7 +1158,7 @@ int xtensa_start_algorithm(struct target *target,
 }
 
 /** Waits for an algorithm in the target. */
-int xtensa_wait_algorithm(struct target *target,
+static int xtensa_wait_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
 	uint32_t exit_point, int timeout_ms,
@@ -1248,30 +1243,6 @@ int xtensa_wait_algorithm(struct target *target,
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Failed to write dirty regs (%d)!", retval);
 	}
-
-	return retval;
-}
-
-int xtensa_run_algorithm(struct target *target,
-	int num_mem_params, struct mem_param *mem_params,
-	int num_reg_params, struct reg_param *reg_params,
-	uint32_t entry_point, uint32_t exit_point,
-	int timeout_ms, void *arch_info)
-{
-	int retval;
-
-	retval = xtensa_start_algorithm(target,
-			num_mem_params, mem_params,
-			num_reg_params, reg_params,
-			entry_point, exit_point,
-			arch_info);
-
-	if (retval == ERROR_OK)
-		retval = xtensa_wait_algorithm(target,
-				num_mem_params, mem_params,
-				num_reg_params, reg_params,
-				exit_point, timeout_ms,
-				arch_info);
 
 	return retval;
 }

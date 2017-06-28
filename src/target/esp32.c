@@ -41,7 +41,7 @@
 #include "esp108_apptrace.h"
 
 /*
-This is a JTAG driver for the ESP32, the are two Tensilica cores inside 
+This is a JTAG driver for the ESP32, the are two Tensilica cores inside
 the ESP32 chip. For more information please have a look into ESP108 target
 implementation.
 */
@@ -49,16 +49,16 @@ implementation.
 /*
 Multiprocessor stuff common:
 
-The ESP32 has two ESP32 processors in it, which can run in SMP-mode if an 
-SMP-capable OS is running. The hardware has a few features which make 
-debugging this much easier. 
+The ESP32 has two ESP32 processors in it, which can run in SMP-mode if an
+SMP-capable OS is running. The hardware has a few features which make
+debugging this much easier.
 
-First of all, there's something called a 'break network', consisting of a 
-BreakIn input  and a BreakOut output on each CPU. The idea is that as soon 
-as a CPU goes into debug mode for whatever reason, it'll signal that using 
-its DebugOut pin. This signal is connected to the other CPU's DebugIn 
+First of all, there's something called a 'break network', consisting of a
+BreakIn input  and a BreakOut output on each CPU. The idea is that as soon
+as a CPU goes into debug mode for whatever reason, it'll signal that using
+its DebugOut pin. This signal is connected to the other CPU's DebugIn
 input, causing this CPU also to go into debugging mode. To resume execution
-when using only this break network, we will need to manually resume both 
+when using only this break network, we will need to manually resume both
 CPUs.
 
 An alternative to this is the XOCDMode output and the RunStall (or DebugStall)
@@ -68,7 +68,7 @@ resumed by either the first CPU going out of debug mode, or the second CPU
 going into debug mode: the stall is temporarily lifted as long as the stalled
 CPU is in debug mode.
 
-A third, separate, signal is CrossTrigger. This is connected in the same way 
+A third, separate, signal is CrossTrigger. This is connected in the same way
 as the breakIn/breakOut network, but is for the TRAX (trace memory) feature;
 it does not affect OCD in any way.
 */
@@ -76,11 +76,11 @@ it does not affect OCD in any way.
 /*
 ESP32 Multiprocessor stuff:
 
-The ESP32 chip has two ESP108 cores inside, but represent themself to the OCD 
+The ESP32 chip has two ESP108 cores inside, but represent themself to the OCD
 as one chip that works in multithreading mode under FreeRTOS OS.
 The core that initiate the stop condition will be defined as an active cpu.
 When one core stops, then other core will be stoped automativally by smpbreak.
-The core that initiate stop condition will be defined as an active core, and 
+The core that initiate stop condition will be defined as an active core, and
 registers of this core will be transfered.
 */
 
@@ -123,14 +123,14 @@ static int esp32_fetch_all_regs(struct target *target)
 	struct reg *reg_list[ESP32_CPU_COUNT];
 	uint8_t regvals[ESP32_CPU_COUNT][XT_NUM_REGS][4];
 	uint8_t dsrs[ESP32_CPU_COUNT][XT_NUM_REGS][4];
-	
+
 
 	for (int c = 0; c < ESP32_CPU_COUNT; c++)
 	{
 		reg_list[c] = esp32->core_caches[c]->reg_list;
 	}
 
-	//Assume the CPU has just halted. We now want to fill the register cache with all the 
+	//Assume the CPU has just halted. We now want to fill the register cache with all the
 	//register contents GDB needs. For speed, we pipeline all the read operations, execute them
 	//in one go, then sort everything out from the regvals variable.
 
@@ -145,7 +145,7 @@ static int esp32_fetch_all_regs(struct target *target)
 				esp108_queue_nexus_reg_read(esp32->esp32_targets[c], NARADR_DDR, regvals[c][XT_REG_IDX_AR0 + i + j]);
 				esp108_queue_nexus_reg_read(esp32->esp32_targets[c], NARADR_DSR, dsrs[c][XT_REG_IDX_AR0 + i + j]);
 			}
-			//Now rotate the window so we'll see the next 16 registers. The final rotate will wraparound, 
+			//Now rotate the window so we'll see the next 16 registers. The final rotate will wraparound,
 			//leaving us in the state we were.
 			esp108_queue_exec_ins(esp32->esp32_targets[c], XT_INS_ROTW(4));
 		}
@@ -186,7 +186,7 @@ static int esp32_fetch_all_regs(struct target *target)
 		//Ok, send the whole mess to the CPU.
 		res=jtag_execute_queue();
 		if (res!=ERROR_OK) return res;
-	
+
 		esp32_checkdsr(esp32->esp32_targets[c]);
 		//DSR checking: follows order in which registers are requested.
 		for (i = 0; i < XT_NUM_REGS; i++) {
@@ -303,7 +303,7 @@ static int esp32_write_dirty_registers(struct target *target, struct reg *reg_li
 				reg_list[realadr].dirty=0;
 			}
 		}
-		//Now rotate the window so we'll see the next 16 registers. The final rotate will wraparound, 
+		//Now rotate the window so we'll see the next 16 registers. The final rotate will wraparound,
 		//leaving us in the state we were.
 		esp108_queue_exec_ins(target, XT_INS_ROTW(4));
 	}
@@ -551,7 +551,7 @@ static int xtensa_read_memory(struct target *target,
 	}
 
 	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
-	
+
 	LOG_DEBUG("%s: %s: reading %d bytes from addr %08X", target->cmd_name, __FUNCTION__, size*count, address);
 //	LOG_DEBUG("Converted to aligned addresses: read from %08X to %08X", addrstart_al, addrend_al);
 	if (target->state != TARGET_HALTED) {
@@ -568,7 +568,7 @@ static int xtensa_read_memory(struct target *target,
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
 	}
-	
+
 	//We're going to use A3 here
 	esp32_mark_register_dirty(esp32->core_caches[ESP32_PRO_CPU_ID]->reg_list, XT_REG_IDX_A3);
 	//Write start address to A3
@@ -617,13 +617,13 @@ static int xtensa_write_memory(struct target *target,
 {
 	//This memory write function can get thrown nigh everything into it, from
 	//aligned uint32 writes to unaligned uint8ths. The Xtensa memory doesn't always
-	//accept anything but aligned uint32 writes, though. That is why we convert 
+	//accept anything but aligned uint32 writes, though. That is why we convert
 	//everything into that.
-	
+
 	uint32_t addrstart_al=(address)&~3;
 	uint32_t addrend_al=(address+(size*count)+3)&~3;
 	uint32_t adr=addrstart_al;
-	
+
 	int i=0;
 	int res;
 	uint8_t *albuff;
@@ -696,7 +696,7 @@ static int xtensa_write_memory(struct target *target,
 	if (res == ERROR_OK) res = esp32_checkdsr(esp32->esp32_targets[ESP32_PRO_CPU_ID]);
 	if (res != ERROR_OK)
 	{
-		LOG_WARNING("%s: Failed writing %d bytes at address 0x%08X, data - %02x, %02x, %02x, %02x, %02x, %02x, %02x, %02x", 
+		LOG_WARNING("%s: Failed writing %d bytes at address 0x%08X, data - %02x, %02x, %02x, %02x, %02x, %02x, %02x, %02x",
 			target->cmd_name, count*size, address,
 			buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7]
 			);
@@ -959,7 +959,7 @@ static int xtensa_step(struct target *target,
 	static const uint32_t icount_val = -2; /* ICOUNT value to load for 1 step */
 	uint32_t icountlvl;
 	uint32_t oldps, newps, oldpc;
-	int tries=10; 
+	int tries=10;
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("%s: %s: target not halted", __func__, target->cmd_name);
@@ -995,15 +995,15 @@ static int xtensa_step(struct target *target,
 		address = oldpc + 3; // PC = PC+3
 		current = 0;		 // The PC was modified.
 	}
-	
+
 	//Sometimes (because of eg an interrupt) the pc won't actually increment. In that case, we repeat the
 	//step.
-	//(Later edit: Not sure about that actually... may have been a glitch in my logic. I'm keeping in this 
+	//(Later edit: Not sure about that actually... may have been a glitch in my logic. I'm keeping in this
 	//loop anyway, it probably doesn't hurt anyway.)
 	do {
 		icountlvl=(esp108_reg_get(&reg_list[XT_REG_IDX_PS])&15)+1;
 		if (icountlvl>15) icountlvl=15;
-		
+
 		/* Load debug level into ICOUNTLEVEL. We'll make this one more than the current intlevel. */
 		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
 		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNT], icount_val);
@@ -1044,7 +1044,7 @@ static int xtensa_step(struct target *target,
 		if(!(intfromchars(dsr)&OCDDSR_STOPPED)) {
 			LOG_ERROR("%s: %s: Timed out waiting for target to finish stepping.", target->cmd_name, __func__);
 			return ERROR_TARGET_TIMEOUT;
-		} else 
+		} else
 		{
 			target->state = TARGET_HALTED;
 			esp32_fetch_all_regs(target);
@@ -1094,6 +1094,180 @@ static int xtensa_step(struct target *target,
 	return res;
 }
 
+static int xtensa_start_algorithm(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	uint32_t entry_point, uint32_t exit_point,
+	void *arch_info)
+{
+	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
+	struct reg_cache *core_cache = esp32->core_caches[esp32->active_cpu];
+	struct xtensa_algorithm *algorithm_info = arch_info;
+	enum xtensa_mode core_mode;;
+	int retval = ERROR_OK;
+	int usr_ps = 0;
+
+	/* NOTE: xtensa_run_algorithm requires that each algorithm uses a software breakpoint
+	 * at the exit point */
+
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	/* refresh core register cache */
+	for (unsigned i = 0; i < core_cache->num_regs; i++) {
+		algorithm_info->context[i] = esp108_reg_get(&core_cache->reg_list[i]);
+	}
+	/* write mem params */
+	for (int i = 0; i < num_mem_params; i++) {
+		retval = target_write_buffer(target, mem_params[i].address,
+				mem_params[i].size,
+				mem_params[i].value);
+		if (retval != ERROR_OK)
+			return retval;
+	}
+	/* write reg params */
+	for (int i = 0; i < num_reg_params; i++) {
+		struct reg *reg = register_get_by_name(core_cache, reg_params[i].reg_name, 0);
+		if (!reg) {
+			LOG_ERROR("BUG: register '%s' not found", reg_params[i].reg_name);
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		}
+		if (reg->size != reg_params[i].size) {
+			LOG_ERROR("BUG: register '%s' size doesn't match reg_params[i].size",
+				reg_params[i].reg_name);
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		}
+		if (memcmp(reg_params[i].reg_name, "ps", 3)) {
+			usr_ps = 1;
+		}
+		//armv7m_set_core_reg(reg, reg_params[i].value);
+		// buf_set_u32(reg_params[i].value, 0, 32, buf_get_u32(reg->value, 0, 32));
+		esp108_reg_set(reg, buf_get_u32(reg_params[i].value, 0, 32));
+		reg->valid = 1;
+	}
+	uint32_t ps = esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PS]);
+	uint32_t new_ps = ps;
+	LOG_INFO("ASTART PS = 0x%x", ps);
+	// ignore custom core mode if custom PS value is specified
+	if (!usr_ps) {
+		core_mode = XT_PS_RING_GET(ps);
+		if (algorithm_info->core_mode != XT_MODE_ANY && algorithm_info->core_mode != core_mode) {
+			LOG_DEBUG("setting core_mode: 0x%x", algorithm_info->core_mode);
+			new_ps = (new_ps & ~XT_PS_RING_MSK) | XT_PS_RING(algorithm_info->core_mode);
+			/* save previous core mode */
+			algorithm_info->core_mode = core_mode;
+		}
+	}
+	esp108_reg_set(&core_cache->reg_list[XT_REG_IDX_PS], new_ps);
+	core_cache->reg_list[XT_REG_IDX_PS].valid = 1;
+
+	retval = target_resume(target, 0, entry_point, 1, 1);
+
+	return retval;
+}
+
+/** Waits for an algorithm in the target. */
+static int xtensa_wait_algorithm(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	uint32_t exit_point, int timeout_ms,
+	void *arch_info)
+{
+	//struct esp108_common *esp108 = (struct esp108_common*)target->arch_info;
+	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
+	struct reg_cache *core_cache = esp32->core_caches[esp32->active_cpu];
+	struct xtensa_algorithm *algorithm_info = arch_info;
+	int retval = ERROR_OK;
+	uint32_t pc;
+
+	/* NOTE: armv7m_run_algorithm requires that each algorithm uses a software breakpoint
+	 * at the exit point */
+
+	retval = target_wait_state(target, TARGET_HALTED, timeout_ms);
+	LOG_INFO("xtensa_wait_algorithm: halted %d", target->debug_reason);
+	/* If the target fails to halt due to the breakpoint, force a halt */
+	if (retval != ERROR_OK || target->state != TARGET_HALTED) {
+		retval = target_halt(target);
+		if (retval != ERROR_OK)
+			return retval;
+		retval = target_wait_state(target, TARGET_HALTED, 500);
+		if (retval != ERROR_OK)
+			return retval;
+		LOG_ERROR("xtensa_wait_algorithm: not halted %d, pc 0x%x, ps 0x%x", retval,
+			esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PC]), esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PS]));
+		return ERROR_TARGET_TIMEOUT;
+	}
+	pc = esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PC]);
+	if (exit_point && (pc != exit_point)) {
+		LOG_ERROR("failed algorithm halted at 0x%" PRIx32 ", expected 0x%" PRIx32,
+			pc,
+			exit_point);
+		return ERROR_TARGET_TIMEOUT;
+	}
+	/* Read memory values to mem_params[] */
+	for (int i = 0; i < num_mem_params; i++) {
+		if (mem_params[i].direction != PARAM_OUT) {
+			retval = target_read_buffer(target, mem_params[i].address,
+					mem_params[i].size,
+					mem_params[i].value);
+			if (retval != ERROR_OK)
+				return retval;
+		}
+	}
+	/* Copy core register values to reg_params[] */
+	for (int i = 0; i < num_reg_params; i++) {
+		if (reg_params[i].direction != PARAM_OUT) {
+			struct reg *reg = register_get_by_name(core_cache, reg_params[i].reg_name, 0);
+			if (!reg) {
+				LOG_ERROR("BUG: register '%s' not found", reg_params[i].reg_name);
+				return ERROR_COMMAND_SYNTAX_ERROR;
+			}
+			if (reg->size != reg_params[i].size) {
+				LOG_ERROR("BUG: register '%s' size doesn't match reg_params[i].size",
+					reg_params[i].reg_name);
+				return ERROR_COMMAND_SYNTAX_ERROR;
+			}
+			buf_set_u32(reg_params[i].value, 0, 32, esp108_reg_get(reg));
+		}
+	}
+
+	for (int i = core_cache->num_regs - 1; i >= 0; i--) {
+		uint32_t regvalue;
+		regvalue = esp108_reg_get(&core_cache->reg_list[i]);
+		// LOG_DEBUG("check register %s with value 0x%x -> 0x%8.8" PRIx32,
+		// 		core_cache->reg_list[i].name, regvalue, algorithm_info->context[i]);
+		if (i == XT_REG_IDX_DEBUGCAUSE) {
+			//FIXME: restoring DEBUGCAUSE causes exception when executing corresponding instruction in DIR
+			LOG_DEBUG("Skip restoring register %s with value 0x%x -> 0x%8.8" PRIx32,
+					core_cache->reg_list[i].name, regvalue, algorithm_info->context[i]);
+			continue;
+		}
+		if (regvalue != algorithm_info->context[i]) {
+			LOG_DEBUG("restoring register %s with value 0x%x -> 0x%8.8" PRIx32,
+					core_cache->reg_list[i].name, regvalue, algorithm_info->context[i]);
+			esp108_reg_set(&core_cache->reg_list[i], algorithm_info->context[i]);
+			core_cache->reg_list[i].valid = 1;
+		}
+	}
+
+	// for (int i = 0; i < ESP32_CPU_COUNT; i++)
+	// {
+	// 	struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
+	// 	res = esp32_write_dirty_registers(esp32->esp32_targets[i], cpu_reg_list);
+	// 	if (res != ERROR_OK) {
+	// 		LOG_ERROR("%s: Failed to write back register cache.", esp32->esp32_targets[i]->cmd_name);
+	// 		return ERROR_FAIL;
+	// 	}
+	// }
+	retval = esp32_write_dirty_registers(target, core_cache->reg_list);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Failed to write dirty regs (%d)!", retval);
+	}
+
+	return retval;
+}
 
 
 static const struct reg_arch_type esp32_reg_type = {
@@ -1109,7 +1283,7 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 	struct reg_cache *cache = malloc(sizeof(struct reg_cache));
 	struct reg *reg_list = calloc(XT_NUM_REGS, sizeof(struct reg));
 
-	if (!esp32) 
+	if (!esp32)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 
 	target->arch_info = esp32;
@@ -1249,7 +1423,7 @@ static int xtensa_poll(struct target *target)
 		res = jtag_execute_queue();
 		if (res != ERROR_OK) return res;
 	}
-	
+
 	for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
 	{
 		esp108_queue_nexus_reg_write(esp32->esp32_targets[i], NARADR_DCRSET, OCDDCR_ENABLEOCD);
@@ -1267,7 +1441,7 @@ static int xtensa_poll(struct target *target)
 	unsigned int common_reason = dsr0 | dsr1; // We should know if even one of CPU was stopped
 
 	unsigned int common_pwrstath = pwrstath[0] | pwrstath[1];
-	
+
 	if (esp32->current_threadid != target->rtos->current_threadid)
 	{
 		LOG_DEBUG("Thread changed old =0x%08X, current =%08x", (unsigned int)esp32->current_threadid, (unsigned int)target->rtos->current_threadid);
@@ -1294,7 +1468,7 @@ static int xtensa_poll(struct target *target)
 			{
 				struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
 				volatile int temp_cause = xtensa_read_reg_direct(esp32->esp32_targets[i], XT_REG_IDX_DEBUGCAUSE);
-				int cause = esp108_reg_get(&cpu_reg_list[XT_REG_IDX_DEBUGCAUSE]);				
+				int cause = esp108_reg_get(&cpu_reg_list[XT_REG_IDX_DEBUGCAUSE]);
 
 				volatile unsigned int dsr_core = xtensa_read_dsr(esp32->esp32_targets[i]);
 				if ((dsr_core&OCDDSR_DEBUGPENDBREAK) != 0) esp32->active_cpu = i;
@@ -1321,7 +1495,7 @@ static int xtensa_poll(struct target *target)
 				LOG_DEBUG("%s: Target halted, pc=0x%08X, debug_reason=%08x, oldstate=%08x, active=%s", esp32->esp32_targets[i]->cmd_name, esp108_reg_get(&cpu_reg_list[XT_REG_IDX_PC]), target->debug_reason, oldstate, (i == esp32->active_cpu) ? "true" : "false");
 			}
 
-			LOG_INFO("Target halted. PRO_CPU: PC=0x%08X %s    APP_CPU: PC=0x%08X %s", 
+			LOG_INFO("Target halted. PRO_CPU: PC=0x%08X %s    APP_CPU: PC=0x%08X %s",
 				esp108_reg_get(&esp32->core_caches[0]->reg_list[XT_REG_IDX_PC]),
 				esp32->active_cpu == 0 ? "(active)" : "        ",
 				esp108_reg_get(&esp32->core_caches[1]->reg_list[XT_REG_IDX_PC]),
@@ -1419,7 +1593,7 @@ COMMAND_HANDLER(esp32_cmd_smpbreak)
 		res = jtag_execute_queue();
 		if (res==ERROR_OK) {
 			i=intfromchars(dsr)&(OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN|OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN);
-			command_print(CMD_CTX, "%s: Current bits set:%s%s%s%s%s", 
+			command_print(CMD_CTX, "%s: Current bits set:%s%s%s%s%s",
 				esp32->esp32_targets[core]->cmd_name,
 						(i==0)?" none":"",
 						(i&OCDDCR_BREAKINEN)?" BreakIn":"",
@@ -1541,7 +1715,7 @@ COMMAND_HANDLER(esp32_cmd_tracestop)
 	esp108_queue_tdi_idle(target);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) return res;
-	
+
 	command_print(CMD_CTX, "Trace stop triggered.");
 	return ERROR_OK;
 }
@@ -1559,7 +1733,7 @@ COMMAND_HANDLER(esp32_cmd_tracedump)
 		command_print(CMD_CTX, "Need filename to dump to as output!");
 		return ERROR_FAIL;
 	}
-	
+
 	esp108_queue_nexus_reg_read(target, NARADR_TRAXSTAT, traxstat);
 	esp108_queue_nexus_reg_read(target, NARADR_TRAXCTRL, traxctl);
 	esp108_queue_nexus_reg_read(target, NARADR_MEMADDRSTART, memadrstart);
@@ -1771,6 +1945,10 @@ struct target_type esp32_target = {
 	.write_buffer = xtensa_write_buffer,
 
 	.get_gdb_reg_list = xtensa_get_gdb_reg_list,
+
+	.run_algorithm = xtensa_run_algorithm,
+	.start_algorithm = xtensa_start_algorithm,
+	.wait_algorithm = xtensa_wait_algorithm,
 
 	.add_breakpoint = xtensa_add_breakpoint,
 	.remove_breakpoint = xtensa_remove_breakpoint,

@@ -47,7 +47,9 @@ SRCS = stub_flasher.c \
 	$(IDF_PATH)/components/spi_flash/spi_flash_rom_patch.c \
 	$(IDF_PATH)/components/app_trace/app_trace.c \
 	$(IDF_PATH)/components/app_trace/app_trace_util.c \
-	$(IDF_PATH)/components/xtensa-debug-module/eri.c
+	$(IDF_PATH)/components/xtensa-debug-module/eri.c \
+	$(IDF_PATH)/components/soc/esp32/rtc_clk.c \
+	$(IDF_PATH)/components/soc/esp32/rtc_time.c
 
 BUILD_DIR = build
 
@@ -61,7 +63,8 @@ all: $(STUB_ELF)
 $(BUILD_DIR):
 	$(Q) mkdir $@
 
-CFLAGS = -std=c99 -Wall -Werror -Os \
+#-Werror
+CFLAGS = -std=c99 -Wall -Os \
          -mtext-section-literals -mlongcalls -nostdlib -fno-builtin -flto \
          -Wl,-static -g -ffunction-sections -Wl,--gc-sections
 
@@ -71,7 +74,6 @@ INCLUDES += -I. -I$(IDF_PATH)/components/esp32/include -I$(IDF_PATH)/components/
 		-L$(IDF_PATH)/components/esp32/ld
 
 DEFINES = -Dasm=__asm__
-#-DNDEBUG
 
 CFLAGS += $(INCLUDES) $(DEFINES)
 

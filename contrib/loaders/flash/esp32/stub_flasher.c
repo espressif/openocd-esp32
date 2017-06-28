@@ -35,7 +35,12 @@
 #include <string.h>
 #include "soc/dport_reg.h"
 #include "soc/rtc_cntl_reg.h"
+#include "soc/rtc.h"
+#include "soc/efuse_reg.h"
+#include "soc/gpio_reg.h"
+#include "soc/cpu.h"
 #include "rom/ets_sys.h"
+#include "rom/cache.h"
 #include "rom/spi_flash.h"
 #include "rom/uart.h"
 #include "xtensa/hal.h"
@@ -46,7 +51,11 @@
 #define STUB_ASYNC_WRITE_ALGO   0
 #define STUB_USE_APPTRACE       1
 
-#define SPI_FLASH_SEC_SIZE      4096    /**< SPI Flash sector size */
+/* Flash geometry constants */
+#define FLASH_SECTOR_SIZE 4096
+#define FLASH_BLOCK_SIZE 65536
+#define FLASH_PAGE_SIZE 256
+#define FLASH_STATUS_MASK 0xFFFF
 
 #define ESP_APPTRACE_TRAX_BLOCK_SIZE            (0x4000UL)
 #define ESP_APPTRACE_USR_DATA_LEN_MAX           (ESP_APPTRACE_TRAX_BLOCK_SIZE - 2)
@@ -87,7 +96,8 @@
 #define STUB_LOGV( format, ... )  STUB_LOG(STUB_LOG_VERBOSE, "STUB_V: "format, ##__VA_ARGS__)
 #define STUB_LOGO( format, ... )  STUB_LOG(STUB_LOG_NONE, format, ##__VA_ARGS__)
 
-//#define XT_CLOCK_FREQ 240000000UL // TODO: get clock from PLL config
+// TODO: get clock from PLL config
+#define XT_CLOCK_FREQ (CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * 1000000)
 #define CPUTICKS2US(_t_)       ((_t_)/(XT_CLOCK_FREQ/1000000))
 
 extern uint32_t _bss_start;
@@ -161,7 +171,7 @@ static int stub_flash_test(void)
   uint8_t buf[32] = {9, 1, 2, 3, 4, 5, 6, 8};
   uint32_t flash_addr = 0x1d4000;
 
-  esp_rom_spiflash_result_t rc = esp_rom_spiflash_erase_sector(flash_addr/SPI_FLASH_SEC_SIZE);
+  esp_rom_spiflash_result_t rc = esp_rom_spiflash_erase_sector(flash_addr/FLASH_SECTOR_SIZE);
   if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
     STUB_LOGE("Failed to erase flash (%d)\n", rc);
     return STUB_ERR_FAIL;
@@ -193,7 +203,10 @@ static int stub_flash_read_loop(uint32_t addr, uint32_t size)
 {
     esp_rom_spiflash_result_t rc;
     uint32_t total_cnt = 0;
-    STUB_LOGD("Start reading %d bytes @ 0x%x\n", size, addr);
+    STUB_LOGI("Start reading %d bytes @ 0x%x\n", size, addr);
+
+    uint32_t tmp = 100000;
+    while(tmp--);
 
     while (total_cnt < size) {
       uint32_t rd_sz = size - total_cnt > ESP_APPTRACE_USR_DATA_LEN_MAX ? ESP_APPTRACE_USR_DATA_LEN_MAX : size - total_cnt;
@@ -267,7 +280,6 @@ static int stub_flash_read_loop(uint32_t addr, uint32_t size)
       }
       STUB_LOGE("Sent last trace buf %d bytes @ 0x%x\n", size - total_cnt, buf);
     }
-
     STUB_LOGD("Read %d bytes @ 0x%x\n", size, addr);
 
     return STUB_ERR_OK;
@@ -469,12 +481,12 @@ static int stub_flash_erase(uint32_t flash_addr, uint32_t size)
 {
   int ret = STUB_ERR_OK;
 
-  if (flash_addr & (SPI_FLASH_SEC_SIZE-1)) {
-    flash_addr &= ~(SPI_FLASH_SEC_SIZE-1);
+  if (flash_addr & (FLASH_SECTOR_SIZE-1)) {
+    flash_addr &= ~(FLASH_SECTOR_SIZE-1);
   }
 
-  if (size & (SPI_FLASH_SEC_SIZE-1)) {
-    size = (size + (SPI_FLASH_SEC_SIZE-1)) & ~(SPI_FLASH_SEC_SIZE-1);
+  if (size & (FLASH_SECTOR_SIZE-1)) {
+    size = (size + (FLASH_SECTOR_SIZE-1)) & ~(FLASH_SECTOR_SIZE-1);
   }
 
   STUB_LOGD("erase flash @ 0x%x, sz %d \n", flash_addr, size);
@@ -485,6 +497,48 @@ static int stub_flash_erase(uint32_t flash_addr, uint32_t size)
   }
 
   return ret;
+}
+
+static void stub_cpu_stall(int cpu_id)
+{
+    if (cpu_id == 1) {
+        DPORT_CLEAR_PERI_REG_MASK(RTC_CNTL_SW_CPU_STALL_REG, RTC_CNTL_SW_STALL_APPCPU_C1_M);
+        DPORT_SET_PERI_REG_MASK(RTC_CNTL_SW_CPU_STALL_REG, 0x21<<RTC_CNTL_SW_STALL_APPCPU_C1_S);
+        DPORT_CLEAR_PERI_REG_MASK(RTC_CNTL_OPTIONS0_REG, RTC_CNTL_SW_STALL_APPCPU_C0_M);
+        DPORT_SET_PERI_REG_MASK(RTC_CNTL_OPTIONS0_REG, 2<<RTC_CNTL_SW_STALL_APPCPU_C0_S);
+    } else {
+        DPORT_CLEAR_PERI_REG_MASK(RTC_CNTL_SW_CPU_STALL_REG, RTC_CNTL_SW_STALL_PROCPU_C1_M);
+        DPORT_SET_PERI_REG_MASK(RTC_CNTL_SW_CPU_STALL_REG, 0x21<<RTC_CNTL_SW_STALL_PROCPU_C1_S);
+        DPORT_CLEAR_PERI_REG_MASK(RTC_CNTL_OPTIONS0_REG, RTC_CNTL_SW_STALL_PROCPU_C0_M);
+        DPORT_SET_PERI_REG_MASK(RTC_CNTL_OPTIONS0_REG, 2<<RTC_CNTL_SW_STALL_PROCPU_C0_S);
+    }
+}
+
+static void stub_cpu_unstall(int cpu_id)
+{
+    if (cpu_id == 1) {
+        DPORT_CLEAR_PERI_REG_MASK(RTC_CNTL_SW_CPU_STALL_REG, RTC_CNTL_SW_STALL_APPCPU_C1_M);
+        DPORT_CLEAR_PERI_REG_MASK(RTC_CNTL_OPTIONS0_REG, RTC_CNTL_SW_STALL_APPCPU_C0_M);
+    } else {
+        DPORT_CLEAR_PERI_REG_MASK(RTC_CNTL_SW_CPU_STALL_REG, RTC_CNTL_SW_STALL_PROCPU_C1_M);
+        DPORT_CLEAR_PERI_REG_MASK(RTC_CNTL_OPTIONS0_REG, RTC_CNTL_SW_STALL_PROCPU_C0_M);
+    }
+}
+
+static int stub_cpu_isstalled(int cpu_id)
+{
+    if (cpu_id == 1) {
+        uint32_t reg1 = DPORT_GET_PERI_REG_MASK(RTC_CNTL_SW_CPU_STALL_REG, RTC_CNTL_SW_STALL_APPCPU_C1_M);
+        uint32_t reg2 = DPORT_GET_PERI_REG_MASK(RTC_CNTL_OPTIONS0_REG, RTC_CNTL_SW_STALL_APPCPU_C0_M);
+        return (reg1 & 0x21<<RTC_CNTL_SW_STALL_APPCPU_C1_S && reg2 & 2<<RTC_CNTL_SW_STALL_APPCPU_C0_S);
+
+    } else {
+        uint32_t reg1 = DPORT_GET_PERI_REG_MASK(RTC_CNTL_SW_CPU_STALL_REG, RTC_CNTL_SW_STALL_PROCPU_C1_M);
+        uint32_t reg2 = DPORT_GET_PERI_REG_MASK(RTC_CNTL_OPTIONS0_REG, RTC_CNTL_SW_STALL_PROCPU_C0_M);
+        return (reg1 & 0x21<<RTC_CNTL_SW_STALL_PROCPU_C1_S && reg2 & 2<<RTC_CNTL_SW_STALL_PROCPU_C0_S);
+    }
+
+    return 0;
 }
 
 static int stub_flash_handler(int cmd, va_list ap)
@@ -499,6 +553,9 @@ static int stub_flash_handler(int cmd, va_list ap)
   uint32_t down_size = va_arg(ap, uint32_t);
 
   STUB_LOGD("flash a %x, s %d\n", flash_addr, size);
+
+  int other_cpu_stalled = stub_cpu_isstalled(other_core_id);
+  stub_cpu_stall(other_core_id);
 
   STUB_LOGI("Init apptrace module db 0x%x, sz %d\n", down_buf, down_size);
   esp_err_t err = esp_apptrace_init();
@@ -525,9 +582,12 @@ static int stub_flash_handler(int cmd, va_list ap)
     goto _flash_end;
   }
 
+  STUB_LOGI("CMD\n");
   switch (cmd) {
     case STUB_CMD_FLASH_READ:
+      STUB_LOGI("STUB_CMD_FLASH0_READ0\n");
 #if STUB_USE_APPTRACE
+      STUB_LOGI("STUB_CMD_FLASH1_READ1\n");
       ret = stub_flash_read_loop(flash_addr, size);
 #else
       ret = stub_flash_read(flash_addr, buf, size);
@@ -553,14 +613,110 @@ static int stub_flash_handler(int cmd, va_list ap)
 _flash_end:
   stub_spi_flash_restore_cache(core_id, flags[0]);
   stub_spi_flash_restore_cache(other_core_id, flags[1]);
+  if (!other_cpu_stalled) {
+    stub_cpu_unstall(other_core_id);
+  }
 
   return ret;
 }
 
+static void clock_configure(void)
+{
+    /* Set CPU to 80MHz. Keep other clocks unmodified. */
+    rtc_cpu_freq_t cpu_freq = RTC_CPU_FREQ_80M;
+
+    /* On ESP32 rev 0, switching to 80MHz if clock was previously set to
+     * 240 MHz may cause the chip to lock up (see section 3.5 of the errata
+     * document). For rev. 0, switch to 240 instead if it was chosen in
+     * menuconfig.
+     */
+    uint32_t chip_ver_reg = REG_READ(EFUSE_BLK0_RDATA3_REG);
+    if ((chip_ver_reg & EFUSE_RD_CHIP_VER_REV1_M) == 0 &&
+            CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ == 240) {
+        cpu_freq = RTC_CPU_FREQ_240M;
+    }
+
+    uart_tx_wait_idle(0);
+    rtc_clk_config_t clk_cfg = RTC_CLK_CONFIG_DEFAULT();
+    clk_cfg.xtal_freq = CONFIG_ESP32_XTAL_FREQ;
+    clk_cfg.cpu_freq = cpu_freq;
+    clk_cfg.slow_freq = rtc_clk_slow_freq_get();
+    clk_cfg.fast_freq = rtc_clk_fast_freq_get();
+    rtc_clk_init(clk_cfg);
+    /* As a slight optimization, if 32k XTAL was enabled in sdkconfig, we enable
+     * it here. Usually it needs some time to start up, so we amortize at least
+     * part of the start up time by enabling 32k XTAL early.
+     * App startup code will wait until the oscillator has started up.
+     */
+#ifdef CONFIG_ESP32_RTC_CLOCK_SOURCE_EXTERNAL_CRYSTAL
+    if (!rtc_clk_32k_enabled()) {
+        rtc_clk_32k_bootstrap();
+    }
+#endif
+}
+
+static void uart_console_configure(void)
+{
+#if CONFIG_CONSOLE_UART_NONE
+    ets_install_putc1(NULL);
+    ets_install_putc2(NULL);
+#else // CONFIG_CONSOLE_UART_NONE
+    const int uart_num = CONFIG_CONSOLE_UART_NUM;
+
+    uartAttach();
+    ets_install_uart_printf();
+
+    // ROM bootloader may have put a lot of text into UART0 FIFO.
+    // Wait for it to be printed.
+    uart_tx_wait_idle(0);
+
+#if CONFIG_CONSOLE_UART_CUSTOM
+    // Some constants to make the following code less upper-case
+    const int uart_tx_gpio = CONFIG_CONSOLE_UART_TX_GPIO;
+    const int uart_rx_gpio = CONFIG_CONSOLE_UART_RX_GPIO;
+    // Switch to the new UART (this just changes UART number used for
+    // ets_printf in ROM code).
+    uart_tx_switch(uart_num);
+    // If console is attached to UART1 or if non-default pins are used,
+    // need to reconfigure pins using GPIO matrix
+    if (uart_num != 0 || uart_tx_gpio != 1 || uart_rx_gpio != 3) {
+        // Change pin mode for GPIO1/3 from UART to GPIO
+        PIN_FUNC_SELECT(PERIPHS_IO_MUX_U0RXD_U, FUNC_U0RXD_GPIO3);
+        PIN_FUNC_SELECT(PERIPHS_IO_MUX_U0TXD_U, FUNC_U0TXD_GPIO1);
+        // Route GPIO signals to/from pins
+        // (arrays should be optimized away by the compiler)
+        const uint32_t tx_idx_list[3] = { U0TXD_OUT_IDX, U1TXD_OUT_IDX, U2TXD_OUT_IDX };
+        const uint32_t rx_idx_list[3] = { U0RXD_IN_IDX, U1RXD_IN_IDX, U2RXD_IN_IDX };
+        const uint32_t tx_idx = tx_idx_list[uart_num];
+        const uint32_t rx_idx = rx_idx_list[uart_num];
+        gpio_matrix_out(uart_tx_gpio, tx_idx, 0, 0);
+        gpio_matrix_in(uart_rx_gpio, rx_idx, 0);
+    }
+#endif // CONFIG_CONSOLE_UART_CUSTOM
+
+    // Set configured UART console baud rate
+    const int uart_baud = CONFIG_CONSOLE_UART_BAUDRATE;
+    uart_div_modify(uart_num, (rtc_clk_apb_freq_get() << 4) / uart_baud);
+
+#endif // CONFIG_CONSOLE_UART_NONE
+}
+
+#if 0
+int stub_main(int cmd, ...)
+{
+  return -10;
+}
+#else
 int stub_main(int cmd, ...)
 {
   va_list ap;
   int ret = 0;
+
+  //cpu_configure_region_protection();
+
+  // //Clear bss
+  // memset(&_bss_start, 0, (&_bss_end - &_bss_start) * sizeof(_bss_start));
+
 
   /* zero bss */
   for(uint32_t *p = &_bss_start; p < &_bss_end; p++) {
@@ -571,13 +727,64 @@ int stub_main(int cmd, ...)
   // up to 5 parameters are passed via registers by that jumping code
   // interrupts level in PS is set to one to allow high prio IRQs only (including Debug Interrupt)
   // We need Debug Interrupt Level to allow breakpoints handling by OpenOCD
+#if 0
+  /* completely reset MMU for both CPUs
+     (in case serial bootloader was running) */
+  Cache_Read_Disable(0);
+  Cache_Read_Disable(1);
+  Cache_Flush(0);
+  Cache_Flush(1);
+  mmu_init(0);
+  DPORT_REG_SET_BIT(DPORT_APP_CACHE_CTRL1_REG, DPORT_APP_CACHE_MMU_IA_CLR);
+  mmu_init(1);
+  DPORT_REG_CLR_BIT(DPORT_APP_CACHE_CTRL1_REG, DPORT_APP_CACHE_MMU_IA_CLR);
+  /* (above steps probably unnecessary for most serial bootloader
+     usage, all that's absolutely needed is that we unmask DROM0
+     cache on the following two lines - normal ROM boot exits with
+     DROM0 cache unmasked, but serial bootloader exits with it
+     masked. However can't hurt to be thorough and reset
+     everything.)
+
+     The lines which manipulate DPORT_APP_CACHE_MMU_IA_CLR bit are
+     necessary to work around a hardware bug.
+  */
+  DPORT_REG_CLR_BIT(DPORT_PRO_CACHE_CTRL1_REG, DPORT_PRO_CACHE_MASK_DROM0);
+  DPORT_REG_CLR_BIT(DPORT_APP_CACHE_CTRL1_REG, DPORT_APP_CACHE_MASK_DROM0);
+#endif
+  uint32_t spiconfig = ets_efuse_get_spiconfig();
+  uint32_t strapping = REG_READ(GPIO_STRAP_REG);
+  /* If GPIO1 (U0TXD) is pulled low and no other boot mode is
+     set in efuse, assume HSPI flash mode (same as normal boot)
+  */
+  if (spiconfig == 0 && (strapping & 0x1c) == 0x08) {
+      spiconfig = 1; /* HSPI flash mode */
+  }
+  esp_rom_spiflash_attach(spiconfig, 0);
+  //TODO: flash size in esp_rom_spiflash_config_param
+  esp_rom_spiflash_config_param(0, 16*1024*1024, FLASH_BLOCK_SIZE, FLASH_SECTOR_SIZE,
+              FLASH_PAGE_SIZE, FLASH_STATUS_MASK);
+// esp_rom_spiflash_result_t esp_rom_spiflash_config_param(uint32_t deviceId, uint32_t chip_size, uint32_t block_size,
+//                                                         uint32_t sector_size, uint32_t page_size, uint32_t status_mask);
 
   //TODO: temporarily relocate vector
   //TODO: reset all SW memory mappings (it is better to do in OpenOCD)
+  //TODO: disable WD
 
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
+#if 0
+  // init UART
   uartAttach();
   ets_install_uart_printf();
+  // ROM bootloader may have put a lot of text into UART0 FIFO.
+  // Wait for it to be printed.
+  uart_tx_wait_idle(0);
+  // // Set configured UART console baud rate
+  const int uart_baud = 115200;
+  uart_div_modify(0, (rtc_clk_apb_freq_get() << 4) / uart_baud);
+#else
+  clock_configure();
+  uart_console_configure();
+#endif
 #endif
 
   STUB_LOGD("BSS 0x%x..0x%x\n", &_bss_start, &_bss_end);
@@ -610,5 +817,7 @@ int stub_main(int cmd, ...)
   va_end(ap);
 
   STUB_LOGD("exit %d\n", ret);
+
   return ret;
 }
+#endif

@@ -18,7 +18,7 @@
 MEMORY {
   /* place stub at the beginning of the OpenOCD working area, 
      remaining space will be used for other chunks */
-  iram : org = 0x40090000, len = 0x1800
+  iram : org = 0x40090000, len = 0x2400
   dram : org = 0x3FFC0000, len = 0x5000
 /*  iram : org = 0x400A0000, len = 0x1400
   dram : org = 0x3FFF8000, len = 0x400*/
@@ -51,3 +51,5 @@ SECTIONS {
 }
 
 INCLUDE "esp32.rom.ld"
+PROVIDE ( ets_update_cpu_frequency = 0x40008550 ); /* Updates g_ticks_per_us on the current CPU only; not on the other core */
+PROVIDE ( esp_rom_spiflash_attach = 0x40062a6c );

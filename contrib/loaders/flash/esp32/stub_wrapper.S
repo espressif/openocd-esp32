@@ -33,13 +33,34 @@
  */
     .text
 
+/*
+    .globl  _stub_func
+    .type   _stub_func,@function
+    .align  4
+_stub_func:
+    entry   a1, 32
+    movi.n  a2, -10
+    retw
+*/
+
+/*
+    .globl  _stub_func2
+    .type   _stub_func2,@function
+    .align  4
+_stub_func2:
+    movi.n  a2, -12
+    ret
+*/
+
     .align  4
 _stub_enter:
     mov     a10, a2
     mov     a11, a3
-    mov 	a12, a4
-    mov 	a13, a5
-    mov 	a14, a6
-	callx8	a0
-    mov 	a2, a10
+    mov     a12, a4
+    mov     a13, a5
+    mov     a14, a6
+    callx8  a0
+    /*call0 _stub_func2
+    call8 _stub_func*/
+    mov     a2, a10
     break 0,0

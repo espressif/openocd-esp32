@@ -42,6 +42,7 @@
 
 #include <jtag/jtag.h>
 #include "breakpoints.h"
+#include "algorithm.h"
 
 
 #define XT_INS_NUM_BITS 24
@@ -118,6 +119,11 @@ uint32_t xtensa_read_reg_direct(struct target *target, uint8_t reg);
 int read_reg_direct(struct target *target, uint8_t addr);
 int xtensa_write_uint32(struct target *target, uint32_t addr, uint32_t val);
 int xtensa_write_uint32_list(struct target *target, const uint32_t* addr_value_pairs_list, size_t count);
+int xtensa_run_algorithm(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	uint32_t entry_point, uint32_t exit_point,
+	int timeout_ms, void *arch_info);
 
 int esp32_soc_reset(struct target *target);
 

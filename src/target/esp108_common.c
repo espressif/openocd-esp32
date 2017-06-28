@@ -47,7 +47,7 @@ enum xtensa_reg_idx canonical_to_windowbase_offset(const enum xtensa_reg_idx reg
 	return windowbase_offset_to_canonical(reg, -windowbase);
 }
 
-int regReadable(int flags, int cpenable) 
+int regReadable(int flags, int cpenable)
 {
 	if (flags&XT_REGF_NOREAD) return 0;
 	if ((flags&XT_REGF_COPROC0) && (cpenable&(1 << 0)) == 0) return 0;
@@ -192,7 +192,6 @@ int esp108_do_checkdsr(struct target *target, const char *function, const int li
 	return ERROR_OK;
 }
 
-
 unsigned int xtensa_read_dsr(struct target *target)
 {
 	uint8_t dsr[4];
@@ -296,6 +295,29 @@ int xtensa_write_uint32_list(struct target *target, const uint32_t* addr_value_p
 	return ERROR_OK;
 }
 
+int xtensa_run_algorithm(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	uint32_t entry_point, uint32_t exit_point,
+	int timeout_ms, void *arch_info)
+{
+	int retval;
+
+	retval = target->type->start_algorithm(target,
+			num_mem_params, mem_params,
+			num_reg_params, reg_params,
+			entry_point, exit_point,
+			arch_info);
+
+	if (retval == ERROR_OK)
+		retval = target->type->wait_algorithm(target,
+				num_mem_params, mem_params,
+				num_reg_params, reg_params,
+				exit_point, timeout_ms,
+				arch_info);
+
+	return retval;
+}
 
 /* Reset ESP32's peripherals.
 Postconditions: all peripherals except RTC_CNTL are reset, CPU's PC is undefined, PRO CPU is halted, APP CPU is in reset
