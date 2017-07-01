@@ -60,7 +60,7 @@ _stub_enter:
     mov     a13, a5
     mov     a14, a6
     callx8  a0
-    /*call0 _stub_func2
+/*    call0 _stub_func2
     call8 _stub_func*/
     mov     a2, a10
     break 0,0
