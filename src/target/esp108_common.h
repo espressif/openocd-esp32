@@ -124,6 +124,16 @@ int xtensa_run_algorithm(struct target *target,
 	int num_reg_params, struct reg_param *reg_params,
 	uint32_t entry_point, uint32_t exit_point,
 	int timeout_ms, void *arch_info);
+int xtensa_start_algorithm_generic(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	uint32_t entry_point, uint32_t exit_point,
+	void *arch_info, struct reg_cache *core_cache);
+int xtensa_wait_algorithm_generic(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	uint32_t exit_point, int timeout_ms,
+	void *arch_info, struct reg_cache *core_cache);
 
 int esp32_soc_reset(struct target *target);
 

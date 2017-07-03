@@ -1102,11 +1102,15 @@ static int xtensa_start_algorithm(struct target *target,
 {
 	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
 	struct reg_cache *core_cache = esp32->core_caches[esp32->active_cpu];
-	struct xtensa_algorithm *algorithm_info = arch_info;
-	enum xtensa_mode core_mode;;
-	int retval = ERROR_OK;
-	int usr_ps = 0;
+	// int retval = ERROR_OK;
+	// struct xtensa_algorithm *algorithm_info = arch_info;
+	// enum xtensa_mode core_mode;;
+	// int usr_ps = 0;
 
+	return xtensa_start_algorithm_generic(target, num_mem_params, mem_params, num_reg_params, 
+		reg_params, entry_point, exit_point, arch_info, core_cache);
+
+#if 0
 	/* NOTE: xtensa_run_algorithm requires that each algorithm uses a software breakpoint
 	 * at the exit point */
 
@@ -1166,6 +1170,7 @@ static int xtensa_start_algorithm(struct target *target,
 	retval = target_resume(target, 0, entry_point, 1, 1);
 
 	return retval;
+#endif
 }
 
 /** Waits for an algorithm in the target. */
@@ -1175,13 +1180,18 @@ static int xtensa_wait_algorithm(struct target *target,
 	uint32_t exit_point, int timeout_ms,
 	void *arch_info)
 {
-	//struct esp108_common *esp108 = (struct esp108_common*)target->arch_info;
+	int retval = ERROR_OK;
 	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
 	struct reg_cache *core_cache = esp32->core_caches[esp32->active_cpu];
-	struct xtensa_algorithm *algorithm_info = arch_info;
-	int retval = ERROR_OK;
-	uint32_t pc;
+	// struct xtensa_algorithm *algorithm_info = arch_info;
+	// uint32_t pc;
 
+	retval = xtensa_wait_algorithm_generic(target, num_mem_params, mem_params, num_reg_params, 
+		reg_params, exit_point, timeout_ms, arch_info, core_cache);
+	if (retval != ERROR_OK) {
+		return retval;
+	}
+#if 0
 	/* NOTE: armv7m_run_algorithm requires that each algorithm uses a software breakpoint
 	 * at the exit point */
 
@@ -1261,6 +1271,7 @@ static int xtensa_wait_algorithm(struct target *target,
 	// 		return ERROR_FAIL;
 	// 	}
 	// }
+#endif
 	retval = esp32_write_dirty_registers(target, core_cache->reg_list);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Failed to write dirty regs (%d)!", retval);

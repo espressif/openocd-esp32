@@ -491,7 +491,7 @@ static int esp32_run_algo(struct target *target, struct esp32_flash_stub *stub,
 			return ERROR_TARGET_NOT_HALTED;
 		}
 	}
-	retval = target_start_algorithm(core_target,
+	retval = target_start_algorithm(target,
 			0, NULL,
 			stub->reg_params_count, stub->reg_params,
 			stub->algo->address, 0,
@@ -510,7 +510,7 @@ static int esp32_run_algo(struct target *target, struct esp32_flash_stub *stub,
 	}
 
 	LOG_INFO("Wait algorithm completion");
-	int rc = target_wait_algorithm(core_target,
+	int rc = target_wait_algorithm(target,
 			0, NULL,
 			stub->reg_params_count, stub->reg_params,
 			0, 3000, //TODO: macro tmo

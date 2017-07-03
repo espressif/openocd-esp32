@@ -1091,19 +1091,14 @@ static int xtensa_start_algorithm(struct target *target,
 	void *arch_info)
 {
 	struct esp108_common *esp108 = (struct esp108_common*)target->arch_info;
-	struct xtensa_algorithm *algorithm_info = arch_info;
-	enum xtensa_mode core_mode;;
-	int retval = ERROR_OK;
-	int usr_ps = 0;
+	// struct xtensa_algorithm *algorithm_info = arch_info;
+	// enum xtensa_mode core_mode;;
+	// int retval = ERROR_OK;
+	// int usr_ps = 0;
 
-	/* NOTE: xtensa_run_algorithm requires that each algorithm uses a software breakpoint
-	 * at the exit point */
-
-	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("target not halted");
-		return ERROR_TARGET_NOT_HALTED;
-	}
-
+	return xtensa_start_algorithm_generic(target, num_mem_params, mem_params, num_reg_params, 
+		reg_params, entry_point, exit_point, arch_info, esp108->core_cache);
+#if 0
 	/* refresh core register cache */
 	for (unsigned i = 0; i < esp108->core_cache->num_regs; i++) {
 		algorithm_info->context[i] = esp108_reg_get(&esp108->core_cache->reg_list[i]);
@@ -1155,6 +1150,7 @@ static int xtensa_start_algorithm(struct target *target,
 	retval = target_resume(target, 0, entry_point, 1, 1);
 
 	return retval;
+#endif
 }
 
 /** Waits for an algorithm in the target. */
@@ -1164,14 +1160,17 @@ static int xtensa_wait_algorithm(struct target *target,
 	uint32_t exit_point, int timeout_ms,
 	void *arch_info)
 {
-	struct esp108_common *esp108 = (struct esp108_common*)target->arch_info;
-	struct xtensa_algorithm *algorithm_info = arch_info;
 	int retval = ERROR_OK;
-	uint32_t pc;
+	struct esp108_common *esp108 = (struct esp108_common*)target->arch_info;
+	// struct xtensa_algorithm *algorithm_info = arch_info;
+	// uint32_t pc;
 
-	/* NOTE: armv7m_run_algorithm requires that each algorithm uses a software breakpoint
-	 * at the exit point */
-
+	retval = xtensa_wait_algorithm_generic(target, num_mem_params, mem_params, num_reg_params, 
+		reg_params, exit_point, timeout_ms, arch_info, esp108->core_cache);
+	if (retval != ERROR_OK) {
+		return retval;
+	}
+#if 0
 	retval = target_wait_state(target, TARGET_HALTED, timeout_ms);
 	LOG_INFO("xtensa_wait_algorithm: halted %d", target->debug_reason);
 	/* If the target fails to halt due to the breakpoint, force a halt */
@@ -1238,7 +1237,7 @@ static int xtensa_wait_algorithm(struct target *target,
 			esp108->core_cache->reg_list[i].valid = 1;
 		}
 	}
-
+#endif
 	retval = esp108_write_dirty_registers(target);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Failed to write dirty regs (%d)!", retval);
