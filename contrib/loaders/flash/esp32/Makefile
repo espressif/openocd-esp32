@@ -51,20 +51,25 @@ SRCS = stub_flasher.c \
 	$(IDF_PATH)/components/soc/esp32/rtc_clk.c \
 	$(IDF_PATH)/components/soc/esp32/rtc_time.c
 
+WRAPPER_SRC = stub_wrapper.S
+
 BUILD_DIR = build
 
 STUB_ELF = $(BUILD_DIR)/$(STUB).elf
 STUB_OBJ = $(BUILD_DIR)/$(STUB).o
+STUB_CODE_SECT = $(STUB)_code.inc
+STUB_DATA_SECT = $(STUB)_data.inc
+STUB_WRAPPER = $(STUB)_wrapper.inc
+STUB_IMAGE_HDR = $(STUB)_image.h
 
 .PHONY: all clean
 
-all: $(STUB_ELF)
+all: $(STUB_ELF) $(STUB_WRAPPER) $(STUB_IMAGE_HDR) $(STUB_CODE_SECT) $(STUB_DATA_SECT)
 
 $(BUILD_DIR):
 	$(Q) mkdir $@
 
-#-Werror
-CFLAGS = -std=c99 -Wall -Os \
+CFLAGS = -std=c99 -Wall -Werror -Os \
          -mtext-section-literals -mlongcalls -nostdlib -fno-builtin -flto \
          -Wl,-static -g -ffunction-sections -Wl,--gc-sections
 
@@ -77,13 +82,36 @@ DEFINES = -Dasm=__asm__
 
 CFLAGS += $(INCLUDES) $(DEFINES)
 
-$(STUB_ELF): $(SRCS) sdkconfig.h stub.ld $(BUILD_DIR)
-	@echo "  CC(32)   $^ -> $@"
-	$(Q) $(CROSS)gcc $(CFLAGS) -Tstub.ld -Wl,-Map=$(@:.elf=.map) -o $@ $(filter %.c, $^)
+$(STUB_ELF): $(SRCS) stub.ld $(BUILD_DIR)
+	@echo "  CC   $^ -> $@"
+	$(Q) $(CROSS)gcc $(CFLAGS) -DSTUB_IMAGE=1 -Tstub.ld -Wl,-Map=$(@:.elf=.map) -o $@ $(filter %.c, $^)
 
-$(STUB_OBJ): $(SRCS) sdkconfig.h $(BUILD_DIR)
-	@echo "  CC(32)   $^ -> $@"
+$(STUB_OBJ): $(SRCS) sdkconfig.h
+	@echo "  CC   $^ -> $@"
 	$(Q) $(CROSS)gcc $(CFLAGS) -c $(filter %.c, $^) -o $@
 
+$(STUB_CODE_SECT): $(STUB_ELF)
+	@echo "  CC   $^ -> $@"
+	$(Q) $(CROSS)objcopy -O binary -j.text $^ $(BUILD_DIR)/$(STUB)_code.bin
+	$(Q) cat $(BUILD_DIR)/$(STUB)_code.bin | xxd -i > $@
+
+$(STUB_DATA_SECT): $(STUB_ELF)
+	@echo "  CC   $^ -> $@"
+	$(Q) $(CROSS)objcopy -O binary -j.data $^ $(BUILD_DIR)/$(STUB)_data.bin
+	$(Q) cat $(BUILD_DIR)/$(STUB)_data.bin | xxd -i > $@
+
+$(STUB_WRAPPER): $(WRAPPER_SRC)
+	@echo "  CC   $^ -> $@"
+	$(Q) $(CROSS)gcc -c $^ -o $(BUILD_DIR)/$(STUB)_wrapper.o
+	$(Q) $(CROSS)objcopy -O binary $(BUILD_DIR)/$(STUB)_wrapper.o $(BUILD_DIR)/$(STUB)_wrapper.bin
+	$(Q) cat $(BUILD_DIR)/$(STUB)_wrapper.bin | xxd -i > $@
+
+$(STUB_IMAGE_HDR): $(STUB_ELF)
+	@echo "  CC   $^ -> $@"
+	$(Q) @echo -n "#define ESP32_STUB_BSS_SIZE 0x" > $(STUB_IMAGE_HDR)
+	$(Q) $(CROSS)readelf -S $^ | fgrep .bss | awk '{print $$7}' >> $(STUB_IMAGE_HDR)
+	$(Q) @echo -n "#define ESP32_STUB_ENTRY_ADDR 0x" >> $(STUB_IMAGE_HDR)
+	$(Q) $(CROSS)readelf -s $^ | fgrep stub_main | awk '{print $$2}' >> $(STUB_IMAGE_HDR)
+
 clean:
-	$(Q) rm -rf $(BUILD_DIR)
+	$(Q) rm -rf $(BUILD_DIR) $(STUB_CODE_SECT) $(STUB_DATA_SECT) $(STUB_WRAPPER) $(STUB_IMAGE_HDR)

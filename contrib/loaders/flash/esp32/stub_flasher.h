@@ -1,7 +1,7 @@
 /***************************************************************************
  *   Copyright (C) 2017 by Alexey Gerenkov                                 *
  *   alexey@espressif.com                                                  *
- *   ESP108 application trace module                                       *
+ *   ESP32 flasher stub                                                    *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -18,30 +18,20 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
+#ifndef ESP32_FLASHER_STUB_H
+#define ESP32_FLASHER_STUB_H
 
-#ifndef XTENSA_ESP108_APPTRACE_H
-#define XTENSA_ESP108_APPTRACE_H
+#define ESP32_STUB_ERR_OK                   0
+#define ESP32_STUB_ERR_FAIL                 (-1)
+#define ESP32_STUB_ERR_NOT_SUPPORTED        (-2)
 
-#include "command.h"
-#include "time_support.h"
+#define ESP32_STUB_CMD_TEST                 0
+#define ESP32_STUB_CMD_FLASH_READ           1
+#define ESP32_STUB_CMD_FLASH_WRITE          2
+#define ESP32_STUB_CMD_FLASH_ERASE          3
+#define ESP32_STUB_CMD_FLASH_ERASE_CHECK    4
+#define ESP32_STUB_CMD_FLASH_SIZE	        5
+#define ESP32_STUB_CMD_FLASH_MAX_ID	        ESP32_STUB_CMD_FLASH_SIZE
+#define ESP32_STUB_CMD_FLASH_TEST           6
 
-//TODO: remove from header
-#define ESP32_TRACEMEM_BLOCK_SZ		(0x4000)
-#define ESP32_USR_BLOCK_SZ_MAX		(ESP32_TRACEMEM_BLOCK_SZ - sizeof(struct esp_apptrace_host2target_hdr))
-
-//TODO: remove from header
-struct esp_apptrace_host2target_hdr {
-	uint16_t   block_sz;
-};
-
-int esp_cmd_apptrace_generic(struct target *target, int sys_view, const char **argv, int argc);
-__COMMAND_HANDLER(esp108_cmd_apptrace);
-__COMMAND_HANDLER(esp108_cmd_sysview);
-
-int esp108_apptrace_write_ctrl_reg(struct target *target, uint32_t block_id, uint32_t len, int conn, int data);
-int esp108_apptrace_read_data_len(struct target *target, uint32_t *block_id, uint32_t *len);
-int esp108_apptrace_read_data(struct target *target, uint32_t size, uint8_t *buffer, uint32_t block_id, int ack, struct duration *dur);
-uint8_t *esp108_apptrace_usr_block_get(uint8_t *buffer, uint32_t *size);
-int esp108_apptrace_usr_block_write(struct target *target, uint32_t block_id, const uint8_t *data, uint32_t size);
-
-#endif // XTENSA_ESP108_APPTRACE_H
+#endif //ESP32_FLASHER_STUB_H

@@ -16,15 +16,13 @@
  */
 
 MEMORY {
-  /* place stub at the beginning of the OpenOCD working area, 
+  /* place stub at the beginning of the OpenOCD working area,
      remaining space will be used for other chunks */
-  iram : org = 0x40090000, len = 0x2400
-  dram : org = 0x3FFC0000, len = 0x5000
-/*  iram : org = 0x400A0000, len = 0x1400
-  dram : org = 0x3FFF8000, len = 0x400*/
+  iram : org = 0x40090000, len = 0x1FC0
+  dram : org = 0x3FFC0000, len = 0xB00
 }
 
-PHDRS 
+PHDRS
 {
   text_phdr PT_LOAD;
   data_phdr PT_LOAD;
@@ -38,18 +36,19 @@ SECTIONS {
     *(.text .text.*)
   } > iram : text_phdr
 
+  .data : ALIGN(4) {
+    *(.data)
+    *(.rodata .rodata.*)
+  } > dram : data_phdr
+
   .bss (NOLOAD) : ALIGN(4) {
     _bss_start = ABSOLUTE(.);
     *(.bss)
     _bss_end = ABSOLUTE(.);
   } > dram : data_phdr
-
-  .data : ALIGN(4) {
-    *(.data)
-    *(.rodata .rodata.*)
-  } > dram : data_phdr
 }
 
 INCLUDE "esp32.rom.ld"
+PROVIDE ( g_rom_spiflash_dummy_len_plus = 0x3ffae290 );
 PROVIDE ( ets_update_cpu_frequency = 0x40008550 ); /* Updates g_ticks_per_us on the current CPU only; not on the other core */
 PROVIDE ( esp_rom_spiflash_attach = 0x40062a6c );

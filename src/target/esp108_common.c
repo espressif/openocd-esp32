@@ -320,11 +320,13 @@ int xtensa_start_algorithm_generic(struct target *target,
 	}
 	/* write mem params */
 	for (int i = 0; i < num_mem_params; i++) {
-		retval = target_write_buffer(target, mem_params[i].address,
-				mem_params[i].size,
-				mem_params[i].value);
-		if (retval != ERROR_OK)
-			return retval;
+		if (mem_params[i].direction != PARAM_IN) {
+			retval = target_write_buffer(target, mem_params[i].address,
+					mem_params[i].size,
+					mem_params[i].value);
+			if (retval != ERROR_OK)
+				return retval;
+		}
 	}
 	/* write reg params */
 	for (int i = 0; i < num_reg_params; i++) {
@@ -348,7 +350,6 @@ int xtensa_start_algorithm_generic(struct target *target,
 	}
 	uint32_t ps = esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PS]);
 	uint32_t new_ps = ps;
-	LOG_INFO("ASTART PS = 0x%x", ps);
 	// ignore custom core mode if custom PS value is specified
 	if (!usr_ps) {
 		core_mode = XT_PS_RING_GET(ps);
@@ -381,7 +382,6 @@ int xtensa_wait_algorithm_generic(struct target *target,
 	 * at the exit point */
 
 	retval = target_wait_state(target, TARGET_HALTED, timeout_ms);
-	LOG_INFO("xtensa_wait_algorithm: halted %d", target->debug_reason);
 	/* If the target fails to halt due to the breakpoint, force a halt */
 	if (retval != ERROR_OK || target->state != TARGET_HALTED) {
 		retval = target_halt(target);
@@ -401,9 +401,12 @@ int xtensa_wait_algorithm_generic(struct target *target,
 			exit_point);
 		return ERROR_TARGET_TIMEOUT;
 	}
-	/* Read memory values to mem_params[] */
+	/* Read memory values to mem_params */
+	LOG_DEBUG("Read mem params");
 	for (int i = 0; i < num_mem_params; i++) {
+		LOG_DEBUG("Check mem param @ 0x%x", mem_params[i].address);
 		if (mem_params[i].direction != PARAM_OUT) {
+			LOG_USER("Read mem param @ 0x%x", mem_params[i].address);
 			retval = target_read_buffer(target, mem_params[i].address,
 					mem_params[i].size,
 					mem_params[i].value);
