@@ -67,6 +67,7 @@ struct rtos_type {
 	int (*get_symbol_list_to_lookup)(symbol_table_elem_t *symbol_list[]);
 	int (*clean)(struct target *target);
 	char * (*ps_command)(struct target *target);
+	int (*post_reset_cleanup)(struct target *target);
 };
 
 struct stack_register_offset {
