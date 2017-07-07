@@ -349,7 +349,13 @@ int esp32_soc_reset(struct target *target)
 
 	assert(target->state == TARGET_HALTED);
 
-
+	/* This this the stub code compiled from esp32_cpu_reset_handler.S.
+	   To compile it, run:
+	       xtensa-esp32-elf-as -o stub.o esp32_cpu_reset_handler.S
+	       xtensa-esp32-elf-objcopy -j .text -O binary stub.o stub.bin
+	   These steps are not included into OpenOCD build process so that a
+	   dependency on xtensa-esp32-elf toolchain is not introduced.
+	*/
 	const uint32_t esp32_post_reset_code[] = {
 		0x00000806, 0x50d83aa1, 0x00000000, 0x3ff480a4, 0x3ff4808c, 0x3ff5f064, 0x3ff5f048, 0x3ff60064,
 		0x3ff60048, 0x41fff831, 0x0439fff9, 0x39fffa41, 0xfffa4104, 0xf4310439, 0xfff541ff, 0xf6410439,
