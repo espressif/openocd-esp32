@@ -55,6 +55,8 @@ struct rtos {
 	int thread_count;
 	int (*gdb_thread_packet)(struct connection *connection, char const *packet, int packet_size);
 	void *rtos_specific_params;
+	/*Threads that are currently running on cores of the target*/
+	int32_t* core_running_threads;
 };
 
 struct rtos_type {
@@ -68,6 +70,7 @@ struct rtos_type {
 	int (*clean)(struct target *target);
 	char * (*ps_command)(struct target *target);
 	int (*post_reset_cleanup)(struct target *target);
+	void(*set_current_thread)(struct rtos *rtos, int32_t threadid);
 };
 
 struct stack_register_offset {

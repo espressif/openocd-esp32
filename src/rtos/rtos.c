@@ -22,6 +22,7 @@
 
 #include "rtos.h"
 #include "target/target.h"
+#include "target/target_type.h"
 #include "helper/log.h"
 #include "helper/binarybuffer.h"
 #include "server/gdb_server.h"
@@ -398,6 +399,9 @@ int rtos_thread_packet(struct connection *connection, char const *packet, int pa
 					 * all other operations ) */
 		if ((packet[1] == 'g') && (target->rtos != NULL)) {
 			sscanf(packet, "Hg%16" SCNx64, &target->rtos->current_threadid);
+			if (target->rtos->type->set_current_thread != NULL) {
+				target->rtos->type->set_current_thread(target->rtos, target->rtos->current_threadid);
+			}
 			LOG_DEBUG("RTOS: GDB requested to set current thread to 0x%" PRIx64 "\r\n",
 										target->rtos->current_threadid);
 		}
@@ -418,6 +422,11 @@ int rtos_get_gdb_reg_list(struct connection *connection)
 			(target->smp))) {	/* in smp several current thread are possible */
 		char *hex_reg_list;
 
+		for (int i = 0; i < target->type->get_cores_count(target); i++)	{
+			if (((int)current_threadid == target->rtos->core_running_threads[i])) {
+				return ERROR_FAIL;
+			}
+		}
 		LOG_DEBUG("RTOS: getting register list for thread 0x%" PRIx64
 				  ", target->rtos->current_thread=0x%" PRIx64 "\r\n",
 										current_threadid,
