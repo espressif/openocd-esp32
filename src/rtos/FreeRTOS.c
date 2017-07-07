@@ -111,7 +111,22 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 	8,						/* list_elem_next_offset; */
 	12,						/* list_elem_content_offset */
 	0,						/* thread_stack_offset; */
-	60,						/* thread_name_offset; */
+	56,						/* thread_name_offset; */
+	NULL,					/* stacking_info */
+	&rtos_standard_Cortex_M4F_stacking,
+	&rtos_standard_Cortex_M4F_FPU_stacking,
+	rtos_freertos_esp108_pick_stacking_info, /* fn to pick stacking_info */
+	},
+	{
+	"esp32",				/* target_name */
+	4,						/* thread_count_width; */
+	4,						/* pointer_width; */
+	16,						/* list_next_offset; */
+	20,						/* list_width; */
+	8,						/* list_elem_next_offset; */
+	12,						/* list_elem_content_offset */
+	0,						/* thread_stack_offset; */
+	56,						/* thread_name_offset; */
 	NULL,					/* stacking_info */
 	&rtos_standard_Cortex_M4F_stacking,
 	&rtos_standard_Cortex_M4F_FPU_stacking,
@@ -219,12 +234,20 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 
 	/* wipe out previous thread details if any */
 	rtos_free_threadlist(rtos);
+	int temp_addr[2] = {0,0};
+	retval = target_read_buffer(rtos->target,
+		rtos->symbols[FreeRTOS_VAL_pxCurrentTCB].address,
+		param->pointer_width*2,
+		(uint8_t *)temp_addr);
+
 
 	/* read the current thread */
 	retval = target_read_buffer(rtos->target,
 			rtos->symbols[FreeRTOS_VAL_pxCurrentTCB].address,
 			param->pointer_width,
 			(uint8_t *)&rtos->current_thread);
+	rtos->current_thread = temp_addr[rtos->target->coreid];
+	
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Error reading current thread in FreeRTOS thread list");
 		return retval;
@@ -363,6 +386,12 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 
 			/* get thread name */
 
+			char temp_buff[4096];
+			retval = target_read_buffer(rtos->target,
+				rtos->thread_details[tasks_found].threadid,
+				1024,
+				(uint8_t *)&temp_buff);
+
 			#define FREERTOS_THREAD_NAME_STR_SIZE (200)
 			char tmp_str[FREERTOS_THREAD_NAME_STR_SIZE];
 
@@ -389,8 +418,8 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 			strcpy(rtos->thread_details[tasks_found].thread_name_str, tmp_str);
 			rtos->thread_details[tasks_found].exists = true;
 
-			if (rtos->thread_details[tasks_found].threadid == rtos->current_thread) {
-				char running_str[] = "Running";
+			if ((rtos->thread_details[tasks_found].threadid == temp_addr[0]) || (rtos->thread_details[tasks_found].threadid == temp_addr[1])) {
+			    char running_str[] = "Running";
 				rtos->thread_details[tasks_found].extra_info_str = malloc(
 						sizeof(running_str));
 				strcpy(rtos->thread_details[tasks_found].extra_info_str,
