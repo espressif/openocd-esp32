@@ -490,6 +490,19 @@ struct target *get_target(const char *id)
 	return NULL;
 }
 
+/* returns a amount of targets*/
+int get_targets_count()
+{
+	int result = 0;
+	struct target *target = all_targets;
+
+	while (target) {
+		target = target->next;
+		result++;
+	}
+	return result;
+}
+
 /* returns a pointer to the n-th configured target */
 struct target *get_target_by_num(int num)
 {
