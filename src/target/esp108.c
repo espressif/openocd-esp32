@@ -1,26 +1,25 @@
 /***************************************************************************
- *	 ESP108 target for OpenOCD											   *
- *	 Copyright (C) 2016 Espressif Systems Ltd.							   *
- *	 <jeroen@espressif.com>												   *
- *																		   *
- *	 Derived from original ESP8266 target.								   *
- *	 Copyright (C) 2015 by Angus Gratton								   *
- *	 gus@projectgus.com													   *
- *																		   *
- *	 This program is free software; you can redistribute it and/or modify  *
- *	 it under the terms of the GNU General Public License as published by  *
- *	 the Free Software Foundation; either version 2 of the License, or	   *
- *	 (at your option) any later version.								   *
- *																		   *
- *	 This program is distributed in the hope that it will be useful,	   *
- *	 but WITHOUT ANY WARRANTY; without even the implied warranty of		   *
- *	 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the		   *
- *	 GNU General Public License for more details.						   *
- *																		   *
- *	 You should have received a copy of the GNU General Public License	   *
- *	 along with this program; if not, write to the						   *
- *	 Free Software Foundation, Inc.,									   *
- *	 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.		   *
+ *   ESP108 target for OpenOCD                                             *
+ *   Copyright (C) 2016-2017 Espressif Systems Ltd.                        *
+ *                                                                         *
+ *   Derived from original ESP8266 target.                                 *
+ *   Copyright (C) 2015 by Angus Gratton                                   *
+ *   gus@projectgus.com                                                    *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
+ *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
 
@@ -133,118 +132,6 @@ esp108_reg_set etc functions are suspect.
 */
 
 
-#define XT_INS_NUM_BITS 24
-#define XT_DEBUGLEVEL	 6 /* XCHAL_DEBUGLEVEL in xtensa-config.h */
-#define XT_NUM_BREAKPOINTS 2
-#define XT_NUM_WATCHPOINTS 2
-
-
-enum esp108_reg_t {
-	XT_REG_GENERAL = 0,		//General-purpose register; part of the windowed register set
-	XT_REG_USER = 1,		//User register, needs RUR to read
-	XT_REG_SPECIAL = 2,		//Special register, needs RSR to read
-	XT_REG_DEBUG = 3,		//Register used for the debug interface. Don't mess with this.
-	XT_REG_RELGEN = 4,		//Relative general address. Points to the absolute addresses plus the window index
-	XT_REG_FR = 5,			//Floating-point register
-};
-
-enum esp108_regflags_t {
-	XT_REGF_NOREAD = 0x01,	//Register is write-only
-	XT_REGF_COPROC0 = 0x02	//Can't be read if coproc0 isn't enabled
-};
-
-struct esp108_reg_desc {
-	const char *name;
-	int reg_num; /* ISA register num (meaning depends on register type) */
-	enum esp108_reg_t type;
-	enum esp108_regflags_t flags;
-};
-
-//Register file can be auto-generated
-#include "esp108_regs.h"
-
-
-#define _XT_INS_FORMAT_RSR(OPCODE,SR,T) (OPCODE			\
-					 | ((SR & 0xFF) << 8)	\
-					 | ((T & 0x0F) << 4))
-
-#define _XT_INS_FORMAT_RRR(OPCODE,ST,R) (OPCODE			\
-					 | ((ST & 0xFF) << 4)	\
-					 | ((R & 0x0F) << 12))
-
-#define _XT_INS_FORMAT_RRRN(OPCODE,S, T,IMM4) (OPCODE		  \
-					 | ((T & 0x0F) << 4)   \
-					 | ((S & 0x0F) << 8)   \
-					 | ((IMM4 & 0x0F) << 12))
-
-#define _XT_INS_FORMAT_RRI8(OPCODE,R,S,T,IMM8) (OPCODE			\
-						| ((IMM8 & 0xFF) << 16) \
-						| ((R & 0x0F) << 12 )	\
-						| ((S & 0x0F) << 8 )	\
-						| ((T & 0x0F) << 4 ))
-
-/* Special register number macro for DDR register.
- * this gets used a lot so making a shortcut to it is
- * useful.
- */
-#define XT_SR_DDR		  (esp108_regs[XT_REG_IDX_DDR].reg_num)
-
-//Same thing for A3/A4
-#define XT_REG_A3		  (esp108_regs[XT_REG_IDX_AR3].reg_num)
-#define XT_REG_A4		  (esp108_regs[XT_REG_IDX_AR4].reg_num)
-
-
-/* Xtensa processor instruction opcodes
-*/
-/* "Return From Debug Operation" to Normal */
-#define XT_INS_RFDO		 0xf1e000
-/* "Return From Debug and Dispatch" - allow sw debugging stuff to take over */
-#define XT_INS_RFDD		 0xf1e010
-
-/* Load to DDR register, increase addr register */
-#define XT_INS_LDDR32P(S) (0x0070E0|(S<<8))
-/* Store from DDR register, increase addr register */
-#define XT_INS_SDDR32P(S) (0x0070F0|(S<<8))
-
-/* Load 32-bit Indirect from A(S)+4*IMM8 to A(T) */
-#define XT_INS_L32I(S,T,IMM8)  _XT_INS_FORMAT_RRI8(0x002002,0,S,T,IMM8)
-/* Load 16-bit Unsigned from A(S)+2*IMM8 to A(T) */
-#define XT_INS_L16UI(S,T,IMM8) _XT_INS_FORMAT_RRI8(0x001002,0,S,T,IMM8)
-/* Load 8-bit Unsigned from A(S)+IMM8 to A(T) */
-#define XT_INS_L8UI(S,T,IMM8)  _XT_INS_FORMAT_RRI8(0x000002,0,S,T,IMM8)
-
-/* Store 32-bit Indirect to A(S)+4*IMM8 from A(T) */
-#define XT_INS_S32I(S,T,IMM8) _XT_INS_FORMAT_RRI8(0x006002,0,S,T,IMM8)
-/* Store 16-bit to A(S)+2*IMM8 from A(T) */
-#define XT_INS_S16I(S,T,IMM8) _XT_INS_FORMAT_RRI8(0x005002,0,S,T,IMM8)
-/* Store 8-bit to A(S)+IMM8 from A(T) */
-#define XT_INS_S8I(S,T,IMM8)  _XT_INS_FORMAT_RRI8(0x004002,0,S,T,IMM8)
-/* S32I.N is similar to S32I, but has a 16-bit encoding and supports a smaller range of
-offset values encoded in the instruction word. */
-#define XT_INS_S32I_N(S,T,IMM4) _XT_INS_FORMAT_RRRN(0x0009,S,T,IMM4)
-#define XT_INS_S32I_N_GET_T(INSN)	((INSN >> 4) & 0x0F)
-
-/* Read Special Register */
-#define XT_INS_RSR(SR,T) _XT_INS_FORMAT_RSR(0x030000,SR,T)
-/* Write Special Register */
-#define XT_INS_WSR(SR,T) _XT_INS_FORMAT_RSR(0x130000,SR,T)
-/* Swap Special Register */
-#define XT_INS_XSR(SR,T) _XT_INS_FORMAT_RSR(0x610000,SR,T)
-
-/* Rotate Window by (-8..7) */
-#define XT_INS_ROTW(N) ((0x408000)|((N&15)<<4))
-
-/* Read User Register */
-#define XT_INS_RUR(UR,T) _XT_INS_FORMAT_RRR(0xE30000,UR,T)
-/* Write User Register */
-#define XT_INS_WUR(UR,T) _XT_INS_FORMAT_RRR(0xF30000,UR,T)
-
-/* Read Floating-Point Register */
-#define XT_INS_RFR(FR,T) _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x4),T)
-/* Write Floating-Point Register */
-#define XT_INS_WFR(FR,T) _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x5),T)
-
-
 extern int esp108_cmd_apptrace(struct command_invocation *cmd);
 extern int esp108_cmd_sysview(struct command_invocation *cmd);
 
@@ -255,180 +142,15 @@ static int xtensa_step(struct target *target,
 	int handle_breakpoints);
 static int xtensa_poll(struct target *target);
 
-
-void esp108_add_set_ir(struct target *target, uint8_t value)
-{
-	uint8_t t[4];
-	struct scan_field field;
-	memset(&field, 0, sizeof field);
-	field.num_bits = target->tap->ir_length;
-	field.out_value = t;
-	buf_set_u32(t, 0, field.num_bits, value);
-	jtag_add_ir_scan(target->tap, &field, TAP_IDLE);
-}
-
-
-void esp108_add_dr_scan(struct target *target, int len, const uint8_t *src, uint8_t *dest, tap_state_t endstate)
-{
-	struct scan_field field;
-	memset(&field, 0, sizeof field);
-	field.num_bits=len;
-	field.out_value=src;
-	field.in_value=dest;
-	jtag_add_dr_scan(target->tap, 1, &field, endstate);
-}
-
-//Set the PWRCTL TAP register to a value
-static void esp108_queue_pwrctl_set(struct target *target, uint8_t value)
-{
-	esp108_add_set_ir(target, TAPINS_PWRCTL);
-	esp108_add_dr_scan(target, TAPINS_PWRCTL_LEN, &value, NULL, TAP_IDLE);
-}
-
-//Read the PWRSTAT TAP register and clear the XWASRESET bits.
-static void esp108_queue_pwrstat_readclear(struct target *target, uint8_t *value)
-{
-	const uint8_t pwrstatClr=PWRSTAT_DEBUGWASRESET|PWRSTAT_COREWASRESET;
-	esp108_add_set_ir(target, TAPINS_PWRSTAT);
-	esp108_add_dr_scan(target, TAPINS_PWRCTL_LEN, &pwrstatClr, value, TAP_IDLE);
-}
-
-
-void esp108_queue_nexus_reg_write(struct target *target, const uint8_t reg, const uint32_t value)
-{
-	uint8_t regdata=(reg<<1)|1;
-	uint8_t valdata[]={value, value>>8, value>>16, value>>24};
-	esp108_add_set_ir(target, TAPINS_NARSEL);
-	esp108_add_dr_scan(target, TAPINS_NARSEL_ADRLEN, &regdata, NULL, TAP_IDLE);
-	esp108_add_dr_scan(target, TAPINS_NARSEL_DATALEN, valdata, NULL, TAP_IDLE);
-}
-
-void esp108_queue_nexus_reg_read(struct target *target, const uint8_t reg, uint8_t *value)
-{
-	uint8_t regdata=(reg<<1)|0;
-	uint8_t dummy[4]={0,0,0,0};
-	esp108_add_set_ir(target, TAPINS_NARSEL);
-	esp108_add_dr_scan(target, TAPINS_NARSEL_ADRLEN, &regdata, NULL, TAP_IDLE);
-	esp108_add_dr_scan(target, TAPINS_NARSEL_DATALEN, dummy, value, TAP_IDLE);
-}
-
-static void esp108_queue_exec_ins(struct target *target, int32_t ins)
-{
-	esp108_queue_nexus_reg_write(target, NARADR_DIR0EXEC, ins);
-}
-
-static uint32_t esp108_reg_get(struct reg *reg)
-{
-	return *((uint32_t*)reg->value);
-}
-
-static void esp108_reg_set(struct reg *reg, uint32_t value)
-{
-	uint32_t oldval;
-	oldval=*((uint32_t*)reg->value);
-	if (oldval==value) return;
-	*((uint32_t*)reg->value)=value;
-	reg->dirty=1;
-}
-
-
-/*
-The TDI pin is also used as a flash Vcc bootstrap pin. If we reset the CPU externally, the last state of the TDI pin can
-allow the power to an 1.8V flash chip to be raised to 3.3V, or the other way around. Users can use the
-esp108 flashbootstrap command to set a level, and this routine will make sure the tdi line will return to
-that when the jtag port is idle.
-*/
-void esp108_queue_tdi_idle(struct target *target) {
-	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
-	static uint8_t value;
-	uint8_t t[4]={0,0,0,0};
-
-	if (esp108->flashBootstrap==FBS_TMSLOW) {
-		//Make sure tdi is 0 at the exit of queue execution
-		value=0;
-	} else if (esp108->flashBootstrap==FBS_TMSHIGH) {
-		//Make sure tdi is 1 at the exit of queue execution
-		value=1;
-	} else {
-		return;
-	}
-
-	//Scan out 1 bit, do not move from IRPAUSE after we're done.
-	buf_set_u32(t, 0, 1, value);
-	jtag_add_plain_ir_scan(1, t, NULL, TAP_IRPAUSE);
-}
-
-
 //Utility function: check DSR for any weirdness and report.
 //Also does tms_reset to bootstrap level indicated.
 #define esp108_checkdsr(target) esp108_do_checkdsr(target, __FUNCTION__, __LINE__)
-static int esp108_do_checkdsr(struct target *target, const char *function, const int line)
-{
-	uint8_t dsr[4];
-	int res;
-	int needclear=0;
-	esp108_queue_nexus_reg_read(target, NARADR_DSR, dsr);
-	esp108_queue_tdi_idle(target);
-	res=jtag_execute_queue();
-	if (res!=ERROR_OK) {
-		LOG_ERROR("%s: %s (line %d): reading DSR failed!", target->cmd_name, function, line);
-		return ERROR_FAIL;
-	}
-	if (intfromchars(dsr)&OCDDSR_EXECBUSY) {
-		LOG_ERROR("%s: %s (line %d): DSR (%08X) indicates target still busy!", target->cmd_name, function, line, intfromchars(dsr));
-		needclear=1;
-	}
-	if (intfromchars(dsr)&OCDDSR_EXECEXCEPTION) {
-		LOG_ERROR("%s: %s (line %d): DSR (%08X) indicates DIR instruction generated an exception!", target->cmd_name, function, line, intfromchars(dsr));
-		needclear=1;
-	}
-	if (intfromchars(dsr)&OCDDSR_EXECOVERRUN) {
-		LOG_ERROR("%s: %s (line %d): DSR (%08X) indicates DIR instruction generated an overrun!", target->cmd_name, function, line, intfromchars(dsr));
-		needclear=1;
-	}
-	if (needclear) {
-		esp108_queue_nexus_reg_write(target, NARADR_DSR, OCDDSR_EXECEXCEPTION|OCDDSR_EXECOVERRUN);
-		res=jtag_execute_queue();
-		if (res!=ERROR_OK) {
-			LOG_ERROR("%s: %s (line %d): clearing DSR failed!", target->cmd_name, function, line);
-		}
-		return ERROR_FAIL;
-	}
-	return ERROR_OK;
-}
 
 static void esp108_mark_register_dirty(struct target *target, int regidx)
 {
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	struct reg *reg_list=esp108->core_cache->reg_list;
 	reg_list[regidx].dirty=1;
-}
-
-//Convert a register index that's indexed relative to windowbase, to the real address.
-static enum xtensa_reg_idx windowbase_offset_to_canonical(const enum xtensa_reg_idx reg, const int windowbase)
-{
-	int idx;
-	if (reg>=XT_REG_IDX_AR0 && reg<=XT_REG_IDX_AR63) {
-		idx=reg-XT_REG_IDX_AR0;
-	} else if (reg>=XT_REG_IDX_A0 && reg<=XT_REG_IDX_A15) {
-		idx=reg-XT_REG_IDX_A0;
-	} else {
-		LOG_ERROR("Error: can't convert register %d to non-windowbased register!\n", reg);
-		return -1;
-	}
-	return ((idx+(windowbase*4))&63)+XT_REG_IDX_AR0;
-}
-
-static enum xtensa_reg_idx canonical_to_windowbase_offset(const enum xtensa_reg_idx reg, const int windowbase)
-{
-	return windowbase_offset_to_canonical(reg, -windowbase);
-}
-
-static int regReadable(int flags, int cpenable) {
-	if (flags&XT_REGF_NOREAD) return 0;
-	if ((flags&XT_REGF_COPROC0) && (cpenable&(1<<0))==0) return 0;
-	return 1;
-
 }
 
 static int esp108_fetch_all_regs(struct target *target)
@@ -620,7 +342,7 @@ static int xtensa_halt(struct target *target)
 {
 	int res;
 
-	LOG_DEBUG("%s", __func__);
+	LOG_DEBUG("%s, target: %s", __func__, target->cmd_name);
 	if (target->state == TARGET_HALTED) {
 		LOG_DEBUG("%s: target was already halted", target->cmd_name);
 		return ERROR_OK;
@@ -663,6 +385,11 @@ static int xtensa_resume(struct target *target,
 		if (cause&DEBUGCAUSE_DB) {
 			//We stopped due to a watchpoint. We can't just resume executing the instruction again because
 			//that would trigger the watchpoint again. To fix this, we single-step, which ignores watchpoints.
+			xtensa_step(target, current, address, handle_breakpoints);
+		}
+		if (cause&DEBUGCAUSE_BI) {
+			//We stopped due to a break instruction. We can't just resume executing the instruction again because
+			//that would trigger the break again. To fix this, we single-step, which ignores break.
 			xtensa_step(target, current, address, handle_breakpoints);
 		}
 	}
@@ -719,8 +446,17 @@ static int xtensa_read_memory(struct target *target,
 	int res;
 	uint8_t *albuff;
 
+	if (esp108_get_addr_type(address) == INVALID) {
+		LOG_DEBUG("%s: address 0x%08x not readable", __func__, address);
+		return ERROR_FAIL;
+	}
+	
 //	LOG_INFO("%s: %s: reading %d bytes from addr %08X", target->cmd_name, __FUNCTION__, size*count, address);
 //	LOG_INFO("Converted to aligned addresses: read from %08X to %08X", addrstart_al, addrend_al);
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("%s: %s: target not halted", __func__, target->cmd_name);
+		return ERROR_TARGET_NOT_HALTED;
+	}
 
 	if (addrstart_al==address && addrend_al==address+(size*count)) {
 		albuff=buffer;
@@ -784,8 +520,13 @@ static int xtensa_write_memory(struct target *target,
 	int res;
 	uint8_t *albuff;
 
+	if (esp108_get_addr_type(address) != READWRITE) {
+		LOG_DEBUG("%s: address 0x%08x not writable", __func__, address);
+		return ERROR_FAIL;
+	}
+
 	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("%s: target not halted", target->cmd_name);
+		LOG_WARNING("%s: %s: target not halted", __func__, target->cmd_name);
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
@@ -886,202 +627,8 @@ static int xtensa_get_gdb_reg_list(struct target *target,
 	return ERROR_OK;
 }
 
-static int xtensa_get_core_reg(struct reg *reg)
-{
-//We don't need this because we read all registers on halt anyway.
-	struct esp108_common *esp108 = reg->arch_info;
-	struct target *target = esp108->target;
-	if (target->state != TARGET_HALTED) return ERROR_TARGET_NOT_HALTED;
-	return ERROR_OK;
-}
-
-static int xtensa_set_core_reg(struct reg *reg, uint8_t *buf)
-{
-	struct esp108_common *esp108 = reg->arch_info;
-	struct target *target = esp108->target;
-
-	uint32_t value = buf_get_u32(buf, 0, 32);
-
-	if (target->state != TARGET_HALTED) return ERROR_TARGET_NOT_HALTED;
-
-	buf_set_u32(reg->value, 0, reg->size, value);
-	reg->dirty = 1;
-	reg->valid = 1;
-	return ERROR_OK;
-}
-
-static int xtensa_write_uint32(struct target *target, uint32_t addr, uint32_t val)
-{
-	return xtensa_write_memory(target, addr, 4, 1, (uint8_t*) &val);
-}
-
-static int xtensa_write_uint32_list(struct target *target, const uint32_t* addr_value_pairs_list, size_t count)
-{
-	int res;
-	for (size_t i = 0; i < count; ++i) 
-	{
-		res = xtensa_write_uint32(target, addr_value_pairs_list[2 * i], addr_value_pairs_list[2 * i + 1]);
-		if (res != ERROR_OK) {
-			LOG_ERROR("%s: error writing to %08x", __func__, addr_value_pairs_list[2 * i]);
-			return res;
-		}
-	}
-	return ERROR_OK;
-}
-
 static int xtensa_assert_reset(struct target *target);
 static int xtensa_deassert_reset(struct target *target);
-
-/* Reset ESP32's peripherals.
-   Postconditions: all peripherals except RTC_CNTL are reset, CPU's PC is undefined, PRO CPU is halted, APP CPU is in reset 
-   How this works:
-    0. make sure target is halted; if not, try to halt it; if that fails, try to reset it (via OCD) and then halt
-    1. set CPU initial PC to 0x50000000 (RTC_SLOW_MEM) by clearing RTC_CNTL_{PRO,APP}CPU_STAT_VECTOR_SEL
-    2. load stub code into RTC_SLOW_MEM; once executed, stub code will disable watchdogs and make CPU spin in an idle loop.
-    3. trigger SoC reset using RTC_CNTL_SW_SYS_RST bit
-    4. wait for the OCD to be reset
-    5. halt the target and wait for it to be halted (at this point CPU is in the idle loop)
-    6. restore initial PC and the contents of RTC_SLOW_MEM
-   TODO: some state of RTC_CNTL is not reset during SW_SYS_RST. Need to reset that manually.
- */
-static int esp32_soc_reset(struct target *target)
-{
-	LOG_DEBUG("%s %d", __func__, __LINE__);
-	int res;
-
-	/* In order to write to peripheral registers, target must be halted first */
-	if (target->state != TARGET_HALTED) {
-		LOG_DEBUG("%s: Target not halted before SoC reset, trying to halt it first", __func__);
-		xtensa_halt(target);
-		res = target_wait_state(target, TARGET_HALTED, 1000);
-		if (res != ERROR_OK) {
-			LOG_DEBUG("%s: Couldn't halt target before SoC reset, trying to do reset-halt", __func__);
-			res = xtensa_assert_reset(target);
-			if (res != ERROR_OK) {
-				LOG_ERROR("%s: Couldn't halt target before SoC reset! (xtensa_assert_reset returned %d)", __func__, res);
-				return res;
-			}
-			alive_sleep(10);
-			xtensa_poll(target);
-			int reset_halt_save = target->reset_halt;
-			target->reset_halt = 1;
-			res = xtensa_deassert_reset(target);
-			target->reset_halt = reset_halt_save;
-			if (res != ERROR_OK) {
-				LOG_ERROR("%s: Couldn't halt target before SoC reset! (xtensa_deassert_reset returned %d)", __func__, res);
-				return res;
-			}
-			alive_sleep(10);
-			xtensa_poll(target);
-			xtensa_halt(target);
-			res = target_wait_state(target, TARGET_HALTED, 1000);
-			if (res != ERROR_OK) {
-				LOG_ERROR("%s: Couldn't halt target before SoC reset", __func__);
-				return res;
-			}
-		}
-	}
-
-	assert(target->state == TARGET_HALTED);
-
-
-	const uint32_t esp32_post_reset_code[] = {
-		0x00000806, 0x50d83aa1, 0x00000000, 0x3ff480a4, 0x3ff4808c, 0x3ff5f064, 0x3ff5f048, 0x3ff60064, 
-		0x3ff60048, 0x41fff831, 0x0439fff9, 0x39fffa41, 0xfffa4104, 0xf4310439, 0xfff541ff, 0xf6410439, 
-		0x410439ff, 0x0439fff7, 0x46007000,
-	};
-
-	uint32_t slow_mem_save[sizeof(esp32_post_reset_code) / sizeof(uint32_t)];
-
-	const int RTC_SLOW_MEM_BASE = 0x50000000;
-	/* Save contents of RTC_SLOW_MEM which we are about to overwrite */
-	res = xtensa_read_buffer(target, RTC_SLOW_MEM_BASE, sizeof(slow_mem_save), (uint8_t*) slow_mem_save);
-	if (res != ERROR_OK)  {
-		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
-		return res;
-	}
-
-	/* Write stub code into RTC_SLOW_MEM */
-	res = xtensa_write_buffer(target, RTC_SLOW_MEM_BASE, sizeof(esp32_post_reset_code), (const uint8_t*) esp32_post_reset_code);
-	if (res != ERROR_OK)  {
-		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
-		return res;
-	}
-
-	const int RTC_CNTL_RESET_STATE_REG = 0x3ff48034;
-	const int RTC_CNTL_RESET_STATE_DEF = 0x3000;
-	const int RTC_CNTL_CLK_CONF_REG = 0x3ff48070;
-	const int RTC_CNTL_CLK_CONF_DEF = 0x2210;
-	const int RTC_CNTL_STORE4_REG = 0x3ff480b0;
-	const int RTC_CNTL_STORE5_REG = 0x3ff480b4;
-	const int RTC_CNTL_OPTIONS0_REG = 0x3ff48000;
-	const int RTC_CNTL_OPTIONS0_DEF = 0x1c492000;
-	const int RTC_CNTL_SW_SYS_RST = 0x80000000;
-	const int DPORT_APPCPU_CTRL_A_REG = 0x3ff0002c;
-	const int DPORT_APPCPU_CTRL_B_REG = 0x3ff00030;
-	const int DPORT_APPCPU_CLKGATE_EN = 0x1;
-	const int DPORT_APPCPU_CTRL_D_REG = 0x3ff00038;
-
-	/* Set a list of registers to these values */
-	const uint32_t reg_value_pairs_pre[] = {
-		/* Set entry point to RTC_SLOW_MEM */
-		RTC_CNTL_RESET_STATE_REG, 0,
-		/* Reset SoC clock to XTAL, in case it was running from PLL */
-		RTC_CNTL_CLK_CONF_REG, RTC_CNTL_CLK_CONF_DEF,
-		/* Reset RTC_CNTL_STORE{4,5}_REG, which are related to clock state */
-		RTC_CNTL_STORE4_REG, 0,
-		RTC_CNTL_STORE5_REG, 0,
-		/* Perform reset */
-		RTC_CNTL_OPTIONS0_REG, RTC_CNTL_OPTIONS0_DEF | RTC_CNTL_SW_SYS_RST
-	};
-	res = xtensa_write_uint32_list(target, reg_value_pairs_pre, sizeof(reg_value_pairs_pre) / 8);
-	if (res != ERROR_OK)  {
-		LOG_WARNING("%s xtensa_write_uint32_list (reg_value_pairs_pre) err=%d", __func__, res);
-		return res;
-	}
-
-	/* Wait for SoC to reset */
-	res = target_wait_state(target, TARGET_RUNNING, 1000);
-	if (res != ERROR_OK) {
-		LOG_ERROR("%s: Timed out waiting for CPU to be reset", __func__);
-		return ERROR_TARGET_TIMEOUT;
-	}
-
-	/* Halt the CPU again */
-	xtensa_halt(target);
-	res = target_wait_state(target, TARGET_HALTED, 1000);
-	if (res != ERROR_OK) {
-		LOG_ERROR("%s: Timed out waiting for CPU to be halted after SoC reset", __func__);
-		return res;
-	}
-
-	const uint32_t reg_value_pairs_post[] = {
-		/* Reset entry point back to the reset vector */
-		RTC_CNTL_RESET_STATE_REG, RTC_CNTL_RESET_STATE_DEF,
-		/* Clear APP CPU boot address */
-		DPORT_APPCPU_CTRL_D_REG, 0,
-		/* Enable clock to APP CPU */
-		DPORT_APPCPU_CTRL_B_REG, DPORT_APPCPU_CLKGATE_EN,
-		/* Take APP CPU out of reset */
-		DPORT_APPCPU_CTRL_A_REG, 0,
-	};
-	res = xtensa_write_uint32_list(target, reg_value_pairs_post, sizeof(reg_value_pairs_post) / 8);
-	if (res != ERROR_OK)  {
-		LOG_WARNING("%s xtensa_write_uint32_list (reg_value_pairs_post) err=%d", __func__, res);
-		return res;
-	}
-
-	/* Restore the original contents of RTC_SLOW_MEM */
-	res = xtensa_write_buffer(target, RTC_SLOW_MEM_BASE, sizeof(slow_mem_save), (const uint8_t*) slow_mem_save);
-	if (res != ERROR_OK)  {
-		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
-		return res;
-	}
-
-	LOG_DEBUG("%s %d", __func__, __LINE__);
-
-	return ERROR_OK;
-}
 
 static int xtensa_assert_reset_full(struct target *target)
 {
@@ -1301,6 +848,11 @@ static int xtensa_step(struct target *target,
 			dbreakc[slot]=esp108_reg_get(&reg_list[XT_REG_IDX_DBREAKC0+slot]);
 			esp108_reg_set(&reg_list[XT_REG_IDX_DBREAKC0+slot], 0);
 		}
+		if (cause&DEBUGCAUSE_BI) {
+			LOG_DEBUG("%s: Increment PC to pass break instruction...", target->cmd_name);
+			address = oldpc + 3; // PC = PC+3
+			current = 0;		 // The PC was modified.
+		}
 	}
 
 	//Sometimes (because of eg an interrupt) the pc won't actually increment. In that case, we repeat the
@@ -1446,14 +998,6 @@ static int xtensa_init_target(struct command_context *cmd_ctx, struct target *ta
 
 	return ERROR_OK;
 }
-
-//Stub
-static int xtensa_examine(struct target *target)
-{
-	target_set_examined(target);
-	return ERROR_OK;
-}
-
 
 static int xtensa_poll(struct target *target)
 {

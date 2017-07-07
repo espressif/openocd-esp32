@@ -408,7 +408,7 @@ static int esp108_apptrace_file_dest_write(void *priv, int dest_idx, uint8_t *da
 {
 	struct apptrace_dest_file_data *dest_data = (struct apptrace_dest_file_data *)priv;
 
-	if (write(dest_data->fout[dest_idx], data, size) != size) {
+	if (write(dest_data->fout[dest_idx], data, size) != (int)size) {
 		LOG_ERROR("Failed to write %u bytes to out file!", size);
 		return ERROR_FAIL;
 	}
@@ -832,8 +832,9 @@ static int esp108_apptrace_write_data(struct target *target, uint32_t size, uint
 	esp108_queue_nexus_reg_write(target, NARADR_TRAXADDR, 0);
 	for (i = 16*1024/4; i > 0; i--) {
 		if ((i-1) < size/4) {
-			LOG_DEBUG("Write DWORD[%d] %x", i-1, *((uint32_t *)&buffer[(i-1)*4]));
-			esp108_queue_nexus_reg_write(target, NARADR_TRAXDATA, *((uint32_t *)&buffer[(i-1)*4]));
+			uint32_t val = le_to_h_u32(buffer + (i-1)*4);
+			LOG_DEBUG("Write DWORD[%d] %x", i-1, val);
+			esp108_queue_nexus_reg_write(target, NARADR_TRAXDATA, val);
 		}
 		else if ((i-1) == size/4) {
 			uint8_t nb = size % 4;
@@ -1195,7 +1196,6 @@ static int esp108_sysview_start(struct apptrace_cmd_ctx *ctx)
 			// it can happen that there is no pending target data, but block was switched
 			// in this case block_ids on both CPUs are equal, so select the first one
 			fired_target_num = 0;
-						if (write(at_cmd_ctx->fout, (uint8_t *)(hdr + 1) + wr_idx, wr_chunk_len) != (signed)wr_chunk_len) {
 		}
 		if (target_state[fired_target_num].block_id != old_block_id) {
 			// do not read data, they will be read when polling callback is called
@@ -1675,7 +1675,10 @@ static int esp108_apptrace_handle_trace_block(struct apptrace_cmd_ctx *ctx, stru
 	// process user blocks one by one
 	while (processed < block->data_len) {
 		LOG_DEBUG("Process usr block %d/%d", processed, block->data_len);
-		struct apptrace_target2host_hdr *hdr = (struct apptrace_target2host_hdr *)(block->data + processed);
+		struct apptrace_target2host_hdr shdr;
+		memcpy(&shdr, block->data + processed, sizeof(shdr));
+		struct apptrace_target2host_hdr *hdr = &shdr;
+
 		// process user block
 		uint32_t usr_len = esp108_apptrace_usr_block_check(ctx, hdr);
 		int core_id;
