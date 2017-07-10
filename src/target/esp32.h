@@ -1,9 +1,6 @@
 /***************************************************************************
- *   ESP108 target for OpenOCD                                             *
- *                                                                         *
- *   Derived from original ESP8266 target.                                 *
- *   Copyright (C) 2015 by Angus Gratton                                   *
- *   gus@projectgus.com                                                    *
+ *   ESP32 target for OpenOCD                                              *
+ *   Copyright (C) 2017 Espressif Systems Ltd.                             *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -21,10 +18,24 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-#ifndef XTENSA_ESP108_H
-#define XTENSA_ESP108_H
+#ifndef XTENSA_ESP32_H
+#define XTENSA_ESP32_H
 
 #include "esp108_common.h"
 
+#define ESP32_CPU_COUNT		2
+#define ESP32_PRO_CPU_ID	0
 
-#endif /* XTENSA_ESP108_H */
+struct esp32_common {
+
+	// Common fields definition for all esp108 targets
+	ESP108_COMMON_FIELDS;
+
+	struct target* esp32_targets[ESP32_CPU_COUNT];
+	int active_cpu;
+	struct reg_cache *core_caches[ESP32_CPU_COUNT];
+	int64_t current_threadid;
+};
+
+
+#endif /* XTENSA_ESP32_H */

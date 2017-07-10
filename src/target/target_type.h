@@ -274,6 +274,17 @@ struct target_type {
 	 */
 	int (*profiling)(struct target *target, uint32_t *samples,
 			uint32_t max_num_samples, uint32_t *num_samples, uint32_t seconds);
+
+
+	/* get amount of cores for multiprocessor systems.
+	*/
+	int(*get_cores_count)(struct target *target);
+	/* get current active core for multiprocessor systems.
+	*/
+	int(*get_active_core)(struct target *target);
+	/* set active core for multiprocessor systems.
+	*/
+	void(*set_active_core)(struct target *target, int core);
 };
 
 #endif /* OPENOCD_TARGET_TARGET_TYPE_H */

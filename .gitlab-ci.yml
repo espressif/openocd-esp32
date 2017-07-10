@@ -85,6 +85,7 @@ build_windows:
     - ./bootstrap
     - export LIBUSB1_CFLAGS=-I$PWD/$LIBUSB_VER/dist/include/libusb-1.0
     - export LIBUSB1_LIBS=-L$PWD/$LIBUSB_VER/dist/lib
+    - export LDFLAGS=-static
     - ./configure --prefix=$PWD/openocd-esp32 --host=i686-w64-mingw32 $OPENOCD_CONFIGURE_OPTS
     - make -j `nproc`
     - make install-strip

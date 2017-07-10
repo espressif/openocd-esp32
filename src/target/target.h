@@ -373,6 +373,7 @@ int target_call_timer_callbacks_now(void);
 struct target *get_target_by_num(int num);
 struct target *get_current_target(struct command_context *cmd_ctx);
 struct target *get_target(const char *id);
+int get_targets_count(void);
 
 /**
  * Get the target type name.
@@ -682,5 +683,14 @@ void target_handle_event(struct target *t, enum target_event e);
 #define ERROR_TARGET_NOT_EXAMINED (-311)
 
 extern bool get_target_reset_nag(void);
+
+/* Returns the number of CPUs within a target */
+int target_get_core_count(struct target *target);
+
+/* Returns the index of the active CPU */
+int target_get_active_core(struct target *target);
+
+/* Makes given CPU active */
+void target_set_active_core(struct target *target, int core_id);
 
 #endif /* OPENOCD_TARGET_TARGET_H */

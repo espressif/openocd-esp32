@@ -74,6 +74,11 @@ static int target_gdb_fileio_end_default(struct target *target, int retcode,
 static int target_profiling_default(struct target *target, uint32_t *samples,
 		uint32_t max_num_samples, uint32_t *num_samples, uint32_t seconds);
 
+static int target_get_cores_count_default(struct target *target);
+static int target_get_active_core_default(struct target *target);
+static void target_set_active_core_default(struct target *target, int core);
+
+
 /* targets */
 extern struct target_type arm7tdmi_target;
 extern struct target_type arm720t_target;
@@ -102,6 +107,7 @@ extern struct target_type nds32_v2_target;
 extern struct target_type nds32_v3_target;
 extern struct target_type nds32_v3m_target;
 extern struct target_type esp108_target;
+extern struct target_type esp32_target;
 extern struct target_type or1k_target;
 extern struct target_type quark_x10xx_target;
 extern struct target_type quark_d20xx_target;
@@ -134,6 +140,7 @@ static struct target_type *target_types[] = {
 	&nds32_v3_target,
 	&nds32_v3m_target,
 	&esp108_target,
+	&esp32_target,
 	&or1k_target,
 	&quark_x10xx_target,
 	&quark_d20xx_target,
@@ -490,6 +497,19 @@ struct target *get_target(const char *id)
 	return NULL;
 }
 
+/* returns a amount of targets*/
+int get_targets_count()
+{
+	int result = 0;
+	struct target *target = all_targets;
+
+	while (target) {
+		target = target->next;
+		result++;
+	}
+	return result;
+}
+
 /* returns a pointer to the n-th configured target */
 struct target *get_target_by_num(int num)
 {
@@ -744,6 +764,32 @@ const char *target_type_name(struct target *target)
 {
 	return target->type->name;
 }
+
+int target_get_core_count(struct target *target)
+{
+	if (target->type->get_cores_count == NULL) {
+		return 1;
+	}
+	return (*target->type->get_cores_count)(target);
+}
+
+
+int target_get_active_core(struct target *target)
+{
+	if (target->type->get_active_core == NULL) {
+		return 0;
+	}
+	return (*target->type->get_active_core)(target);
+}
+
+void target_set_active_core(struct target *target, int core_id)
+{
+	if (target->type->set_active_core == NULL) {
+		return;
+	}
+	(*target->type->set_active_core)(target, core_id);	
+}
+
 
 static int target_soft_reset_halt(struct target *target)
 {
@@ -1260,6 +1306,15 @@ static int target_init_one(struct command_context *cmd_ctx,
 
 	if (target->type->profiling == NULL)
 		target->type->profiling = target_profiling_default;
+
+	if (target->type->get_cores_count == NULL)
+		target->type->get_cores_count = target_get_cores_count_default;
+
+	if (target->type->get_active_core == NULL)
+		target->type->get_active_core = target_get_active_core_default;
+
+	if (target->type->set_active_core == NULL)
+		target->type->set_active_core = target_set_active_core_default;
 
 	return ERROR_OK;
 }
@@ -1962,6 +2017,24 @@ static int target_get_gdb_fileio_info_default(struct target *target,
 	   as target halted every time.  */
 	return ERROR_FAIL;
 }
+
+static int target_get_cores_count_default(struct target *target)
+{
+	/* If target has only one core.  */
+	return 1;
+}
+
+static int target_get_active_core_default(struct target *target)
+{
+	/* If target has only one core.  */
+	return 0;
+}
+
+static void target_set_active_core_default(struct target *target, int core)
+{
+
+}
+
 
 static int target_gdb_fileio_end_default(struct target *target,
 		int retcode, int fileio_errno, bool ctrl_c)
@@ -2903,6 +2976,23 @@ COMMAND_HANDLER(handle_step_command)
 	struct target *target = get_current_target(CMD_CTX);
 
 	return target->type->step(target, current_pc, addr, 1);
+}
+
+COMMAND_HANDLER(handle_set_cpu_command)
+{
+	if ((CMD_ARGC > 1) || (CMD_ARGC < 1))
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	LOG_DEBUG("-");
+
+	uint32_t core = 0;
+	if (CMD_ARGC == 1) {
+		COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], core);
+	}
+
+	struct target *target = get_current_target(CMD_CTX);
+	target->type->set_active_core(target, core);
+	return ERROR_OK;
 }
 
 static void handle_md_output(struct command_context *cmd_ctx,
@@ -6199,6 +6289,14 @@ static const struct command_registration target_exec_command_handlers[] = {
 		.usage = "size",
 	},
 
+	{
+		.name = "set_core",
+		.handler = handle_set_cpu_command,
+		.mode = COMMAND_EXEC,
+		.help = "Set active core function",
+		.usage = "set_core N",
+	},
+	
 	COMMAND_REGISTRATION_DONE
 };
 static int target_register_user_commands(struct command_context *cmd_ctx)
