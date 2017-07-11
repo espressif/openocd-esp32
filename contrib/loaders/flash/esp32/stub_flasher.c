@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Cesanta Software Limited & Espressif Systems (Shanghai) PTE LTD
+ * Copyright (c) 2017 Espressif Systems (Shanghai) PTE LTD
  * All rights reserved
  *
  * This program is free software; you can redistribute it and/or modify it under
@@ -16,19 +16,7 @@
  */
 
 /*
- * Spiffy flasher. Implements strong checksums (MD5) and can use higher
- * baud rates. Actual max baud rate will differ from device to device,
- * but 921K seems to be common.
- *
- * SLIP protocol is used for communication.
- * First packet is a single byte - command number.
- * After that, a packet with a variable number of 32-bit (LE) arguments,
- * depending on command.
- *
- * Then command produces variable number of packets of output, but first
- * packet of length 1 is the response code: 0 for success, non-zero - error.
- *
- * See individual command description below.
+ * ESP32 flasher.
  */
 
 #include <stdarg.h>
@@ -77,7 +65,7 @@
 #define STUB_LOG_DEBUG          4
 #define STUB_LOG_VERBOSE        5
 
-#define STUB_LOG_LOCAL_LEVEL  STUB_LOG_NONE//STUB_LOG_VERBOSE
+#define STUB_LOG_LOCAL_LEVEL  STUB_LOG_NONE
 
 #define STUB_LOG( level, format, ... )   \
     do { \
@@ -488,7 +476,7 @@ static uint32_t stub_flash_exec_usr_cmd(uint32_t cmd)
   uint32_t status_value = ESP_ROM_SPIFLASH_BUSY_FLAG;
 
   while (ESP_ROM_SPIFLASH_BUSY_FLAG == (status_value & ESP_ROM_SPIFLASH_BUSY_FLAG)) {
-      WRITE_PERI_REG(PERIPHS_SPI_FLASH_STATUS, 0);       // clear regisrter
+      WRITE_PERI_REG(PERIPHS_SPI_FLASH_STATUS, 0);       // clear register
       WRITE_PERI_REG(PERIPHS_SPI_FLASH_CMD, SPI_USR | cmd);
       while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0);
 
@@ -523,7 +511,7 @@ static uint32_t stub_flash_spi_cmd_run(uint32_t cmd, uint8_t data_bits[], uint32
     }
     stub_flash_exec_usr_cmd(0);
     uint32_t status = READ_PERI_REG(PERIPHS_SPI_FLASH_C0);
-    // # restore some SPI controller registers
+    // restore some SPI controller registers
     WRITE_PERI_REG(PERIPHS_SPI_FLASH_USRREG, old_spi_usr);
     WRITE_PERI_REG(PERIPHS_SPI_FLASH_USRREG2, old_spi_usr2);
 
@@ -668,10 +656,6 @@ static void clock_configure(void)
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
 static void uart_console_configure(void)
 {
-#if CONFIG_CONSOLE_UART_NONE
-    ets_install_putc1(NULL);
-    ets_install_putc2(NULL);
-#else // CONFIG_CONSOLE_UART_NONE
     const int uart_num = CONFIG_CONSOLE_UART_NUM;
 
     uartAttach();
@@ -681,7 +665,7 @@ static void uart_console_configure(void)
     // Wait for it to be printed.
     uart_tx_wait_idle(0);
 
-#if CONFIG_CONSOLE_UART_CUSTOM
+#if 0//CONFIG_CONSOLE_UART_CUSTOM
     // Some constants to make the following code less upper-case
     const int uart_tx_gpio = CONFIG_CONSOLE_UART_TX_GPIO;
     const int uart_rx_gpio = CONFIG_CONSOLE_UART_RX_GPIO;
@@ -708,8 +692,6 @@ static void uart_console_configure(void)
     // Set configured UART console baud rate
     const int uart_baud = CONFIG_CONSOLE_UART_BAUDRATE;
     uart_div_modify(uart_num, (rtc_clk_apb_freq_get() << 4) / uart_baud);
-
-#endif // CONFIG_CONSOLE_UART_NONE
 }
 #endif
 

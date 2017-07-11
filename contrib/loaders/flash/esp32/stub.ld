@@ -18,7 +18,7 @@
 MEMORY {
   /* place stub at the beginning of the OpenOCD working area,
      remaining space will be used for other chunks */
-  iram : org = 0x40090000, len = 0x1FC0
+  iram : org = 0x40090000, len = 0x2100
   dram : org = 0x3FFC0000, len = 0xB00
 }
 

@@ -1,26 +1,68 @@
 /***************************************************************************
- *   Copyright (C) 2005 by Dominic Rath                                    *
- *   Dominic.Rath@gmx.de                                                   *
- *                                                                         *
- *   Copyright (C) 2008 by Spencer Oliver                                  *
- *   spen@spen-soft.co.uk                                                  *
- *                                                                         *
- *   Copyright (C) 2011 Øyvind Harboe                                      *
- *   oyvind.harboe@zylin.com                                               *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
+ *	 ESP32 flash driver for OpenOCD										   *
+ *	 Copyright (C) 2017 Espressif Systems Ltd.							   *
+ *	 <alexey@espressif.com>												   *
+ *																		   *
+ *	 This program is free software; you can redistribute it and/or modify  *
+ *	 it under the terms of the GNU General Public License as published by  *
+ *	 the Free Software Foundation; either version 2 of the License, or	   *
+ *	 (at your option) any later version.								   *
+ *																		   *
+ *	 This program is distributed in the hope that it will be useful,	   *
+ *	 but WITHOUT ANY WARRANTY; without even the implied warranty of		   *
+ *	 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the		   *
+ *	 GNU General Public License for more details.						   *
+ *																		   *
+ *	 You should have received a copy of the GNU General Public License	   *
+ *	 along with this program; if not, write to the						   *
+ *	 Free Software Foundation, Inc.,									   *
+ *	 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.		   *
  ***************************************************************************/
+
+/* 
+ * Overview
+ * --------
+ * Like many other flash drivers this one uses special binary program (stub) running on target 
+ * to perform all operations and communicate to the host. Stub has entry function which accepts
+ * variable number of arguments and therefore can handle different flash operation requests.
+ * Only the first argument of the stub entry function is mandatory for all operations it must 
+ * specify the type of flash function to perform (read, write etc.). Actually stub main function 
+ * is a dispatching one which determines the type of flash operation to perform, retrieves other 
+ * arguments and calls corresponding handler. In C notation entry function looks like the following:
+
+ * int stub_main(int cmd, ...);
+
+ * In general every flash operation consists of the following steps:
+ * 1) Stub is loaded to target.
+ * 2) Necessary arguments are prepared and stub's main function is called.
+ * 3) Stub does the work and returns the result.
+
+ * Stub Loading
+ * ------------
+ * To run stub its code and data sections must be loaded to target. It is done using working area API.
+ * But since code and data address spaces are separated in ESP32 it is necessary to have two configured 
+ * working areas: one in code address space and another one in data space. So driver allocates chunks 
+ * in respective pools and writes stub sections to them. It is important that the both stub sections reside 
+ * at the beginning of respective working areas because stub code is linked as ELF and therefore it is 
+ * position dependent. So target memory for stub code and data must be allocated first.
+ 
+ * Stub Execution
+ * --------------
+ * Special wrapping code is used to enter and exit the stub's main function. It prepares register arguments 
+ * before Windowed ABI call to stub entry and upon return from it executes break command to indicate to OpenOCD 
+ * that operation is finished.
+
+ * Flash Data Transfers
+ * --------------------
+ * To transfer data from/to target a buffer should be allocated at ESP32 side. Also during the data transfer 
+ * target and host must maintain the state of that buffer (read/write pointers etc.). So host needs to check 
+ * the state of that buffer periodically and write to or read from it (depending on flash operation type). 
+ * ESP32 does not support access to its memory via JTAG when it is not halted, so accessing target memory would 
+ * requires halting the CPUs every time the host needs to check if there are incoming data or free space available 
+ * in the buffer. This fact can slow down flash write/read operations dramatically. To avoid this flash driver and 
+ * stub use application level tracing module API to transfer the data in 'non-stop' mode.
+ * 
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -37,109 +79,33 @@
 #include "time_support.h"
 #include <contrib/loaders/flash/esp32/stub_flasher.h>
 
-/* Regarding performance:
- *
- * Short story - it might be best to leave the performance at
- * current levels.
- *
- * You may see a jump in speed if you change to using
- * 32bit words for the block programming.
- *
- * Its a shame you cannot use the double word as its
- * even faster - but you require external VPP for that mode.
- *
- * Having said all that 16bit writes give us the widest vdd
- * operating range, so may be worth adding a note to that effect.
- *
- */
-
-/* Danger!!!! The STM32F1x and STM32F2x series actually have
- * quite different flash controllers.
- *
- * What's more scary is that the names of the registers and their
- * addresses are the same, but the actual bits and what they do are
- * can be very different.
- *
- * To reduce testing complexity and dangers of regressions,
- * a seperate file is used for stm32fx2x.
- *
- * Sector sizes in kiBytes:
- * 1 MiByte part with 4 x 16, 1 x 64, 7 x 128.
- * 2 MiByte part with 4 x 16, 1 x 64, 7 x 128, 4 x 16, 1 x 64, 7 x 128.
- * 1 MiByte STM32F42x/43x part with DB1M Option set:
- *                    4 x 16, 1 x 64, 3 x 128, 4 x 16, 1 x 64, 3 x 128.
- *
- * STM32F7[4|5]
- * 1 MiByte part with 4 x 32, 1 x 128, 3 x 256.
- *
- * STM32F7[6|7]
- * 1 MiByte part in single bank mode with 4 x 32, 1 x 128, 3 x 256.
- * 1 MiByte part in dual-bank mode two banks with 4 x 16, 1 x 64, 3 x 128 each.
- * 2 MiByte part in single-bank mode with 4 x 32, 1 x 128, 7 x 256.
- * 2 MiByte part in dual-bank mode two banks with 4 x 16, 1 x 64, 7 x 128 each.
- *
- * Protection size is sector size.
- *
- * Tested with STM3220F-EVAL board.
- *
- * STM32F4xx series for reference.
- *
- * RM0090
- * http://www.st.com/web/en/resource/technical/document/reference_manual/DM00031020.pdf
- *
- * PM0059
- * www.st.com/internet/com/TECHNICAL_RESOURCES/TECHNICAL_LITERATURE/
- * PROGRAMMING_MANUAL/CD00233952.pdf
- *
- * STM32F7xx series for reference.
- *
- * RM0385
- * http://www.st.com/web/en/resource/technical/document/reference_manual/DM00124865.pdf
- *
- * RM0410
- * http://www.st.com/resource/en/reference_manual/dm00224583.pdf
- *
- * STM32F1x series - notice that this code was copy, pasted and knocked
- * into a stm32f2x driver, so in case something has been converted or
- * bugs haven't been fixed, here are the original manuals:
- *
- * RM0008 - Reference manual
- *
- * RM0042, the Flash programming manual for low-, medium- high-density and
- * connectivity line STM32F10x devices
- *
- * PM0068, the Flash programming manual for XL-density STM32F10x devices.
- *
- */
-
 #define ESP32_STUB_DEBUG			0
 
 #if ESP32_STUB_DEBUG
 #define ESP32_STUB_STACK_STAMP		0xCE
 #define ESP32_STUB_STACK_DEBUG		32
+#define ESP32_STUB_PATH				"contrib/loaders/flash/esp32/build/stub_flasher.elf"
 #else
 #define ESP32_STUB_STACK_DEBUG		0
 #endif
 
 #define ESP32_STUB_STACK_SZ			(1536)
-#define ESP32_FLASH_MIN_OFFSET 		0x1000
-#define ESP32_ALGORITHM_EXIT_TMO	3000
-#define ESP32_TARGET_STATE_TMO		1000
-#define ESP32_RW_TMO				3000
+#define ESP32_FLASH_MIN_OFFSET 		0x1000 // protect secure boot digest data
+#define ESP32_ALGORITHM_EXIT_TMO	3000 // ms
+#define ESP32_TARGET_STATE_TMO		1000 // ms
+#define ESP32_RW_TMO				3000 // ms
 
-#define SPI_FLASH_SEC_SIZE  	4096    /**< SPI Flash sector size */
+#define SPI_FLASH_SEC_SIZE  		4096 // SPI Flash sector size
 
-#define STUB_ARGS_MAX         	10
-#define STUB_ARGS_FUNC_START  	5
+#define STUB_ARGS_MAX         		10 // total args max num
+#define STUB_ARGS_FUNC_START  		5  // flash operation specific args start idx
 
-#define ELF_PHF_EXEC			0x1
+#define ELF_PHF_EXEC				0x1
 
-#define STUB_PATH	"contrib/loaders/flash/esp32/build/stub_flasher.elf"
 #include "contrib/loaders/flash/esp32/stub_flasher_image.h"
 
 struct esp32_flash_bank {
 	int 		probed;
-	uint32_t 	user_bank_size;
 };
 
 struct esp32_flash_stub {
@@ -206,7 +172,7 @@ static int esp32_stub_load(struct target *target, struct esp32_flash_stub *stub)
 	image.base_address_set = 1;
 	image.base_address = 0;
 	image.start_address_set = 0;
-	retval = image_open(&image, STUB_PATH, NULL);
+	retval = image_open(&image, ESP32_STUB_PATH, NULL);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Failed to open stub image (%d)!", retval);
 		return retval;
@@ -550,7 +516,8 @@ static int esp32_run_algo(struct target *target, struct esp32_flash_stub *stub,
 	return retval;
 }
 
-/* flash bank stm32x <base> <size> 0 0 <target#>
+/* flash bank <bank_name> esp32 <base> <size> 0 0 <target#>
+   If <size> is zero flash size will be autodetected, otherwise user value will be used
  */
 FLASH_BANK_COMMAND_HANDLER(esp32_flash_bank_command)
 {
@@ -563,7 +530,6 @@ FLASH_BANK_COMMAND_HANDLER(esp32_flash_bank_command)
 	bank->driver_priv = esp32_info;
 
 	esp32_info->probed = 0;
-	esp32_info->user_bank_size = bank->size;
 
 	return ERROR_OK;
 }
