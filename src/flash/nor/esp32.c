@@ -19,15 +19,15 @@
  *	 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.		   *
  ***************************************************************************/
 
-/* 
+/*
  * Overview
  * --------
- * Like many other flash drivers this one uses special binary program (stub) running on target 
+ * Like many other flash drivers this one uses special binary program (stub) running on target
  * to perform all operations and communicate to the host. Stub has entry function which accepts
  * variable number of arguments and therefore can handle different flash operation requests.
- * Only the first argument of the stub entry function is mandatory for all operations it must 
- * specify the type of flash function to perform (read, write etc.). Actually stub main function 
- * is a dispatching one which determines the type of flash operation to perform, retrieves other 
+ * Only the first argument of the stub entry function is mandatory for all operations it must
+ * specify the type of flash function to perform (read, write etc.). Actually stub main function
+ * is a dispatcher which determines the type of flash operation to perform, retrieves other
  * arguments and calls corresponding handler. In C notation entry function looks like the following:
 
  * int stub_main(int cmd, ...);
@@ -39,29 +39,29 @@
 
  * Stub Loading
  * ------------
- * To run stub its code and data sections must be loaded to target. It is done using working area API.
- * But since code and data address spaces are separated in ESP32 it is necessary to have two configured 
- * working areas: one in code address space and another one in data space. So driver allocates chunks 
- * in respective pools and writes stub sections to them. It is important that the both stub sections reside 
- * at the beginning of respective working areas because stub code is linked as ELF and therefore it is 
+ * To run stub its code and data sections must be loaded to the target. It is done using working area API.
+ * But since code and data address spaces are separated in ESP32 it is necessary to have two configured
+ * working areas: one in code address space and another one in data space. So driver allocates chunks
+ * in respective pools and writes stub sections to them. It is important that the both stub sections reside
+ * at the beginning of respective working areas because stub code is linked as ELF and therefore it is
  * position dependent. So target memory for stub code and data must be allocated first.
- 
+
  * Stub Execution
  * --------------
- * Special wrapping code is used to enter and exit the stub's main function. It prepares register arguments 
- * before Windowed ABI call to stub entry and upon return from it executes break command to indicate to OpenOCD 
+ * Special wrapping code is used to enter and exit the stub's main function. It prepares register arguments
+ * before Windowed ABI call to stub entry and upon return from it executes break command to indicate to OpenOCD
  * that operation is finished.
 
  * Flash Data Transfers
  * --------------------
- * To transfer data from/to target a buffer should be allocated at ESP32 side. Also during the data transfer 
- * target and host must maintain the state of that buffer (read/write pointers etc.). So host needs to check 
- * the state of that buffer periodically and write to or read from it (depending on flash operation type). 
- * ESP32 does not support access to its memory via JTAG when it is not halted, so accessing target memory would 
- * requires halting the CPUs every time the host needs to check if there are incoming data or free space available 
- * in the buffer. This fact can slow down flash write/read operations dramatically. To avoid this flash driver and 
+ * To transfer data from/to target a buffer should be allocated at ESP32 side. Also during the data transfer
+ * target and host must maintain the state of that buffer (read/write pointers etc.). So host needs to check
+ * the state of that buffer periodically and write to or read from it (depending on flash operation type).
+ * ESP32 does not support access to its memory via JTAG when it is not halted, so accessing target memory would
+ * requires halting the CPUs every time the host needs to check if there are incoming data or free space available
+ * in the buffer. This fact can slow down flash write/read operations dramatically. To avoid this flash driver and
  * stub use application level tracing module API to transfer the data in 'non-stop' mode.
- * 
+ *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -393,12 +393,12 @@ static int esp32_run_algo(struct target *target, struct esp32_flash_stub *stub,
 	struct duration algo_time;
 	struct target *core_target;
 
-	if (get_targets_count() == 1) {
+	if (memcmp(target_type_name(target), "esp32", 6) == 0){//get_targets_count() == 1) {
 		struct esp32_common *esp32 = (struct esp32_common *)target->arch_info;
-		LOG_DEBUG("Use core%d of target '%s'", esp32->active_cpu, target_type_name(target));
+		LOG_INFO("Use core%d of target '%s'", esp32->active_cpu, target_type_name(target));
 		core_target = esp32->esp32_targets[esp32->active_cpu];
 	} else {
-		LOG_DEBUG("Use target '%s'", target_type_name(target));
+		LOG_INFO("Use target '%s'", target_type_name(target));
 		core_target = target;
 	}
 
@@ -704,9 +704,9 @@ static int esp32_erase(struct flash_bank *bank, int first, int last)
 
 static int esp32_rw_do(struct target *target, void *priv)
 {
-	int retval = ERROR_OK;
 	struct duration algo_time;
 	struct esp32_rw_args *rw = (struct esp32_rw_args *)priv;
+	int retval = ERROR_OK;
 
 	if (duration_start(&algo_time) != 0) {
 		LOG_ERROR("Failed to start data write time measurement!");
@@ -714,6 +714,7 @@ static int esp32_rw_do(struct target *target, void *priv)
 	}
 	while (rw->total_count < rw->count) {
 		uint32_t block_id = 0, len = 0;
+		LOG_INFO("Transfer block on %p", target);
 		retval = esp108_apptrace_read_data_len(target, &block_id, &len);
 		if (retval != ERROR_OK) {
 			LOG_ERROR("Failed to read apptrace status (%d)!", retval);
@@ -983,7 +984,12 @@ static int esp32_probe(struct flash_bank *bank)
 
 	esp32_info->probed = 0;
 
-	LOG_DEBUG("Flash size = %d KB @ 0x%x '%s' - '%s'", bank->size/1024, bank->base, 
+	if (bank->target->state != TARGET_HALTED) {
+		LOG_ERROR("Target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	LOG_DEBUG("Flash size = %d KB @ 0x%x '%s' - '%s'", bank->size/1024, bank->base,
 		target_name(bank->target), target_state_name(bank->target));
 
 	if (bank->sectors) {
@@ -991,9 +997,8 @@ static int esp32_probe(struct flash_bank *bank)
 		bank->sectors = NULL;
 	}
 
-	uint32_t size = esp32_get_size(bank);
 	if (bank->size == 0 /*autodetect*/) {
-		bank->size = size;
+		bank->size = esp32_get_size(bank);
 		LOG_INFO("Auto-detected flash size %d KB", bank->size/1024);
 	}
 	if (bank->size > 0) {

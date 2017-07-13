@@ -25,7 +25,7 @@
 
 /*
  * Params :
- * a2 = count, result (out)
+ * a2 = command ID, result (out)
  * a3 = command arg1: flash addr, start sector
  * a4 = command arg2: size, nunmber of sectors
  * a5 = command arg3: down buffer start, sectors state buf address
