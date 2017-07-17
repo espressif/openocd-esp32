@@ -1,7 +1,7 @@
 /***************************************************************************
  *	 ESP32 flash driver for OpenOCD										   *
  *	 Copyright (C) 2017 Espressif Systems Ltd.							   *
- *	 <alexey@espressif.com>												   *
+ *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  *																		   *
  *	 This program is free software; you can redistribute it and/or modify  *
  *	 it under the terms of the GNU General Public License as published by  *

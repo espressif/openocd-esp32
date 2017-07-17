@@ -343,8 +343,6 @@ int xtensa_start_algorithm_generic(struct target *target,
 		if (memcmp(reg_params[i].reg_name, "ps", 3)) {
 			usr_ps = 1;
 		}
-		//armv7m_set_core_reg(reg, reg_params[i].value);
-		// buf_set_u32(reg_params[i].value, 0, 32, buf_get_u32(reg->value, 0, 32));
 		esp108_reg_set(reg, buf_get_u32(reg_params[i].value, 0, 32));
 		reg->valid = 1;
 	}

@@ -1,13 +1,11 @@
 # Makefile to compile the flasher stub program
 #
 # Note that YOU DO NOT NEED TO COMPILE THIS IN ORDER TO JUST USE
-# esptool.py - a precompiled version is embedded in esptool.py,
-# so if you don't want to modify the stub code then you are good to go.
-#
+
 # See the comments in the top of the Makefile for parameters that
 # you probably want to override.
 #
-# Copyright (c) 2016 Cesanta Software Limited & Angus Gratton
+# Copyright (c) 2017 Espressif Systems
 # All rights reserved
 #
 #
@@ -22,14 +20,6 @@
 # You should have received a copy of the GNU General Public License along with
 # this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
 # Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
-# Adapted from Cesanta's original Makefile at
-# https://github.com/cesanta/fnc/tree/master/common/platforms/esp8266/stubs
-
-# Override these variables on the command line
-# or set them in a local.mk
-
-#-include local.mk
 
 # Prefix for ESP32 cross compilers (can include a directory path)
 CROSS ?= xtensa-esp32-elf-

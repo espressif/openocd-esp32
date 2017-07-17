@@ -22,6 +22,7 @@ NOR_DRIVERS = \
 	dsp5680xx_flash.c \
 	efm32.c \
 	em357.c \
+	esp32.c \
 	faux.c \
 	fm3.c \
 	fm4.c \
@@ -55,8 +56,7 @@ NOR_DRIVERS = \
 	tms470.c \
 	virtual.c \
 	xmc1xxx.c \
-	xmc4xxx.c \
-	esp32.c
+	xmc4xxx.c
 
 noinst_HEADERS = \
 	core.h \

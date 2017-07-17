@@ -1,12 +1,7 @@
 /***************************************************************************
- *   Copyright (C) 2010 by Spencer Oliver                                  *
- *   spen@spen-soft.co.uk                                                  *
- *                                                                         *
- *   Copyright (C) 2011 Øyvind Harboe                                      *
- *   oyvind.harboe@zylin.com                                               *
- *                                                                         *
- *   Copyright (C) 2015 Uwe Bonnes                                         *
- *   bon@elektron.ikp.physik.tu-darmstadt.de                               *
+ *   ESP32 flassher stub wrapper                                           *
+ *   Copyright (C) 2017 Espressif Systems Ltd.                             *
+ *   Author: Alexey Gerenkov, alexey@espressif.com                         *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -20,7 +15,8 @@
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
  *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.                                        *
+ *   Free Software Foundation, Inc.,                                       *
+ *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
 /*
