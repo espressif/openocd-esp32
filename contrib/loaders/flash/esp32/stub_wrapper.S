@@ -1,5 +1,5 @@
 /***************************************************************************
- *   ESP32 flassher stub wrapper                                           *
+ *   ESP32 flasher stub wrapper                                           *
  *   Copyright (C) 2017 Espressif Systems Ltd.                             *
  *   Author: Alexey Gerenkov, alexey@espressif.com                         *
  *                                                                         *

@@ -1,7 +1,7 @@
 /***************************************************************************
- *   Copyright (C) 2017 by Alexey Gerenkov                                 *
- *   alexey@espressif.com                                                  *
  *   ESP108 application trace module                                       *
+ *   Copyright (C) 2017 Espressif Systems Ltd.                             *
+ *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *

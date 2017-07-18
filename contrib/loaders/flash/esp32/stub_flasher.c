@@ -1,5 +1,5 @@
 /***************************************************************************
- *   ESP32 flassher stub                                                   *
+ *   ESP32 flasher stub                                                   *
  *   Copyright (C) 2017 Espressif Systems Ltd.                             *
  *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  *                                                                         *
@@ -21,6 +21,15 @@
 
 /*
  * ESP32 flasher.
+ *
+ * How to Build
+ * ------------
+ * IDF_PATH - env var controls path to IDF SDK. By default is "../..".
+ * CROSS - env var controls Xtensa toolchain prefix. By default is "xtensa-esp32-elf-".
+ * To build all stub includes and binaries type 'make'.
+ * To remove all generated stuff type 'make clean'.
+ *
+ * See more about stub usage in '<openocd_root>/src/flash/nor/esp32.c'
  */
 
 #include <stdarg.h>
@@ -645,16 +654,6 @@ static void clock_configure(void)
     clk_cfg.slow_freq = rtc_clk_slow_freq_get();
     clk_cfg.fast_freq = rtc_clk_fast_freq_get();
     rtc_clk_init(clk_cfg);
-    /* As a slight optimization, if 32k XTAL was enabled in sdkconfig, we enable
-     * it here. Usually it needs some time to start up, so we amortize at least
-     * part of the start up time by enabling 32k XTAL early.
-     * App startup code will wait until the oscillator has started up.
-     */
-#ifdef CONFIG_ESP32_RTC_CLOCK_SOURCE_EXTERNAL_CRYSTAL
-    if (!rtc_clk_32k_enabled()) {
-        rtc_clk_32k_bootstrap();
-    }
-#endif
 }
 
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
@@ -668,30 +667,6 @@ static void uart_console_configure(void)
     // ROM bootloader may have put a lot of text into UART0 FIFO.
     // Wait for it to be printed.
     uart_tx_wait_idle(0);
-
-#if 0//CONFIG_CONSOLE_UART_CUSTOM
-    // Some constants to make the following code less upper-case
-    const int uart_tx_gpio = CONFIG_CONSOLE_UART_TX_GPIO;
-    const int uart_rx_gpio = CONFIG_CONSOLE_UART_RX_GPIO;
-    // Switch to the new UART (this just changes UART number used for
-    // ets_printf in ROM code).
-    uart_tx_switch(uart_num);
-    // If console is attached to UART1 or if non-default pins are used,
-    // need to reconfigure pins using GPIO matrix
-    if (uart_num != 0 || uart_tx_gpio != 1 || uart_rx_gpio != 3) {
-        // Change pin mode for GPIO1/3 from UART to GPIO
-        PIN_FUNC_SELECT(PERIPHS_IO_MUX_U0RXD_U, FUNC_U0RXD_GPIO3);
-        PIN_FUNC_SELECT(PERIPHS_IO_MUX_U0TXD_U, FUNC_U0TXD_GPIO1);
-        // Route GPIO signals to/from pins
-        // (arrays should be optimized away by the compiler)
-        const uint32_t tx_idx_list[3] = { U0TXD_OUT_IDX, U1TXD_OUT_IDX, U2TXD_OUT_IDX };
-        const uint32_t rx_idx_list[3] = { U0RXD_IN_IDX, U1RXD_IN_IDX, U2RXD_IN_IDX };
-        const uint32_t tx_idx = tx_idx_list[uart_num];
-        const uint32_t rx_idx = rx_idx_list[uart_num];
-        gpio_matrix_out(uart_tx_gpio, tx_idx, 0, 0);
-        gpio_matrix_in(uart_rx_gpio, rx_idx, 0);
-    }
-#endif // CONFIG_CONSOLE_UART_CUSTOM
 
     // Set configured UART console baud rate
     const int uart_baud = CONFIG_CONSOLE_UART_BAUDRATE;

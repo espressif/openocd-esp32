@@ -714,7 +714,7 @@ static int esp32_rw_do(struct target *target, void *priv)
 	}
 	while (rw->total_count < rw->count) {
 		uint32_t block_id = 0, len = 0;
-		LOG_INFO("Transfer block on %p", target);
+		LOG_DEBUG("Transfer block on %p", target);
 		retval = esp108_apptrace_read_data_len(target, &block_id, &len);
 		if (retval != ERROR_OK) {
 			LOG_ERROR("Failed to read apptrace status (%d)!", retval);

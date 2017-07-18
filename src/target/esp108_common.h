@@ -84,6 +84,7 @@ struct esp108_common {
 	ESP108_COMMON_FIELDS;
 };
 
+/* Only supported in cores with in-CPU MMU. None of Espressif chips as of now. */
 enum xtensa_mode {
 	XT_MODE_RING0,
 	XT_MODE_RING1,

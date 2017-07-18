@@ -384,7 +384,7 @@ static int xtensa_resume(struct target *target,
 			xtensa_step(target, current, address, handle_breakpoints);
 		}
 	}
-	
+
 	//Write back hw breakpoints. Current FreeRTOS SMP code can set a hw breakpoint on an
 	//exception; we need to clear that and return to the breakpoints gdb has set on resume.
 	bpena=0;
@@ -1729,14 +1729,14 @@ static const struct command_registration esp32_any_command_handlers[] = {
 		.handler = esp32_cmd_apptrace,
 		.mode = COMMAND_ANY,
 		.help = "App Tracing: application level trace control. Starts, stops or queries tracing process status.",
-		.usage = "[start outfile1 [outfile2] [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]] | [stop] | [status] | [dump cores_num outfile]",
+		.usage = "[start file://<outfile> [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]] | [stop] | [status] | [dump file://<outfile>]",
 	},
 	{
 		.name = "sysview",
 		.handler = esp32_cmd_sysview,
 		.mode = COMMAND_ANY,
 		.help = "App Tracing: SEGGER SystemView compatible trace control. Starts, stops or queries tracing process status.",
-		.usage = "[start outfile1 [outfile2] [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]] | [stop] | [status]",
+		.usage = "[start file://<outfile1> [file://<outfile2>] [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]] | [stop] | [status]",
 	},
 	{
 		.name = "smpbreak",

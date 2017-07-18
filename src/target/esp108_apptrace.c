@@ -1,7 +1,7 @@
 /***************************************************************************
  *   ESP108 application tracing module for OpenOCD                         *
  *   Copyright (C) 2017 Espressif Systems Ltd.                             *
- *   <alexey@espressif.com>                                                *
+ *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  *                                                                         *
  *   Derived from original ESP8266 target.                                 *
  *   Copyright (C) 2015 by Angus Gratton                                   *
@@ -708,27 +708,24 @@ static int esp_apptrace_file_dest_init(struct esp_apptrace_dest *dest, const cha
 	return ERROR_OK;
 }
 
-static int esp_apptrace_dest_init(struct esp_apptrace_dest dest[], const char *dest_paths[], int max_dests, int single_dest)
+static int esp_apptrace_dest_init(struct esp_apptrace_dest dest[], const char *dest_paths[], int max_dests)
 {
-	int res = ERROR_OK, cores_num = 0;
+	int res = ERROR_OK, i;
 
-	for (int i = 0; i < max_dests; i++) {
+	for (i = 0; i < max_dests; i++) {
 		if (strncmp(dest_paths[i], "file://", 7) == 0) {
-			if (i == 0 || !single_dest) {
-				res = esp_apptrace_file_dest_init(&dest[i], &dest_paths[i][7]);
-				if (res != ERROR_OK) {
-					LOG_ERROR("Failed to init destination '%s'!", dest_paths[i]);
-					return 0;
-				}
+			res = esp_apptrace_file_dest_init(&dest[i], &dest_paths[i][7]);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to init destination '%s'!", dest_paths[i]);
+				return 0;
 			}
-			cores_num++;
 		}
 		else {
 			break;
 		}
 	}
 
-	return cores_num;
+	return i;
 }
 
 static int esp_apptrace_dest_cleanup(struct esp_apptrace_dest dest[], int max_dests)
@@ -882,15 +879,10 @@ static int esp_cmd_apptrace_ctx_init(struct target *target, struct esp_apptrace_
 	cmd_ctx->max_len = (uint32_t)-1;
 	cmd_ctx->stop_tmo = -1.0; // infinite
 	cmd_ctx->poll_period = 1/*ms*/;
-	cmd_ctx->cores_num = esp_apptrace_dest_init(cmd_ctx->data_dests, argv, 
-			argc < ESP_APPTRACE_TARGETS_NUM_MAX ? argc : ESP_APPTRACE_TARGETS_NUM_MAX, !sys_view);
-
-	if (cmd_ctx->cores_num == 0) {
-		LOG_ERROR("Invalid number of cores specified (%d)!", cmd_ctx->cores_num);
-		return ERROR_FAIL;
-	}
-	if (!sys_view && cmd_ctx->cores_num > 1) {
-		LOG_USER("Non-SystemView mode: data from %d cores will be sent to the first destination only.", cmd_ctx->cores_num);
+	cmd_ctx->cores_num = strcmp(target->type->name, "esp32") == 0 ? 2 : 1;
+	int dests_num = esp_apptrace_dest_init(cmd_ctx->data_dests, argv, cmd_ctx->cores_num);
+	if (dests_num < cmd_ctx->cores_num) {
+		LOG_USER("Data from %d cores will be sent to %d destinations.", cmd_ctx->cores_num, dests_num);
 	}
 	if (argc > cmd_ctx->cores_num) {
 		cmd_ctx->poll_period = strtoul(argv[cmd_ctx->cores_num], NULL, 10);
