@@ -47,7 +47,7 @@ enum xtensa_reg_idx canonical_to_windowbase_offset(const enum xtensa_reg_idx reg
 	return windowbase_offset_to_canonical(reg, -windowbase);
 }
 
-int regReadable(int flags, int cpenable) 
+int regReadable(int flags, int cpenable)
 {
 	if (flags&XT_REGF_NOREAD) return 0;
 	if ((flags&XT_REGF_COPROC0) && (cpenable&(1 << 0)) == 0) return 0;
@@ -192,7 +192,6 @@ int esp108_do_checkdsr(struct target *target, const char *function, const int li
 	return ERROR_OK;
 }
 
-
 unsigned int xtensa_read_dsr(struct target *target)
 {
 	uint8_t dsr[4];
@@ -296,6 +295,185 @@ int xtensa_write_uint32_list(struct target *target, const uint32_t* addr_value_p
 	return ERROR_OK;
 }
 
+int xtensa_start_algorithm_generic(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	uint32_t entry_point, uint32_t exit_point,
+	void *arch_info, struct reg_cache *core_cache)
+{
+	struct xtensa_algorithm *algorithm_info = arch_info;
+	enum xtensa_mode core_mode;;
+	int retval = ERROR_OK;
+	int usr_ps = 0;
+
+	/* NOTE: xtensa_run_algorithm requires that each algorithm uses a software breakpoint
+	 * at the exit point */
+
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("Target not halted!");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	/* refresh core register cache */
+	for (unsigned i = 0; i < core_cache->num_regs; i++) {
+		algorithm_info->context[i] = esp108_reg_get(&core_cache->reg_list[i]);
+	}
+	/* write mem params */
+	for (int i = 0; i < num_mem_params; i++) {
+		if (mem_params[i].direction != PARAM_IN) {
+			retval = target_write_buffer(target, mem_params[i].address,
+					mem_params[i].size,
+					mem_params[i].value);
+			if (retval != ERROR_OK)
+				return retval;
+		}
+	}
+	/* write reg params */
+	for (int i = 0; i < num_reg_params; i++) {
+		struct reg *reg = register_get_by_name(core_cache, reg_params[i].reg_name, 0);
+		if (!reg) {
+			LOG_ERROR("BUG: register '%s' not found", reg_params[i].reg_name);
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		}
+		if (reg->size != reg_params[i].size) {
+			LOG_ERROR("BUG: register '%s' size doesn't match reg_params[i].size",
+				reg_params[i].reg_name);
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		}
+		if (memcmp(reg_params[i].reg_name, "ps", 3)) {
+			usr_ps = 1;
+		}
+		esp108_reg_set(reg, buf_get_u32(reg_params[i].value, 0, 32));
+		reg->valid = 1;
+	}
+	uint32_t ps = esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PS]);
+	uint32_t new_ps = ps;
+	// ignore custom core mode if custom PS value is specified
+	if (!usr_ps) {
+		core_mode = XT_PS_RING_GET(ps);
+		if (algorithm_info->core_mode != XT_MODE_ANY && algorithm_info->core_mode != core_mode) {
+			LOG_DEBUG("setting core_mode: 0x%x", algorithm_info->core_mode);
+			new_ps = (new_ps & ~XT_PS_RING_MSK) | XT_PS_RING(algorithm_info->core_mode);
+			/* save previous core mode */
+			algorithm_info->core_mode = core_mode;
+		}
+	}
+	esp108_reg_set(&core_cache->reg_list[XT_REG_IDX_PS], new_ps);
+	core_cache->reg_list[XT_REG_IDX_PS].valid = 1;
+
+	retval = target_resume(target, 0, entry_point, 1, 1);
+
+	return retval;
+}
+
+int xtensa_wait_algorithm_generic(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	uint32_t exit_point, int timeout_ms,
+	void *arch_info, struct reg_cache *core_cache)
+{
+	struct xtensa_algorithm *algorithm_info = arch_info;
+	int retval = ERROR_OK;
+	uint32_t pc;
+
+	/* NOTE: xtensa_run_algorithm requires that each algorithm uses a software breakpoint
+	 * at the exit point */
+
+	retval = target_wait_state(target, TARGET_HALTED, timeout_ms);
+	/* If the target fails to halt due to the breakpoint, force a halt */
+	if (retval != ERROR_OK || target->state != TARGET_HALTED) {
+		retval = target_halt(target);
+		if (retval != ERROR_OK)
+			return retval;
+		retval = target_wait_state(target, TARGET_HALTED, 500);
+		if (retval != ERROR_OK)
+			return retval;
+		LOG_ERROR("xtensa_wait_algorithm: not halted %d, pc 0x%x, ps 0x%x", retval,
+			esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PC]), esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PS]));
+		return ERROR_TARGET_TIMEOUT;
+	}
+	pc = esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PC]);
+	if (exit_point && (pc != exit_point)) {
+		LOG_ERROR("failed algorithm halted at 0x%" PRIx32 ", expected 0x%" PRIx32,
+			pc,
+			exit_point);
+		return ERROR_TARGET_TIMEOUT;
+	}
+	/* Read memory values to mem_params */
+	LOG_DEBUG("Read mem params");
+	for (int i = 0; i < num_mem_params; i++) {
+		LOG_DEBUG("Check mem param @ 0x%x", mem_params[i].address);
+		if (mem_params[i].direction != PARAM_OUT) {
+			LOG_USER("Read mem param @ 0x%x", mem_params[i].address);
+			retval = target_read_buffer(target, mem_params[i].address,
+					mem_params[i].size,
+					mem_params[i].value);
+			if (retval != ERROR_OK)
+				return retval;
+		}
+	}
+	/* Copy core register values to reg_params[] */
+	for (int i = 0; i < num_reg_params; i++) {
+		if (reg_params[i].direction != PARAM_OUT) {
+			struct reg *reg = register_get_by_name(core_cache, reg_params[i].reg_name, 0);
+			if (!reg) {
+				LOG_ERROR("BUG: register '%s' not found", reg_params[i].reg_name);
+				return ERROR_COMMAND_SYNTAX_ERROR;
+			}
+			if (reg->size != reg_params[i].size) {
+				LOG_ERROR("BUG: register '%s' size doesn't match reg_params[i].size",
+					reg_params[i].reg_name);
+				return ERROR_COMMAND_SYNTAX_ERROR;
+			}
+			buf_set_u32(reg_params[i].value, 0, 32, esp108_reg_get(reg));
+		}
+	}
+
+	for (int i = core_cache->num_regs - 1; i >= 0; i--) {
+		uint32_t regvalue;
+		regvalue = esp108_reg_get(&core_cache->reg_list[i]);
+		// LOG_DEBUG("check register %s with value 0x%x -> 0x%8.8" PRIx32,
+		// 		core_cache->reg_list[i].name, regvalue, algorithm_info->context[i]);
+		if (i == XT_REG_IDX_DEBUGCAUSE) {
+			//FIXME: restoring DEBUGCAUSE causes exception when executing corresponding instruction in DIR
+			LOG_DEBUG("Skip restoring register %s with value 0x%x -> 0x%8.8" PRIx32,
+					core_cache->reg_list[i].name, regvalue, algorithm_info->context[i]);
+			continue;
+		}
+		if (regvalue != algorithm_info->context[i]) {
+			LOG_DEBUG("restoring register %s with value 0x%x -> 0x%8.8" PRIx32,
+					core_cache->reg_list[i].name, regvalue, algorithm_info->context[i]);
+			esp108_reg_set(&core_cache->reg_list[i], algorithm_info->context[i]);
+			core_cache->reg_list[i].valid = 1;
+		}
+	}
+
+	return retval;
+}
+
+int xtensa_run_algorithm(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	uint32_t entry_point, uint32_t exit_point,
+	int timeout_ms, void *arch_info)
+{
+	int retval;
+
+	retval = target->type->start_algorithm(target,
+			num_mem_params, mem_params,
+			num_reg_params, reg_params,
+			entry_point, exit_point,
+			arch_info);
+
+	if (retval == ERROR_OK)
+		retval = target->type->wait_algorithm(target,
+				num_mem_params, mem_params,
+				num_reg_params, reg_params,
+				exit_point, timeout_ms,
+				arch_info);
+
+	return retval;
+}
 
 /* Reset ESP32's peripherals.
 Postconditions: all peripherals except RTC_CNTL are reset, CPU's PC is undefined, PRO CPU is halted, APP CPU is in reset

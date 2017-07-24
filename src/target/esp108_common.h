@@ -42,6 +42,7 @@
 
 #include <jtag/jtag.h>
 #include "breakpoints.h"
+#include "algorithm.h"
 
 
 #define XT_INS_NUM_BITS 24
@@ -63,7 +64,7 @@ enum FlashBootstrap {
 };
 
 // This is common fields definitions for all targets.
-// 
+//
 #define ESP108_COMMON_FIELDS	enum xtensa_state state;\
 	struct reg_cache *core_cache;\
 	struct target *target;\
@@ -81,6 +82,15 @@ enum FlashBootstrap {
 struct esp108_common {
 	//	struct jtag_tap *tap;
 	ESP108_COMMON_FIELDS;
+};
+
+/* Only supported in cores with in-CPU MMU. None of Espressif chips as of now. */
+enum xtensa_mode {
+	XT_MODE_RING0,
+	XT_MODE_RING1,
+	XT_MODE_RING2,
+	XT_MODE_RING3,
+	XT_MODE_ANY // special value to run algorithm in current core mode
 };
 
 enum xtensa_reg_idx windowbase_offset_to_canonical(const enum xtensa_reg_idx reg, const int windowbase);
@@ -110,6 +120,21 @@ uint32_t xtensa_read_reg_direct(struct target *target, uint8_t reg);
 int read_reg_direct(struct target *target, uint8_t addr);
 int xtensa_write_uint32(struct target *target, uint32_t addr, uint32_t val);
 int xtensa_write_uint32_list(struct target *target, const uint32_t* addr_value_pairs_list, size_t count);
+int xtensa_run_algorithm(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	uint32_t entry_point, uint32_t exit_point,
+	int timeout_ms, void *arch_info);
+int xtensa_start_algorithm_generic(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	uint32_t entry_point, uint32_t exit_point,
+	void *arch_info, struct reg_cache *core_cache);
+int xtensa_wait_algorithm_generic(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	uint32_t exit_point, int timeout_ms,
+	void *arch_info, struct reg_cache *core_cache);
 
 int esp32_soc_reset(struct target *target);
 
@@ -138,6 +163,11 @@ struct esp108_reg_desc {
 
 //Register file can be auto-generated
 #include "esp108_regs.h"
+
+struct xtensa_algorithm {
+	enum xtensa_mode core_mode;
+	uint32_t context[XT_NUM_REGS];
+};
 
 /* Special register number macro for DDR register.
 * this gets used a lot so making a shortcut to it is
@@ -215,6 +245,12 @@ struct esp108_reg_desc {
 #define XT_INS_RFR(FR,T) _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x4),T)
 /* Write Floating-Point Register */
 #define XT_INS_WFR(FR,T) _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x5),T)
+
+#define XT_PS_RING(_v_)			((uint32_t)((_v_) & 0x3) << 6)
+#define XT_PS_RING_MSK			(0x3 << 6)
+#define XT_PS_RING_GET(_v_)		(((_v_) >> 6) & 0x3)
+#define XT_PS_CALLINC_MSK		(0x3 << 16)
+#define XT_PS_OWB_MSK			(0xF << 8)
 
 
 /* ESP32 memory map */

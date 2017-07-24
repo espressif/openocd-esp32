@@ -22,6 +22,7 @@ NOR_DRIVERS = \
 	dsp5680xx_flash.c \
 	efm32.c \
 	em357.c \
+	esp32.c \
 	faux.c \
 	fm3.c \
 	fm4.c \

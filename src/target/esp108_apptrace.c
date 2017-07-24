@@ -1,7 +1,7 @@
 /***************************************************************************
  *   ESP108 application tracing module for OpenOCD                         *
  *   Copyright (C) 2017 Espressif Systems Ltd.                             *
- *   <alexey@espressif.com>                                                *
+ *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  *                                                                         *
  *   Derived from original ESP8266 target.                                 *
  *   Copyright (C) 2015 by Angus Gratton                                   *
@@ -23,7 +23,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-// Hot It Works
+// How It Works
 // ************
 
 // 1. Components Overview
@@ -208,6 +208,7 @@
 #include "esp108.h"
 #include "esp108_dbg_regs.h"
 #include "esp32.h"
+#include "esp108_apptrace.h"
 #include <pthread.h>
 
 #define ESP_SYSVIEW_OPTIMIZE	1
@@ -327,10 +328,6 @@ struct esp_apptrace_target2host_hdr {
 	};
 };
 
-struct esp_apptrace_host2target_hdr {
-	uint16_t   block_sz;
-};
-
 struct esp_apptrace_host2target_msg {
 	struct esp_apptrace_host2target_hdr hdr;
 	uint8_t							data[32];
@@ -408,16 +405,41 @@ static int esp_apptrace_handle_trace_block(struct esp_apptrace_cmd_ctx *ctx, str
 /*********************************************************************
 *                       ESP108 Specific Functions
 **********************************************************************/
-static int esp108_apptrace_read_data(struct target *target, uint32_t size, uint8_t *buffer, uint32_t block_id, int ack, struct duration *dur)
+
+int esp108_apptrace_read_data_len(struct target *target, uint32_t *block_id, uint32_t *len)
 {
 	int res = 0;
-	uint32_t i;
+	uint8_t tmp[4];
+
+	esp108_queue_nexus_reg_read(target, ESP_APPTRACE_TRAX_CTRL_REG, tmp);
+	esp108_queue_tdi_idle(target);
+	res = jtag_execute_queue();
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to exec JTAG queue!");
+		return res;
+	}
+	uint32_t val = intfromchars(tmp);
+	*block_id = ESP_APPTRACE_BLOCK_ID_GET(val);
+	*len = ESP_APPTRACE_BLOCK_LEN_GET(val);
+	return ERROR_OK;
+}
+
+int esp108_apptrace_read_data(struct target *target, uint32_t size, uint8_t *buffer, uint32_t block_id, int ack, struct duration *dur)
+{
+	int res = 0;
+	uint32_t i, rd_sz = size;
+    uint8_t unal_bytes[4];
 	uint32_t tmp = ESP_APPTRACE_HOST_CONNECT | ESP_APPTRACE_BLOCK_ID(block_id) | ESP_APPTRACE_BLOCK_LEN(0);
 
-	LOG_DEBUG("Read data on target (%s)!", target_name(target));
-	// start read from the beginning
-	esp108_queue_nexus_reg_write(target, NARADR_TRAXADDR, 0);
-	for (i = size/4; i > 0; i--) { // size is always 16KB
+	LOG_DEBUG("Read data on target (%s)", target_name(target));
+    if (size & 0x3UL) {
+        rd_sz = (size + 0x3UL) & ~0x3UL;
+    }
+	esp108_queue_nexus_reg_write(target, NARADR_TRAXADDR, (ESP32_TRACEMEM_BLOCK_SZ-rd_sz)/4);
+    if (size & 0x3UL) {
+        esp108_queue_nexus_reg_read(target, NARADR_TRAXDATA, unal_bytes);
+    }
+	for (i = size/4; i > 0; i--) {
 		esp108_queue_nexus_reg_read(target, NARADR_TRAXDATA, &buffer[(i-1)*4]);
 	}
 	if (ack) {
@@ -439,36 +461,30 @@ static int esp108_apptrace_read_data(struct target *target, uint32_t size, uint8
 		return res;
 	}
 
+    if (size & 0x3UL) {
+        // copy the last unaligned bytes
+        memcpy(buffer + size - (size & 0x3UL), unal_bytes, size & 0x3UL);
+    }
+
 	return ERROR_OK;
 }
 
-static int esp108_apptrace_read_data_len(struct target *target, uint32_t *block_id, uint32_t *len)
-{
-	int res = 0;
-	uint8_t tmp[4];
-
-	esp108_queue_nexus_reg_read(target, ESP_APPTRACE_TRAX_CTRL_REG, tmp);
-	esp108_queue_tdi_idle(target);
-	res = jtag_execute_queue();
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to exec JTAG queue!");
-		return res;
-	}
-	uint32_t val = intfromchars(tmp);
-	*block_id = ESP_APPTRACE_BLOCK_ID_GET(val);
-	*len = ESP_APPTRACE_BLOCK_LEN_GET(val);
-	return ERROR_OK;
-}
-
-static int esp108_apptrace_write_data(struct target *target, uint32_t size, uint8_t *buffer, uint32_t block_id, int ack, int data, struct duration *dur)
+#if 0
+static int esp108_apptrace_write_data(struct target *target, uint32_t off, uint32_t size, const uint8_t *buffer,
+    uint32_t block_id, int ack, int data, struct duration *dur)
 {
 	int res = 0;
 	uint32_t i;
 	uint32_t tmp = ESP_APPTRACE_HOST_CONNECT | (data ? ESP_APPTRACE_HOST_DATA : 0) | ESP_APPTRACE_BLOCK_ID(block_id) | ESP_APPTRACE_BLOCK_LEN(0);
 
+    if (off & 0x3UL) {
+        LOG_ERROR("Invalid TRAX memory offset alignment 0x%x!", off);
+        return ERROR_FAIL;
+    }
+
 	// start read from the beginning
-	esp108_queue_nexus_reg_write(target, NARADR_TRAXADDR, 0);
-	for (i = 16*1024/4; i > 0; i--) {
+	esp108_queue_nexus_reg_write(target, NARADR_TRAXADDR, off/4);
+	for (i = ESP32_TRACEMEM_BLOCK_SZ/4; i > 0; i--) {
 		if ((i-1) < size/4) {
 			uint32_t dword;
 			memcpy(&dword, &buffer[(i-1)*4], sizeof(dword));
@@ -526,10 +542,76 @@ static int esp108_apptrace_write_data(struct target *target, uint32_t size, uint
 
 	return ERROR_OK;
 }
+#endif
 
-static int esp108_apptrace_write_ctrl_reg(struct target *target, uint32_t block_id, uint32_t len, int conn, int data)
+int esp108_apptrace_write_buffs(struct target *target, uint32_t bufs_num, uint32_t buf_sz[], const uint8_t *bufs[],
+                                uint32_t block_id, int ack, int data)
 {
-	int res = 0;
+    int res = ERROR_OK;
+    uint32_t tmp = ESP_APPTRACE_HOST_CONNECT | (data ? ESP_APPTRACE_HOST_DATA : 0) | ESP_APPTRACE_BLOCK_ID(block_id) | ESP_APPTRACE_BLOCK_LEN(0);
+    uint32_t wr_dw = 0, total_sz = 0, cached_bytes = 0;
+    union {
+        uint8_t data8[4];
+        uint32_t data32;
+    } dword_cache;
+
+    dword_cache.data32 = 0;
+    for (uint32_t i = 0; i < bufs_num; i++) {
+        total_sz += buf_sz[i];
+    }
+    if (total_sz & 0x3UL) {
+        cached_bytes = 4 - (total_sz & 0x3UL);
+        total_sz = (total_sz + 0x3UL) & ~0x3UL;
+    }
+    //esp108_queue_nexus_reg_write(target, NARADR_TRAXADDR, 0);
+    esp108_queue_nexus_reg_write(target, NARADR_TRAXADDR, (ESP32_TRACEMEM_BLOCK_SZ-total_sz)/4);
+    for (uint32_t i = bufs_num; i > 0; i--) {
+        uint32_t bs = buf_sz[i-1];
+        const uint8_t *cur_buf = bufs[i-1];
+        // if there are cached bytes from the previous buffer, combine them with the last from the current buffer
+        if (cached_bytes) {
+            // LOG_DEBUG("Write PADDED DWORD[%d] %x %x %x %x - %x %x %x (c %d)", wr_dw, dword_cache.data8[0], dword_cache.data8[1],
+            //     dword_cache.data8[2], dword_cache.data8[3], cur_buf[bs - (4 - cached_bytes)+0], cur_buf[bs - (4 - cached_bytes)+1],
+            //     cur_buf[bs - (4 - cached_bytes)+2], cached_bytes);
+            memcpy(dword_cache.data8, &cur_buf[bs - (4 - cached_bytes)], 4 - cached_bytes);
+            LOG_DEBUG("Write PADDED DWORD[%d] %x", wr_dw, dword_cache.data32);
+            esp108_queue_nexus_reg_write(target, NARADR_TRAXDATA, dword_cache.data32);
+            bs -= 4 - cached_bytes;
+            cached_bytes = 0;
+            wr_dw++;
+        }
+        // write full dwords
+        for (uint32_t k = bs; k >= 4; k -= 4) {
+            uint32_t dword;
+            memcpy(&dword, &cur_buf[k-4], sizeof(dword));
+            LOG_DEBUG("Write DWORD[%d] %x", wr_dw, dword);
+            esp108_queue_nexus_reg_write(target, NARADR_TRAXDATA, dword);
+            wr_dw++;
+        }
+        // if there are bytes to be cached
+        if (bs & 0x3UL) {
+            cached_bytes = bs & 0x3UL;
+            memcpy(&dword_cache.data8[4-cached_bytes], cur_buf, cached_bytes);
+        }
+    }
+//        esp108_queue_nexus_reg_write(target, NARADR_TRAXDATA, 0);
+    if (ack) {
+        LOG_DEBUG("Ack block %d on target (%s)!", block_id, target_name(target));
+        esp108_queue_nexus_reg_write(target, ESP_APPTRACE_TRAX_CTRL_REG, tmp);
+    }
+    esp108_queue_tdi_idle(target);
+    res = jtag_execute_queue();
+    if (res != ERROR_OK) {
+        LOG_ERROR("Failed to exec JTAG queue!");
+        return res;
+    }
+
+    return ERROR_OK;
+}
+
+int esp108_apptrace_write_ctrl_reg(struct target *target, uint32_t block_id, uint32_t len, int conn, int data)
+{
+	int res = ERROR_OK;
 	uint32_t tmp = (conn ? ESP_APPTRACE_HOST_CONNECT : 0) | (data ? ESP_APPTRACE_HOST_DATA : 0) | ESP_APPTRACE_BLOCK_ID(block_id) | ESP_APPTRACE_BLOCK_LEN(len);
 
 	esp108_queue_nexus_reg_write(target, ESP_APPTRACE_TRAX_CTRL_REG, tmp);
@@ -576,7 +658,6 @@ static int esp108_activate_swdbg(struct target *target, int enab)
 
 	return ERROR_OK;
 }
-
 
 /*********************************************************************
 *                       ESP32/108 Common Functions
@@ -627,27 +708,24 @@ static int esp_apptrace_file_dest_init(struct esp_apptrace_dest *dest, const cha
 	return ERROR_OK;
 }
 
-static int esp_apptrace_dest_init(struct esp_apptrace_dest dest[], const char *dest_paths[], int max_dests, int single_dest)
+static int esp_apptrace_dest_init(struct esp_apptrace_dest dest[], const char *dest_paths[], int max_dests)
 {
-	int res = ERROR_OK, cores_num = 0;
+	int res = ERROR_OK, i;
 
-	for (int i = 0; i < max_dests; i++) {
+	for (i = 0; i < max_dests; i++) {
 		if (strncmp(dest_paths[i], "file://", 7) == 0) {
-			if (i == 0 || !single_dest) {
-				res = esp_apptrace_file_dest_init(&dest[i], &dest_paths[i][7]);
-				if (res != ERROR_OK) {
-					LOG_ERROR("Failed to init destination '%s'!", dest_paths[i]);
-					return 0;
-				}
+			res = esp_apptrace_file_dest_init(&dest[i], &dest_paths[i][7]);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to init destination '%s'!", dest_paths[i]);
+				return 0;
 			}
-			cores_num++;
 		}
 		else {
 			break;
 		}
 	}
 
-	return cores_num;
+	return i;
 }
 
 static int esp_apptrace_dest_cleanup(struct esp_apptrace_dest dest[], int max_dests)
@@ -801,15 +879,10 @@ static int esp_cmd_apptrace_ctx_init(struct target *target, struct esp_apptrace_
 	cmd_ctx->max_len = (uint32_t)-1;
 	cmd_ctx->stop_tmo = -1.0; // infinite
 	cmd_ctx->poll_period = 1/*ms*/;
-	cmd_ctx->cores_num = esp_apptrace_dest_init(cmd_ctx->data_dests, argv, 
-			argc < ESP_APPTRACE_TARGETS_NUM_MAX ? argc : ESP_APPTRACE_TARGETS_NUM_MAX, !sys_view);
-
-	if (cmd_ctx->cores_num == 0) {
-		LOG_ERROR("Invalid number of cores specified (%d)!", cmd_ctx->cores_num);
-		return ERROR_FAIL;
-	}
-	if (!sys_view && cmd_ctx->cores_num > 1) {
-		LOG_USER("Non-SystemView mode: data from %d cores will be sent to the first destination only.", cmd_ctx->cores_num);
+	cmd_ctx->cores_num = strcmp(target->type->name, "esp32") == 0 ? 2 : 1;
+	int dests_num = esp_apptrace_dest_init(cmd_ctx->data_dests, argv, cmd_ctx->cores_num);
+	if (dests_num < cmd_ctx->cores_num) {
+		LOG_USER("Data from %d cores will be sent to %d destinations.", cmd_ctx->cores_num, dests_num);
 	}
 	if (argc > cmd_ctx->cores_num) {
 		cmd_ctx->poll_period = strtoul(argv[cmd_ctx->cores_num], NULL, 10);
@@ -1153,8 +1226,7 @@ static int esp_sysview_queue_cmds(struct target *target, uint8_t *cmds, uint32_t
 		LOG_DEBUG("SEGGER: Send command %d, b %d", cmds[i], msg.hdr.block_sz);
 	}
 	// write header with or without data
-	int res = esp108_apptrace_write_data(target, sizeof(struct esp_apptrace_host2target_hdr) + msg.hdr.block_sz, (uint8_t *)&msg,
-										 block_id, 1/*ack target data*/, 1/*host data present*/, NULL);
+	int res = esp108_apptrace_usr_block_write(target, block_id, (uint8_t *)&msg, sizeof(struct esp_apptrace_host2target_hdr) + msg.hdr.block_sz);
 	if (res != ERROR_OK) {
 		LOG_ERROR("SEGGER: Failed to write data to (%s)!", target_name(target));
 		return res;
@@ -1293,7 +1365,7 @@ static int esp_sysview_stop(struct esp_apptrace_cmd_ctx *ctx)
 	}
 	if (target_state[fired_target_num].data_len) {
 		// read pending data without ack, they will be acked when stop command is queued
-		res = esp108_apptrace_read_data(ctx->cpus[fired_target_num], ctx->trax_block_sz,
+		res = esp108_apptrace_read_data(ctx->cpus[fired_target_num], target_state[fired_target_num].data_len,
 										block->data, target_state[fired_target_num].block_id,
 										0/*no ack target data*/, NULL);
 		if (res != ERROR_OK) {
@@ -1365,7 +1437,7 @@ static int esp_sysview_stop(struct esp_apptrace_cmd_ctx *ctx)
 		if (target_state[fired_target_num].block_id != old_block_id) {
 			if (target_state[fired_target_num].data_len) {
 				// read last data and ack them
-				res = esp108_apptrace_read_data(ctx->cpus[fired_target_num], ctx->trax_block_sz,
+				res = esp108_apptrace_read_data(ctx->cpus[fired_target_num], target_state[fired_target_num].data_len,
 												block->data, target_state[fired_target_num].block_id,
 												1/*ack target data*/, NULL);
 				if (res != ERROR_OK) {
@@ -1421,6 +1493,30 @@ static uint32_t esp_apptrace_usr_block_check(struct esp_apptrace_cmd_ctx *ctx, s
 		ctx->stats.lost_bytes += usr_len - wr_len;
 	}
 	return usr_len;
+}
+
+uint8_t *esp108_apptrace_usr_block_get(uint8_t *buffer, uint32_t *size)
+{
+    struct esp_apptrace_target2host_hdr tmp_hdr;
+    memcpy(&tmp_hdr, buffer, sizeof(tmp_hdr));
+
+    *size = tmp_hdr.gen.wr_sz;
+
+    return buffer + sizeof(struct esp_apptrace_target2host_hdr);
+}
+
+int esp108_apptrace_usr_block_write(struct target *target, uint32_t block_id, const uint8_t *data, uint32_t size)
+{
+    struct esp_apptrace_host2target_hdr hdr = {.block_sz = size};
+    uint32_t buf_sz[2] = {sizeof(struct esp_apptrace_host2target_hdr), size};
+    const uint8_t *bufs[2] = {(const uint8_t *)&hdr, data};
+
+    if (size > ESP32_USR_BLOCK_SZ_MAX) {
+        LOG_ERROR("Too large user block %u", size);
+        return ERROR_FAIL;
+    }
+
+    return esp108_apptrace_write_buffs(target, 2, buf_sz, bufs, block_id, 1/*ack target data*/, 1/*host data*/);
 }
 
 static int esp_apptrace_process_data(struct esp_apptrace_cmd_ctx *ctx, int core_id, uint8_t *data, uint32_t data_len)
@@ -1850,7 +1946,7 @@ static int esp_apptrace_poll(void *priv)
 		return ERROR_FAIL;
 	}
 #endif
-	res = esp108_apptrace_read_data(ctx->cpus[fired_target_num], ctx->trax_block_sz,
+	res = esp108_apptrace_read_data(ctx->cpus[fired_target_num], target_state[fired_target_num].data_len,
 									block->data, target_state[fired_target_num].block_id,
 									1/*ack target data*/, NULL);
 	if (res != ERROR_OK) {

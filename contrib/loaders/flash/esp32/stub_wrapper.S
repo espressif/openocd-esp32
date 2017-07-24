@@ -1,7 +1,7 @@
 /***************************************************************************
- *   ESP108 application trace module                                       *
+ *   ESP32 flasher stub wrapper                                           *
  *   Copyright (C) 2017 Espressif Systems Ltd.                             *
- *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
+ *   Author: Alexey Gerenkov, alexey@espressif.com                         *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -19,29 +19,23 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-#ifndef XTENSA_ESP108_APPTRACE_H
-#define XTENSA_ESP108_APPTRACE_H
+/*
+ * Params :
+ * a2 = command ID, result (out)
+ * a3 = command arg1: flash addr, start sector
+ * a4 = command arg2: size, nunmber of sectors
+ * a5 = command arg3: down buffer start, sectors state buf address
+ * a6 = command arg3: down buffer size
+ */
+    .text
 
-#include "command.h"
-#include "time_support.h"
-
-//TODO: remove from header
-#define ESP32_TRACEMEM_BLOCK_SZ		(0x4000)
-#define ESP32_USR_BLOCK_SZ_MAX		(ESP32_TRACEMEM_BLOCK_SZ - sizeof(struct esp_apptrace_host2target_hdr))
-
-//TODO: remove from header
-struct esp_apptrace_host2target_hdr {
-	uint16_t   block_sz;
-};
-
-int esp_cmd_apptrace_generic(struct target *target, int sys_view, const char **argv, int argc);
-__COMMAND_HANDLER(esp108_cmd_apptrace);
-__COMMAND_HANDLER(esp108_cmd_sysview);
-
-int esp108_apptrace_write_ctrl_reg(struct target *target, uint32_t block_id, uint32_t len, int conn, int data);
-int esp108_apptrace_read_data_len(struct target *target, uint32_t *block_id, uint32_t *len);
-int esp108_apptrace_read_data(struct target *target, uint32_t size, uint8_t *buffer, uint32_t block_id, int ack, struct duration *dur);
-uint8_t *esp108_apptrace_usr_block_get(uint8_t *buffer, uint32_t *size);
-int esp108_apptrace_usr_block_write(struct target *target, uint32_t block_id, const uint8_t *data, uint32_t size);
-
-#endif // XTENSA_ESP108_APPTRACE_H
+    .align  4
+_stub_enter:
+    mov     a10, a2
+    mov     a11, a3
+    mov     a12, a4
+    mov     a13, a5
+    mov     a14, a6
+    callx8  a0
+    mov     a2, a10
+    break 0,0

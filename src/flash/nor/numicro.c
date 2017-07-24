@@ -1345,8 +1345,8 @@ static int numicro_writeblock(struct flash_bank *bank, const uint8_t *buffer,
 	 */
 
 	/* Increase buffer_size if needed */
-	if (buffer_size < (target->working_area_size/2))
-		buffer_size = (target->working_area_size/2);
+	if (buffer_size < (target->working_area_cfg.size/2))
+		buffer_size = (target->working_area_cfg.size/2);
 
 	/* check code alignment */
 	if (offset & 0x1) {

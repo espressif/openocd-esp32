@@ -593,22 +593,22 @@ static int lpc3180_write_page(struct nand_device *nand,
 				return retval;
 
 			/* allocate a working area */
-			if (target->working_area_size < (uint32_t) nand->page_size + 0x200) {
+			if (target->working_area_cfg.size < (uint32_t) nand->page_size + 0x200) {
 				LOG_ERROR("Reserve at least 0x%x physical target working area",
 					nand->page_size + 0x200);
 				return ERROR_FLASH_OPERATION_FAILED;
 			}
-			if (target->working_area_phys%4) {
+			if (target->working_area_cfg.phys%4) {
 				LOG_ERROR(
 					"Reserve the physical target working area at word boundary");
 				return ERROR_FLASH_OPERATION_FAILED;
 			}
-			if (target_alloc_working_area(target, target->working_area_size,
+			if (target_alloc_working_area(target, target->working_area_cfg.size,
 				    &pworking_area) != ERROR_OK) {
 				LOG_ERROR("no working area specified, can't read LPC internal flash");
 				return ERROR_FLASH_OPERATION_FAILED;
 			}
-			target_mem_base = target->working_area_phys;
+			target_mem_base = target->working_area_cfg.phys;
 
 			if (nand->page_size == 2048)
 				page_buffer = malloc(2048);
@@ -974,22 +974,22 @@ static int lpc3180_read_page(struct nand_device *nand,
 				return retval;
 
 			/* allocate a working area */
-			if (target->working_area_size < (uint32_t) nand->page_size + 0x200) {
+			if (target->working_area_cfg.size < (uint32_t) nand->page_size + 0x200) {
 				LOG_ERROR("Reserve at least 0x%x physical target working area",
 					nand->page_size + 0x200);
 				return ERROR_FLASH_OPERATION_FAILED;
 			}
-			if (target->working_area_phys%4) {
+			if (target->working_area_cfg.phys%4) {
 				LOG_ERROR(
 					"Reserve the physical target working area at word boundary");
 				return ERROR_FLASH_OPERATION_FAILED;
 			}
-			if (target_alloc_working_area(target, target->working_area_size,
+			if (target_alloc_working_area(target, target->working_area_cfg.size,
 				    &pworking_area) != ERROR_OK) {
 				LOG_ERROR("no working area specified, can't read LPC internal flash");
 				return ERROR_FLASH_OPERATION_FAILED;
 			}
-			target_mem_base = target->working_area_phys;
+			target_mem_base = target->working_area_cfg.phys;
 
 			if (nand->page_size == 2048)
 				page_buffer = malloc(2048);

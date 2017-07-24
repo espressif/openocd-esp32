@@ -407,11 +407,12 @@ static int image_elf_read_headers(struct image *image)
 
 	/* count useful segments (loadable), ignore BSS section */
 	image->num_sections = 0;
-	for (i = 0; i < elf->segment_count; i++)
+	for (i = 0; i < elf->segment_count; i++) {
 		if ((field32(elf,
 			elf->segments[i].p_type) == PT_LOAD) &&
 			(field32(elf, elf->segments[i].p_filesz) != 0))
 			image->num_sections++;
+	}
 
 	assert(image->num_sections > 0);
 

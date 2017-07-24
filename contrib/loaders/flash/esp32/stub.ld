@@ -1,5 +1,5 @@
 /***************************************************************************
- *   ESP108 application trace module                                       *
+ *   LD script for ESP32 flassher stub                                     *
  *   Copyright (C) 2017 Espressif Systems Ltd.                             *
  *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  *                                                                         *
@@ -19,29 +19,40 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-#ifndef XTENSA_ESP108_APPTRACE_H
-#define XTENSA_ESP108_APPTRACE_H
+MEMORY {
+  /* place stub at the beginning of the OpenOCD working area,
+     remaining space will be used for other chunks */
+  iram : org = 0x40090000, len = 0x2100
+  dram : org = 0x3FFC0000, len = 0xB00
+}
 
-#include "command.h"
-#include "time_support.h"
+PHDRS
+{
+  text_phdr PT_LOAD;
+  data_phdr PT_LOAD;
+}
 
-//TODO: remove from header
-#define ESP32_TRACEMEM_BLOCK_SZ		(0x4000)
-#define ESP32_USR_BLOCK_SZ_MAX		(ESP32_TRACEMEM_BLOCK_SZ - sizeof(struct esp_apptrace_host2target_hdr))
+ENTRY(stub_main)
 
-//TODO: remove from header
-struct esp_apptrace_host2target_hdr {
-	uint16_t   block_sz;
-};
+SECTIONS {
+  .text : ALIGN(4) {
+    *(.literal)
+    *(.text .text.*)
+  } > iram : text_phdr
 
-int esp_cmd_apptrace_generic(struct target *target, int sys_view, const char **argv, int argc);
-__COMMAND_HANDLER(esp108_cmd_apptrace);
-__COMMAND_HANDLER(esp108_cmd_sysview);
+  .data : ALIGN(4) {
+    *(.data)
+    *(.rodata .rodata.*)
+  } > dram : data_phdr
 
-int esp108_apptrace_write_ctrl_reg(struct target *target, uint32_t block_id, uint32_t len, int conn, int data);
-int esp108_apptrace_read_data_len(struct target *target, uint32_t *block_id, uint32_t *len);
-int esp108_apptrace_read_data(struct target *target, uint32_t size, uint8_t *buffer, uint32_t block_id, int ack, struct duration *dur);
-uint8_t *esp108_apptrace_usr_block_get(uint8_t *buffer, uint32_t *size);
-int esp108_apptrace_usr_block_write(struct target *target, uint32_t block_id, const uint8_t *data, uint32_t size);
+  .bss (NOLOAD) : ALIGN(4) {
+    _bss_start = ABSOLUTE(.);
+    *(.bss)
+    _bss_end = ABSOLUTE(.);
+  } > dram : data_phdr
+}
 
-#endif // XTENSA_ESP108_APPTRACE_H
+INCLUDE "esp32.rom.ld"
+PROVIDE ( g_rom_spiflash_dummy_len_plus = 0x3ffae290 );
+PROVIDE ( ets_update_cpu_frequency = 0x40008550 ); /* Updates g_ticks_per_us on the current CPU only; not on the other core */
+PROVIDE ( esp_rom_spiflash_attach = 0x40062a6c );
