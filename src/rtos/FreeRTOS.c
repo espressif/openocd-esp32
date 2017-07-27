@@ -654,7 +654,7 @@ static int FreeRTOS_create(struct target *target)
 
 static void FreeRTOS_set_current_thread(struct rtos *rtos, int32_t threadid)
 {
-	LOG_INFO("Set current thread to 0x%08x, old= 0x%08x", (unsigned int)threadid, (unsigned int)rtos->current_threadid);
+	LOG_DEBUG("Set current thread to 0x%08x, old= 0x%08x", (unsigned int)threadid, (unsigned int)rtos->current_threadid);
 	rtos->current_threadid = threadid;
 	for (int i = 0; i < target_get_core_count(rtos->target); i++) {
 		if (rtos->core_running_threads[i] == rtos->current_threadid){

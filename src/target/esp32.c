@@ -1304,13 +1304,7 @@ static int xtensa_poll(struct target *target)
 	unsigned int common_reason = dsr0 | dsr1; // We should know if even one of CPU was stopped
 
 	unsigned int common_pwrstath = pwrstath[0] | pwrstath[1];
-
-	if (esp32->current_threadid != target->rtos->current_threadid)
-	{
-		LOG_DEBUG("Thread changed old =0x%08X, current =%08x", (unsigned int)esp32->current_threadid, (unsigned int)target->rtos->current_threadid);
-		esp32->current_threadid = target->rtos->current_threadid;
-	}
-
+	
 	if ((dsr0 & OCDDSR_STOPPED) != (dsr1 & OCDDSR_STOPPED))
 	{
 		LOG_DEBUG("%s: dsr0=0x%08x, dsr1=0x%08x", __func__, dsr0, dsr1);
