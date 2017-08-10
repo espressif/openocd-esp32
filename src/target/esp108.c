@@ -865,10 +865,14 @@ static int xtensa_step(struct target *target,
 		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNT], icount_val);
 
 		/* Now ICOUNT is set, we can resume as if we were going to run */
-		res = xtensa_resume(target, current, address, 0, 0);
-		if(res != ERROR_OK) {
-			LOG_ERROR("%s: %s: Failed to resume after setting up single step", target->cmd_name, __func__);
-			return res;
+		int cause_local = esp108_reg_get(&reg_list[XT_REG_IDX_DEBUGCAUSE]);
+		if ((cause_local&(DEBUGCAUSE_BI | DEBUGCAUSE_DB)) == 0)
+		{
+			res = xtensa_resume(target, current, address, 0, 0);
+			if (res != ERROR_OK) {
+				LOG_ERROR("%s: %s: Failed to resume after setting up single step", target->cmd_name, __func__);
+				return res;
+			}
 		}
 
 		/* Wait for stepping to complete */
