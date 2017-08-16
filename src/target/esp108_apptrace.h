@@ -35,6 +35,7 @@ struct esp_apptrace_host2target_hdr {
 };
 
 int esp_cmd_apptrace_generic(struct target *target, int sys_view, const char **argv, int argc);
+int esp_cmd_gcov(struct target *target, const char **argv, int argc);
 __COMMAND_HANDLER(esp108_cmd_apptrace);
 __COMMAND_HANDLER(esp108_cmd_sysview);
 
