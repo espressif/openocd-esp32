@@ -415,8 +415,9 @@ struct esp_apptrace_cmd_data {
 };
 
 struct esp_gcov_cmd_data {
-	FILE *	files[ESP_GCOV_FILES_MAX_NUM];
-	uint32_t files_num;
+	FILE *		files[ESP_GCOV_FILES_MAX_NUM];
+	uint32_t 	files_num;
+	bool		wait4halt;
 };
 
 // need to check it when poll period is less then 1 ms in order to react on CTRL+C etc
@@ -979,6 +980,7 @@ static int esp_apptrace_cmd_cleanup(struct esp_apptrace_cmd_ctx *cmd_ctx)
 	struct esp_apptrace_cmd_data *cmd_data = cmd_ctx->cmd_priv;
 
 	esp_apptrace_dest_cleanup(cmd_data->data_dests, cmd_ctx->cores_num);
+	free(cmd_data);
 	esp_apptrace_cmd_ctx_cleanup(cmd_ctx);
 	return ERROR_OK;
 }
@@ -1895,6 +1897,7 @@ static int esp_apptrace_poll(void *priv)
 		LOG_ERROR("Failed to read data len!");
 		return res;
 	}
+	//LOG_USER("FIRED %d ", fired_target_num);
 	if (fired_target_num == (uint32_t)-1) {
 		if (ctx->stop_tmo != -1.0) {
 			if (duration_measure(&ctx->idle_time) != 0) {
@@ -1910,6 +1913,7 @@ static int esp_apptrace_poll(void *priv)
 		}
 		return ERROR_OK; // no data
 	}
+	LOG_USER("FIRED %d b %d l %d", fired_target_num, target_state[fired_target_num].block_id, target_state[fired_target_num].data_len);
 	// sanity check
 	if (target_state[fired_target_num].data_len > ctx->trax_block_sz) {
 		ctx->running = 0;
@@ -2242,7 +2246,7 @@ static int esp_gcov_cmd_init(struct target *target, struct esp_apptrace_cmd_ctx 
 	if (res) {
 		return res;
 	}
-	//cmd_ctx->stop_tmo = 2.0;
+	//cmd_ctx->stop_tmo = 3.0;
 	cmd_ctx->process_data = esp_gcov_process_data;
 
 	struct esp_gcov_cmd_data *cmd_data = malloc(sizeof(struct esp_gcov_cmd_data));
@@ -2253,6 +2257,10 @@ static int esp_gcov_cmd_init(struct target *target, struct esp_apptrace_cmd_ctx 
 	}
 	memset(cmd_data, 0, sizeof(struct esp_gcov_cmd_data));
 	cmd_ctx->cmd_priv = cmd_data;
+
+	if (argc > 0) {
+		cmd_data->wait4halt = strtoul(argv[0], NULL, 10);
+	}
 
 	return ERROR_OK;
 }
@@ -2268,6 +2276,7 @@ static int esp_gcov_cmd_cleanup(struct esp_apptrace_cmd_ctx *cmd_ctx)
 			res = ERROR_FAIL;
 		}
 	}
+	free(cmd_data);
 	esp_apptrace_cmd_ctx_cleanup(cmd_ctx);
 	return res;
 }
@@ -2294,6 +2303,7 @@ static int esp_gcov_fopen(struct esp_gcov_cmd_data *cmd_data, uint8_t *data, uin
 		return ERROR_FAIL;
 	}
 
+	LOG_INFO("Open file '%s'", data);
 	uint32_t fd = cmd_data->files_num;
 	cmd_data->files[fd] = fopen((char *)data, (char *)data+len+1);
 	if (!cmd_data->files[fd]) {
@@ -2328,7 +2338,13 @@ static int esp_gcov_fclose(struct esp_gcov_cmd_data *cmd_data, uint8_t *data, ui
 		LOG_ERROR("Missed FCLOSE args!");
 		return ERROR_FAIL;
 	}
-	uint32_t fd = *((uint32_t *)data) - 1;
+	uint32_t fd;
+	memcpy(&fd, data, sizeof(fd));
+	fd--;
+	if (fd >= ESP_GCOV_FILES_MAX_NUM) {
+		LOG_ERROR("Invalid file desc received 0x%x!", fd);
+		return ERROR_FAIL;
+	}
 	if (!cmd_data->files[fd]) {
 		LOG_ERROR("FCLOSE for not open file!");
 		return ERROR_FAIL;
@@ -2359,15 +2375,21 @@ static int esp_gcov_fwrite(struct esp_gcov_cmd_data *cmd_data, uint8_t *data, ui
 		LOG_ERROR("Missed FWRITE args!");
 		return ERROR_FAIL;
 	}
-	uint32_t fd = *((uint32_t *)data) - 1;
+	uint32_t fd;
+	memcpy(&fd, data, sizeof(fd));
+	fd--;
+	if (fd >= ESP_GCOV_FILES_MAX_NUM) {
+		LOG_ERROR("Invalid file desc received 0x%x!", fd);
+		return ERROR_FAIL;
+	}
 	if (!cmd_data->files[fd]) {
 		LOG_ERROR("FWRITE for not open file!");
 		return ERROR_FAIL;
 	}
 
-	uint32_t fret = fwrite(data + sizeof(uint32_t), data_len - sizeof(uint32_t), 1, cmd_data->files[fd]);
+	uint32_t fret = fwrite(data + sizeof(fd), data_len - sizeof(fd), 1, cmd_data->files[fd]);
 	if (fret != 1) {
-		LOG_ERROR("Failed to write %ld byte (%d)!", data_len - sizeof(uint32_t), errno);
+		LOG_ERROR("Failed to write %ld byte (%d)!", data_len - sizeof(fd), errno);
 	}
 
 	*resp_len = sizeof(fret);
@@ -2390,12 +2412,19 @@ static int esp_gcov_fread(struct esp_gcov_cmd_data *cmd_data, uint8_t *data, uin
 		LOG_ERROR("Missed FREAD args!");
 		return ERROR_FAIL;
 	}
-	uint32_t fd = *((uint32_t *)data) - 1;
+	uint32_t fd;
+	memcpy(&fd, data, sizeof(fd));
+	fd--;
+	if (fd >= ESP_GCOV_FILES_MAX_NUM) {
+		LOG_ERROR("Invalid file desc received 0x%x!", fd);
+		return ERROR_FAIL;
+	}
 	if (!cmd_data->files[fd]) {
 		LOG_ERROR("FREAD for not open file!");
 		return ERROR_FAIL;
 	}
-	uint32_t len = ((uint32_t *)data)[1];
+	uint32_t len;
+	memcpy(&len, data + sizeof(fd), sizeof(len));
 
 	*resp_len = sizeof(fret) + len;
 	*resp = malloc(*resp_len);
@@ -2419,13 +2448,24 @@ static int esp_gcov_fseek(struct esp_gcov_cmd_data *cmd_data, uint8_t *data, uin
 		LOG_ERROR("Missed FSEEK args!");
 		return ERROR_FAIL;
 	}
-	uint32_t fd = *((uint32_t *)data) - 1;
+	uint32_t fd;
+	memcpy(&fd, data, sizeof(fd));
+	fd--;
+	if (fd >= ESP_GCOV_FILES_MAX_NUM) {
+		LOG_ERROR("Invalid file desc received 0x%x!", fd);
+		return ERROR_FAIL;
+	}
 	if (!cmd_data->files[fd]) {
 		LOG_ERROR("FSEEK for not open file!");
 		return ERROR_FAIL;
 	}
 
-	int32_t fret = fseek(cmd_data->files[fd], ((int32_t *)data)[1], ((int32_t *)data)[2]);
+	int32_t off;
+	memcpy(&off, data + sizeof(fd), sizeof(off));
+	int32_t whence;
+	memcpy(&whence, data + sizeof(fd) + sizeof(off), sizeof(whence));
+
+	int32_t fret = fseek(cmd_data->files[fd], off, whence);
 	*resp_len = sizeof(fret);
 	*resp = malloc(*resp_len);
 	if (!*resp) {
@@ -2444,7 +2484,13 @@ static int esp_gcov_ftell(struct esp_gcov_cmd_data *cmd_data, uint8_t *data, uin
 		LOG_ERROR("Missed FTELL args!");
 		return ERROR_FAIL;
 	}
-	uint32_t fd = *((uint32_t *)data) - 1;
+	uint32_t fd;
+	memcpy(&fd, data, sizeof(fd));
+	fd--;
+	if (fd >= ESP_GCOV_FILES_MAX_NUM) {
+		LOG_ERROR("Invalid file desc received 0x%x!", fd);
+		return ERROR_FAIL;
+	}
 	if (!cmd_data->files[fd]) {
 		LOG_ERROR("FTELL for not open file!");
 		return ERROR_FAIL;
@@ -2537,6 +2583,7 @@ static int esp_gcov_process_data(struct esp_apptrace_cmd_ctx *ctx, int core_id, 
 
 int esp_cmd_gcov(struct target *target, const char **argv, int argc)
 {
+	struct esp_gcov_cmd_data *cmd_data;
 	static struct esp_apptrace_cmd_ctx s_at_cmd_ctx;
 	int res = ERROR_OK;
 
@@ -2546,13 +2593,15 @@ int esp_cmd_gcov(struct target *target, const char **argv, int argc)
 		LOG_ERROR("Failed to init cmd ctx (%d)!", res);
 		return res;
 	}
-	//TODO: as argument
-	// res = esp_apptrace_wait4halt(&s_at_cmd_ctx);
-	// if (res != ERROR_OK) {
-	// 	LOG_ERROR("Failed to wait for halt target (%d)!", res);
-	// 	esp_gcov_cmd_cleanup(&s_at_cmd_ctx);
-	// 	return res;
-	// }
+	cmd_data = s_at_cmd_ctx.cmd_priv;
+	if (cmd_data->wait4halt) {
+		res = esp_apptrace_wait4halt(&s_at_cmd_ctx);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to wait for halt target (%d)!", res);
+			esp_gcov_cmd_cleanup(&s_at_cmd_ctx);
+			return res;
+		}
+	}
 	res = esp_apptrace_connect_targets(&s_at_cmd_ctx, 1);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to connect to targets (%d)!", res);
