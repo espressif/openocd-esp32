@@ -2246,7 +2246,7 @@ static int esp_gcov_cmd_init(struct target *target, struct esp_apptrace_cmd_ctx 
 	if (res) {
 		return res;
 	}
-	//cmd_ctx->stop_tmo = 3.0;
+	cmd_ctx->stop_tmo = 3.0;
 	cmd_ctx->process_data = esp_gcov_process_data;
 
 	struct esp_gcov_cmd_data *cmd_data = malloc(sizeof(struct esp_gcov_cmd_data));
@@ -2389,7 +2389,7 @@ static int esp_gcov_fwrite(struct esp_gcov_cmd_data *cmd_data, uint8_t *data, ui
 
 	uint32_t fret = fwrite(data + sizeof(fd), data_len - sizeof(fd), 1, cmd_data->files[fd]);
 	if (fret != 1) {
-		LOG_ERROR("Failed to write %ld byte (%d)!", data_len - sizeof(fd), errno);
+		LOG_ERROR("Failed to write %ld byte (%d)!", (long)(data_len - sizeof(fd)), errno);
 	}
 
 	*resp_len = sizeof(fret);
