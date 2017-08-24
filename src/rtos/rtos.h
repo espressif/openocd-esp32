@@ -57,6 +57,7 @@ struct rtos {
 	void *rtos_specific_params;
 	/*Threads that are currently running on cores of the target*/
 	int32_t* core_running_threads;
+	int32_t* core_interruptNesting;
 };
 
 struct rtos_type {
