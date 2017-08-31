@@ -610,6 +610,48 @@ static int esp108_activate_swdbg(struct target *target, int enab)
 *                       ESP32/108 Common Functions
 **********************************************************************/
 
+static uint32_t esp_apptrace_get_cores_num(struct target *target)
+{
+	int res;
+	uint32_t cores_num = 1;
+	bool resume = false;
+
+	if (target->state != TARGET_HALTED) {
+		res = target_halt(target);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to halt target (%d)!", res);
+			return 0;
+		}
+		res = target_wait_state(target, TARGET_HALTED, ESP_APPTRACE_TGT_STATE_TMO);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to wait for target '%s' to halt: state %d (%d)!", target_name(target), target->state, res);
+			return 0;
+		}
+		resume = true;
+	}
+
+	uint32_t appcpu_ctrl = 0;
+	res = target_read_memory(target, ESP32_DPORT_APPCPU_CTRL_B_REG, sizeof(uint32_t), 1, (uint8_t *)&appcpu_ctrl);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to read target memory (%d)!", res);
+		return 0;
+	}
+	if (appcpu_ctrl & ESP32_DPORT_APPCPU_CLKGATE_EN) {
+		cores_num++;
+	}
+
+	if (resume) {
+		// continue execution
+		res = target_resume(target, 1, 0, 1, 0);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to resume target (%d)!", res);
+			return 0;
+		}
+	}
+
+	return cores_num;
+}
+
 static int esp_apptrace_file_dest_write(void *priv, uint8_t *data, uint32_t size)
 {
 	struct esp_apptrace_dest_file_data *dest_data = (struct esp_apptrace_dest_file_data *)priv;
@@ -821,8 +863,8 @@ static int esp_apptrace_cmd_ctx_init(struct target *target, struct esp_apptrace_
 	cmd_ctx->data_processor = (pthread_t)-1;
 	cmd_ctx->stop_tmo = -1.0; // infinite
 	cmd_ctx->mode = mode;
-	cmd_ctx->cores_num = strcmp(target->type->name, "esp32") == 0 ? 2 : 1;
-	cmd_ctx->esp32_target = memcmp(target_type_name(target), "esp32", 6) == 0 ? target : NULL;
+	cmd_ctx->cores_num = esp_apptrace_get_cores_num(target);
+	cmd_ctx->esp32_target = cmd_ctx->cores_num == 2 ? target : NULL;
 
 	for (int i = 0; i < cmd_ctx->cores_num; i++) {
 		if (cmd_ctx->esp32_target) {
@@ -928,8 +970,8 @@ static int esp_apptrace_cmd_init(struct target *target, struct esp_apptrace_cmd_
 {
 	int res;
 
-	if (argc < 2) {
-		LOG_ERROR("Not enough args! Need cores number and trace data destination!");
+	if (argc < 1) {
+		LOG_ERROR("Not enough args! Need trace data destination!");
 		return ERROR_FAIL;
 	}
 
@@ -937,9 +979,16 @@ static int esp_apptrace_cmd_init(struct target *target, struct esp_apptrace_cmd_
 	if (res) {
 		return res;
 	}
+	if (cmd_ctx->mode == ESP_APPTRACE_CMD_MODE_SYSVIEW && argc < cmd_ctx->cores_num) {
+		LOG_ERROR("Not enough args! Need %d trace data destinations!", cmd_ctx->cores_num);
+		cmd_ctx->running = 0;
+		esp_apptrace_cmd_ctx_cleanup(cmd_ctx);
+		return ERROR_FAIL;
+	}
 	struct esp_apptrace_cmd_data *cmd_data = malloc(sizeof(struct esp_apptrace_cmd_data));
 	if (!cmd_data) {
 		LOG_ERROR("Failed to alloc cmd data!");
+		cmd_ctx->running = 0;
 		esp_apptrace_cmd_ctx_cleanup(cmd_ctx);
 		return ERROR_FAIL;
 	}
@@ -949,21 +998,25 @@ static int esp_apptrace_cmd_init(struct target *target, struct esp_apptrace_cmd_
 	//outfile1 [outfile2] [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]]
 	cmd_data->max_len = (uint32_t)-1;
 	cmd_data->poll_period = 1/*ms*/;
-	int dests_num = esp_apptrace_dest_init(cmd_data->data_dests, argv, cmd_ctx->cores_num);
-	if (dests_num < cmd_ctx->cores_num) {
-		LOG_USER("Data from %d cores will be sent to %d destinations.", cmd_ctx->cores_num, dests_num);
+	int dests_num = esp_apptrace_dest_init(cmd_data->data_dests, argv, cmd_ctx->mode == ESP_APPTRACE_CMD_MODE_SYSVIEW ? cmd_ctx->cores_num : 1);
+	if (cmd_ctx->mode == ESP_APPTRACE_CMD_MODE_SYSVIEW && dests_num < cmd_ctx->cores_num) {
+		LOG_ERROR("Not enough args! Need %d trace data destinations!", cmd_ctx->cores_num);
+		free(cmd_data);
+		cmd_ctx->running = 0;
+		esp_apptrace_cmd_ctx_cleanup(cmd_ctx);
+		return ERROR_FAIL;
 	}
-	if (argc > cmd_ctx->cores_num) {
-		cmd_data->poll_period = strtoul(argv[cmd_ctx->cores_num], NULL, 10);
-		if (argc > cmd_ctx->cores_num+1) {
-			cmd_data->max_len = strtoul(argv[cmd_ctx->cores_num+1], NULL, 10);
-			if (argc > cmd_ctx->cores_num+2) {
-				int32_t tmo = strtol(argv[cmd_ctx->cores_num+2], NULL, 10);
+	if (argc > dests_num) {
+		cmd_data->poll_period = strtoul(argv[dests_num+0], NULL, 10);
+		if (argc > dests_num+1) {
+			cmd_data->max_len = strtoul(argv[dests_num+1], NULL, 10);
+			if (argc > dests_num+2) {
+				int32_t tmo = strtol(argv[dests_num+2], NULL, 10);
 				cmd_ctx->stop_tmo = 1.0*tmo;
-				if (argc > cmd_ctx->cores_num+3) {
-					cmd_data->wait4halt = strtoul(argv[cmd_ctx->cores_num+3], NULL, 10);
-					if (argc > cmd_ctx->cores_num+4) {
-						cmd_data->skip_len = strtoul(argv[cmd_ctx->cores_num+4], NULL, 10);
+				if (argc > dests_num+3) {
+					cmd_data->wait4halt = strtoul(argv[dests_num+3], NULL, 10);
+					if (argc > dests_num+4) {
+						cmd_data->skip_len = strtoul(argv[dests_num+4], NULL, 10);
 					}
 				}
 			}
@@ -1897,7 +1950,6 @@ static int esp_apptrace_poll(void *priv)
 		LOG_ERROR("Failed to read data len!");
 		return res;
 	}
-	//LOG_USER("FIRED %d ", fired_target_num);
 	if (fired_target_num == (uint32_t)-1) {
 		if (ctx->stop_tmo != -1.0) {
 			if (duration_measure(&ctx->idle_time) != 0) {
@@ -1913,7 +1965,6 @@ static int esp_apptrace_poll(void *priv)
 		}
 		return ERROR_OK; // no data
 	}
-	LOG_USER("FIRED %d b %d l %d", fired_target_num, target_state[fired_target_num].block_id, target_state[fired_target_num].data_len);
 	// sanity check
 	if (target_state[fired_target_num].data_len > ctx->trax_block_sz) {
 		ctx->running = 0;
