@@ -966,6 +966,15 @@ static int esp_apptrace_cmd_ctx_cleanup(struct esp_apptrace_cmd_ctx *cmd_ctx)
 	return ERROR_OK;
 }
 
+#define ESP_APPTRACE_CMD_NUM_ARG_CHECK(_arg_, _start_, _end_)    \
+    do { \
+        if ((_arg_) == 0 && (_start_) == (_end_)) { \
+            LOG_ERROR("Invalid '" #_arg_ "' arg!"); \
+            res = ERROR_FAIL; \
+            goto on_error; \
+        } \
+    } while (0)
+
 static int esp_apptrace_cmd_init(struct target *target, struct esp_apptrace_cmd_ctx *cmd_ctx, int mode, const char **argv, int argc)
 {
 	int res;
@@ -1001,22 +1010,26 @@ static int esp_apptrace_cmd_init(struct target *target, struct esp_apptrace_cmd_
 	int dests_num = esp_apptrace_dest_init(cmd_data->data_dests, argv, cmd_ctx->mode == ESP_APPTRACE_CMD_MODE_SYSVIEW ? cmd_ctx->cores_num : 1);
 	if (cmd_ctx->mode == ESP_APPTRACE_CMD_MODE_SYSVIEW && dests_num < cmd_ctx->cores_num) {
 		LOG_ERROR("Not enough args! Need %d trace data destinations!", cmd_ctx->cores_num);
-		free(cmd_data);
-		cmd_ctx->running = 0;
-		esp_apptrace_cmd_ctx_cleanup(cmd_ctx);
-		return ERROR_FAIL;
+		res = ERROR_FAIL;
+        goto on_error;
 	}
 	if (argc > dests_num) {
-		cmd_data->poll_period = strtoul(argv[dests_num+0], NULL, 10);
+        char *end;
+		cmd_data->poll_period = strtoul(argv[dests_num+0], &end, 10);
+        ESP_APPTRACE_CMD_NUM_ARG_CHECK(cmd_data->poll_period, argv[dests_num+0], end);
 		if (argc > dests_num+1) {
-			cmd_data->max_len = strtoul(argv[dests_num+1], NULL, 10);
+			cmd_data->max_len = strtoul(argv[dests_num+1], &end, 10);
+            ESP_APPTRACE_CMD_NUM_ARG_CHECK(cmd_data->max_len, argv[dests_num+1], end);
 			if (argc > dests_num+2) {
-				int32_t tmo = strtol(argv[dests_num+2], NULL, 10);
+				int32_t tmo = strtol(argv[dests_num+2], &end, 10);
+                ESP_APPTRACE_CMD_NUM_ARG_CHECK(tmo, argv[dests_num+2], end);
 				cmd_ctx->stop_tmo = 1.0*tmo;
 				if (argc > dests_num+3) {
-					cmd_data->wait4halt = strtoul(argv[dests_num+3], NULL, 10);
+					cmd_data->wait4halt = strtoul(argv[dests_num+3], &end, 10);
+                    ESP_APPTRACE_CMD_NUM_ARG_CHECK(cmd_data->wait4halt, argv[dests_num+3], end);
 					if (argc > dests_num+4) {
-						cmd_data->skip_len = strtoul(argv[dests_num+4], NULL, 10);
+						cmd_data->skip_len = strtoul(argv[dests_num+4], &end, 10);
+                        ESP_APPTRACE_CMD_NUM_ARG_CHECK(cmd_data->skip_len, argv[dests_num+4], end);
 					}
 				}
 			}
@@ -1026,6 +1039,12 @@ static int esp_apptrace_cmd_init(struct target *target, struct esp_apptrace_cmd_
 			cmd_ctx->cores_num, cmd_data->max_len, cmd_ctx->stop_tmo, cmd_data->poll_period, cmd_data->wait4halt, cmd_data->skip_len);
 
 	return ERROR_OK;
+on_error:
+    LOG_ERROR("Not enough args! Need %d trace data destinations!", cmd_ctx->cores_num);
+    free(cmd_data);
+    cmd_ctx->running = 0;
+    esp_apptrace_cmd_ctx_cleanup(cmd_ctx);
+    return res;
 }
 
 static int esp_apptrace_cmd_cleanup(struct esp_apptrace_cmd_ctx *cmd_ctx)
