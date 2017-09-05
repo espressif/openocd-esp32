@@ -2375,9 +2375,13 @@ static int esp_gcov_fopen(struct esp_gcov_cmd_data *cmd_data, uint8_t *data, uin
 
 	LOG_INFO("Open file '%s'", data);
 	uint32_t fd = cmd_data->files_num;
-	cmd_data->files[fd] = fopen((char *)data, (char *)data+len+1);
+	char *mode = (char *)data + len + 1;
+	cmd_data->files[fd] = fopen((char *)data, mode);
 	if (!cmd_data->files[fd]) {
-		LOG_ERROR("Failed to open file '%s', mode '%s' (%d)!", data, data+len+1, errno);
+		// do not report error on reading non-existent file
+		if (errno != ENOENT || strchr(mode, 'r') == NULL) {
+			LOG_ERROR("Failed to open file '%s', mode '%s' (%d)!", data, mode, errno);
+		}
 		fd = 0;
 	} else {
 		fd++; // 1-based, 0 indicates error
