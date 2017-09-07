@@ -1700,6 +1700,11 @@ COMMAND_HANDLER(esp32_cmd_sysview)
 	return esp_cmd_apptrace_generic(get_current_target(CMD_CTX), 1, CMD_ARGV, CMD_ARGC);
 }
 
+COMMAND_HANDLER(esp32_cmd_gcov)
+{
+	return esp_cmd_gcov(get_current_target(CMD_CTX), CMD_ARGV, CMD_ARGC);
+}
+
 static const struct command_registration esp32_any_command_handlers[] = {
 	{
 		.name = "tracestart",
@@ -1735,6 +1740,13 @@ static const struct command_registration esp32_any_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "App Tracing: SEGGER SystemView compatible trace control. Starts, stops or queries tracing process status.",
 		.usage = "[start file://<outfile1> [file://<outfile2>] [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]] | [stop] | [status]",
+	},
+	{
+		.name = "gcov",
+		.handler = esp32_cmd_gcov,
+		.mode = COMMAND_ANY,
+		.help = "GCOV: Dumps gcov info collected on target.",
+		.usage = "",
 	},
 	{
 		.name = "smpbreak",
