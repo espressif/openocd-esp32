@@ -6,7 +6,7 @@ before_script:
   # add gitlab ssh key (on Linux only)
   - >
     test $(uname -s) != "Darwin" &&
-    echo "Setting up Gitlab SSH key"
+    echo "Setting up Gitlab SSH key" &&
     mkdir -p ~/.ssh &&
     chmod 700 ~/.ssh &&
     echo -n $GITLAB_KEY > ~/.ssh/id_rsa_base64 &&
@@ -85,10 +85,10 @@ build_windows:
     - ./bootstrap
     - export LIBUSB1_CFLAGS=-I$PWD/$LIBUSB_VER/dist/include/libusb-1.0
     - export LIBUSB1_LIBS=-L$PWD/$LIBUSB_VER/dist/lib
-    - export LDFLAGS=-static
     - ./configure --prefix=$PWD/openocd-esp32 --host=i686-w64-mingw32 $OPENOCD_CONFIGURE_OPTS
     - make -j `nproc`
     - make install-strip
+    - cp /usr/i686-w64-mingw32/lib/libwinpthread-1.dll openocd-esp32/bin/
     - export REL_NAME=openocd-esp32-win32-`git describe --always`
     - zip -r $REL_NAME.zip openocd-esp32/
     - mkdir -p dist
