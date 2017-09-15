@@ -362,7 +362,7 @@ static int xtensa_resume(struct target *target,
 	size_t slot;
 	uint32_t bpena;
 
-	LOG_DEBUG("%s: %s current=%d address=%04" PRIx32, target->cmd_name, __func__, current, address);
+	LOG_INFO("%s: %s current=%d address=%04" PRIx32, target->cmd_name, __func__, current, address);
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("%s: %s: target not halted", target->cmd_name, __func__);
@@ -961,6 +961,8 @@ static int xtensa_step(struct target *target,
 	uint32_t oldps, newps, oldpc;
 	int tries=10;
 
+	LOG_INFO("%s: %s current=%d address=%04" PRIx32, target->cmd_name, __func__, current, address);
+
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("%s: %s: target not halted", __func__, target->cmd_name);
 		return ERROR_TARGET_NOT_HALTED;
@@ -1000,23 +1002,24 @@ static int xtensa_step(struct target *target,
 	//step.
 	//(Later edit: Not sure about that actually... may have been a glitch in my logic. I'm keeping in this
 	//loop anyway, it probably doesn't hurt anyway.)
+
+	// Do this for active CPU
+	{
+		// We have equival amount of BP for each cpu
+		struct reg *cpu_reg_list = esp32->core_caches[esp32->active_cpu]->reg_list;
+
+		icountlvl = (esp108_reg_get(&cpu_reg_list[XT_REG_IDX_PS]) & 15);
+
+		// Now we have to set up max posssible interrupt level
+		icountlvl = 6; 
+	}
+
 	do {
-		icountlvl=(esp108_reg_get(&reg_list[XT_REG_IDX_PS])&15)+1;
-		if (icountlvl>15) icountlvl=15;
-
-		/* Load debug level into ICOUNTLEVEL. We'll make this one more than the current intlevel. */
-		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
-		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNT], icount_val);
-
-		for (int cp = 0; cp < ESP32_CPU_COUNT; cp++)
+		// We have equival amount of BP for each cpu
 		{
-			// We have equival amount of BP for each cpu
-			struct reg *cpu_reg_list = esp32->core_caches[cp]->reg_list;
-			if (cp == esp32->active_cpu)
-			{
-				esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
-				esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNT], icount_val);
-			}
+			struct reg *cpu_reg_list = esp32->core_caches[esp32->active_cpu]->reg_list;
+			esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
+			esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNT], icount_val);
 		}
 
 		/* Now ICOUNT is set, we can resume as if we were going to run */
@@ -1332,7 +1335,14 @@ static int xtensa_poll(struct target *target)
 				int cause = esp108_reg_get(&cpu_reg_list[XT_REG_IDX_DEBUGCAUSE]);
 
 				volatile unsigned int dsr_core = xtensa_read_dsr(esp32->esp32_targets[i]);
-				if ((dsr_core&OCDDSR_DEBUGPENDBREAK) != 0) esp32->active_cpu = i;
+				if ((dsr_core&OCDDSR_DEBUGPENDBREAK) != 0)
+				{
+					if (esp32->active_cpu != i)
+					{
+						LOG_INFO("active_cpu: %i, changed to %i, reson = 0x%08x", esp32->active_cpu, i, dsr_core);
+					}
+					esp32->active_cpu = i;
+				}
 
 				int dcrset = read_reg_direct(esp32->esp32_targets[i], NARADR_DCRSET);
 
