@@ -40,6 +40,10 @@
 
 #define FreeRTOS_STRUCT(int_type, ptr_type, list_prev_offset)
 
+struct FreeRTOS_data
+{
+	unsigned int* core_interruptNesting;
+};
 struct FreeRTOS_params {
 	const char *target_name;
 	const unsigned char thread_count_width;
@@ -206,11 +210,13 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 	int retval;
 	int tasks_found = 0;
 	const struct FreeRTOS_params *param;
+	struct FreeRTOS_data *rtos_data;
 
 	if (rtos->rtos_specific_params == NULL)
 		return -1;
 
 	param = (const struct FreeRTOS_params *) rtos->rtos_specific_params;
+	rtos_data = (struct FreeRTOS_data *) rtos->rtos_specific_data;
 
 	if (rtos->symbols == NULL) {
 		LOG_ERROR("No symbols for FreeRTOS");
@@ -249,12 +255,16 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 			param->pointer_width,
 			(uint8_t *)&rtos->current_thread);
 	rtos->current_thread = rtos->core_running_threads[rtos->target->type->get_active_core(rtos->target)];
-	
+
+	if (rtos_data->core_interruptNesting == NULL) {
+		int core_count = target_get_core_count(rtos->target);
+		rtos_data->core_interruptNesting = (unsigned int*)malloc(core_count * sizeof(int));
+	}
 	/* reading status of interrupts */
 	retval = target_read_buffer(rtos->target,
 		rtos->symbols[FreeRTOS_VAL_port_interruptNesting].address,
 		sizeof(int32_t) * target_get_core_count(rtos->target),
-		(uint8_t *)rtos->core_interruptNesting);
+		(uint8_t *)rtos_data->core_interruptNesting);
 
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Error reading current thread in FreeRTOS thread list");
@@ -267,7 +277,7 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 	int interrupt_count = 0;
 	for (i = 0; i < target_get_core_count(rtos->target); i++)
 	{
-		if (rtos->core_interruptNesting[i] != 0) interrupt_count++;
+		if (rtos_data->core_interruptNesting[i] != 0) interrupt_count++;
 	}
 
 	if ((thread_list_size  == 0) || (rtos->current_thread == 0)) {
@@ -411,7 +421,7 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 					FREERTOS_THREAD_NAME_STR_SIZE,
 					(uint8_t *)&tmp_str);
 			if (retval != ERROR_OK) {
-				LOG_ERROR("Error reading first thread item location in FreeRTOS thread list");
+				LOG_ERROR("Error reading FreeRTOS thread name");
 				free(list_of_lists);
 				return retval;
 			}
@@ -466,7 +476,7 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 
 	for (i = 0; i < target_get_core_count(rtos->target); i++)
 	{
-		if (rtos->core_interruptNesting[i] != 0) {
+		if (rtos_data->core_interruptNesting[i] != 0) {
 			
 			rtos->thread_details[tasks_found].threadid = 1 + i;
 
@@ -521,12 +531,15 @@ static int FreeRTOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id, ch
 		return -1;
 
 	param = (const struct FreeRTOS_params *) rtos->rtos_specific_params;
+	struct FreeRTOS_data* rtos_data = (struct FreeRTOS_data *) rtos->rtos_specific_data;
 	// Check if the current thread is interrupted
 	if (thread_id <= target_get_core_count(rtos->target))
 	{
 		int thread_id_index = thread_id - 1;
-		if (rtos->core_interruptNesting[thread_id_index] != 0) {
-			thread_id = rtos->core_running_threads[thread_id_index];
+		if (rtos_data->core_interruptNesting != NULL){
+			if (rtos_data->core_interruptNesting[thread_id_index] != 0) {
+				thread_id = rtos->core_running_threads[thread_id_index];
+			}
 		}
 	}
 
@@ -703,7 +716,7 @@ static int FreeRTOS_create(struct target *target)
 
 	target->rtos->rtos_specific_params = (void *)&FreeRTOS_params_list[i];
 	target->rtos->core_running_threads = malloc(sizeof(int32_t) * target_get_core_count(target));
-	target->rtos->core_interruptNesting = malloc(sizeof(int32_t) * target_get_core_count(target));
+	target->rtos->rtos_specific_data = malloc(sizeof(struct FreeRTOS_data));
 	return 0;
 }
 
