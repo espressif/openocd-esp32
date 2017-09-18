@@ -1035,7 +1035,7 @@ static int xtensa_step(struct target *target,
 			}
 		}
 		if(!(intfromchars(dsr)&OCDDSR_STOPPED)) {
-			LOG_ERROR("%s: %s: Timed out waiting for target to finish stepping. dsr=0x%08x", target->cmd_name, __func__, *(unsigned int*)dsr);
+			LOG_ERROR("%s: %s: Timed out waiting for target to finish stepping. dsr=0x%08x", target->cmd_name, __func__, intfromchars(dsr));
 			return ERROR_TARGET_TIMEOUT;
 		} else
 		{
@@ -1046,7 +1046,7 @@ static int xtensa_step(struct target *target,
 	LOG_DEBUG("Stepped from %X to %X", oldpc, esp108_reg_get(&reg_list[XT_REG_IDX_PC]));
 
 	if (!tries) {
-		LOG_WARNING("%s: %s: Stepping doesn't seem to change PC! dsr=0x%08x", target->cmd_name, __func__, *(unsigned int*)dsr);
+		LOG_WARNING("%s: %s: Stepping doesn't seem to change PC! dsr=0x%08x", target->cmd_name, __func__, intfromchars(dsr));
 	}
 
 	// This operation required to clear state
