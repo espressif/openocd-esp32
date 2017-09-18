@@ -944,6 +944,7 @@ static int xtensa_remove_watchpoint(struct target *target, struct watchpoint *wa
 	return ERROR_OK;
 
 }
+#define XCHAL_EXCM_LEVEL		3	/* level masked by PS.EXCM */
 
 static int xtensa_step(struct target *target,
 	int current,
@@ -972,11 +973,9 @@ static int xtensa_step(struct target *target,
 	oldps=esp108_reg_get(&reg_list[XT_REG_IDX_PS]);
 	oldpc=esp108_reg_get(&reg_list[XT_REG_IDX_PC]);
 
-	//If intlevel precludes single-stepping, downgrade it
-	if ((oldps&0xF)==0xF) {
-		LOG_INFO("PS is %d, which is too high for single-stepping. Resetting to 6.", oldps&0xF);
-		esp108_reg_set(&reg_list[XT_REG_IDX_PS], (oldps&~0xf)|6);
-	}
+	// Increasing the interrupt level to avoid context switching from C++ interrupts.
+	uint32_t temp_ps = (oldps&~0xf) | XCHAL_EXCM_LEVEL;
+	esp108_reg_set(&reg_list[XT_REG_IDX_PS], temp_ps);
 
 	cause=esp108_reg_get(&reg_list[XT_REG_IDX_DEBUGCAUSE]);
 	if (cause&DEBUGCAUSE_DB) {
@@ -998,22 +997,9 @@ static int xtensa_step(struct target *target,
 		current = 0;		 // The PC was modified.
 	}
 
-	//Sometimes (because of eg an interrupt) the pc won't actually increment. In that case, we repeat the
-	//step.
-	//(Later edit: Not sure about that actually... may have been a glitch in my logic. I'm keeping in this
-	//loop anyway, it probably doesn't hurt anyway.)
-
-	// Do this for active CPU
-	{
-		// We have equival amount of BP for each cpu
-		struct reg *cpu_reg_list = esp32->core_caches[esp32->active_cpu]->reg_list;
-
-		icountlvl = (esp108_reg_get(&cpu_reg_list[XT_REG_IDX_PS]) & 15);
-
-		// Now we have to set up max posssible interrupt level
-		icountlvl = 6; 
-	}
-
+	// Now we have to set up max posssible interrupt level (ilevel + 1)
+	icountlvl = XCHAL_EXCM_LEVEL + 1;
+	
 	do {
 		// We have equival amount of BP for each cpu
 		{
@@ -1049,7 +1035,7 @@ static int xtensa_step(struct target *target,
 			}
 		}
 		if(!(intfromchars(dsr)&OCDDSR_STOPPED)) {
-			LOG_ERROR("%s: %s: Timed out waiting for target to finish stepping.", target->cmd_name, __func__);
+			LOG_ERROR("%s: %s: Timed out waiting for target to finish stepping. dsr=0x%08x", target->cmd_name, __func__, *(unsigned int*)dsr);
 			return ERROR_TARGET_TIMEOUT;
 		} else
 		{
@@ -1060,7 +1046,7 @@ static int xtensa_step(struct target *target,
 	LOG_DEBUG("Stepped from %X to %X", oldpc, esp108_reg_get(&reg_list[XT_REG_IDX_PC]));
 
 	if (!tries) {
-		LOG_WARNING("%s: %s: Stepping doesn't seem to change PC!", target->cmd_name, __func__);
+		LOG_WARNING("%s: %s: Stepping doesn't seem to change PC! dsr=0x%08x", target->cmd_name, __func__, *(unsigned int*)dsr);
 	}
 
 	// This operation required to clear state
@@ -1081,19 +1067,13 @@ static int xtensa_step(struct target *target,
 	//ToDo: Theoretically, this can mess up stepping over an instruction that modifies ps.intlevel
 	//by itself. Hmmm. ToDo: Look into this.
 	newps=esp108_reg_get(&reg_list[XT_REG_IDX_PS]);
-	if (((oldps&0xF)>6) && (newps&0xf)!=(oldps&0xf)) {
-		newps=(newps&~0xf)|(oldps&0xf);
-		esp108_reg_set(&reg_list[XT_REG_IDX_PS], newps);
-	}
+	newps=(newps&~0xf)|(oldps&0xf);
+	esp108_reg_set(&reg_list[XT_REG_IDX_PS], newps);
 
 	/* write ICOUNTLEVEL back to zero */
-	for (size_t cp = 0; cp < ESP32_CPU_COUNT; cp++)
-	{
-		// We have equival amount of BP for each cpu
-		struct reg *cpu_reg_list = esp32->core_caches[cp]->reg_list;
-		esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNTLEVEL], 0);
-		res = esp32_write_dirty_registers(esp32->esp32_targets[cp], cpu_reg_list);
-	}
+	// We have equival amount of BP for each cpu
+	esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], 0);
+	res = esp32_write_dirty_registers(esp32->esp32_targets[esp32->active_cpu], reg_list);
 
 	//Make sure the poll routine will pick up that something has changed by artificially
 	//triggering a running->halted state change
