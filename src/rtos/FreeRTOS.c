@@ -261,15 +261,19 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 		rtos_data->core_interruptNesting = (unsigned int*)malloc(core_count * sizeof(int));
 	}
 	/* reading status of interrupts */
-	retval = target_read_buffer(rtos->target,
-		rtos->symbols[FreeRTOS_VAL_port_interruptNesting].address,
-		sizeof(int32_t) * target_get_core_count(rtos->target),
-		(uint8_t *)rtos_data->core_interruptNesting);
+	if (rtos->symbols[FreeRTOS_VAL_uxTopUsedPriority].address == 0) {
+		memset(rtos_data->core_interruptNesting, 0, target_get_core_count(rtos->target)*sizeof(int));
+	} else {
+        retval = target_read_buffer(rtos->target,
+            rtos->symbols[FreeRTOS_VAL_port_interruptNesting].address,
+            sizeof(int32_t) * target_get_core_count(rtos->target),
+            (uint8_t *)rtos_data->core_interruptNesting);
 
-	if (retval != ERROR_OK) {
-		LOG_ERROR("Error reading current thread in FreeRTOS thread list");
-		return retval;
-	}
+        if (retval != ERROR_OK) {
+            LOG_ERROR("Error reading interruptNesting FreeRTOS variable from target.");
+            return retval;
+        }
+    }
 	LOG_DEBUG("FreeRTOS: Read pxCurrentTCB at 0x%" PRIx64 ", value 0x%" PRIx64 "\r\n",
 										rtos->symbols[FreeRTOS_VAL_pxCurrentTCB].address,
 										rtos->current_thread);
@@ -421,7 +425,7 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 					FREERTOS_THREAD_NAME_STR_SIZE,
 					(uint8_t *)&tmp_str);
 			if (retval != ERROR_OK) {
-				LOG_ERROR("Error reading FreeRTOS thread name");
+				LOG_ERROR("Error reading FreeRTOS thread name.");
 				free(list_of_lists);
 				return retval;
 			}
@@ -493,7 +497,7 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 				FREERTOS_THREAD_NAME_STR_SIZE,
 				(uint8_t *)&tmp_str);
 			if (retval != ERROR_OK) {
-				LOG_ERROR("Error reading first thread item location in FreeRTOS thread list");
+				LOG_ERROR("Error reading FreeRTOS thread name.");
 				free(list_of_lists);
 				return retval;
 			}
@@ -641,7 +645,7 @@ static int FreeRTOS_get_thread_ascii_info(struct rtos *rtos, threadid_t thread_i
 			FREERTOS_THREAD_NAME_STR_SIZE,
 			(uint8_t *)&tmp_str);
 	if (retval != ERROR_OK) {
-		LOG_ERROR("Error reading first thread item location in FreeRTOS thread list");
+		LOG_ERROR("Error reading FreeRTOS thread name");
 		return retval;
 	}
 	tmp_str[FREERTOS_THREAD_NAME_STR_SIZE-1] = '\x00';
