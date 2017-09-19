@@ -26,6 +26,12 @@
 #define ESP32_CPU_COUNT		2
 #define ESP32_PRO_CPU_ID	0
 
+enum esp32_isrmasking_mode {
+	ESP32_ISRMASK_OFF,
+	ESP32_ISRMASK_ON,
+};
+
+
 struct esp32_common {
 
 	// Common fields definition for all esp108 targets
@@ -35,6 +41,7 @@ struct esp32_common {
 	int active_cpu;
 	struct reg_cache *core_caches[ESP32_CPU_COUNT];
 	int64_t current_threadid;
+	enum esp32_isrmasking_mode isrmasking_mode;
 };
 
 

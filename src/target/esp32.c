@@ -974,8 +974,17 @@ static int xtensa_step(struct target *target,
 	oldpc=esp108_reg_get(&reg_list[XT_REG_IDX_PC]);
 
 	// Increasing the interrupt level to avoid context switching from C++ interrupts.
-	uint32_t temp_ps = (oldps&~0xf) | XCHAL_EXCM_LEVEL;
-	esp108_reg_set(&reg_list[XT_REG_IDX_PS], temp_ps);
+	if (esp32->isrmasking_mode == ESP32_ISRMASK_ON)
+	{
+		uint32_t temp_ps = (oldps&~0xf) | XCHAL_EXCM_LEVEL;
+		esp108_reg_set(&reg_list[XT_REG_IDX_PS], temp_ps);
+		// Now we have to set up max posssible interrupt level (ilevel + 1)
+		icountlvl = XCHAL_EXCM_LEVEL + 1;
+	}
+	else
+	{
+		icountlvl = (oldps & 0xf) + 1;
+	}
 
 	cause=esp108_reg_get(&reg_list[XT_REG_IDX_DEBUGCAUSE]);
 	if (cause&DEBUGCAUSE_DB) {
@@ -997,8 +1006,7 @@ static int xtensa_step(struct target *target,
 		current = 0;		 // The PC was modified.
 	}
 
-	// Now we have to set up max posssible interrupt level (ilevel + 1)
-	icountlvl = XCHAL_EXCM_LEVEL + 1;
+
 	
 	do {
 		// We have equival amount of BP for each cpu
@@ -1066,9 +1074,11 @@ static int xtensa_step(struct target *target,
 	//Restore int level
 	//ToDo: Theoretically, this can mess up stepping over an instruction that modifies ps.intlevel
 	//by itself. Hmmm. ToDo: Look into this.
-	newps=esp108_reg_get(&reg_list[XT_REG_IDX_PS]);
-	newps=(newps&~0xf)|(oldps&0xf);
-	esp108_reg_set(&reg_list[XT_REG_IDX_PS], newps);
+	if (esp32->isrmasking_mode == ESP32_ISRMASK_ON){
+		newps = esp108_reg_get(&reg_list[XT_REG_IDX_PS]);
+		newps = (newps&~0xf) | (oldps & 0xf);
+		esp108_reg_set(&reg_list[XT_REG_IDX_PS], newps);
+	}
 
 	/* write ICOUNTLEVEL back to zero */
 	// We have equival amount of BP for each cpu
@@ -1203,6 +1213,7 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 		esp32->esp32_targets[i]->reg_cache = esp32->core_caches[i];
 	}
 	esp32->flashBootstrap=FBS_DONTCARE;
+	esp32->isrmasking_mode = ESP32_ISRMASK_ON;
 
 	for(int i = 0; i < XT_NUM_REGS; i++) {
 		reg_list[i].name = esp32_regs[i].name;
@@ -1690,10 +1701,34 @@ COMMAND_HANDLER(esp32_cmd_sysview)
 	return esp_cmd_apptrace_generic(get_current_target(CMD_CTX), 1, CMD_ARGV, CMD_ARGC);
 }
 
-COMMAND_HANDLER(esp32_cmd_gcov)
+COMMAND_HANDLER(handle_esp32_a_mask_interrupts_command)
 {
-	return esp_cmd_gcov(get_current_target(CMD_CTX), CMD_ARGV, CMD_ARGC);
+	struct target *target = get_current_target(CMD_CTX);
+	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
+
+	static const Jim_Nvp nvp_maskisr_modes[] = {
+		{ .name = "off", .value = ESP32_ISRMASK_OFF },
+		{ .name = "on", .value = ESP32_ISRMASK_ON },
+		{ .name = NULL, .value = -1 },
+	};
+	const Jim_Nvp *n;
+
+	if (CMD_ARGC > 0) {
+		n = Jim_Nvp_name2value_simple(nvp_maskisr_modes, CMD_ARGV[0]);
+		if (n->name == NULL) {
+			LOG_ERROR("Unknown parameter: %s - should be off or on", CMD_ARGV[0]);
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		}
+
+		esp32->isrmasking_mode = n->value;
+	}
+
+	n = Jim_Nvp_value2name_simple(nvp_maskisr_modes, esp32->isrmasking_mode);
+	command_print(CMD_CTX, "esp32 interrupt mask %s", n->name);
+
+	return ERROR_OK;
 }
+
 
 static const struct command_registration esp32_any_command_handlers[] = {
 	{
@@ -1732,13 +1767,6 @@ static const struct command_registration esp32_any_command_handlers[] = {
 		.usage = "[start file://<outfile1> [file://<outfile2>] [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]] | [stop] | [status]",
 	},
 	{
-		.name = "gcov",
-		.handler = esp32_cmd_gcov,
-		.mode = COMMAND_ANY,
-		.help = "GCOV: Dumps gcov info collected on target.",
-		.usage = "",
-	},
-	{
 		.name = "smpbreak",
 		.handler = esp32_cmd_smpbreak,
 		.mode = COMMAND_ANY,
@@ -1751,6 +1779,13 @@ static const struct command_registration esp32_any_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "Set the idle state of the TMS pin, which at reset also is the voltage selector for the flash chip.",
 		.usage = "none|1.8|3.3|high|low",
+	},
+	{
+		.name = "maskisr",
+		.handler = handle_esp32_a_mask_interrupts_command,
+		.mode = COMMAND_ANY,
+		.help = "mask esp32 interrupts at step",
+		.usage = "['on'|'off']",
 	},
 	COMMAND_REGISTRATION_DONE
 };
