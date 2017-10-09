@@ -261,7 +261,7 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 		rtos_data->core_interruptNesting = (unsigned int*)malloc(core_count * sizeof(int));
 	}
 	/* reading status of interrupts */
-	if (rtos->symbols[FreeRTOS_VAL_uxTopUsedPriority].address == 0) {
+	if (rtos->symbols[FreeRTOS_VAL_port_interruptNesting].address == 0) {
 		memset(rtos_data->core_interruptNesting, 0, target_get_core_count(rtos->target)*sizeof(int));
 	} else {
         retval = target_read_buffer(rtos->target,
