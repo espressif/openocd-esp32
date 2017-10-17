@@ -362,7 +362,7 @@ static int xtensa_resume(struct target *target,
 	size_t slot;
 	uint32_t bpena;
 
-	LOG_DEBUG("%s: %s current=%d address=%04" PRIx32, target->cmd_name, __func__, current, address);
+	LOG_DEBUG("%s: %s current=%d address=%04x, handle_breakpoints=%i, debug_execution=%i)", target->cmd_name, __func__, current, address, handle_breakpoints, debug_execution);
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("%s: %s: target not halted", target->cmd_name, __func__);
@@ -944,6 +944,7 @@ static int xtensa_remove_watchpoint(struct target *target, struct watchpoint *wa
 	return ERROR_OK;
 
 }
+#define XCHAL_EXCM_LEVEL		3	/* level masked by PS.EXCM */
 
 static int xtensa_step(struct target *target,
 	int current,
@@ -961,6 +962,8 @@ static int xtensa_step(struct target *target,
 	uint32_t oldps, newps, oldpc;
 	int tries=10;
 
+	LOG_DEBUG("%s: %s(current=%d, address=0x%04x, handle_breakpoints=%i)", target->cmd_name, __func__, current, address, handle_breakpoints);
+
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("%s: %s: target not halted", __func__, target->cmd_name);
 		return ERROR_TARGET_NOT_HALTED;
@@ -970,10 +973,17 @@ static int xtensa_step(struct target *target,
 	oldps=esp108_reg_get(&reg_list[XT_REG_IDX_PS]);
 	oldpc=esp108_reg_get(&reg_list[XT_REG_IDX_PC]);
 
-	//If intlevel precludes single-stepping, downgrade it
-	if ((oldps&0xF)==0xF) {
-		LOG_INFO("PS is %d, which is too high for single-stepping. Resetting to 6.", oldps&0xF);
-		esp108_reg_set(&reg_list[XT_REG_IDX_PS], (oldps&~0xf)|6);
+	// Increasing the interrupt level to avoid context switching from C++ interrupts.
+	if (esp32->isrmasking_mode == ESP32_ISRMASK_ON)
+	{
+		uint32_t temp_ps = (oldps&~0xf) | XCHAL_EXCM_LEVEL;
+		esp108_reg_set(&reg_list[XT_REG_IDX_PS], temp_ps);
+		// Now we have to set up max posssible interrupt level (ilevel + 1)
+		icountlvl = XCHAL_EXCM_LEVEL + 1;
+	}
+	else
+	{
+		icountlvl = (oldps & 0xf) + 1;
 	}
 
 	cause=esp108_reg_get(&reg_list[XT_REG_IDX_DEBUGCAUSE]);
@@ -996,27 +1006,14 @@ static int xtensa_step(struct target *target,
 		current = 0;		 // The PC was modified.
 	}
 
-	//Sometimes (because of eg an interrupt) the pc won't actually increment. In that case, we repeat the
-	//step.
-	//(Later edit: Not sure about that actually... may have been a glitch in my logic. I'm keeping in this
-	//loop anyway, it probably doesn't hurt anyway.)
+
+	
 	do {
-		icountlvl=(esp108_reg_get(&reg_list[XT_REG_IDX_PS])&15)+1;
-		if (icountlvl>15) icountlvl=15;
-
-		/* Load debug level into ICOUNTLEVEL. We'll make this one more than the current intlevel. */
-		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
-		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNT], icount_val);
-
-		for (int cp = 0; cp < ESP32_CPU_COUNT; cp++)
+		// We have equival amount of BP for each cpu
 		{
-			// We have equival amount of BP for each cpu
-			struct reg *cpu_reg_list = esp32->core_caches[cp]->reg_list;
-			if (cp == esp32->active_cpu)
-			{
-				esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
-				esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNT], icount_val);
-			}
+			struct reg *cpu_reg_list = esp32->core_caches[esp32->active_cpu]->reg_list;
+			esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
+			esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNT], icount_val);
 		}
 
 		/* Now ICOUNT is set, we can resume as if we were going to run */
@@ -1046,7 +1043,7 @@ static int xtensa_step(struct target *target,
 			}
 		}
 		if(!(intfromchars(dsr)&OCDDSR_STOPPED)) {
-			LOG_ERROR("%s: %s: Timed out waiting for target to finish stepping.", target->cmd_name, __func__);
+			LOG_ERROR("%s: %s: Timed out waiting for target to finish stepping. dsr=0x%08x", target->cmd_name, __func__, intfromchars(dsr));
 			return ERROR_TARGET_TIMEOUT;
 		} else
 		{
@@ -1057,7 +1054,7 @@ static int xtensa_step(struct target *target,
 	LOG_DEBUG("Stepped from %X to %X", oldpc, esp108_reg_get(&reg_list[XT_REG_IDX_PC]));
 
 	if (!tries) {
-		LOG_WARNING("%s: %s: Stepping doesn't seem to change PC!", target->cmd_name, __func__);
+		LOG_WARNING("%s: %s: Stepping doesn't seem to change PC! dsr=0x%08x", target->cmd_name, __func__, intfromchars(dsr));
 	}
 
 	// This operation required to clear state
@@ -1077,20 +1074,16 @@ static int xtensa_step(struct target *target,
 	//Restore int level
 	//ToDo: Theoretically, this can mess up stepping over an instruction that modifies ps.intlevel
 	//by itself. Hmmm. ToDo: Look into this.
-	newps=esp108_reg_get(&reg_list[XT_REG_IDX_PS]);
-	if (((oldps&0xF)>6) && (newps&0xf)!=(oldps&0xf)) {
-		newps=(newps&~0xf)|(oldps&0xf);
+	if (esp32->isrmasking_mode == ESP32_ISRMASK_ON){
+		newps = esp108_reg_get(&reg_list[XT_REG_IDX_PS]);
+		newps = (newps&~0xf) | (oldps & 0xf);
 		esp108_reg_set(&reg_list[XT_REG_IDX_PS], newps);
 	}
 
 	/* write ICOUNTLEVEL back to zero */
-	for (size_t cp = 0; cp < ESP32_CPU_COUNT; cp++)
-	{
-		// We have equival amount of BP for each cpu
-		struct reg *cpu_reg_list = esp32->core_caches[cp]->reg_list;
-		esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNTLEVEL], 0);
-		res = esp32_write_dirty_registers(esp32->esp32_targets[cp], cpu_reg_list);
-	}
+	// We have equival amount of BP for each cpu
+	esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], 0);
+	res = esp32_write_dirty_registers(esp32->esp32_targets[esp32->active_cpu], reg_list);
 
 	//Make sure the poll routine will pick up that something has changed by artificially
 	//triggering a running->halted state change
@@ -1220,6 +1213,7 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 		esp32->esp32_targets[i]->reg_cache = esp32->core_caches[i];
 	}
 	esp32->flashBootstrap=FBS_DONTCARE;
+	esp32->isrmasking_mode = ESP32_ISRMASK_ON;
 
 	for(int i = 0; i < XT_NUM_REGS; i++) {
 		reg_list[i].name = esp32_regs[i].name;
@@ -1332,7 +1326,14 @@ static int xtensa_poll(struct target *target)
 				int cause = esp108_reg_get(&cpu_reg_list[XT_REG_IDX_DEBUGCAUSE]);
 
 				volatile unsigned int dsr_core = xtensa_read_dsr(esp32->esp32_targets[i]);
-				if ((dsr_core&OCDDSR_DEBUGPENDBREAK) != 0) esp32->active_cpu = i;
+				if ((dsr_core&OCDDSR_DEBUGPENDBREAK) != 0)
+				{
+					if (esp32->active_cpu != i)
+					{
+						LOG_INFO("active_cpu: %i, changed to %i, reson = 0x%08x", esp32->active_cpu, i, dsr_core);
+					}
+					esp32->active_cpu = i;
+				}
 
 				int dcrset = read_reg_direct(esp32->esp32_targets[i], NARADR_DCRSET);
 
@@ -1705,6 +1706,35 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 	return esp_cmd_gcov(get_current_target(CMD_CTX), CMD_ARGV, CMD_ARGC);
 }
 
+COMMAND_HANDLER(handle_esp32_a_mask_interrupts_command)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
+
+	static const Jim_Nvp nvp_maskisr_modes[] = {
+		{ .name = "off", .value = ESP32_ISRMASK_OFF },
+		{ .name = "on", .value = ESP32_ISRMASK_ON },
+		{ .name = NULL, .value = -1 },
+	};
+	const Jim_Nvp *n;
+
+	if (CMD_ARGC > 0) {
+		n = Jim_Nvp_name2value_simple(nvp_maskisr_modes, CMD_ARGV[0]);
+		if (n->name == NULL) {
+			LOG_ERROR("Unknown parameter: %s - should be off or on", CMD_ARGV[0]);
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		}
+
+		esp32->isrmasking_mode = n->value;
+	}
+
+	n = Jim_Nvp_value2name_simple(nvp_maskisr_modes, esp32->isrmasking_mode);
+	command_print(CMD_CTX, "esp32 interrupt mask %s", n->name);
+
+	return ERROR_OK;
+}
+
+
 static const struct command_registration esp32_any_command_handlers[] = {
 	{
 		.name = "tracestart",
@@ -1761,6 +1791,13 @@ static const struct command_registration esp32_any_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "Set the idle state of the TMS pin, which at reset also is the voltage selector for the flash chip.",
 		.usage = "none|1.8|3.3|high|low",
+	},
+	{
+		.name = "maskisr",
+		.handler = handle_esp32_a_mask_interrupts_command,
+		.mode = COMMAND_ANY,
+		.help = "mask esp32 interrupts at step",
+		.usage = "['on'|'off']",
 	},
 	COMMAND_REGISTRATION_DONE
 };
