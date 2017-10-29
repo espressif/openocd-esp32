@@ -142,7 +142,7 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 
 #define FREERTOS_NUM_PARAMS ((int)(sizeof(FreeRTOS_params_list)/sizeof(struct FreeRTOS_params)))
 
-static int FreeRTOS_detect_rtos(struct target *target);
+static bool FreeRTOS_detect_rtos(struct target *target);
 static int FreeRTOS_create(struct target *target);
 static int FreeRTOS_update_threads(struct rtos *rtos);
 static int FreeRTOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id, char **hex_reg_list);
@@ -683,7 +683,6 @@ static int FreeRTOS_get_thread_ascii_info(struct rtos *rtos, threadid_t thread_i
 
 #endif
 
-
 static int FreeRTOS_post_reset_cleanup(struct target *target)
 {
 	LOG_DEBUG("FreeRTOS_post_reset_cleanup");
@@ -724,14 +723,14 @@ static int FreeRTOS_clean(struct target *target)
 	return ERROR_OK;
 }
 
-static int FreeRTOS_detect_rtos(struct target *target)
+static bool FreeRTOS_detect_rtos(struct target *target)
 {
 	if ((target->rtos->symbols != NULL) &&
 			(target->rtos->symbols[FreeRTOS_VAL_pxReadyTasksLists].address != 0)) {
 		/* looks like FreeRTOS */
-		return 1;
+		return true;
 	}
-	return 0;
+	return false;
 }
 
 static int FreeRTOS_create(struct target *target)
