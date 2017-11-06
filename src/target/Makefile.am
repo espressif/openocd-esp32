@@ -19,6 +19,7 @@ noinst_LTLIBRARIES += %D%/libtarget.la
 	$(AVR32_SRC) \
 	$(MIPS32_SRC) \
 	$(NDS32_SRC) \
+	$(STM8_SRC) \
 	$(ESP108_SRC) \
 	$(ESP32_SRC) \
 	$(INTEL_IA32_SRC) \
@@ -126,13 +127,16 @@ NDS32_SRC = \
 	%D%/nds32_v3m.c \
 	%D%/nds32_aice.c
 
+STM8_SRC = \
+	%D%/stm8.c
+
 ESP108_SRC= \
-	esp108_common.c \
-	esp108.c \
-	esp108_apptrace.c
+	%D%/esp108_common.c \
+	%D%/esp108.c \
+	%D%/esp108_apptrace.c
 
 ESP32_SRC= \
-	esp32.c
+	%D%/esp32.c
 
 INTEL_IA32_SRC = \
 	%D%/quark_x10xx.c \
@@ -215,6 +219,7 @@ INTEL_IA32_SRC = \
 	%D%/nds32_v3.h \
 	%D%/nds32_v3m.h \
 	%D%/nds32_aice.h \
+	%D%/stm8.h \
 	%D%/lakemont.h \
 	%D%/x86_32_common.h \
 	%D%/arm_cti.h \
