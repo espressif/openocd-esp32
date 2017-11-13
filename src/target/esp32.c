@@ -1609,7 +1609,7 @@ COMMAND_HANDLER(esp32_cmd_tracedump)
 		return ERROR_FAIL;
 	}
 
-	if (!intfromchars(traxctl)&TRAXCTRL_TREN) {
+	if ((!intfromchars(traxctl))&TRAXCTRL_TREN) {
 		command_print(CMD_CTX, "No active trace found; nothing to dump.");
 		return ERROR_FAIL;
 	}
