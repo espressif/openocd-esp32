@@ -346,8 +346,10 @@ static int mem_ap_write(struct adiv5_ap *ap, const uint8_t *buffer, uint32_t siz
 			case 4:
 				outvalue |= (uint32_t)*buffer++ << 8 * (address++ & 3);
 				outvalue |= (uint32_t)*buffer++ << 8 * (address++ & 3);
+			/* Falls through */
 			case 2:
 				outvalue |= (uint32_t)*buffer++ << 8 * (address++ & 3);
+			/* Falls through */
 			case 1:
 				outvalue |= (uint32_t)*buffer++ << 8 * (address++ & 3);
 			}
@@ -509,8 +511,10 @@ static int mem_ap_read(struct adiv5_ap *ap, uint8_t *buffer, uint32_t size, uint
 			case 4:
 				*buffer++ = *read_ptr >> 8 * (3 - (address++ & 3));
 				*buffer++ = *read_ptr >> 8 * (3 - (address++ & 3));
+			/* Falls through */
 			case 2:
 				*buffer++ = *read_ptr >> 8 * (3 - (address++ & 3));
+			/* Falls through */
 			case 1:
 				*buffer++ = *read_ptr >> 8 * (3 - (address++ & 3));
 			}
@@ -519,8 +523,10 @@ static int mem_ap_read(struct adiv5_ap *ap, uint8_t *buffer, uint32_t size, uint
 			case 4:
 				*buffer++ = *read_ptr >> 8 * (address++ & 3);
 				*buffer++ = *read_ptr >> 8 * (address++ & 3);
+			/* Falls through */
 			case 2:
 				*buffer++ = *read_ptr >> 8 * (address++ & 3);
+			/* Falls through */
 			case 1:
 				*buffer++ = *read_ptr >> 8 * (address++ & 3);
 			}
@@ -1055,7 +1061,7 @@ static int dap_rom_display(struct command_context *cmd_ctx,
 	int retval;
 	uint64_t pid;
 	uint32_t cid;
-	char tabs[7] = "";
+	char tabs[20] = "";
 
 	if (depth > 16) {
 		command_print(cmd_ctx, "\tTables too deep");
@@ -1063,7 +1069,7 @@ static int dap_rom_display(struct command_context *cmd_ctx,
 	}
 
 	if (depth)
-		snprintf(tabs, sizeof(tabs), "[L%02d] ", depth);
+		snprintf(tabs, sizeof(tabs) - 1, "[L%02d] ", depth);
 
 	uint32_t base_addr = dbgbase & 0xFFFFF000;
 	command_print(cmd_ctx, "\t\tComponent base address 0x%08" PRIx32, base_addr);
