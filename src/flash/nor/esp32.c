@@ -91,7 +91,7 @@
 
 #define ESP32_STUB_STACK_SZ			(1536)
 #define ESP32_FLASH_MIN_OFFSET 		0x1000 // protect secure boot digest data
-#define ESP32_ALGORITHM_EXIT_TMO	3000 // ms
+#define ESP32_ALGORITHM_EXIT_TMO	10000 // ms
 #define ESP32_TARGET_STATE_TMO		1000 // ms
 #define ESP32_RW_TMO				3000 // ms
 
