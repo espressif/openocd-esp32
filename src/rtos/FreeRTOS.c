@@ -251,10 +251,6 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 		(uint8_t *)rtos->core_running_threads);
 
 	/* read the current thread */
-	retval = target_read_buffer(rtos->target,
-			rtos->symbols[FreeRTOS_VAL_pxCurrentTCB].address,
-			param->pointer_width,
-			(uint8_t *)&rtos->current_thread);
 	rtos->current_thread = rtos->core_running_threads[rtos->target->type->get_active_core(rtos->target)];
 
 	if (rtos_data->core_interruptNesting == NULL) {
@@ -429,7 +425,7 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 					FREERTOS_THREAD_NAME_STR_SIZE,
 					(uint8_t *)&tmp_str);
 			if (retval != ERROR_OK) {
-				LOG_ERROR("Error reading FreeRTOS thread name.");
+				LOG_ERROR("Error reading FreeRTOS thread name");
 				free(list_of_lists);
 				return retval;
 			}
@@ -481,43 +477,51 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 										list_elem_ptr);
 		}
 	}
+	free(list_of_lists);
 
 	for (i = 0; i < target_get_core_count(rtos->target); i++)
 	{
-		if (rtos_data->core_interruptNesting[i] != 0) {
-
-			rtos->thread_details[tasks_found].threadid = 1 + i;
-
-			char details_buf[32];
-			snprintf(details_buf, sizeof(details_buf), "Interrupted @CPU%d", i);
-			rtos->thread_details[tasks_found].extra_info_str = strdup(details_buf);
-
-			#define FREERTOS_THREAD_NAME_STR_SIZE (200)
-			char tmp_str[FREERTOS_THREAD_NAME_STR_SIZE];
-
-			/* Read the thread name */
-			retval = target_read_buffer(rtos->target,
-				rtos->core_running_threads[i] + param->thread_name_offset,
-				FREERTOS_THREAD_NAME_STR_SIZE,
-				(uint8_t *)&tmp_str);
-			if (retval != ERROR_OK) {
-				LOG_ERROR("Error reading FreeRTOS thread name.");
-				free(list_of_lists);
-				return retval;
-			}
-
-			if (tmp_str[0] == '\x00')
-				strcpy(tmp_str, "No Name");
-
-			rtos->thread_details[tasks_found].thread_name_str =
-				malloc(strlen(tmp_str) + 1);
-			strcpy(rtos->thread_details[tasks_found].thread_name_str, tmp_str);
-			rtos->thread_details[tasks_found].exists = true;
-			tasks_found++;
+		if (rtos_data->core_interruptNesting[i] == 0 || rtos->core_running_threads[i] == 0) {
+			continue;
 		}
+
+		rtos->thread_details[tasks_found].threadid = 1 + i;
+
+		char details_buf[32];
+		snprintf(details_buf, sizeof(details_buf), "Interrupted @CPU%d", i);
+		rtos->thread_details[tasks_found].extra_info_str = strdup(details_buf);
+		if (rtos->thread_details[tasks_found].extra_info_str == NULL) {
+			LOG_ERROR("Failed to alloc mem for thread extra info!");
+			return ERROR_FAIL;
+		}
+
+		#define FREERTOS_THREAD_NAME_STR_SIZE (200)
+		char tmp_str[FREERTOS_THREAD_NAME_STR_SIZE];
+
+		/* Read the thread name */
+		retval = target_read_buffer(rtos->target,
+			rtos->core_running_threads[i] + param->thread_name_offset,
+			FREERTOS_THREAD_NAME_STR_SIZE,
+			(uint8_t *)&tmp_str);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Error2 reading FreeRTOS thread name.");
+			return retval;
+		}
+
+		if (tmp_str[0] == '\x00')
+			strcpy(tmp_str, "No Name");
+
+		rtos->thread_details[tasks_found].thread_name_str =
+			malloc(strlen(tmp_str) + 1);
+		if (rtos->thread_details[tasks_found].thread_name_str == NULL) {
+			LOG_ERROR("Failed to alloc mem for thread name!");
+			return ERROR_FAIL;
+		}
+		strcpy(rtos->thread_details[tasks_found].thread_name_str, tmp_str);
+		rtos->thread_details[tasks_found].exists = true;
+		tasks_found++;
 	}
 
-	free(list_of_lists);
 	rtos->thread_count = tasks_found;
 	return 0;
 }
@@ -749,6 +753,9 @@ static void FreeRTOS_set_current_thread(struct rtos *rtos, int32_t threadid)
 
 	LOG_DEBUG("Set current thread to 0x%08x, old= 0x%08x", (unsigned int)threadid, (unsigned int)rtos->current_threadid);
 	rtos->current_threadid = threadid;
+	if (rtos->core_running_threads == NULL) {
+		return;
+	}
 	for (int i = 0; i < target_get_core_count(rtos->target); i++) {
 		if (rtos->core_running_threads[i] == rtos->current_threadid){
 			target_set_active_core(rtos->target, i);
