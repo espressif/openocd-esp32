@@ -323,6 +323,12 @@ struct target_exit_callback {
 	int (*callback)(struct target *target, void *priv);
 };
 
+struct target_memory_check_block {
+	target_addr_t address;
+	uint32_t size;
+	uint32_t result;
+};
+
 int target_register_commands(struct command_context *cmd_ctx);
 int target_examine(void);
 
@@ -602,7 +608,8 @@ int target_read_buffer(struct target *target,
 int target_checksum_memory(struct target *target,
 		target_addr_t address, uint32_t size, uint32_t *crc);
 int target_blank_check_memory(struct target *target,
-		target_addr_t address, uint32_t size, uint32_t *blank, uint8_t erased_value);
+		struct target_memory_check_block *blocks, int num_blocks,
+		uint8_t erased_value);
 int target_wait_state(struct target *target, enum target_state state, int ms);
 
 /**
