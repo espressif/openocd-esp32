@@ -242,11 +242,12 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 		return retval;
 	}
 
+	int core_count = target_get_core_count(rtos->target);
 	/* wipe out previous thread details if any */
 	rtos_free_threadlist(rtos);
 	retval = target_read_buffer(rtos->target,
 		rtos->symbols[FreeRTOS_VAL_pxCurrentTCB].address,
-		param->pointer_width * target_get_core_count(rtos->target),
+		param->pointer_width * core_count,
 		(uint8_t *)rtos->core_running_threads);
 
 	/* read the current thread */
@@ -257,16 +258,19 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 	rtos->current_thread = rtos->core_running_threads[rtos->target->type->get_active_core(rtos->target)];
 
 	if (rtos_data->core_interruptNesting == NULL) {
-		int core_count = target_get_core_count(rtos->target);
-		rtos_data->core_interruptNesting = (unsigned int*)malloc(core_count * sizeof(int));
+		rtos_data->core_interruptNesting = (unsigned int*)malloc(core_count*sizeof(unsigned int));
+		if (rtos_data->core_interruptNesting == NULL) {
+			LOG_ERROR("Failed to alloc memory for IRQs status!");
+			return ERROR_FAIL;
+		}
 	}
 	/* reading status of interrupts */
 	if (rtos->symbols[FreeRTOS_VAL_port_interruptNesting].address == 0) {
-		memset(rtos_data->core_interruptNesting, 0, target_get_core_count(rtos->target)*sizeof(int));
+		memset(rtos_data->core_interruptNesting, 0, core_count*sizeof(unsigned int));
 	} else {
         retval = target_read_buffer(rtos->target,
             rtos->symbols[FreeRTOS_VAL_port_interruptNesting].address,
-            sizeof(int32_t) * target_get_core_count(rtos->target),
+            sizeof(unsigned int) * core_count,
             (uint8_t *)rtos_data->core_interruptNesting);
 
         if (retval != ERROR_OK) {
@@ -277,7 +281,7 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 	LOG_DEBUG("FreeRTOS: Read pxCurrentTCB at 0x%" PRIx64 ", value 0x%" PRIx64 "\r\n",
 										rtos->symbols[FreeRTOS_VAL_pxCurrentTCB].address,
 										rtos->current_thread);
-	 
+
 	int interrupt_count = 0;
 	for (i = 0; i < target_get_core_count(rtos->target); i++)
 	{
@@ -481,7 +485,7 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 	for (i = 0; i < target_get_core_count(rtos->target); i++)
 	{
 		if (rtos_data->core_interruptNesting[i] != 0) {
-			
+
 			rtos->thread_details[tasks_found].threadid = 1 + i;
 
 			char details_buf[32];
@@ -693,6 +697,8 @@ static int FreeRTOS_clean(struct target *target)
 	LOG_DEBUG("FreeRTOS_clean");
 	rtos_free_threadlist(target->rtos);
 	target->rtos->current_thread = 0;
+	free(target->rtos->core_running_threads);
+	free(target->rtos->rtos_specific_data);
 	return ERROR_OK;
 }
 
@@ -718,9 +724,17 @@ static int FreeRTOS_create(struct target *target)
 		return -1;
 	}
 
+	int cores_count = target_get_core_count(target);
 	target->rtos->rtos_specific_params = (void *)&FreeRTOS_params_list[i];
-	target->rtos->core_running_threads = malloc(sizeof(int32_t) * target_get_core_count(target));
-	target->rtos->rtos_specific_data = malloc(sizeof(struct FreeRTOS_data));
+	target->rtos->core_running_threads = calloc(1, sizeof(int32_t) * cores_count);
+	if (target->rtos->core_running_threads == NULL) {
+		return -1;
+	}
+	target->rtos->rtos_specific_data = calloc(1, sizeof(struct FreeRTOS_data));
+	if (target->rtos->rtos_specific_data == NULL) {
+		free(target->rtos->core_running_threads);
+		return -1;
+	}
 	return 0;
 }
 
