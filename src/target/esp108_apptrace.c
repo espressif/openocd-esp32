@@ -684,7 +684,7 @@ static int esp_apptrace_file_dest_init(struct esp_apptrace_dest *dest, const cha
 	memset(dest_data, 0, sizeof(struct esp_apptrace_dest_file_data));
 
 	LOG_INFO("Open file %s", dest_name);
-	dest_data->fout = open(dest_name, O_WRONLY|O_CREAT|O_TRUNC, 0666);
+	dest_data->fout = open(dest_name, O_WRONLY|O_CREAT|O_TRUNC|O_BINARY, 0666);
 	if (dest_data->fout <= 0) {
 		LOG_ERROR("Failed to open file %s", dest_name);
 		return ERROR_FAIL;
