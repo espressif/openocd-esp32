@@ -698,7 +698,9 @@ static int FreeRTOS_clean(struct target *target)
 	rtos_free_threadlist(target->rtos);
 	target->rtos->current_thread = 0;
 	free(target->rtos->core_running_threads);
+	target->rtos->core_running_threads = NULL;
 	free(target->rtos->rtos_specific_data);
+	target->rtos->rtos_specific_data = NULL;
 	return ERROR_OK;
 }
 
@@ -740,6 +742,11 @@ static int FreeRTOS_create(struct target *target)
 
 static void FreeRTOS_set_current_thread(struct rtos *rtos, int32_t threadid)
 {
+	if (rtos->core_running_threads == NULL) {
+		/* GDB can send thread packet before FreeRTOS_create is called */
+		return;
+	}
+
 	LOG_DEBUG("Set current thread to 0x%08x, old= 0x%08x", (unsigned int)threadid, (unsigned int)rtos->current_threadid);
 	rtos->current_threadid = threadid;
 	for (int i = 0; i < target_get_core_count(rtos->target); i++) {
