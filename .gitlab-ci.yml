@@ -1,5 +1,6 @@
 stages:
   - build
+  - test
   - deploy
 
 before_script:
@@ -140,3 +141,59 @@ push_master_to_github:
     - git remote add github git@github.com:espressif/openocd-esp32.git
     - git push github HEAD:master
 
+build_test_app:
+  stage: build
+  image: $CI_DOCKER_REGISTRY/esp32-ci-env
+  tags:
+    - build
+
+  artifacts:
+    paths:
+      - testing/esp/test_apps/gen_ut_app/output/default/gen_ut_app.elf
+      - testing/esp/test_apps/gen_ut_app/output/default/gen_ut_app.bin
+      - testing/esp/test_apps/gen_ut_app/output/default/partitions_singleapp.bin
+      - testing/esp/test_apps/gen_ut_app/output/default/bootloader/bootloader.bin
+      - testing/esp/test_apps/gen_ut_app/output/single_core/gen_ut_app.elf
+      - testing/esp/test_apps/gen_ut_app/output/single_core/gen_ut_app.bin
+      - testing/esp/test_apps/gen_ut_app/output/single_core/partitions_singleapp.bin
+      - testing/esp/test_apps/gen_ut_app/output/single_core/bootloader/bootloader.bin
+    expire_in: 2 weeks
+
+  script:
+      # Prepare ESP-IDF
+      - rm -rf esp-idf
+      - git clone $GITLAB_SSH_SERVER/idf/esp-idf.git
+      - pushd esp-idf
+      - tools/ci/mirror-submodule-update.sh
+      - export IDF_PATH=$PWD
+      - popd
+      # Build generic test app
+      - pushd testing/esp/test_apps/gen_ut_app
+      - make ut-apply-config-default
+      - make V=1 ut-build-default
+      - make ut-apply-config-single_core
+      - make V=1 ut-build-single_core
+      - popd
+
+run_autotests:
+  stage: test
+  image: $CI_DOCKER_REGISTRY/esp32-ci-env
+  tags:
+    - test_jtag
+
+  artifacts:
+    paths:
+      - testing/esp/debug_backend_tests.log
+    when: always
+    expire_in: 1 week
+
+  script:
+      # Run tests
+      - mkdir -p dist/tmp
+      - pushd dist/tmp
+      - tar xzvf ../openocd-esp32-linux64-*.tar.gz
+      - export DIST_DIR=$PWD/openocd-esp32
+      - popd
+      - pushd testing/esp
+      - ./run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/test_apps -d 4 -l ./debug_backend_tests.log
+      - popd
