@@ -40,8 +40,7 @@ class DebuggerBreakpointTestsImpl:
             6) Repeats steps 3-5 several times.
             7) Finally it deletes breakpoint and resumes execution.
         """
-        get_logger().debug('Start test')
-        self.select_sub_test(1)
+        self.select_sub_test(100)
         bp = self.gdb.add_bp('gpio_set_level')
         for i in range(3):
             self.resume_exec()
@@ -81,10 +80,5 @@ class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, DebuggerBreak
 class DebuggerBreakpointTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerBreakpointTestsImpl):
     """ Test cases for breakpoints in single core mode
     """
-
-    @unittest.expectedFailure
-    def test_simple(self):
-        """
-            Override test method to decorated its single core version as expected failure
-        """
-        super(DebuggerBreakpointTestsSingle, self).test_simple()
+    # no special tests for single core mode yet
+    pass

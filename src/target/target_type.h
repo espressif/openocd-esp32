@@ -278,13 +278,13 @@ struct target_type {
 
 	/* get amount of cores for multiprocessor systems.
 	*/
-	int(*get_cores_count)(struct target *target);
+	size_t(*get_cores_count)(struct target *target);
 	/* get current active core for multiprocessor systems.
 	*/
-	int(*get_active_core)(struct target *target);
+	size_t(*get_active_core)(struct target *target);
 	/* set active core for multiprocessor systems.
 	*/
-	void(*set_active_core)(struct target *target, int core);
+	void(*set_active_core)(struct target *target, size_t core);
 };
 
 #endif /* OPENOCD_TARGET_TARGET_TYPE_H */

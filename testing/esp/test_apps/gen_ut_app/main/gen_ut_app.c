@@ -49,7 +49,7 @@ void app_main()
 {
     ESP_LOGI(TAG, "Run test %d\n", run_test);
     switch(run_test){
-        case 1:
+        case 100:
             xTaskCreate(&blink_task, "blink_task", 2048, NULL, 5, NULL);
             break;
         default:

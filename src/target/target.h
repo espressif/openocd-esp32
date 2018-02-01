@@ -162,20 +162,8 @@ struct target {
 	struct target_event_action *event_action;
 
 	int reset_halt;						/* attempt resetting the CPU into the halted mode? */
-#if 0
-	uint32_t working_area;				/* working area (initialised RAM). Evaluated
-										 * upon first allocation from virtual/physical address. */
-	bool working_area_virt_spec;		/* virtual address specified? */
-	uint32_t working_area_virt;			/* virtual address */
-	bool working_area_phys_spec;		/* virtual address specified? */
-	uint32_t working_area_phys;			/* physical address */
-	uint32_t working_area_size;			/* size in bytes */
-	uint32_t backup_working_area;		/* whether the content of the working area has to be preserved */
-	struct working_area *working_areas;/* list of allocated working areas */
-#else
 	struct working_area_config	working_area_cfg;
 	struct working_area_config	alt_working_area_cfg;
-#endif
 	enum target_debug_reason debug_reason;/* reason why the target entered debug state */
 	enum target_endianness endianness;	/* target endianness */
 	/* also see: target_state_name() */

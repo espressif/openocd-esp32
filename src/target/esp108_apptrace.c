@@ -451,7 +451,7 @@ int esp108_apptrace_read_data_len(struct target *target, uint32_t *block_id, uin
 	return ERROR_OK;
 }
 
-int esp108_apptrace_read_data(struct target *target, uint32_t size, uint8_t *buffer, uint32_t block_id, int ack, struct duration *dur)
+int esp108_apptrace_read_data(struct target *target, uint32_t size, uint8_t *buffer, uint32_t block_id, bool ack, struct duration *dur)
 {
 	int res = 0;
 	uint32_t i, rd_sz = size;
@@ -522,7 +522,6 @@ int esp108_apptrace_write_buffs(struct target *target, uint32_t bufs_num, uint32
         // if there are cached bytes from the previous buffer, combine them with the last from the current buffer
         if (cached_bytes) {
             memcpy(dword_cache.data8, &cur_buf[bs - (4 - cached_bytes)], 4 - cached_bytes);
-            LOG_DEBUG("Write PADDED DWORD[%d] %x", wr_dw, dword_cache.data32);
             esp108_queue_nexus_reg_write(target, NARADR_TRAXDATA, dword_cache.data32);
             bs -= 4 - cached_bytes;
             cached_bytes = 0;
@@ -532,7 +531,6 @@ int esp108_apptrace_write_buffs(struct target *target, uint32_t bufs_num, uint32
         for (uint32_t k = bs; k >= 4; k -= 4) {
             uint32_t dword;
             memcpy(&dword, &cur_buf[k-4], sizeof(dword));
-            LOG_DEBUG("Write DWORD[%d] %x", wr_dw, dword);
             esp108_queue_nexus_reg_write(target, NARADR_TRAXDATA, dword);
             wr_dw++;
         }
@@ -556,7 +554,7 @@ int esp108_apptrace_write_buffs(struct target *target, uint32_t bufs_num, uint32
     return ERROR_OK;
 }
 
-int esp108_apptrace_write_ctrl_reg(struct target *target, uint32_t block_id, uint32_t len, int conn, int data)
+int esp108_apptrace_write_ctrl_reg(struct target *target, uint32_t block_id, uint32_t len, bool conn, bool data)
 {
 	int res = ERROR_OK;
 	uint32_t tmp = (conn ? ESP_APPTRACE_HOST_CONNECT : 0) | (data ? ESP_APPTRACE_HOST_DATA : 0) | ESP_APPTRACE_BLOCK_ID(block_id) | ESP_APPTRACE_BLOCK_LEN(len);
@@ -592,10 +590,7 @@ static int esp108_activate_swdbg(struct target *target, int enab)
 {
 	int res;
 
-	if (enab)
-		esp108_queue_nexus_reg_write(target, NARADR_DCRSET, OCDDCR_DEBUGSWACTIVE);
-	else
-		esp108_queue_nexus_reg_write(target, NARADR_DCRCLR, OCDDCR_DEBUGSWACTIVE);
+	esp108_queue_nexus_reg_write(target, enab ? NARADR_DCRSET : NARADR_DCRCLR, OCDDCR_DEBUGSWACTIVE);
 	esp108_queue_tdi_idle(target);
 	res=jtag_execute_queue();
 	if (res!=ERROR_OK) {
@@ -609,48 +604,6 @@ static int esp108_activate_swdbg(struct target *target, int enab)
 /*********************************************************************
 *                       ESP32/108 Common Functions
 **********************************************************************/
-
-static uint32_t esp_apptrace_get_cores_num(struct target *target)
-{
-	int res;
-	uint32_t cores_num = 1;
-	bool resume = false;
-
-	if (target->state != TARGET_HALTED) {
-		res = target_halt(target);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to halt target (%d)!", res);
-			return 0;
-		}
-		res = target_wait_state(target, TARGET_HALTED, ESP_APPTRACE_TGT_STATE_TMO);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to wait for target '%s' to halt: state %d (%d)!", target_name(target), target->state, res);
-			return 0;
-		}
-		resume = true;
-	}
-
-	uint32_t appcpu_ctrl = 0;
-	res = target_read_memory(target, ESP32_DPORT_APPCPU_CTRL_B_REG, sizeof(uint32_t), 1, (uint8_t *)&appcpu_ctrl);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to read target memory (%d)!", res);
-		return 0;
-	}
-	if (appcpu_ctrl & ESP32_DPORT_APPCPU_CLKGATE_EN) {
-		cores_num++;
-	}
-
-	if (resume) {
-		// continue execution
-		res = target_resume(target, 1, 0, 1, 0);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to resume target (%d)!", res);
-			return 0;
-		}
-	}
-
-	return cores_num;
-}
 
 static int esp_apptrace_file_dest_write(void *priv, uint8_t *data, uint32_t size)
 {
@@ -863,7 +816,7 @@ static int esp_apptrace_cmd_ctx_init(struct target *target, struct esp_apptrace_
 	cmd_ctx->data_processor = (pthread_t)-1;
 	cmd_ctx->stop_tmo = -1.0; // infinite
 	cmd_ctx->mode = mode;
-	cmd_ctx->cores_num = esp_apptrace_get_cores_num(target);
+	cmd_ctx->cores_num = target_get_core_count(target);
 	cmd_ctx->esp32_target = cmd_ctx->cores_num == 2 ? target : NULL;
 
 	for (int i = 0; i < cmd_ctx->cores_num; i++) {
@@ -1117,18 +1070,24 @@ static int esp_apptrace_safe_halt_targets(struct esp_apptrace_cmd_ctx *ctx, stru
 	// halt all CPUs
 	LOG_DEBUG("Halt all targets!");
  	if (ctx->esp32_target) {
-		res = target_halt(ctx->esp32_target);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to halt target (%d)!", res);
-			return res;
-		}
-		res = target_wait_state(ctx->esp32_target, TARGET_HALTED, ESP_APPTRACE_TGT_STATE_TMO);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to wait halt target %s / %d (%d)!", target_name(ctx->esp32_target), ctx->esp32_target->state, res);
-			return res;
+ 		if (ctx->esp32_target->state != TARGET_HALTED) {
+			res = target_halt(ctx->esp32_target);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to halt target (%d)!", res);
+				return res;
+			}
+			res = target_wait_state(ctx->esp32_target, TARGET_HALTED, ESP_APPTRACE_TGT_STATE_TMO);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to wait halt target %s / %d (%d)!", target_name(ctx->esp32_target), ctx->esp32_target->state, res);
+				return res;
+			}
 		}
  	} else {
 		for (int k = 0; k < ctx->cores_num; k++) {
+	 		if (ctx->cpus[k]->state == TARGET_HALTED) {
+			 	targets[k].running = 0;
+	 			continue;
+	 		}
 		 	targets[k].running = 1;
 			res = target_halt(ctx->cpus[k]);
 			if (res != ERROR_OK) {
@@ -1207,7 +1166,7 @@ static int esp_apptrace_safe_halt_targets(struct esp_apptrace_cmd_ctx *ctx, stru
 	return ERROR_OK;
 }
 
-static int esp_apptrace_connect_targets(struct esp_apptrace_cmd_ctx *ctx, int conn)
+static int esp_apptrace_connect_targets(struct esp_apptrace_cmd_ctx *ctx, bool conn, bool resume_target)
 {
 	int res = ERROR_OK;
 	struct esp108_apptrace_target_state target_to_connect[ESP_APPTRACE_TARGETS_NUM_MAX];
@@ -1218,10 +1177,10 @@ static int esp_apptrace_connect_targets(struct esp_apptrace_cmd_ctx *ctx, int co
 		LOG_USER("Disconnect targets...");
 
 	res = esp_apptrace_safe_halt_targets(ctx, target_to_connect);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to halt targets (%d)!", res);
-		return res;
-	}
+    if (res != ERROR_OK) {
+    	LOG_ERROR("Failed to halt targets (%d)!", res);
+    	return res;
+    }
 	if (ctx->cores_num > 1) {
 		// set block ids to the highest value
 		if (target_to_connect[0].block_id != target_to_connect[1].block_id) {
@@ -1231,7 +1190,6 @@ static int esp_apptrace_connect_targets(struct esp_apptrace_cmd_ctx *ctx, int co
 				target_to_connect[1].block_id = target_to_connect[0].block_id;
 		}
 	}
-	LOG_INFO("Resume targets");
 	for (int k = 0; k < ctx->cores_num; k++) {
 		// update host connected status
 		res = esp108_apptrace_write_ctrl_reg(ctx->cpus[k], target_to_connect[k].block_id,
@@ -1240,22 +1198,23 @@ static int esp_apptrace_connect_targets(struct esp_apptrace_cmd_ctx *ctx, int co
 			LOG_ERROR("Failed to read trace status (%d)!", res);
 			return res;
 		}
-		if (!ctx->esp32_target) {
-			res = target_resume(ctx->cpus[k], 1, 0, 1, 0);
-			if (res != ERROR_OK) {
-				LOG_ERROR("Failed to resume target %d (%d)!", k, res);
-				return res;
-			}
-		}
+        if (resume_target && !ctx->esp32_target) {
+            res = target_resume(ctx->cpus[k], 1, 0, 1, 0);
+            if (res != ERROR_OK) {
+                LOG_ERROR("Failed to resume target %d (%d)!", k, res);
+                return res;
+            }
+        }
 	}
-	if (ctx->esp32_target) {
-		res = target_resume(ctx->esp32_target, 1, 0, 1, 0);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to resume target (%d)!", res);
-			return res;
-		}
-	}
-	if (conn)
+    if (resume_target && ctx->esp32_target) {
+        LOG_DEBUG("Resume targets");
+        res = target_resume(ctx->esp32_target, 1, 0, 1, 0);
+        if (res != ERROR_OK) {
+            LOG_ERROR("Failed to resume target (%d)!", res);
+            return res;
+        }
+    }
+    if (conn)
 		LOG_INFO("Targets connected.");
 	else
 		LOG_INFO("Targets disconnected.");
@@ -1959,8 +1918,9 @@ static int esp_apptrace_poll(void *priv)
 	struct duration blk_proc_time;
 #endif
 
-	if (!ctx->running)
+	if (!ctx->running) {
 		return ERROR_FAIL;
+	}
 
 	// check for data from target
 	res = esp_apptrace_get_data_info(ctx, target_state, &fired_target_num);
@@ -2101,6 +2061,7 @@ int esp_cmd_apptrace_generic(struct target *target, int mode, const char **argv,
 	static struct esp_apptrace_cmd_ctx s_at_cmd_ctx;
 	struct esp_apptrace_cmd_data *cmd_data;
 	int res = ERROR_OK;
+    enum target_state old_state = target->state;
 
 	if (argc < 1) {
 		LOG_ERROR("Action missed!");
@@ -2143,7 +2104,7 @@ int esp_cmd_apptrace_generic(struct target *target, int mode, const char **argv,
 				return res;
 			}
 		}
-		res = esp_apptrace_connect_targets(&s_at_cmd_ctx, 1);
+		res = esp_apptrace_connect_targets(&s_at_cmd_ctx, true, true);
 		if (res != ERROR_OK) {
 			LOG_ERROR("Failed to connect to targets (%d)!", res);
 			s_at_cmd_ctx.running = 0;
@@ -2155,7 +2116,7 @@ int esp_cmd_apptrace_generic(struct target *target, int mode, const char **argv,
 			res = esp_sysview_start(&s_at_cmd_ctx);
 			if (res != ERROR_OK) {
 				LOG_ERROR("SEGGER: Failed to start tracing!");
-				esp_apptrace_connect_targets(&s_at_cmd_ctx, 0);
+				esp_apptrace_connect_targets(&s_at_cmd_ctx, false, old_state == TARGET_RUNNING);
 				s_at_cmd_ctx.running = 0;
 				esp_apptrace_cmd_cleanup(&s_at_cmd_ctx);
 				return res;
@@ -2202,15 +2163,15 @@ int esp_cmd_apptrace_generic(struct target *target, int mode, const char **argv,
 					LOG_ERROR("SEGGER: Failed to stop tracing!");
 				}
 			}
-			res = esp_apptrace_connect_targets(&s_at_cmd_ctx, 0);
-			if (res != ERROR_OK) {
-				LOG_ERROR("Failed to disconnect targets (%d)!", res);
-			}
-			esp_apptrace_print_stats(&s_at_cmd_ctx);
-			res = esp_apptrace_cmd_cleanup(&s_at_cmd_ctx);
-			if (res != ERROR_OK) {
-				LOG_ERROR("Failed to cleanup cmd ctx (%d)!", res);
-			}
+            res = esp_apptrace_connect_targets(&s_at_cmd_ctx, false, old_state == TARGET_RUNNING);
+            if (res != ERROR_OK) {
+                LOG_ERROR("Failed to disconnect targets (%d)!", res);
+            }
+            esp_apptrace_print_stats(&s_at_cmd_ctx);
+            res = esp_apptrace_cmd_cleanup(&s_at_cmd_ctx);
+            if (res != ERROR_OK) {
+                LOG_ERROR("Failed to cleanup cmd ctx (%d)!", res);
+            }
 		}
 	}
 	else if (strcmp(argv[0], "stop") == 0) {
@@ -2237,7 +2198,7 @@ int esp_cmd_apptrace_generic(struct target *target, int mode, const char **argv,
 				LOG_ERROR("SEGGER: Failed to stop tracing!");
 			}
 		}
-		res = esp_apptrace_connect_targets(&s_at_cmd_ctx, 0);
+		res = esp_apptrace_connect_targets(&s_at_cmd_ctx, false, true);
 		if (res != ERROR_OK) {
 			LOG_ERROR("Failed to disconnect targets (%d)!", res);
 		}
@@ -2590,7 +2551,7 @@ static int esp_gcov_process_data(struct esp_apptrace_cmd_ctx *ctx, int core_id, 
 	uint8_t *resp;
 	uint32_t resp_len = 0;
 
-	LOG_DEBUG("Got block %d bytes [%x %x...%x %x]", data_len, data[12], data[13], data[data_len-2], data[data_len-1]);
+	LOG_DEBUG("Got block %d bytes [%x %x]", data_len, data[0], data[1]);
 
 	if (data_len < 1) {
 		LOG_ERROR("Too small data length %d!", data_len);
@@ -2676,7 +2637,7 @@ int esp_cmd_gcov(struct target *target, const char **argv, int argc)
 			return res;
 		}
 	}
-	res = esp_apptrace_connect_targets(&s_at_cmd_ctx, 1);
+	res = esp_apptrace_connect_targets(&s_at_cmd_ctx, true, true);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to connect to targets (%d)!", res);
 		s_at_cmd_ctx.running = 0;
@@ -2693,7 +2654,7 @@ int esp_cmd_gcov(struct target *target, const char **argv, int argc)
 		/* let registered timer callbacks to run */
 		target_call_timer_callbacks();
 	}
-	res = esp_apptrace_connect_targets(&s_at_cmd_ctx, 0);
+	res = esp_apptrace_connect_targets(&s_at_cmd_ctx, false, true);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to disconnect targets (%d)!", res);
 	}

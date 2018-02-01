@@ -3,24 +3,27 @@ import subprocess
 import signal
 import threading
 import time
+import telnetlib
 from pygdbmi.gdbcontroller import GdbController
 from pygdbmi.gdbcontroller import GdbTimeoutError
 from pprint import pformat
 
-
+toolchain = 'none'
 _oocd_inst   = None
 _gdb_inst    = None
 
-def start(gdb_path, oocd_path, oocd_tcl_dir, oocd_cfg_files):
+def start(toolch, oocd_path, oocd_tcl_dir, oocd_cfg_files):
     global _oocd_inst
     global _gdb_inst
+    global toolchain
+    toolchain = toolch
     oocd_args = ['-s', oocd_tcl_dir]
     for f in oocd_cfg_files:
         oocd_args += ['-f', f]
     _oocd_inst = Oocd(oocd_path, oocd_args)
     _oocd_inst.start()
     try:
-        _gdb_inst = Gdb(gdb_path)
+        _gdb_inst = Gdb('%sgdb' % toolchain)
         _gdb_inst.target_select('remote', ':3333')
     except Exception as e:
         _oocd_inst.stop()
@@ -35,6 +38,8 @@ def stop():
 def get_gdb():
     return _gdb_inst
 
+def get_oocd():
+    return _oocd_inst
 
 class DebuggerError(RuntimeError):
     pass
@@ -55,10 +60,20 @@ class Oocd(threading.Thread):
     def __init__(self, oocd_path = 'openocd', oocd_args=[]):
         super(Oocd, self).__init__()
         self._logger = self.get_logger()
+        self._logger.debug('Start OpenOCD')
         self._oocd_proc = subprocess.Popen(
                 bufsize = 0, args = [oocd_path] + oocd_args,
                 stdin = None, stdout = subprocess.PIPE, stderr = subprocess.STDOUT
                 )
+        time.sleep(1)
+        self._logger.debug('Open telnet conn...')
+        try:
+            self._tn = telnetlib.Telnet('localhost', 4444, 5)
+            self._tn.read_until('>', 5)
+        except Exception as e:
+            self._logger.error('Failed to open telnet connection!')
+            self._oocd_proc.send_signal(signal.SIGINT)
+            raise e
 
     def run(self):
         while True:
@@ -68,11 +83,23 @@ class Oocd(threading.Thread):
             self._logger.debug(ln.rstrip(' \r\n'))
 
     def stop(self):
+        self._logger.debug('Close telnet conn')
+        self._tn.close()
+        self._logger.debug('Stop OpenOCD')
         self._oocd_proc.send_signal(signal.SIGINT)
 
     def join(self):
         super(Oocd, self).join()
         self._oocd_proc.stdout.close()
+    
+    
+    def cmd_exec(self, cmd):
+        resp = self._tn.read_until('>')
+        self._logger.debug('TELNET <-: %s' % resp)
+        self._logger.debug('TELNET ->: %s' % cmd)
+        self._tn.write('%s\n' % cmd)
+        resp = self._tn.read_until('>')
+        self._logger.debug('TELNET <-: %s' % resp)
 
 
 class Gdb:
@@ -86,6 +113,7 @@ class Gdb:
     TARGET_STOP_REASON_SIGTRAP  = 2
     TARGET_STOP_REASON_BP       = 3
     TARGET_STOP_REASON_WP       = 4
+    TARGET_STOP_REASON_STEPPED  = 5
 
     @staticmethod
     def get_logger():
@@ -109,6 +137,8 @@ class Gdb:
                     self._target_stop_reason = self.TARGET_STOP_REASON_BP
                 elif rec['payload']['reason'] == 'watchpoint-trigger':
                     self._target_stop_reason = self.TARGET_STOP_REASON_WP
+                elif rec['payload']['reason'] == 'end-stepping-range':
+                    self._target_stop_reason = self.TARGET_STOP_REASON_STEPPED
                 elif rec['payload']['reason'] == 'signal-received':
                     if rec['payload']['signal-name'] == 'SIGINT':
                         self._target_stop_reason = self.TARGET_STOP_REASON_SIGINT
@@ -175,11 +205,11 @@ class Gdb:
             # check for result report from GDB
             response = self._gdbmi.get_gdb_response(1, raise_error_on_timeout = False)
             if len(response) == 0:
-                if tmo and time.time() >= end:
-                    raise DebuggerTargetStateTimeoutError('Failed to wait for completion of command "%s"!' % cmd)
+                if tmo and (time.time() >= end):
+                    raise DebuggerTargetStateTimeoutError('Failed to wait for completion of command "%s" / %s!' % (cmd, tmo))
             else:
                 self._logger.debug('MI<-:\n%s', pformat(response))
-            res,res_body = self._parse_mi_resp(response, new_tgt_state)
+                res,res_body = self._parse_mi_resp(response, new_tgt_state)
         return res,res_body
 
     def target_select(self, tgt_type, tgt_params):
@@ -221,11 +251,23 @@ class Gdb:
         if res != 'running':
             raise DebuggerError('Failed to continue program!')
 
+    def exec_jump(self, loc):
+        # -exec-jump location
+        res,_ = self._mi_cmd_run('-exec-jump %s' % loc)
+        if res != 'running':
+            raise DebuggerError('Failed to make jump in program!')
+
+    def exec_next(self):
+        # -exec-next [--reverse]
+        res,_ = self._mi_cmd_run('-exec-next')
+        if res != 'running':
+            raise DebuggerError('Failed to step program!')
+
     def data_eval_expr(self, expr):
         # -data-evaluate-expression expr
         res,res_body = self._mi_cmd_run('-data-evaluate-expression %s' % expr)
         if res != 'done' or not res_body:
-            raise DebuggerError('Failed to get backtrace!')
+            raise DebuggerError('Failed to eval expression!')
         return res_body['value']
 
     def get_backtrace(self):
@@ -249,7 +291,7 @@ class Gdb:
             raise DebuggerError('Failed to delete BP!')
 
     def monitor_run(self, cmd, tmo = None):
-        res,_ = self._mi_cmd_run('mon %s' % cmd, tmo)
+        res,_ = self._mi_cmd_run('mon %s' % cmd, tmo=tmo)
         if res != 'done':
             raise DebuggerError('Failed to run monitor cmd "%s"!' % cmd)
 

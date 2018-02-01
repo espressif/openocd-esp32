@@ -37,12 +37,12 @@ struct esp32_common {
 	// Common fields definition for all esp108 targets
 	ESP108_COMMON_FIELDS;
 
-	struct target* esp32_targets[ESP32_CPU_COUNT];
-	int active_cpu;
-	struct reg_cache *core_caches[ESP32_CPU_COUNT];
-	int64_t current_threadid;
-	enum esp32_isrmasking_mode isrmasking_mode;
+	struct target* 				esp32_targets[ESP32_CPU_COUNT];
+	size_t 						active_cpu;
+	struct reg_cache *			core_caches[ESP32_CPU_COUNT];
+	int64_t 					current_threadid;
+	enum esp32_isrmasking_mode	isrmasking_mode;
+	size_t						cores_num;
 };
-
 
 #endif /* XTENSA_ESP32_H */

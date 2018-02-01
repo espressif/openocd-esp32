@@ -422,7 +422,7 @@ int rtos_get_gdb_reg_list(struct connection *connection)
 			(target->smp))) {	/* in smp several current thread are possible */
 		char *hex_reg_list;
 
-		for (int i = 0; i < target->type->get_cores_count(target); i++)	{
+		for (size_t i = 0; i < target->type->get_cores_count(target); i++)	{
 			if (((int)current_threadid == target->rtos->core_running_threads[i])) {
 				return ERROR_FAIL;
 			}
@@ -473,7 +473,7 @@ int rtos_generic_stack_read(struct target *target,
 		retval = target_read_buffer(target, address, stacking->stack_registers_size, stack_data);
 	}
 
-	
+
 	if (retval != ERROR_OK) {
 		free(stack_data);
 		LOG_ERROR("Error reading stack frame from thread");

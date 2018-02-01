@@ -91,9 +91,9 @@
 
 #define ESP32_STUB_STACK_SZ			(1536)
 #define ESP32_FLASH_MIN_OFFSET 		0x1000 // protect secure boot digest data
-#define ESP32_ALGORITHM_EXIT_TMO	10000 // ms
+#define ESP32_ALGORITHM_EXIT_TMO	20000 // ms
 #define ESP32_TARGET_STATE_TMO		1000 // ms
-#define ESP32_RW_TMO				3000 // ms
+#define ESP32_RW_TMO				20000 // ms
 
 #define SPI_FLASH_SEC_SIZE  		4096 // SPI Flash sector size
 
@@ -395,7 +395,7 @@ static int esp32_run_algo(struct target *target, struct esp32_flash_stub *stub,
 
 	if (memcmp(target_type_name(target), "esp32", 6) == 0){//get_targets_count() == 1) {
 		struct esp32_common *esp32 = (struct esp32_common *)target->arch_info;
-		LOG_INFO("Use core%d of target '%s'", esp32->active_cpu, target_type_name(target));
+		LOG_INFO("Use core%u of target '%s'", (uint32_t)esp32->active_cpu, target_type_name(target));
 		core_target = esp32->esp32_targets[esp32->active_cpu];
 	} else {
 		LOG_INFO("Use target '%s'", target_type_name(target));

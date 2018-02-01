@@ -74,9 +74,9 @@ static int target_gdb_fileio_end_default(struct target *target, int retcode,
 static int target_profiling_default(struct target *target, uint32_t *samples,
 		uint32_t max_num_samples, uint32_t *num_samples, uint32_t seconds);
 
-static int target_get_cores_count_default(struct target *target);
-static int target_get_active_core_default(struct target *target);
-static void target_set_active_core_default(struct target *target, int core);
+static size_t target_get_cores_count_default(struct target *target);
+static size_t target_get_active_core_default(struct target *target);
+static void target_set_active_core_default(struct target *target, size_t core);
 
 
 /* targets */
@@ -787,7 +787,7 @@ void target_set_active_core(struct target *target, int core_id)
 	if (target->type->set_active_core == NULL) {
 		return;
 	}
-	(*target->type->set_active_core)(target, core_id);	
+	(*target->type->set_active_core)(target, core_id);
 }
 
 
@@ -2057,19 +2057,19 @@ static int target_get_gdb_fileio_info_default(struct target *target,
 	return ERROR_FAIL;
 }
 
-static int target_get_cores_count_default(struct target *target)
+static size_t target_get_cores_count_default(struct target *target)
 {
 	/* If target has only one core.  */
 	return 1;
 }
 
-static int target_get_active_core_default(struct target *target)
+static size_t target_get_active_core_default(struct target *target)
 {
 	/* If target has only one core.  */
 	return 0;
 }
 
-static void target_set_active_core_default(struct target *target, int core)
+static void target_set_active_core_default(struct target *target, size_t core)
 {
 
 }
@@ -6391,7 +6391,7 @@ static const struct command_registration target_exec_command_handlers[] = {
 		.help = "Set active core function",
 		.usage = "set_core N",
 	},
-	
+
 	COMMAND_REGISTRATION_DONE
 };
 static int target_register_user_commands(struct command_context *cmd_ctx)

@@ -37,6 +37,7 @@
 
 
 #define FREERTOS_MAX_PRIORITIES	63
+#define FREERTOS_MAX_TASKS_NUM	512
 
 #define FreeRTOS_STRUCT(int_type, ptr_type, list_prev_offset)
 
@@ -208,7 +209,7 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 {
 	int i = 0;
 	int retval;
-	int tasks_found = 0;
+	uint32_t tasks_found = 0;
 	const struct FreeRTOS_params *param;
 	struct FreeRTOS_data *rtos_data;
 
@@ -228,7 +229,11 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 		return -2;
 	}
 
-	int thread_list_size = 0;
+	if (rtos->target->state != TARGET_HALTED) {
+		LOG_ERROR("FreeRTOS_update_threads not TARGET_HALTED!");
+	}
+
+	uint32_t thread_list_size = 0;
 	retval = target_read_buffer(rtos->target,
 			rtos->symbols[FreeRTOS_VAL_uxCurrentNumberOfTasks].address,
 			param->thread_count_width,
@@ -240,6 +245,10 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Could not read FreeRTOS thread count from target");
 		return retval;
+	}
+	if (thread_list_size > FREERTOS_MAX_TASKS_NUM) {
+		LOG_ERROR("Too large number of threads %u!", thread_list_size);
+		return -2;
 	}
 
 	int core_count = target_get_core_count(rtos->target);

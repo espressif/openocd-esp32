@@ -94,13 +94,15 @@ static int xtensa_step(struct target *target,
 static int xtensa_poll(struct target *target);
 static int xtensa_assert_reset(struct target *target);
 static int xtensa_deassert_reset(struct target *target);
-//static int xtensa_write_uint32_list(struct target *target, const uint32_t* addr_value_pairs_list, size_t count);
-//static int xtensa_write_uint32(struct target *target, uint32_t addr, uint32_t val);
 static int xtensa_read_memory(struct target *target,
 	uint32_t address,
 	uint32_t size,
 	uint32_t count,
 	uint8_t *buffer);
+static size_t esp32_get_cores_count(struct target *target);
+static size_t esp32_get_active_core(struct target *target);
+static void esp32_set_active_core(struct target *target, size_t core);
+static size_t esp32_read_cores_num(struct target *target);
 
 
 //Utility function: check DSR for any weirdness and report.
@@ -135,7 +137,7 @@ static int esp32_fetch_all_regs(struct target *target)
 	//in one go, then sort everything out from the regvals variable.
 
 	// Read registers from both cores
-	for (int c = 0; c < ESP32_CPU_COUNT; c++)
+	for (size_t c = 0; c < ESP32_CPU_COUNT; c++)
 	{
 		//Start out with A0-A63; we can reach those immediately. Grab them per 16 registers.
 		for (j = 0; j < 64; j += 16) {
@@ -408,7 +410,7 @@ static int xtensa_resume(struct target *target,
 	}
 
 	// Here we write all registers to the targets
-	for (int i = 0; i < ESP32_CPU_COUNT; i++)
+	for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
 	{
 		struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
 		res = esp32_write_dirty_registers(esp32->esp32_targets[i], cpu_reg_list);
@@ -426,7 +428,7 @@ static int xtensa_resume(struct target *target,
 		}
 	}
 
-	for (int i = 0; i < ESP32_CPU_COUNT; i++)
+	for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
 	{
 		esp32_checkdsr(esp32->esp32_targets[i]);
 	}
@@ -497,7 +499,7 @@ static int xtensa_resume_cpu(struct target *target,
 	}
 
 	// Here we write all registers to the targets
-	for (int i = 0; i < ESP32_CPU_COUNT; i++)
+	for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
 	{
 		struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
 		res = esp32_write_dirty_registers(esp32->esp32_targets[i], cpu_reg_list);
@@ -516,7 +518,7 @@ static int xtensa_resume_cpu(struct target *target,
 		}
 	}
 
-	for (int i = 0; i < ESP32_CPU_COUNT; i++)
+	for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
 	{
 		esp32_checkdsr(esp32->esp32_targets[i]);
 	}
@@ -773,7 +775,7 @@ static int xtensa_smpbreak_set(struct target *target)
 	int res;
 	uint32_t dsr_data = 0x00110000;
 	uint32_t set = 0, clear = 0;
-	set |= OCDDCR_BREAKINEN | OCDDCR_BREAKOUTEN;
+	set |= OCDDCR_BREAKINEN | OCDDCR_BREAKOUTEN | OCDDCR_RUNSTALLINEN;
 	clear = set ^ (OCDDCR_BREAKINEN | OCDDCR_BREAKOUTEN | OCDDCR_RUNSTALLINEN | OCDDCR_DEBUGMODEOUTEN);
 
 	for (int core = 0; core < ESP32_CPU_COUNT; core++)
@@ -784,7 +786,7 @@ static int xtensa_smpbreak_set(struct target *target)
 		esp108_queue_tdi_idle(esp32->esp32_targets[core]);
 	}
 	res = jtag_execute_queue();
-	LOG_DEBUG("%s[%s] set smpbreak=%i, state=%i", __func__, target->cmd_name, target->reset_halt, target->state);
+	LOG_DEBUG("%s[%s] set smpbreak=%i, state=%i", __func__, target->cmd_name, set, target->state);
 	return res;
 }
 
@@ -849,16 +851,16 @@ static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *br
 	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
 	size_t slot;
 
-	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("%s: %s: target not halted", __func__, target->cmd_name);
-		return ERROR_TARGET_NOT_HALTED;
-	}
+	LOG_DEBUG("%s: %p", __func__, breakpoint);
 
 	for(slot = 0; slot < esp32->num_brps; slot++) {
 		if(esp32->hw_brps[slot] == breakpoint)
 			break;
 	}
-	if (slot==esp32->num_brps) return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	if (slot==esp32->num_brps) {
+		LOG_WARNING("%s: BP not found!", __func__);
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	}
 	esp32->hw_brps[slot] = NULL;
 	LOG_DEBUG("%s: cleared hw breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
 	return ERROR_OK;
@@ -906,7 +908,7 @@ static int xtensa_add_watchpoint(struct target *target, struct watchpoint *watch
 	if (watchpoint->rw==WPT_ACCESS) dbreakcval|=(1<<30)+(1<<31);
 
 	/* Write DBREAKA[slot] and DBCREAKC[slot]*/
-	for (int core = 0; core < ESP32_CPU_COUNT; core++)
+	for (size_t core = 0; core < ESP32_CPU_COUNT; core++)
 	{
 		struct reg *cpu_reg_list = esp32->core_caches[core]->reg_list;
 		esp108_reg_set(&cpu_reg_list[XT_REG_IDX_DBREAKA0 + slot], watchpoint->address);
@@ -922,11 +924,6 @@ static int xtensa_remove_watchpoint(struct target *target, struct watchpoint *wa
 	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
 	size_t slot;
 
-	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("%s: %s: target not halted", __func__, target->cmd_name);
-		return ERROR_TARGET_NOT_HALTED;
-	}
-
 	for(slot = 0; slot < esp32->num_wps; slot++) {
 		if(esp32->hw_wps[slot] == watchpoint)
 			break;
@@ -934,7 +931,7 @@ static int xtensa_remove_watchpoint(struct target *target, struct watchpoint *wa
 	if (slot==esp32->num_wps) return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 
 	/* Clear DBREAKC[slot] to disable watchpoint */
-	for (int core = 0; core < ESP32_CPU_COUNT; core++)
+	for (size_t core = 0; core < ESP32_CPU_COUNT; core++)
 	{
 		struct reg *cpu_reg_list = esp32->core_caches[core]->reg_list;
 		esp108_reg_set(&cpu_reg_list[XT_REG_IDX_DBREAKC0 + slot], 0);
@@ -1058,7 +1055,7 @@ static int xtensa_step(struct target *target,
 	}
 
 	// This operation required to clear state
-	for (int cp = 0; cp < ESP32_CPU_COUNT; cp++)
+	for (size_t cp = 0; cp < ESP32_CPU_COUNT; cp++)
 	{
 		if (cp != esp32->active_cpu) xtensa_read_dsr(esp32->esp32_targets[cp]);
 	}
@@ -1149,6 +1146,7 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 	target->arch_info = esp32;
 	esp32->target=target;
 
+	esp32->cores_num = 0; // unknown
 	esp32->num_brps = XT_NUM_BREAKPOINTS;
 	esp32->hw_brps = calloc(XT_NUM_BREAKPOINTS, sizeof(struct breakpoint *));
 	esp32->num_wps = XT_NUM_WATCHPOINTS;
@@ -1244,13 +1242,70 @@ static int xtensa_init_target(struct command_context *cmd_ctx, struct target *ta
 }
 
 
+static size_t esp32_read_cores_num(struct target *target)
+{
+	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
+	enum target_state old_state = target->state;
+	uint8_t dsr[ESP32_CPU_COUNT][4];
+	size_t cores_num = 1;
+	uint32_t appcpu_ctrl = 0;
+	int res;
+
+	LOG_DEBUG("Read cores number");
+	if (old_state != TARGET_HALTED) {
+		res = xtensa_halt(target);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to halt target (%d)!", res);
+			return 0;
+		}
+		// wait
+		memset(dsr, 0, sizeof(dsr));
+		while (1) {
+			for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
+			{
+				esp108_queue_nexus_reg_read(esp32->esp32_targets[i], NARADR_DSR, dsr[i]);
+				esp108_queue_tdi_idle(esp32->esp32_targets[i]);
+				res = jtag_execute_queue();
+				if (res != ERROR_OK) return 0;
+			}
+			unsigned int common_reason = intfromchars(dsr[0]) | intfromchars(dsr[1]);
+			if (common_reason & OCDDSR_STOPPED) {
+				break;
+			}
+		}
+		target->state = TARGET_HALTED;
+	}
+
+	res = xtensa_read_memory(target, ESP32_DPORT_APPCPU_CTRL_B_REG, sizeof(uint32_t), 1, (uint8_t *)&appcpu_ctrl);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to read target memory (%d)!", res);
+		return 0;
+	}
+	LOG_DEBUG("Read APP CPU ctrl reg 0x%x", appcpu_ctrl);
+	if (appcpu_ctrl & ESP32_DPORT_APPCPU_CLKGATE_EN) {
+		cores_num++;
+		LOG_DEBUG("APP CPU enabled");
+	}
+	LOG_DEBUG("Detected %u cores", (uint32_t)cores_num);
+
+	if (old_state == TARGET_RUNNING) {
+		// resume CPU
+		if (xtensa_resume(target, 1, 0, 1, 0) != ERROR_OK) {
+			LOG_ERROR("Failed to resume target from state '%s'!", target_state_name(target));
+		}
+	} else if (old_state != TARGET_HALTED) {
+		LOG_ERROR("Invalid target state (%d) to read cores number!", old_state);
+	}
+
+	return cores_num;
+}
+
 static int xtensa_poll(struct target *target)
 {
 	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
 	uint8_t pwrstat[ESP32_CPU_COUNT], pwrstath[ESP32_CPU_COUNT];
-	int res;
-	int cmd;
-	uint8_t dsr[ESP32_CPU_COUNT][4], ocdid[ESP32_CPU_COUNT][4], traxstat[ESP32_CPU_COUNT][4], traxctl[ESP32_CPU_COUNT][4];
+	int res, cmd;
+	uint8_t dsr[ESP32_CPU_COUNT][4] = {{0}}, ocdid[ESP32_CPU_COUNT][4] = {{0}}, traxstat[ESP32_CPU_COUNT][4] = {{0}}, traxctl[ESP32_CPU_COUNT][4] = {{0}};
 
 	//Read reset state
 	for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
@@ -1267,6 +1322,7 @@ static int xtensa_poll(struct target *target)
 	}
 	if (!(esp32->prevpwrstat&PWRSTAT_COREWASRESET) && pwrstat[ESP32_PRO_CPU_ID] & PWRSTAT_COREWASRESET) {
 		LOG_INFO("%s: Core was reset (pwrstat=0x%02X, after clear 0x%02X).", target->cmd_name, pwrstat[ESP32_PRO_CPU_ID], pwrstath[ESP32_PRO_CPU_ID]);
+		esp32->cores_num = 0; // unknown
 	}
 	esp32->prevpwrstat = pwrstath[ESP32_PRO_CPU_ID];
 
@@ -1298,28 +1354,20 @@ static int xtensa_poll(struct target *target)
 	}
 
 	unsigned int dsr0 = intfromchars(dsr[0]);
-	unsigned int dsr1 = intfromchars(dsr[1]);
+	unsigned int dsr1 = intfromchars(dsr[0]);
 	unsigned int common_reason = dsr0 | dsr1; // We should know if even one of CPU was stopped
 
 	unsigned int common_pwrstath = pwrstath[0] | pwrstath[1];
-
-	if ((dsr0 & OCDDSR_STOPPED) != (dsr1 & OCDDSR_STOPPED))
-	{
-		LOG_DEBUG("%s: dsr0=0x%08x, dsr1=0x%08x", __func__, dsr0, dsr1);
-		res = xtensa_smpbreak_set(target);
-		if (res != ERROR_OK) return res;
-	}
-
 	if (common_reason & OCDDSR_STOPPED) {
+		int oldstate=target->state;
 		if(target->state != TARGET_HALTED) {
 			LOG_DEBUG("Stopped: CPU0: %d CPU1: %d", (dsr0 & OCDDSR_STOPPED) ? 1 : 0, (dsr1 & OCDDSR_STOPPED) ? 1 : 0);
-			int oldstate=target->state;
 			xtensa_halt(target);
 			target->state = TARGET_HALTED;
 			esp32_fetch_all_regs(target);
 			//Examine why the target was halted
 			target->debug_reason = DBG_REASON_DBGRQ;
-			for (int i = 0; i < ESP32_CPU_COUNT; i++)
+			for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
 			{
 				struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
 				volatile int temp_cause = xtensa_read_reg_direct(esp32->esp32_targets[i], XT_REG_IDX_DEBUGCAUSE);
@@ -1330,7 +1378,7 @@ static int xtensa_poll(struct target *target)
 				{
 					if (esp32->active_cpu != i)
 					{
-						LOG_INFO("active_cpu: %i, changed to %i, reson = 0x%08x", esp32->active_cpu, i, dsr_core);
+						LOG_INFO("active_cpu: %u, changed to %u, reson = 0x%08x", (uint32_t)esp32->active_cpu, (uint32_t)i, dsr_core);
 					}
 					esp32->active_cpu = i;
 				}
@@ -1351,7 +1399,7 @@ static int xtensa_poll(struct target *target)
 					target->debug_reason = DBG_REASON_WATCHPOINT;
 				}
 			}
-			for (int i = 0; i < ESP32_CPU_COUNT; i++)
+			for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
 			{
 				struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
 				LOG_DEBUG("%s: Target halted, pc=0x%08X, debug_reason=%08x, oldstate=%08x, active=%s", esp32->esp32_targets[i]->cmd_name, esp108_reg_get(&cpu_reg_list[XT_REG_IDX_PC]), target->debug_reason, oldstate, (i == esp32->active_cpu) ? "true" : "false");
@@ -1379,16 +1427,14 @@ static int xtensa_poll(struct target *target)
 	} else {
 		target->debug_reason = DBG_REASON_NOTHALTED;
 		if (target->state!=TARGET_RUNNING && target->state!=TARGET_DEBUG_RUNNING) {
-			//LOG_INFO("%s: Core running again.", target->cmd_name);
 			target->state = TARGET_RUNNING;
 			target->debug_reason = DBG_REASON_NOTHALTED;
 		}
 	}
 
-
 	if (esp32->traceActive) {
 		//Detect if tracing was active but has stopped.
-		for (int core = 0; core < ESP32_CPU_COUNT; core++)
+		for (size_t core = 0; core < ESP32_CPU_COUNT; core++)
 		{
 			if ((intfromchars(traxctl[core])&TRAXCTRL_TREN) && (!(intfromchars(traxstat[core])&TRAXSTAT_TRACT))) {
 				LOG_INFO("Detected end of trace.");
@@ -1484,7 +1530,7 @@ COMMAND_HANDLER(esp32_cmd_tracestart)
 	unsigned int i;
 	uint8_t traxstat[8], traxctl[4];
 
-	for (int core = 0; core < ESP32_CPU_COUNT; core++)
+	for (size_t core = 0; core < ESP32_CPU_COUNT; core++)
 	{
 		esp108_queue_nexus_reg_read(esp32->esp32_targets[core], NARADR_TRAXSTAT, traxstat);
 		esp108_queue_nexus_reg_read(esp32->esp32_targets[core], NARADR_TRAXCTRL, traxctl);
@@ -1528,7 +1574,7 @@ COMMAND_HANDLER(esp32_cmd_tracestart)
 		}
 	}
 	stopmask = 1;
-	for (int core = 0; core < ESP32_CPU_COUNT; core++)
+	for (size_t core = 0; core < ESP32_CPU_COUNT; core++)
 	{
 		//Turn off trace unit so we can start a new trace.
 		esp108_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_TRAXCTRL, 0);
@@ -1813,22 +1859,22 @@ static const struct command_registration esp32_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-static int esp32_get_cores_count(struct target *target);
-static int esp32_get_active_core(struct target *target);
-static void esp32_set_active_core(struct target *target, int core);
-
-static int esp32_get_cores_count(struct target *target)
+static size_t esp32_get_cores_count(struct target *target)
 {
-	return ESP32_CPU_COUNT;
+	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
+	if (esp32 == NULL) {
+		return ESP32_CPU_COUNT;
+	}
+	return esp32->cores_num > 0 ? esp32->cores_num : esp32_read_cores_num(target);
 }
 
-static int esp32_get_active_core(struct target *target)
+static size_t esp32_get_active_core(struct target *target)
 {
 	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
 	return esp32->active_cpu;
 }
 
-static void esp32_set_active_core(struct target *target, int core)
+static void esp32_set_active_core(struct target *target, size_t core)
 {
 	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
 	esp32->active_cpu = core;
