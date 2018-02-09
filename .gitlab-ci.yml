@@ -58,7 +58,7 @@ build_linux:
 
 build_windows:
   stage: build
-  image: $CI_DOCKER_REGISTRY/esp32-toolchain
+  image: $CI_DOCKER_REGISTRY/esp32-toolchain-win-cross
   tags:
     - build
 
