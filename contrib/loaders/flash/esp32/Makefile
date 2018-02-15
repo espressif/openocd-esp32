@@ -49,12 +49,11 @@ STUB_ELF = $(BUILD_DIR)/$(STUB).elf
 STUB_OBJ = $(BUILD_DIR)/$(STUB).o
 STUB_CODE_SECT = $(STUB)_code.inc
 STUB_DATA_SECT = $(STUB)_data.inc
-STUB_WRAPPER = $(STUB)_wrapper.inc
 STUB_IMAGE_HDR = $(STUB)_image.h
 
 .PHONY: all clean
 
-all: $(STUB_ELF) $(STUB_WRAPPER) $(STUB_IMAGE_HDR) $(STUB_CODE_SECT) $(STUB_DATA_SECT)
+all: $(STUB_ELF) $(STUB_IMAGE_HDR) $(STUB_CODE_SECT) $(STUB_DATA_SECT)
 
 $(BUILD_DIR):
 	$(Q) mkdir $@
@@ -63,20 +62,23 @@ CFLAGS = -std=c99 -Wall -Werror -Os \
          -mtext-section-literals -mlongcalls -nostdlib -fno-builtin -flto \
          -Wl,-static -g -ffunction-sections -Wl,--gc-sections
 
-INCLUDES += -I. -I$(IDF_PATH)/components/esp32/include -I$(IDF_PATH)/components/soc/esp32/include \
-		-I$(IDF_PATH)/components/app_trace/include -I$(IDF_PATH)/components/xtensa-debug-module/include \
-		-I$(IDF_PATH)/components/freertos/include -I$(IDF_PATH)/components/log/include \
-		-L$(IDF_PATH)/components/esp32/ld
+INCLUDES += -I. -I$(IDF_PATH)/components/esp32/include -I$(IDF_PATH)/components/soc/esp32/include -I$(IDF_PATH)/components/soc/include \
+		-I$(IDF_PATH)/components/app_trace/include -I$(IDF_PATH)/components/xtensa-debug-module/include -I$(IDF_PATH)/components/driver/include \
+		-I$(IDF_PATH)/components/freertos/include -I$(IDF_PATH)/components/log/include -I$(IDF_PATH)/components/heap/include
 
 DEFINES = -Dasm=__asm__
 
 CFLAGS += $(INCLUDES) $(DEFINES)
 
+LDFLAGS += -L$(IDF_PATH)/components/esp32/ld -Tstub.ld -T$(IDF_PATH)/components/esp32/ld/esp32.rom.ld \
+	-T$(IDF_PATH)/components/esp32/ld/esp32.rom.spiram_incompatible_fns.ld -T$(IDF_PATH)/components/esp32/ld/esp32.peripherals.ld \
+	-Wl,--start-group -lgcc -lc -Wl,--end-group
+
 $(STUB_ELF): $(SRCS) stub.ld $(BUILD_DIR)
 	@echo "  CC   $^ -> $@"
-	$(Q) $(CROSS)gcc $(CFLAGS) -DSTUB_IMAGE=1 -Tstub.ld -Wl,-Map=$(@:.elf=.map) -o $@ $(filter %.c, $^)
+	$(Q) $(CROSS)gcc $(CFLAGS) -DSTUB_IMAGE=1 -Wl,-Map=$(@:.elf=.map) -o $@ $(LDFLAGS) $(filter %.c, $^)
 
-$(STUB_OBJ): $(SRCS) sdkconfig.h
+$(STUB_OBJ): $(SRCS) sdkconfig.h Makefile
 	@echo "  CC   $^ -> $@"
 	$(Q) $(CROSS)gcc $(CFLAGS) -c $(filter %.c, $^) -o $@
 
@@ -90,18 +92,12 @@ $(STUB_DATA_SECT): $(STUB_ELF)
 	$(Q) $(CROSS)objcopy -O binary -j.data $^ $(BUILD_DIR)/$(STUB)_data.bin
 	$(Q) cat $(BUILD_DIR)/$(STUB)_data.bin | xxd -i > $@
 
-$(STUB_WRAPPER): $(WRAPPER_SRC)
-	@echo "  CC   $^ -> $@"
-	$(Q) $(CROSS)gcc -c $^ -o $(BUILD_DIR)/$(STUB)_wrapper.o
-	$(Q) $(CROSS)objcopy -O binary $(BUILD_DIR)/$(STUB)_wrapper.o $(BUILD_DIR)/$(STUB)_wrapper.bin
-	$(Q) cat $(BUILD_DIR)/$(STUB)_wrapper.bin | xxd -i > $@
-
 $(STUB_IMAGE_HDR): $(STUB_ELF)
 	@echo "  CC   $^ -> $@"
-	$(Q) @echo -n "#define ESP32_STUB_BSS_SIZE 0x" > $(STUB_IMAGE_HDR)
-	$(Q) $(CROSS)readelf -S $^ | fgrep .bss | awk '{print $$7}' >> $(STUB_IMAGE_HDR)
-	$(Q) @echo -n "#define ESP32_STUB_ENTRY_ADDR 0x" >> $(STUB_IMAGE_HDR)
-	$(Q) $(CROSS)readelf -s $^ | fgrep stub_main | awk '{print $$2}' >> $(STUB_IMAGE_HDR)
+	$(Q) @echo -n "#define ESP32_STUB_BSS_SIZE 0x0" > $(STUB_IMAGE_HDR)
+	$(Q) $(CROSS)readelf -S $^ | fgrep .bss | awk '{print $$7"UL"}' >> $(STUB_IMAGE_HDR)
+	$(Q) @echo -n "\n#define ESP32_STUB_ENTRY_ADDR 0x0" >> $(STUB_IMAGE_HDR)
+	$(Q) $(CROSS)readelf -s $^ | fgrep stub_main | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR)
 
 clean:
 	$(Q) rm -rf $(BUILD_DIR) $(STUB_CODE_SECT) $(STUB_DATA_SECT) $(STUB_WRAPPER) $(STUB_IMAGE_HDR)

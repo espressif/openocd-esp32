@@ -36,6 +36,8 @@
 
 #define IMAGE_MEMORY_CACHE_SIZE		(2048)
 
+#define IMAGE_ELF_PHF_EXEC			0x1
+
 enum image_type {
 	IMAGE_BINARY,	/* plain binary */
 	IMAGE_IHEX,		/* intel hex-record format */

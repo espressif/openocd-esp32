@@ -86,6 +86,47 @@ registers of this core will be transfered.
 
 #define esp32_regs esp108_regs
 
+#define ESP32_STUB_DEBUG			0
+#define ESP32_ALGORITHM_EXIT_TMO	5000 // ms
+#define ESP32_TARGET_STATE_TMO		1000 // ms
+
+#if ESP32_STUB_DEBUG
+#define ESP32_STUB_STACK_STAMP		0xCE
+#define ESP32_STUB_STACK_DEBUG		128
+#else
+#define ESP32_STUB_STACK_DEBUG		0
+#endif
+
+/* ESP32 dport regs */
+#define ESP32_DR_REG_DPORT_BASE         0x3ff00000
+#define ESP32_DPORT_APPCPU_CTRL_B_REG   (ESP32_DR_REG_DPORT_BASE + 0x030)
+#define ESP32_DPORT_APPCPU_CLKGATE_EN	(1 << 0)
+
+#define ESP32_DBGSTUBS_UPDATE_DATA_ENTRY(_e_) \
+do { \
+	(_e_) = intfromchars((uint8_t *)&(_e_)); \
+	if (!esp32_data_addr_valid((_e_))) { \
+		LOG_ERROR("No stub entry found!"); \
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE; \
+	} \
+} while(0)
+
+#define ESP32_DBGSTUBS_UPDATE_CODE_ENTRY(_e_) \
+do { \
+	(_e_) = intfromchars((uint8_t *)&(_e_)); \
+	if ((_e_) == 0) { \
+		LOG_ERROR("No stub entry found!"); \
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE; \
+	} \
+} while(0)
+
+#define ESP32_IDLE_LOOP_CODE_SZ			3 // size of jump insn
+
+struct esp32_idle_core_ctx {
+	uint32_t pc;
+	uint32_t ps;
+};
+
 //forward declarations
 static int xtensa_step(struct target *target,
 	int current,
@@ -103,11 +144,18 @@ static size_t esp32_get_cores_count(struct target *target);
 static size_t esp32_get_active_core(struct target *target);
 static void esp32_set_active_core(struct target *target, size_t core);
 static size_t esp32_read_cores_num(struct target *target);
-
+static int esp32_dbgstubs_restore(struct target *target);
+static int esp32_dbgstubs_update_info(struct target *target, uint32_t stubs_addr);
+static uint32_t esp32_dbgstubs_get(struct target *target);
+static int esp32_handle_target_event(struct target *target, enum target_event event, void *priv);
 
 //Utility function: check DSR for any weirdness and report.
 //Also does tms_reset to bootstrap level indicated.
 #define esp32_checkdsr(target) esp108_do_checkdsr(target, __FUNCTION__, __LINE__)
+
+static const uint8_t esp32_stub_tramp[] = {
+	#include "src/target/esp32_stub_tramp.inc"
+};
 
 static void esp32_mark_register_dirty(struct reg *reg_list, int regidx)
 {
@@ -547,10 +595,10 @@ static int xtensa_resume_cpu(struct target *target,
 }
 
 static int xtensa_read_memory(struct target *target,
-			      uint32_t address,
-			      uint32_t size,
-			      uint32_t count,
-			      uint8_t *buffer)
+							uint32_t address,
+							uint32_t size,
+							uint32_t count,
+							uint8_t *buffer)
 {
 	//We are going to read memory in 32-bit increments. This may not be what the calling function expects, so we may need to allocate a temp buffer and read into that first.
 	uint32_t addrstart_al=(address)&~3;
@@ -615,20 +663,19 @@ static int xtensa_read_memory(struct target *target,
 }
 
 static int xtensa_read_buffer(struct target *target,
-			      uint32_t address,
-			      uint32_t count,
-			      uint8_t *buffer)
+							uint32_t address,
+							uint32_t count,
+							uint8_t *buffer)
 {
-//xtensa_read_memory can also read unaligned stuff. Just pass through to that routine.
-	//printf("%s: %s: reading size=%d , count = %d, bytes from addr %08X \n", target->cmd_name, __FUNCTION__, 1, count, address);
+	//xtensa_read_memory can also read unaligned stuff. Just pass through to that routine.
 	return xtensa_read_memory(target, address, 1, count, buffer);
 }
 
 static int xtensa_write_memory(struct target *target,
-			       uint32_t address,
-			       uint32_t size,
-			       uint32_t count,
-			       const uint8_t *buffer)
+							uint32_t address,
+							uint32_t size,
+							uint32_t count,
+							const uint8_t *buffer)
 {
 	//This memory write function can get thrown nigh everything into it, from
 	//aligned uint32 writes to unaligned uint8ths. The Xtensa memory doesn't always
@@ -724,15 +771,13 @@ static int xtensa_write_memory(struct target *target,
 }
 
 static int xtensa_write_buffer(struct target *target,
-			       uint32_t address,
-			       uint32_t count,
-			       const uint8_t *buffer)
+							uint32_t address,
+							uint32_t count,
+							const uint8_t *buffer)
 {
 	//xtensa_write_memory can handle everything. Just pass on to that.
 	return xtensa_write_memory(target, address, 1, count, buffer);
 }
-
-
 
 static int xtensa_get_gdb_reg_list(struct target *target,
 	struct reg **reg_list[],
@@ -791,7 +836,7 @@ static int xtensa_assert_reset(struct target *target)
 		return res;
 	}
 	esp32->resetAsserted=1;
-	
+
 	if (target->reset_halt) {
 		res = target_halt(target);
 		if (res != ERROR_OK) {
@@ -851,6 +896,21 @@ static int xtensa_deassert_reset(struct target *target)
 	return res;
 }
 
+static int esp32_handle_target_event(struct target *target, enum target_event event, void *priv)
+{
+	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
+
+	LOG_DEBUG("%s %d", __func__, event);
+	switch (event) {
+		case TARGET_EVENT_HALTED:
+			esp32->cores_num = esp32_read_cores_num(target);
+			break;
+		default:
+			break;
+	}
+
+	return ERROR_OK;
+}
 
 static int xtensa_add_breakpoint(struct target *target, struct breakpoint *breakpoint)
 {
@@ -988,7 +1048,7 @@ static bool pc_in_window_exception(struct target *target, uint32_t pc)
 	if (masked == XT_INS_L32E(0, 0, 0) || masked == XT_INS_S32E(0, 0, 0)) {
 		return true;
 	}
-	
+
 	masked = insn & XT_INS_RFWO_RFWU_MASK;
 	if (masked == XT_INS_RFWO || masked == XT_INS_RFWU) {
 		return true;
@@ -1057,7 +1117,7 @@ static int xtensa_step(struct target *target,
 	}
 
 	struct reg *cpu_reg_list = esp32->core_caches[esp32->active_cpu]->reg_list;
-	
+
 
 	do {
 		esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
@@ -1097,7 +1157,7 @@ static int xtensa_step(struct target *target,
 		esp32_fetch_all_regs(target, 1 << esp32->active_cpu);
 
 		cur_pc = esp108_reg_get(&reg_list[XT_REG_IDX_PC]);
-		
+
 		if (esp32->isrmasking_mode == ESP32_ISRMASK_ON &&
 			pc_in_window_exception(target, cur_pc))
 		{
@@ -1197,7 +1257,6 @@ static const struct reg_arch_type esp32_reg_type = {
 	.set = xtensa_set_core_reg,
 };
 
-
 static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 {
 	struct esp32_common *esp32 = calloc(1, sizeof(struct esp32_common));
@@ -1207,6 +1266,12 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 
 	if (!esp32)
 		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	int ret = target_register_event_callback(esp32_handle_target_event, NULL);
+	if (ret != ERROR_OK) {
+		LOG_ERROR("Failed to register target event callback (%d)!", ret);
+		return ret;
+	}
 
 	target->arch_info = esp32;
 	esp32->target=target;
@@ -1293,54 +1358,41 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 	target->debug_reason = DBG_REASON_NOTHALTED;
 	esp32->core_cache = esp32->core_caches[0];
 	esp32->active_cpu = 0;
+
+	return ERROR_OK;
+}
+
+int xtensa_on_exit(struct target *target, void *priv)
+{
+	int ret = esp32_dbgstubs_restore(target);
+	if (ret != ERROR_OK) {
+		return ret;
+	}
 	return ERROR_OK;
 }
 
 static int xtensa_init_target(struct command_context *cmd_ctx, struct target *target)
-{	LOG_DEBUG("%s", __func__);
+{
 	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
 
+	LOG_DEBUG("%s", __func__);
+	int ret = target_register_exit_callback(xtensa_on_exit, NULL);
+	if (ret != ERROR_OK) {
+		return ret;
+	}
 
 	esp32->state = XT_NORMAL; // Assume normal state until we examine
 
 	return ERROR_OK;
 }
 
-
 static size_t esp32_read_cores_num(struct target *target)
 {
-	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
-	enum target_state old_state = target->state;
-	uint8_t dsr[ESP32_CPU_COUNT][4];
 	size_t cores_num = 1;
 	uint32_t appcpu_ctrl = 0;
 	int res;
 
 	LOG_DEBUG("Read cores number");
-	if (old_state != TARGET_HALTED) {
-		res = xtensa_halt(target);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to halt target (%d)!", res);
-			return 0;
-		}
-		// wait
-		memset(dsr, 0, sizeof(dsr));
-		while (1) {
-			for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
-			{
-				esp108_queue_nexus_reg_read(esp32->esp32_targets[i], NARADR_DSR, dsr[i]);
-				esp108_queue_tdi_idle(esp32->esp32_targets[i]);
-				res = jtag_execute_queue();
-				if (res != ERROR_OK) return 0;
-			}
-			unsigned int common_reason = intfromchars(dsr[0]) | intfromchars(dsr[1]);
-			if (common_reason & OCDDSR_STOPPED) {
-				break;
-			}
-		}
-		target->state = TARGET_HALTED;
-	}
-
 	res = xtensa_read_memory(target, ESP32_DPORT_APPCPU_CTRL_B_REG, sizeof(uint32_t), 1, (uint8_t *)&appcpu_ctrl);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to read target memory (%d)!", res);
@@ -1352,16 +1404,6 @@ static size_t esp32_read_cores_num(struct target *target)
 		LOG_DEBUG("APP CPU enabled");
 	}
 	LOG_DEBUG("Detected %u cores", (uint32_t)cores_num);
-
-	if (old_state == TARGET_RUNNING) {
-		// resume CPU
-		if (xtensa_resume(target, 1, 0, 1, 0) != ERROR_OK) {
-			LOG_ERROR("Failed to resume target from state '%s'!", target_state_name(target));
-		}
-	} else if (old_state != TARGET_HALTED) {
-		LOG_ERROR("Invalid target state (%d) to read cores number!", old_state);
-	}
-
 	return cores_num;
 }
 
@@ -1388,6 +1430,7 @@ static int xtensa_poll(struct target *target)
 	if (!(esp32->prevpwrstat&PWRSTAT_COREWASRESET) && pwrstat[ESP32_PRO_CPU_ID] & PWRSTAT_COREWASRESET) {
 		LOG_INFO("%s: Core was reset (pwrstat=0x%02X, after clear 0x%02X).", target->cmd_name, pwrstat[ESP32_PRO_CPU_ID], pwrstath[ESP32_PRO_CPU_ID]);
 		esp32->cores_num = 0; // unknown
+		memset(&esp32->dbg_stubs, 0, sizeof(struct esp32_dbg_stubs));
 	}
 	esp32->prevpwrstat = pwrstath[ESP32_PRO_CPU_ID];
 
@@ -1511,7 +1554,45 @@ static int xtensa_poll(struct target *target)
 			}
 		}
 	}
-
+	if (esp32->dbg_stubs.entries_count == 0) {
+		enum target_state old_state = target->state;
+		uint32_t stubs_addr = esp32_dbgstubs_get(target);
+		if (stubs_addr) {
+			if (old_state != TARGET_HALTED) {
+				// halt resumed CPU
+				res = xtensa_halt(target);
+				if (res != ERROR_OK) {
+					LOG_ERROR("Failed to halt target (%d)!", res);
+					return res;
+				}
+				// wait
+				memset(dsr, 0, sizeof(dsr));
+				while (1) {
+					for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
+					{
+						esp108_queue_nexus_reg_read(esp32->esp32_targets[i], NARADR_DSR, dsr[i]);
+						esp108_queue_tdi_idle(esp32->esp32_targets[i]);
+						res = jtag_execute_queue();
+						if (res != ERROR_OK) return res;
+					}
+					common_reason = intfromchars(dsr[0]) | intfromchars(dsr[1]);
+					if (common_reason & OCDDSR_STOPPED) {
+						break;
+					}
+				}
+				target->state = TARGET_HALTED;
+				esp32_fetch_all_regs(target, 0x3);
+			}
+			// update dbg stubs info
+			esp32_dbgstubs_update_info(target, stubs_addr);
+			if (old_state == TARGET_RUNNING) {
+				// resume CPU
+				if (xtensa_resume(target, 1, 0, 1, 0) != ERROR_OK) {
+					LOG_ERROR("Failed to resume target froom state '%s'!", target_state_name(target));
+				}
+			}
+		}
+	}
 	return ERROR_OK;
 }
 
@@ -1519,6 +1600,641 @@ static int xtensa_arch_state(struct target *target)
 {
 	LOG_DEBUG("%s", __func__);
 	return ERROR_OK;
+}
+
+static inline bool esp32_data_addr_valid(uint32_t addr)
+{
+	return ((addr >= ESP32_DROM_LOW) && (addr < ESP32_DRAM_HIGH)) ? true : false;
+}
+
+static uint32_t esp32_dbgstubs_get(struct target *target)
+{
+	struct esp32_common *esp32 = (struct esp32_common *)target->arch_info;
+	uint32_t vec_addr = 0, addr = 0;
+
+	int res = esp108_apptrace_read_status(esp32->esp32_targets[esp32->active_cpu], &vec_addr);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to read trace status (%d)!", res);
+		return 0;
+	}
+	if (esp32_data_addr_valid(vec_addr)) {
+		LOG_INFO("Detected debug stubs @ %x on core%u of target '%s'", vec_addr, (uint32_t)esp32->active_cpu, target_type_name(target));
+		res = esp108_apptrace_write_status(esp32->esp32_targets[esp32->active_cpu], 0);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to clear trace status (%d)!", res);
+		}
+	}
+	res = esp108_apptrace_read_status(esp32->esp32_targets[esp32->active_cpu ? 0 : 1], &addr);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to read trace status (%d)!", res);
+		return 0;
+	}
+	if (esp32_data_addr_valid(addr)) {
+		LOG_INFO("Detected debug stubs @ %x on core%d of target '%s'", addr, esp32->active_cpu ? 0 : 1, target_type_name(target));
+		res = esp108_apptrace_write_status(esp32->esp32_targets[esp32->active_cpu ? 0 : 1], 0);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to clear trace status (%d)!", res);
+		}
+		if (!esp32_data_addr_valid(vec_addr)) {
+			vec_addr = addr;
+		}
+	}
+	// not set yet, or there is no program with enabled dbg stubs in flash
+	return esp32_data_addr_valid(vec_addr) ? vec_addr : 0;
+}
+
+static int esp32_dbgstubs_update_info(struct target *target, uint32_t stubs_addr)
+{
+	struct esp32_common *esp32 = (struct esp32_common *)target->arch_info;
+
+	esp32->dbg_stubs.base = stubs_addr;
+	int res = target_read_memory(target, stubs_addr, sizeof(uint32_t),
+							ESP32_DBG_STUB_ENTRY_MAX-ESP32_DBG_STUB_TABLE_START,
+							(uint8_t *)&esp32->dbg_stubs.entries);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to halt target '%s' (%d)!", target_state_name(target), res);
+		return res;
+	}
+	for (esp32_dbg_stub_id_t i = ESP32_DBG_STUB_TABLE_START; i < ESP32_DBG_STUB_ENTRY_MAX; i++) {
+		LOG_DEBUG("Check dbg stub %d", i);
+		if (esp32->dbg_stubs.entries[i]) {
+			esp32->dbg_stubs.entries[i] = intfromchars((uint8_t *)&esp32->dbg_stubs.entries[i]);
+			LOG_DEBUG("New dbg stub %d at %x", esp32->dbg_stubs.entries_count, esp32->dbg_stubs.entries[i]);
+			esp32->dbg_stubs.entries_count++;
+		}
+	}
+	if (esp32->dbg_stubs.entries_count < (ESP32_DBG_STUB_ENTRY_MAX-ESP32_DBG_STUB_TABLE_START)) {
+		LOG_INFO("Not full dbg stub table %d of %d", esp32->dbg_stubs.entries_count, (ESP32_DBG_STUB_ENTRY_MAX-ESP32_DBG_STUB_TABLE_START));
+		esp32->dbg_stubs.entries_count = 0;
+		return ERROR_OK;
+	}
+	// read debug stubs descriptor
+	ESP32_DBGSTUBS_UPDATE_DATA_ENTRY(esp32->dbg_stubs.entries[ESP32_DBG_STUB_DESC]);
+	res = target_read_memory(target, esp32->dbg_stubs.entries[ESP32_DBG_STUB_DESC], sizeof(struct esp32_dbg_stubs_desc), 1, (uint8_t *)&esp32->dbg_stubs.desc);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to read target memory (%d)!", res);
+		return res;
+	}
+	ESP32_DBGSTUBS_UPDATE_CODE_ENTRY(esp32->dbg_stubs.desc.tramp_addr);
+	ESP32_DBGSTUBS_UPDATE_DATA_ENTRY(esp32->dbg_stubs.desc.min_stack_addr);
+	ESP32_DBGSTUBS_UPDATE_CODE_ENTRY(esp32->dbg_stubs.desc.data_alloc);
+	ESP32_DBGSTUBS_UPDATE_CODE_ENTRY(esp32->dbg_stubs.desc.data_free);
+
+	return res;
+}
+
+static int esp32_dbgstubs_restore(struct target *target)
+{
+	struct esp32_common *esp32 = (struct esp32_common *)target->arch_info;
+
+	LOG_INFO("Restore debug stubs @ %x on core%u of target '%s'", esp32->dbg_stubs.base, (uint32_t)esp32->active_cpu, target_type_name(target));
+	int res = esp108_apptrace_write_status(esp32->esp32_targets[esp32->active_cpu], esp32->dbg_stubs.base);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write trace status (%d)!", res);
+		return res;
+	}
+	return ERROR_OK;
+}
+
+static void esp32_algo_args_init(struct esp32_stub *stub, uint32_t stack_addr)
+{
+	LOG_DEBUG("Check stack addr 0x%x", stack_addr);
+	if (stack_addr & 0xFUL) {
+		LOG_DEBUG("Adjust stack addr 0x%x", stack_addr);
+		stack_addr &= ~0xFUL;
+	}
+	stack_addr -= 16;
+	init_reg_param(&stub->reg_params[0], "a0", 			32, PARAM_OUT); //TODO: move to tramp
+	init_reg_param(&stub->reg_params[1], "a1", 			32, PARAM_OUT);
+	init_reg_param(&stub->reg_params[2], "a8", 			32, PARAM_OUT);
+	init_reg_param(&stub->reg_params[3], "windowbase", 	32, PARAM_OUT); //TODO: move to tramp
+	init_reg_param(&stub->reg_params[4], "windowstart", 32, PARAM_OUT); //TODO: move to tramp
+	init_reg_param(&stub->reg_params[5], "ps", 			32, PARAM_OUT);
+	buf_set_u32(stub->reg_params[0].value, 0, 32, 0); // a0 TODO: move to tramp
+	buf_set_u32(stub->reg_params[1].value, 0, 32, stack_addr); // a1
+	buf_set_u32(stub->reg_params[2].value, 0, 32, stub->entry); // a8
+	buf_set_u32(stub->reg_params[3].value, 0, 32, 0x0); // initial window base TODO: move to tramp
+	buf_set_u32(stub->reg_params[4].value, 0, 32, 0x1); // initial window start TODO: move to tramp
+	buf_set_u32(stub->reg_params[5].value, 0, 32, 0x60021); // enable WOE, UM and debug interrupts level TODO: raise IRQ level
+}
+
+static int esp32_stub_load(struct target *target, struct esp32_algo_image *algo_image, struct esp32_stub *stub, uint32_t stack_size)
+{
+	int retval;
+
+	if (algo_image) {
+		//TODO: add description of how to build proper ELF image to to be loaded to workspace
+		LOG_DEBUG("stub: base 0x%x, start 0x%x, %d sections", (unsigned)algo_image->image.base_address, algo_image->image.start_address, algo_image->image.num_sections);
+		stub->entry = algo_image->image.start_address;
+		for (int i = 0; i < algo_image->image.num_sections; i++) {
+			struct imagesection *section = &algo_image->image.sections[i];
+			LOG_DEBUG("addr %x, sz %d, flags %x", section->base_address, section->size, section->flags);
+			if (section->flags & IMAGE_ELF_PHF_EXEC) {
+				if (target_alloc_working_area(target, section->size, &stub->code) != ERROR_OK) {
+					LOG_ERROR("no working area available, can't alloc space for stub code!");
+					retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+					goto _on_error;
+				}
+				if (section->base_address == 0) {
+					section->base_address = stub->code->address;
+				// sanity check, stub is compiled to be run from working area
+				} else if (stub->code->address != section->base_address) {
+					LOG_ERROR("working area 0x%x and stub code section 0x%x address mismatch!", section->base_address, stub->code->address);
+					retval = ERROR_FAIL;
+					goto _on_error;
+				}
+			} else {
+				if (target_alloc_alt_working_area(target, section->size + algo_image->bss_size, &stub->data) != ERROR_OK) {
+					LOG_ERROR("no working area available, can't alloc space for stub data!");
+					retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+					goto _on_error;
+				}
+				if (section->base_address == 0) {
+					section->base_address = stub->data->address;
+				// sanity check, stub is compiled to be run from working area
+				} else  if (stub->data->address != section->base_address) {
+					LOG_ERROR("working area 0x%x and stub data section 0x%x address mismatch!", section->base_address, stub->data->address);
+					retval = ERROR_FAIL;
+					goto _on_error;
+				}
+			}
+			uint32_t sec_wr = 0;
+			uint8_t buf[512];
+			while (sec_wr < section->size) {
+				uint32_t nb = section->size - sec_wr > sizeof(buf) ? sizeof(buf) : section->size - sec_wr;
+				size_t size_read = 0;
+				retval = image_read_section(&(algo_image->image), i, sec_wr, nb, buf, &size_read);
+				if (retval != ERROR_OK) {
+					LOG_ERROR("Failed to read stub section (%d)!", retval);
+					goto _on_error;
+				}
+				retval = target_write_buffer(target, section->base_address + sec_wr, size_read, buf);
+				if (retval != ERROR_OK) {
+					LOG_ERROR("Failed to write stub section!");
+					goto _on_error;
+				}
+				sec_wr += size_read;
+			}
+		}
+	}
+	if (stub->tramp_addr == 0) {
+		// alloc trampoline in code working area
+		if (target_alloc_working_area(target, sizeof(esp32_stub_tramp), &stub->tramp) != ERROR_OK) {
+			LOG_ERROR("no working area available, can't alloc space for stub jumper!");
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+		stub->tramp_addr = stub->tramp->address;
+	}
+	if (stub->stack_addr == 0) {
+		// alloc stack in data working area
+		if (target_alloc_alt_working_area(target, stack_size, &stub->stack) != ERROR_OK) {
+			LOG_ERROR("no working area available, can't alloc stub stack!");
+			target_free_working_area(target, stub->tramp);
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+		stub->stack_addr = stub->stack->address + stack_size;
+	}
+	retval = target_write_buffer(target, stub->tramp_addr, sizeof(esp32_stub_tramp), esp32_stub_tramp);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Failed to write stub jumper!");
+		goto _on_error;
+	}
+
+	return ERROR_OK;
+
+_on_error:
+	if (stub->tramp) {
+		target_free_working_area(target, stub->tramp);
+	}
+	if (stub->stack) {
+		target_free_alt_working_area(target, stub->stack);
+	}
+	if (stub->code) {
+		target_free_working_area(target, stub->code);
+	}
+	if (stub->data) {
+		target_free_alt_working_area(target, stub->data);
+	}
+	return retval;
+}
+
+static void esp32_stub_cleanup(struct target *target, struct esp32_stub *stub)
+{
+	destroy_reg_param(&stub->reg_params[5]);
+	destroy_reg_param(&stub->reg_params[4]);
+	destroy_reg_param(&stub->reg_params[3]);
+	destroy_reg_param(&stub->reg_params[2]);
+	destroy_reg_param(&stub->reg_params[1]);
+	destroy_reg_param(&stub->reg_params[0]);
+	if (stub->tramp) {
+		target_free_working_area(target, stub->tramp);
+	}
+	if (stub->stack) {
+		target_free_alt_working_area(target, stub->stack);
+	}
+	if (stub->code) {
+		target_free_working_area(target, stub->code);
+	}
+	if (stub->data) {
+		target_free_alt_working_area(target, stub->data);
+	}
+}
+
+#if ESP32_STUB_STACK_DEBUG
+static int esp32_stub_fill_stack(struct target *target, uint32_t stack_addr, uint32_t stack_size, uint32_t sz)
+{
+	uint8_t buf[256];
+
+	// fill stub stack with canary bytes
+	memset(buf, ESP32_STUB_STACK_STAMP, sizeof(buf));
+	for (uint32_t i = 0; i < sz;) {
+		uint32_t wr_sz = stack_size - i >= sizeof(buf) ? sizeof(buf) : stack_size - i;
+		// int retval = target_write_buffer(target, stack_addr + i, wr_sz, buf);
+		int retval = target_write_memory(target, stack_addr + i, 1, wr_sz, buf);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Failed to init stub stack (%d)!", retval);
+			return retval;
+		}
+		i += wr_sz;
+	}
+	return ERROR_OK;
+}
+
+static int esp32_stub_check_stack(struct target *target, uint32_t stack_addr, uint32_t stack_size, uint32_t sz)
+{
+	int retval = ERROR_OK;
+	uint8_t buf[256];
+
+	// check stub stack for overflow
+	for (uint32_t i = 0; i < sz;) {
+		uint32_t rd_sz = sz - i >= sizeof(buf) ? sizeof(buf) : sz - i;
+		retval = target_read_memory(target, stack_addr + i, 1, rd_sz, buf);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Failed to read stub stack (%d)!", retval);
+			return retval;
+		}
+		int checked = 0;
+		LOG_DEBUG("STK[%x]: check", stack_addr+i);
+		uint32_t j;
+		for (j = 0; j < rd_sz; j++) {
+			if (buf[j] != ESP32_STUB_STACK_STAMP) {
+				if (i+j > 0) {
+					LOG_WARNING("Stub stack bytes unused %d / %d", i+j, stack_size);
+				} else {
+					LOG_ERROR("Stub stack OVF!!!");
+					retval = ERROR_FAIL;
+				}
+				checked = 1;
+				break;
+			}
+		}
+		if (checked) {
+			break;
+		}
+		i += rd_sz;
+	}
+	return retval;
+}
+#endif
+
+static int esp32_idle_core_setup(struct target *target, size_t core_id, uint32_t loop_addr, struct esp32_idle_core_ctx *ctx)
+{
+	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
+	struct reg_cache *core_cache = esp32->core_caches[core_id];
+
+	// setup PC
+	ctx->pc = esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PC]);
+	LOG_DEBUG("esp32_idle_core_setup: PC[%u] %x -> %x", (uint32_t)core_id, ctx->pc, loop_addr);
+	esp108_reg_set(&core_cache->reg_list[XT_REG_IDX_PC], loop_addr);
+	core_cache->reg_list[XT_REG_IDX_PC].valid = 1;
+	// setup PS
+	ctx->ps = esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PS]);
+	LOG_DEBUG("esp32_idle_core_setup: PS[%u] %x -> %x", (uint32_t)core_id, ctx->ps, 0x60021);
+	esp108_reg_set(&core_cache->reg_list[XT_REG_IDX_PS], 0x60021);
+	core_cache->reg_list[XT_REG_IDX_PS].valid = 1;
+	return ERROR_OK;
+}
+
+static int esp32_idle_core_cleanup(struct target *target, size_t core_id, struct esp32_idle_core_ctx *ctx)
+{
+	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
+	struct reg_cache *core_cache = esp32->core_caches[core_id];
+
+	// restore PC
+	uint32_t pc = esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PC]);
+	esp108_reg_set(&core_cache->reg_list[XT_REG_IDX_PC], ctx->pc);
+	LOG_DEBUG("esp32_idle_core_cleanup: PC[%u] %x -> %x", (uint32_t)core_id, pc, ctx->pc);
+	core_cache->reg_list[XT_REG_IDX_PC].valid = 1;
+	// restore PS
+	uint32_t ps = esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PS]);
+	esp108_reg_set(&core_cache->reg_list[XT_REG_IDX_PS], ctx->ps);
+	LOG_DEBUG("esp32_idle_core_cleanup: PS[%u] %x -> %x", (uint32_t)core_id, ps, ctx->ps);
+	core_cache->reg_list[XT_REG_IDX_PS].valid = 1;
+	return ERROR_OK;
+}
+
+static int esp32_algo_run(struct target *target, struct esp32_algo_image *image,
+						struct esp32_algo_run_data *run)
+{
+	int retval;
+	struct duration algo_time;
+	void **mem_handles = NULL;
+	struct esp32_common *esp32 = (struct esp32_common *)target->arch_info;
+	size_t idle_core_id = esp32->active_cpu == ESP32_PRO_CPU_ID ? ESP32_APP_CPU_ID : ESP32_PRO_CPU_ID;
+	struct esp32_idle_core_ctx idle_core_ctx;
+
+	if (duration_start(&algo_time) != 0) {
+		LOG_ERROR("Failed to start algo time measurement!");
+		return ERROR_FAIL;
+	}
+
+	retval = esp32_stub_load(target, image, &run->priv.stub, run->stack_size);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Failed to load stub (%d)!", retval);
+		return retval;
+	}
+	if (duration_measure(&algo_time) != 0) {
+		LOG_ERROR("Failed to stop algo run measurement!");
+		return ERROR_FAIL;
+	}
+	LOG_DEBUG("Stub loaded in %g ms", duration_elapsed(&algo_time)*1000);
+
+	esp32_algo_args_init(&run->priv.stub, run->priv.stub.stack_addr);
+	// allocate memory arguments and fill respective reg params
+	if (run->mem_args.count > 0) {
+		mem_handles = malloc(sizeof(void *)*run->mem_args.count);
+		if (mem_handles == NULL) {
+			LOG_ERROR("Failed to alloc target mem handles!");
+			retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+			goto _cleanup;
+		}
+		memset(mem_handles, 0, sizeof(void *)*run->mem_args.count);
+		// alloc memory args target buffers
+		for (uint32_t i = 0; i < run->mem_args.count; i++) {
+			// small hack: if we need to update some reg param this field holds appropriate user argument number,
+			// otherwise should hold UINT_MAX
+			uint32_t usr_param_num = run->mem_args.params[i].address;
+			if (image) {
+				struct working_area *area;
+				retval = target_alloc_alt_working_area(target, run->mem_args.params[i].size, &area);
+				if (retval != ERROR_OK) {
+					LOG_ERROR("Failed to alloc target buffer!");
+					retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+					goto _cleanup;
+				}
+				mem_handles[i] = area;
+				run->mem_args.params[i].address = area->address;
+			} else {
+				struct esp32_algo_run_data alloc_run;
+
+				if (esp32->dbg_stubs.entries_count < 1 || esp32->dbg_stubs.desc.data_alloc == 0) {
+					LOG_ERROR("No dbg stubs found!");
+					retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+					goto _cleanup;
+				}
+				memset(&alloc_run, 0, sizeof(alloc_run));
+				alloc_run.stack_size = ESP32_DBG_STUBS_STACK_MIN_SIZE;
+				retval = esp32_run_onboard_func(target, &alloc_run, esp32->dbg_stubs.desc.data_alloc, 1, run->mem_args.params[i].size);
+				if (retval != ERROR_OK) {
+					LOG_ERROR("Failed to run mem arg alloc onboard algo (%d)!", retval);
+					goto _cleanup;
+				}
+				if (alloc_run.ret_code == 0) {
+					LOG_ERROR("Failed to alloc onboard memory (%d)!", retval);
+					retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+					goto _cleanup;
+				}
+				mem_handles[i] = (void *)((long)alloc_run.ret_code);
+				run->mem_args.params[i].address = alloc_run.ret_code;
+			}
+			if (usr_param_num != UINT_MAX) { // if we need update some register param with to mem param addr
+				buf_set_u32(run->priv.stub.reg_params[ESP32_STUB_ARGS_FUNC_START+usr_param_num].value, 0, 32, run->mem_args.params[i].address);
+			}
+		}
+	}
+
+	if (esp32_get_cores_count(target) == ESP32_CPU_COUNT) {
+		memset(&idle_core_ctx, 0, sizeof(idle_core_ctx));
+		// IDLE loop code is at the end of the tramp
+		retval = esp32_idle_core_setup(target, idle_core_id,
+			run->priv.stub.tramp_addr + sizeof(esp32_stub_tramp) - ESP32_IDLE_LOOP_CODE_SZ,
+			&idle_core_ctx);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Failed to setup idle core (%d)!", retval);
+			goto _cleanup;
+		}
+	}
+
+	if (run->usr_func_init) {
+		retval = run->usr_func_init(target, run, run->usr_func_arg);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Failed to prepare algorithm host side args stub (%d)!", retval);
+			goto _cleanup;
+		}
+	}
+
+#if ESP32_STUB_STACK_DEBUG
+	LOG_DEBUG("Fill stack 0x%x", run->priv.stub.stack_addr);
+	retval = esp32_stub_fill_stack(target, run->priv.stub.stack_addr - run->stack_size, run->stack_size, ESP32_STUB_STACK_DEBUG);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Failed to init stub stack (%d)!", retval);
+		goto _cleanup;
+	}
+#endif
+	LOG_DEBUG("Algorithm start @ 0x%x, stack %d bytes @ 0x%x ", run->priv.stub.tramp_addr, run->stack_size, run->priv.stub.stack_addr);
+	retval = target_start_algorithm(target,
+			run->mem_args.count, run->mem_args.params,
+			run->priv.stub.reg_params_count, run->priv.stub.reg_params,
+			run->priv.stub.tramp_addr, 0,
+			&run->priv.stub.ainfo);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Faied to start algorithm (%d)!", retval);
+		goto _cleanup;
+	}
+
+	if (run->usr_func) {
+		// give target algorithm stub time to init itself, then user func can communicate to it safely
+		alive_sleep(100);
+		retval = run->usr_func(target, run->usr_func_arg);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Failed to exec algorithm user func (%d)!", retval);
+		}
+	}
+
+	LOG_DEBUG("Wait algorithm completion");
+	retval = target_wait_algorithm(target,
+			run->mem_args.count, run->mem_args.params,
+			run->priv.stub.reg_params_count, run->priv.stub.reg_params,
+			0, run->tmo ? run->tmo : ESP32_ALGORITHM_EXIT_TMO,
+			&run->priv.stub.ainfo);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Faied to wait algorithm (%d)!", retval);
+		target_halt(target);
+		target_wait_state(target, TARGET_HALTED, ESP32_TARGET_STATE_TMO);
+	}
+#if ESP32_STUB_STACK_DEBUG
+	retval = esp32_stub_check_stack(target, run->priv.stub.stack_addr - run->stack_size, run->stack_size, ESP32_STUB_STACK_DEBUG);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Failed to check stub stack (%d)!", retval);
+	}
+#endif
+	if (run->usr_func_done) {
+		run->usr_func_done(target, run, run->usr_func_arg);
+	}
+_cleanup:
+	if (esp32_get_cores_count(target) == ESP32_CPU_COUNT) {
+		retval = esp32_idle_core_cleanup(target, idle_core_id, &idle_core_ctx);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Failed to cleanup idle core (%d)!", retval);
+		}
+	}
+	// free memory arguments
+	if (mem_handles) {
+		for (uint32_t i = 0; i < run->mem_args.count; i++) {
+			if (mem_handles[i]) {
+				if (image) {
+					target_free_alt_working_area(target, mem_handles[i]);
+				} else {
+					struct esp32_algo_run_data free_run;
+					memset(&free_run, 0, sizeof(free_run));
+					free_run.stack_size = ESP32_DBG_STUBS_STACK_MIN_SIZE;
+					retval = esp32_run_onboard_func(target, &free_run, esp32->dbg_stubs.desc.data_free, 1, mem_handles[i]);
+					if (retval != ERROR_OK) {
+						LOG_ERROR("Failed to run mem arg free onboard algo (%d)!", retval);
+					}
+				}
+			}
+		}
+		free(mem_handles);
+	}
+	esp32_stub_cleanup(target, &run->priv.stub);
+
+	return retval;
+}
+
+int esp32_run_algorithm_image(struct target *target, struct esp32_algo_run_data *run, struct esp32_algo_image *algo_image)
+{
+	if (!algo_image->image.start_address_set || algo_image->image.start_address == 0) {
+		return ERROR_FAIL;
+	}
+	// to be allocated automatically in respective working areas
+	run->priv.stub.stack_addr = 0;
+	run->priv.stub.tramp_addr = 0;
+	// entry will be set from algo_image->image
+	return esp32_algo_run(target, algo_image, run);
+}
+
+int esp32_run_algorithm_onboard(struct target *target, struct esp32_algo_run_data *run, uint32_t entry)
+{
+	int res;
+	struct esp32_common *esp32 = (struct esp32_common *)target->arch_info;
+
+	if (sizeof(esp32_stub_tramp) > ESP32_DBG_STUBS_CODE_BUF_SIZE) {
+		LOG_ERROR("Stub tramp size %u bytes exceeds target buf size %d bytes!", (uint32_t)sizeof(esp32_stub_tramp), ESP32_DBG_STUBS_CODE_BUF_SIZE);
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	}
+
+	if (run->stack_size > ESP32_DBG_STUBS_STACK_MIN_SIZE) {
+		if (esp32->dbg_stubs.desc.data_alloc == 0 || esp32->dbg_stubs.desc.data_free == 0) {
+			LOG_ERROR("No stubs stack funcs found!");
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+		// alloc stack
+		struct esp32_algo_run_data alloc_run;
+		memset(&alloc_run, 0, sizeof(alloc_run));
+		alloc_run.stack_size = ESP32_DBG_STUBS_STACK_MIN_SIZE;
+		res = esp32_run_onboard_func(target, &alloc_run, esp32->dbg_stubs.desc.data_alloc, 1, run->stack_size);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to run stack alloc onboard algo (%d)!", res);
+			return res;
+		}
+		LOG_DEBUG("RETCODE: %x!", alloc_run.ret_code);
+		if (alloc_run.ret_code == 0) {
+			LOG_ERROR("Failed to alloc onboard stack (%d)!", res);
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+		run->priv.stub.stack_addr = alloc_run.ret_code + run->stack_size;
+	} else {
+		run->priv.stub.stack_addr = esp32->dbg_stubs.desc.min_stack_addr + run->stack_size;
+	}
+	run->priv.stub.tramp_addr = esp32->dbg_stubs.desc.tramp_addr;
+	run->priv.stub.entry = entry;
+
+	res = esp32_algo_run(target, NULL, run);
+
+	if (run->stack_size > ESP32_DBG_STUBS_STACK_MIN_SIZE) {
+		// free stack
+		struct esp32_algo_run_data free_run;
+		memset(&free_run, 0, sizeof(free_run));
+		free_run.stack_size = ESP32_DBG_STUBS_STACK_MIN_SIZE;
+		res = esp32_run_onboard_func(target, &free_run, esp32->dbg_stubs.desc.data_free, 1, run->priv.stub.stack_addr - run->stack_size);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to run stack free onboard algo (%d)!", res);
+			return res;
+		}
+	}
+	return res;
+}
+
+static int esp32_run_do(struct target *target, struct esp32_algo_run_data *run, void *algo_arg, uint32_t num_args, va_list ap)
+{
+	char *arg_regs[] = {"a3", "a4", "a5", "a6"};
+
+	init_reg_param(&run->priv.stub.reg_params[ESP32_STUB_ARGS_FUNC_START+0], "a2", 32, PARAM_IN_OUT);
+	if (num_args > 0) {
+		uint32_t arg = va_arg(ap, uint32_t);
+		buf_set_u32(run->priv.stub.reg_params[ESP32_STUB_ARGS_FUNC_START+0].value, 0, 32, arg);
+		LOG_DEBUG("Set arg[0] = %d", arg);
+	} else {
+		buf_set_u32(run->priv.stub.reg_params[ESP32_STUB_ARGS_FUNC_START+0].value, 0, 32, 0);
+	}
+	for (uint32_t i = 1; i < num_args; i++) {
+		uint32_t arg = va_arg(ap, uint32_t);
+		init_reg_param(&run->priv.stub.reg_params[ESP32_STUB_ARGS_FUNC_START+i], arg_regs[i-1], 32, PARAM_OUT);
+		buf_set_u32(run->priv.stub.reg_params[ESP32_STUB_ARGS_FUNC_START+i].value, 0, 32, arg);
+		LOG_DEBUG("Set arg[%d] = %d", i, arg);
+	}
+
+	run->priv.stub.ainfo.core_mode = XT_MODE_ANY;
+	run->priv.stub.reg_params_count = ESP32_STUB_ARGS_FUNC_START + num_args;
+
+	int retval = run->algo_func(target, run, algo_arg);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Algorithm run faied (%d)!", retval);
+	} else {
+		run->ret_code = buf_get_u32(run->priv.stub.reg_params[ESP32_STUB_ARGS_FUNC_START+0].value, 0, 32);
+		LOG_DEBUG("Got algorithm RC %x", run->ret_code);
+	}
+
+	for (uint32_t i = 0; i < num_args; i++) {
+		destroy_reg_param(&run->priv.stub.reg_params[ESP32_STUB_ARGS_FUNC_START+i]);
+	}
+
+	return  retval;
+}
+
+int esp32_run_func_image(struct target *target, struct esp32_algo_run_data *run, struct esp32_algo_image *image, uint32_t num_args, ...)
+{
+	va_list ap;
+
+	va_start(ap, num_args);
+	run->algo_func = (esp32_algo_func_t)esp32_run_algorithm_image;
+	int retval = esp32_run_do(target, run, image, num_args, ap);
+	va_end(ap);
+
+	return retval;
+}
+
+int esp32_run_onboard_func(struct target *target, struct esp32_algo_run_data *run, uint32_t func_addr, uint32_t num_args, ...)
+{
+	va_list ap;
+
+	va_start(ap, num_args);
+	run->algo_func = (esp32_algo_func_t)esp32_run_algorithm_onboard;
+	int retval = esp32_run_do(target, run, (void *)(unsigned long)func_addr, num_args, ap);
+	va_end(ap);
+
+	return retval;
 }
 
 COMMAND_HANDLER(esp32_cmd_smpbreak)
@@ -1935,7 +2651,7 @@ static size_t esp32_get_cores_count(struct target *target)
 	if (esp32 == NULL) {
 		return ESP32_CPU_COUNT;
 	}
-	return esp32->cores_num > 0 ? esp32->cores_num : esp32_read_cores_num(target);
+	return esp32->cores_num ? esp32->cores_num : ESP32_CPU_COUNT;
 }
 
 static size_t esp32_get_active_core(struct target *target)
@@ -1992,4 +2708,3 @@ struct target_type esp32_target = {
 	.get_active_core = esp32_get_active_core,
 	.set_active_core = esp32_set_active_core,
 };
-

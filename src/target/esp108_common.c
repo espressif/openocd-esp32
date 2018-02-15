@@ -320,6 +320,8 @@ int xtensa_start_algorithm_generic(struct target *target,
 	for (unsigned i = 0; i < core_cache->num_regs; i++) {
 		algorithm_info->context[i] = esp108_reg_get(&core_cache->reg_list[i]);
 	}
+	/* save debug reason, it will be changed */
+	algorithm_info->ctx_debug_reason = target->debug_reason;
 	/* write mem params */
 	for (int i = 0; i < num_mem_params; i++) {
 		if (mem_params[i].direction != PARAM_IN) {
@@ -440,6 +442,9 @@ int xtensa_wait_algorithm_generic(struct target *target,
 			//FIXME: restoring DEBUGCAUSE causes exception when executing corresponding instruction in DIR
 			LOG_DEBUG("Skip restoring register %s with value 0x%x -> 0x%8.8" PRIx32,
 					core_cache->reg_list[i].name, regvalue, algorithm_info->context[i]);
+			esp108_reg_set(&core_cache->reg_list[XT_REG_IDX_DEBUGCAUSE], 0); //so we don't recurse into the same routine
+			core_cache->reg_list[XT_REG_IDX_DEBUGCAUSE].dirty = 0;
+			core_cache->reg_list[XT_REG_IDX_DEBUGCAUSE].valid = 0;
 			continue;
 		}
 		if (regvalue != algorithm_info->context[i]) {
@@ -449,6 +454,7 @@ int xtensa_wait_algorithm_generic(struct target *target,
 			core_cache->reg_list[i].valid = 1;
 		}
 	}
+	target->debug_reason = algorithm_info->ctx_debug_reason;
 
 	return retval;
 }

@@ -47,7 +47,6 @@ class DebuggerBreakpointTestsImpl:
             self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_BP)
             cur_frame = self.gdb.get_current_frame()
             self.assertEqual(cur_frame['func'], 'gpio_set_level')
-            self.assertEqual(cur_frame['line'], '188')
             frames = self.gdb.get_backtrace()
             self.assertEqual(len(frames), 2)
             self.assertEqual(frames[0]['func'], cur_frame['func'])

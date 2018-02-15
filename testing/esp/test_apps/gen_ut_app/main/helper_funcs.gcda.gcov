@@ -1,0 +1,5 @@
+file:/home/alexey/projects/esp/openocd-esp32/testing/esp/test_apps/gen_ut_app/main/helper_funcs.c
+function:6,1,gcov_dummy_func
+lcount:6,1
+lcount:9,1
+lcount:10,1

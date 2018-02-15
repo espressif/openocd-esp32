@@ -19,11 +19,16 @@ class FlasherTestsImpl:
     """
 
     def test_big_binary(self):
-        #
+        """
+            This test checks flashing big binaries works.
+            1) Create test binary file of the most possible size.
+            2) Fill it with random data.
+            3) Write the file to the flash.
+            4) Read written data to another file.
+            5) Compare files.
+        """
         fhnd,fname1 = tempfile.mkstemp()
         fbin = os.fdopen(fhnd, 'wb')
-        # fname1 = "rand.bin"
-        # fbin = open(fname1, 'wb')
         size = (ESP32_FLASH_SZ - (ESP32_APP_FLASH_OFF + ESP32_APP_FLASH_SZ))/1024
         get_logger().debug('Generate random file %dKB "%s"', size, fname1)
         for i in range(size):
@@ -34,8 +39,6 @@ class FlasherTestsImpl:
         # we nee to read written flash and compare data manually
         fhnd,fname2 = tempfile.mkstemp()
         fbin = os.fdopen(fhnd, 'wb')
-        # fname2 = "rand2.bin"
-        # fbin = open(fname2, 'wb')
         fbin.close()
         self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (fname2, ESP32_APP_FLASH_OFF + ESP32_APP_FLASH_SZ, size*1024), tmo=30)
         self.assertTrue(filecmp.cmp(fname1, fname2))

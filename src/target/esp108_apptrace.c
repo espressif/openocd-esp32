@@ -428,6 +428,7 @@ static int esp_gcov_process_data(struct esp_apptrace_cmd_ctx *ctx, int core_id, 
 static void *esp_apptrace_data_processor(void *arg);
 static int esp_apptrace_handle_trace_block(struct esp_apptrace_cmd_ctx *ctx, struct esp_apptrace_block *block);
 static int esp_apptrace_cmd_ctx_cleanup(struct esp_apptrace_cmd_ctx *cmd_ctx);
+static int esp_apptrace_get_data_info(struct esp_apptrace_cmd_ctx *ctx, struct esp108_apptrace_target_state *target_state, uint32_t *fired_target_num);
 
 /*********************************************************************
 *                       ESP108 Specific Functions
@@ -570,7 +571,7 @@ int esp108_apptrace_write_ctrl_reg(struct target *target, uint32_t block_id, uin
 	return ERROR_OK;
 }
 
-static int esp108_apptrace_read_status(struct target *target, uint32_t *stat)
+int esp108_apptrace_read_status(struct target *target, uint32_t *stat)
 {
 	int res = 0;
 	uint8_t tmp[4];
@@ -588,16 +589,16 @@ static int esp108_apptrace_read_status(struct target *target, uint32_t *stat)
 
 int esp108_apptrace_write_status(struct target *target, uint32_t stat)
 {
-    int res = 0;
+	int res = 0;
 
-    esp108_queue_nexus_reg_write(target, ESP_APPTRACE_TRAX_STAT_REG, stat);
-    esp108_queue_tdi_idle(target);
-    res = jtag_execute_queue();
-    if (res != ERROR_OK) {
-        LOG_ERROR("Failed to exec JTAG queue!");
-        return res;
-    }
-    return ERROR_OK;
+	esp108_queue_nexus_reg_write(target, ESP_APPTRACE_TRAX_STAT_REG, stat);
+	esp108_queue_tdi_idle(target);
+	res = jtag_execute_queue();
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to exec JTAG queue!");
+		return res;
+	}
+	return ERROR_OK;
 }
 
 static int esp108_activate_swdbg(struct target *target, int enab)
@@ -830,9 +831,36 @@ static int esp_apptrace_cmd_ctx_init(struct target *target, struct esp_apptrace_
 	cmd_ctx->data_processor = (pthread_t)-1;
 	cmd_ctx->stop_tmo = -1.0; // infinite
 	cmd_ctx->mode = mode;
-	cmd_ctx->cores_num = target_get_core_count(target);
-	cmd_ctx->esp32_target = cmd_ctx->cores_num == 2 ? target : NULL;
-
+	if (strcmp(target->type->name, "esp32") == 0) {
+		struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
+		// HACK: OOCD has no attach event for telnet session so
+		// halt and resume target if numbers of working cores has not been detected yet,
+		// e.g. when we connected via telnet to running target
+		if (esp32->cores_num == 0 && target->state == TARGET_RUNNING) {
+			res = target_halt(target);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to halt target (%d)!", res);
+				return res;
+			}
+			res = target_wait_state(target, TARGET_HALTED, ESP_APPTRACE_TGT_STATE_TMO);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to halt target (%d)!", res);
+				return res;
+			}
+			res = target_resume(target, 1, 0, 1, 0);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to halt target (%d)!", res);
+				return res;
+			}
+		}
+		cmd_ctx->esp32_target = target;
+		cmd_ctx->cores_num = target_get_core_count(target);
+	} else {
+		cmd_ctx->esp32_target = NULL;
+		// TODO: add support for esp108 targets in single core mode
+		// FIXME: Do we actually need it?
+		cmd_ctx->cores_num = 2;
+	}
 	for (int i = 0; i < cmd_ctx->cores_num; i++) {
 		if (cmd_ctx->esp32_target) {
 			struct esp32_common *esp32 = (struct esp32_common *)target->arch_info;
@@ -1254,30 +1282,6 @@ static int esp_sysview_queue_cmds(struct target *target, uint8_t *cmds, uint32_t
 	return res;
 }
 
-static int esp_apptrace_get_data_info(struct esp_apptrace_cmd_ctx *ctx, struct esp108_apptrace_target_state *target_state, uint32_t *fired_target_num)
-{
-	if (fired_target_num) {
-		*fired_target_num = (uint32_t)-1;
-	}
-
-	for (int i = 0; i < ctx->cores_num; i++) {
-		int res = esp108_apptrace_read_data_len(ctx->cpus[i], &target_state[i].block_id, &target_state[i].data_len);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to read data len on (%s)!", target_name(ctx->cpus[i]));
-			return res;
-		}
-		if (target_state[i].data_len) {
-			LOG_DEBUG("Block %d, len %d bytes on fired target (%s)!",
-				target_state[i].block_id, target_state[i].data_len, target_name(ctx->cpus[i]));
-			if (fired_target_num) {
-				*fired_target_num = (uint32_t)i;
-			}
-			break;
-		}
-	}
-	return ERROR_OK;
-}
-
 static int esp_sysview_write_trace_header(struct esp_apptrace_cmd_ctx *ctx)
 {
 	struct esp_apptrace_cmd_data *cmd_data = ctx->cmd_priv;
@@ -1519,6 +1523,30 @@ static uint32_t esp_apptrace_usr_block_check(struct esp_apptrace_cmd_ctx *ctx, s
 		ctx->stats.lost_bytes += usr_len - wr_len;
 	}
 	return usr_len;
+}
+
+static int esp_apptrace_get_data_info(struct esp_apptrace_cmd_ctx *ctx, struct esp108_apptrace_target_state *target_state, uint32_t *fired_target_num)
+{
+    if (fired_target_num) {
+        *fired_target_num = (uint32_t)-1;
+    }
+
+    for (int i = 0; i < ctx->cores_num; i++) {
+        int res = esp108_apptrace_read_data_len(ctx->cpus[i], &target_state[i].block_id, &target_state[i].data_len);
+        if (res != ERROR_OK) {
+            LOG_ERROR("Failed to read data len on (%s)!", target_name(ctx->cpus[i]));
+            return res;
+        }
+        if (target_state[i].data_len) {
+            LOG_DEBUG("Block %d, len %d bytes on fired target (%s)!",
+                target_state[i].block_id, target_state[i].data_len, target_name(ctx->cpus[i]));
+            if (fired_target_num) {
+                *fired_target_num = (uint32_t)i;
+            }
+            break;
+        }
+    }
+    return ERROR_OK;
 }
 
 uint8_t *esp108_apptrace_usr_block_get(uint8_t *buffer, uint32_t *size)
@@ -2083,13 +2111,6 @@ int esp_cmd_apptrace_generic(struct target *target, int mode, const char **argv,
 	}
 
 	if (strcmp(argv[0], "start") == 0) {
-		// TODO: remove this when gcov debug stubs support will be merged
-		res = esp108_apptrace_write_status(target, 0);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to write apptrace status (%d)!", res);
-			return res;
-		}
-
 		// init cmd context
 		res = esp_apptrace_cmd_init(target, &s_at_cmd_ctx, mode, &argv[1], argc-1);
 		if (res != ERROR_OK) {
@@ -2355,9 +2376,9 @@ static int esp_gcov_fopen(struct esp_gcov_cmd_data *cmd_data, uint8_t *data, uin
 		return ERROR_FAIL;
 	}
 
-	LOG_INFO("Open file '%s'", data);
 	uint32_t fd = cmd_data->files_num;
 	char *mode = (char *)data + len + 1;
+	LOG_INFO("Open file 0x%x '%s'", fd+1, data);
 	cmd_data->files[fd] = fopen((char *)data, mode);
 	if (!cmd_data->files[fd]) {
 		// do not report error on reading non-existent file
@@ -2488,10 +2509,11 @@ static int esp_gcov_fread(struct esp_gcov_cmd_data *cmd_data, uint8_t *data, uin
 		LOG_ERROR("Failed to alloc mem for resp!");
 		return ERROR_FAIL;
 	}
-	fret = fread(*resp + sizeof(fret), len, 1, cmd_data->files[fd]);
-	if (fret != 1) {
+	fret = fread(*resp + sizeof(fret), 1, len, cmd_data->files[fd]);
+	if (fret == 0) {
 		LOG_ERROR("Failed to read %d byte (%d)!", len, errno);
 	}
+	*resp_len = sizeof(fret) + fret;
 	memcpy(*resp, &fret, sizeof(fret));
 
 	return ERROR_OK;
@@ -2637,27 +2659,40 @@ static int esp_gcov_process_data(struct esp_apptrace_cmd_ctx *ctx, int core_id, 
 	return ERROR_OK;
 }
 
+int esp_gcov_poll(struct target *target, void *priv)
+{
+	int res = ERROR_OK;
+	struct esp_apptrace_cmd_ctx *cmd_ctx = (struct esp_apptrace_cmd_ctx *)priv;
+
+	while (!shutdown_openocd && target->state != TARGET_HALTED && cmd_ctx->running) {
+		res = esp_apptrace_poll(cmd_ctx);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to poll target for gcov data (%d)!", res);
+			break;
+		}
+		/* let registered timer callbacks to run */
+		target_call_timer_callbacks();
+	}
+	return res;
+}
+
 int esp_cmd_gcov(struct target *target, const char **argv, int argc)
 {
-	struct esp_gcov_cmd_data *cmd_data;
 	static struct esp_apptrace_cmd_ctx s_at_cmd_ctx;
+	struct esp32_common *esp32 = (struct esp32_common *)target->arch_info;
 	int res = ERROR_OK;
+	enum target_state old_state = target->state;
+	struct esp32_algo_run_data run;
+	uint32_t func_addr;
+	bool dump = false;
 
-	if (argc == 0) {
-		LOG_ERROR("On-the-fly GCOV data dump is not supported in this version of OpenOCD!");
-		return ERROR_FAIL;
-	}
-
-	if (strcmp(argv[0], "dump") != 0) {
-		LOG_ERROR("Invalid action!");
-		return ERROR_FAIL;
-	}
-
-	// TODO: remove this when gcov debug stubs support will be merged
-	res = esp108_apptrace_write_status(target, 0);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write gcov status (%d)!", res);
-		return res;
+	if (argc > 0) {
+		if (strcmp(argv[0], "dump") == 0) {
+			dump = true;
+		} else {
+			LOG_ERROR("Invalid action!");
+			return ERROR_FAIL;
+		}
 	}
 
 	// init cmd context
@@ -2666,33 +2701,35 @@ int esp_cmd_gcov(struct target *target, const char **argv, int argc)
 		LOG_ERROR("Failed to init cmd ctx (%d)!", res);
 		return res;
 	}
-	cmd_data = s_at_cmd_ctx.cmd_priv;
-	if (cmd_data->wait4halt) {
-		res = esp_apptrace_wait4halt(&s_at_cmd_ctx);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to wait for halt target (%d)!", res);
-			esp_gcov_cmd_cleanup(&s_at_cmd_ctx);
-			return res;
-		}
-	}
-	res = esp_apptrace_connect_targets(&s_at_cmd_ctx, true, true);
+	// connect
+	res = esp_apptrace_connect_targets(&s_at_cmd_ctx, true, dump);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to connect to targets (%d)!", res);
-		s_at_cmd_ctx.running = 0;
 		esp_gcov_cmd_cleanup(&s_at_cmd_ctx);
 		return res;
 	}
-	/* check for exit signal and command completion */
-	while (!shutdown_openocd && s_at_cmd_ctx.running) {
-		res = esp_apptrace_poll(&s_at_cmd_ctx);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to poll target for trace data (%d)!", res);
-			break;
+	if (dump) {
+		esp_gcov_poll(target, &s_at_cmd_ctx);
+	} else {
+		if (esp32->dbg_stubs.entries_count < ESP32_DBG_STUB_ENTRY_GCOV+1) {
+			LOG_ERROR("No GCOV stubs found!");
+			return ERROR_FAIL;
 		}
-		/* let registered timer callbacks to run */
-		target_call_timer_callbacks();
+		func_addr = esp32->dbg_stubs.entries[ESP32_DBG_STUB_ENTRY_GCOV];
+		LOG_DEBUG("GCOV_FUNC = 0x%x", func_addr);
+		if (func_addr == 0) {
+			LOG_ERROR("GCOV stub not found!");
+			return ERROR_FAIL;
+		}
+		memset(&run, 0, sizeof(run));
+		run.stack_size		= 1024;
+		run.usr_func_arg	= &s_at_cmd_ctx;
+		run.usr_func		= esp_gcov_poll;
+		esp32_run_onboard_func(target, &run, func_addr, 0);
+		LOG_DEBUG("FUNC RET = 0x%x", run.ret_code);
 	}
-	res = esp_apptrace_connect_targets(&s_at_cmd_ctx, false, true);
+	// disconnect
+	res = esp_apptrace_connect_targets(&s_at_cmd_ctx, false, old_state == TARGET_RUNNING);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to disconnect targets (%d)!", res);
 	}

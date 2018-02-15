@@ -168,6 +168,7 @@ struct esp108_reg_desc {
 struct xtensa_algorithm {
 	enum xtensa_mode core_mode;
 	uint32_t context[XT_NUM_REGS];
+	enum target_debug_reason ctx_debug_reason;
 };
 
 /* Special register number macro for DDR register.
@@ -286,11 +287,6 @@ struct xtensa_algorithm {
 #define ESP32_IROM_HIGH     0x40400000
 #define ESP32_RTC_DATA_LOW  0x50000000
 #define ESP32_RTC_DATA_HIGH 0x50002000
-
-/* ESP32 dport regs */
-#define ESP32_DR_REG_DPORT_BASE         0x3ff00000
-#define ESP32_DPORT_APPCPU_CTRL_B_REG   (ESP32_DR_REG_DPORT_BASE + 0x030)
-#define ESP32_DPORT_APPCPU_CLKGATE_EN	(1 << 0)
 
 typedef enum
 {

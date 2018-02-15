@@ -311,6 +311,12 @@ struct target_timer_callback {
 	struct target_timer_callback *next;
 };
 
+struct target_exit_callback {
+	struct list_head list;
+	void *priv;
+	int (*callback)(struct target *target, void *priv);
+};
+
 int target_register_commands(struct command_context *cmd_ctx);
 int target_examine(void);
 
@@ -341,6 +347,10 @@ int target_unregister_trace_callback(
 		size_t len, uint8_t *data, void *priv),
 		void *priv);
 
+int target_register_exit_callback(
+		int (*callback)(struct target *target, void *priv),
+		void *priv);
+
 /* Poll the status of the target, detect any error conditions and report them.
  *
  * Also note that this fn will clear such error conditions, so a subsequent
@@ -360,6 +370,7 @@ int target_halt(struct target *target);
 int target_call_event_callbacks(struct target *target, enum target_event event);
 int target_call_reset_callbacks(struct target *target, enum target_reset_mode reset_mode);
 int target_call_trace_callbacks(struct target *target, size_t len, uint8_t *data);
+int target_call_exit_callbacks(void);
 
 /**
  * The period is very approximate, the callback can happen much more often

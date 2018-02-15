@@ -260,6 +260,14 @@ build_test_app:
       - testing/esp/test_apps/gen_ut_app/output/single_core/gen_ut_app.bin
       - testing/esp/test_apps/gen_ut_app/output/single_core/partitions_singleapp.bin
       - testing/esp/test_apps/gen_ut_app/output/single_core/bootloader/bootloader.bin
+      - testing/esp/test_apps/gen_ut_app/output/gcov_dual/gen_ut_app.elf
+      - testing/esp/test_apps/gen_ut_app/output/gcov_dual/gen_ut_app.bin
+      - testing/esp/test_apps/gen_ut_app/output/gcov_dual/partitions_singleapp.bin
+      - testing/esp/test_apps/gen_ut_app/output/gcov_dual/bootloader/bootloader.bin
+      - testing/esp/test_apps/gen_ut_app/output/gcov_single/gen_ut_app.elf
+      - testing/esp/test_apps/gen_ut_app/output/gcov_single/gen_ut_app.bin
+      - testing/esp/test_apps/gen_ut_app/output/gcov_single/partitions_singleapp.bin
+      - testing/esp/test_apps/gen_ut_app/output/gcov_single/bootloader/bootloader.bin
     expire_in: 2 weeks
   script:
     - *add_gitlab_key
@@ -273,10 +281,7 @@ build_test_app:
     - popd
     # Build generic test app
     - pushd testing/esp/test_apps/gen_ut_app
-    - make ut-apply-config-default
-    - make ut-build-default
-    - make ut-apply-config-single_core
-    - make ut-build-single_core
+    - make defconfig && make ut-build-all-configs
     - popd
 
 run_autotests_linux64:
@@ -302,6 +307,8 @@ run_autotests_linux64:
     - tar -C tmp/ -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
     - export DIST_DIR=${PWD}/tmp/${DIST_INSTALLED_DIR}
     - pushd testing/esp
+    - mkdir -p test_apps/gen_ut_app/builds/gcov_dual/main
+    - mkdir -p test_apps/gen_ut_app/builds/gcov_single/main
     - ./run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/test_apps -d 4 -l ./debug_backend_tests.log
     - popd
 
@@ -331,6 +338,8 @@ run_autotests_armel:
     - tar -C tmp/ -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
     - export DIST_DIR=${PWD}/tmp/${DIST_INSTALLED_DIR}
     - pushd testing/esp
+    - mkdir -p test_apps/gen_ut_app/builds/gcov_dual/main
+    - mkdir -p test_apps/gen_ut_app/builds/gcov_single/main
     - ./run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/test_apps -d 4 -l ./debug_backend_tests.log
     - popd
 

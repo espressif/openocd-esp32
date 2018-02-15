@@ -40,6 +40,8 @@ __COMMAND_HANDLER(esp108_cmd_apptrace);
 __COMMAND_HANDLER(esp108_cmd_sysview);
 
 int esp108_apptrace_write_ctrl_reg(struct target *target, uint32_t block_id, uint32_t len, bool conn, bool data);
+int esp108_apptrace_read_status(struct target *target, uint32_t *stat);
+int esp108_apptrace_write_status(struct target *target, uint32_t stat);
 int esp108_apptrace_read_data_len(struct target *target, uint32_t *block_id, uint32_t *len);
 int esp108_apptrace_read_data(struct target *target, uint32_t size, uint8_t *buffer, uint32_t block_id, bool ack, struct duration *dur);
 uint8_t *esp108_apptrace_usr_block_get(uint8_t *buffer, uint32_t *size);

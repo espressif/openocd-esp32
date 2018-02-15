@@ -68,6 +68,11 @@ void window_exception_test(void* arg)
     printf("sum=%d\n",sum);
 }
 
+/* Add new  */
+
+
+extern void gcov_task(void *pvParameter);
+
 void app_main()
 {
     ESP_LOGI(TAG, "Run test %d\n", run_test);
@@ -78,6 +83,14 @@ void app_main()
         case 200:
             xTaskCreate(&window_exception_test, "win_exc_task", 8192, NULL, 5, NULL);
             break;
+#if CONFIG_ESP32_GCOV_ENABLE
+        case 300:
+            xTaskCreate(&gcov_task, "gcov_task", 2048, (void *)true, 5, NULL);
+            break;
+        case 301:
+            xTaskCreate(&gcov_task, "gcov_task", 2048, (void *)false, 5, NULL);
+            break;
+#endif
         default:
             ESP_LOGE(TAG, "Invalid test id (%d)!", run_test);
             while(1){
