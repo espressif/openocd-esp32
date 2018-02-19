@@ -80,12 +80,11 @@ build_windows:
     - ./configure --prefix=$PWD/dist  --host=i686-w64-mingw32 --enable-shared=no --enable-static=yes
     - make -j `nproc`
     - make install-strip
+    - export PKG_CONFIG_PATH=$PWD/dist/lib/pkgconfig
     - popd
     # Build OpenOCD
     - git submodule update --init
     - ./bootstrap
-    - export LIBUSB1_CFLAGS=-I$PWD/$LIBUSB_VER/dist/include/libusb-1.0
-    - export LIBUSB1_LIBS=-L$PWD/$LIBUSB_VER/dist/lib
     - ./configure --prefix=$PWD/openocd-esp32 --host=i686-w64-mingw32 $OPENOCD_CONFIGURE_OPTS
     - make -j `nproc`
     - make install-strip
