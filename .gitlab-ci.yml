@@ -97,8 +97,9 @@ build_windows:
 
 build_macos:
   stage: build
+  image: $CI_DOCKER_REGISTRY/osxcross
   tags:
-    - build_macos
+    - build
 
   artifacts:
     paths:
@@ -109,13 +110,41 @@ build_macos:
     GIT_STRATEGY: fetch
 
   script:
-    # Build OpenOCD
-    - git submodule update --init
-    - make distclean || true
+    # Osxcross comes with a no-op symlink for pkg-confg,
+    # remove it and install pkg-config.
+    # TODO: prepare a Docker image which would have it included.
+    - rm -f `which x86_64-apple-darwin12-pkg-config`
+    - wget https://dl.espressif.com/dl/pkg-config_0.28-1_amd64.deb
+    - dpkg -i ./pkg-config_0.28-1_amd64.deb
+
+    # Build bootstrap tcl interpreter.
+    # TODO: include 'tcl' package into the docker image instead
+    - cp -r jimtcl jimtcl-bootstarp
+    - pushd jimtcl-bootstarp/
+    - ./configure --prefix=$PWD/local
+    - make -j `nproc`
+    - make install
+    - popd
+
+    # Cross-compile libusb-1.0 for OSX
+    - export LIBUSB_VER=libusb-1.0.21
+    - wget https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
+    - tar xzf $LIBUSB_VER.tar.gz && rm $LIBUSB_VER.tar.gz
+    - pushd $LIBUSB_VER
+    - ./bootstrap.sh
+    - ./configure --prefix=$PWD/dist --host=x86_64-apple-darwin12 --enable-shared=no --enable-static=yes CC=x86_64-apple-darwin12-cc
+    - make -j `nproc`
+    - make install
+    - popd
+
+    # Finally, cross-compile OpenOCD
+    - export PKG_CONFIG_PATH=$PWD/$LIBUSB_VER/dist/lib/pkgconfig
     - ./bootstrap
-    - ./configure --prefix=$PWD/openocd-esp32 $OPENOCD_CONFIGURE_OPTS
-    - make -j 4
+    - ./configure --prefix=$PWD/openocd-esp32 --host=x86_64-apple-darwin12 $OPENOCD_CONFIGURE_OPTS LDFLAGS="-Wl,-framework,CoreFoundation -Wl,-framework,IOKit" CC=x86_64-apple-darwin12-cc
+    - make -j `nproc`
     - make install-strip
+
+    # Package release archive
     - export REL_NAME=openocd-esp32-macos-`git describe --always`
     - tar czvf $REL_NAME.tar.gz openocd-esp32/
     - mkdir -p dist
