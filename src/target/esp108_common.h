@@ -44,6 +44,7 @@
 #include "breakpoints.h"
 #include "algorithm.h"
 
+extern bool esp108_permissive_mode;
 
 #define XT_INS_NUM_BITS 24
 #define XT_DEBUGLEVEL	 6 /* XCHAL_DEBUGLEVEL in xtensa-config.h */

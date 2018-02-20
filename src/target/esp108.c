@@ -448,7 +448,7 @@ static int xtensa_read_memory(struct target *target,
 	int res;
 	uint8_t *albuff;
 
-	if (esp108_get_addr_type(address) == INVALID) {
+	if (esp108_get_addr_type(address) == INVALID && !esp108_permissive_mode) {
 		LOG_DEBUG("%s: address 0x%08x not readable", __func__, address);
 		return ERROR_FAIL;
 	}
@@ -522,7 +522,7 @@ static int xtensa_write_memory(struct target *target,
 	int res;
 	uint8_t *albuff;
 
-	if (esp108_get_addr_type(address) != READWRITE) {
+	if (esp108_get_addr_type(address) != READWRITE && !esp108_permissive_mode) {
 		LOG_DEBUG("%s: address 0x%08x not writable", __func__, address);
 		return ERROR_FAIL;
 	}
@@ -1449,6 +1449,8 @@ static const struct command_registration esp108_any_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
+extern const struct command_registration esp108_common_command_handlers[];
+
 static const struct command_registration esp108_command_handlers[] = {
 	{
 		.name = "esp108",
@@ -1456,6 +1458,9 @@ static const struct command_registration esp108_command_handlers[] = {
 		.help = "ESP108 command group",
 		.usage = "",
 		.chain = esp108_any_command_handlers,
+	},
+	{
+		.chain = esp108_common_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE
 };

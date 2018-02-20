@@ -25,6 +25,8 @@
 #include "esp108_common.h"
 #include "esp108_dbg_regs.h"
 
+bool esp108_permissive_mode;
+
 //Convert a register index that's indexed relative to windowbase, to the real address.
 enum xtensa_reg_idx windowbase_offset_to_canonical(const enum xtensa_reg_idx reg, const int windowbase)
 {
@@ -677,3 +679,30 @@ inline uint32_t intfromchars(uint8_t *c)
 {
 	return c[0] + (c[1] << 8) + (c[2] << 16) + (c[3] << 24);
 }
+
+
+COMMAND_HANDLER(handle_set_esp108_permissive_mode)
+{
+	if (CMD_ARGC != 1) {
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+	bool is_one = strcmp(CMD_ARGV[0], "1") == 0;
+	if (!is_one && strcmp(CMD_ARGV[0], "0") != 0) {
+		return ERROR_COMMAND_SYNTAX_ERROR; // 0 or 1 only
+	}
+	esp108_permissive_mode = is_one;
+	return ERROR_OK;
+}
+
+const struct command_registration esp108_common_command_handlers[] = {
+	{
+		.name = "set_permissive",
+		.handler = handle_set_esp108_permissive_mode,
+		.mode = COMMAND_ANY,
+		.help = "When set to 1, enable ESP108 permissive mode (less client-side checks)",
+		.usage = "[0|1]",
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
+
