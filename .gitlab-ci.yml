@@ -209,6 +209,8 @@ run_autotests:
   tags:
     - test_jtag
 
+  allow_failure: true
+
   artifacts:
     paths:
       - testing/esp/debug_backend_tests.log
