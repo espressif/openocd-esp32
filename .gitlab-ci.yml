@@ -2,114 +2,177 @@ stages:
   - build
   - test
   - deploy
+  - release_stage1
+  - release_submit
+
+image: $CI_DOCKER_REGISTRY/esp32-toolchain
+
+variables:
+
+  #
+  # System environment
+
+  # Common parameters for the 'make' during CI tests
+  MAKEFLAGS: "-j4 --no-keep-going"
+
+  # OpenOCD configuration options
+  OPENOCD_CONFIGURE_OPTS: "--disable-doxygen-html --disable-doxygen-pdf --enable-ftdi --enable-jlink --enable-ulink"
+
+  # GitHub Tool options
+  GITHUB_USER: "${GH_USER}"
+  GITHUB_REPO: "${GH_REPO}"
+  GITHUB_TOKEN: "${GH_TOKEN}"
+
+  #
+  # CI settings
+
+  # clone - is a nice reentrant strategy for medium size repository
+  GIT_STRATEGY: clone
+  GIT_SUBMODULE_STRATEGY: none
+
+  #
+  # Customization of jobs
+
+  DIST_ART_DIR: "dist"
+  DIST_INSTALLED_DIR: "${CI_PROJECT_NAME}"
+  ARCHIVE_TOOL: "tar czvf"
+#  UNARCHIVE_TOOL: "tar xvf"
+  ARCHIVE_EXT: "tar.gz"
+  GH_TOOL_NAME: github-release
+  GH_TOOL: "./${DIST_ART_DIR}/${GH_TOOL_NAME}"
+  RELEASE_DESC: "New release"
+
+.submodules_mirror_update: &submodules_mirror_update |
+  # Gitlab doesn't clean submodule contents
+  git submodule foreach "git clean -d -x -f" || true
+  # Use local mirror for submodules
+  git config submodule.tools/git2cl.url $GITLAB_SSH_SERVER/idf/git2cl.git
+  git config submodule.jimtcl.url $GITLAB_SSH_SERVER/idf/jimtcl.git
+  git config submodule.src/jtag/drivers/libjaylink.url $GITLAB_SSH_SERVER/idf/libjaylink.git
+  git submodule update --init
+
+.get_release_name: &get_release_name |
+  REL_VERSION=$(git describe --tags | sed -n -r "s|${CI_PROJECT_NAME}-(.*)|\1|gp")
+  REL_NAME=${CI_PROJECT_NAME}-${PLATFORM_NAME}-${REL_VERSION}
+  ARCHIVE_NAME=${REL_NAME}.${ARCHIVE_EXT}
+  echo "PLATFORM_NAME: $PLATFORM_NAME"
+  echo "REL_VERSION: $REL_VERSION"
+  echo "REL_NAME: $REL_NAME"
+  echo "ARCHIVE_NAME: $ARCHIVE_NAME"
+
+.dist_archive: &dist_archive |
+  ${ARCHIVE_TOOL} ${ARCHIVE_NAME} ${DIST_INSTALLED_DIR}
+  mkdir -p ${DIST_ART_DIR}
+  mv ${ARCHIVE_NAME} ${DIST_ART_DIR}
+  echo "${ARCHIVE_NAME}" > ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME}
+
+.add_gitlab_key: &add_gitlab_key |
+  command -v ssh-agent >/dev/null || exit 1
+  eval $(ssh-agent -s)
+  printf '%s\n' "${GITLAB_KEY}" | tr -d '\r' | ssh-add - > /dev/null
+  mkdir -p ~/.ssh && chmod 700 ~/.ssh
+  [[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config || true
+
+.add_gh_key_remote: &add_gh_key_remote |
+  command -v ssh-agent >/dev/null || exit 1
+  eval $(ssh-agent -s)
+  printf '%s\n' "${GH_PUSH_KEY}" | tr -d '\r' | ssh-add - > /dev/null
+  mkdir -p ~/.ssh && chmod 700 ~/.ssh
+  [[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config || ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+  git remote remove github || true
+  git remote add github ${GH_PUSH_REPO}
+
+.gh_getting_tool: &gh_getting_tool |
+  # do not download if it was installed locally
+  LOCAL_TOOL_PATH=$(command -v ${GH_TOOL_NAME}) && cp ${LOCAL_TOOL_PATH} . || wget --no-verbose -O $GH_TOOL_NAME $GH_TOOL_URL
+  chmod +x ./$GH_TOOL_NAME
+
+.gh_upload_archive: &gh_upload_archive |
+  ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
+  ${GH_TOOL} upload -s ${GITHUB_TOKEN} --tag ${GH_REL_TAG} -f ${DIST_ART_DIR}/${ARCHIVE_NAME} -n ${ARCHIVE_NAME}
+
+.release_tag_filter: &release_tag_filter /^openocd-esp32-.*$/
+
+.release_submit_action: &release_submit_action
+  when: manual
+  allow_failure: true
 
 before_script:
-  # add gitlab ssh key (on Linux only)
-  - >
-    test $(uname -s) != "Darwin" &&
-    echo "Setting up Gitlab SSH key" &&
-    mkdir -p ~/.ssh &&
-    chmod 700 ~/.ssh &&
-    echo -n $GITLAB_KEY > ~/.ssh/id_rsa_base64 &&
-    base64 --decode --ignore-garbage ~/.ssh/id_rsa_base64 > ~/.ssh/id_rsa &&
-    chmod 600 ~/.ssh/id_rsa &&
-    echo -e "Host gitlab.espressif.cn\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
-  # reconfigure submodules
-  - git config submodule.tools/git2cl.url $GITLAB_SSH_SERVER/idf/git2cl.git
-  - git config submodule.jimtcl.url $GITLAB_SSH_SERVER/idf/jimtcl.git
-  - git config submodule.src/jtag/drivers/libjaylink.url $GITLAB_SSH_SERVER/idf/libjaylink.git
-  # Gitlab doesn't clean submodule contents
-  - (cd tools/git2cl && git clean -fxd) || true
-  - (cd jimtcl && git clean -fxd) || true
-  - (cd src/jtag/drivers/libjaylink && git clean -fxd) || true
-  # remove Github remote, if configured
-  - git remote rm github || true
-  # OpenOCD configuration options
-  - "export OPENOCD_CONFIGURE_OPTS=\"
-        --disable-doxygen-html
-        --disable-doxygen-pdf
-        --enable-ftdi
-        --enable-jlink
-        --enable-ulink
-    \""
+  - set -o errexit; set -o pipefail; set -o nounset
 
 build_linux:
   stage: build
   image: $CI_DOCKER_REGISTRY/esp32-toolchain
   tags:
     - build
-
   artifacts:
     paths:
-      - dist
+      - ${DIST_ART_DIR}
     expire_in: 2 weeks
-
+  variables:
+    PLATFORM_NAME: "linux64"
   script:
-    - git submodule update --init
+    - *get_release_name
+    - *add_gitlab_key
+    - *submodules_mirror_update
     - ./bootstrap
-    - ./configure --prefix=$PWD/openocd-esp32 $OPENOCD_CONFIGURE_OPTS
-    - make -j `nproc`
+    - ./configure --prefix=$PWD/$DIST_INSTALLED_DIR $OPENOCD_CONFIGURE_OPTS
+    - make
     - make install-strip
-    - export REL_NAME=openocd-esp32-linux64-`git describe --always`
-    - tar czvf $REL_NAME.tar.gz openocd-esp32/
-    - mkdir -p dist
-    - mv $REL_NAME.tar.gz dist/
-
+    - *dist_archive
 
 build_windows:
   stage: build
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-win-cross
   tags:
     - build
-
   artifacts:
     paths:
-      - dist
+      - ${DIST_ART_DIR}
     expire_in: 2 weeks
-
   variables:
-    GIT_STRATEGY: fetch
-
+    PLATFORM_NAME: "win32"
+    ARCHIVE_TOOL: "zip -r"
+    ARCHIVE_EXT: "zip"
   script:
+    - *get_release_name
+    - *add_gitlab_key
+    - *submodules_mirror_update
     # Build libusb-1.0
     - export LIBUSB_VER=libusb-1.0.21
     - wget https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
     - tar xzf $LIBUSB_VER.tar.gz && rm $LIBUSB_VER.tar.gz
     - pushd $LIBUSB_VER
     - ./bootstrap.sh
-    - ./configure --prefix=$PWD/dist  --host=i686-w64-mingw32 --enable-shared=no --enable-static=yes
-    - make -j `nproc`
+    - ./configure --prefix=$PWD/dist --host=i686-w64-mingw32 --enable-shared=no --enable-static=yes
+    - make
     - make install-strip
     - export PKG_CONFIG_PATH=$PWD/dist/lib/pkgconfig
     - popd
     # Build OpenOCD
     - git submodule update --init
     - ./bootstrap
-    - ./configure --prefix=$PWD/openocd-esp32 --host=i686-w64-mingw32 $OPENOCD_CONFIGURE_OPTS
-    - make -j `nproc`
+    - ./configure --prefix=$PWD/$DIST_INSTALLED_DIR --host=i686-w64-mingw32 $OPENOCD_CONFIGURE_OPTS
+    - make
     - make install-strip
-    - cp /usr/i686-w64-mingw32/lib/libwinpthread-1.dll openocd-esp32/bin/
-    - export REL_NAME=openocd-esp32-win32-`git describe --always`
-    - zip -r $REL_NAME.zip openocd-esp32/
-    - mkdir -p dist
-    - mv $REL_NAME.zip dist/
-
+    - cp /usr/i686-w64-mingw32/lib/libwinpthread-1.dll $DIST_INSTALLED_DIR/bin/
+    - *dist_archive
 
 build_macos:
   stage: build
   image: $CI_DOCKER_REGISTRY/osxcross
   tags:
     - build
-
   artifacts:
     paths:
-      - dist
+      - ${DIST_ART_DIR}
     expire_in: 2 weeks
-
   variables:
-    GIT_STRATEGY: fetch
-
+    PLATFORM_NAME: "macos"
   script:
+    - *get_release_name
+    - *add_gitlab_key
+    - *submodules_mirror_update
     # Osxcross comes with a no-op symlink for pkg-confg,
     # remove it and install pkg-config.
     # TODO: prepare a Docker image which would have it included.
@@ -122,7 +185,7 @@ build_macos:
     - cp -r jimtcl jimtcl-bootstarp
     - pushd jimtcl-bootstarp/
     - ./configure --prefix=$PWD/local
-    - make -j `nproc`
+    - make
     - make install
     - popd
 
@@ -133,48 +196,23 @@ build_macos:
     - pushd $LIBUSB_VER
     - ./bootstrap.sh
     - ./configure --prefix=$PWD/dist --host=x86_64-apple-darwin12 --enable-shared=no --enable-static=yes CC=x86_64-apple-darwin12-cc
-    - make -j `nproc`
+    - make
     - make install
     - popd
 
     # Finally, cross-compile OpenOCD
     - export PKG_CONFIG_PATH=$PWD/$LIBUSB_VER/dist/lib/pkgconfig
     - ./bootstrap
-    - ./configure --prefix=$PWD/openocd-esp32 --host=x86_64-apple-darwin12 $OPENOCD_CONFIGURE_OPTS LDFLAGS="-Wl,-framework,CoreFoundation -Wl,-framework,IOKit" CC=x86_64-apple-darwin12-cc
-    - make -j `nproc`
+    - ./configure --prefix=$PWD/$DIST_INSTALLED_DIR --host=x86_64-apple-darwin12 $OPENOCD_CONFIGURE_OPTS LDFLAGS="-Wl,-framework,CoreFoundation -Wl,-framework,IOKit" CC=x86_64-apple-darwin12-cc
+    - make
     - make install-strip
-
-    # Package release archive
-    - export REL_NAME=openocd-esp32-macos-`git describe --always`
-    - tar czvf $REL_NAME.tar.gz openocd-esp32/
-    - mkdir -p dist
-    - mv $REL_NAME.tar.gz dist/
-
-push_master_to_github:
-  stage: deploy
-  only:
-    - master
-  when: on_success
-  image: $CI_DOCKER_REGISTRY/esp32-ci-env
-  before_script:
-    - echo "not switching submodules to Gitlab"
-    - git remote rm github || true
-  script:
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - echo -n $GH_PUSH_KEY > ~/.ssh/id_rsa_base64
-    - base64 --decode --ignore-garbage ~/.ssh/id_rsa_base64 > ~/.ssh/id_rsa
-    - chmod 600 ~/.ssh/id_rsa
-    - echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
-    - git remote add github git@github.com:espressif/openocd-esp32.git
-    - git push github HEAD:master
+    - *dist_archive
 
 build_test_app:
   stage: build
   image: $CI_DOCKER_REGISTRY/esp32-ci-env
   tags:
     - build
-
   artifacts:
     paths:
       - testing/esp/test_apps/gen_ut_app/output/default/gen_ut_app.elf
@@ -186,44 +224,159 @@ build_test_app:
       - testing/esp/test_apps/gen_ut_app/output/single_core/partitions_singleapp.bin
       - testing/esp/test_apps/gen_ut_app/output/single_core/bootloader/bootloader.bin
     expire_in: 2 weeks
-
   script:
-      # Prepare ESP-IDF
-      - rm -rf esp-idf
-      - git clone $GITLAB_SSH_SERVER/idf/esp-idf.git
-      - pushd esp-idf
-      - tools/ci/mirror-submodule-update.sh
-      - export IDF_PATH=$PWD
-      - popd
-      # Build generic test app
-      - pushd testing/esp/test_apps/gen_ut_app
-      - make ut-apply-config-default
-      - make V=1 ut-build-default
-      - make ut-apply-config-single_core
-      - make V=1 ut-build-single_core
-      - popd
+    - *add_gitlab_key
+    # Prepare ESP-IDF
+    - git clone --depth 1 $GITLAB_SSH_SERVER/idf/esp-idf.git
+    - pushd esp-idf
+    - tools/ci/mirror-submodule-update.sh
+    - export IDF_PATH=$PWD
+    - popd
+    # Build generic test app
+    - pushd testing/esp/test_apps/gen_ut_app
+    - make ut-apply-config-default
+    - make ut-build-default
+    - make ut-apply-config-single_core
+    - make ut-build-single_core
+    - popd
 
 run_autotests:
   stage: test
   image: $CI_DOCKER_REGISTRY/esp32-ci-env
   tags:
     - test_jtag
-
   allow_failure: true
-
   artifacts:
     paths:
       - testing/esp/debug_backend_tests.log
     when: always
     expire_in: 1 week
-
+  dependencies:
+    - build_test_app
+    - build_linux
+  variables:
+    PLATFORM_NAME: "linux64"
   script:
       # Run tests
-      - mkdir -p dist/tmp
-      - pushd dist/tmp
-      - tar xzvf ../openocd-esp32-linux64-*.tar.gz
-      - export DIST_DIR=$PWD/openocd-esp32
-      - popd
+      - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
+      - mkdir -p tmp
+      - tar -C tmp/ -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
+      - export DIST_DIR=${PWD}/tmp/${DIST_INSTALLED_DIR}
       - pushd testing/esp
       - ./run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/test_apps -d 4 -l ./debug_backend_tests.log
       - popd
+
+push_master_to_github:
+  stage: deploy
+  image: $CI_DOCKER_REGISTRY/esp32-ci-env
+  only:
+    - master
+  when: on_success
+  dependencies: []
+  variables:
+    GIT_STRATEGY: clone
+  script:
+    - *add_gh_key_remote
+    - git push github HEAD:master
+
+get_gh_tools:
+  stage: test
+  only:
+    - *release_tag_filter
+    # - master
+  artifacts:
+    paths:
+      - ${DIST_ART_DIR}
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - *gh_getting_tool
+    - mkdir -p ${DIST_ART_DIR}
+    - mv ${GH_TOOL_NAME} ${DIST_ART_DIR}/
+
+release_tag_draft:
+  stage: release_stage1
+  only:
+    - *release_tag_filter
+  when: on_success
+  script:
+    - *add_gh_key_remote
+    - git push github ${CI_COMMIT_TAG}
+    #INFO you could use "git push --force github refs/tags/${CI_COMMIT_TAG}:refs/tags/${CI_COMMIT_TAG}"
+    # release draft
+    - ${GH_TOOL} delete -s ${GITHUB_TOKEN} --tag ${CI_COMMIT_TAG} || true
+    - ${GH_TOOL} release -s ${GITHUB_TOKEN} --tag ${CI_COMMIT_TAG} --description "${RELEASE_DESC}" --draft
+    - GH_REL_TAG=${CI_COMMIT_TAG}
+    # Upload archives
+    - PLATFORM_NAME="linux64"
+    - *gh_upload_archive
+    - PLATFORM_NAME="win32"
+    - *gh_upload_archive
+    - PLATFORM_NAME="macos"
+    - *gh_upload_archive
+
+.release_master_auto:
+  stage: release_submit
+  only:
+    - master
+  when: on_success
+  script:
+    - GH_REL_TAG=$(git describe --tags)
+    - ${GH_TOOL} delete -s ${GITHUB_TOKEN} --tag ${GH_REL_TAG} || true
+    - ${GH_TOOL} release -s ${GITHUB_TOKEN} --tag ${GH_REL_TAG} --target ${CI_COMMIT_SHA} --description "Auto-generated release" --pre-release
+    # Upload archives
+    - PLATFORM_NAME="linux64"
+    - *gh_upload_archive
+    - PLATFORM_NAME="win32"
+    - *gh_upload_archive
+    - PLATFORM_NAME="macos"
+    - *gh_upload_archive
+
+Delete_master_release:
+  stage: release_submit
+  only:
+    - master
+  <<: *release_submit_action
+  dependencies:
+    - get_gh_tools
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - GH_REL_TAG=$(git describe --tags)
+    - ${GH_TOOL} delete -s ${GITHUB_TOKEN} --tag ${GH_REL_TAG} || true
+
+Release_tag_submit:
+  stage: release_submit
+  only:
+    - *release_tag_filter
+  <<: *release_submit_action
+  dependencies:
+    - get_gh_tools
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - ${GH_TOOL} edit -s ${GITHUB_TOKEN} --tag ${CI_COMMIT_TAG} --description "${RELEASE_DESC}"
+
+Pre-Release_tag_submit:
+  stage: release_submit
+  only:
+    - *release_tag_filter
+  <<: *release_submit_action
+  dependencies:
+    - get_gh_tools
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - ${GH_TOOL} edit -s ${GITHUB_TOKEN} --tag ${CI_COMMIT_TAG} --description "${RELEASE_DESC}" --pre-release
+
+Delete_tag_release:
+  stage: release_submit
+  only:
+    - *release_tag_filter
+  <<: *release_submit_action
+  dependencies:
+    - get_gh_tools
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - ${GH_TOOL} delete -s ${GITHUB_TOKEN} --tag ${CI_COMMIT_TAG} || true
