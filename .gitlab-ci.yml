@@ -52,7 +52,15 @@ variables:
   git submodule update --init
 
 .get_release_name: &get_release_name |
-  REL_VERSION=$(git describe --tags | sed -n -r "s|${CI_PROJECT_NAME}-(.*)|\1|gp")
+  PREFX=${CI_PROJECT_NAME}
+  tmpVER=$( tmpTAG=$(git describe --tags | grep -E "^v[0-9]") && ( echo $tmpTAG | sed -n -r "s|^v(.*)|\1|gp" ) || echo "" )
+  if [ ! $tmpVER ]; then
+    tmpVER=$( tmpTAG=$(git describe --tags | grep -E "^${PREFX}-")  && ( echo $tmpTAG | sed -n -r "s|^${PREFX}-(.*)|\1|gp" ) || echo "" )
+    if [ ! $tmpVER ]; then
+      echo "There is not a correct tag"; exit 1
+    fi
+  fi
+  REL_VERSION=$tmpVER
   REL_NAME=${CI_PROJECT_NAME}-${PLATFORM_NAME}-${REL_VERSION}
   ARCHIVE_NAME=${REL_NAME}.${ARCHIVE_EXT}
   echo "PLATFORM_NAME: $PLATFORM_NAME"
@@ -89,9 +97,14 @@ variables:
 
 .gh_upload_archive: &gh_upload_archive |
   ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
+  echo Release ${GH_REL_TAG}, file ${ARCHIVE_NAME}
   ${GH_TOOL} upload -s ${GITHUB_TOKEN} --tag ${GH_REL_TAG} -f ${DIST_ART_DIR}/${ARCHIVE_NAME} -n ${ARCHIVE_NAME}
 
-.release_tag_filter: &release_tag_filter /^openocd-esp32-.*$/
+# prefix should be like a $CI_PROJECT_NAME, but we cannot use variable here
+.release_tag_filter: &release_tag_filter
+  only:
+    - /^v[0-9].*$/
+    - /^openocd-esp32-.*$/
 
 .release_submit_action: &release_submit_action
   when: manual
@@ -99,6 +112,7 @@ variables:
 
 before_script:
   - set -o errexit; set -o pipefail; set -o nounset
+  - test ${DEBUG_SHELL:-""} && set -x
 
 build_linux:
   stage: build
@@ -118,7 +132,7 @@ build_linux:
     - ./bootstrap
     - ./configure --prefix=$PWD/$DIST_INSTALLED_DIR $OPENOCD_CONFIGURE_OPTS
     - make
-    - make install-strip
+    - MAKEFLAGS= make install-strip
     - *dist_archive
 
 build_windows:
@@ -154,7 +168,7 @@ build_windows:
     - ./bootstrap
     - ./configure --prefix=$PWD/$DIST_INSTALLED_DIR --host=i686-w64-mingw32 $OPENOCD_CONFIGURE_OPTS
     - make
-    - make install-strip
+    - MAKEFLAGS= make install-strip
     - cp /usr/i686-w64-mingw32/lib/libwinpthread-1.dll $DIST_INSTALLED_DIR/bin/
     - *dist_archive
 
@@ -205,7 +219,7 @@ build_macos:
     - ./bootstrap
     - ./configure --prefix=$PWD/$DIST_INSTALLED_DIR --host=x86_64-apple-darwin12 $OPENOCD_CONFIGURE_OPTS LDFLAGS="-Wl,-framework,CoreFoundation -Wl,-framework,IOKit" CC=x86_64-apple-darwin12-cc
     - make
-    - make install-strip
+    - MAKEFLAGS= make install-strip
     - *dist_archive
 
 build_test_app:
@@ -281,9 +295,7 @@ push_master_to_github:
 
 get_gh_tools:
   stage: test
-  only:
-    - *release_tag_filter
-    # - master
+  <<: *release_tag_filter
   artifacts:
     paths:
       - ${DIST_ART_DIR}
@@ -296,13 +308,11 @@ get_gh_tools:
 
 release_tag_draft:
   stage: release_stage1
-  only:
-    - *release_tag_filter
+  <<: *release_tag_filter
   when: on_success
   script:
     - *add_gh_key_remote
-    - git push github ${CI_COMMIT_TAG}
-    #INFO you could use "git push --force github refs/tags/${CI_COMMIT_TAG}:refs/tags/${CI_COMMIT_TAG}"
+    - git push github --force ${CI_COMMIT_TAG}
     # release draft
     - ${GH_TOOL} delete -s ${GITHUB_TOKEN} --tag ${CI_COMMIT_TAG} || true
     - ${GH_TOOL} release -s ${GITHUB_TOKEN} --tag ${CI_COMMIT_TAG} --description "${RELEASE_DESC}" --draft
@@ -315,40 +325,9 @@ release_tag_draft:
     - PLATFORM_NAME="macos"
     - *gh_upload_archive
 
-.release_master_auto:
-  stage: release_submit
-  only:
-    - master
-  when: on_success
-  script:
-    - GH_REL_TAG=$(git describe --tags)
-    - ${GH_TOOL} delete -s ${GITHUB_TOKEN} --tag ${GH_REL_TAG} || true
-    - ${GH_TOOL} release -s ${GITHUB_TOKEN} --tag ${GH_REL_TAG} --target ${CI_COMMIT_SHA} --description "Auto-generated release" --pre-release
-    # Upload archives
-    - PLATFORM_NAME="linux64"
-    - *gh_upload_archive
-    - PLATFORM_NAME="win32"
-    - *gh_upload_archive
-    - PLATFORM_NAME="macos"
-    - *gh_upload_archive
-
-Delete_master_release:
-  stage: release_submit
-  only:
-    - master
-  <<: *release_submit_action
-  dependencies:
-    - get_gh_tools
-  variables:
-    GIT_STRATEGY: none
-  script:
-    - GH_REL_TAG=$(git describe --tags)
-    - ${GH_TOOL} delete -s ${GITHUB_TOKEN} --tag ${GH_REL_TAG} || true
-
 Release_tag_submit:
   stage: release_submit
-  only:
-    - *release_tag_filter
+  <<: *release_tag_filter
   <<: *release_submit_action
   dependencies:
     - get_gh_tools
@@ -359,8 +338,7 @@ Release_tag_submit:
 
 Pre-Release_tag_submit:
   stage: release_submit
-  only:
-    - *release_tag_filter
+  <<: *release_tag_filter
   <<: *release_submit_action
   dependencies:
     - get_gh_tools
@@ -371,8 +349,7 @@ Pre-Release_tag_submit:
 
 Delete_tag_release:
   stage: release_submit
-  only:
-    - *release_tag_filter
+  <<: *release_tag_filter
   <<: *release_submit_action
   dependencies:
     - get_gh_tools
