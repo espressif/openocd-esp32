@@ -135,6 +135,28 @@ build_linux:
     - MAKEFLAGS= make install-strip
     - *dist_archive
 
+build_linux_armel:
+  stage: build
+  image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross
+  tags:
+    - build
+  artifacts:
+    paths:
+      - ${DIST_ART_DIR}
+    expire_in: 2 weeks
+  variables:
+    CONF_HOST: "arm-linux-gnueabi"
+    PLATFORM_NAME: "armel"
+  script:
+    - *get_release_name
+    - *add_gitlab_key
+    - *submodules_mirror_update
+    - ./bootstrap
+    - ./configure --prefix=$PWD/$DIST_INSTALLED_DIR --host=${CONF_HOST}  $OPENOCD_CONFIGURE_OPTS
+    - make
+    - MAKEFLAGS= make install-strip
+    - *dist_archive
+
 build_windows:
   stage: build
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-win-cross
@@ -145,6 +167,7 @@ build_windows:
       - ${DIST_ART_DIR}
     expire_in: 2 weeks
   variables:
+    CONF_HOST: "i686-w64-mingw32"
     PLATFORM_NAME: "win32"
     ARCHIVE_TOOL: "zip -r"
     ARCHIVE_EXT: "zip"
@@ -158,7 +181,7 @@ build_windows:
     - tar xzf $LIBUSB_VER.tar.gz && rm $LIBUSB_VER.tar.gz
     - pushd $LIBUSB_VER
     - ./bootstrap.sh
-    - ./configure --prefix=$PWD/dist --host=i686-w64-mingw32 --enable-shared=no --enable-static=yes
+    - ./configure --prefix=$PWD/dist --host=${CONF_HOST} --enable-shared=no --enable-static=yes
     - make
     - make install-strip
     - export PKG_CONFIG_PATH=$PWD/dist/lib/pkgconfig
@@ -166,10 +189,10 @@ build_windows:
     # Build OpenOCD
     - git submodule update --init
     - ./bootstrap
-    - ./configure --prefix=$PWD/$DIST_INSTALLED_DIR --host=i686-w64-mingw32 $OPENOCD_CONFIGURE_OPTS
+    - ./configure --prefix=$PWD/$DIST_INSTALLED_DIR --host=${CONF_HOST} $OPENOCD_CONFIGURE_OPTS
     - make
     - MAKEFLAGS= make install-strip
-    - cp /usr/i686-w64-mingw32/lib/libwinpthread-1.dll $DIST_INSTALLED_DIR/bin/
+    - cp /usr/${CONF_HOST}/lib/libwinpthread-1.dll $DIST_INSTALLED_DIR/bin/
     - *dist_archive
 
 build_macos:
@@ -245,6 +268,8 @@ build_test_app:
     - pushd esp-idf
     - tools/ci/mirror-submodule-update.sh
     - export IDF_PATH=$PWD
+    - export BATCH_BUILD=1
+    - export V=0
     - popd
     # Build generic test app
     - pushd testing/esp/test_apps/gen_ut_app
@@ -254,7 +279,7 @@ build_test_app:
     - make ut-build-single_core
     - popd
 
-run_autotests:
+run_autotests_linux64:
   stage: test
   image: $CI_DOCKER_REGISTRY/esp32-ci-env
   tags:
@@ -271,14 +296,43 @@ run_autotests:
   variables:
     PLATFORM_NAME: "linux64"
   script:
-      # Run tests
-      - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
-      - mkdir -p tmp
-      - tar -C tmp/ -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
-      - export DIST_DIR=${PWD}/tmp/${DIST_INSTALLED_DIR}
-      - pushd testing/esp
-      - ./run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/test_apps -d 4 -l ./debug_backend_tests.log
-      - popd
+    # Run tests
+    - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
+    - mkdir -p tmp
+    - tar -C tmp/ -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
+    - export DIST_DIR=${PWD}/tmp/${DIST_INSTALLED_DIR}
+    - pushd testing/esp
+    - ./run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/test_apps -d 4 -l ./debug_backend_tests.log
+    - popd
+
+run_autotests_armel:
+  stage: test
+  tags:
+    - rpi-shell
+  allow_failure: true
+  artifacts:
+    paths:
+      - testing/esp/debug_backend_tests.log
+    when: always
+    expire_in: 1 week
+  dependencies:
+    - build_test_app
+    - build_linux_armel
+  variables:
+    PLATFORM_NAME: "armel"
+  script:
+    # xtensa-esp32-elf was added to PATH
+    # gitlab-runner  user was added to plugdev group
+    # udev rule for plugdev was added to rules.d/ (see github.com/arduino/OpenOCD/blob/master/contrib/60-openocd.rules)
+    #
+    # Run tests
+    - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
+    - mkdir -p tmp
+    - tar -C tmp/ -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
+    - export DIST_DIR=${PWD}/tmp/${DIST_INSTALLED_DIR}
+    - pushd testing/esp
+    - ./run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/test_apps -d 4 -l ./debug_backend_tests.log
+    - popd
 
 push_master_to_github:
   stage: deploy
@@ -319,6 +373,8 @@ release_tag_draft:
     - GH_REL_TAG=${CI_COMMIT_TAG}
     # Upload archives
     - PLATFORM_NAME="linux64"
+    - *gh_upload_archive
+    - PLATFORM_NAME="armel"
     - *gh_upload_archive
     - PLATFORM_NAME="win32"
     - *gh_upload_archive
