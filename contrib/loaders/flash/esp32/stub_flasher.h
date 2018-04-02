@@ -25,17 +25,17 @@
 #define ESP32_STUB_ERR_FAIL                 (-1)
 #define ESP32_STUB_ERR_NOT_SUPPORTED        (-2)
 
-#define ESP32_STUB_CMD_TEST                 0
-#define ESP32_STUB_CMD_FLASH_READ           1
-#define ESP32_STUB_CMD_FLASH_WRITE          2
-#define ESP32_STUB_CMD_FLASH_ERASE          3
-#define ESP32_STUB_CMD_FLASH_ERASE_CHECK    4
-#define ESP32_STUB_CMD_FLASH_SIZE	        5
-#define ESP32_STUB_CMD_FLASH_MAP_GET        6
-#define ESP32_STUB_CMD_FLASH_BP_SET			7
-#define ESP32_STUB_CMD_FLASH_BP_CLEAR		8
+#define ESP32_STUB_CMD_FLASH_READ           0
+#define ESP32_STUB_CMD_FLASH_WRITE          1
+#define ESP32_STUB_CMD_FLASH_ERASE          2
+#define ESP32_STUB_CMD_FLASH_ERASE_CHECK    3
+#define ESP32_STUB_CMD_FLASH_SIZE	        4
+#define ESP32_STUB_CMD_FLASH_MAP_GET        5
+#define ESP32_STUB_CMD_FLASH_BP_SET			6
+#define ESP32_STUB_CMD_FLASH_BP_CLEAR		7
 #define ESP32_STUB_CMD_FLASH_MAX_ID	        ESP32_STUB_CMD_FLASH_BP_CLEAR
 #define ESP32_STUB_CMD_FLASH_TEST           (ESP32_STUB_CMD_FLASH_MAX_ID+1)
+#define ESP32_STUB_CMD_TEST                 8
 
 #define ESP32_STUB_PARTITION_TABLE_MAX_ENTRIES 	10
 #define ESP32_STUB_FLASH_MAPPINGS_MAX_NUM		2 // IROM, DROM
@@ -54,5 +54,10 @@ struct esp32_flash_mapping {
 	uint32_t maps_num;
 	struct esp32_flash_region_mapping maps[ESP32_STUB_FLASH_MAPPINGS_MAX_NUM];
 };
+
+static inline uint8_t xtensa_get_insn_size(uint8_t *insn)
+{
+  return insn[0] & 0x8 ? 2 : 3;
+}
 
 #endif //ESP32_FLASHER_STUB_H

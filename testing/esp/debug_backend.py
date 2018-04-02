@@ -374,6 +374,15 @@ class Gdb:
             raise DebuggerError('Failed to eval expression!')
         return res_body['value']
 
+    def get_reg(self, nm):
+        sval = self.data_eval_expr('$%s' % nm)
+        # for PC we get something like '0x400e0db8 <gpio_set_direction>'
+        # TODO: use regexp to extract value
+        fn_start = sval.find(' <')
+        if fn_start != -1:
+            sval = sval[:fn_start]
+        return int(sval, 0)
+
     def get_variables_at_frame(self, thread_num=None, frame_num = 0):
         # -stack-list-variables [ --no-frame-filters ] [ --skip-unavailable ] print-values
         if thread_num:

@@ -122,7 +122,13 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
                 get_logger().debug('Load %s for %d tests', app_cfg_id, self._groupped_suites[app_cfg_id][1].countTestCases())
                 # load only if app bins are configured (used) for these tests
                 if self.load_app_bins and self._groupped_suites[app_cfg_id][0]:
-                    self._load_app(self._groupped_suites[app_cfg_id][0])
+                    try:
+                        self._load_app(self._groupped_suites[app_cfg_id][0])
+                    except:
+                        get_logger().critical('Failed to load %s!', app_cfg_id)
+                        for test in self._groupped_suites[app_cfg_id][1]:
+                            result.addSkip(test, 'test app load failure')
+                        continue
                 dbg.get_gdb().exec_file_set(self._groupped_suites[app_cfg_id][0].build_app_elf_path())
             self._groupped_suites[app_cfg_id][1]._run_tests(result, debug)
         return result
@@ -193,7 +199,7 @@ class DebuggerTestsBase(unittest.TestCase):
         state,_ = self.gdb.get_target_state()
         if state != dbg.Gdb.TARGET_STATE_STOPPED:
             self.gdb.exec_interrupt()
-            rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+            rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 10)
             self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_SIGINT)
 
     def resume_exec(self, loc=None):
@@ -262,6 +268,20 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         self.assertEqual(frame['func'], 'app_main')
         self.gdb.delete_bp(bp)
         # ready to select and start test (should be done in test method)
+        self.bpns = []
+        self.wps = {}
+
+    def tearDown(self):
+        for bpn in self.bpns:
+            self.gdb.delete_bp(bpn)
+        for _,wpn in self.wps.items():
+            self.gdb.delete_bp(wpn)
+
+    def add_bp(self, loc, ignore_count=0, cond=''):
+        self.bpns.append(self.gdb.add_bp(loc, ignore_count=ignore_count, cond=cond))
+
+    def add_wp(self, exp, tp='w'):
+        self.wps[exp] = self.gdb.add_wp(exp, tp=tp)
 
     def select_sub_test(self, sub_test_num):
         """ Selects sub test in app running on target
@@ -290,6 +310,7 @@ class DebuggerGenericTestAppTestsDual(DebuggerGenericTestAppTests):
         # use default config with modified path to binaries
         self.test_app_cfg.bin_dir = os.path.join('output', 'default')
         self.test_app_cfg.build_dir = os.path.join('builds', 'default')
+
 
 class DebuggerGenericTestAppTestsSingle(DebuggerGenericTestAppTests):
     """ Base class to run tests which use generic test app in single core mode

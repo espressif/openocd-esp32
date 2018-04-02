@@ -76,7 +76,7 @@
 #include <target/esp108_apptrace.h>
 #include <target/esp32.h>
 #include "time_support.h"
-#include <contrib/loaders/flash/esp32/stub_flasher.h>
+#include "contrib/loaders/flash/esp32/stub_flasher.h"
 #include "contrib/loaders/flash/esp32/stub_flasher_image.h"
 #include "target/esp32.h"
 
@@ -796,7 +796,7 @@ struct esp32_flash_sw_breakpoint * esp32_add_flash_breakpoint(struct target *tar
 		LOG_ERROR("Failed to alloc memory for sw breakpoint data!");
 		return NULL;
 	}
-	sw_bp->oocd_bp = breakpoint;
+	sw_bp->data.oocd_bp = breakpoint;
 	sw_bp->bank = bank;
 
 	init_mem_param(&mp, 2/*2nd usr arg*/, 3/*size in bytes*/, PARAM_IN);

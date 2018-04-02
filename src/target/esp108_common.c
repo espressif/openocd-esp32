@@ -253,19 +253,6 @@ int xtensa_examine(struct target *target)
 	return ERROR_OK;
 }
 
-uint32_t xtensa_read_reg_direct(struct target *target, uint8_t reg)
-{
-	uint32_t result = 0xdeadface;
-	uint8_t dsr[4];
-
-	esp108_queue_nexus_reg_read(target, reg, dsr);
-	esp108_queue_tdi_idle(target);
-	int res = jtag_execute_queue();
-	if (res != ERROR_OK) return result;
-	result = intfromchars(dsr);
-	return result;
-}
-
 int read_reg_direct(struct target *target, uint8_t addr)
 {
 	uint8_t dsr[4];
@@ -274,7 +261,6 @@ int read_reg_direct(struct target *target, uint8_t addr)
 	jtag_execute_queue();
 	return intfromchars(dsr);
 }
-
 
 int xtensa_write_uint32(struct target *target, uint32_t addr, uint32_t val)
 {
@@ -407,7 +393,7 @@ int xtensa_wait_algorithm_generic(struct target *target,
 	for (int i = 0; i < num_mem_params; i++) {
 		LOG_DEBUG("Check mem param @ 0x%x", mem_params[i].address);
 		if (mem_params[i].direction != PARAM_OUT) {
-			LOG_USER("Read mem param @ 0x%x", mem_params[i].address);
+			LOG_DEBUG("Read mem param @ 0x%x", mem_params[i].address);
 			retval = target_read_buffer(target, mem_params[i].address,
 					mem_params[i].size,
 					mem_params[i].value);
@@ -435,8 +421,6 @@ int xtensa_wait_algorithm_generic(struct target *target,
 	for (int i = core_cache->num_regs - 1; i >= 0; i--) {
 		uint32_t regvalue;
 		regvalue = esp108_reg_get(&core_cache->reg_list[i]);
-		// LOG_DEBUG("check register %s with value 0x%x -> 0x%8.8" PRIx32,
-		// 		core_cache->reg_list[i].name, regvalue, algorithm_info->context[i]);
 		if (i == XT_REG_IDX_DEBUGCAUSE) {
 			//FIXME: restoring DEBUGCAUSE causes exception when executing corresponding instruction in DIR
 			LOG_DEBUG("Skip restoring register %s: 0x%x -> 0x%8.8" PRIx32,

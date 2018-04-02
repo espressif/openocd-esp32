@@ -14,9 +14,55 @@ def get_logger():
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
 
-class BreakpointTestsImpl:
+class PoiTestsImpl:
+    """ Break/Watchpoint test cases common functions
+    """
+
+
+    def run_to_bp_and_check_basic(self, exp_rsn, func_name):
+        self.resume_exec()
+        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+        self.assertEqual(rsn, exp_rsn)
+        cur_frame = self.gdb.get_current_frame()
+        self.assertEqual(cur_frame['func'], func_name)
+        frames = self.gdb.get_backtrace()
+        self.assertTrue(len(frames) > 0)
+        self.assertEqual(frames[0]['func'], cur_frame['func'])
+        self.assertEqual(frames[0]['line'], cur_frame['line'])
+        return frames
+
+    def run_to_bp_and_check(self, exp_rsn, func_name, lineno_var_prefs):
+        frames = self.run_to_bp_and_check_basic(exp_rsn, func_name)
+        outmost_frame = len(frames) - 1
+        # Sometimes GDB does not provide full backtrace. so check this
+        # we can only check line numbers in 'blink_task',
+        # because its code is under control of test framework
+        if outmost_frame == 0 and func_name != 'blink_task':
+            return
+        # outermost frame should be in 'blink_task' function
+        self.assertEqual(frames[outmost_frame]['func'], 'blink_task')
+        self.gdb.select_frame(outmost_frame)
+        # read line number from variable and compare with what GDB provides
+        if len(lineno_var_prefs) == 1:
+            line_num = self.gdb.data_eval_expr('%s_break_ln' % lineno_var_prefs[0])
+            self.assertEqual(frames[outmost_frame]['line'], line_num)
+        else:
+            # for tests which set multiple BPs/WPs and expect hits on both cores
+            # it is hard to predict the order of hits,
+            # so just check that debugger has stopped on one of the locations
+            line_nums = []
+            for p in lineno_var_prefs:
+                line_nums.append(self.gdb.data_eval_expr('%s_break_ln' % p))
+            self.assertTrue(frames[outmost_frame]['line'] in line_nums)
+
+
+class BreakpointTestsImpl(PoiTestsImpl):
     """ Breakpoints test cases which are common for dual and single core modes
     """
+
+    def setUp(self):
+        # 2 HW breaks + 1 flash SW break + RAM SW break
+        self.bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
 
     def test_multi_reset_break(self):
         """
@@ -30,43 +76,22 @@ class BreakpointTestsImpl:
         for i in range(3):
             self.gdb.target_reset()
             rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
-            bp = self.gdb.add_bp('app_main')
+            self.add_bp('app_main')
             self.resume_exec()
             rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+            self.gdb.delete_bp(self.bpns.pop())
             self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_BP)
-            self.gdb.delete_bp(bp)
-
-    def run_to_bp_and_check(self, exp_rsn, func_name, lineno_var_prefs):
-            self.resume_exec()
-            rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
-            self.assertEqual(rsn, exp_rsn)
             cur_frame = self.gdb.get_current_frame()
-            self.assertEqual(cur_frame['func'], func_name)
-            frames = self.gdb.get_backtrace()
-            self.assertTrue(len(frames) > 0)
-            self.assertEqual(frames[0]['func'], cur_frame['func'])
-            self.assertEqual(frames[0]['line'], cur_frame['line'])
-            outmost_frame = len(frames) - 1
-            # Sometimes GDB does not provide full backtrace. so check this
-            # we can only check line numbers in 'blink_task', 
-            # because its code is under control of test framework
-            if outmost_frame == 0 and func_name != 'blink_task':
-                return
-            # outermost frame should be in 'blink_task' function
-            self.assertEqual(frames[outmost_frame]['func'], 'blink_task')
-            self.gdb.select_frame(outmost_frame)
-            # read line number from variable and compare with what GDB provides
-            if len(lineno_var_prefs) == 1:
-                line_num = self.gdb.data_eval_expr('%s_break_ln' % lineno_var_prefs[0])
-                self.assertEqual(frames[outmost_frame]['line'], line_num)
-            else:
-                # for tests which set multiple BPs/WPs and expect hits on both cores
-                # it is hard to predict the order of hits,
-                # so just check that debugger has stopped on one of the location
-                line_nums = []
-                for p in lineno_var_prefs:
-                    line_nums.append(self.gdb.data_eval_expr('%s_break_ln' % p))
-                self.assertTrue(frames[outmost_frame]['line'] in line_nums)
+            self.assertEqual(cur_frame['func'], 'app_main')
+
+    def readd_bps(self):
+        # remove all BPs except the first one
+        for i in range(1, len(self.bpns)):
+            self.gdb.delete_bp(self.bpns[i])
+        self.bpns = self.bpns[:1]
+        # add removed BPs back
+        for i in range(1, len(self.bps)):
+            self.add_bp(self.bps[i])
 
     def test_bp_add_remove_run(self):
         """
@@ -78,37 +103,21 @@ class BreakpointTestsImpl:
             5) Check backtrace at the stop point.
             6) Removes several breakpoints and adds them again.
             7) Repeat steps 3-5 several times.
-            8) Finally delete all breakpoints, resume execution and ensure that target is running.
         """
         self.select_sub_test(100)
-        # 2 HW breaks + 1 flash SW break + RAM SW break
-        bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
-        bpns = []
-        for f in bps:
-            bpns.append(self.gdb.add_bp(f))
-        def readd_bps(bps_nums, bps_names):
-            # remove all BPs except the first one
-            for i in range(1, len(bps_nums)):
-                self.gdb.delete_bp(bps_nums[i])
-            bps_nums = bps_nums[:1]
-            # add removed BPs back
-            for i in range(1, len(bps_names)):
-                bps_nums.append(self.gdb.add_bp(bps_names[i]))
-            return bps_nums
-        bpns = readd_bps(bpns, bps)
+        for f in self.bps:
+            self.add_bp(f)
+        self.readd_bps()
         # break at gpio_set_direction
         self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_BP, 'gpio_set_direction', ['gpio_set_direction'])
-        bpns = readd_bps(bpns, bps)
+        self.readd_bps()
         for i in range(2):
             # break at gpio_set_level
             self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_BP, 'gpio_set_level', ['gpio_set_level%d' % (i % 2)])
-            bpns = readd_bps(bpns, bps)
+            self.readd_bps()
             # break at vTaskDelay
             self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay%d' % (i % 2)])
-            bpns = readd_bps(bpns, bps)
-        for bpn in bpns:
-            self.gdb.delete_bp(bpn)
-        self.resume_exec()
+            self.readd_bps()
 
     def test_bp_ignore_count(self):
         """
@@ -120,17 +129,13 @@ class BreakpointTestsImpl:
             5) Check that conditioned breakpoint stopped the target only when its 'ignore count' is exceeded.
             6) Check backtrace at the stop point.
             7) Repeat steps 3-6 several times.
-            8) Finally delete all breakpoints, resume execution and ensure that target is running.
         """
         self.select_sub_test(100)
-        # 2 HW breaks + 1 flash SW break + RAM SW break
-        bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
-        bpns = []
-        for f in bps:
+        for f in self.bps:
             if f == 'vTaskDelay':
-                bpns.append(self.gdb.add_bp(f, ignore_count=2))
+                self.add_bp(f, ignore_count=2)
             else:
-                bpns.append(self.gdb.add_bp(f))
+                self.add_bp(f)
         # break at gpio_set_direction
         self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_BP, 'gpio_set_direction', ['gpio_set_direction'])
         for i in range(3):
@@ -139,9 +144,6 @@ class BreakpointTestsImpl:
             if i > 1:
                 # break at vTaskDelay
                 self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay%d' % (i % 2)])
-        for bpn in bpns:
-            self.gdb.delete_bp(bpn)
-        self.resume_exec()
 
     def test_bp_cond_expr(self):
         """
@@ -153,17 +155,13 @@ class BreakpointTestsImpl:
             5) Check that conditioned breakpoint stopped the target only when its 'conditional expression' is true.
             6) Check backtrace at the stop point.
             7) Repeat steps 3-6 several times.
-            8) Finally delete all breakpoints, resume execution and ensure that target is running.
         """
         self.select_sub_test(100)
-        # 2 HW breaks + 1 flash SW break + RAM SW break
-        bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
-        bpns = []
-        for f in bps:
+        for f in self.bps:
             if f == 'vTaskDelay':
-                bpns.append(self.gdb.add_bp(f, cond='s_count1 == 1'))
+                self.add_bp(f, cond='s_count1 == 1')
             else:
-                bpns.append(self.gdb.add_bp(f))
+                self.add_bp(f)
         # break at gpio_set_direction
         self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_BP, 'gpio_set_direction', ['gpio_set_direction'])
         for i in range(6):
@@ -173,9 +171,6 @@ class BreakpointTestsImpl:
             if i == 2 or i == 3:
                 # break at vTaskDelay
                 self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay%d' % (i % 2)])
-        for bpn in bpns:
-            self.gdb.delete_bp(bpn)
-        self.resume_exec()
 
     def test_bp_and_reconnect(self):
         """
@@ -189,30 +184,46 @@ class BreakpointTestsImpl:
             6) Disconnect GDB from OOCD.
             7) Connect GDB to OOCD.
             8) Repeat steps 3-7 several times.
-            9) Finally delete all breakpoints, resume execution and ensure that target is running.
         """
         self.select_sub_test(100)
-        # self.gdb.monitor_run('esp32 setcores 1')
-        # 2 HW breaks + 1 flash SW break + RAM SW break
-        bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
-        bpns = []
-        for f in bps:
-            bpns.append(self.gdb.add_bp(f))
-        for i in range(10):
+        for f in self.bps:
+            self.add_bp(f)
+        for i in range(5):
             self.resume_exec()
             rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
             self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_BP)
             cur_frame = self.gdb.get_current_frame()
-            self.assertTrue(cur_frame['func'] in bps)
+            self.assertTrue(cur_frame['func'] in self.bps)
             frames = self.gdb.get_backtrace()
             self.assertTrue(len(frames) > 0)
             self.assertEqual(frames[0]['func'], cur_frame['func'])
             self.assertEqual(frames[0]['line'], cur_frame['line'])
             self.gdb.disconnect()
             self.gdb.connect()
-        for bpn in bpns:
-            self.gdb.delete_bp(bpn)
-        self.resume_exec()
+
+    def test_bp_in_isr(self):
+        """
+            This test checks that the first several breakpoint's hits can be ignored:
+            1) Select appropriate sub-test number on target.
+            2) Set several breakpoints in ISR code to cover all types of them (HW, SW).
+            3) Resume target and wait for brekpoints to hit.
+            4) Check that target has stopped in the right place.
+            5) Repeat steps 3-4 several times.
+        """
+        # 2 HW breaks + 1 flash SW break + RAM SW break
+        self.bps = ['app_main', 'test_timer_isr', 'test_timer_isr_func', 'test_timer_isr_ram_func']
+        self.select_sub_test(100)
+        for f in self.bps:
+            self.add_bp(f)
+        for i in range(3):
+            self.run_to_bp_and_check_basic(dbg.Gdb.TARGET_STOP_REASON_BP, 'test_timer_isr')
+            self.run_to_bp_and_check_basic(dbg.Gdb.TARGET_STOP_REASON_BP, 'test_timer_isr_func')
+            self.run_to_bp_and_check_basic(dbg.Gdb.TARGET_STOP_REASON_BP, 'test_timer_isr_ram_func')
+
+
+class WatchpointTestsImpl(PoiTestsImpl):
+    """ Watchpoints test cases which are common for dual and single core modes
+    """
 
     def test_wp_simple(self):
         """
@@ -224,19 +235,18 @@ class BreakpointTestsImpl:
             5) Check backtrace at the stop point.
             6) Check that watched expression has correct value.
             7) Repeat steps 3-6 several times.
-            8) Finally delete the watchpoint, resume execution and ensure that target is running.
         """
         self.select_sub_test(100)
-        wps = {'s_count1': None}
-        for e in wps:
-            wps[e] = self.gdb.add_wp(e, 'rw')
+        self.wps = {'s_count1': None}
+        for e in self.wps:
+            self.add_wp(e, 'rw')
         cnt = 0
         for i in range(3):
             # 'count' read
             self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_SIGTRAP, 'blink_task', ['s_count10'])
             var_val = int(self.gdb.data_eval_expr('s_count1'))
             self.assertEqual(var_val, cnt)
-            # 'count' write
+            # 'count' read
             self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_SIGTRAP, 'blink_task', ['s_count11'])
             var_val = int(self.gdb.data_eval_expr('s_count1'))
             self.assertEqual(var_val, cnt)
@@ -245,9 +255,6 @@ class BreakpointTestsImpl:
             var_val = int(self.gdb.data_eval_expr('s_count1'))
             self.assertEqual(var_val, cnt)
             cnt += 1
-        for _,wp in wps.items():
-            self.gdb.delete_bp(wp)
-        self.resume_exec()
 
     def test_wp_and_reconnect(self):
         """
@@ -261,15 +268,14 @@ class BreakpointTestsImpl:
             6) Disconnect GDB from OOCD.
             7) Connect GDB to OOCD.
             8) Repeat steps 3-7 several times.
-            9) Finally delete all watchpoints, resume execution and ensure that target is running.
         """
         self.select_sub_test(100)
-        wps = {'s_count1': None, 's_count2': None}
+        self.wps = {'s_count1': None, 's_count2': None}
         cnt = 0
         cnt2 = 100
-        for e in wps:
-            wps[e] = self.gdb.add_wp(e, 'w')
-        for i in range(10):
+        for e in self.wps:
+            self.add_wp(e, 'w')
+        for i in range(5):
             if (i % 2) == 0:
                 self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_SIGTRAP, 'blink_task', ['s_count11'])
                 var_val = int(self.gdb.data_eval_expr('s_count1'))
@@ -282,9 +288,6 @@ class BreakpointTestsImpl:
                 cnt2 -= 1
             self.gdb.disconnect()
             self.gdb.connect()
-        for _,wp in wps.items():
-            self.gdb.delete_bp(wp)
-        self.resume_exec()
 
 
 ########################################################################
@@ -295,6 +298,10 @@ class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTes
     """ Test cases for breakpoints in dual core mode
     """
 
+    def setUp(self):
+        DebuggerGenericTestAppTestsDual.setUp(self)
+        BreakpointTestsImpl.setUp(self)
+
     def test_2cores_concurrently_hit_bps(self):
         """
             This test checks that 2 cores can concurrently hit the same set of breakpoints.
@@ -304,27 +311,40 @@ class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTes
             4) Check that target has stopped in the right place.
             5) Check backtrace at the stop point.
             6) Repeat steps 3-5 several times.
-            7) Finally delete all the breakpoints, resume execution and ensure that target is running.
+            7) Check that all set breakpoints hit one time at least.
         """
+        hit_cnt = [0] * len(self.bps)
         self.select_sub_test(101)
-        # 2 HW breaks + 1 flash SW break + RAM SW break
-        bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
-        bpns = []
-        for f in bps:
-            bpns.append(self.gdb.add_bp(f))
-        for i in range(10):
+        for f in self.bps:
+            self.add_bp(f)
+        for i in range(30):
             self.resume_exec()
-            rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+            rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 10)
             self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_BP)
             cur_frame = self.gdb.get_current_frame()
-            self.assertTrue(cur_frame['func'] in bps)
+            self.assertTrue(cur_frame['func'] in self.bps)
+            f_idx = self.bps.index(cur_frame['func'])
+            hit_cnt[f_idx] += 1
             frames = self.gdb.get_backtrace()
             self.assertTrue(len(frames) > 0)
             self.assertEqual(frames[0]['func'], cur_frame['func'])
             self.assertEqual(frames[0]['line'], cur_frame['line'])
-        for bpn in bpns:
-            self.gdb.delete_bp(bpn)
-        self.resume_exec()
+        for cnt in hit_cnt[1:]:
+            self.assertTrue(cnt > 0)
+
+
+class DebuggerBreakpointTestsSingle(DebuggerGenericTestAppTestsSingle, BreakpointTestsImpl):
+    """ Test cases for breakpoints in single core mode
+    """
+
+    def setUp(self):
+        DebuggerGenericTestAppTestsSingle.setUp(self)
+        BreakpointTestsImpl.setUp(self)
+
+
+class DebuggerWatchpointTestsDual(DebuggerGenericTestAppTestsDual, WatchpointTestsImpl):
+    """ Test cases for watchpoints in dual core mode
+    """
 
     def test_2cores_concurrently_hit_wps(self):
         """
@@ -335,22 +355,18 @@ class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTes
             4) Check that target has stopped in the right place.
             5) Check backtrace at the stop point.
             6) Repeat steps 3-5 several times.
-            7) Finally delete all the watchpoints, resume execution and ensure that target is running.
         """
         self.select_sub_test(101)
-        wps = {'s_count1': None, 's_count2': None}
+        self.wps = {'s_count1': None, 's_count2': None}
         cnt = 0
         cnt2 = 100
-        for e in wps:
-            wps[e] = self.gdb.add_wp(e, 'w')
+        for e in self.wps:
+            self.add_wp(e, 'w')
         for i in range(10):
             self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_SIGTRAP, 'blink_task', ['s_count11', 's_count2'])
-        for _,wp in wps.items():
-            self.gdb.delete_bp(wp)
-        self.resume_exec()
 
 
-class DebuggerBreakpointTestsSingle(DebuggerGenericTestAppTestsSingle, BreakpointTestsImpl):
-    """ Test cases for breakpoints in single core mode
+class DebuggerWatchpointTestsSingle(DebuggerGenericTestAppTestsSingle, WatchpointTestsImpl):
+    """ Test cases for watchpoints in single core mode
     """
     pass

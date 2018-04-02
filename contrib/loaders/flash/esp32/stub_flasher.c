@@ -623,11 +623,6 @@ static int stub_flash_get_map(uint32_t maps_addr)
     return ESP32_STUB_ERR_OK;
 }
 
-static inline uint8_t stub_get_insn_size(uint8_t *insn)
-{
-  return insn[0] & 0x8 ? 2 : 3;
-}
-
 /**
 * Possible BP layouts in flash:
 * 1) addr is aligned to 4 bytes (in 1 sector)
@@ -649,7 +644,7 @@ static uint8_t stub_flash_set_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr,
         return 0;
     }
     memcpy((void *)insn_buf_addr, &insn_sect[(bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE-1)) & ~0x3UL], ESP32_STUB_BP_INSN_BUF_SIZE);
-    uint8_t insn_sz = stub_get_insn_size(&insn_sect[bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE-1)]);
+    uint8_t insn_sz = xtensa_get_insn_size(&insn_sect[bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE-1)]);
     STUB_LOGI("Read insn [%02x %02x %02x] %d bytes @ 0x%x\n", insn_sect[(bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE-1)) + 0], insn_sect[(bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE-1)) + 1],
       insn_sect[(bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE-1)) + 2], insn_sz, bp_flash_addr);
 
@@ -691,7 +686,7 @@ static int stub_flash_clear_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr, u
         STUB_LOGE("Failed to read insn sector (%d)!\n", rc);
         return ESP32_STUB_ERR_FAIL;
     }
-    uint8_t insn_sz = stub_get_insn_size(&insn[bp_flash_addr & 0x3UL]);
+    uint8_t insn_sz = xtensa_get_insn_size(&insn[bp_flash_addr & 0x3UL]);
     // this will erase full sector or two
     if (stub_flash_erase(bp_flash_addr, insn_sz) != ESP32_STUB_ERR_OK) {
         STUB_LOGE("Failed to erase insn sector!\n");
@@ -722,6 +717,7 @@ static int stub_flash_clear_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr, u
     return ESP32_STUB_ERR_OK;
 }
 
+
 static int stub_flash_handler(int cmd, va_list ap)
 {
   int ret = ESP32_STUB_ERR_OK;
@@ -734,7 +730,7 @@ static int stub_flash_handler(int cmd, va_list ap)
   uint32_t arg4 = va_arg(ap, uint32_t);   // down buf size
   bool other_cache_enab = stub_spi_flash_cache_enabled(other_core_id);
 
-  STUB_LOGD("flash a %x, s %d\n", arg1, arg2);
+  STUB_LOGD("%s a %x, s %d\n", __func__, arg1, arg2);
 
   ets_efuse_read_op();
   uint32_t spiconfig = ets_efuse_get_spiconfig();
@@ -894,13 +890,13 @@ int stub_main(int cmd, ...)
         ret = stub_flash_handler(cmd, ap);
     } else  switch (cmd) {
 #if STUB_DEBUG
-        case ESP32_STUB_CMD_TEST:
-          STUB_LOGD("TEST %d\n", cmd);
-          break;
-        case ESP32_STUB_CMD_FLASH_TEST:
+      case ESP32_STUB_CMD_TEST:
+        STUB_LOGD("TEST %d\n", cmd);
+        break;
+      case ESP32_STUB_CMD_FLASH_TEST:
 #endif
-        default:
-          ret = ESP32_STUB_ERR_NOT_SUPPORTED;
+      default:
+        ret = ESP32_STUB_ERR_NOT_SUPPORTED;
     }
     va_end(ap);
 

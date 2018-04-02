@@ -547,7 +547,6 @@ static int xtensa_resume_cpu(struct target *target,
 			xtensa_step(target, current, address, handle_breakpoints);
 		}
 	}
-
 	//Write back hw breakpoints. Current FreeRTOS SMP code can set a hw breakpoint on an
 	//exception; we need to clear that and return to the breakpoints gdb has set on resume.
 	bpena = 0;
@@ -939,7 +938,7 @@ static int esp32_handle_target_event(struct target *target, enum target_event ev
 					int ret = esp32_remove_flash_breakpoint(target, flash_bp);
 					if (ret != ERROR_OK) {
 						LOG_ERROR("%s: Failed to remove SW flash BP @ 0x%x (%d)!",
-								target->cmd_name, flash_bp->oocd_bp->address, ret);
+								target->cmd_name, flash_bp->data.oocd_bp->address, ret);
 						return ret;
 					}
 				}
@@ -958,7 +957,50 @@ static int esp32_handle_target_event(struct target *target, enum target_event ev
 		default:
 			break;
 	}
+	return ERROR_OK;
+}
 
+static struct esp32_sw_breakpoint * esp32_add_sw_breakpoint(struct target *target, struct breakpoint *breakpoint)
+{
+	union {
+		uint32_t d32;
+		uint8_t d8[4];
+	} break_insn;
+
+	int ret = target_read_buffer(target, breakpoint->address, 3, break_insn.d8);
+	if (ret != ERROR_OK) {
+		LOG_ERROR("%s: Faied to read insn (%d)!", target->cmd_name, ret);
+		return NULL;
+	}
+	struct esp32_sw_breakpoint *sw_bp = malloc(sizeof(struct esp32_flash_sw_breakpoint));
+	if (sw_bp == NULL) {
+		LOG_ERROR("Failed to alloc memory for sw breakpoint data!");
+		return NULL;
+	}
+	sw_bp->insn_sz = xtensa_get_insn_size(break_insn.d8);
+	memcpy(sw_bp->insn, break_insn.d8, sw_bp->insn_sz);
+	sw_bp->oocd_bp = breakpoint;
+
+	break_insn.d32 = sw_bp->insn_sz == 2 ? XT_INS_BREAKN(0) : XT_INS_BREAK(0, 0);
+
+	ret = target_write_buffer(target, breakpoint->address, sw_bp->insn_sz, break_insn.d8);
+	if (ret != ERROR_OK) {
+		LOG_ERROR("%s: Faied to read insn (%d)!", target->cmd_name, ret);
+		free(sw_bp);
+		return NULL;
+	}
+
+	return sw_bp;
+}
+
+static int esp32_remove_sw_breakpoint(struct target *target, struct esp32_sw_breakpoint *breakpoint)
+{
+	int ret = target_write_buffer(target, breakpoint->oocd_bp->address, breakpoint->insn_sz, breakpoint->insn);
+	if (ret != ERROR_OK) {
+		LOG_ERROR("%s: Faied to read insn (%d)!", target->cmd_name, ret);
+		return ret;
+	}
+	free(breakpoint);
 	return ERROR_OK;
 }
 
@@ -968,7 +1010,21 @@ static int xtensa_add_breakpoint(struct target *target, struct breakpoint *break
 	size_t slot;
 
 	if (breakpoint->type == BKPT_SOFT) {
-		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		for(slot = 0; slot < ESP32_SW_BREAKPOINTS_MAX_NUM; slot++) {
+			if (esp32->sw_brps[slot] == NULL || esp32->sw_brps[slot]->oocd_bp == breakpoint) break;
+		}
+		if (slot == ESP32_SW_BREAKPOINTS_MAX_NUM)
+		{
+			LOG_WARNING("%s: max SW slot reached, slot=%i", __func__, (unsigned int)slot);
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+		esp32->sw_brps[slot] = esp32_add_sw_breakpoint(target, breakpoint);
+		if (esp32->sw_brps[slot] == NULL) {
+			LOG_ERROR("%s: Faied to add SW BP!", target->cmd_name);
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+		LOG_DEBUG("%s: placed SW breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
+		return ERROR_OK;
 	}
 
 	for(slot = 0; slot < esp32->num_brps; slot++) {
@@ -978,11 +1034,11 @@ static int xtensa_add_breakpoint(struct target *target, struct breakpoint *break
 	{
 		LOG_WARNING("%s: max HW slot reached, slot=%i", __func__, (unsigned int)slot);
 		for(slot = 0; slot < ESP32_FLASH_SW_BREAKPOINTS_MAX_NUM; slot++) {
-			if (esp32->flash_sw_brps[slot] == NULL || esp32->flash_sw_brps[slot]->oocd_bp == breakpoint) break;
+			if (esp32->flash_sw_brps[slot] == NULL || esp32->flash_sw_brps[slot]->data.oocd_bp == breakpoint) break;
 		}
 		if (slot == ESP32_FLASH_SW_BREAKPOINTS_MAX_NUM)
 		{
-			LOG_WARNING("%s: max SW slot reached, slot=%i", __func__, (unsigned int)slot);
+			LOG_WARNING("%s: max SW flash slot reached, slot=%i", __func__, (unsigned int)slot);
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
 		esp32->flash_sw_brps[slot] = esp32_add_flash_breakpoint(target, breakpoint);
@@ -1007,7 +1063,23 @@ static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *br
 	LOG_DEBUG("%s: %p", __func__, breakpoint);
 
 	if (breakpoint->type == BKPT_SOFT) {
-		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		for(slot = 0; slot < ESP32_SW_BREAKPOINTS_MAX_NUM; slot++) {
+			if(esp32->sw_brps[slot] != NULL && esp32->sw_brps[slot]->oocd_bp == breakpoint)
+				break;
+		}
+		if (slot == ESP32_SW_BREAKPOINTS_MAX_NUM)
+		{
+			LOG_WARNING("%s: max SW slot reached, slot=%i", __func__, (unsigned int)slot);
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+		int ret = esp32_remove_sw_breakpoint(target, esp32->sw_brps[slot]);
+		if (ret != ERROR_OK) {
+			LOG_ERROR("%s: Failed to remove SW BP (%d)!", target->cmd_name, ret);
+			return ret;
+		}
+		esp32->sw_brps[slot] = NULL;
+		LOG_DEBUG("%s: cleared SW breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
+		return ERROR_OK;
 	}
 
 	for(slot = 0; slot < esp32->num_brps; slot++) {
@@ -1017,7 +1089,7 @@ static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *br
 	if (slot==esp32->num_brps) {
 		LOG_DEBUG("%s: HW BP not found!", target->cmd_name);
 		for(slot = 0; slot < ESP32_FLASH_SW_BREAKPOINTS_MAX_NUM; slot++) {
-			if(esp32->flash_sw_brps[slot] != NULL && esp32->flash_sw_brps[slot]->oocd_bp == breakpoint)
+			if(esp32->flash_sw_brps[slot] != NULL && esp32->flash_sw_brps[slot]->data.oocd_bp == breakpoint)
 				break;
 		}
 		if (slot == ESP32_FLASH_SW_BREAKPOINTS_MAX_NUM) {
@@ -1352,7 +1424,8 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 	esp32->hw_brps = calloc(XT_NUM_BREAKPOINTS, sizeof(struct breakpoint *));
 	esp32->num_wps = XT_NUM_WATCHPOINTS;
 	esp32->hw_wps = calloc(XT_NUM_WATCHPOINTS, sizeof(struct watchpoint *));
-	esp32->flash_sw_brps = calloc(ESP32_FLASH_SW_BREAKPOINTS_MAX_NUM, sizeof(struct esp32_flash_sw_breakpoint	*));
+	esp32->flash_sw_brps = calloc(ESP32_FLASH_SW_BREAKPOINTS_MAX_NUM, sizeof(struct esp32_flash_sw_breakpoint *));
+	esp32->sw_brps = calloc(ESP32_SW_BREAKPOINTS_MAX_NUM, sizeof(struct esp32_sw_breakpoint	*));
 
 	//Create the register cache
 	cache->name = "Xtensa registers";
@@ -1470,7 +1543,7 @@ static size_t esp32_read_cores_num(struct target *target)
 	LOG_DEBUG("Read APP CPU ctrl reg 0x%x", appcpu_ctrl);
 	if (appcpu_ctrl & ESP32_DPORT_APPCPU_CLKGATE_EN) {
 		cores_num++;
-		LOG_INFO("APP CPU enabled");
+		LOG_DEBUG("APP CPU enabled");
 	}
 	LOG_DEBUG("Detected %u cores", (uint32_t)cores_num);
 	return cores_num;
@@ -1549,21 +1622,22 @@ static int xtensa_poll(struct target *target)
 				struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
 				// volatile int temp_cause = xtensa_read_reg_direct(esp32->esp32_targets[i], XT_REG_IDX_DEBUGCAUSE);
 				int cause = esp108_reg_get(&cpu_reg_list[XT_REG_IDX_DEBUGCAUSE]);
+				int exc_cause = esp108_reg_get(&cpu_reg_list[XT_REG_IDX_EXCCAUSE]);
 
 				volatile unsigned int dsr_core = xtensa_read_dsr(esp32->esp32_targets[i]);
 				if ((dsr_core&OCDDSR_DEBUGPENDBREAK) != 0)
 				{
 					if (esp32->active_cpu != i)
 					{
-						LOG_INFO("active_cpu: %u, changed to %u, reson = 0x%08x", (uint32_t)esp32->active_cpu, (uint32_t)i, dsr_core);
+						LOG_INFO("active_cpu: %u, changed to %u, reason = 0x%08x", (uint32_t)esp32->active_cpu, (uint32_t)i, dsr_core);
 					}
 					esp32->active_cpu = i;
 				}
 
 				int dcrset = read_reg_direct(esp32->esp32_targets[i], NARADR_DCRSET);
 
-				LOG_DEBUG("%s: Halt reason =0x%08X, dsr=0x%08x, dcrset=0x%08x",
-					esp32->esp32_targets[i]->cmd_name, cause, dsr_core, dcrset);
+				LOG_DEBUG("%s: Halt reason=0x%08X, exc_cause=%d, dsr=0x%08x, dcrset=0x%08x",
+					esp32->esp32_targets[i]->cmd_name, cause, exc_cause, dsr_core, dcrset);
 				if (cause&DEBUGCAUSE_IC)
 				{
 					target->debug_reason = DBG_REASON_SINGLESTEP;

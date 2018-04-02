@@ -42,6 +42,7 @@ enum esp32_isrmasking_mode {
 #define ESP32_DBG_STUBS_STACK_MIN_SIZE      2048
 
 #define ESP32_FLASH_SW_BREAKPOINTS_MAX_NUM  32
+#define ESP32_SW_BREAKPOINTS_MAX_NUM      	32
 
 /**
  * Debug stubs table entries IDs
@@ -89,13 +90,17 @@ struct esp32_dbg_stubs {
 	struct esp32_dbg_stubs_desc desc;
 };
 
-struct esp32_flash_sw_breakpoint {
-	struct flash_bank *bank;
+struct esp32_sw_breakpoint {
 	struct breakpoint *oocd_bp;
-	// insns with surrounding bytes
-	uint8_t insn[3]; // 0|-|-|-|x|4|x|x|-|-|8
+	// insn
+	uint8_t insn[3];
 	// insn size
 	uint8_t insn_sz; // 2 or 3 bytes
+};
+
+struct esp32_flash_sw_breakpoint {
+	struct flash_bank *bank;
+	struct esp32_sw_breakpoint data;
 };
 
 struct esp32_common {
@@ -103,15 +108,15 @@ struct esp32_common {
 	// Common fields definition for all esp108 targets
 	ESP108_COMMON_FIELDS;
 
-	struct target* 				esp32_targets[ESP32_CPU_COUNT];
-	size_t 						active_cpu;
-	struct reg_cache *			core_caches[ESP32_CPU_COUNT];
-	int64_t 					current_threadid;
-	enum esp32_isrmasking_mode	isrmasking_mode;
-	size_t						cores_num;
-	//TODO: move to esp108 common part
-	struct esp32_dbg_stubs		dbg_stubs;
-	struct esp32_flash_sw_breakpoint	**flash_sw_brps;
+	struct target* 						esp32_targets[ESP32_CPU_COUNT];
+	size_t 								active_cpu;
+	struct reg_cache *					core_caches[ESP32_CPU_COUNT];
+	int64_t 							current_threadid;
+	enum esp32_isrmasking_mode			isrmasking_mode;
+	size_t								cores_num;
+	struct esp32_sw_breakpoint **		sw_brps;
+	struct esp32_flash_sw_breakpoint **	flash_sw_brps;
+	struct esp32_dbg_stubs				dbg_stubs;
 };
 
 struct esp32_flash_sw_breakpoint * esp32_add_flash_breakpoint(struct target *target, struct breakpoint *breakpoint);
