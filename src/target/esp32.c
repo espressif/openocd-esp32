@@ -171,7 +171,7 @@ static int esp32_fetch_all_regs(struct target *target)
 		for (i = 0; i < XT_NUM_REGS; i++) {
 			if (regReadable(esp32_regs[i].flags, cpenable) && (esp32_regs[i].type == XT_REG_SPECIAL || esp32_regs[i].type == XT_REG_USER)) {
 				if (esp32_regs[i].type == XT_REG_USER) {
-					esp108_queue_exec_ins(target, XT_INS_RUR(esp32_regs[i].reg_num, XT_REG_A3));
+					esp108_queue_exec_ins(esp32->esp32_targets[c], XT_INS_RUR(esp32_regs[i].reg_num, XT_REG_A3));
 				}
 				else if (esp32_regs[i].type == XT_REG_FR) {
 					esp108_queue_exec_ins(esp32->esp32_targets[c], XT_INS_RFR(esp32_regs[i].reg_num, XT_REG_A3));
@@ -242,6 +242,7 @@ static int esp32_write_dirty_registers(struct target *target, struct reg *reg_li
 	int i, j;
 	int res;
 	uint32_t regval, windowbase;
+	bool scratch_reg_dirty = false;
 
 	LOG_DEBUG("%s: %s", target->cmd_name, __FUNCTION__);
 
@@ -249,7 +250,8 @@ static int esp32_write_dirty_registers(struct target *target, struct reg *reg_li
 	//Start by writing the SFR/user registers.
 	for (i=0; i<XT_NUM_REGS; i++) {
 		if (reg_list[i].dirty) {
-			if (esp32_regs[i].type==XT_REG_SPECIAL || esp32_regs[i].type==XT_REG_USER) {
+			if (esp32_regs[i].type==XT_REG_SPECIAL || esp32_regs[i].type==XT_REG_USER || esp32_regs[i].type==XT_REG_FR) {
+				scratch_reg_dirty = true;
 				regval=esp108_reg_get(&reg_list[i]);
 				LOG_DEBUG("%s: Writing back reg %s val %08X", target->cmd_name, esp32_regs[i].name, regval);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
@@ -264,6 +266,9 @@ static int esp32_write_dirty_registers(struct target *target, struct reg *reg_li
 				reg_list[i].dirty=0;
 			}
 		}
+	}
+	if (scratch_reg_dirty) {
+		esp32_mark_register_dirty(reg_list, XT_REG_IDX_A3);
 	}
 
 	//Grab the windowbase, we need it.

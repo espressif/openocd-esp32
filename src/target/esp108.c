@@ -263,6 +263,7 @@ int esp108_write_dirty_registers(struct target *target)
 	uint32_t regval, windowbase;
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
 	struct reg *reg_list=esp108->core_cache->reg_list;
+	bool scratch_reg_dirty = false;
 
 	LOG_DEBUG("%s: %s", target->cmd_name, __FUNCTION__);
 
@@ -270,7 +271,8 @@ int esp108_write_dirty_registers(struct target *target)
 	//Start by writing the SFR/user registers.
 	for (i=0; i<XT_NUM_REGS; i++) {
 		if (reg_list[i].dirty) {
-			if (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER) {
+			if (esp108_regs[i].type==XT_REG_SPECIAL || esp108_regs[i].type==XT_REG_USER || esp108_regs[i].type==XT_REG_FR) {
+				scratch_reg_dirty = true;
 				regval=esp108_reg_get(&reg_list[i]);
 				LOG_DEBUG("%s: Writing back reg %s val %08X", target->cmd_name, esp108_regs[i].name, regval);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
@@ -285,6 +287,9 @@ int esp108_write_dirty_registers(struct target *target)
 				reg_list[i].dirty=0;
 			}
 		}
+	}
+	if (scratch_reg_dirty) {
+		esp108_mark_register_dirty(target, XT_REG_IDX_A3);
 	}
 
 	//Grab the windowbase, we need it.
