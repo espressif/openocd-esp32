@@ -861,6 +861,7 @@ static int esp_apptrace_cmd_ctx_init(struct target *target, struct esp_apptrace_
 		// FIXME: Do we actually need it?
 		cmd_ctx->cores_num = 2;
 	}
+
 	for (int i = 0; i < cmd_ctx->cores_num; i++) {
 		if (cmd_ctx->esp32_target) {
 			struct esp32_common *esp32 = (struct esp32_common *)target->arch_info;

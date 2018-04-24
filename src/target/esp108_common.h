@@ -253,6 +253,11 @@ struct xtensa_algorithm {
 /* Write Floating-Point Register */
 #define XT_INS_WFR(FR,T) _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x5),T)
 
+/* 32-bit break */
+#define XT_INS_BREAK(IMM1,IMM2)  _XT_INS_FORMAT_RRR(0x004000,IMM1,IMM2)
+/* 16-bit break */
+#define XT_INS_BREAKN(IMM4)  _XT_INS_FORMAT_RRRN(0x00000D,IMM4,0x2,0xF)
+
 #define XT_PS_RING(_v_)			((uint32_t)((_v_) & 0x3) << 6)
 #define XT_PS_RING_MSK			(0x3 << 6)
 #define XT_PS_RING_GET(_v_)		(((_v_) >> 6) & 0x3)

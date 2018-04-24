@@ -31,7 +31,28 @@
 #define ESP32_STUB_CMD_FLASH_ERASE          3
 #define ESP32_STUB_CMD_FLASH_ERASE_CHECK    4
 #define ESP32_STUB_CMD_FLASH_SIZE	        5
-#define ESP32_STUB_CMD_FLASH_MAX_ID	        ESP32_STUB_CMD_FLASH_SIZE
-#define ESP32_STUB_CMD_FLASH_TEST           6
+#define ESP32_STUB_CMD_FLASH_MAP_GET        6
+#define ESP32_STUB_CMD_FLASH_BP_SET			7
+#define ESP32_STUB_CMD_FLASH_BP_CLEAR		8
+#define ESP32_STUB_CMD_FLASH_MAX_ID	        ESP32_STUB_CMD_FLASH_BP_CLEAR
+#define ESP32_STUB_CMD_FLASH_TEST           (ESP32_STUB_CMD_FLASH_MAX_ID+1)
+
+#define ESP32_STUB_PARTITION_TABLE_MAX_ENTRIES 	10
+#define ESP32_STUB_FLASH_MAPPINGS_MAX_NUM		2 // IROM, DROM
+
+#define ESP32_FLASH_SECTOR_SIZE       			4096
+#define ESP32_STUB_BP_INSN_BUF_SIZE				8
+#define ESP32_STUB_BP_INSN_SECT_BUF_SIZE		(2*ESP32_FLASH_SECTOR_SIZE)
+
+struct esp32_flash_region_mapping {
+	uint32_t phy_addr;
+	uint32_t load_addr;
+	uint32_t size;
+};
+
+struct esp32_flash_mapping {
+	uint32_t maps_num;
+	struct esp32_flash_region_mapping maps[ESP32_STUB_FLASH_MAPPINGS_MAX_NUM];
+};
 
 #endif //ESP32_FLASHER_STUB_H

@@ -257,7 +257,6 @@ uint32_t xtensa_read_reg_direct(struct target *target, uint8_t reg)
 {
 	uint32_t result = 0xdeadface;
 	uint8_t dsr[4];
-	//XT_REG_IDX_DEBUGCAUSE
 
 	esp108_queue_nexus_reg_read(target, reg, dsr);
 	esp108_queue_tdi_idle(target);
@@ -440,15 +439,15 @@ int xtensa_wait_algorithm_generic(struct target *target,
 		// 		core_cache->reg_list[i].name, regvalue, algorithm_info->context[i]);
 		if (i == XT_REG_IDX_DEBUGCAUSE) {
 			//FIXME: restoring DEBUGCAUSE causes exception when executing corresponding instruction in DIR
-			LOG_DEBUG("Skip restoring register %s with value 0x%x -> 0x%8.8" PRIx32,
+			LOG_DEBUG("Skip restoring register %s: 0x%x -> 0x%8.8" PRIx32,
 					core_cache->reg_list[i].name, regvalue, algorithm_info->context[i]);
-			esp108_reg_set(&core_cache->reg_list[XT_REG_IDX_DEBUGCAUSE], 0); //so we don't recurse into the same routine
+			esp108_reg_set(&core_cache->reg_list[XT_REG_IDX_DEBUGCAUSE], 0);
 			core_cache->reg_list[XT_REG_IDX_DEBUGCAUSE].dirty = 0;
 			core_cache->reg_list[XT_REG_IDX_DEBUGCAUSE].valid = 0;
 			continue;
 		}
 		if (regvalue != algorithm_info->context[i]) {
-			LOG_DEBUG("restoring register %s with value 0x%x -> 0x%8.8" PRIx32,
+			LOG_DEBUG("restoring register %s: 0x%x -> 0x%8.8" PRIx32,
 					core_cache->reg_list[i].name, regvalue, algorithm_info->context[i]);
 			esp108_reg_set(&core_cache->reg_list[i], algorithm_info->context[i]);
 			core_cache->reg_list[i].valid = 1;

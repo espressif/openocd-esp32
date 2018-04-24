@@ -9,6 +9,7 @@ from pygdbmi.gdbcontroller import GdbController
 from pygdbmi.gdbcontroller import GdbTimeoutError
 from pprint import pformat
 
+OOCD_PORT = 3333
 toolchain = 'none'
 _oocd_inst   = None
 _gdb_inst    = None
@@ -21,11 +22,12 @@ def start(toolch, oocd_path, oocd_tcl_dir, oocd_cfg_files):
     oocd_args = ['-s', oocd_tcl_dir]
     for f in oocd_cfg_files:
         oocd_args += ['-f', f]
+    # oocd_args += ['-d', '3']
     _oocd_inst = Oocd(oocd_path, oocd_args)
     _oocd_inst.start()
     try:
         _gdb_inst = Gdb('%sgdb' % toolchain)
-        _gdb_inst.target_select('remote', ':3333')
+        _gdb_inst.connect()
     except Exception as e:
         _oocd_inst.stop()
         _oocd_inst.join()
@@ -169,8 +171,9 @@ class Gdb:
     TARGET_STOP_REASON_SIGTRAP  = 2
     TARGET_STOP_REASON_BP       = 3
     TARGET_STOP_REASON_WP       = 4
-    TARGET_STOP_REASON_STEPPED  = 5
-    TARGET_STOP_REASON_FN_FINISHED = 6
+    TARGET_STOP_REASON_WP_SCOPE = 5
+    TARGET_STOP_REASON_STEPPED  = 6
+    TARGET_STOP_REASON_FN_FINISHED = 7
 
     @staticmethod
     def get_logger():
@@ -184,6 +187,7 @@ class Gdb:
         self._target_state = self.TARGET_STATE_UNKNOWN
         self._target_stop_reason = self.TARGET_STOP_REASON_UNKNOWN
         self._curr_frame = None
+        self._curr_wp_val = None
 
     def _on_notify(self, rec):
         if rec['message'] == 'stopped':
@@ -194,6 +198,9 @@ class Gdb:
                     self._target_stop_reason = self.TARGET_STOP_REASON_BP
                 elif rec['payload']['reason'] == 'watchpoint-trigger':
                     self._target_stop_reason = self.TARGET_STOP_REASON_WP
+                    self._curr_wp_val = rec['payload']['value']
+                elif rec['payload']['reason'] == 'watchpoint-scope':
+                    self._target_stop_reason = self.TARGET_STOP_REASON_WP_SCOPE
                 elif rec['payload']['reason'] == 'end-stepping-range':
                     self._target_stop_reason = self.TARGET_STOP_REASON_STEPPED
                 elif rec['payload']['reason'] == 'function-finished':
@@ -232,7 +239,7 @@ class Gdb:
                 self._on_notify(rec)
                 # stop upon result receiption if we do not expect target state change
                 if self._target_state != old_state and self._target_state == new_tgt_state:
-                    # self._logger.debug('new target state %d', self._target_state)
+                    self._logger.debug('new target state %d', self._target_state)
                     break
             elif rec['type'] == 'result':
                 self._logger.debug('RESULT: %s %s', rec['message'], pformat(rec['payload']))
@@ -280,6 +287,10 @@ class Gdb:
         if res != 'connected':
             raise DebuggerError('Failed to connect to "%s %s"!' % (tgt_type, tgt_params))
 
+    def target_disconnect(self):
+        # -target-disconnect
+        self._mi_cmd_run('-target-disconnect')
+
     def target_reset(self, action='halt'):
         self.monitor_run('reset %s' % action)
         if action == 'halt':
@@ -302,6 +313,7 @@ class Gdb:
     def exec_interrupt(self):
         # Hack, unfortunately GDB does not react on -exec-interrupt,
         # so send CTRL+C to it
+        self._logger.debug('MI->: send SIGINT')
         self._gdbmi.gdb_process.send_signal(signal.SIGINT)
         # # -exec-interrupt [--all|--thread-group N]
         # res,_ = self._mi_cmd_run('-exec-interrupt --all')
@@ -338,26 +350,87 @@ class Gdb:
         if res != 'running':
             raise DebuggerError('Failed to step out!')
 
+    def exec_next_insn(self):
+        # -exec-next-instruction [--reverse]
+        res,_ = self._mi_cmd_run('-exec-next-instruction')
+        if res != 'running':
+            raise DebuggerError('Failed to step insn!')
+
+    def get_thread_info(self, thread_id=None):
+        # -thread-info [ thread-id ]
+        if thread_id:
+            cmd = '-thread-info %d' % thread_id
+        else:
+            cmd = '-thread-info'    
+        res,res_body = self._mi_cmd_run(cmd)
+        if res != 'done' or not res_body or 'threads' not in res_body or 'current-thread-id' not in res_body:
+            raise DebuggerError('Failed to get thread info!')
+        return (res_body['current-thread-id'], res_body['threads'])
+
     def data_eval_expr(self, expr):
         # -data-evaluate-expression expr
         res,res_body = self._mi_cmd_run('-data-evaluate-expression %s' % expr)
-        if res != 'done' or not res_body:
+        if res != 'done' or not res_body or 'value' not in res_body:
             raise DebuggerError('Failed to eval expression!')
         return res_body['value']
+
+    def get_variables_at_frame(self, thread_num=None, frame_num = 0):
+        # -stack-list-variables [ --no-frame-filters ] [ --skip-unavailable ] print-values
+        if thread_num:
+            cmd = '-stack-list-variables --thread %d --frame %d --all-values' % (thread_num, frame_num)
+        else:
+            cmd = '-stack-list-variables --all-values'
+        res,res_body = self._mi_cmd_run(cmd)
+        if res != 'done' or not res_body or 'variables' not in res_body:
+            raise DebuggerError('Failed to get variables @ frame %d of thread %d!' % (frame_num, thread_num))
+        return res_body['variables']
 
     def get_backtrace(self):
         # -stack-list-frames [ --no-frame-filters low-frame high-frame ]
         res,res_body = self._mi_cmd_run('-stack-list-frames')
-        if res != 'done' or not res_body:
+        if res != 'done' or not res_body or 'stack' not in res_body:
             raise DebuggerError('Failed to get backtrace!')
         return res_body['stack']
 
-    def add_bp(self, loc):
+    def select_frame(self, frame):
+        # -stack-select-frame framenum
+        res,_ = self._mi_cmd_run('-stack-select-frame %d' % frame)
+        if res != 'done':
+            raise DebuggerError('Failed to get backtrace!')
+
+    def add_bp(self, loc, ignore_count=0, cond=''):
         # -break-insert [ -t ] [ -h ] [ -f ] [ -d ] [ -a ] [ -c condition ] [ -i ignore-count ] [ -p thread-id ] [ location ]
-        res,res_body = self._mi_cmd_run('-break-insert %s' % loc)
+        cmd_args = '-i %d %s' % (ignore_count, loc)
+        if len(cond):
+            cmd_args = '-c "%s" %s' % (cond, cmd_args)
+        res,res_body = self._mi_cmd_run('-break-insert %s' % cmd_args)
         if res != 'done' or not res_body or 'bkpt' not in res_body or 'number' not in res_body['bkpt']:
             raise DebuggerError('Failed to insert BP!')
         return res_body['bkpt']['number']
+
+    def add_wp(self, exp, tp='w'):
+        # -break-watch [ -a | -r ] expr
+        cmd_args = '"%s"' % exp
+        if tp == 'r':
+            cmd_args = '-r %s' % cmd_args
+        elif tp == 'rw':
+            cmd_args = '-a %s' % cmd_args
+        res,res_body = self._mi_cmd_run('-break-watch %s' % cmd_args)
+        if res != 'done' or not res_body:
+            raise DebuggerError('Failed to insert WP!')
+        if tp == 'w':
+            if 'wpt' not in res_body or 'number' not in res_body['wpt']:
+                raise DebuggerError('Failed to insert WP!')
+            return res_body['wpt']['number']
+        elif tp == 'r':
+            if 'hw-rwpt' not in res_body or 'number' not in res_body['hw-rwpt']:
+                raise DebuggerError('Failed to insert RWP!')
+            return res_body['hw-rwpt']['number']
+        elif tp == 'rw':
+            if 'hw-awpt' not in res_body or 'number' not in res_body['hw-awpt']:
+                raise DebuggerError('Failed to insert AWP!')
+            return res_body['hw-awpt']['number']
+        return None
 
     def delete_bp(self, bp):
         # -break-delete ( breakpoint )+
@@ -391,3 +464,13 @@ class Gdb:
 
     def get_current_frame(self):
         return self._curr_frame
+
+    def get_current_wp_val(self):
+        return self._curr_wp_val
+
+    def connect(self):
+        global OOCD_PORT
+        self.target_select('remote', ':%d' % OOCD_PORT)
+
+    def disconnect(self):
+        self.target_disconnect()

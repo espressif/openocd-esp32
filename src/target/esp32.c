@@ -35,6 +35,10 @@
 #include "assert.h"
 #include "time_support.h"
 #include "rtos/rtos.h"
+#include "flash/nor/core.h"
+#include "flash/nor/imp.h"
+#include "contrib/loaders/flash/esp32/stub_flasher.h"
+#include "contrib/loaders/flash/esp32/stub_flasher_image.h"
 
 #include "esp32.h"
 #include "esp108_dbg_regs.h"
@@ -95,6 +99,12 @@ registers of this core will be transfered.
 #define ESP32_STUB_STACK_DEBUG		128
 #else
 #define ESP32_STUB_STACK_DEBUG		0
+#endif
+
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define ESP32_HOSTTOL(_v_)		((((_v_) & 0xFFUL) << 24) | (((_v_) & 0xFF00UL) << 8) | (((_v_) & 0xFF0000UL) >> 8) | (((_v_) & 0xFF000000UL) >> 24))
+#else
+#define ESP32_HOSTTOL(_v_)		(_v_)
 #endif
 
 /* ESP32 dport regs */
@@ -174,6 +184,7 @@ static int esp32_fetch_all_regs(struct target *target, uint8_t cpu_mask)
 	uint8_t regvals[ESP32_CPU_COUNT][XT_NUM_REGS][4];
 	uint8_t dsrs[ESP32_CPU_COUNT][XT_NUM_REGS][4];
 
+	LOG_DEBUG("%s: %s", target->cmd_name, __FUNCTION__);
 
 	for (int c = 0; c < ESP32_CPU_COUNT; c++)
 	{
@@ -441,7 +452,7 @@ static int xtensa_resume(struct target *target,
 			//that would trigger the watchpoint again. To fix this, we single-step, which ignores watchpoints.
 			xtensa_step(target, current, address, handle_breakpoints);
 		}
-		if (cause&DEBUGCAUSE_BI) {
+		if (cause&(DEBUGCAUSE_BI|DEBUGCAUSE_BN)) {
 			//We stopped due to a break instruction. We can't just resume executing the instruction again because
 			//that would trigger the breake again. To fix this, we single-step, which ignores break.
 			xtensa_step(target, current, address, handle_breakpoints);
@@ -505,7 +516,7 @@ static int xtensa_resume(struct target *target,
 	return res;
 }
 
-
+// TODO: common code with xtensa_resume
 static int xtensa_resume_cpu(struct target *target,
 	int current,
 	uint32_t address,
@@ -905,6 +916,45 @@ static int esp32_handle_target_event(struct target *target, enum target_event ev
 		case TARGET_EVENT_HALTED:
 			esp32->cores_num = esp32_read_cores_num(target);
 			break;
+		case TARGET_EVENT_GDB_DETACH:
+		{
+			enum target_state old_state = target->state;
+			if (target->state != TARGET_HALTED) {
+				int ret = target_halt(target);
+				if (ret != ERROR_OK) {
+					LOG_ERROR("%s: Failed to halt target to remove flash BPs (%d)!",
+							target->cmd_name, ret);
+					return ret;
+				}
+				ret = target_wait_state(target, TARGET_HALTED, ESP32_TARGET_STATE_TMO);
+				if (ret != ERROR_OK) {
+					LOG_ERROR("%s: Failed to wait halted target to remove flash BPs (%d)!",
+							target->cmd_name, ret);
+					return ret;
+				}
+			}
+			for(size_t slot = 0; slot < ESP32_FLASH_SW_BREAKPOINTS_MAX_NUM; slot++) {
+				struct esp32_flash_sw_breakpoint *flash_bp = esp32->flash_sw_brps[slot];
+				if(flash_bp != NULL) {
+					int ret = esp32_remove_flash_breakpoint(target, flash_bp);
+					if (ret != ERROR_OK) {
+						LOG_ERROR("%s: Failed to remove SW flash BP @ 0x%x (%d)!",
+								target->cmd_name, flash_bp->oocd_bp->address, ret);
+						return ret;
+					}
+				}
+			}
+			memset(esp32->flash_sw_brps, 0, ESP32_FLASH_SW_BREAKPOINTS_MAX_NUM*sizeof(struct esp32_flash_sw_breakpoint *));
+			if (old_state == TARGET_RUNNING) {
+				int ret = target_resume(target, 1, 0, 1, 0);
+				if (ret != ERROR_OK) {
+					LOG_ERROR("%s: Failed to resume target after flash BPs removal (%d)!",
+							target->cmd_name, ret);
+					return ret;
+				}
+			}
+			break;
+		}
 		default:
 			break;
 	}
@@ -918,7 +968,6 @@ static int xtensa_add_breakpoint(struct target *target, struct breakpoint *break
 	size_t slot;
 
 	if (breakpoint->type == BKPT_SOFT) {
-		LOG_ERROR("%s: sw breakpoint requested, but software breakpoints not enabled", target->cmd_name);
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
@@ -927,17 +976,28 @@ static int xtensa_add_breakpoint(struct target *target, struct breakpoint *break
 	}
 	if (slot == esp32->num_brps)
 	{
-		LOG_WARNING("%s: max slot reached, slot=%i", __func__, (unsigned int)slot);
-		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		LOG_WARNING("%s: max HW slot reached, slot=%i", __func__, (unsigned int)slot);
+		for(slot = 0; slot < ESP32_FLASH_SW_BREAKPOINTS_MAX_NUM; slot++) {
+			if (esp32->flash_sw_brps[slot] == NULL || esp32->flash_sw_brps[slot]->oocd_bp == breakpoint) break;
+		}
+		if (slot == ESP32_FLASH_SW_BREAKPOINTS_MAX_NUM)
+		{
+			LOG_WARNING("%s: max SW slot reached, slot=%i", __func__, (unsigned int)slot);
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+		esp32->flash_sw_brps[slot] = esp32_add_flash_breakpoint(target, breakpoint);
+		if (esp32->flash_sw_brps[slot] == NULL) {
+			LOG_ERROR("%s: Failed to add SW flash BP!", target->cmd_name);
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+		return ERROR_OK;
 	}
 
 	esp32->hw_brps[slot] = breakpoint;
 	//We will actually write the breakpoints when we resume the target.
 
-	LOG_DEBUG("%s: placed hw breakpoint %d at 0x%X, num_brps=%i", target->cmd_name, (int)slot, breakpoint->address, esp32->num_brps);
 	return ERROR_OK;
 }
-
 
 static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *breakpoint)
 {
@@ -946,16 +1006,34 @@ static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *br
 
 	LOG_DEBUG("%s: %p", __func__, breakpoint);
 
+	if (breakpoint->type == BKPT_SOFT) {
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	}
+
 	for(slot = 0; slot < esp32->num_brps; slot++) {
 		if(esp32->hw_brps[slot] == breakpoint)
 			break;
 	}
 	if (slot==esp32->num_brps) {
-		LOG_WARNING("%s: BP not found!", __func__);
-		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		LOG_DEBUG("%s: HW BP not found!", target->cmd_name);
+		for(slot = 0; slot < ESP32_FLASH_SW_BREAKPOINTS_MAX_NUM; slot++) {
+			if(esp32->flash_sw_brps[slot] != NULL && esp32->flash_sw_brps[slot]->oocd_bp == breakpoint)
+				break;
+		}
+		if (slot == ESP32_FLASH_SW_BREAKPOINTS_MAX_NUM) {
+			LOG_WARNING("%s: SW flash BP not found!", __func__);
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+		int ret = esp32_remove_flash_breakpoint(target, esp32->flash_sw_brps[slot]);
+		if (ret != ERROR_OK) {
+			LOG_ERROR("%s: Failed to remove SW flash BP (%d)!", target->cmd_name, ret);
+			return ret;
+		}
+		esp32->flash_sw_brps[slot] = NULL;
+		return ERROR_OK;
 	}
 	esp32->hw_brps[slot] = NULL;
-	LOG_DEBUG("%s: cleared hw breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
+	LOG_DEBUG("%s: cleared HW breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
 	return ERROR_OK;
 }
 
@@ -1097,6 +1175,7 @@ static int xtensa_step(struct target *target,
 	}
 
 	cause=esp108_reg_get(&reg_list[XT_REG_IDX_DEBUGCAUSE]);
+	LOG_DEBUG("%s: cause 0x%X", __func__, cause);
 	if (cause&DEBUGCAUSE_DB) {
 		//We stopped due to a watchpoint. We can't just resume executing the instruction again because
 		//that would trigger the watchpoint again. To fix this, we remove watchpoints, single-step and
@@ -1110,18 +1189,10 @@ static int xtensa_step(struct target *target,
 			esp108_reg_set(&reg_list[XT_REG_IDX_DBREAKC0+slot], 0);
 		}
 	}
-	if (cause&DEBUGCAUSE_BI) {
-		LOG_DEBUG("%s: Increment PC to pass break instruction...", esp32->esp32_targets[esp32->active_cpu]->cmd_name);
-		address = oldpc + 3; // PC = PC+3
-		current = 0;		 // The PC was modified.
-	}
-
-	struct reg *cpu_reg_list = esp32->core_caches[esp32->active_cpu]->reg_list;
-
 
 	do {
-		esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
-		esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNT], icount_val);
+		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
+		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNT], icount_val);
 
 		/* Now ICOUNT is set, we can resume as if we were going to run */
 		res = xtensa_resume_cpu(target, current, address, 0, 0);
@@ -1243,7 +1314,7 @@ static int xtensa_wait_algorithm(struct target *target,
 		return retval;
 	}
 
-	retval = esp32_write_dirty_registers(target, core_cache->reg_list);
+	retval = esp32_write_dirty_registers(esp32->esp32_targets[esp32->active_cpu], core_cache->reg_list);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Failed to write dirty regs (%d)!", retval);
 	}
@@ -1274,13 +1345,14 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 	}
 
 	target->arch_info = esp32;
-	esp32->target=target;
+	esp32->target = target; //TODO: not actually necessary
 
 	esp32->cores_num = 0; // unknown
 	esp32->num_brps = XT_NUM_BREAKPOINTS;
 	esp32->hw_brps = calloc(XT_NUM_BREAKPOINTS, sizeof(struct breakpoint *));
 	esp32->num_wps = XT_NUM_WATCHPOINTS;
 	esp32->hw_wps = calloc(XT_NUM_WATCHPOINTS, sizeof(struct watchpoint *));
+	esp32->flash_sw_brps = calloc(ESP32_FLASH_SW_BREAKPOINTS_MAX_NUM, sizeof(struct esp32_flash_sw_breakpoint	*));
 
 	//Create the register cache
 	cache->name = "Xtensa registers";
@@ -1288,16 +1360,14 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 	cache->reg_list = reg_list;
 	cache->num_regs = XT_NUM_REGS;
 	*cache_p = cache;
-	esp32->core_cache = cache;
+	esp32->core_cache = NULL;// not used
 
 	for (int i = 0; i < ESP32_CPU_COUNT; i++) {
 		esp32->esp32_targets[i] = malloc(sizeof(struct target));
 		if (esp32->esp32_targets[i] == NULL) return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 
 		memcpy(esp32->esp32_targets[i], target, sizeof(struct target));
-		if (i == ESP32_PRO_CPU_ID) {
-			esp32->esp32_targets[i]->tap = target->tap;
-		} else {
+		if (i != ESP32_PRO_CPU_ID) {
 			esp32->esp32_targets[i]->tap = malloc(sizeof(struct jtag_tap));
 			memcpy(esp32->esp32_targets[i]->tap, target->tap, sizeof(struct jtag_tap));
 			esp32->esp32_targets[i]->tap->tapname = "cpu1";
@@ -1340,7 +1410,7 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 	{
 		esp32->esp32_targets[i]->reg_cache = esp32->core_caches[i];
 	}
-	esp32->flashBootstrap=FBS_DONTCARE;
+	esp32->flashBootstrap = FBS_DONTCARE;
 	esp32->isrmasking_mode = ESP32_ISRMASK_ON;
 
 	for(int i = 0; i < XT_NUM_REGS; i++) {
@@ -1350,14 +1420,13 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 		reg_list[i].dirty = 0;
 		reg_list[i].valid = 0;
 		reg_list[i].type = &esp32_reg_type;
-		reg_list[i].arch_info=esp32;
+		reg_list[i].arch_info = esp32;
 	}
 
 	//Assume running target. If different, the first poll will fix this.
-	target->state=TARGET_RUNNING;
+	target->state = TARGET_RUNNING;
 	target->debug_reason = DBG_REASON_NOTHALTED;
-	esp32->core_cache = esp32->core_caches[0];
-	esp32->active_cpu = 0;
+	esp32->active_cpu = ESP32_PRO_CPU_ID;
 
 	return ERROR_OK;
 }
@@ -1401,7 +1470,7 @@ static size_t esp32_read_cores_num(struct target *target)
 	LOG_DEBUG("Read APP CPU ctrl reg 0x%x", appcpu_ctrl);
 	if (appcpu_ctrl & ESP32_DPORT_APPCPU_CLKGATE_EN) {
 		cores_num++;
-		LOG_DEBUG("APP CPU enabled");
+		LOG_INFO("APP CPU enabled");
 	}
 	LOG_DEBUG("Detected %u cores", (uint32_t)cores_num);
 	return cores_num;
@@ -1478,7 +1547,7 @@ static int xtensa_poll(struct target *target)
 			for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
 			{
 				struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
-				volatile int temp_cause = xtensa_read_reg_direct(esp32->esp32_targets[i], XT_REG_IDX_DEBUGCAUSE);
+				// volatile int temp_cause = xtensa_read_reg_direct(esp32->esp32_targets[i], XT_REG_IDX_DEBUGCAUSE);
 				int cause = esp108_reg_get(&cpu_reg_list[XT_REG_IDX_DEBUGCAUSE]);
 
 				volatile unsigned int dsr_core = xtensa_read_dsr(esp32->esp32_targets[i]);
@@ -1493,7 +1562,8 @@ static int xtensa_poll(struct target *target)
 
 				int dcrset = read_reg_direct(esp32->esp32_targets[i], NARADR_DCRSET);
 
-				LOG_DEBUG("%s: Halt reason =0x%08X, temp_cause =%08x, dsr=0x%08x, dcrset=0x%08x", esp32->esp32_targets[i]->cmd_name, cause, temp_cause, dsr_core, dcrset);
+				LOG_DEBUG("%s: Halt reason =0x%08X, dsr=0x%08x, dcrset=0x%08x",
+					esp32->esp32_targets[i]->cmd_name, cause, dsr_core, dcrset);
 				if (cause&DEBUGCAUSE_IC)
 				{
 					target->debug_reason = DBG_REASON_SINGLESTEP;
@@ -2117,7 +2187,7 @@ int esp32_run_algorithm_image(struct target *target, struct esp32_algo_run_data 
 	if (!algo_image->image.start_address_set || algo_image->image.start_address == 0) {
 		return ERROR_FAIL;
 	}
-	// to be allocated automatically in respective working areas
+	// to be allocated automatically in corresponding working areas
 	run->priv.stub.stack_addr = 0;
 	run->priv.stub.tramp_addr = 0;
 	// entry will be set from algo_image->image
@@ -2130,7 +2200,8 @@ int esp32_run_algorithm_onboard(struct target *target, struct esp32_algo_run_dat
 	struct esp32_common *esp32 = (struct esp32_common *)target->arch_info;
 
 	if (sizeof(esp32_stub_tramp) > ESP32_DBG_STUBS_CODE_BUF_SIZE) {
-		LOG_ERROR("Stub tramp size %u bytes exceeds target buf size %d bytes!", (uint32_t)sizeof(esp32_stub_tramp), ESP32_DBG_STUBS_CODE_BUF_SIZE);
+		LOG_ERROR("Stub tramp size %u bytes exceeds target buf size %d bytes!",
+				(uint32_t)sizeof(esp32_stub_tramp), ESP32_DBG_STUBS_CODE_BUF_SIZE);
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 

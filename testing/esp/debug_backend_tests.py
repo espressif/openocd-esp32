@@ -190,10 +190,11 @@ class DebuggerTestsBase(unittest.TestCase):
     def stop_exec(self):
         """ Stops target execution and ensures that it is in STOPPED state
         """
-        state,rsn = self.gdb.get_target_state()
+        state,_ = self.gdb.get_target_state()
         if state != dbg.Gdb.TARGET_STATE_STOPPED:
             self.gdb.exec_interrupt()
-            self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+            rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+            self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_SIGINT)
 
     def resume_exec(self, loc=None):
         """ Resumes target execution and ensures that it is in RUNNING state
@@ -207,7 +208,7 @@ class DebuggerTestsBase(unittest.TestCase):
                 self.gdb.exec_continue()
             self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_RUNNING, 5)
 
-
+    # TODO: add step_insn method
     def step(self):
         """ Performs program step (step over, "next" command in GDB)
         """
@@ -277,7 +278,7 @@ class DebuggerGenericTestAppTests(DebuggerTestAppTests):
         self.test_app_cfg.app_name = 'gen_ut_app'
         self.test_app_cfg.bld_path = os.path.join('bootloader', 'bootloader.bin')
         self.test_app_cfg.pt_path = 'partitions_singleapp.bin'
-        self.test_app_cfg.test_select_var = 'run_test'
+        self.test_app_cfg.test_select_var = 's_run_test'
 
 
 class DebuggerGenericTestAppTestsDual(DebuggerGenericTestAppTests):
