@@ -81,9 +81,8 @@
 #include "target/esp32.h"
 
 #define ESP32_FLASH_MIN_OFFSET 		0x1000 // protect secure boot digest data
-#define ESP32_ALGORITHM_EXIT_TMO	20000 // ms
-#define ESP32_TARGET_STATE_TMO		1000 // ms
 #define ESP32_RW_TMO				20000 // ms
+#define ESP32_ERASE_TMO				60000 // ms
 
 #define SPI_FLASH_SEC_SIZE  		4096 // SPI Flash sector size
 
@@ -277,7 +276,7 @@ static int esp32_erase(struct flash_bank *bank, int first, int last)
 
 	memset(&run, 0, sizeof(run));
 	run.stack_size = 1024;
-	run.tmo = 15000; //ms
+	run.tmo = ESP32_ERASE_TMO;
 	int ret = esp32_init_flasher_image(&flasher_image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Faied to init flasher image (%d)!", ret);

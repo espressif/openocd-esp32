@@ -87,8 +87,8 @@ registers of this core will be transfered.
 #define esp32_regs esp108_regs
 
 #define ESP32_STUB_DEBUG			0
-#define ESP32_ALGORITHM_EXIT_TMO	5000 // ms
-#define ESP32_TARGET_STATE_TMO		1000 // ms
+#define ESP32_ALGORITHM_EXIT_TMO	40000 // ms
+#define ESP32_TARGET_STATE_TMO		3000 // ms
 
 #if ESP32_STUB_DEBUG
 #define ESP32_STUB_STACK_STAMP		0xCE
