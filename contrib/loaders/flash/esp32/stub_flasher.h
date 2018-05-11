@@ -41,7 +41,6 @@
 #define ESP32_STUB_FLASH_MAPPINGS_MAX_NUM		2 // IROM, DROM
 
 #define ESP32_FLASH_SECTOR_SIZE       			4096
-#define ESP32_STUB_BP_INSN_BUF_SIZE				8
 #define ESP32_STUB_BP_INSN_SECT_BUF_SIZE		(2*ESP32_FLASH_SECTOR_SIZE)
 
 struct esp32_flash_region_mapping {

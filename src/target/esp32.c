@@ -132,11 +132,6 @@ do { \
 
 #define ESP32_IDLE_LOOP_CODE_SZ			3 // size of jump insn
 
-struct esp32_idle_core_ctx {
-	uint32_t pc;
-	uint32_t ps;
-};
-
 //forward declarations
 static int xtensa_step(struct target *target,
 	int current,
@@ -517,7 +512,7 @@ static int xtensa_resume(struct target *target,
 }
 
 // TODO: common code with xtensa_resume
-static int xtensa_resume_cpu(struct target *target,
+static int xtensa_resume_active_cpu(struct target *target,
 	int current,
 	uint32_t address,
 	int handle_breakpoints,
@@ -553,23 +548,15 @@ static int xtensa_resume_cpu(struct target *target,
 	for (slot = 0; slot < esp32->num_brps; slot++) {
 		if (esp32->hw_brps[slot] != NULL) {
 			/* Write IBREAKA[slot] and set bit #slot in IBREAKENABLE */
-			for (size_t cp = 0; cp < ESP32_CPU_COUNT; cp++)
-			{
-				// We have equival amount of BP for each cpu
-				struct reg *cpu_reg_list = esp32->core_caches[cp]->reg_list;
-				esp108_reg_set(&cpu_reg_list[XT_REG_IDX_IBREAKA0 + slot], esp32->hw_brps[slot]->address);
-			}
+			esp108_reg_set(&reg_list[XT_REG_IDX_IBREAKA0 + slot], esp32->hw_brps[slot]->address);
 			bpena |= (1 << slot);
 		}
 	}
-	for (size_t cp = 0; cp < ESP32_CPU_COUNT; cp++)
-	{
-		// We have equival amount of BP for each cpu
-		struct reg *cpu_reg_list = esp32->core_caches[cp]->reg_list;
-		esp108_reg_set(&cpu_reg_list[XT_REG_IDX_IBREAKENABLE], bpena);
-	}
+	esp108_reg_set(&reg_list[XT_REG_IDX_IBREAKENABLE], bpena);
 
 	// Here we write all registers to the targets
+	// We need to write dirty registers on both CPUs because GDB can read/write memory using A3 on CPU0 at any time (when halted)
+	// even when it is not active.
 	for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
 	{
 		struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
@@ -593,6 +580,7 @@ static int xtensa_resume_cpu(struct target *target,
 	{
 		esp32_checkdsr(esp32->esp32_targets[i]);
 	}
+
 	target->debug_reason = DBG_REASON_NOTHALTED;
 	if (!debug_execution) {
 		target->state = TARGET_RUNNING;
@@ -1266,8 +1254,9 @@ static int xtensa_step(struct target *target,
 		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
 		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNT], icount_val);
 
+
 		/* Now ICOUNT is set, we can resume as if we were going to run */
-		res = xtensa_resume_cpu(target, current, address, 0, 0);
+		res = xtensa_resume_active_cpu(target, current, address, 0, 0);
 		if (res != ERROR_OK) {
 			LOG_ERROR("%s: %s: Failed to resume after setting up single step", target->cmd_name, __func__);
 			return res;
@@ -1289,14 +1278,9 @@ static int xtensa_step(struct target *target,
 			}
 		}
 		if(!(intfromchars(dsr)&OCDDSR_STOPPED)) {
-			LOG_WARNING("%s: %s: Timed out waiting for target to finish stepping. dsr=0x%08x", target->cmd_name, __func__, intfromchars(dsr));
-			target->debug_reason = DBG_REASON_NOTHALTED;
-			target->state = TARGET_RUNNING;
-			return ERROR_OK;
+			LOG_ERROR("%s: %s: Timed out waiting for target to finish stepping. dsr=0x%08x", target->cmd_name, __func__, intfromchars(dsr));
+			return ERROR_TARGET_TIMEOUT;
 		}
-		target->debug_reason = DBG_REASON_SINGLESTEP;
-		target->state = TARGET_HALTED;
-
 		esp32_fetch_all_regs(target, 1 << esp32->active_cpu);
 
 		cur_pc = esp108_reg_get(&reg_list[XT_REG_IDX_PC]);
@@ -1323,12 +1307,8 @@ static int xtensa_step(struct target *target,
 	LOG_DEBUG("Done stepping, PC=%X", cur_pc);
 
 	// This operation required to clear state
-	for (size_t cp = 0; cp < ESP32_CPU_COUNT; cp++)
-	{
-		if (cp != esp32->active_cpu) {
-			xtensa_read_dsr(esp32->esp32_targets[cp]);
-		}
-	}
+	esp108_clear_dsr(esp32->esp32_targets[esp32->active_cpu == ESP32_PRO_CPU_ID ? ESP32_APP_CPU_ID : ESP32_PRO_CPU_ID],
+		OCDDSR_DEBUGPENDBREAK|OCDDSR_DEBUGINTBREAK);
 
 	if (cause&DEBUGCAUSE_DB) {
 		LOG_DEBUG("%s: ...Done, re-instating watchpoints.", target->cmd_name);
@@ -1365,8 +1345,13 @@ static int xtensa_start_algorithm(struct target *target,
 	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
 	struct reg_cache *core_cache = esp32->core_caches[esp32->active_cpu];
 
-	return xtensa_start_algorithm_generic(target, num_mem_params, mem_params, num_reg_params,
+	int retval = xtensa_start_algorithm_generic(target, num_mem_params, mem_params, num_reg_params,
 		reg_params, entry_point, exit_point, arch_info, core_cache);
+	if (retval != ERROR_OK) {
+		return retval;
+	}
+
+	return xtensa_resume_active_cpu(target, 0, entry_point, 1, 1);
 }
 
 /** Waits for an algorithm in the target. */
@@ -1859,7 +1844,7 @@ static void esp32_algo_args_init(struct esp32_stub *stub, uint32_t stack_addr)
 	buf_set_u32(stub->reg_params[2].value, 0, 32, stub->entry); // a8
 	buf_set_u32(stub->reg_params[3].value, 0, 32, 0x0); // initial window base TODO: move to tramp
 	buf_set_u32(stub->reg_params[4].value, 0, 32, 0x1); // initial window start TODO: move to tramp
-	buf_set_u32(stub->reg_params[5].value, 0, 32, 0x60021); // enable WOE, UM and debug interrupts level TODO: raise IRQ level
+	buf_set_u32(stub->reg_params[5].value, 0, 32, 0x60025); // enable WOE, UM and debug interrupts level (6)
 }
 
 static int esp32_stub_load(struct target *target, struct esp32_algo_image *algo_image, struct esp32_stub *stub, uint32_t stack_size)
@@ -2041,42 +2026,6 @@ static int esp32_stub_check_stack(struct target *target, uint32_t stack_addr, ui
 }
 #endif
 
-static int esp32_idle_core_setup(struct target *target, size_t core_id, uint32_t loop_addr, struct esp32_idle_core_ctx *ctx)
-{
-	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
-	struct reg_cache *core_cache = esp32->core_caches[core_id];
-
-	// setup PC
-	ctx->pc = esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PC]);
-	LOG_DEBUG("esp32_idle_core_setup: PC[%u] %x -> %x", (uint32_t)core_id, ctx->pc, loop_addr);
-	esp108_reg_set(&core_cache->reg_list[XT_REG_IDX_PC], loop_addr);
-	core_cache->reg_list[XT_REG_IDX_PC].valid = 1;
-	// setup PS
-	ctx->ps = esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PS]);
-	LOG_DEBUG("esp32_idle_core_setup: PS[%u] %x -> %x", (uint32_t)core_id, ctx->ps, 0x60021);
-	esp108_reg_set(&core_cache->reg_list[XT_REG_IDX_PS], 0x60021);
-	core_cache->reg_list[XT_REG_IDX_PS].valid = 1;
-	return ERROR_OK;
-}
-
-static int esp32_idle_core_cleanup(struct target *target, size_t core_id, struct esp32_idle_core_ctx *ctx)
-{
-	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
-	struct reg_cache *core_cache = esp32->core_caches[core_id];
-
-	// restore PC
-	uint32_t pc = esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PC]);
-	esp108_reg_set(&core_cache->reg_list[XT_REG_IDX_PC], ctx->pc);
-	LOG_DEBUG("esp32_idle_core_cleanup: PC[%u] %x -> %x", (uint32_t)core_id, pc, ctx->pc);
-	core_cache->reg_list[XT_REG_IDX_PC].valid = 1;
-	// restore PS
-	uint32_t ps = esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PS]);
-	esp108_reg_set(&core_cache->reg_list[XT_REG_IDX_PS], ctx->ps);
-	LOG_DEBUG("esp32_idle_core_cleanup: PS[%u] %x -> %x", (uint32_t)core_id, ps, ctx->ps);
-	core_cache->reg_list[XT_REG_IDX_PS].valid = 1;
-	return ERROR_OK;
-}
-
 static int esp32_algo_run(struct target *target, struct esp32_algo_image *image,
 						struct esp32_algo_run_data *run)
 {
@@ -2084,8 +2033,6 @@ static int esp32_algo_run(struct target *target, struct esp32_algo_image *image,
 	struct duration algo_time;
 	void **mem_handles = NULL;
 	struct esp32_common *esp32 = (struct esp32_common *)target->arch_info;
-	size_t idle_core_id = esp32->active_cpu == ESP32_PRO_CPU_ID ? ESP32_APP_CPU_ID : ESP32_PRO_CPU_ID;
-	struct esp32_idle_core_ctx idle_core_ctx;
 
 	if (duration_start(&algo_time) != 0) {
 		LOG_ERROR("Failed to start algo time measurement!");
@@ -2157,18 +2104,6 @@ static int esp32_algo_run(struct target *target, struct esp32_algo_image *image,
 		}
 	}
 
-	if (esp32_get_cores_count(target) == ESP32_CPU_COUNT) {
-		memset(&idle_core_ctx, 0, sizeof(idle_core_ctx));
-		// IDLE loop code is at the end of the tramp
-		retval = esp32_idle_core_setup(target, idle_core_id,
-			run->priv.stub.tramp_addr + sizeof(esp32_stub_tramp) - ESP32_IDLE_LOOP_CODE_SZ,
-			&idle_core_ctx);
-		if (retval != ERROR_OK) {
-			LOG_ERROR("Failed to setup idle core (%d)!", retval);
-			goto _cleanup;
-		}
-	}
-
 	if (run->usr_func_init) {
 		retval = run->usr_func_init(target, run, run->usr_func_arg);
 		if (retval != ERROR_OK) {
@@ -2226,12 +2161,6 @@ static int esp32_algo_run(struct target *target, struct esp32_algo_image *image,
 		run->usr_func_done(target, run, run->usr_func_arg);
 	}
 _cleanup:
-	if (esp32_get_cores_count(target) == ESP32_CPU_COUNT) {
-		retval = esp32_idle_core_cleanup(target, idle_core_id, &idle_core_ctx);
-		if (retval != ERROR_OK) {
-			LOG_ERROR("Failed to cleanup idle core (%d)!", retval);
-		}
-	}
 	// free memory arguments
 	if (mem_handles) {
 		for (uint32_t i = 0; i < run->mem_args.count; i++) {

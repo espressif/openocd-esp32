@@ -1101,8 +1101,13 @@ static int xtensa_start_algorithm(struct target *target,
 {
 	struct esp108_common *esp108 = (struct esp108_common*)target->arch_info;
 
-	return xtensa_start_algorithm_generic(target, num_mem_params, mem_params, num_reg_params,
+	int retval = xtensa_start_algorithm_generic(target, num_mem_params, mem_params, num_reg_params,
 		reg_params, entry_point, exit_point, arch_info, esp108->core_cache);
+	if (retval != ERROR_OK) {
+		return retval;
+	}
+
+	return target_resume(target, 0, entry_point, 1, 1);
 }
 
 /** Waits for an algorithm in the target. */

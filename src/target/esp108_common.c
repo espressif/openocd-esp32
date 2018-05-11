@@ -289,7 +289,6 @@ int xtensa_start_algorithm_generic(struct target *target,
 	void *arch_info, struct reg_cache *core_cache)
 {
 	struct xtensa_algorithm *algorithm_info = arch_info;
-	enum xtensa_mode core_mode;;
 	int retval = ERROR_OK;
 	int usr_ps = 0;
 
@@ -335,22 +334,19 @@ int xtensa_start_algorithm_generic(struct target *target,
 		esp108_reg_set(reg, buf_get_u32(reg_params[i].value, 0, 32));
 		reg->valid = 1;
 	}
-	uint32_t ps = esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PS]);
-	uint32_t new_ps = ps;
 	// ignore custom core mode if custom PS value is specified
 	if (!usr_ps) {
-		core_mode = XT_PS_RING_GET(ps);
+		uint32_t ps = esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PS]);
+		enum xtensa_mode core_mode = XT_PS_RING_GET(ps);
 		if (algorithm_info->core_mode != XT_MODE_ANY && algorithm_info->core_mode != core_mode) {
 			LOG_DEBUG("setting core_mode: 0x%x", algorithm_info->core_mode);
-			new_ps = (new_ps & ~XT_PS_RING_MSK) | XT_PS_RING(algorithm_info->core_mode);
+			uint32_t new_ps = (ps & ~XT_PS_RING_MSK) | XT_PS_RING(algorithm_info->core_mode);
 			/* save previous core mode */
 			algorithm_info->core_mode = core_mode;
+			esp108_reg_set(&core_cache->reg_list[XT_REG_IDX_PS], new_ps);
+			core_cache->reg_list[XT_REG_IDX_PS].valid = 1;
 		}
 	}
-	esp108_reg_set(&core_cache->reg_list[XT_REG_IDX_PS], new_ps);
-	core_cache->reg_list[XT_REG_IDX_PS].valid = 1;
-
-	retval = target_resume(target, 0, entry_point, 1, 1);
 
 	return retval;
 }
