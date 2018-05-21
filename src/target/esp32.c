@@ -114,7 +114,7 @@ static void esp32_mark_register_dirty(struct reg *reg_list, int regidx)
 	reg_list[regidx].dirty=1;
 }
 
-static int esp32_fetch_all_regs(struct target *target)
+static int esp32_fetch_all_regs(struct target *target, uint8_t cpu_mask)
 {
 	int i, j;
 	int cpenable;
@@ -139,6 +139,9 @@ static int esp32_fetch_all_regs(struct target *target)
 	// Read registers from both cores
 	for (size_t c = 0; c < ESP32_CPU_COUNT; c++)
 	{
+		if ((cpu_mask & (1 << c)) == 0) {
+			continue;
+		}
 		//Start out with A0-A63; we can reach those immediately. Grab them per 16 registers.
 		for (j = 0; j < 64; j += 16) {
 			//Grab the 16 registers we can see
@@ -160,7 +163,10 @@ static int esp32_fetch_all_regs(struct target *target)
 
 
 		res=jtag_execute_queue();
-		if (res!=ERROR_OK) return res;
+		if (res!=ERROR_OK) {
+			LOG_ERROR("Failed to read ARs (%d)!\n", res);
+			return res;
+		}
 
 		esp32_checkdsr(esp32->esp32_targets[c]);
 		cpenable = intfromchars(regvals[c][XT_REG_IDX_CPENABLE]);
@@ -169,7 +175,7 @@ static int esp32_fetch_all_regs(struct target *target)
 		//We're now free to use any of A0-A15 as scratch registers
 		//Grab the SFRs and user registers first. We use A3 as a scratch register.
 		for (i = 0; i < XT_NUM_REGS; i++) {
-			if (regReadable(esp32_regs[i].flags, cpenable) && (esp32_regs[i].type == XT_REG_SPECIAL || esp32_regs[i].type == XT_REG_USER)) {
+			if (regReadable(esp32_regs[i].flags, cpenable) && (esp32_regs[i].type == XT_REG_SPECIAL || esp32_regs[i].type == XT_REG_USER || esp32_regs[i].type == XT_REG_FR)) {
 				if (esp32_regs[i].type == XT_REG_USER) {
 					esp108_queue_exec_ins(esp32->esp32_targets[c], XT_INS_RUR(esp32_regs[i].reg_num, XT_REG_A3));
 				}
@@ -187,12 +193,15 @@ static int esp32_fetch_all_regs(struct target *target)
 
 		//Ok, send the whole mess to the CPU.
 		res=jtag_execute_queue();
-		if (res!=ERROR_OK) return res;
+		if (res!=ERROR_OK) {
+			LOG_ERROR("Failed to fetch AR regs!\n");
+			return res;
+		}
 
 		esp32_checkdsr(esp32->esp32_targets[c]);
 		//DSR checking: follows order in which registers are requested.
 		for (i = 0; i < XT_NUM_REGS; i++) {
-			if (regReadable(esp32_regs[i].flags, cpenable) && (esp32_regs[i].type == XT_REG_SPECIAL || esp32_regs[i].type == XT_REG_USER)) {
+			if (regReadable(esp32_regs[i].flags, cpenable) && (esp32_regs[i].type == XT_REG_SPECIAL || esp32_regs[i].type == XT_REG_USER || esp32_regs[i].type == XT_REG_FR)) {
 				if (intfromchars(dsrs[c][i])&OCDDSR_EXECEXCEPTION) {
 					LOG_ERROR("Exception reading %s!\n", esp32_regs[i].name);
 					return ERROR_FAIL;
@@ -233,7 +242,6 @@ static int esp32_fetch_all_regs(struct target *target)
 		struct reg *cpu_reg_list = esp32->core_caches[c]->reg_list;
 		esp32_mark_register_dirty(cpu_reg_list, XT_REG_IDX_A3);
 	}
-	esp32_checkdsr(esp32->esp32_targets[0]);
 	return ERROR_OK;
 }
 
@@ -306,7 +314,7 @@ static int esp32_write_dirty_registers(struct target *target, struct reg *reg_li
 				regval=esp108_reg_get(&reg_list[realadr]);
 				LOG_DEBUG("%s: Writing back reg %s value %08X, num =%i", target->cmd_name, esp32_regs[realadr].name, regval, esp32_regs[realadr].reg_num);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
-				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp32_regs[XT_REG_IDX_AR0+i+j].reg_num));
+				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp32_regs[XT_REG_IDX_AR0+i].reg_num));
 				reg_list[realadr].dirty=0;
 			}
 		}
@@ -962,7 +970,6 @@ static int xtensa_step(struct target *target,
 	static const uint32_t icount_val = -2; /* ICOUNT value to load for 1 step */
 	uint32_t icountlvl;
 	uint32_t oldps, newps, oldpc;
-	int tries=10;
 
 	LOG_DEBUG("%s: %s(current=%d, address=0x%04x, handle_breakpoints=%i)", target->cmd_name, __func__, current, address, handle_breakpoints);
 
@@ -1011,7 +1018,6 @@ static int xtensa_step(struct target *target,
 
 
 	do {
-		// We have equival amount of BP for each cpu
 		{
 			struct reg *cpu_reg_list = esp32->core_caches[esp32->active_cpu]->reg_list;
 			esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
@@ -1047,22 +1053,23 @@ static int xtensa_step(struct target *target,
 		if(!(intfromchars(dsr)&OCDDSR_STOPPED)) {
 			LOG_ERROR("%s: %s: Timed out waiting for target to finish stepping. dsr=0x%08x", target->cmd_name, __func__, intfromchars(dsr));
 			return ERROR_TARGET_TIMEOUT;
-		} else
-		{
-			target->state = TARGET_HALTED;
-			esp32_fetch_all_regs(target);
 		}
-	} while (esp108_reg_get(&reg_list[XT_REG_IDX_PC])==oldpc && --tries);
-	LOG_DEBUG("Stepped from %X to %X", oldpc, esp108_reg_get(&reg_list[XT_REG_IDX_PC]));
+		esp32_fetch_all_regs(target, 1 << esp32->active_cpu);
+	} while (0);
 
-	if (!tries) {
+	uint32_t cur_pc = esp108_reg_get(&reg_list[XT_REG_IDX_PC]);
+	if (oldpc == cur_pc) {
 		LOG_WARNING("%s: %s: Stepping doesn't seem to change PC! dsr=0x%08x", target->cmd_name, __func__, intfromchars(dsr));
 	}
-
+	else {
+		LOG_DEBUG("Stepped from %X to %X", oldpc, cur_pc);
+	}
 	// This operation required to clear state
 	for (size_t cp = 0; cp < ESP32_CPU_COUNT; cp++)
 	{
-		if (cp != esp32->active_cpu) xtensa_read_dsr(esp32->esp32_targets[cp]);
+		if (cp != esp32->active_cpu) {
+			xtensa_read_dsr(esp32->esp32_targets[cp]);
+		}
 	}
 
 	if (cause&DEBUGCAUSE_DB) {
@@ -1359,7 +1366,7 @@ static int xtensa_poll(struct target *target)
 	}
 
 	unsigned int dsr0 = intfromchars(dsr[0]);
-	unsigned int dsr1 = intfromchars(dsr[0]);
+	unsigned int dsr1 = intfromchars(dsr[1]);
 	unsigned int common_reason = dsr0 | dsr1; // We should know if even one of CPU was stopped
 
 	unsigned int common_pwrstath = pwrstath[0] | pwrstath[1];
@@ -1369,7 +1376,7 @@ static int xtensa_poll(struct target *target)
 			LOG_DEBUG("Stopped: CPU0: %d CPU1: %d", (dsr0 & OCDDSR_STOPPED) ? 1 : 0, (dsr1 & OCDDSR_STOPPED) ? 1 : 0);
 			xtensa_halt(target);
 			target->state = TARGET_HALTED;
-			esp32_fetch_all_regs(target);
+			esp32_fetch_all_regs(target, 0x3);
 			//Examine why the target was halted
 			target->debug_reason = DBG_REASON_DBGRQ;
 			for (size_t i = 0; i < ESP32_CPU_COUNT; i++)

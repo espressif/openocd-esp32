@@ -327,7 +327,7 @@ int esp108_write_dirty_registers(struct target *target)
 				regval=esp108_reg_get(&reg_list[realadr]);
 				LOG_DEBUG("%s: Writing back reg %s value %08X", target->cmd_name, esp108_regs[realadr].name, regval);
 				esp108_queue_nexus_reg_write(target, NARADR_DDR, regval);
-				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i+j].reg_num));
+				esp108_queue_exec_ins(target, XT_INS_RSR(XT_SR_DDR, esp108_regs[XT_REG_IDX_AR0+i].reg_num));
 				reg_list[realadr].dirty=0;
 			}
 		}
