@@ -586,6 +586,20 @@ static int esp108_apptrace_read_status(struct target *target, uint32_t *stat)
 	return ERROR_OK;
 }
 
+int esp108_apptrace_write_status(struct target *target, uint32_t stat)
+{
+    int res = 0;
+
+    esp108_queue_nexus_reg_write(target, ESP_APPTRACE_TRAX_STAT_REG, stat);
+    esp108_queue_tdi_idle(target);
+    res = jtag_execute_queue();
+    if (res != ERROR_OK) {
+        LOG_ERROR("Failed to exec JTAG queue!");
+        return res;
+    }
+    return ERROR_OK;
+}
+
 static int esp108_activate_swdbg(struct target *target, int enab)
 {
 	int res;
@@ -2621,6 +2635,13 @@ int esp_cmd_gcov(struct target *target, const char **argv, int argc)
 	struct esp_gcov_cmd_data *cmd_data;
 	static struct esp_apptrace_cmd_ctx s_at_cmd_ctx;
 	int res = ERROR_OK;
+
+	// TODO: remove this when gcov debug stubs support will be merged
+	res = esp108_apptrace_write_status(target, 0);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write gcov status (%d)!", res);
+		return res;
+	}
 
 	// init cmd context
 	res = esp_gcov_cmd_init(target, &s_at_cmd_ctx, argv, argc);
