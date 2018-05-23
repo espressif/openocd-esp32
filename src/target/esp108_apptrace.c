@@ -2083,6 +2083,13 @@ int esp_cmd_apptrace_generic(struct target *target, int mode, const char **argv,
 	}
 
 	if (strcmp(argv[0], "start") == 0) {
+		// TODO: remove this when gcov debug stubs support will be merged
+		res = esp108_apptrace_write_status(target, 0);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to write apptrace status (%d)!", res);
+			return res;
+		}
+
 		// init cmd context
 		res = esp_apptrace_cmd_init(target, &s_at_cmd_ctx, mode, &argv[1], argc-1);
 		if (res != ERROR_OK) {
@@ -2635,6 +2642,16 @@ int esp_cmd_gcov(struct target *target, const char **argv, int argc)
 	struct esp_gcov_cmd_data *cmd_data;
 	static struct esp_apptrace_cmd_ctx s_at_cmd_ctx;
 	int res = ERROR_OK;
+
+	if (argc == 0) {
+		LOG_ERROR("On-the-fly GCOV data dump is not supported in this version of OpenOCD!");
+		return ERROR_FAIL;
+	}
+
+	if (strcmp(argv[0], "dump") != 0) {
+		LOG_ERROR("Invalid action!");
+		return ERROR_FAIL;
+	}
 
 	// TODO: remove this when gcov debug stubs support will be merged
 	res = esp108_apptrace_write_status(target, 0);
