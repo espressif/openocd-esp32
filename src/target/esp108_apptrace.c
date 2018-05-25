@@ -886,13 +886,13 @@ static int esp_apptrace_cmd_ctx_init(struct target *target, struct esp_apptrace_
 
 	cmd_ctx->running = 1;
 
+	res = pthread_mutex_init(&cmd_ctx->trax_blocks_mux, NULL);
+	if (res) {
+		LOG_ERROR("Failed to blocks pool mux (%d)!", res);
+		esp_apptrace_blocks_pool_cleanup(cmd_ctx);
+		return ERROR_FAIL;
+	}
 	if (cmd_ctx->mode != ESP_APPTRACE_CMD_MODE_SYNC) {
-		res = pthread_mutex_init(&cmd_ctx->trax_blocks_mux, NULL);
-		if (res) {
-			LOG_ERROR("Failed to blocks pool mux (%d)!", res);
-			esp_apptrace_blocks_pool_cleanup(cmd_ctx);
-			return ERROR_FAIL;
-		}
 		res = pthread_create(&cmd_ctx->data_processor, NULL, esp_apptrace_data_processor, cmd_ctx);
 		if (res) {
 			LOG_ERROR("Failed to start trace data processor thread (%d)!", res);
@@ -927,8 +927,8 @@ static int esp_apptrace_cmd_ctx_cleanup(struct esp_apptrace_cmd_ctx *cmd_ctx)
 		else {
 			LOG_INFO("Trace data processor thread exited with %ld", (long)thr_res);
 		}
-		pthread_mutex_destroy(&cmd_ctx->trax_blocks_mux);
 	}
+	pthread_mutex_destroy(&cmd_ctx->trax_blocks_mux);
 	esp_apptrace_blocks_pool_cleanup(cmd_ctx);
 	return ERROR_OK;
 }
