@@ -199,6 +199,11 @@ struct xtensa_algorithm {
 						| ((S & 0x0F) << 8 )	\
 						| ((T & 0x0F) << 4 ))
 
+#define _XT_INS_FORMAT_RRI4(OPCODE,IMM4,R,S,T) (OPCODE \
+						| ((IMM4 & 0x0F) << 20) \
+						| ((R & 0x0F) << 12) \
+						| ((S & 0x0F) << 8)	\
+						| ((T & 0x0F) << 4))
 
 
 /* Xtensa processor instruction opcodes
@@ -252,6 +257,14 @@ struct xtensa_algorithm {
 #define XT_PS_RING_GET(_v_)		(((_v_) >> 6) & 0x3)
 #define XT_PS_CALLINC_MSK		(0x3 << 16)
 #define XT_PS_OWB_MSK			(0xF << 8)
+
+#define XT_INS_L32E(R,S,T) _XT_INS_FORMAT_RRI4(0x90000,0,R,S,T)
+#define XT_INS_S32E(R,S,T) _XT_INS_FORMAT_RRI4(0x490000,0,R,S,T)
+#define XT_INS_L32E_S32E_MASK   0xFF000F
+
+#define XT_INS_RFWO 0x3400
+#define XT_INS_RFWU 0x3500
+#define XT_INS_RFWO_RFWU_MASK	0xFFFFFF
 
 
 /* ESP32 memory map */

@@ -965,6 +965,27 @@ static int xtensa_remove_watchpoint(struct target *target, struct watchpoint *wa
 }
 #define XCHAL_EXCM_LEVEL		3	/* level masked by PS.EXCM */
 
+static bool pc_in_window_exception(struct target *target, uint32_t pc)
+{
+	uint32_t insn;
+	int err = xtensa_read_memory(target, pc, 4, 1, (uint8_t*) &insn);
+	if (err != ERROR_OK) {
+		return false;
+	}
+
+	uint32_t masked = insn & XT_INS_L32E_S32E_MASK;
+	if (masked == XT_INS_L32E(0, 0, 0) || masked == XT_INS_S32E(0, 0, 0)) {
+		return true;
+	}
+	
+	masked = insn & XT_INS_RFWO_RFWU_MASK;
+	if (masked == XT_INS_RFWO || masked == XT_INS_RFWU) {
+		return true;
+	}
+
+	return false;
+}
+
 static int xtensa_step(struct target *target,
 	int current,
 	uint32_t address,
@@ -1065,6 +1086,17 @@ static int xtensa_step(struct target *target,
 		esp32_fetch_all_regs(target, 1 << esp32->active_cpu);
 
 		cur_pc = esp108_reg_get(&reg_list[XT_REG_IDX_PC]);
+		
+		if (esp32->isrmasking_mode == ESP32_ISRMASK_ON &&
+			pc_in_window_exception(target, cur_pc))
+		{
+			/* isrmask = on, need to step out of the window exception handler */
+			LOG_DEBUG("Stepping out of window exception, PC=%X", cur_pc);
+			oldpc = cur_pc;
+			address = oldpc + 3;
+			continue;
+		}
+
 		if (oldpc == cur_pc) {
 			LOG_WARNING("%s: %s: Stepping doesn't seem to change PC! dsr=0x%08x", target->cmd_name, __func__, intfromchars(dsr));
 		}

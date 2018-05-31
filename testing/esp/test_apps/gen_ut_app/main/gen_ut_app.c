@@ -45,12 +45,38 @@ void blink_task(void *pvParameter)
     }
 }
 
+/* This test calls functions recursively many times, exhausing the
+ * register space and triggering window overflow exceptions.
+ * Upon returning, it triggers window underflow exceptions.
+ * If the test passes, then OpenOCD and GDB can both handle
+ * window exceptions correctly.
+ */
+int sum;  // not static so the whole loop is not optimized away
+
+static void recursive(int levels)
+{
+    if (levels - 1 == 0) {
+        return;
+    }
+    sum += levels;
+    recursive(levels - 1);
+}
+
+void window_exception_test(void* arg)
+{
+    recursive(20);
+    printf("sum=%d\n",sum);
+}
+
 void app_main()
 {
     ESP_LOGI(TAG, "Run test %d\n", run_test);
     switch(run_test){
         case 100:
             xTaskCreate(&blink_task, "blink_task", 2048, NULL, 5, NULL);
+            break;
+        case 200:
+            xTaskCreate(&window_exception_test, "win_exc_task", 8192, NULL, 5, NULL);
             break;
         default:
             ESP_LOGE(TAG, "Invalid test id (%d)!", run_test);

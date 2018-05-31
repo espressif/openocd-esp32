@@ -30,6 +30,31 @@ class DebuggerStepTestsImpl:
     def test_step_after_active_thread_swicth(self):
         pass
 
+    def test_step_window_exception(self):
+        # start the test, stopping at the window_exception_test function
+        self.select_sub_test(200)
+        bp = self.gdb.add_bp('window_exception_test')
+        self.resume_exec()
+        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+        self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_BP)
+        self.gdb.delete_bp(bp)
+
+        # do "step in", 3 steps per recursion level
+        for i in range(0, 59):
+            get_logger().info('Step in {}'.format(i))
+            self.step_in()
+
+        # check that we have reached the end of recursion
+        self.assertEqual(int(self.gdb.data_eval_expr('levels')), 1)
+
+        # do "step out" once per recursion level
+        for i in range(0, 20):
+            get_logger().info('Step out {}'.format(i))
+            self.step_out()
+
+        cur_frame = self.gdb.get_current_frame()
+        self.assertEqual(cur_frame['func'], 'window_exception_test')
+
 
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
