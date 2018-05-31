@@ -978,7 +978,7 @@ static int xtensa_step(struct target *target,
 	uint8_t dsr[4];
 	static const uint32_t icount_val = -2; /* ICOUNT value to load for 1 step */
 	uint32_t icountlvl;
-	uint32_t oldps, newps, oldpc;
+	uint32_t oldps, newps, oldpc, cur_pc;
 
 	LOG_DEBUG("%s: %s(current=%d, address=0x%04x, handle_breakpoints=%i)", target->cmd_name, __func__, current, address, handle_breakpoints);
 
@@ -1024,24 +1024,18 @@ static int xtensa_step(struct target *target,
 		current = 0;		 // The PC was modified.
 	}
 
-
+	struct reg *cpu_reg_list = esp32->core_caches[esp32->active_cpu]->reg_list;
+	
 
 	do {
-		{
-			struct reg *cpu_reg_list = esp32->core_caches[esp32->active_cpu]->reg_list;
-			esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
-			esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNT], icount_val);
-		}
+		esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
+		esp108_reg_set(&cpu_reg_list[XT_REG_IDX_ICOUNT], icount_val);
 
 		/* Now ICOUNT is set, we can resume as if we were going to run */
-		int cause_local = esp108_reg_get(&reg_list[XT_REG_IDX_DEBUGCAUSE]);
-		if ((cause_local&(DEBUGCAUSE_BI | DEBUGCAUSE_DB)) == 0)
-		{
-			res = xtensa_resume_cpu(target, current, address, 0, 0);
-			if (res != ERROR_OK) {
-				LOG_ERROR("%s: %s: Failed to resume after setting up single step", target->cmd_name, __func__);
-				return res;
-			}
+		res = xtensa_resume_cpu(target, current, address, 0, 0);
+		if (res != ERROR_OK) {
+			LOG_ERROR("%s: %s: Failed to resume after setting up single step", target->cmd_name, __func__);
+			return res;
 		}
 
 		/* Wait for stepping to complete */
@@ -1060,19 +1054,28 @@ static int xtensa_step(struct target *target,
 			}
 		}
 		if(!(intfromchars(dsr)&OCDDSR_STOPPED)) {
-			LOG_ERROR("%s: %s: Timed out waiting for target to finish stepping. dsr=0x%08x", target->cmd_name, __func__, intfromchars(dsr));
-			return ERROR_TARGET_TIMEOUT;
+			LOG_WARNING("%s: %s: Timed out waiting for target to finish stepping. dsr=0x%08x", target->cmd_name, __func__, intfromchars(dsr));
+			target->debug_reason = DBG_REASON_NOTHALTED;
+			target->state = TARGET_RUNNING;
+			return ERROR_OK;
 		}
-		esp32_fetch_all_regs(target, 1 << esp32->active_cpu);
-	} while (0);
+		target->debug_reason = DBG_REASON_SINGLESTEP;
+		target->state = TARGET_HALTED;
 
-	uint32_t cur_pc = esp108_reg_get(&reg_list[XT_REG_IDX_PC]);
-	if (oldpc == cur_pc) {
-		LOG_WARNING("%s: %s: Stepping doesn't seem to change PC! dsr=0x%08x", target->cmd_name, __func__, intfromchars(dsr));
+		esp32_fetch_all_regs(target, 1 << esp32->active_cpu);
+
+		cur_pc = esp108_reg_get(&reg_list[XT_REG_IDX_PC]);
+		if (oldpc == cur_pc) {
+			LOG_WARNING("%s: %s: Stepping doesn't seem to change PC! dsr=0x%08x", target->cmd_name, __func__, intfromchars(dsr));
+		}
+		else {
+			LOG_DEBUG("Stepped from %X to %X", oldpc, cur_pc);
+		}
+		break;
 	}
-	else {
-		LOG_DEBUG("Stepped from %X to %X", oldpc, cur_pc);
-	}
+	while(true);
+	LOG_DEBUG("Done stepping, PC=%X", cur_pc);
+
 	// This operation required to clear state
 	for (size_t cp = 0; cp < ESP32_CPU_COUNT; cp++)
 	{
@@ -1103,9 +1106,7 @@ static int xtensa_step(struct target *target,
 	esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], 0);
 	res = esp32_write_dirty_registers(esp32->esp32_targets[esp32->active_cpu], reg_list);
 
-	//Make sure the poll routine will pick up that something has changed by artificially
-	//triggering a running->halted state change
-	target->state = TARGET_RUNNING;
+	target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 	return res;
 }
 
