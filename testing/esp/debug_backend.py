@@ -114,6 +114,7 @@ class Gdb:
     TARGET_STOP_REASON_BP       = 3
     TARGET_STOP_REASON_WP       = 4
     TARGET_STOP_REASON_STEPPED  = 5
+    TARGET_STOP_REASON_FN_FINISHED = 6
 
     @staticmethod
     def get_logger():
@@ -139,6 +140,8 @@ class Gdb:
                     self._target_stop_reason = self.TARGET_STOP_REASON_WP
                 elif rec['payload']['reason'] == 'end-stepping-range':
                     self._target_stop_reason = self.TARGET_STOP_REASON_STEPPED
+                elif rec['payload']['reason'] == 'function-finished':
+                    self._target_stop_reason = self.TARGET_STOP_REASON_FN_FINISHED
                 elif rec['payload']['reason'] == 'signal-received':
                     if rec['payload']['signal-name'] == 'SIGINT':
                         self._target_stop_reason = self.TARGET_STOP_REASON_SIGINT
@@ -261,7 +264,19 @@ class Gdb:
         # -exec-next [--reverse]
         res,_ = self._mi_cmd_run('-exec-next')
         if res != 'running':
-            raise DebuggerError('Failed to step program!')
+            raise DebuggerError('Failed to step over!')
+
+    def exec_step(self):
+        # -exec-step [--reverse]
+        res,_ = self._mi_cmd_run('-exec-step')
+        if res != 'running':
+            raise DebuggerError('Failed to step in!')
+
+    def exec_finish(self):
+        # -exec-finish [--reverse]
+        res,_ = self._mi_cmd_run('-exec-finish')
+        if res != 'running':
+            raise DebuggerError('Failed to step out!')
 
     def data_eval_expr(self, expr):
         # -data-evaluate-expression expr

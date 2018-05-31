@@ -209,12 +209,28 @@ class DebuggerTestsBase(unittest.TestCase):
 
 
     def step(self):
-        """ Performs program step
+        """ Performs program step (step over, "next" command in GDB)
         """
         self.gdb.exec_next()
         self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_RUNNING, 5)
         rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
         self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_STEPPED)
+
+    def step_in(self):
+        """ Performs program step (step in, "step" command in GDB)
+        """
+        self.gdb.exec_step()
+        self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_RUNNING, 5)
+        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+        self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_STEPPED)
+
+    def step_out(self):
+        """ Runs until current function retunrs (step out, "finish" command in GDB)
+        """
+        self.gdb.exec_finish()
+        self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_RUNNING, 5)
+        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+        self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_FN_FINISHED)
 
 class DebuggerTestAppTests(DebuggerTestsBase):
     """ Base class for tests which need special app running on target
