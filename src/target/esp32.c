@@ -741,16 +741,25 @@ static int xtensa_get_gdb_reg_list(struct target *target,
 {
 	int i;
 	struct esp32_common *esp32 = target->arch_info;
-	LOG_DEBUG("%s, reg_class=%i", __func__, (int)reg_class);
 
-	*reg_list_size = XT_NUM_REGS_G_COMMAND;
+	if (reg_class == REG_CLASS_ALL)
+	{
+		*reg_list_size = esp32->core_caches[esp32->active_cpu]->num_regs;
+	}
+	else
+	{
+		*reg_list_size = XT_NUM_REGS_G_COMMAND;
+	}
+
+	LOG_DEBUG("%s, reg_class=%i, num_regs=%d", __func__, (int)reg_class, *reg_list_size);
+
 	*reg_list = malloc(sizeof(struct reg *) * (*reg_list_size));
 
 	if (!*reg_list) {
-		return ERROR_COMMAND_SYNTAX_ERROR;
+		return ERROR_FAIL;
 	}
 
-	for (i = 0; i < XT_NUM_REGS_G_COMMAND; i++) {
+	for (i = 0; i < *reg_list_size; i++) {
 		(*reg_list)[i] = &esp32->core_caches[esp32->active_cpu]->reg_list[i];
 	}
 
