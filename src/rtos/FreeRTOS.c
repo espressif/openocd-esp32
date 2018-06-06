@@ -702,6 +702,7 @@ static int FreeRTOS_post_reset_cleanup(struct target *target)
 		}
 		FreeRTOS_update_threads(target->rtos);
 	}
+	target->rtos->current_threadid = -1;
 	return ERROR_OK;
 }
 
