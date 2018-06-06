@@ -251,13 +251,7 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         self.resume_exec()
         rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 10)
         # workarounds for strange debugger's behaviour
-        if rsn == dbg.Gdb.TARGET_STOP_REASON_SIGTRAP:
-            get_logger().warning('Unexpected SIGTRAP during setup! Apply workaround...')
-            cur_frame = self.gdb.get_current_frame()
-            self.assertEqual(cur_frame['addr'], '0x40000450')
-            self.resume_exec()
-            rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 10)
-        elif rsn == dbg.Gdb.TARGET_STOP_REASON_SIGINT:            
+        if rsn == dbg.Gdb.TARGET_STOP_REASON_SIGINT:            
             get_logger().warning('Unexpected SIGINT during setup! Apply workaround...')
             cur_frame = self.gdb.get_current_frame()
             # SIGINT address varies

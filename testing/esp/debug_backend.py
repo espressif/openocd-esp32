@@ -215,6 +215,9 @@ class Gdb:
                 res,res_body = self._parse_mi_resp(response, new_tgt_state)
         return res,res_body
 
+    def console_cmd_run(self, cmd):
+        self._mi_cmd_run('-interpreter-exec console %s' % cmd)
+
     def target_select(self, tgt_type, tgt_params):
         # -target-select type parameters
         res,_ = self._mi_cmd_run('-target-select %s %s' % (tgt_type, tgt_params))
@@ -225,6 +228,7 @@ class Gdb:
         self.monitor_run('reset %s' % action)
         if action == 'halt':
             self.wait_target_state(self.TARGET_STATE_STOPPED, 5)
+            self.console_cmd_run('flushregs')
 
     def target_download(self):
         raise NotImplementedError('target_download')

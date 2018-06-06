@@ -18,7 +18,6 @@ class DebuggerBreakpointTestsImpl:
     """ Breakpoints test cases which are common for dual and single core modes
     """
 
-    @unittest.expectedFailure
     def test_multi_reset_break(self):
         for i in range(3):
             self.gdb.target_reset()
