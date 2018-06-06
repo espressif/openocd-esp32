@@ -787,8 +787,19 @@ static int xtensa_assert_reset(struct target *target)
 		esp108_queue_tdi_idle(esp32->esp32_targets[i]);
 	}
 	res=jtag_execute_queue();
+	if (res != ERROR_OK) {
+		return res;
+	}
 	esp32->resetAsserted=1;
-	return res;
+	
+	if (target->reset_halt) {
+		res = target_halt(target);
+		if (res != ERROR_OK) {
+			return res;
+		}
+	}
+
+	return ERROR_OK;
 }
 
 static int xtensa_smpbreak_set(struct target *target)
