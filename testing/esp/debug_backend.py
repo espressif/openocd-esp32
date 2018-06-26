@@ -4,6 +4,7 @@ import signal
 import threading
 import time
 import telnetlib
+import re
 from pygdbmi.gdbcontroller import GdbController
 from pygdbmi.gdbcontroller import GdbTimeoutError
 from pprint import pformat
@@ -91,15 +92,70 @@ class Oocd(threading.Thread):
     def join(self):
         super(Oocd, self).join()
         self._oocd_proc.stdout.close()
-    
-    
+
     def cmd_exec(self, cmd):
-        resp = self._tn.read_until('>')
+        # read all output already sent
+        resp = self._tn.read_very_eager()
         self._logger.debug('TELNET <-: %s' % resp)
         self._logger.debug('TELNET ->: %s' % cmd)
-        self._tn.write('%s\n' % cmd)
+        cmd_sent = cmd + '\n'
+        self._tn.write(cmd_sent)
         resp = self._tn.read_until('>')
+        # remove all '\r' first
+        resp = resp.replace('\r','')
+        # command we sent will be echoed back - remove it
+        index_start = resp.find(cmd_sent)
+        if index_start >= 0:
+            resp = resp[index_start+len(cmd_sent):]
+        # the response will also include '>', next prompt - remove it as well
+        index_end = resp.rfind('>')
+        if index_end >= 0:
+            resp = resp[:index_end]
         self._logger.debug('TELNET <-: %s' % resp)
+        return resp
+
+    def perfmon_enable(self, counter, select, mask = None, kernelcnt = None, tracelevel = None):
+        """Run OpenOCD perfmon_enable command, which starts performance counter
+
+        counter: performance counter ID
+        select, mask: determine the event being profiled, refer to Xtensa Debug Guide
+        kernelcnt: 0 - count events with CINTLEVEL <= tracelevel,
+                   1 - count events with CINTLEVEL > tracelevel
+
+        If mask, kernelcnt, tracelevel are not specified, OpenOCD will use default values.
+        """
+        cmd = 'esp32 perfmon_enable %d %d' % (counter, select)
+        if mask is not None:
+            cmd += ' 0x%x' % mask
+        if kernelcnt is not None:
+            cmd += ' %d' % kernelcnt
+        if tracelevel is not None:
+            cmd += ' %d' % tracelevel
+        self.cmd_exec(cmd)
+
+    def perfmon_dump(self, counter = None):
+        """Run OpenOCD perfmon_dump command
+
+        Reported results are returned as a dictionary. Each key is the counter id.
+        Each value is a tuple of counts for PRO and APP CPUs.
+        If APP CPU is disabled, its count will be None.
+        """
+        cmd = 'esp32 perfmon_dump'
+        if counter is not None:
+            cmd += '%d' % counter
+        resp = self.cmd_exec(cmd)
+        # Response should have one line for every counter
+        lines = resp.split('\n')
+        result = {}
+        for line in lines:
+            if len(line) == 0:
+                continue
+            tokens = re.match(r'Counter (?P<counter>\d+): CPU0: (?P<count0>\d+)(\s* CPU1: (?P<count1>\d+))?', line)
+            count0 = int(tokens.group('count0'))
+            count1 = int(tokens.group('count1')) if tokens.group('count1') is not None else None
+            counter = int(tokens.group('counter'))
+            result[counter] = (count0, count1)
+        return result
 
 
 class Gdb:
@@ -310,9 +366,10 @@ class Gdb:
             raise DebuggerError('Failed to delete BP!')
 
     def monitor_run(self, cmd, tmo = None):
-        res,_ = self._mi_cmd_run('mon %s' % cmd, tmo=tmo)
+        res, resp = self._mi_cmd_run('mon %s' % cmd, tmo=tmo)
         if res != 'done':
             raise DebuggerError('Failed to run monitor cmd "%s"!' % cmd)
+        return resp
 
     def wait_target_state(self, state, tmo = None):
         if tmo:

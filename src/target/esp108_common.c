@@ -686,6 +686,59 @@ inline uint32_t intfromchars(uint8_t *c)
 	return c[0] + (c[1] << 8) + (c[2] << 16) + (c[3] << 24);
 }
 
+int esp108_perfmon_enable(struct target* target,
+	int counter_id, const struct esp108_perfmon_config* config)
+{
+	int res;
+	uint32_t pmg = 0x1; // enable performance monitor
+	esp108_queue_nexus_reg_write(target, NARADR_PMG, pmg);
+	uint32_t pmcnt = 0; // reset counter
+	esp108_queue_nexus_reg_write(target, NARADR_PM0 + counter_id, pmcnt);
+	uint32_t pmctrl = ((config->tracelevel) << 4) +
+		(config->select << 8) +
+		(config->mask << 16) +
+		(config->kernelcnt << 3);
+	esp108_queue_nexus_reg_write(target, NARADR_PMCTRL0 + counter_id, pmctrl);
+	uint8_t pmstat_u8[4];
+	esp108_queue_nexus_reg_read(target, NARADR_PMSTAT0 + counter_id, pmstat_u8);
+	esp108_queue_tdi_idle(target);
+	res = jtag_execute_queue();
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to exec JTAG queue!");
+		return res;
+	}
+
+	return ERROR_OK;
+}
+
+int esp108_perfmon_dump(struct target* target,
+	int counter_id, struct esp108_perfmon_result* out_result)
+{
+	uint8_t pmstat[4];
+	uint8_t pmcount[4];
+	int res;
+
+	esp108_queue_nexus_reg_read(target, NARADR_PMSTAT0 + counter_id, pmstat);
+	esp108_queue_nexus_reg_read(target, NARADR_PM0 + counter_id, pmcount);
+	esp108_queue_tdi_idle(target);
+	res = jtag_execute_queue();
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to exec JTAG queue!");
+		return res;
+	}
+
+	uint32_t stat = (uint32_t) intfromchars(pmstat);
+	uint64_t result = (uint64_t) intfromchars(pmcount);
+
+	// TODO: if counter # counter_id+1 has 'select' set to 1, use its value as the
+	// high 32 bits of the counter.
+
+	out_result->overflow = ((stat & 1) != 0);
+	out_result->value = result;
+
+	return ERROR_OK;
+}
+
 
 COMMAND_HANDLER(handle_set_esp108_permissive_mode)
 {

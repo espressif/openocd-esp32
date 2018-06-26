@@ -297,4 +297,26 @@ typedef enum
 
 addr_type_t esp108_get_addr_type(uint32_t address);
 
+#define ESP108_MAX_PERF_COUNTERS 2
+#define ESP108_MAX_PERF_SELECT 32
+#define ESP108_MAX_PERF_MASK 0xffff
+
+struct esp108_perfmon_config {
+	int select;
+	int mask;
+	int kernelcnt;
+	int tracelevel;
+};
+
+struct esp108_perfmon_result {
+	uint64_t value;
+	bool overflow;
+};
+
+int esp108_perfmon_enable(struct target* target,
+	int counter_id, const struct esp108_perfmon_config* config);
+
+int esp108_perfmon_dump(struct target* target,
+	int counter_id, struct esp108_perfmon_result* out_result);
+
 #endif // XTENSA_ESP108_COMMON_H

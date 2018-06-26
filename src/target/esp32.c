@@ -2533,6 +2533,123 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 	return esp_cmd_gcov(get_current_target(CMD_CTX), CMD_ARGV, CMD_ARGC);
 }
 
+/* perfmon_enable <counter_id> <select> [mask] [kernelcnt] [tracelevel] */
+COMMAND_HANDLER(handle_perfmon_enable)
+{
+	struct target* target = get_current_target(CMD_CTX);
+	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
+	int res;
+
+	struct esp108_perfmon_config config = {
+		.mask = 0xffff,
+		.kernelcnt = 0,
+		.tracelevel = XT_DEBUGLEVEL
+	};
+
+	if (CMD_ARGC < 2) {
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+	unsigned counter_id = strtoul(CMD_ARGV[0], NULL, 0);
+	if (counter_id >= ESP108_MAX_PERF_COUNTERS) {
+		LOG_ERROR("counter_id should be < %d", ESP108_MAX_PERF_COUNTERS);
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+
+	config.select = strtoul(CMD_ARGV[1], NULL, 0);
+	if (config.select > ESP108_MAX_PERF_SELECT) {
+		LOG_ERROR("select should be < %d", ESP108_MAX_PERF_SELECT);
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+
+	if (CMD_ARGC >= 3) {
+		config.mask = strtoul(CMD_ARGV[2], NULL, 0);
+		if (config.mask > ESP108_MAX_PERF_MASK) {
+			LOG_ERROR("mask should be < %d", ESP108_MAX_PERF_MASK);
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		}
+	}
+
+	if (CMD_ARGC >= 4) {
+		config.kernelcnt = strtoul(CMD_ARGV[3], NULL, 0);
+		if (config.kernelcnt > 1) {
+			LOG_ERROR("kernelcnt should be 0 or 1");
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		}
+	}
+
+	if (CMD_ARGC >= 5) {
+		config.tracelevel = strtoul(CMD_ARGV[4], NULL, 0);
+		if (config.tracelevel > 7) {
+			LOG_ERROR("tracelevel should be <=7");
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		}
+	}
+
+	int cores_count = esp32_get_cores_count(target);
+	for (int i = 0; i < cores_count; ++i) {
+		struct target* cur_target = esp32->esp32_targets[i];
+		res = esp108_perfmon_enable(cur_target, counter_id, &config);
+		if (res != ERROR_OK) {
+			return res;
+		}
+	}
+
+	return ERROR_OK;
+}
+
+/* perfmon_dump [counter_id] */
+COMMAND_HANDLER(handle_perfmon_dump)
+{
+	struct target* target = get_current_target(CMD_CTX);
+	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
+	int res;
+	
+	if (CMD_ARGC > 1) {
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+	int counter_id = -1;
+	if (CMD_ARGC == 1) {
+		counter_id = strtol(CMD_ARGV[0], NULL, 0);
+		if (counter_id > ESP108_MAX_PERF_COUNTERS) {
+			LOG_ERROR("counter_id should be < %d", ESP108_MAX_PERF_COUNTERS);
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		}
+	}
+
+	int cores_count = esp32_get_cores_count(target);
+	int counter_start = (counter_id < 0) ? 0 : counter_id;
+	int counter_end = (counter_id < 0) ? ESP108_MAX_PERF_COUNTERS : counter_id + 1;
+	for (int counter = counter_start; counter < counter_end; ++counter) {
+		char result_buf[128] = { 0 };
+		size_t result_pos = 0;
+		result_pos += snprintf(result_buf, sizeof(result_buf), "Counter %d: ", counter);
+		uint64_t total_count = 0;
+		bool total_overflow = false;
+		for (int core = 0; core < cores_count; ++core) {
+			struct target* cur_target = esp32->esp32_targets[core];
+			struct esp108_perfmon_result result;
+			res = esp108_perfmon_dump(cur_target, counter, &result);
+			if (res != ERROR_OK) {
+				return res;
+			}
+			result_pos += snprintf(result_buf + result_pos, sizeof(result_buf) - result_pos,
+				"CPU%d: %-12llu%s%s",
+				core, (unsigned long long) result.value,
+				(result.overflow) ? " (overflow)" : "",
+				(core < cores_count - 1) ? " ":"");
+			total_count += result.value;
+			total_overflow = total_overflow || result.overflow;
+		}
+		if (cores_count > 1 && ! total_overflow) {
+			snprintf(result_buf + result_pos, sizeof(result_buf) - result_pos, " Total: %-12llu",
+				(unsigned long long) total_count);
+		}
+		LOG_INFO("%s", result_buf);
+	}
+
+	return ERROR_OK;
+}
+
 COMMAND_HANDLER(handle_esp32_a_mask_interrupts_command)
 {
 	struct target *target = get_current_target(CMD_CTX);
@@ -2625,6 +2742,20 @@ static const struct command_registration esp32_any_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "mask esp32 interrupts at step",
 		.usage = "['on'|'off']",
+	},
+	{
+		.name = "perfmon_enable",
+		.handler = handle_perfmon_enable,
+		.mode = COMMAND_ANY,
+		.help = "Enable and start performance counter",
+		.usage = "<counter_id> <select> [mask] [kernelcnt] [tracelevel]",
+	},
+	{
+		.name = "perfmon_dump",
+		.handler = handle_perfmon_dump,
+		.mode = COMMAND_ANY,
+		.help = "Dump performance counter value. If no argument specified, dumps all counters.",
+		.usage = "[counter_id]",
 	},
 	COMMAND_REGISTRATION_DONE
 };
