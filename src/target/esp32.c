@@ -133,7 +133,7 @@ do { \
 #define ESP32_IDLE_LOOP_CODE_SZ			3 // size of jump insn
 
 //forward declarations
-static int xtensa_step(struct target *target,
+static int xtensa_do_step(struct target *target,
 	int current,
 	uint32_t address,
 	int handle_breakpoints);
@@ -448,12 +448,12 @@ static int xtensa_resume(struct target *target,
 		if (cause&DEBUGCAUSE_DB) {
 			//We stopped due to a watchpoint. We can't just resume executing the instruction again because
 			//that would trigger the watchpoint again. To fix this, we single-step, which ignores watchpoints.
-			xtensa_step(target, current, address, handle_breakpoints);
+			xtensa_do_step(target, current, address, handle_breakpoints);
 		}
 		if (cause&(DEBUGCAUSE_BI|DEBUGCAUSE_BN)) {
 			//We stopped due to a break instruction. We can't just resume executing the instruction again because
 			//that would trigger the breake again. To fix this, we single-step, which ignores break.
-			xtensa_step(target, current, address, handle_breakpoints);
+			xtensa_do_step(target, current, address, handle_breakpoints);
 		}
 	}
 
@@ -541,7 +541,7 @@ static int xtensa_resume_active_cpu(struct target *target,
 		if (cause&DEBUGCAUSE_DB) {
 			//We stopped due to a watchpoint. We can't just resume executing the instruction again because
 			//that would trigger the watchpoint again. To fix this, we single-step, which ignores watchpoints.
-			xtensa_step(target, current, address, handle_breakpoints);
+			xtensa_do_step(target, current, address, handle_breakpoints);
 		}
 	}
 	//Write back hw breakpoints. Current FreeRTOS SMP code can set a hw breakpoint on an
@@ -559,6 +559,7 @@ static int xtensa_resume_active_cpu(struct target *target,
 	// Here we write all registers to the targets
 	// We need to write dirty registers on both CPUs because GDB can read/write memory using A3 on CPU0 at any time (when halted)
 	// even when it is not active.
+	// TODO: Maybe it is better to use active CPU for memory access.
 	for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
 	{
 		struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
@@ -1197,7 +1198,7 @@ static bool pc_in_window_exception(struct target *target, uint32_t pc)
 	return false;
 }
 
-static int xtensa_step(struct target *target,
+static int xtensa_do_step(struct target *target,
 	int current,
 	uint32_t address,
 	int handle_breakpoints)
@@ -1237,7 +1238,6 @@ static int xtensa_step(struct target *target,
 	}
 
 	cause=esp108_reg_get(&reg_list[XT_REG_IDX_DEBUGCAUSE]);
-	LOG_DEBUG("%s: cause 0x%X", __func__, cause);
 	if (cause&DEBUGCAUSE_DB) {
 		//We stopped due to a watchpoint. We can't just resume executing the instruction again because
 		//that would trigger the watchpoint again. To fix this, we remove watchpoints, single-step and
@@ -1255,7 +1255,6 @@ static int xtensa_step(struct target *target,
 	do {
 		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], icountlvl);
 		esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNT], icount_val);
-
 
 		/* Now ICOUNT is set, we can resume as if we were going to run */
 		res = xtensa_resume_active_cpu(target, current, address, 0, 0);
@@ -1280,9 +1279,14 @@ static int xtensa_step(struct target *target,
 			}
 		}
 		if(!(intfromchars(dsr)&OCDDSR_STOPPED)) {
-			LOG_ERROR("%s: %s: Timed out waiting for target to finish stepping. dsr=0x%08x", target->cmd_name, __func__, intfromchars(dsr));
-			return ERROR_TARGET_TIMEOUT;
+			LOG_WARNING("%s: %s: Timed out waiting for target to finish stepping. dsr=0x%08x", target->cmd_name, __func__, intfromchars(dsr));
+			target->debug_reason = DBG_REASON_NOTHALTED;
+			target->state = TARGET_RUNNING;
+			return ERROR_OK;
 		}
+		target->debug_reason = DBG_REASON_SINGLESTEP;
+		target->state = TARGET_HALTED;
+
 		esp32_fetch_all_regs(target, 1 << esp32->active_cpu);
 
 		cur_pc = esp108_reg_get(&reg_list[XT_REG_IDX_PC]);
@@ -1334,8 +1338,21 @@ static int xtensa_step(struct target *target,
 	esp108_reg_set(&reg_list[XT_REG_IDX_ICOUNTLEVEL], 0);
 	res = esp32_write_dirty_registers(esp32->esp32_targets[esp32->active_cpu], reg_list);
 
-	target_call_event_callbacks(target, TARGET_EVENT_HALTED);
+	esp32_fetch_all_regs(target, 1 << esp32->active_cpu);
 	return res;
+}
+
+static int xtensa_step(struct target *target,
+	int current,
+	uint32_t address,
+	int handle_breakpoints)
+{
+	int retval = xtensa_do_step(target, current, address, handle_breakpoints);
+	if (retval != ERROR_OK) {
+		return retval;
+	}
+	target_call_event_callbacks(target, TARGET_EVENT_HALTED);
+	return retval;
 }
 
 static int xtensa_start_algorithm(struct target *target,
