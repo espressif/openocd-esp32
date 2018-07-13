@@ -194,31 +194,18 @@ int esp108_do_checkdsr(struct target *target, const char *function, const int li
 	return ERROR_OK;
 }
 
-unsigned int xtensa_read_dsr(struct target *target)
+int esp108_clear_dsr(struct target *target, uint32_t bits)
 {
-	uint8_t dsr[4];
-	int res;
-
-	esp108_queue_nexus_reg_write(target, NARADR_DCRSET, OCDDCR_ENABLEOCD);
-	esp108_queue_nexus_reg_read(target, NARADR_DSR, dsr);
+	esp108_queue_nexus_reg_write(target, NARADR_DSR, bits);
 	esp108_queue_tdi_idle(target);
-	res = jtag_execute_queue();
+	int res = jtag_execute_queue();
 	if (res != ERROR_OK)
 	{
-		LOG_ERROR("%s: Failed to read NARADR_DSR. Can't halt.", target->cmd_name);
-		return res;
-	}
-	uint32_t regval = intfromchars(dsr);
-	esp108_queue_nexus_reg_write(target, NARADR_DSR, regval);
-	esp108_queue_tdi_idle(target);
-	res = jtag_execute_queue();
-	if (res != ERROR_OK)
-	{
-		LOG_ERROR("%s: Failed to write NARADR_DSR. Can't halt.", target->cmd_name);
+		LOG_ERROR("%s: Failed to write NARADR_DSR bits 0x%08x (%d)!", target->cmd_name, bits, res);
 		return res;
 	}
 
-	return intfromchars(dsr);
+	return ERROR_OK;
 }
 
 int xtensa_get_core_reg(struct reg *reg)

@@ -385,10 +385,13 @@ static int xtensa_halt(struct target *target)
 {
 	int res;
 	uint8_t dsr[4];
+	struct esp32_common* esp32 = (struct esp32_common*)target->arch_info;
 
 	LOG_DEBUG("%s, target: %s", __func__, target->cmd_name);
-
-	struct esp32_common* esp32 = (struct esp32_common*)target->arch_info;
+	if (target->state == TARGET_HALTED) {
+		LOG_DEBUG("%s: target was already halted", target->cmd_name);
+		return ERROR_OK;
+	}
 
 	// First we have to read dsr and check if the target stopped
 	int i = esp32->active_cpu;
@@ -511,7 +514,6 @@ static int xtensa_resume(struct target *target,
 	return res;
 }
 
-// TODO: common code with xtensa_resume
 static int xtensa_resume_active_cpu(struct target *target,
 	int current,
 	uint32_t address,
@@ -1539,7 +1541,8 @@ static int xtensa_poll(struct target *target)
 	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
 	uint8_t pwrstat[ESP32_CPU_COUNT], pwrstath[ESP32_CPU_COUNT];
 	int res, cmd;
-	uint8_t dsr[ESP32_CPU_COUNT][4] = {{0}}, ocdid[ESP32_CPU_COUNT][4] = {{0}}, traxstat[ESP32_CPU_COUNT][4] = {{0}}, traxctl[ESP32_CPU_COUNT][4] = {{0}};
+	uint8_t traxstat[ESP32_CPU_COUNT][4] = {{0}}, traxctl[ESP32_CPU_COUNT][4] = {{0}};
+	unsigned int dsr[ESP32_CPU_COUNT] = {0};
 
 	//Read reset state
 	for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
@@ -1578,68 +1581,86 @@ static int xtensa_poll(struct target *target)
 
 	for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
 	{
+		uint8_t dsr_buf[4] = {0};
 		esp108_queue_nexus_reg_write(esp32->esp32_targets[i], NARADR_DCRSET, OCDDCR_ENABLEOCD);
-		esp108_queue_nexus_reg_read(esp32->esp32_targets[i], NARADR_OCDID, ocdid[i]);
-		esp108_queue_nexus_reg_read(esp32->esp32_targets[i], NARADR_DSR, dsr[i]);
+		esp108_queue_nexus_reg_read(esp32->esp32_targets[i], NARADR_DSR, dsr_buf);
 		esp108_queue_nexus_reg_read(esp32->esp32_targets[i], NARADR_TRAXSTAT, traxstat[i]);
 		esp108_queue_nexus_reg_read(esp32->esp32_targets[i], NARADR_TRAXCTRL, traxctl[i]);
 		esp108_queue_tdi_idle(esp32->esp32_targets[i]);
 		res = jtag_execute_queue();
 		if (res != ERROR_OK) return res;
+		dsr[i] = intfromchars(dsr_buf);
+
 	}
 
-	unsigned int dsr0 = intfromchars(dsr[0]);
-	unsigned int dsr1 = intfromchars(dsr[1]);
-	unsigned int common_reason = dsr0 | dsr1; // We should know if even one of CPU was stopped
-
+	unsigned int common_reason = dsr[0] | dsr[1]; // We should know if even one of CPU was stopped
 	unsigned int common_pwrstath = pwrstath[0] | pwrstath[1];
 	if (common_reason & OCDDSR_STOPPED) {
 		int oldstate=target->state;
-		if(target->state != TARGET_HALTED) {
-			LOG_DEBUG("Stopped: CPU0: %d CPU1: %d", (dsr0 & OCDDSR_STOPPED) ? 1 : 0, (dsr1 & OCDDSR_STOPPED) ? 1 : 0);
-			xtensa_halt(target);
+		size_t cores_num = esp32_get_cores_count(target);
+		bool algo_stopped = false;
+		if (target->state == TARGET_DEBUG_RUNNING) {
+			if (cores_num == ESP32_CPU_COUNT) {
+				algo_stopped = (dsr[0] & OCDDSR_STOPPED) && (dsr[1] & OCDDSR_STOPPED);
+			} else {
+				algo_stopped = (dsr[0] & OCDDSR_STOPPED);
+			}
+		}
+		if((target->state != TARGET_HALTED && target->state != TARGET_DEBUG_RUNNING) || algo_stopped) {
+			LOG_DEBUG("Stopped: CPU0: %d CPU1: %d", (dsr[0] & OCDDSR_STOPPED) ? 1 : 0, (dsr[1] & OCDDSR_STOPPED) ? 1 : 0);
+			// TODO: When BreakIn/BreakOut is enabled other CPU is stopped automatically.
+			// Should we stop the second CPU if BreakIn/BreakOut is not configured?
 			target->state = TARGET_HALTED;
 			esp32_fetch_all_regs(target, 0x3);
 			//Examine why the target was halted
 			target->debug_reason = DBG_REASON_DBGRQ;
+			uint32_t halt_cause[ESP32_CPU_COUNT] = {0};
 			for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
 			{
 				struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
-				// volatile int temp_cause = xtensa_read_reg_direct(esp32->esp32_targets[i], XT_REG_IDX_DEBUGCAUSE);
-				int cause = esp108_reg_get(&cpu_reg_list[XT_REG_IDX_DEBUGCAUSE]);
 				int exc_cause = esp108_reg_get(&cpu_reg_list[XT_REG_IDX_EXCCAUSE]);
+				int cause = esp108_reg_get(&cpu_reg_list[XT_REG_IDX_DEBUGCAUSE]);
 
-				volatile unsigned int dsr_core = xtensa_read_dsr(esp32->esp32_targets[i]);
-				if ((dsr_core&OCDDSR_DEBUGPENDBREAK) != 0)
-				{
-					if (esp32->active_cpu != i)
-					{
-						LOG_INFO("active_cpu: %u, changed to %u, reason = 0x%08x", (uint32_t)esp32->active_cpu, (uint32_t)i, dsr_core);
-					}
-					esp32->active_cpu = i;
-				}
+				halt_cause[i] = (uint32_t)cause;
+				esp108_clear_dsr(esp32->esp32_targets[i], OCDDSR_DEBUGPENDBREAK|OCDDSR_DEBUGINTBREAK|OCDDSR_DEBUGPENDHOST|OCDDSR_DEBUGINTHOST);
 
-				int dcrset = read_reg_direct(esp32->esp32_targets[i], NARADR_DCRSET);
-
-				LOG_DEBUG("%s: Halt reason=0x%08X, exc_cause=%d, dsr=0x%08x, dcrset=0x%08x",
-					esp32->esp32_targets[i]->cmd_name, cause, exc_cause, dsr_core, dcrset);
-				if (cause&DEBUGCAUSE_IC)
+				LOG_DEBUG("%s: Target halted, pc=0x%08X, debug_reason=%08x, oldstate=%08x, active=%s", esp32->esp32_targets[i]->cmd_name,
+					esp108_reg_get(&cpu_reg_list[XT_REG_IDX_PC]), target->debug_reason, oldstate, (i == esp32->active_cpu) ? "true" : "false");
+				LOG_DEBUG("%s: Halt reason=0x%08X, exc_cause=%d, dsr=0x%08x",
+					esp32->esp32_targets[i]->cmd_name, cause, exc_cause, dsr[i]);
+			}
+			// When setting debug reason DEBUGCAUSE events have the followuing priorites: watchpoint == breakpoint > single step > debug interrupt.
+			// Watchpoint and breakpoint events at the same time results in special debug reason: DBG_REASON_WPTANDBKPT.
+			// When similar debug events are present on both CPUs events on CPU0 take priority over CPU1 ones and CPU0 is considred to be active.
+			// TODO: review this scheme for the case when BreakIn/BreakOut is not enabled
+			for (size_t k = ESP32_CPU_COUNT; k > 0; k--) {
+				if ((halt_cause[k-1] & DEBUGCAUSE_DI) && ((dsr[k-1]&(OCDDSR_DEBUGPENDHOST|OCDDSR_DEBUGINTHOST)) != 0))
 				{
-					target->debug_reason = DBG_REASON_SINGLESTEP;
-				}
-				if (cause&(DEBUGCAUSE_IB | DEBUGCAUSE_BN | DEBUGCAUSE_BI))
-				{
-					target->debug_reason = DBG_REASON_BREAKPOINT;
-				}
-				if (cause&DEBUGCAUSE_DB)
-				{
-					target->debug_reason = DBG_REASON_WATCHPOINT;
+					target->debug_reason = DBG_REASON_DBGRQ;
+					esp32->active_cpu = k-1;
 				}
 			}
-			for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
-			{
-				struct reg *cpu_reg_list = esp32->core_caches[i]->reg_list;
-				LOG_DEBUG("%s: Target halted, pc=0x%08X, debug_reason=%08x, oldstate=%08x, active=%s", esp32->esp32_targets[i]->cmd_name, esp108_reg_get(&cpu_reg_list[XT_REG_IDX_PC]), target->debug_reason, oldstate, (i == esp32->active_cpu) ? "true" : "false");
+			for (size_t k = ESP32_CPU_COUNT; k > 0; k--) {
+				if (halt_cause[k-1] & DEBUGCAUSE_IC)
+				{
+					target->debug_reason = DBG_REASON_SINGLESTEP;
+					esp32->active_cpu = k-1;
+				}
+			}
+			for (size_t k = ESP32_CPU_COUNT; k > 0; k--) {
+				if (halt_cause[k-1] & (DEBUGCAUSE_IB | DEBUGCAUSE_BN | DEBUGCAUSE_BI))
+				{
+					if (halt_cause[k-1] & DEBUGCAUSE_DB) {
+						target->debug_reason = DBG_REASON_WPTANDBKPT;
+					} else {
+						target->debug_reason = DBG_REASON_BREAKPOINT;
+					}
+					esp32->active_cpu = k-1;
+				} else if (halt_cause[k-1] & DEBUGCAUSE_DB)
+				{
+					target->debug_reason = DBG_REASON_WATCHPOINT;
+					esp32->active_cpu = k-1;
+				}
 			}
 
 			LOG_INFO("Target halted. PRO_CPU: PC=0x%08X %s    APP_CPU: PC=0x%08X %s",

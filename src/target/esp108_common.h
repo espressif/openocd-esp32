@@ -109,9 +109,8 @@ void esp108_queue_exec_ins(struct target *target, int32_t ins);
 uint32_t esp108_reg_get(struct reg *reg);
 void esp108_reg_set(struct reg *reg, uint32_t value);
 int esp108_do_checkdsr(struct target *target, const char *function, const int line);
+int esp108_clear_dsr(struct target *target, uint32_t bits);
 
-// Read and clear the DSR register
-unsigned int xtensa_read_dsr(struct target *target);
 int xtensa_get_core_reg(struct reg *reg);
 int xtensa_set_core_reg(struct reg *reg, uint8_t *buf);
 
