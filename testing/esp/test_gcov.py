@@ -281,6 +281,7 @@ class GcovTestAppTestsDual(DebuggerGenericTestAppTests):
         self.test_app_cfg.bin_dir = os.path.join('output', 'gcov_dual')
         self.test_app_cfg.build_dir = os.path.join('builds', 'gcov_dual')
 
+
 class GcovTestAppTestsSingle(DebuggerGenericTestAppTests):
     """ Base class to run tests which use gcov test app in single core mode
     """
@@ -289,6 +290,7 @@ class GcovTestAppTestsSingle(DebuggerGenericTestAppTests):
         super(GcovTestAppTestsSingle, self).__init__(methodName)
         self.test_app_cfg.bin_dir = os.path.join('output', 'gcov_single')
         self.test_app_cfg.build_dir = os.path.join('builds', 'gcov_single')
+
 
 class GcovTestsDual(GcovTestAppTestsDual, GcovTestsImpl):
     """ Test cases via GDB in dual core mode
@@ -305,4 +307,3 @@ class GcovTestsSingle(GcovTestAppTestsSingle, GcovTestsImpl):
     def setUp(self):
         GcovTestAppTestsSingle.setUp(self)
         GcovTestsImpl.setUp(self)
-

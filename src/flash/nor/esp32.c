@@ -85,8 +85,8 @@
 #define ESP32_ERASE_TMO				60000 // ms
 
 struct esp32_flash_bank {
-	int 						probed;
-	uint32_t					flash_base;
+	int 		probed;
+	uint32_t	flash_base;
 };
 
 struct esp32_rw_args {
@@ -118,10 +118,10 @@ struct esp32_flash_bp_op_state {
 
 #ifndef ESP32_FLASH_STUB_PATH
 static const uint8_t flasher_stub_code[] = {
-	#include "contrib/loaders/flash/esp32/stub_flasher_code.inc"
+#include "contrib/loaders/flash/esp32/stub_flasher_code.inc"
 };
 static const uint8_t flasher_stub_data[] = {
-	#include "contrib/loaders/flash/esp32/stub_flasher_data.inc"
+#include "contrib/loaders/flash/esp32/stub_flasher_data.inc"
 };
 #endif
 
@@ -214,10 +214,10 @@ static int esp32_blank_check(struct flash_bank *bank)
 	run.mem_args.count = 1;
 
 	ret = esp32_run_func_image(bank->target, &run, &flasher_image, 4,
-						ESP32_STUB_CMD_FLASH_ERASE_CHECK /*cmd*/,
-						esp32_info->flash_base/ESP32_FLASH_SECTOR_SIZE/*start*/,
-						bank->num_sectors/*sectors num*/,
-						0/*address to store sectors' state*/);
+	                           ESP32_STUB_CMD_FLASH_ERASE_CHECK /*cmd*/,
+	                           esp32_info->flash_base/ESP32_FLASH_SECTOR_SIZE/*start*/,
+	                           bank->num_sectors/*sectors num*/,
+	                           0/*address to store sectors' state*/);
 	image_close(&flasher_image.image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Faied to run flasher stub (%d)!", ret);
@@ -266,24 +266,24 @@ static uint32_t esp32_get_size(struct flash_bank *bank)
 static int esp32_get_mappings(struct flash_bank *bank, struct esp32_flash_mapping *flash_map)
 {
 	struct esp32_algo_image flasher_image;
-    struct esp32_algo_run_data run;
+	struct esp32_algo_run_data run;
 
-    memset(&run, 0, sizeof(run));
-    run.stack_size = 1300;
-    int ret = esp32_init_flasher_image(&flasher_image);
+	memset(&run, 0, sizeof(run));
+	run.stack_size = 1300;
+	int ret = esp32_init_flasher_image(&flasher_image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Faied to init flasher image (%d)!", ret);
 		return ret;
 	}
 
-    struct mem_param mp;
+	struct mem_param mp;
 	init_mem_param(&mp, 1/*1st usr arg*/, sizeof(struct esp32_flash_mapping)/*size in bytes*/, PARAM_IN);
 	run.mem_args.params = &mp;
 	run.mem_args.count = 1;
 
-    ret = esp32_run_func_image(bank->target, &run, &flasher_image, 2 /*args num*/,
-    					ESP32_STUB_CMD_FLASH_MAP_GET/*cmd*/,
-    					0/*address to store mappings*/);
+	ret = esp32_run_func_image(bank->target, &run, &flasher_image, 2 /*args num*/,
+	                           ESP32_STUB_CMD_FLASH_MAP_GET/*cmd*/,
+	                           0/*address to store mappings*/);
 	image_close(&flasher_image.image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Faied to run flasher stub (%d)!", ret);
@@ -328,9 +328,9 @@ static int esp32_erase(struct flash_bank *bank, int first, int last)
 		return ret;
 	}
 	ret = esp32_run_func_image(bank->target, &run, &flasher_image, 3,
-						ESP32_STUB_CMD_FLASH_ERASE, 		// cmd
-						esp32_info->flash_base + first*ESP32_FLASH_SECTOR_SIZE,// start addr
-						(last-first+1)*ESP32_FLASH_SECTOR_SIZE);	// size
+	                           ESP32_STUB_CMD_FLASH_ERASE, 		// cmd
+	                           esp32_info->flash_base + first*ESP32_FLASH_SECTOR_SIZE,// start addr
+	                           (last-first+1)*ESP32_FLASH_SECTOR_SIZE);	// size
 	image_close(&flasher_image.image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Faied to run flasher stub (%d)!", ret);
@@ -472,7 +472,7 @@ static void esp32_write_state_cleanup(struct target *target, struct esp32_algo_r
 }
 
 static int esp32_write(struct flash_bank *bank, const uint8_t *buffer,
-		uint32_t offset, uint32_t count)
+                       uint32_t offset, uint32_t count)
 {
 	struct esp32_flash_bank *esp32_info = bank->driver_priv;
 	struct esp32_algo_image flasher_image;
@@ -510,11 +510,11 @@ static int esp32_write(struct flash_bank *bank, const uint8_t *buffer,
 	wr_state.prev_block_id = (uint32_t)-1;
 
 	ret = esp32_run_func_image(bank->target, &run, &flasher_image, 5,
-						ESP32_STUB_CMD_FLASH_WRITE, // cmd
-						esp32_info->flash_base + offset,	// start addr
-						count,						// size
-						0,							// down buf addr
-						0);							// down buf size
+	                           ESP32_STUB_CMD_FLASH_WRITE, // cmd
+	                           esp32_info->flash_base + offset,	// start addr
+	                           count,						// size
+	                           0,							// down buf addr
+	                           0);							// down buf size
 	image_close(&flasher_image.image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Faied to run flasher stub (%d)!", ret);
@@ -541,8 +541,8 @@ static int esp32_read_xfer(struct target *target, uint32_t block_id, uint32_t le
 		return retval;
 	}
 	LOG_DEBUG("DATA (%d/%d): %x %x %x %x %x %x %x %x", len, ESP32_TRACEMEM_BLOCK_SZ,
-		state->rd_buf[0], state->rd_buf[1], state->rd_buf[2], state->rd_buf[3],
-		state->rd_buf[4], state->rd_buf[5], state->rd_buf[6], state->rd_buf[7]);
+	          state->rd_buf[0], state->rd_buf[1], state->rd_buf[2], state->rd_buf[3],
+	          state->rd_buf[4], state->rd_buf[5], state->rd_buf[6], state->rd_buf[7]);
 
 	uint8_t *ptr = state->rd_buf;
 	while (ptr < state->rd_buf + len) {
@@ -559,7 +559,7 @@ static int esp32_read_xfer(struct target *target, uint32_t block_id, uint32_t le
 }
 
 static int esp32_read(struct flash_bank *bank, uint8_t *buffer,
-		uint32_t offset, uint32_t count)
+                      uint32_t offset, uint32_t count)
 {
 	struct esp32_flash_bank *esp32_info = bank->driver_priv;
 	struct esp32_algo_image flasher_image;
@@ -596,9 +596,9 @@ static int esp32_read(struct flash_bank *bank, uint8_t *buffer,
 	}
 
 	ret = esp32_run_func_image(bank->target, &run, &flasher_image, 3,
-						ESP32_STUB_CMD_FLASH_READ, // cmd
-						esp32_info->flash_base + offset, // start addr
-						count);						// size
+	                           ESP32_STUB_CMD_FLASH_READ, // cmd
+	                           esp32_info->flash_base + offset, // start addr
+	                           count);						// size
 
 	image_close(&flasher_image.image);
 	free(rd_state.rd_buf);
@@ -627,7 +627,7 @@ static int esp32_probe(struct flash_bank *bank)
 	}
 
 	LOG_DEBUG("Flash size = %d KB @ 0x%x '%s' - '%s'", bank->size/1024, bank->base,
-		target_name(bank->target), target_state_name(bank->target));
+	          target_name(bank->target), target_state_name(bank->target));
 
 	if (bank->sectors) {
 		free(bank->sectors);
@@ -762,11 +762,11 @@ struct esp32_flash_sw_breakpoint * esp32_add_flash_breakpoint(struct target *tar
 {
 	struct esp32_flash_bank *esp32_info;
 	struct esp32_algo_image flasher_image;
-    struct esp32_algo_run_data run;
+	struct esp32_algo_run_data run;
 	struct flash_bank *bank;
 	struct esp32_flash_sw_breakpoint *sw_bp;
 	struct esp32_flash_bp_op_state op_state;
-    struct mem_param mp;
+	struct mem_param mp;
 
 	int ret = get_flash_bank_by_addr(target, breakpoint->address, true, &bank);
 	if (ret != ERROR_OK) {
@@ -780,12 +780,12 @@ struct esp32_flash_sw_breakpoint * esp32_add_flash_breakpoint(struct target *tar
 		return NULL;
 	}
 
-    memset(&run, 0, sizeof(run));
-    run.stack_size = 1300;
+	memset(&run, 0, sizeof(run));
+	run.stack_size = 1300;
 	run.usr_func_arg = &op_state;
 	run.usr_func_init = (esp32_algo_usr_func_init_t)esp32_flash_bp_op_state_init;
 	run.usr_func_done = (esp32_algo_usr_func_done_t)esp32_flash_bp_op_state_cleanup;
-    ret = esp32_init_flasher_image(&flasher_image);
+	ret = esp32_init_flasher_image(&flasher_image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Faied to init flasher image (%d)!", ret);
 		return NULL;
@@ -803,11 +803,11 @@ struct esp32_flash_sw_breakpoint * esp32_add_flash_breakpoint(struct target *tar
 	run.mem_args.params = &mp;
 	run.mem_args.count = 1;
 	uint32_t bp_flash_addr = esp32_info->flash_base + (breakpoint->address - bank->base);
-    ret = esp32_run_func_image(target, &run, &flasher_image, 4 /*args num*/,
-    					ESP32_STUB_CMD_FLASH_BP_SET/*cmd*/,
-    					bp_flash_addr/*bp_addr*/,
-    					0/*address to store insn*/,
-						0/*address to store insn sectors*/);
+	ret = esp32_run_func_image(target, &run, &flasher_image, 4 /*args num*/,
+	                           ESP32_STUB_CMD_FLASH_BP_SET/*cmd*/,
+	                           bp_flash_addr/*bp_addr*/,
+	                           0/*address to store insn*/,
+	                           0/*address to store insn sectors*/);
 	image_close(&flasher_image.image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Faied to run flasher stub (%d)!", ret);
@@ -825,7 +825,7 @@ struct esp32_flash_sw_breakpoint * esp32_add_flash_breakpoint(struct target *tar
 	memcpy(sw_bp->data.insn, mp.value, 3);
 	destroy_mem_param(&mp);
 	LOG_DEBUG("%s: Placed flash SW breakpoint at 0x%X, insn [%02x %02x %02x] %d bytes", target->cmd_name, breakpoint->address,
-		sw_bp->data.insn[0], sw_bp->data.insn[1], sw_bp->data.insn[2], sw_bp->data.insn_sz);
+	          sw_bp->data.insn[0], sw_bp->data.insn[1], sw_bp->data.insn[2], sw_bp->data.insn_sz);
 
 	return sw_bp;
 }
@@ -834,16 +834,16 @@ int esp32_remove_flash_breakpoint(struct target *target, struct esp32_flash_sw_b
 {
 	struct esp32_flash_bank *esp32_info = breakpoint->bank->driver_priv;
 	struct esp32_algo_image flasher_image;
-    struct esp32_algo_run_data run;
+	struct esp32_algo_run_data run;
 	struct esp32_flash_bp_op_state op_state;
-    struct mem_param mp;
+	struct mem_param mp;
 
-    memset(&run, 0, sizeof(run));
-    run.stack_size = 1300;
+	memset(&run, 0, sizeof(run));
+	run.stack_size = 1300;
 	run.usr_func_arg = &op_state;
 	run.usr_func_init = (esp32_algo_usr_func_init_t)esp32_flash_bp_op_state_init;
 	run.usr_func_done = (esp32_algo_usr_func_done_t)esp32_flash_bp_op_state_cleanup;
-    int ret = esp32_init_flasher_image(&flasher_image);
+	int ret = esp32_init_flasher_image(&flasher_image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Faied to init flasher image (%d)!", ret);
 		return ret;
@@ -856,12 +856,12 @@ int esp32_remove_flash_breakpoint(struct target *target, struct esp32_flash_sw_b
 
 	uint32_t bp_flash_addr = esp32_info->flash_base + (breakpoint->data.oocd_bp->address - breakpoint->bank->base);
 	LOG_DEBUG("%s: Remove flash SW breakpoint at 0x%X, insn [%02x %02x %02x] %d bytes", target->cmd_name, breakpoint->data.oocd_bp->address,
-		breakpoint->data.insn[0], breakpoint->data.insn[1], breakpoint->data.insn[2], breakpoint->data.insn_sz);
-    ret = esp32_run_func_image(target, &run, &flasher_image, 4 /*args num*/,
-    					ESP32_STUB_CMD_FLASH_BP_CLEAR/*cmd*/,
-    					bp_flash_addr/*bp_addr*/,
-    					0/*address with insn*/,
-						0/*address to store insn sectors*/);
+	          breakpoint->data.insn[0], breakpoint->data.insn[1], breakpoint->data.insn[2], breakpoint->data.insn_sz);
+	ret = esp32_run_func_image(target, &run, &flasher_image, 4 /*args num*/,
+	                           ESP32_STUB_CMD_FLASH_BP_CLEAR/*cmd*/,
+	                           bp_flash_addr/*bp_addr*/,
+	                           0/*address with insn*/,
+	                           0/*address to store insn sectors*/);
 	image_close(&flasher_image.image);
 	destroy_mem_param(&mp);
 	if (ret != ERROR_OK) {

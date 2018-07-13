@@ -50,12 +50,12 @@ enum esp32_isrmasking_mode {
  * @note Must be in sync with ESP-IDF version
  */
 typedef enum {
-    ESP32_DBG_STUB_TABLE_START,
-    ESP32_DBG_STUB_DESC = ESP32_DBG_STUB_TABLE_START, 		///< Stubs descriptor ID
-    ESP32_DBG_STUB_ENTRY_FIRST,
-    ESP32_DBG_STUB_ENTRY_GCOV = ESP32_DBG_STUB_ENTRY_FIRST,	///< GCOV stub ID
-    // add new stub entries here
-    ESP32_DBG_STUB_ENTRY_MAX,
+	ESP32_DBG_STUB_TABLE_START,
+	ESP32_DBG_STUB_DESC = ESP32_DBG_STUB_TABLE_START, 		///< Stubs descriptor ID
+	ESP32_DBG_STUB_ENTRY_FIRST,
+	ESP32_DBG_STUB_ENTRY_GCOV = ESP32_DBG_STUB_ENTRY_FIRST,	///< GCOV stub ID
+	// add new stub entries here
+	ESP32_DBG_STUB_ENTRY_MAX,
 } esp32_dbg_stub_id_t;
 
 /**
@@ -64,29 +64,31 @@ typedef enum {
  * @note Must be in sync with ESP-IDF version
  */
 struct esp32_dbg_stubs_desc {
-    /** Address of pre-compiled target buffer for stub trampoline. The size of buffer the is ESP32_DBG_STUBS_CODE_BUF_SIZE. */
-    uint32_t    tramp_addr;
-    /** Pre-compiled target buffer addr for stack. The size of the buffer is ESP32_DBG_STUBS_STACK_MIN_SIZE.
-        target has one buffer which is used for stack for onboard algorithms
-        one part of it is used for algorithm itself and another one is used for idle loop on unused core */
-    uint32_t    min_stack_addr;
-    /** Address of malloc-like function to allocate buffer on target. */
-    uint32_t    data_alloc;
-    /** Address of free-like function to free buffer allocated with data_alloc. */
-    uint32_t    data_free;
+	/** Address of pre-compiled target buffer for stub trampoline. The size of buffer the is ESP32_DBG_STUBS_CODE_BUF_SIZE. */
+	uint32_t    tramp_addr;
+	/** Pre-compiled target buffer's addr for stack. The size of the buffer is ESP32_DBG_STUBS_STACK_MIN_SIZE.
+	    Target has the buffer which is used for the stack of onboard algorithms.
+	If stack size required by algorithm exceeds ESP32_DBG_STUBS_STACK_MIN_SIZE,
+	it should be allocated using onboard function pointed by 'data_alloc' and
+	freed by 'data_free'. They fit to the minimal stack. See below. */
+	uint32_t    min_stack_addr;
+	/** Address of malloc-like function to allocate buffer on target. */
+	uint32_t    data_alloc;
+	/** Address of free-like function to free buffer allocated with data_alloc. */
+	uint32_t    data_free;
 };
 
 /**
  * Debug stubs info.
  */
 struct esp32_dbg_stubs {
-    /** Address. */
+	/** Address. */
 	uint32_t 					base;
-    /** Table contents. */
+	/** Table contents. */
 	uint32_t 					entries[ESP32_DBG_STUB_ENTRY_MAX];
-    /** Number of table entries. */
+	/** Number of table entries. */
 	uint32_t 					entries_count;
-    /** Debug stubs decsriptor. */
+	/** Debug stubs decsriptor. */
 	struct esp32_dbg_stubs_desc desc;
 };
 
@@ -250,9 +252,9 @@ struct esp32_stub {
  * ESP32 stub arguments.
  */
 struct esp32_algo_mem_args {
-    /** Memory params. */
+	/** Memory params. */
 	struct mem_param *	params;
-    /** Number of memory params. */
+	/** Number of memory params. */
 	uint32_t			count;
 };
 
@@ -260,9 +262,9 @@ struct esp32_algo_mem_args {
  * ESP32 algorithm image data.
  */
 struct esp32_algo_image {
-    /** Stub image. */
+	/** Stub image. */
 	struct 		image image;
-    /** Stub BSS section size. */
+	/** Stub BSS section size. */
 	uint32_t 	bss_size;
 };
 
@@ -322,28 +324,28 @@ typedef void (*esp32_algo_usr_func_done_t)(struct target *target, struct esp32_a
  * ESP32 algorithm run data.
  */
 struct esp32_algo_run_data {
-    /** Algoritm completion timeout in ms. If 0, default value will be used */
+	/** Algoritm completion timeout in ms. If 0, default value will be used */
 	uint32_t 					tmo;
-    /** Stub stack size. */
+	/** Stub stack size. */
 	uint32_t 					stack_size;
-    /** Stub stack size. */
+	/** Stub stack size. */
 	struct esp32_algo_mem_args 	mem_args;
-    /** Host side algorithm function argument. */
+	/** Host side algorithm function argument. */
 	void *						usr_func_arg;
-    /** Host side algorithm function. */
+	/** Host side algorithm function. */
 	esp32_algo_usr_func_t 		usr_func;
-    /** Host side algorithm function setup routine. */
+	/** Host side algorithm function setup routine. */
 	esp32_algo_usr_func_init_t	usr_func_init;
-    /** Host side algorithm function cleanup routine. */
+	/** Host side algorithm function cleanup routine. */
 	esp32_algo_usr_func_done_t	usr_func_done;
-    /** Stub return code. */
+	/** Stub return code. */
 	int32_t 					ret_code;
-    /** Algorithm run function: esp32_run_algorithm_xxx. */
+	/** Algorithm run function: esp32_run_algorithm_xxx. */
 	esp32_algo_func_t 			algo_func;
 	// user should init to zero the following fields and should not use them anyhow else.
 	// only for internal uses
 	struct {
-	    /** Stub. */
+		/** Stub. */
 		struct esp32_stub 		stub;
 	} priv;
 };

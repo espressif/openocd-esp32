@@ -150,7 +150,7 @@ static size_t esp32_get_active_core(struct target *target);
 static void esp32_set_active_core(struct target *target, size_t core);
 static size_t esp32_read_cores_num(struct target *target);
 static int esp32_dbgstubs_restore(struct target *target);
-static int esp32_dbgstubs_update_info(struct target *target, uint32_t stubs_addr);
+static int esp32_dbgstubs_update_info(struct target *target);
 static uint32_t esp32_dbgstubs_get(struct target *target);
 static int esp32_handle_target_event(struct target *target, enum target_event event, void *priv);
 
@@ -905,6 +905,9 @@ static int esp32_handle_target_event(struct target *target, enum target_event ev
 	switch (event) {
 		case TARGET_EVENT_HALTED:
 			esp32->cores_num = esp32_read_cores_num(target);
+			if (esp32->dbg_stubs.entries_count == 0 && esp32->dbg_stubs.base) {
+				esp32_dbgstubs_update_info(target);
+			}
 			break;
 		case TARGET_EVENT_GDB_DETACH:
 		{
@@ -1037,11 +1040,13 @@ static int xtensa_add_breakpoint(struct target *target, struct breakpoint *break
 			LOG_ERROR("%s: Failed to add SW flash BP!", target->cmd_name);
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
+		LOG_DEBUG("%s: placed SW_FLASH breakpoint @ 0x%X", target->cmd_name, breakpoint->address);
 		return ERROR_OK;
 	}
 
 	esp32->hw_brps[slot] = breakpoint;
 	//We will actually write the breakpoints when we resume the target.
+	LOG_DEBUG("%s: placed HW breakpoint @ 0x%X", target->cmd_name, breakpoint->address);
 
 	return ERROR_OK;
 }
@@ -1093,6 +1098,7 @@ static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *br
 			return ret;
 		}
 		esp32->flash_sw_brps[slot] = NULL;
+		LOG_DEBUG("%s: cleared SW_FLASH breakpoint @ 0x%X", target->cmd_name, breakpoint->address);
 		return ERROR_OK;
 	}
 	esp32->hw_brps[slot] = NULL;
@@ -1721,44 +1727,8 @@ static int xtensa_poll(struct target *target)
 			}
 		}
 	}
-	if (esp32->dbg_stubs.entries_count == 0) {
-		enum target_state old_state = target->state;
-		uint32_t stubs_addr = esp32_dbgstubs_get(target);
-		if (stubs_addr) {
-			if (old_state != TARGET_HALTED) {
-				// halt resumed CPU
-				res = xtensa_halt(target);
-				if (res != ERROR_OK) {
-					LOG_ERROR("Failed to halt target (%d)!", res);
-					return res;
-				}
-				// wait
-				memset(dsr, 0, sizeof(dsr));
-				while (1) {
-					for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
-					{
-						esp108_queue_nexus_reg_read(esp32->esp32_targets[i], NARADR_DSR, dsr[i]);
-						esp108_queue_tdi_idle(esp32->esp32_targets[i]);
-						res = jtag_execute_queue();
-						if (res != ERROR_OK) return res;
-					}
-					common_reason = intfromchars(dsr[0]) | intfromchars(dsr[1]);
-					if (common_reason & OCDDSR_STOPPED) {
-						break;
-					}
-				}
-				target->state = TARGET_HALTED;
-				esp32_fetch_all_regs(target, 0x3);
-			}
-			// update dbg stubs info
-			esp32_dbgstubs_update_info(target, stubs_addr);
-			if (old_state == TARGET_RUNNING) {
-				// resume CPU
-				if (xtensa_resume(target, 1, 0, 1, 0) != ERROR_OK) {
-					LOG_ERROR("Failed to resume target froom state '%s'!", target_state_name(target));
-				}
-			}
-		}
+	if (target->state != TARGET_DEBUG_RUNNING && esp32->dbg_stubs.base == 0) {
+		esp32->dbg_stubs.base = esp32_dbgstubs_get(target);
 	}
 	return ERROR_OK;
 }
@@ -1810,12 +1780,11 @@ static uint32_t esp32_dbgstubs_get(struct target *target)
 	return esp32_data_addr_valid(vec_addr) ? vec_addr : 0;
 }
 
-static int esp32_dbgstubs_update_info(struct target *target, uint32_t stubs_addr)
+static int esp32_dbgstubs_update_info(struct target *target)
 {
 	struct esp32_common *esp32 = (struct esp32_common *)target->arch_info;
 
-	esp32->dbg_stubs.base = stubs_addr;
-	int res = target_read_memory(target, stubs_addr, sizeof(uint32_t),
+	int res = target_read_memory(target, esp32->dbg_stubs.base, sizeof(uint32_t),
 							ESP32_DBG_STUB_ENTRY_MAX-ESP32_DBG_STUB_TABLE_START,
 							(uint8_t *)&esp32->dbg_stubs.entries);
 	if (res != ERROR_OK) {
