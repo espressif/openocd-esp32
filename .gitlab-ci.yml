@@ -343,6 +343,14 @@ run_autotests_armel:
     - ./run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/test_apps -d 4 -l ./debug_backend_tests.log
     - popd
 
+style_check:
+  stage: test
+  image: $CI_DOCKER_REGISTRY/esp32-toolchain
+  tags:
+    - build
+  script:
+    - tools/check-line-endings.sh $PWD
+
 push_master_to_github:
   stage: deploy
   image: $CI_DOCKER_REGISTRY/esp32-ci-env
