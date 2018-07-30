@@ -1,4 +1,4 @@
-menu "Example Configuration"
+menu "Unit test application configuration"
 
 config BLINK_GPIO
     int "Blink GPIO number"
@@ -10,5 +10,12 @@ config BLINK_GPIO
 		Some GPIOs are used for other purposes (flash connections, etc.) and cannot be used to blink.
 
 		GPIOs 35-39 are input-only so cannot be used as outputs.
+
+config GEN_UT_APP_CUSTOM_LD_FILENAME
+    string "Custom LD script file"
+    default ""
+    help
+        Name of the custom LD script filename. This path is evaluated
+        relative to the project root directory.
 
 endmenu

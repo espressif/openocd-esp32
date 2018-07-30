@@ -268,6 +268,10 @@ build_test_app:
       - testing/esp/test_apps/gen_ut_app/output/gcov_single/gen_ut_app.bin
       - testing/esp/test_apps/gen_ut_app/output/gcov_single/partitions_singleapp.bin
       - testing/esp/test_apps/gen_ut_app/output/gcov_single/bootloader/bootloader.bin
+      - testing/esp/test_apps/gen_ut_app/output/multi_app_images/gen_ut_app.elf
+      - testing/esp/test_apps/gen_ut_app/output/multi_app_images/gen_ut_app.bin
+      - testing/esp/test_apps/gen_ut_app/output/multi_app_images/partitions_multi_apps.bin
+      - testing/esp/test_apps/gen_ut_app/output/multi_app_images/bootloader/bootloader.bin
     expire_in: 2 weeks
   script:
     - *add_gitlab_key

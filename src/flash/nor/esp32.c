@@ -86,7 +86,7 @@
 
 struct esp32_flash_bank {
 	int 		probed;
-	uint32_t	flash_base;
+	uint32_t	hw_flash_base;
 };
 
 struct esp32_rw_args {
@@ -139,7 +139,7 @@ FLASH_BANK_COMMAND_HANDLER(esp32_flash_bank_command)
 	bank->driver_priv = esp32_info;
 
 	esp32_info->probed = 0;
-	esp32_info->flash_base = 0;
+	esp32_info->hw_flash_base = 0;
 
 	return ERROR_OK;
 }
@@ -215,7 +215,7 @@ static int esp32_blank_check(struct flash_bank *bank)
 
 	ret = esp32_run_func_image(bank->target, &run, &flasher_image, 4,
 	                           ESP32_STUB_CMD_FLASH_ERASE_CHECK /*cmd*/,
-	                           esp32_info->flash_base/ESP32_FLASH_SECTOR_SIZE/*start*/,
+	                           esp32_info->hw_flash_base/ESP32_FLASH_SECTOR_SIZE/*start*/,
 	                           bank->num_sectors/*sectors num*/,
 	                           0/*address to store sectors' state*/);
 	image_close(&flasher_image.image);
@@ -263,8 +263,9 @@ static uint32_t esp32_get_size(struct flash_bank *bank)
 	return  size;
 }
 
-static int esp32_get_mappings(struct flash_bank *bank, struct esp32_flash_mapping *flash_map)
+static int esp32_get_mappings(struct target *target, struct esp32_flash_mapping *flash_map)
 {
+	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
 	struct esp32_algo_image flasher_image;
 	struct esp32_algo_run_data run;
 
@@ -277,13 +278,14 @@ static int esp32_get_mappings(struct flash_bank *bank, struct esp32_flash_mappin
 	}
 
 	struct mem_param mp;
-	init_mem_param(&mp, 1/*1st usr arg*/, sizeof(struct esp32_flash_mapping)/*size in bytes*/, PARAM_IN);
+	init_mem_param(&mp, 2/*2nd usr arg*/, sizeof(struct esp32_flash_mapping)/*size in bytes*/, PARAM_IN);
 	run.mem_args.params = &mp;
 	run.mem_args.count = 1;
 
-	ret = esp32_run_func_image(bank->target, &run, &flasher_image, 2 /*args num*/,
-	                           ESP32_STUB_CMD_FLASH_MAP_GET/*cmd*/,
-	                           0/*address to store mappings*/);
+	ret = esp32_run_func_image(target, &run, &flasher_image, 3 /*args num*/,
+							ESP32_STUB_CMD_FLASH_MAP_GET/*cmd*/,
+							esp32->appimage_flash_base,
+							0/*address to store mappings*/);
 	image_close(&flasher_image.image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Faied to run flasher stub (%d)!", ret);
@@ -314,7 +316,7 @@ static int esp32_erase(struct flash_bank *bank, int first, int last)
 		return ERROR_TARGET_NOT_HALTED;
 	}
 	assert((0 <= first) && (first <= last) && (last < bank->num_sectors));
-	if (esp32_info->flash_base + first*ESP32_FLASH_SECTOR_SIZE < ESP32_FLASH_MIN_OFFSET) {
+	if (esp32_info->hw_flash_base + first*ESP32_FLASH_SECTOR_SIZE < ESP32_FLASH_MIN_OFFSET) {
 		LOG_ERROR("Invalid offset!");
 		return ERROR_FAIL;
 	}
@@ -329,7 +331,7 @@ static int esp32_erase(struct flash_bank *bank, int first, int last)
 	}
 	ret = esp32_run_func_image(bank->target, &run, &flasher_image, 3,
 	                           ESP32_STUB_CMD_FLASH_ERASE, 		// cmd
-	                           esp32_info->flash_base + first*ESP32_FLASH_SECTOR_SIZE,// start addr
+	                           esp32_info->hw_flash_base + first*ESP32_FLASH_SECTOR_SIZE,// start addr
 	                           (last-first+1)*ESP32_FLASH_SECTOR_SIZE);	// size
 	image_close(&flasher_image.image);
 	if (ret != ERROR_OK) {
@@ -479,7 +481,7 @@ static int esp32_write(struct flash_bank *bank, const uint8_t *buffer,
 	struct esp32_algo_run_data run;
 	struct esp32_write_state wr_state;
 
-	if (esp32_info->flash_base + offset < ESP32_FLASH_MIN_OFFSET) {
+	if (esp32_info->hw_flash_base + offset < ESP32_FLASH_MIN_OFFSET) {
 		LOG_ERROR("Invalid offset!");
 		return ERROR_FAIL;
 	}
@@ -511,7 +513,7 @@ static int esp32_write(struct flash_bank *bank, const uint8_t *buffer,
 
 	ret = esp32_run_func_image(bank->target, &run, &flasher_image, 5,
 	                           ESP32_STUB_CMD_FLASH_WRITE, // cmd
-	                           esp32_info->flash_base + offset,	// start addr
+	                           esp32_info->hw_flash_base + offset,	// start addr
 	                           count,						// size
 	                           0,							// down buf addr
 	                           0);							// down buf size
@@ -597,7 +599,7 @@ static int esp32_read(struct flash_bank *bank, uint8_t *buffer,
 
 	ret = esp32_run_func_image(bank->target, &run, &flasher_image, 3,
 	                           ESP32_STUB_CMD_FLASH_READ, // cmd
-	                           esp32_info->flash_base + offset, // start addr
+	                           esp32_info->hw_flash_base + offset, // start addr
 	                           count);						// size
 
 	image_close(&flasher_image.image);
@@ -616,7 +618,7 @@ static int esp32_read(struct flash_bank *bank, uint8_t *buffer,
 static int esp32_probe(struct flash_bank *bank)
 {
 	struct esp32_flash_bank *esp32_info = bank->driver_priv;
-	struct esp32_flash_mapping flash_map = {.maps_num = ESP32_STUB_FLASH_MAPPINGS_MAX_NUM};
+	struct esp32_flash_mapping flash_map = {.maps_num = 0};
 	uint32_t irom_base = 0, irom_sz = 0, drom_base = 0, drom_sz = 0, irom_flash_base = 0, drom_flash_base = 0;
 
 	esp32_info->probed = 0;
@@ -634,39 +636,44 @@ static int esp32_probe(struct flash_bank *bank)
 		bank->sectors = NULL;
 	}
 
-	int ret = esp32_get_mappings(bank, &flash_map);
+	int ret = esp32_get_mappings(bank->target, &flash_map);
 	if (ret != ERROR_OK) {
-		LOG_ERROR("Failed to get flash mappings (%d)!", ret);
-		return ret;
-	}
-	for (uint32_t i = 0; i < flash_map.maps_num; i++) {
-		if (flash_map.maps[i].load_addr >= ESP32_IROM_LOW && flash_map.maps[i].load_addr < ESP32_IROM_HIGH) {
-			irom_flash_base = flash_map.maps[i].phy_addr & ~(ESP32_FLASH_SECTOR_SIZE-1);
-			irom_base = flash_map.maps[i].load_addr & ~(ESP32_FLASH_SECTOR_SIZE-1);
-			irom_sz = flash_map.maps[i].size;
-			if (irom_sz & (ESP32_FLASH_SECTOR_SIZE-1)) {
-				irom_sz = (irom_sz & ~(ESP32_FLASH_SECTOR_SIZE-1)) + ESP32_FLASH_SECTOR_SIZE;
-			}
-		} else if (flash_map.maps[i].load_addr >= ESP32_DROM_LOW && flash_map.maps[i].load_addr < ESP32_DROM_HIGH) {
-			drom_flash_base = flash_map.maps[i].phy_addr & ~(ESP32_FLASH_SECTOR_SIZE-1);
-			drom_base = flash_map.maps[i].load_addr & ~(ESP32_FLASH_SECTOR_SIZE-1);
-			drom_sz = flash_map.maps[i].size;
-			if (drom_sz & (ESP32_FLASH_SECTOR_SIZE-1)) {
-				drom_sz = (drom_sz & ~(ESP32_FLASH_SECTOR_SIZE-1)) + ESP32_FLASH_SECTOR_SIZE;
+		LOG_WARNING("Failed to get flash mappings (%d)!", ret);
+	} else {
+		if (flash_map.maps_num == 0) {
+			// if no DROM/IROM mappuings so pretend they are at the end of the HW flash bank and have zero size to allow correct memory map with non zero RAM region
+			irom_base = drom_base = esp32_get_size(bank);
+		} else {
+			for (uint32_t i = 0; i < flash_map.maps_num; i++) {
+				if (flash_map.maps[i].load_addr >= ESP32_IROM_LOW && flash_map.maps[i].load_addr < ESP32_IROM_HIGH) {
+					irom_flash_base = flash_map.maps[i].phy_addr & ~(ESP32_FLASH_SECTOR_SIZE-1);
+					irom_base = flash_map.maps[i].load_addr & ~(ESP32_FLASH_SECTOR_SIZE-1);
+					irom_sz = flash_map.maps[i].size;
+					if (irom_sz & (ESP32_FLASH_SECTOR_SIZE-1)) {
+						irom_sz = (irom_sz & ~(ESP32_FLASH_SECTOR_SIZE-1)) + ESP32_FLASH_SECTOR_SIZE;
+					}
+				} else if (flash_map.maps[i].load_addr >= ESP32_DROM_LOW && flash_map.maps[i].load_addr < ESP32_DROM_HIGH) {
+					drom_flash_base = flash_map.maps[i].phy_addr & ~(ESP32_FLASH_SECTOR_SIZE-1);
+					drom_base = flash_map.maps[i].load_addr & ~(ESP32_FLASH_SECTOR_SIZE-1);
+					drom_sz = flash_map.maps[i].size;
+					if (drom_sz & (ESP32_FLASH_SECTOR_SIZE-1)) {
+						drom_sz = (drom_sz & ~(ESP32_FLASH_SECTOR_SIZE-1)) + ESP32_FLASH_SECTOR_SIZE;
+					}
+				}
 			}
 		}
 	}
 
 	if (strcmp(bank->name, "irom") == 0) {
-		esp32_info->flash_base = irom_flash_base;
+		esp32_info->hw_flash_base = irom_flash_base;
 		bank->base = irom_base;
 		bank->size = irom_sz;
 	} else if (strcmp(bank->name, "drom") == 0) {
-		esp32_info->flash_base = drom_flash_base;
+		esp32_info->hw_flash_base = drom_flash_base;
 		bank->base = drom_base;
 		bank->size = drom_sz;
 	} else {
-		esp32_info->flash_base = 0;
+		esp32_info->hw_flash_base = 0;
 		bank->size = esp32_get_size(bank);
 		if (bank->size == 0) {
 			LOG_ERROR("Failed to probe flash, size %d KB", bank->size/1024);
@@ -707,36 +714,6 @@ static int get_esp32_info(struct flash_bank *bank, char *buf, int buf_size)
 	snprintf(buf, buf_size, "ESP32");
 	return ERROR_OK;
 }
-
-static const struct command_registration esp32_exec_command_handlers[] = {
-	COMMAND_REGISTRATION_DONE
-};
-
-static const struct command_registration esp32_command_handlers[] = {
-	{
-		.name = "esp32",
-		.mode = COMMAND_ANY,
-		.help = "esp32 flash command group",
-		.usage = "",
-		.chain = esp32_exec_command_handlers,
-	},
-	COMMAND_REGISTRATION_DONE
-};
-
-struct flash_driver esp32_flash = {
-	.name = "esp32",
-	.commands = esp32_command_handlers,
-	.flash_bank_command = esp32_flash_bank_command,
-	.erase = esp32_erase,
-	.protect = esp32_protect,
-	.write = esp32_write,
-	.read = esp32_read,
-	.probe = esp32_probe,
-	.auto_probe = esp32_auto_probe,
-	.erase_check = esp32_blank_check,
-	.protect_check = esp32_protect_check,
-	.info = get_esp32_info,
-};
 
 static int esp32_flash_bp_op_state_init(struct target *target, struct esp32_algo_run_data *run, struct esp32_flash_bp_op_state *state)
 {
@@ -802,7 +779,7 @@ struct esp32_flash_sw_breakpoint * esp32_add_flash_breakpoint(struct target *tar
 	init_mem_param(&mp, 2/*2nd usr arg*/, 3/*size in bytes*/, PARAM_IN);
 	run.mem_args.params = &mp;
 	run.mem_args.count = 1;
-	uint32_t bp_flash_addr = esp32_info->flash_base + (breakpoint->address - bank->base);
+	uint32_t bp_flash_addr = esp32_info->hw_flash_base + (breakpoint->address - bank->base);
 	ret = esp32_run_func_image(target, &run, &flasher_image, 4 /*args num*/,
 	                           ESP32_STUB_CMD_FLASH_BP_SET/*cmd*/,
 	                           bp_flash_addr/*bp_addr*/,
@@ -854,7 +831,7 @@ int esp32_remove_flash_breakpoint(struct target *target, struct esp32_flash_sw_b
 	run.mem_args.params = &mp;
 	run.mem_args.count = 1;
 
-	uint32_t bp_flash_addr = esp32_info->flash_base + (breakpoint->data.oocd_bp->address - breakpoint->bank->base);
+	uint32_t bp_flash_addr = esp32_info->hw_flash_base + (breakpoint->data.oocd_bp->address - breakpoint->bank->base);
 	LOG_DEBUG("%s: Remove flash SW breakpoint at 0x%X, insn [%02x %02x %02x] %d bytes", target->cmd_name, breakpoint->data.oocd_bp->address,
 	          breakpoint->data.insn[0], breakpoint->data.insn[1], breakpoint->data.insn[2], breakpoint->data.insn_sz);
 	ret = esp32_run_func_image(target, &run, &flasher_image, 4 /*args num*/,
@@ -874,3 +851,85 @@ int esp32_remove_flash_breakpoint(struct target *target, struct esp32_flash_sw_b
 	}
 	return ret;
 }
+
+COMMAND_HANDLER(esp32_cmd_appimage_flashoff)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
+	struct flash_bank *bank;
+	struct esp32_flash_bank *esp32_info;
+
+	if (CMD_ARGC != 1) {
+		command_print(CMD_CTX, "Flash offset not specified!");
+		return ERROR_FAIL;
+	}
+
+	// update app image base
+	esp32->appimage_flash_base = strtoul(CMD_ARGV[0], NULL, 16);
+
+	// probe IROM and DROM banks to update flash mappings
+	int ret = get_flash_bank_by_name("irom", &bank);
+	if (ret != ERROR_OK) {
+		command_print(CMD_CTX, "Failed to get IROM bank!");
+		return ret;
+	}
+	esp32_info = (struct esp32_flash_bank *)bank->driver_priv;
+	esp32_info->probed = 0;
+	ret = bank->driver->auto_probe(bank);
+	if (ret != ERROR_OK) {
+		command_print(CMD_CTX, "Failed to probe IROM bank!");
+		return ret;
+	}
+
+	ret = get_flash_bank_by_name("drom", &bank);
+	if (ret != ERROR_OK) {
+		command_print(CMD_CTX, "Failed to get DROM bank!");
+		return ret;
+	}
+	esp32_info = (struct esp32_flash_bank *)bank->driver_priv;
+	esp32_info->probed = 0;
+	ret = bank->driver->auto_probe(bank);
+	if (ret != ERROR_OK) {
+		command_print(CMD_CTX, "Failed to probe DROM bank!");
+		return ret;
+	}
+
+	return ERROR_OK;
+}
+
+static const struct command_registration esp32_exec_command_handlers[] = {
+	{
+		.name = "appimage_offset",
+		.handler = esp32_cmd_appimage_flashoff,
+		.mode = COMMAND_ANY,
+		.help = "Set offset of application image in flash. Use -1 to debug the first application image from partition table.",
+		.usage = "offset",
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
+static const struct command_registration esp32_command_handlers[] = {
+	{
+		.name = "esp32",
+		.mode = COMMAND_ANY,
+		.help = "esp32 flash command group",
+		.usage = "",
+		.chain = esp32_exec_command_handlers,
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
+struct flash_driver esp32_flash = {
+	.name = "esp32",
+	.commands = esp32_command_handlers,
+	.flash_bank_command = esp32_flash_bank_command,
+	.erase = esp32_erase,
+	.protect = esp32_protect,
+	.write = esp32_write,
+	.read = esp32_read,
+	.probe = esp32_probe,
+	.auto_probe = esp32_auto_probe,
+	.erase_check = esp32_blank_check,
+	.protect_check = esp32_protect_check,
+	.info = get_esp32_info,
+};

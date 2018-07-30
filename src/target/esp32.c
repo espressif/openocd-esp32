@@ -1436,6 +1436,7 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 	esp32->hw_wps = calloc(XT_NUM_WATCHPOINTS, sizeof(struct watchpoint *));
 	esp32->flash_sw_brps = calloc(ESP32_FLASH_SW_BREAKPOINTS_MAX_NUM, sizeof(struct esp32_flash_sw_breakpoint *));
 	esp32->sw_brps = calloc(ESP32_SW_BREAKPOINTS_MAX_NUM, sizeof(struct esp32_sw_breakpoint	*));
+	esp32->appimage_flash_base = (uint32_t)-1;
 
 	//Create the register cache
 	cache->name = "Xtensa registers";
@@ -1800,7 +1801,7 @@ static int esp32_dbgstubs_update_info(struct target *target)
 		}
 	}
 	if (esp32->dbg_stubs.entries_count < (ESP32_DBG_STUB_ENTRY_MAX-ESP32_DBG_STUB_TABLE_START)) {
-		LOG_INFO("Not full dbg stub table %d of %d", esp32->dbg_stubs.entries_count, (ESP32_DBG_STUB_ENTRY_MAX-ESP32_DBG_STUB_TABLE_START));
+		LOG_DEBUG("Not full dbg stub table %d of %d", esp32->dbg_stubs.entries_count, (ESP32_DBG_STUB_ENTRY_MAX-ESP32_DBG_STUB_TABLE_START));
 		esp32->dbg_stubs.entries_count = 0;
 		return ERROR_OK;
 	}
@@ -2684,7 +2685,7 @@ COMMAND_HANDLER(handle_perfmon_dump)
 	struct target* target = get_current_target(CMD_CTX);
 	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
 	int res;
-	
+
 	if (CMD_ARGC > 1) {
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
@@ -2758,7 +2759,6 @@ COMMAND_HANDLER(handle_esp32_a_mask_interrupts_command)
 
 	return ERROR_OK;
 }
-
 
 static const struct command_registration esp32_any_command_handlers[] = {
 	{

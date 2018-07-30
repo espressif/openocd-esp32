@@ -110,15 +110,17 @@ struct esp32_common {
 	// Common fields definition for all esp108 targets
 	ESP108_COMMON_FIELDS;
 
-	struct target* 						esp32_targets[ESP32_CPU_COUNT];
-	size_t 								active_cpu;
-	struct reg_cache *					core_caches[ESP32_CPU_COUNT];
-	int64_t 							current_threadid;
-	enum esp32_isrmasking_mode			isrmasking_mode;
-	size_t								cores_num;
-	struct esp32_sw_breakpoint **		sw_brps;
-	struct esp32_flash_sw_breakpoint **	flash_sw_brps;
-	struct esp32_dbg_stubs				dbg_stubs;
+	struct target*                      esp32_targets[ESP32_CPU_COUNT];
+	size_t                              active_cpu;
+	struct reg_cache *                  core_caches[ESP32_CPU_COUNT];
+	size_t                              cores_num;
+	// TODO: Below are candidates to be moved to ESP108_COMMON_FIELDS
+	int64_t                             current_threadid;
+	enum esp32_isrmasking_mode          isrmasking_mode;
+	struct esp32_sw_breakpoint **       sw_brps;
+	struct esp32_flash_sw_breakpoint ** flash_sw_brps;
+	struct esp32_dbg_stubs              dbg_stubs;
+	uint32_t                            appimage_flash_base;
 };
 
 struct esp32_flash_sw_breakpoint * esp32_add_flash_breakpoint(struct target *target, struct breakpoint *breakpoint);

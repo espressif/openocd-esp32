@@ -57,7 +57,7 @@ class DebuggerTestAppConfig:
         self.test_select_var = None
     
     def __repr__(self):
-        return '%s/%s/%x-%s/%x-%s/%x' % (self.app_name, self.bin_dir, self.app_off, self.bld_path, self.bld_off, self.pt_path, self.pt_off)
+        return '%s/%x-%s/%x-%s/%x-%s' % (self.bin_dir, self.app_off, self.app_name, self.bld_off, self.bld_path, self.pt_off, self.pt_path)
 
     def build_src_dir(self):
         return os.path.join(test_apps_dir, self.app_name)
@@ -246,14 +246,28 @@ class DebuggerTestAppTests(DebuggerTestsBase):
     def __init__(self, methodName):
         super(DebuggerTestAppTests, self).__init__(methodName)
         self.test_app_cfg = DebuggerTestAppConfig()
+        self.bpns = []
+        self.wps = {}
 
     def setUp(self):
         """ Setup test.
             In order to select sub-test all tests of this class need target to be reset and halted.
         """
         self.stop_exec()
+        self.prepare_app_for_debugging(self.test_app_cfg.app_off)
+        # ready to select and start test (should be done in test method)
+
+    def tearDown(self):
+        self.clear_bps()
+        self.clear_wps()
+
+    def prepare_app_for_debugging(self, app_flash_off):
         self.gdb.target_reset()
         rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 10)
+        # update GDB memory map
+        self.gdb.disconnect()
+        self.oocd.cmd_exec('esp32 appimage_offset 0x%x' % app_flash_off)
+        self.gdb.connect()
         bp = self.gdb.add_bp('app_main')
         self.resume_exec()
         rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 10)
@@ -267,21 +281,23 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         frame = self.gdb.get_current_frame()
         self.assertEqual(frame['func'], 'app_main')
         self.gdb.delete_bp(bp)
-        # ready to select and start test (should be done in test method)
-        self.bpns = []
-        self.wps = {}
 
-    def tearDown(self):
-        for bpn in self.bpns:
-            self.gdb.delete_bp(bpn)
-        for _,wpn in self.wps.items():
-            self.gdb.delete_bp(wpn)
 
     def add_bp(self, loc, ignore_count=0, cond=''):
         self.bpns.append(self.gdb.add_bp(loc, ignore_count=ignore_count, cond=cond))
 
     def add_wp(self, exp, tp='w'):
         self.wps[exp] = self.gdb.add_wp(exp, tp=tp)
+
+    def clear_bps(self):
+        for bpn in self.bpns:
+            self.gdb.delete_bp(bpn)
+        self.bpns = []
+
+    def clear_wps(self):
+        for _,wpn in self.wps.items():
+            self.gdb.delete_bp(wpn)
+        self.wps = {}
 
     def select_sub_test(self, sub_test_num):
         """ Selects sub test in app running on target

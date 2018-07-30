@@ -73,7 +73,10 @@ CFLAGS += $(INCLUDES) $(DEFINES)
 
 LDFLAGS += -L$(IDF_PATH)/components/esp32/ld -Tstub.ld -T$(IDF_PATH)/components/esp32/ld/esp32.rom.ld \
 	-T$(IDF_PATH)/components/esp32/ld/esp32.rom.spiram_incompatible_fns.ld -T$(IDF_PATH)/components/esp32/ld/esp32.peripherals.ld \
+	-T$(IDF_PATH)/components/esp32/ld/esp32.rom.libgcc.ld \
 	-Wl,--start-group -lgcc -lc -Wl,--end-group
+
+CWD := $(shell pwd)
 
 $(STUB_ELF): $(SRCS) stub.ld $(BUILD_DIR)
 	@echo "  CC   $^ -> $@"
@@ -100,6 +103,8 @@ $(STUB_IMAGE_HDR): $(STUB_ELF)
 	$(Q) $(CROSS)readelf -S $^ | fgrep .bss | awk '{print $$7"UL"}' >> $(STUB_IMAGE_HDR)
 	$(Q) @echo -n "\n#define ESP32_STUB_ENTRY_ADDR 0x0" >> $(STUB_IMAGE_HDR)
 	$(Q) $(CROSS)readelf -s $^ | fgrep stub_main | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR)
+	$(Q) @echo -n "\n//#define ESP32_STUB_BUILD_IDF_REV " >> $(STUB_IMAGE_HDR)
+	$(Q) cd $(IDF_PATH); git rev-parse --short HEAD >> $(CWD)/$(STUB_IMAGE_HDR)
 
 clean:
 	$(Q) rm -rf $(BUILD_DIR) $(STUB_CODE_SECT) $(STUB_DATA_SECT) $(STUB_WRAPPER) $(STUB_IMAGE_HDR)

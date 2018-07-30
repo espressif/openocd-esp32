@@ -551,15 +551,61 @@ static inline bool stub_flash_should_map(uint32_t load_addr)
            || (load_addr >= SOC_DROM_LOW && load_addr < SOC_DROM_HIGH);
 }
 
-static int stub_flash_get_map(uint32_t maps_addr)
+static int stub_flash_get_app_mappings(uint32_t off, struct esp32_flash_mapping *flash_map)
+{
+    esp_image_header_t img_hdr;
+    uint16_t maps_num = 0;
+
+    esp_rom_spiflash_result_t rc = esp_rom_spiflash_read(off, (uint32_t *)&img_hdr, sizeof(img_hdr));
+    if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
+        STUB_LOGE("Failed to read app image header (%d)!\n", rc);
+        return ESP32_STUB_ERR_FAIL;
+    }
+    if (img_hdr.magic != ESP_IMAGE_HEADER_MAGIC) {
+        STUB_LOGE("Invalid magic number 0x%x in app image!\n", img_hdr.magic);
+        return ESP32_STUB_ERR_FAIL;
+    }
+
+    STUB_LOGI("Found app image: magic 0x%x, %d segments, entry @ 0x%x\n", img_hdr.magic, img_hdr.segment_count, img_hdr.entry_addr);
+    uint32_t flash_addr = off + sizeof(img_hdr);
+    for (int k = 0; k < img_hdr.segment_count; k++) {
+        esp_image_segment_header_t seg_hdr;
+        rc = esp_rom_spiflash_read(flash_addr, (uint32_t *)&seg_hdr, sizeof(seg_hdr));
+        if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
+            STUB_LOGE("Failed to read app segment header (%d)!\n", rc);
+            return ESP32_STUB_ERR_FAIL;
+        }
+        STUB_LOGI("App segment %d: %d bytes @ 0x%x\n", k, seg_hdr.data_len, seg_hdr.load_addr);
+        if (stub_flash_should_map(seg_hdr.load_addr)) {
+            STUB_LOGI("Mapped segment %d: %d bytes @ 0x%x -> 0x%x\n", maps_num, seg_hdr.data_len, flash_addr + sizeof(seg_hdr), seg_hdr.load_addr);
+            if (maps_num < ESP32_STUB_FLASH_MAPPINGS_MAX_NUM) {
+                flash_map->maps[maps_num].phy_addr = flash_addr + sizeof(seg_hdr);
+                flash_map->maps[maps_num].load_addr = seg_hdr.load_addr;
+                flash_map->maps[maps_num].size = seg_hdr.data_len;
+                maps_num++;
+            } else {
+                break;
+            }
+        }
+        flash_addr += sizeof(seg_hdr) + seg_hdr.data_len;
+    }
+    flash_map->maps_num = maps_num;
+    return ESP32_STUB_ERR_OK;
+}
+
+static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr)
 {
     esp_rom_spiflash_result_t rc;
-    struct esp32_flash_mapping *flash_map = (struct esp32_flash_mapping *)maps_addr;
     esp_partition_info_t parts[ESP32_STUB_PARTITION_TABLE_MAX_ENTRIES];
+    struct esp32_flash_mapping *flash_map = (struct esp32_flash_mapping *)maps_addr;
     uint32_t flash_size = stub_flash_get_size();
-    uint32_t maps_num = 0;
 
-    STUB_LOGD("%s: 0x%x\n", __func__, flash_map);
+    STUB_LOGD("%s: 0x%x 0x%x\n", __func__, app_off, maps_addr);
+    flash_map->maps_num = 0;
+    if (app_off != (uint32_t)-1) {
+        return stub_flash_get_app_mappings(app_off, flash_map);
+    }
+
     rc = esp_rom_spiflash_read(ESP_PARTITION_TABLE_OFFSET, (uint32_t *)parts, sizeof(parts));
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
         STUB_LOGE("Failed to read partitions table (%d)!\n", rc);
@@ -582,43 +628,12 @@ static int stub_flash_get_map(uint32_t maps_addr)
         }
         STUB_LOGD("Found partition %d, m 0x%x, t 0x%x, st 0x%x, l '%s'\n", i, parts[i].magic, parts[i].type, parts[i].subtype, parts[i].label);
         if (parts[i].type == PART_TYPE_APP) {
-            STUB_LOGI("Found app partition: '%s' %d KB @ 0x%x\n", parts[i].label, parts[i].pos.size / 1024, parts[i].pos.offset);
-            esp_image_header_t img_hdr;
-            rc = esp_rom_spiflash_read(pos->offset, (uint32_t *)&img_hdr, sizeof(img_hdr));
-            if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-                STUB_LOGE("Failed to read app image header (%d)!\n", rc);
-                return ESP32_STUB_ERR_FAIL;
+            STUB_LOGI("Found app partition: '%s' %d KB @ 0x%x\n", parts[i].label, pos->size / 1024, pos->offset);
+            int ret = stub_flash_get_app_mappings(pos->offset, flash_map);
+            if (ret != ESP32_STUB_ERR_OK) {
+                return ret;
             }
-            if (img_hdr.magic != ESP_IMAGE_HEADER_MAGIC) {
-                STUB_LOGE("Invalid magic number 0x%x in app image!\n", i, img_hdr.magic);
-            } else {
-                STUB_LOGI("Found app image: magic 0x%x, %d segments, entry @ 0x%x\n", img_hdr.magic, img_hdr.segment_count, img_hdr.entry_addr);
-                uint32_t flash_addr = pos->offset + sizeof(img_hdr);
-                for (int k = 0; k < img_hdr.segment_count; k++) {
-                    esp_image_segment_header_t seg_hdr;
-                    rc = esp_rom_spiflash_read(flash_addr, (uint32_t *)&seg_hdr, sizeof(seg_hdr));
-                    if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-                        STUB_LOGE("Failed to read app segment header (%d)!\n", rc);
-                        return ESP32_STUB_ERR_FAIL;
-                    }
-                    STUB_LOGI("App segment %d: %d bytes @ 0x%x\n", k, seg_hdr.data_len, seg_hdr.load_addr);
-                    if (stub_flash_should_map(seg_hdr.load_addr)) {
-                        STUB_LOGI("Mapped segment %d: %d bytes @ 0x%x -> 0x%x\n", maps_num, seg_hdr.data_len, flash_addr + sizeof(seg_hdr), seg_hdr.load_addr);
-                        if (maps_num < flash_map->maps_num) {
-                            flash_map->maps[maps_num].phy_addr = flash_addr + sizeof(seg_hdr);
-                            flash_map->maps[maps_num].load_addr = seg_hdr.load_addr;
-                            flash_map->maps[maps_num].size = seg_hdr.data_len;
-                        }
-                        maps_num++;
-                    }
-                    flash_addr += sizeof(seg_hdr) + seg_hdr.data_len;
-                }
-                if (maps_num > 0) {
-                    STUB_LOGI("IROM base 0x%x, maps num %d\n", pos->offset, maps_num);
-                    flash_map->maps_num = maps_num;
-                    break;
-                }
-            }
+            break;
         }
     }
     return ESP32_STUB_ERR_OK;
@@ -775,7 +790,7 @@ static int stub_flash_handler(int cmd, va_list ap)
         ret = stub_flash_get_size();
         break;
     case ESP32_STUB_CMD_FLASH_MAP_GET:
-        ret = stub_flash_get_map(arg1);
+        ret = stub_flash_get_map(arg1, arg2);
         break;
     case ESP32_STUB_CMD_FLASH_BP_SET:
         ret = stub_flash_set_bp(arg1, arg2, arg3);
@@ -799,6 +814,11 @@ _flash_end:
         STUB_LOGI("Cache restored CPU%d: 0x%x %d\n", other_core_id, flags[1], stub_spi_flash_cache_enabled(other_core_id));
     }
     return ret;
+}
+
+void ets_update_cpu_frequency(uint32_t ticks_per_us)
+{
+    /* do nothing for stub */
 }
 
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
@@ -826,7 +846,6 @@ static void clock_configure(void)
     clk_cfg.fast_freq = rtc_clk_fast_freq_get();
     rtc_clk_init(clk_cfg);
 }
-
 static void uart_console_configure(void)
 {
     uartAttach();
