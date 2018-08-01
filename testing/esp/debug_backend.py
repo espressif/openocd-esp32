@@ -305,7 +305,10 @@ class Gdb:
 
     def exec_file_set(self, file_path):
         # -file-exec-and-symbols file
-        res,_ = self._mi_cmd_run('-file-exec-and-symbols %s' % file_path)
+        # Convert filepath from Windows format if needed
+        local_file_path = file_path;
+        local_file_path = local_file_path.replace("\\","/");
+        res,_ = self._mi_cmd_run('-file-exec-and-symbols %s' % local_file_path)
         if res != 'done':
             raise DebuggerError('Failed to set program file!')
 
@@ -482,3 +485,22 @@ class Gdb:
 
     def disconnect(self):
         self.target_disconnect()
+
+    def get_thread_info(self):
+        res,res_body = self._mi_cmd_run('-thread-info')
+        if res != 'done' or not res_body or 'threads' not in res_body:
+            raise DebuggerError('Failed to get backtrace!')
+        return res_body['threads']
+
+    def set_thread(self, num):
+        res,_ = self._mi_cmd_run('thread %d' % num)
+        if res != 'done':
+            raise DebuggerError('Failed to set thread!')
+        return res
+
+    def get_thread_ids(self):
+        # -thread-list-ids expr
+        res, thread_ids = self._mi_cmd_run('-thread-list-ids')         
+        if res != 'done':
+            raise DebuggerError('Failed to eval expression!')
+        return thread_ids

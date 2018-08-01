@@ -769,6 +769,8 @@ static void FreeRTOS_set_current_thread(struct rtos *rtos, int32_t threadid)
 	for (int i = 0; i < target_get_core_count(rtos->target); i++) {
 		if (rtos->core_running_threads[i] == rtos->current_threadid){
 			target_set_active_core(rtos->target, i);
+			return;
 		}
 	}
+	rtos->core_running_threads[target_get_active_core(rtos->target)] = threadid;
 }

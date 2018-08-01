@@ -169,6 +169,8 @@ void window_exception_test(void* arg)
     printf("sum=%d\n",sum);
 }
 
+void thread_check_task(void *pvParameter);
+
 static void scratch_reg_using_task(void *pvParameter)
 {
     int val = 100;
@@ -263,6 +265,16 @@ void app_main()
             xTaskCreate(&gcov_task, "gcov_task", 2048, (void *)false, 5, NULL);
             break;
 #endif
+        case 401: // Thread check tasks
+            ESP_LOGE(TAG, "Start Thread tests!");
+            for (int i=0 ; i< 6 ; i++)
+            {
+                char task_name[64];
+                sprintf(task_name, "thread_task%i", i);
+                xTaskCreate(&thread_check_task, task_name, 2048, (void*)i, 5, NULL);
+                vTaskDelay(1);
+            }
+            break;
         default:
             ESP_LOGE(TAG, "Invalid test id (%d)!", s_run_test);
             while(1){
