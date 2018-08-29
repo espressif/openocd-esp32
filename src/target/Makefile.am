@@ -25,6 +25,7 @@ noinst_LTLIBRARIES += %D%/libtarget.la
 	$(ESP108_SRC) \
 	$(ESP32_SRC) \
 	$(INTEL_IA32_SRC) \
+	$(ESIRISC_SRC) \
 	%D%/avrt.c \
 	%D%/dsp563xx.c \
 	%D%/dsp563xx_once.c \
@@ -149,6 +150,10 @@ INTEL_IA32_SRC = \
 	%D%/lakemont.c \
 	%D%/x86_32_common.c
 
+ESIRISC_SRC = \
+	%D%/esirisc.c \
+	%D%/esirisc_jtag.c
+
 %C%_libtarget_la_SOURCES += \
 	%D%/algorithm.h \
 	%D%/arm.h \
@@ -231,7 +236,10 @@ INTEL_IA32_SRC = \
 	%D%/arm_cti.h \
 	%D%/esp108_common.h \
 	%D%/esp108.h        \
-	%D%/esp32.h
+	%D%/esp32.h \
+	%D%/esirisc.h \
+	%D%/esirisc_jtag.h \
+	%D%/esirisc_regs.h
 
 include %D%/openrisc/Makefile.am
 include %D%/riscv/Makefile.am
