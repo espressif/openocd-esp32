@@ -1625,7 +1625,9 @@ static int xtensa_poll(struct target *target)
 		bool algo_stopped = false;
 		if (target->state == TARGET_DEBUG_RUNNING) {
 			if (cores_num == ESP32_CPU_COUNT) {
-				algo_stopped = (dsr[0] & OCDDSR_STOPPED) && (dsr[1] & OCDDSR_STOPPED);
+				/* algo can be run on any CPU while other one can be stalled by SW run on target, in this case OCDDSR_STOPPED will not be set for other CPU;
+				 situation when target is in TARGET_DEBUG_RUNNING and both CPUs are stalled is impossible (one must run algo). */
+				algo_stopped = (dsr[0] & (OCDDSR_STOPPED|OCDDSR_RUNSTALLSAMPLE)) && (dsr[1] & (OCDDSR_STOPPED|OCDDSR_RUNSTALLSAMPLE));
 			} else {
 				algo_stopped = (dsr[0] & OCDDSR_STOPPED);
 			}
@@ -2156,8 +2158,7 @@ static int esp32_algo_run(struct target *target, struct esp32_algo_image *image,
 			&run->priv.stub.ainfo);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Faied to wait algorithm (%d)!", retval);
-		target_halt(target);
-		target_wait_state(target, TARGET_HALTED, ESP32_TARGET_STATE_TMO);
+		// target has been forced to stop in target_wait_algorithm()
 	}
 #if ESP32_STUB_STACK_DEBUG
 	retval = esp32_stub_check_stack(target, run->priv.stub.stack_addr - run->stack_size, run->stack_size, ESP32_STUB_STACK_DEBUG);

@@ -34,13 +34,13 @@ class FlasherTestsImpl:
         for i in range(size):
             fbin.write(os.urandom(1024))
         fbin.close()
-        self.gdb.monitor_run('program_esp32 %s 0x%x' % (fname1, ESP32_APP_FLASH_OFF + ESP32_APP_FLASH_SZ), tmo=40)
-        # since we can not get result from OpenOCD (output parsing seems not tp be good idea), 
-        # we nee to read written flash and compare data manually
+        self.gdb.target_program(fname1, ESP32_APP_FLASH_OFF + ESP32_APP_FLASH_SZ, actions='', tmo=130)
+        # since we can not get result from OpenOCD (output parsing seems not to be good idea),
+        # we need to read written flash and compare data manually
         fhnd,fname2 = tempfile.mkstemp()
         fbin = os.fdopen(fhnd, 'wb')
         fbin.close()
-        self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (fname2, ESP32_APP_FLASH_OFF + ESP32_APP_FLASH_SZ, size*1024), tmo=30)
+        self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (fname2, ESP32_APP_FLASH_OFF + ESP32_APP_FLASH_SZ, size*1024), tmo=120)
         self.assertTrue(filecmp.cmp(fname1, fname2))
 
 

@@ -482,11 +482,26 @@ static uint32_t stub_flash_exec_usr_cmd(uint32_t cmd)
     return status_value;
 }
 
+static void stub_flash_spi_wait_ready()
+{
+    uint32_t status_value = ESP_ROM_SPIFLASH_BUSY_FLAG;
+
+    while (ESP_ROM_SPIFLASH_BUSY_FLAG == (status_value & ESP_ROM_SPIFLASH_BUSY_FLAG)) {
+        WRITE_PERI_REG(PERIPHS_SPI_FLASH_STATUS, 0);       // clear regisrter
+        WRITE_PERI_REG(PERIPHS_SPI_FLASH_CMD, SPI_FLASH_RDSR);
+        while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0);
+        status_value = READ_PERI_REG(PERIPHS_SPI_FLASH_STATUS) & (g_rom_spiflash_chip.status_mask);
+    }
+}
+
 static uint32_t stub_flash_spi_cmd_run(uint32_t cmd, uint8_t data_bits[], uint32_t data_bits_num, uint32_t read_bits_num)
 {
     uint32_t old_spi_usr = READ_PERI_REG(PERIPHS_SPI_FLASH_USRREG);
     uint32_t old_spi_usr2 = READ_PERI_REG(PERIPHS_SPI_FLASH_USRREG2);
     uint32_t flags = SPI_USR_COMMAND;
+
+    stub_flash_spi_wait_ready();
+
     if (read_bits_num > 0) {
         flags |= SPI_USR_MISO;
         WRITE_PERI_REG(PERIPHS_SPI_MISO_DLEN_REG, read_bits_num - 1);
@@ -763,6 +778,15 @@ static int stub_flash_handler(int cmd, va_list ap)
 
     esp_rom_spiflash_attach(spiconfig, 0);
     uint32_t flash_size = stub_flash_get_size();
+    if (flash_size == 0) {
+        STUB_LOGE("Failed to get flash size!\n");
+        ret = cmd == ESP32_STUB_CMD_FLASH_SIZE ? 0 : ESP32_STUB_ERR_FAIL;
+        goto _flash_end;
+    }
+    if (cmd == ESP32_STUB_CMD_FLASH_SIZE) {
+        ret = flash_size;
+        goto _flash_end;
+    }
     esp_rom_spiflash_config_param(g_rom_flashchip.device_id, flash_size,
                                   ESP32_FLASH_BLOCK_SIZE, ESP32_FLASH_SECTOR_SIZE, ESP32_FLASH_PAGE_SIZE, ESP32_FLASH_STATUS_MASK);
 
@@ -785,9 +809,6 @@ static int stub_flash_handler(int cmd, va_list ap)
         break;
     case ESP32_STUB_CMD_FLASH_WRITE:
         ret = stub_flash_write(arg1, arg2, arg3, arg4);
-        break;
-    case ESP32_STUB_CMD_FLASH_SIZE:
-        ret = stub_flash_get_size();
         break;
     case ESP32_STUB_CMD_FLASH_MAP_GET:
         ret = stub_flash_get_map(arg1, arg2);

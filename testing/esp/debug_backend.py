@@ -34,7 +34,6 @@ def start(toolch, oocd_path, oocd_tcl_dir, oocd_cfg_files):
         raise e
 
 def stop():
-    # _gdb_inst.disconnect()
     _oocd_inst.stop()
     _oocd_inst.join()
 
@@ -300,9 +299,9 @@ class Gdb:
     def target_download(self):
         raise NotImplementedError('target_download')
 
-    def target_program(self, file_name, off, actions='verify'):
+    def target_program(self, file_name, off, actions='verify', tmo=30):
         # actions can be any or both of 'verify reset'
-        self.monitor_run('program_esp32 %s %s 0x%x' % (file_name, actions, off), 30)
+        self.monitor_run('program_esp32 %s %s 0x%x' % (file_name, actions, off), tmo)
 
     def exec_file_set(self, file_path):
         # -file-exec-and-symbols file

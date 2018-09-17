@@ -247,13 +247,13 @@ static uint32_t esp32_get_size(struct flash_bank *bank)
 	int ret = esp32_init_flasher_image(&flasher_image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Faied to init flasher image (%d)!", ret);
-		return ret;
+		return 0;
 	}
 	ret = esp32_run_func_image(bank->target, &run, &flasher_image, 1, ESP32_STUB_CMD_FLASH_SIZE);
 	image_close(&flasher_image.image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Faied to run flasher stub (%d)!", ret);
-		return ret;
+		return 0;
 	}
 	size = run.ret_code;
 	if (size == 0) {
