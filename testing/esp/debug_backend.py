@@ -21,7 +21,7 @@ if os.name == 'nt':
 else:
     OS_INT_SIG = signal.SIGINT
 
-def start(toolch, oocd_path, oocd_tcl_dir, oocd_cfg_files, oocd_cfg_cmds=[]):
+def start(toolch, oocd_path, oocd_tcl_dir, oocd_cfg_files, oocd_cfg_cmds=[], oocd_dbg_level=2):
     global _oocd_inst
     global _gdb_inst
     global toolchain
@@ -32,7 +32,7 @@ def start(toolch, oocd_path, oocd_tcl_dir, oocd_cfg_files, oocd_cfg_cmds=[]):
     oocd_args += ['-s', oocd_tcl_dir]
     for f in oocd_cfg_files:
         oocd_args += ['-f', f]
-    #oocd_args += ['-d3']
+    oocd_args += ['-d%d' % oocd_dbg_level]
     _oocd_inst = Oocd(oocd_path, oocd_args)
     _oocd_inst.start()
     try:
