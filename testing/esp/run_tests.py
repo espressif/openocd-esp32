@@ -11,6 +11,7 @@ import threading
 import xmlrunner
 import cProfile, pstats
 import debug_backend, debug_backend_tests
+import traceback
 
 
 BOARD_TCL_CONFIG = {
@@ -188,13 +189,15 @@ def main():
             for f in res.failures:
                 err_suite.addTest(f[0])
             res = test_runner.run(err_suite)
+    except:
+        traceback.print_exc()
     finally:
         # stop debugger
         debug_backend.stop()
         if board_uart_reader:
            board_uart_reader.stop()
     # check results
-    if not res.wasSuccessful():
+    if not res or not res.wasSuccessful():
         sys.exit(-1)
 
 if __name__ == '__main__':
@@ -230,7 +233,10 @@ if __name__ == '__main__':
                         help='Path to log file to store profiler stats. Use "stdout" to print.',
                         default='')
     parser.add_argument('--debug', '-d',
-                        help='Debug level (0-4)',
+                        help='Verbosity level (0-4)',
+                        type=int, default=2)
+    parser.add_argument('--debug-oocd', '-w',
+                        help='OpenOCD verbosity level (0-3)',
                         type=int, default=2)
     parser.add_argument('--log-file', '-l',
                         help='Path to log file. Use "stdout" to log to console.')
