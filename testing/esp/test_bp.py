@@ -29,7 +29,10 @@ class PoiTestsImpl:
 
     def run_to_bp_and_check(self, exp_rsn, func_name, lineno_var_prefs):
         frames = self.run_to_bp_and_check_basic(exp_rsn, func_name)
-        outmost_frame = len(frames) - 2 # -2 because our task function is called by FreeRTOS task wrapper
+        if IdfVersion.get_current() == IdfVersion.fromstr('latest'):
+            outmost_frame = len(frames) - 2 # -2 because our task function is called by FreeRTOS task wrapper
+        else:
+            outmost_frame = len(frames) - 1
         # Sometimes GDB does not provide full backtrace. so check this
         # we can only check line numbers in 'blink_task',
         # because its code is under control of test framework

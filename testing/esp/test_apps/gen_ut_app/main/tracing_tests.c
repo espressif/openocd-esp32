@@ -6,16 +6,20 @@
 #include "sdkconfig.h"
 #include "gen_ut_app.h"
 #include "esp_app_trace.h"
-#if CONFIG_HEAP_TRACING
-#include "esp_heap_trace.h"
-#endif
-#if CONFIG_SYSVIEW_ENABLE
-#include "esp_sysview_trace.h"
-#endif
 
 #define LOG_LOCAL_LEVEL CONFIG_LOG_DEFAULT_LEVEL
 #include "esp_log.h"
 const static char *TAG = "tracing_tests";
+
+// need to protect part of the file with macro to get compiled successfully for the oldest supported IDF ver,
+// this comparison should be updated if oldest supported IDF ver is increased enough to provide those features
+#if UT_IDF_VER == UT_IDF_VER_LATEST
+#if CONFIG_HEAP_TRACING
+#include "esp_heap_trace.h"
+#endif //CONFIG_HEAP_TRACING
+#if CONFIG_SYSVIEW_ENABLE
+#include "esp_sysview_trace.h"
+#endif
 
 struct trace_test_task_arg;
 typedef void (*do_trace_test_t)(struct trace_test_task_arg* task);
@@ -28,13 +32,6 @@ typedef struct trace_test_task_arg {
     trace_printf_t  trace_printf;
     trace_flush_t   trace_flush;
 } trace_test_task_arg_t;
-
-struct os_trace_task_arg {
-    int tim_grp;
-    int tim_id;
-    uint32_t tim_period;
-    uint32_t task_period;
-};
 
 #if CONFIG_SYSVIEW_ENABLE
 int do_trace_printf(const char *fmt, ...)
@@ -207,6 +204,14 @@ static void trace_test_task(void *pvParameter)
         vTaskDelay(1);
     }
 }
+#endif // UT_IDF_VER
+
+struct os_trace_task_arg {
+    int tim_grp;
+    int tim_id;
+    uint32_t tim_period;
+    uint32_t task_period;
+};
 
 static void os_trace_test_timer_isr(void *arg)
 {
@@ -241,10 +246,13 @@ static void os_trace_test_task(void *pvParameter)
 
 ut_result_t tracing_test_do(int test_num)
 {
+#if UT_IDF_VER == UT_IDF_VER_LATEST
     static trace_test_task_arg_t task_args[2];
-
     memset(task_args, 0, sizeof(task_args));
+#endif // UT_IDF_VER
+
     switch(test_num) {
+#if UT_IDF_VER == UT_IDF_VER_LATEST
 #if CONFIG_HEAP_TRACING
         case 500:
         {
@@ -275,6 +283,7 @@ ut_result_t tracing_test_do(int test_num)
 #endif
             break;
         }
+#endif // UT_IDF_VER
         case 502:
         {
             static struct os_trace_task_arg task_args[2] = {

@@ -21,6 +21,15 @@
 #ifndef GEN_UT_APP_H
 #define GEN_UT_APP_H
 
+#define MAKE_UT_IDF_VER(t,x,y,z)	(((t & 0xFF) << 24) | ((x & 0xFF) << 16) | ((y & 0xFF) << 8) | (Z & 0xFF))
+#define UT_IDF_VER_LATEST           MAKE_UT_IDF_VER(0xFF,0xFF,0xFF,0xFF)
+
+#include "ut_idf_ver.h"
+
+#ifndef UT_IDF_VER
+#error !UT_IDF_VER
+#endif
+
 #define TEST_BREAK_LOC(_nm_)  \
     volatile static const int _nm_ ## _break_ln = __LINE__; \
     s_tmp_ln = _nm_ ## _break_ln;

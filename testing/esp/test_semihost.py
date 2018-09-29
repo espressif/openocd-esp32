@@ -15,6 +15,7 @@ def get_logger():
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
 
+@idf_ver_min('latest')
 class SemihostTestsImpl:
     """ Test cases which are common for dual and single core modes
     """

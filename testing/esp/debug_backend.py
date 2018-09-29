@@ -10,6 +10,7 @@ from pygdbmi.gdbcontroller import GdbController
 from pygdbmi.gdbcontroller import GdbTimeoutError
 from pprint import pformat
 
+
 OOCD_PORT = 3333
 toolchain = 'none'
 _oocd_inst   = None
@@ -51,6 +52,7 @@ def get_gdb():
 
 def get_oocd():
     return _oocd_inst
+
 
 class DebuggerError(RuntimeError):
     pass
@@ -531,3 +533,9 @@ class Gdb:
         if res != 'done':
             raise DebuggerError('Failed to eval expression!')
         return thread_ids
+
+
+def read_idf_ver():
+    # TODO: read IDF ver from target
+    import debug_backend_tests
+    return debug_backend_tests.IdfVersion()

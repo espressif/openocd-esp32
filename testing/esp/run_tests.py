@@ -106,8 +106,10 @@ def main():
         setup_logger(board_uart_reader.get_logger(), ch, fh)
         board_uart_reader.start()
     board_tcl = BOARD_TCL_CONFIG[args.board_type]
+    if args.idf_ver_min != 'auto':
+        debug_backend_tests.IdfVersion.set_current(debug_backend_tests.IdfVersion.fromstr(args.idf_ver_min))
     # start debugger, ideally we should run all tests w/o restarting it
-    debug_backend.start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'])
+    debug_backend.start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'], args.debug_oocd)
     debug_backend_tests.test_apps_dir = args.apps_dir
     # loads tests using pattern <module>[.<test_case>[.<test_method>]] with wildcards (*) in <module> and <test_case> parts
 
@@ -198,20 +200,50 @@ def main():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run_tests.py - Run auto-tests', prog='run_tests')
 
-    parser.add_argument('--apps-dir',       '-a',   help='Path to test apps',default=os.environ.get('OOCD_TEST_APPS_DIR', os.path.join(os.getcwd(), 'testing', 'esp', 'test_apps')))
-    parser.add_argument('--board-type',     '-b',   help='Type of the board to run tests on',choices=['esp-wrover-kit', 'esp32_solo-devkitj'],default=os.environ.get('OOCD_TEST_BOARD', 'esp-wrover-kit'))
-    parser.add_argument('--debug',          '-d',   help='Debug level (0-4)',type=int, default=2)
-    parser.add_argument('--stats-file',     '-k',   help='Path to log file to store profiler stats. Use "stdout" to print.',default='')
-    parser.add_argument('--log-file',       '-l',   help='Path to log file. Use "stdout" to log to console.')
-    parser.add_argument('--no-load',        '-n',   help='Do not load test app binaries',action='store_true', default=False)
-    parser.add_argument('--oocd',           '-o',   help='Path to OpenOCD binary',default=os.environ.get('OOCD_TEST_BIN_PATH', os.path.join(os.getcwd(), 'src', 'openocd')))
-    parser.add_argument('--pattern',        '-p',   help="""Pattern of test cases to run. Format: <module>[.<test_case>[.<test_method>]].        User can specify several strings separated by space. Wildcards (*) are supported in <module> and <test_case> parts""", nargs='*', default='*')
-    parser.add_argument('--retry',          '-r',   help='Try to re0run failed tests',action='store_true', default=False)
-    parser.add_argument('--oocd-tcl',       '-s',   help='Path to OpenOCD TCL scripts',default=os.environ.get('OOCD_TEST_TCL_DIR', os.path.join(os.getcwd(), 'tcl')))
-    parser.add_argument('--toolchain',      '-t',   help='Toolchain prefix',default=os.environ.get('OOCD_TEST_GDB_BIN_PATH', 'xtensa-esp32-elf-'))
-    parser.add_argument('--test-runner',    '-tr',  help='x - for for XMLTestRunner, t - for TextTestRunner', type=str, default='x')
-    parser.add_argument('--test-outdir',    '-to',  help='Output dir for runners needed to it', type=str, default='./results')
-    parser.add_argument('--serial-port',    '-u',   help='Name of serial port to grab ESP32 UART output.')
+    parser.add_argument('--toolchain', '-t',
+                        help='Toolchain prefix',
+                        default=os.environ.get('OOCD_TEST_GDB_BIN_PATH', 'xtensa-esp32-elf-'))
+    parser.add_argument('--oocd', '-o',
+                        help='Path to OpenOCD binary',
+                        default=os.environ.get('OOCD_TEST_BIN_PATH', os.path.join(os.getcwd(), 'src', 'openocd')))
+    parser.add_argument('--oocd-tcl', '-s',
+                        help='Path to OpenOCD TCL scripts',
+                        default=os.environ.get('OOCD_TEST_TCL_DIR', os.path.join(os.getcwd(), 'tcl')))
+    parser.add_argument('--board-type', '-b',
+                        help='Type of the board to run tests on',
+                        choices=['esp-wrover-kit', 'esp32_solo-devkitj'],
+                        default=os.environ.get('OOCD_TEST_BOARD', 'esp-wrover-kit'))
+    parser.add_argument('--apps-dir', '-a',
+                        help='Path to test apps',
+                        default=os.environ.get('OOCD_TEST_APPS_DIR', os.path.join(os.getcwd(), 'testing', 'esp', 'test_apps')))
+    parser.add_argument('--pattern', '-p', nargs='*',
+                        help="""Pattern of test cases to run. Format: <module>[.<test_case>[.<test_method>]].
+                                User can specify several strings separated by space. Wildcards (*) are supported in <module> and <test_case> parts""",
+                        default='*')
+    parser.add_argument('--no-load', '-n',
+                        help='Do not load test app binaries',
+                        action='store_true', default=False)
+    parser.add_argument('--retry', '-r',
+                        help='Try to re0run failed tests',
+                        action='store_true', default=False)
+    parser.add_argument('--stats-file', '-k',
+                        help='Path to log file to store profiler stats. Use "stdout" to print.',
+                        default='')
+    parser.add_argument('--debug', '-d',
+                        help='Debug level (0-4)',
+                        type=int, default=2)
+    parser.add_argument('--log-file', '-l',
+                        help='Path to log file. Use "stdout" to log to console.')
+    parser.add_argument('--serial-port', '-u',
+                        help='Name of serial port to grab board\'s UART output.')
+    parser.add_argument('--idf_ver-min', '-i',
+                        help='Minimal IDF version to run tests for. Format: x[.y[.z]]. Use "latest" to run all tests. Use "auto" to read version from target.',
+                        default='auto')
+    parser.add_argument('--test-runner', '-tr',
+                        help='x - for for XMLTestRunner, t - for TextTestRunner', type=str, default='x')
+    parser.add_argument('--test-outdir', '-to',
+                        help='Output dir for runners needed to it',
+                        type=str, default='./results')
     args = parser.parse_args()
     if len(args.stats_file) > 0:
         if args.stats_file == 'stdout':

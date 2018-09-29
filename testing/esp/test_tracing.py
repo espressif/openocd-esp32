@@ -3,11 +3,17 @@ import unittest
 import debug_backend as dbg
 from debug_backend_tests import *
 import os
+import os.path
 import re
 import time
 import tempfile
 import sys
 import traceback
+
+idf_path = os.getenv('IDF_PATH')
+if idf_path:
+    sys.path.append(os.path.join(idf_path, 'tools', 'esp_app_trace'))
+
 import espytrace.apptrace as apptrace
 import espytrace.sysview as sysview
 
@@ -46,6 +52,9 @@ class BaseTracingTestsImpl:
         trace_src,self.reader = _create_file_reader()
         if not self.reader:
             self.fail("Failed to create trace reader!")
+        if IdfVersion.get_current() != IdfVersion.fromstr('latest'):
+            # old style trace source URL
+            trace_src = trace_src[len('file://'):]
         test_func(trace_src)
 
     def _start_tracing(self, trace_src):
