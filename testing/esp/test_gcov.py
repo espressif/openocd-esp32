@@ -25,9 +25,10 @@ class GcovDataFile:
     GCOV_LCOUNT_TAG = 'lcount:'
     GCOV_BRANCH_TAG = 'branch:'
 
-    def __init__(self, path):
+    def __init__(self, path, src_dirs=None):
         self._path = path
         self.data = {}
+        self.src_dirs = src_dirs
         self._cur_file = ''
         get_logger().debug('Process gcov file "%s"', path)
         dir_name,file_name = os.path.split(path)
@@ -72,6 +73,13 @@ class GcovDataFile:
         for fname in self.data:
             if fname not in other.data:
                 return False
+            in_src_dirs = False
+            for d in self.src_dirs:
+                if os.path.commonprefix([d, fname]) == d:
+                    in_src_dirs = True
+                    break
+            if not in_src_dirs:
+                continue
             for func in self.data[fname]['funcs']:
                 if func not in other.data[fname]['funcs']:
                     return False
@@ -121,8 +129,9 @@ class GcovTestsImpl:
 
     def setUp(self):
         self.gcov_files = []
+        src_dirs = [self.test_app_cfg.build_src_dir(),]
         src_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main/gcov_tests.c')
-        ref_data = GcovDataFile(os.path.join(self.test_app_cfg.build_src_dir(), 'main/gcov_tests.gcda.gcov'))
+        ref_data = GcovDataFile(os.path.join(self.test_app_cfg.build_src_dir(), 'main/gcov_tests.gcda.gcov'), src_dirs)
         self.gcov_files.append({
             'src_path' : src_path,
             'data_path' : os.path.join(self.test_app_cfg.build_obj_dir(), 'main/gcov_tests.gcda'),
@@ -133,7 +142,7 @@ class GcovTestsImpl:
             'd_lines' : ref_data.get_lines_coverage(src_path, self.DYN_LINES_START[0], self.DYN_LINES_END[0])
             })
         src_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main/helper_funcs.c')
-        ref_data = GcovDataFile(os.path.join(self.test_app_cfg.build_src_dir(), 'main/helper_funcs.gcda.gcov'))
+        ref_data = GcovDataFile(os.path.join(self.test_app_cfg.build_src_dir(), 'main/helper_funcs.gcda.gcov'), src_dirs)
         self.gcov_files.append({
             'src_path' : src_path,
             'data_path' : os.path.join(self.test_app_cfg.build_obj_dir(), 'main/helper_funcs.gcda'),
@@ -174,11 +183,13 @@ class GcovTestsImpl:
             self.step()
             self.gdb.monitor_run('esp32 gcov dump', tmo=20)
             # parse and check gcov data
+            src_dirs = [self.test_app_cfg.build_src_dir(),]
             gcov_data_files = []
             for f in self.gcov_files:
-                gcov_data_files.append(GcovDataFile(f['data_path']))
+                gcov_data_files.append(GcovDataFile(f['data_path'], src_dirs))
+            #if False: #i == 0:
             if i == 0:
-                # after first test iteration gcov data should be equal to reference one
+                # after first test iteration gcov data should be equal to reference ones
                 for k in range(len(gcov_data_files)):
                     self.assertEqual(gcov_data_files[k], self.gcov_files[k]['ref_data'])
             else:
@@ -219,11 +230,12 @@ class GcovTestsImpl:
         self.stop_exec()
         self.oocd.cmd_exec('esp32 gcov dump')
         # parse and check gcov data
-        f = GcovDataFile(os.path.join(self.test_app_cfg.build_obj_dir(), 'main/gcov_tests.gcda'))
-        f2 = GcovDataFile(os.path.join(self.test_app_cfg.build_src_dir(), 'main/gcov_tests.gcda.gcov'))
+        src_dirs = [self.test_app_cfg.build_src_dir(),]
+        f = GcovDataFile(os.path.join(self.test_app_cfg.build_obj_dir(), 'main/gcov_tests.gcda'), src_dirs)
+        f2 = GcovDataFile(os.path.join(self.test_app_cfg.build_src_dir(), 'main/gcov_tests.gcda.gcov'), src_dirs)
         self.assertEqual(f, f2)
-        f = GcovDataFile(os.path.join(self.test_app_cfg.build_obj_dir(), 'main/helper_funcs.gcda'))
-        f2 = GcovDataFile(os.path.join(self.test_app_cfg.build_src_dir(), 'main/helper_funcs.gcda.gcov'))
+        f = GcovDataFile(os.path.join(self.test_app_cfg.build_obj_dir(), 'main/helper_funcs.gcda'), src_dirs)
+        f2 = GcovDataFile(os.path.join(self.test_app_cfg.build_src_dir(), 'main/helper_funcs.gcda.gcov'), src_dirs)
         self.assertEqual(f, f2)
 
     def test_on_the_fly_gdb(self):

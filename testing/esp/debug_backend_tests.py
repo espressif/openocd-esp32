@@ -26,6 +26,60 @@ def get_logger():
     return logging.getLogger(__name__)
 
 
+class IdfVersion:
+    """ Wrapper class for IDF version
+        Keeps IDF ver as 4 bytes int. Format is: x.3.0.2, the most significant byte is not used.
+    """
+    IDF_VER_LATEST = 0xFFFFFFFF
+    _target_idf_ver = None
+
+    def __init__(self, idf_ver=IDF_VER_LATEST):
+        self._idf_ver = idf_ver
+
+    @classmethod
+    def get_current(cls):
+        if not cls._target_idf_ver:
+            cls._target_idf_ver =  dbg.read_idf_ver()
+        return cls._target_idf_ver
+
+    @classmethod
+    def set_current(cls, idf_ver):
+        get_logger().info('Set current IDF ver %s', idf_ver)
+        cls._target_idf_ver = idf_ver
+
+    @classmethod
+    def fromstr(cls, ver_str):
+        if ver_str == 'latest':
+            return IdfVersion()
+        vers = ver_str.split('.')
+        # 3 -> 3.0.0
+        # 3.1 -> 3.1.0
+        while len(vers) < 3:
+            vers.append('0')
+        idf_ver = 0
+        for i in range((len(vers)-1), -1, -1):
+            idf_ver |= int(vers[len(vers)-i-1], 0) << i*8
+        return IdfVersion(idf_ver)
+
+    def __repr__(self):
+        if self._idf_ver == self.IDF_VER_LATEST:
+            return 'latest'
+        return "%d.%d.%d" % ((self._idf_ver >> 16) & 0xFF, (self._idf_ver >> 8) & 0xFF, self._idf_ver & 0xFF)
+
+    def __cmp__(self, other):
+        res = 0
+        if self._idf_ver < other._idf_ver:
+            res = -1
+        elif self._idf_ver > other._idf_ver:
+            res = 1
+        return res
+
+
+
+def idf_ver_min(ver_str):
+    return unittest.skipIf(IdfVersion.get_current() < IdfVersion.fromstr(ver_str), "requires min IDF_VER='%s', current IDF_VER='%s'" % (ver_str, IdfVersion.get_current()))
+
+
 class DebuggerTestError(RuntimeError):
     """ Base class for debugger's test errors
     """
@@ -158,12 +212,9 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
                 else:
                     app_cfg_id = '' # test does not use app
                 if app_cfg_id not in self._groupped_suites:
-                    # print 'Add new suite for (%s)' % (app_name)
                     self._groupped_suites[app_cfg_id] = [app_cfg, DebuggerTestsBunch()]
-                # print 'Add test %s to (%s)' % (test, app_name)
                 self._groupped_suites[app_cfg_id][1].addTest(test)
             else:
-                # print 'Group suite %s' % (test)
                 self._group_tests(test)
 
     def _load_app(self, app_cfg):
@@ -171,7 +222,6 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
         """
         gdb = dbg.get_gdb()
         state,rsn = gdb.get_target_state()
-        # print 'DebuggerTestAppTests.LOAD_APP %s / %s' % (cls, app_bins)
         if state != dbg.Gdb.TARGET_STATE_STOPPED:
             gdb.exec_interrupt()
             gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)

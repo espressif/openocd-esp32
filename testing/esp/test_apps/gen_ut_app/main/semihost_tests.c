@@ -1,10 +1,14 @@
 //#include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
+#include "gen_ut_app.h"
+#if UT_IDF_VER == UT_IDF_VER_LATEST
 #include "esp_vfs_semihost.h"
+#endif
 
 #include "esp_log.h"
 const static char *TAG = "semihost_test";
@@ -60,9 +64,10 @@ static void semihost_task(void *pvParameter)
     }
 }
 
-ut_result_t semihost_test_do(int test_num);
+ut_result_t semihost_test_do(int test_num)
 {
     switch (test_num) {
+#if UT_IDF_VER == UT_IDF_VER_LATEST
         case 700:
         {
             esp_err_t ret = esp_vfs_semihost_register("/host", NULL);
@@ -81,6 +86,7 @@ ut_result_t semihost_test_do(int test_num);
             }
             break;
         }
+#endif
         default:
             return UT_UNSUPPORTED;
     }

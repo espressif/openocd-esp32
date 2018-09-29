@@ -33,6 +33,7 @@ define GenerateConfigTargets
 # $(1) - configuration name
 ut-clean-$(1):
 	rm -rf $$(BUILDS_DIR)/$(1) $$(BINARIES_DIR)/$(1)
+	rm -rf $$(PROJECT_DIR)/main/ut_idf_ver.h
 
 ut-build-$(1): $$(BINARIES_DIR)/$(1)/$$(PROJECT_NAME).bin
 
@@ -42,6 +43,13 @@ ut-apply-config-$(1):
 	cat configs/$(1) >> sdkconfig
 	$(call RunConf,conf --olddefconfig)
 endef
+
+VER := $(shell ./gen_idf_ver.sh)
+
+$(PROJECT_DIR)/main/ut_idf_ver.h:
+	echo -n "#define UT_IDF_VER " > $(PROJECT_DIR)/main/ut_idf_ver.h
+	echo "$(VER)" >> $(PROJECT_DIR)/main/ut_idf_ver.h
+	cat $(PROJECT_DIR)/main/ut_idf_ver.h
 
 $(foreach config_name,$(CONFIG_NAMES), $(eval $(call GenerateConfigTargets,$(config_name))))
 
@@ -55,7 +63,7 @@ ut-clean-all-configs: $(CONFIG_CLEAN_TARGETS)
 $(BINARIES_DIR)/%/bootloader.bin \
 $(BINARIES_DIR)/%/$(PROJECT_NAME).elf \
 $(BINARIES_DIR)/%/$(PROJECT_NAME).map \
-$(BINARIES_DIR)/%/$(PROJECT_NAME).bin: configs/%
+$(BINARIES_DIR)/%/$(PROJECT_NAME).bin: configs/%  $(PROJECT_DIR)/main/ut_idf_ver.h
 	# Create build and output directories
 	mkdir -p $(BINARIES_DIR)/$*/bootloader
 	mkdir -p $(BUILDS_DIR)/$*
@@ -73,15 +81,11 @@ $(BINARIES_DIR)/%/$(PROJECT_NAME).bin: configs/%
 	# Build all tests if this option is not present.
 	test_components=`sed -n 's/^TEST_COMPONENTS=\(.*\)/\1/p' configs/$*`; \
 		tests_all=`test -n "$${test_components}"; echo $${?}`; \
-		exclude_components=`sed -n 's/^EXCLUDE_COMPONENTS=\(.*\)/\1/p' configs/$*`; \
-#	$(MAKE) defconfig list-components all
+		exclude_components=`sed -n 's/^EXCLUDE_COMPONENTS=\(.*\)/\1/p' configs/$*`;
 	$(MAKE) defconfig all \
 		BUILD_DIR_BASE=$(BUILDS_DIR)/$* \
 		SDKCONFIG=$(BUILDS_DIR)/$*/sdkconfig \
 		SDKCONFIG_DEFAULTS=$(BUILDS_DIR)/$*/sdkconfig.defaults
-#		TEST_COMPONENTS="$${test_components}"
-#		TESTS_ALL=$${tests_all}
-#		EXCLUDE_COMPONENTS="$${exclude_components}"
 	$(MAKE) --silent print_flash_cmd \
 		BUILD_DIR_BASE=$(BUILDS_DIR)/$* \
 		SDKCONFIG=$(BUILDS_DIR)/$*/sdkconfig \
