@@ -642,28 +642,25 @@ static int esp32_probe(struct flash_bank *bank)
 	}
 
 	int ret = esp32_get_mappings(bank->target, &flash_map);
-	if (ret != ERROR_OK) {
+	if (ret != ERROR_OK || flash_map.maps_num == 0) {
 		LOG_WARNING("Failed to get flash mappings (%d)!", ret);
+		// if no DROM/IROM mappings so pretend they are at the end of the HW flash bank and have zero size to allow correct memory map with non zero RAM region
+		irom_base = drom_base = esp32_get_size(bank);
 	} else {
-		if (flash_map.maps_num == 0) {
-			// if no DROM/IROM mappuings so pretend they are at the end of the HW flash bank and have zero size to allow correct memory map with non zero RAM region
-			irom_base = drom_base = esp32_get_size(bank);
-		} else {
-			for (uint32_t i = 0; i < flash_map.maps_num; i++) {
-				if (flash_map.maps[i].load_addr >= ESP32_IROM_LOW && flash_map.maps[i].load_addr < ESP32_IROM_HIGH) {
-					irom_flash_base = flash_map.maps[i].phy_addr & ~(ESP32_FLASH_SECTOR_SIZE-1);
-					irom_base = flash_map.maps[i].load_addr & ~(ESP32_FLASH_SECTOR_SIZE-1);
-					irom_sz = flash_map.maps[i].size;
-					if (irom_sz & (ESP32_FLASH_SECTOR_SIZE-1)) {
-						irom_sz = (irom_sz & ~(ESP32_FLASH_SECTOR_SIZE-1)) + ESP32_FLASH_SECTOR_SIZE;
-					}
-				} else if (flash_map.maps[i].load_addr >= ESP32_DROM_LOW && flash_map.maps[i].load_addr < ESP32_DROM_HIGH) {
-					drom_flash_base = flash_map.maps[i].phy_addr & ~(ESP32_FLASH_SECTOR_SIZE-1);
-					drom_base = flash_map.maps[i].load_addr & ~(ESP32_FLASH_SECTOR_SIZE-1);
-					drom_sz = flash_map.maps[i].size;
-					if (drom_sz & (ESP32_FLASH_SECTOR_SIZE-1)) {
-						drom_sz = (drom_sz & ~(ESP32_FLASH_SECTOR_SIZE-1)) + ESP32_FLASH_SECTOR_SIZE;
-					}
+		for (uint32_t i = 0; i < flash_map.maps_num; i++) {
+			if (flash_map.maps[i].load_addr >= ESP32_IROM_LOW && flash_map.maps[i].load_addr < ESP32_IROM_HIGH) {
+				irom_flash_base = flash_map.maps[i].phy_addr & ~(ESP32_FLASH_SECTOR_SIZE-1);
+				irom_base = flash_map.maps[i].load_addr & ~(ESP32_FLASH_SECTOR_SIZE-1);
+				irom_sz = flash_map.maps[i].size;
+				if (irom_sz & (ESP32_FLASH_SECTOR_SIZE-1)) {
+					irom_sz = (irom_sz & ~(ESP32_FLASH_SECTOR_SIZE-1)) + ESP32_FLASH_SECTOR_SIZE;
+				}
+			} else if (flash_map.maps[i].load_addr >= ESP32_DROM_LOW && flash_map.maps[i].load_addr < ESP32_DROM_HIGH) {
+				drom_flash_base = flash_map.maps[i].phy_addr & ~(ESP32_FLASH_SECTOR_SIZE-1);
+				drom_base = flash_map.maps[i].load_addr & ~(ESP32_FLASH_SECTOR_SIZE-1);
+				drom_sz = flash_map.maps[i].size;
+				if (drom_sz & (ESP32_FLASH_SECTOR_SIZE-1)) {
+					drom_sz = (drom_sz & ~(ESP32_FLASH_SECTOR_SIZE-1)) + ESP32_FLASH_SECTOR_SIZE;
 				}
 			}
 		}
@@ -688,17 +685,20 @@ static int esp32_probe(struct flash_bank *bank)
 	}
 	LOG_INFO("Using flash size %d KB", bank->size/1024);
 
-	bank->num_sectors = bank->size / ESP32_FLASH_SECTOR_SIZE;
-	bank->sectors = malloc(sizeof(struct flash_sector) * bank->num_sectors);
-	if (bank->sectors == NULL) {
-		LOG_ERROR("Failed to alloc mem for sectors!");
-		return ERROR_FAIL;
-	}
-	for (int i = 0; i < bank->num_sectors; i++) {
-		bank->sectors[i].offset = i*ESP32_FLASH_SECTOR_SIZE;
-		bank->sectors[i].size = ESP32_FLASH_SECTOR_SIZE;
-		bank->sectors[i].is_erased = -1;
-		bank->sectors[i].is_protected = 0;
+	if (bank->size) {
+		// Bank size can be 0 for IRON/DROM emulated banks when there is no app in flash
+		bank->num_sectors = bank->size / ESP32_FLASH_SECTOR_SIZE;
+		bank->sectors = malloc(sizeof(struct flash_sector) * bank->num_sectors);
+		if (bank->sectors == NULL) {
+			LOG_ERROR("Failed to alloc mem for sectors!");
+			return ERROR_FAIL;
+		}
+		for (int i = 0; i < bank->num_sectors; i++) {
+			bank->sectors[i].offset = i*ESP32_FLASH_SECTOR_SIZE;
+			bank->sectors[i].size = ESP32_FLASH_SECTOR_SIZE;
+			bank->sectors[i].is_erased = -1;
+			bank->sectors[i].is_protected = 0;
+		}
 	}
 	LOG_DEBUG("allocated %d sectors", bank->num_sectors);
 	esp32_info->probed = 1;
