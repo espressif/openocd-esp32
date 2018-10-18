@@ -1306,9 +1306,8 @@ static int esp_sysview_write_trace_header(struct esp_apptrace_cmd_ctx *ctx)
 static int esp_sysview_start(struct esp_apptrace_cmd_ctx *ctx)
 {
 	uint8_t cmds[] = {SEGGER_SYSVIEW_COMMAND_ID_START};
-	uint32_t fired_target_num = 0, old_block_id;
+	uint32_t fired_target_num = 0;
 	struct esp108_apptrace_target_state target_state[ESP_APPTRACE_TARGETS_NUM_MAX];
-	struct duration wait_time;
 
 	// get current block id
 	int res = esp_apptrace_get_data_info(ctx, target_state, &fired_target_num);
@@ -1327,38 +1326,6 @@ static int esp_sysview_start(struct esp_apptrace_cmd_ctx *ctx)
 	if (res != ERROR_OK) {
 		LOG_ERROR("SEGGER: Failed to start tracing!");
 		return res;
-	}
-	// wait for block switch (command sent)
-	old_block_id = target_state[fired_target_num].block_id;
-	if (duration_start(&wait_time) != 0) {
-		LOG_ERROR("Failed to start trace start timeout measurement!");
-		return ERROR_FAIL;
-	}
-	while (1) {
-		res = esp_apptrace_get_data_info(ctx, target_state, &fired_target_num);
-		if (res != ERROR_OK) {
-			LOG_ERROR("SEGGER: Failed to read target data info!");
-			return res;
-		}
-		if (fired_target_num == (uint32_t)-1) {
-			// it can happen that there is no pending target data, but block was switched
-			// in this case block_ids on both CPUs are equal, so select the first one
-			fired_target_num = 0;
-		}
-		if (target_state[fired_target_num].block_id != old_block_id) {
-			// do not read data, they will be read when polling callback is called
-			LOG_DEBUG("Start command sent on %s (blk_id %x->%x len %x).", target_name(ctx->cpus[fired_target_num]),
-				old_block_id, target_state[fired_target_num].block_id, target_state[fired_target_num].data_len);
-			break;
-		}
-		if (duration_measure(&wait_time) != 0) {
-			LOG_ERROR("Failed to start trace start timeout measurement!");
-			return ERROR_FAIL;
-		}
-		if (duration_elapsed(&wait_time) >= 0.1) {
-			LOG_INFO("Stop waiting for trace start due to timeout.");
-			return ERROR_FAIL;
-		}
 	}
 	return res;
 }
@@ -1795,10 +1762,6 @@ static int esp_sysview_process_data(struct esp_apptrace_cmd_ctx *ctx, int core_i
 		uint32_t pkt_len = 0, delta = 0, wr_len;
 		uint16_t event_id = esp_sysview_parse_packet(data + processed, &pkt_len, &pkt_core_id, &delta, &delta_len);
 		LOG_DEBUG("SEGGER: Process packet %d id %d bytes [%x %x %x %x]", event_id, pkt_len, data[processed+0], data[processed+1], data[processed+2], data[processed+3]);
-		if (event_id > SYSVIEW_EVENT_ID_MAX) {
-			LOG_ERROR("SEGGER: Unsupported event ID %d!", event_id);
-			return res;
-		}
 		wr_len = pkt_len;
 		if (ctx->cores_num > 1) {
 			if (cmd_data->sv_last_core_id == pkt_core_id) {
