@@ -540,9 +540,7 @@ struct target *get_target_by_num(int num)
 
 struct target *get_current_target(struct command_context *cmd_ctx)
 {
-	struct target *target = cmd_ctx->current_target_override
-		? cmd_ctx->current_target_override
-		: cmd_ctx->current_target;
+	struct target *target = get_current_target_or_null(cmd_ctx);
 
 	if (target == NULL) {
 		LOG_ERROR("BUG: current_target out of bounds");
@@ -550,6 +548,13 @@ struct target *get_current_target(struct command_context *cmd_ctx)
 	}
 
 	return target;
+}
+
+struct target *get_current_target_or_null(struct command_context *cmd_ctx)
+{
+	return cmd_ctx->current_target_override
+		? cmd_ctx->current_target_override
+		: cmd_ctx->current_target;
 }
 
 int target_poll(struct target *target)
