@@ -493,7 +493,7 @@ class Gdb:
         return res_body['threads']
 
     def set_thread(self, num):
-        res,_ = self._mi_cmd_run('thread %d' % num)
+        res,_ = self._mi_cmd_run('-thread-select %d' % num)
         if res != 'done':
             raise DebuggerError('Failed to set thread!')
         return res

@@ -12,6 +12,7 @@
 #include "driver/gpio.h"
 #include "driver/timer.h"
 #include "sdkconfig.h"
+#include "gen_ut_app.h"
 
 /* Can run 'make menuconfig' to choose the GPIO to blink,
    or you can edit the following line and set a number here.
@@ -22,12 +23,6 @@
 #include "esp_log.h"
 const static char *TAG = "ut_app";
 
-#define TEST_BREAK_LOC(_nm_)  \
-    volatile static const int _nm_ ## _break_ln = __LINE__; \
-    s_tmp_ln = _nm_ ## _break_ln;
-
-// used to prevent linker from optimizing out the variables holding BP line numbers
-volatile static int s_tmp_ln = 0;
 // test app algorithm selector
 volatile static int s_run_test = 0;
 // vars for WP tests
@@ -36,6 +31,11 @@ volatile static int s_count2 = 100;
 volatile static int s_count3 = 200;
 
 extern void gcov_task(void *pvParameter);
+extern void thread_check_task(void *pvParameter);
+extern void check_backtrace_task1(void *pvParameter);
+extern void check_backtrace_task2(void *pvParameter);
+extern void check_backtrace_task3(void *pvParameter);
+
 
 struct blink_task_arg {
     int tim_grp;
@@ -169,8 +169,6 @@ void window_exception_test(void* arg)
     printf("sum=%d\n",sum);
 }
 
-void thread_check_task(void *pvParameter);
-
 static void scratch_reg_using_task(void *pvParameter)
 {
     int val = 100;
@@ -229,6 +227,7 @@ static void step_over_bp_task(void *pvParameter)
     }
 }
 
+
 /* Add new  */
 
 void app_main()
@@ -265,6 +264,15 @@ void app_main()
             xTaskCreate(&gcov_task, "gcov_task", 2048, (void *)false, 5, NULL);
             break;
 #endif
+        case 400:
+            xTaskCreatePinnedToCore(&check_backtrace_task1, "check_bt_task1", 2048, (void*)3, 5, NULL, 0);
+            xTaskCreatePinnedToCore(&check_backtrace_task2, "check_bt_task2", 2048, (void*)7, 5, NULL, 0);
+#if CONFIG_FREERTOS_UNICORE
+            xTaskCreatePinnedToCore(&check_backtrace_task3, "check_bt_task3", 2048, (void*)5, 5, NULL, 0);
+#else
+            xTaskCreatePinnedToCore(&check_backtrace_task3, "check_bt_task3", 2048, (void*)5, 5, NULL, 1);
+#endif
+            break;
         case 401: // Thread check tasks
             ESP_LOGE(TAG, "Start Thread tests!");
             for (int i=0 ; i< 6 ; i++)

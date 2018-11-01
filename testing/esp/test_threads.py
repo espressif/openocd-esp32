@@ -13,16 +13,51 @@ def get_logger():
 ########################################################################
 
 class DebuggerThreadsTestsImpl:
-    """ Test cases which are common for dual and single core modes
+
+
+
+    def test_threads_backtraces(self):
+        """
+            This test switches between threads and checks that their backtraces are as expected:
+            1) Selects test number on target
+            2) Resumes app execution
+            3) Waits for tssks to go to their pre-defined place in the source code
+            4) Stops app execution
+            5) Switches between tasks and checks their backtraces
+        """
+        self.select_sub_test(400)
+        self.resume_exec()
+        time.sleep(5)
+        self.stop_exec()
+        test_tasks = {'1': [3, 0], '2': [7, 0], '3': [5, 0]}
+        threads_info = self.gdb.get_thread_info()
+        for ti in threads_info:
+            def _check_backtrace(suf, num):
+                if not ti['details'].startswith("check_bt_task%s" % suf):
+                    return 0
+                self.gdb.set_thread(int(ti['id'],0))
+                frames = self.gdb.get_backtrace()
+                self.assertEqual(len(frames), num+2) # task entry + vPortTaskWrapper
+                line_num = self.gdb.data_eval_expr('go_to_level_task%s_break_ln' % suf)
+                self.assertEqual(frames[0]['line'], line_num)
+                for i in range(num):
+                    self.assertEqual(frames[i]['func'], 'go_to_level_task%s' % suf)
+                self.assertEqual(frames[num]['func'], 'check_backtrace_task%s' % suf)
+                return 1
+            for suf in test_tasks:
+                test_tasks[suf][1] += _check_backtrace(suf, test_tasks[suf][0])
+        for suf in test_tasks:
+            self.assertEqual(test_tasks[suf][1], 1)
+
+
+    def test_thread_switch(self):
+        """ 
             This test switch a threads and check that expected thread id and current thread id are the same. 
             1) Read thread information about all threads to get full amount of threads
             2) Set up each thread as an active
             3) Compare that active thread id and expected thread id are the same
             4) Repeat test several times
-    """
-
-    def test_thread_switch(self):
-        self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+        """
         self.select_sub_test(401)
         self.add_bp('test_check_bp')
         
@@ -45,6 +80,7 @@ class DebuggerThreadsTestsImpl:
                     current_id = int(thread_ids['current-thread-id'],10);
                     self.assertTrue(current_id == expected_id)
         get_logger().debug('test 2: DebuggerThreadsTestsImpl done')
+
 
 
 ########################################################################

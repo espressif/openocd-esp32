@@ -422,6 +422,8 @@ int rtos_get_gdb_reg_list(struct connection *connection)
 			(target->smp))) {	/* in smp several current thread are possible */
 		char *hex_reg_list;
 
+		// registers for threads currently running on CPUs are not on task's stack and
+		// should retrieved from reg caches via target_get_gdb_reg_list, so return error here
 		for (size_t i = 0; i < target->type->get_cores_count(target); i++)	{
 			if (((int)current_threadid == target->rtos->core_running_threads[i])) {
 				return ERROR_FAIL;

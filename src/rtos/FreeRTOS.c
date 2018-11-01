@@ -772,5 +772,4 @@ static void FreeRTOS_set_current_thread(struct rtos *rtos, int32_t threadid)
 			return;
 		}
 	}
-	rtos->core_running_threads[target_get_active_core(rtos->target)] = threadid;
 }
