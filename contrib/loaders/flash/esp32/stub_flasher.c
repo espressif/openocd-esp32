@@ -611,7 +611,7 @@ static int stub_flash_get_app_mappings(uint32_t off, struct esp32_flash_mapping 
 static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr)
 {
     esp_rom_spiflash_result_t rc;
-    esp_partition_info_t parts[ESP32_STUB_PARTITION_TABLE_MAX_ENTRIES];
+    esp_partition_info_t part;
     struct esp32_flash_mapping *flash_map = (struct esp32_flash_mapping *)maps_addr;
     uint32_t flash_size = stub_flash_get_size();
 
@@ -621,34 +621,25 @@ static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr)
         return stub_flash_get_app_mappings(app_off, flash_map);
     }
 
-    rc = esp_rom_spiflash_read(ESP_PARTITION_TABLE_OFFSET, (uint32_t *)parts, sizeof(parts));
-    if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-        STUB_LOGE("Failed to read partitions table (%d)!\n", rc);
-        return ESP32_STUB_ERR_FAIL;
-    }
-    for (int i = 0; i < ESP32_STUB_PARTITION_TABLE_MAX_ENTRIES; i++) {
-        if (parts[i].magic == 0xFFFF && parts[i].type == PART_TYPE_END && parts[i].subtype == PART_SUBTYPE_END) {
-            STUB_LOGI("Found %d partitions\n", i);
-            break;
-        }
-        if (parts[i].magic != ESP_PARTITION_MAGIC) {
-            STUB_LOGE("Partition %d invalid magic number 0x%x!\n", i, parts[i].magic);
+    for(uint32_t i = 0;; i++) {
+        rc = esp_rom_spiflash_read(ESP_PARTITION_TABLE_OFFSET+i*sizeof(esp_partition_info_t), (uint32_t *)&part, sizeof(part));
+        if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
+            STUB_LOGE("Failed to read partitions table entrt (%d)!\n", rc);
             return ESP32_STUB_ERR_FAIL;
         }
-        const esp_partition_pos_t *pos = &parts[i].pos;
-        if (pos->offset > flash_size || pos->offset + pos->size > flash_size) {
+        if (part.magic != ESP_PARTITION_MAGIC) {
+            STUB_LOGI("No app partition found\n");
+            break;
+        }
+        if (part.pos.offset > flash_size || part.pos.offset + part.pos.size > flash_size) {
             STUB_LOGE("Partition %d invalid - offset 0x%x size 0x%x exceeds flash chip size 0x%x\n",
-                      i, pos->offset, pos->size, flash_size);
+                      i, part.pos.offset, part.pos.size, flash_size);
             return ESP32_STUB_ERR_FAIL;
         }
-        STUB_LOGD("Found partition %d, m 0x%x, t 0x%x, st 0x%x, l '%s'\n", i, parts[i].magic, parts[i].type, parts[i].subtype, parts[i].label);
-        if (parts[i].type == PART_TYPE_APP) {
-            STUB_LOGI("Found app partition: '%s' %d KB @ 0x%x\n", parts[i].label, pos->size / 1024, pos->offset);
-            int ret = stub_flash_get_app_mappings(pos->offset, flash_map);
-            if (ret != ESP32_STUB_ERR_OK) {
-                return ret;
-            }
-            break;
+        STUB_LOGD("Found partition %d, m 0x%x, t 0x%x, st 0x%x, l '%s'\n", i, part.magic, part.type, part.subtype, part.label);
+        if (part.type == PART_TYPE_APP) {
+            STUB_LOGI("Found app partition: '%s' %d KB @ 0x%x\n", part.label, part.pos.size / 1024, part.pos.offset);
+            return stub_flash_get_app_mappings(part.pos.offset, flash_map);
         }
     }
     return ESP32_STUB_ERR_OK;
