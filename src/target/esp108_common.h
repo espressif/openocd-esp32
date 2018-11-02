@@ -106,6 +106,7 @@ void esp108_queue_nexus_reg_read(struct target *target, const uint8_t reg, uint8
 void esp108_queue_pwrctl_set(struct target *target, uint8_t value);
 void esp108_queue_pwrstat_readclear(struct target *target, uint8_t *value);
 void esp108_queue_exec_ins(struct target *target, int32_t ins);
+void esp108_queue_idcode_read(struct target *target, uint8_t* value);
 uint32_t esp108_reg_get(struct reg *reg);
 void esp108_reg_set(struct reg *reg, uint32_t value);
 int esp108_do_checkdsr(struct target *target, const char *function, const int line);

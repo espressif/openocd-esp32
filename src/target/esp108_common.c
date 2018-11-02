@@ -124,6 +124,11 @@ void esp108_queue_nexus_reg_read(struct target *target, const uint8_t reg, uint8
 	esp108_add_dr_scan(target, TAPINS_NARSEL_DATALEN, dummy, value, TAP_IDLE);
 }
 
+void esp108_queue_idcode_read(struct target *target, uint8_t* value)
+{
+	esp108_queue_nexus_reg_read(target, NARADR_OCDID, value);
+}
+
 //Set the PWRCTL TAP register to a value
 void esp108_queue_pwrctl_set(struct target *target, uint8_t value)
 {
