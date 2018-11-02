@@ -69,7 +69,6 @@ enum FlashBootstrap {
 #define ESP108_COMMON_FIELDS	enum xtensa_state state;\
 	struct reg_cache *core_cache;\
 	struct target *target;\
-	uint8_t prevpwrstat;\
 	int resetAsserted;\
 	int traceActive;\
 	/* Number of breakpoints available */\
@@ -83,6 +82,7 @@ enum FlashBootstrap {
 struct esp108_common {
 	//	struct jtag_tap *tap;
 	ESP108_COMMON_FIELDS;
+	uint8_t prevpwrstat;
 };
 
 /* Only supported in cores with in-CPU MMU. None of Espressif chips as of now. */

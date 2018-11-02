@@ -1602,7 +1602,7 @@ static int xtensa_poll(struct target *target)
 			LOG_INFO("%s: Target offline", __func__);
 			target->state = TARGET_UNKNOWN;
 		}
-		esp32->prevpwrstat = 0;
+		memset(esp32->prevpwrstat, 0, sizeof(esp32->prevpwrstat));
 		esp32->core_poweron_mask = 0;
 		return ERROR_TARGET_FAILURE;
 	}
@@ -1611,16 +1611,23 @@ static int xtensa_poll(struct target *target)
 	if (cores_came_online != 0) {
 		LOG_DEBUG("%s: core_poweron_mask=%x", __func__, core_poweron_mask);
 	}
-	
-	if (!(esp32->prevpwrstat&PWRSTAT_DEBUGWASRESET) && pwrstat[ESP32_PRO_CPU_ID] & PWRSTAT_DEBUGWASRESET) {
-		LOG_INFO("%s: Debug controller was reset (pwrstat=0x%02X, after clear 0x%02X).", target->cmd_name, pwrstat[ESP32_PRO_CPU_ID], pwrstath[ESP32_PRO_CPU_ID]);
+
+	for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
+	{
+		if (!(esp32->prevpwrstat[i]&PWRSTAT_DEBUGWASRESET) && pwrstat[i] & PWRSTAT_DEBUGWASRESET) {
+			LOG_INFO("%s: Debug controller %d was reset (pwrstat=0x%02X, after clear 0x%02X).", target->cmd_name, (int)i, pwrstat[i], pwrstath[i]);
+			esp32->core_poweron_mask &= ~(1 << i);
+			//esp32->core_poweron_mask = 0;
+		}
+		if (!(esp32->prevpwrstat[i]&PWRSTAT_COREWASRESET) && pwrstat[i] & PWRSTAT_COREWASRESET) {
+			LOG_INFO("%s: Core %d was reset (pwrstat=0x%02X, after clear 0x%02X).", target->cmd_name, (int)i, pwrstat[i], pwrstath[i]);
+			if (esp32->cores_num > 0) {
+				esp32->cores_num = 0; // unknown
+				memset(&esp32->dbg_stubs, 0, sizeof(struct esp32_dbg_stubs));
+			}
+		}
+		esp32->prevpwrstat[i] = pwrstath[i];
 	}
-	if (!(esp32->prevpwrstat&PWRSTAT_COREWASRESET) && pwrstat[ESP32_PRO_CPU_ID] & PWRSTAT_COREWASRESET) {
-		LOG_INFO("%s: Core was reset (pwrstat=0x%02X, after clear 0x%02X).", target->cmd_name, pwrstat[ESP32_PRO_CPU_ID], pwrstath[ESP32_PRO_CPU_ID]);
-		esp32->cores_num = 0; // unknown
-		memset(&esp32->dbg_stubs, 0, sizeof(struct esp32_dbg_stubs));
-	}
-	esp32->prevpwrstat = pwrstath[ESP32_PRO_CPU_ID];
 
 	//Enable JTAG, set reset if needed
 	cmd=PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP;
