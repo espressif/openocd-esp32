@@ -963,7 +963,7 @@ static struct esp32_sw_breakpoint * esp32_add_sw_breakpoint(struct target *targe
 
 	int ret = target_read_buffer(target, breakpoint->address, 3, break_insn.d8);
 	if (ret != ERROR_OK) {
-		LOG_ERROR("%s: Faied to read insn (%d)!", target->cmd_name, ret);
+		LOG_ERROR("%s: Failed to read insn (%d)!", target->cmd_name, ret);
 		return NULL;
 	}
 	struct esp32_sw_breakpoint *sw_bp = malloc(sizeof(struct esp32_flash_sw_breakpoint));
@@ -979,7 +979,7 @@ static struct esp32_sw_breakpoint * esp32_add_sw_breakpoint(struct target *targe
 
 	ret = target_write_buffer(target, breakpoint->address, sw_bp->insn_sz, break_insn.d8);
 	if (ret != ERROR_OK) {
-		LOG_ERROR("%s: Faied to read insn (%d)!", target->cmd_name, ret);
+		LOG_ERROR("%s: Failed to read insn (%d)!", target->cmd_name, ret);
 		free(sw_bp);
 		return NULL;
 	}
@@ -991,7 +991,7 @@ static int esp32_remove_sw_breakpoint(struct target *target, struct esp32_sw_bre
 {
 	int ret = target_write_buffer(target, breakpoint->oocd_bp->address, breakpoint->insn_sz, breakpoint->insn);
 	if (ret != ERROR_OK) {
-		LOG_ERROR("%s: Faied to read insn (%d)!", target->cmd_name, ret);
+		LOG_ERROR("%s: Failed to read insn (%d)!", target->cmd_name, ret);
 		return ret;
 	}
 	free(breakpoint);
@@ -1014,7 +1014,7 @@ static int xtensa_add_breakpoint(struct target *target, struct breakpoint *break
 		}
 		esp32->sw_brps[slot] = esp32_add_sw_breakpoint(target, breakpoint);
 		if (esp32->sw_brps[slot] == NULL) {
-			LOG_ERROR("%s: Faied to add SW BP!", target->cmd_name);
+			LOG_ERROR("%s: Failed to add SW BP!", target->cmd_name);
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
 		LOG_DEBUG("%s: placed SW breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
@@ -1863,7 +1863,7 @@ static int esp32_stub_load(struct target *target, struct esp32_algo_image *algo_
 
 	if (algo_image) {
 		//TODO: add description of how to build proper ELF image to to be loaded to workspace
-		LOG_DEBUG("stub: base 0x%x, start 0x%x, %d sections", (unsigned)algo_image->image.base_address, algo_image->image.start_address, algo_image->image.num_sections);
+		LOG_DEBUG("stub: base 0x%x, start 0x%x, %d sections", algo_image->image.base_address_set ? (unsigned) algo_image->image.base_address : 0, algo_image->image.start_address, algo_image->image.num_sections);
 		stub->entry = algo_image->image.start_address;
 		for (int i = 0; i < algo_image->image.num_sections; i++) {
 			struct imagesection *section = &algo_image->image.sections[i];
@@ -2137,7 +2137,7 @@ static int esp32_algo_run(struct target *target, struct esp32_algo_image *image,
 			run->priv.stub.tramp_addr, 0,
 			&run->priv.stub.ainfo);
 	if (retval != ERROR_OK) {
-		LOG_ERROR("Faied to start algorithm (%d)!", retval);
+		LOG_ERROR("Failed to start algorithm (%d)!", retval);
 		goto _cleanup;
 	}
 
@@ -2157,7 +2157,7 @@ static int esp32_algo_run(struct target *target, struct esp32_algo_image *image,
 			0, run->tmo ? run->tmo : ESP32_ALGORITHM_EXIT_TMO,
 			&run->priv.stub.ainfo);
 	if (retval != ERROR_OK) {
-		LOG_ERROR("Faied to wait algorithm (%d)!", retval);
+		LOG_ERROR("Failed to wait algorithm (%d)!", retval);
 		// target has been forced to stop in target_wait_algorithm()
 	}
 #if ESP32_STUB_STACK_DEBUG
@@ -2283,7 +2283,7 @@ static int esp32_run_do(struct target *target, struct esp32_algo_run_data *run, 
 
 	int retval = run->algo_func(target, run, algo_arg);
 	if (retval != ERROR_OK) {
-		LOG_ERROR("Algorithm run faied (%d)!", retval);
+		LOG_ERROR("Algorithm run failed (%d)!", retval);
 	} else {
 		run->ret_code = buf_get_u32(run->priv.stub.reg_params[ESP32_STUB_ARGS_FUNC_START+0].value, 0, 32);
 		LOG_DEBUG("Got algorithm RC %x", run->ret_code);
