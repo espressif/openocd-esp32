@@ -36,7 +36,7 @@ static int rtos_freertos_esp108_stack_read_voluntary(struct target *target, int6
 static const struct stack_register_offset rtos_freertos_esp108_stack_offsets[] = {
 	{ 0x04, 32 },		/* PC */
 	{ 0x0c, 32 },		/* A0 */
-	{   -2, 32 },		/* A1 */ //0x10
+	{ 0x10, 32 },		/* A1 */
 	{ 0x14, 32 },		/* A2 */
 	{ 0x18, 32 },		/* A3 */
 	{ 0x1c, 32 },		/* A4 */
