@@ -140,6 +140,8 @@ static int xtensa_do_step(struct target *target,
 static int xtensa_poll(struct target *target);
 static int xtensa_assert_reset(struct target *target);
 static int xtensa_deassert_reset(struct target *target);
+static int xtensa_smpbreak_set(struct target *target);
+static int xtensa_smpbreak_set_core(struct target *target, int core);
 static int xtensa_read_memory(struct target *target,
 	uint32_t address,
 	uint32_t size,
@@ -850,22 +852,30 @@ static int xtensa_assert_reset(struct target *target)
 
 static int xtensa_smpbreak_set(struct target *target)
 {
+	int res = ERROR_OK;
+	for (int core = 0; core < ESP32_CPU_COUNT && res == ERROR_OK; core++)
+	{
+		res = xtensa_smpbreak_set_core(target, core);
+	}
+	return res;
+}
+
+static int xtensa_smpbreak_set_core(struct target *target, int core)
+{
 	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
 	int res;
 	uint32_t dsr_data = 0x00110000;
 	uint32_t set = 0, clear = 0;
-	set |= OCDDCR_BREAKINEN | OCDDCR_BREAKOUTEN | OCDDCR_RUNSTALLINEN;
+	set |= OCDDCR_BREAKINEN | OCDDCR_BREAKOUTEN | OCDDCR_RUNSTALLINEN | OCDDCR_ENABLEOCD;
 	clear = set ^ (OCDDCR_BREAKINEN | OCDDCR_BREAKOUTEN | OCDDCR_RUNSTALLINEN | OCDDCR_DEBUGMODEOUTEN);
 
-	for (int core = 0; core < ESP32_CPU_COUNT; core++)
-	{
-		esp108_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_DCRSET, set);
-		esp108_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_DCRCLR, clear);
-		esp108_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_DSR, dsr_data);
-		esp108_queue_tdi_idle(esp32->esp32_targets[core]);
-	}
+	esp108_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_DCRSET, set);
+	esp108_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_DCRCLR, clear);
+	esp108_queue_nexus_reg_write(esp32->esp32_targets[core], NARADR_DSR, dsr_data);
+	esp108_queue_tdi_idle(esp32->esp32_targets[core]);
 	res = jtag_execute_queue();
-	LOG_DEBUG("%s[%s] set smpbreak=%i, state=%i", __func__, target->cmd_name, set, target->state);
+
+	LOG_DEBUG("%s[%s] core %d, set smpbreak=%x, state=%i", __func__, target->cmd_name, core, set, target->state);
 	return res;
 }
 
@@ -1567,17 +1577,41 @@ static int xtensa_poll(struct target *target)
 	int res, cmd;
 	uint8_t traxstat[ESP32_CPU_COUNT][4] = {{0}}, traxctl[ESP32_CPU_COUNT][4] = {{0}};
 	unsigned int dsr[ESP32_CPU_COUNT] = {0};
+	uint32_t idcode[ESP32_CPU_COUNT] = {0};
 
 	//Read reset state
+	uint32_t core_poweron_mask = 0;
 	for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
 	{
+		esp108_queue_idcode_read(esp32->esp32_targets[i], (uint8_t*) &idcode[i]);
 		esp108_queue_pwrstat_readclear(esp32->esp32_targets[i], &pwrstat[i]);
 		//Read again, to see if the state holds...
 		esp108_queue_pwrstat_readclear(esp32->esp32_targets[i], &pwrstath[i]);
 		esp108_queue_tdi_idle(esp32->esp32_targets[i]);
 		res = jtag_execute_queue();
 		if (res != ERROR_OK) return res;
+		if (idcode[i] != 0xffffffff && idcode[i] != 0) {
+			core_poweron_mask |= (1 << i);
+		}
 	}
+
+	// Target might be held in reset by external signal.
+	// Sanity check target responses using idcode (checking CPU0 is sufficient).
+	if (core_poweron_mask == 0) {
+		if (target->state != TARGET_UNKNOWN) {
+			LOG_INFO("%s: Target offline", __func__);
+			target->state = TARGET_UNKNOWN;
+		}
+		esp32->prevpwrstat = 0;
+		esp32->core_poweron_mask = 0;
+		return ERROR_TARGET_FAILURE;
+	}
+	uint32_t cores_came_online = core_poweron_mask & (~esp32->core_poweron_mask);
+	esp32->core_poweron_mask = core_poweron_mask;
+	if (cores_came_online != 0) {
+		LOG_DEBUG("%s: core_poweron_mask=%x", __func__, core_poweron_mask);
+	}
+	
 	if (!(esp32->prevpwrstat&PWRSTAT_DEBUGWASRESET) && pwrstat[ESP32_PRO_CPU_ID] & PWRSTAT_DEBUGWASRESET) {
 		LOG_INFO("%s: Debug controller was reset (pwrstat=0x%02X, after clear 0x%02X).", target->cmd_name, pwrstat[ESP32_PRO_CPU_ID], pwrstath[ESP32_PRO_CPU_ID]);
 	}
@@ -1605,6 +1639,11 @@ static int xtensa_poll(struct target *target)
 
 	for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
 	{
+		if (cores_came_online & (1 << i)) {
+			LOG_DEBUG("%s: Core %d came online, setting up DCR", __func__, (int) i);
+			xtensa_smpbreak_set_core(target, i);
+		}
+
 		uint8_t dsr_buf[4] = {0};
 		esp108_queue_nexus_reg_write(esp32->esp32_targets[i], NARADR_DCRSET, OCDDCR_ENABLEOCD);
 		esp108_queue_nexus_reg_read(esp32->esp32_targets[i], NARADR_DSR, dsr_buf);

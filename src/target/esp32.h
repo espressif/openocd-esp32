@@ -114,6 +114,7 @@ struct esp32_common {
 	size_t                              active_cpu;
 	struct reg_cache *                  core_caches[ESP32_CPU_COUNT];
 	size_t                              cores_num;
+	uint32_t                            core_poweron_mask;
 	// TODO: Below are candidates to be moved to ESP108_COMMON_FIELDS
 	int64_t                             current_threadid;
 	enum esp32_isrmasking_mode          isrmasking_mode;
