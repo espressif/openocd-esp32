@@ -1736,6 +1736,38 @@ static int xtensa_poll(struct target *target)
 	return ERROR_OK;
 }
 
+int xtensa_esp32_examine(struct target *target)
+{
+	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
+	int res, cmd;
+	uint32_t idcode[ESP32_CPU_COUNT] = {0}, dsr[ESP32_CPU_COUNT] = {0};
+
+	cmd = PWRCTL_DEBUGWAKEUP | PWRCTL_MEMWAKEUP | PWRCTL_COREWAKEUP;
+	for (size_t i = 0; i < ESP32_CPU_COUNT; i++)
+	{
+		esp108_queue_pwrctl_set(esp32->esp32_targets[i], cmd);
+		esp108_queue_pwrctl_set(esp32->esp32_targets[i], cmd | PWRCTL_JTAGDEBUGUSE);
+		esp108_queue_nexus_reg_write(esp32->esp32_targets[i], NARADR_DCRSET, OCDDCR_ENABLEOCD);
+		esp108_queue_nexus_reg_read(esp32->esp32_targets[i], NARADR_DSR, (uint8_t*) &dsr[i]);
+		esp108_queue_idcode_read(esp32->esp32_targets[i], (uint8_t*) &idcode[i]);
+		esp108_queue_tdi_idle(esp32->esp32_targets[i]);
+		res = jtag_execute_queue();
+		if (res != ERROR_OK) {
+			return res;
+		}
+	}
+	if (idcode[0] == 0xffffffff || idcode[0] == 0) {
+		LOG_DEBUG("%s: Target idcode=%08x", __func__, idcode[0]);
+		return ERROR_TARGET_FAILURE;
+	}
+
+
+	if (!target_was_examined(target)) {
+		target_set_examined(target);
+	}
+	return ERROR_OK;
+}
+
 static int xtensa_arch_state(struct target *target)
 {
 	LOG_DEBUG("%s", __func__);
@@ -2913,7 +2945,7 @@ struct target_type esp32_target = {
 
 	.target_create = xtensa_target_create,
 	.init_target = xtensa_init_target,
-	.examine = xtensa_examine,
+	.examine = xtensa_esp32_examine,
 
 	.commands = esp32_command_handlers,
 
