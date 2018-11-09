@@ -254,6 +254,12 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 	int cores_count = target_get_core_count(rtos->target);
 	/* wipe out previous thread details if any */
 	rtos_free_threadlist(rtos);
+
+	if (rtos->core_running_threads == NULL) {
+		/* called during FreeRTOS_post_reset_cleanup */
+		return ERROR_OK;
+	}
+
 	retval = target_read_buffer(rtos->target,
 		rtos->symbols[FreeRTOS_VAL_pxCurrentTCB].address,
 		param->pointer_width * cores_count,
