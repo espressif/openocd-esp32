@@ -409,6 +409,7 @@ struct esp_apptrace_cmd_data {
 	uint32_t						poll_period;
 	uint32_t						sv_acc_time_delta;
 	int								sv_last_core_id;
+	int								sv_trace_running;
 	uint32_t						max_len;
 	uint32_t						skip_len;
 	bool							wait4halt;
@@ -1311,6 +1312,7 @@ static int esp_sysview_start(struct esp_apptrace_cmd_ctx *ctx)
 	uint8_t cmds[] = {SEGGER_SYSVIEW_COMMAND_ID_START};
 	uint32_t fired_target_num = 0;
 	struct esp108_apptrace_target_state target_state[ESP_APPTRACE_TARGETS_NUM_MAX];
+	struct esp_apptrace_cmd_data *cmd_data =(struct esp_apptrace_cmd_data *)ctx->cmd_priv;
 
 	// get current block id
 	int res = esp_apptrace_get_data_info(ctx, target_state, &fired_target_num);
@@ -1330,6 +1332,7 @@ static int esp_sysview_start(struct esp_apptrace_cmd_ctx *ctx)
 		LOG_ERROR("SEGGER: Failed to start tracing!");
 		return res;
 	}
+	cmd_data->sv_trace_running = 1;
 	return res;
 }
 
@@ -1337,9 +1340,9 @@ static int esp_sysview_stop(struct esp_apptrace_cmd_ctx *ctx)
 {
 	uint32_t old_block_id, fired_target_num = 0, empty_target_num = 0;
 	struct esp108_apptrace_target_state target_state[ESP_APPTRACE_TARGETS_NUM_MAX];
+	struct esp_apptrace_cmd_data *cmd_data =(struct esp_apptrace_cmd_data *)ctx->cmd_priv;
 	uint8_t cmds[] = {SEGGER_SYSVIEW_COMMAND_ID_STOP};
 	struct duration wait_time;
-	int last_blocks_num = 0;
 
 	struct esp_apptrace_block *block = esp_apptrace_free_block_get(ctx);
 	if (!block) {
@@ -1358,8 +1361,6 @@ static int esp_sysview_stop(struct esp_apptrace_cmd_ctx *ctx)
 	// in this case block_ids on both CPUs are equal, so the first one will be selected
 	for (int k = 0; k < ctx->cores_num; k++) {
 		if (target_state[k].data_len) {
-			// data_len = target_state[k].data_len;
-			// block_id = target_state[k].block_id;
 			fired_target_num = k;
 			break;
 		}
@@ -1400,20 +1401,19 @@ static int esp_sysview_stop(struct esp_apptrace_cmd_ctx *ctx)
 	}
 	// resume targets to allow command processing
 	LOG_INFO("Resume targets");
-	for (int k = 0; k < ctx->cores_num; k++) {
-		if (!ctx->esp32_target) {
-			res = target_resume(ctx->cpus[k], 1, 0, 1, 0);
-			if (res != ERROR_OK) {
-				LOG_ERROR("SEGGER: Failed to resume target '%s' (%d)!", target_name(ctx->cpus[k]), res);
-				return res;
-			}
-		}
-	}
 	if (ctx->esp32_target) {
 		res = target_resume(ctx->esp32_target, 1, 0, 1, 0);
 		if (res != ERROR_OK) {
 			LOG_ERROR("SEGGER: Failed to resume target '%s' (%d)!", target_name(ctx->esp32_target), res);
 			return res;
+		}
+	} else {
+		for (int k = 0; k < ctx->cores_num; k++) {
+			res = target_resume(ctx->cpus[k], 1, 0, 1, 0);
+			if (res != ERROR_OK) {
+				LOG_ERROR("SEGGER: Failed to resume target '%s' (%d)!", target_name(ctx->cpus[k]), res);
+				return res;
+			}
 		}
 	}
 	// wait for block switch (command sent), so we can disconnect from targets
@@ -1423,8 +1423,8 @@ static int esp_sysview_stop(struct esp_apptrace_cmd_ctx *ctx)
 		return ERROR_FAIL;
 	}
 	// we are waiting for the last data from TRAX block and also there can be data in the pended data buffer
-	// so we are expectign two TRX block switches at most or stopping due to timeout
-	while (last_blocks_num < 2) {
+	// so we are expecting two TRX block switches at most or stopping due to timeout
+	while (cmd_data->sv_trace_running) {
 		res = esp_apptrace_get_data_info(ctx, target_state, &fired_target_num);
 		if (res != ERROR_OK) {
 			LOG_ERROR("SEGGER: Failed to read targets data info!");
@@ -1463,14 +1463,13 @@ static int esp_sysview_stop(struct esp_apptrace_cmd_ctx *ctx)
 					}
 				}
 				old_block_id = target_state[fired_target_num].block_id;
-				last_blocks_num++;
 			}
 		}
 		if (duration_measure(&wait_time) != 0) {
 			LOG_ERROR("Failed to start trace stop timeout measurement!");
 			return ERROR_FAIL;
 		}
-		if (duration_elapsed(&wait_time) >= 0.1) {
+		if (duration_elapsed(&wait_time) >= 0.5) {
 			LOG_INFO("Stop waiting for the last data due to timeout.");
 			break;
 		}
@@ -1844,6 +1843,9 @@ static int esp_sysview_process_data(struct esp_apptrace_cmd_ctx *ctx, int core_i
 				default:
 					break;
 			}
+		}
+		if (event_id == SYSVIEW_EVTID_TRACE_STOP) {
+			cmd_data->sv_trace_running = 0;
 		}
 		ctx->tot_len += pkt_len;
 		processed += pkt_len;
