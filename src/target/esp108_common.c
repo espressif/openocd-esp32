@@ -141,7 +141,7 @@ void esp108_queue_pwrstat_readclear(struct target *target, uint8_t *value)
 {
 	const uint8_t pwrstatClr = PWRSTAT_DEBUGWASRESET | PWRSTAT_COREWASRESET;
 	esp108_add_set_ir(target, TAPINS_PWRSTAT);
-	esp108_add_dr_scan(target, TAPINS_PWRCTL_LEN, &pwrstatClr, value, TAP_IDLE);
+	esp108_add_dr_scan(target, TAPINS_PWRSTAT_LEN, &pwrstatClr, value, TAP_IDLE);
 }
 
 void esp108_queue_exec_ins(struct target *target, int32_t ins)
