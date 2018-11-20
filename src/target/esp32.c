@@ -1904,11 +1904,13 @@ static int esp32_dbgstubs_restore(struct target *target)
 {
 	struct esp32_common *esp32 = (struct esp32_common *)target->arch_info;
 
-	LOG_INFO("Restore debug stubs @ %x on core%u of target '%s'", esp32->dbg_stubs.base, (uint32_t)esp32->active_cpu, target_type_name(target));
-	int res = esp108_apptrace_write_status(esp32->esp32_targets[esp32->active_cpu], esp32->dbg_stubs.base);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write trace status (%d)!", res);
-		return res;
+	if (esp32->dbg_stubs.base != 0) {
+		LOG_INFO("Restore debug stubs @ %x on core%u of target '%s'", esp32->dbg_stubs.base, (uint32_t)esp32->active_cpu, target_type_name(target));
+		int res = esp108_apptrace_write_status(esp32->esp32_targets[esp32->active_cpu], esp32->dbg_stubs.base);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to write trace status (%d)!", res);
+			return res;
+		}
 	}
 	return ERROR_OK;
 }
