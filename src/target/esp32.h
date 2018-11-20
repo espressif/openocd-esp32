@@ -24,7 +24,7 @@
 #include <target/image.h>
 #include "esp108_common.h"
 
-#define ESP32_CPU_COUNT		2
+#define ESP32_CPU_COUNT_MAX		2
 #define ESP32_PRO_CPU_ID	0
 #define ESP32_APP_CPU_ID	1
 
@@ -110,11 +110,12 @@ struct esp32_common {
 	// Common fields definition for all esp108 targets
 	ESP108_COMMON_FIELDS;
 
-	uint8_t                             prevpwrstat[ESP32_CPU_COUNT];
-	struct target*                      esp32_targets[ESP32_CPU_COUNT];
+	uint8_t                             prevpwrstat[ESP32_CPU_COUNT_MAX];
+	struct target*                      esp32_targets[ESP32_CPU_COUNT_MAX];
 	size_t                              active_cpu;
-	struct reg_cache *                  core_caches[ESP32_CPU_COUNT];
-	size_t                              cores_num;
+	struct reg_cache *                  core_caches[ESP32_CPU_COUNT_MAX];
+	uint8_t                             cores_num;
+	uint8_t                             configured_cores_num;
 	uint32_t                            core_poweron_mask;
 	// TODO: Below are candidates to be moved to ESP108_COMMON_FIELDS
 	int64_t                             current_threadid;
