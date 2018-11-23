@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os, sys
+import re
 import logging
 import argparse
 import unittest
@@ -58,15 +59,54 @@ def main():
     # start debugger, ideally we should run all tests w/o restarting it
     debug_backend.start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'])
     debug_backend_tests.test_apps_dir = args.apps_dir
+    # loads tests using pattern <module>[.<test_case>[.<test_method>]] with wildcards (*) in <module> and <test_case> parts
+    def load_tests_by_pattern(search_dir, pattern):
+        if pattern.find('*') == -1:
+            return loader.loadTestsFromName(pattern)
+        parts = pattern.split('.')
+        if len(parts) == 1:
+            # '*' or 'te*' or test_*' etc
+            return loader.discover(search_dir, '%s.py' % parts[0])
+        if parts[0].find('*') == -1:
+            # if module part w/o wildcard
+            # 'xxx.??*'
+            mod_tests = loader.loadTestsFromName(parts[0])
+        else:
+            # if module part has wildcard
+            # 'xx*.???'
+            mod_tests = loader.discover(search_dir, '%s.py' % parts[0])
+        if parts[1].find('*') != -1:
+            case_name_pattern = '^%s$' % parts[1].replace('*', '.*')
+        else:
+            case_name_pattern = '^%s$' % parts[1]
+        suite = debug_backend_tests.DebuggerTestsBunch()
+        # look for concrete matched test cases
+        for test in mod_tests:
+            if not issubclass(type(test), debug_backend_tests.DebuggerTestsBase):
+                continue
+            if re.match(case_name_pattern, test.__class__.__name__):
+                if len(parts) == 2 or parts[2] == '*':
+                    suite.addTest(test)
+                elif hasattr(test, parts[2]):
+                    test_method = getattr(test, parts[2])
+                    test1 = type(test)(test_method.__name__)
+                    suite.addTest(debug_backend_tests.DebuggerTestsBunch([test1]))
+        return suite
+
     # run tests from the same directory this file is
     loader = unittest.TestLoader()
     loader.suiteClass = debug_backend_tests.DebuggerTestsBunch
-    if isinstance(args.pattern, list):
-        suite = loader.loadTestsFromNames(args.pattern)
-    elif args.pattern != '*':
-        suite = loader.loadTestsFromName(args.pattern)
+    if not isinstance(args.pattern, list):
+        tests_patterns = [args.pattern, ]
     else:
-        suite = loader.discover(os.path.dirname(__file__))
+        tests_patterns = args.pattern
+    suite = None
+    for pattern in tests_patterns:
+        pattern_suite = load_tests_by_pattern(os.path.dirname(__file__), pattern)
+        if suite:
+            suite.addTest(pattern_suite)
+        else:
+            suite = pattern_suite
     # setup loggers in test modules
     for m in suite.modules:
         setup_logger(suite.modules[m].get_logger(), ch, fh)
@@ -113,7 +153,8 @@ if __name__ == '__main__':
                         help='Path to test apps',
                         default=os.environ.get('OOCD_TEST_APPS_DIR', os.path.join(os.getcwd(), 'testing', 'esp', 'test_apps')))
     parser.add_argument('--pattern', '-p', nargs='*',
-                        help='Pattern of test cases to run. Format: <module>[.<test_case>[.<test_method>]]. User can specify several strings separated by space.',
+                        help="""Pattern of test cases to run. Format: <module>[.<test_case>[.<test_method>]].
+                                User can specify several strings separated by space. Wildcards (*) are supported in <module> and <test_case> parts""",
                         default='*')
     parser.add_argument('--no-load', '-n',
                         help='Do not load test app binaries', 
