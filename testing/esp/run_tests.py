@@ -34,7 +34,10 @@ def main():
     ch.setLevel(logging.WARNING)
     fh = None
     if args.log_file:
-        fh = logging.FileHandler(args.log_file, 'w')
+        if args.log_file == 'stdout':
+            fh = ch
+        else:
+            fh = logging.FileHandler(args.log_file, 'w')
         fh.setFormatter(log_formatter)
         if args.debug == 0:
             fh.setLevel(logging.CRITICAL)
@@ -169,7 +172,7 @@ if __name__ == '__main__':
                         help='Debug level (0-4)', 
                         type=int, default=2)
     parser.add_argument('--log-file', '-l',
-                        help='Path to log file')
+                        help='Path to log file. Use "stdout" to log to console.')
     args = parser.parse_args()
     if len(args.stats_file) > 0:
         if args.stats_file == 'stdout':
