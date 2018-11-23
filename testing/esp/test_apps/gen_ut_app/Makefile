@@ -4,6 +4,7 @@
 #
 
 PROJECT_NAME := gen_ut_app
+PROJECT_VER := test_ver
 
 ifeq ($(MAKELEVEL),0)
 # Set default target

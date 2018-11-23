@@ -346,6 +346,33 @@ run_autotests_armel:
     - ./run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/test_apps -d 4 -l ./debug_backend_tests.log
     - popd
 
+run_autotests_linux64_solo:
+  stage: test
+  image: $CI_DOCKER_REGISTRY/esp32-ci-env
+  tags:
+    - test_jtag_solo
+  artifacts:
+    paths:
+      - testing/esp/debug_backend_tests.log
+    when: always
+    expire_in: 1 week
+  dependencies:
+    - build_test_app
+    - build_linux
+  variables:
+    PLATFORM_NAME: "linux64"
+  script:
+    # Run tests
+    - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
+    - mkdir -p tmp
+    - tar -C tmp/ -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
+    - export DIST_DIR=${PWD}/tmp/${DIST_INSTALLED_DIR}
+    - pushd testing/esp
+    - mkdir -p test_apps/gen_ut_app/builds/gcov_dual/main
+    - mkdir -p test_apps/gen_ut_app/builds/gcov_single/main
+    - ./run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/test_apps -b esp32_solo-devkitj -p 'test_*.*Single' -d 4 -l ./debug_backend_tests.log
+    - popd
+
 style_check:
   stage: test
   image: $CI_DOCKER_REGISTRY/esp32-toolchain

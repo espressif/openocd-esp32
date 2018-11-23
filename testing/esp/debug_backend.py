@@ -14,15 +14,18 @@ toolchain = 'none'
 _oocd_inst   = None
 _gdb_inst    = None
 
-def start(toolch, oocd_path, oocd_tcl_dir, oocd_cfg_files):
+def start(toolch, oocd_path, oocd_tcl_dir, oocd_cfg_files, oocd_cfg_cmds=[]):
     global _oocd_inst
     global _gdb_inst
     global toolchain
     toolchain = toolch
-    oocd_args = ['-s', oocd_tcl_dir]
+    oocd_args = []
+    for c in oocd_cfg_cmds:
+        oocd_args += ['-c', '%s' % c]
+    oocd_args += ['-s', oocd_tcl_dir]
     for f in oocd_cfg_files:
         oocd_args += ['-f', f]
-    # oocd_args += ['-d', '3']
+    #oocd_args += ['-d', '3']
     _oocd_inst = Oocd(oocd_path, oocd_args)
     _oocd_inst.start()
     try:
@@ -62,7 +65,7 @@ class Oocd(threading.Thread):
     def __init__(self, oocd_path = 'openocd', oocd_args=[]):
         super(Oocd, self).__init__()
         self._logger = self.get_logger()
-        self._logger.debug('Start OpenOCD')
+        self._logger.debug('Start OpenOCD: {%s}', oocd_args)
         self._oocd_proc = subprocess.Popen(
                 bufsize = 0, args = [oocd_path] + oocd_args,
                 stdin = None, stdout = subprocess.PIPE, stderr = subprocess.STDOUT
@@ -75,6 +78,7 @@ class Oocd(threading.Thread):
         except Exception as e:
             self._logger.error('Failed to open telnet connection!')
             self._oocd_proc.send_signal(signal.SIGINT)
+            self._logger.error('\n========== OOCD OUTPUT START ========\n%s=========== OOCD OUTPUT END =========', self._oocd_proc.stdout.read())
             raise e
 
     def run(self):

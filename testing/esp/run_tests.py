@@ -9,11 +9,21 @@ import cProfile, pstats
 import debug_backend, debug_backend_tests
 
 
-BOARD_TCL_FILES = {
-'esp-wrover-kit' : [
-        os.path.join('interface', 'ftdi', 'esp32_devkitj_v1.cfg'),
-        os.path.join('board', 'esp-wroom-32.cfg')
-    ]
+BOARD_TCL_CONFIG = {
+    'esp-wrover-kit' :  {
+        'files' : [
+            os.path.join('interface', 'ftdi', 'esp32_devkitj_v1.cfg'),
+            os.path.join('board', 'esp-wroom-32.cfg')
+        ],
+        'commands' : []
+    },
+    'esp32_solo-devkitj' :  {
+        'files' : [
+            os.path.join('interface', 'ftdi', 'esp32_devkitj_v1.cfg'),
+            os.path.join('board', 'esp32-solo-1.cfg')
+        ],
+        'commands' : []
+    }
 }
 
 def main():
@@ -44,8 +54,9 @@ def main():
     setup_logger(debug_backend.Oocd.get_logger(), ch, fh)
     setup_logger(debug_backend.Gdb.get_logger(), ch, fh)
     setup_logger(debug_backend_tests.get_logger(), ch, fh)
+    board_tcl = BOARD_TCL_CONFIG[args.board_type]
     # start debugger, ideally we should run all tests w/o restarting it
-    debug_backend.start(args.toolchain, args.oocd, args.oocd_tcl, BOARD_TCL_FILES[args.board_type])
+    debug_backend.start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'])
     debug_backend_tests.test_apps_dir = args.apps_dir
     # run tests from the same directory this file is
     loader = unittest.TestLoader()
@@ -68,7 +79,7 @@ def main():
             print '==========================================='
             # restart debugger
             debug_backend.stop()
-            debug_backend.start(args.toolchain, args.oocd, args.oocd_tcl, BOARD_TCL_FILES[args.board_type])
+            debug_backend.start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'])
             err_suite = debug_backend_tests.DebuggerTestsBunch()
             for e in res.errors:
                 err_suite.addTest(e[0])
@@ -96,7 +107,7 @@ if __name__ == '__main__':
                         default=os.environ.get('OOCD_TEST_TCL_DIR', os.path.join(os.getcwd(), 'tcl')))
     parser.add_argument('--board-type', '-b',
                         help='Type of the board to run tests on',
-                        choices=['esp-wrover-kit'],
+                        choices=['esp-wrover-kit', 'esp32_solo-devkitj'],
                         default=os.environ.get('OOCD_TEST_BOARD', 'esp-wrover-kit'))
     parser.add_argument('--apps-dir', '-a',
                         help='Path to test apps',
