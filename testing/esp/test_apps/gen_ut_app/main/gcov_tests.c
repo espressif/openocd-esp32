@@ -2,13 +2,14 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
-#include "esp_app_trace.h"
 #include "sdkconfig.h"
+#include "gen_ut_app.h"
+#include "esp_app_trace.h"
 
 #define BLINK_GPIO CONFIG_BLINK_GPIO
 
-
 #if CONFIG_ESP32_GCOV_ENABLE
+
 void gcov_dummy_func(void);
 
 void gcov_task(void *pvParameter)
@@ -40,4 +41,22 @@ void gcov_task(void *pvParameter)
         }
     }
 }
-#endif
+
+#endif //CONFIG_ESP32_GCOV_ENABLE
+
+ut_result_t gcov_test_do(int test_num)
+{
+    switch (test_num) {
+#if CONFIG_ESP32_GCOV_ENABLE
+        case 300:
+            xTaskCreate(&gcov_task, "gcov_task", 2048, (void *)true, 5, NULL);
+            break;
+        case 301:
+            xTaskCreate(&gcov_task, "gcov_task", 2048, (void *)false, 5, NULL);
+            break;
+#endif //CONFIG_ESP32_GCOV_ENABLE
+        default:
+            return UT_UNSUPPORTED;
+    }
+    return UT_OK;
+}

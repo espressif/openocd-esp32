@@ -67,7 +67,7 @@ class GcovDataFile:
             else:
                 raise GcovDataError('Unknown tag in line "%s"' % ln)
         f.close()
-    
+
     def __eq__(self, other):
         for fname in self.data:
             if fname not in other.data:
@@ -104,18 +104,20 @@ class GcovTestsImpl:
     """ Test cases which are common for dual and single core modes
 
         NOTE: GCOV tests use reference '*.gcov' files which are located in the test app source dir.
-        Every test source file have corresponding '*.gcda.gcov' file which is compared against gcov data 
-        received from the target during tests. If code in any test C file is changed the corresponding 
+        Every test source file have corresponding '*.gcda.gcov' file which is compared against gcov data
+        received from the target during tests. If code in any test C file is changed the corresponding
         reference gcov file is also to be regenerated with the following commands:
         1) Build unit test app with updated sources.
         2) Run it on target and collect GCOV data (*.gcda) using OpenOCD.
-        3) Generate new ref gcov file 'xtensa-esp32-elf-gcov -i <path_to_gcda_file>'
+        3) Generate new ref gcov file 'xtensa-esp32-elf-gcov -ib <path_to_gcda_file>'
         4) Replace old ref file with the new one.
     """
-    CONST_LINES_START = [14, None]
-    CONST_LINES_END = [25, None]
-    DYN_LINES_START = [26, 6]
-    DYN_LINES_END = [38, 9]
+    # lines numbers range which execution count does not change during test: for 'main/gcov_tests.c' and 'main/helper_funcs.gcda'
+    CONST_LINES_START = [15, None]
+    CONST_LINES_END = [26, None]
+    # lines numbers range which execution count changes during test: for 'main/gcov_tests.c' and 'main/helper_funcs.gcda'
+    DYN_LINES_START = [28, 6]
+    DYN_LINES_END = [39, 10]
 
     def setUp(self):
         self.gcov_files = []
@@ -131,7 +133,7 @@ class GcovTestsImpl:
             'd_lines' : ref_data.get_lines_coverage(src_path, self.DYN_LINES_START[0], self.DYN_LINES_END[0])
             })
         src_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main/helper_funcs.c')
-        ref_data = GcovDataFile(os.path.join(self.test_app_cfg.build_src_dir(), 'main/helper_funcs.gcda.gcov'))        
+        ref_data = GcovDataFile(os.path.join(self.test_app_cfg.build_src_dir(), 'main/helper_funcs.gcda.gcov'))
         self.gcov_files.append({
             'src_path' : src_path,
             'data_path' : os.path.join(self.test_app_cfg.build_obj_dir(), 'main/helper_funcs.gcda'),
@@ -148,7 +150,7 @@ class GcovTestsImpl:
 
     def test_simple_gdb(self):
         """
-            This test checks that GCOV data can be dumped by means of GDB 
+            This test checks that GCOV data can be dumped by means of GDB
             from the target app which uses pre-compiled code calling 'esp_gcov_dump()' for data transfer.
             1) Select appropriate sub-test number on target.
             2) Set breakpoint at 'esp_gcov_dump()'.
@@ -201,7 +203,7 @@ class GcovTestsImpl:
 
     def test_simple_oocd(self):
         """
-            This test checks that GCOV data can be dumped by means of OpenOCD 
+            This test checks that GCOV data can be dumped by means of OpenOCD
             from the target app which uses pre-compiled code calling 'esp_gcov_dump()' for data transfer.
             1) Select appropriate sub-test number on target.
             3) Resume target.
@@ -226,7 +228,7 @@ class GcovTestsImpl:
 
     def test_on_the_fly_gdb(self):
         """
-            This test checks that GCOV data can be dumped by means of GDB 
+            This test checks that GCOV data can be dumped by means of GDB
             from the target app which does not use 'esp_gcov_dump()' for data transfer.
             1) Select appropriate sub-test number on target.
             3) Resume target.
@@ -248,7 +250,7 @@ class GcovTestsImpl:
 
     def test_on_the_fly_oocd(self):
         """
-            This test checks that GCOV data can be dumped by means of OpenOCD 
+            This test checks that GCOV data can be dumped by means of OpenOCD
             from the target app which does not use 'esp_gcov_dump()' for data transfer.
             1) Select appropriate sub-test number on target.
             3) Resume target.

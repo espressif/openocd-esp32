@@ -315,6 +315,14 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         self.gdb.data_eval_expr('%s=%d' % (self.test_app_cfg.test_select_var, sub_test_num))
 
 
+    def run_to_bp(self, exp_rsn, func_name):
+        self.resume_exec()
+        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+        self.assertEqual(rsn, exp_rsn)
+        cur_frame = self.gdb.get_current_frame()
+        self.assertEqual(cur_frame['func'], func_name)
+        return cur_frame
+
 class DebuggerGenericTestAppTests(DebuggerTestAppTests):
     """ Base class to run tests which use generic test app
     """

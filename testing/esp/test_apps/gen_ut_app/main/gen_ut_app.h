@@ -30,4 +30,15 @@ volatile static int s_tmp_ln = 0;
 
 #define LABEL_SYMBOL(name) __asm__ volatile(".global " name "\n.type " name ",@function\n" name":");
 
+typedef enum {
+	UT_OK,
+	UT_FAIL,
+	UT_UNSUPPORTED
+} ut_result_t;
+
+typedef ut_result_t (*test_func_t)(int test_num);
+
+void test_timer_init(int timer_group, int timer_idx, uint32_t period);
+void test_timer_rearm(int timer_group, int timer_idx);
+
 #endif //GEN_UT_APP_H

@@ -20,11 +20,7 @@ class PoiTestsImpl:
 
 
     def run_to_bp_and_check_basic(self, exp_rsn, func_name):
-        self.resume_exec()
-        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
-        self.assertEqual(rsn, exp_rsn)
-        cur_frame = self.gdb.get_current_frame()
-        self.assertEqual(cur_frame['func'], func_name)
+        cur_frame = self.run_to_bp(exp_rsn, func_name)
         frames = self.gdb.get_backtrace()
         self.assertTrue(len(frames) > 0)
         self.assertEqual(frames[0]['func'], cur_frame['func'])
