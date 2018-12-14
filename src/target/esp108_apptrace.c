@@ -2113,7 +2113,7 @@ int esp_cmd_apptrace_generic(struct target *target, int mode, const char **argv,
 				return res;
 			}
 		}
-		res = esp_apptrace_connect_targets(&s_at_cmd_ctx, true, true);
+		res = esp_apptrace_connect_targets(&s_at_cmd_ctx, true, old_state == TARGET_RUNNING);
 		if (res != ERROR_OK) {
 			LOG_ERROR("Failed to connect to targets (%d)!", res);
 			s_at_cmd_ctx.running = 0;
@@ -2207,7 +2207,7 @@ int esp_cmd_apptrace_generic(struct target *target, int mode, const char **argv,
 				LOG_ERROR("SEGGER: Failed to stop tracing!");
 			}
 		}
-		res = esp_apptrace_connect_targets(&s_at_cmd_ctx, false, true);
+		res = esp_apptrace_connect_targets(&s_at_cmd_ctx, false, old_state == TARGET_RUNNING);
 		if (res != ERROR_OK) {
 			LOG_ERROR("Failed to disconnect targets (%d)!", res);
 		}
@@ -2246,15 +2246,15 @@ int esp_cmd_apptrace_generic(struct target *target, int mode, const char **argv,
 			/* let registered timer callbacks to run */
 			target_call_timer_callbacks();
 		}
-	if (s_at_cmd_ctx.running) {
-	  // data processor is alive, so wait for all received blocks to be processed
-	  res = esp_apptrace_wait_pended_blocks(&s_at_cmd_ctx);
-	  if (res != ERROR_OK) {
-		LOG_ERROR("Failed to wait for pended blocks (%d)!", res);
-	  }
-	  // signal thread to stop
-	  s_at_cmd_ctx.running = 0;
-	}
+		if (s_at_cmd_ctx.running) {
+			// data processor is alive, so wait for all received blocks to be processed
+			res = esp_apptrace_wait_pended_blocks(&s_at_cmd_ctx);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to wait for pended blocks (%d)!", res);
+			}
+			// signal thread to stop
+			s_at_cmd_ctx.running = 0;
+		}
 		esp_apptrace_print_stats(&s_at_cmd_ctx);
 		res = esp_apptrace_cmd_cleanup(&s_at_cmd_ctx);
 		if (res != ERROR_OK) {
