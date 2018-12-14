@@ -60,19 +60,29 @@ static void semihost_task(void *pvParameter)
     }
 }
 
-void do_semihost_test(void)
+ut_result_t semihost_test_do(int test_num);
 {
-    esp_err_t ret = esp_vfs_semihost_register("/host", NULL);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to register semihost driver (%s)!", esp_err_to_name(ret));
-        return;
+    switch (test_num) {
+        case 700:
+        {
+            esp_err_t ret = esp_vfs_semihost_register("/host", NULL);
+            if (ret != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to register semihost driver (%s)!", esp_err_to_name(ret));
+                return UT_FAIL;
+            }
+            xTaskCreatePinnedToCore(&semihost_task, "semihost_task0", 2048, xTaskGetCurrentTaskHandle(), 5, NULL, 0);
+            for (int i = 0; i < portNUM_PROCESSORS; i++) {
+                ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+            }
+            ret = esp_vfs_semihost_unregister("/host");
+            if (ret != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to unregister semihost driver (%s)!", esp_err_to_name(ret));
+                return UT_FAIL;
+            }
+            break;
+        }
+        default:
+            return UT_UNSUPPORTED;
     }
-    xTaskCreatePinnedToCore(&semihost_task, "semihost_task0", 2048, xTaskGetCurrentTaskHandle(), 5, NULL, 0);
-    for (int i = 0; i < portNUM_PROCESSORS; i++) {
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    }
-    ret = esp_vfs_semihost_unregister("/host");
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to unregister semihost driver (%s)!", esp_err_to_name(ret));
-    }
+    return UT_OK;
 }
