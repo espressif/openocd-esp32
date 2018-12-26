@@ -224,6 +224,7 @@
 #define ESP_APPTRACE_BLOCK_ID_MSK		   0x7FUL
 #define ESP_APPTRACE_BLOCK_ID(_id_)		   (((_id_) & ESP_APPTRACE_BLOCK_ID_MSK) << 15)
 #define ESP_APPTRACE_BLOCK_ID_GET(_v_)	   (((_v_) >> 15) & ESP_APPTRACE_BLOCK_ID_MSK)
+#define ESP_APPTRACE_BLOCK_ID_MAX		   ESP_APPTRACE_BLOCK_ID_MSK
 #define ESP_APPTRACE_HOST_DATA			   (1 << 22)
 #define ESP_APPTRACE_HOST_CONNECT		   (1 << 23)
 
@@ -388,6 +389,7 @@ struct esp_apptrace_cmd_ctx {
 	struct target *					esp32_target;
 	struct target *					cpus[ESP_APPTRACE_TARGETS_NUM_MAX];
 	int								cores_num;
+	uint32_t						last_blk_id;
 	pthread_mutex_t					trax_blocks_mux;
 	struct hlist_head				free_trax_blocks;
 	struct hlist_head				ready_trax_blocks;
@@ -1054,6 +1056,7 @@ static int esp_apptrace_cmd_cleanup(struct esp_apptrace_cmd_ctx *cmd_ctx)
 	esp_apptrace_dest_cleanup(cmd_data->data_dests, cmd_ctx->cores_num);
 	free(cmd_data);
 	esp_apptrace_cmd_ctx_cleanup(cmd_ctx);
+	memset(cmd_ctx, 0, sizeof(*cmd_ctx));
 	return ERROR_OK;
 }
 
@@ -1941,6 +1944,28 @@ static int esp_apptrace_poll(void *priv)
 		return res;
 	}
 	if (fired_target_num == (uint32_t)-1) {
+		// no data has been received, but block could be switched due to the data transfered from host to target
+		if (ctx->cores_num > 1) {
+			uint32_t max_block_id = 0;
+			for (int i = 0; i < ctx->cores_num; i++) {
+				if (max_block_id < target_state[i].block_id) {
+					max_block_id = target_state[i].block_id;
+				}
+			}
+			for (int i = 0; i < ctx->cores_num; i++) {
+				if (max_block_id != target_state[i].block_id) {
+					LOG_DEBUG("Ack empty block %d on target (%s)!", max_block_id, target_name(ctx->cpus[i]));
+					res = esp108_apptrace_write_ctrl_reg(ctx->cpus[i], max_block_id,
+														 0/*all read*/, 1/*host connected*/, 0/*no host data*/);
+					if (res != ERROR_OK) {
+						ctx->running = 0;
+						LOG_ERROR("Failed to ack empty data block on (%s)!", target_name(ctx->cpus[i]));
+						return res;
+					}
+				}
+			}
+			ctx->last_blk_id = max_block_id;
+		}
 		if (ctx->stop_tmo != -1.0) {
 			if (duration_measure(&ctx->idle_time) != 0) {
 				ctx->running = 0;
@@ -1990,6 +2015,7 @@ static int esp_apptrace_poll(void *priv)
 		LOG_ERROR("Failed to read data on (%s)!", target_name(ctx->cpus[fired_target_num]));
 		return res;
 	}
+	ctx->last_blk_id = target_state[fired_target_num].block_id;
 #if ESP_APPTRACE_TIME_STATS_ENABLE
 	if (duration_measure(&blk_proc_time) != 0) {
 		ctx->running = 0;
@@ -2010,14 +2036,14 @@ static int esp_apptrace_poll(void *priv)
 	}
 #endif
 	if (ctx->cores_num > 1) {
-		res = esp108_apptrace_write_ctrl_reg(ctx->cpus[fired_target_num ? 0 : 1], target_state[fired_target_num].block_id,
+		res = esp108_apptrace_write_ctrl_reg(ctx->cpus[fired_target_num ? 0 : 1], ctx->last_blk_id,
 											 0/*all read*/, 1/*host connected*/, 0/*no host data*/);
 		if (res != ERROR_OK) {
 			ctx->running = 0;
 			LOG_ERROR("Failed to ack data on (%s)!", target_name(ctx->cpus[fired_target_num ? 0 : 1]));
 			return res;
 		}
-		LOG_DEBUG("Ack block %d target (%s)!", target_state[fired_target_num].block_id, target_name(ctx->cpus[fired_target_num ? 0 : 1]));
+		LOG_DEBUG("Ack block %d target (%s)!", ctx->last_blk_id, target_name(ctx->cpus[fired_target_num ? 0 : 1]));
 	}
 	ctx->raw_tot_len += target_state[fired_target_num].data_len;
 
@@ -2186,18 +2212,20 @@ int esp_cmd_apptrace_generic(struct target *target, int mode, const char **argv,
 		}
 	}
 	else if (strcmp(argv[0], "stop") == 0) {
-		if (s_at_cmd_ctx.running) {
-			if (duration_measure(&s_at_cmd_ctx.read_time) != 0) {
-				LOG_ERROR("Failed to stop trace read time measurement!");
-			}
-			// data processor is alive, so wait for all received blocks to be processed
-			res = esp_apptrace_wait_pended_blocks(&s_at_cmd_ctx);
-			if (res != ERROR_OK) {
-				LOG_ERROR("Failed to wait for pended blocks (%d)!", res);
-			}
-			// signal thread to stop
-			s_at_cmd_ctx.running = 0;
+		if (!s_at_cmd_ctx.running) {
+			LOG_WARNING("Tracing is not running!");
+			return ERROR_FAIL;
 		}
+		if (duration_measure(&s_at_cmd_ctx.read_time) != 0) {
+			LOG_ERROR("Failed to stop trace read time measurement!");
+		}
+		// data processor is alive, so wait for all received blocks to be processed
+		res = esp_apptrace_wait_pended_blocks(&s_at_cmd_ctx);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to wait for pended blocks (%d)!", res);
+		}
+		// signal thread to stop
+		s_at_cmd_ctx.running = 0;
 		res = target_unregister_timer_callback(esp_apptrace_poll, &s_at_cmd_ctx);
 		if (res != ERROR_OK) {
 			LOG_ERROR("Failed to unregister target timer handler (%d)!", res);
