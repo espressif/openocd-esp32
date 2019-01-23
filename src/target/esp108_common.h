@@ -77,7 +77,10 @@ enum FlashBootstrap {
 	/* Number of watchpoints available */\
 	uint32_t num_wps; \
 	struct watchpoint **hw_wps;\
-	enum FlashBootstrap flashBootstrap; //0 - don't care, 1 - TMS low, 2 - TMS high
+	/* 0 - don't care, 1 - TMS low, 2 - TMS high */ \
+	enum FlashBootstrap flashBootstrap; \
+	/* Base directory for semihosting I/O */ \
+	char *semihost_basedir;
 
 struct esp108_common {
 	//	struct jtag_tap *tap;
@@ -181,30 +184,30 @@ struct xtensa_algorithm {
 #define XT_REG_A3		  (esp108_regs[XT_REG_IDX_AR3].reg_num)
 #define XT_REG_A4		  (esp108_regs[XT_REG_IDX_AR4].reg_num)
 
-#define _XT_INS_FORMAT_RSR(OPCODE,SR,T) (OPCODE			\
-					 | ((SR & 0xFF) << 8)	\
-					 | ((T & 0x0F) << 4))
+#define _XT_INS_FORMAT_RSR(OPCODE,SR,T) ((OPCODE)			\
+					 | (((SR) & 0xFF) << 8)	\
+					 | (((T) & 0x0F) << 4))
 
-#define _XT_INS_FORMAT_RRR(OPCODE,ST,R) (OPCODE			\
-					 | ((ST & 0xFF) << 4)	\
-					 | ((R & 0x0F) << 12))
+#define _XT_INS_FORMAT_RRR(OPCODE,ST,R) ((OPCODE)			\
+					 | (((ST) & 0xFF) << 4)	\
+					 | (((R) & 0x0F) << 12))
 
-#define _XT_INS_FORMAT_RRRN(OPCODE,S, T,IMM4) (OPCODE		  \
-					 | ((T & 0x0F) << 4)   \
-					 | ((S & 0x0F) << 8)   \
-					 | ((IMM4 & 0x0F) << 12))
+#define _XT_INS_FORMAT_RRRN(OPCODE,S, T,IMM4) ((OPCODE)		  \
+					 | (((T) & 0x0F) << 4)   \
+					 | (((S) & 0x0F) << 8)   \
+					 | (((IMM4) & 0x0F) << 12))
 
-#define _XT_INS_FORMAT_RRI8(OPCODE,R,S,T,IMM8) (OPCODE			\
-						| ((IMM8 & 0xFF) << 16) \
-						| ((R & 0x0F) << 12 )	\
-						| ((S & 0x0F) << 8 )	\
-						| ((T & 0x0F) << 4 ))
+#define _XT_INS_FORMAT_RRI8(OPCODE,R,S,T,IMM8) ((OPCODE)			\
+						| (((IMM8) & 0xFF) << 16) \
+						| (((R) & 0x0F) << 12 )	\
+						| (((S) & 0x0F) << 8 )	\
+						| (((T) & 0x0F) << 4 ))
 
-#define _XT_INS_FORMAT_RRI4(OPCODE,IMM4,R,S,T) (OPCODE \
-						| ((IMM4 & 0x0F) << 20) \
-						| ((R & 0x0F) << 12) \
-						| ((S & 0x0F) << 8)	\
-						| ((T & 0x0F) << 4))
+#define _XT_INS_FORMAT_RRI4(OPCODE,IMM4,R,S,T) ((OPCODE) \
+						| (((IMM4) & 0x0F) << 20) \
+						| (((R) & 0x0F) << 12) \
+						| (((S) & 0x0F) << 8)	\
+						| (((T) & 0x0F) << 4))
 
 
 /* Xtensa processor instruction opcodes
@@ -254,7 +257,7 @@ struct xtensa_algorithm {
 #define XT_INS_WFR(FR,T) _XT_INS_FORMAT_RRR(0xFA0000,((FR<<4)|0x5),T)
 
 /* 32-bit break */
-#define XT_INS_BREAK(IMM1,IMM2)  _XT_INS_FORMAT_RRR(0x004000,IMM1,IMM2)
+#define XT_INS_BREAK(IMM1,IMM2)  _XT_INS_FORMAT_RRR(0x000000,((IMM1&0x0F)<<4)|(IMM2&0x0F),0x4)
 /* 16-bit break */
 #define XT_INS_BREAKN(IMM4)  _XT_INS_FORMAT_RRRN(0x00000D,IMM4,0x2,0xF)
 

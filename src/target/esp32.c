@@ -110,7 +110,23 @@ registers of this core will be transfered.
 /* ESP32 dport regs */
 #define ESP32_DR_REG_DPORT_BASE         0x3ff00000
 #define ESP32_DPORT_APPCPU_CTRL_B_REG   (ESP32_DR_REG_DPORT_BASE + 0x030)
-#define ESP32_DPORT_APPCPU_CLKGATE_EN	(1 << 0)
+#define ESP32_DPORT_APPCPU_CLKGATE_EN   (1 << 0)
+
+/* ESP32 WDT */
+#define ESP32_WDT_WKEY_VALUE        0x50D83AA1
+#define ESP32_TIMG0_BASE            0x3ff5F000
+#define ESP32_TIMG1_BASE            0x3ff60000
+#define ESP32_TIMGWDT_CFG0_OFF      0x48
+#define ESP32_TIMGWDT_PROTECT_OFF   0x64
+#define ESP32_TIMG0WDT_CFG0         (ESP32_TIMG0_BASE + ESP32_TIMGWDT_CFG0_OFF)
+#define ESP32_TIMG1WDT_CFG0         (ESP32_TIMG1_BASE + ESP32_TIMGWDT_CFG0_OFF)
+#define ESP32_TIMG0WDT_PROTECT      (ESP32_TIMG0_BASE + ESP32_TIMGWDT_PROTECT_OFF)
+#define ESP32_TIMG1WDT_PROTECT      (ESP32_TIMG1_BASE + ESP32_TIMGWDT_PROTECT_OFF)
+#define ESP32_RTCCNTL_BASE          0x3ff48000
+#define ESP32_RTCWDT_CFG_OFF        0x8C
+#define ESP32_RTCWDT_PROTECT_OFF    0xA4
+#define ESP32_RTCWDT_CFG            (ESP32_RTCCNTL_BASE + ESP32_RTCWDT_CFG_OFF)
+#define ESP32_RTCWDT_PROTECT        (ESP32_RTCCNTL_BASE + ESP32_RTCWDT_PROTECT_OFF)
 
 #define ESP32_DBGSTUBS_UPDATE_DATA_ENTRY(_e_) \
 do { \
@@ -131,6 +147,30 @@ do { \
 } while(0)
 
 #define ESP32_IDLE_LOOP_CODE_SZ			3 // size of jump insn
+
+#define ESP32_SYSCALL_INSTR     XT_INS_BREAK(1,1)
+#define ESP32_SYSCALL_INSTR_SZ  3
+
+#define ESP_SYS_OPEN        0x01
+#define ESP_SYS_CLOSE       0x02
+#define ESP_SYS_WRITE       0x05
+#define ESP_SYS_READ        0x06
+#define ESP_SYS_SEEK        0x0A
+
+#define ESP_FD_MIN          2
+
+#define	ESP_O_RDONLY        0
+#define	ESP_O_WRONLY        1
+#define	ESP_O_RDWR          2
+#define	ESP_O_APPEND        0x0008
+#define	ESP_O_CREAT	        0x0200
+#define	ESP_O_TRUNC         0x0400
+#define	ESP_O_EXCL          0x0800
+#define ESP_O_SEMIHOST_ABSPATH  0x80000000
+
+#define SYSCALL_PARAM2_REG	XT_REG_IDX_A3
+#define SYSCALL_RETVAL_REG	XT_REG_IDX_A2
+#define SYSCALL_ERRNO_REG	SYSCALL_PARAM2_REG
 
 //forward declarations
 static int xtensa_do_step(struct target *target,
@@ -155,6 +195,7 @@ static int esp32_dbgstubs_restore(struct target *target);
 static int esp32_dbgstubs_update_info(struct target *target);
 static uint32_t esp32_dbgstubs_get(struct target *target);
 static int esp32_handle_target_event(struct target *target, enum target_event event, void *priv);
+static int esp32_semihosting(struct target *target);
 
 //Utility function: check DSR for any weirdness and report.
 //Also does tms_reset to bootstrap level indicated.
@@ -1253,21 +1294,21 @@ static int xtensa_do_step(struct target *target,
 	oldps=esp108_reg_get(&reg_list[XT_REG_IDX_PS]);
 	oldpc=esp108_reg_get(&reg_list[XT_REG_IDX_PC]);
 
-	// Increasing the interrupt level to avoid context switching from C++ interrupts.
-	if (esp32->isrmasking_mode == ESP32_ISRMASK_ON)
-	{
-		uint32_t temp_ps = (oldps&~0xf) | XCHAL_EXCM_LEVEL;
-		esp108_reg_set(&reg_list[XT_REG_IDX_PS], temp_ps);
-		// Now we have to set up max posssible interrupt level (ilevel + 1)
-		icountlvl = XCHAL_EXCM_LEVEL + 1;
-	}
-	else
-	{
-		icountlvl = (oldps & 0xf) + 1;
-	}
-
 	cause=esp108_reg_get(&reg_list[XT_REG_IDX_DEBUGCAUSE]);
-	if (cause&DEBUGCAUSE_DB) {
+	if (handle_breakpoints && (cause & (DEBUGCAUSE_BI|DEBUGCAUSE_BN))) {
+		LOG_DEBUG("%s: Increment PC to pass break instruction...", esp32->esp32_targets[esp32->active_cpu]->cmd_name);
+		esp108_reg_set(&reg_list[XT_REG_IDX_DEBUGCAUSE], 0); //so we don't recurse into the same routine
+		reg_list[XT_REG_IDX_DEBUGCAUSE].dirty = 0;
+		// pretend that we have stepped
+		if (cause&DEBUGCAUSE_BI) {
+			esp108_reg_set(&reg_list[XT_REG_IDX_PC], oldpc + 3); // PC = PC+3
+		}
+		else {
+			esp108_reg_set(&reg_list[XT_REG_IDX_PC], oldpc + 2); // PC = PC+2
+		}
+		return ERROR_OK;
+	}
+	if (cause & DEBUGCAUSE_DB) {
 		//We stopped due to a watchpoint. We can't just resume executing the instruction again because
 		//that would trigger the watchpoint again. To fix this, we remove watchpoints, single-step and
 		//re-enable the watchpoint.
@@ -1279,6 +1320,19 @@ static int xtensa_do_step(struct target *target,
 			dbreakc[slot]=esp108_reg_get(&reg_list[XT_REG_IDX_DBREAKC0+slot]);
 			esp108_reg_set(&reg_list[XT_REG_IDX_DBREAKC0+slot], 0);
 		}
+	}
+
+	// Increasing the interrupt level to avoid context switching from interrupts.
+	if (esp32->isrmasking_mode == ESP32_ISRMASK_ON)
+	{
+		uint32_t temp_ps = (oldps&~0xf) | XCHAL_EXCM_LEVEL;
+		esp108_reg_set(&reg_list[XT_REG_IDX_PS], temp_ps);
+		// Now we have to set up max posssible interrupt level (ilevel + 1)
+		icountlvl = XCHAL_EXCM_LEVEL + 1;
+	}
+	else
+	{
+		icountlvl = (oldps & 0xf) + 1;
 	}
 
 	do {
@@ -1604,6 +1658,44 @@ static bool esp32_is_app_cpu_enabled(struct target *target)
 	return false;
 }
 
+static int esp32_disable_wdts(struct target *target)
+{
+	// TIMG1 WDT
+	int res = target_write_u32(target, ESP32_TIMG0WDT_PROTECT, ESP32_WDT_WKEY_VALUE);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32_TIMG0WDT_PROTECT (%d)!", res);
+		return res;
+	}
+	res = target_write_u32(target, ESP32_TIMG0WDT_CFG0, 0);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32_TIMG0WDT_CFG0 (%d)!", res);
+		return res;
+	}
+	// TIMG2 WDT
+	res = target_write_u32(target, ESP32_TIMG1WDT_PROTECT, ESP32_WDT_WKEY_VALUE);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32_TIMG1WDT_PROTECT (%d)!", res);
+		return res;
+	}
+	res = target_write_u32(target, ESP32_TIMG1WDT_CFG0, 0);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32_TIMG1WDT_CFG0 (%d)!", res);
+		return res;
+	}
+	// RTC WDT
+	res = target_write_u32(target, ESP32_RTCWDT_PROTECT, ESP32_WDT_WKEY_VALUE);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32_RTCWDT_PROTECT (%d)!", res);
+		return res;
+	}
+	res = target_write_u32(target, ESP32_RTCWDT_CFG, 0);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32_RTCWDT_CFG (%d)!", res);
+		return res;
+	}
+	return ERROR_OK;
+}
+
 static int xtensa_poll(struct target *target)
 {
 	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
@@ -1700,6 +1792,7 @@ static int xtensa_poll(struct target *target)
 
 	}
 
+	uint32_t syscall_pc = 0;
 	unsigned int common_reason = dsr[0];
 	unsigned int common_pwrstath = pwrstath[0];
 	if (esp32->configured_cores_num > 1) {
@@ -1787,16 +1880,35 @@ static int xtensa_poll(struct target *target)
 					esp108_reg_get(&esp32->core_caches[0]->reg_list[XT_REG_IDX_PC]));
 			}
 
-
 			target->reg_cache = esp32->core_caches[esp32->active_cpu & 1];
 			target->coreid = esp32->active_cpu;
-
+			// disable WDTs for any reason we stopped
+			esp32_disable_wdts(target);
 			//Call any event callbacks that are applicable
 			if (oldstate == TARGET_DEBUG_RUNNING) {
 				target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
 			}
 			else {
-				target_call_event_callbacks(target, TARGET_EVENT_HALTED);
+				if (halt_cause[esp32->active_cpu] & (DEBUGCAUSE_BI|DEBUGCAUSE_BN)) {
+					uint32_t brk_insn;
+					uint8_t brk_insn_buf[sizeof(brk_insn)] = {0};
+					syscall_pc = esp108_reg_get(&esp32->core_caches[esp32->active_cpu]->reg_list[XT_REG_IDX_PC]);
+					res = target_read_memory(target, syscall_pc, ESP32_SYSCALL_INSTR_SZ, 1, (uint8_t *)brk_insn_buf);
+					if (res != ERROR_OK) {
+						LOG_ERROR("Failed to read break instruction!");
+					} else {
+						brk_insn = intfromchars(brk_insn_buf);
+						if (brk_insn == ESP32_SYSCALL_INSTR) {
+							esp32_semihosting(target);
+						} else {
+							syscall_pc = 0;
+						}
+					}
+				}
+				if (syscall_pc == 0) {
+					// We will resume automatically a bit later, so do not confuse GDB
+					target_call_event_callbacks(target, TARGET_EVENT_HALTED);
+				}
 			}
 		}
 	} else if (common_pwrstath & PWRSTAT_COREWASRESET) {
@@ -1826,6 +1938,200 @@ static int xtensa_poll(struct target *target)
 	if (target->state != TARGET_DEBUG_RUNNING && esp32->dbg_stubs.base == 0) {
 		esp32->dbg_stubs.base = esp32_dbgstubs_get(target);
 	}
+	if (syscall_pc != 0) {
+		res = target_resume(target, 1, 0, 1, 0);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to resume target after semihost call!");
+		}
+	}
+	return ERROR_OK;
+}
+
+int esp32_semihosting(struct target *target)
+{
+	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
+	struct reg *active_cpu_regs = esp32->core_caches[esp32->active_cpu]->reg_list;
+	int syscall_ret = 0, syscall_errno = 0, retval;
+	// TODO: use a2, a3, a4, a5, a6 for syscall params when problem with a3 corruption will be solved
+	uint32_t a2 = esp108_reg_get(&active_cpu_regs[XT_REG_IDX_A2]);
+	uint32_t a3 = esp108_reg_get(&active_cpu_regs[SYSCALL_PARAM2_REG]);
+	uint32_t a4 = esp108_reg_get(&active_cpu_regs[XT_REG_IDX_A4]);
+	uint32_t a5 = esp108_reg_get(&active_cpu_regs[XT_REG_IDX_A5]);
+	uint32_t a6 = esp108_reg_get(&active_cpu_regs[XT_REG_IDX_A6]);
+
+	LOG_DEBUG("Call 0x%x 0x%x 0x%x 0x%x 0x%x %s", a2, a3, a4, a5, a6, esp32->semihost_basedir ? esp32->semihost_basedir : "");
+	switch (a2) {
+	case ESP_SYS_OPEN:
+	{
+		int mode, base_len = 0;
+
+		if(a4 == 0) {
+			LOG_ERROR("Zero file name length!");
+			syscall_ret = -1;
+			// TODO: check errno corectness, here and in other places
+			syscall_errno = EINVAL;
+			break;
+		}
+		if (esp32->semihost_basedir && (a5 & ESP_O_SEMIHOST_ABSPATH) == 0) {
+			base_len = strlen(esp32->semihost_basedir);
+		}
+		char *file_name = malloc(base_len+a4+1);
+		if (!file_name) {
+			LOG_ERROR("Failed to alloc memory for file name!");
+			syscall_ret = -1;
+			syscall_errno = EINVAL;
+			break;
+		}
+		if (esp32->semihost_basedir) {
+			strcpy(file_name, esp32->semihost_basedir);
+		}
+		retval = target_read_buffer(target, a3, a4, (uint8_t *)file_name+base_len);
+		if (retval != ERROR_OK) {
+			free(file_name);
+			LOG_ERROR("Failed to read name of file to open!");
+			syscall_ret = -1;
+			syscall_errno = EINVAL;
+			break;
+		}
+		file_name[base_len+a4] = 0;
+
+		if (a5 & ESP_O_RDWR) {
+			mode = O_RDWR;
+		} else if (a5 & ESP_O_WRONLY) {
+			mode = O_WRONLY;
+		} else {
+			mode = O_RDONLY;
+		}
+		if (a5 & ESP_O_APPEND) {
+			mode |= O_APPEND;
+		}
+		if (a5 & ESP_O_CREAT) {
+			mode |= O_CREAT;
+		}
+		if (a5 & ESP_O_TRUNC) {
+			mode |= O_TRUNC;
+		}
+		if (a5 & ESP_O_EXCL) {
+			mode |= O_EXCL;
+		}
+#ifdef _WIN32
+		/* Windows needs O_BINARY flag for proper handling of EOLs */
+		mode |= O_BINARY;
+#endif
+		/* cygwin requires the permission setting
+		 * otherwise it will fail to reopen a previously
+		 * written file */
+		syscall_ret = open(file_name, mode, 0644);
+		syscall_errno = errno;
+		LOG_DEBUG("Open file '%s' -> %d. Error %d.", file_name, syscall_ret, syscall_errno);
+		free(file_name);
+		break;
+	}
+	case ESP_SYS_CLOSE:
+		if(a3 <= ESP_FD_MIN) {
+			LOG_ERROR("Invalid file desc %d!", a3);
+			syscall_ret = -1;
+			// TODO: check errno corectness, here and in other places
+			syscall_errno = EINVAL;
+			break;
+		}
+		syscall_ret = close(a3);
+		syscall_errno = errno;
+		LOG_DEBUG("Close file %d. Ret %d. Error %d.", a3, syscall_ret, syscall_errno);
+		break;
+	case ESP_SYS_WRITE:
+	{
+		LOG_DEBUG("Req write file %d. %d bytes.", a3, a5);
+		if(a3 <= ESP_FD_MIN) {
+			LOG_ERROR("Invalid file desc %d!", a3);
+			syscall_ret = -1;
+			// TODO: check errno corectness, here and in other places
+			syscall_errno = EINVAL;
+			break;
+		}
+		if (a5 == 0) {
+			syscall_ret = 0;
+			syscall_errno = 0;
+			break;
+		}
+		uint8_t *buf = malloc(a5);
+		if (!buf) {
+			syscall_ret = -1;
+			syscall_errno = ENOMEM;
+			break;
+		}
+		retval = target_read_buffer(target, a4, a5, buf);
+		if (retval != ERROR_OK) {
+			free(buf);
+			syscall_ret = -1;
+			syscall_errno = EINVAL;
+			break;
+		}
+		syscall_ret = write(a3, buf, a5);
+		syscall_errno = errno;
+		LOG_DEBUG("Wrote file %d. %d bytes.", a3, a5);
+		free(buf);
+		break;
+	}
+	case ESP_SYS_READ:
+	{
+		LOG_DEBUG("Req read file %d. %d bytes.", a3, a5);
+		if(a3 <= ESP_FD_MIN) {
+			LOG_ERROR("Invalid file desc %d!", a3);
+			syscall_ret = -1;
+			// TODO: check errno corectness, here and in other places
+			syscall_errno = EINVAL;
+			break;
+		}
+		if (a5 == 0) {
+			syscall_ret = 0;
+			syscall_errno = 0;
+			break;
+		}
+		uint8_t *buf = malloc(a5);
+		if (!buf) {
+			syscall_ret = -1;
+			syscall_errno = ENOMEM;
+			break;
+		}
+		syscall_ret = read(a3, buf, a5);
+		syscall_errno = errno;
+		LOG_DEBUG("Read file %d. %d bytes.", a3, a5);
+		if (syscall_ret >= 0) {
+			retval = target_write_buffer(target, a4, syscall_ret, buf);
+			if (retval != ERROR_OK) {
+				free(buf);
+				syscall_ret = -1;
+				syscall_errno = EINVAL;
+				break;
+			}
+		}
+		free(buf);
+		break;
+	}
+	case ESP_SYS_SEEK:
+	{
+		LOG_DEBUG("Req seek file %d. To %x, mode %d.", a3, a4, a5);
+		if(a3 <= ESP_FD_MIN) {
+			LOG_ERROR("Invalid file desc %d!", a3);
+			syscall_ret = -1;
+			// TODO: check errno corectness, here and in other places
+			syscall_errno = EINVAL;
+			break;
+		}
+		syscall_ret = lseek(a3, a4, a5);
+		syscall_errno = errno;
+		LOG_DEBUG("Seek file %d. To %x, mode %d.", a3, a4, a5);
+		break;
+	}
+	default:
+		LOG_WARNING("Unsupported syscall %x!", a2);
+		syscall_ret = -1;
+		syscall_errno = EINVAL;
+	}
+
+	esp108_reg_set(&active_cpu_regs[SYSCALL_RETVAL_REG], syscall_ret);
+	esp108_reg_set(&active_cpu_regs[SYSCALL_PARAM2_REG], syscall_errno);
 	return ERROR_OK;
 }
 
@@ -2892,6 +3198,29 @@ COMMAND_HANDLER(handle_esp32_a_mask_interrupts_command)
 	return ERROR_OK;
 }
 
+COMMAND_HANDLER(esp32_cmd_semihost_basedir)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	struct esp32_common *esp32=(struct esp32_common*)target->arch_info;
+
+	if (CMD_ARGC != 1) {
+		command_print(CMD_CTX, "Current semihosting base dir: %s", esp32->semihost_basedir);
+		return ERROR_OK;
+	}
+
+	char *s = strdup(CMD_ARGV[0]);
+	if (!s) {
+		command_print(CMD_CTX, "Failed to allocate memory!");
+		return ERROR_FAIL;
+	}
+	if (esp32->semihost_basedir) {
+		free(esp32->semihost_basedir);
+	}
+	esp32->semihost_basedir = s;
+
+	return ERROR_OK;
+}
+
 static const struct command_registration esp32_any_command_handlers[] = {
 	{
 		.name = "tracestart",
@@ -2969,6 +3298,13 @@ static const struct command_registration esp32_any_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "Dump performance counter value. If no argument specified, dumps all counters.",
 		.usage = "[counter_id]",
+	},
+	{
+		.name = "semihost_basedir",
+		.handler = esp32_cmd_semihost_basedir,
+		.mode = COMMAND_ANY,
+		.help = "Set the base directory for semohosting I/O.",
+		.usage = "dir",
 	},
 	COMMAND_REGISTRATION_DONE
 };
