@@ -3010,6 +3010,12 @@ static void esp32_set_active_core(struct target *target, size_t core)
 	esp32->active_cpu = core;
 }
 
+static int esp32_checksum_memory(struct target *target, target_addr_t address, uint32_t count, uint32_t *checksum)
+{
+	LOG_WARNING("esp32_checksum_memory not implemented yet");
+	return ERROR_FAIL;
+}
+
 /** Holds methods for Xtensa targets. */
 struct target_type esp32_target = {
 	.name = "esp32",
@@ -3029,6 +3035,8 @@ struct target_type esp32_target = {
 
 	.read_buffer = xtensa_read_buffer,
 	.write_buffer = xtensa_write_buffer,
+
+	.checksum_memory = esp32_checksum_memory,
 
 	.get_gdb_reg_list = xtensa_get_gdb_reg_list,
 
