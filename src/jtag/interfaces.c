@@ -138,6 +138,9 @@ extern struct adapter_driver imx_gpio_adapter_driver;
 #if BUILD_XDS110 == 1
 extern struct adapter_driver xds110_adapter_driver;
 #endif
+#if BUILD_HLADAPTER == 1
+extern struct adapter_driver stlink_dap_adapter_driver;
+#endif
 #endif /* standard drivers */
 
 #if BUILD_ESP_REMOTE
@@ -249,6 +252,9 @@ struct adapter_driver *adapter_drivers[] = {
 #endif
 #if BUILD_XDS110 == 1
 		&xds110_adapter_driver,
+#endif
+#if BUILD_HLADAPTER == 1
+		&stlink_dap_adapter_driver,
 #endif
 #endif /* standard drivers */
 #if BUILD_ESP_REMOTE
