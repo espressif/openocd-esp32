@@ -5,6 +5,7 @@ import os.path
 import logging
 import unittest
 import importlib
+import sys
 import debug_backend as dbg
 
 # TODO: fixed???
@@ -127,7 +128,7 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
                     except:
                         get_logger().critical('Failed to load %s!', app_cfg_id)
                         for test in self._groupped_suites[app_cfg_id][1]:
-                            result.addSkip(test, 'test app load failure')
+                            result.addError(test, sys.exc_info())
                         continue
                 dbg.get_gdb().exec_file_set(self._groupped_suites[app_cfg_id][0].build_app_elf_path())
             self._groupped_suites[app_cfg_id][1]._run_tests(result, debug)
