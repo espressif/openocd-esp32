@@ -6,6 +6,8 @@ import logging
 import argparse
 import unittest
 import tempfile
+import serial
+import threading
 import cProfile, pstats
 import debug_backend, debug_backend_tests
 
@@ -27,7 +29,48 @@ BOARD_TCL_CONFIG = {
     }
 }
 
+class SerialPortReader(threading.Thread):
+    def __init__(self, port_name):
+        threading.Thread.__init__(self, name='serial_reader')
+        # connect to serial port
+        self.ser = serial.serial_for_url(port_name, do_not_open=True)
+        self.ser.baudrate = 115200
+        # self.ser.parity = serial.PARITY_NONE
+        self.ser.dtr = False
+        self.ser.rts = False
+        # self.ser.rtscts = False
+        # self.ser.xonxoff = False
+        self.ser.timeout = 0
+        self.ser.open()
+        self.do_work = True
+        self._logger = logging.getLogger('BOARD_UART')
+
+    def get_logger(self):
+        return self._logger
+
+    def stop(self):
+        self.do_work = False
+        self._logger.debug('Wait for reader thread to finish...')
+        self.join()
+        self.ser.close()
+
+    def run(self):
+        self._logger.debug('Start reading from "{}"'.format(self.ser.name))
+        line = ''
+        while self.do_work:
+            line += self.ser.read(1)
+            if line.endswith('\n'):
+                self._logger.info(line.rstrip('\r\n'))
+                line = ''
+
 def main():
+    board_uart_reader = None
+    if args.serial_port:
+        try:
+            board_uart_reader = SerialPortReader(args.serial_port)
+        except serial.SerialException as e:
+            sys.stderr.write('Could not start reader for serial port {}: {}\n'.format(args.serial_port, e))
+            sys.exit(1)
     log_formatter = logging.Formatter('%(asctime)-15s %(name)s: %(levelname)s - %(message)s')
     ch = logging.StreamHandler()
     ch.setFormatter(log_formatter)
@@ -58,6 +101,9 @@ def main():
     setup_logger(debug_backend.Oocd.get_logger(), ch, fh)
     setup_logger(debug_backend.Gdb.get_logger(), ch, fh)
     setup_logger(debug_backend_tests.get_logger(), ch, fh)
+    if board_uart_reader:
+        setup_logger(board_uart_reader.get_logger(), ch, fh)
+        board_uart_reader.start()
     board_tcl = BOARD_TCL_CONFIG[args.board_type]
     # start debugger, ideally we should run all tests w/o restarting it
     debug_backend.start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'])
@@ -114,7 +160,7 @@ def main():
     for m in suite.modules:
         setup_logger(suite.modules[m].get_logger(), ch, fh)
     suite.load_app_bins = not args.no_load
-    try: 
+    try:
         res = unittest.TextTestRunner(verbosity=2).run(suite)
         if not res.wasSuccessful() and args.retry:
             print '==========================================='
@@ -132,6 +178,8 @@ def main():
     finally:
         # stop debugger
         debug_backend.stop()
+        if board_uart_reader:
+           board_uart_reader.stop()
     # check results
     if not res.wasSuccessful():
         sys.exit(-1)
@@ -160,19 +208,21 @@ if __name__ == '__main__':
                                 User can specify several strings separated by space. Wildcards (*) are supported in <module> and <test_case> parts""",
                         default='*')
     parser.add_argument('--no-load', '-n',
-                        help='Do not load test app binaries', 
+                        help='Do not load test app binaries',
                         action='store_true', default=False)
     parser.add_argument('--retry', '-r',
-                        help='Try to re0run failed tests', 
+                        help='Try to re0run failed tests',
                         action='store_true', default=False)
     parser.add_argument('--stats-file', '-k',
                         help='Path to log file to store profiler stats. Use "stdout" to print.',
                         default='')
     parser.add_argument('--debug', '-d',
-                        help='Debug level (0-4)', 
+                        help='Debug level (0-4)',
                         type=int, default=2)
     parser.add_argument('--log-file', '-l',
                         help='Path to log file. Use "stdout" to log to console.')
+    parser.add_argument('--serial-port', '-u',
+                        help='Name of serial port to grab ESP32 UART output.')
     args = parser.parse_args()
     if len(args.stats_file) > 0:
         if args.stats_file == 'stdout':
