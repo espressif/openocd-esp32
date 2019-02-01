@@ -44,7 +44,7 @@ def start(toolch, oocd_path, oocd_tcl_dir, oocd_cfg_files, oocd_cfg_cmds=[]):
 
 def stop():
     _oocd_inst.stop()
-    _oocd_inst.join()
+    Oocd.get_logger().debug('Debug backend finished')
 
 def get_gdb():
     return _gdb_inst
@@ -77,8 +77,8 @@ class Oocd(threading.Thread):
         return logging.getLogger('Oocd')
 
     def __init__(self, oocd_path = 'openocd', oocd_args=[]):
-        global OS_INT_SIG
         super(Oocd, self).__init__()
+        self.do_work = True
         self._logger = self.get_logger()
         self._logger.debug('Start OpenOCD: {%s}', oocd_args)
         self._oocd_proc = subprocess.Popen(
@@ -96,27 +96,28 @@ class Oocd(threading.Thread):
             if self._oocd_proc.stdout:
                 out = self._oocd_proc.stdout.read()
                 self._logger.debug('================== OOCD OUTPUT START =================\n%s================== OOCD OUTPUT END =================\n', out)
-            self._oocd_proc.send_signal(OS_INT_SIG)
+            self._oocd_proc.terminate()
             raise e
 
     def run(self):
-        while self._oocd_proc.stdout:
+        while self._oocd_proc.stdout and self.do_work:
             ln = self._oocd_proc.stdout.readline()
             if len(ln) == 0:
                 break
             self._logger.debug(ln.rstrip(' \r\n'))
 
     def stop(self):
-        global OS_INT_SIG
         self._logger.debug('Close telnet conn')
         self._tn.close()
         self._logger.debug('Stop OpenOCD')
-        self._oocd_proc.send_signal(OS_INT_SIG)
-
-    def join(self):
-        super(Oocd, self).join()
+        self.do_work = False
+        self._oocd_proc.terminate()
+        self._logger.debug('Join thread')
+        self.join()
+        self._logger.debug('Close stdout')
         if self._oocd_proc.stdout:
             self._oocd_proc.stdout.close()
+        self._logger.debug('OOCD thread stopped')
 
     def cmd_exec(self, cmd):
         # read all output already sent
