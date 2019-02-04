@@ -143,7 +143,7 @@ static int xtensa_deassert_reset(struct target *target);
 static int xtensa_smpbreak_set(struct target *target);
 static int xtensa_smpbreak_set_core(struct target *target, int core);
 static int xtensa_read_memory(struct target *target,
-	uint32_t address,
+	target_addr_t address,
 	uint32_t size,
 	uint32_t count,
 	uint8_t *buffer);
@@ -426,7 +426,7 @@ static int xtensa_halt(struct target *target)
 
 static int xtensa_resume(struct target *target,
 			 int current,
-			 uint32_t address,
+			 target_addr_t address,
 			 int handle_breakpoints,
 			 int debug_execution)
 {
@@ -436,7 +436,7 @@ static int xtensa_resume(struct target *target,
 	size_t slot;
 	uint32_t bpena;
 
-	LOG_DEBUG("%s: %s current=%d address=%04x, handle_breakpoints=%i, debug_execution=%i)", target->cmd_name, __func__, current, address, handle_breakpoints, debug_execution);
+	LOG_DEBUG("%s: %s current=%d address=" TARGET_ADDR_FMT ", handle_breakpoints=%i, debug_execution=%i)", target->cmd_name, __func__, current, address, handle_breakpoints, debug_execution);
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("%s: %s: target not halted", target->cmd_name, __func__);
@@ -598,7 +598,7 @@ static int xtensa_resume_active_cpu(struct target *target,
 }
 
 static int xtensa_read_memory(struct target *target,
-							uint32_t address,
+							target_addr_t address,
 							uint32_t size,
 							uint32_t count,
 							uint8_t *buffer)
@@ -612,13 +612,13 @@ static int xtensa_read_memory(struct target *target,
 	uint8_t *albuff;
 
 	if (esp108_get_addr_type(address) == INVALID && !esp108_permissive_mode) {
-		LOG_DEBUG("%s: address 0x%08x not readable", __func__, address);
+		LOG_DEBUG("%s: address " TARGET_ADDR_FMT " not readable", __func__, address);
 		return ERROR_FAIL;
 	}
 
 	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
 
-	LOG_DEBUG("%s: %s: reading %d bytes from addr %08X", target->cmd_name, __FUNCTION__, size*count, address);
+	LOG_DEBUG("%s: %s: reading %d bytes from addr " TARGET_ADDR_FMT, target->cmd_name, __FUNCTION__, size*count, address);
 //	LOG_DEBUG("Converted to aligned addresses: read from %08X to %08X", addrstart_al, addrend_al);
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("%s: %s: target not halted", __func__, target->cmd_name);
@@ -656,7 +656,7 @@ static int xtensa_read_memory(struct target *target,
 
 	if (res != ERROR_OK)
 	{
-		LOG_WARNING("%s: Failed reading %d bytes at address 0x%08X", esp32->esp32_targets[ESP32_PRO_CPU_ID]->cmd_name, count*size, address);
+		LOG_WARNING("%s: Failed reading %d bytes at address " TARGET_ADDR_FMT, esp32->esp32_targets[ESP32_PRO_CPU_ID]->cmd_name, count*size, address);
 	}
 	if (albuff!=buffer) {
 		memcpy(buffer, albuff+(address&3), (size*count));
@@ -666,7 +666,7 @@ static int xtensa_read_memory(struct target *target,
 }
 
 static int xtensa_read_buffer(struct target *target,
-							uint32_t address,
+							target_addr_t address,
 							uint32_t count,
 							uint8_t *buffer)
 {
@@ -675,7 +675,7 @@ static int xtensa_read_buffer(struct target *target,
 }
 
 static int xtensa_write_memory(struct target *target,
-							uint32_t address,
+							target_addr_t address,
 							uint32_t size,
 							uint32_t count,
 							const uint8_t *buffer)
@@ -694,7 +694,7 @@ static int xtensa_write_memory(struct target *target,
 	uint8_t *albuff;
 
 	if (esp108_get_addr_type(address) != READWRITE && !esp108_permissive_mode) {
-		LOG_DEBUG("%s: address 0x%08x not writable", __func__, address);
+		LOG_DEBUG("%s: address " TARGET_ADDR_FMT " not writable", __func__, address);
 		return ERROR_FAIL;
 	}
 
@@ -703,7 +703,7 @@ static int xtensa_write_memory(struct target *target,
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	LOG_DEBUG("%s: %s: writing %d bytes to addr %08X", target->cmd_name, __FUNCTION__, size*count, address);
+	LOG_DEBUG("%s: %s: writing %d bytes to addr " TARGET_ADDR_FMT, target->cmd_name, __FUNCTION__, size*count, address);
 //	LOG_DEBUG("al start %x al end %x", addrstart_al, addrend_al);
 
 	if ((size==0) || (count == 0) || !(buffer)) return ERROR_COMMAND_SYNTAX_ERROR;
@@ -761,7 +761,7 @@ static int xtensa_write_memory(struct target *target,
 	if (res == ERROR_OK) res = esp32_checkdsr(esp32->esp32_targets[ESP32_PRO_CPU_ID]);
 	if (res != ERROR_OK)
 	{
-		LOG_WARNING("%s: Failed writing %d bytes at address 0x%08X, data - %02x, %02x, %02x, %02x, %02x, %02x, %02x, %02x",
+		LOG_WARNING("%s: Failed writing %d bytes at address " TARGET_ADDR_FMT ", data - %02x, %02x, %02x, %02x, %02x, %02x, %02x, %02x",
 			target->cmd_name, count*size, address,
 			buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7]
 			);
@@ -774,7 +774,7 @@ static int xtensa_write_memory(struct target *target,
 }
 
 static int xtensa_write_buffer(struct target *target,
-							uint32_t address,
+							target_addr_t address,
 							uint32_t count,
 							const uint8_t *buffer)
 {
@@ -954,7 +954,7 @@ static int esp32_handle_target_event(struct target *target, enum target_event ev
 				if(flash_bp != NULL) {
 					int ret = esp32_remove_flash_breakpoint(target, flash_bp);
 					if (ret != ERROR_OK) {
-						LOG_ERROR("%s: Failed to remove SW flash BP @ 0x%x (%d)!",
+						LOG_ERROR("%s: Failed to remove SW flash BP @ " TARGET_ADDR_FMT " (%d)!",
 								target->cmd_name, flash_bp->data.oocd_bp->address, ret);
 						return ret;
 					}
@@ -1040,7 +1040,7 @@ static int xtensa_add_breakpoint(struct target *target, struct breakpoint *break
 			LOG_ERROR("%s: Failed to add SW BP!", target->cmd_name);
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
-		LOG_DEBUG("%s: placed SW breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
+		LOG_DEBUG("%s: placed SW breakpoint %d at " TARGET_ADDR_FMT, target->cmd_name, (int)slot, breakpoint->address);
 		return ERROR_OK;
 	}
 
@@ -1063,13 +1063,13 @@ static int xtensa_add_breakpoint(struct target *target, struct breakpoint *break
 			LOG_ERROR("%s: Failed to add SW flash BP!", target->cmd_name);
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
-		LOG_DEBUG("%s: placed SW_FLASH breakpoint @ 0x%X", target->cmd_name, breakpoint->address);
+		LOG_DEBUG("%s: placed SW_FLASH breakpoint @ " TARGET_ADDR_FMT, target->cmd_name, breakpoint->address);
 		return ERROR_OK;
 	}
 
 	esp32->hw_brps[slot] = breakpoint;
 	//We will actually write the breakpoints when we resume the target.
-	LOG_DEBUG("%s: placed HW breakpoint @ 0x%X", target->cmd_name, breakpoint->address);
+	LOG_DEBUG("%s: placed HW breakpoint @ " TARGET_ADDR_FMT, target->cmd_name, breakpoint->address);
 
 	return ERROR_OK;
 }
@@ -1097,7 +1097,7 @@ static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *br
 			return ret;
 		}
 		esp32->sw_brps[slot] = NULL;
-		LOG_DEBUG("%s: cleared SW breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
+		LOG_DEBUG("%s: cleared SW breakpoint %d at " TARGET_ADDR_FMT, target->cmd_name, (int)slot, breakpoint->address);
 		return ERROR_OK;
 	}
 
@@ -1121,11 +1121,11 @@ static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *br
 			return ret;
 		}
 		esp32->flash_sw_brps[slot] = NULL;
-		LOG_DEBUG("%s: cleared SW_FLASH breakpoint @ 0x%X", target->cmd_name, breakpoint->address);
+		LOG_DEBUG("%s: cleared SW_FLASH breakpoint @ " TARGET_ADDR_FMT, target->cmd_name, breakpoint->address);
 		return ERROR_OK;
 	}
 	esp32->hw_brps[slot] = NULL;
-	LOG_DEBUG("%s: cleared HW breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
+	LOG_DEBUG("%s: cleared HW breakpoint %d at " TARGET_ADDR_FMT, target->cmd_name, (int)slot, breakpoint->address);
 	return ERROR_OK;
 }
 
@@ -1162,7 +1162,7 @@ static int xtensa_add_watchpoint(struct target *target, struct watchpoint *watch
 	if (watchpoint->length==32 && (watchpoint->address&0x1F)==0) dbreakcval=0x20;
 	if (watchpoint->length==64 && (watchpoint->address&0x3F)==0) dbreakcval=0x00;
 	if (dbreakcval==0xaa) {
-		LOG_WARNING("%s: Watchpoint with length %d on address 0x%X not supported by hardware.", target->cmd_name, watchpoint->length, watchpoint->address);
+		LOG_WARNING("%s: Watchpoint with length %d on address " TARGET_ADDR_FMT " not supported by hardware.", target->cmd_name, watchpoint->length, watchpoint->address);
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
@@ -1375,7 +1375,7 @@ static int xtensa_do_step(struct target *target,
 
 static int xtensa_step(struct target *target,
 	int current,
-	uint32_t address,
+	target_addr_t address,
 	int handle_breakpoints)
 {
 	int retval = xtensa_do_step(target, current, address, handle_breakpoints);
@@ -1389,7 +1389,7 @@ static int xtensa_step(struct target *target,
 static int xtensa_start_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
-	uint32_t entry_point, uint32_t exit_point,
+	target_addr_t entry_point, target_addr_t exit_point,
 	void *arch_info)
 {
 	struct esp32_common *esp32 = (struct esp32_common*)target->arch_info;
@@ -1408,7 +1408,7 @@ static int xtensa_start_algorithm(struct target *target,
 static int xtensa_wait_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
-	uint32_t exit_point, int timeout_ms,
+	target_addr_t exit_point, int timeout_ms,
 	void *arch_info)
 {
 	int retval = ERROR_OK;
@@ -1524,6 +1524,7 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 			cpu_reg_list[i].value = calloc(1, 4);
 			cpu_reg_list[i].dirty = 0;
 			cpu_reg_list[i].valid = 0;
+			cpu_reg_list[i].exist = true;
 			cpu_reg_list[i].type = &esp32_reg_type;
 			cpu_reg_list[i].arch_info = esp32;
 		}
@@ -1546,6 +1547,7 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 		reg_list[i].value = calloc(1,4);
 		reg_list[i].dirty = 0;
 		reg_list[i].valid = 0;
+		reg_list[i].exist = true;
 		reg_list[i].type = &esp32_reg_type;
 		reg_list[i].arch_info = esp32;
 	}
@@ -1560,6 +1562,7 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 
 int xtensa_on_exit(struct target *target, void *priv)
 {
+
 	int ret = esp32_dbgstubs_restore(target);
 	if (ret != ERROR_OK) {
 		return ret;
@@ -1995,7 +1998,7 @@ static int esp32_stub_load(struct target *target, struct esp32_algo_image *algo_
 		stub->entry = algo_image->image.start_address;
 		for (int i = 0; i < algo_image->image.num_sections; i++) {
 			struct imagesection *section = &algo_image->image.sections[i];
-			LOG_DEBUG("addr %x, sz %d, flags %x", section->base_address, section->size, section->flags);
+			LOG_DEBUG("addr " TARGET_ADDR_FMT ", sz %d, flags %x", section->base_address, section->size, section->flags);
 			if (section->flags & IMAGE_ELF_PHF_EXEC) {
 				if (target_alloc_working_area(target, section->size, &stub->code) != ERROR_OK) {
 					LOG_ERROR("no working area available, can't alloc space for stub code!");
@@ -2006,7 +2009,7 @@ static int esp32_stub_load(struct target *target, struct esp32_algo_image *algo_
 					section->base_address = stub->code->address;
 				// sanity check, stub is compiled to be run from working area
 				} else if (stub->code->address != section->base_address) {
-					LOG_ERROR("working area 0x%x and stub code section 0x%x address mismatch!", section->base_address, stub->code->address);
+					LOG_ERROR("working area " TARGET_ADDR_FMT " and stub code section " TARGET_ADDR_FMT " address mismatch!", section->base_address, stub->code->address);
 					retval = ERROR_FAIL;
 					goto _on_error;
 				}
@@ -2020,7 +2023,7 @@ static int esp32_stub_load(struct target *target, struct esp32_algo_image *algo_
 					section->base_address = stub->data->address;
 				// sanity check, stub is compiled to be run from working area
 				} else  if (stub->data->address != section->base_address) {
-					LOG_ERROR("working area 0x%x and stub data section 0x%x address mismatch!", section->base_address, stub->data->address);
+					LOG_ERROR("working area " TARGET_ADDR_FMT " and stub data section " TARGET_ADDR_FMT " address mismatch!", section->base_address, stub->data->address);
 					retval = ERROR_FAIL;
 					goto _on_error;
 				}

@@ -1194,7 +1194,7 @@ static int psoc5lp_write(struct flash_bank *bank, const uint8_t *buffer,
 	LOG_DEBUG("Get_Temp: sign 0x%02" PRIx8 ", magnitude 0x%02" PRIx8,
 		temp[0], temp[1]);
 
-	assert(target_get_working_area_avail(target) == target->working_area_size);
+	assert(target_get_working_area_avail(target) == target->working_area_cfg.size);
 	retval = target_alloc_working_area(target,
 			target_get_working_area_avail(target) / 2, &code_area);
 	if (retval != ERROR_OK) {

@@ -1866,7 +1866,7 @@ static int alloc_working_area_try_do(struct target *target, struct working_area_
 		if (!enabled) {
 			if (wa_cfg->phys_spec) {
 				LOG_DEBUG("MMU disabled, using physical "
-					"address for working memory 0x%08"TARGET_ADDR_FMT,
+					"address for working memory "TARGET_ADDR_FMT,
 					wa_cfg->phys);
 				wa_cfg->area = wa_cfg->phys;
 			} else {
@@ -1877,7 +1877,7 @@ static int alloc_working_area_try_do(struct target *target, struct working_area_
 		} else {
 			if (wa_cfg->virt_spec) {
 				LOG_DEBUG("MMU enabled, using virtual "
-					"address for working memory 0x%08"TARGET_ADDR_FMT,
+					"address for working memory "TARGET_ADDR_FMT,
 					wa_cfg->virt);
 				wa_cfg->area = wa_cfg->virt;
 			} else {
@@ -2038,9 +2038,9 @@ int target_free_alt_working_area(struct target *target, struct working_area *are
 /* free resources and restore memory, if restoring memory fails,
  * free up resources anyway
  */
-static void target_free_all_working_areas_restore(struct target *target, int restore)
+static void target_free_all_working_areas_restore(struct target *target, struct working_area_config *wa_cfg, int restore)
 {
-	struct working_area *c = target->working_areas;
+	struct working_area *c = wa_cfg->areas;
 
 	LOG_DEBUG("freeing all working areas");
 
@@ -2048,7 +2048,7 @@ static void target_free_all_working_areas_restore(struct target *target, int res
 	while (c) {
 		if (!c->free) {
 			if (restore)
-				target_restore_working_area(target, c);
+				target_restore_working_area(target, wa_cfg, c);
 			c->free = true;
 			*c->user = NULL; /* Same as above */
 			c->user = NULL;
@@ -2057,32 +2057,41 @@ static void target_free_all_working_areas_restore(struct target *target, int res
 	}
 
 	/* Run a merge pass to combine all areas into one */
-	target_merge_working_areas(target);
+	target_merge_working_areas(wa_cfg);
 
-	print_wa_layout(target);
+	print_wa_layout(wa_cfg);
+}
+
+static void target_free_all_working_areas_do(struct target *target, struct working_area_config *wa_cfg)
+{
+	target_free_all_working_areas_restore(target, wa_cfg, 1);
+	/* Now we have none or only one working area marked as free */
+	if (wa_cfg->areas) {
+		/* Free the last one to allow on-the-fly moving and resizing */
+		free(wa_cfg->areas->backup);
+		free(wa_cfg->areas);
+		wa_cfg->areas = NULL;
+	}
 }
 
 void target_free_all_working_areas(struct target *target)
 {
-	target_free_all_working_areas_restore(target, 1);
+	target_free_all_working_areas_do(target, &target->working_area_cfg);
+}
 
-	/* Now we have none or only one working area marked as free */
-	if (target->working_areas) {
-		/* Free the last one to allow on-the-fly moving and resizing */
-		free(target->working_areas->backup);
-		free(target->working_areas);
-		target->working_areas = NULL;
-	}
+void target_free_all_alt_working_areas(struct target *target)
+{
+	target_free_all_working_areas_do(target, &target->alt_working_area_cfg);
 }
 
 /* Find the largest number of bytes that can be allocated */
-uint32_t target_get_working_area_avail(struct target *target)
+static uint32_t get_working_area_avail_do(struct target *target, struct working_area_config *wa_cfg)
 {
-	struct working_area *c = target->working_areas;
+	struct working_area *c = wa_cfg->areas;
 	uint32_t max_size = 0;
 
 	if (c == NULL)
-		return target->working_area_size;
+		return wa_cfg->size;
 
 	while (c) {
 		if (c->free && max_size < c->size)
@@ -2092,6 +2101,16 @@ uint32_t target_get_working_area_avail(struct target *target)
 	}
 
 	return max_size;
+}
+
+uint32_t target_get_working_area_avail(struct target *target)
+{
+	return get_working_area_avail_do(target, &target->working_area_cfg);
+}
+
+uint32_t target_get_alt_working_area_avail(struct target *target)
+{
+	return get_working_area_avail_do(target, &target->alt_working_area_cfg);
 }
 
 static void target_destroy(struct target *target)
@@ -2163,72 +2182,6 @@ void target_quit(void)
 	}
 
 	all_targets = NULL;
-}
-
-/* free resources and restore memory, if restoring memory fails,
- * free up resources anyway
- */
-static void target_free_all_working_areas_restore(struct target *target, struct working_area_config *wa_cfg, int restore)
-{
-	struct working_area *c = wa_cfg->areas;
-
-	LOG_DEBUG("freeing all working areas");
-
-	/* Loop through all areas, restoring the allocated ones and marking them as free */
-	while (c) {
-		if (!c->free) {
-			if (restore)
-				target_restore_working_area(target, wa_cfg, c);
-			c->free = true;
-			*c->user = NULL; /* Same as above */
-			c->user = NULL;
-		}
-		c = c->next;
-	}
-
-	/* Run a merge pass to combine all areas into one */
-	target_merge_working_areas(wa_cfg);
-
-	print_wa_layout(wa_cfg);
-}
-
-void target_free_all_working_areas(struct target *target)
-{
-	target_free_all_working_areas_restore(target, &target->working_area_cfg, 1);
-}
-
-void target_free_all_alt_working_areas(struct target *target)
-{
-	target_free_all_working_areas_restore(target, &target->alt_working_area_cfg, 1);
-}
-
-/* Find the largest number of bytes that can be allocated */
-static uint32_t get_working_area_avail_do(struct target *target, struct working_area_config *wa_cfg)
-{
-	struct working_area *c = wa_cfg->areas;
-	uint32_t max_size = 0;
-
-	if (c == NULL)
-		return wa_cfg->size;
-
-	while (c) {
-		if (c->free && max_size < c->size)
-			max_size = c->size;
-
-		c = c->next;
-	}
-
-	return max_size;
-}
-
-uint32_t target_get_working_area_avail(struct target *target)
-{
-	return get_working_area_avail_do(target, &target->working_area_cfg);
-}
-
-uint32_t target_get_alt_working_area_avail(struct target *target)
-{
-	return get_working_area_avail_do(target, &target->alt_working_area_cfg);
 }
 
 int target_arch_state(struct target *target)

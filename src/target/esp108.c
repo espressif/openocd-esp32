@@ -140,7 +140,7 @@ esp108_reg_set etc functions are suspect.
 //forward declarations
 static int xtensa_step(struct target *target,
 	int current,
-	uint32_t address,
+	target_addr_t address,
 	int handle_breakpoints);
 static int xtensa_poll(struct target *target);
 
@@ -363,7 +363,7 @@ static int xtensa_halt(struct target *target)
 
 static int xtensa_resume(struct target *target,
 			 int current,
-			 uint32_t address,
+			 target_addr_t address,
 			 int handle_breakpoints,
 			 int debug_execution)
 {
@@ -373,7 +373,7 @@ static int xtensa_resume(struct target *target,
 	size_t slot;
 	uint32_t bpena;
 
-	LOG_DEBUG("%s: %s current=%d address=%04" PRIx32, target->cmd_name, __func__, current, address);
+	LOG_DEBUG("%s: %s current=%d address=" TARGET_ADDR_FMT, target->cmd_name, __func__, current, address);
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("%s: %s: target not halted", target->cmd_name, __func__);
@@ -435,7 +435,7 @@ static int xtensa_resume(struct target *target,
 
 
 static int xtensa_read_memory(struct target *target,
-				  uint32_t address,
+				  target_addr_t address,
 				  uint32_t size,
 				  uint32_t count,
 				  uint8_t *buffer)
@@ -449,7 +449,7 @@ static int xtensa_read_memory(struct target *target,
 	uint8_t *albuff;
 
 	if (esp108_get_addr_type(address) == INVALID && !esp108_permissive_mode) {
-		LOG_DEBUG("%s: address 0x%08x not readable", __func__, address);
+		LOG_DEBUG("%s: address " TARGET_ADDR_FMT " not readable", __func__, address);
 		return ERROR_FAIL;
 	}
 
@@ -484,7 +484,7 @@ static int xtensa_read_memory(struct target *target,
 	}
 	res=jtag_execute_queue();
 	if (res==ERROR_OK) res=esp108_checkdsr(target);
-	if (res!=ERROR_OK) LOG_WARNING("%s: Failed reading %d bytes at address 0x%08X",target->cmd_name, count*size, address);
+	if (res!=ERROR_OK) LOG_WARNING("%s: Failed reading %d bytes at address " TARGET_ADDR_FMT,target->cmd_name, count*size, address);
 
 	if (albuff!=buffer) {
 		memcpy(buffer, albuff+(address&3), (size*count));
@@ -495,7 +495,7 @@ static int xtensa_read_memory(struct target *target,
 }
 
 static int xtensa_read_buffer(struct target *target,
-				  uint32_t address,
+				  target_addr_t address,
 				  uint32_t count,
 				  uint8_t *buffer)
 {
@@ -504,7 +504,7 @@ static int xtensa_read_buffer(struct target *target,
 }
 
 static int xtensa_write_memory(struct target *target,
-				   uint32_t address,
+				   target_addr_t address,
 				   uint32_t size,
 				   uint32_t count,
 				   const uint8_t *buffer)
@@ -523,7 +523,7 @@ static int xtensa_write_memory(struct target *target,
 	uint8_t *albuff;
 
 	if (esp108_get_addr_type(address) != READWRITE && !esp108_permissive_mode) {
-		LOG_DEBUG("%s: address 0x%08x not writable", __func__, address);
+		LOG_DEBUG("%s: address " TARGET_ADDR_FMT " not writable", __func__, address);
 		return ERROR_FAIL;
 	}
 
@@ -587,7 +587,7 @@ static int xtensa_write_memory(struct target *target,
 	}
 	res=jtag_execute_queue();
 	if (res==ERROR_OK) res=esp108_checkdsr(target);
-	if (res!=ERROR_OK) LOG_WARNING("%s: Failed writing %d bytes at address 0x%08X",target->cmd_name, count*size, address);
+	if (res!=ERROR_OK) LOG_WARNING("%s: Failed writing %d bytes at address " TARGET_ADDR_FMT, target->cmd_name, count*size, address);
 
 	/* NB: if we were supporting the ICACHE option, we would need
 	 * to invalidate it here */
@@ -596,7 +596,7 @@ static int xtensa_write_memory(struct target *target,
 }
 
 static int xtensa_write_buffer(struct target *target,
-				   uint32_t address,
+				   target_addr_t address,
 				   uint32_t count,
 				   const uint8_t *buffer)
 {
@@ -706,7 +706,7 @@ static int xtensa_add_breakpoint(struct target *target, struct breakpoint *break
 	esp108->hw_brps[slot] = breakpoint;
 	//We will actually write the breakpoints when we resume the target.
 
-	LOG_INFO("%s: placed hw breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
+	LOG_INFO("%s: placed hw breakpoint %d at " TARGET_ADDR_FMT, target->cmd_name, (int)slot, breakpoint->address);
 	return ERROR_OK;
 }
 
@@ -727,7 +727,7 @@ static int xtensa_remove_breakpoint(struct target *target, struct breakpoint *br
 	}
 	if (slot==esp108->num_brps) return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	esp108->hw_brps[slot] = NULL;
-	LOG_INFO("%s: cleared hw breakpoint %d at 0x%X", target->cmd_name, (int)slot, breakpoint->address);
+	LOG_INFO("%s: cleared hw breakpoint %d at " TARGET_ADDR_FMT, target->cmd_name, (int)slot, breakpoint->address);
 	return ERROR_OK;
 }
 
@@ -765,7 +765,7 @@ static int xtensa_add_watchpoint(struct target *target, struct watchpoint *watch
 	if (watchpoint->length==32 && (watchpoint->address&0x1F)==0) dbreakcval=0x20;
 	if (watchpoint->length==64 && (watchpoint->address&0x3F)==0) dbreakcval=0x00;
 	if (dbreakcval==0xaa) {
-		LOG_WARNING("%s: Watchpoint with length %d on address 0x%X not supported by hardware.", target->cmd_name, watchpoint->length, watchpoint->address);
+		LOG_WARNING("%s: Watchpoint with length %d on address " TARGET_ADDR_FMT " not supported by hardware.", target->cmd_name, watchpoint->length, watchpoint->address);
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
@@ -808,7 +808,7 @@ static int xtensa_remove_watchpoint(struct target *target, struct watchpoint *wa
 
 static int xtensa_step(struct target *target,
 	int current,
-	uint32_t address,
+	target_addr_t address,
 	int handle_breakpoints)
 {
 	struct esp108_common *esp108=(struct esp108_common*)target->arch_info;
@@ -980,6 +980,7 @@ static int xtensa_target_create(struct target *target, Jim_Interp *interp)
 		reg_list[i].value = calloc(1,4);
 		reg_list[i].dirty = 0;
 		reg_list[i].valid = 0;
+		reg_list[i].exist = true;
 		reg_list[i].type = &esp108_reg_type;
 		reg_list[i].arch_info=esp108;
 	}
@@ -1096,7 +1097,7 @@ static int xtensa_poll(struct target *target)
 static int xtensa_start_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
-	uint32_t entry_point, uint32_t exit_point,
+	target_addr_t entry_point, target_addr_t exit_point,
 	void *arch_info)
 {
 	struct esp108_common *esp108 = (struct esp108_common*)target->arch_info;
@@ -1114,7 +1115,7 @@ static int xtensa_start_algorithm(struct target *target,
 static int xtensa_wait_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
-	uint32_t exit_point, int timeout_ms,
+	target_addr_t exit_point, int timeout_ms,
 	void *arch_info)
 {
 	int retval = ERROR_OK;

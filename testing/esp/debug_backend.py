@@ -389,17 +389,6 @@ class Gdb:
         if res != 'running':
             raise DebuggerError('Failed to step insn!')
 
-    def get_thread_info(self, thread_id=None):
-        # -thread-info [ thread-id ]
-        if thread_id:
-            cmd = '-thread-info %d' % thread_id
-        else:
-            cmd = '-thread-info'
-        res,res_body = self._mi_cmd_run(cmd)
-        if res != 'done' or not res_body or 'threads' not in res_body or 'current-thread-id' not in res_body:
-            raise DebuggerError('Failed to get thread info!')
-        return (res_body['current-thread-id'], res_body['threads'])
-
     def data_eval_expr(self, expr):
         # -data-evaluate-expression expr
         res,res_body = self._mi_cmd_run('-data-evaluate-expression %s' % expr)
@@ -517,11 +506,16 @@ class Gdb:
     def disconnect(self):
         self.target_disconnect()
 
-    def get_thread_info(self):
-        res,res_body = self._mi_cmd_run('-thread-info')
-        if res != 'done' or not res_body or 'threads' not in res_body:
-            raise DebuggerError('Failed to get backtrace!')
-        return res_body['threads']
+    def get_thread_info(self, thread_id=None):
+        # -thread-info [ thread-id ]
+        if thread_id:
+            cmd = '-thread-info %d' % thread_id
+        else:
+            cmd = '-thread-info'
+        res,res_body = self._mi_cmd_run(cmd)
+        if res != 'done' or not res_body or 'threads' not in res_body or 'current-thread-id' not in res_body:
+            raise DebuggerError('Failed to get thread info!')
+        return (res_body['current-thread-id'], res_body['threads'])
 
     def set_thread(self, num):
         res,_ = self._mi_cmd_run('-thread-select %d' % num)

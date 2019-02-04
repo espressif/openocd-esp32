@@ -277,7 +277,7 @@ int xtensa_write_uint32_list(struct target *target, const uint32_t* addr_value_p
 int xtensa_start_algorithm_generic(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
-	uint32_t entry_point, uint32_t exit_point,
+	target_addr_t entry_point, target_addr_t exit_point,
 	void *arch_info, struct reg_cache *core_cache)
 {
 	struct xtensa_algorithm *algorithm_info = arch_info;
@@ -346,7 +346,7 @@ int xtensa_start_algorithm_generic(struct target *target,
 int xtensa_wait_algorithm_generic(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
-	uint32_t exit_point, int timeout_ms,
+	target_addr_t exit_point, int timeout_ms,
 	void *arch_info, struct reg_cache *core_cache)
 {
 	struct xtensa_algorithm *algorithm_info = arch_info;
@@ -371,7 +371,7 @@ int xtensa_wait_algorithm_generic(struct target *target,
 	}
 	pc = esp108_reg_get(&core_cache->reg_list[XT_REG_IDX_PC]);
 	if (exit_point && (pc != exit_point)) {
-		LOG_ERROR("failed algorithm halted at 0x%" PRIx32 ", expected 0x%" PRIx32,
+		LOG_ERROR("failed algorithm halted at 0x%" PRIx32 ", expected " TARGET_ADDR_FMT,
 			pc,
 			exit_point);
 		return ERROR_TARGET_TIMEOUT;
@@ -379,9 +379,9 @@ int xtensa_wait_algorithm_generic(struct target *target,
 	/* Read memory values to mem_params */
 	LOG_DEBUG("Read mem params");
 	for (int i = 0; i < num_mem_params; i++) {
-		LOG_DEBUG("Check mem param @ 0x%x", mem_params[i].address);
+		LOG_DEBUG("Check mem param @ " TARGET_ADDR_FMT, mem_params[i].address);
 		if (mem_params[i].direction != PARAM_OUT) {
-			LOG_DEBUG("Read mem param @ 0x%x", mem_params[i].address);
+			LOG_DEBUG("Read mem param @ " TARGET_ADDR_FMT, mem_params[i].address);
 			retval = target_read_buffer(target, mem_params[i].address,
 					mem_params[i].size,
 					mem_params[i].value);
@@ -433,7 +433,7 @@ int xtensa_wait_algorithm_generic(struct target *target,
 int xtensa_run_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
-	uint32_t entry_point, uint32_t exit_point,
+	target_addr_t entry_point, target_addr_t exit_point,
 	int timeout_ms, void *arch_info)
 {
 	int retval;

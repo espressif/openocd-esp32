@@ -30,10 +30,10 @@ class DebuggerThreadsTestsImpl:
         time.sleep(5)
         self.stop_exec()
         test_tasks = {'1': [3, 0], '2': [7, 0], '3': [5, 0]}
-        threads_info = self.gdb.get_thread_info()
+        _,threads_info = self.gdb.get_thread_info()
         for ti in threads_info:
             def _check_backtrace(suf, num):
-                if not ti['details'].startswith("check_bt_task%s" % suf):
+                if not ti['details'].startswith("Name: check_bt_task%s" % suf):
                     return 0
                 self.gdb.set_thread(int(ti['id'],0))
                 frames = self.gdb.get_backtrace()
@@ -51,8 +51,8 @@ class DebuggerThreadsTestsImpl:
 
 
     def test_thread_switch(self):
-        """ 
-            This test switch a threads and check that expected thread id and current thread id are the same. 
+        """
+            This test switch a threads and check that expected thread id and current thread id are the same.
             1) Read thread information about all threads to get full amount of threads
             2) Set up each thread as an active
             3) Compare that active thread id and expected thread id are the same
@@ -60,17 +60,17 @@ class DebuggerThreadsTestsImpl:
         """
         self.select_sub_test(401)
         self.add_bp('test_check_bp')
-        
+
         for i in range(10):
             self.resume_exec()
             self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
-            threads_info = self.gdb.get_thread_info() # get info for all threads
+            _,threads_info = self.gdb.get_thread_info() # get info for all threads
             s = len(threads_info)
             get_logger().debug('Loop = %d', i)
             for k in range(0,s):
                 #print 'DebuggerThreadsTestsImpl.test_thread_switch loop [%i,%i] ' % (i,k)
-                threads_info = self.gdb.get_thread_info() # get info for all threads
-                get_logger().debug('Process thread  %d, k=%d', int(threads_info[k]['id'],10), k)                
+                _,threads_info = self.gdb.get_thread_info() # get info for all threads
+                get_logger().debug('Process thread  %d, k=%d', int(threads_info[k]['id'],10), k)
                 if threads_info[k]['details'].find("thread_task") == 0:
                     # Get expected ID
                     expected_id = int(threads_info[k]['id'],10);

@@ -52,7 +52,7 @@ enum shutdown_reason {
 	SHUTDOWN_WITH_ERROR_CODE,	/* set by shutdown command; quit with non-zero return code */
 	SHUTDOWN_WITH_SIGNAL_CODE	/* set by sig_handler; exec shutdown then exit with signal as return code */
 };
-static enum shutdown_reason shutdown_openocd = CONTINUE_MAIN_LOOP;
+enum shutdown_reason shutdown_openocd = CONTINUE_MAIN_LOOP;
 
 /* store received signal to exit application by killing ourselves */
 static int last_signal;

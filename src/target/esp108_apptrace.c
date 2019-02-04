@@ -420,7 +420,10 @@ struct esp_gcov_cmd_data {
 	bool		wait4halt;
 };
 
-// need to check it when poll period is less then 1 ms in order to react on CTRL+C etc
+// need to check `shutdown_openocd` when poll period is less then 1 ms in order to react on CTRL+C etc.
+// Actually `shutdown_openocd` is an enum type var. Non-zero value tells that shutdown is requested, for now this hasck works.
+// TODO: Currently for periods less then 1ms we loop in command handler until CTRL+C is pressed.
+//       Another trace data polling mechanism is necessary for small periods.
 extern int shutdown_openocd;
 
 static int esp_sysview_process_data(struct esp_apptrace_cmd_ctx *ctx, int core_id, uint8_t *data, uint32_t data_len);

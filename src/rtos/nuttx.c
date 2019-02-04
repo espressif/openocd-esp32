@@ -123,7 +123,8 @@ static const struct rtos_register_stacking nuttx_stacking_cortex_m = {
 	-1,                                     /* stack_growth_direction */
 	17,                                     /* num_output_registers */
 	0,                                      /* stack_alignment */
-	nuttx_stack_offsets_cortex_m   /* register_offsets */
+	nuttx_stack_offsets_cortex_m,   		/* register_offsets */
+	NULL									/* Custom stack frame read function */
 };
 
 static const struct stack_register_offset nuttx_stack_offsets_cortex_m_fpu[] = {
@@ -151,7 +152,8 @@ static const struct rtos_register_stacking nuttx_stacking_cortex_m_fpu = {
 	-1,                                     /* stack_growth_direction */
 	17,                                     /* num_output_registers */
 	0,                                      /* stack_alignment */
-	nuttx_stack_offsets_cortex_m_fpu        /* register_offsets */
+	nuttx_stack_offsets_cortex_m_fpu,       /* register_offsets */
+	NULL									/* Custom stack frame read function */
 };
 
 static int pid_offset = PID;

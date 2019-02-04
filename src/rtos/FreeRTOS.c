@@ -584,7 +584,7 @@ static int FreeRTOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 										thread_id + param->thread_stack_offset,
 										stack_ptr);
 	if (param->stacking_info_pick_fn) {
-		return rtos_generic_stack_read(rtos->target, param->stacking_info_pick_fn(rtos, thread_id, thread_id + param->thread_stack_offset), stack_ptr, hex_reg_list);
+		return rtos_generic_stack_read(rtos->target, param->stacking_info_pick_fn(rtos, thread_id, thread_id + param->thread_stack_offset), stack_ptr, reg_list, num_regs);
 	}
 
 	/* Check for armv7m with *enabled* FPU, i.e. a Cortex-M4F */
@@ -715,12 +715,17 @@ static int FreeRTOS_post_reset_cleanup(struct target *target)
 static int FreeRTOS_clean(struct target *target)
 {
 	LOG_DEBUG("FreeRTOS_clean");
-	rtos_free_threadlist(target->rtos);
-	target->rtos->current_thread = 0;
-	free(target->rtos->core_running_threads);
-	target->rtos->core_running_threads = NULL;
-	free(target->rtos->rtos_specific_data);
-	target->rtos->rtos_specific_data = NULL;
+	if (target->rtos_auto_detect == true) {
+		// FreeRTOS_create() will be called upon receiption of the first 'qSymbol' if rtos_auto_detect is true,
+		// so we can free resources
+		// if rtos_auto_detect is false FreeRTOS_create() is called only once upon target creation
+		rtos_free_threadlist(target->rtos);
+		target->rtos->current_thread = 0;
+		free(target->rtos->core_running_threads);
+		target->rtos->core_running_threads = NULL;
+		free(target->rtos->rtos_specific_data);
+		target->rtos->rtos_specific_data = NULL;
+	}
 	return ERROR_OK;
 }
 

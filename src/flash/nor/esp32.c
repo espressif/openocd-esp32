@@ -758,7 +758,7 @@ struct esp32_flash_sw_breakpoint * esp32_add_flash_breakpoint(struct target *tar
 	esp32_info = bank->driver_priv;
 	// can set set breakpoints in mapped app regions only
 	if (strcmp(bank->name, "irom") != 0) {
-		LOG_ERROR("Can not set BP outside of IROM (BP addr 0x%x)!", breakpoint->address);
+		LOG_ERROR("Can not set BP outside of IROM (BP addr " TARGET_ADDR_FMT ")!", breakpoint->address);
 		return NULL;
 	}
 
@@ -806,7 +806,7 @@ struct esp32_flash_sw_breakpoint * esp32_add_flash_breakpoint(struct target *tar
 	sw_bp->data.insn_sz = run.ret_code;
 	memcpy(sw_bp->data.insn, mp.value, 3);
 	destroy_mem_param(&mp);
-	LOG_DEBUG("%s: Placed flash SW breakpoint at 0x%X, insn [%02x %02x %02x] %d bytes", target->cmd_name, breakpoint->address,
+	LOG_DEBUG("%s: Placed flash SW breakpoint at " TARGET_ADDR_FMT ", insn [%02x %02x %02x] %d bytes", target->cmd_name, breakpoint->address,
 	          sw_bp->data.insn[0], sw_bp->data.insn[1], sw_bp->data.insn[2], sw_bp->data.insn_sz);
 
 	return sw_bp;
@@ -837,7 +837,7 @@ int esp32_remove_flash_breakpoint(struct target *target, struct esp32_flash_sw_b
 	run.mem_args.count = 1;
 
 	uint32_t bp_flash_addr = esp32_info->hw_flash_base + (breakpoint->data.oocd_bp->address - breakpoint->bank->base);
-	LOG_DEBUG("%s: Remove flash SW breakpoint at 0x%X, insn [%02x %02x %02x] %d bytes", target->cmd_name, breakpoint->data.oocd_bp->address,
+	LOG_DEBUG("%s: Remove flash SW breakpoint at " TARGET_ADDR_FMT ", insn [%02x %02x %02x] %d bytes", target->cmd_name, breakpoint->data.oocd_bp->address,
 	          breakpoint->data.insn[0], breakpoint->data.insn[1], breakpoint->data.insn[2], breakpoint->data.insn_sz);
 	ret = esp32_run_func_image(target, &run, &flasher_image, 4 /*args num*/,
 	                           ESP32_STUB_CMD_FLASH_BP_CLEAR/*cmd*/,
