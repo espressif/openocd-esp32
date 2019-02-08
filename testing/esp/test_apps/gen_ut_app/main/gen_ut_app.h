@@ -28,4 +28,6 @@
 // used to prevent linker from optimizing out the variables holding BP line numbers
 volatile static int s_tmp_ln = 0;
 
+#define LABEL_SYMBOL(name) __asm__ volatile(".global " name "\n.type " name ",@function\n" name":");
+
 #endif //GEN_UT_APP_H

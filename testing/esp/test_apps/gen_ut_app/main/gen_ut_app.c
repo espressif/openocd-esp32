@@ -228,6 +228,40 @@ static void step_over_bp_task(void *pvParameter)
 }
 
 
+static void fibonacci_calc(void)
+/* calculation of 3 fibonacci sequences: f0, f1 abd f2
+ * f(n) = f(n-1) + f(n-2) -> f(n) : 0, 1, 1, 2, 3, 5, 8, 13, 21, 34, ...*/
+{
+    volatile int f0_nm2, f1_nm2, f2_nm2; // n-2
+    volatile int f0_nm1, f1_nm1, f2_nm1; // n-1
+    volatile int f0_n, f1_n, f2_n; // n
+    // setting three starting state for each f sequence: n-2 points:
+    f0_nm2 = 0;
+    f1_nm2 = 1;
+    f2_nm2 = 3;
+    // setting three starting state for each f sequence: n-1 points:
+    f0_nm1 = 1;
+    f1_nm1 = 2;
+    f2_nm1 = 5;
+    while (1)
+    {
+        LABEL_SYMBOL("fib_while");
+        f0_n = f0_nm1 + f0_nm2; // calculating f0_n
+        f0_nm2 = f0_nm1; // n shift
+        f0_nm1 = f0_n;
+        f1_n = f1_nm1 + f1_nm2; // calculating f1_n
+        f1_nm2 = f1_nm1; // n shift
+        f1_nm1 = f1_n;
+        f2_n = f2_nm1 + f2_nm2;
+        f2_nm2 = f2_nm1; // n shift// calculating f2_n
+        f2_nm1 = f2_n;
+
+
+    }
+}
+
+
+
 /* Add new  */
 
 void app_main()
@@ -252,6 +286,9 @@ void app_main()
             break;
         case 103:
             xTaskCreate(&step_over_bp_task, "step_over_bp_task", 2048, NULL, 5, NULL);
+            break;
+        case 104:
+            xTaskCreate(&fibonacci_calc, "fibonacci_calc", 2048, NULL, 5, NULL);
             break;
         case 200:
             xTaskCreate(&window_exception_test, "win_exc_task", 8192, NULL, 5, NULL);

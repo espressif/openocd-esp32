@@ -56,7 +56,7 @@ class DebuggerTestAppConfig:
         self.pt_off = ESP32_PT_FLASH_OFF
         # name of test app variable which selects sub-test to run
         self.test_select_var = None
-    
+
     def __repr__(self):
         return '%s/%x-%s/%x-%s/%x-%s' % (self.bin_dir, self.app_off, self.app_name, self.bld_off, self.bld_path, self.pt_off, self.pt_path)
 
@@ -112,7 +112,7 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
         """
         self._group_tests(self)
         for app_cfg_id in self._groupped_suites:
-            # check if suite have at least one test to run 
+            # check if suite have at least one test to run
             skip_count = 0
             for test in self._groupped_suites[app_cfg_id][1]:
                 if getattr(type(test), '__unittest_skip__', False):
@@ -215,14 +215,23 @@ class DebuggerTestsBase(unittest.TestCase):
                 self.gdb.exec_continue()
             self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_RUNNING, 5)
 
-    # TODO: add step_insn method
-    def step(self):
-        """ Performs program step (step over, "next" command in GDB)
+    def interrupt(self):
+        """ Perform CTRL+C
         """
-        self.gdb.exec_next()
+        self.gdb.exec_interrupt()
+        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 20)
+        self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_SIGINT)
+
+    def step(self, insn=False, stop_rsn=dbg.Gdb.TARGET_STOP_REASON_STEPPED):
+        """ Performs program step ( "next", "nexti" command in GDB)
+        """
+        if insn:
+            self.gdb.exec_next_insn()
+        else:
+            self.gdb.exec_next()
         self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_RUNNING, 5)
         rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
-        self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_STEPPED)
+        self.assertEqual(rsn, stop_rsn)
 
     def step_in(self):
         """ Performs program step (step in, "step" command in GDB)
@@ -273,7 +282,7 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         self.resume_exec()
         rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 10)
         # workarounds for strange debugger's behaviour
-        if rsn == dbg.Gdb.TARGET_STOP_REASON_SIGINT:            
+        if rsn == dbg.Gdb.TARGET_STOP_REASON_SIGINT:
             get_logger().warning('Unexpected SIGINT during setup! Apply workaround...')
             cur_frame = self.gdb.get_current_frame()
             self.resume_exec()
