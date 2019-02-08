@@ -15,8 +15,7 @@ def get_logger():
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
 
-# noinspection PyUnresolvedReferences
-class StepTestsImpl:
+class StepTestsImpl():
     """ Stepping test cases generic for dual and single core modes
     """
 
@@ -232,6 +231,36 @@ class StepTestsImpl:
             self.interrupt()
             get_logger().info("done")
             self.add_bp("fib_while") #  restore bp
+
+    def test_step_out_of_function(self):
+        """
+            1) Set BP inside a deep nested function
+            2) Catch it
+            3) Do step out until getting to the main test function
+            4) Repeat 2-4 steps
+
+        """
+        self.select_sub_test(201)
+        self.add_bp('nested_bottom')
+        for i in range(3):
+
+            # catching the BP
+            self.resume_exec()
+            rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+            self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_BP)
+            cur_frame = self.gdb.get_current_frame()
+            self.assertEqual(cur_frame['func'], 'nested_bottom')
+
+            # stepping out:
+            self.step_out()
+            cur_frame = self.gdb.get_current_frame()
+            self.assertEqual(cur_frame['func'], 'nested_middle')
+            self.step_out()
+            cur_frame = self.gdb.get_current_frame()
+            self.assertEqual(cur_frame['func'], 'nested_top')
+            self.step_out()
+            cur_frame = self.gdb.get_current_frame()
+            self.assertEqual(cur_frame['func'], 'step_out_of_function_test')
 
 
 ########################################################################

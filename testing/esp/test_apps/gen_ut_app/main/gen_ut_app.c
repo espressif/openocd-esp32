@@ -163,11 +163,42 @@ static void recursive(int levels)
     recursive(levels - 1);
 }
 
+
 void window_exception_test(void* arg)
 {
     recursive(20);
     printf("sum=%d\n",sum);
 }
+
+
+/* Three nested functions - from nested_top to nested_bottom 
+ */
+static  __attribute__((noinline)) void nested_bottom()
+{
+    sum++;  // you have reached the bottom
+}
+
+static __attribute__((noinline)) void nested_middle() 
+{
+    sum++;
+    nested_bottom();
+}
+
+static  __attribute__((noinline)) void nested_top()
+{
+    sum++;
+    nested_middle();
+}
+
+void step_out_of_function_test()
+{
+    while(1)
+    {
+        sum = 0;
+        nested_top();
+    }
+}
+
 
 static void scratch_reg_using_task(void *pvParameter)
 {
@@ -292,6 +323,9 @@ void app_main()
             break;
         case 200:
             xTaskCreate(&window_exception_test, "win_exc_task", 8192, NULL, 5, NULL);
+            break;
+        case 201:
+            xTaskCreate(&step_out_of_function_test, "step_out_func", 2048, NULL, 5, NULL);
             break;
 #if CONFIG_ESP32_GCOV_ENABLE
         case 300:
