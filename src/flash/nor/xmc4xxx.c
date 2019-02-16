@@ -936,7 +936,7 @@ static int xmc4xxx_get_info_command(struct flash_bank *bank, char *buf, int buf_
 		strcat(prot_str, "\nOTP Protection is enabled for sectors:\n");
 		for (int i = 0; i < bank->num_sectors; i++) {
 			if (fb->write_prot_otp[i]) {
-				snprintf(otp_str, sizeof(otp_str) - 1, "- %d\n", i);
+				snprintf(otp_str, sizeof(otp_str), "- %d\n", i);
 				strncat(prot_str, otp_str, sizeof(prot_str) - strlen(prot_str) - 1);
 			}
 		}

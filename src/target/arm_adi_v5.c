@@ -1131,7 +1131,7 @@ static int dap_rom_display(struct command_context *cmd_ctx,
 	}
 
 	if (depth)
-		snprintf(tabs, sizeof(tabs) - 1, "[L%02d] ", depth);
+		snprintf(tabs, sizeof(tabs), "[L%02d] ", depth);
 
 	uint32_t base_addr = dbgbase & 0xFFFFF000;
 	command_print(cmd_ctx, "\t\tComponent base address 0x%08" PRIx32, base_addr);
