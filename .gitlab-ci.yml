@@ -157,7 +157,7 @@ build_linux_armel:
     - MAKEFLAGS= make install-strip
     - *dist_archive
 
-build_windows:
+.build_windows:
   stage: build
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-win-cross
   tags:
@@ -276,8 +276,9 @@ build_test_app:
   script:
     - *add_gitlab_key
     # Prepare ESP-IDF
-    - git clone --depth 1 $GITLAB_SSH_SERVER/idf/esp-idf.git
+    - git clone $GITLAB_SSH_SERVER/idf/esp-idf.git
     - pushd esp-idf
+    - git checkout $CI_COMMIT_REF_NAME || true
     - tools/ci/mirror-submodule-update.sh
     - export IDF_PATH=$PWD
     - export BATCH_BUILD=1
