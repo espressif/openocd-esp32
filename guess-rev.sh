@@ -14,39 +14,10 @@ usage() {
 
 cd "${1:-.}" || usage
 
-# Check for git and a git repo.
-if head=`git rev-parse --verify --short HEAD 2>/dev/null`; then
-
-	# If we are at a tagged commit (like "v2.6.30-rc6"), we ignore it,
-	# because this version is defined in the top level Makefile.
-	if [ -z "`git describe --exact-match 2>/dev/null`" ]; then
-
-		# If we are past a tagged commit (like "v2.6.30-rc5-302-g72357d5"),
-		# we pretty print it.
-		if atag="`git describe 2>/dev/null`"; then
-			echo "$atag" | awk -F- '{printf("-%05d-%s", $(NF-1),$(NF))}'
-
-		# If we don't have a tag at all we print -g{commitish}.
-		else
-			printf '%s%s' -g $head
-		fi
-	fi
-
-	# Is this git on svn?
-	if git config --get svn-remote.svn.url >/dev/null; then
-	        printf -- '-svn%s' "`git svn find-rev $head`"
-	fi
-
-	# Update index only on r/w media
-	[ -w . ] && git update-index --refresh --unmerged > /dev/null
-
-	# Check for uncommitted changes
-	if git diff-index --name-only HEAD | grep -v "^scripts/package" \
-	    | read dummy; then
-		printf '%s' -dirty
-	fi
-
-	# All done with git
+# Check for git and a git repo, use 'git describe' output as version.
+desc=`git describe --always --tags --dirty --abbrev=8 2>/dev/null`
+if [ -n "$desc" ]; then
+	printf '%s' $desc
 	exit
 fi
 
