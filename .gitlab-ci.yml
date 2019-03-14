@@ -321,8 +321,9 @@ run_autotests_linux64:
 
 run_autotests_armel:
   stage: test
+  image: $CI_DOCKER_REGISTRY/rpi-test-env
   tags:
-    - rpi-shell
+    - test_jtag_arm
   allow_failure: true
   artifacts:
     paths:
