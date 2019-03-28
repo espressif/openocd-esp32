@@ -296,6 +296,9 @@ run_autotests_linux64:
   artifacts:
     paths:
       - testing/esp/debug_backend_tests.log
+    reports:
+      junit:
+        - testing/esp/results/*
     when: always
     expire_in: 1 week
   dependencies:
@@ -323,6 +326,9 @@ run_autotests_armel:
   artifacts:
     paths:
       - testing/esp/debug_backend_tests.log
+    reports:
+      junit:
+        - testing/esp/results/*
     when: always
     expire_in: 1 week
   dependencies:
@@ -354,6 +360,9 @@ run_autotests_linux64_solo:
   artifacts:
     paths:
       - testing/esp/debug_backend_tests.log
+    reports:
+      junit:
+        - testing/esp/results/*
     when: always
     expire_in: 1 week
   dependencies:
