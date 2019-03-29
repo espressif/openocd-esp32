@@ -9,8 +9,8 @@ workflow "Sync issue and PR comments to JIRA" {
 }
 
 workflow "Sync PRs to JIRA" {
-  on = "pull_request"
   resolves = ["Sync to JIRA"]
+  on = "pull_request"
 }
 
 action "Sync to JIRA" {
@@ -20,4 +20,3 @@ action "Sync to JIRA" {
     JIRA_PROJECT = "OpenOCD"
   }
 }
-
