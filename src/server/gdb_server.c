@@ -2076,44 +2076,50 @@ static int gdb_memory_map(struct connection *connection, char const *packet, int
 
 		p = banks[i];
 
-		/* Report adjacent groups of same-size sectors.  So for
-		 * example top boot CFI flash will list an initial region
-		 * with several large sectors (maybe 128KB) and several
-		 * smaller ones at the end (maybe 32KB).  STR7 will have
-		 * regions with 8KB, 32KB, and 64KB sectors; etc.
-		 */
-		for (unsigned int j = 0; j < p->num_sectors; j++) {
-
-			/* Maybe start a new group of sectors. */
-			if (sector_size == 0) {
-				if (p->sectors[j].offset + p->sectors[j].size > p->size) {
-					LOG_WARNING("The flash sector at offset 0x%08" PRIx32
-						" overflows the end of %s bank.",
-						p->sectors[j].offset, p->name);
-					LOG_WARNING("The rest of bank will not show in gdb memory map.");
-					break;
+		if (p->read_only) {
+			xml_printf(&retval, &xml, &pos, &size,
+				"<memory type=\"rom\" start=\"" TARGET_ADDR_FMT "\" "
+				"length=\"0x%x\"/>\n",
+				p->base, p->size);
+		} else {
+			/* Report adjacent groups of same-size sectors.  So for
+			* example top boot CFI flash will list an initial region
+			* with several large sectors (maybe 128KB) and several
+			* smaller ones at the end (maybe 32KB).  STR7 will have
+			* regions with 8KB, 32KB, and 64KB sectors; etc.
+			*/
+			for (unsigned int j = 0; j < p->num_sectors; j++) {
+				// Maybe start a new group of sectors
+				if (sector_size == 0) {
+					if (p->sectors[j].offset + p->sectors[j].size > p->size) {
+						LOG_WARNING("The flash sector at offset 0x%08" PRIx32
+							" overflows the end of %s bank.",
+							p->sectors[j].offset, p->name);
+						LOG_WARNING("The rest of bank will not show in gdb memory map.");
+						break;
+					}
+					region.type = MEMORY_TYPE_FLASH;
+					region.start = p->base + p->sectors[j].offset;
+					sector_size = p->sectors[j].size;
+					group_len = sector_size;
+				} else {
+					group_len += sector_size; /* equal to p->sectors[j].size */
 				}
-				region.type = MEMORY_TYPE_FLASH;
-				region.start = p->base + p->sectors[j].offset;
-				sector_size = p->sectors[j].size;
-				group_len = sector_size;
-			} else {
-				group_len += sector_size; /* equal to p->sectors[j].size */
+
+				/* Does this finish a group of sectors?
+				* If not, continue an already-started group.
+				*/
+				if (j < p->num_sectors - 1
+						&& p->sectors[j + 1].size == sector_size
+						&& p->sectors[j + 1].offset == p->sectors[j].offset + sector_size
+						&& p->sectors[j + 1].offset + p->sectors[j + 1].size <= p->size)
+					continue;
+
+				region.length = group_len;
+				region.block_size = sector_size;
+				target_add_memory_region(&memory_map, &region);
+				sector_size = 0;
 			}
-
-			/* Does this finish a group of sectors?
-			 * If not, continue an already-started group.
-			 */
-			if (j < p->num_sectors - 1
-					&& p->sectors[j + 1].size == sector_size
-					&& p->sectors[j + 1].offset == p->sectors[j].offset + sector_size
-					&& p->sectors[j + 1].offset + p->sectors[j + 1].size <= p->size)
-				continue;
-
-			region.length = group_len;
-			region.block_size = sector_size;
-			target_add_memory_region(&memory_map, &region);
-			sector_size = 0;
 		}
 	}
 

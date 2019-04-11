@@ -6174,6 +6174,16 @@ flash bank vbank1 virtual 0x9fc00000 0 0 0 \
 @end example
 @end deffn
 
+@deffn {Flash Driver} read_only
+A stub driver without write and erase.
+Use to define a ROM region for the gdb memory map.
+
+@example
+flash bank $_CHIPNAME.sysrom read_only 0x1ff00000 0xedc0 0 0 \
+           $_TARGETNAME
+@end example
+@end deffn
+
 @subsection External Flash
 
 @deffn {Flash Driver} {cfi}

@@ -84,6 +84,8 @@ struct flash_bank {
 	target_addr_t base; /**< The base address of this bank */
 	uint32_t size; /**< The size of this chip bank, in bytes */
 
+	bool read_only; /**< a ROM region - mainly to list in gdb memory map */
+
 	unsigned int chip_width; /**< Width of the chip in bytes (1,2,4 bytes) */
 	unsigned int bus_width; /**< Maximum bus width, in bytes (1,2,4 bytes) */
 

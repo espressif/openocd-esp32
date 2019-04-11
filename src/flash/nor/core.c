@@ -44,6 +44,11 @@ int flash_driver_protect(struct flash_bank *bank, int set, unsigned int first,
 	int retval;
 	unsigned int num_blocks;
 
+	if (!bank->driver->protect) {
+		LOG_ERROR("Flash protection is not supported");
+		return ERROR_FLASH_OPER_UNSUPPORTED;
+	}
+
 	if (bank->num_prot_blocks)
 		num_blocks = bank->num_prot_blocks;
 	else
@@ -58,11 +63,6 @@ int flash_driver_protect(struct flash_bank *bank, int set, unsigned int first,
 
 	/* force "set" to 0/1 */
 	set = !!set;
-
-	if (!bank->driver->protect) {
-		LOG_ERROR("Flash protection is not supported.");
-		return ERROR_FLASH_OPER_UNSUPPORTED;
-	}
 
 	/* DANGER!
 	 *
