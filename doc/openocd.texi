@@ -6156,7 +6156,7 @@ Some drivers also activate driver-specific commands.
 This is a special driver that maps a previously defined bank to another
 address. All bank settings will be copied from the master physical bank.
 
-The @var{virtual} driver defines one mandatory parameters,
+The @var{virtual} driver defines one mandatory parameter,
 
 @itemize
 @item @var{master_bank} The bank that this virtual address refers to.
@@ -6172,6 +6172,18 @@ flash bank vbank0 virtual 0xbfc00000 0 0 0 \
 flash bank vbank1 virtual 0x9fc00000 0 0 0 \
            $_TARGETNAME $_FLASHNAME
 @end example
+@end deffn
+
+@deffn {Flash Driver} ro_alias
+Similar as @var{virtual} driver but suppresses write
+and erase. Use to build a complete memory map for gdb.
+Bank size will be copied from the master physical bank.
+
+The @var{virtual} driver defines one mandatory parameter,
+
+@itemize
+@item @var{master_bank} The bank that this virtual address refers to.
+@end itemize
 @end deffn
 
 @deffn {Flash Driver} read_only

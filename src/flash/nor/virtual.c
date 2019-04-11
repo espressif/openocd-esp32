@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-/***************************************************************************
- *   Copyright (C) 2010 by Spencer Oliver                                  *
- *   spen@spen-soft.co.uk                                                  *
- ***************************************************************************/
+/*
+ * Copyright (C) 2010 by Spencer Oliver <spen@spen-soft.co.uk>
+ *
+ * Copyright (C) 2019 by Tomas Vanek <vanekt@fbl.cz>
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -31,6 +32,9 @@ static void virtual_update_bank_info(struct flash_bank *bank)
 
 	/* update the info we do not have */
 	bank->size = master_bank->size;
+	if (bank->read_only)
+		return;
+
 	bank->chip_width = master_bank->chip_width;
 	bank->bus_width = master_bank->bus_width;
 	bank->erased_value = master_bank->erased_value;
@@ -187,6 +191,19 @@ static int virtual_flash_read(struct flash_bank *bank,
 	return master_bank->driver->read(master_bank, buffer, offset, count);
 }
 
+void virtual_flash_free_driver_priv(struct flash_bank *bank)
+{
+	free(bank->driver_priv);
+	bank->driver_priv = NULL;
+
+	/* For 'virtual' flash driver bank->sectors and bank->prot_blocks pointers are copied from
+	 * master flash_bank structure. They point to memory locations allocated by master flash driver
+	 * so master driver is responsible for releasing them.
+	 * Avoid UB caused by double-free memory corruption if flash bank is 'virtual'. */
+	bank->sectors = NULL;
+	bank->prot_blocks = NULL;
+}
+
 const struct flash_driver virtual_flash = {
 	.name = "virtual",
 	.flash_bank_command = virtual_flash_bank_command,
@@ -199,5 +216,62 @@ const struct flash_driver virtual_flash = {
 	.erase_check = virtual_blank_check,
 	.protect_check = virtual_protect_check,
 	.info = virtual_info,
-	.free_driver_priv = default_flash_free_driver_priv,
+	.free_driver_priv = virtual_flash_free_driver_priv,
+};
+
+FLASH_BANK_COMMAND_HANDLER(ro_alias_bank_command)
+{
+	if (CMD_ARGC < 7)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	// get the master flash bank
+	const char *bank_name = CMD_ARGV[6];
+	struct flash_bank *master_bank = get_flash_bank_by_name_noprobe(bank_name);
+
+	if (!master_bank) {
+		LOG_ERROR("master flash bank '%s' does not exist", bank_name);
+		return ERROR_FLASH_OPERATION_FAILED;
+	}
+
+	// save master bank name - use this to get settings later
+	bank->driver_priv = strdup(bank_name);
+
+	bank->read_only = true;
+
+	return ERROR_OK;
+}
+
+static int ro_alias_erase(struct flash_bank *bank,
+	unsigned int first, unsigned int last)
+{
+	char *bank_name = bank->driver_priv;
+
+	LOG_ERROR("Erase of read-only flash alias refused. Use master flash bank '%s'",
+			bank_name);
+
+	return ERROR_FAIL;
+}
+
+static int ro_alias_write(struct flash_bank *bank, const uint8_t *buffer,
+		uint32_t offset, uint32_t count)
+{
+	char *bank_name = bank->driver_priv;
+
+	LOG_ERROR("Write to read-only flash alias refused. Use master flash bank '%s'",
+			bank_name);
+
+	return ERROR_FAIL;
+}
+
+const struct flash_driver ro_alias_flash = {
+	.name = "ro_alias",
+	.flash_bank_command = ro_alias_bank_command,
+	.erase = ro_alias_erase,
+	.write = ro_alias_write,
+	.read = virtual_flash_read,
+	.probe = virtual_probe,
+	.auto_probe = virtual_auto_probe,
+	.erase_check = virtual_blank_check,
+	.info = virtual_info,
+	.free_driver_priv = virtual_flash_free_driver_priv,
 };
