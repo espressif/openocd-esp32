@@ -17,6 +17,6 @@ action "Sync to JIRA" {
   uses = "espressif/github-actions/sync_issues_to_jira@master"
   secrets = ["GITHUB_TOKEN", "JIRA_URL", "JIRA_USER", "JIRA_PASS"]
   env = {
-    JIRA_PROJECT = "OpenOCD"
+    JIRA_PROJECT = "OCD"
   }
 }
