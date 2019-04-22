@@ -1824,7 +1824,7 @@ static int xtensa_poll(struct target *target)
 			target->state = TARGET_HALTED;
 			esp32_fetch_all_regs(target, 0x3);
 			//Examine why the target was halted
-			target->debug_reason = DBG_REASON_DBGRQ;
+			target->debug_reason = DBG_REASON_UNDEFINED;
 			uint32_t halt_cause[ESP32_CPU_COUNT_MAX] = {0};
 			for (size_t i = 0; i < esp32->configured_cores_num; i++)
 			{
@@ -1850,6 +1850,12 @@ static int xtensa_poll(struct target *target)
 					target->debug_reason = DBG_REASON_DBGRQ;
 					esp32->active_cpu = k-1;
 				}
+			}
+			// Handle special case when halt is send to the stalled active core.
+			// We need to switch focus to another core in order to be able to run algorithms.
+			if (target->debug_reason == DBG_REASON_DBGRQ && (dsr[esp32->active_cpu] & OCDDSR_RUNSTALLSAMPLE)) {
+				LOG_DEBUG("Received debug request on stalled active core %d. Switch active core.", (int)esp32->active_cpu);
+				esp32->active_cpu = esp32->active_cpu == ESP32_PRO_CPU_ID ? ESP32_APP_CPU_ID : ESP32_PRO_CPU_ID;
 			}
 			for (size_t k = esp32->configured_cores_num; k > 0; k--) {
 				if (halt_cause[k-1] & DEBUGCAUSE_IC)
