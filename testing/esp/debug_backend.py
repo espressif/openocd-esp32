@@ -31,7 +31,7 @@ def start(toolch, oocd_path, oocd_tcl_dir, oocd_cfg_files, oocd_cfg_cmds=[]):
     oocd_args += ['-s', oocd_tcl_dir]
     for f in oocd_cfg_files:
         oocd_args += ['-f', f]
-    #oocd_args += ['-d', '3']
+    #oocd_args += ['-d3']
     _oocd_inst = Oocd(oocd_path, oocd_args)
     _oocd_inst.start()
     try:
@@ -58,6 +58,16 @@ class DebuggerError(RuntimeError):
 
 class DebuggerTargetStateTimeoutError(DebuggerError):
     pass
+
+# This function needs to be called for paths passed to OOCD or GDB commands.
+# API handles this automatically but ut should be used when if user composes commands himself, e.g. for Gdb.monitor_run().
+# It makes paths portable across Windows and Linux versions of the tools.
+def fixup_path(path):
+    file_path = path
+    if os.name == 'nt':
+        # Convert filepath from Windows format if needed
+        file_path = file_path.replace("\\","/");
+    return file_path
 
 
 class Oocd(threading.Thread):
@@ -326,19 +336,11 @@ class Gdb:
 
     def target_program(self, file_name, off, actions='verify', tmo=30):
         # actions can be any or both of 'verify reset'
-        local_file_path = file_name;
-        if os.name == 'nt':
-            # Convert filepath from Windows format if needed
-            local_file_path = local_file_path.replace("\\","/");
-        self.monitor_run('program_esp32 %s %s 0x%x' % (local_file_path, actions, off), tmo)
+        self.monitor_run('program_esp32 %s %s 0x%x' % (fixup_path(file_name), actions, off), tmo)
 
     def exec_file_set(self, file_path):
         # -file-exec-and-symbols file
-        local_file_path = file_path;
-        if os.name == 'nt':
-            # Convert filepath from Windows format if needed
-            local_file_path = local_file_path.replace("\\","/");
-        res,_ = self._mi_cmd_run('-file-exec-and-symbols %s' % local_file_path)
+        res,_ = self._mi_cmd_run('-file-exec-and-symbols %s' % fixup_path(file_path))
         if res != 'done':
             raise DebuggerError('Failed to set program file!')
 

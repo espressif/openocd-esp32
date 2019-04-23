@@ -330,7 +330,7 @@ class DebuggerGenericTestAppTests(DebuggerTestAppTests):
 class DebuggerGenericTestAppTestsDual(DebuggerGenericTestAppTests):
     """ Base class to run tests which use generic test app in dual core mode
     """
-
+    CORES_NUM = 2
     def __init__(self, methodName='runTest'):
         super(DebuggerGenericTestAppTestsDual, self).__init__(methodName)
         # use default config with modified path to binaries
@@ -341,7 +341,7 @@ class DebuggerGenericTestAppTestsDual(DebuggerGenericTestAppTests):
 class DebuggerGenericTestAppTestsSingle(DebuggerGenericTestAppTests):
     """ Base class to run tests which use generic test app in single core mode
     """
-
+    CORES_NUM = 1
     def __init__(self, methodName='runTest'):
         super(DebuggerGenericTestAppTestsSingle, self).__init__(methodName)
         # use default config with modified path to binaries
