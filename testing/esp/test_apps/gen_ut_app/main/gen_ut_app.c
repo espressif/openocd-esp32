@@ -35,6 +35,7 @@ extern void thread_check_task(void *pvParameter);
 extern void check_backtrace_task1(void *pvParameter);
 extern void check_backtrace_task2(void *pvParameter);
 extern void check_backtrace_task3(void *pvParameter);
+extern void do_semihost_test(void);
 
 
 struct blink_task_arg {
@@ -171,14 +172,14 @@ void window_exception_test(void* arg)
 }
 
 
-/* Three nested functions - from nested_top to nested_bottom 
+/* Three nested functions - from nested_top to nested_bottom
  */
 static  __attribute__((noinline)) void nested_bottom()
 {
     sum++;  // you have reached the bottom
 }
 
-static __attribute__((noinline)) void nested_middle() 
+static __attribute__((noinline)) void nested_middle()
 {
     sum++;
     nested_bottom();
@@ -258,7 +259,6 @@ static void step_over_bp_task(void *pvParameter)
     }
 }
 
-
 static void fibonacci_calc(void)
 /* calculation of 3 fibonacci sequences: f0, f1 abd f2
  * f(n) = f(n-1) + f(n-2) -> f(n) : 0, 1, 1, 2, 3, 5, 8, 13, 21, 34, ...*/
@@ -290,8 +290,6 @@ static void fibonacci_calc(void)
 
     }
 }
-
-
 
 /* Add new  */
 
@@ -353,6 +351,9 @@ void app_main()
                 xTaskCreate(&thread_check_task, task_name, 2048, (void*)i, 5, NULL);
                 vTaskDelay(1);
             }
+            break;
+        case 700:
+            do_semihost_test();
             break;
         default:
             ESP_LOGE(TAG, "Invalid test id (%d)!", s_run_test);
