@@ -1503,7 +1503,7 @@ static int esp_apptrace_get_data_info(struct esp_apptrace_cmd_ctx *ctx, struct e
     if (fired_target_num) {
         *fired_target_num = (uint32_t)-1;
     }
-
+    memset(target_state, 0, ctx->cores_num*sizeof(*target_state));
     for (int i = 0; i < ctx->cores_num; i++) {
         int res = esp108_apptrace_read_data_len(ctx->cpus[i], &target_state[i].block_id, &target_state[i].data_len);
         if (res != ERROR_OK) {
@@ -1946,11 +1946,19 @@ static int esp_apptrace_poll(void *priv)
 	if (fired_target_num == (uint32_t)-1) {
 		// no data has been received, but block could be switched due to the data transfered from host to target
 		if (ctx->cores_num > 1) {
-			uint32_t max_block_id = 0;
+			uint32_t max_block_id = 0, min_block_id = ESP_APPTRACE_BLOCK_ID_MAX;
+			// find maximum block ID and set the same ID in control reg for both blocks;
 			for (int i = 0; i < ctx->cores_num; i++) {
 				if (max_block_id < target_state[i].block_id) {
 					max_block_id = target_state[i].block_id;
 				}
+				if (min_block_id > target_state[i].block_id) {
+					min_block_id = target_state[i].block_id;
+				}
+			}
+			// handle block ID overflow
+			if (max_block_id == ESP_APPTRACE_BLOCK_ID_MAX && min_block_id == 0) {
+				max_block_id = 0;
 			}
 			for (int i = 0; i < ctx->cores_num; i++) {
 				if (max_block_id != target_state[i].block_id) {
@@ -2424,6 +2432,7 @@ static int esp_gcov_fclose(struct esp_gcov_cmd_data *cmd_data, uint8_t *data, ui
 		return ERROR_FAIL;
 	}
 
+	LOG_DEBUG("Close file 0x%x", fd+1);
 	int32_t fret = fclose(cmd_data->files[fd]);
 	if (fret) {
 		LOG_ERROR("Failed to close file %d (%d)!", fd, errno);
@@ -2461,6 +2470,7 @@ static int esp_gcov_fwrite(struct esp_gcov_cmd_data *cmd_data, uint8_t *data, ui
 		return ERROR_FAIL;
 	}
 
+	LOG_DEBUG("Write file 0x%x %d bytes", fd+1, (int)(data_len - sizeof(fd)));
 	uint32_t fret = fwrite(data + sizeof(fd), data_len - sizeof(fd), 1, cmd_data->files[fd]);
 	if (fret != 1) {
 		LOG_ERROR("Failed to write %ld byte (%d)!", (long)(data_len - sizeof(fd)), errno);
@@ -2506,6 +2516,7 @@ static int esp_gcov_fread(struct esp_gcov_cmd_data *cmd_data, uint8_t *data, uin
 		LOG_ERROR("Failed to alloc mem for resp!");
 		return ERROR_FAIL;
 	}
+	LOG_DEBUG("Read file 0x%x %d bytes", fd+1, (int)len);
 	fret = fread(*resp + sizeof(fret), 1, len, cmd_data->files[fd]);
 	if (fret == 0) {
 		LOG_ERROR("Failed to read %d byte (%d)!", len, errno);
