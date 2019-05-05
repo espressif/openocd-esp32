@@ -15,7 +15,12 @@ workflow "Sync PRs to JIRA" {
 
 action "Sync to JIRA" {
   uses = "espressif/github-actions/sync_issues_to_jira@master"
-  secrets = ["GITHUB_TOKEN", "JIRA_URL", "JIRA_USER", "JIRA_PASS"]
+  secrets = [
+    "GITHUB_TOKEN",
+    "JIRA_USER",
+    "JIRA_PASS",
+    "JIRA_URL",
+  ]
   env = {
     JIRA_PROJECT = "OCD"
   }
