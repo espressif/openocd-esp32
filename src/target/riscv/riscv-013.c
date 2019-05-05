@@ -720,11 +720,9 @@ uint32_t abstract_register_size(unsigned width)
 		case 32:
 			return set_field(0, AC_ACCESS_REGISTER_AARSIZE, 2);
 		case 64:
-			return set_field(0, AC_ACCESS_REGISTER_AARSIZE, 3);
-			break;
+			return set_field(0, AC_ACCESS_REGISTER_SIZE, 3);
 		case 128:
-			return set_field(0, AC_ACCESS_REGISTER_AARSIZE, 4);
-			break;
+			return set_field(0, AC_ACCESS_REGISTER_SIZE, 4);
 		default:
 			LOG_ERROR("Unsupported register width: %d", width);
 			return 0;
