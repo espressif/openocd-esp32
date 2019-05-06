@@ -124,9 +124,9 @@ typedef struct {
 	 * implementations. */
 	int (*get_register)(struct target *target,
 		riscv_reg_t *value, int hid, int rid);
-	int (*set_register)(struct target *, int hartid, int regid,
+	int (*set_register)(struct target *target, int hartid, int regid,
 			uint64_t value);
-	int (*select_current_hart)(struct target *);
+	int (*select_current_hart)(struct target *target);
 	bool (*is_halted)(struct target *target);
 	/* Resume this target, as well as every other prepped target that can be
 	 * resumed near-simultaneously. Clear the prepped flag on any target that
