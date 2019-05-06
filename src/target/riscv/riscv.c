@@ -963,12 +963,9 @@ static int oldriscv_step(struct target *target, int current, uint32_t address,
 	return tt->step(target, current, address, handle_breakpoints);
 }
 
-static int old_or_new_riscv_step(
-		struct target *target,
-		int current,
-		target_addr_t address,
-		int handle_breakpoints
-){
+static int old_or_new_riscv_step(struct target *target, int current,
+		target_addr_t address, int handle_breakpoints)
+{
 	RISCV_INFO(r);
 	LOG_DEBUG("handle_breakpoints=%d", handle_breakpoints);
 	if (r->is_halted == NULL)
@@ -1287,17 +1284,8 @@ static int resume_finish(struct target *target,
 	return target_call_event_callbacks(target, TARGET_EVENT_RESUMED);
 }
 
-/**
- * @par single_hart When true, only resume a single hart even if SMP is
- * configured.  This is used to run algorithms on just one hart.
- */
-int riscv_resume_internal(
-		struct target *target,
-		int current,
-		target_addr_t address,
-		int handle_breakpoints,
-		int debug_execution,
-		bool single_hart)
+static int old_or_new_riscv_resume(struct target *target, int current,
+		target_addr_t address, int handle_breakpoints, int debug_execution)
 {
 	LOG_DEBUG("handle_breakpoints=%d", handle_breakpoints);
 	int result = ERROR_OK;
@@ -1969,12 +1957,109 @@ int riscv_openocd_poll(struct target *target)
 	return ERROR_OK;
 }
 
-int riscv_openocd_step(
+int riscv_openocd_halt(struct target *target)
+{
+	RISCV_INFO(r);
+	int result;
+
+	LOG_DEBUG("[%d] halting all harts", target->coreid);
+
+	if (target->smp) {
+		LOG_DEBUG("Halt other targets in this SMP group.");
+		struct target_list *targets = target->head;
+		result = ERROR_OK;
+		while (targets) {
+			struct target *t = targets->target;
+			targets = targets->next;
+			if (t->state != TARGET_HALTED) {
+				if (riscv_halt_all_harts(t) != ERROR_OK)
+					result = ERROR_FAIL;
+			}
+		}
+	} else {
+		result = riscv_halt_all_harts(target);
+	}
+
+	if (riscv_rtos_enabled(target)) {
+		if (r->rtos_hartid != -1) {
+			LOG_DEBUG("halt requested on RTOS hartid %d", r->rtos_hartid);
+			target->rtos->current_threadid = r->rtos_hartid + 1;
+			target->rtos->current_thread = r->rtos_hartid + 1;
+		} else
+			LOG_DEBUG("halt requested, but no known RTOS hartid");
+	}
+
+	target->state = TARGET_HALTED;
+	target->debug_reason = DBG_REASON_DBGRQ;
+	target_call_event_callbacks(target, TARGET_EVENT_HALTED);
+	return result;
+}
+
+int riscv_openocd_resume(
 		struct target *target,
 		int current,
 		target_addr_t address,
-		int handle_breakpoints
-) {
+		int handle_breakpoints,
+		int debug_execution)
+{
+	LOG_DEBUG("debug_reason=%d", target->debug_reason);
+
+	if (!current)
+		riscv_set_register(target, GDB_REGNO_PC, address);
+
+	if (target->debug_reason == DBG_REASON_WATCHPOINT) {
+		/* To be able to run off a trigger, disable all the triggers, step, and
+		 * then resume as usual. */
+		struct watchpoint *watchpoint = target->watchpoints;
+		bool trigger_temporarily_cleared[RISCV_MAX_HWBPS] = {0};
+
+		int i = 0;
+		int result = ERROR_OK;
+		while (watchpoint && result == ERROR_OK) {
+			LOG_DEBUG("watchpoint %d: set=%d", i, watchpoint->set);
+			trigger_temporarily_cleared[i] = watchpoint->set;
+			if (watchpoint->set)
+				result = riscv_remove_watchpoint(target, watchpoint);
+			watchpoint = watchpoint->next;
+			i++;
+		}
+
+		if (result == ERROR_OK)
+			result = riscv_step_rtos_hart(target);
+
+		watchpoint = target->watchpoints;
+		i = 0;
+		while (watchpoint) {
+			LOG_DEBUG("watchpoint %d: cleared=%d", i, trigger_temporarily_cleared[i]);
+			if (trigger_temporarily_cleared[i]) {
+				if (result == ERROR_OK)
+					result = riscv_add_watchpoint(target, watchpoint);
+				else
+					riscv_add_watchpoint(target, watchpoint);
+			}
+			watchpoint = watchpoint->next;
+			i++;
+		}
+
+		if (result != ERROR_OK)
+			return result;
+	}
+
+	int out = riscv_resume_all_harts(target);
+	if (out != ERROR_OK) {
+		LOG_ERROR("unable to resume all harts");
+		return out;
+	}
+
+	register_cache_invalidate(target->reg_cache);
+	target->state = TARGET_RUNNING;
+	target_call_event_callbacks(target, TARGET_EVENT_RESUMED);
+	return out;
+}
+
+int riscv_openocd_step(struct target *target, int current,
+		target_addr_t address, int handle_breakpoints)
+{
 	LOG_DEBUG("stepping rtos hart");
 
 	if (!current)
