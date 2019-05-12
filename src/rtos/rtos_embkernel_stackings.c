@@ -52,5 +52,3 @@ const struct rtos_register_stacking rtos_embkernel_Cortex_M_stacking = {
 	rtos_embkernel_Cortex_M_stack_offsets,	/* register_offsets */
 	NULL					/* Custom stack frame read function */
 };
-
-
