@@ -366,10 +366,6 @@ AC_ARG_ENABLE([internal-libjaylink],
   [Disable building internal libjaylink]),
   [use_internal_libjaylink=$enableval], [use_internal_libjaylink=yes])
 
-AC_ARG_ENABLE([target64],
-  AS_HELP_STRING([--disable-target64], [Disable 64-bit target address]),
-    [build_target64=$enableval], [build_target64=yes])
-
 AC_ARG_ENABLE([esp-remote],
   AS_HELP_STRING([--disable-esp-remote],
   [Disable building support for the ESP remote protocol over TCP or USB]),
@@ -628,12 +624,6 @@ AS_IF([test "x$build_xlnx_pcie_xvc" = "xyes"], [
   AC_DEFINE([BUILD_XLNX_PCIE_XVC], [0], [0 if you don't want Xilinx XVC/PCIe driver.])
 ])
 
-AS_IF([test "x$build_target64" = "xyes"], [
-  AC_DEFINE([BUILD_TARGET64], [1], [1 if you want 64-bit addresses.])
-], [
-  AC_DEFINE([BUILD_TARGET64], [0], [0 if you don't want 64-bit addresses.])
-])
-
 AS_IF([test "x$build_esp_remote" = "xyes"], [
   AC_DEFINE([BUILD_ESP_REMOTE], [1], [1 if you want ESP remote protocol support.])
 ], [
@@ -773,7 +763,6 @@ AM_CONDITIONAL([BITQ], [test "x$build_bitq" = "xyes"])
 AM_CONDITIONAL([USE_LIBFTDI], [test "x$use_libftdi" = "xyes"])
 AM_CONDITIONAL([USE_HIDAPI], [test "x$use_hidapi" = "xyes"])
 AM_CONDITIONAL([USE_LIBJAYLINK], [test "x$use_libjaylink" = "xyes"])
-AM_CONDITIONAL([TARGET64], [test "x$build_target64" = "xyes"])
 AM_CONDITIONAL([RSHIM], [test "x$build_rshim" = "xyes"])
 
 AM_CONDITIONAL([MINIDRIVER], [test "x$build_minidriver" = "xyes"])
