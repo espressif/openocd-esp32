@@ -1851,12 +1851,6 @@ static int xtensa_poll(struct target *target)
 					esp32->active_cpu = k-1;
 				}
 			}
-			// Handle special case when halt is send to the stalled active core.
-			// We need to switch focus to another core in order to be able to run algorithms.
-			if (target->debug_reason == DBG_REASON_DBGRQ && (dsr[esp32->active_cpu] & OCDDSR_RUNSTALLSAMPLE)) {
-				LOG_DEBUG("Received debug request on stalled active core %d. Switch active core.", (int)esp32->active_cpu);
-				esp32->active_cpu = esp32->active_cpu == ESP32_PRO_CPU_ID ? ESP32_APP_CPU_ID : ESP32_PRO_CPU_ID;
-			}
 			for (size_t k = esp32->configured_cores_num; k > 0; k--) {
 				if (halt_cause[k-1] & DEBUGCAUSE_IC)
 				{
@@ -1877,6 +1871,16 @@ static int xtensa_poll(struct target *target)
 				{
 					target->debug_reason = DBG_REASON_WATCHPOINT;
 					esp32->active_cpu = k-1;
+				}
+			}
+			// Handle special case when halt is send to the stalled active core.
+			// We need to switch focus to another core in order to be able to run algorithms.
+			if (dsr[esp32->active_cpu] & OCDDSR_RUNSTALLSAMPLE) {
+				LOG_WARNING("Received debug request on stalled active core %d.", (int)esp32->active_cpu);
+				int other_core = esp32->active_cpu == ESP32_PRO_CPU_ID ? ESP32_APP_CPU_ID : ESP32_PRO_CPU_ID;
+				if ((dsr[other_core] & OCDDSR_RUNSTALLSAMPLE) == 0) {
+					LOG_DEBUG("Switch active core to %d.", other_core);
+					esp32->active_cpu = other_core;
 				}
 			}
 			if (esp32->configured_cores_num > 1) {
