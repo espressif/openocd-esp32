@@ -1,6 +1,7 @@
 /***************************************************************************
- *   Copyright (C) 2011 by Broadcom Corporation                            *
- *   Evan Hunter - ehunter@broadcom.com                                    *
+ *   LD script for ESP32-S2 flassher stub                                  *
+ *   Copyright (C) 2019 Espressif Systems Ltd.                             *
+ *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -18,16 +19,11 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-#ifndef INCLUDED_RTOS_FREERTOS_STACKINGS_H_
-#define INCLUDED_RTOS_FREERTOS_STACKINGS_H_
+MEMORY {
+  /* place stub at the beginning of the OpenOCD working area,
+     remaining space will be used for other chunks */
+  iram : org = 0x40030000, len = 0x3100
+  dram : org = 0x3FFE0000, len = 0x3000
+}
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include "rtos.h"
-
-const struct rtos_register_stacking *rtos_freertos_esp32_pick_stacking_info(struct rtos *rtos, int64_t thread_id, int64_t stack_addr);
-const struct rtos_register_stacking *rtos_freertos_esp32_s2_pick_stacking_info(struct rtos *rtos, int64_t thread_id, int64_t stack_addr);
-
-#endif	/* ifndef INCLUDED_RTOS_STANDARD_STACKINGS_H_ */
+INCLUDE stub_common.ld

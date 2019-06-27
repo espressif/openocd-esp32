@@ -1,6 +1,7 @@
 /***************************************************************************
- *   Copyright (C) 2011 by Broadcom Corporation                            *
- *   Evan Hunter - ehunter@broadcom.com                                    *
+ *   ESP32-S2 target for OpenOCD                                           *
+ *   Copyright (C) 2019 Espressif Systems Ltd.                             *
+ *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -18,16 +19,28 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-#ifndef INCLUDED_RTOS_FREERTOS_STACKINGS_H_
-#define INCLUDED_RTOS_FREERTOS_STACKINGS_H_
+#ifndef XTENSA_ESP32_S2_H
+#define XTENSA_ESP32_S2_H
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include "esp_xtensa.h"
 
-#include "rtos.h"
+#define ESP32_S2_DROM_LOW    0x3F000000
+#define ESP32_S2_DROM_HIGH   0x3F400000
+#define ESP32_S2_IROM_LOW    0x40080000
+#define ESP32_S2_IROM_HIGH   0x40c00000
 
-const struct rtos_register_stacking *rtos_freertos_esp32_pick_stacking_info(struct rtos *rtos, int64_t thread_id, int64_t stack_addr);
-const struct rtos_register_stacking *rtos_freertos_esp32_s2_pick_stacking_info(struct rtos *rtos, int64_t thread_id, int64_t stack_addr);
+//Number of registers returned directly by the G command
+//Corresponds to the amount of regs listed in regformats/reg-xtensa.dat in the gdb source
+#define ESP32_S2_NUM_REGS_G_COMMAND   73
 
-#endif	/* ifndef INCLUDED_RTOS_STANDARD_STACKINGS_H_ */
+struct esp32_s2_common {
+    struct esp_xtensa_common    esp_xtensa;
+};
+
+static inline struct esp32_s2_common *
+target_to_esp32_s2(struct target *target)
+{
+    return container_of(target->arch_info, struct esp32_s2_common, esp_xtensa);
+}
+
+#endif /* XTENSA_ESP32_S2_H */

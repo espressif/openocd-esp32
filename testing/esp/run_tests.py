@@ -28,6 +28,13 @@ BOARD_TCL_CONFIG = {
             os.path.join('board', 'esp32-solo-1.cfg')
         ],
         'commands' : []
+    },
+    'esp32_s2-devkitj' :  {
+        'files' : [
+            os.path.join('interface', 'ftdi', 'esp32_devkitj_v1.cfg'),
+            os.path.join('board', 'esp32_s2-wrover.cfg')
+        ],
+        'commands' : []
     }
 }
 

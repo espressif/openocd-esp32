@@ -1,6 +1,7 @@
 /***************************************************************************
- *   Copyright (C) 2011 by Broadcom Corporation                            *
- *   Evan Hunter - ehunter@broadcom.com                                    *
+ *   ESP32-S2 flasher stub definitions                                     *
+ *   Copyright (C) 2019 Espressif Systems Ltd.                             *
+ *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -17,17 +18,17 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
+#ifndef ESP32_S2_FLASHER_STUB_H
+#define ESP32_S2_FLASHER_STUB_H
 
-#ifndef INCLUDED_RTOS_FREERTOS_STACKINGS_H_
-#define INCLUDED_RTOS_FREERTOS_STACKINGS_H_
+#define STUB_FLASH_SECTOR_SIZE  4096
+/* Flash geometry constants */
+#define STUB_FLASH_BLOCK_SIZE   65536
+#define STUB_FLASH_PAGE_SIZE    256
+#define STUB_FLASH_STATUS_MASK  0xFFFF
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+struct stub_flash_state {
+    uint32_t cache_flags[2];
+};
 
-#include "rtos.h"
-
-const struct rtos_register_stacking *rtos_freertos_esp32_pick_stacking_info(struct rtos *rtos, int64_t thread_id, int64_t stack_addr);
-const struct rtos_register_stacking *rtos_freertos_esp32_s2_pick_stacking_info(struct rtos *rtos, int64_t thread_id, int64_t stack_addr);
-
-#endif	/* ifndef INCLUDED_RTOS_STANDARD_STACKINGS_H_ */
+#endif //ESP32_S2_FLASHER_STUB_H

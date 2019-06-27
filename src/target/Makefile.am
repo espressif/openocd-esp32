@@ -147,7 +147,8 @@ XTENSA_SRC= \
 
 ESP32_SRC= \
 	%D%/esp32.c \
-	%D%/esp32_apptrace.c
+	%D%/esp32_s2.c \
+ 	%D%/esp32_apptrace.c
 
 INTEL_IA32_SRC = \
 	%D%/quark_x10xx.c \

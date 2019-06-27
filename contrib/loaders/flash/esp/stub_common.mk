@@ -31,8 +31,7 @@ SRCS += $(STUB_COMMON_PATH)/stub_flasher.c \
 	$(STUB_CHIP_PATH)/stub_flasher_chip.c \
 	$(IDF_PATH)/components/spi_flash/spi_flash_rom_patch.c \
 	$(IDF_PATH)/components/app_trace/app_trace.c \
-	$(IDF_PATH)/components/app_trace/app_trace_util.c \
-	$(IDF_PATH)/components/xtensa-debug-module/eri.c
+	$(IDF_PATH)/components/app_trace/app_trace_util.c
 
 BUILD_DIR = build
 
@@ -87,7 +86,7 @@ $(STUB_IMAGE_HDR): $(STUB_ELF)
 	@echo "  CC   $^ -> $@"
 	$(Q) @echo -n "#define ESP32_STUB_BSS_SIZE 0x0" > $(STUB_IMAGE_HDR)
 	$(Q) $(CROSS)readelf -S $^ | fgrep .bss | awk '{print $$7"UL"}' >> $(STUB_IMAGE_HDR)
-	$(Q) @echo -ne "\\n#define ESP32_STUB_ENTRY_ADDR 0x0" >> $(STUB_IMAGE_HDR)
+	$(Q) @echo -n "\\n#define ESP32_STUB_ENTRY_ADDR 0x0" >> $(STUB_IMAGE_HDR)
 	$(Q) $(CROSS)readelf -s $^ | fgrep stub_main | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR)
 	$(Q) @echo -n "//#define ESP32_STUB_BUILD_IDF_REV " >> $(STUB_IMAGE_HDR)
 	$(Q) cd $(IDF_PATH); git rev-parse --short HEAD >> $(STUB_CHIP_PATH)/$(STUB_IMAGE_HDR)

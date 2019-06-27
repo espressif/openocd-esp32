@@ -27,6 +27,7 @@ NOR_DRIVERS = \
 	%D%/em357.c \
 	%D%/esp_xtensa.c \
 	%D%/esp32.c \
+	%D%/esp32_s2.c \
 	%D%/esirisc_flash.c \
 	%D%/faux.c \
 	%D%/fespi.c \
