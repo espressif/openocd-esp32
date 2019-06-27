@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Reset stub used by esp108/esp32 targets                               *
+ *   Reset stub used by esp32 target                                       *
  *   Copyright (C) 2017 Espressif Systems Ltd.                             *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *

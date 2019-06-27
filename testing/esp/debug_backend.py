@@ -377,7 +377,7 @@ class Gdb:
 
     def target_program(self, file_name, off, actions='verify', tmo=30):
         # actions can be any or both of 'verify reset'
-        self.monitor_run('program_esp32 %s %s 0x%x' % (fixup_path(file_name), actions, off), tmo)
+        self.monitor_run('program_esp %s %s 0x%x' % (fixup_path(file_name), actions, off), tmo)
 
     def exec_file_set(self, file_path):
         # -file-exec-and-symbols file

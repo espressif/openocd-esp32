@@ -25,8 +25,10 @@
 #include "soc/efuse_reg.h"
 #include "soc/dport_reg.h"
 #include "soc/spi_reg.h"
+#include "soc/gpio_reg.h"
 #include "rom/spi_flash.h"
 #include "rom/cache.h"
+#include "rom/efuse.h"
 #include "stub_flasher_int.h"
 #include "stub_flasher_chip.h"
 
@@ -185,11 +187,20 @@ void stub_flash_cache_flush(void)
     Cache_Flush(1);
 }
 
-void stub_flash_state_prepare(struct stub_flash_state *state, uint32_t spiconfig)
+void stub_flash_state_prepare(struct stub_flash_state *state)
 {
     uint32_t core_id = stub_get_coreid();
     // TODO: generic support for multi-core (pass maximum number of cores as the first param)
     uint32_t other_core_id = core_id == 0 ? 1 : 0;
+
+    ets_efuse_read_op();
+
+    uint32_t spiconfig = ets_efuse_get_spiconfig();
+    uint32_t strapping = REG_READ(GPIO_STRAP_REG);
+    //  If GPIO1 (U0TXD) is pulled low and flash pin configuration is not set in efuse, assume HSPI flash mode (same as normal boot)
+    if (spiconfig == 0 && (strapping & 0x1c) == 0x08) {
+        spiconfig = 1; /* HSPI flash mode */
+    }
 
     state->other_cache_enabled = esp32_flash_cache_enabled(other_core_id);
     if (state->other_cache_enabled) {

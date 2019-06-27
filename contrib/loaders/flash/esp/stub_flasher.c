@@ -22,7 +22,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include "rom/spi_flash.h"
-#include "rom/efuse.h"
 #include "eri.h"
 #include "trax.h"
 #include "esp_app_trace.h"
@@ -60,7 +59,7 @@ extern uint32_t _bss_end;
 
 extern uint32_t stub_flash_get_id(void);
 extern void stub_flash_cache_flush(void);
-extern void stub_flash_state_prepare(struct stub_flash_state *state, uint32_t spiconfig);
+extern void stub_flash_state_prepare(struct stub_flash_state *state);
 extern void stub_flash_state_restore(struct stub_flash_state *state);
 extern void stub_clock_configure(void);
 extern uint32_t esp_clk_cpu_freq(void);
@@ -574,17 +573,7 @@ static int stub_flash_handler(int cmd, va_list ap)
 
     STUB_LOGD("%s a %x, s %d\n", __func__, arg1, arg2);
 
-    ets_efuse_read_op();
-
-    uint32_t spiconfig = ets_efuse_get_spiconfig();
-    uint32_t strapping = REG_READ(GPIO_STRAP_REG);
-    //  If GPIO1 (U0TXD) is pulled low and no other boot mode is
-    //    set in efuse, assume HSPI flash mode (same as normal boot)
-    if (spiconfig == 0 && (strapping & 0x1c) == 0x08) {
-        spiconfig = 1; /* HSPI flash mode */
-    }
-
-    stub_flash_state_prepare(&flash_state, spiconfig);
+    stub_flash_state_prepare(&flash_state);
 
     uint32_t flash_size = stub_flash_get_size();
     if (flash_size == 0) {
