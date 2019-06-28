@@ -39,6 +39,7 @@
 #include "soc/timer_group_reg.h"
 #include "soc/efuse_reg.h"
 #include "soc/gpio_reg.h"
+#include "soc/spi_reg.h"
 #include "soc/cpu.h"
 #include "rom/ets_sys.h"
 #include "rom/cache.h"
@@ -53,7 +54,17 @@
 #include "esp_image_format.h"
 #include "stub_flasher.h"
 
+#if CONFIG_CHIP_IS_ESP32C
+#include "esp32_s2_stub_flasher.h"
+#define STUB_FLASH_SECTOR_SIZE ESP32_S2_FLASH_SECTOR_SIZE
+#else
+#include "esp32_stub_flasher.h"
+#define STUB_FLASH_SECTOR_SIZE ESP32_FLASH_SECTOR_SIZE
+#endif
+
 #define STUB_DEBUG    0
+
+#define ESP32_STUB_BP_INSN_SECT_BUF_SIZE        (2*STUB_FLASH_SECTOR_SIZE)
 
 /* Flash geometry constants */
 #define ESP32_FLASH_BLOCK_SIZE        65536
@@ -125,6 +136,22 @@ void __assert_func(const char *path, int line, const char *func, const char *msg
     while (1);
 }
 
+static inline uint8_t xtensa_get_insn_size(uint8_t *insn)
+{
+  return insn[0] & 0x8 ? 2 : 3;
+}
+
+static inline uint32_t stub_get_coreid()
+{
+    int id;
+    __asm__ volatile(
+        "rsr.prid %0\n"
+        " extui %0,%0,13,1"
+        :"=r"(id));
+    return id;
+}
+
+#ifndef CONFIG_CHIP_IS_ESP32C
 /**
  * The following two functions are replacements for Cache_Read_Disable and Cache_Read_Enable
  * function in ROM. They are used to work around a bug where Cache_Read_Disable requires a call to
@@ -134,7 +161,7 @@ static const uint32_t cache_mask  = DPORT_APP_CACHE_MASK_OPSDRAM | DPORT_APP_CAC
                                     DPORT_APP_CACHE_MASK_DRAM1 | DPORT_APP_CACHE_MASK_IROM0 |
                                     DPORT_APP_CACHE_MASK_IRAM1 | DPORT_APP_CACHE_MASK_IRAM0;
 
-static void stub_spi_flash_disable_cache(uint32_t cpuid, uint32_t *saved_state)
+static void stub_spi_flash_disable_cache_for_cpu(uint32_t cpuid, uint32_t *saved_state)
 {
     uint32_t ret = 0;
     if (cpuid == 0) {
@@ -153,7 +180,7 @@ static void stub_spi_flash_disable_cache(uint32_t cpuid, uint32_t *saved_state)
     *saved_state = ret;
 }
 
-static void stub_spi_flash_restore_cache(uint32_t cpuid, uint32_t saved_state)
+static void stub_spi_flash_restore_cache_for_cpu(uint32_t cpuid, uint32_t saved_state)
 {
     if (cpuid == 0) {
         DPORT_SET_PERI_REG_BITS(DPORT_PRO_CACHE_CTRL_REG, 1, 1, DPORT_PRO_CACHE_ENABLE_S);
@@ -164,6 +191,26 @@ static void stub_spi_flash_restore_cache(uint32_t cpuid, uint32_t saved_state)
     }
 }
 
+#else
+
+static void stub_spi_flash_disable_cache(uint32_t *saved_state)
+{
+    saved_state[0] = Cache_Suspend_ICache();
+    if (!Cache_Drom0_Using_ICache()) {
+        saved_state[1] = Cache_Suspend_DCache();
+    }
+}
+
+static void stub_spi_flash_restore_cache(uint32_t *saved_state)
+{
+    Cache_Resume_ICache(saved_state[0]);
+    if (!Cache_Drom0_Using_ICache()) {
+        Cache_Resume_DCache(saved_state[1]);
+    }
+}
+#endif
+
+#ifndef CONFIG_CHIP_IS_ESP32C
 static bool stub_spi_flash_cache_enabled(uint32_t cpuid)
 {
     bool result = false;
@@ -175,40 +222,31 @@ static bool stub_spi_flash_cache_enabled(uint32_t cpuid)
     }
     return result;
 }
-
-static inline uint32_t stub_get_coreid()
-{
-    int id;
-    __asm__ volatile(
-        "rsr.prid %0\n"
-        " extui %0,%0,13,1"
-        :"=r"(id));
-    return id;
-}
+#endif
 
 #if STUB_DEBUG
 static int stub_flash_test(void)
 {
-    int ret = ESP32_STUB_ERR_OK;
+    int ret = ESP_STUB_ERR_OK;
     uint8_t buf[32] = {9, 1, 2, 3, 4, 5, 6, 8};
     uint32_t flash_addr = 0x1d4000;
 
-    esp_rom_spiflash_result_t rc = esp_rom_spiflash_erase_sector(flash_addr / ESP32_FLASH_SECTOR_SIZE);
+    esp_rom_spiflash_result_t rc = esp_rom_spiflash_erase_sector(flash_addr / STUB_FLASH_SECTOR_SIZE);
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
         STUB_LOGE("Failed to erase flash (%d)\n", rc);
-        return ESP32_STUB_ERR_FAIL;
+        return ESP_STUB_ERR_FAIL;
     }
 
     rc = esp_rom_spiflash_write(flash_addr, (uint32_t *)buf, sizeof(buf));
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
         STUB_LOGE("Failed to write flash (%d)\n", rc);
-        return ESP32_STUB_ERR_FAIL;
+        return ESP_STUB_ERR_FAIL;
     }
 
     rc = esp_rom_spiflash_read(flash_addr, (uint32_t *)buf, sizeof(buf));
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
         STUB_LOGE("Failed to read flash (%d)\n", rc);
-        return ESP32_STUB_ERR_FAIL;
+        return ESP_STUB_ERR_FAIL;
     }
 
     STUB_LOGD("Data: ");
@@ -227,14 +265,14 @@ static int stub_apptrace_init()
     esp_err_t err = esp_apptrace_init();
     if (err != ESP_OK) {
         STUB_LOGE("Failed to init apptrace module (%d)!\n", err);
-        return ESP32_STUB_ERR_FAIL;
+        return ESP_STUB_ERR_FAIL;
     }
     // imply that host is auto-connected
     uint32_t reg = eri_read(ESP_APPTRACE_TRAX_CTRL_REG);
     reg |= ESP_APPTRACE_TRAX_HOST_CONNECT;
     eri_write(ESP_APPTRACE_TRAX_CTRL_REG, reg);
 
-    return ESP32_STUB_ERR_OK;
+    return ESP_STUB_ERR_OK;
 }
 
 static int stub_flash_read(uint32_t addr, uint32_t size)
@@ -243,7 +281,7 @@ static int stub_flash_read(uint32_t addr, uint32_t size)
     uint32_t total_cnt = 0;
 
     int ret = stub_apptrace_init();
-    if (ret != ESP32_STUB_ERR_OK) {
+    if (ret != ESP_STUB_ERR_OK) {
         return ret;
     }
 
@@ -261,7 +299,7 @@ static int stub_flash_read(uint32_t addr, uint32_t size)
         uint8_t *buf = esp_apptrace_buffer_get(ESP_APPTRACE_DEST_TRAX, rd_sz, ESP_APPTRACE_TMO_INFINITE);
         if (!buf) {
             STUB_LOGE("Failed to get trace buf!\n");
-            return ESP32_STUB_ERR_FAIL;
+            return ESP_STUB_ERR_FAIL;
         }
         uint32_t end = xthal_get_ccount();
         STUB_LOGD("Got trace buf %d bytes @ 0x%x in %d ms\n", rd_sz, buf, CPUTICKS2US(end - start) / 1000);
@@ -273,19 +311,19 @@ static int stub_flash_read(uint32_t addr, uint32_t size)
         if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
             STUB_LOGE("Failed to read flash (%d)!\n", rc);
             esp_apptrace_buffer_put(ESP_APPTRACE_DEST_TRAX, buf, ESP_APPTRACE_TMO_INFINITE);
-            return ESP32_STUB_ERR_FAIL;
+            return ESP_STUB_ERR_FAIL;
         }
         total_cnt += rd_sz;
 
         esp_err_t err = esp_apptrace_buffer_put(ESP_APPTRACE_DEST_TRAX, buf, ESP_APPTRACE_TMO_INFINITE);
         if (err != ESP_OK) {
             STUB_LOGE("Failed to put trace buf!\n");
-            return ESP32_STUB_ERR_FAIL;
+            return ESP_STUB_ERR_FAIL;
         }
         err = esp_apptrace_flush(ESP_APPTRACE_DEST_TRAX, ESP_APPTRACE_TMO_INFINITE);
         if (err != ESP_OK) {
             STUB_LOGE("Failed to flush trace buf!\n");
-            return ESP32_STUB_ERR_FAIL;
+            return ESP_STUB_ERR_FAIL;
         }
         STUB_LOGE("Sent trace buf %d bytes @ 0x%x\n", rd_sz, buf);
     }
@@ -293,7 +331,7 @@ static int stub_flash_read(uint32_t addr, uint32_t size)
     if (total_cnt < size) {
         if ((size - total_cnt) >= 4) {
             STUB_LOGE("Exited loop when remaing data size is more the 4 bytes!\n");
-            return ESP32_STUB_ERR_FAIL; /*should never get here*/
+            return ESP_STUB_ERR_FAIL; /*should never get here*/
         }
         // if we exited loop because remaing data size is less than 4 bytes
         uint8_t last_bytes[4];
@@ -301,29 +339,29 @@ static int stub_flash_read(uint32_t addr, uint32_t size)
         STUB_LOGD("Read padded word from flash @ 0x%x\n", addr + total_cnt);
         if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
             STUB_LOGE("Failed to read last word from flash (%d)!\n", rc);
-            return ESP32_STUB_ERR_FAIL;
+            return ESP_STUB_ERR_FAIL;
         }
         uint8_t *buf = esp_apptrace_buffer_get(ESP_APPTRACE_DEST_TRAX, size - total_cnt, ESP_APPTRACE_TMO_INFINITE);
         if (!buf) {
             STUB_LOGE("Failed to get trace buf!\n");
-            return ESP32_STUB_ERR_FAIL;
+            return ESP_STUB_ERR_FAIL;
         }
         memcpy(buf, last_bytes, size - total_cnt);
         esp_err_t err = esp_apptrace_buffer_put(ESP_APPTRACE_DEST_TRAX, buf, ESP_APPTRACE_TMO_INFINITE);
         if (err != ESP_OK) {
             STUB_LOGE("Failed to put trace buf!\n");
-            return ESP32_STUB_ERR_FAIL;
+            return ESP_STUB_ERR_FAIL;
         }
         err = esp_apptrace_flush(ESP_APPTRACE_DEST_TRAX, ESP_APPTRACE_TMO_INFINITE);
         if (err != ESP_OK) {
             STUB_LOGE("Failed to flush trace buf!\n");
-            return ESP32_STUB_ERR_FAIL;
+            return ESP_STUB_ERR_FAIL;
         }
         STUB_LOGE("Sent last trace buf %d bytes @ 0x%x\n", size - total_cnt, buf);
     }
     STUB_LOGD("Read %d bytes @ 0x%x\n", size, addr);
 
-    return ESP32_STUB_ERR_OK;
+    return ESP_STUB_ERR_OK;
 }
 
 static int stub_flash_write(uint32_t addr, uint32_t size, uint8_t *down_buf, uint32_t down_size)
@@ -334,7 +372,7 @@ static int stub_flash_write(uint32_t addr, uint32_t size, uint8_t *down_buf, uin
     STUB_LOGD("Start writing %d bytes @ 0x%x\n", size, addr);
 
     int ret = stub_apptrace_init();
-    if (ret != ESP32_STUB_ERR_OK) {
+    if (ret != ESP_STUB_ERR_OK) {
         return ret;
     }
     STUB_LOGI("Init apptrace module down buffer %d bytes @ 0x%x\n", down_size, down_buf);
@@ -347,7 +385,7 @@ static int stub_flash_write(uint32_t addr, uint32_t size, uint8_t *down_buf, uin
         uint8_t *wr_p, *buf = esp_apptrace_down_buffer_get(ESP_APPTRACE_DEST_TRAX, &wr_sz, ESP_APPTRACE_TMO_INFINITE);
         if (!buf) {
             STUB_LOGE("Failed to get trace down buf!\n");
-            return ESP32_STUB_ERR_FAIL;
+            return ESP_STUB_ERR_FAIL;
         }
         uint32_t end = xthal_get_ccount();
         STUB_LOGD("Got trace down buf %d bytes @ 0x%x in %d ms\n", wr_sz, buf, CPUTICKS2US(end - start) / 1000);
@@ -357,11 +395,12 @@ static int stub_flash_write(uint32_t addr, uint32_t size, uint8_t *down_buf, uin
             // add cached bytes from the end of the prev buffer to the starting bytes of the current one
             memcpy(&cached_bytes[cached_bytes_num], buf, 4 - cached_bytes_num);
             rc = esp_rom_spiflash_write(addr + total_cnt, (uint32_t *)cached_bytes, 4);
-            STUB_LOGD("Write padded word to flash @ 0x%x\n", addr + total_cnt);
+            STUB_LOGD("Write padded word [%x %x %x %x] to flash @ 0x%x\n",
+                    cached_bytes[0], cached_bytes[1], cached_bytes[2], cached_bytes[3], addr + total_cnt);
             if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
                 STUB_LOGE("Failed to write flash (%d)\n", rc);
                 esp_apptrace_down_buffer_put(ESP_APPTRACE_DEST_TRAX, buf, ESP_APPTRACE_TMO_INFINITE);
-                return ESP32_STUB_ERR_FAIL;
+                return ESP_STUB_ERR_FAIL;
             }
             wr_p += 4 - cached_bytes_num;
             wr_sz -= 4 - cached_bytes_num;
@@ -382,7 +421,7 @@ static int stub_flash_write(uint32_t addr, uint32_t size, uint8_t *down_buf, uin
             if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
                 STUB_LOGE("Failed to write flash (%d)\n", rc);
                 esp_apptrace_down_buffer_put(ESP_APPTRACE_DEST_TRAX, buf, ESP_APPTRACE_TMO_INFINITE);
-                return ESP32_STUB_ERR_FAIL;
+                return ESP_STUB_ERR_FAIL;
             }
             total_cnt += wr_sz;
         }
@@ -390,7 +429,7 @@ static int stub_flash_write(uint32_t addr, uint32_t size, uint8_t *down_buf, uin
         esp_err_t err = esp_apptrace_down_buffer_put(ESP_APPTRACE_DEST_TRAX, buf, ESP_APPTRACE_TMO_INFINITE);
         if (err != ESP_OK) {
             STUB_LOGE("Failed to put trace buf!\n");
-            return ESP32_STUB_ERR_FAIL;
+            return ESP_STUB_ERR_FAIL;
         }
         STUB_LOGD("Recvd trace down buf %d bytes @ 0x%x\n", wr_sz, buf);
     }
@@ -404,32 +443,32 @@ static int stub_flash_write(uint32_t addr, uint32_t size, uint8_t *down_buf, uin
         STUB_LOGD("Write last padded word to flash @ 0x%x\n", addr + total_cnt);
         if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
             STUB_LOGE("Failed to write flash (%d)\n", rc);
-            return ESP32_STUB_ERR_FAIL;
+            return ESP_STUB_ERR_FAIL;
         }
     }
 
     STUB_LOGD("Wrote %d bytes @ 0x%x\n", size, addr);
 
-    return ESP32_STUB_ERR_OK;
+    return ESP_STUB_ERR_OK;
 }
 
 static int stub_flash_erase(uint32_t flash_addr, uint32_t size)
 {
-    int ret = ESP32_STUB_ERR_OK;
+    int ret = ESP_STUB_ERR_OK;
 
-    if (flash_addr & (ESP32_FLASH_SECTOR_SIZE - 1)) {
-        flash_addr &= ~(ESP32_FLASH_SECTOR_SIZE - 1);
+    if (flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) {
+        flash_addr &= ~(STUB_FLASH_SECTOR_SIZE - 1);
     }
 
-    if (size & (ESP32_FLASH_SECTOR_SIZE - 1)) {
-        size = (size + (ESP32_FLASH_SECTOR_SIZE - 1)) & ~(ESP32_FLASH_SECTOR_SIZE - 1);
+    if (size & (STUB_FLASH_SECTOR_SIZE - 1)) {
+        size = (size + (STUB_FLASH_SECTOR_SIZE - 1)) & ~(STUB_FLASH_SECTOR_SIZE - 1);
     }
 
     STUB_LOGD("erase flash @ 0x%x, sz %d\n", flash_addr, size);
     esp_rom_spiflash_result_t rc = esp_rom_spiflash_erase_area(flash_addr, size);
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
         STUB_LOGE("Failed to erase flash (%d)\n", rc);
-        return ESP32_STUB_ERR_FAIL;
+        return ESP_STUB_ERR_FAIL;
     }
 
     return ret;
@@ -437,18 +476,18 @@ static int stub_flash_erase(uint32_t flash_addr, uint32_t size)
 
 static int stub_flash_erase_check(uint32_t start_sec, uint32_t sec_num, uint8_t *sec_erased)
 {
-    int ret = ESP32_STUB_ERR_OK;
-    uint8_t buf[ESP32_FLASH_SECTOR_SIZE / 8]; // implying that sector size is multiple of sizeof(buf)
+    int ret = ESP_STUB_ERR_OK;
+    uint8_t buf[STUB_FLASH_SECTOR_SIZE / 8]; // implying that sector size is multiple of sizeof(buf)
 
     STUB_LOGD("erase check start %d, sz %d\n", start_sec, sec_num);
 
     for (int i = start_sec; i < start_sec + sec_num; i++) {
         sec_erased[i] = 1;
-        for (int k = 0; k < ESP32_FLASH_SECTOR_SIZE / sizeof(buf); k++) {
-            esp_rom_spiflash_result_t rc = esp_rom_spiflash_read(i * ESP32_FLASH_SECTOR_SIZE + k * sizeof(buf), (uint32_t *)buf, sizeof(buf));
+        for (int k = 0; k < STUB_FLASH_SECTOR_SIZE / sizeof(buf); k++) {
+            esp_rom_spiflash_result_t rc = esp_rom_spiflash_read(i * STUB_FLASH_SECTOR_SIZE + k * sizeof(buf), (uint32_t *)buf, sizeof(buf));
             if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
                 STUB_LOGE("Failed to read flash (%d)!\n", rc);
-                return ESP32_STUB_ERR_FAIL;
+                return ESP_STUB_ERR_FAIL;
             }
             for (int n = 0; n < sizeof(buf); n++) {
                 if (buf[n] != 0xFF) {
@@ -467,6 +506,7 @@ static int stub_flash_erase_check(uint32_t start_sec, uint32_t sec_num, uint8_t 
     return ret;
 }
 
+#ifndef CONFIG_CHIP_IS_ESP32C
 static uint32_t stub_flash_exec_usr_cmd(uint32_t cmd)
 {
     uint32_t status_value = ESP_ROM_SPIFLASH_BUSY_FLAG;
@@ -487,7 +527,7 @@ static void stub_flash_spi_wait_ready()
     uint32_t status_value = ESP_ROM_SPIFLASH_BUSY_FLAG;
 
     while (ESP_ROM_SPIFLASH_BUSY_FLAG == (status_value & ESP_ROM_SPIFLASH_BUSY_FLAG)) {
-        WRITE_PERI_REG(PERIPHS_SPI_FLASH_STATUS, 0);       // clear regisrter
+        WRITE_PERI_REG(PERIPHS_SPI_FLASH_STATUS, 0);       // clear register
         WRITE_PERI_REG(PERIPHS_SPI_FLASH_CMD, SPI_FLASH_RDSR);
         while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0);
         status_value = READ_PERI_REG(PERIPHS_SPI_FLASH_STATUS) & (g_rom_spiflash_chip.status_mask);
@@ -528,14 +568,24 @@ static uint32_t stub_flash_spi_cmd_run(uint32_t cmd, uint8_t data_bits[], uint32
 
     return status;
 }
+#endif
 
 inline static uint32_t stub_flash_get_id(void)
 {
+    uint32_t ret;
+
     STUB_LOGD("flash %x, cs %x, bs %x, ss %x, ps %x, sm %x\n", g_rom_spiflash_chip.device_id, g_rom_spiflash_chip.chip_size,
               g_rom_spiflash_chip.block_size, g_rom_spiflash_chip.sector_size, g_rom_spiflash_chip.page_size, g_rom_spiflash_chip.status_mask);
-    uint8_t buf[3];
-    memset(buf, 0, sizeof(buf));
-    return stub_flash_spi_cmd_run(STUB_SPI_FLASH_RDID, buf, 0, 24) >> 16;
+#if CONFIG_CHIP_IS_ESP32C
+    WRITE_PERI_REG(PERIPHS_SPI_FLASH_C0, 0);    // clear regisrter
+    WRITE_PERI_REG(PERIPHS_SPI_FLASH_CMD, SPI_MEM_FLASH_RDID);
+    while(READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0);
+    ret = READ_PERI_REG(PERIPHS_SPI_FLASH_C0) & 0xffffff;
+#else
+    ret = stub_flash_spi_cmd_run(STUB_SPI_FLASH_RDID, NULL, 0, 24);
+#endif
+    STUB_LOGD("Flash ID read %x\n", ret);
+    return ret >> 16;
 }
 
 static uint32_t stub_flash_get_size(void)
@@ -566,7 +616,7 @@ static inline bool stub_flash_should_map(uint32_t load_addr)
            || (load_addr >= SOC_DROM_LOW && load_addr < SOC_DROM_HIGH);
 }
 
-static int stub_flash_get_app_mappings(uint32_t off, struct esp32_flash_mapping *flash_map)
+static int stub_flash_get_app_mappings(uint32_t off, struct esp_xtensa_flash_mapping *flash_map)
 {
     esp_image_header_t img_hdr;
     uint16_t maps_num = 0;
@@ -574,11 +624,11 @@ static int stub_flash_get_app_mappings(uint32_t off, struct esp32_flash_mapping 
     esp_rom_spiflash_result_t rc = esp_rom_spiflash_read(off, (uint32_t *)&img_hdr, sizeof(img_hdr));
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
         STUB_LOGE("Failed to read app image header (%d)!\n", rc);
-        return ESP32_STUB_ERR_FAIL;
+        return ESP_STUB_ERR_FAIL;
     }
     if (img_hdr.magic != ESP_IMAGE_HEADER_MAGIC) {
         STUB_LOGE("Invalid magic number 0x%x in app image!\n", img_hdr.magic);
-        return ESP32_STUB_ERR_FAIL;
+        return ESP_STUB_ERR_FAIL;
     }
 
     STUB_LOGI("Found app image: magic 0x%x, %d segments, entry @ 0x%x\n", img_hdr.magic, img_hdr.segment_count, img_hdr.entry_addr);
@@ -588,12 +638,12 @@ static int stub_flash_get_app_mappings(uint32_t off, struct esp32_flash_mapping 
         rc = esp_rom_spiflash_read(flash_addr, (uint32_t *)&seg_hdr, sizeof(seg_hdr));
         if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
             STUB_LOGE("Failed to read app segment header (%d)!\n", rc);
-            return ESP32_STUB_ERR_FAIL;
+            return ESP_STUB_ERR_FAIL;
         }
         STUB_LOGI("App segment %d: %d bytes @ 0x%x\n", k, seg_hdr.data_len, seg_hdr.load_addr);
         if (stub_flash_should_map(seg_hdr.load_addr)) {
             STUB_LOGI("Mapped segment %d: %d bytes @ 0x%x -> 0x%x\n", maps_num, seg_hdr.data_len, flash_addr + sizeof(seg_hdr), seg_hdr.load_addr);
-            if (maps_num < ESP32_STUB_FLASH_MAPPINGS_MAX_NUM) {
+            if (maps_num < ESP_STUB_FLASH_MAPPINGS_MAX_NUM) {
                 flash_map->maps[maps_num].phy_addr = flash_addr + sizeof(seg_hdr);
                 flash_map->maps[maps_num].load_addr = seg_hdr.load_addr;
                 flash_map->maps[maps_num].size = seg_hdr.data_len;
@@ -605,14 +655,14 @@ static int stub_flash_get_app_mappings(uint32_t off, struct esp32_flash_mapping 
         flash_addr += sizeof(seg_hdr) + seg_hdr.data_len;
     }
     flash_map->maps_num = maps_num;
-    return ESP32_STUB_ERR_OK;
+    return ESP_STUB_ERR_OK;
 }
 
 static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr)
 {
     esp_rom_spiflash_result_t rc;
     esp_partition_info_t part;
-    struct esp32_flash_mapping *flash_map = (struct esp32_flash_mapping *)maps_addr;
+    struct esp_xtensa_flash_mapping *flash_map = (struct esp_xtensa_flash_mapping *)maps_addr;
     uint32_t flash_size = stub_flash_get_size();
 
     STUB_LOGD("%s: 0x%x 0x%x\n", __func__, app_off, maps_addr);
@@ -625,16 +675,16 @@ static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr)
         rc = esp_rom_spiflash_read(ESP_PARTITION_TABLE_OFFSET+i*sizeof(esp_partition_info_t), (uint32_t *)&part, sizeof(part));
         if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
             STUB_LOGE("Failed to read partitions table entrt (%d)!\n", rc);
-            return ESP32_STUB_ERR_FAIL;
+            return ESP_STUB_ERR_FAIL;
         }
         if (part.magic != ESP_PARTITION_MAGIC) {
-            STUB_LOGI("No app partition found\n");
+            STUB_LOGI("No app partition found 0x%x\n", part.magic);
             break;
         }
         if (part.pos.offset > flash_size || part.pos.offset + part.pos.size > flash_size) {
             STUB_LOGE("Partition %d invalid - offset 0x%x size 0x%x exceeds flash chip size 0x%x\n",
                       i, part.pos.offset, part.pos.size, flash_size);
-            return ESP32_STUB_ERR_FAIL;
+            return ESP_STUB_ERR_FAIL;
         }
         STUB_LOGD("Found partition %d, m 0x%x, t 0x%x, st 0x%x, l '%s'\n", i, part.magic, part.type, part.subtype, part.label);
         if (part.type == PART_TYPE_APP) {
@@ -642,7 +692,7 @@ static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr)
             return stub_flash_get_app_mappings(part.pos.offset, flash_map);
         }
     }
-    return ESP32_STUB_ERR_OK;
+    return ESP_STUB_ERR_OK;
 }
 
 /**
@@ -659,18 +709,18 @@ static uint8_t stub_flash_set_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr,
 
     STUB_LOGD("%s: 0x%x 0x%x\n", __func__, bp_flash_addr, insn_buf_addr);
 
-    rc = esp_rom_spiflash_read(bp_flash_addr & ~(ESP32_FLASH_SECTOR_SIZE - 1), (uint32_t *)insn_sect, ESP32_STUB_BP_INSN_SECT_BUF_SIZE);
+    rc = esp_rom_spiflash_read(bp_flash_addr & ~(STUB_FLASH_SECTOR_SIZE - 1), (uint32_t *)insn_sect, ESP32_STUB_BP_INSN_SECT_BUF_SIZE);
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
         STUB_LOGE("Failed to read insn sector (%d)!\n", rc);
         return 0;
     }
-    uint8_t insn_sz = xtensa_get_insn_size(&insn_sect[bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE - 1)]);
-    memcpy((void *)insn_buf_addr, &insn_sect[(bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE - 1))], insn_sz);
-    STUB_LOGI("Read insn [%02x %02x %02x] %d bytes @ 0x%x\n", insn_sect[(bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE - 1)) + 0], insn_sect[(bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE - 1)) + 1],
-              insn_sect[(bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE - 1)) + 2], insn_sz, bp_flash_addr);
+    uint8_t insn_sz = xtensa_get_insn_size(&insn_sect[bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)]);
+    memcpy((void *)insn_buf_addr, &insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1))], insn_sz);
+    STUB_LOGI("Read insn [%02x %02x %02x] %d bytes @ 0x%x\n", insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 0], insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 1],
+              insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 2], insn_sz, bp_flash_addr);
 
     // this will erase full sector or two
-    if (stub_flash_erase(bp_flash_addr, insn_sz) != ESP32_STUB_ERR_OK) {
+    if (stub_flash_erase(bp_flash_addr, insn_sz) != ESP_STUB_ERR_OK) {
         STUB_LOGE("Failed to erase insn sector!\n");
         return 0;
     }
@@ -679,18 +729,23 @@ static uint8_t stub_flash_set_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr,
         uint8_t d8[4];
     } break_insn;
     break_insn.d32 = insn_sz == 2 ? XT_INS_BREAKN : XT_INS_BREAK;
-    insn_sect[(bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE - 1)) + 0] = break_insn.d8[0];
-    insn_sect[(bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE - 1)) + 1] = break_insn.d8[1];
+    insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 0] = break_insn.d8[0];
+    insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 1] = break_insn.d8[1];
     if (insn_sz == 3) {
-        insn_sect[(bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE - 1)) + 2] = break_insn.d8[2];
+        insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 2] = break_insn.d8[2];
     }
-    rc = esp_rom_spiflash_write(bp_flash_addr & ~(ESP32_FLASH_SECTOR_SIZE - 1), (uint32_t *)insn_sect, ESP32_STUB_BP_INSN_SECT_BUF_SIZE);
+    rc = esp_rom_spiflash_write(bp_flash_addr & ~(STUB_FLASH_SECTOR_SIZE - 1), (uint32_t *)insn_sect, ESP32_STUB_BP_INSN_SECT_BUF_SIZE);
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
         STUB_LOGE("Failed to write break insn (%d)!\n", rc);
         return 0;
     }
+#if CONFIG_CHIP_IS_ESP32C
+    // we do not know breakpoint program address here, so pass wrong addr to invalidate the whole ICache
+    Cache_Invalidate_ICache_Items(0, 4*1024*1024);
+#else
     Cache_Flush(0);
     Cache_Flush(1);
+#endif
     return insn_sz;
 }
 
@@ -701,58 +756,129 @@ static int stub_flash_clear_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr, u
 
     STUB_LOGD("%s: 0x%x 0x%x [%02x %02x %02x]\n", __func__, bp_flash_addr, insn_buf_addr, insn[0], insn[1], insn[2]);
 
-    rc = esp_rom_spiflash_read(bp_flash_addr & ~(ESP32_FLASH_SECTOR_SIZE - 1), (uint32_t *)insn_sect, ESP32_STUB_BP_INSN_SECT_BUF_SIZE);
+    rc = esp_rom_spiflash_read(bp_flash_addr & ~(STUB_FLASH_SECTOR_SIZE - 1), (uint32_t *)insn_sect, ESP32_STUB_BP_INSN_SECT_BUF_SIZE);
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
         STUB_LOGE("Failed to read insn sector (%d)!\n", rc);
-        return ESP32_STUB_ERR_FAIL;
+        return ESP_STUB_ERR_FAIL;
     }
     uint8_t insn_sz = xtensa_get_insn_size(insn);
     // this will erase full sector or two
-    if (stub_flash_erase(bp_flash_addr, insn_sz) != ESP32_STUB_ERR_OK) {
+    if (stub_flash_erase(bp_flash_addr, insn_sz) != ESP_STUB_ERR_OK) {
         STUB_LOGE("Failed to erase insn sector!\n");
-        return ESP32_STUB_ERR_FAIL;
+        return ESP_STUB_ERR_FAIL;
     }
-    insn_sect[(bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE - 1)) + 0] = insn[0];
-    insn_sect[(bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE - 1)) + 1] = insn[1];
+    insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 0] = insn[0];
+    insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 1] = insn[1];
     if (insn_sz == 3) {
-        insn_sect[(bp_flash_addr & (ESP32_FLASH_SECTOR_SIZE - 1)) + 2] = insn[2];
+        insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 2] = insn[2];
     }
-    rc = esp_rom_spiflash_write(bp_flash_addr & ~(ESP32_FLASH_SECTOR_SIZE - 1), (uint32_t *)insn_sect, ESP32_STUB_BP_INSN_SECT_BUF_SIZE);
+    rc = esp_rom_spiflash_write(bp_flash_addr & ~(STUB_FLASH_SECTOR_SIZE - 1), (uint32_t *)insn_sect, ESP32_STUB_BP_INSN_SECT_BUF_SIZE);
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
         STUB_LOGE("Failed to restore insn (%d)!\n", rc);
-        return ESP32_STUB_ERR_FAIL;
+        return ESP_STUB_ERR_FAIL;
     }
+#if CONFIG_CHIP_IS_ESP32C
+    // we do not know breakpoint program address here, so pass wrong addr to invalidate the whole ICache
+    Cache_Invalidate_ICache_Items(0, 4*1024*1024);
+#else
     Cache_Flush(0);
     Cache_Flush(1);
+#endif
 #if STUB_LOG_LOCAL_LEVEL == STUB_LOG_VERBOSE
     uint8_t tmp[8];
     rc = esp_rom_spiflash_read(bp_flash_addr & ~0x3UL, (uint32_t *)tmp, sizeof(tmp));
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
         STUB_LOGE("Failed to read insn (%d)!\n", rc);
-        return ESP32_STUB_ERR_FAIL;
+        return ESP_STUB_ERR_FAIL;
     }
     STUB_LOGD("%s: WROTE 0x%x 0x%x [%02x %02x %02x %02x %02x %02x %02x %02x]\n", __func__, bp_flash_addr, insn_buf_addr,
               tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5], tmp[6], tmp[7]);
 #endif
-    return ESP32_STUB_ERR_OK;
+    return ESP_STUB_ERR_OK;
 }
 
+#define STUB_FLASH_STATE_SPI_USER_REG_ID    0
+#define STUB_FLASH_STATE_SPI_USER1_REG_ID   1
+#define STUB_FLASH_STATE_SPI_USER2_REG_ID   2
+#define STUB_FLASH_STATE_SPI_SLAVE_REG_ID   3
+#define STUB_FLASH_STATE_REGS_NUM           4
+
+#define STUB_FLASH_STATE_SPI_USER_REG_VAL    0x80000040
+#define STUB_FLASH_STATE_SPI_USER1_REG_VAL   0x5c000007 //0x8c000007 ?
+#define STUB_FLASH_STATE_SPI_USER2_REG_VAL   0x70000000
+#define STUB_FLASH_STATE_SPI_SLAVE_REG_VAL   0x00000200 // 0x0 ??
+
+struct stub_flash_state {
+    bool other_cache_enabled;
+    uint32_t cache_flags[2];
+    uint32_t spi_regs[STUB_FLASH_STATE_REGS_NUM];
+};
+
+static void stub_flash_state_prepare(struct stub_flash_state *state)
+{
+#ifdef CONFIG_CHIP_IS_ESP32C
+    stub_spi_flash_disable_cache(state->cache_flags);
+#else
+    uint32_t core_id = stub_get_coreid();
+    // TODO: generic support for multi-core (pass maximum number of cores as the first param)
+    uint32_t other_core_id = core_id == 0 ? 1 : 0;
+
+    state->other_cache_enabled = stub_spi_flash_cache_enabled(other_core_id);
+    if (state->other_cache_enabled) {
+        stub_spi_flash_disable_cache_for_cpu(other_core_id, &state->cache_flags[other_core_id]);
+        STUB_LOGI("Cache disable CPU%d: 0x%x %d\n", other_core_id, state->cache_flags[other_core_id], stub_spi_flash_cache_enabled(other_core_id));
+    }
+    stub_spi_flash_disable_cache_for_cpu(core_id, &state->cache_flags[core_id]);
+    STUB_LOGI("Cache disable CPU%d: 0x%x %d\n", core_id, state->cache_flags[core_id], stub_spi_flash_cache_enabled(core_id));
+
+    state->spi_regs[STUB_FLASH_STATE_SPI_USER_REG_ID] = READ_PERI_REG(SPI_USER_REG(1));
+    state->spi_regs[STUB_FLASH_STATE_SPI_USER1_REG_ID] = READ_PERI_REG(SPI_USER1_REG(1));
+    state->spi_regs[STUB_FLASH_STATE_SPI_USER2_REG_ID] = READ_PERI_REG(SPI_USER2_REG(1));
+    state->spi_regs[STUB_FLASH_STATE_SPI_SLAVE_REG_ID] = READ_PERI_REG(SPI_SLAVE_REG(1));
+    WRITE_PERI_REG(SPI_USER_REG(1), STUB_FLASH_STATE_SPI_USER_REG_VAL);
+    WRITE_PERI_REG(SPI_USER1_REG(1), STUB_FLASH_STATE_SPI_USER1_REG_VAL);
+    WRITE_PERI_REG(SPI_USER2_REG(1), STUB_FLASH_STATE_SPI_USER2_REG_VAL);
+    WRITE_PERI_REG(SPI_SLAVE_REG(1), STUB_FLASH_STATE_SPI_SLAVE_REG_VAL);
+#endif
+}
+
+static void stub_flash_state_restore(struct stub_flash_state *state)
+{
+#ifdef CONFIG_CHIP_IS_ESP32C
+    stub_spi_flash_restore_cache(state->cache_flags);
+#else
+    uint32_t core_id = stub_get_coreid();
+    // TODO: generic support for multi-core (pass maximum number of cores as the first param)
+    uint32_t other_core_id = core_id == 0 ? 1 : 0;
+
+    WRITE_PERI_REG(SPI_USER_REG(1), state->spi_regs[STUB_FLASH_STATE_SPI_USER_REG_ID]);
+    WRITE_PERI_REG(SPI_USER1_REG(1), state->spi_regs[STUB_FLASH_STATE_SPI_USER1_REG_ID]);
+    WRITE_PERI_REG(SPI_USER2_REG(1), state->spi_regs[STUB_FLASH_STATE_SPI_USER2_REG_ID]);
+    WRITE_PERI_REG(SPI_SLAVE_REG(1), state->spi_regs[STUB_FLASH_STATE_SPI_SLAVE_REG_ID]);
+    if (state->other_cache_enabled) {
+        stub_spi_flash_restore_cache_for_cpu(other_core_id, state->cache_flags[other_core_id]);
+        STUB_LOGI("Cache restored CPU%d: 0x%x %d\n", other_core_id, state->cache_flags[other_core_id], stub_spi_flash_cache_enabled(other_core_id));
+    }
+    stub_spi_flash_restore_cache_for_cpu(core_id, state->cache_flags[core_id]);
+    STUB_LOGI("Cache restored CPU%d: 0x%x %d\n", core_id, state->cache_flags[core_id], stub_spi_flash_cache_enabled(core_id));
+#endif
+}
 
 static int stub_flash_handler(int cmd, va_list ap)
 {
-    int ret = ESP32_STUB_ERR_OK;
-    uint32_t core_id = stub_get_coreid();
-    uint32_t other_core_id = core_id == 0 ? 1 : 0;
-    uint32_t flags[2];
+    int ret = ESP_STUB_ERR_OK;
+    struct stub_flash_state flash_state;
     uint32_t arg1 = va_arg(ap, uint32_t);   // flash_addr, start_sect
     uint32_t arg2 = va_arg(ap, uint32_t);   // size, number of sectors
     uint8_t *arg3 = va_arg(ap, uint8_t *);  // down_buf_addr, sectorts' state buf address
     uint32_t arg4 = va_arg(ap, uint32_t);   // down buf size
-    bool other_cache_enabled = stub_spi_flash_cache_enabled(other_core_id);
 
     STUB_LOGD("%s a %x, s %d\n", __func__, arg1, arg2);
 
+#ifndef CONFIG_CHIP_IS_ESP32C
     ets_efuse_read_op();
+#endif
+
     uint32_t spiconfig = ets_efuse_get_spiconfig();
     uint32_t strapping = REG_READ(GPIO_STRAP_REG);
     //  If GPIO1 (U0TXD) is pulled low and no other boot mode is
@@ -761,70 +887,66 @@ static int stub_flash_handler(int cmd, va_list ap)
         spiconfig = 1; /* HSPI flash mode */
     }
 
-    if (other_cache_enabled) {
-        stub_spi_flash_disable_cache(other_core_id, &flags[1]);
-        STUB_LOGI("Cache disable CPU%d: 0x%x %d\n", other_core_id, flags[1], stub_spi_flash_cache_enabled(other_core_id));
-    }
-    stub_spi_flash_disable_cache(core_id, &flags[0]);
+    stub_flash_state_prepare(&flash_state);
 
+#if CONFIG_CHIP_IS_ESP32C
+    spi_flash_attach(spiconfig, 0);
+#else
     esp_rom_spiflash_attach(spiconfig, 0);
+#endif
     uint32_t flash_size = stub_flash_get_size();
     if (flash_size == 0) {
         STUB_LOGE("Failed to get flash size!\n");
-        ret = cmd == ESP32_STUB_CMD_FLASH_SIZE ? 0 : ESP32_STUB_ERR_FAIL;
+        ret = cmd == ESP_STUB_CMD_FLASH_SIZE ? 0 : ESP_STUB_ERR_FAIL;
         goto _flash_end;
     }
-    if (cmd == ESP32_STUB_CMD_FLASH_SIZE) {
+    if (cmd == ESP_STUB_CMD_FLASH_SIZE) {
         ret = flash_size;
         goto _flash_end;
     }
     esp_rom_spiflash_config_param(g_rom_flashchip.device_id, flash_size,
-                                  ESP32_FLASH_BLOCK_SIZE, ESP32_FLASH_SECTOR_SIZE, ESP32_FLASH_PAGE_SIZE, ESP32_FLASH_STATUS_MASK);
+                                  ESP32_FLASH_BLOCK_SIZE, STUB_FLASH_SECTOR_SIZE, ESP32_FLASH_PAGE_SIZE, ESP32_FLASH_STATUS_MASK);
 
     esp_rom_spiflash_result_t rc = esp_rom_spiflash_unlock();
     if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
         STUB_LOGE("Failed to unlock flash (%d)\n", rc);
-        ret = ESP32_STUB_ERR_FAIL;
+        ret = ESP_STUB_ERR_FAIL;
         goto _flash_end;
     }
 
     switch (cmd) {
-    case ESP32_STUB_CMD_FLASH_READ:
+    case ESP_STUB_CMD_FLASH_READ:
         ret = stub_flash_read(arg1, arg2);
         break;
-    case ESP32_STUB_CMD_FLASH_ERASE:
+    case ESP_STUB_CMD_FLASH_ERASE:
         ret = stub_flash_erase(arg1, arg2);
         break;
-    case ESP32_STUB_CMD_FLASH_ERASE_CHECK:
+    case ESP_STUB_CMD_FLASH_ERASE_CHECK:
         ret = stub_flash_erase_check(arg1, arg2, arg3);
         break;
-    case ESP32_STUB_CMD_FLASH_WRITE:
+    case ESP_STUB_CMD_FLASH_WRITE:
         ret = stub_flash_write(arg1, arg2, arg3, arg4);
         break;
-    case ESP32_STUB_CMD_FLASH_MAP_GET:
+    case ESP_STUB_CMD_FLASH_MAP_GET:
         ret = stub_flash_get_map(arg1, arg2);
         break;
-    case ESP32_STUB_CMD_FLASH_BP_SET:
+    case ESP_STUB_CMD_FLASH_BP_SET:
         ret = stub_flash_set_bp(arg1, arg2, arg3);
         break;
-    case ESP32_STUB_CMD_FLASH_BP_CLEAR:
+    case ESP_STUB_CMD_FLASH_BP_CLEAR:
         ret = stub_flash_clear_bp(arg1, arg2, arg3);
         break;
 #if STUB_DEBUG
-    case ESP32_STUB_CMD_FLASH_TEST:
+    case ESP_STUB_CMD_FLASH_TEST:
         ret = stub_flash_test();
         break;
 #endif
     default:
-        ret = ESP32_STUB_ERR_NOT_SUPPORTED;
+        ret = ESP_STUB_ERR_NOT_SUPPORTED;
     }
 
 _flash_end:
-    stub_spi_flash_restore_cache(core_id, flags[0]);
-    if (other_cache_enabled) {
-        stub_spi_flash_restore_cache(other_core_id, flags[1]);
-        STUB_LOGI("Cache restored CPU%d: 0x%x %d\n", other_core_id, flags[1], stub_spi_flash_cache_enabled(other_core_id));
-    }
+    stub_flash_state_restore(&flash_state);
     return ret;
 }
 
@@ -844,11 +966,17 @@ static void clock_configure(void)
      * document). For rev. 0, switch to 240 instead if it was chosen in
      * menuconfig.
      */
+#ifndef CONFIG_CHIP_IS_ESP32C
     uint32_t chip_ver_reg = REG_READ(EFUSE_BLK0_RDATA3_REG);
     if ((chip_ver_reg & EFUSE_RD_CHIP_VER_REV1_M) == 0 &&
             CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ == 240) {
         cpu_freq = RTC_CPU_FREQ_240M;
     }
+#else
+    if (CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ == 240) {
+        cpu_freq = RTC_CPU_FREQ_240M;
+    }
+#endif
 
     // uart_tx_wait_idle(CONFIG_CONSOLE_UART_NUM);
     rtc_clk_config_t clk_cfg = RTC_CLK_CONFIG_DEFAULT();
@@ -867,42 +995,15 @@ static void uart_console_configure(void)
 }
 #endif
 
-static inline void stub_wdts_disable(bool wdt_state[])
-{
-    wdt_state[0] = TIMERG0.wdt_config0.en;
-    wdt_state[1] = TIMERG1.wdt_config0.en;
-    STUB_LOGD("Disable WDTs: %d %d\n", wdt_state[0], wdt_state[1]);
-    TIMERG0.wdt_wprotect = TIMG_WDT_WKEY_VALUE;
-    TIMERG0.wdt_config0.en = false;
-    TIMERG0.wdt_wprotect = 0;
-    TIMERG1.wdt_wprotect = TIMG_WDT_WKEY_VALUE;
-    TIMERG1.wdt_config0.en = false;
-    TIMERG1.wdt_wprotect = 0;
-}
-
-static inline void stub_wdts_restore(bool wdt_state[])
-{
-    STUB_LOGD("Restore WDTs: %d %d\n", wdt_state[0], wdt_state[1]);
-    TIMERG0.wdt_wprotect = TIMG_WDT_WKEY_VALUE;
-    TIMERG0.wdt_config0.en = wdt_state[0];
-    TIMERG0.wdt_wprotect = 0;
-    TIMERG1.wdt_wprotect = TIMG_WDT_WKEY_VALUE;
-    TIMERG1.wdt_config0.en = wdt_state[1];
-    TIMERG1.wdt_wprotect = 0;
-}
-
 int stub_main(int cmd, ...)
 {
     va_list ap;
     int ret = 0;
-    bool wdt_state[2];
 
     /* zero bss */
     for (uint32_t *p = &_bss_start; p < &_bss_end; p++) {
         *p = 0;
     }
-
-    stub_wdts_disable(wdt_state);
 
     // we get here just after OpenOCD's stub trampoline
     // up to 5 parameters are passed via registers by that jumping code
@@ -916,22 +1017,19 @@ int stub_main(int cmd, ...)
     STUB_LOGD("cmd %d\n", cmd);
 
     va_start(ap, cmd);
-    if (cmd <= ESP32_STUB_CMD_FLASH_MAX_ID) {
+    if (cmd <= ESP_STUB_CMD_FLASH_MAX_ID) {
         ret = stub_flash_handler(cmd, ap);
     } else  switch (cmd) {
 #if STUB_DEBUG
-        case ESP32_STUB_CMD_TEST:
+        case ESP_STUB_CMD_TEST:
             STUB_LOGD("TEST %d\n", cmd);
             break;
-        case ESP32_STUB_CMD_FLASH_TEST:
 #endif
         default:
-            ret = ESP32_STUB_ERR_NOT_SUPPORTED;
+            ret = ESP_STUB_ERR_NOT_SUPPORTED;
         }
     va_end(ap);
 
-    STUB_LOGD("WDS restore\n");
-    stub_wdts_restore(wdt_state);
     STUB_LOGD("exit %d\n", ret);
     return ret;
 }

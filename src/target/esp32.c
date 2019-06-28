@@ -205,6 +205,11 @@ static const uint8_t esp32_stub_tramp[] = {
 	#include "src/target/esp32_stub_tramp.inc"
 };
 
+static inline uint8_t xtensa_get_insn_size(uint8_t *insn)
+{
+  return insn[0] & 0x8 ? 2 : 3;
+}
+
 static void esp32_mark_register_dirty(struct reg *reg_list, int regidx)
 {
 	reg_list[regidx].dirty=1;

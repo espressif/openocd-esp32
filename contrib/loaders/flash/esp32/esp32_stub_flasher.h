@@ -1,6 +1,6 @@
 /***************************************************************************
  *   ESP xtensa chips flasher stub definitions                             *
- *   Copyright (C) 2017 Espressif Systems Ltd.                             *
+ *   Copyright (C) 2019 Espressif Systems Ltd.                             *
  *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -18,36 +18,9 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
-#ifndef ESP_FLASHER_STUB_H
-#define ESP_FLASHER_STUB_H
+#ifndef ESP32_FLASHER_STUB_H
+#define ESP32_FLASHER_STUB_H
 
-#define ESP_STUB_ERR_OK                  0
-#define ESP_STUB_ERR_FAIL                (-1)
-#define ESP_STUB_ERR_NOT_SUPPORTED       (-2)
+#define ESP32_FLASH_SECTOR_SIZE 4096
 
-#define ESP_STUB_CMD_FLASH_READ          0
-#define ESP_STUB_CMD_FLASH_WRITE         1
-#define ESP_STUB_CMD_FLASH_ERASE         2
-#define ESP_STUB_CMD_FLASH_ERASE_CHECK   3
-#define ESP_STUB_CMD_FLASH_SIZE          4
-#define ESP_STUB_CMD_FLASH_MAP_GET       5
-#define ESP_STUB_CMD_FLASH_BP_SET        6
-#define ESP_STUB_CMD_FLASH_BP_CLEAR      7
-#define ESP_STUB_CMD_FLASH_TEST          8
-#define ESP_STUB_CMD_FLASH_MAX_ID        ESP_STUB_CMD_FLASH_TEST
-#define ESP_STUB_CMD_TEST                (ESP_STUB_CMD_FLASH_MAX_ID+2)
-
-#define ESP_STUB_FLASH_MAPPINGS_MAX_NUM  2 // IROM, DROM
-
-struct esp_xtensa_flash_region_mapping {
-    uint32_t phy_addr;
-    uint32_t load_addr;
-    uint32_t size;
-};
-
-struct esp_xtensa_flash_mapping {
-    uint32_t maps_num;
-    struct esp_xtensa_flash_region_mapping maps[ESP_STUB_FLASH_MAPPINGS_MAX_NUM];
-};
-
-#endif //ESP_FLASHER_STUB_H
+#endif //ESP32_FLASHER_STUB_H
