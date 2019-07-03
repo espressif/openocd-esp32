@@ -28,11 +28,9 @@ class PerfMonTestsImpl:
         time.sleep(1)
         counts = self.oocd.perfmon_dump()
         for core in range(0, self.CORE_COUNT):
-            self.assertGreater(counts[0][core], 0) # number of cycles >0
-            self.assertGreater(counts[1][core], 0) # number of retired instructions >0
-            self.assertGreaterEqual(counts[0][core], counts[1][core]) # sanity check: cycles >= instructions
-
-
+            self.assertGreater(counts[core][0], 0) # number of cycles >0
+            self.assertGreater(counts[core][1], 0) # number of retired instructions >0
+            self.assertGreaterEqual(counts[core][0], counts[core][1]) # sanity check: cycles >= instructions
 
 
 ########################################################################

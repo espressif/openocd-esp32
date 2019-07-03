@@ -6,6 +6,7 @@ import time
 import telnetlib
 import re
 import os
+import pygdbmi.gdbcontroller as gdbcontroller
 from pygdbmi.gdbcontroller import GdbController
 from pygdbmi.gdbcontroller import GdbTimeoutError
 from pprint import pformat
@@ -35,6 +36,8 @@ def start(toolch, oocd_path, oocd_tcl_dir, oocd_cfg_files, oocd_cfg_cmds=[], ooc
     oocd_args += ['-d%d' % oocd_dbg_level]
     _oocd_inst = Oocd(oocd_path, oocd_args)
     _oocd_inst.start()
+    # reset the board if it is stuck from the previous test run
+    _oocd_inst.cmd_exec('reset run')
     try:
         _gdb_inst = Gdb('%sgdb' % toolchain)
         _gdb_inst.connect()
@@ -75,6 +78,7 @@ def fixup_path(path):
 class Oocd(threading.Thread):
     _oocd_proc = None
     _logger = None
+    _target_name = ''
     if os.name == 'nt':
         CREATION_FLAGS = subprocess.CREATE_NEW_PROCESS_GROUP
         # under Msys Python OOCD hangs during startup when trying to output to stdout,
@@ -88,9 +92,10 @@ class Oocd(threading.Thread):
     def get_logger():
         return logging.getLogger('Oocd')
 
-    def __init__(self, oocd_path = 'openocd', oocd_args=[]):
+    def __init__(self, oocd_path='openocd', oocd_args=[], target_name='esp32'):
         super(Oocd, self).__init__()
         self.do_work = True
+        Oocd._target_name = target_name
         self._logger = self.get_logger()
         self._logger.debug('Start OpenOCD: {%s}', oocd_args)
         self._oocd_proc = subprocess.Popen(
@@ -152,6 +157,17 @@ class Oocd(threading.Thread):
         self._logger.debug('TELNET <-: %s' % resp)
         return resp
 
+    @staticmethod
+    def current_target_name_get():
+        # TODO: retrieve from OOCD, e.g. using 'targets' command
+        return Oocd._target_name
+
+    def appimage_offset_set(self, app_flash_off):
+        self.cmd_exec('%s appimage_offset 0x%x' % (self.current_target_name_get(), app_flash_off))
+
+    def semihost_basedir_set(self, semi_dir):
+        self.cmd_exec('%s semihost_basedir %s' % (self.current_target_name_get(), fixup_path(semi_dir)))
+
     def perfmon_enable(self, counter, select, mask = None, kernelcnt = None, tracelevel = None):
         """Run OpenOCD perfmon_enable command, which starts performance counter
 
@@ -162,7 +178,7 @@ class Oocd(threading.Thread):
 
         If mask, kernelcnt, tracelevel are not specified, OpenOCD will use default values.
         """
-        cmd = 'esp32 perfmon_enable %d %d' % (counter, select)
+        cmd = '%s perfmon_enable %d %d' % (self.current_target_name_get(), counter, select)
         if mask is not None:
             cmd += ' 0x%x' % mask
         if kernelcnt is not None:
@@ -178,22 +194,41 @@ class Oocd(threading.Thread):
         Each value is a tuple of counts for PRO and APP CPUs.
         If APP CPU is disabled, its count will be None.
         """
-        cmd = 'esp32 perfmon_dump'
+        cmd = '%s perfmon_dump' % self.current_target_name_get()
         if counter is not None:
             cmd += '%d' % counter
         resp = self.cmd_exec(cmd)
         # Response should have one line for every counter
-        lines = resp.split('\n')
+        core = None
         result = {}
+        lines = resp.split('\n')
         for line in lines:
             if len(line) == 0:
                 continue
-            tokens = re.match(r'Counter (?P<counter>\d+): CPU0: (?P<count0>\d+)(\s* CPU1: (?P<count1>\d+))?', line)
-            count0 = int(tokens.group('count0'))
-            count1 = int(tokens.group('count1')) if tokens.group('count1') is not None else None
-            counter = int(tokens.group('counter'))
-            result[counter] = (count0, count1)
+            tokens = re.match(r'CPU(?P<core>\d+):$', line)
+            if tokens:
+                core = int(tokens.group('core'))
+                if core not in result:
+                    result[core] = {}
+            else:
+                tokens = re.match(r'Counter (?P<counter>\d+): (?P<val>\d+)', line)
+                val = int(tokens.group('val'))
+                counter = int(tokens.group('counter'))
+                result[core][counter] = val
         return result
+
+    def gcov_dump(self, on_the_fly=True):
+        if on_the_fly:
+            cmd = '%s gcov' % self.current_target_name_get()
+        else:
+            cmd = '%s gcov dump' % self.current_target_name_get()
+        self.cmd_exec(cmd)
+
+    def sysview_start(self, file1, file2=''):
+        self.cmd_exec('%s sysview start %s %s' % (self.current_target_name_get(), file1, file2))
+
+    def sysview_stop(self):
+        self.cmd_exec('%s sysview stop' % self.current_target_name_get())
 
 
 class Gdb:
@@ -218,7 +253,11 @@ class Gdb:
     def __init__(self, gdb = None):
         # Start gdb process
         self._logger = self.get_logger()
-        self._gdbmi = GdbController(gdb_path=gdb)
+        if os.name == 'nt':
+            self._gdbmi = GdbController(gdb_path=gdb)
+            # self._gdbmi = GdbControllerWin(gdb_path=gdb)
+        else:
+            self._gdbmi = GdbController(gdb_path=gdb)
         self._resp_cache = []
         self._target_state = self.TARGET_STATE_UNKNOWN
         self._target_stop_reason = self.TARGET_STOP_REASON_UNKNOWN
@@ -342,6 +381,7 @@ class Gdb:
 
     def exec_file_set(self, file_path):
         # -file-exec-and-symbols file
+        self._logger.debug('exec_file_set %s' % file_path)
         res,_ = self._mi_cmd_run('-file-exec-and-symbols %s' % fixup_path(file_path))
         if res != 'done':
             raise DebuggerError('Failed to set program file!')
@@ -533,6 +573,19 @@ class Gdb:
         if res != 'done':
             raise DebuggerError('Failed to eval expression!')
         return thread_ids
+
+    def gcov_dump(self, on_the_fly=True):
+        if on_the_fly:
+            cmd = '%s gcov' % Oocd.current_target_name_get()
+        else:
+            cmd = '%s gcov dump' % Oocd.current_target_name_get()
+        self.monitor_run(cmd, tmo=20)
+
+    def sysview_start(self, file1, file2=''):
+        self.monitor_run('%s sysview start %s %s' % (Oocd.current_target_name_get(), file1, file2))
+
+    def sysview_stop(self):
+        self.monitor_run('%s sysview stop' % Oocd.current_target_name_get())
 
 
 def read_idf_ver():

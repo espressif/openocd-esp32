@@ -222,12 +222,12 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
 
     def _start_tracing(self, trace_src):
         if self.cores_num == 2:
-            self.gdb.monitor_run('esp32 sysview start %s %s' % (trace_src[0], trace_src[1]))
+            self.gdb.sysview_start(trace_src[0], trace_src[1])
         else:
-            self.gdb.monitor_run('esp32 sysview start %s' % (trace_src[0]))
+            self.gdb.sysview_start(trace_src[0])
 
     def _stop_tracing(self):
-        self.gdb.monitor_run('esp32 sysview stop')
+        self.gdb.sysview_stop()
 
     def _get_parsers(self):
         parsers = []
@@ -353,11 +353,11 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
         # colect trace
         time.sleep(3.0)
         if self.cores_num > 1:
-            self.oocd.cmd_exec('esp32 sysview start %s %s' % (self.trace_ctrl[0]['src'], self.trace_ctrl[1]['src']))
+            self.oocd.sysview_start(self.trace_ctrl[0]['src'], self.trace_ctrl[1]['src'])
         else:
-            self.oocd.cmd_exec('esp32 sysview start %s' % (self.trace_ctrl[0]['src']))
+            self.oocd.sysview_start(self.trace_ctrl[0]['src'])
         time.sleep(8.0)
-        self.oocd.cmd_exec('esp32 sysview stop')
+        self.oocd.sysview_stop()
 
         self._create_processor(keep_all_events=True)
         try:

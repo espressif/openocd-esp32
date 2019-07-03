@@ -15,7 +15,7 @@ import traceback
 
 
 BOARD_TCL_CONFIG = {
-    'esp-wrover-kit' :  {
+    'esp32-wrover-kit' :  {
         'files' : [
             os.path.join('interface', 'ftdi', 'esp32_devkitj_v1.cfg'),
             os.path.join('board', 'esp-wroom-32.cfg')
@@ -216,15 +216,15 @@ if __name__ == '__main__':
                         default=os.environ.get('OOCD_TEST_TCL_DIR', os.path.join(os.getcwd(), 'tcl')))
     parser.add_argument('--board-type', '-b',
                         help='Type of the board to run tests on',
-                        choices=['esp-wrover-kit', 'esp32_solo-devkitj'],
-                        default=os.environ.get('OOCD_TEST_BOARD', 'esp-wrover-kit'))
+                        choices=list(BOARD_TCL_CONFIG.keys()),
+                        default=os.environ.get('OOCD_TEST_BOARD', 'esp32-wrover-kit'))
     parser.add_argument('--apps-dir', '-a',
                         help='Path to test apps',
                         default=os.environ.get('OOCD_TEST_APPS_DIR', os.path.join(os.getcwd(), 'testing', 'esp', 'test_apps')))
     parser.add_argument('--pattern', '-p', nargs='*',
                         help="""Pattern of test cases to run. Format: <module>[.<test_case>[.<test_method>]].
                                 User can specify several strings separated by space. Wildcards (*) are supported in <module> and <test_case> parts""",
-                        default='*')
+                        default='test_*')
     parser.add_argument('--no-load', '-n',
                         help='Do not load test app binaries',
                         action='store_true', default=False)

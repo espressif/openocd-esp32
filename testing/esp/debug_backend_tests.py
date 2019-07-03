@@ -326,7 +326,8 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 10)
         # update GDB memory map
         self.gdb.disconnect()
-        self.oocd.cmd_exec('esp32 appimage_offset 0x%x' % app_flash_off)
+        # TODO: chip dependent
+        self.oocd.appimage_offset_set(app_flash_off)
         self.gdb.connect()
         bp = self.gdb.add_bp('app_main')
         self.resume_exec()
