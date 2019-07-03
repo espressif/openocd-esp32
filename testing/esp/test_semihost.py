@@ -22,7 +22,7 @@ class SemihostTestsImpl:
 
     def setUp(self):
         semi_dir = tempfile.gettempdir()
-        self.gdb.monitor_run('esp32 semihost_basedir %s' % dbg.fixup_path(semi_dir))
+        self.oocd.semihost_basedir_set(semi_dir)
         self.fout_names = []
         self.fin_names = []
         for i in range(self.CORES_NUM):

@@ -231,7 +231,7 @@ class GcovTestsImpl:
             cur_frame = self.gdb.get_current_frame()
             self.assertEqual(cur_frame['func'], 'esp_gcov_dump')
             self.step()
-            self.gdb.monitor_run('esp32 gcov dump', tmo=20)
+            self.gdb.gcov_dump(False)
             # parse and check gcov data
             gcov_data_files = []
             for f in self.gcov_files:
@@ -277,7 +277,7 @@ class GcovTestsImpl:
         # TODO: better way to ensure that test app called esp_gcov_dump
         time.sleep(3)
         self.stop_exec()
-        self.oocd.cmd_exec('esp32 gcov dump')
+        self.oocd.gcov_dump(False)
         # parse and check gcov data
         if IdfVersion.get_current() < IdfVersion.fromstr('4.0'):
             data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'main', 'gcov_tests.gcda')
@@ -314,7 +314,7 @@ class GcovTestsImpl:
         # wait some time to let app run and generate gcov data
         time.sleep(3)
         self.stop_exec()
-        self.gdb.monitor_run('esp32 gcov', tmo=20)
+        self.gdb.gcov_dump(True)
         # do not check gcov data, because its hard to precdict their contents
         # just check that files exist, contents are checked in test_simple_xxx tests
         if IdfVersion.get_current() < IdfVersion.fromstr('4.0'):
@@ -344,7 +344,7 @@ class GcovTestsImpl:
         self.resume_exec()
         # wait some time to let app run and generate gcov data
         time.sleep(3)
-        self.oocd.cmd_exec('esp32 gcov')
+        self.oocd.gcov_dump(True)
         time.sleep(1)
         # do not check gcov data, because its hard to precdict their contents
         # just check that files exist, contents are checked in test_simple_xxx tests
