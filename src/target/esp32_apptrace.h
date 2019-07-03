@@ -1,9 +1,7 @@
 /***************************************************************************
- *   ESP108 target for OpenOCD                                             *
- *                                                                         *
- *   Derived from original ESP8266 target.                                 *
- *   Copyright (C) 2015 by Angus Gratton                                   *
- *   gus@projectgus.com                                                    *
+ *   ESP32 application trace module                                        *
+ *   Copyright (C) 2017-2019 Espressif Systems Ltd.                        *
+ *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -21,10 +19,11 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-#ifndef XTENSA_ESP108_H
-#define XTENSA_ESP108_H
+#ifndef ESP32_APPTRACE_H
+#define ESP32_APPTRACE_H
 
-#include "esp108_common.h"
+#include "command.h"
 
+extern const struct command_registration esp32_apptrace_command_handlers[];
 
-#endif /* XTENSA_ESP108_H */
+#endif // ESP32_APPTRACE_H

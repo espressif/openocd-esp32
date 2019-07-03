@@ -286,6 +286,7 @@ struct target_type {
 			uint32_t max_num_samples, uint32_t *num_samples, uint32_t seconds);
 
 
+	// TODO: remove below interface
 	/* get amount of cores for multiprocessor systems.
 	*/
 	size_t(*get_cores_count)(struct target *target);
