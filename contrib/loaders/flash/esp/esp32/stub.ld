@@ -1,6 +1,6 @@
 /***************************************************************************
- *   ESP xtensa chips flasher stub definitions                             *
- *   Copyright (C) 2019 Espressif Systems Ltd.                             *
+ *   LD script for ESP32-S2 flassher stub                                  *
+ *   Copyright (C) 2017 Espressif Systems Ltd.                             *
  *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -18,9 +18,12 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
-#ifndef ESP32_FLASHER_STUB_H
-#define ESP32_FLASHER_STUB_H
 
-#define ESP32_FLASH_SECTOR_SIZE 4096
+MEMORY {
+  /* place stub at the beginning of the OpenOCD working area,
+     remaining space will be used for other chunks */
+  iram : org = 0x40090000, len = 0x3100
+  dram : org = 0x3FFC0000, len = 0x3000
+}
 
-#endif //ESP32_FLASHER_STUB_H
+INCLUDE stub_common.ld

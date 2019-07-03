@@ -1,5 +1,5 @@
 /***************************************************************************
- *   ESP xtensa chips flasher stub definitions                             *
+ *   ESP xtensa chips flasher stub internal definitions                    *
  *   Copyright (C) 2017 Espressif Systems Ltd.                             *
  *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  *                                                                         *
@@ -18,36 +18,31 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
-#ifndef ESP_FLASHER_STUB_H
-#define ESP_FLASHER_STUB_H
+#ifndef ESP_FLASHER_STUB_INT_H
+#define ESP_FLASHER_STUB_INT_H
 
-#define ESP_STUB_ERR_OK                  0
-#define ESP_STUB_ERR_FAIL                (-1)
-#define ESP_STUB_ERR_NOT_SUPPORTED       (-2)
+#include "rom/ets_sys.h"
 
-#define ESP_STUB_CMD_FLASH_READ          0
-#define ESP_STUB_CMD_FLASH_WRITE         1
-#define ESP_STUB_CMD_FLASH_ERASE         2
-#define ESP_STUB_CMD_FLASH_ERASE_CHECK   3
-#define ESP_STUB_CMD_FLASH_SIZE          4
-#define ESP_STUB_CMD_FLASH_MAP_GET       5
-#define ESP_STUB_CMD_FLASH_BP_SET        6
-#define ESP_STUB_CMD_FLASH_BP_CLEAR      7
-#define ESP_STUB_CMD_FLASH_TEST          8
-#define ESP_STUB_CMD_FLASH_MAX_ID        ESP_STUB_CMD_FLASH_TEST
-#define ESP_STUB_CMD_TEST                (ESP_STUB_CMD_FLASH_MAX_ID+2)
+#define STUB_LOG_NONE           0
+#define STUB_LOG_ERROR          1
+#define STUB_LOG_WARN           2
+#define STUB_LOG_INFO           3
+#define STUB_LOG_DEBUG          4
+#define STUB_LOG_VERBOSE        5
 
-#define ESP_STUB_FLASH_MAPPINGS_MAX_NUM  2 // IROM, DROM
+#define STUB_LOG_LOCAL_LEVEL  STUB_LOG_NONE
 
-struct esp_xtensa_flash_region_mapping {
-    uint32_t phy_addr;
-    uint32_t load_addr;
-    uint32_t size;
-};
+#define STUB_LOG( level, format, ... )   \
+    do { \
+        if (STUB_LOG_LOCAL_LEVEL >= level) { \
+            ets_printf(format, ##__VA_ARGS__); \
+        } \
+    } while(0)
 
-struct esp_xtensa_flash_mapping {
-    uint32_t maps_num;
-    struct esp_xtensa_flash_region_mapping maps[ESP_STUB_FLASH_MAPPINGS_MAX_NUM];
-};
+#define STUB_LOGE( format, ... )  STUB_LOG(STUB_LOG_ERROR, "STUB_E: " format, ##__VA_ARGS__)
+#define STUB_LOGW( format, ... )  STUB_LOG(STUB_LOG_WARN, "STUB_W: "format, ##__VA_ARGS__)
+#define STUB_LOGI( format, ... )  STUB_LOG(STUB_LOG_INFO, "STUB_I: "format, ##__VA_ARGS__)
+#define STUB_LOGD( format, ... )  STUB_LOG(STUB_LOG_DEBUG, "STUB_D: "format, ##__VA_ARGS__)
+#define STUB_LOGV( format, ... )  STUB_LOG(STUB_LOG_VERBOSE, "STUB_V: "format, ##__VA_ARGS__)
 
-#endif //ESP_FLASHER_STUB_H
+#endif //ESP_FLASHER_STUB_INT_H
