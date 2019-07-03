@@ -188,7 +188,7 @@ int esp_xtensa_blank_check(struct flash_bank *bank)
     run.mem_args.count = 1;
 
     int ret = esp_xtensa_info->run_func_image(bank->target, &run, &esp_xtensa_info->flasher_image, 4,
-                               ESP_STUB_CMD_FLASH_ERASE_CHECK /*cmd*/,
+                               ESP_XTENSA_STUB_CMD_FLASH_ERASE_CHECK /*cmd*/,
                                esp_xtensa_info->hw_flash_base/esp_xtensa_info->sec_sz/*start*/,
                                bank->num_sectors/*sectors num*/,
                                0/*address to store sectors' state*/);
@@ -197,7 +197,7 @@ int esp_xtensa_blank_check(struct flash_bank *bank)
         destroy_mem_param(&mp);
         return ret;
     }
-    if (run.ret_code != ESP_STUB_ERR_OK) {
+    if (run.ret_code != ESP_XTENSA_STUB_ERR_OK) {
         LOG_ERROR("Failed to check erase flash (%d)!", run.ret_code);
         ret = ERROR_FAIL;
     } else {
@@ -217,7 +217,7 @@ static uint32_t esp_xtensa_get_size(struct flash_bank *bank)
 
     memset(&run, 0, sizeof(run));
     run.stack_size = 1024;
-    int ret = esp_xtensa_info->run_func_image(bank->target, &run, &esp_xtensa_info->flasher_image, 1, ESP_STUB_CMD_FLASH_SIZE);
+    int ret = esp_xtensa_info->run_func_image(bank->target, &run, &esp_xtensa_info->flasher_image, 1, ESP_XTENSA_STUB_CMD_FLASH_SIZE);
     if (ret != ERROR_OK) {
         LOG_ERROR("Failed to run flasher stub (%d)!", ret);
         return 0;
@@ -244,7 +244,7 @@ static int esp_xtensa_get_mappings(struct target *target, struct esp_xtensa_flas
     run.mem_args.count = 1;
 
     int ret = esp_xtensa_info->run_func_image(target, &run, &esp_xtensa_info->flasher_image, 3 /*args num*/,
-                            ESP_STUB_CMD_FLASH_MAP_GET/*cmd*/,
+                            ESP_XTENSA_STUB_CMD_FLASH_MAP_GET/*cmd*/,
                             appimage_flash_base,
                             0/*address to store mappings*/);
     if (ret != ERROR_OK) {
@@ -252,7 +252,7 @@ static int esp_xtensa_get_mappings(struct target *target, struct esp_xtensa_flas
         destroy_mem_param(&mp);
         return ret;
     }
-    if (run.ret_code != ESP_STUB_ERR_OK) {
+    if (run.ret_code != ESP_XTENSA_STUB_ERR_OK) {
         LOG_ERROR("Failed to get flash maps (%d)!", run.ret_code);
         ret = ERROR_FAIL;
     } else {
@@ -287,14 +287,14 @@ int esp_xtensa_erase(struct flash_bank *bank, int first, int last)
     run.stack_size = 1024;
     run.tmo = ESP_XTENSA_ERASE_TMO;
     int ret = esp_xtensa_info->run_func_image(bank->target, &run, &esp_xtensa_info->flasher_image, 3,
-                               ESP_STUB_CMD_FLASH_ERASE,      // cmd
+                               ESP_XTENSA_STUB_CMD_FLASH_ERASE,      // cmd
                                esp_xtensa_info->hw_flash_base + first*esp_xtensa_info->sec_sz,// start addr
                                (last-first+1)*esp_xtensa_info->sec_sz); // size
     if (ret != ERROR_OK) {
         LOG_ERROR("Failed to run flasher stub (%d)!", ret);
         return ret;
     }
-    if (run.ret_code != ESP_STUB_ERR_OK) {
+    if (run.ret_code != ESP_XTENSA_STUB_ERR_OK) {
         LOG_ERROR("Failed to erase flash (%d)!", run.ret_code);
         ret = ERROR_FAIL;
     }
@@ -482,7 +482,7 @@ int esp_xtensa_write(struct flash_bank *bank, const uint8_t *buffer,
     wr_state.esp_xtensa_info = esp_xtensa_info;
 
     int ret = esp_xtensa_info->run_func_image(bank->target, &run, &esp_xtensa_info->flasher_image, 5,
-                               ESP_STUB_CMD_FLASH_WRITE, // cmd
+                               ESP_XTENSA_STUB_CMD_FLASH_WRITE, // cmd
                                esp_xtensa_info->hw_flash_base + offset,  // start addr
                                count,                       // size
                                0,                           // down buf addr
@@ -491,7 +491,7 @@ int esp_xtensa_write(struct flash_bank *bank, const uint8_t *buffer,
         LOG_ERROR("Failed to run flasher stub (%d)!", ret);
         return ret;
     }
-    if (run.ret_code != ESP_STUB_ERR_OK) {
+    if (run.ret_code != ESP_XTENSA_STUB_ERR_OK) {
         LOG_ERROR("Failed to write flash (%d)!", run.ret_code);
         ret = ERROR_FAIL;
     }
@@ -586,7 +586,7 @@ int esp_xtensa_read(struct flash_bank *bank, uint8_t *buffer,
     rd_state.rw.xfer = esp_xtensa_read_xfer;
 
     int ret = esp_xtensa_info->run_func_image(bank->target, &run, &esp_xtensa_info->flasher_image, 3,
-                               ESP_STUB_CMD_FLASH_READ, // cmd
+                               ESP_XTENSA_STUB_CMD_FLASH_READ, // cmd
                                esp_xtensa_info->hw_flash_base + offset, // start addr
                                count);                      // size
 
@@ -595,7 +595,7 @@ int esp_xtensa_read(struct flash_bank *bank, uint8_t *buffer,
         LOG_ERROR("Failed to run flasher stub (%d)!", ret);
         return ret;
     }
-    if (run.ret_code != ESP_STUB_ERR_OK) {
+    if (run.ret_code != ESP_XTENSA_STUB_ERR_OK) {
         LOG_ERROR("Failed to read flash (%d)!", run.ret_code);
         ret = ERROR_FAIL;
     }
@@ -758,7 +758,7 @@ int esp_xtensa_flash_breakpoint_add(struct target *target, struct breakpoint *br
     run.mem_args.count = 1;
     uint32_t bp_flash_addr = esp_xtensa_info->hw_flash_base + (breakpoint->address - bank->base);
     ret = esp_xtensa_info->run_func_image(esp_xtensa->chip_target, &run, &esp_xtensa_info->flasher_image, 4 /*args num*/,
-                               ESP_STUB_CMD_FLASH_BP_SET/*cmd*/,
+                               ESP_XTENSA_STUB_CMD_FLASH_BP_SET/*cmd*/,
                                bp_flash_addr/*bp_addr*/,
                                0/*address to store insn*/,
                                0/*address to store insn sectors*/);
@@ -808,7 +808,7 @@ int esp_xtensa_flash_breakpoint_remove(struct target *target, struct esp_xtensa_
               target_name(target), sw_bp->data.oocd_bp->address,
               sw_bp->data.insn[0], sw_bp->data.insn[1], sw_bp->data.insn[2], sw_bp->data.insn_sz);
     int ret = esp_xtensa_info->run_func_image(esp_xtensa->chip_target, &run, &esp_xtensa_info->flasher_image, 4 /*args num*/,
-                               ESP_STUB_CMD_FLASH_BP_CLEAR/*cmd*/,
+                               ESP_XTENSA_STUB_CMD_FLASH_BP_CLEAR/*cmd*/,
                                bp_flash_addr/*bp_addr*/,
                                0/*address with insn*/,
                                0/*address to store insn sectors*/);
@@ -817,7 +817,7 @@ int esp_xtensa_flash_breakpoint_remove(struct target *target, struct esp_xtensa_
         LOG_ERROR("Failed to run flasher stub (%d)!", ret);
         return ret;
     }
-    if (run.ret_code != ESP_STUB_ERR_OK) {
+    if (run.ret_code != ESP_XTENSA_STUB_ERR_OK) {
         LOG_ERROR("Failed to clear bp (%d)!", run.ret_code);
         return ERROR_FAIL;
     }

@@ -1,4 +1,4 @@
-# Makefile to compile the flasher stub program
+# Common Makefile rules to compile the flasher stub program
 #
 # Note that YOU DO NOT NEED TO COMPILE THIS IN ORDER TO JUST USE
 
@@ -21,27 +21,18 @@
 # this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
 # Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-# Prefix for ESP32 cross compilers (can include a directory path)
-CROSS ?= xtensa-esp32-elf-
-
-# Path to the esp-idf root dir
-IDF_PATH ?= ../..
-
 # Pass V=1 to see the commands being executed by make
 ifneq ("$(V)","1")
 Q = @
 endif
 
 STUB = stub_flasher
-SRCS = stub_flasher.c \
+SRCS += $(STUB_COMMON_PATH)/stub_flasher.c \
+	$(STUB_CHIP_PATH)/stub_flasher_chip.c \
 	$(IDF_PATH)/components/spi_flash/spi_flash_rom_patch.c \
 	$(IDF_PATH)/components/app_trace/app_trace.c \
 	$(IDF_PATH)/components/app_trace/app_trace_util.c \
-	$(IDF_PATH)/components/xtensa-debug-module/eri.c \
-	$(IDF_PATH)/components/soc/esp32/rtc_clk.c \
-	$(IDF_PATH)/components/soc/esp32/rtc_time.c
-
-WRAPPER_SRC = stub_wrapper.S
+	$(IDF_PATH)/components/xtensa-debug-module/eri.c
 
 BUILD_DIR = build
 
@@ -58,32 +49,27 @@ all: $(STUB_ELF) $(STUB_IMAGE_HDR) $(STUB_CODE_SECT) $(STUB_DATA_SECT)
 $(BUILD_DIR):
 	$(Q) mkdir $@
 
-CFLAGS = -std=c99 -Wall -Werror -Os \
+CFLAGS += -std=c99 -Wall -Werror -Os \
          -mtext-section-literals -mlongcalls -nostdlib -fno-builtin -flto \
          -Wl,-static -g -ffunction-sections -Wl,--gc-sections
 
-INCLUDES += -I. -I$(IDF_PATH)/components/esp32/include -I$(IDF_PATH)/components/soc/esp32/include -I$(IDF_PATH)/components/soc/include \
+INCLUDES += -I. -I$(STUB_COMMON_PATH) -I$(STUB_CHIP_PATH) -I$(IDF_PATH)/components/soc/include \
 		-I$(IDF_PATH)/components/app_trace/include -I$(IDF_PATH)/components/xtensa-debug-module/include -I$(IDF_PATH)/components/driver/include \
 		-I$(IDF_PATH)/components/freertos/include -I$(IDF_PATH)/components/log/include -I$(IDF_PATH)/components/heap/include \
 		-I$(IDF_PATH)/components/bootloader_support/include
 
-DEFINES = -Dasm=__asm__
+DEFINES += -Dasm=__asm__
 
 CFLAGS += $(INCLUDES) $(DEFINES)
 
-LDFLAGS += -L$(IDF_PATH)/components/esp32/ld -Tstub.ld -T$(IDF_PATH)/components/esp32/ld/esp32.rom.ld \
-	-T$(IDF_PATH)/components/esp32/ld/esp32.rom.spiram_incompatible_fns.ld -T$(IDF_PATH)/components/esp32/ld/esp32.peripherals.ld \
-	-T$(IDF_PATH)/components/esp32/ld/esp32.rom.libgcc.ld \
-	-Wl,--start-group -lgcc -lc -Wl,--end-group
+LDFLAGS += -L$(STUB_COMMON_PATH) -T$(STUB_LD_SCRIPT) -Wl,--start-group -lgcc -lc -Wl,--end-group
 
-CWD := $(shell pwd)
-
-$(STUB_ELF): $(SRCS) stub.ld $(BUILD_DIR)
+$(STUB_ELF): $(SRCS) $(STUB_COMMON_PATH)/stub_common.ld $(STUB_LD_SCRIPT) $(BUILD_DIR)
 	@echo "  CC   $^ -> $@"
 	$(Q) $(CROSS)gcc $(CFLAGS) -DSTUB_IMAGE=1 -Wl,-Map=$(@:.elf=.map) -o $@ $(LDFLAGS) $(filter %.c, $^)
 	$(Q) $(CROSS)size $@
 
-$(STUB_OBJ): $(SRCS) sdkconfig.h Makefile
+$(STUB_OBJ): $(SRCS) $(STUB_OBJ_DEPS)
 	@echo "  CC   $^ -> $@"
 	$(Q) $(CROSS)gcc $(CFLAGS) -c $(filter %.c, $^) -o $@
 
@@ -101,10 +87,10 @@ $(STUB_IMAGE_HDR): $(STUB_ELF)
 	@echo "  CC   $^ -> $@"
 	$(Q) @echo -n "#define ESP32_STUB_BSS_SIZE 0x0" > $(STUB_IMAGE_HDR)
 	$(Q) $(CROSS)readelf -S $^ | fgrep .bss | awk '{print $$7"UL"}' >> $(STUB_IMAGE_HDR)
-	$(Q) @echo -n "\n#define ESP32_STUB_ENTRY_ADDR 0x0" >> $(STUB_IMAGE_HDR)
+	$(Q) @echo -ne "\\n#define ESP32_STUB_ENTRY_ADDR 0x0" >> $(STUB_IMAGE_HDR)
 	$(Q) $(CROSS)readelf -s $^ | fgrep stub_main | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR)
-	$(Q) @echo -n "\n//#define ESP32_STUB_BUILD_IDF_REV " >> $(STUB_IMAGE_HDR)
-	$(Q) cd $(IDF_PATH); git rev-parse --short HEAD >> $(CWD)/$(STUB_IMAGE_HDR)
+	$(Q) @echo -n "//#define ESP32_STUB_BUILD_IDF_REV " >> $(STUB_IMAGE_HDR)
+	$(Q) cd $(IDF_PATH); git rev-parse --short HEAD >> $(STUB_CHIP_PATH)/$(STUB_IMAGE_HDR)
 
 clean:
 	$(Q) rm -rf $(BUILD_DIR) $(STUB_CODE_SECT) $(STUB_DATA_SECT) $(STUB_WRAPPER) $(STUB_IMAGE_HDR)

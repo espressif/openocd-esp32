@@ -26,7 +26,7 @@
 #define CONFIG_FREERTOS_MAX_TASK_NAME_LEN	16
 // TODO: use current clk, get it from PLL settings
 #define CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ	240
-
+// Unused by stub, just for compilation of IDF
 #define CONFIG_PARTITION_TABLE_OFFSET   0x8000
 
 #endif //_STUB_SDKCONFIG_H_
