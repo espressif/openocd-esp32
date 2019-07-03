@@ -39,6 +39,7 @@ extern struct flash_driver dsp5680xx_flash;
 extern struct flash_driver efm32_flash;
 extern struct flash_driver em357_flash;
 extern struct flash_driver esirisc_flash;
+extern struct flash_driver esp32_flash;
 extern struct flash_driver faux_flash;
 extern struct flash_driver fm3_flash;
 extern struct flash_driver fm4_flash;
@@ -82,7 +83,6 @@ extern struct flash_driver w600_flash;
 extern struct flash_driver xcf_flash;
 extern struct flash_driver xmc1xxx_flash;
 extern struct flash_driver xmc4xxx_flash;
-extern struct flash_driver esp32_flash;
 
 /**
  * The list of built-in flash drivers.
@@ -108,6 +108,7 @@ static struct flash_driver *flash_drivers[] = {
 	&efm32_flash,
 	&em357_flash,
 	&esirisc_flash,
+	&esp32_flash,
 	&faux_flash,
 	&fm3_flash,
 	&fm4_flash,
