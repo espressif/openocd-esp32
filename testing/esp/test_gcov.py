@@ -150,21 +150,36 @@ class GcovTestsImpl:
     DYN_LINES_START = [28, 6]
     DYN_LINES_END = [39, 10]
 
+    # This function expcets normalized path
+    def strip_gcov_path(self, path):
+        gcov_prefix_strip = int(os.getenv('OPENOCD_GCOV_PREFIX_STRIP', '0'))
+        if gcov_prefix_strip > 0:
+            path_comps = path.split(os.sep)
+            # del the leading empty string
+            if len(path_comps) > 0 and path_comps[0] == '':
+                path_comps = path_comps[1:]
+            if gcov_prefix_strip > (len(path_comps) - 1):
+                gcov_prefix_strip = len(path_comps) - 1
+            path = os.path.join(*path_comps[gcov_prefix_strip:])
+        return path
+
+
     def setUp(self):
         self.gcov_files = []
         # for test app project path is two level higher than build dir
         self.proj_path = os.path.normpath(os.path.join(self.test_app_cfg.build_obj_dir(), '..', '..'))
+        self.gcov_prefix = os.getenv('OPENOCD_GCOV_PREFIX', self.test_app_cfg.build_obj_dir())
         self.src_dirs = [self.test_app_cfg.build_src_dir(),]
         src_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.c')
         if IdfVersion.get_current() < IdfVersion.fromstr('4.0'):
-            data_path = os.path.join('main', 'gcov_tests.gcda')
+            data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'main', 'gcov_tests.gcda')
         else:
             # starting from IDF 4.0 test app supports cmake build system which uses another build dir structure
-            data_path = os.path.join('esp-idf', 'main', 'CMakeFiles', '__idf_main.dir', 'gcov_tests.c.gcda')
+            data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', '__idf_main.dir', 'gcov_tests.c.gcda')
         ref_data = GcovDataFile(os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.gcda.gcov'), self.src_dirs)
         self.gcov_files.append({
             'src_path' : src_path,
-            'data_path' : os.path.join(self.test_app_cfg.build_obj_dir(), data_path),
+            'data_path' : os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path)),
             'ref_data' : ref_data,
             # lines executed only once
             'c_lines' : ref_data.get_lines_coverage(src_path, self.CONST_LINES_START[0], self.CONST_LINES_END[0]),
@@ -173,14 +188,14 @@ class GcovTestsImpl:
             })
         src_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.c')
         if IdfVersion.get_current() < IdfVersion.fromstr('4.0'):
-            data_path = os.path.join('main', 'helper_funcs.gcda')
+            data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'main', 'helper_funcs.gcda')
         else:
             # starting from IDF 4.0 test app supports cmake build system which uses another build dir structure
-            data_path = os.path.join('esp-idf', 'main', 'CMakeFiles', '__idf_main.dir', 'helper_funcs.c.gcda')
+            data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', '__idf_main.dir', 'helper_funcs.c.gcda')
         ref_data = GcovDataFile(os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.gcda.gcov'), self.src_dirs)
         self.gcov_files.append({
             'src_path' : src_path,
-            'data_path' : os.path.join(self.test_app_cfg.build_obj_dir(), data_path),
+            'data_path' : os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path)),
             'ref_data' : ref_data,
             # lines executed only once
             'c_lines' : None,
@@ -265,11 +280,11 @@ class GcovTestsImpl:
         self.oocd.cmd_exec('esp32 gcov dump')
         # parse and check gcov data
         if IdfVersion.get_current() < IdfVersion.fromstr('4.0'):
-            data_path = os.path.join('main', 'gcov_tests.gcda')
+            data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'main', 'gcov_tests.gcda')
         else:
             # starting from IDF 4.0 test app supports cmake build system which uses another build dir structure
-            data_path = os.path.join('esp-idf', 'main', 'CMakeFiles', '__idf_main.dir', 'gcov_tests.c.gcda')
-        f = GcovDataFile(os.path.join(self.test_app_cfg.build_obj_dir(), data_path), self.src_dirs, 
+            data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', '__idf_main.dir', 'gcov_tests.c.gcda')
+        f = GcovDataFile(os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path)), self.src_dirs, 
                         self.test_app_cfg.build_obj_dir(), self.proj_path)
         f2 = GcovDataFile(os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.gcda.gcov'), self.src_dirs)
         self.assertEqual(f, f2)
@@ -278,7 +293,7 @@ class GcovTestsImpl:
         else:
             # starting from IDF 4.0 test app supports cmake build system which uses another build dir structure
             data_path = os.path.join('esp-idf', 'main', 'CMakeFiles', '__idf_main.dir', 'helper_funcs.c.gcda')
-        f = GcovDataFile(os.path.join(self.test_app_cfg.build_obj_dir(), data_path), self.src_dirs, 
+        f = GcovDataFile(os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path)), self.src_dirs, 
                         self.test_app_cfg.build_obj_dir(), self.proj_path)
         f2 = GcovDataFile(os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.gcda.gcov'), self.src_dirs)
         self.assertEqual(f, f2)
@@ -303,17 +318,17 @@ class GcovTestsImpl:
         # do not check gcov data, because its hard to precdict their contents
         # just check that files exist, contents are checked in test_simple_xxx tests
         if IdfVersion.get_current() < IdfVersion.fromstr('4.0'):
-            data_path = os.path.join('main', 'gcov_tests.gcda')
+            data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'main', 'gcov_tests.gcda')
         else:
             # starting from IDF 4.0 test app supports cmake build system which uses another build dir structure
-            data_path = os.path.join('esp-idf', 'main', 'CMakeFiles', '__idf_main.dir', 'gcov_tests.c.gcda')
-        self.assertTrue(os.path.exists(os.path.join(self.test_app_cfg.build_obj_dir(), data_path)))
+            data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', '__idf_main.dir', 'gcov_tests.c.gcda')
+        self.assertTrue(os.path.exists(os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path))))
         if IdfVersion.get_current() < IdfVersion.fromstr('4.0'):
-            data_path = os.path.join('main', 'helper_funcs.gcda')
+            data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'main', 'helper_funcs.gcda')
         else:
             # starting from IDF 4.0 test app supports cmake build system which uses another build dir structure
-            data_path = os.path.join('esp-idf', 'main', 'CMakeFiles', '__idf_main.dir', 'helper_funcs.c.gcda')
-        self.assertTrue(os.path.exists(os.path.join(self.test_app_cfg.build_obj_dir(), data_path)))
+            data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', '__idf_main.dir', 'helper_funcs.c.gcda')
+        self.assertTrue(os.path.exists(os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path))))
 
     def test_on_the_fly_oocd(self):
         """
@@ -334,17 +349,17 @@ class GcovTestsImpl:
         # do not check gcov data, because its hard to precdict their contents
         # just check that files exist, contents are checked in test_simple_xxx tests
         if IdfVersion.get_current() < IdfVersion.fromstr('4.0'):
-            data_path = os.path.join('main', 'gcov_tests.gcda')
+            data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'main', 'gcov_tests.gcda')
         else:
             # starting from IDF 4.0 test app supports cmake build system which uses another build dir structure
-            data_path = os.path.join('esp-idf', 'main', 'CMakeFiles', '__idf_main.dir', 'gcov_tests.c.gcda')
-        self.assertTrue(os.path.exists(os.path.join(self.test_app_cfg.build_obj_dir(), data_path)))
+            data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', '__idf_main.dir', 'gcov_tests.c.gcda')
+        self.assertTrue(os.path.exists(os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path))))
         if IdfVersion.get_current() < IdfVersion.fromstr('4.0'):
-            data_path = os.path.join('main', 'helper_funcs.gcda')
+            data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'main', 'helper_funcs.gcda')
         else:
             # starting from IDF 4.0 test app supports cmake build system which uses another build dir structure
-            data_path = os.path.join('esp-idf', 'main', 'CMakeFiles', '__idf_main.dir', 'helper_funcs.c.gcda')
-        self.assertTrue(os.path.exists(os.path.join(self.test_app_cfg.build_obj_dir(), data_path)))
+            data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', '__idf_main.dir', 'helper_funcs.c.gcda')
+        self.assertTrue(os.path.exists(os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path))))
 
 
 ########################################################################
