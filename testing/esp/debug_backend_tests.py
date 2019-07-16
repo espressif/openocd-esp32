@@ -381,7 +381,11 @@ class DebuggerGenericTestAppTests(DebuggerTestAppTests):
         super(DebuggerGenericTestAppTests, self).__init__(methodName)
         self.test_app_cfg.app_name = 'gen_ut_app'
         self.test_app_cfg.bld_path = os.path.join('bootloader', 'bootloader.bin')
-        self.test_app_cfg.pt_path = 'partitions_singleapp.bin'
+        if IdfVersion.get_current() < IdfVersion.fromstr('4.0'):
+            self.test_app_cfg.pt_path = 'partitions_singleapp.bin'
+        else:
+            # starting from IDF 4.0 test app supports cmake build system which uses another build dir structure
+            self.test_app_cfg.pt_path = os.path.join('partition_table', 'partition-table.bin')
         self.test_app_cfg.test_select_var = 's_run_test'
 
 
