@@ -1,4 +1,4 @@
-file:/home/alexey/projects/esp/openocd-esp32/testing/esp/test_apps/gen_ut_app/main/gcov_tests.c
+file:$PROJECT_PATH/main/gcov_tests.c
 function:15,1,gcov_task
 function:47,1,gcov_test_do
 lcount:15,1
@@ -22,5 +22,5 @@ lcount:49,1
 branch:49,taken
 branch:49,nottaken
 branch:49,nottaken
-file:/home/alexey/projects/esp/esp-idf/components/freertos/include/freertos/task.h
+file:$IDF_PATH/components/freertos/include/freertos/task.h
 lcount:440,1

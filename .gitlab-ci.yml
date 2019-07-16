@@ -118,7 +118,7 @@ variables:
     cp -rv testing/esp/extra/espytrace $BUILD_TEST_APP_DIR/
   fi
 
-.build_test_app_template: &build_test_app_template
+.build_legacy_test_app_template: &build_legacy_test_app_template
   stage: build
   image: $CI_DOCKER_REGISTRY/esp32-ci-env
   tags:
@@ -181,6 +181,69 @@ variables:
     - popd
     - *get_espytrace_package
 
+.build_test_app_template: &build_test_app_template
+  stage: build
+  image: $CI_DOCKER_REGISTRY/esp32-ci-env
+  tags:
+    - build
+  artifacts:
+    paths:
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/default/gen_ut_app.elf
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/default/gen_ut_app.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/default/partition_table/partition-table.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/default/bootloader/bootloader.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/single_core/gen_ut_app.elf
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/single_core/gen_ut_app.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/single_core/partition_table/partition-table.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/single_core/bootloader/bootloader.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_dual/gen_ut_app.elf
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_dual/gen_ut_app.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_dual/partition_table/partition-table.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_dual/bootloader/bootloader.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_single/gen_ut_app.elf
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_single/gen_ut_app.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_single/partition_table/partition-table.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_single/bootloader/bootloader.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/multi_app_images/gen_ut_app.elf
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/multi_app_images/gen_ut_app.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/multi_app_images/partition_table/partition-table.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/multi_app_images/bootloader/bootloader.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_dual/gen_ut_app.elf
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_dual/gen_ut_app.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_dual/partition_table/partition-table.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_dual/bootloader/bootloader.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_single/gen_ut_app.elf
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_single/gen_ut_app.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_single/partition_table/partition-table.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_single/bootloader/bootloader.bin
+      # Needed to run tests
+      - $BUILD_TEST_APP_DIR/gen_ut_app/main/gcov_tests.gcda.gcov
+      - $BUILD_TEST_APP_DIR/gen_ut_app/main/helper_funcs.gcda.gcov
+      - $BUILD_TEST_APP_DIR/espytrace
+    expire_in: 2 weeks
+  script:
+    - *add_gitlab_key
+    - mkdir -p $BUILD_TEST_APP_DIR
+    - cp -rv testing/esp/test_apps/gen_ut_app $BUILD_TEST_APP_DIR/
+    # Enter ESP-IDF release build dir
+    - pushd $BUILD_TEST_APP_DIR
+    # Prepare ESP-IDF
+    - git clone $GITLAB_SSH_SERVER/idf/esp-idf.git
+    - pushd esp-idf
+    - git checkout $TEST_APP_IDF_TAG || true
+    - tools/ci/mirror-submodule-update.sh
+    - export IDF_PATH=$PWD
+    - export BATCH_BUILD=1
+    - export V=0
+    - popd
+    # Build test app
+    - pushd gen_ut_app
+    - $IDF_PATH/tools/idf.py -D IDF_TARGET=esp32 ut-build-all-configs
+    - popd
+    # Exit test app build dir
+    - popd
+    - *get_espytrace_package
+
 .run_tests_linux: &run_tests_linux |
   ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
   tar -C ${TEST_RUN_DIR} -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
@@ -188,10 +251,12 @@ variables:
   pushd $TEST_RUN_DIR
   mkdir -p gen_ut_app/builds/gcov_dual/main
   mkdir -p gen_ut_app/builds/gcov_single/main
+  mkdir -p gen_ut_app/builds/gcov_dual/esp-idf/main/CMakeFiles/__idf_main.dir
+  mkdir -p gen_ut_app/builds/gcov_single/esp-idf/main/CMakeFiles/__idf_main.dir
   popd
   PYTHONPATH=$PWD/$TEST_RUN_DIR testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log -to $PWD/$TEST_RUN_DIR/results $TEST_RUN_EXTRA_OPTS
 
-.run_autotests_linux_template: &run_autotests_linux_template
+.tests_linux_template: &tests_linux_template
   stage: test
   image: $CI_DOCKER_REGISTRY/esp32-ci-env
   artifacts:
@@ -349,15 +414,15 @@ build_test_app:
     TEST_APP_IDF_TAG: $CI_COMMIT_REF_NAME
     UT_GET_IDF_VER: "0"
 
-build_test_app_last_idf_release:
-  <<: *build_test_app_template
+build_test_app_legacy_idf_release:
+  <<: *build_legacy_test_app_template
   variables:
-    BUILD_TEST_APP_DIR: "build_test_app_last_idf_release"
-    TEST_APP_IDF_TAG: "v$TEST_APP_IDF_RELEASE_TAG"
+    BUILD_TEST_APP_DIR: "build_test_app_legacy_idf_release"
+    TEST_APP_IDF_TAG: "release/v$TEST_APP_LEGACY_IDF_RELEASE_TAG"
     UT_GET_IDF_VER: "1"
 
-run_autotests_linux64:
-  <<: *run_autotests_linux_template
+tests_linux64:
+  <<: *tests_linux_template
   tags:
     - test_jtag
   dependencies:
@@ -368,20 +433,20 @@ run_autotests_linux64:
     TEST_RUN_DIR: "build_test_app"
     TEST_RUN_EXTRA_OPTS: "-i latest"
 
-run_autotests_linux64_idf_last_release:
-  <<: *run_autotests_linux_template
+tests_linux64_legacy_idf_release:
+  <<: *tests_linux_template
   tags:
     - test_jtag
   dependencies:
-    - build_test_app_last_idf_release
+    - build_test_app_legacy_idf_release
     - build_linux
   variables:
     PLATFORM_NAME: "linux64"
-    TEST_RUN_DIR: "build_test_app_last_idf_release"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF_RELEASE_TAG"
+    TEST_RUN_DIR: "build_test_app_legacy_idf_release"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG"
 
-run_autotests_armel:
-  <<: *run_autotests_linux_template
+tests_armel:
+  <<: *tests_linux_template
   tags:
     - test_jtag_arm
   allow_failure: true
@@ -393,8 +458,8 @@ run_autotests_armel:
     TEST_RUN_DIR: "build_test_app"
     TEST_RUN_EXTRA_OPTS: "-i latest"
 
-run_autotests_linux64_solo:
-  <<: *run_autotests_linux_template
+tests_linux64_solo:
+  <<: *tests_linux_template
   tags:
     - test_jtag_solo
   dependencies:
