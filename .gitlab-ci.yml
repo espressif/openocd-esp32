@@ -110,13 +110,42 @@ variables:
   when: manual
   allow_failure: true
 
-.get_espytrace_package: &get_espytrace_package |
+.prepare_espytrace_package: &prepare_espytrace_package |
   IDF_ESPYTRACE_DIR=$IDF_PATH/tools/esp_app_trace/espytrace
   if [ -d "$IDF_ESPYTRACE_DIR" ]; then
     cp -rv $IDF_ESPYTRACE_DIR $BUILD_TEST_APP_DIR/
   else
     cp -rv testing/esp/extra/espytrace $BUILD_TEST_APP_DIR/
   fi
+
+.prepare_test_app_build: &prepare_test_app_build |
+  mkdir -p $BUILD_TEST_APP_DIR
+  cp -rv testing/esp/test_apps/gen_ut_app $BUILD_TEST_APP_DIR/
+  pushd $BUILD_TEST_APP_DIR
+  git clone $GITLAB_SSH_SERVER/idf/esp-idf.git
+  pushd esp-idf
+  git checkout $TEST_APP_IDF_TAG || true
+  tools/ci/mirror-submodule-update.sh
+  export IDF_PATH=$PWD
+  export BATCH_BUILD=1
+  export V=0
+  popd
+  pushd gen_ut_app
+
+.finish_test_app_build: &finish_test_app_build |
+  export UT_APP_DIR=$PWD
+  mkdir -p $UT_APP_DIR/gcov_data
+  pushd $UT_APP_DIR/builds/gcov_dual
+  find . -type d -exec mkdir -p $UT_APP_DIR/gcov_data/gcov_dual/\{\} \;
+  popd
+  pushd $UT_APP_DIR/builds/gcov_single
+  find . -type d -exec mkdir -p $UT_APP_DIR/gcov_data/gcov_single/\{\} \;
+  popd
+  echo "export OPENOCD_GCOV_PREFIX=$UT_APP_DIR/gcov_data" > $UT_APP_DIR/gcov_data/gcov_env.sh
+  export PREFIX_STRIP=$(awk -F"/" '{print NF-1}' <<< $UT_APP_DIR/builds)
+  echo "export OPENOCD_GCOV_PREFIX_STRIP=$PREFIX_STRIP" >> $UT_APP_DIR/gcov_data/gcov_env.sh
+  popd
+  popd
 
 .build_legacy_test_app_template: &build_legacy_test_app_template
   stage: build
@@ -125,61 +154,25 @@ variables:
     - build
   artifacts:
     paths:
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/default/gen_ut_app.elf
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/default/gen_ut_app.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/default/partitions_singleapp.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/default/bootloader/bootloader.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/single_core/gen_ut_app.elf
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/single_core/gen_ut_app.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/single_core/partitions_singleapp.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/single_core/bootloader/bootloader.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_dual/gen_ut_app.elf
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_dual/gen_ut_app.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_dual/partitions_singleapp.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_dual/bootloader/bootloader.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_single/gen_ut_app.elf
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_single/gen_ut_app.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_single/partitions_singleapp.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_single/bootloader/bootloader.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/multi_app_images/gen_ut_app.elf
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/multi_app_images/gen_ut_app.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gen_ut_app.elf
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gen_ut_app.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/partitions_singleapp.bin
       - $BUILD_TEST_APP_DIR/gen_ut_app/output/multi_app_images/partitions_multi_apps.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/multi_app_images/bootloader/bootloader.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_dual/gen_ut_app.elf
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_dual/gen_ut_app.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_dual/partitions_singleapp.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_dual/bootloader/bootloader.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_single/gen_ut_app.elf
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_single/gen_ut_app.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_single/partitions_singleapp.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_single/bootloader/bootloader.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/bootloader/bootloader.bin
       # Needed to run tests
       - $BUILD_TEST_APP_DIR/gen_ut_app/main/gcov_tests.gcda.gcov
       - $BUILD_TEST_APP_DIR/gen_ut_app/main/helper_funcs.gcda.gcov
+      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_dual
+      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_single
+      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_env.sh
       - $BUILD_TEST_APP_DIR/espytrace
     expire_in: 2 weeks
   script:
     - *add_gitlab_key
-    - mkdir -p $BUILD_TEST_APP_DIR
-    - cp -rv testing/esp/test_apps/gen_ut_app $BUILD_TEST_APP_DIR/
-    # Enter ESP-IDF release build dir
-    - pushd $BUILD_TEST_APP_DIR
-    # Prepare ESP-IDF
-    - git clone $GITLAB_SSH_SERVER/idf/esp-idf.git
-    - pushd esp-idf
-    - git checkout $TEST_APP_IDF_TAG || true
-    - tools/ci/mirror-submodule-update.sh
-    - export IDF_PATH=$PWD
-    - export BATCH_BUILD=1
-    - export V=0
-    - popd
-    # Build test app
-    - pushd gen_ut_app
+    - *prepare_test_app_build
     - make defconfig && make ut-build-all-configs
-    - popd
-    # Exit test app build dir
-    - popd
-    - *get_espytrace_package
+    - *finish_test_app_build
+    - *prepare_espytrace_package
 
 .build_test_app_template: &build_test_app_template
   stage: build
@@ -188,73 +181,32 @@ variables:
     - build
   artifacts:
     paths:
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/default/gen_ut_app.elf
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/default/gen_ut_app.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/default/partition_table/partition-table.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/default/bootloader/bootloader.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/single_core/gen_ut_app.elf
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/single_core/gen_ut_app.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/single_core/partition_table/partition-table.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/single_core/bootloader/bootloader.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_dual/gen_ut_app.elf
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_dual/gen_ut_app.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_dual/partition_table/partition-table.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_dual/bootloader/bootloader.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_single/gen_ut_app.elf
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_single/gen_ut_app.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_single/partition_table/partition-table.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/gcov_single/bootloader/bootloader.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/multi_app_images/gen_ut_app.elf
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/multi_app_images/gen_ut_app.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/multi_app_images/partition_table/partition-table.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/multi_app_images/bootloader/bootloader.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_dual/gen_ut_app.elf
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_dual/gen_ut_app.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_dual/partition_table/partition-table.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_dual/bootloader/bootloader.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_single/gen_ut_app.elf
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_single/gen_ut_app.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_single/partition_table/partition-table.bin
-      - $BUILD_TEST_APP_DIR/gen_ut_app/output/svtrace_single/bootloader/bootloader.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gen_ut_app.elf
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gen_ut_app.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/partition_table/partition-table.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/bootloader/bootloader.bin
       # Needed to run tests
       - $BUILD_TEST_APP_DIR/gen_ut_app/main/gcov_tests.gcda.gcov
       - $BUILD_TEST_APP_DIR/gen_ut_app/main/helper_funcs.gcda.gcov
+      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_dual
+      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_single
+      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_env.sh
       - $BUILD_TEST_APP_DIR/espytrace
     expire_in: 2 weeks
   script:
     - *add_gitlab_key
-    - mkdir -p $BUILD_TEST_APP_DIR
-    - cp -rv testing/esp/test_apps/gen_ut_app $BUILD_TEST_APP_DIR/
-    # Enter ESP-IDF release build dir
-    - pushd $BUILD_TEST_APP_DIR
-    # Prepare ESP-IDF
-    - git clone $GITLAB_SSH_SERVER/idf/esp-idf.git
-    - pushd esp-idf
-    - git checkout $TEST_APP_IDF_TAG || true
-    - tools/ci/mirror-submodule-update.sh
-    - export IDF_PATH=$PWD
-    - export BATCH_BUILD=1
-    - export V=0
-    - popd
-    # Build test app
-    - pushd gen_ut_app
+    - *prepare_test_app_build
     - $IDF_PATH/tools/idf.py -D IDF_TARGET=esp32 ut-build-all-configs
-    - popd
-    # Exit test app build dir
-    - popd
-    - *get_espytrace_package
+    - *finish_test_app_build
+    - *prepare_espytrace_package
 
 .run_tests_linux: &run_tests_linux |
   ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
   tar -C ${TEST_RUN_DIR} -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
   export DIST_DIR=${PWD}/${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}
-  pushd $TEST_RUN_DIR
-  mkdir -p gen_ut_app/builds/gcov_dual/main
-  mkdir -p gen_ut_app/builds/gcov_single/main
-  mkdir -p gen_ut_app/builds/gcov_dual/esp-idf/main/CMakeFiles/__idf_main.dir
-  mkdir -p gen_ut_app/builds/gcov_single/esp-idf/main/CMakeFiles/__idf_main.dir
-  popd
-  PYTHONPATH=$PWD/$TEST_RUN_DIR testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log -to $PWD/$TEST_RUN_DIR/results $TEST_RUN_EXTRA_OPTS
+  export PYTHONPATH=$PWD/${TEST_RUN_DIR}
+  . $PWD/${TEST_RUN_DIR}/gen_ut_app/gcov_data/gcov_env.sh
+  testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log -to $PWD/$TEST_RUN_DIR/results $TEST_RUN_EXTRA_OPTS
 
 .tests_linux_template: &tests_linux_template
   stage: test
