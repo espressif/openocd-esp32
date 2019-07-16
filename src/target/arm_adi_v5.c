@@ -1123,7 +1123,7 @@ static int dap_rom_display(struct command_context *cmd_ctx,
 	int retval;
 	uint64_t pid;
 	uint32_t cid;
-	char tabs[16] = "";
+	char tabs[17] = "";
 
 	if (depth > 16) {
 		command_print(cmd_ctx, "\tTables too deep");

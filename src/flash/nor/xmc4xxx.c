@@ -931,7 +931,7 @@ static int xmc4xxx_get_info_command(struct flash_bank *bank, char *buf, int buf_
 
 	/* If OTP Write protection is enabled (User 2), list each
 	 * sector that has it enabled */
-	char otp_str[14];
+	char otp_str[15];
 	if (otp_enabled) {
 		strcat(prot_str, "\nOTP Protection is enabled for sectors:\n");
 		for (int i = 0; i < bank->num_sectors; i++) {
