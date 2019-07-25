@@ -383,7 +383,7 @@ tests_linux64:
   variables:
     PLATFORM_NAME: "linux64"
     TEST_RUN_DIR: "build_test_app"
-    TEST_RUN_EXTRA_OPTS: "-i latest"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v"
 
 tests_linux64_legacy_idf_release:
   <<: *tests_linux_template
@@ -395,7 +395,7 @@ tests_linux64_legacy_idf_release:
   variables:
     PLATFORM_NAME: "linux64"
     TEST_RUN_DIR: "build_test_app_legacy_idf_release"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v"
 
 tests_armel:
   <<: *tests_linux_template
@@ -408,7 +408,7 @@ tests_armel:
   variables:
     PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app"
-    TEST_RUN_EXTRA_OPTS: "-i latest"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v"
 
 tests_linux64_solo:
   <<: *tests_linux_template
@@ -420,7 +420,7 @@ tests_linux64_solo:
   variables:
     PLATFORM_NAME: "linux64"
     TEST_RUN_DIR: "build_test_app"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32_solo-devkitj -p test_*.*Single"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
 
 style_check:
   stage: test
