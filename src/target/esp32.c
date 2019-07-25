@@ -685,7 +685,6 @@ static int esp32_target_create(struct target *target, Jim_Interp *interp)
             }
         }
     } while(tap != NULL);
-    LOG_INFO("Configured %d cores", configured_cores_num);
     if (configured_cores_num < 1 || configured_cores_num > ESP32_MAX_CORES_NUM) {
         LOG_ERROR("Invalid number of configured cores: %d!", configured_cores_num);
         free(esp32);

@@ -15,24 +15,23 @@ import traceback
 
 
 BOARD_TCL_CONFIG = {
-    'esp32-wrover-kit' :  {
+    'esp32-wrover-kit-3.3v' :  {
         'files' : [
-            os.path.join('interface', 'ftdi', 'esp32_devkitj_v1.cfg'),
-            os.path.join('board', 'esp-wroom-32.cfg')
+            os.path.join('board', 'esp32-wrover-kit-3.3v.cfg')
         ],
         'commands' : []
     },
-    'esp32_solo-devkitj' :  {
+    'esp32-solo-devkitj' :  {
         'files' : [
             os.path.join('interface', 'ftdi', 'esp32_devkitj_v1.cfg'),
-            os.path.join('board', 'esp32-solo-1.cfg')
+            os.path.join('target', 'esp32-solo-1.cfg')
         ],
         'commands' : []
     },
-    'esp32_s2-devkitj' :  {
+    'esp32s2-devkitj' :  {
         'files' : [
             os.path.join('interface', 'ftdi', 'esp32_devkitj_v1.cfg'),
-            os.path.join('board', 'esp32_s2-wrover.cfg')
+            os.path.join('target', 'esp32s2.cfg')
         ],
         'commands' : []
     }
@@ -224,7 +223,7 @@ if __name__ == '__main__':
     parser.add_argument('--board-type', '-b',
                         help='Type of the board to run tests on',
                         choices=list(BOARD_TCL_CONFIG.keys()),
-                        default=os.environ.get('OOCD_TEST_BOARD', 'esp32-wrover-kit'))
+                        default=os.environ.get('OOCD_TEST_BOARD', 'esp32-wrover-kit-3.3v'))
     parser.add_argument('--apps-dir', '-a',
                         help='Path to test apps',
                         default=os.environ.get('OOCD_TEST_APPS_DIR', os.path.join(os.getcwd(), 'testing', 'esp', 'test_apps')))
