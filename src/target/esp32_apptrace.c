@@ -666,10 +666,13 @@ static int esp32_apptrace_cmd_cleanup(struct esp32_apptrace_cmd_ctx *cmd_ctx)
 static void esp32_apptrace_print_stats(struct esp32_apptrace_cmd_ctx *ctx)
 {
     struct esp32_apptrace_cmd_data *cmd_data = ctx->cmd_priv;
+    uint32_t trace_sz = 0;
 
+    if (cmd_data) {
+        trace_sz = ctx->tot_len > cmd_data->skip_len ? ctx->tot_len - cmd_data->skip_len : 0;
+    }
     LOG_USER("Tracing is %s. Size is %u of %u @ %f (%f) KB/s", !ctx->running ? "STOPPED" : "RUNNING",
-            ctx->tot_len > cmd_data->skip_len ? ctx->tot_len - cmd_data->skip_len : 0,
-            cmd_data->max_len, duration_kbps(&ctx->read_time, ctx->tot_len),
+            trace_sz, cmd_data ? cmd_data->max_len : 0, duration_kbps(&ctx->read_time, ctx->tot_len),
             duration_kbps(&ctx->read_time, ctx->raw_tot_len));
     LOG_USER("Data: blocks incomplete %u, lost bytes: %u", ctx->stats.incompl_blocks, ctx->stats.lost_bytes);
 #if ESP_APPTRACE_TIME_STATS_ENABLE
