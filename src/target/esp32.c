@@ -119,134 +119,136 @@ registers of this core will be transfered.
 
 
 static const struct xtensa_config esp32_xtensa_cfg = {
-    .density        = true,
-    .aregs_num      = XT_AREGS_NUM_MAX,
-    .windowed       = true,
-    .coproc         = true,
-    .fp_coproc      = true,
-    .loop           = true,
-    .miscregs_num   = 4,
-    .threadptr      = true,
-    .boolean        = true,
-    .cond_store     = true,
-    .mac16          = true,
-    .user_regs_num  = 4,
-    .user_regs      = {XT_REG_IDX_EXPSTATE, XT_REG_IDX_F64R_LO, XT_REG_IDX_F64R_HI, XT_REG_IDX_F64S},
-    .gdb_regs_num   = ESP32_NUM_REGS_G_COMMAND,
-    .irom           = {
-        .count = 2,
-        .regions = {
-            {
-                .base = ESP32_IROM_LOW,
-                .size = ESP32_IROM_HIGH-ESP32_IROM_LOW,
-                .access = XT_MEM_ACCESS_READ,
-            },
-            {
-                .base = ESP32_IRAM00_LOW,
-                .size = ESP32_IRAM00_HIGH-ESP32_IRAM00_LOW,
-                .access = XT_MEM_ACCESS_READ,
-            },
-        }
-    },
-    .iram           = {
-        .count = 2,
-        .regions = {
-            {
-                .base = ESP32_IRAM02_LOW,
-                .size = ESP32_IRAM02_HIGH-ESP32_IRAM02_LOW,
-                .access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
-            },
-            {
-                .base = ESP32_RTC_IRAM_LOW,
-                .size = ESP32_RTC_IRAM_HIGH-ESP32_RTC_IRAM_LOW,
-                .access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
-            },
-        }
-    },
-    .drom           = {
-        .count = 1,
-        .regions = {
-            {
-                .base = ESP32_DROM_LOW,
-                .size = ESP32_DROM_HIGH-ESP32_DROM_LOW,
-                .access = XT_MEM_ACCESS_READ,
-            },
-        }
-    },
-    .dram           = {
-        .count = 2,
-        .regions = {
-            {
-                .base = ESP32_DRAM_LOW,
-                .size = ESP32_DRAM_HIGH-ESP32_DRAM_LOW,
-                .access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
-            },
-            {
-                .base = ESP32_RTC_DATA_LOW,
-                .size = ESP32_RTC_DATA_HIGH-ESP32_RTC_DATA_LOW,
-                .access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
-            },
-        }
-    },
-    .exc           = {
-        .enabled = true,
-    },
-    .irq           = {
-        .enabled = true,
-        .irq_num = 32,
-    },
-    .high_irq      = {
-        .enabled = true,
-        .excm_level = 3,
-        .nmi_num = 1,
-    },
-    .tim_irq      = {
-        .enabled = true,
-        .comp_num = 3,
-    },
-    .debug         = {
-        .enabled = true,
-        .irq_level = 6,
-        .ibreaks_num = 2,
-        .dbreaks_num = 2,
-        .icount_sz = 32,
-    },
-    .trace         = {
-        .enabled = true,
-        .mem_sz = ESP32_TRACEMEM_BLOCK_SZ,
-        .reversed_mem_access = true,
-    },
+	.density        = true,
+	.aregs_num      = XT_AREGS_NUM_MAX,
+	.windowed       = true,
+	.coproc         = true,
+	.fp_coproc      = true,
+	.loop           = true,
+	.miscregs_num   = 4,
+	.threadptr      = true,
+	.boolean        = true,
+	.cond_store     = true,
+	.mac16          = true,
+	.user_regs_num  = 4,
+	.user_regs      =
+	{XT_REG_IDX_EXPSTATE, XT_REG_IDX_F64R_LO, XT_REG_IDX_F64R_HI, XT_REG_IDX_F64S},
+	.gdb_regs_num   = ESP32_NUM_REGS_G_COMMAND,
+	.irom           = {
+		.count = 2,
+		.regions = {
+			{
+				.base = ESP32_IROM_LOW,
+				.size = ESP32_IROM_HIGH-ESP32_IROM_LOW,
+				.access = XT_MEM_ACCESS_READ,
+			},
+			{
+				.base = ESP32_IRAM00_LOW,
+				.size = ESP32_IRAM00_HIGH-ESP32_IRAM00_LOW,
+				.access = XT_MEM_ACCESS_READ,
+			},
+		}
+	},
+	.iram           = {
+		.count = 2,
+		.regions = {
+			{
+				.base = ESP32_IRAM02_LOW,
+				.size = ESP32_IRAM02_HIGH-ESP32_IRAM02_LOW,
+				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+			},
+			{
+				.base = ESP32_RTC_IRAM_LOW,
+				.size = ESP32_RTC_IRAM_HIGH-ESP32_RTC_IRAM_LOW,
+				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+			},
+		}
+	},
+	.drom           = {
+		.count = 1,
+		.regions = {
+			{
+				.base = ESP32_DROM_LOW,
+				.size = ESP32_DROM_HIGH-ESP32_DROM_LOW,
+				.access = XT_MEM_ACCESS_READ,
+			},
+		}
+	},
+	.dram           = {
+		.count = 2,
+		.regions = {
+			{
+				.base = ESP32_DRAM_LOW,
+				.size = ESP32_DRAM_HIGH-ESP32_DRAM_LOW,
+				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+			},
+			{
+				.base = ESP32_RTC_DATA_LOW,
+				.size = ESP32_RTC_DATA_HIGH-ESP32_RTC_DATA_LOW,
+				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+			},
+		}
+	},
+	.exc           = {
+		.enabled = true,
+	},
+	.irq           = {
+		.enabled = true,
+		.irq_num = 32,
+	},
+	.high_irq      = {
+		.enabled = true,
+		.excm_level = 3,
+		.nmi_num = 1,
+	},
+	.tim_irq      = {
+		.enabled = true,
+		.comp_num = 3,
+	},
+	.debug         = {
+		.enabled = true,
+		.irq_level = 6,
+		.ibreaks_num = 2,
+		.dbreaks_num = 2,
+		.icount_sz = 32,
+	},
+	.trace         = {
+		.enabled = true,
+		.mem_sz = ESP32_TRACEMEM_BLOCK_SZ,
+		.reversed_mem_access = true,
+	},
 };
 
 static int esp32_soc_reset(struct target *target);
 
 static int esp32_assert_reset(struct target *target)
 {
-    struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
+	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
 
-    LOG_DEBUG("%s: begin", target_name(target));
+	LOG_DEBUG("%s: begin", target_name(target));
 
-    /* Reset the SoC first. It is enough to run the reset func on PRO CPU */
-    xtensa_mcore->active_core = 0;
-    int res = esp32_soc_reset(&xtensa_mcore->cores_targets[xtensa_mcore->active_core]);
-    if (res != ERROR_OK) {
-        return res;
-    }
-    return xtensa_mcore_assert_reset(target);
+	/* Reset the SoC first. It is enough to run the reset func on PRO CPU */
+	xtensa_mcore->active_core = 0;
+	int res = esp32_soc_reset(&xtensa_mcore->cores_targets[xtensa_mcore->active_core]);
+	if (res != ERROR_OK)
+		return res;
+	return xtensa_mcore_assert_reset(target);
 }
 
-static int esp32_write_uint32_list(struct target *target, const target_addr_t* addrs, const uint32_t* values, size_t count)
+static int esp32_write_uint32_list(struct target *target,
+	const target_addr_t *addrs,
+	const uint32_t *values,
+	size_t count)
 {
-    int res;
-    for (size_t i = 0; i < count; ++i)
-    {
-        res = target_write_u32(target, addrs[i], values[i]);
-        if (res != ERROR_OK) {
-            LOG_ERROR("%s: error writing to "TARGET_ADDR_FMT, __func__, addrs[i]);
-            return res;
-        }
-    }
-    return ERROR_OK;
+	int res;
+	for (size_t i = 0; i < count; ++i) {
+		res = target_write_u32(target, addrs[i], values[i]);
+		if (res != ERROR_OK) {
+			LOG_ERROR("%s: error writing to "TARGET_ADDR_FMT, __func__, addrs[i]);
+			return res;
+		}
+	}
+	return ERROR_OK;
 }
 
 /* Reset ESP32's peripherals.
@@ -263,570 +265,613 @@ TODO: some state of RTC_CNTL is not reset during SW_SYS_RST. Need to reset that 
 */
 static int esp32_soc_reset(struct target *active_core_target)
 {
-    int res;
+	int res;
 
-    LOG_DEBUG("start");
-    /* In order to write to peripheral registers, target must be halted first */
-    if (active_core_target->state != TARGET_HALTED) {
-        LOG_DEBUG("%s: Target not halted before SoC reset, trying to halt it first", __func__);
-        xtensa_halt(active_core_target);
-        res = target_wait_state(active_core_target, TARGET_HALTED, 1000);
-        if (res != ERROR_OK) {
-            LOG_DEBUG("%s: Couldn't halt target before SoC reset, trying to do reset-halt", __func__);
-            res = xtensa_assert_reset(active_core_target);
-            if (res != ERROR_OK) {
-                LOG_ERROR("%s: Couldn't halt target before SoC reset! (xtensa_assert_reset returned %d)", __func__, res);
-                return res;
-            }
-            alive_sleep(10);
-            xtensa_poll(active_core_target);
-            int reset_halt_save = active_core_target->reset_halt;
-            active_core_target->reset_halt = 1;
-            res = xtensa_deassert_reset(active_core_target);
-            active_core_target->reset_halt = reset_halt_save;
-            if (res != ERROR_OK) {
-                LOG_ERROR("%s: Couldn't halt target before SoC reset! (xtensa_deassert_reset returned %d)", __func__, res);
-                return res;
-            }
-            alive_sleep(10);
-            xtensa_poll(active_core_target);
-            xtensa_halt(active_core_target);
-            res = target_wait_state(active_core_target, TARGET_HALTED, 1000);
-            if (res != ERROR_OK) {
-                LOG_ERROR("%s: Couldn't halt target before SoC reset", __func__);
-                return res;
-            }
-        }
-    }
+	LOG_DEBUG("start");
+	/* In order to write to peripheral registers, target must be halted first */
+	if (active_core_target->state != TARGET_HALTED) {
+		LOG_DEBUG("%s: Target not halted before SoC reset, trying to halt it first",
+			__func__);
+		xtensa_halt(active_core_target);
+		res = target_wait_state(active_core_target, TARGET_HALTED, 1000);
+		if (res != ERROR_OK) {
+			LOG_DEBUG(
+				"%s: Couldn't halt target before SoC reset, trying to do reset-halt",
+				__func__);
+			res = xtensa_assert_reset(active_core_target);
+			if (res != ERROR_OK) {
+				LOG_ERROR(
+					"%s: Couldn't halt target before SoC reset! (xtensa_assert_reset returned %d)",
+					__func__,
+					res);
+				return res;
+			}
+			alive_sleep(10);
+			xtensa_poll(active_core_target);
+			int reset_halt_save = active_core_target->reset_halt;
+			active_core_target->reset_halt = 1;
+			res = xtensa_deassert_reset(active_core_target);
+			active_core_target->reset_halt = reset_halt_save;
+			if (res != ERROR_OK) {
+				LOG_ERROR(
+					"%s: Couldn't halt target before SoC reset! (xtensa_deassert_reset returned %d)",
+					__func__,
+					res);
+				return res;
+			}
+			alive_sleep(10);
+			xtensa_poll(active_core_target);
+			xtensa_halt(active_core_target);
+			res = target_wait_state(active_core_target, TARGET_HALTED, 1000);
+			if (res != ERROR_OK) {
+				LOG_ERROR("%s: Couldn't halt target before SoC reset", __func__);
+				return res;
+			}
+		}
+	}
 
-    assert(active_core_target->state == TARGET_HALTED);
+	assert(active_core_target->state == TARGET_HALTED);
 
-    /* This this the stub code compiled from esp32_cpu_reset_handler.S.
-       To compile it, run:
-           xtensa-esp32-elf-as -o stub.o esp32_cpu_reset_handler.S
-           xtensa-esp32-elf-objcopy -j .text -O binary stub.o stub.bin
-       These steps are not included into OpenOCD build process so that a
-       dependency on xtensa-esp32-elf toolchain is not introduced.
-    */
-    const uint32_t esp32_post_reset_code[] = {
-        0x00000806, 0x50d83aa1, 0x00000000, 0x3ff480a4, 0x3ff4808c, 0x3ff5f064, 0x3ff5f048, 0x3ff60064,
-        0x3ff60048, 0x41fff831, 0x0439fff9, 0x39fffa41, 0xfffa4104, 0xf4310439, 0xfff541ff, 0xf6410439,
-        0x410439ff, 0x0439fff7, 0x46007000,
-    };
+	/* This this the stub code compiled from esp32_cpu_reset_handler.S.
+	   To compile it, run:
+	       xtensa-esp32-elf-as -o stub.o esp32_cpu_reset_handler.S
+	       xtensa-esp32-elf-objcopy -j .text -O binary stub.o stub.bin
+	   These steps are not included into OpenOCD build process so that a
+	   dependency on xtensa-esp32-elf toolchain is not introduced.
+	*/
+	const uint32_t esp32_post_reset_code[] = {
+		0x00000806, 0x50d83aa1, 0x00000000, 0x3ff480a4, 0x3ff4808c, 0x3ff5f064, 0x3ff5f048,
+		0x3ff60064,
+		0x3ff60048, 0x41fff831, 0x0439fff9, 0x39fffa41, 0xfffa4104, 0xf4310439, 0xfff541ff,
+		0xf6410439,
+		0x410439ff, 0x0439fff7, 0x46007000,
+	};
 
-    uint32_t slow_mem_save[sizeof(esp32_post_reset_code) / sizeof(uint32_t)];
+	uint32_t slow_mem_save[sizeof(esp32_post_reset_code) / sizeof(uint32_t)];
 
-    const int RTC_SLOW_MEM_BASE = 0x50000000;
-    /* Save contents of RTC_SLOW_MEM which we are about to overwrite */
-    res = target_read_buffer(active_core_target, RTC_SLOW_MEM_BASE, sizeof(slow_mem_save), (uint8_t*)slow_mem_save);
-    if (res != ERROR_OK)  {
-        LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
-        return res;
-    }
+	const int RTC_SLOW_MEM_BASE = 0x50000000;
+	/* Save contents of RTC_SLOW_MEM which we are about to overwrite */
+	res =
+		target_read_buffer(active_core_target, RTC_SLOW_MEM_BASE, sizeof(slow_mem_save),
+		(uint8_t *)slow_mem_save);
+	if (res != ERROR_OK) {
+		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
+		return res;
+	}
 
-    /* Write stub code into RTC_SLOW_MEM */
-    res = target_write_buffer(active_core_target, RTC_SLOW_MEM_BASE, sizeof(esp32_post_reset_code), (const uint8_t*)esp32_post_reset_code);
-    if (res != ERROR_OK)  {
-        LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
-        return res;
-    }
-    // TODO: add addreses to chip config
-    const int RTC_CNTL_RESET_STATE_REG = 0x3ff48034;
-    const int RTC_CNTL_RESET_STATE_DEF = 0x3000;
-    const int RTC_CNTL_CLK_CONF_REG = 0x3ff48070;
-    const int RTC_CNTL_CLK_CONF_DEF = 0x2210;
-    const int RTC_CNTL_STORE4_REG = 0x3ff480b0;
-    const int RTC_CNTL_STORE5_REG = 0x3ff480b4;
-    const int RTC_CNTL_OPTIONS0_REG = 0x3ff48000;
-    const int RTC_CNTL_OPTIONS0_DEF = 0x1c492000;
-    const int RTC_CNTL_SW_SYS_RST = 0x80000000;
-    const int DPORT_APPCPU_CTRL_A_REG = 0x3ff0002c;
-    const int DPORT_APPCPU_CTRL_B_REG = 0x3ff00030;
-    const int DPORT_APPCPU_CLKGATE_EN = 0x1;
-    const int DPORT_APPCPU_CTRL_D_REG = 0x3ff00038;
+	/* Write stub code into RTC_SLOW_MEM */
+	res =
+		target_write_buffer(active_core_target,
+		RTC_SLOW_MEM_BASE,
+		sizeof(esp32_post_reset_code),
+		(const uint8_t *)esp32_post_reset_code);
+	if (res != ERROR_OK) {
+		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
+		return res;
+	}
+	/* TODO: add addreses to chip config */
+	const int RTC_CNTL_RESET_STATE_REG = 0x3ff48034;
+	const int RTC_CNTL_RESET_STATE_DEF = 0x3000;
+	const int RTC_CNTL_CLK_CONF_REG = 0x3ff48070;
+	const int RTC_CNTL_CLK_CONF_DEF = 0x2210;
+	const int RTC_CNTL_STORE4_REG = 0x3ff480b0;
+	const int RTC_CNTL_STORE5_REG = 0x3ff480b4;
+	const int RTC_CNTL_OPTIONS0_REG = 0x3ff48000;
+	const int RTC_CNTL_OPTIONS0_DEF = 0x1c492000;
+	const int RTC_CNTL_SW_SYS_RST = 0x80000000;
+	const int DPORT_APPCPU_CTRL_A_REG = 0x3ff0002c;
+	const int DPORT_APPCPU_CTRL_B_REG = 0x3ff00030;
+	const int DPORT_APPCPU_CLKGATE_EN = 0x1;
+	const int DPORT_APPCPU_CTRL_D_REG = 0x3ff00038;
 
-    /* Set a list of registers to these values */
-    const target_addr_t addrs_pre[] = {
-        /* Set entry point to RTC_SLOW_MEM */
-        RTC_CNTL_RESET_STATE_REG,
-        /* Reset SoC clock to XTAL, in case it was running from PLL */
-        RTC_CNTL_CLK_CONF_REG,
-        /* Reset RTC_CNTL_STORE{4,5}_REG, which are related to clock state */
-        RTC_CNTL_STORE4_REG,
-        RTC_CNTL_STORE5_REG,
-        /* Perform reset */
-        RTC_CNTL_OPTIONS0_REG
-    };
-    const uint32_t values_pre[] = {
-        /* Set entry point to RTC_SLOW_MEM */
-        0,
-        /* Reset SoC clock to XTAL, in case it was running from PLL */
-        RTC_CNTL_CLK_CONF_DEF,
-        /* Reset RTC_CNTL_STORE{4,5}_REG, which are related to clock state */
-        0,
-        0,
-        /* Perform reset */
-        RTC_CNTL_OPTIONS0_DEF | RTC_CNTL_SW_SYS_RST
-    };
-    res = esp32_write_uint32_list(active_core_target, addrs_pre, values_pre, sizeof(addrs_pre) / sizeof(target_addr_t));
-    if (res != ERROR_OK)  {
-        LOG_WARNING("%s esp32_write_uint32_list (reg_value_pairs_pre) err=%d", __func__, res);
-        return res;
-    }
+	/* Set a list of registers to these values */
+	const target_addr_t addrs_pre[] = {
+		/* Set entry point to RTC_SLOW_MEM */
+		RTC_CNTL_RESET_STATE_REG,
+		/* Reset SoC clock to XTAL, in case it was running from PLL */
+		RTC_CNTL_CLK_CONF_REG,
+		/* Reset RTC_CNTL_STORE{4,5}_REG, which are related to clock state */
+		RTC_CNTL_STORE4_REG,
+		RTC_CNTL_STORE5_REG,
+		/* Perform reset */
+		RTC_CNTL_OPTIONS0_REG
+	};
+	const uint32_t values_pre[] = {
+		/* Set entry point to RTC_SLOW_MEM */
+		0,
+		/* Reset SoC clock to XTAL, in case it was running from PLL */
+		RTC_CNTL_CLK_CONF_DEF,
+		/* Reset RTC_CNTL_STORE{4,5}_REG, which are related to clock state */
+		0,
+		0,
+		/* Perform reset */
+		RTC_CNTL_OPTIONS0_DEF | RTC_CNTL_SW_SYS_RST
+	};
+	res = esp32_write_uint32_list(active_core_target,
+		addrs_pre,
+		values_pre,
+		sizeof(addrs_pre) / sizeof(target_addr_t));
+	if (res != ERROR_OK) {
+		LOG_WARNING("%s esp32_write_uint32_list (reg_value_pairs_pre) err=%d", __func__,
+			res);
+		return res;
+	}
 
-    /* Wait for SoC to reset */
-    int timeout = 100;
-    while (active_core_target->state != TARGET_RESET && active_core_target->state != TARGET_RUNNING && --timeout > 0) {
-        alive_sleep(10);
-        xtensa_poll(active_core_target);
-    }
-    if (timeout == 0) {
-        LOG_ERROR("%s: Timed out waiting for CPU to be reset, target->state=%d", __func__, active_core_target->state);
-        return ERROR_TARGET_TIMEOUT;
-    }
+	/* Wait for SoC to reset */
+	int timeout = 100;
+	while (active_core_target->state != TARGET_RESET &&
+		active_core_target->state != TARGET_RUNNING && --timeout > 0) {
+		alive_sleep(10);
+		xtensa_poll(active_core_target);
+	}
+	if (timeout == 0) {
+		LOG_ERROR("%s: Timed out waiting for CPU to be reset, target->state=%d",
+			__func__,
+			active_core_target->state);
+		return ERROR_TARGET_TIMEOUT;
+	}
 
-    /* Halt the CPU again */
-    xtensa_halt(active_core_target);
-    res = target_wait_state(active_core_target, TARGET_HALTED, 1000);
-    if (res != ERROR_OK) {
-        LOG_ERROR("%s: Timed out waiting for CPU to be halted after SoC reset", __func__);
-        return res;
-    }
+	/* Halt the CPU again */
+	xtensa_halt(active_core_target);
+	res = target_wait_state(active_core_target, TARGET_HALTED, 1000);
+	if (res != ERROR_OK) {
+		LOG_ERROR("%s: Timed out waiting for CPU to be halted after SoC reset", __func__);
+		return res;
+	}
 
-    const target_addr_t addrs_post[] = {
-        /* Reset entry point back to the reset vector */
-        RTC_CNTL_RESET_STATE_REG,
-        /* Clear APP CPU boot address */
-        DPORT_APPCPU_CTRL_D_REG,
-        /* Enable clock to APP CPU */
-        DPORT_APPCPU_CTRL_B_REG,
-        /* Take APP CPU out of reset */
-        DPORT_APPCPU_CTRL_A_REG,
-    };
-    const uint32_t values_post[] = {
-        /* Reset entry point back to the reset vector */
-        RTC_CNTL_RESET_STATE_DEF,
-        /* Clear APP CPU boot address */
-        0,
-        /* Enable clock to APP CPU */
-        DPORT_APPCPU_CLKGATE_EN,
-        /* Take APP CPU out of reset */
-        0,
-    };
-    res = esp32_write_uint32_list(active_core_target, addrs_post, values_post, sizeof(addrs_post) / sizeof(target_addr_t));
-    if (res != ERROR_OK)  {
-        LOG_WARNING("%s esp32_write_uint32_list (reg_value_pairs_post) err=%d", __func__, res);
-        return res;
-    }
+	const target_addr_t addrs_post[] = {
+		/* Reset entry point back to the reset vector */
+		RTC_CNTL_RESET_STATE_REG,
+		/* Clear APP CPU boot address */
+		DPORT_APPCPU_CTRL_D_REG,
+		/* Enable clock to APP CPU */
+		DPORT_APPCPU_CTRL_B_REG,
+		/* Take APP CPU out of reset */
+		DPORT_APPCPU_CTRL_A_REG,
+	};
+	const uint32_t values_post[] = {
+		/* Reset entry point back to the reset vector */
+		RTC_CNTL_RESET_STATE_DEF,
+		/* Clear APP CPU boot address */
+		0,
+		/* Enable clock to APP CPU */
+		DPORT_APPCPU_CLKGATE_EN,
+		/* Take APP CPU out of reset */
+		0,
+	};
+	res = esp32_write_uint32_list(active_core_target,
+		addrs_post,
+		values_post,
+		sizeof(addrs_post) / sizeof(target_addr_t));
+	if (res != ERROR_OK) {
+		LOG_WARNING("%s esp32_write_uint32_list (reg_value_pairs_post) err=%d",
+			__func__,
+			res);
+		return res;
+	}
 
-    /* Restore the original contents of RTC_SLOW_MEM */
-    res = target_write_buffer(active_core_target, RTC_SLOW_MEM_BASE, sizeof(slow_mem_save), (const uint8_t*)slow_mem_save);
-    if (res != ERROR_OK)  {
-        LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
-        return res;
-    }
+	/* Restore the original contents of RTC_SLOW_MEM */
+	res =
+		target_write_buffer(active_core_target, RTC_SLOW_MEM_BASE, sizeof(slow_mem_save),
+		(const uint8_t *)slow_mem_save);
+	if (res != ERROR_OK) {
+		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
+		return res;
+	}
 
-    LOG_DEBUG("end");
+	LOG_DEBUG("end");
 
-    /* Clear memory which is used by RTOS layer to get the task count */
-    if (active_core_target->rtos && active_core_target->rtos->type->post_reset_cleanup) {
-        res = (*active_core_target->rtos->type->post_reset_cleanup)(active_core_target);
-        if (res != ERROR_OK) {
-            LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
-        }
-    }
+	/* Clear memory which is used by RTOS layer to get the task count */
+	if (active_core_target->rtos && active_core_target->rtos->type->post_reset_cleanup) {
+		res = (*active_core_target->rtos->type->post_reset_cleanup)(active_core_target);
+		if (res != ERROR_OK)
+			LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
+	}
 
-    return ERROR_OK;
+	return ERROR_OK;
 }
 
 static int esp32_disable_wdts(struct target *target)
 {
-    // TIMG1 WDT
-    int res = target_write_u32(target, ESP32_TIMG0WDT_PROTECT, ESP32_WDT_WKEY_VALUE);
-    if (res != ERROR_OK) {
-        LOG_ERROR("Failed to write ESP32_TIMG0WDT_PROTECT (%d)!", res);
-        return res;
-    }
-    res = target_write_u32(target, ESP32_TIMG0WDT_CFG0, 0);
-    if (res != ERROR_OK) {
-        LOG_ERROR("Failed to write ESP32_TIMG0WDT_CFG0 (%d)!", res);
-        return res;
-    }
-    // TIMG2 WDT
-    res = target_write_u32(target, ESP32_TIMG1WDT_PROTECT, ESP32_WDT_WKEY_VALUE);
-    if (res != ERROR_OK) {
-        LOG_ERROR("Failed to write ESP32_TIMG1WDT_PROTECT (%d)!", res);
-        return res;
-    }
-    res = target_write_u32(target, ESP32_TIMG1WDT_CFG0, 0);
-    if (res != ERROR_OK) {
-        LOG_ERROR("Failed to write ESP32_TIMG1WDT_CFG0 (%d)!", res);
-        return res;
-    }
-    // RTC WDT
-    res = target_write_u32(target, ESP32_RTCWDT_PROTECT, ESP32_WDT_WKEY_VALUE);
-    if (res != ERROR_OK) {
-        LOG_ERROR("Failed to write ESP32_RTCWDT_PROTECT (%d)!", res);
-        return res;
-    }
-    res = target_write_u32(target, ESP32_RTCWDT_CFG, 0);
-    if (res != ERROR_OK) {
-        LOG_ERROR("Failed to write ESP32_RTCWDT_CFG (%d)!", res);
-        return res;
-    }
-    return ERROR_OK;
+	/* TIMG1 WDT */
+	int res = target_write_u32(target, ESP32_TIMG0WDT_PROTECT, ESP32_WDT_WKEY_VALUE);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32_TIMG0WDT_PROTECT (%d)!", res);
+		return res;
+	}
+	res = target_write_u32(target, ESP32_TIMG0WDT_CFG0, 0);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32_TIMG0WDT_CFG0 (%d)!", res);
+		return res;
+	}
+	/* TIMG2 WDT */
+	res = target_write_u32(target, ESP32_TIMG1WDT_PROTECT, ESP32_WDT_WKEY_VALUE);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32_TIMG1WDT_PROTECT (%d)!", res);
+		return res;
+	}
+	res = target_write_u32(target, ESP32_TIMG1WDT_CFG0, 0);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32_TIMG1WDT_CFG0 (%d)!", res);
+		return res;
+	}
+	/* RTC WDT */
+	res = target_write_u32(target, ESP32_RTCWDT_PROTECT, ESP32_WDT_WKEY_VALUE);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32_RTCWDT_PROTECT (%d)!", res);
+		return res;
+	}
+	res = target_write_u32(target, ESP32_RTCWDT_CFG, 0);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32_RTCWDT_CFG (%d)!", res);
+		return res;
+	}
+	return ERROR_OK;
 }
 
 static bool esp32_is_app_cpu_enabled(struct target *target)
 {
-    uint32_t appcpu_ctrl = 0;
-    int res;
+	uint32_t appcpu_ctrl = 0;
+	int res;
 
-    LOG_DEBUG("Read cores number");
-    res = target_read_memory(target, ESP32_DPORT_APPCPU_CTRL_B_REG, sizeof(uint32_t), 1, (uint8_t *)&appcpu_ctrl);
-    if (res != ERROR_OK) {
-        LOG_ERROR("Failed to read ESP32_DPORT_APPCPU_CTRL_B_REG (%d)!", res);
-        return false;
-    }
-    LOG_DEBUG("Read APP CPU ctrl reg 0x%x", appcpu_ctrl);
-    if (appcpu_ctrl & ESP32_DPORT_APPCPU_CLKGATE_EN) {
-        LOG_DEBUG("APP CPU enabled");
-        return true;
-    }
-    return false;
+	LOG_DEBUG("Read cores number");
+	res =
+		target_read_memory(target, ESP32_DPORT_APPCPU_CTRL_B_REG, sizeof(uint32_t), 1,
+		(uint8_t *)&appcpu_ctrl);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to read ESP32_DPORT_APPCPU_CTRL_B_REG (%d)!", res);
+		return false;
+	}
+	LOG_DEBUG("Read APP CPU ctrl reg 0x%x", appcpu_ctrl);
+	if (appcpu_ctrl & ESP32_DPORT_APPCPU_CLKGATE_EN) {
+		LOG_DEBUG("APP CPU enabled");
+		return true;
+	}
+	return false;
 }
 
 static size_t esp32_get_enabled_cores_count(struct target *target)
 {
-    struct esp32_common *esp32 = target_to_esp32(target);
-    if (esp32 == NULL) {
-        return ESP32_MAX_CORES_NUM;
-    }
-    return xtensa_mcore_get_enabled_cores_count(target);
+	struct esp32_common *esp32 = target_to_esp32(target);
+	if (esp32 == NULL)
+		return ESP32_MAX_CORES_NUM;
+	return xtensa_mcore_get_enabled_cores_count(target);
 }
 
 static int esp32_arch_state(struct target *target)
 {
-    return ERROR_OK;
+	return ERROR_OK;
 }
 
 static void esp32_on_poll(struct target *target)
 {
-    struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
+	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
 
-    for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
-        esp_xtensa_on_poll(&xtensa_mcore->cores_targets[i]);
-    }
+	for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++)
+		esp_xtensa_on_poll(&xtensa_mcore->cores_targets[i]);
 }
 
 static bool esp32_on_halt(struct target *target)
 {
-    struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
+	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
 
-    int ret = esp32_disable_wdts(target);
-    if (ret != ERROR_OK) {
-        return false;
-    }
-    // do some stuff generic for ESP Xtensa (semihosting)
-    return esp_xtensa_on_halt(&xtensa_mcore->cores_targets[xtensa_mcore->active_core]);
+	int ret = esp32_disable_wdts(target);
+	if (ret != ERROR_OK)
+		return false;
+	/* do some stuff generic for ESP Xtensa (semihosting) */
+	return esp_xtensa_on_halt(&xtensa_mcore->cores_targets[xtensa_mcore->active_core]);
 }
 
 static int esp32_handle_target_event(struct target *target, enum target_event event, void *priv)
 {
-    struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
+	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
 
-    if (target != priv)
-        return ERROR_OK;
+	if (target != priv)
+		return ERROR_OK;
 
-    LOG_DEBUG("%d", event);
-    switch (event) {
-        case TARGET_EVENT_HALTED:
-            if (xtensa_mcore->configured_cores_num > 1 && esp32_is_app_cpu_enabled(target)) {
-                xtensa_mcore->cores_num = ESP32_MAX_CORES_NUM;
-            } else {
-                xtensa_mcore->cores_num = 1;
-            }
-            LOG_DEBUG("Detected %d cores", xtensa_mcore->cores_num);
-            break;
-        default:
-            break;
-    }
+	LOG_DEBUG("%d", event);
+	switch (event) {
+		case TARGET_EVENT_HALTED:
+			if (xtensa_mcore->configured_cores_num > 1 &&
+			esp32_is_app_cpu_enabled(target))
+				xtensa_mcore->cores_num = ESP32_MAX_CORES_NUM;
+			else
+				xtensa_mcore->cores_num = 1;
+			LOG_DEBUG("Detected %d cores", xtensa_mcore->cores_num);
+			break;
+		default:
+			break;
+	}
 
-    for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
-        target_call_event_callbacks(&xtensa_mcore->cores_targets[i], event);
-    }
+	for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++)
+		target_call_event_callbacks(&xtensa_mcore->cores_targets[i], event);
 
-    return ERROR_OK;
+	return ERROR_OK;
 }
 
 static int esp32_target_init(struct command_context *cmd_ctx, struct target *target)
 {
-    struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
+	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
 
-    int ret = target_register_event_callback(esp32_handle_target_event, target);
-    if (ret != ERROR_OK) {
-        return ret;
-    }
-    ret = xtensa_mcore_target_init(cmd_ctx, target);
-    if (ret != ERROR_OK) {
-        return ret;
-    }
-    xtensa_mcore->smp_break = OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN;
-    return ERROR_OK;
+	int ret = target_register_event_callback(esp32_handle_target_event, target);
+	if (ret != ERROR_OK)
+		return ret;
+	ret = xtensa_mcore_target_init(cmd_ctx, target);
+	if (ret != ERROR_OK)
+		return ret;
+	xtensa_mcore->smp_break = OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN;
+	return ERROR_OK;
 }
 
 /** Special target type for ESP32 cores with minimal funcs support */
 static struct target_type esp32_xtensa_core_target_type = {
-    .name = "esp32_core",
+	.name = "esp32_core",
 
-    .poll = xtensa_poll,
-    .arch_state = esp_xtensa_arch_state,
+	.poll = xtensa_poll,
+	.arch_state = esp_xtensa_arch_state,
 
-    .assert_reset = xtensa_assert_reset,
-    .deassert_reset = xtensa_deassert_reset,
+	.assert_reset = xtensa_assert_reset,
+	.deassert_reset = xtensa_deassert_reset,
 
-    .halt = xtensa_halt,
-    // .resume = xtensa_resume, done via core_prepare_resume() and core_do_resume() from esp32_xtensa_mcores_ops
-    // .step = xtensa_step, done via core_do_step() from esp32_xtensa_mcores_ops
+	.halt = xtensa_halt,
+	/* .resume = xtensa_resume, done via core_prepare_resume() and core_do_resume() from
+	 * esp32_xtensa_mcores_ops */
+	/* .step = xtensa_step, done via core_do_step() from esp32_xtensa_mcores_ops */
 
-    .mmu = xtensa_mmu_is_enabled,
-    .read_memory = xtensa_read_memory,
-    .write_memory = xtensa_write_memory,
+	.mmu = xtensa_mmu_is_enabled,
+	.read_memory = xtensa_read_memory,
+	.write_memory = xtensa_write_memory,
 
-    .read_buffer = xtensa_read_buffer,
-    .write_buffer = xtensa_write_buffer,
+	.read_buffer = xtensa_read_buffer,
+	.write_buffer = xtensa_write_buffer,
 
-    .checksum_memory = xtensa_checksum_memory,
+	.checksum_memory = xtensa_checksum_memory,
 
-    .get_gdb_reg_list = xtensa_get_gdb_reg_list,
+	.get_gdb_reg_list = xtensa_get_gdb_reg_list,
 
-    .run_algorithm = xtensa_run_algorithm,
-    .start_algorithm = xtensa_start_algorithm,
-    .wait_algorithm = xtensa_wait_algorithm,
+	.run_algorithm = xtensa_run_algorithm,
+	.start_algorithm = xtensa_start_algorithm,
+	.wait_algorithm = xtensa_wait_algorithm,
 
-    .add_breakpoint = esp_xtensa_breakpoint_add,
-    .remove_breakpoint = esp_xtensa_breakpoint_remove,
+	.add_breakpoint = esp_xtensa_breakpoint_add,
+	.remove_breakpoint = esp_xtensa_breakpoint_remove,
 
-    .add_watchpoint = xtensa_watchpoint_add,
-    .remove_watchpoint = xtensa_watchpoint_remove,
+	.add_watchpoint = xtensa_watchpoint_add,
+	.remove_watchpoint = xtensa_watchpoint_remove,
 
-    .init_target = esp_xtensa_target_init,
-    .examine = xtensa_examine,
+	.init_target = esp_xtensa_target_init,
+	.examine = xtensa_examine,
 };
 
 static struct xtensa_debug_ops esp32_dbg_ops = {
-    .queue_enable = xtensa_dm_queue_enable,
-    .queue_reg_read = xtensa_dm_queue_reg_read,
-    .queue_reg_write = xtensa_dm_queue_reg_write
+	.queue_enable = xtensa_dm_queue_enable,
+	.queue_reg_read = xtensa_dm_queue_reg_read,
+	.queue_reg_write = xtensa_dm_queue_reg_write
 };
 
 static struct xtensa_power_ops esp32_pwr_ops = {
-    .queue_reg_read = xtensa_dm_queue_pwr_reg_read,
-    .queue_reg_write = xtensa_dm_queue_pwr_reg_write
+	.queue_reg_read = xtensa_dm_queue_pwr_reg_read,
+	.queue_reg_write = xtensa_dm_queue_pwr_reg_write
 };
 
 static struct xtensa_core_ops esp32_xtensa_mcores_ops = {
-    .core_init_arch_info = (void *)esp_xtensa_init_arch_info,
-    .core_on_reset = esp_xtensa_on_reset,
-    .core_do_step = xtensa_do_step,
-    .core_prepare_resume = xtensa_prepare_resume,
-    .core_do_resume = xtensa_do_resume,
-    .core_is_special_breakpoint = esp_xtensa_is_special_breakpoint,
+	.core_init_arch_info = (void *)esp_xtensa_init_arch_info,
+	.core_on_reset = esp_xtensa_on_reset,
+	.core_do_step = xtensa_do_step,
+	.core_prepare_resume = xtensa_prepare_resume,
+	.core_do_resume = xtensa_do_resume,
+	.core_is_special_breakpoint = esp_xtensa_is_special_breakpoint,
 };
 
 static struct esp_xtensa_special_breakpoint_ops esp32_xtensa_spec_brp_ops = {
-    .breakpoint_add = esp_xtensa_flash_breakpoint_add,
-    .breakpoint_remove = esp_xtensa_flash_breakpoint_remove
+	.breakpoint_add = esp_xtensa_flash_breakpoint_add,
+	.breakpoint_remove = esp_xtensa_flash_breakpoint_remove
 };
 
 static const struct xtensa_chip_ops esp32_chip_ops = {
-    .on_poll = esp32_on_poll,
-    .on_halt = esp32_on_halt,
+	.on_poll = esp32_on_poll,
+	.on_halt = esp32_on_halt,
 };
 
 static int esp32_target_create(struct target *target, Jim_Interp *interp)
 {
-    struct target_type *core_target_types[ESP32_MAX_CORES_NUM];
-    struct xtensa_core_ops *mcores_ops[ESP32_MAX_CORES_NUM];
-    void *cores_privs[ESP32_MAX_CORES_NUM];
-    struct xtensa_config *xtensa_cfgs[ESP32_MAX_CORES_NUM];
-    struct xtensa_debug_module_config dm_cfgs[ESP32_MAX_CORES_NUM];
-    struct jtag_tap *tap;
+	struct target_type *core_target_types[ESP32_MAX_CORES_NUM];
+	struct xtensa_core_ops *mcores_ops[ESP32_MAX_CORES_NUM];
+	void *cores_privs[ESP32_MAX_CORES_NUM];
+	struct xtensa_config *xtensa_cfgs[ESP32_MAX_CORES_NUM];
+	struct xtensa_debug_module_config dm_cfgs[ESP32_MAX_CORES_NUM];
+	struct jtag_tap *tap;
 
-    struct esp32_common *esp32 = calloc(1, sizeof(struct esp32_common));
-    if (esp32 == NULL) {
-        LOG_ERROR("Failed to alloc memory for arch info!");
-        return ERROR_FAIL;
-    }
+	struct esp32_common *esp32 = calloc(1, sizeof(struct esp32_common));
+	if (esp32 == NULL) {
+		LOG_ERROR("Failed to alloc memory for arch info!");
+		return ERROR_FAIL;
+	}
 
-    // determine number of configured esp32 cores basing on the number of configured TAPs for this chip
-    // TODO: implement esp32 SMP target, in this case number of cores will be equal to the
-    //       number of sub-targets in SMP chain (linked list)
-    uint32_t configured_cores_num = 0;
-    tap = NULL;
-    do {
-        tap = jtag_tap_next_enabled(tap);
-        if (tap) {
-            if (strcmp(tap->chip, target->type->name) == 0 && configured_cores_num < ESP32_MAX_CORES_NUM) {
-                // all ESP32 cores are instances of ESP Xtensa
-                mcores_ops[configured_cores_num] = &esp32_xtensa_mcores_ops;
-                // any ESP32 core can work with flash breakpoints
-                cores_privs[configured_cores_num] = &esp32_xtensa_spec_brp_ops;
-                // all ESP32 cores have the same Xtensa core config
-                xtensa_cfgs[configured_cores_num] = (void *)&esp32_xtensa_cfg;
-                core_target_types[configured_cores_num] = &esp32_xtensa_core_target_type;
-                // all ESP32 cores have the same Xtensa debug interface, but use different TAPs
-                dm_cfgs[configured_cores_num].dbg_ops = &esp32_dbg_ops;
-                dm_cfgs[configured_cores_num].pwr_ops = &esp32_pwr_ops;
-                dm_cfgs[configured_cores_num].tap = tap;
-                dm_cfgs[configured_cores_num].queue_tdi_idle = NULL;
-                dm_cfgs[configured_cores_num].queue_tdi_idle_arg = NULL;
-                configured_cores_num++;
-            }
-        }
-    } while(tap != NULL);
-    if (configured_cores_num < 1 || configured_cores_num > ESP32_MAX_CORES_NUM) {
-        LOG_ERROR("Invalid number of configured cores: %d!", configured_cores_num);
-        free(esp32);
-        return ERROR_FAIL;
-    }
+	/* determine number of configured esp32 cores basing on the number of configured TAPs for
+	 * this chip */
+	/* TODO: implement esp32 SMP target, in this case number of cores will be equal to the
+	 *       number of sub-targets in SMP chain (linked list) */
+	uint32_t configured_cores_num = 0;
+	tap = NULL;
+	do {
+		tap = jtag_tap_next_enabled(tap);
+		if (tap) {
+			if (strcmp(tap->chip,
+					target->type->name) == 0 &&
+				configured_cores_num < ESP32_MAX_CORES_NUM) {
+				/* all ESP32 cores are instances of ESP Xtensa */
+				mcores_ops[configured_cores_num] = &esp32_xtensa_mcores_ops;
+				/* any ESP32 core can work with flash breakpoints */
+				cores_privs[configured_cores_num] = &esp32_xtensa_spec_brp_ops;
+				/* all ESP32 cores have the same Xtensa core config */
+				xtensa_cfgs[configured_cores_num] = (void *)&esp32_xtensa_cfg;
+				core_target_types[configured_cores_num] =
+					&esp32_xtensa_core_target_type;
+				/* all ESP32 cores have the same Xtensa debug interface, but use
+				 * different TAPs */
+				dm_cfgs[configured_cores_num].dbg_ops = &esp32_dbg_ops;
+				dm_cfgs[configured_cores_num].pwr_ops = &esp32_pwr_ops;
+				dm_cfgs[configured_cores_num].tap = tap;
+				dm_cfgs[configured_cores_num].queue_tdi_idle = NULL;
+				dm_cfgs[configured_cores_num].queue_tdi_idle_arg = NULL;
+				configured_cores_num++;
+			}
+		}
+	} while (tap != NULL);
+	if (configured_cores_num < 1 || configured_cores_num > ESP32_MAX_CORES_NUM) {
+		LOG_ERROR("Invalid number of configured cores: %d!", configured_cores_num);
+		free(esp32);
+		return ERROR_FAIL;
+	}
 
-    int ret = xtensa_mcore_init_arch_info(target, &esp32->xtensa_mcore, configured_cores_num, &esp32_chip_ops,
-                                        core_target_types, mcores_ops, xtensa_cfgs, dm_cfgs, cores_privs);
-    if (ret != ERROR_OK) {
-        LOG_ERROR("Failed to init arch info!");
-        free(esp32);
-        return ret;
-    }
-    //Assume running target. If different, the first poll will fix this.
-    target->state = TARGET_RUNNING;
-    target->debug_reason = DBG_REASON_NOTHALTED;
-    return ERROR_OK;
+	int ret = xtensa_mcore_init_arch_info(target,
+		&esp32->xtensa_mcore,
+		configured_cores_num,
+		&esp32_chip_ops,
+		core_target_types,
+		mcores_ops,
+		xtensa_cfgs,
+		dm_cfgs,
+		cores_privs);
+	if (ret != ERROR_OK) {
+		LOG_ERROR("Failed to init arch info!");
+		free(esp32);
+		return ret;
+	}
+	/*Assume running target. If different, the first poll will fix this. */
+	target->state = TARGET_RUNNING;
+	target->debug_reason = DBG_REASON_NOTHALTED;
+	return ERROR_OK;
 }
 
 COMMAND_HANDLER(esp32_cmd_flashbootstrap)
 {
-    struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(get_current_target(CMD_CTX));
+	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(get_current_target(
+			CMD_CTX));
 
-    if (CMD_ARGC < 1) {
-        return CALL_COMMAND_HANDLER(esp_xtensa_cmd_flashbootstrap_do, target_to_esp_xtensa(&xtensa_mcore->cores_targets[0]));
-    }
-    for (int i = 0; i < xtensa_mcore->configured_cores_num; i++) {
-        int ret = CALL_COMMAND_HANDLER(esp_xtensa_cmd_flashbootstrap_do, target_to_esp_xtensa(&xtensa_mcore->cores_targets[i]));
-        if (ret != ERROR_OK) {
-            return ret;
-        }
-    }
+	if (CMD_ARGC < 1)
+		return CALL_COMMAND_HANDLER(esp_xtensa_cmd_flashbootstrap_do,
+			target_to_esp_xtensa(&xtensa_mcore->cores_targets[0]));
+	for (int i = 0; i < xtensa_mcore->configured_cores_num; i++) {
+		int ret = CALL_COMMAND_HANDLER(esp_xtensa_cmd_flashbootstrap_do,
+			target_to_esp_xtensa(&xtensa_mcore->cores_targets[i]));
+		if (ret != ERROR_OK)
+			return ret;
+	}
 
-    return ERROR_OK;
+	return ERROR_OK;
 }
 
 COMMAND_HANDLER(esp32_cmd_semihost_basedir)
 {
-    struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(get_current_target(CMD_CTX));
+	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(get_current_target(
+			CMD_CTX));
 
-    if (CMD_ARGC != 1) {
-        // print only once, both cores have the same settings
-        return CALL_COMMAND_HANDLER(esp_xtensa_cmd_semihost_basedir_do, target_to_esp_xtensa(&xtensa_mcore->cores_targets[0]));
-    }
+	if (CMD_ARGC != 1) {
+		/* print only once, both cores have the same settings */
+		return CALL_COMMAND_HANDLER(esp_xtensa_cmd_semihost_basedir_do,
+			target_to_esp_xtensa(&xtensa_mcore->cores_targets[0]));
+	}
 
-    for (int i = 0; i < xtensa_mcore->configured_cores_num; i++) {
-        int ret = CALL_COMMAND_HANDLER(esp_xtensa_cmd_semihost_basedir_do, target_to_esp_xtensa(&xtensa_mcore->cores_targets[i]));
-        if (ret != ERROR_OK) {
-            return ret;
-        }
-    }
+	for (int i = 0; i < xtensa_mcore->configured_cores_num; i++) {
+		int ret = CALL_COMMAND_HANDLER(esp_xtensa_cmd_semihost_basedir_do,
+			target_to_esp_xtensa(&xtensa_mcore->cores_targets[i]));
+		if (ret != ERROR_OK)
+			return ret;
+	}
 
-    return ERROR_OK;
+	return ERROR_OK;
 }
 
 static const struct command_registration esp32_any_command_handlers[] = {
-    {
-        .name = "flashbootstrap",
-        .handler = esp32_cmd_flashbootstrap,
-        .mode = COMMAND_ANY,
-        .help = "Set the idle state of the TMS pin, which at reset also is the voltage selector for the flash chip.",
-        .usage = "none|1.8|3.3|high|low",
-    },
-    {
-        .name = "semihost_basedir",
-        .handler = esp32_cmd_semihost_basedir,
-        .mode = COMMAND_ANY,
-        .help = "Set the base directory for semohosting I/O.",
-        .usage = "dir",
-    },
-    COMMAND_REGISTRATION_DONE
+	{
+		.name = "flashbootstrap",
+		.handler = esp32_cmd_flashbootstrap,
+		.mode = COMMAND_ANY,
+		.help =
+			"Set the idle state of the TMS pin, which at reset also is the voltage selector for the flash chip.",
+		.usage = "none|1.8|3.3|high|low",
+	},
+	{
+		.name = "semihost_basedir",
+		.handler = esp32_cmd_semihost_basedir,
+		.mode = COMMAND_ANY,
+		.help = "Set the base directory for semohosting I/O.",
+		.usage = "dir",
+	},
+	COMMAND_REGISTRATION_DONE
 };
 
 extern const struct command_registration esp108_common_command_handlers[];
 
 static const struct command_registration esp32_command_handlers[] = {
-    {
-        .name = "esp32",
-        .mode = COMMAND_ANY,
-        .help = "ESP32 command group",
-        .usage = "",
-        .chain = esp32_any_command_handlers,
-    },
-    {
-        .name = "esp32",
-        .mode = COMMAND_ANY,
-        .help = "ESP32 multi-core commands group",
-        .usage = "",
-        .chain = xtensa_mcore_command_handlers,
-    },
-    {
-        .name = "esp32",
-        .mode = COMMAND_ANY,
-        .help = "ESP32 apptrace commands group",
-        .usage = "",
-        .chain = esp32_apptrace_command_handlers,
-    },
-    COMMAND_REGISTRATION_DONE
+	{
+		.name = "esp32",
+		.mode = COMMAND_ANY,
+		.help = "ESP32 command group",
+		.usage = "",
+		.chain = esp32_any_command_handlers,
+	},
+	{
+		.name = "esp32",
+		.mode = COMMAND_ANY,
+		.help = "ESP32 multi-core commands group",
+		.usage = "",
+		.chain = xtensa_mcore_command_handlers,
+	},
+	{
+		.name = "esp32",
+		.mode = COMMAND_ANY,
+		.help = "ESP32 apptrace commands group",
+		.usage = "",
+		.chain = esp32_apptrace_command_handlers,
+	},
+	COMMAND_REGISTRATION_DONE
 };
 
 /** Holds methods for Xtensa targets. */
 struct target_type esp32_target = {
-    .name = "esp32",
+	.name = "esp32",
 
-    .poll = xtensa_mcore_poll,
-    .arch_state = esp32_arch_state,
+	.poll = xtensa_mcore_poll,
+	.arch_state = esp32_arch_state,
 
-    .halt = xtensa_mcore_halt,
-    .resume = xtensa_mcore_resume,
-    .step = xtensa_mcore_step,
+	.halt = xtensa_mcore_halt,
+	.resume = xtensa_mcore_resume,
+	.step = xtensa_mcore_step,
 
-    .assert_reset = esp32_assert_reset,
-    .deassert_reset = xtensa_mcore_deassert_reset,
+	.assert_reset = esp32_assert_reset,
+	.deassert_reset = xtensa_mcore_deassert_reset,
 
-    .mmu = xtensa_mcore_mmu,
-    .read_memory = xtensa_mcore_read_memory,
-    .write_memory = xtensa_mcore_write_memory,
+	.mmu = xtensa_mcore_mmu,
+	.read_memory = xtensa_mcore_read_memory,
+	.write_memory = xtensa_mcore_write_memory,
 
-    .read_buffer = xtensa_mcore_read_buffer,
-    .write_buffer = xtensa_mcore_write_buffer,
+	.read_buffer = xtensa_mcore_read_buffer,
+	.write_buffer = xtensa_mcore_write_buffer,
 
-    .checksum_memory = xtensa_mcore_checksum_memory,
+	.checksum_memory = xtensa_mcore_checksum_memory,
 
-    .get_gdb_reg_list = xtensa_mcore_get_gdb_reg_list,
+	.get_gdb_reg_list = xtensa_mcore_get_gdb_reg_list,
 
-    .run_algorithm = xtensa_mcore_run_algorithm,
-    .start_algorithm = xtensa_mcore_start_algorithm,
-    .wait_algorithm = xtensa_mcore_wait_algorithm,
+	.run_algorithm = xtensa_mcore_run_algorithm,
+	.start_algorithm = xtensa_mcore_start_algorithm,
+	.wait_algorithm = xtensa_mcore_wait_algorithm,
 
-    .add_breakpoint = xtensa_mcore_breakpoint_add,
-    .remove_breakpoint = xtensa_mcore_breakpoint_remove,
+	.add_breakpoint = xtensa_mcore_breakpoint_add,
+	.remove_breakpoint = xtensa_mcore_breakpoint_remove,
 
-    .add_watchpoint = xtensa_mcore_watchpoint_add,
-    .remove_watchpoint = xtensa_mcore_watchpoint_remove,
+	.add_watchpoint = xtensa_mcore_watchpoint_add,
+	.remove_watchpoint = xtensa_mcore_watchpoint_remove,
 
-    .target_create = esp32_target_create,
-    .init_target = esp32_target_init,
-    .examine = xtensa_mcore_examine,
+	.target_create = esp32_target_create,
+	.init_target = esp32_target_init,
+	.examine = xtensa_mcore_examine,
 
-    .commands = esp32_command_handlers,
+	.commands = esp32_command_handlers,
 
-    .get_cores_count = esp32_get_enabled_cores_count,
-    .get_active_core = xtensa_mcore_get_active_core,
-    .set_active_core = xtensa_mcore_set_active_core,
+	.get_cores_count = esp32_get_enabled_cores_count,
+	.get_active_core = xtensa_mcore_get_active_core,
+	.set_active_core = xtensa_mcore_set_active_core,
 };

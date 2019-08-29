@@ -20,9 +20,9 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-//Xtensa register list taken from gdb/gdb/xtensa-config.c
-//gdb wants the registers in the order gdb/regformats/reg-xtensa.dat describes
-//them. The enum and xtensa_regs structs should be in the same order.
+/*Xtensa register list taken from gdb/gdb/xtensa-config.c
+ *gdb wants the registers in the order gdb/regformats/reg-xtensa.dat describes
+ *them. The enum and xtensa_regs structs should be in the same order. */
 
 enum xtensa_reg_id {
 	XT_REG_IDX_PC = 0,
@@ -215,24 +215,28 @@ enum xtensa_reg_id {
 typedef uint32_t xtensa_reg_val_t;
 
 enum xtensa_reg_type_t {
-	XT_REG_GENERAL = 0,		// General-purpose register; part of the windowed register set
-	XT_REG_USER = 1,		// User register, needs RUR to read
-	XT_REG_SPECIAL = 2,		// Special register, needs RSR to read
-	XT_REG_DEBUG = 3,		// Register used for the debug interface. Don't mess with this.
-	XT_REG_RELGEN = 4,		// Relative general address. Points to the absolute addresses plus the window index
-	XT_REG_FR = 5,			// Floating-point register
+	XT_REG_GENERAL = 0,		/* General-purpose register; part of the windowed register
+					 * set */
+	XT_REG_USER = 1,		/* User register, needs RUR to read */
+	XT_REG_SPECIAL = 2,		/* Special register, needs RSR to read */
+	XT_REG_DEBUG = 3,		/* Register used for the debug interface. Don't mess with
+					 * this. */
+	XT_REG_RELGEN = 4,		/* Relative general address. Points to the absolute
+					 * addresses plus the window index */
+	XT_REG_FR = 5,			/* Floating-point register */
 };
 
 enum xtensa_reg_flags_t {
-	XT_REGF_NOREAD = 0x01,	// Register is write-only
-	XT_REGF_COPROC0 = 0x02	// Can't be read if coproc0 isn't enabled
+	XT_REGF_NOREAD = 0x01,	/* Register is write-only */
+	XT_REGF_COPROC0 = 0x02	/* Can't be read if coproc0 isn't enabled */
 };
 
 struct xtensa_reg_desc {
-	const char *			name;
-	int 					reg_num; /* ISA register num (meaning depends on register type) */
-	enum xtensa_reg_type_t 	type;
-	enum xtensa_reg_flags_t	flags;
+	const char *name;
+	int reg_num;					/* ISA register num (meaning depends on
+							 * register type) */
+	enum xtensa_reg_type_t type;
+	enum xtensa_reg_flags_t flags;
 };
 
 extern const struct xtensa_reg_desc xtensa_regs[XT_NUM_REGS];

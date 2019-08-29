@@ -118,63 +118,63 @@
 #include <target/xtensa.h>
 
 /** Index of the first user-defined algo arg. @see xtensa_stub */
-#define XTENSA_STUB_ARGS_FUNC_START  		6
+#define XTENSA_STUB_ARGS_FUNC_START             6
 /** Max number of all algo args. @see xtensa_stub */
-#define XTENSA_STUB_ARGS_MAX         		(XTENSA_STUB_ARGS_FUNC_START+5)
+#define XTENSA_STUB_ARGS_MAX                    (XTENSA_STUB_ARGS_FUNC_START+5)
 
 /**
  * Xtensa algorithm data.
  */
 struct xtensa_algorithm {
-    enum xtensa_mode            core_mode;
-    xtensa_reg_val_t            context[XT_NUM_REGS];
-    enum target_debug_reason    ctx_debug_reason;
+	enum xtensa_mode core_mode;
+	xtensa_reg_val_t context[XT_NUM_REGS];
+	enum target_debug_reason ctx_debug_reason;
 };
 
 /**
  * Xtensa stub data.
  */
 struct xtensa_stub {
-    /** Entry addr. */
-    target_addr_t           entry;
-    /** Working area for code segment. */
-    struct working_area *   code;
-    /** Working area for data segment. */
-    struct working_area *   data;
-    /** Working area for tramploline. */
-    struct working_area *   tramp;
-    /** Address of the target buffer for stub trampoline. */
-    target_addr_t           tramp_addr;
-    /** Working area for stack. */
-    struct working_area *   stack;
-    /** Address of the target buffer for stack. */
-    target_addr_t           stack_addr;
-    /** Algorithm's arch-specific info. */
-    struct xtensa_algorithm ainfo;
-    /** Stub register params. User args start from XTENSA_STUB_ARGS_FUNC_START */
-    struct reg_param        reg_params[XTENSA_STUB_ARGS_MAX];
-    /** Number of register params. */
-    uint32_t                reg_params_count;
+	/** Entry addr. */
+	target_addr_t entry;
+	/** Working area for code segment. */
+	struct working_area *code;
+	/** Working area for data segment. */
+	struct working_area *data;
+	/** Working area for tramploline. */
+	struct working_area *tramp;
+	/** Address of the target buffer for stub trampoline. */
+	target_addr_t tramp_addr;
+	/** Working area for stack. */
+	struct working_area *stack;
+	/** Address of the target buffer for stack. */
+	target_addr_t stack_addr;
+	/** Algorithm's arch-specific info. */
+	struct xtensa_algorithm ainfo;
+	/** Stub register params. User args start from XTENSA_STUB_ARGS_FUNC_START */
+	struct reg_param reg_params[XTENSA_STUB_ARGS_MAX];
+	/** Number of register params. */
+	uint32_t reg_params_count;
 };
 
 /**
  * Xtensa stub arguments.
  */
 struct xtensa_algo_mem_args {
-    /** Memory params. */
-    struct mem_param *  params;
-    /** Number of memory params. */
-    uint32_t            count;
+	/** Memory params. */
+	struct mem_param *params;
+	/** Number of memory params. */
+	uint32_t count;
 };
 
 /**
  * Xtensa algorithm image data.
  */
 struct xtensa_algo_image {
-    /** Stub image. */
-    struct image   image;
-    /** Stub BSS section size. */
-    uint32_t       bss_size;
+	/** Stub image. */
+	struct image image;
+	/** Stub BSS section size. */
+	uint32_t bss_size;
 };
 
 struct xtensa_algo_run_data;
@@ -188,7 +188,8 @@ struct xtensa_algo_run_data;
  *
  * @return ERROR_OK on success, otherwise ERROR_XXX.
  */
-typedef int (*xtensa_algo_func_t)(struct target *target, struct xtensa_algo_run_data *run, void *arg);
+typedef int (*xtensa_algo_func_t)(struct target *target, struct xtensa_algo_run_data *run,
+	void *arg);
 
 /**
  * @brief Host part of algorithm.
@@ -214,7 +215,8 @@ typedef int (*xtensa_algo_usr_func_t)(struct target *target, void *usr_arg);
  *
  * @return ERROR_OK on success, otherwise ERROR_XXX.
  */
-typedef int (*xtensa_algo_usr_func_init_t)(struct target *target, struct xtensa_algo_run_data *run, void *usr_arg);
+typedef int (*xtensa_algo_usr_func_init_t)(struct target *target, struct xtensa_algo_run_data *run,
+	void *usr_arg);
 
 /**
  * @brief Algorithm's arguments cleanup function.
@@ -227,50 +229,53 @@ typedef int (*xtensa_algo_usr_func_init_t)(struct target *target, struct xtensa_
  *
  * @return ERROR_OK on success, otherwise ERROR_XXX.
  */
-typedef void (*xtensa_algo_usr_func_done_t)(struct target *target, struct xtensa_algo_run_data *run, void *usr_arg);
+typedef void (*xtensa_algo_usr_func_done_t)(struct target *target, struct xtensa_algo_run_data *run,
+	void *usr_arg);
 
 /**
  * Xtensa algorithm run data.
  */
 struct xtensa_algo_run_data {
-    /** Algoritm completion timeout in ms. If 0, default value will be used */
-    uint32_t                    tmo;
-    /** Stub stack size. */
-    uint32_t                    stack_size;
-    struct {
-        /** Size of the pre-alocated on-board buffer for stub's code. */
-        uint32_t                    code_buf_size;
-        /** Address of pre-compiled target buffer for stub trampoline. The size of buffer the is ESP_DBG_STUBS_CODE_BUF_SIZE. */
-        target_addr_t               code_buf_addr;
-        /** Size of the pre-alocated on-board buffer for stub's stack. */
-        uint32_t                    min_stack_size;
-        /** Pre-compiled target buffer's addr for stack. */
-        target_addr_t               min_stack_addr;
-        /** Address of malloc-like function to allocate buffer on target. */
-        target_addr_t               alloc_func;
-        /** Address of free-like function to free buffer allocated with on_board_alloc_func. */
-        target_addr_t               free_func;
-    } on_board;
-    /** Stub stack size. */
-    struct xtensa_algo_mem_args mem_args;
-    /** Host side algorithm function argument. */
-    void *                      usr_func_arg;
-    /** Host side algorithm function. */
-    xtensa_algo_usr_func_t      usr_func;
-    /** Host side algorithm function setup routine. */
-    xtensa_algo_usr_func_init_t usr_func_init;
-    /** Host side algorithm function cleanup routine. */
-    xtensa_algo_usr_func_done_t usr_func_done;
-    /** Stub return code. */
-    int32_t                     ret_code;
-    /** Algorithm run function: esp32_run_algorithm_xxx. */
-    xtensa_algo_func_t          algo_func;
-    // user should init to zero the following fields and should not use them anyhow else.
-    // only for internal uses
-    struct {
-        /** Stub. */
-        struct xtensa_stub      stub;
-    } priv;
+	/** Algoritm completion timeout in ms. If 0, default value will be used */
+	uint32_t tmo;
+	/** Stub stack size. */
+	uint32_t stack_size;
+	struct {
+		/** Size of the pre-alocated on-board buffer for stub's code. */
+		uint32_t code_buf_size;
+		/** Address of pre-compiled target buffer for stub trampoline. The size of buffer
+		 * the is ESP_DBG_STUBS_CODE_BUF_SIZE. */
+		target_addr_t code_buf_addr;
+		/** Size of the pre-alocated on-board buffer for stub's stack. */
+		uint32_t min_stack_size;
+		/** Pre-compiled target buffer's addr for stack. */
+		target_addr_t min_stack_addr;
+		/** Address of malloc-like function to allocate buffer on target. */
+		target_addr_t alloc_func;
+		/** Address of free-like function to free buffer allocated with on_board_alloc_func.
+		 * */
+		target_addr_t free_func;
+	} on_board;
+	/** Stub stack size. */
+	struct xtensa_algo_mem_args mem_args;
+	/** Host side algorithm function argument. */
+	void *usr_func_arg;
+	/** Host side algorithm function. */
+	xtensa_algo_usr_func_t usr_func;
+	/** Host side algorithm function setup routine. */
+	xtensa_algo_usr_func_init_t usr_func_init;
+	/** Host side algorithm function cleanup routine. */
+	xtensa_algo_usr_func_done_t usr_func_done;
+	/** Stub return code. */
+	int32_t ret_code;
+	/** Algorithm run function: esp32_run_algorithm_xxx. */
+	xtensa_algo_func_t algo_func;
+	/* user should init to zero the following fields and should not use them anyhow else.
+	 * only for internal uses */
+	struct {
+		/** Stub. */
+		struct xtensa_stub stub;
+	} priv;
 };
 
 /**
@@ -284,15 +289,23 @@ struct xtensa_algo_run_data {
  *
  * @return ERROR_OK on success, otherwise ERROR_XXX. Stub return code is in run->ret_code.
  */
-int xtensa_run_func_image_va(struct target *target, struct xtensa_algo_run_data *run, struct xtensa_algo_image *image, uint32_t num_args, va_list ap);
+int xtensa_run_func_image_va(struct target *target,
+	struct xtensa_algo_run_data *run,
+	struct xtensa_algo_image *image,
+	uint32_t num_args,
+	va_list ap);
 
-static inline int xtensa_run_func_image(struct target *target, struct xtensa_algo_run_data *run, struct xtensa_algo_image *image, uint32_t num_args, ...)
+static inline int xtensa_run_func_image(struct target *target,
+	struct xtensa_algo_run_data *run,
+	struct xtensa_algo_image *image,
+	uint32_t num_args,
+	...)
 {
-    va_list ap;
-    va_start(ap, num_args);
-    int retval = xtensa_run_func_image_va(target, run, image, num_args, ap);
-    va_end(ap);
-    return retval;
+	va_list ap;
+	va_start(ap, num_args);
+	int retval = xtensa_run_func_image_va(target, run, image, num_args, ap);
+	va_end(ap);
+	return retval;
 }
 
 /**
@@ -306,15 +319,23 @@ static inline int xtensa_run_func_image(struct target *target, struct xtensa_alg
  *
  * @return ERROR_OK on success, otherwise ERROR_XXX. Stub return code is in run->ret_code.
  */
-int xtensa_run_onboard_func_va(struct target *target, struct xtensa_algo_run_data *run, uint32_t func_addr, uint32_t num_args, va_list ap);
+int xtensa_run_onboard_func_va(struct target *target,
+	struct xtensa_algo_run_data *run,
+	uint32_t func_addr,
+	uint32_t num_args,
+	va_list ap);
 
-static inline int xtensa_run_onboard_func(struct target *target, struct xtensa_algo_run_data *run, uint32_t func_addr, uint32_t num_args, ...)
+static inline int xtensa_run_onboard_func(struct target *target,
+	struct xtensa_algo_run_data *run,
+	uint32_t func_addr,
+	uint32_t num_args,
+	...)
 {
-    va_list ap;
-    va_start(ap, num_args);
-    int retval = xtensa_run_onboard_func_va(target, run, func_addr, num_args, ap);
-    va_end(ap);
-    return retval;
+	va_list ap;
+	va_start(ap, num_args);
+	int retval = xtensa_run_onboard_func_va(target, run, func_addr, num_args, ap);
+	va_end(ap);
+	return retval;
 }
 
 /**
@@ -326,7 +347,9 @@ static inline int xtensa_run_onboard_func(struct target *target, struct xtensa_a
  *
  * @return ERROR_OK on success, otherwise ERROR_XXX.
  */
-int xtensa_run_algorithm_image(struct target *target, struct xtensa_algo_run_data *run, struct xtensa_algo_image *image);
+int xtensa_run_algorithm_image(struct target *target,
+	struct xtensa_algo_run_data *run,
+	struct xtensa_algo_image *image);
 
 /**
  * @brief On-board stub code run function.
@@ -337,6 +360,8 @@ int xtensa_run_algorithm_image(struct target *target, struct xtensa_algo_run_dat
  *
  * @return ERROR_OK on success, otherwise ERROR_XXX.
  */
-int xtensa_run_algorithm_onboard(struct target *target, struct xtensa_algo_run_data *run, uint32_t func_entry);
+int xtensa_run_algorithm_onboard(struct target *target,
+	struct xtensa_algo_run_data *run,
+	uint32_t func_entry);
 
-#endif /* XTENSA_ESP32_H */
+#endif	/* XTENSA_ESP32_H */

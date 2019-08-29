@@ -26,4 +26,4 @@
 
 extern const struct command_registration esp32_apptrace_command_handlers[];
 
-#endif // ESP32_APPTRACE_H
+#endif	/* ESP32_APPTRACE_H */

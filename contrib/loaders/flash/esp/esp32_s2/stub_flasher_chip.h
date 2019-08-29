@@ -28,7 +28,7 @@
 #define STUB_FLASH_STATUS_MASK  0xFFFF
 
 struct stub_flash_state {
-    uint32_t cache_flags[2];
+	uint32_t cache_flags[2];
 };
 
-#endif //ESP32_S2_FLASHER_STUB_H
+#endif	/*ESP32_S2_FLASHER_STUB_H */

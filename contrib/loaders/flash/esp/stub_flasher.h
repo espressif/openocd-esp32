@@ -37,17 +37,17 @@
 #define ESP_XTENSA_STUB_CMD_FLASH_MAX_ID        ESP_XTENSA_STUB_CMD_FLASH_TEST
 #define ESP_XTENSA_STUB_CMD_TEST                (ESP_XTENSA_STUB_CMD_FLASH_MAX_ID+2)
 
-#define ESP_XTENSA_STUB_FLASH_MAPPINGS_MAX_NUM  2 // IROM, DROM
+#define ESP_XTENSA_STUB_FLASH_MAPPINGS_MAX_NUM  2	/* IROM, DROM */
 
 struct esp_xtensa_flash_region_mapping {
-    uint32_t phy_addr;
-    uint32_t load_addr;
-    uint32_t size;
+	uint32_t phy_addr;
+	uint32_t load_addr;
+	uint32_t size;
 };
 
 struct esp_xtensa_flash_mapping {
-    uint32_t maps_num;
-    struct esp_xtensa_flash_region_mapping maps[ESP_XTENSA_STUB_FLASH_MAPPINGS_MAX_NUM];
+	uint32_t maps_num;
+	struct esp_xtensa_flash_region_mapping maps[ESP_XTENSA_STUB_FLASH_MAPPINGS_MAX_NUM];
 };
 
-#endif //ESP_XTENSA_FLASHER_STUB_H
+#endif	/*ESP_XTENSA_FLASHER_STUB_H */
