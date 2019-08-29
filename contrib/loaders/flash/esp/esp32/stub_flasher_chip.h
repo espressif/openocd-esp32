@@ -36,9 +36,9 @@
 #define ESP32_STUB_FLASH_STATE_REGS_NUM           4
 
 struct stub_flash_state {
-    uint32_t cache_flags[2];
-    bool other_cache_enabled;
-    uint32_t spi_regs[ESP32_STUB_FLASH_STATE_REGS_NUM];
+	uint32_t cache_flags[2];
+	bool other_cache_enabled;
+	uint32_t spi_regs[ESP32_STUB_FLASH_STATE_REGS_NUM];
 };
 
-#endif //ESP32_FLASHER_STUB_H
+#endif	/*ESP32_FLASHER_STUB_H */

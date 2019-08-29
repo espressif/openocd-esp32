@@ -30,18 +30,17 @@
 #define ESP32_IROM_LOW             0x400D0000
 #define ESP32_IROM_HIGH            0x40400000
 
-//Number of registers returned directly by the G command
-//Corresponds to the amount of regs listed in regformats/reg-xtensa.dat in the gdb source
+/*Number of registers returned directly by the G command
+ *Corresponds to the amount of regs listed in regformats/reg-xtensa.dat in the gdb source */
 #define ESP32_NUM_REGS_G_COMMAND   105
 
 struct esp32_common {
-    struct xtensa_mcore_common          xtensa_mcore;
+	struct xtensa_mcore_common xtensa_mcore;
 };
 
-static inline struct esp32_common *
-target_to_esp32(struct target *target)
+static inline struct esp32_common *target_to_esp32(struct target *target)
 {
-    return container_of(target->arch_info, struct esp32_common, xtensa_mcore);
+	return container_of(target->arch_info, struct esp32_common, xtensa_mcore);
 }
 
-#endif /* XTENSA_ESP32_H */
+#endif	/* XTENSA_ESP32_H */

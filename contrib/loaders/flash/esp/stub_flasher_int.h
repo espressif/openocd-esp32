@@ -32,17 +32,17 @@
 
 #define STUB_LOG_LOCAL_LEVEL  STUB_LOG_NONE
 
-#define STUB_LOG( level, format, ... )   \
-    do { \
-        if (STUB_LOG_LOCAL_LEVEL >= level) { \
-            ets_printf(format, ##__VA_ARGS__); \
-        } \
-    } while(0)
+#define STUB_LOG(level, format, ...)   \
+	do { \
+		if (STUB_LOG_LOCAL_LEVEL >= level) { \
+			ets_printf(format, ## __VA_ARGS__); \
+		} \
+	} while (0)
 
-#define STUB_LOGE( format, ... )  STUB_LOG(STUB_LOG_ERROR, "STUB_E: " format, ##__VA_ARGS__)
-#define STUB_LOGW( format, ... )  STUB_LOG(STUB_LOG_WARN, "STUB_W: "format, ##__VA_ARGS__)
-#define STUB_LOGI( format, ... )  STUB_LOG(STUB_LOG_INFO, "STUB_I: "format, ##__VA_ARGS__)
-#define STUB_LOGD( format, ... )  STUB_LOG(STUB_LOG_DEBUG, "STUB_D: "format, ##__VA_ARGS__)
-#define STUB_LOGV( format, ... )  STUB_LOG(STUB_LOG_VERBOSE, "STUB_V: "format, ##__VA_ARGS__)
+#define STUB_LOGE(format, ...)  STUB_LOG(STUB_LOG_ERROR, "STUB_E: " format, ## __VA_ARGS__)
+#define STUB_LOGW(format, ...)  STUB_LOG(STUB_LOG_WARN, "STUB_W: "format, ## __VA_ARGS__)
+#define STUB_LOGI(format, ...)  STUB_LOG(STUB_LOG_INFO, "STUB_I: "format, ## __VA_ARGS__)
+#define STUB_LOGD(format, ...)  STUB_LOG(STUB_LOG_DEBUG, "STUB_D: "format, ## __VA_ARGS__)
+#define STUB_LOGV(format, ...)  STUB_LOG(STUB_LOG_VERBOSE, "STUB_V: "format, ## __VA_ARGS__)
 
-#endif //ESP_FLASHER_STUB_INT_H
+#endif	/*ESP_FLASHER_STUB_INT_H */
