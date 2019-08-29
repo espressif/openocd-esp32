@@ -1,0 +1,41 @@
+#!/bin/sh
+# Run the beautifier "Uncrustify" on Espressif source files.
+
+./tools/uncrustify1.sh src/target/esp_xtensa_apptrace.c
+./tools/uncrustify1.sh src/target/esp_xtensa.h
+./tools/uncrustify1.sh src/target/xtensa.c
+./tools/uncrustify1.sh src/target/xtensa.h
+./tools/uncrustify1.sh src/target/xtensa_regs.h
+./tools/uncrustify1.sh src/target/esp_xtensa_apptrace.h
+./tools/uncrustify1.sh src/target/xtensa_algorithm.c
+./tools/uncrustify1.sh src/target/xtensa_debug_module.c
+./tools/uncrustify1.sh src/target/xtensa_mcore.c
+./tools/uncrustify1.sh src/target/esp_xtensa.c
+./tools/uncrustify1.sh src/target/xtensa_algorithm.h
+./tools/uncrustify1.sh src/target/xtensa_debug_module.h
+./tools/uncrustify1.sh src/target/xtensa_mcore.h
+./tools/uncrustify1.sh src/target/esp32.c
+./tools/uncrustify1.sh src/target/esp32_s2.c
+./tools/uncrustify1.sh src/target/esp_xtensa_apptrace.h
+./tools/uncrustify1.sh src/target/esp32_apptrace.c
+./tools/uncrustify1.sh src/target/esp_xtensa.c
+./tools/uncrustify1.sh src/target/esp32_apptrace.h
+./tools/uncrustify1.sh src/target/esp32.h
+./tools/uncrustify1.sh src/target/esp32_s2.h
+./tools/uncrustify1.sh src/target/esp_xtensa_apptrace.c
+./tools/uncrustify1.sh src/target/esp_xtensa.h
+./tools/uncrustify1.sh src/flash/nor/esp_xtensa.h
+./tools/uncrustify1.sh src/flash/nor/esp_xtensa.c
+./tools/uncrustify1.sh src/flash/nor/esp32_s2.c
+./tools/uncrustify1.sh src/flash/nor/esp32.c
+./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32/sdkconfig.h
+./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32/stub_flasher_chip.h
+./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32/stub_flasher_image.h
+./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32/stub_flasher_chip.c
+./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32_s2/sdkconfig.h
+./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32_s2/stub_flasher_chip.h
+./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32_s2/stub_flasher_image.h
+./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32_s2/stub_flasher_chip.c
+./tools/uncrustify1.sh contrib/loaders/flash/esp/stub_flasher_int.h
+./tools/uncrustify1.sh contrib/loaders/flash/esp/stub_flasher.c
+./tools/uncrustify1.sh contrib/loaders/flash/esp/stub_flasher.h
