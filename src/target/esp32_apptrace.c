@@ -1440,6 +1440,14 @@ static int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 			}
 			cmd_data->sv_last_core_id = pkt_core_id;
 		}
+		if (pkt_core_id >= ctx->cores_num) {
+			LOG_WARNING("SEGGER: invalid core ID in packet %d, must be less then %d!",
+				pkt_core_id,
+				ctx->cores_num);
+			ctx->tot_len += pkt_len;
+			processed += pkt_len;
+			continue;
+		}
 		res = cmd_data->data_dests[pkt_core_id].write(
 			cmd_data->data_dests[pkt_core_id].priv,
 			data + processed,
