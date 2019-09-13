@@ -35,11 +35,11 @@ class MultiAppImagesTests(DebuggerGenericTestAppTests):
         for f in self.bps:
             self.add_bp(f)
         # break at gpio_set_direction
-        self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_BP, 'gpio_set_direction', ['gpio_set_direction'])
+        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_direction', ['gpio_set_direction'])
         # break at gpio_set_level
-        self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_BP, 'gpio_set_level', ['gpio_set_level0'])
+        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_level', ['gpio_set_level0'])
         # break at vTaskDelay
-        self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay0'])
+        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay0'])
         self.clear_bps()
         # erase current image to allow bootloader to start one from the next app partition after reset
         self.oocd.cmd_exec('flash erase_address 0x%x 4096' % off)

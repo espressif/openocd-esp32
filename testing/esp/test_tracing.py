@@ -90,7 +90,7 @@ class BaseTracingTestsImpl:
                 for i in range(2, 10):
                     self.assertEqual(self.tasks_test_data[curr_task]['print_num'], int(m.group(i), 0))
                 ch = ord('A') + (self.tasks_test_data[curr_task]['print_num']  % (ord('Z') - ord('A')))
-                self.assertEqual(str(unichr(ch)), m.group(11))
+                self.assertEqual(str(chr(ch)), m.group(11))
                 self.tasks_test_data[curr_task]['print_num'] += 1
 
     def _do_test_log_continuous(self, trace_src):
@@ -109,20 +109,20 @@ class BaseTracingTestsImpl:
         self.add_bp('_trace_test_log_continuous_start')
         self.add_bp('_do_trace_test_log_continuous_end')
         self.add_bp('_trace_test_log_continuous_stop')
-        self.run_to_bp(dbg.Gdb.TARGET_STOP_REASON_BP, 'trace_test_log_continuous_main')
+        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'trace_test_log_continuous_main')
         self._start_tracing(trace_src)
         for k in range(self.test_tasks_num):
-            self.run_to_bp(dbg.Gdb.TARGET_STOP_REASON_BP, 'do_trace_test_log_continuous')
+            self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'do_trace_test_log_continuous')
             curr_task = self.gdb.data_eval_expr('curr_task')
             self.tasks_test_data[curr_task] = {'print_num': 0}
             self.gdb.select_frame(1)
             self.tasks_test_data[curr_task]['print_num'] = int(self.gdb.data_eval_expr('num'), 0)
-        self.run_to_bp(dbg.Gdb.TARGET_STOP_REASON_BP, '_trace_test_log_continuous_stop')
+        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, '_trace_test_log_continuous_stop')
         self._stop_tracing()
 
         get_logger().info("Process trace from '%s'..." % trace_src)
         elf_file = self.test_app_cfg.build_app_elf_path()
-        self._create_processor(toolchain=dbg.toolchain, elf_file=elf_file)
+        self._create_processor(elf_file=elf_file)
         try:
             self._process_trace();
         except (apptrace.ReaderTimeoutError) as e:
@@ -150,10 +150,10 @@ class BaseTracingTestsImpl:
         self.add_bp('heap_trace_start')
         self.add_bp('heap_trace_stop')
         self.add_bp('_do_trace_test_heap_log_end')
-        self.run_to_bp(dbg.Gdb.TARGET_STOP_REASON_BP, 'heap_trace_start')
+        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'heap_trace_start')
         self._start_tracing(trace_src)
         for k in range(self.test_tasks_num):
-            self.run_to_bp(dbg.Gdb.TARGET_STOP_REASON_BP, 'do_trace_test_heap_log')
+            self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'do_trace_test_heap_log')
             curr_task = self.gdb.data_eval_expr('curr_task')
             self.tasks_test_data[curr_task] = {'print_num': 0, 'leaks': []}
             self.gdb.select_frame(1)
@@ -163,13 +163,13 @@ class BaseTracingTestsImpl:
             self.gdb.select_frame(0)
             self.tasks_test_data[curr_task]['leaks'].append({'sz': 96, 'callers': [self.gdb.data_eval_expr('malloc1_break_ln'), outmost_tasks_test_data]})
             self.tasks_test_data[curr_task]['leaks'].append({'sz': 10, 'callers': [self.gdb.data_eval_expr('malloc2_break_ln'), outmost_tasks_test_data]})
-        self.run_to_bp(dbg.Gdb.TARGET_STOP_REASON_BP, 'heap_trace_stop')
+        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'heap_trace_stop')
         self.step_out(tmo=20)
         self._stop_tracing()
 
         get_logger().info("Process trace from '%s'..." % trace_src)
         elf_file = self.test_app_cfg.build_app_elf_path()
-        self._create_processor(toolchain=dbg.toolchain, elf_file=elf_file)
+        self._create_processor(elf_file=elf_file)
         try:
             self._process_trace();
         except (apptrace.ReaderTimeoutError) as e:
@@ -195,7 +195,7 @@ class BaseTracingTestsImpl:
                         leak = self.tasks_test_data[t]['leaks'][0]
                         self.assertEqual(len(alloc.callers), len(leak['callers']))
                         for i in range(len(alloc.callers)):
-                            ln = apptrace.addr2line(dbg.toolchain, elf_file, alloc.callers[i])
+                            ln = apptrace.addr2line(self.toolchain, elf_file, alloc.callers[i])
                             ln = ln.split(':')[-1].split('(')[0].strip()
                             if int(ln, 0) != int(leak['callers'][i], 0):
                                 break
@@ -236,18 +236,15 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
         return parsers
 
     def _create_processor(self, **proc_args):
-        toolchain = ''
         elf_file = ''
         keep_all_events = False
-        if 'toolchain' in proc_args:
-            toolchain = proc_args['toolchain']
         if 'elf_file' in proc_args:
             elf_file = proc_args['elf_file']
         if 'keep_all_events' in proc_args:
             keep_all_events = proc_args['keep_all_events']
         self.processor = sysview.SysViewMultiStreamTraceDataProcessor(traces=self._get_parsers(), print_events=False, keep_all_events=keep_all_events)
         self.processor.add_stream_processor(sysview.SysViewTraceDataParser.STREAMID_HEAP,
-                                  sysview.SysViewHeapTraceDataProcessor(toolchain, elf_file, root_proc=self.processor, print_heap_events=False))
+                                  sysview.SysViewHeapTraceDataProcessor(self.toolchain, elf_file, root_proc=self.processor, print_heap_events=False))
         self.processor.add_stream_processor(sysview.SysViewTraceDataParser.STREAMID_LOG,
                                   sysview.SysViewLogTraceDataProcessor(root_proc=self.processor, print_log_events=False))
 
@@ -371,10 +368,10 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
         # Tasks and IRQs info are identical in traces files for both cores, so use info from CPU0
         task_run_data = dict(zip(trace_tasks, [{'handle': 0, 'run_count': 0, 'core': 0} for n in trace_tasks]))
         irq_run_data = dict(zip(trace_irqs, [{'handle': 0, 'run_count': 0, 'core': 0} for n in trace_irqs]))
-        for tid,task_name in self.trace_ctrl[0]['parser'].tasks_info.iteritems():
+        for tid,task_name in self.trace_ctrl[0]['parser'].tasks_info.items():
             if task_name in task_run_data:
                 task_run_data[task_name]['handle'] = tid
-        for irqn,irq_name in self.trace_ctrl[0]['parser'].irqs_info.iteritems():
+        for irqn,irq_name in self.trace_ctrl[0]['parser'].irqs_info.items():
             if irq_name in irq_run_data:
                 irq_run_data[irq_name]['handle'] = irqn
 

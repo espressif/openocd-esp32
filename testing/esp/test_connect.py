@@ -17,11 +17,11 @@ class GDBConnectTestsImpl:
     """
 
     def test_connect_reset_load_symbols(self):
-        """ 
+        """
             Check that we can connect and do "monitor reset" when
             symbol table is not loaded yet.
         """
-        # When the test starts, symbol table is already loaded and 
+        # When the test starts, symbol table is already loaded and
         # gdb is connected. Undo that.
         self.gdb.disconnect()
         self.gdb.exec_file_set('')
@@ -29,7 +29,7 @@ class GDBConnectTestsImpl:
         self.gdb.connect()
         self.gdb.target_reset('halt')
         state, _ = self.gdb.get_target_state()
-        self.assertEqual(state, dbg.Gdb.TARGET_STATE_STOPPED)
+        self.assertEqual(state, dbg.TARGET_STATE_STOPPED)
         self.gdb.exec_file_set(self.test_app_cfg.build_app_elf_path())
         self.resume_exec()
 

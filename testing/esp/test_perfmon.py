@@ -24,7 +24,7 @@ class PerfMonTestsImpl:
         self.resume_exec()
         time.sleep(1)
         self.gdb.exec_interrupt()
-        self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+        self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
         time.sleep(1)
         counts = self.oocd.perfmon_dump()
         for core in range(0, self.CORE_COUNT):

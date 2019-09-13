@@ -22,12 +22,12 @@ class SemihostTestsImpl:
 
     def setUp(self):
         semi_dir = tempfile.gettempdir()
-        self.oocd.semihost_basedir_set(semi_dir)
+        self.oocd.set_semihost_basedir(semi_dir)
         self.fout_names = []
         self.fin_names = []
         for i in range(self.CORES_NUM):
             fname = os.path.join(semi_dir, 'test_read.%d' % i)
-            fout = open(fname, 'w')
+            fout = open(fname, 'wb')
             size = 1
             get_logger().info('Generate random file %dKB', size)
             for k in range(size):
@@ -38,7 +38,7 @@ class SemihostTestsImpl:
             fname = os.path.join(semi_dir, 'test_write.%d' % i)
             get_logger().info('In File %d %s', i, fname)
             self.fin_names.append(fname)
-        get_logger().info('Files0 %s, %s', self.fout_names, self.fin_names)
+        get_logger().info('Files %s, %s', self.fout_names, self.fin_names)
 
     def tearDown(self):
         for fname in self.fout_names:
@@ -54,7 +54,7 @@ class SemihostTestsImpl:
         self.select_sub_test(700)
         self.add_bp('esp_vfs_semihost_unregister')
         self.resume_exec()
-        self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 120)
+        self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 120)
         get_logger().info('Files %s, %s', self.fout_names, self.fin_names)
         for i in range(self.CORES_NUM):
             get_logger().info('Compare files [%s, %s]', self.fout_names[i], self.fin_names[i])

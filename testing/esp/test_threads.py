@@ -66,7 +66,7 @@ class DebuggerThreadsTestsImpl:
 
         for i in range(10):
             self.resume_exec()
-            self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+            self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
             _,threads_info = self.gdb.get_thread_info() # get info for all threads
             s = len(threads_info)
             get_logger().debug('Loop = %d', i)

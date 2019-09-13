@@ -7,3 +7,6 @@
 [submodule "src/jtag/drivers/libjaylink"]
 	path = src/jtag/drivers/libjaylink
 	url = http://repo.or.cz/r/libjaylink.git
+[submodule "testing/esp/py_debug_backend"]
+	path = testing/esp/py_debug_backend
+	url = ../../espressif/py_debug_backend.git
