@@ -21,8 +21,8 @@ class StepTestsImpl():
 
     def do_step_over_bp_check(self, funcs):
         self.resume_exec()
-        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
-        self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_BP)
+        rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
+        self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
         cur_frame = self.gdb.get_current_frame()
         self.assertEqual(cur_frame['func'], funcs[0])
         old_pc = self.gdb.get_reg('pc')
@@ -30,7 +30,7 @@ class StepTestsImpl():
         new_pc = self.gdb.get_reg('pc')
         self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 3))
         old_pc = new_pc
-        self.step(insn=True, stop_rsn=dbg.Gdb.TARGET_STOP_REASON_BP) # step over nop
+        self.step(insn=True, stop_rsn=dbg.TARGET_STOP_REASON_BP) # step over nop
         cur_frame = self.gdb.get_current_frame()
         self.assertEqual(cur_frame['func'], funcs[1])
         new_pc = self.gdb.get_reg('pc')
@@ -63,8 +63,8 @@ class StepTestsImpl():
 
     def do_step_over_wp_check(self, func):
         self.resume_exec()
-        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
-        self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_SIGTRAP)
+        rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
+        self.assertEqual(rsn, dbg.TARGET_STOP_REASON_SIGTRAP)
         cur_frame = self.gdb.get_current_frame()
         self.assertEqual(cur_frame['func'], func)
         old_pc = self.gdb.get_reg('pc')
@@ -100,8 +100,8 @@ class StepTestsImpl():
         self.select_sub_test(200)
         bp = self.gdb.add_bp('window_exception_test')
         self.resume_exec()
-        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
-        self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_BP)
+        rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
+        self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
         self.gdb.delete_bp(bp)
 
         # do "step in", 3 steps per recursion level
@@ -140,8 +140,8 @@ class StepTestsImpl():
         self.add_bp('_scratch_reg_using_task_break')
         for i in range(5):
             self.resume_exec()
-            rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
-            self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_BP)
+            rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
+            self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
             cur_frame = self.gdb.get_current_frame()
             self.assertEqual(cur_frame['func'], 'scratch_reg_using_task')
             self.step(insn=True)
@@ -170,8 +170,8 @@ class StepTestsImpl():
             # catching of bp
             self.resume_exec()
             get_logger().info('bp1 ')
-            rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
-            self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_BP)
+            rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
+            self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
             cur_frame = self.gdb.get_current_frame()
             self.assertEqual(cur_frame['func'], "fibonacci_calc")
 
@@ -201,8 +201,8 @@ class StepTestsImpl():
             # catching of bp
             self.resume_exec()
             get_logger().info('bp2 ')
-            rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
-            self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_BP)
+            rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
+            self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
             cur_frame = self.gdb.get_current_frame()
             self.assertEqual(cur_frame['func'], "fibonacci_calc")
 
@@ -246,8 +246,8 @@ class StepTestsImpl():
 
             # catching the BP
             self.resume_exec()
-            rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
-            self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_BP)
+            rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
+            self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
             cur_frame = self.gdb.get_current_frame()
             self.assertEqual(cur_frame['func'], 'nested_bottom')
 

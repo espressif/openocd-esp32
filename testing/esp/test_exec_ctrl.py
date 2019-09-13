@@ -23,12 +23,12 @@ class DebuggerExecControlTestsImpl:
         self.select_sub_test(0)
         for i in range(3):
             state,rsn = self.gdb.get_target_state()
-            if state == dbg.Gdb.TARGET_STATE_RUNNING:
+            if state == dbg.TARGET_STATE_RUNNING:
                 self.gdb.exec_interrupt()
-                self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+                self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
             else:
                 self.gdb.exec_continue()
-                self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_RUNNING, 5)
+                self.gdb.wait_target_state(dbg.TARGET_STATE_RUNNING, 5)
 
     @unittest.skip('not implemented')
     def test_active_thread_switch(self):

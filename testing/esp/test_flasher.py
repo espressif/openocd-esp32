@@ -29,7 +29,7 @@ class FlasherTestsImpl:
         """
         fhnd,fname1 = tempfile.mkstemp()
         fbin = os.fdopen(fhnd, 'wb')
-        size = (ESP32_FLASH_SZ - (ESP32_APP_FLASH_OFF + ESP32_APP_FLASH_SZ))/1024
+        size = int((ESP32_FLASH_SZ - (ESP32_APP_FLASH_OFF + ESP32_APP_FLASH_SZ))/1024)
         get_logger().debug('Generate random file %dKB "%s"', size, fname1)
         for i in range(size):
             fbin.write(os.urandom(1024))
@@ -56,9 +56,9 @@ class FlasherTestsImpl:
         self.bps = ['app_main', 'gpio_set_direction', 'gpio_set_level']
         for f in self.bps:
             self.add_bp(f)
-        self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_BP, 'gpio_set_direction', ['gpio_set_direction'], outmost_func_name='cache_check_task')
+        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_direction', ['gpio_set_direction'], outmost_func_name='cache_check_task')
         for i in range(5):
-            self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_BP, 'gpio_set_level', ['gpio_set_level'], outmost_func_name='cache_check_task')
+            self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_level', ['gpio_set_level'], outmost_func_name='cache_check_task')
 
 
 ########################################################################

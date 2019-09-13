@@ -39,7 +39,8 @@ class IdfVersion:
     @classmethod
     def get_current(cls):
         if not cls._target_idf_ver:
-            cls._target_idf_ver =  dbg.read_idf_ver()
+            # TODO: read IDF ver from ELF file
+            cls._target_idf_ver = IdfVersion()
         return cls._target_idf_ver
 
     @classmethod
@@ -74,6 +75,11 @@ class IdfVersion:
             res = 1
         return res
 
+    def __lt__(self, other):
+        return self._idf_ver < other._idf_ver
+
+    def __eq__(self, other):
+        return self._idf_ver == other._idf_ver
 
 
 def idf_ver_min(ver_str):
@@ -145,6 +151,8 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
         self.load_app_bins = True
         self.modules = {}
         self._groupped_suites = {}
+        self.gdb = None
+        self.oocd = None
         super(DebuggerTestsBunch, self).__init__(tests)
 
     def addTest(self, test):
@@ -160,6 +168,16 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
             get_logger().debug('Add test module %s', test.__module__)
             self.modules[test.__module__] = importlib.import_module(test.__module__)
             # get_logger().debug('Modules: %s', self.modules)
+
+    def config_tests(self, oocd, gdb, toolchain):
+        self.oocd = oocd
+        self.gdb = gdb
+        for test in self:
+            if not issubclass(type(test), DebuggerTestsBase):
+                continue
+            test.oocd = oocd
+            test.gdb = gdb
+            test.toolchain = toolchain
 
     def run(self, result, debug=False):
         """ Runs tests
@@ -184,7 +202,7 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
                         for test in self._groupped_suites[app_cfg_id][1]:
                             result.addError(test, sys.exc_info())
                         continue
-                dbg.get_gdb().exec_file_set(self._groupped_suites[app_cfg_id][0].build_app_elf_path())
+                self.gdb.exec_file_set(self._groupped_suites[app_cfg_id][0].build_app_elf_path())
             self._groupped_suites[app_cfg_id][1]._run_tests(result, debug)
         return result
 
@@ -220,20 +238,19 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
     def _load_app(self, app_cfg):
         """ Loads application binaries to target.
         """
-        gdb = dbg.get_gdb()
-        state,rsn = gdb.get_target_state()
-        if state != dbg.Gdb.TARGET_STATE_STOPPED:
-            gdb.exec_interrupt()
-            gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+        state,_ = self.gdb.get_target_state()
+        if state != dbg.TARGET_STATE_STOPPED:
+            self.gdb.exec_interrupt()
+            self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
         # write bootloader
-        gdb.target_program(app_cfg.build_bld_bin_path(), app_cfg.bld_off)
+        self.gdb.target_program(app_cfg.build_bld_bin_path(), app_cfg.bld_off)
         # write partition table
-        gdb.target_program(app_cfg.build_pt_bin_path(), app_cfg.pt_off)
+        self.gdb.target_program(app_cfg.build_pt_bin_path(), app_cfg.pt_off)
         # write application
         # Currently we can not use GDB ELF loading facility for ESP32, so write binary image instead
         # _gdb.target_download()
-        gdb.target_program(app_cfg.build_app_bin_path(), app_cfg.app_off)
-        gdb.target_reset()
+        self.gdb.target_program(app_cfg.build_app_bin_path(), app_cfg.app_off)
+        self.gdb.target_reset()
 
 
 class DebuggerTestsBase(unittest.TestCase):
@@ -241,63 +258,64 @@ class DebuggerTestsBase(unittest.TestCase):
     """
     def __init__(self, methodName):
         super(DebuggerTestsBase, self).__init__(methodName)
-        self.gdb = dbg.get_gdb()
-        self.oocd = dbg.get_oocd()
+        self.gdb = None
+        self.oocd = None
+        self.toolchain = ''
 
     def stop_exec(self):
         """ Stops target execution and ensures that it is in STOPPED state
         """
         state,_ = self.gdb.get_target_state()
-        if state != dbg.Gdb.TARGET_STATE_STOPPED:
+        if state != dbg.TARGET_STATE_STOPPED:
             self.gdb.exec_interrupt()
-            rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 10)
-            self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_SIGINT)
+            rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
+            self.assertEqual(rsn, dbg.TARGET_STOP_REASON_SIGINT)
 
     def resume_exec(self, loc=None):
         """ Resumes target execution and ensures that it is in RUNNING state
         """
         state,rsn = self.gdb.get_target_state()
-        if state != dbg.Gdb.TARGET_STATE_RUNNING:
+        if state != dbg.TARGET_STATE_RUNNING:
             if loc:
                 get_logger().debug('Resume from addr 0x%x', pc)
                 self.gdb.exec_jump(loc)
             else:
                 self.gdb.exec_continue()
-            self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_RUNNING, 5)
+            self.gdb.wait_target_state(dbg.TARGET_STATE_RUNNING, 5)
 
     def interrupt(self):
         """ Perform CTRL+C
         """
         self.gdb.exec_interrupt()
-        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 20)
-        self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_SIGINT)
+        rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 20)
+        self.assertEqual(rsn, dbg.TARGET_STOP_REASON_SIGINT)
 
-    def step(self, insn=False, stop_rsn=dbg.Gdb.TARGET_STOP_REASON_STEPPED):
+    def step(self, insn=False, stop_rsn=dbg.TARGET_STOP_REASON_STEPPED):
         """ Performs program step ( "next", "nexti" command in GDB)
         """
         if insn:
             self.gdb.exec_next_insn()
         else:
             self.gdb.exec_next()
-        self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_RUNNING, 5)
-        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+        self.gdb.wait_target_state(dbg.TARGET_STATE_RUNNING, 5)
+        rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
         self.assertEqual(rsn, stop_rsn)
 
     def step_in(self):
         """ Performs program step (step in, "step" command in GDB)
         """
         self.gdb.exec_step()
-        self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_RUNNING, 5)
-        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
-        self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_STEPPED)
+        self.gdb.wait_target_state(dbg.TARGET_STATE_RUNNING, 5)
+        rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
+        self.assertEqual(rsn, dbg.TARGET_STOP_REASON_STEPPED)
 
     def step_out(self, tmo=None):
         """ Runs until current function retunrs (step out, "finish" command in GDB)
         """
         self.gdb.exec_finish()
-        self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_RUNNING, 5)
-        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5 if tmo is None else tmo)
-        self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_FN_FINISHED)
+        self.gdb.wait_target_state(dbg.TARGET_STATE_RUNNING, 5)
+        rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5 if tmo is None else tmo)
+        self.assertEqual(rsn, dbg.TARGET_STOP_REASON_FN_FINISHED)
 
 class DebuggerTestAppTests(DebuggerTestsBase):
     """ Base class for tests which need special app running on target
@@ -323,22 +341,22 @@ class DebuggerTestAppTests(DebuggerTestsBase):
 
     def prepare_app_for_debugging(self, app_flash_off):
         self.gdb.target_reset()
-        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 10)
+        rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
         # update GDB memory map
         self.gdb.disconnect()
         # TODO: chip dependent
-        self.oocd.appimage_offset_set(app_flash_off)
+        self.oocd.set_appimage_offset(app_flash_off)
         self.gdb.connect()
         bp = self.gdb.add_bp('app_main')
         self.resume_exec()
-        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 10)
+        rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
         # workarounds for strange debugger's behaviour
-        if rsn == dbg.Gdb.TARGET_STOP_REASON_SIGINT:
+        if rsn == dbg.TARGET_STOP_REASON_SIGINT:
             get_logger().warning('Unexpected SIGINT during setup! Apply workaround...')
             cur_frame = self.gdb.get_current_frame()
             self.resume_exec()
-            rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 10)
-        self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_BP)
+            rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
+        self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
         frame = self.gdb.get_current_frame()
         self.assertEqual(frame['func'], 'app_main')
         self.gdb.delete_bp(bp)
@@ -368,7 +386,7 @@ class DebuggerTestAppTests(DebuggerTestsBase):
 
     def run_to_bp(self, exp_rsn, func_name):
         self.resume_exec()
-        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 20)
+        rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 20)
         self.assertEqual(rsn, exp_rsn)
         cur_frame = self.gdb.get_current_frame()
         self.assertEqual(cur_frame['func'], func_name)
@@ -384,10 +402,13 @@ class DebuggerTestAppTests(DebuggerTestsBase):
 
     def run_to_bp_and_check(self, exp_rsn, func_name, lineno_var_prefs, outmost_func_name='blink_task'):
         frames = self.run_to_bp_and_check_basic(exp_rsn, func_name)
+        get_logger().debug('IDF ver %s/%s/%s', IdfVersion.get_current() == IdfVersion.fromstr('latest'), IdfVersion.get_current(), IdfVersion.fromstr('latest'))
         if IdfVersion.get_current() == IdfVersion.fromstr('latest'):
+            get_logger().debug('outmost_frame for latest IDF')
             outmost_frame = len(frames) - 2 # -2 because our task function is called by FreeRTOS task wrapper
         else:
             outmost_frame = len(frames) - 1
+        get_logger().debug('outmost_frame = %d', outmost_frame)
         # Sometimes GDB does not provide full backtrace. so check this
         # we can only check line numbers in <outmost_func_name>,
         # because its code is under control of test framework

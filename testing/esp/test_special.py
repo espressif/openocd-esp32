@@ -27,7 +27,7 @@ class DebuggerSpecialTestsImpl:
         """
         self.select_sub_test(800)
         # under OOCD panic handler sets BP on instruction which generated the exception and stops execution there
-        self.run_to_bp_and_check(dbg.Gdb.TARGET_STOP_REASON_SIGTRAP, 'crash_task', ['crash'], outmost_func_name='crash_task')
+        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_SIGTRAP, 'crash_task', ['crash'], outmost_func_name='crash_task')
         self.prepare_app_for_debugging(self.test_app_cfg.app_off)
 
 
