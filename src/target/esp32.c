@@ -235,34 +235,22 @@ static int esp32_assert_reset(struct target *target)
 	return xtensa_mcore_assert_reset(target);
 }
 
-static int esp32_write_uint32_list(struct target *target,
-	const target_addr_t *addrs,
-	const uint32_t *values,
-	size_t count)
-{
-	int res;
-	for (size_t i = 0; i < count; ++i) {
-		res = target_write_u32(target, addrs[i], values[i]);
-		if (res != ERROR_OK) {
-			LOG_ERROR("%s: error writing to "TARGET_ADDR_FMT, __func__, addrs[i]);
-			return res;
-		}
-	}
-	return ERROR_OK;
-}
-
 /* Reset ESP32's peripherals.
-Postconditions: all peripherals except RTC_CNTL are reset, CPU's PC is undefined, PRO CPU is halted, APP CPU is in reset
-How this works:
-0. make sure target is halted; if not, try to halt it; if that fails, try to reset it (via OCD) and then halt
-1. set CPU initial PC to 0x50000000 (RTC_SLOW_MEM) by clearing RTC_CNTL_{PRO,APP}CPU_STAT_VECTOR_SEL
-2. load stub code into RTC_SLOW_MEM; once executed, stub code will disable watchdogs and make CPU spin in an idle loop.
-3. trigger SoC reset using RTC_CNTL_SW_SYS_RST bit
-4. wait for the OCD to be reset
-5. halt the target and wait for it to be halted (at this point CPU is in the idle loop)
-6. restore initial PC and the contents of RTC_SLOW_MEM
-TODO: some state of RTC_CNTL is not reset during SW_SYS_RST. Need to reset that manually.
-*/
+ * 1. OpenOCD makes sure the target is halted; if not, tries to halt it.
+ *    If that fails, tries to reset it (via OCD) and then halt.
+ * 2. OpenOCD loads the stub code into RTC_SLOW_MEM.
+ * 3. Executes the stub code from address 0x50000004.
+ * 4. The stub code changes the reset vector to 0x50000000, and triggers
+ *    a system reset using RTC_CNTL_SW_SYS_RST bit.
+ * 5. Once the PRO CPU is out of reset, it executes the stub code from address 0x50000000.
+ *    The stub code disables the watchdog, re-enables JTAG and the APP CPU,
+ *    restores the reset vector, and enters an infinite loop.
+ * 6. OpenOCD waits until it can talk to the OCD module again, then halts the target.
+ * 7. OpenOCD restores the contents of RTC_SLOW_MEM.
+ *
+ * End result: all the peripherals except RTC_CNTL are reset, CPU's PC is undefined,
+ * PRO CPU is halted, APP CPU is in reset.
+ */
 static int esp32_soc_reset(struct target *active_core_target)
 {
 	int res;
@@ -314,25 +302,37 @@ static int esp32_soc_reset(struct target *active_core_target)
 
 	/* This this the stub code compiled from esp32_cpu_reset_handler.S.
 	   To compile it, run:
-	       xtensa-esp32-elf-as -o stub.o esp32_cpu_reset_handler.S
+	       xtensa-esp32-elf-gcc -c -mtext-section-literals -o stub.o esp32_cpu_reset_handler.S
 	       xtensa-esp32-elf-objcopy -j .text -O binary stub.o stub.bin
 	   These steps are not included into OpenOCD build process so that a
 	   dependency on xtensa-esp32-elf toolchain is not introduced.
 	*/
-	const uint32_t esp32_post_reset_code[] = {
-		0x00000806, 0x50d83aa1, 0x00000000, 0x3ff480a4, 0x3ff4808c, 0x3ff5f064, 0x3ff5f048,
-		0x3ff60064,
-		0x3ff60048, 0x41fff831, 0x0439fff9, 0x39fffa41, 0xfffa4104, 0xf4310439, 0xfff541ff,
-		0xf6410439,
-		0x410439ff, 0x0439fff7, 0x46007000,
+	const uint32_t esp32_reset_stub_code[] = {
+		0x00001e06, 0x00001406, 0x3ff48034, 0x3ff480b0,
+		0x3ff480b4, 0x3ff48070, 0x00002210, 0x9c492000,
+		0x3ff48000, 0x50d83aa1, 0x3ff480a4, 0x3ff5f064,
+		0x3ff60064, 0x3ff4808c, 0x3ff5f048, 0x3ff60048,
+		0x3ff5a1fc, 0x3ff00038, 0x3ff00030, 0x3ff0002c,
+		0x3ff48034, 0x00003000, 0x41305550, 0x0459ffeb,
+		0x59ffeb41, 0xffea4104, 0xea410459, 0xffea31ff,
+		0xea310439, 0xffea41ff, 0x00000439, 0x6003eb60,
+		0x66560461, 0x30555004, 0x41ffe731, 0x0439ffe7,
+		0x39ffe741, 0xffe64104, 0xe6410439, 0x410459ff,
+		0x0459ffe6, 0x59ffe641, 0xffe54104, 0xe5410459,
+		0x410459ff, 0x130cffe5, 0xe4410439, 0x39130cff,
+		0x41045904, 0xe331ffe3, 0x006432ff, 0x46007000,
+		0x0000fffe,
 	};
 
-	uint32_t slow_mem_save[sizeof(esp32_post_reset_code) / sizeof(uint32_t)];
+	LOG_DEBUG("loading stub code into RTC RAM");
+	uint32_t slow_mem_save[sizeof(esp32_reset_stub_code) / sizeof(uint32_t)];
 
 	const int RTC_SLOW_MEM_BASE = 0x50000000;
 	/* Save contents of RTC_SLOW_MEM which we are about to overwrite */
 	res =
-		target_read_buffer(active_core_target, RTC_SLOW_MEM_BASE, sizeof(slow_mem_save),
+		target_read_buffer(active_core_target,
+		RTC_SLOW_MEM_BASE,
+		sizeof(slow_mem_save),
 		(uint8_t *)slow_mem_save);
 	if (res != ERROR_OK) {
 		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
@@ -341,66 +341,30 @@ static int esp32_soc_reset(struct target *active_core_target)
 
 	/* Write stub code into RTC_SLOW_MEM */
 	res =
-		target_write_buffer(active_core_target,
-		RTC_SLOW_MEM_BASE,
-		sizeof(esp32_post_reset_code),
-		(const uint8_t *)esp32_post_reset_code);
+		target_write_buffer(active_core_target, RTC_SLOW_MEM_BASE,
+		sizeof(esp32_reset_stub_code),
+		(const uint8_t *)esp32_reset_stub_code);
 	if (res != ERROR_OK) {
 		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
 		return res;
 	}
-	/* TODO: add addreses to chip config */
-	const int RTC_CNTL_RESET_STATE_REG = 0x3ff48034;
-	const int RTC_CNTL_RESET_STATE_DEF = 0x3000;
-	const int RTC_CNTL_CLK_CONF_REG = 0x3ff48070;
-	const int RTC_CNTL_CLK_CONF_DEF = 0x2210;
-	const int RTC_CNTL_STORE4_REG = 0x3ff480b0;
-	const int RTC_CNTL_STORE5_REG = 0x3ff480b4;
-	const int RTC_CNTL_OPTIONS0_REG = 0x3ff48000;
-	const int RTC_CNTL_OPTIONS0_DEF = 0x1c492000;
-	const int RTC_CNTL_SW_SYS_RST = 0x80000000;
-	const int DPORT_APPCPU_CTRL_A_REG = 0x3ff0002c;
-	const int DPORT_APPCPU_CTRL_B_REG = 0x3ff00030;
-	const int DPORT_APPCPU_CLKGATE_EN = 0x1;
-	const int DPORT_APPCPU_CTRL_D_REG = 0x3ff00038;
 
-	/* Set a list of registers to these values */
-	const target_addr_t addrs_pre[] = {
-		/* Set entry point to RTC_SLOW_MEM */
-		RTC_CNTL_RESET_STATE_REG,
-		/* Reset SoC clock to XTAL, in case it was running from PLL */
-		RTC_CNTL_CLK_CONF_REG,
-		/* Reset RTC_CNTL_STORE{4,5}_REG, which are related to clock state */
-		RTC_CNTL_STORE4_REG,
-		RTC_CNTL_STORE5_REG,
-		/* Perform reset */
-		RTC_CNTL_OPTIONS0_REG
-	};
-	const uint32_t values_pre[] = {
-		/* Set entry point to RTC_SLOW_MEM */
-		0,
-		/* Reset SoC clock to XTAL, in case it was running from PLL */
-		RTC_CNTL_CLK_CONF_DEF,
-		/* Reset RTC_CNTL_STORE{4,5}_REG, which are related to clock state */
-		0,
-		0,
-		/* Perform reset */
-		RTC_CNTL_OPTIONS0_DEF | RTC_CNTL_SW_SYS_RST
-	};
-	res = esp32_write_uint32_list(active_core_target,
-		addrs_pre,
-		values_pre,
-		sizeof(addrs_pre) / sizeof(target_addr_t));
+	LOG_DEBUG("resuming the target");
+	struct xtensa *xtensa = target_to_xtensa(active_core_target);
+	xtensa->suppress_dsr_errors = true;
+	res = xtensa_resume(active_core_target, 0, RTC_SLOW_MEM_BASE + 4, 0, 0);
 	if (res != ERROR_OK) {
-		LOG_WARNING("%s esp32_write_uint32_list (reg_value_pairs_pre) err=%d", __func__,
-			res);
+		LOG_WARNING("%s xtensa_resume err=%d", __func__, res);
 		return res;
 	}
+	xtensa->suppress_dsr_errors = false;
+	LOG_DEBUG("resume done, waiting for the target to come alive");
 
 	/* Wait for SoC to reset */
+	alive_sleep(100);
 	int timeout = 100;
-	while (active_core_target->state != TARGET_RESET &&
-		active_core_target->state != TARGET_RUNNING && --timeout > 0) {
+	while (active_core_target->state != TARGET_RESET && active_core_target->state !=
+		TARGET_RUNNING && --timeout > 0) {
 		alive_sleep(10);
 		xtensa_poll(active_core_target);
 	}
@@ -412,6 +376,7 @@ static int esp32_soc_reset(struct target *active_core_target)
 	}
 
 	/* Halt the CPU again */
+	LOG_DEBUG("halting the target");
 	xtensa_halt(active_core_target);
 	res = target_wait_state(active_core_target, TARGET_HALTED, 1000);
 	if (res != ERROR_OK) {
@@ -419,38 +384,8 @@ static int esp32_soc_reset(struct target *active_core_target)
 		return res;
 	}
 
-	const target_addr_t addrs_post[] = {
-		/* Reset entry point back to the reset vector */
-		RTC_CNTL_RESET_STATE_REG,
-		/* Clear APP CPU boot address */
-		DPORT_APPCPU_CTRL_D_REG,
-		/* Enable clock to APP CPU */
-		DPORT_APPCPU_CTRL_B_REG,
-		/* Take APP CPU out of reset */
-		DPORT_APPCPU_CTRL_A_REG,
-	};
-	const uint32_t values_post[] = {
-		/* Reset entry point back to the reset vector */
-		RTC_CNTL_RESET_STATE_DEF,
-		/* Clear APP CPU boot address */
-		0,
-		/* Enable clock to APP CPU */
-		DPORT_APPCPU_CLKGATE_EN,
-		/* Take APP CPU out of reset */
-		0,
-	};
-	res = esp32_write_uint32_list(active_core_target,
-		addrs_post,
-		values_post,
-		sizeof(addrs_post) / sizeof(target_addr_t));
-	if (res != ERROR_OK) {
-		LOG_WARNING("%s esp32_write_uint32_list (reg_value_pairs_post) err=%d",
-			__func__,
-			res);
-		return res;
-	}
-
 	/* Restore the original contents of RTC_SLOW_MEM */
+	LOG_DEBUG("restoring RTC_SLOW_MEM");
 	res =
 		target_write_buffer(active_core_target, RTC_SLOW_MEM_BASE, sizeof(slow_mem_save),
 		(const uint8_t *)slow_mem_save);
@@ -458,8 +393,6 @@ static int esp32_soc_reset(struct target *active_core_target)
 		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
 		return res;
 	}
-
-	LOG_DEBUG("end");
 
 	/* Clear memory which is used by RTOS layer to get the task count */
 	if (active_core_target->rtos && active_core_target->rtos->type->post_reset_cleanup) {
