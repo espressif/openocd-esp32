@@ -617,19 +617,24 @@ int xtensa_core_status_check(struct target *target)
 	dsr = xtensa_dm_core_status_get(&xtensa->dbg_mod);
 	LOG_DEBUG("%s: DSR (%08X)", target_name(target), dsr);
 	if (dsr & OCDDSR_EXECBUSY) {
-		LOG_ERROR("%s: DSR (%08X) indicates target still busy!", target_name(target), dsr);
+		if (!xtensa->suppress_dsr_errors)
+			LOG_ERROR("%s: DSR (%08X) indicates target still busy!", target_name(
+					target), dsr);
 		needclear = 1;
 	}
 	if (dsr & OCDDSR_EXECEXCEPTION) {
-		LOG_ERROR("%s: DSR (%08X) indicates DIR instruction generated an exception!",
-			target_name(target),
-			dsr);
+		if (!xtensa->suppress_dsr_errors)
+			LOG_ERROR(
+				"%s: DSR (%08X) indicates DIR instruction generated an exception!",
+				target_name(target),
+				dsr);
 		needclear = 1;
 	}
 	if (dsr & OCDDSR_EXECOVERRUN) {
-		LOG_ERROR("%s: DSR (%08X) indicates DIR instruction generated an overrun!",
-			target_name(target),
-			dsr);
+		if (!xtensa->suppress_dsr_errors)
+			LOG_ERROR("%s: DSR (%08X) indicates DIR instruction generated an overrun!",
+				target_name(target),
+				dsr);
 		needclear = 1;
 	}
 	if (needclear) {

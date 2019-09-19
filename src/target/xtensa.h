@@ -289,6 +289,7 @@ struct xtensa {
 	struct xtensa_sw_breakpoint *sw_brps;
 	bool trace_active;
 	bool permissive_mode;
+	bool suppress_dsr_errors;
 };
 
 static inline struct xtensa *target_to_xtensa(struct target *target)
