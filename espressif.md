@@ -10,6 +10,7 @@ Espressif specific functionality of OpenOCD can be controled using configuration
 
 The folowing configuration variables are common for all Espressif chips:
 * `ESP_RTOS` - the name of RTOS running on the target. Default is 'FreeRTOS'. To disable OS support (for bare metal system) use 'none'.
+* `ESP_FLASH_SIZE` - size of the chip's flash. Default is 'auto'. To disable flash functionality set to '0'.
 * `ESP_SEMIHOST_BASEDIR` - base dir for semihosting I/O. Default is OpenOCD's current working directory.
 
 ### ESP32 Options
