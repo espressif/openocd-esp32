@@ -148,6 +148,9 @@ m4_define([LIBFTDI_ADAPTERS],
 m4_define([LIBJAYLINK_ADAPTERS],
 	[[[jlink], [SEGGER J-Link Programmer], [JLINK]]])
 
+m4_define([PCIE_ADAPTERS],
+	[[[xlnx_pcie_xvc], [Xilinx XVC/PCIe], [XLNX_PCIE_XVC]]])
+
 
 AC_ARG_ENABLE([doxygen-html],
   AS_HELP_STRING([--disable-doxygen-html],
@@ -321,11 +324,19 @@ AC_ARG_ENABLE([sysfsgpio],
   AS_HELP_STRING([--enable-sysfsgpio], [Enable building support for programming driven via sysfs gpios.]),
   [build_sysfsgpio=$enableval], [build_sysfsgpio=no])
 
+AC_ARG_ENABLE([xlnx_pcie_xvc],
+  AS_HELP_STRING([--enable-xlnx-pcie-xvc], [Enable building support for Xilinx XVC/PCIe.]),
+  [build_xlnx_pcie_xvc=$enableval], [build_xlnx_pcie_xvc=no])
+
 AS_CASE([$host_os],
   [linux*], [],
   [
     AS_IF([test "x$build_sysfsgpio" = "xyes"], [
       AC_MSG_ERROR([sysfsgpio is only available on linux])
+    ])
+
+    AS_IF([test "x$build_xlnx_pcie_xvc" = "xyes"], [
+      AC_MSG_ERROR([xlnx_pcie_xvc is only available on linux])
     ])
 ])
 
@@ -591,6 +602,13 @@ AS_IF([test "x$build_sysfsgpio" = "xyes"], [
   AC_DEFINE([BUILD_SYSFSGPIO], [0], [0 if you don't want SysfsGPIO driver.])
 ])
 
+AS_IF([test "x$build_xlnx_pcie_xvc" = "xyes"], [
+  build_xlnx_pcie_xvc=yes
+  AC_DEFINE([BUILD_XLNX_PCIE_XVC], [1], [1 if you want the Xilinx XVC/PCIe driver.])
+], [
+  AC_DEFINE([BUILD_XLNX_PCIE_XVC], [0], [0 if you don't want Xilinx XVC/PCIe driver.])
+])
+
 AS_IF([test "x$build_target64" = "xyes"], [
   AC_DEFINE([BUILD_TARGET64], [1], [1 if you want 64-bit addresses.])
 ], [
@@ -726,6 +744,7 @@ AM_CONDITIONAL([OOCD_TRACE], [test "x$build_oocd_trace" = "xyes"])
 AM_CONDITIONAL([REMOTE_BITBANG], [test "x$build_remote_bitbang" = "xyes"])
 AM_CONDITIONAL([BUSPIRATE], [test "x$build_buspirate" = "xyes"])
 AM_CONDITIONAL([SYSFSGPIO], [test "x$build_sysfsgpio" = "xyes"])
+AM_CONDITIONAL([XLNX_PCIE_XVC], [test "x$build_xlnx_pcie_xvc" = "xyes"])
 AM_CONDITIONAL([USE_LIBUSB0], [test "x$use_libusb0" = "xyes"])
 AM_CONDITIONAL([USE_LIBUSB1], [test "x$use_libusb1" = "xyes"])
 AM_CONDITIONAL([IS_CYGWIN], [test "x$is_cygwin" = "xyes"])
@@ -807,7 +826,7 @@ echo OpenOCD configuration summary
 echo --------------------------------------------------
 m4_foreach([adapter], [USB1_ADAPTERS, USB_ADAPTERS, USB0_ADAPTERS,
 	HIDAPI_ADAPTERS, HIDAPI_USB1_ADAPTERS, LIBFTDI_ADAPTERS,
-	LIBJAYLINK_ADAPTERS],
+	LIBJAYLINK_ADAPTERS, PCIE_ADAPTERS],
 	[s=m4_format(["%-40s"], ADAPTER_DESC([adapter]))
 	AS_CASE([$ADAPTER_VAR([adapter])],
 		[auto], [
