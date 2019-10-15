@@ -19,21 +19,24 @@ BOARD_TCL_CONFIG = {
         'files' : [
             os.path.join('board', 'esp32-wrover-kit-3.3v.cfg')
         ],
-        'commands' : []
+        'commands' : [],
+        'target_name' : 'esp32'
     },
     'esp32-solo-devkitj' :  {
         'files' : [
             os.path.join('interface', 'ftdi', 'esp32_devkitj_v1.cfg'),
             os.path.join('target', 'esp32-solo-1.cfg')
         ],
-        'commands' : []
+        'commands' : [],
+        'target_name' : 'esp32'
     },
     'esp32s2-devkitj' :  {
         'files' : [
             os.path.join('interface', 'ftdi', 'esp32_devkitj_v1.cfg'),
             os.path.join('target', 'esp32s2.cfg')
         ],
-        'commands' : []
+        'commands' : [],
+        'target_name' : 'esp32_s2'
     }
 }
 
@@ -119,7 +122,8 @@ def main():
     if args.idf_ver_min != 'auto':
         debug_backend_tests.IdfVersion.set_current(debug_backend_tests.IdfVersion.fromstr(args.idf_ver_min))
     # start debugger, ideally we should run all tests w/o restarting it
-    debug_backend.start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'], args.debug_oocd)
+    debug_backend.start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'],
+                        args.debug_oocd, target_name=board_tcl['target_name'])
     debug_backend_tests.test_apps_dir = args.apps_dir
     # loads tests using pattern <module>[.<test_case>[.<test_method>]] with wildcards (*) in <module> and <test_case> parts
 

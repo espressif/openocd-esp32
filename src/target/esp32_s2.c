@@ -173,17 +173,160 @@ static int esp32_s2_assert_reset(struct target *target)
 Postconditions: all peripherals except RTC_CNTL are reset, CPU's PC is undefined, PRO CPU is halted, APP CPU is in reset
 How this works:
 0. make sure target is halted; if not, try to halt it; if that fails, try to reset it (via OCD) and then halt
-1. set CPU initial PC to 0x50000000 (RTC_SLOW_MEM) by clearing RTC_CNTL_{PRO,APP}CPU_STAT_VECTOR_SEL
-2. load stub code into RTC_SLOW_MEM; once executed, stub code will disable watchdogs and make CPU spin in an idle loop.
+1. set CPU initial PC to 0x50000000 (ESP32_S2_RTC_DATA_LOW) by clearing RTC_CNTL_{PRO,APP}CPU_STAT_VECTOR_SEL
+2. load stub code into ESP32_S2_RTC_DATA_LOW; once executed, stub code will disable watchdogs and make CPU spin in an idle loop.
 3. trigger SoC reset using RTC_CNTL_SW_SYS_RST bit
 4. wait for the OCD to be reset
 5. halt the target and wait for it to be halted (at this point CPU is in the idle loop)
-6. restore initial PC and the contents of RTC_SLOW_MEM
+6. restore initial PC and the contents of ESP32_S2_RTC_DATA_LOW
 TODO: some state of RTC_CNTL is not reset during SW_SYS_RST. Need to reset that manually.
 */
-static int esp32_s2_soc_reset(struct target *active_core_target)
+static int esp32_s2_soc_reset(struct target *target)
 {
-	/* TODO: implement */
+	int res;
+
+	LOG_DEBUG("start");
+	/* In order to write to peripheral registers, target must be halted first */
+	if (target->state != TARGET_HALTED) {
+		LOG_DEBUG("%s: Target not halted before SoC reset, trying to halt it first",
+			__func__);
+		xtensa_halt(target);
+		res = target_wait_state(target, TARGET_HALTED, 1000);
+		if (res != ERROR_OK) {
+			LOG_DEBUG(
+				"%s: Couldn't halt target before SoC reset, trying to do reset-halt",
+				__func__);
+			res = xtensa_assert_reset(target);
+			if (res != ERROR_OK) {
+				LOG_ERROR(
+					"%s: Couldn't halt target before SoC reset! (xtensa_assert_reset returned %d)",
+					__func__,
+					res);
+				return res;
+			}
+			alive_sleep(10);
+			xtensa_poll(target);
+			int reset_halt_save = target->reset_halt;
+			target->reset_halt = 1;
+			res = xtensa_deassert_reset(target);
+			target->reset_halt = reset_halt_save;
+			if (res != ERROR_OK) {
+				LOG_ERROR(
+					"%s: Couldn't halt target before SoC reset! (xtensa_deassert_reset returned %d)",
+					__func__,
+					res);
+				return res;
+			}
+			alive_sleep(10);
+			xtensa_poll(target);
+			xtensa_halt(target);
+			res = target_wait_state(target, TARGET_HALTED, 1000);
+			if (res != ERROR_OK) {
+				LOG_ERROR("%s: Couldn't halt target before SoC reset", __func__);
+				return res;
+			}
+		}
+	}
+
+	assert(target->state == TARGET_HALTED);
+
+	/* This this the stub code compiled from esp32_cpu_reset_handler.S.
+	   To compile it, run:
+	       xtensa-esp32s2-elf-gcc -c -mtext-section-literals -o stub.o esp32s2_cpu_reset_handler.S
+	       xtensa-esp32s2-elf-objcopy -j .text -O binary stub.o stub.bin
+	   These steps are not included into OpenOCD build process so that a
+	   dependency on xtensa-esp32s2-elf toolchain is not introduced.
+	*/
+	const uint32_t esp32_reset_stub_code[] = {
+		0x00001B06,
+		0x00001106, 0x3F408038, 0x3F4080C0, 0x3F4080C4,
+		0x3F408074, 0x01583218, 0x9C492000, 0x3F408000,
+		0x50D83AA1, 0x3F4080A8, 0x3F41F064, 0x3F420064,
+		0x3F408094, 0x3F41F048, 0x3F420048, 0x3F4C10E0,
+		0x3F408038, 0x00003000, 0x41305550, 0x0459FFEE,
+		0x59FFEE41, 0xFFED4104, 0xED410459, 0xFFED31FF,
+		0xED310439, 0xFFED41FF, 0x00000439, 0x31305550,
+		0xEC41FFEC, 0x410439FF, 0x0439FFEC, 0x39FFEC41,
+		0xFFEB4104, 0xEB410459, 0x410459FF, 0x0459FFEB,
+		0x59FFEB41, 0xFFEA4104, 0x39FFEB31, 0x00700004,
+		0x00FFFE46
+	};
+
+	LOG_DEBUG("loading stub code into RTC RAM");
+	uint32_t slow_mem_save[sizeof(esp32_reset_stub_code) / sizeof(uint32_t)];
+
+	/* Save contents of ESP32_S2_RTC_DATA_LOW which we are about to overwrite */
+	res =
+		target_read_buffer(target,
+		ESP32_S2_RTC_DATA_LOW,
+		sizeof(slow_mem_save),
+		(uint8_t *)slow_mem_save);
+	if (res != ERROR_OK) {
+		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
+		return res;
+	}
+
+	/* Write stub code into ESP32_S2_RTC_DATA_LOW */
+	res =
+		target_write_buffer(target, ESP32_S2_RTC_DATA_LOW,
+		sizeof(esp32_reset_stub_code),
+		(const uint8_t *)esp32_reset_stub_code);
+	if (res != ERROR_OK) {
+		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
+		return res;
+	}
+
+	LOG_DEBUG("resuming the target");
+	struct xtensa *xtensa = target_to_xtensa(target);
+	xtensa->suppress_dsr_errors = true;
+	res = xtensa_resume(target, 0, ESP32_S2_RTC_DATA_LOW + 4, 0, 0);
+	if (res != ERROR_OK) {
+		LOG_WARNING("%s xtensa_resume err=%d", __func__, res);
+		return res;
+	}
+	xtensa->suppress_dsr_errors = false;
+	LOG_DEBUG("resume done, waiting for the target to come alive");
+
+	/* Wait for SoC to reset */
+	alive_sleep(100);
+	int timeout = 100;
+	while (target->state != TARGET_RESET && target->state !=
+		TARGET_RUNNING && --timeout > 0) {
+		alive_sleep(10);
+		xtensa_poll(target);
+	}
+	if (timeout == 0) {
+		LOG_ERROR("%s: Timed out waiting for CPU to be reset, target->state=%d",
+			__func__,
+			target->state);
+		return ERROR_TARGET_TIMEOUT;
+	}
+
+	/* Halt the CPU again */
+	LOG_DEBUG("halting the target");
+	xtensa_halt(target);
+	res = target_wait_state(target, TARGET_HALTED, 1000);
+	if (res != ERROR_OK) {
+		LOG_ERROR("%s: Timed out waiting for CPU to be halted after SoC reset", __func__);
+		return res;
+	}
+
+	/* Restore the original contents of ESP32_S2_RTC_DATA_LOW */
+	LOG_DEBUG("restoring ESP32_S2_RTC_DATA_LOW");
+	res =
+		target_write_buffer(target, ESP32_S2_RTC_DATA_LOW, sizeof(slow_mem_save),
+		(const uint8_t *)slow_mem_save);
+	if (res != ERROR_OK) {
+		LOG_ERROR("%s %d err=%d", __func__, __LINE__, res);
+		return res;
+	}
+
+	/* Clear memory which is used by RTOS layer to get the task count */
+	if (target->rtos && target->rtos->type->post_reset_cleanup) {
+		res = (*target->rtos->type->post_reset_cleanup)(target);
+		if (res != ERROR_OK)
+			LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
+	}
 	return ERROR_OK;
 }
 
