@@ -24,6 +24,14 @@
 #include "esp_log.h"
 const static char *TAG = "ut_app";
 
+#if CONFIG_IDF_TARGET_ESP32S2BETA
+#define TIM_CLR(_tg_, _tn_) do{ TIMERG ## _tg_.int_clr.t ## _tn_ = 1;}while(0)
+#define TIM_UPD(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].update.update = 1;}while(0)
+#else
+#define TIM_CLR(_tg_, _tn_) do{ TIMERG ## _tg_.int_clr_timers.t ## _tn_ = 1;}while(0)
+#define TIM_UPD(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].update = 1;}while(0)
+#endif
+
 // test app algorithm selector
 volatile static int s_run_test = 0;
 // vars for WP tests
@@ -76,22 +84,22 @@ void test_timer_rearm(int timer_group, int timer_idx)
 {
     if (timer_group == 0) {
         if (timer_idx == 0) {
-            TIMERG0.int_clr_timers.t0 = 1;
-            TIMERG0.hw_timer[0].update = 1;
+            TIM_CLR(0, 0);
+            TIM_UPD(0, 0);
             TIMERG0.hw_timer[0].config.alarm_en = 1;
         } else {
-            TIMERG0.int_clr_timers.t1 = 1;
-            TIMERG0.hw_timer[1].update = 1;
+            TIM_CLR(0, 1);
+            TIM_UPD(0, 1);
             TIMERG0.hw_timer[1].config.alarm_en = 1;
         }
     } else if (timer_group == 1) {
         if (timer_idx == 0) {
-            TIMERG1.int_clr_timers.t0 = 1;
-            TIMERG1.hw_timer[0].update = 1;
+            TIM_CLR(1, 0);
+            TIM_UPD(1, 0);
             TIMERG1.hw_timer[0].config.alarm_en = 1;
         } else {
-            TIMERG1.int_clr_timers.t1 = 1;
-            TIMERG1.hw_timer[1].update = 1;
+            TIM_CLR(1, 1);
+            TIM_UPD(1, 1);
             TIMERG1.hw_timer[1].config.alarm_en = 1;
         }
     }
