@@ -75,7 +75,6 @@ static int target_gdb_fileio_end_default(struct target *target, int retcode,
 static int target_profiling_default(struct target *target, uint32_t *samples,
 		uint32_t max_num_samples, uint32_t *num_samples, uint32_t seconds);
 
-static size_t target_get_cores_count_default(struct target *target);
 static size_t target_get_active_core_default(struct target *target);
 static void target_set_active_core_default(struct target *target, size_t core);
 
@@ -1384,9 +1383,6 @@ static int target_init_one(struct command_context *cmd_ctx,
 	if (target->type->profiling == NULL)
 		target->type->profiling = target_profiling_default;
 
-	if (target->type->get_cores_count == NULL)
-		target->type->get_cores_count = target_get_cores_count_default;
-
 	if (target->type->get_active_core == NULL)
 		target->type->get_active_core = target_get_active_core_default;
 
@@ -2207,12 +2203,6 @@ static int target_get_gdb_fileio_info_default(struct target *target,
 	   It just return ERROR_FAIL and gdb_server will return "Txx"
 	   as target halted every time.  */
 	return ERROR_FAIL;
-}
-
-static size_t target_get_cores_count_default(struct target *target)
-{
-	/* This API is not supported by target.  */
-	return 0;
 }
 
 static size_t target_get_active_core_default(struct target *target)
