@@ -346,7 +346,8 @@ static int xtensa_algo_run(struct target *target, struct xtensa_algo_image *imag
 			/* otherwise should hold UINT_MAX */
 			uint32_t usr_param_num = run->mem_args.params[i].address;
 			if (image) {
-				struct working_area *area;
+				static struct working_area *area;	/* see TODO at target.c:2018
+									 *for why this is static */
 				retval =
 					target_alloc_alt_working_area(target,
 					run->mem_args.params[i].size,
