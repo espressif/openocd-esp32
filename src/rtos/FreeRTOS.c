@@ -131,7 +131,7 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 	8,						/* list_elem_next_offset; */
 	12,						/* list_elem_content_offset */
 	0,						/* thread_stack_offset; */
-	56,						/* thread_name_offset; */
+	52,						/* thread_name_offset; */
 	NULL,					/* stacking_info */
 	NULL,
 	NULL,
