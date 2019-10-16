@@ -468,9 +468,6 @@ static int esp32_apptrace_cmd_ctx_init(struct target *target,
 	int mode)
 {
 	int res;
-	/* temporary hack to distinguish between mcore and normal targets */
-	struct xtensa_mcore_common *xtensa_mcore = target_get_core_count(target) !=
-		0 ? target_to_xtensa_mcore(target) : NULL;
 
 	memset(cmd_ctx, 0, sizeof(struct esp32_apptrace_cmd_ctx));
 
@@ -478,7 +475,9 @@ static int esp32_apptrace_cmd_ctx_init(struct target *target,
 	cmd_ctx->stop_tmo = -1.0;	/* infinite */
 	cmd_ctx->mode = mode;
 
-	if (xtensa_mcore) {
+	if (target->type->get_cores_count) {	/* single core chips have no get_cores_count()
+						 * callback */
+		struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
 		/* HACK: OOCD has no attach event for telnet session so
 		 * halt and resume target if numbers of working cores has not been detected yet,
 		 * e.g. when we connected via telnet to running target */
