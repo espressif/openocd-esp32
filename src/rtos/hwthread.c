@@ -38,7 +38,6 @@ static int hwthread_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 static int hwthread_get_symbol_list_to_lookup(symbol_table_elem_t *symbol_list[]);
 static int hwthread_smp_init(struct target *target);
 int hwthread_set_reg(struct rtos *rtos, uint32_t reg_num, uint8_t *reg_value);
-bool hwthread_needs_fake_step(struct target *target, int64_t thread_id);
 
 #define HW_THREAD_NAME_STR_SIZE (32)
 
@@ -59,7 +58,6 @@ const struct rtos_type hwthread_rtos = {
 	.get_symbol_list_to_lookup = hwthread_get_symbol_list_to_lookup,
 	.smp_init = hwthread_smp_init,
 	.set_reg = hwthread_set_reg,
-	.needs_fake_step = hwthread_needs_fake_step
 };
 
 struct hwthread_params {
@@ -210,7 +208,7 @@ static int hwthread_smp_init(struct target *target)
 	return hwthread_update_threads(target->rtos);
 }
 
-static struct target *find_thread(struct target *target, int64_t thread_id)
+static struct target *hwthread_find_thread(struct target *target, int64_t thread_id)
 {
 	/* Find the thread with that thread_id */
 	if (target == NULL)
@@ -234,7 +232,7 @@ static int hwthread_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 
 	struct target *target = rtos->target;
 
-	struct target *curr = find_thread(target, thread_id);
+	struct target *curr = hwthread_find_thread(target, thread_id);
 	if (curr == NULL)
 		return ERROR_FAIL;
 
@@ -272,7 +270,7 @@ static int hwthread_get_thread_reg(struct rtos *rtos, int64_t thread_id,
 
 	struct target *target = rtos->target;
 
-	struct target *curr = find_thread(target, thread_id);
+	struct target *curr = hwthread_find_thread(target, thread_id);
 	if (curr == NULL) {
 		LOG_ERROR("Couldn't find RTOS thread for id %" PRId64 ".", thread_id);
 		return ERROR_FAIL;
@@ -309,7 +307,7 @@ int hwthread_set_reg(struct rtos *rtos, uint32_t reg_num, uint8_t *reg_value)
 
 	struct target *target = rtos->target;
 
-	struct target *curr = find_thread(target, rtos->current_thread);
+	struct target *curr = hwthread_find_thread(target, rtos->current_thread);
 	if (curr == NULL)
 		return ERROR_FAIL;
 
@@ -332,7 +330,7 @@ static int hwthread_target_for_threadid(struct connection *connection, int64_t t
 {
 	struct target *target = get_target_from_connection(connection);
 
-	struct target *curr = find_thread(target, thread_id);
+	struct target *curr = hwthread_find_thread(target, thread_id);
 	if (curr == NULL)
 		return ERROR_FAIL;
 
