@@ -186,12 +186,15 @@ static int stub_flash_read(uint32_t addr, uint32_t size)
 			STUB_LOGE("Failed to put trace buf!\n");
 			return ESP_XTENSA_STUB_ERR_FAIL;
 		}
+		STUB_LOGD("Flush trace buf %d bytes @ 0x%x [%x %x %x %x %x %x %x %x]\n",
+			rd_sz, buf, buf[-4], buf[-3], buf[-2], buf[-1],
+			buf[0], buf[1], buf[2], buf[3]);
 		err = esp_apptrace_flush(ESP_APPTRACE_DEST_TRAX, ESP_APPTRACE_TMO_INFINITE);
 		if (err != ESP_OK) {
 			STUB_LOGE("Failed to flush trace buf!\n");
 			return ESP_XTENSA_STUB_ERR_FAIL;
 		}
-		STUB_LOGE("Sent trace buf %d bytes @ 0x%x\n", rd_sz, buf);
+		STUB_LOGD("Sent trace buf %d bytes @ 0x%x\n", rd_sz, buf);
 	}
 
 	if (total_cnt < size) {
@@ -222,6 +225,9 @@ static int stub_flash_read(uint32_t addr, uint32_t size)
 			STUB_LOGE("Failed to put trace buf!\n");
 			return ESP_XTENSA_STUB_ERR_FAIL;
 		}
+		STUB_LOGD("Flush trace buf %d bytes @ 0x%x [%x %x %x %x %x %x %x %x]\n",
+			size - total_cnt, buf, buf[-4], buf[-3], buf[-2], buf[-1],
+			buf[0], buf[1], buf[2], buf[3]);
 		err = esp_apptrace_flush(ESP_APPTRACE_DEST_TRAX, ESP_APPTRACE_TMO_INFINITE);
 		if (err != ESP_OK) {
 			STUB_LOGE("Failed to flush trace buf!\n");

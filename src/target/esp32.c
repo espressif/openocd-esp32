@@ -116,6 +116,10 @@ registers of this core will be transfered.
 #define ESP32_DR_REG_DPORT_BASE         0x3ff00000
 #define ESP32_DPORT_APPCPU_CTRL_B_REG   (ESP32_DR_REG_DPORT_BASE + 0x030)
 #define ESP32_DPORT_APPCPU_CLKGATE_EN   (1 << 0)
+/* ESP32 RTC regs */
+#define ESP32_DR_REG_RTCCNTL_BASE       0x3ff48000
+#define ESP32_RTC_CNTL_SW_CPU_STALL_REG (ESP32_DR_REG_RTCCNTL_BASE + 0xac)
+#define ESP32_RTC_CNTL_SW_CPU_STALL_DEF 0x0
 
 
 static const struct xtensa_config esp32_xtensa_cfg = {
@@ -219,7 +223,7 @@ static const struct xtensa_config esp32_xtensa_cfg = {
 	},
 };
 
-static int esp32_soc_reset(struct target *target);
+static int esp32_soc_reset(struct xtensa_mcore_common *xtensa_mcore);
 
 static int esp32_assert_reset(struct target *target)
 {
@@ -229,7 +233,7 @@ static int esp32_assert_reset(struct target *target)
 
 	/* Reset the SoC first. It is enough to run the reset func on PRO CPU */
 	xtensa_mcore->active_core = 0;
-	int res = esp32_soc_reset(&xtensa_mcore->cores_targets[xtensa_mcore->active_core]);
+	int res = esp32_soc_reset(xtensa_mcore);
 	if (res != ERROR_OK)
 		return res;
 	return xtensa_mcore_assert_reset(target);
@@ -251,9 +255,10 @@ static int esp32_assert_reset(struct target *target)
  * End result: all the peripherals except RTC_CNTL are reset, CPU's PC is undefined,
  * PRO CPU is halted, APP CPU is in reset.
  */
-static int esp32_soc_reset(struct target *active_core_target)
+static int esp32_soc_reset(struct xtensa_mcore_common *xtensa_mcore)
 {
 	int res;
+	struct target *active_core_target = &xtensa_mcore->cores_targets[xtensa_mcore->active_core];
 
 	LOG_DEBUG("start");
 	/* In order to write to peripheral registers, target must be halted first */
@@ -297,8 +302,27 @@ static int esp32_soc_reset(struct target *active_core_target)
 			}
 		}
 	}
-
 	assert(active_core_target->state == TARGET_HALTED);
+
+	for (uint8_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
+		struct xtensa *xtensa = target_to_xtensa(&xtensa_mcore->cores_targets[i]);
+		/* if any of the cores is stalled unstall them */
+		if (xtensa_dm_core_is_stalled(&xtensa->dbg_mod)) {
+			uint32_t word = ESP32_RTC_CNTL_SW_CPU_STALL_DEF;
+			LOG_DEBUG("%s: Unstall CPUs before SW reset!",
+				target_name(&xtensa_mcore->cores_targets[i]));
+			res = xtensa_write_buffer(active_core_target,
+				ESP32_RTC_CNTL_SW_CPU_STALL_REG,
+				sizeof(word),
+				(uint8_t *)&word);
+			if (res != ERROR_OK) {
+				LOG_ERROR("%s: Failed to unstall CPUs before SW reset!",
+					target_name(&xtensa_mcore->cores_targets[i]));
+				return res;
+			}
+			break;	/* both cores are unstalled now, so exit the loop */
+		}
+	}
 
 	/* This this the stub code compiled from esp32_cpu_reset_handler.S.
 	   To compile it, run:
