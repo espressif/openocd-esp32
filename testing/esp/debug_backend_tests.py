@@ -374,6 +374,42 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         self.assertEqual(cur_frame['func'], func_name)
         return cur_frame
 
+    def run_to_bp_and_check_basic(self, exp_rsn, func_name):
+        cur_frame = self.run_to_bp(exp_rsn, func_name)
+        frames = self.gdb.get_backtrace()
+        self.assertTrue(len(frames) > 0)
+        self.assertEqual(frames[0]['func'], cur_frame['func'])
+        self.assertEqual(frames[0]['line'], cur_frame['line'])
+        return frames
+
+    def run_to_bp_and_check(self, exp_rsn, func_name, lineno_var_prefs, outmost_func_name='blink_task'):
+        frames = self.run_to_bp_and_check_basic(exp_rsn, func_name)
+        if IdfVersion.get_current() == IdfVersion.fromstr('latest'):
+            outmost_frame = len(frames) - 2 # -2 because our task function is called by FreeRTOS task wrapper
+        else:
+            outmost_frame = len(frames) - 1
+        # Sometimes GDB does not provide full backtrace. so check this
+        # we can only check line numbers in <outmost_func_name>,
+        # because its code is under control of test framework
+        if outmost_frame == 0 and func_name != outmost_func_name:
+            return
+        # outermost frame should be in <outmost_func_name> function
+        self.assertEqual(frames[outmost_frame]['func'], outmost_func_name)
+        self.gdb.select_frame(outmost_frame)
+        # read line number from variable and compare with what GDB provides
+        if len(lineno_var_prefs) == 1:
+            line_num = self.gdb.data_eval_expr('%s_break_ln' % lineno_var_prefs[0])
+            self.assertEqual(frames[outmost_frame]['line'], line_num)
+        else:
+            # for tests which set multiple BPs/WPs and expect hits on both cores
+            # it is hard to predict the order of hits,
+            # so just check that debugger has stopped on one of the locations
+            line_nums = []
+            for p in lineno_var_prefs:
+                line_nums.append(self.gdb.data_eval_expr('%s_break_ln' % p))
+            self.assertTrue(frames[outmost_frame]['line'] in line_nums)
+
+
 class DebuggerGenericTestAppTests(DebuggerTestAppTests):
     """ Base class to run tests which use generic test app
     """

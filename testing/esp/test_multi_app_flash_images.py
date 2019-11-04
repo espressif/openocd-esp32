@@ -12,7 +12,7 @@ def get_logger():
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
 ########################################################################
 
-class MultiAppImagesTests(DebuggerGenericTestAppTests, test_bp.PoiTestsImpl):
+class MultiAppImagesTests(DebuggerGenericTestAppTests):
 
     def __init__(self, methodName):
         DebuggerGenericTestAppTests.__init__(self, methodName)

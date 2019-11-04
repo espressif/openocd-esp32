@@ -354,7 +354,7 @@ class Gdb:
         return res,res_body
 
     def console_cmd_run(self, cmd):
-        self._mi_cmd_run('-interpreter-exec console %s' % cmd)
+        self._mi_cmd_run('-interpreter-exec console "%s"' % cmd)
 
     def target_select(self, tgt_type, tgt_params):
         # -target-select type parameters

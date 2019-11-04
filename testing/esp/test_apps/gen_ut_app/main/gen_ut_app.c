@@ -43,12 +43,15 @@ extern ut_result_t gcov_test_do(int test_num);
 extern ut_result_t thread_test_do(int test_num);
 extern ut_result_t tracing_test_do(int test_num);
 extern ut_result_t semihost_test_do(int test_num);
+extern ut_result_t special_test_do(int test_num);
 
 static test_func_t s_test_funcs[] = {
     gcov_test_do,
     thread_test_do,
     tracing_test_do,
-    semihost_test_do
+    semihost_test_do,
+    special_test_do // test num start from 800
+    //TODO: auto-manage test numbers and addition of new tests
 };
 
 struct blink_task_arg {

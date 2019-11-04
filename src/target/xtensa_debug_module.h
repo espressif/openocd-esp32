@@ -347,6 +347,11 @@ static inline xtensa_dsr_t xtensa_dm_core_status_get(struct xtensa_debug_module 
 	return dm->core_status.dsr;
 }
 
+static inline bool xtensa_dm_core_is_stalled(struct xtensa_debug_module *dm)
+{
+	return dm->core_status.dsr & OCDDSR_RUNSTALLSAMPLE;
+}
+
 int xtensa_dm_device_id_read(struct xtensa_debug_module *dm);
 static inline xtensa_ocdid_t xtensa_dm_device_id_get(struct xtensa_debug_module *dm)
 {
