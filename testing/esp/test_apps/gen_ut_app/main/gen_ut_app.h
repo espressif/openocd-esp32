@@ -22,6 +22,7 @@
 #define GEN_UT_APP_H
 
 #include "ut_idf_ver.h"
+#include "sdkconfig.h"
 
 #define MAKE_UT_IDF_VER(t,x,y,z)    (((t & 0xFF) << 24) | ((x & 0xFF) << 16) | ((y & 0xFF) << 8) | (z & 0xFF))
 
@@ -47,5 +48,10 @@ typedef ut_result_t (*test_func_t)(int test_num);
 
 void test_timer_init(int timer_group, int timer_idx, uint32_t period);
 void test_timer_rearm(int timer_group, int timer_idx);
+
+/* Can run 'make menuconfig' to choose the GPIO to blink,
+   or you can edit the following line and set a number here.
+*/
+#define BLINK_GPIO CONFIG_BLINK_GPIO
 
 #endif //GEN_UT_APP_H

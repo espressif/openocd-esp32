@@ -12,13 +12,8 @@
 #include "freertos/task.h"
 #include "driver/gpio.h"
 #include "driver/timer.h"
-#include "sdkconfig.h"
 #include "gen_ut_app.h"
 
-/* Can run 'make menuconfig' to choose the GPIO to blink,
-   or you can edit the following line and set a number here.
-*/
-#define BLINK_GPIO CONFIG_BLINK_GPIO
 
 #define LOG_LOCAL_LEVEL CONFIG_LOG_DEFAULT_LEVEL
 #include "esp_log.h"
