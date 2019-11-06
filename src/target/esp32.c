@@ -522,6 +522,7 @@ static bool esp32_on_halt(struct target *target)
 static int esp32_handle_target_event(struct target *target, enum target_event event, void *priv)
 {
 	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
+	enum target_state old_state = target->state;
 
 	if (target != priv)
 		return ERROR_OK;
@@ -543,6 +544,20 @@ static int esp32_handle_target_event(struct target *target, enum target_event ev
 	for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++)
 		target_call_event_callbacks(&xtensa_mcore->cores_targets[i], event);
 
+	if (event == TARGET_EVENT_GDB_DETACH && old_state == TARGET_RUNNING) {
+		/* the target was stopped by esp_xtensa_handle_target_event(), but not resumed because
+		 esp32_xtensa_core_resume() does nothing
+		 TODO: remove this hack when normal OpenOCD SMP mechanism is supported */
+		int ret = target_resume(target, 1, 0, 1, 0);
+		if (ret != ERROR_OK) {
+			LOG_ERROR(
+				"%s: Failed to resume target after flash BPs removal (%d)!",
+				target_name(target),
+				ret);
+			return ret;
+		}
+	}
+
 	return ERROR_OK;
 }
 
@@ -560,6 +575,26 @@ static int esp32_target_init(struct command_context *cmd_ctx, struct target *tar
 	return ERROR_OK;
 }
 
+static int esp32_xtensa_core_resume(struct target *target,
+	int current,
+	target_addr_t address,
+	int handle_breakpoints,
+	int debug_execution)
+{
+	/* done via core_prepare_resume() and core_do_resume() from
+	 * esp32_xtensa_mcores_ops */
+	return ERROR_OK;
+}
+
+static int esp32_xtensa_core_step(struct target *target,
+	int current,
+	target_addr_t address,
+	int handle_breakpoints)
+{
+	/* done via core_do_step() from esp32_xtensa_mcores_ops */
+	return ERROR_OK;
+}
+
 /** Special target type for ESP32 cores with minimal funcs support */
 static struct target_type esp32_xtensa_core_target_type = {
 	.name = "esp32_core",
@@ -571,9 +606,8 @@ static struct target_type esp32_xtensa_core_target_type = {
 	.deassert_reset = xtensa_deassert_reset,
 
 	.halt = xtensa_halt,
-	/* .resume = xtensa_resume, done via core_prepare_resume() and core_do_resume() from
-	 * esp32_xtensa_mcores_ops */
-	/* .step = xtensa_step, done via core_do_step() from esp32_xtensa_mcores_ops */
+	.resume = esp32_xtensa_core_resume,
+	.step = esp32_xtensa_core_step,
 
 	.mmu = xtensa_mmu_is_enabled,
 	.read_memory = xtensa_read_memory,
