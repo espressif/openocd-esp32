@@ -1091,22 +1091,6 @@ int xtensa_do_step(struct target *target,
 	oldps = xtensa_reg_get(target, XT_REG_IDX_PS);
 	oldpc = xtensa_reg_get(target, XT_REG_IDX_PC);
 
-	if (xtensa->stepping_isr_mode == XT_STEPPING_ISR_OFF) {
-		if (!xtensa->core_config->high_irq.enabled) {
-			LOG_WARNING(
-				"%s: disabling IRQs while stepping is not implemented w/o high prio IRQs option!",
-				target_name(target));
-			return ERROR_FAIL;
-		}
-		/* Increasing the interrupt level to avoid taking interrupts while stepping. */
-		xtensa_reg_val_t temp_ps = (oldps & ~0xF) |
-			xtensa->core_config->high_irq.excm_level;
-		xtensa_reg_set(target, XT_REG_IDX_PS, temp_ps);
-		/* Now we have to set up max posssible interrupt level (ilevel + 1) */
-		icountlvl = xtensa->core_config->high_irq.excm_level + 1;
-	} else
-		icountlvl = (oldps & 0xF) + 1;
-
 	cause = xtensa_reg_get(target, XT_REG_IDX_DEBUGCAUSE);
 	LOG_DEBUG("%s: oldps=%x, oldpc=%x dbg_cause=%x exc_cause=%x",
 		target_name(target),
@@ -1127,6 +1111,23 @@ int xtensa_do_step(struct target *target,
 			xtensa_reg_set(target, XT_REG_IDX_PC, oldpc + 2);	/* PC = PC+2 */
 		return ERROR_OK;
 	}
+
+	if (xtensa->stepping_isr_mode == XT_STEPPING_ISR_OFF) {
+		if (!xtensa->core_config->high_irq.enabled) {
+			LOG_WARNING(
+				"%s: disabling IRQs while stepping is not implemented w/o high prio IRQs option!",
+				target_name(target));
+			return ERROR_FAIL;
+		}
+		/* Increasing the interrupt level to avoid taking interrupts while stepping. */
+		xtensa_reg_val_t temp_ps = (oldps & ~0xF) |
+			xtensa->core_config->high_irq.excm_level;
+		xtensa_reg_set(target, XT_REG_IDX_PS, temp_ps);
+		/* Now we have to set up max posssible interrupt level (ilevel + 1) */
+		icountlvl = xtensa->core_config->high_irq.excm_level + 1;
+	} else
+		icountlvl = (oldps & 0xF) + 1;
+
 	if (cause & DEBUGCAUSE_DB) {
 		/*We stopped due to a watchpoint. We can't just resume executing the instruction
 		 * again because */
