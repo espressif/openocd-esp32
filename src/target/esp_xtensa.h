@@ -128,6 +128,7 @@ static inline struct esp_xtensa_common *target_to_esp_xtensa(struct target *targ
 
 int esp_xtensa_init_arch_info(struct target *target,
 	struct target *chip_target,
+	void *arch_info,
 	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
 	const struct xtensa_chip_ops *chip_ops,

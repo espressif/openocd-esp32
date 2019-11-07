@@ -31,6 +31,7 @@ STUB_CHIP_PATH := $(shell pwd)
 STUB_COMMON_PATH := $(STUB_CHIP_PATH)/..
 STUB_OBJ_DEPS := sdkconfig.h
 STUB_LD_SCRIPT := stub.ld
+STUB_CHIP := ESP32
 
 SRCS := $(IDF_PATH)/components/soc/esp32/rtc_clk.c \
 	$(IDF_PATH)/components/soc/esp32/rtc_time.c \

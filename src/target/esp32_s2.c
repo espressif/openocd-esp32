@@ -61,7 +61,14 @@
 #define ESP32_S2_RTCWDT_CFG           (ESP32_S2_RTCCNTL_BASE + ESP32_S2_RTCWDT_CFG_OFF)
 #define ESP32_S2_RTCWDT_PROTECT       (ESP32_S2_RTCCNTL_BASE + ESP32_S2_RTCWDT_PROTECT_OFF)
 
-#define ESP32_S2_TRACEMEM_BLOCK_SZ    0x4000
+#define ESP32_S2_TRACEMEM_BLOCK_SZ    	0x4000
+
+#define ESP32_S2_DR_REG_UART_BASE     	0x3f400000
+#define ESP32_S2_REG_UART_BASE( i )		(ESP32_S2_DR_REG_UART_BASE + (i) * 0x10000 )
+#define ESP32_S2_UART_DATE_REG(i)    	(ESP32_S2_REG_UART_BASE(i) + 0x74)
+#define ESP32_S2_CHIP_REV_REG			ESP32_S2_UART_DATE_REG(0)
+#define ESP32_S2_CHIP_REV_VAL			0x19031400
+#define ESP32_S2BETA_CHIP_REV_VAL		0x18082800
 
 
 static const struct xtensa_config esp32_s2_xtensa_cfg = {
@@ -375,9 +382,31 @@ static int esp32_s2_arch_state(struct target *target)
 
 static bool esp32_s2_on_halt(struct target *target)
 {
+	struct esp32_s2_common *esp32 = target_to_esp32_s2(target);
+	uint32_t val = (uint32_t)-1;
+
 	int ret = esp32_s2_disable_wdts(target);
 	if (ret != ERROR_OK)
 		return false;
+
+	if (esp32->chip_rev == ESP32_S2_REV_UNKNOWN) {
+		ret = xtensa_read_buffer(target,
+			ESP32_S2_CHIP_REV_REG,
+			sizeof(val),
+			(uint8_t *)&val);
+		if (ret != ERROR_OK)
+			LOG_ERROR("Failed to read chip revision register (%d)!", ret);
+		LOG_DEBUG("Chip ver 0x%x", val);
+		if (val == ESP32_S2_CHIP_REV_VAL) {
+			LOG_INFO("Detected ESP32-S2 chip");
+			esp32->chip_rev = ESP32_S2_REV_0;
+		} else if (val == ESP32_S2BETA_CHIP_REV_VAL) {
+			LOG_INFO("Detected ESP32-S2-Beta chip");
+			esp32->chip_rev = ESP32_S2_REV_BETA;
+		} else
+			LOG_WARNING("Unknown ESP32-S2 chip revision (0x%x)!", val);
+	}
+
 	return esp_xtensa_on_halt(target);
 }
 
@@ -427,13 +456,14 @@ static int esp32_s2_target_create(struct target *target, Jim_Interp *interp)
 		return ERROR_FAIL;
 	}
 
-	int ret = esp_xtensa_init_arch_info(target, target, &esp32_s2_xtensa_cfg,
+	int ret = esp_xtensa_init_arch_info(target, target, esp32, &esp32_s2_xtensa_cfg,
 		&esp32_s2_dm_cfg, &esp32_s2_chip_ops, &esp32_s2_spec_brp_ops);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to init arch info!");
 		free(esp32);
 		return ret;
 	}
+	esp32->chip_rev = ESP32_S2_REV_UNKNOWN;
 
 	/*Assume running target. If different, the first poll will fix this. */
 	target->state = TARGET_RUNNING;

@@ -31,20 +31,22 @@ STUB_CHIP_PATH := $(shell pwd)
 STUB_COMMON_PATH := $(STUB_CHIP_PATH)/..
 STUB_OBJ_DEPS := sdkconfig.h
 STUB_LD_SCRIPT := stub.ld
-STUB_CHIP := ESP32_S2
+STUB_CHIP := ESP32_S2BETA
 
-SRCS := $(IDF_PATH)/components/soc/esp32c/rtc_clk.c \
-	$(IDF_PATH)/components/soc/esp32c/rtc_time.c \
-	$(IDF_PATH)/components/xtensa-debug-module/eri.c
+SRCS := $(IDF_PATH)/components/soc/esp32s2beta/rtc_clk.c \
+	$(IDF_PATH)/components/soc/esp32s2beta/rtc_time.c \
+	$(IDF_PATH)/components/xtensa/eri.c
 
 CFLAGS +=
 
-INCLUDES := -I$(IDF_PATH)/components/esp32c/include -I$(IDF_PATH)/components/soc/esp32c/include
+INCLUDES := -I$(IDF_PATH)/components/esp32s2beta/include -I$(IDF_PATH)/components/soc/esp32s2beta/include \
+	-I$(IDF_PATH)/components/esp_rom/include -I$(IDF_PATH)/components/esp_rom/include/esp32s2beta \
+	-I$(IDF_PATH)/components/esp_common/include -I$(IDF_PATH)/components/xtensa/include \
+	-I$(IDF_PATH)/components/xtensa/esp32s2beta/include
 
 DEFINES :=
 
-LDFLAGS += -L$(IDF_PATH)/components/esp32c/ld -T$(IDF_PATH)/components/esp32c/ld/esp32.rom.spiflash.ld \
-	-T$(IDF_PATH)/components/esp32c/ld/esp32.rom.ld -T$(IDF_PATH)/components/esp32c/ld/esp32.rom.spiram_incompatible_fns.ld \
-	-T$(IDF_PATH)/components/esp32c/ld/esp32.peripherals.ld
+LDFLAGS += -L$(IDF_PATH)/components/esp32s2beta/ld -T$(IDF_PATH)/components/esp_rom/esp32s2beta/ld/esp32s2beta.rom.spiflash.ld \
+	-T$(IDF_PATH)/components/esp_rom/esp32s2beta/ld/esp32s2beta.rom.ld
 
 include ../stub_common.mk

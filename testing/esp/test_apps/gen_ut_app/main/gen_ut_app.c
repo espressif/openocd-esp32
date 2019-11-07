@@ -19,7 +19,7 @@
 #include "esp_log.h"
 const static char *TAG = "ut_app";
 
-#if CONFIG_IDF_TARGET_ESP32S2BETA
+#if CONFIG_IDF_TARGET_ESP32S2BETA || CONFIG_IDF_TARGET_ESP32S2
 #define TIM_CLR(_tg_, _tn_) do{ TIMERG ## _tg_.int_clr.t ## _tn_ = 1;}while(0)
 #define TIM_UPD(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].update.update = 1;}while(0)
 #else

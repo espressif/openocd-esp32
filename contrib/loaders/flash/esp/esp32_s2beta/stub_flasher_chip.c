@@ -37,11 +37,15 @@ extern void spi_flash_attach(uint32_t spiconfig, uint32_t arg2);
 static void esp32_s2_flash_disable_cache(uint32_t *saved_state)
 {
 	saved_state[0] = Cache_Suspend_ICache();
+	if (!Cache_Drom0_Using_ICache())
+		saved_state[1] = Cache_Suspend_DCache();
 }
 
 static void esp32_s2_flash_restore_cache(uint32_t *saved_state)
 {
 	Cache_Resume_ICache(saved_state[0]);
+	if (!Cache_Drom0_Using_ICache())
+		Cache_Resume_DCache(saved_state[1]);
 }
 
 uint32_t stub_flash_get_id(void)

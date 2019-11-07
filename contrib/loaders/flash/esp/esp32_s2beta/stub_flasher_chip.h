@@ -1,5 +1,5 @@
 /***************************************************************************
- *   ESP32-S2 target for OpenOCD                                           *
+ *   ESP32-S2 flasher stub definitions                                     *
  *   Copyright (C) 2019 Espressif Systems Ltd.                             *
  *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  *                                                                         *
@@ -18,36 +18,17 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
+#ifndef ESP32_S2_FLASHER_STUB_H
+#define ESP32_S2_FLASHER_STUB_H
 
-#ifndef XTENSA_ESP32_S2_H
-#define XTENSA_ESP32_S2_H
+#define STUB_FLASH_SECTOR_SIZE  4096
+/* Flash geometry constants */
+#define STUB_FLASH_BLOCK_SIZE   65536
+#define STUB_FLASH_PAGE_SIZE    256
+#define STUB_FLASH_STATUS_MASK  0xFFFF
 
-#include "esp_xtensa.h"
-
-#define ESP32_S2_DROM_LOW    0x3F000000
-#define ESP32_S2_DROM_HIGH   0x3F400000
-#define ESP32_S2_IROM_LOW    0x40080000
-#define ESP32_S2_IROM_HIGH   0x40c00000
-
-/*Number of registers returned directly by the G command
- *Corresponds to the amount of regs listed in regformats/reg-xtensa.dat in the gdb source */
-#define ESP32_S2_NUM_REGS_G_COMMAND   73
-
-enum esp32_s2_rev {
-	ESP32_S2_REV_UNKNOWN = -1,
-	ESP32_S2_REV_BETA,
-	ESP32_S2_REV_0,
-	ESP32_S2_REV_LATEST = ESP32_S2_REV_0
+struct stub_flash_state {
+	uint32_t cache_flags[2];
 };
 
-struct esp32_s2_common {
-	struct esp_xtensa_common 	esp_xtensa;
-	enum esp32_s2_rev			chip_rev;
-};
-
-static inline struct esp32_s2_common *target_to_esp32_s2(struct target *target)
-{
-	return container_of(target->arch_info, struct esp32_s2_common, esp_xtensa);
-}
-
-#endif	/* XTENSA_ESP32_S2_H */
+#endif	/*ESP32_S2_FLASHER_STUB_H */
