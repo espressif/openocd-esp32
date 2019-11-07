@@ -29,6 +29,7 @@
 #include <target/esp32_s2.h>
 #include "esp_xtensa.h"
 #include "contrib/loaders/flash/esp/esp32_s2/stub_flasher_image.h"
+#include "contrib/loaders/flash/esp/esp32_s2beta/stub_flasher_image.h"
 
 #define ESP32_S2_FLASH_SECTOR_SIZE 4096
 
@@ -43,6 +44,31 @@ static const uint8_t esp32_s2_flasher_stub_data[] = {
 #include "contrib/loaders/flash/esp/esp32_s2/stub_flasher_data.inc"
 };
 
+static const uint8_t esp32_s2beta_flasher_stub_code[] = {
+#include "contrib/loaders/flash/esp/esp32_s2beta/stub_flasher_code.inc"
+};
+static const uint8_t esp32_s2beta_flasher_stub_data[] = {
+#include "contrib/loaders/flash/esp/esp32_s2beta/stub_flasher_data.inc"
+};
+
+
+static struct esp_xtensa_flasher_stub_config s_esp32_s2_stub_cfg = {
+	.code = esp32_s2_flasher_stub_code,
+	.code_sz = sizeof(esp32_s2_flasher_stub_code),
+	.data = esp32_s2_flasher_stub_data,
+	.data_sz = sizeof(esp32_s2_flasher_stub_data),
+	.entry_addr = ESP32_S2_STUB_ENTRY_ADDR,
+	.bss_sz = ESP32_S2_STUB_BSS_SIZE
+};
+
+static struct esp_xtensa_flasher_stub_config s_esp32_s2beta_stub_cfg = {
+	.code = esp32_s2beta_flasher_stub_code,
+	.code_sz = sizeof(esp32_s2beta_flasher_stub_code),
+	.data = esp32_s2beta_flasher_stub_data,
+	.data_sz = sizeof(esp32_s2beta_flasher_stub_data),
+	.entry_addr = ESP32_S2BETA_STUB_ENTRY_ADDR,
+	.bss_sz = ESP32_S2BETA_STUB_BSS_SIZE
+};
 
 static bool esp32_s2_is_irom_address(target_addr_t addr)
 {
@@ -54,20 +80,23 @@ static bool esp32_s2_is_drom_address(target_addr_t addr)
 	return (addr >= ESP32_S2_DROM_LOW && addr < ESP32_S2_DROM_HIGH);
 }
 
+static const struct esp_xtensa_flasher_stub_config *esp32_s2_get_stub(struct flash_bank *bank)
+{
+	struct esp32_s2_common *esp32 = target_to_esp32_s2(bank->target);
+
+	if (esp32->chip_rev == ESP32_S2_REV_BETA)
+		return &s_esp32_s2beta_stub_cfg;
+	else if (esp32->chip_rev == ESP32_S2_REV_0)
+		return &s_esp32_s2_stub_cfg;
+	return NULL;
+}
+
 /* flash bank <bank_name> esp32 <base> <size> 0 0 <target#>
    If <size> is zero flash size will be autodetected, otherwise user value will be used
  */
 FLASH_BANK_COMMAND_HANDLER(esp32_s2_flash_bank_command)
 {
 	struct esp32_s2_flash_bank *esp32_s2_info;
-	struct esp_xtensa_flasher_stub_config stub_cfg = {
-		.code = esp32_s2_flasher_stub_code,
-		.code_sz = sizeof(esp32_s2_flasher_stub_code),
-		.data = esp32_s2_flasher_stub_data,
-		.data_sz = sizeof(esp32_s2_flasher_stub_data),
-		.entry_addr = ESP32_STUB_ENTRY_ADDR,
-		.bss_sz = ESP32_STUB_BSS_SIZE
-	};
 
 	if (CMD_ARGC < 6)
 		return ERROR_COMMAND_SYNTAX_ERROR;
@@ -80,7 +109,7 @@ FLASH_BANK_COMMAND_HANDLER(esp32_s2_flash_bank_command)
 		xtensa_run_func_image,
 		esp32_s2_is_irom_address,
 		esp32_s2_is_drom_address,
-		&stub_cfg);
+		esp32_s2_get_stub);
 	if (ret != ERROR_OK) {
 		free(esp32_s2_info);
 		return ret;

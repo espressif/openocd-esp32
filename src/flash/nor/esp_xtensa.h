@@ -42,8 +42,7 @@ struct esp_xtensa_flash_bank {
 	uint32_t hw_flash_base;
 	/* Offset of the application image in the HW flash bank */
 	uint32_t appimage_flash_base;
-	/* Flasher stub image data */
-	struct xtensa_algo_image flasher_image;
+	const struct esp_xtensa_flasher_stub_config *(*get_stub)(struct flash_bank *bank);
 	/* function to run algorithm on Xtensa target */
 	int (*run_func_image)(struct target *target, struct xtensa_algo_run_data *run,
 		struct xtensa_algo_image *image, uint32_t num_args, ...);
@@ -67,7 +66,7 @@ int esp_xtensa_flash_init(struct esp_xtensa_flash_bank *esp_xtensa_info, uint32_
 		struct xtensa_algo_image *image, uint32_t num_args, ...),
 	bool (*is_irom_address)(target_addr_t addr),
 	bool (*is_drom_address)(target_addr_t addr),
-	const struct esp_xtensa_flasher_stub_config *stub_cfg);
+	const struct esp_xtensa_flasher_stub_config *(*get_stub)(struct flash_bank *bank));
 int esp_xtensa_protect(struct flash_bank *bank, int set, int first, int last);
 int esp_xtensa_protect_check(struct flash_bank *bank);
 int esp_xtensa_blank_check(struct flash_bank *bank);

@@ -180,33 +180,46 @@ static int esp_xtensa_handle_target_event(struct target *target, enum target_eve
 }
 
 int esp_xtensa_init_arch_info(struct target *target, struct target *chip_target,
+	void *arch_info,
 	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
 	const struct xtensa_chip_ops *chip_ops,
 	const struct esp_xtensa_special_breakpoint_ops *spec_brps_ops)
 {
+	struct esp_xtensa_common *esp_xtensa;
+
 	int ret = target_register_exit_callback(esp_xtensa_on_exit, NULL);
 	if (ret != ERROR_OK)
 		return ret;
 	ret = target_register_event_callback(esp_xtensa_handle_target_event, target);
 	if (ret != ERROR_OK)
 		return ret;
-	struct esp_xtensa_common *esp_xtensa = calloc(1, sizeof(struct esp_xtensa_common));
-	if (esp_xtensa == NULL)
-		return ERROR_FAIL;
+	if (target != chip_target) {
+		/* if this target is a sub-core of the chip, allocate arch data */
+		esp_xtensa = calloc(1, sizeof(struct esp_xtensa_common));
+		if (esp_xtensa == NULL)
+			return ERROR_FAIL;
+	} else {
+		esp_xtensa = arch_info;
+		memset(esp_xtensa, 0, sizeof(*esp_xtensa));
+	}
 	if (dm_cfg->queue_tdi_idle == NULL) {
 		dm_cfg->queue_tdi_idle = esp_xtensa_queue_tdi_idle;
 		dm_cfg->queue_tdi_idle_arg = target;
 	}
 	ret = xtensa_init_arch_info(target, &esp_xtensa->xtensa, xtensa_cfg, dm_cfg, chip_ops);
-	if (ret != ERROR_OK)
+	if (ret != ERROR_OK) {
+		if (target != chip_target)
+			free(esp_xtensa);
 		return ret;
+	}
 	memcpy(&esp_xtensa->spec_brps_ops, spec_brps_ops, sizeof(esp_xtensa->spec_brps_ops));
 	esp_xtensa->spec_brps =
 		calloc(ESP_XTENSA_SPECIAL_BREAKPOINTS_MAX_NUM,
 		sizeof(struct esp_xtensa_special_breakpoint));
 	if (esp_xtensa->spec_brps == NULL) {
-		free(esp_xtensa);
+		if (target != chip_target)
+			free(esp_xtensa);
 		return ERROR_FAIL;
 	}
 	esp_xtensa->chip_target = chip_target;

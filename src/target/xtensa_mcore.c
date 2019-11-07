@@ -358,7 +358,7 @@ int xtensa_mcore_init_arch_info(struct target *target, struct xtensa_mcore_commo
 		}
 		sprintf(subtarget->cmd_name, "cpu%u", i);
 		int ret = mcores_ops[i]->core_init_arch_info(subtarget,
-			target,
+			target, NULL,
 			xtensa_cfgs[i],
 			&dm_cfgs[i],
 			NULL,

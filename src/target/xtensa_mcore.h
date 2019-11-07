@@ -29,7 +29,7 @@
 
 struct xtensa_core_ops {
 	int (*core_init_arch_info)(struct target *target, struct target *chip_target,
-		const struct xtensa_config *xtensa_cfg,
+		void *arch_info, const struct xtensa_config *xtensa_cfg,
 		struct xtensa_debug_module_config *dm_cfg, const struct xtensa_chip_ops *chip_ops,
 		void *priv);
 	void (*core_on_reset)(struct target *target);

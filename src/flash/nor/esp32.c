@@ -43,6 +43,15 @@ static const uint8_t esp32_flasher_stub_data[] = {
 #include "contrib/loaders/flash/esp/esp32/stub_flasher_data.inc"
 };
 
+static struct esp_xtensa_flasher_stub_config s_stub_cfg = {
+	.code = esp32_flasher_stub_code,
+	.code_sz = sizeof(esp32_flasher_stub_code),
+	.data = esp32_flasher_stub_data,
+	.data_sz = sizeof(esp32_flasher_stub_data),
+	.entry_addr = ESP32_STUB_ENTRY_ADDR,
+	.bss_sz = ESP32_STUB_BSS_SIZE
+};
+
 
 static bool esp32_is_irom_address(target_addr_t addr)
 {
@@ -54,20 +63,17 @@ static bool esp32_is_drom_address(target_addr_t addr)
 	return (addr >= ESP32_DROM_LOW && addr < ESP32_DROM_HIGH);
 }
 
+static const struct esp_xtensa_flasher_stub_config *esp32_get_stub(struct flash_bank *bank)
+{
+	return &s_stub_cfg;
+}
+
 /* flash bank <bank_name> esp32 <base> <size> 0 0 <target#>
    If <size> is zero flash size will be autodetected, otherwise user value will be used
  */
 FLASH_BANK_COMMAND_HANDLER(esp32_flash_bank_command)
 {
 	struct esp32_flash_bank *esp32_info;
-	struct esp_xtensa_flasher_stub_config stub_cfg = {
-		.code = esp32_flasher_stub_code,
-		.code_sz = sizeof(esp32_flasher_stub_code),
-		.data = esp32_flasher_stub_data,
-		.data_sz = sizeof(esp32_flasher_stub_data),
-		.entry_addr = ESP32_STUB_ENTRY_ADDR,
-		.bss_sz = ESP32_STUB_BSS_SIZE
-	};
 
 	if (CMD_ARGC < 6)
 		return ERROR_COMMAND_SYNTAX_ERROR;
@@ -80,7 +86,7 @@ FLASH_BANK_COMMAND_HANDLER(esp32_flash_bank_command)
 		xtensa_mcore_run_func_image,
 		esp32_is_irom_address,
 		esp32_is_drom_address,
-		&stub_cfg);
+		esp32_get_stub);
 	if (ret != ERROR_OK) {
 		free(esp32_info);
 		return ret;
