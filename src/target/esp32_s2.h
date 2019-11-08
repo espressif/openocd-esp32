@@ -41,8 +41,8 @@ enum esp32_s2_rev {
 };
 
 struct esp32_s2_common {
-	struct esp_xtensa_common 	esp_xtensa;
-	enum esp32_s2_rev			chip_rev;
+	struct esp_xtensa_common esp_xtensa;
+	enum esp32_s2_rev chip_rev;
 };
 
 static inline struct esp32_s2_common *target_to_esp32_s2(struct target *target)
