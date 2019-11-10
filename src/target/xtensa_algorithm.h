@@ -362,6 +362,6 @@ int xtensa_run_algorithm_image(struct target *target,
  */
 int xtensa_run_algorithm_onboard(struct target *target,
 	struct xtensa_algo_run_data *run,
-	uint32_t func_entry);
+	void *func_entry);
 
 #endif	/* XTENSA_ESP32_H */

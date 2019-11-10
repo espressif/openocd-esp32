@@ -1159,7 +1159,7 @@ static void mg_gen_ataid(mg_io_type_drv_info *pSegIdDrvInfo)
 	memset(pSegIdDrvInfo->vendor_uniq_bytes, 0x00, 62);
 	/* CFA power mode 1 support in maximum 200mA */
 	pSegIdDrvInfo->cfa_pwr_mode                     = 0x0100;
-	memset(pSegIdDrvInfo->reserved7, 0x00, 190);
+	memset(pSegIdDrvInfo->reserved7, 0x00, sizeof(pSegIdDrvInfo->reserved7));
 }
 
 static int mg_storage_config(void)
