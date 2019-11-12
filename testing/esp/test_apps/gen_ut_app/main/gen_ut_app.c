@@ -21,7 +21,7 @@
 #include "esp_log.h"
 const static char *TAG = "ut_app";
 
-#if CONFIG_IDF_TARGET_ESP32S2BETA || CONFIG_IDF_TARGET_ESP32S2
+#if CONFIG_IDF_TARGET_ESP32S2BETA || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
 #define TIM_CLR(_tg_, _tn_) do{ TIMERG ## _tg_.int_clr.t ## _tn_ = 1;}while(0)
 #define TIM_UPD(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].update.update = 1;}while(0)
 #else
@@ -153,7 +153,7 @@ static void blink_task(void *pvParameter)
        Technical Reference for a list of pads and their default
        functions.)
     */
-    gpio_pad_select_gpio(BLINK_GPIO);
+    gpio_reset_pin(BLINK_GPIO);
     /* Set the GPIO as a push/pull output */
     gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);   TEST_BREAK_LOC(gpio_set_direction);
     while(1) {

@@ -485,6 +485,7 @@ int xtensa_fetch_user_regs_u32(struct target *target);
 int xtensa_queue_write_dirty_user_regs_u32(struct target *target);
 
 extern const struct reg_arch_type xtensa_user_reg_u32_type;
+extern const struct reg_arch_type xtensa_user_reg_u128_type;
 
 COMMAND_HELPER(xtensa_cmd_permissive_mode_do, struct xtensa *xtensa);
 COMMAND_HELPER(xtensa_cmd_mask_interrupts_do, struct xtensa *xtensa);
