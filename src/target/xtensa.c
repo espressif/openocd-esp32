@@ -278,16 +278,6 @@ typedef enum {
 	XTENSA_MEM_REGS_NUM
 } xtensa_mem_region_type_t;
 
-static int xtensa_get_core_reg(struct reg *reg);
-static int xtensa_set_core_reg(struct reg *reg, uint8_t *buf);
-
-
-const struct reg_arch_type xtensa_user_reg_u32_type = {
-	/* can use the same function which are used for core regs */
-	.get = xtensa_get_core_reg,
-	.set = xtensa_set_core_reg,
-};
-
 /**
  * Gets a config for the specific mem type
  */
@@ -371,7 +361,7 @@ static inline bool xtensa_is_dcacheable(struct xtensa *xtensa, target_addr_t add
 		address);
 }
 
-static int xtensa_get_core_reg(struct reg *reg)
+static int xtensa_core_reg_get(struct reg *reg)
 {
 	/*We don't need this because we read all registers on halt anyway. */
 	struct xtensa *xtensa = (struct xtensa *)reg->arch_info;
@@ -382,25 +372,40 @@ static int xtensa_get_core_reg(struct reg *reg)
 	return ERROR_OK;
 }
 
-static int xtensa_set_core_reg(struct reg *reg, uint8_t *buf)
+static int xtensa_core_reg_set(struct reg *reg, uint8_t *buf)
 {
 	struct xtensa *xtensa = (struct xtensa *)reg->arch_info;
 	struct target *target = xtensa->target;
-	assert(reg->size == 32 && "32-bit core regs are supported only!");
-	uint32_t value = buf_get_u32(buf, 0, 32);
 
+	assert(reg->size <= 64 && "up to 64-bit regs are supported only!");
 	if (target->state != TARGET_HALTED)
 		return ERROR_TARGET_NOT_HALTED;
 
-	buf_set_u32(reg->value, 0, reg->size, value);
+	if (reg->size <= 32) {
+		uint32_t value = buf_get_u32(buf, 0, reg->size);
+		buf_set_u32(reg->value, 0, reg->size, value);
+	} else if (reg->size <= 64) {
+		uint64_t value = buf_get_u64(buf, 0, reg->size);
+		buf_set_u64(reg->value, 0, reg->size, value);
+	}
 	reg->dirty = 1;
 	reg->valid = 1;
 	return ERROR_OK;
 }
 
 static const struct reg_arch_type xtensa_reg_type = {
-	.get = xtensa_get_core_reg,
-	.set = xtensa_set_core_reg,
+	.get = xtensa_core_reg_get,
+	.set = xtensa_core_reg_set,
+};
+
+const struct reg_arch_type xtensa_user_reg_u32_type = {
+	.get = xtensa_core_reg_get,
+	.set = xtensa_core_reg_set,
+};
+
+const struct reg_arch_type xtensa_user_reg_u128_type = {
+	.get = xtensa_core_reg_get,
+	.set = xtensa_core_reg_set,
 };
 
 static inline uint8_t xtensa_insn_size_get(uint8_t *insn)

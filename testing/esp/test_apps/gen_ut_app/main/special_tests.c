@@ -18,7 +18,7 @@ static void crash_task(void *pvParameter)
 static void cache_check_task(void *pvParameter)
 {
     int count = 0;
-    gpio_pad_select_gpio(BLINK_GPIO);
+    gpio_reset_pin(BLINK_GPIO);
 
     bool cache_before = spi_flash_cache_enabled();
     gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);   TEST_BREAK_LOC(gpio_set_direction);
@@ -55,7 +55,7 @@ static void psram_check_task(void *pvParameter)
        Technical Reference for a list of pads and their default
        functions.)
     */
-    gpio_pad_select_gpio(BLINK_GPIO);
+    gpio_reset_pin(BLINK_GPIO);
     /* Set the GPIO as a push/pull output */
     gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);   TEST_BREAK_LOC(gpio_set_direction);
     while(1) {
