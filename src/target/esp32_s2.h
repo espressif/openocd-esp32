@@ -31,7 +31,7 @@
 
 /*Number of registers returned directly by the G command
  *Corresponds to the amount of regs listed in regformats/reg-xtensa.dat in the gdb source */
-#define ESP32_S2_NUM_REGS_G_COMMAND   73
+#define ESP32_S2_NUM_REGS_G_COMMAND   72
 
 enum esp32_s2_rev {
 	ESP32_S2_REV_UNKNOWN = -1,
