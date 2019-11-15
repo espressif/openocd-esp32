@@ -92,7 +92,9 @@
 #endif
 
 #define CONTROL_TIMEOUT		5000		/* 5s    */
+#ifndef PAGE_SIZE
 #define PAGE_SIZE			4096
+#endif
 #define PB_MAX				32
 
 #define NUM_NS_PER_S		1000000000ULL
