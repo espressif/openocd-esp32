@@ -620,7 +620,7 @@ static int pic32mx_write(struct flash_bank *bank, const uint8_t *buffer, uint32_
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	LOG_DEBUG("writing to flash at address 0x%08" PRIx32 " at offset 0x%8.8" PRIx32
+	LOG_DEBUG("writing to flash at address " TARGET_ADDR_FMT " at offset 0x%8.8" PRIx32
 			" count: 0x%8.8" PRIx32 "", bank->base, offset, count);
 
 	if (offset & 0x3) {
@@ -858,7 +858,7 @@ COMMAND_HANDLER(pic32mx_handle_pgm_word_command)
 		return retval;
 
 	if (address < bank->base || address >= (bank->base + bank->size)) {
-		command_print(CMD_CTX, "flash address '%s' is out of bounds", CMD_ARGV[0]);
+		command_print(CMD, "flash address '%s' is out of bounds", CMD_ARGV[0]);
 		return ERROR_OK;
 	}
 
@@ -870,9 +870,9 @@ COMMAND_HANDLER(pic32mx_handle_pgm_word_command)
 		res = ERROR_FLASH_OPERATION_FAILED;
 
 	if (res == ERROR_OK)
-		command_print(CMD_CTX, "pic32mx pgm word complete");
+		command_print(CMD, "pic32mx pgm word complete");
 	else
-		command_print(CMD_CTX, "pic32mx pgm word failed (status = 0x%x)", status);
+		command_print(CMD, "pic32mx pgm word failed (status = 0x%x)", status);
 
 	return ERROR_OK;
 }
@@ -885,7 +885,7 @@ COMMAND_HANDLER(pic32mx_handle_unlock_command)
 	int timeout = 10;
 
 	if (CMD_ARGC < 1) {
-		command_print(CMD_CTX, "pic32mx unlock <bank>");
+		command_print(CMD, "pic32mx unlock <bank>");
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
@@ -907,7 +907,7 @@ COMMAND_HANDLER(pic32mx_handle_unlock_command)
 	mips_ejtag_drscan_8(ejtag_info, &mchip_cmd);
 	if (mchip_cmd & (1 << 7)) {
 		/* device is not locked */
-		command_print(CMD_CTX, "pic32mx is already unlocked, erasing anyway");
+		command_print(CMD, "pic32mx is already unlocked, erasing anyway");
 	}
 
 	/* unlock/erase device */
@@ -931,7 +931,7 @@ COMMAND_HANDLER(pic32mx_handle_unlock_command)
 	/* select ejtag tap */
 	mips_ejtag_set_instr(ejtag_info, MTAP_SW_ETAP);
 
-	command_print(CMD_CTX, "pic32mx unlocked.\n"
+	command_print(CMD, "pic32mx unlocked.\n"
 			"INFO: a reset or power cycle is required "
 			"for the new settings to take effect.");
 
@@ -967,7 +967,7 @@ static const struct command_registration pic32mx_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-struct flash_driver pic32mx_flash = {
+const struct flash_driver pic32mx_flash = {
 	.name = "pic32mx",
 	.commands = pic32mx_command_handlers,
 	.flash_bank_command = pic32mx_flash_bank_command,

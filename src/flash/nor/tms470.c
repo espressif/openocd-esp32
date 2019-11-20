@@ -165,7 +165,8 @@ static int tms470_read_part_info(struct flash_bank *bank)
 			part_name = "TMS470R1A256";
 
 			if (bank->base >= 0x00040000) {
-				LOG_ERROR("No %s flash bank contains base address 0x%08" PRIx32 ".",
+				LOG_ERROR("No %s flash bank contains base address "
+						TARGET_ADDR_FMT ".",
 						part_name,
 						bank->base);
 				return ERROR_FLASH_OPERATION_FAILED;
@@ -204,7 +205,7 @@ static int tms470_read_part_info(struct flash_bank *bank)
 				(void)memcpy(bank->sectors, TMS470R1A288_BANK1_SECTORS,
 						sizeof(TMS470R1A288_BANK1_SECTORS));
 			} else {
-				LOG_ERROR("No %s flash bank contains base address 0x%08" PRIx32 ".",
+				LOG_ERROR("No %s flash bank contains base address " TARGET_ADDR_FMT ".",
 						part_name, bank->base);
 				return ERROR_FLASH_OPERATION_FAILED;
 			}
@@ -244,7 +245,7 @@ static int tms470_read_part_info(struct flash_bank *bank)
 				(void)memcpy(bank->sectors, TMS470R1A384_BANK2_SECTORS,
 						sizeof(TMS470R1A384_BANK2_SECTORS));
 			} else {
-				LOG_ERROR("No %s flash bank contains base address 0x%08" PRIx32 ".",
+				LOG_ERROR("No %s flash bank contains base address " TARGET_ADDR_FMT ".",
 						part_name, bank->base);
 				return ERROR_FLASH_OPERATION_FAILED;
 			}
@@ -300,7 +301,7 @@ COMMAND_HANDLER(tms470_handle_flash_keyset_command)
 			int start = (0 == strncmp(CMD_ARGV[i], "0x", 2)) ? 2 : 0;
 
 			if (1 != sscanf(&CMD_ARGV[i][start], "%" SCNx32 "", &flashKeys[i])) {
-				command_print(CMD_CTX, "could not process flash key %s",
+				command_print(CMD, "could not process flash key %s",
 					CMD_ARGV[i]);
 				LOG_ERROR("could not process flash key %s", CMD_ARGV[i]);
 				return ERROR_COMMAND_SYNTAX_ERROR;
@@ -309,19 +310,19 @@ COMMAND_HANDLER(tms470_handle_flash_keyset_command)
 
 		keysSet = 1;
 	} else if (CMD_ARGC != 0) {
-		command_print(CMD_CTX, "tms470 flash_keyset <key0> <key1> <key2> <key3>");
+		command_print(CMD, "tms470 flash_keyset <key0> <key1> <key2> <key3>");
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
 	if (keysSet) {
-		command_print(CMD_CTX,
+		command_print(CMD,
 			"using flash keys 0x%08" PRIx32 ", 0x%08" PRIx32 ", 0x%08" PRIx32 ", 0x%08" PRIx32 "",
 			flashKeys[0],
 			flashKeys[1],
 			flashKeys[2],
 			flashKeys[3]);
 	} else
-		command_print(CMD_CTX, "flash keys not set");
+		command_print(CMD, "flash keys not set");
 
 	return ERROR_OK;
 }
@@ -351,12 +352,12 @@ COMMAND_HANDLER(tms470_handle_osc_megahertz_command)
 
 	if (oscMHz <= 0) {
 		LOG_ERROR("osc_megahertz must be positive and non-zero!");
-		command_print(CMD_CTX, "osc_megahertz must be positive and non-zero!");
+		command_print(CMD, "osc_megahertz must be positive and non-zero!");
 		oscMHz = 12;
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
-	command_print(CMD_CTX, "osc_megahertz=%d", oscMHz);
+	command_print(CMD, "osc_megahertz=%d", oscMHz);
 
 	return ERROR_OK;
 }
@@ -374,7 +375,7 @@ COMMAND_HANDLER(tms470_handle_plldis_command)
 		plldis = plldis ? 1 : 0;
 	}
 
-	command_print(CMD_CTX, "plldis=%d", plldis);
+	command_print(CMD, "plldis=%d", plldis);
 
 	return ERROR_OK;
 }
@@ -900,8 +901,8 @@ static int tms470_write(struct flash_bank *bank, const uint8_t *buffer, uint32_t
 
 	tms470_read_part_info(bank);
 
-	LOG_INFO("Writing %" PRId32 " bytes starting at 0x%08" PRIx32 "", count, bank->base +
-		offset);
+	LOG_INFO("Writing %" PRId32 " bytes starting at " TARGET_ADDR_FMT,
+			count, bank->base + offset);
 
 	/* set GLBCTRL.4  */
 	target_read_u32(target, 0xFFFFFFDC, &glbctrl);
@@ -1161,7 +1162,7 @@ FLASH_BANK_COMMAND_HANDLER(tms470_flash_bank_command)
 	return ERROR_OK;
 }
 
-struct flash_driver tms470_flash = {
+const struct flash_driver tms470_flash = {
 	.name = "tms470",
 	.commands = tms470_command_handlers,
 	.flash_bank_command = tms470_flash_bank_command,

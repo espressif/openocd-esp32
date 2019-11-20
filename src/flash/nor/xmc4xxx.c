@@ -778,7 +778,7 @@ static int xmc4xxx_write(struct flash_bank *bank, const uint8_t *buffer,
 		memcpy(&tmp_buf[start_pad], buffer, remaining);
 
 		if (end_pad) {
-			LOG_INFO("Padding end of page @%08"PRIx32" by %d bytes",
+			LOG_INFO("Padding end of page @" TARGET_ADDR_FMT " by %d bytes",
 				 bank->base + offset, end_pad);
 			memset(&tmp_buf[256 - end_pad], 0xff, end_pad);
 		}
@@ -931,12 +931,12 @@ static int xmc4xxx_get_info_command(struct flash_bank *bank, char *buf, int buf_
 
 	/* If OTP Write protection is enabled (User 2), list each
 	 * sector that has it enabled */
-	char otp_str[15];
+	char otp_str[14];
 	if (otp_enabled) {
 		strcat(prot_str, "\nOTP Protection is enabled for sectors:\n");
 		for (int i = 0; i < bank->num_sectors; i++) {
 			if (fb->write_prot_otp[i]) {
-				snprintf(otp_str, sizeof(otp_str) - 1, "- %d\n", i);
+				snprintf(otp_str, sizeof(otp_str), "- %d\n", i);
 				strncat(prot_str, otp_str, sizeof(prot_str) - strlen(prot_str) - 1);
 			}
 		}
@@ -1284,9 +1284,9 @@ COMMAND_HANDLER(xmc4xxx_handle_flash_password_command)
 
 	fb->pw_set = true;
 
-	command_print(CMD_CTX, "XMC4xxx flash passwords set to:\n");
-	command_print(CMD_CTX, "-0x%08"PRIx32"\n", fb->pw1);
-	command_print(CMD_CTX, "-0x%08"PRIx32"\n", fb->pw2);
+	command_print(CMD, "XMC4xxx flash passwords set to:\n");
+	command_print(CMD, "-0x%08"PRIx32"\n", fb->pw1);
+	command_print(CMD, "-0x%08"PRIx32"\n", fb->pw2);
 	return ERROR_OK;
 }
 
@@ -1329,7 +1329,8 @@ static const struct command_registration xmc4xxx_exec_command_handlers[] = {
 		.usage = "bank_id user_level[0-1]",
 		.help = "Permanently Removes flash protection (read and write) "
 		"for the specified user level",
-	},	COMMAND_REGISTRATION_DONE
+	},
+	COMMAND_REGISTRATION_DONE
 };
 
 static const struct command_registration xmc4xxx_command_handlers[] = {
@@ -1343,7 +1344,7 @@ static const struct command_registration xmc4xxx_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-struct flash_driver xmc4xxx_flash = {
+const struct flash_driver xmc4xxx_flash = {
 	.name = "xmc4xxx",
 	.commands = xmc4xxx_command_handlers,
 	.flash_bank_command = xmc4xxx_flash_bank_command,

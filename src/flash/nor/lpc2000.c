@@ -719,7 +719,7 @@ static int lpc2000_iap_working_area_init(struct flash_bank *bank, struct working
 
 	int retval = target_write_memory(target, (*iap_working_area)->address, 4, 2, jump_gate);
 	if (retval != ERROR_OK) {
-		LOG_ERROR("Write memory at address 0x%8.8" TARGET_PRIxADDR " failed (check work_area definition)",
+		LOG_ERROR("Write memory at address " TARGET_ADDR_FMT " failed (check work_area definition)",
 				(*iap_working_area)->address);
 		target_free_working_area(target, *iap_working_area);
 	}
@@ -1186,8 +1186,8 @@ static int lpc2000_write(struct flash_bank *bank, const uint8_t *buffer, uint32_
 			free(last_buffer);
 		}
 
-		LOG_DEBUG("writing 0x%" PRIx32 " bytes to address 0x%" PRIx32, thisrun_bytes,
-				bank->base + offset + bytes_written);
+		LOG_DEBUG("writing 0x%" PRIx32 " bytes to address " TARGET_ADDR_FMT,
+				thisrun_bytes, bank->base + offset + bytes_written);
 
 		/* Write data */
 		param_table[0] = bank->base + offset + bytes_written;
@@ -1579,11 +1579,11 @@ COMMAND_HANDLER(lpc2000_handle_part_id_command)
 	int status_code = get_lpc2000_part_id(bank, &part_id);
 	if (status_code != 0x0) {
 		if (status_code == ERROR_FLASH_OPERATION_FAILED) {
-			command_print(CMD_CTX, "no sufficient working area specified, can't access LPC2000 IAP interface");
+			command_print(CMD, "no sufficient working area specified, can't access LPC2000 IAP interface");
 		} else
-			command_print(CMD_CTX, "lpc2000 IAP returned status code %i", status_code);
+			command_print(CMD, "lpc2000 IAP returned status code %i", status_code);
 	} else
-		command_print(CMD_CTX, "lpc2000 part id: 0x%8.8" PRIx32, part_id);
+		command_print(CMD, "lpc2000 part id: 0x%8.8" PRIx32, part_id);
 
 	return retval;
 }
@@ -1609,7 +1609,7 @@ static const struct command_registration lpc2000_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-struct flash_driver lpc2000_flash = {
+const struct flash_driver lpc2000_flash = {
 	.name = "lpc2000",
 	.commands = lpc2000_command_handlers,
 	.flash_bank_command = lpc2000_flash_bank_command,

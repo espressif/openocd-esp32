@@ -31,7 +31,7 @@ struct mem_ap {
 
 static int mem_ap_target_create(struct target *target, Jim_Interp *interp)
 {
-	struct mem_ap *mem_ap = calloc(1, sizeof(struct mem_ap));
+	struct mem_ap *mem_ap;
 	struct adiv5_private_config *pc;
 
 	pc = (struct adiv5_private_config *)target->private_config;
@@ -40,6 +40,12 @@ static int mem_ap_target_create(struct target *target, Jim_Interp *interp)
 
 	if (pc->ap_num == DP_APSEL_INVALID) {
 		LOG_ERROR("AP number not specified");
+		return ERROR_FAIL;
+	}
+
+	mem_ap = calloc(1, sizeof(struct mem_ap));
+	if (mem_ap == NULL) {
+		LOG_ERROR("Out of memory");
 		return ERROR_FAIL;
 	}
 
@@ -134,7 +140,7 @@ static int mem_ap_read_memory(struct target *target, target_addr_t address,
 {
 	struct mem_ap *mem_ap = target->arch_info;
 
-	LOG_DEBUG("Reading memory at physical address 0x" TARGET_ADDR_FMT
+	LOG_DEBUG("Reading memory at physical address " TARGET_ADDR_FMT
 		  "; size %" PRId32 "; count %" PRId32, address, size, count);
 
 	if (count == 0 || buffer == NULL)
@@ -149,7 +155,7 @@ static int mem_ap_write_memory(struct target *target, target_addr_t address,
 {
 	struct mem_ap *mem_ap = target->arch_info;
 
-	LOG_DEBUG("Writing memory at physical address 0x" TARGET_ADDR_FMT
+	LOG_DEBUG("Writing memory at physical address " TARGET_ADDR_FMT
 		  "; size %" PRId32 "; count %" PRId32, address, size, count);
 
 	if (count == 0 || buffer == NULL)

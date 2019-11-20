@@ -393,7 +393,7 @@ static bool fcf_fopt_configured;
 static bool create_banks;
 
 
-struct flash_driver kinetis_flash;
+const struct flash_driver kinetis_flash;
 static int kinetis_write_inner(struct flash_bank *bank, const uint8_t *buffer,
 			uint32_t offset, uint32_t count);
 static int kinetis_probe_chip(struct kinetis_chip *k_chip);
@@ -1035,7 +1035,7 @@ static int kinetis_disable_wdog_algo(struct target *target, size_t code_size, co
 		armv7m_info.common_magic = ARMV7M_COMMON_MAGIC;
 		armv7m_info.core_mode = ARM_MODE_THREAD;
 
-		init_reg_param(&reg_params[0], "r0", 32, PARAM_IN);
+		init_reg_param(&reg_params[0], "r0", 32, PARAM_OUT);
 		buf_set_u32(reg_params[0].value, 0, 32, wdog_base);
 
 		retval = target_run_algorithm(target, 0, NULL, 1, reg_params,
@@ -1755,13 +1755,15 @@ static int kinetis_write_sections(struct flash_bank *bank, const uint8_t *buffer
 			result = target_write_memory(bank->target, k_chip->progr_accel_ram,
 						4, size_aligned / 4, buffer_aligned);
 
-			LOG_DEBUG("section @ %08" PRIx32 " aligned begin %" PRIu32 ", end %" PRIu32,
+			LOG_DEBUG("section @ " TARGET_ADDR_FMT " aligned begin %" PRIu32
+					", end %" PRIu32,
 					bank->base + offset, align_begin, align_end);
 		} else
 			result = target_write_memory(bank->target, k_chip->progr_accel_ram,
 						4, size_aligned / 4, buffer);
 
-		LOG_DEBUG("write section @ %08" PRIx32 " with length %" PRIu32 " bytes",
+		LOG_DEBUG("write section @ " TARGET_ADDR_FMT " with length %" PRIu32
+				" bytes",
 			  bank->base + offset, size);
 
 		if (result != ERROR_OK) {
@@ -1776,12 +1778,14 @@ static int kinetis_write_sections(struct flash_bank *bank, const uint8_t *buffer
 				0, 0, 0, 0,  &ftfx_fstat);
 
 		if (result != ERROR_OK) {
-			LOG_ERROR("Error writing section at %08" PRIx32, bank->base + offset);
+			LOG_ERROR("Error writing section at " TARGET_ADDR_FMT,
+					bank->base + offset);
 			break;
 		}
 
 		if (ftfx_fstat & 0x01) {
-			LOG_ERROR("Flash write error at %08" PRIx32, bank->base + offset);
+			LOG_ERROR("Flash write error at " TARGET_ADDR_FMT,
+					bank->base + offset);
 			if (k_bank->prog_base == 0 && offset == FCF_ADDRESS + FCF_SIZE
 					&& (k_chip->flash_support & FS_WIDTH_256BIT)) {
 				LOG_ERROR("Flash write immediately after the end of Flash Config Field shows error");
@@ -1820,7 +1824,7 @@ static int kinetis_write_inner(struct flash_bank *bank, const uint8_t *buffer,
 		}
 	}
 
-	LOG_DEBUG("flash write @ %08" PRIx32, bank->base + offset);
+	LOG_DEBUG("flash write @ " TARGET_ADDR_FMT, bank->base + offset);
 
 	if (fallback == 0) {
 		/* program section command */
@@ -1873,12 +1877,14 @@ static int kinetis_write_inner(struct flash_bank *bank, const uint8_t *buffer,
 						0, 0, 0, 0,  &ftfx_fstat);
 
 				if (result != ERROR_OK) {
-					LOG_ERROR("Error writing longword at %08" PRIx32, bank->base + offset);
+					LOG_ERROR("Error writing longword at " TARGET_ADDR_FMT,
+							bank->base + offset);
 					break;
 				}
 
 				if (ftfx_fstat & 0x01)
-					LOG_ERROR("Flash write error at %08" PRIx32, bank->base + offset);
+					LOG_ERROR("Flash write error at " TARGET_ADDR_FMT,
+							bank->base + offset);
 
 				buffer += 4;
 				offset += 4;
@@ -2769,7 +2775,7 @@ static int kinetis_info(struct flash_bank *bank, char *buf, int buf_size)
 	uint32_t size_k = bank->size / 1024;
 
 	snprintf(buf, buf_size,
-		"%s %s: %" PRIu32 "k %s bank %s at 0x%08" PRIx32,
+		"%s %s: %" PRIu32 "k %s bank %s at " TARGET_ADDR_FMT,
 		bank->driver->name, k_chip->name,
 		size_k, bank_class_names[k_bank->flash_class],
 		bank->name, bank->base);
@@ -2889,7 +2895,7 @@ COMMAND_HANDLER(kinetis_nvm_partition)
 		flex_nvm_partition_code = (uint8_t)((sim_fcfg1 >> 8) & 0x0f);
 		switch (flex_nvm_partition_code) {
 		case 0:
-			command_print(CMD_CTX, "No EEPROM backup, data flash only");
+			command_print(CMD, "No EEPROM backup, data flash only");
 			break;
 		case 1:
 		case 2:
@@ -2897,10 +2903,10 @@ COMMAND_HANDLER(kinetis_nvm_partition)
 		case 4:
 		case 5:
 		case 6:
-			command_print(CMD_CTX, "EEPROM backup %d KB", 4 << flex_nvm_partition_code);
+			command_print(CMD, "EEPROM backup %d KB", 4 << flex_nvm_partition_code);
 			break;
 		case 8:
-			command_print(CMD_CTX, "No data flash, EEPROM backup only");
+			command_print(CMD, "No data flash, EEPROM backup only");
 			break;
 		case 0x9:
 		case 0xA:
@@ -2908,13 +2914,13 @@ COMMAND_HANDLER(kinetis_nvm_partition)
 		case 0xC:
 		case 0xD:
 		case 0xE:
-			command_print(CMD_CTX, "data flash %d KB", 4 << (flex_nvm_partition_code & 7));
+			command_print(CMD, "data flash %d KB", 4 << (flex_nvm_partition_code & 7));
 			break;
 		case 0xf:
-			command_print(CMD_CTX, "No EEPROM backup, data flash only (DEPART not set)");
+			command_print(CMD, "No EEPROM backup, data flash only (DEPART not set)");
 			break;
 		default:
-			command_print(CMD_CTX, "Unsupported EEPROM backup size code 0x%02" PRIx8, flex_nvm_partition_code);
+			command_print(CMD, "Unsupported EEPROM backup size code 0x%02" PRIx8, flex_nvm_partition_code);
 		}
 		return ERROR_OK;
 
@@ -2980,7 +2986,7 @@ COMMAND_HANDLER(kinetis_nvm_partition)
 	if (result != ERROR_OK)
 		return result;
 
-	command_print(CMD_CTX, "FlexNVM partition set. Please reset MCU.");
+	command_print(CMD, "FlexNVM partition set. Please reset MCU.");
 
 	if (k_chip) {
 		first_nvm_bank = k_chip->num_pflash_blocks;
@@ -2990,7 +2996,7 @@ COMMAND_HANDLER(kinetis_nvm_partition)
 		k_chip->probed = false;
 	}
 
-	command_print(CMD_CTX, "FlexNVM banks will be re-probed to set new data flash size.");
+	command_print(CMD, "FlexNVM banks will be re-probed to set new data flash size.");
 	return ERROR_OK;
 }
 
@@ -3009,12 +3015,12 @@ COMMAND_HANDLER(kinetis_fcf_source_handler)
 	}
 
 	if (allow_fcf_writes) {
-		command_print(CMD_CTX, "Arbitrary Flash Configuration Field writes enabled.");
-		command_print(CMD_CTX, "Protection info writes to FCF disabled.");
+		command_print(CMD, "Arbitrary Flash Configuration Field writes enabled.");
+		command_print(CMD, "Protection info writes to FCF disabled.");
 		LOG_WARNING("BEWARE: incorrect flash configuration may permanently lock the device.");
 	} else {
-		command_print(CMD_CTX, "Protection info writes to Flash Configuration Field enabled.");
-		command_print(CMD_CTX, "Arbitrary FCF writes disabled. Mode safe from unwanted locking of the device.");
+		command_print(CMD, "Protection info writes to Flash Configuration Field enabled.");
+		command_print(CMD, "Arbitrary FCF writes disabled. Mode safe from unwanted locking of the device.");
 	}
 
 	return ERROR_OK;
@@ -3029,7 +3035,7 @@ COMMAND_HANDLER(kinetis_fopt_handler)
 		fcf_fopt = (uint8_t)strtoul(CMD_ARGV[0], NULL, 0);
 		fcf_fopt_configured = true;
 	} else {
-		command_print(CMD_CTX, "FCF_FOPT 0x%02" PRIx8, fcf_fopt);
+		command_print(CMD, "FCF_FOPT 0x%02" PRIx8, fcf_fopt);
 	}
 
 	return ERROR_OK;
@@ -3068,7 +3074,8 @@ static const struct command_registration kinetis_security_command_handlers[] = {
 		.usage = "",
 		.handler = kinetis_mdm_mass_erase,
 	},
-	{	.name = "reset",
+	{
+		.name = "reset",
 		.mode = COMMAND_EXEC,
 		.help = "Issue a reset via the MDM-AP",
 		.usage = "",
@@ -3120,6 +3127,7 @@ static const struct command_registration kinetis_exec_command_handlers[] = {
 		.mode = COMMAND_CONFIG,
 		.help = "Driver creates additional banks if device with two/four flash blocks is probed",
 		.handler = kinetis_create_banks_handler,
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };
@@ -3137,7 +3145,7 @@ static const struct command_registration kinetis_command_handler[] = {
 
 
 
-struct flash_driver kinetis_flash = {
+const struct flash_driver kinetis_flash = {
 	.name = "kinetis",
 	.commands = kinetis_command_handler,
 	.flash_bank_command = kinetis_flash_bank_command,

@@ -939,14 +939,14 @@ static int set_debug_regs(struct target *t, uint32_t address,
 	 * when we exit PM
 	*/
 	buf_set_u32(x86_32->cache->reg_list[bp_num+DR0].value, 0, 32, address);
-	x86_32->cache->reg_list[bp_num+DR0].dirty = 1;
-	x86_32->cache->reg_list[bp_num+DR0].valid = 1;
+	x86_32->cache->reg_list[bp_num+DR0].dirty = true;
+	x86_32->cache->reg_list[bp_num+DR0].valid = true;
 	buf_set_u32(x86_32->cache->reg_list[DR6].value, 0, 32, PM_DR6);
-	x86_32->cache->reg_list[DR6].dirty = 1;
-	x86_32->cache->reg_list[DR6].valid = 1;
+	x86_32->cache->reg_list[DR6].dirty = true;
+	x86_32->cache->reg_list[DR6].valid = true;
 	buf_set_u32(x86_32->cache->reg_list[DR7].value, 0, 32, dr7);
-	x86_32->cache->reg_list[DR7].dirty = 1;
-	x86_32->cache->reg_list[DR7].valid = 1;
+	x86_32->cache->reg_list[DR7].dirty = true;
+	x86_32->cache->reg_list[DR7].valid = true;
 	return ERROR_OK;
 }
 
@@ -970,14 +970,14 @@ static int unset_debug_regs(struct target *t, uint8_t bp_num)
 	 * when we exit PM
 	*/
 	buf_set_u32(x86_32->cache->reg_list[bp_num+DR0].value, 0, 32, 0);
-	x86_32->cache->reg_list[bp_num+DR0].dirty = 1;
-	x86_32->cache->reg_list[bp_num+DR0].valid = 1;
+	x86_32->cache->reg_list[bp_num+DR0].dirty = true;
+	x86_32->cache->reg_list[bp_num+DR0].valid = true;
 	buf_set_u32(x86_32->cache->reg_list[DR6].value, 0, 32, PM_DR6);
-	x86_32->cache->reg_list[DR6].dirty = 1;
-	x86_32->cache->reg_list[DR6].valid = 1;
+	x86_32->cache->reg_list[DR6].dirty = true;
+	x86_32->cache->reg_list[DR6].valid = true;
 	buf_set_u32(x86_32->cache->reg_list[DR7].value, 0, 32, dr7);
-	x86_32->cache->reg_list[DR7].dirty = 1;
-	x86_32->cache->reg_list[DR7].valid = 1;
+	x86_32->cache->reg_list[DR7].dirty = true;
+	x86_32->cache->reg_list[DR7].valid = true;
 	return ERROR_OK;
 }
 
@@ -1340,7 +1340,7 @@ static int write_hw_reg_from_cache(struct target *t, int num)
 }
 
 /* x86 32 commands */
-static void handle_iod_output(struct command_context *cmd_ctx,
+static void handle_iod_output(struct command_invocation *cmd,
 		struct target *target, uint32_t address, unsigned size,
 		unsigned count, const uint8_t *buffer)
 {
@@ -1392,7 +1392,7 @@ static void handle_iod_output(struct command_context *cmd_ctx,
 				value_fmt, value);
 
 		if ((i % line_modulo == line_modulo - 1) || (i == count - 1)) {
-			command_print(cmd_ctx, "%s", output);
+			command_print(cmd, "%s", output);
 			output_len = 0;
 		}
 	}
@@ -1429,7 +1429,7 @@ COMMAND_HANDLER(handle_iod_command)
 	struct target *target = get_current_target(CMD_CTX);
 	int retval = x86_32_common_read_io(target, address, size, buffer);
 	if (ERROR_OK == retval)
-		handle_iod_output(CMD_CTX, target, address, size, count, buffer);
+		handle_iod_output(CMD, target, address, size, count, buffer);
 	free(buffer);
 	return retval;
 }

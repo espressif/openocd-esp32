@@ -53,11 +53,11 @@
  *
  * This code uses information contained in the MPSSE specification which was
  * found here:
- * http://www.ftdichip.com/Documents/AppNotes/AN2232C-01_MPSSE_Cmnd.pdf
+ * https://www.ftdichip.com/Support/Documents/AppNotes/AN2232C-01_MPSSE_Cmnd.pdf
  * Hereafter this is called the "MPSSE Spec".
  *
- * The datasheet for the ftdichip.com's FT2232D part is here:
- * http://www.ftdichip.com/Documents/DataSheets/DS_FT2232D.pdf
+ * The datasheet for the ftdichip.com's FT2232H part is here:
+ * https://www.ftdichip.com/Support/Documents/DataSheets/ICs/DS_FT2232H.pdf
  *
  * Also note the issue with code 0x4b (clock data to TMS) noted in
  * http://developer.intra2net.com/mailarchive/html/libftdi/2009/msg00292.html
@@ -69,6 +69,7 @@
 #endif
 
 /* project specific includes */
+#include <jtag/drivers/jtag_usb_common.h>
 #include <jtag/interface.h>
 #include <jtag/swd.h>
 #include <transport/transport.h>
@@ -89,7 +90,6 @@
 
 static char *ftdi_device_desc;
 static char *ftdi_serial;
-static char *ftdi_location;
 static uint8_t ftdi_channel;
 static uint8_t ftdi_jtag_mode = JTAG_MODE;
 
@@ -262,7 +262,7 @@ static void move_to_state(tap_state_t goal_state)
 	int tms_count = tap_get_tms_path_len(start_state, goal_state);
 	assert(tms_count <= 8);
 
-	DEBUG_JTAG_IO("start=%s goal=%s", tap_state_name(start_state), tap_state_name(goal_state));
+	LOG_DEBUG_IO("start=%s goal=%s", tap_state_name(start_state), tap_state_name(goal_state));
 
 	/* Track state transitions step by step */
 	for (int i = 0; i < tms_count; i++)
@@ -324,7 +324,7 @@ static void ftdi_execute_runtest(struct jtag_command *cmd)
 	int i;
 	uint8_t zero = 0;
 
-	DEBUG_JTAG_IO("runtest %i cycles, end in %s",
+	LOG_DEBUG_IO("runtest %i cycles, end in %s",
 		cmd->cmd.runtest->num_cycles,
 		tap_state_name(cmd->cmd.runtest->end_state));
 
@@ -345,14 +345,14 @@ static void ftdi_execute_runtest(struct jtag_command *cmd)
 	if (tap_get_state() != tap_get_end_state())
 		move_to_state(tap_get_end_state());
 
-	DEBUG_JTAG_IO("runtest: %i, end in %s",
+	LOG_DEBUG_IO("runtest: %i, end in %s",
 		cmd->cmd.runtest->num_cycles,
 		tap_state_name(tap_get_end_state()));
 }
 
 static void ftdi_execute_statemove(struct jtag_command *cmd)
 {
-	DEBUG_JTAG_IO("statemove end in %s",
+	LOG_DEBUG_IO("statemove end in %s",
 		tap_state_name(cmd->cmd.statemove->end_state));
 
 	ftdi_end_state(cmd->cmd.statemove->end_state);
@@ -368,7 +368,7 @@ static void ftdi_execute_statemove(struct jtag_command *cmd)
  */
 static void ftdi_execute_tms(struct jtag_command *cmd)
 {
-	DEBUG_JTAG_IO("TMS: %d bits", cmd->cmd.tms->num_bits);
+	LOG_DEBUG_IO("TMS: %d bits", cmd->cmd.tms->num_bits);
 
 	/* TODO: Missing tap state tracking, also missing from ft2232.c! */
 	mpsse_clock_tms_cs_out(mpsse_ctx,
@@ -384,7 +384,7 @@ static void ftdi_execute_pathmove(struct jtag_command *cmd)
 	tap_state_t *path = cmd->cmd.pathmove->path;
 	int num_states  = cmd->cmd.pathmove->num_states;
 
-	DEBUG_JTAG_IO("pathmove: %i states, current: %s  end: %s", num_states,
+	LOG_DEBUG_IO("pathmove: %i states, current: %s  end: %s", num_states,
 		tap_state_name(tap_get_state()),
 		tap_state_name(path[num_states-1]));
 
@@ -392,7 +392,7 @@ static void ftdi_execute_pathmove(struct jtag_command *cmd)
 	unsigned bit_count = 0;
 	uint8_t tms_byte = 0;
 
-	DEBUG_JTAG_IO("-");
+	LOG_DEBUG_IO("-");
 
 	/* this loop verifies that the path is legal and logs each state in the path */
 	while (num_states--) {
@@ -432,18 +432,18 @@ static void ftdi_execute_pathmove(struct jtag_command *cmd)
 
 static void ftdi_execute_scan(struct jtag_command *cmd)
 {
-	DEBUG_JTAG_IO("%s type:%d", cmd->cmd.scan->ir_scan ? "IRSCAN" : "DRSCAN",
+	LOG_DEBUG_IO("%s type:%d", cmd->cmd.scan->ir_scan ? "IRSCAN" : "DRSCAN",
 		jtag_scan_type(cmd->cmd.scan));
 
 	/* Make sure there are no trailing fields with num_bits == 0, or the logic below will fail. */
 	while (cmd->cmd.scan->num_fields > 0
 			&& cmd->cmd.scan->fields[cmd->cmd.scan->num_fields - 1].num_bits == 0) {
 		cmd->cmd.scan->num_fields--;
-		DEBUG_JTAG_IO("discarding trailing empty field");
+		LOG_DEBUG_IO("discarding trailing empty field");
 	}
 
 	if (cmd->cmd.scan->num_fields == 0) {
-		DEBUG_JTAG_IO("empty scan, doing nothing");
+		LOG_DEBUG_IO("empty scan, doing nothing");
 		return;
 	}
 
@@ -462,7 +462,7 @@ static void ftdi_execute_scan(struct jtag_command *cmd)
 
 	for (int i = 0; i < cmd->cmd.scan->num_fields; i++, field++) {
 		scan_size += field->num_bits;
-		DEBUG_JTAG_IO("%s%s field %d/%d %d bits",
+		LOG_DEBUG_IO("%s%s field %d/%d %d bits",
 			field->in_value ? "in" : "",
 			field->out_value ? "out" : "",
 			i,
@@ -512,14 +512,14 @@ static void ftdi_execute_scan(struct jtag_command *cmd)
 	if (tap_get_state() != tap_get_end_state())
 		move_to_state(tap_get_end_state());
 
-	DEBUG_JTAG_IO("%s scan, %i bits, end in %s",
+	LOG_DEBUG_IO("%s scan, %i bits, end in %s",
 		(cmd->cmd.scan->ir_scan) ? "IR" : "DR", scan_size,
 		tap_state_name(tap_get_end_state()));
 }
 
 static void ftdi_execute_reset(struct jtag_command *cmd)
 {
-	DEBUG_JTAG_IO("reset trst: %i srst %i",
+	LOG_DEBUG_IO("reset trst: %i srst %i",
 		cmd->cmd.reset->trst, cmd->cmd.reset->srst);
 
 	if (cmd->cmd.reset->trst == 1
@@ -555,17 +555,17 @@ static void ftdi_execute_reset(struct jtag_command *cmd)
 			ftdi_set_signal(srst, 'z');
 	}
 
-	DEBUG_JTAG_IO("trst: %i, srst: %i",
+	LOG_DEBUG_IO("trst: %i, srst: %i",
 		cmd->cmd.reset->trst, cmd->cmd.reset->srst);
 }
 
 static void ftdi_execute_sleep(struct jtag_command *cmd)
 {
-	DEBUG_JTAG_IO("sleep %" PRIi32, cmd->cmd.sleep->us);
+	LOG_DEBUG_IO("sleep %" PRIi32, cmd->cmd.sleep->us);
 
 	mpsse_flush(mpsse_ctx);
 	jtag_sleep(cmd->cmd.sleep->us);
-	DEBUG_JTAG_IO("sleep %" PRIi32 " usec while in %s",
+	LOG_DEBUG_IO("sleep %" PRIi32 " usec while in %s",
 		cmd->cmd.sleep->us,
 		tap_state_name(tap_get_state()));
 }
@@ -589,7 +589,7 @@ static void ftdi_execute_stableclocks(struct jtag_command *cmd)
 		num_cycles -= this_len;
 	}
 
-	DEBUG_JTAG_IO("clocks %i while in %s",
+	LOG_DEBUG_IO("clocks %i while in %s",
 		cmd->cmd.stableclocks->num_cycles,
 		tap_state_name(tap_get_state()));
 }
@@ -658,7 +658,7 @@ static int ftdi_initialize(void)
 
 	for (int i = 0; ftdi_vid[i] || ftdi_pid[i]; i++) {
 		mpsse_ctx = mpsse_open(&ftdi_vid[i], &ftdi_pid[i], ftdi_device_desc,
-				ftdi_serial, ftdi_location, ftdi_channel);
+				ftdi_serial, jtag_usb_get_location(), ftdi_channel);
 		if (mpsse_ctx)
 			break;
 	}
@@ -704,7 +704,6 @@ static int ftdi_quit(void)
 
 	free(ftdi_device_desc);
 	free(ftdi_serial);
-	free(ftdi_location);
 
 	free(swd_cmd_queue);
 
@@ -736,21 +735,6 @@ COMMAND_HANDLER(ftdi_handle_serial_command)
 
 	return ERROR_OK;
 }
-
-#ifdef HAVE_LIBUSB_GET_PORT_NUMBERS
-COMMAND_HANDLER(ftdi_handle_location_command)
-{
-	if (CMD_ARGC == 1) {
-		if (ftdi_location)
-			free(ftdi_location);
-		ftdi_location = strdup(CMD_ARGV[0]);
-	} else {
-		return ERROR_COMMAND_SYNTAX_ERROR;
-	}
-
-	return ERROR_OK;
-}
-#endif
 
 COMMAND_HANDLER(ftdi_handle_channel_command)
 {
@@ -949,7 +933,7 @@ COMMAND_HANDLER(ftdi_handle_tdo_sample_edge_command)
 	}
 
 	n = Jim_Nvp_value2name_simple(nvp_ftdi_jtag_modes, ftdi_jtag_mode);
-	command_print(CMD_CTX, "ftdi samples TDO on %s edge of TCK", n->name);
+	command_print(CMD, "ftdi samples TDO on %s edge of TCK", n->name);
 
 	return ERROR_OK;
 }
@@ -969,15 +953,6 @@ static const struct command_registration ftdi_command_handlers[] = {
 		.help = "set the serial number of the FTDI device",
 		.usage = "serial_string",
 	},
-#ifdef HAVE_LIBUSB_GET_PORT_NUMBERS
-	{
-		.name = "ftdi_location",
-		.handler = &ftdi_handle_location_command,
-		.mode = COMMAND_CONFIG,
-		.help = "set the USB bus location of the FTDI device",
-		.usage = "<bus>:port[,port]...",
-	},
-#endif
 	{
 		.name = "ftdi_channel",
 		.handler = &ftdi_handle_channel_command,
@@ -1083,7 +1058,7 @@ static void ftdi_swd_swdio_en(bool enable)
 		if (oe->data_mask)
 			ftdi_set_signal(oe, enable ? '1' : '0');
 		else {
-			/* Sets TDI/DO pin (pin 2) to input during rx when both pins are connected
+			/* Sets TDI/DO pin to input during rx when both pins are connected
 			   to SWDIO */
 			if (enable)
 				direction |= jtag_direction_init & 0x0002U;
@@ -1231,14 +1206,6 @@ static void ftdi_swd_write_reg(uint8_t cmd, uint32_t value, uint32_t ap_delay_cl
 	ftdi_swd_queue_cmd(cmd, NULL, value, ap_delay_clk);
 }
 
-static int_least32_t ftdi_swd_frequency(int_least32_t hz)
-{
-	if (hz > 0)
-		freq = mpsse_set_frequency(mpsse_ctx, hz);
-
-	return freq;
-}
-
 static int ftdi_swd_switch_seq(enum swd_special_seq seq)
 {
 	switch (seq) {
@@ -1267,7 +1234,6 @@ static int ftdi_swd_switch_seq(enum swd_special_seq seq)
 
 static const struct swd_driver ftdi_swd = {
 	.init = ftdi_swd_init,
-	.frequency = ftdi_swd_frequency,
 	.switch_seq = ftdi_swd_switch_seq,
 	.read_reg = ftdi_swd_read_reg,
 	.write_reg = ftdi_swd_write_reg,

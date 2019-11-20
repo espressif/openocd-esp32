@@ -851,9 +851,9 @@ COMMAND_HANDLER(xtensa_mcore_cmd_smpbreak)
 			else if (!strcasecmp(CMD_ARGV[i], "RunStall"))
 				set |= OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN;
 			else {
-				command_print(CMD_CTX, "Unknown arg %s", CMD_ARGV[i]);
+				command_print(CMD, "Unknown arg %s", CMD_ARGV[i]);
 				command_print(
-					CMD_CTX,
+					CMD,
 					"use either BreakInOut, None or RunStall as arguments, or any combination of BreakIn, BreakOut, RunStallIn and DebugModeOut.");
 				return ERROR_OK;
 			}
@@ -861,7 +861,7 @@ COMMAND_HANDLER(xtensa_mcore_cmd_smpbreak)
 		xtensa_mcore->smp_break = set;
 		res = xtensa_mcore_smpbreak_set(target);
 	} else {
-		command_print(CMD_CTX, "%s: Current bits set:%s%s%s%s",
+		command_print(CMD, "%s: Current bits set:%s%s%s%s",
 			target_name(target),
 			(xtensa_mcore->smp_break & OCDDCR_BREAKINEN) ? " BreakIn" : "",
 			(xtensa_mcore->smp_break & OCDDCR_BREAKOUTEN) ? " BreakOut" : "",
@@ -974,7 +974,7 @@ COMMAND_HANDLER(xtensa_mcore_cmd_tracedump)
 	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
 
 	if (CMD_ARGC < xtensa_mcore->configured_cores_num) {
-		command_print(CMD_CTX,
+		command_print(CMD,
 			"Need %d filenames to dump to as output!",
 			xtensa_mcore->configured_cores_num);
 		return ERROR_FAIL;

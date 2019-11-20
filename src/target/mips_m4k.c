@@ -33,6 +33,7 @@
 #include "mips32_dmaacc.h"
 #include "target_type.h"
 #include "register.h"
+#include "smp.h"
 
 static void mips_m4k_enable_breakpoints(struct target *target);
 static void mips_m4k_enable_watchpoints(struct target *target);
@@ -458,8 +459,8 @@ static int mips_m4k_internal_restore(struct target *target, int current,
 	if (!current) {
 		mips_m4k_isa_filter(mips32->isa_imp, &address);
 		buf_set_u32(mips32->core_cache->reg_list[MIPS32_PC].value, 0, 32, address);
-		mips32->core_cache->reg_list[MIPS32_PC].dirty = 1;
-		mips32->core_cache->reg_list[MIPS32_PC].valid = 1;
+		mips32->core_cache->reg_list[MIPS32_PC].dirty = true;
+		mips32->core_cache->reg_list[MIPS32_PC].valid = true;
 	}
 
 	if ((mips32->isa_imp > 1) &&  debug_execution)	/* if more than one isa supported */
@@ -552,8 +553,8 @@ static int mips_m4k_step(struct target *target, int current,
 	if (!current) {
 		mips_m4k_isa_filter(mips32->isa_imp, &address);
 		buf_set_u32(mips32->core_cache->reg_list[MIPS32_PC].value, 0, 32, address);
-		mips32->core_cache->reg_list[MIPS32_PC].dirty = 1;
-		mips32->core_cache->reg_list[MIPS32_PC].valid = 1;
+		mips32->core_cache->reg_list[MIPS32_PC].dirty = true;
+		mips32->core_cache->reg_list[MIPS32_PC].valid = true;
 	}
 
 	/* the front-end may request us not to handle breakpoints */
@@ -1269,11 +1270,11 @@ static int mips_m4k_bulk_write_memory(struct target *target, target_addr_t addre
 	return retval;
 }
 
-static int mips_m4k_verify_pointer(struct command_context *cmd_ctx,
+static int mips_m4k_verify_pointer(struct command_invocation *cmd,
 		struct mips_m4k_common *mips_m4k)
 {
 	if (mips_m4k->common_magic != MIPSM4K_COMMON_MAGIC) {
-		command_print(cmd_ctx, "target is not an MIPS_M4K");
+		command_print(cmd, "target is not an MIPS_M4K");
 		return ERROR_TARGET_INVALID;
 	}
 	return ERROR_OK;
@@ -1286,12 +1287,12 @@ COMMAND_HANDLER(mips_m4k_handle_cp0_command)
 	struct mips_m4k_common *mips_m4k = target_to_m4k(target);
 	struct mips_ejtag *ejtag_info = &mips_m4k->mips32.ejtag_info;
 
-	retval = mips_m4k_verify_pointer(CMD_CTX, mips_m4k);
+	retval = mips_m4k_verify_pointer(CMD, mips_m4k);
 	if (retval != ERROR_OK)
 		return retval;
 
 	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, "target must be stopped for \"%s\" command", CMD_NAME);
+		command_print(CMD, "target must be stopped for \"%s\" command", CMD_NAME);
 		return ERROR_OK;
 	}
 
@@ -1307,12 +1308,12 @@ COMMAND_HANDLER(mips_m4k_handle_cp0_command)
 			uint32_t value;
 			retval = mips32_cp0_read(ejtag_info, &value, cp0_reg, cp0_sel);
 			if (retval != ERROR_OK) {
-				command_print(CMD_CTX,
+				command_print(CMD,
 						"couldn't access reg %" PRIi32,
 						cp0_reg);
 				return ERROR_OK;
 			}
-			command_print(CMD_CTX, "cp0 reg %" PRIi32 ", select %" PRIi32 ": %8.8" PRIx32,
+			command_print(CMD, "cp0 reg %" PRIi32 ", select %" PRIi32 ": %8.8" PRIx32,
 					cp0_reg, cp0_sel, value);
 
 		} else if (CMD_ARGC == 3) {
@@ -1320,74 +1321,16 @@ COMMAND_HANDLER(mips_m4k_handle_cp0_command)
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[2], value);
 			retval = mips32_cp0_write(ejtag_info, value, cp0_reg, cp0_sel);
 			if (retval != ERROR_OK) {
-				command_print(CMD_CTX,
+				command_print(CMD,
 						"couldn't access cp0 reg %" PRIi32 ", select %" PRIi32,
 						cp0_reg,  cp0_sel);
 				return ERROR_OK;
 			}
-			command_print(CMD_CTX, "cp0 reg %" PRIi32 ", select %" PRIi32 ": %8.8" PRIx32,
+			command_print(CMD, "cp0 reg %" PRIi32 ", select %" PRIi32 ": %8.8" PRIx32,
 					cp0_reg, cp0_sel, value);
 		}
 	}
 
-	return ERROR_OK;
-}
-
-COMMAND_HANDLER(mips_m4k_handle_smp_off_command)
-{
-	struct target *target = get_current_target(CMD_CTX);
-	/* check target is an smp target */
-	struct target_list *head;
-	struct target *curr;
-	head = target->head;
-	target->smp = 0;
-	if (head != (struct target_list *)NULL) {
-		while (head != (struct target_list *)NULL) {
-			curr = head->target;
-			curr->smp = 0;
-			head = head->next;
-		}
-		/*  fixes the target display to the debugger */
-		target->gdb_service->target = target;
-	}
-	return ERROR_OK;
-}
-
-COMMAND_HANDLER(mips_m4k_handle_smp_on_command)
-{
-	struct target *target = get_current_target(CMD_CTX);
-	struct target_list *head;
-	struct target *curr;
-	head = target->head;
-	if (head != (struct target_list *)NULL) {
-		target->smp = 1;
-		while (head != (struct target_list *)NULL) {
-			curr = head->target;
-			curr->smp = 1;
-			head = head->next;
-		}
-	}
-	return ERROR_OK;
-}
-
-COMMAND_HANDLER(mips_m4k_handle_smp_gdb_command)
-{
-	struct target *target = get_current_target(CMD_CTX);
-	int retval = ERROR_OK;
-	struct target_list *head;
-	head = target->head;
-	if (head != (struct target_list *)NULL) {
-		if (CMD_ARGC == 1) {
-			int coreid = 0;
-			COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], coreid);
-			if (ERROR_OK != retval)
-				return retval;
-			target->gdb_service->core[1] = coreid;
-
-		}
-		command_print(CMD_CTX, "gdb coreid  %" PRId32 " -> %" PRId32, target->gdb_service->core[0]
-			, target->gdb_service->core[1]);
-	}
 	return ERROR_OK;
 }
 
@@ -1402,13 +1345,13 @@ COMMAND_HANDLER(mips_m4k_handle_scan_delay_command)
 	else if (CMD_ARGC > 1)
 			return ERROR_COMMAND_SYNTAX_ERROR;
 
-	command_print(CMD_CTX, "scan delay: %d nsec", ejtag_info->scan_delay);
+	command_print(CMD, "scan delay: %d nsec", ejtag_info->scan_delay);
 	if (ejtag_info->scan_delay >= MIPS32_SCAN_DELAY_LEGACY_MODE) {
 		ejtag_info->mode = 0;
-		command_print(CMD_CTX, "running in legacy mode");
+		command_print(CMD, "running in legacy mode");
 	} else {
 		ejtag_info->mode = 1;
-		command_print(CMD_CTX, "running in fast queued mode");
+		command_print(CMD, "running in fast queued mode");
 	}
 
 	return ERROR_OK;
@@ -1423,32 +1366,14 @@ static const struct command_registration mips_m4k_exec_command_handlers[] = {
 		.help = "display/modify cp0 register",
 	},
 	{
-		.name = "smp_off",
-		.handler = mips_m4k_handle_smp_off_command,
-		.mode = COMMAND_EXEC,
-		.help = "Stop smp handling",
-		.usage = "",},
-
-	{
-		.name = "smp_on",
-		.handler = mips_m4k_handle_smp_on_command,
-		.mode = COMMAND_EXEC,
-		.help = "Restart smp handling",
-		.usage = "",
-	},
-	{
-		.name = "smp_gdb",
-		.handler = mips_m4k_handle_smp_gdb_command,
-		.mode = COMMAND_EXEC,
-		.help = "display/fix current core played to gdb",
-		.usage = "",
-	},
-	{
 		.name = "scan_delay",
 		.handler = mips_m4k_handle_scan_delay_command,
 		.mode = COMMAND_ANY,
 		.help = "display/set scan delay in nano seconds",
 		.usage = "[value]",
+	},
+	{
+		.chain = smp_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE
 };

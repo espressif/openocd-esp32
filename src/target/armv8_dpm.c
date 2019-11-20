@@ -573,6 +573,7 @@ int armv8_dpm_modeswitch(struct arm_dpm *dpm, enum arm_mode mode)
 	case ARM_MODE_ABT:
 	case ARM_MODE_IRQ:
 	case ARM_MODE_FIQ:
+	case ARM_MODE_SYS:
 		target_el = 1;
 		break;
 	/*
@@ -788,6 +789,10 @@ int armv8_dpm_read_current_registers(struct arm_dpm *dpm)
 		arm_reg = r->arch_info;
 		if (arm_reg->mode != ARM_MODE_ANY &&
 				dpm->last_el != armv8_curel_from_core_mode(arm_reg->mode))
+			continue;
+
+		/* Special case: ARM_MODE_SYS has no SPSR at EL1 */
+		if (r->number == ARMV8_SPSR_EL1 && arm->core_mode == ARM_MODE_SYS)
 			continue;
 
 		retval = dpmv8_read_reg(dpm, r, i);
@@ -1376,12 +1381,14 @@ void armv8_dpm_report_dscr(struct arm_dpm *dpm, uint32_t dscr)
 		case DSCRV8_ENTRY_BKPT:	/* SW BKPT (?) */
 		case DSCRV8_ENTRY_RESET_CATCH:	/* Reset catch */
 		case DSCRV8_ENTRY_OS_UNLOCK:  /*OS unlock catch*/
-		case DSCRV8_ENTRY_EXCEPTION_CATCH:  /*exception catch*/
 		case DSCRV8_ENTRY_SW_ACCESS_DBG: /*SW access dbg register*/
 			target->debug_reason = DBG_REASON_BREAKPOINT;
 			break;
 		case DSCRV8_ENTRY_WATCHPOINT:	/* asynch watchpoint */
 			target->debug_reason = DBG_REASON_WATCHPOINT;
+			break;
+		case DSCRV8_ENTRY_EXCEPTION_CATCH:  /*exception catch*/
+			target->debug_reason = DBG_REASON_EXC_CATCH;
 			break;
 		default:
 			target->debug_reason = DBG_REASON_UNDEFINED;

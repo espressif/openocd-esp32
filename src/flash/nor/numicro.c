@@ -1496,7 +1496,8 @@ static int numicro_erase(struct flash_bank *bank, int first, int last)
 		return retval;
 
 	for (i = first; i <= last; i++) {
-		LOG_DEBUG("erasing sector %d at address 0x%" PRIx32 "", i, bank->base + bank->sectors[i].offset);
+		LOG_DEBUG("erasing sector %d at address " TARGET_ADDR_FMT, i,
+				bank->base + bank->sectors[i].offset);
 		retval = target_write_u32(target, NUMICRO_FLASH_ISPADR, bank->base + bank->sectors[i].offset);
 		if (retval != ERROR_OK)
 			return retval;
@@ -1678,7 +1679,8 @@ static int numicro_get_flash_size(struct flash_bank *bank, const struct numicro_
 	for (size_t i = 0; i < cpu->n_banks; i++) {
 		if (bank->base == cpu->bank[i].base) {
 			*flash_size = cpu->bank[i].size;
-			LOG_INFO("bank base = 0x%08" PRIx32 ", size = 0x%08" PRIx32 "", bank->base, *flash_size);
+			LOG_INFO("bank base = " TARGET_ADDR_FMT ", size = 0x%08"
+					PRIx32, bank->base, *flash_size);
 			return ERROR_OK;
 		}
 	}
@@ -1825,11 +1827,11 @@ COMMAND_HANDLER(numicro_handle_chip_erase_command)
 
 	retval = numicro_fmc_cmd(target, ISPCMD_CHIPERASE, 0, 0, &rdat);
 	if (retval != ERROR_OK) {
-		command_print(CMD_CTX, "numicro chip_erase failed");
+		command_print(CMD, "numicro chip_erase failed");
 		return retval;
 	}
 
-	command_print(CMD_CTX, "numicro chip_erase complete");
+	command_print(CMD, "numicro chip_erase complete");
 
 	return ERROR_OK;
 }
@@ -1854,6 +1856,7 @@ static const struct command_registration numicro_exec_command_handlers[] = {
 		.handler = numicro_handle_chip_erase_command,
 		.mode = COMMAND_EXEC,
 		.help = "chip erase through ISP.",
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };
@@ -1869,7 +1872,7 @@ static const struct command_registration numicro_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-struct flash_driver numicro_flash = {
+const struct flash_driver numicro_flash = {
 	.name = "numicro",
 	.commands = numicro_command_handlers,
 	.flash_bank_command = numicro_flash_bank_command,

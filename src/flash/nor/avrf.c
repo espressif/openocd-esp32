@@ -433,9 +433,9 @@ COMMAND_HANDLER(avrf_handle_mass_erase_command)
 		for (i = 0; i < bank->num_sectors; i++)
 			bank->sectors[i].is_erased = 1;
 
-		command_print(CMD_CTX, "avr mass erase complete");
+		command_print(CMD, "avr mass erase complete");
 	} else
-		command_print(CMD_CTX, "avr mass erase failed");
+		command_print(CMD, "avr mass erase failed");
 
 	LOG_DEBUG("%s", __func__);
 	return ERROR_OK;
@@ -462,7 +462,7 @@ static const struct command_registration avrf_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-struct flash_driver avr_flash = {
+const struct flash_driver avr_flash = {
 	.name = "avr",
 	.commands = avrf_command_handlers,
 	.flash_bank_command = avrf_flash_bank_command,

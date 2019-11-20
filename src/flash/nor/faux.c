@@ -109,11 +109,12 @@ static const struct command_registration faux_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "faux flash command group",
 		.chain = hello_command_handlers,
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };
 
-struct flash_driver faux_flash = {
+const struct flash_driver faux_flash = {
 	.name = "faux",
 	.commands = faux_command_handlers,
 	.flash_bank_command = faux_flash_bank_command,

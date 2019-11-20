@@ -166,22 +166,26 @@ static int swd_queue_ap_abort(struct adiv5_dap *dap, uint8_t *ack)
 }
 
 /** Select the DP register bank matching bits 7:4 of reg. */
-static void swd_queue_dp_bankselect(struct adiv5_dap *dap, unsigned reg)
+static int swd_queue_dp_bankselect(struct adiv5_dap *dap, unsigned reg)
 {
 	/* Only register address 4 is banked. */
 	if ((reg & 0xf) != 4)
-		return;
+		return ERROR_OK;
 
 	uint32_t select_dp_bank = (reg & 0x000000F0) >> 4;
 	uint32_t sel = select_dp_bank
 			| (dap->select & (DP_SELECT_APSEL | DP_SELECT_APBANK));
 
 	if (sel == dap->select)
-		return;
+		return ERROR_OK;
 
 	dap->select = sel;
 
-	swd_queue_dp_write(dap, DP_SELECT, sel);
+	int retval = swd_queue_dp_write(dap, DP_SELECT, sel);
+	if (retval != ERROR_OK)
+		dap->select = DP_SELECT_INVALID;
+
+	return retval;
 }
 
 static int swd_queue_dp_read(struct adiv5_dap *dap, unsigned reg,
@@ -194,7 +198,10 @@ static int swd_queue_dp_read(struct adiv5_dap *dap, unsigned reg,
 	if (retval != ERROR_OK)
 		return retval;
 
-	swd_queue_dp_bankselect(dap, reg);
+	retval = swd_queue_dp_bankselect(dap, reg);
+	if (retval != ERROR_OK)
+		return retval;
+
 	swd->read_reg(swd_cmd(true,  false, reg), data, 0);
 
 	return check_sync(dap);
@@ -211,14 +218,29 @@ static int swd_queue_dp_write(struct adiv5_dap *dap, unsigned reg,
 		return retval;
 
 	swd_finish_read(dap);
-	swd_queue_dp_bankselect(dap, reg);
+	if (reg == DP_SELECT) {
+		dap->select = data & (DP_SELECT_APSEL | DP_SELECT_APBANK | DP_SELECT_DPBANK);
+
+		swd->write_reg(swd_cmd(false,  false, reg), data, 0);
+
+		retval = check_sync(dap);
+		if (retval != ERROR_OK)
+			dap->select = DP_SELECT_INVALID;
+
+		return retval;
+	}
+
+	retval = swd_queue_dp_bankselect(dap, reg);
+	if (retval != ERROR_OK)
+		return retval;
+
 	swd->write_reg(swd_cmd(false,  false, reg), data, 0);
 
 	return check_sync(dap);
 }
 
 /** Select the AP register bank matching bits 7:4 of reg. */
-static void swd_queue_ap_bankselect(struct adiv5_ap *ap, unsigned reg)
+static int swd_queue_ap_bankselect(struct adiv5_ap *ap, unsigned reg)
 {
 	struct adiv5_dap *dap = ap->dap;
 	uint32_t sel = ((uint32_t)ap->ap_num << 24)
@@ -226,11 +248,15 @@ static void swd_queue_ap_bankselect(struct adiv5_ap *ap, unsigned reg)
 			| (dap->select & DP_SELECT_DPBANK);
 
 	if (sel == dap->select)
-		return;
+		return ERROR_OK;
 
 	dap->select = sel;
 
-	swd_queue_dp_write(dap, DP_SELECT, sel);
+	int retval = swd_queue_dp_write(dap, DP_SELECT, sel);
+	if (retval != ERROR_OK)
+		dap->select = DP_SELECT_INVALID;
+
+	return retval;
 }
 
 static int swd_queue_ap_read(struct adiv5_ap *ap, unsigned reg,
@@ -244,7 +270,10 @@ static int swd_queue_ap_read(struct adiv5_ap *ap, unsigned reg,
 	if (retval != ERROR_OK)
 		return retval;
 
-	swd_queue_ap_bankselect(ap, reg);
+	retval = swd_queue_ap_bankselect(ap, reg);
+	if (retval != ERROR_OK)
+		return retval;
+
 	swd->read_reg(swd_cmd(true,  true, reg), dap->last_read, ap->memaccess_tck);
 	dap->last_read = data;
 
@@ -263,7 +292,10 @@ static int swd_queue_ap_write(struct adiv5_ap *ap, unsigned reg,
 		return retval;
 
 	swd_finish_read(dap);
-	swd_queue_ap_bankselect(ap, reg);
+	retval = swd_queue_ap_bankselect(ap, reg);
+	if (retval != ERROR_OK)
+		return retval;
+
 	swd->write_reg(swd_cmd(false,  true, reg), data, ap->memaccess_tck);
 
 	return check_sync(dap);
@@ -297,71 +329,6 @@ const struct dap_ops swd_dap_ops = {
 	.quit = swd_quit,
 };
 
-/*
- * This represents the bits which must be sent out on TMS/SWDIO to
- * switch a DAP implemented using an SWJ-DP module into SWD mode.
- * These bits are stored (and transmitted) LSB-first.
- *
- * See the DAP-Lite specification, section 2.2.5 for information
- * about making the debug link select SWD or JTAG.  (Similar info
- * is in a few other ARM documents.)
- */
-static const uint8_t jtag2swd_bitseq[] = {
-	/* More than 50 TCK/SWCLK cycles with TMS/SWDIO high,
-	 * putting both JTAG and SWD logic into reset state.
-	 */
-	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-	/* Switching sequence enables SWD and disables JTAG
-	 * NOTE: bits in the DP's IDCODE may expose the need for
-	 * an old/obsolete/deprecated sequence (0xb6 0xed).
-	 */
-	0x9e, 0xe7,
-	/* More than 50 TCK/SWCLK cycles with TMS/SWDIO high,
-	 * putting both JTAG and SWD logic into reset state.
-	 */
-	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-};
-
-/**
- * Put the debug link into SWD mode, if the target supports it.
- * The link's initial mode may be either JTAG (for example,
- * with SWJ-DP after reset) or SWD.
- *
- * @param target Enters SWD mode (if possible).
- *
- * Note that targets using the JTAG-DP do not support SWD, and that
- * some targets which could otherwise support it may have have been
- * configured to disable SWD signaling
- *
- * @return ERROR_OK or else a fault code.
- */
-int dap_to_swd(struct target *target)
-{
-	struct arm *arm = target_to_arm(target);
-	int retval;
-
-	if (!arm->dap) {
-		LOG_ERROR("SWD mode is not available");
-		return ERROR_FAIL;
-	}
-
-	LOG_DEBUG("Enter SWD mode");
-
-	/* REVISIT it's ugly to need to make calls to a "jtag"
-	 * subsystem if the link may not be in JTAG mode...
-	 */
-
-	retval =  jtag_add_tms_seq(8 * sizeof(jtag2swd_bitseq),
-			jtag2swd_bitseq, TAP_INVALID);
-	if (retval == ERROR_OK)
-		retval = jtag_execute_queue();
-
-	/* set up the DAP's ops vector for SWD mode. */
-	arm->dap->ops = &swd_dap_ops;
-
-	return retval;
-}
-
 static const struct command_registration swd_commands[] = {
 	{
 		/*
@@ -385,6 +352,7 @@ static const struct command_registration swd_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "SWD command group",
 		.chain = swd_commands,
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };

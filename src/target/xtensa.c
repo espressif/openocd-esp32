@@ -2166,20 +2166,20 @@ COMMAND_HELPER(xtensa_cmd_perfmon_enable_do, struct xtensa *xtensa)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	unsigned counter_id = strtoul(CMD_ARGV[0], NULL, 0);
 	if (counter_id >= XTENSA_MAX_PERF_COUNTERS) {
-		command_print(CMD_CTX, "counter_id should be < %d", XTENSA_MAX_PERF_COUNTERS);
+		command_print(CMD, "counter_id should be < %d", XTENSA_MAX_PERF_COUNTERS);
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
 	config.select = strtoul(CMD_ARGV[1], NULL, 0);
 	if (config.select > XTENSA_MAX_PERF_SELECT) {
-		command_print(CMD_CTX, "select should be < %d", XTENSA_MAX_PERF_SELECT);
+		command_print(CMD, "select should be < %d", XTENSA_MAX_PERF_SELECT);
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
 	if (CMD_ARGC >= 3) {
 		config.mask = strtoul(CMD_ARGV[2], NULL, 0);
 		if (config.mask > XTENSA_MAX_PERF_MASK) {
-			command_print(CMD_CTX, "mask should be < %d", XTENSA_MAX_PERF_MASK);
+			command_print(CMD, "mask should be < %d", XTENSA_MAX_PERF_MASK);
 			return ERROR_COMMAND_SYNTAX_ERROR;
 		}
 	}
@@ -2187,7 +2187,7 @@ COMMAND_HELPER(xtensa_cmd_perfmon_enable_do, struct xtensa *xtensa)
 	if (CMD_ARGC >= 4) {
 		config.kernelcnt = strtoul(CMD_ARGV[3], NULL, 0);
 		if (config.kernelcnt > 1) {
-			command_print(CMD_CTX, "kernelcnt should be 0 or 1");
+			command_print(CMD, "kernelcnt should be 0 or 1");
 			return ERROR_COMMAND_SYNTAX_ERROR;
 		}
 	}
@@ -2195,7 +2195,7 @@ COMMAND_HELPER(xtensa_cmd_perfmon_enable_do, struct xtensa *xtensa)
 	if (CMD_ARGC >= 5) {
 		config.tracelevel = strtoul(CMD_ARGV[4], NULL, 0);
 		if (config.tracelevel > 7) {
-			command_print(CMD_CTX, "tracelevel should be <=7");
+			command_print(CMD, "tracelevel should be <=7");
 			return ERROR_COMMAND_SYNTAX_ERROR;
 		}
 	}
@@ -2266,7 +2266,7 @@ COMMAND_HELPER(xtensa_cmd_mask_interrupts_do, struct xtensa *xtensa)
 			st = "ON";
 		else
 			st = "UNKNOWN";
-		command_print(CMD_CTX, "Current ISR step mode: %s", st);
+		command_print(CMD, "Current ISR step mode: %s", st);
 		return ERROR_OK;
 	}
 	/* Masking is ON -> interrupts during stepping are OFF, and vice versa */
@@ -2276,7 +2276,7 @@ COMMAND_HELPER(xtensa_cmd_mask_interrupts_do, struct xtensa *xtensa)
 		state = XT_STEPPING_ISR_OFF;
 
 	if (state == -1) {
-		command_print(CMD_CTX, "Argument unknown. Please pick one of ON, OFF");
+		command_print(CMD, "Argument unknown. Please pick one of ON, OFF");
 		return ERROR_FAIL;
 	}
 	xtensa->stepping_isr_mode = state;
@@ -2317,7 +2317,7 @@ COMMAND_HELPER(xtensa_cmd_tracestart_do, struct xtensa *xtensa)
 		else if (!strcasecmp(CMD_ARGV[i], "words"))
 			cfg.after_is_words = 1;
 		else {
-			command_print(CMD_CTX, "Did not understand %s", CMD_ARGV[i]);
+			command_print(CMD, "Did not understand %s", CMD_ARGV[i]);
 			return ERROR_FAIL;
 		}
 	}
@@ -2333,7 +2333,7 @@ COMMAND_HELPER(xtensa_cmd_tracestart_do, struct xtensa *xtensa)
 		return res;
 
 	xtensa->trace_active = true;
-	command_print(CMD_CTX, "Trace started.");
+	command_print(CMD, "Trace started.");
 	return ERROR_OK;
 }
 
@@ -2352,7 +2352,7 @@ COMMAND_HELPER(xtensa_cmd_tracestop_do, struct xtensa *xtensa)
 		return res;
 
 	if (!(trace_status.stat & TRAXSTAT_TRACT)) {
-		command_print(CMD_CTX, "No trace is currently active.");
+		command_print(CMD, "No trace is currently active.");
 		return ERROR_FAIL;
 	}
 
@@ -2361,7 +2361,7 @@ COMMAND_HELPER(xtensa_cmd_tracestop_do, struct xtensa *xtensa)
 		return res;
 
 	xtensa->trace_active = false;
-	command_print(CMD_CTX, "Trace stop triggered.");
+	command_print(CMD, "Trace stop triggered.");
 	return ERROR_OK;
 }
 
@@ -2382,7 +2382,7 @@ COMMAND_HELPER(xtensa_cmd_tracedump_do, struct xtensa *xtensa, const char *fname
 		return res;
 
 	if (trace_status.stat & TRAXSTAT_TRACT) {
-		command_print(CMD_CTX, "Tracing is still active. Please stop it first.");
+		command_print(CMD, "Tracing is still active. Please stop it first.");
 		return ERROR_FAIL;
 	}
 
@@ -2391,7 +2391,7 @@ COMMAND_HELPER(xtensa_cmd_tracedump_do, struct xtensa *xtensa, const char *fname
 		return res;
 
 	if (!(trace_config.ctrl & TRAXCTRL_TREN)) {
-		command_print(CMD_CTX, "No active trace found; nothing to dump.");
+		command_print(CMD, "No active trace found; nothing to dump.");
 		return ERROR_FAIL;
 	}
 
@@ -2418,7 +2418,7 @@ COMMAND_HELPER(xtensa_cmd_tracedump_do, struct xtensa *xtensa, const char *fname
 
 	uint8_t *tracemem = malloc(memsz*4);
 	if (tracemem == NULL) {
-		command_print(CMD_CTX, "Failed to alloc memory for trace data!");
+		command_print(CMD, "Failed to alloc memory for trace data!");
 		return ERROR_FAIL;
 	}
 	res = xtensa_dm_trace_data_read(&xtensa->dbg_mod, tracemem, memsz*4);
@@ -2428,13 +2428,13 @@ COMMAND_HELPER(xtensa_cmd_tracedump_do, struct xtensa *xtensa, const char *fname
 	int f = open(fname, O_WRONLY|O_CREAT|O_TRUNC, 0666);
 	if (f <= 0) {
 		free(tracemem);
-		command_print(CMD_CTX, "Unable to open file %s", fname);
+		command_print(CMD, "Unable to open file %s", fname);
 		return ERROR_FAIL;
 	}
 	if (write(f, tracemem, memsz*4) != (int)memsz*4)
-		command_print(CMD_CTX, "Unable to write to file %s", fname);
+		command_print(CMD, "Unable to write to file %s", fname);
 	else
-		command_print(CMD_CTX, "Written %d bytes of trace data to %s", memsz*4, fname);
+		command_print(CMD, "Written %d bytes of trace data to %s", memsz*4, fname);
 	close(f);
 
 	bool is_all_zeroes = true;
@@ -2446,7 +2446,7 @@ COMMAND_HELPER(xtensa_cmd_tracedump_do, struct xtensa *xtensa, const char *fname
 	}
 	if (is_all_zeroes)
 		command_print(
-			CMD_CTX,
+			CMD,
 			"WARNING: File written is all zeroes. Are you sure you enabled trace memory?");
 
 	return ERROR_OK;
@@ -2455,7 +2455,7 @@ COMMAND_HELPER(xtensa_cmd_tracedump_do, struct xtensa *xtensa, const char *fname
 COMMAND_HANDLER(xtensa_cmd_tracedump)
 {
 	if (CMD_ARGC < 1) {
-		command_print(CMD_CTX, "Need filename to dump to as output!");
+		command_print(CMD, "Need filename to dump to as output!");
 		return ERROR_FAIL;
 	}
 
