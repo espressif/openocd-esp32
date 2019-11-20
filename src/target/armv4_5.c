@@ -434,8 +434,8 @@ void arm_set_cpsr(struct arm *arm, uint32_t cpsr)
 	 */
 	if (arm->cpsr) {
 		buf_set_u32(arm->cpsr->value, 0, 32, cpsr);
-		arm->cpsr->valid = 1;
-		arm->cpsr->dirty = 0;
+		arm->cpsr->valid = true;
+		arm->cpsr->dirty = false;
 	}
 
 	arm->core_mode = mode;
@@ -526,7 +526,7 @@ static struct reg_feature arm_gdb_dummy_fp_features = {
 struct reg arm_gdb_dummy_fp_reg = {
 	.name = "GDB dummy FPA register",
 	.value = (uint8_t *) arm_gdb_dummy_fp_value,
-	.valid = 1,
+	.valid = true,
 	.size = 96,
 	.exist = false,
 	.number = 16,
@@ -543,7 +543,7 @@ static const uint8_t arm_gdb_dummy_fps_value[4];
 struct reg arm_gdb_dummy_fps_reg = {
 	.name = "GDB dummy FPA status register",
 	.value = (uint8_t *) arm_gdb_dummy_fps_value,
-	.valid = 1,
+	.valid = true,
 	.size = 32,
 	.exist = false,
 	.number = 24,
@@ -573,8 +573,8 @@ static int armv4_5_get_core_reg(struct reg *reg)
 	retval = reg_arch_info->arm->read_core_reg(target, reg,
 			reg_arch_info->num, reg_arch_info->mode);
 	if (retval == ERROR_OK) {
-		reg->valid = 1;
-		reg->dirty = 0;
+		reg->valid = true;
+		reg->dirty = false;
 	}
 
 	return retval;
@@ -619,9 +619,9 @@ static int armv4_5_set_core_reg(struct reg *reg, uint8_t *buf)
 			value = buf_get_u32(buf + 4, 0, 32);
 			buf_set_u32(reg->value + 4, 0, 32, value);
 		}
-		reg->valid = 1;
+		reg->valid = true;
 	}
-	reg->dirty = 1;
+	reg->dirty = true;
 
 	return ERROR_OK;
 }
@@ -778,17 +778,17 @@ COMMAND_HANDLER(handle_armv4_5_reg_command)
 	struct reg *regs;
 
 	if (!is_arm(arm)) {
-		command_print(CMD_CTX, "current target isn't an ARM");
+		command_print(CMD, "current target isn't an ARM");
 		return ERROR_FAIL;
 	}
 
 	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, "error: target must be halted for register accesses");
+		command_print(CMD, "error: target must be halted for register accesses");
 		return ERROR_FAIL;
 	}
 
 	if (arm->core_type != ARM_MODE_ANY) {
-		command_print(CMD_CTX,
+		command_print(CMD,
 			"Microcontroller Profile not supported - use standard reg cmd");
 		return ERROR_OK;
 	}
@@ -799,7 +799,7 @@ COMMAND_HANDLER(handle_armv4_5_reg_command)
 	}
 
 	if (!arm->full_context) {
-		command_print(CMD_CTX, "error: target doesn't support %s",
+		command_print(CMD, "error: target doesn't support %s",
 			CMD_NAME);
 		return ERROR_FAIL;
 	}
@@ -828,7 +828,7 @@ COMMAND_HANDLER(handle_armv4_5_reg_command)
 				shadow = "shadow ";
 				break;
 		}
-		command_print(CMD_CTX, "%s%s mode %sregisters",
+		command_print(CMD, "%s%s mode %sregisters",
 			sep, name, shadow);
 
 		/* display N rows of up to 4 registers each */
@@ -855,7 +855,7 @@ COMMAND_HANDLER(handle_armv4_5_reg_command)
 						"%8s: %8.8" PRIx32 " ",
 						reg->name, value);
 			}
-			command_print(CMD_CTX, "%s", output);
+			command_print(CMD, "%s", output);
 		}
 	}
 
@@ -868,13 +868,13 @@ COMMAND_HANDLER(handle_armv4_5_core_state_command)
 	struct arm *arm = target_to_arm(target);
 
 	if (!is_arm(arm)) {
-		command_print(CMD_CTX, "current target isn't an ARM");
+		command_print(CMD, "current target isn't an ARM");
 		return ERROR_FAIL;
 	}
 
 	if (arm->core_type == ARM_MODE_THREAD) {
 		/* armv7m not supported */
-		command_print(CMD_CTX, "Unsupported Command");
+		command_print(CMD, "Unsupported Command");
 		return ERROR_OK;
 	}
 
@@ -885,7 +885,7 @@ COMMAND_HANDLER(handle_armv4_5_core_state_command)
 			arm->core_state = ARM_STATE_THUMB;
 	}
 
-	command_print(CMD_CTX, "core state: %s", arm_state_strings[arm->core_state]);
+	command_print(CMD, "core state: %s", arm_state_strings[arm->core_state]);
 
 	return ERROR_OK;
 }
@@ -906,7 +906,7 @@ COMMAND_HANDLER(handle_arm_disassemble_command)
 	int thumb = 0;
 
 	if (!is_arm(arm)) {
-		command_print(CMD_CTX, "current target isn't an ARM");
+		command_print(CMD, "current target isn't an ARM");
 		return ERROR_FAIL;
 	}
 
@@ -928,7 +928,7 @@ COMMAND_HANDLER(handle_arm_disassemble_command)
 			COMMAND_PARSE_ADDRESS(CMD_ARGV[0], address);
 			if (address & 0x01) {
 				if (!thumb) {
-					command_print(CMD_CTX, "Disassemble as Thumb");
+					command_print(CMD, "Disassemble as Thumb");
 					thumb = 1;
 				}
 				address &= ~1;
@@ -963,7 +963,7 @@ usage:
 			if (retval != ERROR_OK)
 				break;
 		}
-		command_print(CMD_CTX, "%s", cur_instruction.text);
+		command_print(CMD, "%s", cur_instruction.text);
 		address += cur_instruction.instruction_size;
 	}
 
@@ -1134,33 +1134,34 @@ static const struct command_registration arm_exec_command_handlers[] = {
 	},
 	{
 		.name = "mrc",
+		.mode = COMMAND_EXEC,
 		.jim_handler = &jim_mcrmrc,
 		.help = "read coprocessor register",
 		.usage = "cpnum op1 CRn CRm op2",
 	},
 	{
-		"semihosting",
+		.name = "semihosting",
 		.handler = handle_common_semihosting_command,
 		.mode = COMMAND_EXEC,
 		.usage = "['enable'|'disable']",
 		.help = "activate support for semihosting operations",
 	},
 	{
-		"semihosting_cmdline",
+		.name = "semihosting_cmdline",
 		.handler = handle_common_semihosting_cmdline,
 		.mode = COMMAND_EXEC,
 		.usage = "arguments",
 		.help = "command line arguments to be passed to program",
 	},
 	{
-		"semihosting_fileio",
+		.name = "semihosting_fileio",
 		.handler = handle_common_semihosting_fileio_command,
 		.mode = COMMAND_EXEC,
 		.usage = "['enable'|'disable']",
 		.help = "activate support for semihosting fileio operations",
 	},
 	{
-		"semihosting_resexit",
+		.name = "semihosting_resexit",
 		.handler = handle_common_semihosting_resumable_exit_command,
 		.mode = COMMAND_EXEC,
 		.usage = "['enable'|'disable']",
@@ -1354,6 +1355,8 @@ int armv4_5_run_algorithm_inner(struct target *target,
 	cpsr = buf_get_u32(arm->cpsr->value, 0, 32);
 
 	for (i = 0; i < num_mem_params; i++) {
+		if (mem_params[i].direction == PARAM_IN)
+			continue;
 		retval = target_write_buffer(target, mem_params[i].address, mem_params[i].size,
 				mem_params[i].value);
 		if (retval != ERROR_OK)
@@ -1361,6 +1364,9 @@ int armv4_5_run_algorithm_inner(struct target *target,
 	}
 
 	for (i = 0; i < num_reg_params; i++) {
+		if (reg_params[i].direction == PARAM_IN)
+			continue;
+
 		struct reg *reg = register_get_by_name(arm->core_cache, reg_params[i].reg_name, 0);
 		if (!reg) {
 			LOG_ERROR("BUG: register '%s' not found", reg_params[i].reg_name);
@@ -1393,8 +1399,8 @@ int armv4_5_run_algorithm_inner(struct target *target,
 			arm_algorithm_info->core_mode);
 		buf_set_u32(arm->cpsr->value, 0, 5,
 			arm_algorithm_info->core_mode);
-		arm->cpsr->dirty = 1;
-		arm->cpsr->valid = 1;
+		arm->cpsr->dirty = true;
+		arm->cpsr->valid = true;
 	}
 
 	/* terminate using a hardware or (ARMv5+) software breakpoint */
@@ -1464,14 +1470,14 @@ int armv4_5_run_algorithm_inner(struct target *target,
 			buf_set_u32(ARMV4_5_CORE_REG_MODE(arm->core_cache,
 				arm_algorithm_info->core_mode, i).value, 0, 32, context[i]);
 			ARMV4_5_CORE_REG_MODE(arm->core_cache, arm_algorithm_info->core_mode,
-				i).valid = 1;
+				i).valid = true;
 			ARMV4_5_CORE_REG_MODE(arm->core_cache, arm_algorithm_info->core_mode,
-				i).dirty = 1;
+				i).dirty = true;
 		}
 	}
 
 	arm_set_cpsr(arm, cpsr);
-	arm->cpsr->dirty = 1;
+	arm->cpsr->dirty = true;
 
 	arm->core_state = core_state;
 

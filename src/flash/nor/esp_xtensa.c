@@ -716,8 +716,11 @@ int esp_xtensa_probe(struct flash_bank *bank)
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	LOG_DEBUG("Flash size = %d KB @ 0x%x '%s' - '%s'", bank->size/1024, bank->base,
-		target_name(bank->target), target_state_name(bank->target));
+	LOG_DEBUG("Flash size = %d KB @ "TARGET_ADDR_FMT " '%s' - '%s'",
+		bank->size/1024,
+		bank->base,
+		target_name(bank->target),
+		target_state_name(bank->target));
 
 	if (bank->sectors) {
 		free(bank->sectors);
@@ -1015,7 +1018,7 @@ COMMAND_HANDLER(esp_xtensa_cmd_appimage_flashoff)
 {
 	struct target *target = get_current_target(CMD_CTX);
 	if (CMD_ARGC != 1) {
-		command_print(CMD_CTX, "Flash offset not specified!");
+		command_print(CMD, "Flash offset not specified!");
 		return ERROR_FAIL;
 	}
 

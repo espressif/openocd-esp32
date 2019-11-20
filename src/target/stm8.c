@@ -1,20 +1,20 @@
 /*
-    OpenOCD STM8 target driver
-    Copyright (C) 2017  Ake Rehnman
-    ake.rehnman(at)gmail.com
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*   OpenOCD STM8 target driver
+*   Copyright (C) 2017  Ake Rehnman
+*   ake.rehnman(at)gmail.com
+*
+*   This program is free software: you can redistribute it and/or modify
+*   it under the terms of the GNU General Public License as published by
+*   the Free Software Foundation, either version 2 of the License, or
+*   (at your option) any later version.
+*
+*   This program is distributed in the hope that it will be useful,
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*   GNU General Public License for more details.
+*
+*   You should have received a copy of the GNU General Public License
+*   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #ifdef HAVE_CONFIG_H
@@ -1890,6 +1890,8 @@ static int stm8_run_algorithm(struct target *target, int num_mem_params,
 	}
 
 	for (int i = 0; i < num_mem_params; i++) {
+		if (mem_params[i].direction == PARAM_IN)
+			continue;
 		retval = target_write_buffer(target, mem_params[i].address,
 				mem_params[i].size, mem_params[i].value);
 		if (retval != ERROR_OK)
@@ -1897,6 +1899,9 @@ static int stm8_run_algorithm(struct target *target, int num_mem_params,
 	}
 
 	for (int i = 0; i < num_reg_params; i++) {
+		if (reg_params[i].direction == PARAM_IN)
+			continue;
+
 		struct reg *reg = register_get_by_name(stm8->core_cache,
 				reg_params[i].reg_name, 0);
 
@@ -2142,7 +2147,7 @@ COMMAND_HANDLER(stm8_handle_enable_step_irq_command)
 		stm8->enable_step_irq = enable;
 	}
 	msg = stm8->enable_step_irq ? "enabled" : "disabled";
-	command_print(CMD_CTX, "enable_step_irq = %s", msg);
+	command_print(CMD, "enable_step_irq = %s", msg);
 	return ERROR_OK;
 }
 
@@ -2158,7 +2163,7 @@ COMMAND_HANDLER(stm8_handle_enable_stm8l_command)
 		stm8->enable_stm8l = enable;
 	}
 	msg = stm8->enable_stm8l ? "enabled" : "disabled";
-	command_print(CMD_CTX, "enable_stm8l = %s", msg);
+	command_print(CMD, "enable_stm8l = %s", msg);
 	stm8_init_flash_regs(stm8->enable_stm8l, stm8);
 	return ERROR_OK;
 }

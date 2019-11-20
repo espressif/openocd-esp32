@@ -191,7 +191,7 @@ static int armv7m_get_core_reg(struct reg *reg)
 	if (target->state != TARGET_HALTED)
 		return ERROR_TARGET_NOT_HALTED;
 
-	retval = arm->read_core_reg(target, reg, armv7m_reg->num, arm->core_mode);
+	retval = arm->read_core_reg(target, reg, reg->number, arm->core_mode);
 
 	return retval;
 }
@@ -205,8 +205,8 @@ static int armv7m_set_core_reg(struct reg *reg, uint8_t *buf)
 		return ERROR_TARGET_NOT_HALTED;
 
 	buf_cpy(buf, reg->value, reg->size);
-	reg->dirty = 1;
-	reg->valid = 1;
+	reg->dirty = true;
+	reg->valid = true;
 
 	return ERROR_OK;
 }
@@ -244,8 +244,8 @@ static int armv7m_read_core_reg(struct target *target, struct reg *r,
 		buf_set_u32(armv7m->arm.core_cache->reg_list[num].value, 0, 32, reg_value);
 	}
 
-	armv7m->arm.core_cache->reg_list[num].valid = 1;
-	armv7m->arm.core_cache->reg_list[num].dirty = 0;
+	armv7m->arm.core_cache->reg_list[num].valid = true;
+	armv7m->arm.core_cache->reg_list[num].dirty = false;
 
 	return retval;
 }
@@ -283,8 +283,8 @@ static int armv7m_write_core_reg(struct target *target, struct reg *r,
 			goto out_error;
 	}
 
-	armv7m->arm.core_cache->reg_list[num].valid = 1;
-	armv7m->arm.core_cache->reg_list[num].dirty = 0;
+	armv7m->arm.core_cache->reg_list[num].valid = true;
+	armv7m->arm.core_cache->reg_list[num].dirty = false;
 
 	return ERROR_OK;
 
@@ -379,7 +379,8 @@ int armv7m_start_algorithm(struct target *target,
 	}
 
 	for (int i = 0; i < num_mem_params; i++) {
-		/* TODO: Write only out params */
+		if (mem_params[i].direction == PARAM_IN)
+			continue;
 		retval = target_write_buffer(target, mem_params[i].address,
 				mem_params[i].size,
 				mem_params[i].value);
@@ -388,6 +389,9 @@ int armv7m_start_algorithm(struct target *target,
 	}
 
 	for (int i = 0; i < num_reg_params; i++) {
+		if (reg_params[i].direction == PARAM_IN)
+			continue;
+
 		struct reg *reg =
 			register_get_by_name(armv7m->arm.core_cache, reg_params[i].reg_name, 0);
 /*		uint32_t regvalue; */
@@ -420,8 +424,8 @@ int armv7m_start_algorithm(struct target *target,
 		 */
 		struct reg *reg = &armv7m->arm.core_cache->reg_list[ARMV7M_xPSR];
 		buf_set_u32(reg->value, 0, 32, 0x01000000);
-		reg->valid = 1;
-		reg->dirty = 1;
+		reg->valid = true;
+		reg->dirty = true;
 	}
 
 	if (armv7m_algorithm_info->core_mode != ARM_MODE_ANY &&
@@ -436,8 +440,8 @@ int armv7m_start_algorithm(struct target *target,
 		LOG_DEBUG("setting core_mode: 0x%2.2x", armv7m_algorithm_info->core_mode);
 		buf_set_u32(armv7m->arm.core_cache->reg_list[ARMV7M_CONTROL].value,
 			0, 1, armv7m_algorithm_info->core_mode);
-		armv7m->arm.core_cache->reg_list[ARMV7M_CONTROL].dirty = 1;
-		armv7m->arm.core_cache->reg_list[ARMV7M_CONTROL].valid = 1;
+		armv7m->arm.core_cache->reg_list[ARMV7M_CONTROL].dirty = true;
+		armv7m->arm.core_cache->reg_list[ARMV7M_CONTROL].valid = true;
 	}
 
 	/* save previous core mode */
@@ -531,8 +535,8 @@ int armv7m_wait_algorithm(struct target *target,
 				armv7m_algorithm_info->context[i]);
 			buf_set_u32(armv7m->arm.core_cache->reg_list[i].value,
 				0, 32, armv7m_algorithm_info->context[i]);
-			armv7m->arm.core_cache->reg_list[i].valid = 1;
-			armv7m->arm.core_cache->reg_list[i].dirty = 1;
+			armv7m->arm.core_cache->reg_list[i].valid = true;
+			armv7m->arm.core_cache->reg_list[i].dirty = true;
 		}
 	}
 
@@ -541,8 +545,8 @@ int armv7m_wait_algorithm(struct target *target,
 		LOG_DEBUG("restoring core_mode: 0x%2.2x", armv7m_algorithm_info->core_mode);
 		buf_set_u32(armv7m->arm.core_cache->reg_list[ARMV7M_CONTROL].value,
 			0, 1, armv7m_algorithm_info->core_mode);
-		armv7m->arm.core_cache->reg_list[ARMV7M_CONTROL].dirty = 1;
-		armv7m->arm.core_cache->reg_list[ARMV7M_CONTROL].valid = 1;
+		armv7m->arm.core_cache->reg_list[ARMV7M_CONTROL].dirty = true;
+		armv7m->arm.core_cache->reg_list[ARMV7M_CONTROL].valid = true;
 	}
 
 	armv7m->arm.core_mode = armv7m_algorithm_info->core_mode;
@@ -615,8 +619,8 @@ struct reg_cache *armv7m_build_reg_cache(struct target *target)
 		if (storage_size < 4)
 			storage_size = 4;
 		reg_list[i].value = calloc(1, storage_size);
-		reg_list[i].dirty = 0;
-		reg_list[i].valid = 0;
+		reg_list[i].dirty = false;
+		reg_list[i].valid = false;
 		reg_list[i].type = &armv7m_reg_type;
 		reg_list[i].arch_info = &arch_info[i];
 

@@ -170,7 +170,7 @@ struct armv8_cache_common {
 	/* l2 external unified cache if some */
 	void *l2_cache;
 	int (*flush_all_data_cache)(struct target *target);
-	int (*display_cache_info)(struct command_context *cmd_ctx,
+	int (*display_cache_info)(struct command_invocation *cmd,
 			struct armv8_cache_common *armv8_cache);
 };
 
@@ -261,6 +261,7 @@ static inline bool is_armv8(struct armv8_common *armv8)
 #define CPUV8_DBG_WFAR1		0x34
 #define CPUV8_DBG_DSCR		0x088
 #define CPUV8_DBG_DRCR		0x090
+#define CPUV8_DBG_ECCR		0x098
 #define CPUV8_DBG_PRCR		0x310
 #define CPUV8_DBG_PRSR		0x314
 
@@ -300,7 +301,7 @@ int armv8_mmu_translate_va_pa(struct target *target, target_addr_t va,
 		target_addr_t *val, int meminfo);
 int armv8_mmu_translate_va(struct target *target,  target_addr_t va, target_addr_t *val);
 
-int armv8_handle_cache_info_command(struct command_context *cmd_ctx,
+int armv8_handle_cache_info_command(struct command_invocation *cmd,
 		struct armv8_cache_common *armv8_cache);
 
 void armv8_set_cpsr(struct arm *arm, uint32_t cpsr);

@@ -139,6 +139,13 @@ struct dap_cmd {
 	uint8_t outvalue_buf[4];
 };
 
+#define MAX_DAP_COMMAND_NUM 65536
+
+struct dap_cmd_pool {
+	struct list_head lh;
+	struct dap_cmd cmd;
+} dap_cmd_pool;
+
 static void log_dap_cmd(const char *header, struct dap_cmd *el)
 {
 #ifdef DEBUG_WAIT
@@ -153,31 +160,72 @@ static void log_dap_cmd(const char *header, struct dap_cmd *el)
 #endif
 }
 
-static struct dap_cmd *dap_cmd_new(uint8_t instr,
+static int jtag_limit_queue_size(struct adiv5_dap *dap)
+{
+	if (dap->cmd_pool_size < MAX_DAP_COMMAND_NUM)
+		return ERROR_OK;
+
+	return dap_run(dap);
+}
+
+static struct dap_cmd *dap_cmd_new(struct adiv5_dap *dap, uint8_t instr,
 		uint8_t reg_addr, uint8_t RnW,
 		uint8_t *outvalue, uint8_t *invalue,
 		uint32_t memaccess_tck)
 {
-	struct dap_cmd *cmd;
 
-	cmd = (struct dap_cmd *)calloc(1, sizeof(struct dap_cmd));
-	if (cmd != NULL) {
-		INIT_LIST_HEAD(&cmd->lh);
-		cmd->instr = instr;
-		cmd->reg_addr = reg_addr;
-		cmd->RnW = RnW;
-		if (outvalue != NULL)
-			memcpy(cmd->outvalue_buf, outvalue, 4);
-		cmd->invalue = (invalue != NULL) ? invalue : cmd->invalue_buf;
-		cmd->memaccess_tck = memaccess_tck;
+	struct dap_cmd_pool *pool = NULL;
+
+	if (list_empty(&dap->cmd_pool)) {
+		pool = calloc(1, sizeof(struct dap_cmd_pool));
+		if (pool == NULL)
+			return NULL;
+	} else {
+		pool = list_first_entry(&dap->cmd_pool, struct dap_cmd_pool, lh);
+		list_del(&pool->lh);
 	}
+
+	INIT_LIST_HEAD(&pool->lh);
+	dap->cmd_pool_size++;
+
+	struct dap_cmd *cmd = &pool->cmd;
+	INIT_LIST_HEAD(&cmd->lh);
+	cmd->instr = instr;
+	cmd->reg_addr = reg_addr;
+	cmd->RnW = RnW;
+	if (outvalue != NULL)
+		memcpy(cmd->outvalue_buf, outvalue, 4);
+	cmd->invalue = (invalue != NULL) ? invalue : cmd->invalue_buf;
+	cmd->memaccess_tck = memaccess_tck;
 
 	return cmd;
 }
 
-static void flush_journal(struct list_head *lh)
+static void dap_cmd_release(struct adiv5_dap *dap, struct dap_cmd *cmd)
+{
+	struct dap_cmd_pool *pool = container_of(cmd, struct dap_cmd_pool, cmd);
+	if (dap->cmd_pool_size > MAX_DAP_COMMAND_NUM)
+		free(pool);
+	else
+		list_add(&pool->lh, &dap->cmd_pool);
+
+	dap->cmd_pool_size--;
+}
+
+static void flush_journal(struct adiv5_dap *dap, struct list_head *lh)
 {
 	struct dap_cmd *el, *tmp;
+
+	list_for_each_entry_safe(el, tmp, lh, lh) {
+		list_del(&el->lh);
+		dap_cmd_release(dap, el);
+	}
+}
+
+static void jtag_quit(struct adiv5_dap *dap)
+{
+	struct dap_cmd_pool *el, *tmp;
+	struct list_head *lh = &dap->cmd_pool;
 
 	list_for_each_entry_safe(el, tmp, lh, lh) {
 		list_del(&el->lh);
@@ -273,7 +321,7 @@ static int adi_jtag_dp_scan(struct adiv5_dap *dap,
 	struct dap_cmd *cmd;
 	int retval;
 
-	cmd = dap_cmd_new(instr, reg_addr, RnW, outvalue, invalue, memaccess_tck);
+	cmd = dap_cmd_new(dap, instr, reg_addr, RnW, outvalue, invalue, memaccess_tck);
 	if (cmd != NULL)
 		cmd->dp_select = dap->select;
 	else
@@ -415,7 +463,7 @@ static int jtagdp_overrun_check(struct adiv5_dap *dap)
 				* To complete the READ, we just keep polling RDBUFF
 				* until the WAIT condition clears
 				*/
-				tmp = dap_cmd_new(JTAG_DP_DPACC,
+				tmp = dap_cmd_new(dap, JTAG_DP_DPACC,
 						DP_RDBUFF, DPAP_READ, NULL, NULL, 0);
 				if (tmp == NULL) {
 					retval = ERROR_JTAG_DEVICE_ERROR;
@@ -459,7 +507,7 @@ static int jtagdp_overrun_check(struct adiv5_dap *dap)
 				}
 
 				/* we're done with this command, release it */
-				free(tmp);
+				dap_cmd_release(dap, tmp);
 
 				if (retval != ERROR_OK)
 					goto done;
@@ -479,7 +527,7 @@ static int jtagdp_overrun_check(struct adiv5_dap *dap)
 	}
 
 	/* we're done with the journal, flush it */
-	flush_journal(&dap->cmd_journal);
+	flush_journal(dap, &dap->cmd_journal);
 
 	/* check for overrun condition in the last batch of transactions */
 	if (found_wait) {
@@ -494,7 +542,7 @@ static int jtagdp_overrun_check(struct adiv5_dap *dap)
 		/* restore SELECT register first */
 		if (!list_empty(&replay_list)) {
 			el = list_first_entry(&replay_list, struct dap_cmd, lh);
-			tmp = dap_cmd_new(JTAG_DP_DPACC,
+			tmp = dap_cmd_new(dap, JTAG_DP_DPACC,
 					  DP_SELECT, DPAP_WRITE, (uint8_t *)&el->dp_select, NULL, 0);
 			if (tmp == NULL) {
 				retval = ERROR_JTAG_DEVICE_ERROR;
@@ -545,8 +593,8 @@ static int jtagdp_overrun_check(struct adiv5_dap *dap)
 	}
 
  done:
-	flush_journal(&replay_list);
-	flush_journal(&dap->cmd_journal);
+	flush_journal(dap, &replay_list);
+	flush_journal(dap, &dap->cmd_journal);
 	return retval;
 }
 
@@ -595,7 +643,7 @@ static int jtagdp_transaction_endcheck(struct adiv5_dap *dap)
 	}
 
  done:
-	flush_journal(&dap->cmd_journal);
+	flush_journal(dap, &dap->cmd_journal);
 	return retval;
 }
 
@@ -618,7 +666,11 @@ static int jtag_check_reconnect(struct adiv5_dap *dap)
 static int jtag_dp_q_read(struct adiv5_dap *dap, unsigned reg,
 		uint32_t *data)
 {
-	int retval =  adi_jtag_dp_scan_u32(dap, JTAG_DP_DPACC, reg,
+	int retval = jtag_limit_queue_size(dap);
+	if (retval != ERROR_OK)
+		return retval;
+
+	retval =  adi_jtag_dp_scan_u32(dap, JTAG_DP_DPACC, reg,
 			DPAP_READ, 0, dap->last_read, 0, NULL);
 	dap->last_read = data;
 	return retval;
@@ -627,7 +679,11 @@ static int jtag_dp_q_read(struct adiv5_dap *dap, unsigned reg,
 static int jtag_dp_q_write(struct adiv5_dap *dap, unsigned reg,
 		uint32_t data)
 {
-	int retval =  adi_jtag_dp_scan_u32(dap, JTAG_DP_DPACC,
+	int retval = jtag_limit_queue_size(dap);
+	if (retval != ERROR_OK)
+		return retval;
+
+	retval =  adi_jtag_dp_scan_u32(dap, JTAG_DP_DPACC,
 			reg, DPAP_WRITE, data, dap->last_read, 0, NULL);
 	dap->last_read = NULL;
 	return retval;
@@ -650,7 +706,11 @@ static int jtag_ap_q_bankselect(struct adiv5_ap *ap, unsigned reg)
 static int jtag_ap_q_read(struct adiv5_ap *ap, unsigned reg,
 		uint32_t *data)
 {
-	int retval = jtag_check_reconnect(ap->dap);
+	int retval = jtag_limit_queue_size(ap->dap);
+	if (retval != ERROR_OK)
+		return retval;
+
+	retval = jtag_check_reconnect(ap->dap);
 	if (retval != ERROR_OK)
 		return retval;
 
@@ -668,7 +728,11 @@ static int jtag_ap_q_read(struct adiv5_ap *ap, unsigned reg,
 static int jtag_ap_q_write(struct adiv5_ap *ap, unsigned reg,
 		uint32_t data)
 {
-	int retval = jtag_check_reconnect(ap->dap);
+	int retval = jtag_limit_queue_size(ap->dap);
+	if (retval != ERROR_OK)
+		return retval;
+
+	retval = jtag_check_reconnect(ap->dap);
 	if (retval != ERROR_OK)
 		return retval;
 
@@ -725,53 +789,5 @@ const struct dap_ops jtag_dp_ops = {
 	.queue_ap_abort      = jtag_ap_q_abort,
 	.run                 = jtag_dp_run,
 	.sync                = jtag_dp_sync,
+	.quit                = jtag_quit,
 };
-
-
-static const uint8_t swd2jtag_bitseq[] = {
-	/* More than 50 TCK/SWCLK cycles with TMS/SWDIO high,
-	 * putting both JTAG and SWD logic into reset state.
-	 */
-	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-	/* Switching equence disables SWD and enables JTAG
-	 * NOTE: bits in the DP's IDCODE can expose the need for
-	 * the old/deprecated sequence (0xae 0xde).
-	 */
-	0x3c, 0xe7,
-	/* At least 50 TCK/SWCLK cycles with TMS/SWDIO high,
-	 * putting both JTAG and SWD logic into reset state.
-	 * NOTE:  some docs say "at least 5".
-	 */
-	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-};
-
-/** Put the debug link into JTAG mode, if the target supports it.
- * The link's initial mode may be either SWD or JTAG.
- *
- * @param target Enters JTAG mode (if possible).
- *
- * Note that targets implemented with SW-DP do not support JTAG, and
- * that some targets which could otherwise support it may have been
- * configured to disable JTAG signaling
- *
- * @return ERROR_OK or else a fault code.
- */
-int dap_to_jtag(struct target *target)
-{
-	int retval;
-
-	LOG_DEBUG("Enter JTAG mode");
-
-	/* REVISIT it's nasty to need to make calls to a "jtag"
-	 * subsystem if the link isn't in JTAG mode...
-	 */
-
-	retval = jtag_add_tms_seq(8 * sizeof(swd2jtag_bitseq),
-			swd2jtag_bitseq, TAP_RESET);
-	if (retval == ERROR_OK)
-		retval = jtag_execute_queue();
-
-	/* REVISIT set up the DAP's ops vector for JTAG mode. */
-
-	return retval;
-}

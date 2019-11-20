@@ -424,8 +424,8 @@ static int or1k_read_core_reg(struct target *target, int num)
 		reg_value = or1k->core_regs[num];
 		buf_set_u32(or1k->core_cache->reg_list[num].value, 0, 32, reg_value);
 		LOG_DEBUG("Read core reg %i value 0x%08" PRIx32, num , reg_value);
-		or1k->core_cache->reg_list[num].valid = 1;
-		or1k->core_cache->reg_list[num].dirty = 0;
+		or1k->core_cache->reg_list[num].valid = true;
+		or1k->core_cache->reg_list[num].dirty = false;
 	} else {
 		/* This is an spr, always read value from HW */
 		int retval = du_core->or1k_jtag_read_cpu(&or1k->jtag,
@@ -453,8 +453,8 @@ static int or1k_write_core_reg(struct target *target, int num)
 	uint32_t reg_value = buf_get_u32(or1k->core_cache->reg_list[num].value, 0, 32);
 	or1k->core_regs[num] = reg_value;
 	LOG_DEBUG("Write core reg %i value 0x%08" PRIx32, num , reg_value);
-	or1k->core_cache->reg_list[num].valid = 1;
-	or1k->core_cache->reg_list[num].dirty = 0;
+	or1k->core_cache->reg_list[num].valid = true;
+	or1k->core_cache->reg_list[num].dirty = false;
 
 	return ERROR_OK;
 }
@@ -487,8 +487,8 @@ static int or1k_set_core_reg(struct reg *reg, uint8_t *buf)
 
 	if (or1k_reg->list_num < OR1KNUMCOREREGS) {
 		buf_set_u32(reg->value, 0, 32, value);
-		reg->dirty = 1;
-		reg->valid = 1;
+		reg->dirty = true;
+		reg->valid = true;
 	} else {
 		/* This is an spr, write it to the HW */
 		int retval = du_core->or1k_jtag_write_cpu(&or1k->jtag,
@@ -541,8 +541,8 @@ static struct reg_cache *or1k_build_reg_cache(struct target *target)
 		reg_list[i].group = or1k_core_reg_list_arch_info[i].group;
 		reg_list[i].size = 32;
 		reg_list[i].value = calloc(1, 4);
-		reg_list[i].dirty = 0;
-		reg_list[i].valid = 0;
+		reg_list[i].dirty = false;
+		reg_list[i].valid = false;
 		reg_list[i].type = &or1k_reg_type;
 		reg_list[i].arch_info = &arch_info[i];
 		reg_list[i].number = i;
@@ -1291,7 +1291,7 @@ COMMAND_HANDLER(or1k_tap_list_command_handler)
 
 	list_for_each_entry(or1k_tap, &tap_list, list) {
 		if (or1k_tap->name)
-			command_print(CMD_CTX, "%s", or1k_tap->name);
+			command_print(CMD, "%s", or1k_tap->name);
 	}
 
 	return ERROR_OK;
@@ -1339,7 +1339,7 @@ COMMAND_HANDLER(or1k_du_list_command_handler)
 
 	list_for_each_entry(or1k_du, &du_list, list) {
 		if (or1k_du->name)
-			command_print(CMD_CTX, "%s", or1k_du->name);
+			command_print(CMD, "%s", or1k_du->name);
 	}
 
 	return ERROR_OK;
@@ -1374,28 +1374,28 @@ COMMAND_HANDLER(or1k_addreg_command_handler)
 
 static const struct command_registration or1k_hw_ip_command_handlers[] = {
 	{
-		"tap_select",
+		.name = "tap_select",
 		.handler = or1k_tap_select_command_handler,
 		.mode = COMMAND_ANY,
 		.usage = "tap_select name",
 		.help = "Select the TAP core to use",
 	},
 	{
-		"tap_list",
+		.name = "tap_list",
 		.handler = or1k_tap_list_command_handler,
 		.mode = COMMAND_ANY,
 		.usage = "tap_list",
 		.help = "Display available TAP core",
 	},
 	{
-		"du_select",
+		.name = "du_select",
 		.handler = or1k_du_select_command_handler,
 		.mode = COMMAND_ANY,
 		.usage = "du_select name",
 		.help = "Select the Debug Unit core to use",
 	},
 	{
-		"du_list",
+		.name = "du_list",
 		.handler = or1k_du_list_command_handler,
 		.mode = COMMAND_ANY,
 		.usage = "select_tap name",
@@ -1406,7 +1406,7 @@ static const struct command_registration or1k_hw_ip_command_handlers[] = {
 
 static const struct command_registration or1k_reg_command_handlers[] = {
 	{
-		"addreg",
+		.name = "addreg",
 		.handler = or1k_addreg_command_handler,
 		.mode = COMMAND_ANY,
 		.usage = "addreg name addr feature group",

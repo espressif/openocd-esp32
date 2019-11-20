@@ -678,8 +678,9 @@ static int stm32l4_probe(struct flash_bank *bank)
 			/* Invalid FLASH size for this device. */
 			LOG_WARNING("Invalid flash size for STM32L4+ family device.");
 			return ERROR_FAIL;
-		default:
-			/* Other L4 family devices have 2K pages. */
+		case 0x461:
+		case 0x415:
+			/* These are dual-bank devices, we need to check the OPT_DBANK_LE_1M bit here */
 			page_size = 2048;
 			num_pages = flash_size_in_kb / 2;
 			/* check that calculation result makes sense */
@@ -688,6 +689,16 @@ static int stm32l4_probe(struct flash_bank *bank)
 				stm32l4_info->bank2_start = 256;
 			else
 				stm32l4_info->bank2_start = num_pages / 2;
+			break;
+		case 0x462:
+		case 0x435:
+		default:
+			/* These are single-bank devices */
+			page_size = 2048;
+			num_pages = flash_size_in_kb / 2;
+			/* check that calculation result makes sense */
+			assert(num_pages > 0);
+			stm32l4_info->bank2_start = UINT16_MAX;
 			break;
 	}
 
@@ -824,7 +835,7 @@ COMMAND_HANDLER(stm32l4_handle_mass_erase_command)
 	uint32_t action;
 
 	if (CMD_ARGC < 1) {
-		command_print(CMD_CTX, "stm32l4x mass_erase <STM32L4 bank>");
+		command_print(CMD, "stm32l4x mass_erase <STM32L4 bank>");
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
@@ -840,9 +851,9 @@ COMMAND_HANDLER(stm32l4_handle_mass_erase_command)
 		for (i = 0; i < bank->num_sectors; i++)
 			bank->sectors[i].is_erased = 1;
 
-		command_print(CMD_CTX, "stm32l4x mass erase complete");
+		command_print(CMD, "stm32l4x mass erase complete");
 	} else {
-		command_print(CMD_CTX, "stm32l4x mass erase failed");
+		command_print(CMD, "stm32l4x mass erase failed");
 	}
 
 	return retval;
@@ -851,7 +862,7 @@ COMMAND_HANDLER(stm32l4_handle_mass_erase_command)
 COMMAND_HANDLER(stm32l4_handle_option_read_command)
 {
 	if (CMD_ARGC < 2) {
-		command_print(CMD_CTX, "stm32l4x option_read <STM32L4 bank> <option_reg offset>");
+		command_print(CMD, "stm32l4x option_read <STM32L4 bank> <option_reg offset>");
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
@@ -869,7 +880,7 @@ COMMAND_HANDLER(stm32l4_handle_option_read_command)
 	if (ERROR_OK != retval)
 		return retval;
 
-	command_print(CMD_CTX, "Option Register: <0x%" PRIx32 "> = 0x%" PRIx32 "", reg_addr, value);
+	command_print(CMD, "Option Register: <0x%" PRIx32 "> = 0x%" PRIx32 "", reg_addr, value);
 
 	return retval;
 }
@@ -877,7 +888,7 @@ COMMAND_HANDLER(stm32l4_handle_option_read_command)
 COMMAND_HANDLER(stm32l4_handle_option_write_command)
 {
 	if (CMD_ARGC < 3) {
-		command_print(CMD_CTX, "stm32l4x option_write <STM32L4 bank> <option_reg offset> <value> [mask]");
+		command_print(CMD, "stm32l4x option_write <STM32L4 bank> <option_reg offset> <value> [mask]");
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
@@ -895,7 +906,7 @@ COMMAND_HANDLER(stm32l4_handle_option_write_command)
 	if (CMD_ARGC > 3)
 		mask = strtoul(CMD_ARGV[3], NULL, 16);
 
-	command_print(CMD_CTX, "%s Option written.\n"
+	command_print(CMD, "%s Option written.\n"
 				"INFO: a reset or power cycle is required "
 				"for the new settings to take effect.", bank->driver->name);
 
@@ -926,7 +937,7 @@ COMMAND_HANDLER(stm32l4_handle_option_load_command)
 	/* Write the OBLLAUNCH bit in CR -> Cause device "POR" and option bytes reload */
 	retval = target_write_u32(target, stm32l4_get_flash_reg(bank, STM32_FLASH_CR), FLASH_OBLLAUNCH);
 
-	command_print(CMD_CTX, "stm32l4x option load (POR) completed.");
+	command_print(CMD, "stm32l4x option load (POR) completed.");
 	return retval;
 }
 
@@ -951,7 +962,7 @@ COMMAND_HANDLER(stm32l4_handle_lock_command)
 
 	/* set readout protection level 1 by erasing the RDP option byte */
 	if (stm32l4_write_option(bank, STM32_FLASH_OPTR, 0, 0x000000FF) != ERROR_OK) {
-		command_print(CMD_CTX, "%s failed to lock device", bank->driver->name);
+		command_print(CMD, "%s failed to lock device", bank->driver->name);
 		return ERROR_OK;
 	}
 
@@ -978,7 +989,7 @@ COMMAND_HANDLER(stm32l4_handle_unlock_command)
 	}
 
 	if (stm32l4_write_option(bank, STM32_FLASH_OPTR, RDP_LEVEL_0, 0x000000FF) != ERROR_OK) {
-		command_print(CMD_CTX, "%s failed to unlock device", bank->driver->name);
+		command_print(CMD, "%s failed to unlock device", bank->driver->name);
 		return ERROR_OK;
 	}
 
@@ -1042,7 +1053,7 @@ static const struct command_registration stm32l4_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-struct flash_driver stm32l4x_flash = {
+const struct flash_driver stm32l4x_flash = {
 	.name = "stm32l4x",
 	.commands = stm32l4_command_handlers,
 	.flash_bank_command = stm32l4_flash_bank_command,

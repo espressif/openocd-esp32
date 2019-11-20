@@ -56,9 +56,10 @@ static void dap_instance_init(struct adiv5_dap *dap)
 		/* Number of bits for tar autoincrement, impl. dep. at least 10 */
 		dap->ap[i].tar_autoincr_block = (1<<10);
 		/* default CSW value */
-		dap->ap[i].csw_default = CSW_DEFAULT;
+		dap->ap[i].csw_default = CSW_AHB_DEFAULT;
 	}
 	INIT_LIST_HEAD(&dap->cmd_journal);
+	INIT_LIST_HEAD(&dap->cmd_pool);
 }
 
 const char *adiv5_dap_name(struct adiv5_dap *self)
@@ -313,6 +314,11 @@ COMMAND_HANDLER(handle_dap_info_command)
 	struct adiv5_dap *dap = arm->dap;
 	uint32_t apsel;
 
+	if (dap == NULL) {
+		LOG_ERROR("DAP instance not available. Probably a HLA target...");
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	}
+
 	switch (CMD_ARGC) {
 		case 0:
 			apsel = dap->apsel;
@@ -326,7 +332,7 @@ COMMAND_HANDLER(handle_dap_info_command)
 			return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
-	return dap_info_command(CMD_CTX, &dap->ap[apsel]);
+	return dap_info_command(CMD, &dap->ap[apsel]);
 }
 
 static const struct command_registration dap_subcommand_handlers[] = {
@@ -368,6 +374,7 @@ static const struct command_registration dap_commands[] = {
 		.mode = COMMAND_CONFIG,
 		.help = "DAP commands",
 		.chain = dap_subcommand_handlers,
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };

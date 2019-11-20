@@ -703,6 +703,8 @@ void server_free(void)
 	tcl_service_free();
 	telnet_service_free();
 	jsp_service_free();
+
+	free(bindto_name);
 }
 
 void exit_on_signal(int sig)
@@ -767,7 +769,7 @@ COMMAND_HANDLER(handle_bindto_command)
 {
 	switch (CMD_ARGC) {
 		case 0:
-			command_print(CMD_CTX, "bindto name: %s", bindto_name);
+			command_print(CMD, "bindto name: %s", bindto_name);
 			break;
 		case 1:
 			free(bindto_name);
@@ -826,7 +828,7 @@ COMMAND_HELPER(server_port_command, unsigned short *out)
 {
 	switch (CMD_ARGC) {
 		case 0:
-			command_print(CMD_CTX, "%d", *out);
+			command_print(CMD, "%d", *out);
 			break;
 		case 1:
 		{
@@ -845,7 +847,7 @@ COMMAND_HELPER(server_pipe_command, char **out)
 {
 	switch (CMD_ARGC) {
 		case 0:
-			command_print(CMD_CTX, "%s", *out);
+			command_print(CMD, "%s", *out);
 			break;
 		case 1:
 		{

@@ -242,9 +242,17 @@ ESIRISC_SRC = \
 	%D%/lakemont.h \
 	%D%/x86_32_common.h \
 	%D%/arm_cti.h \
-	%D%/esp108_common.h \
-	%D%/esp108.h        \
+	%D%/xtensa.h \
+	%D%/xtensa_algorithm.h \
+	%D%/xtensa_debug_module.h \
+	%D%/xtensa_mcore.h \
+	%D%/xtensa_regs.h \
+	%D%/xtensa.h \
+	%D%/esp_xtensa.h \
+	%D%/esp_xtensa_apptrace.h \
+	%D%/esp32_apptrace.h \
 	%D%/esp32.h \
+	%D%/esp32_s2.h \
 	%D%/esirisc.h \
 	%D%/esirisc_jtag.h \
 	%D%/esirisc_regs.h \

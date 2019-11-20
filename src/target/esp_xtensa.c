@@ -645,7 +645,7 @@ COMMAND_HELPER(esp_xtensa_cmd_flashbootstrap_do, struct esp_xtensa_common *esp_x
 			st = "High (1.8V)";
 		else
 			st = "None";
-		command_print(CMD_CTX, "Current idle tms state: %s", st);
+		command_print(CMD, "Current idle tms state: %s", st);
 		return ERROR_OK;
 	}
 
@@ -661,7 +661,7 @@ COMMAND_HELPER(esp_xtensa_cmd_flashbootstrap_do, struct esp_xtensa_common *esp_x
 		state = FBS_TMSLOW;
 
 	if (state == -1) {
-		command_print(CMD_CTX,
+		command_print(CMD,
 			"Argument unknown. Please pick one of none, high, low, 1.8 or 3.3");
 		return ERROR_FAIL;
 	}
@@ -672,7 +672,7 @@ COMMAND_HELPER(esp_xtensa_cmd_flashbootstrap_do, struct esp_xtensa_common *esp_x
 COMMAND_HELPER(esp_xtensa_cmd_semihost_basedir_do, struct esp_xtensa_common *esp_xtensa)
 {
 	if (CMD_ARGC != 1) {
-		command_print(CMD_CTX,
+		command_print(CMD,
 			"Current semihosting base dir: %s",
 			esp_xtensa->semihost.basedir ? esp_xtensa->semihost.basedir : "");
 		return ERROR_OK;
@@ -680,7 +680,7 @@ COMMAND_HELPER(esp_xtensa_cmd_semihost_basedir_do, struct esp_xtensa_common *esp
 
 	char *s = strdup(CMD_ARGV[0]);
 	if (!s) {
-		command_print(CMD_CTX, "Failed to allocate memory!");
+		command_print(CMD, "Failed to allocate memory!");
 		return ERROR_FAIL;
 	}
 	if (esp_xtensa->semihost.basedir)
