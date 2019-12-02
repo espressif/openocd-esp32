@@ -505,7 +505,7 @@ int xtensa_run_algorithm_image(struct target *target,
 
 int xtensa_run_algorithm_onboard(struct target *target,
 	struct xtensa_algo_run_data *run,
-	uint32_t entry)
+	void *func_entry)
 {
 	int res;
 	struct xtensa *xtensa = target_to_xtensa(target);
@@ -551,7 +551,7 @@ int xtensa_run_algorithm_onboard(struct target *target,
 	} else
 		run->priv.stub.stack_addr = run->on_board.min_stack_addr + run->stack_size;
 	run->priv.stub.tramp_addr = run->on_board.code_buf_addr;
-	run->priv.stub.entry = entry;
+	run->priv.stub.entry = (uintptr_t)func_entry;
 
 	res = xtensa_algo_run(target, NULL, run);
 
