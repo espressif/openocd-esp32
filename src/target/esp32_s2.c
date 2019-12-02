@@ -410,6 +410,13 @@ static bool esp32_s2_on_halt(struct target *target)
 	return esp_xtensa_on_halt(target);
 }
 
+static int esp32_s2_virt2phys(struct target *target,
+	target_addr_t virtual, target_addr_t *physical)
+{
+	*physical = virtual;
+	return ERROR_OK;
+}
+
 static int esp32_s2_target_init(struct command_context *cmd_ctx, struct target *target)
 {
 	int ret = esp_xtensa_target_init(cmd_ctx, target);
@@ -510,6 +517,7 @@ struct target_type esp32_s2_target = {
 	.assert_reset = esp32_s2_assert_reset,
 	.deassert_reset = xtensa_deassert_reset,
 
+	.virt2phys = esp32_s2_virt2phys,
 	.mmu = xtensa_mmu_is_enabled,
 	.read_memory = xtensa_read_memory,
 	.write_memory = xtensa_write_memory,
