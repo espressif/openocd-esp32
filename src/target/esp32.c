@@ -519,6 +519,13 @@ static bool esp32_on_halt(struct target *target)
 	return esp_xtensa_on_halt(&xtensa_mcore->cores_targets[xtensa_mcore->active_core]);
 }
 
+static int esp32_virt2phys(struct target *target,
+	target_addr_t virtual, target_addr_t *physical)
+{
+	*physical = virtual;
+	return ERROR_OK;
+}
+
 static int esp32_handle_target_event(struct target *target, enum target_event event, void *priv)
 {
 	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
@@ -835,6 +842,7 @@ struct target_type esp32_target = {
 	.assert_reset = esp32_assert_reset,
 	.deassert_reset = xtensa_mcore_deassert_reset,
 
+	.virt2phys = esp32_virt2phys,
 	.mmu = xtensa_mcore_mmu,
 	.read_memory = xtensa_mcore_read_memory,
 	.write_memory = xtensa_mcore_write_memory,
