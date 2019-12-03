@@ -196,6 +196,11 @@ variables:
   script:
     - *add_gitlab_key
     - *prepare_test_app_build
+    - ${IDF_PATH}/tools/idf_tools.py install xtensa-esp32-elf
+    # cannot exec '. ${IDF_PATH}/export.sh' here because not all tools distros are presented
+    # in the image and `export.sh` fails w/o adding tools to $PATH
+    - idf_exports=$(${IDF_PATH}/tools/idf_tools.py export) || true
+    - eval "${idf_exports}"
     - $IDF_PATH/tools/idf.py -D IDF_TARGET=esp32 ut-build-all-configs
     - *finish_test_app_build
     - *prepare_espytrace_package
