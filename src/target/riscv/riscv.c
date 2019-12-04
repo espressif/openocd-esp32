@@ -254,6 +254,9 @@ bool riscv_prefer_sba;
 
 bool riscv_enable_virtual;
 
+/* If the target doesn't implement MISA register, use this value */
+int riscv_default_misa = 0x100;
+
 typedef struct {
 	uint16_t low, high;
 } range_t;
@@ -2225,6 +2228,29 @@ COMMAND_HANDLER(riscv_resume_order)
 	return ERROR_OK;
 }
 
+COMMAND_HANDLER(riscv_set_default_misa)
+{
+	if (CMD_ARGC != 1) {
+		LOG_ERROR("Command takes exactly 1 parameter");
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+	int misa = strtol(CMD_ARGV[0], NULL, 0);
+	if (misa <= 0) {
+		LOG_ERROR("%s is not a valid integer argument for command.", CMD_ARGV[0]);
+		return ERROR_FAIL;
+	}
+
+	struct target *target = get_current_target_or_null(CMD_CTX);
+	if (target == NULL) {
+		LOG_ERROR("target must be initialized for this command");
+		return ERROR_FAIL;
+	}
+
+	riscv_default_misa = misa;
+	return ERROR_OK;
+}
+
+
 COMMAND_HANDLER(riscv_use_bscan_tunnel)
 {
 	int irwidth = 0;
@@ -2386,6 +2412,14 @@ static const struct command_registration riscv_exec_command_handlers[] = {
 			"(optional) to indicate Bscan Tunnel Type {0:(default) NESTED_TAP , "
 			"1: DATA_REGISTER}"
 	},
+	{
+		.name = "set_default_misa",
+		.handler = riscv_set_default_misa,
+		.mode = COMMAND_ANY,
+		.usage = "riscv set_default_misa value",
+		.help = "Set the value of MISA that will be used if the target doesn't"
+			"implement this register (i.e. it returns zero)."
+	},
 	COMMAND_REGISTRATION_DONE
 };
 
@@ -2520,6 +2554,7 @@ void riscv_info_init(struct target *target, riscv_info_t *r)
 	r->dtm_version = 1;
 	r->registers_initialized = false;
 	r->current_hartid = target->coreid;
+	r->default_misa = riscv_default_misa;
 
 	memset(r->trigger_unique_id, 0xff, sizeof(r->trigger_unique_id));
 
