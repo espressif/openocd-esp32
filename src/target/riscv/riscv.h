@@ -74,6 +74,9 @@ typedef struct {
 	int xlen[RISCV_MAX_HARTS];
 	riscv_reg_t misa[RISCV_MAX_HARTS];
 
+	/* If the target doesn't implement MISA register, use this value */
+	riscv_reg_t default_misa;
+
 	/* The number of triggers per hart. */
 	unsigned trigger_count[RISCV_MAX_HARTS];
 

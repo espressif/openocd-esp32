@@ -1643,6 +1643,11 @@ static int examine(struct target *target)
 			return ERROR_FAIL;
 		}
 
+		if (r->misa[i] == 0) {
+			LOG_WARNING("Target doesn't implement MISA register, assuming 0x%" PRIx64, r->default_misa);
+			r->misa[i] = r->default_misa;
+		}
+
 		/* Now init registers based on what we discovered. */
 		if (riscv_init_registers(target) != ERROR_OK)
 			return ERROR_FAIL;
