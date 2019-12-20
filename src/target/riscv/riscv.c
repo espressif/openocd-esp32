@@ -379,7 +379,7 @@ static uint32_t dtmcontrol_scan(struct target *target, uint32_t out)
 {
 	struct scan_field field;
 	uint8_t in_value[4];
-	uint8_t out_value[4];
+	uint8_t out_value[4] = { 0 };
 
 	if (bscan_tunnel_ir_width != 0)
 		return dtmcontrol_scan_via_bscan(target, out);
@@ -729,7 +729,7 @@ int riscv_add_breakpoint(struct target *target, struct breakpoint *breakpoint)
 			return ERROR_FAIL;
 		}
 
-		uint8_t buff[4];
+		uint8_t buff[4] = { 0 };
 		buf_set_u32(buff, 0, breakpoint->length * CHAR_BIT, breakpoint->length == 4 ? ebreak() : ebreak_c());
 		int const retval = target_write_memory(target, breakpoint->address, 2, breakpoint->length / 2, buff);
 
@@ -1564,7 +1564,7 @@ static int riscv_interrupts_disable(struct target *target, uint64_t ie_mask, uin
 {
 	riscv_info_t *info = (riscv_info_t *) target->arch_info;
 	uint64_t current_mstatus;
-	uint8_t mstatus_bytes[8];
+	uint8_t mstatus_bytes[8] = { 0 };
 
 	LOG_DEBUG("Disabling Interrupts");
 	struct reg *reg_mstatus = register_get_by_name(target->reg_cache,
