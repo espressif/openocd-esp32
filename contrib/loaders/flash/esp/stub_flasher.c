@@ -548,6 +548,8 @@ static uint8_t stub_flash_set_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr,
 
 	STUB_LOGD("%s: 0x%x 0x%x\n", __func__, bp_flash_addr, insn_buf_addr);
 
+	stub_flash_cache_flush();
+
 	rc = esp_rom_spiflash_read(bp_flash_addr & ~(STUB_FLASH_SECTOR_SIZE - 1),
 		(uint32_t *)insn_sect,
 		STUB_BP_INSN_SECT_BUF_SIZE);
@@ -588,7 +590,6 @@ static uint8_t stub_flash_set_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr,
 		STUB_LOGE("Failed to write break insn (%d)!\n", rc);
 		return 0;
 	}
-	stub_flash_cache_flush();
 	return insn_sz;
 }
 
@@ -605,6 +606,8 @@ static int stub_flash_clear_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr, u
 		insn[1],
 		insn[2]);
 
+	stub_flash_cache_flush();
+#if 1
 	rc = esp_rom_spiflash_read(bp_flash_addr & ~(STUB_FLASH_SECTOR_SIZE - 1),
 		(uint32_t *)insn_sect,
 		STUB_BP_INSN_SECT_BUF_SIZE);
@@ -629,8 +632,7 @@ static int stub_flash_clear_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr, u
 		STUB_LOGE("Failed to restore insn (%d)!\n", rc);
 		return ESP_XTENSA_STUB_ERR_FAIL;
 	}
-
-	stub_flash_cache_flush();
+#endif
 
 #if STUB_LOG_LOCAL_LEVEL == STUB_LOG_VERBOSE
 	uint8_t tmp[8];

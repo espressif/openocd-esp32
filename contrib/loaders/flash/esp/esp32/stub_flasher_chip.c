@@ -29,14 +29,17 @@
 #include "rom/spi_flash.h"
 #include "rom/cache.h"
 #include "rom/efuse.h"
+#include "esp_spiram.h"
 #include "stub_flasher_int.h"
 #include "stub_flasher_chip.h"
 
 
-#define ESP32_STUB_FLASH_STATE_SPI_USER_REG_VAL     0x80000040
-#define ESP32_STUB_FLASH_STATE_SPI_USER1_REG_VAL    0x5c000007	/*0x8c000007 ? */
-#define ESP32_STUB_FLASH_STATE_SPI_USER2_REG_VAL    0x70000000
-#define ESP32_STUB_FLASH_STATE_SPI_SLAVE_REG_VAL    0x00000200	/* 0x0 ?? */
+#define ESP32_STUB_FLASH_STATE_SPI_USER_REG_VAL     0x80000040UL
+#define ESP32_STUB_FLASH_STATE_SPI_USER1_REG_VAL    0x5c000007UL
+#define ESP32_STUB_FLASH_STATE_SPI_USER2_REG_VAL    0x70000000UL
+#define ESP32_STUB_FLASH_STATE_SPI_SLAVE_REG_VAL    0x00000200UL
+#define ESP32_STUB_FLASH_STATE_SPI_CTRL_REG_VAL     0x208000UL
+#define ESP32_STUB_FLASH_STATE_SPI_CLOCK_REG_VAL    0x3043UL
 
 #define ESP32_STUB_SPI_FLASH_RDID                   0x9FUL
 
@@ -192,8 +195,52 @@ uint32_t stub_flash_get_id(void)
 	return ret >> 16;
 }
 
+void stub_spiram_writeback_cache(void)
+{
+	int x;
+	volatile int i = 0;
+	volatile uint8_t *psram = (volatile uint8_t *)SOC_EXTRAM_DATA_LOW;
+	int cache_was_disabled = 0;
+
+	/* We need cache enabled for this to work. Re-enable it if needed; make sure we
+	 * disable it again on exit as well. */
+	if (DPORT_REG_GET_BIT(DPORT_PRO_CACHE_CTRL_REG, DPORT_PRO_CACHE_ENABLE) == 0) {
+		cache_was_disabled|= (1<<0);
+		DPORT_SET_PERI_REG_BITS(DPORT_PRO_CACHE_CTRL_REG, 1, 1, DPORT_PRO_CACHE_ENABLE_S);
+	}
+	if (DPORT_REG_GET_BIT(DPORT_APP_CACHE_CTRL_REG, DPORT_APP_CACHE_ENABLE) == 0) {
+		cache_was_disabled|= (1<<1);
+		DPORT_SET_PERI_REG_BITS(DPORT_APP_CACHE_CTRL_REG, 1, 1, DPORT_APP_CACHE_ENABLE_S);
+	}
+
+	/*
+	Note: this assumes the amount of external RAM is >2M. If it is 2M or less, what this code does is undefined. If
+	we ever support external RAM chips of 2M or smaller, this may need adjusting.
+	*/
+	for (x= 0; x < 1024*64; x+= 32) {
+		i+= psram[x];
+		i+= psram[x+(1024*1024*2)];
+	}
+
+	if (cache_was_disabled&(1<<0)) {
+		while (DPORT_GET_PERI_REG_BITS2(DPORT_PRO_DCACHE_DBUG0_REG, DPORT_PRO_CACHE_STATE,
+				DPORT_PRO_CACHE_STATE_S) != 1) ;
+		DPORT_SET_PERI_REG_BITS(DPORT_PRO_CACHE_CTRL_REG, 1, 0, DPORT_PRO_CACHE_ENABLE_S);
+	}
+	if (cache_was_disabled&(1<<1)) {
+		while (DPORT_GET_PERI_REG_BITS2(DPORT_APP_DCACHE_DBUG0_REG, DPORT_APP_CACHE_STATE,
+				DPORT_APP_CACHE_STATE_S) != 1) ;
+		DPORT_SET_PERI_REG_BITS(DPORT_APP_CACHE_CTRL_REG, 1, 0, DPORT_APP_CACHE_ENABLE_S);
+	}
+}
+
 void stub_flash_cache_flush(void)
 {
+	if (DPORT_GET_PERI_REG_MASK(DPORT_PRO_CACHE_CTRL1_REG,
+			DPORT_PRO_CACHE_MASK_OPSDRAM) == 0 ||
+		DPORT_GET_PERI_REG_MASK(DPORT_APP_CACHE_CTRL1_REG,
+			DPORT_APP_CACHE_MASK_OPSDRAM) == 0)
+		stub_spiram_writeback_cache();
 	Cache_Flush(0);
 	Cache_Flush(1);
 }
@@ -231,12 +278,23 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 	state->spi_regs[ESP32_STUB_FLASH_STATE_SPI_USER1_REG_ID] = READ_PERI_REG(SPI_USER1_REG(1));
 	state->spi_regs[ESP32_STUB_FLASH_STATE_SPI_USER2_REG_ID] = READ_PERI_REG(SPI_USER2_REG(1));
 	state->spi_regs[ESP32_STUB_FLASH_STATE_SPI_SLAVE_REG_ID] = READ_PERI_REG(SPI_SLAVE_REG(1));
+	state->spi_regs[ESP32_STUB_FLASH_STATE_SPI_CLOCK_REG_ID] = READ_PERI_REG(SPI_CLOCK_REG(1));
+	state->spi_regs[ESP32_STUB_FLASH_STATE_SPI_CTRL_REG_ID] = READ_PERI_REG(SPI_CTRL_REG(1));
+	state->dummy_len_plus = g_rom_spiflash_dummy_len_plus[1];
+
+
 	WRITE_PERI_REG(SPI_USER_REG(1), ESP32_STUB_FLASH_STATE_SPI_USER_REG_VAL);
 	WRITE_PERI_REG(SPI_USER1_REG(1), ESP32_STUB_FLASH_STATE_SPI_USER1_REG_VAL);
 	WRITE_PERI_REG(SPI_USER2_REG(1), ESP32_STUB_FLASH_STATE_SPI_USER2_REG_VAL);
 	WRITE_PERI_REG(SPI_SLAVE_REG(1), ESP32_STUB_FLASH_STATE_SPI_SLAVE_REG_VAL);
 
-	esp_rom_spiflash_attach(spiconfig, 0);
+	if ((READ_PERI_REG(SPI_CACHE_FCTRL_REG(0)) & SPI_CACHE_FLASH_USR_CMD) == 0)
+		esp_rom_spiflash_attach(spiconfig, 0);
+	else {
+		WRITE_PERI_REG(SPI_CTRL_REG(1), 0x208000);
+		WRITE_PERI_REG(SPI_CLOCK_REG(1), 0x3043);
+		g_rom_spiflash_dummy_len_plus[1] = 0;
+	}
 }
 
 void stub_flash_state_restore(struct stub_flash_state *state)
@@ -249,6 +307,10 @@ void stub_flash_state_restore(struct stub_flash_state *state)
 	WRITE_PERI_REG(SPI_USER1_REG(1), state->spi_regs[ESP32_STUB_FLASH_STATE_SPI_USER1_REG_ID]);
 	WRITE_PERI_REG(SPI_USER2_REG(1), state->spi_regs[ESP32_STUB_FLASH_STATE_SPI_USER2_REG_ID]);
 	WRITE_PERI_REG(SPI_SLAVE_REG(1), state->spi_regs[ESP32_STUB_FLASH_STATE_SPI_SLAVE_REG_ID]);
+	WRITE_PERI_REG(SPI_CLOCK_REG(1), state->spi_regs[ESP32_STUB_FLASH_STATE_SPI_CLOCK_REG_ID]);
+	WRITE_PERI_REG(SPI_CTRL_REG(1), state->spi_regs[ESP32_STUB_FLASH_STATE_SPI_CTRL_REG_ID]);
+	g_rom_spiflash_dummy_len_plus[1] = state->dummy_len_plus;
+
 	if (state->other_cache_enabled) {
 		esp32_flash_restore_cache_for_cpu(other_core_id, state->cache_flags[other_core_id]);
 		STUB_LOGI("Cache restored CPU%d: 0x%x %d\n", other_core_id,

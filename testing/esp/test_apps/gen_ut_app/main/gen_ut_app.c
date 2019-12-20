@@ -27,6 +27,8 @@ const static char *TAG = "ut_app";
 #define TIM_UPD(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].update = 1;}while(0)
 #endif
 
+#define SPIRAM_TEST_ARRAY_SZ    5
+
 // test app algorithm selector
 volatile static int s_run_test = 0;
 // vars for WP tests
@@ -342,9 +344,10 @@ void app_main()
             ESP_LOGE(TAG, "Invalid test id (%d)!", s_run_test);
         } else if (res != UT_OK) {
             ESP_LOGE(TAG, "Test %d failed (%d)!", s_run_test, res);
+        } else {
+            ESP_LOGI(TAG, "Test %d completed!", s_run_test);
         }
-        while(1) {
-            vTaskDelay(1);
-        }
+        // wait forever
+        ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
     }
 }
