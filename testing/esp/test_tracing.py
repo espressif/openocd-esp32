@@ -164,7 +164,7 @@ class BaseTracingTestsImpl:
             self.tasks_test_data[curr_task]['leaks'].append({'sz': 96, 'callers': [self.gdb.data_eval_expr('malloc1_break_ln'), outmost_tasks_test_data]})
             self.tasks_test_data[curr_task]['leaks'].append({'sz': 10, 'callers': [self.gdb.data_eval_expr('malloc2_break_ln'), outmost_tasks_test_data]})
         self.run_to_bp(dbg.Gdb.TARGET_STOP_REASON_BP, 'heap_trace_stop')
-        self.step_out()
+        self.step_out(tmo=20)
         self._stop_tracing()
 
         get_logger().info("Process trace from '%s'..." % trace_src)
@@ -245,11 +245,11 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
             elf_file = proc_args['elf_file']
         if 'keep_all_events' in proc_args:
             keep_all_events = proc_args['keep_all_events']
-        self.processor = sysview.SysViewMultiTraceDataProcessor(traces=self._get_parsers(), print_events=False, keep_all_events=keep_all_events)
+        self.processor = sysview.SysViewMultiStreamTraceDataProcessor(traces=self._get_parsers(), print_events=False, keep_all_events=keep_all_events)
         self.processor.add_stream_processor(sysview.SysViewTraceDataParser.STREAMID_HEAP,
-                                  sysview.SysViewHeapTraceDataProcessor(toolchain, elf_file, print_heap_events=False))
+                                  sysview.SysViewHeapTraceDataProcessor(toolchain, elf_file, root_proc=self.processor, print_heap_events=False))
         self.processor.add_stream_processor(sysview.SysViewTraceDataParser.STREAMID_LOG,
-                                  sysview.SysViewLogTraceDataProcessor(print_log_events=False))
+                                  sysview.SysViewLogTraceDataProcessor(root_proc=self.processor, print_log_events=False))
 
     def _process_trace(self):
         for i in range(self.cores_num):
