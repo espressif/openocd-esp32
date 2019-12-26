@@ -1,6 +1,7 @@
 import re
 import struct
 import copy
+import json
 import espytrace.apptrace as apptrace
 
 
@@ -40,6 +41,38 @@ SYSVIEW_MODULE_EVENT_OFFSET      = 512
 
 SYSVIEW_SYNC_LEN                  = 10
 
+_sysview_events_map = {
+    "SYS_NOP": SYSVIEW_EVTID_NOP,
+    "SYS_OVERFLOW": SYSVIEW_EVTID_OVERFLOW,
+    "SYS_ISR_ENTER": SYSVIEW_EVTID_ISR_ENTER,
+    "SYS_ISR_EXIT": SYSVIEW_EVTID_ISR_EXIT,
+    "SYS_TASK_START_EXEC": SYSVIEW_EVTID_TASK_START_EXEC,
+    "SYS_TASK_STOP_EXEC": SYSVIEW_EVTID_TASK_STOP_EXEC,
+    "SYS_TASK_START_READY": SYSVIEW_EVTID_TASK_START_READY,
+    "SYS_TASK_STOP_READY": SYSVIEW_EVTID_TASK_STOP_READY,
+    "SYS_TASK_CREATE": SYSVIEW_EVTID_TASK_CREATE,
+    "SYS_TASK_INFO": SYSVIEW_EVTID_TASK_INFO,
+    "SYS_TRACE_START": SYSVIEW_EVTID_TRACE_START,
+    "SYS_TRACE_STOP": SYSVIEW_EVTID_TRACE_STOP,
+    "SYS_SYSTIME_CYCLES": SYSVIEW_EVTID_SYSTIME_CYCLES,
+    "SYS_SYSTIME_US": SYSVIEW_EVTID_SYSTIME_US,
+    "SYS_SYSDESC": SYSVIEW_EVTID_SYSDESC,
+    "SYS_USER_START": SYSVIEW_EVTID_USER_START,
+    "SYS_USER_STOP": SYSVIEW_EVTID_USER_STOP,
+    "SYS_IDLE": SYSVIEW_EVTID_IDLE,
+    "SYS_ISR_TO_SCHEDULER": SYSVIEW_EVTID_ISR_TO_SCHEDULER,
+    "SYS_TIMER_ENTER": SYSVIEW_EVTID_TIMER_ENTER,
+    "SYS_TIMER_EXIT": SYSVIEW_EVTID_TIMER_EXIT,
+    "SYS_STACK_INFO": SYSVIEW_EVTID_STACK_INFO,
+    "SYS_MODULEDESC": SYSVIEW_EVTID_INIT,
+    "SYS_INIT": SYSVIEW_EVTID_INIT,
+    "SYS_NAME_RESOURCE": SYSVIEW_EVTID_NAME_RESOURCE,
+    "SYS_PRINT_FORMATTED": SYSVIEW_EVTID_PRINT_FORMATTED,
+    "SYS_NUMMODULES": SYSVIEW_EVTID_NUMMODULES
+}
+
+_os_events_map = {}
+
 
 def parse_trace(reader, parser, os_evt_map_file=''):
     """
@@ -54,12 +87,13 @@ def parse_trace(reader, parser, os_evt_map_file=''):
     os_evt_map_file : string
         Path to file containg events format description.
     """
+    global _os_events_map
     # parse OS events formats file
-    os_evt_map = _read_events_map(os_evt_map_file)
+    _os_events_map = _read_events_map(os_evt_map_file)
     _read_file_header(reader)
     _read_init_seq(reader)
     while True:
-        event = parser.read_event(reader, os_evt_map)
+        event = parser.read_event(reader, _os_events_map)
         parser.on_new_event(event)
 
 
@@ -117,7 +151,7 @@ def _read_file_header(reader):
     empty_count = 0
     lines = []
     while empty_count < 2:
-        lines.append(reader.readline())
+        lines.append(reader.readline(linesep='\n'))
         if lines[-1] == ';\n':
             empty_count += 1
     return lines
@@ -267,7 +301,7 @@ class SysViewTraceParseError(apptrace.ParseError):
     pass
 
 
-class SysViewEvent:
+class SysViewEvent(apptrace.TraceEvent):
     """
         Generic SystemView event class. This is a base class for all events.
     """
@@ -286,11 +320,8 @@ class SysViewEvent:
             events_fmt_map : dict
                 see return value of _read_events_map()
         """
-        self.name = 'SysViewEvent'
-        self.core_id = core_id
-        self.id = evt_id
+        apptrace.TraceEvent.__init__(self, 'SysViewEvent', core_id, evt_id)
         self.plen = 0
-        self.params = {}
         if self.id >= SYSVIEW_EVENT_ID_PREDEF_LEN_MAX:
             self.plen = _decode_plen(reader)
         if events_fmt_map:
@@ -326,7 +357,7 @@ class SysViewEvent:
                 cur_pos = reader.get_pos()
                 sz,param_val = event_param.decode(reader, self.plen - params_len)
             except Exception as e:
-                raise SysViewTraceParseError("Failed to decode event {}({:d}) {:d} param @ 0x{:x}!".format(self.name, self.id, self.plen, cur_pos))
+                raise SysViewTraceParseError("Failed to decode event {}({:d}) {:d} param @ 0x{:x}! {}".format(self.name, self.id, self.plen, cur_pos, e))
             event_param.idx = i
             event_param.value = param_val
             self.params[event_param.name] = event_param
@@ -384,6 +415,9 @@ class SysViewEventParam:
 
     def __str__(self):
         return '{}: {}'.format(self.name, self.value)
+
+    def to_jsonable(self):
+        return {self.name: self.value}
 
 
 class SysViewEventParamSimple(SysViewEventParam):
@@ -477,7 +511,7 @@ class SysViewPredefinedEvent(SysViewEvent):
         SYSVIEW_EVTID_NAME_RESOURCE:    ('svNameResource', [SysViewEventParamSimple('res_id', _decode_u32),
                                                             SysViewEventParamSimple('name', _decode_str)]),
         SYSVIEW_EVTID_PRINT_FORMATTED:  ('svPrint', [SysViewEventParamSimple('msg', _decode_str),
-                                                     SysViewEventParamSimple('id', _decode_u32),
+                                                     SysViewEventParamSimple('lvl', _decode_u32),
                                                      SysViewEventParamSimple('unused', _decode_u32)]),
         SYSVIEW_EVTID_NUMMODULES:       ('svNumModules', [SysViewEventParamSimple('mod_cnt', _decode_u32)]),
     }
@@ -486,8 +520,8 @@ class SysViewPredefinedEvent(SysViewEvent):
         """
             see SysViewEvent.__init__()
         """
-        self.name = 'SysViewPredefinedEvent'
         SysViewEvent.__init__(self, evt_id, reader, core_id, self._predef_events_fmt)
+        # self.name = 'SysViewPredefinedEvent'
 
 
 class SysViewOSEvent(SysViewEvent):
@@ -498,8 +532,8 @@ class SysViewOSEvent(SysViewEvent):
         """
             see SysViewEvent.__init__()
         """
-        self.name = 'SysViewOSEvent'
         SysViewEvent.__init__(self, evt_id, reader, core_id, events_fmt_map)
+        # self.name = 'SysViewOSEvent'
 
 
 class SysViewHeapEvent(SysViewEvent):
@@ -534,11 +568,11 @@ class SysViewHeapEvent(SysViewEvent):
             core_id : int
                 see SysViewEvent.__init__()
         """
-        self.name = 'SysViewHeapEvent'
         cur_events_map = {}
         for id in self.events_fmt:
             cur_events_map[events_off + id] = self.events_fmt[id]
         SysViewEvent.__init__(self, evt_id, reader, core_id, cur_events_map)
+        # self.name = 'SysViewHeapEvent'
 
 
 class SysViewTraceDataParser(apptrace.TraceDataProcessor):
@@ -569,7 +603,7 @@ class SysViewTraceDataParser(apptrace.TraceDataProcessor):
             core_id : int
                 id of the core this parser object relates to.
         """
-        apptrace.TraceDataProcessor.__init__(self, print_events, keep_all_events=True)
+        apptrace.TraceDataProcessor.__init__(self, print_events=print_events, keep_all_events=True)
         self.sys_info = None
         self._last_ts = 0
         self.irqs_info = {}
@@ -670,6 +704,9 @@ class SysViewTraceDataParser(apptrace.TraceDataProcessor):
         else:
             return self.read_extension_event(evt_id, reader)
 
+    def event_supported(self, event):
+        return False
+
     def on_new_event(self, event):
         """
             Does essential processing of event. Must be called for every read event.
@@ -699,6 +736,27 @@ class SysViewTraceDataParser(apptrace.TraceDataProcessor):
                 self.irqs_info[irq_num] = irq[0]
         # count event and save it to the list
         apptrace.TraceDataProcessor.on_new_event(self, event)
+
+
+class SysViewTraceDataExtEventParser(SysViewTraceDataParser):
+    def __init__(self, events_num, print_events=False, core_id=0):
+        """
+            Constructor.
+
+            Parameters
+            ----------
+            print_events : bool
+                see apptrace.TraceDataProcessor.__init__()
+            core_id : int
+                id of the core this parser object relates to.
+        """
+        SysViewTraceDataParser.__init__(self, core_id=core_id, print_events=print_events)
+        self.events_off = 0
+        self.events_num = events_num
+
+    def event_supported(self, event):
+        return False if (self.events_off < SYSVIEW_MODULE_EVENT_OFFSET or event.id < self.events_off or
+                        event.id >= (self.events_off + self.events_num)) else True
 
 
 class SysViewMultiTraceDataParser(SysViewTraceDataParser):
@@ -768,11 +826,33 @@ class SysViewMultiTraceDataParser(SysViewTraceDataParser):
             self.stream_parsers[stream_id].on_new_event(event)
 
 
+class SysViewEventContext():
+    """
+        SystemView event context.
+    """
+    def __init__(self, handle, irq, name=''):
+        """
+            Constructor.
+
+            Parameters
+            ----------
+            handle : int
+                handle of the context: task ID or IRQ number.
+            irq : bool
+                flag indicating whether this is IRQ or task context.
+            name : string
+                name of the context: task or IRQ name. Empty if context is unknown.
+       """
+        self.handle = handle
+        self.irq = irq
+        self.name = name
+
+
 class SysViewTraceDataProcessor(apptrace.TraceDataProcessor):
     """
         Base SystemView trace data processor class.
     """
-    def __init__(self, traces, print_events=False, keep_all_events=False):
+    def __init__(self, traces, root_proc=None, print_events=False, keep_all_events=False):
         """
             Constructor.
 
@@ -786,12 +866,59 @@ class SysViewTraceDataProcessor(apptrace.TraceDataProcessor):
                 see apptrace.TraceDataProcessor.__init__()
         """
         apptrace.TraceDataProcessor.__init__(self, print_events, keep_all_events)
+        self.event_ids = {}
+        self.name = ""
+        self.root_proc = root_proc if root_proc else self
         self.traces = {}
-        self.curr_ctx = {}
+        self.ctx_stack = {}
+        self.prev_ctx = {}
+        self.no_ctx_events = []
         for t in traces:
             self.traces[t.core_id] = t
             # current context item is a tuple of task ID or IRQ num and 'in_irq' flag
-            self.curr_ctx[t.core_id] = []
+            # empty list means IDLE context or self.start_ctx
+            self.ctx_stack[t.core_id] = []
+            # context is undefined, we do not know have we started the tracing in task/IDLE or IRQ context
+            # in general there are three scenarious when we can start tracing: when core is in task, IDLE task or IRQ context
+            self.prev_ctx[t.core_id] = None
+
+    def _get_curr_context(self, core_id):
+        """
+            Returns current context.
+
+            Parameters
+            ----------
+            core_id : int
+                core ID for requested context.
+
+            Returns
+            -------
+            SysViewEventContext
+                context object
+            None
+                if there current is undefined
+        """
+        if len(self.root_proc.ctx_stack[core_id]):
+            return self.root_proc.ctx_stack[core_id][-1]
+        if self._get_prev_context(core_id):
+            return SysViewEventContext(None, False, 'IDLE%d' % core_id)
+        return None
+
+    def _get_prev_context(self, core_id):
+        """
+            Returns current context.
+
+            Parameters
+            ----------
+            core_id : int
+                core ID for requested context.
+
+            Returns
+            -------
+            SysViewEventContext
+                context object
+        """
+        return self.root_proc.prev_ctx[core_id]
 
     def get_trace_stream(self, core_id, stream_id):
         """
@@ -813,13 +940,25 @@ class SysViewTraceDataProcessor(apptrace.TraceDataProcessor):
             return self.traces[core_id]
         return self.root_proc.get_trace_stream(core_id, stream_id)
 
+    def event_supported(self, e):
+        """
+            Should be overriden in child class.
+        """
+        return False
+
+    def handle_event(self, e):
+        """
+            Should be overriden in child class.
+        """
+        pass
+
     def print_report(self):
         """
             see apptrace.TraceDataProcessor.print_report()
         """
         apptrace.TraceDataProcessor.print_report(self)
 
-    def on_new_event(self, event):
+    def _process_event(self, event):
         """
             Processes event.
             Keeps track of execution context on every core.
@@ -840,34 +979,82 @@ class SysViewTraceDataProcessor(apptrace.TraceDataProcessor):
             raise SysViewTraceParseError("Event for unknown core %d" % event.core_id)
         trace = self.traces[event.core_id]
         if event.id == SYSVIEW_EVTID_ISR_ENTER:
-            if event.params['irq_num'].value in trace.irqs_info:
-                # put new ISR context on top of the stack (the last in the list)
-                self.curr_ctx[event.core_id].append((event.params['irq_num'].value, True))
-            else:
+            if event.params['irq_num'].value not in trace.irqs_info:
                 raise SysViewTraceParseError("Enter unknown ISR %d" % event.params['irq_num'].value)
+            if len(self.ctx_stack[event.core_id]):
+                self.prev_ctx[event.core_id] = self.ctx_stack[event.core_id][-1]
+            else:
+                # the 1st context switching event after trace start is SYSVIEW_EVTID_ISR_ENTER, so we have been in IDLE context
+                self.prev_ctx[event.core_id] = SysViewEventContext(None, False, 'IDLE%d' % event.core_id)
+            # put new ISR context on top of the stack (the last in the list)
+            self.ctx_stack[event.core_id].append(SysViewEventContext(event.params['irq_num'].value, True, trace.irqs_info[event.params['irq_num'].value]))
         elif event.id == SYSVIEW_EVTID_ISR_EXIT or event.id == SYSVIEW_EVTID_ISR_TO_SCHEDULER:
-            if len(self.curr_ctx[event.core_id]):
+            if len(self.ctx_stack[event.core_id]):
                 # return to the previous context (the last in the list)
-                del self.curr_ctx[event.core_id][-1]
+                self.prev_ctx[event.core_id] = self.ctx_stack[event.core_id].pop()
+            else:
+                # the 1st context switching event after trace start is SYSVIEW_EVTID_ISR_EXIT, so we have been in ISR context,
+                # but we do not know which one because SYSVIEW_EVTID_ISR_EXIT do not include the IRQ number
+                self.prev_ctx[event.core_id] = SysViewEventContext(None, True, 'IRQ_oncore%d' % event.core_id)
         elif event.id == SYSVIEW_EVTID_TASK_START_EXEC:
             if event.params['tid'].value not in trace.tasks_info:
                 raise SysViewTraceParseError("Start exec unknown task 0x%x" % event.params['tid'].value)
+            if len(self.ctx_stack[event.core_id]):
+                # return to the previous context (the last in the list)
+                self.prev_ctx[event.core_id] = self.ctx_stack[event.core_id][-1]
+            else:
+                # the 1st context switching event after trace start is SYSVIEW_EVTID_TASK_START_EXEC, so we have been in IDLE context
+                self.prev_ctx[event.core_id] = SysViewEventContext(None, False, 'IDLE%d' % event.core_id)
             # only one task at a time in context stack (can be interrupted by a bunch of ISRs)
-            self.curr_ctx[event.core_id] = [(event.params['tid'].value, False)]
+            self.ctx_stack[event.core_id] = [SysViewEventContext(event.params['tid'].value, False, trace.tasks_info[event.params['tid'].value])]
         elif event.id == SYSVIEW_EVTID_TASK_STOP_EXEC:
             # delete task from context stack
-            for ctx in self.curr_ctx[event.core_id]:
-                if not ctx[1]:
+            for ctx in self.ctx_stack[event.core_id]:
+                if not ctx.irq:
+                    if len(self.ctx_stack[event.core_id]) == 1:
+                        # if this is the only ctx in context stack
+                        self.prev_ctx[event.core_id] = ctx
                     del ctx
                     break
         elif event.id == SYSVIEW_EVTID_TASK_STOP_READY:
             if event.params['tid'].value not in trace.tasks_info:
                 raise SysViewTraceParseError("Stop ready unknown task 0x%x" % event.params['tid'].value)
-            if (len(self.curr_ctx[event.core_id]) and not self.curr_ctx[event.core_id][-1][1] and
-                    event.params['tid'].value == self.curr_ctx[event.core_id][-1][0]):
-                del self.curr_ctx[event.core_id][-1]
-        # count events
+            if len(self.ctx_stack[event.core_id]):
+                if (not self.ctx_stack[event.core_id][-1].irq and event.params['tid'].value == self.ctx_stack[event.core_id][-1].handle):
+                    # return to the previous context (the last in the list)
+                    self.prev_ctx[event.core_id] = self.ctx_stack[event.core_id].pop()
+            else:
+                # the 1st context switching event after trace start is SYSVIEW_EVTID_TASK_STOP_READY, so we have been in task context
+                self.prev_ctx[event.core_id] = SysViewEventContext(event.params['tid'].value, False, trace.tasks_info[event.params['tid'].value])
+
+    def on_new_event(self, event):
+        """
+            Processes heap events.
+        """
+        if self.root_proc == self:
+            SysViewTraceDataProcessor._process_event(self, event)
+        curr_ctx = self._get_curr_context(event.core_id)
+        if not curr_ctx:
+            # postpone events handling till their context is known
+            self.no_ctx_events.append(event)
+            return
+        event.in_irq = curr_ctx.irq
+        event.ctx_name = curr_ctx.name
+        # here we know the previous context: we switched from it or implied upon the 1st context switching event
+        prev_ctx = self._get_prev_context(event.core_id)
+        if len(self.no_ctx_events):
+            for cached_evt in self.no_ctx_events:
+                cached_evt.ctx_name = prev_ctx.name
+                cached_evt.in_irq = prev_ctx.irq
+                # count and save the event
+                apptrace.TraceDataProcessor.on_new_event(self, cached_evt)
+                if self.event_supported(event):
+                    self.handle_event(event)
+            del self.no_ctx_events[:]
+        # count and save the event
         apptrace.TraceDataProcessor.on_new_event(self, event)
+        if self.event_supported(event):
+            self.handle_event(event)
 
     def merge_and_process(self):
         """
@@ -881,7 +1068,7 @@ class SysViewTraceDataProcessor(apptrace.TraceDataProcessor):
             self.on_new_event(event)
 
 
-class SysViewMultiTraceDataProcessor(SysViewTraceDataProcessor):
+class SysViewMultiStreamTraceDataProcessor(SysViewTraceDataProcessor):
     """
         SystemView trace data processor supporting multiple event streams.
     """
@@ -889,7 +1076,7 @@ class SysViewMultiTraceDataProcessor(SysViewTraceDataProcessor):
         """
             see SysViewTraceDataProcessor.__init__()
         """
-        SysViewTraceDataProcessor.__init__(self, traces, print_events, keep_all_events)
+        SysViewTraceDataProcessor.__init__(self, traces, print_events=print_events, keep_all_events=keep_all_events)
         self.stream_procs = {}
 
     def add_stream_processor(self, stream_id, proc):
@@ -938,7 +1125,10 @@ class SysViewMultiTraceDataProcessor(SysViewTraceDataProcessor):
             Iterates over registered stream processors and prints their reports.
         """
         SysViewTraceDataProcessor.print_report(self)
-        for stream_id in self.stream_procs:
+        # need to sort stream procs by keys to print reports in the same order regardless of Python version
+        stream_ids = list(self.stream_procs.keys())
+        stream_ids.sort()
+        for stream_id in stream_ids:
             self.stream_procs[stream_id].print_report()
 
     def cleanup(self):
@@ -964,18 +1154,64 @@ class SysViewMultiTraceDataProcessor(SysViewTraceDataProcessor):
             self.stream_procs[stream_id].on_new_event(event)
 
 
-class SysViewHeapTraceDataParser(SysViewTraceDataParser):
+class SysViewTraceDataJsonEncoder(json.JSONEncoder):
+    JSON_TRACE_VER = "1.0"
+
+    def default(self, obj):
+        global _sysview_events_map
+        global _os_events_map
+        if isinstance(obj, SysViewMultiStreamTraceDataProcessor):
+            json_event_ids = {"system": _sysview_events_map, "os": {}}
+            for eid in _os_events_map:
+                ename = _os_events_map[eid][0]
+                json_event_ids['os'][ename] = eid
+            for stream in obj.stream_procs.values():
+                json_event_ids[stream.name] = stream.event_ids
+            json_events = []
+            for e in obj.events:
+                for stream in obj.stream_procs.values():
+                    if stream.event_supported(e):
+                        json_events.append(e)
+                        break
+                # include also OS and pre-defined events
+                if isinstance(e, SysViewPredefinedEvent) or isinstance(e, SysViewOSEvent):
+                    json_events.append(e)
+            return {"version": self.JSON_TRACE_VER, "streams": json_event_ids, "events": json_events}
+        if isinstance(obj, SysViewHeapEvent):
+            blk_size = 0
+            if "size" in obj.params:
+                blk_size = obj.params["size"].value
+            blk_addr = "0x{:x}".format(obj.params["addr"].value)
+            callers = []
+            for addr in obj.params['callers'].value:
+                callers.append('0x{:x}'.format(addr))
+            return {"ctx_name": obj.ctx_name, "in_irq": obj.in_irq, "id": obj.id, "core_id": obj.core_id,
+                    "ts": obj.ts, "addr": blk_addr, "size": blk_size, "callers": callers}
+        if isinstance(obj, SysViewPredefinedEvent) and obj.id == SYSVIEW_EVTID_PRINT_FORMATTED:
+            return {"ctx_name": obj.ctx_name, "in_irq": obj.in_irq, "id": obj.id, "core_id": obj.core_id,
+                    "ts": obj.ts, "msg": obj.params["msg"].value, "lvl": obj.params["lvl"].value}
+        if isinstance(obj, SysViewEvent):
+            jobj = obj.to_jsonable()
+            # remove unused fields
+            if 'name' in jobj:
+                del jobj['name']
+            if 'plen' in jobj:
+                del jobj['plen']
+            return jobj
+        # Let the base class default method raise the TypeError
+        return json.JSONEncoder.default(self, obj)
+
+
+class SysViewHeapTraceDataParser(SysViewTraceDataExtEventParser):
     """
         SystemView trace data parser supporting heap events.
     """
     def __init__(self, print_events=False, core_id=0):
         """
             SystemView trace data parser supporting multiple event streams.
-            see SysViewTraceDataParser.__init__()
+            see SysViewTraceDataExtEventParser.__init__()
         """
-        SysViewTraceDataParser.__init__(self, print_events, core_id)
-        self.events_off = 0
-        self.events_num = len(SysViewHeapEvent.events_fmt.keys())
+        SysViewTraceDataExtEventParser.__init__(self, events_num=len(SysViewHeapEvent.events_fmt.keys()), core_id=core_id, print_events=print_events)
 
     def read_extension_event(self, evt_id, reader):
         """
@@ -1001,44 +1237,32 @@ class SysViewHeapTraceDataProcessor(SysViewTraceDataProcessor, apptrace.BaseHeap
     """
         SystemView trace data processor supporting heap events.
     """
-    def __init__(self, toolchain_pref, elf_path, traces=[], print_events=False, print_heap_events=False):
+    def __init__(self, toolchain_pref, elf_path, root_proc=None, traces=[], print_events=False, print_heap_events=False):
         """
             Constructor.
             see SysViewTraceDataProcessor.__init__()
             see apptrace.BaseHeapTraceDataProcessorImpl.__init__()
         """
-        SysViewTraceDataProcessor.__init__(self, traces, print_events)
+        SysViewTraceDataProcessor.__init__(self, traces, root_proc=root_proc, print_events=print_events)
         apptrace.BaseHeapTraceDataProcessorImpl.__init__(self, print_heap_events)
         self.toolchain = toolchain_pref
         self.elf_path = elf_path
+        # self.no_ctx_events = []
+        self.name = "heap"
+        stream = self.root_proc.get_trace_stream(0, SysViewTraceDataParser.STREAMID_HEAP)
+        self.event_ids = {"alloc": stream.events_off, "free": stream.events_off + 1}
 
-    def on_new_event(self, event):
-        """
-            Processes heap events.
-        """
-        if self.root_proc == self:
-            SysViewTraceDataProcessor.on_new_event(self, event)
+    def event_supported(self, event):
         heap_stream = self.root_proc.get_trace_stream(event.core_id, SysViewTraceDataParser.STREAMID_HEAP)
-        if (heap_stream.events_off < SYSVIEW_MODULE_EVENT_OFFSET or event.id < heap_stream.events_off or
-                event.id >= (heap_stream.events_off + heap_stream.events_num)):
-            return
-        curr_ctx = self.root_proc.curr_ctx[event.core_id]
-        if len(curr_ctx) == 0:
-            raise SysViewTraceParseError("Heap event in IDLE context!")
-        sys_stream = self.root_proc.get_trace_stream(event.core_id, SysViewTraceDataParser.STREAMID_SYS)
-        if curr_ctx[-1][1]:
-            ctx_name = sys_stream.irqs_info[curr_ctx[-1][0]]
-        else:
-            ctx_name = sys_stream.tasks_info[curr_ctx[-1][0]]
+        return heap_stream.event_supported(event)
+
+    def handle_event(self, event):
+        heap_stream = self.root_proc.get_trace_stream(event.core_id, SysViewTraceDataParser.STREAMID_HEAP)
         if (event.id - heap_stream.events_off) == 0:
-            heap_event = apptrace.HeapTraceEvent(ctx_name, curr_ctx[-1][1], event.core_id, event.ts,
-                                                 True, event.params['size'].value, event.params['addr'].value,
-                                                 event.params['callers'].value, toolchain=self.toolchain,
+            heap_event = apptrace.HeapTraceEvent(event, True, toolchain=self.toolchain,
                                                  elf_path=self.elf_path)
         else:
-            heap_event = apptrace.HeapTraceEvent(ctx_name, curr_ctx[-1][1], event.core_id, event.ts,
-                                                 False, 0, event.params['addr'].value,
-                                                 event.params['callers'].value, toolchain=self.toolchain,
+            heap_event = apptrace.HeapTraceEvent(event, False, toolchain=self.toolchain,
                                                  elf_path=self.elf_path)
         apptrace.BaseHeapTraceDataProcessorImpl.on_new_event(self, heap_event)
 
@@ -1083,6 +1307,9 @@ class SysViewLogTraceDataParser(SysViewTraceDataParser):
     """
         SystemView trace data parser supporting log events.
     """
+    def event_supported(self, event):
+        return event.id == SYSVIEW_EVTID_PRINT_FORMATTED
+
     def on_new_event(self, event):
         """
             see SysViewTraceDataParser.on_new_event()
@@ -1095,14 +1322,19 @@ class SysViewLogTraceDataProcessor(SysViewTraceDataProcessor, apptrace.BaseLogTr
     """
         SystemView trace data processor supporting heap events.
     """
-    def __init__(self, traces=[], print_events=False, print_log_events=False):
+    def __init__(self, traces=[], root_proc=None, print_events=False, print_log_events=False):
         """
             Constructor.
             see SysViewTraceDataProcessor.__init__()
             see apptrace.BaseLogTraceDataProcessorImpl.__init__()
         """
-        SysViewTraceDataProcessor.__init__(self, traces, print_events)
+        SysViewTraceDataProcessor.__init__(self, traces, root_proc=root_proc, print_events=print_events)
         apptrace.BaseLogTraceDataProcessorImpl.__init__(self, print_log_events)
+        self.name = "log"
+        self.event_ids = {"print": SYSVIEW_EVTID_PRINT_FORMATTED}
+
+    def event_supported(self, event):
+        return event.id == SYSVIEW_EVTID_PRINT_FORMATTED
 
     def on_new_event(self, event):
         """

@@ -291,12 +291,12 @@ class DebuggerTestsBase(unittest.TestCase):
         rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
         self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_STEPPED)
 
-    def step_out(self):
+    def step_out(self, tmo=None):
         """ Runs until current function retunrs (step out, "finish" command in GDB)
         """
         self.gdb.exec_finish()
         self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_RUNNING, 5)
-        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5 if tmo is None else tmo)
         self.assertEqual(rsn, dbg.Gdb.TARGET_STOP_REASON_FN_FINISHED)
 
 class DebuggerTestAppTests(DebuggerTestsBase):
@@ -368,7 +368,7 @@ class DebuggerTestAppTests(DebuggerTestsBase):
 
     def run_to_bp(self, exp_rsn, func_name):
         self.resume_exec()
-        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 5)
+        rsn = self.gdb.wait_target_state(dbg.Gdb.TARGET_STATE_STOPPED, 20)
         self.assertEqual(rsn, exp_rsn)
         cur_frame = self.gdb.get_current_frame()
         self.assertEqual(cur_frame['func'], func_name)
