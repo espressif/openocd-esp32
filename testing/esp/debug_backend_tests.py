@@ -6,6 +6,7 @@ import logging
 import unittest
 import importlib
 import sys
+import re
 import debug_backend as dbg
 
 # TODO: fixed???
@@ -31,25 +32,12 @@ class IdfVersion:
         Keeps IDF ver as 4 bytes int. Format is: x.3.0.2, the most significant byte is not used.
     """
     IDF_VER_LATEST = 0xFFFFFFFF
-    _target_idf_ver = None
 
-    def __init__(self, idf_ver=IDF_VER_LATEST):
-        self._idf_ver = idf_ver
+    def __init__(self, ver_num=IDF_VER_LATEST):
+        self._idf_ver = ver_num
 
-    @classmethod
-    def get_current(cls):
-        if not cls._target_idf_ver:
-            # TODO: read IDF ver from ELF file
-            cls._target_idf_ver = IdfVersion()
-        return cls._target_idf_ver
-
-    @classmethod
-    def set_current(cls, idf_ver):
-        get_logger().info('Set current IDF ver %s', idf_ver)
-        cls._target_idf_ver = idf_ver
-
-    @classmethod
-    def fromstr(cls, ver_str):
+    @staticmethod
+    def fromstr(ver_str):
         if ver_str == 'latest':
             return IdfVersion()
         vers = ver_str.split('.')
@@ -81,9 +69,31 @@ class IdfVersion:
     def __eq__(self, other):
         return self._idf_ver == other._idf_ver
 
+class TesteeInfo:
+    """ Wrapper class for any info related to the current target.
+        It may include target name, IDF version etc.
+    """
+    def __init__(self):
+        self.hw_id = ''
+        self.idf_ver = IdfVersion()
+
+
+testee_info = TesteeInfo()
+
 
 def idf_ver_min(ver_str):
-    return unittest.skipIf(IdfVersion.get_current() < IdfVersion.fromstr(ver_str), "requires min IDF_VER='%s', current IDF_VER='%s'" % (ver_str, IdfVersion.get_current()))
+    return unittest.skipIf(testee_info.idf_ver < IdfVersion.fromstr(ver_str), "requires min IDF_VER='%s', current IDF_VER='%s'" % (ver_str, testee_info.idf_ver))
+
+
+def skip_for_hw_id(hw_ids_to_skip):
+    skip = False
+    hw_id_to_skip = ''
+    for id in hw_ids_to_skip:
+        if re.match(id, testee_info.hw_id):
+            skip = True
+            hw_id_to_skip = id
+            break
+    return unittest.skipIf(skip, "skipped due to HW ID '%s' matches to '%s'" % (testee_info.hw_id, hw_id_to_skip))
 
 
 class DebuggerTestError(RuntimeError):
@@ -409,9 +419,7 @@ class DebuggerTestAppTests(DebuggerTestsBase):
 
     def run_to_bp_and_check(self, exp_rsn, func_name, lineno_var_prefs, outmost_func_name='blink_task'):
         frames = self.run_to_bp_and_check_basic(exp_rsn, func_name)
-        get_logger().debug('IDF ver %s/%s/%s', IdfVersion.get_current() == IdfVersion.fromstr('latest'), IdfVersion.get_current(), IdfVersion.fromstr('latest'))
-        if IdfVersion.get_current() == IdfVersion.fromstr('latest'):
-            get_logger().debug('outmost_frame for latest IDF')
+        if testee_info.idf_ver == IdfVersion.fromstr('latest'):
             outmost_frame = len(frames) - 2 # -2 because our task function is called by FreeRTOS task wrapper
         else:
             outmost_frame = len(frames) - 1
@@ -446,7 +454,7 @@ class DebuggerGenericTestAppTests(DebuggerTestAppTests):
         super(DebuggerGenericTestAppTests, self).__init__(methodName)
         self.test_app_cfg.app_name = 'gen_ut_app'
         self.test_app_cfg.bld_path = os.path.join('bootloader', 'bootloader.bin')
-        if IdfVersion.get_current() < IdfVersion.fromstr('4.0'):
+        if testee_info.idf_ver < IdfVersion.fromstr('4.0'):
             self.test_app_cfg.pt_path = 'partitions_singleapp.bin'
         else:
             # starting from IDF 4.0 test app supports cmake build system which uses another build dir structure

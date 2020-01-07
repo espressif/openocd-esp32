@@ -17,6 +17,9 @@ import traceback
 _oocd_inst = None
 _gdb_inst = None
 
+# Keys in this map are special names for boards to run tests on
+# tets can be declared to be sckipped for some types boards using 'skip_for_hw_id()' decorator.
+# For usage example see 'test_special.PsramTestsSingle'
 BOARD_TCL_CONFIG = {
     'esp32-wrover-kit-3.3v' :  {
         'files' : [
@@ -213,9 +216,11 @@ def main():
         board_uart_reader.start()
     board_tcl = BOARD_TCL_CONFIG[args.board_type]
 
-    debug_backend_tests.test_apps_dir = args.apps_dir
+    # init testee info
+    debug_backend_tests.testee_info.hw_id = args.board_type
     if args.idf_ver_min != 'auto':
-        debug_backend_tests.IdfVersion.set_current(debug_backend_tests.IdfVersion.fromstr(args.idf_ver_min))
+        debug_backend_tests.testee_info.idf_ver = debug_backend_tests.IdfVersion.fromstr(args.idf_ver_min)
+    debug_backend_tests.test_apps_dir = args.apps_dir
 
     if args.test_runner == 'x':
         test_runner = xmlrunner.XMLTestRunner(verbosity=2, output=args.test_outdir)
@@ -330,7 +335,7 @@ if __name__ == '__main__':
                         help='Path to log file. Use "stdout" to log to console.')
     parser.add_argument('--serial-port', '-u',
                         help='Name of serial port to grab board\'s UART output.')
-    parser.add_argument('--idf_ver-min', '-i',
+    parser.add_argument('--idf-ver-min', '-i',
                         help='Minimal IDF version to run tests for. Format: x[.y[.z]]. Use "latest" to run all tests. Use "auto" to read version from target.',
                         type=str, default='auto')
     parser.add_argument('--test-runner', '-tr',
