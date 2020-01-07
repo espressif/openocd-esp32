@@ -944,7 +944,7 @@ int xtensa_prepare_resume(struct target *target,
 		debug_execution);
 
 	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("%s: %s: target not halted", target_name(target), __func__);
+		LOG_WARNING("%s: target not halted", target_name(target));
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
@@ -1997,7 +1997,7 @@ int xtensa_wait_algorithm(struct target *target,
 				xtensa->core_cache->reg_list[i].name,
 				regvalue,
 				algorithm_info->context[i]);
-			xtensa_reg_set(target, XT_REG_IDX_DEBUGCAUSE, 0);
+			xtensa_reg_set(target, XT_REG_IDX_DEBUGCAUSE, algorithm_info->context[i]);
 			xtensa->core_cache->reg_list[XT_REG_IDX_DEBUGCAUSE].dirty = 0;
 			xtensa->core_cache->reg_list[XT_REG_IDX_DEBUGCAUSE].valid = 0;
 			continue;
