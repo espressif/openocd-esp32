@@ -146,6 +146,7 @@ void esp_xtensa_on_poll(struct target *target);
 COMMAND_HELPER(esp_xtensa_cmd_flashbootstrap_do, struct esp_xtensa_common *esp_xtensa);
 COMMAND_HELPER(esp_xtensa_cmd_semihost_basedir_do, struct esp_xtensa_common *esp_xtensa);
 
+extern const struct command_registration esp_command_handlers[];
 extern const struct command_registration esp_xtensa_command_handlers[];
 
 #endif	/* ESP_XTENSA_H */

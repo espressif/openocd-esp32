@@ -690,30 +690,13 @@ COMMAND_HELPER(esp_xtensa_cmd_semihost_basedir_do, struct esp_xtensa_common *esp
 	return ERROR_OK;
 }
 
-COMMAND_HANDLER(esp_xtensa_cmd_flashbootstrap)
-{
-	if (CMD_ARGC < 1)
-		return CALL_COMMAND_HANDLER(esp_xtensa_cmd_flashbootstrap_do,
-			target_to_esp_xtensa(get_current_target(CMD_CTX)));
-	return CALL_COMMAND_HANDLER(esp_xtensa_cmd_flashbootstrap_do,
-		target_to_esp_xtensa(get_current_target(CMD_CTX)));
-}
-
 COMMAND_HANDLER(esp_xtensa_cmd_semihost_basedir)
 {
 	return CALL_COMMAND_HANDLER(esp_xtensa_cmd_semihost_basedir_do,
 		target_to_esp_xtensa(get_current_target(CMD_CTX)));
 }
 
-const struct command_registration esp_xtensa_command_handlers[] = {
-	{
-		.name = "flashbootstrap",
-		.handler = esp_xtensa_cmd_flashbootstrap,
-		.mode = COMMAND_ANY,
-		.help =
-			"Set the idle state of the TMS pin, which at reset also is the voltage selector for the flash chip.",
-		.usage = "none|1.8|3.3|high|low",
-	},
+const struct command_registration esp_command_handlers[] = {
 	{
 		.name = "semihost_basedir",
 		.handler = esp_xtensa_cmd_semihost_basedir,

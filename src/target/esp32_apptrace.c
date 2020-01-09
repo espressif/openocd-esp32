@@ -2596,7 +2596,7 @@ const struct command_registration esp32_apptrace_command_handlers[] = {
 		.handler = esp32_cmd_gcov,
 		.mode = COMMAND_ANY,
 		.help = "GCOV: Dumps gcov info collected on target.",
-		.usage = "",
+		.usage = "[dump]",
 	},
 	COMMAND_REGISTRATION_DONE
 };

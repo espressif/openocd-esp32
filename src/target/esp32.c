@@ -782,6 +782,22 @@ COMMAND_HANDLER(esp32_cmd_semihost_basedir)
 	return ERROR_OK;
 }
 
+static const struct command_registration esp_any_command_handlers[] = {
+	{
+		.name = "semihost_basedir",
+		.handler = esp32_cmd_semihost_basedir,
+		.mode = COMMAND_ANY,
+		.help = "Set the base directory for semohosting I/O.",
+		.usage = "dir",
+	},
+	{
+		.mode = COMMAND_ANY,
+		.usage = "",
+		.chain = esp32_apptrace_command_handlers,
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
 static const struct command_registration esp32_any_command_handlers[] = {
 	{
 		.name = "flashbootstrap",
@@ -791,19 +807,24 @@ static const struct command_registration esp32_any_command_handlers[] = {
 			"Set the idle state of the TMS pin, which at reset also is the voltage selector for the flash chip.",
 		.usage = "none|1.8|3.3|high|low",
 	},
-	{
-		.name = "semihost_basedir",
-		.handler = esp32_cmd_semihost_basedir,
-		.mode = COMMAND_ANY,
-		.help = "Set the base directory for semohosting I/O.",
-		.usage = "dir",
-	},
 	COMMAND_REGISTRATION_DONE
 };
 
-extern const struct command_registration esp108_common_command_handlers[];
-
 static const struct command_registration esp32_command_handlers[] = {
+	{
+		.name = "xtensa",
+		.mode = COMMAND_ANY,
+		.help = "Xtensa commands group",
+		.usage = "",
+		.chain = xtensa_mcore_command_handlers,
+	},
+	{
+		.name = "esp",
+		.mode = COMMAND_ANY,
+		.help = "ESP command group",
+		.usage = "",
+		.chain = esp_any_command_handlers,
+	},
 	{
 		.name = "esp32",
 		.mode = COMMAND_ANY,
@@ -811,19 +832,61 @@ static const struct command_registration esp32_command_handlers[] = {
 		.usage = "",
 		.chain = esp32_any_command_handlers,
 	},
+	COMMAND_REGISTRATION_DONE
+};
+
+static const struct command_registration esp32_legacy_semih_command_handlers[] = {
+	{
+		.name = "semihost_basedir",
+		.handler = esp32_cmd_semihost_basedir,
+		.mode = COMMAND_ANY,
+		.help = "Set the base directory for semohosting I/O.",
+		.usage = "dir",
+	},
+	{
+		.name = "flashbootstrap",
+		.handler = esp32_cmd_flashbootstrap,
+		.mode = COMMAND_ANY,
+		.help =
+			"Set the idle state of the TMS pin, which at reset also is the voltage selector for the flash chip.",
+		.usage = "none|1.8|3.3|high|low",
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
+static const struct command_registration esp32_legacy_command_handlers[] = {
 	{
 		.name = "esp32",
 		.mode = COMMAND_ANY,
-		.help = "ESP32 multi-core commands group",
+		.help = "ESP32 commands group",
 		.usage = "",
 		.chain = xtensa_mcore_command_handlers,
 	},
 	{
 		.name = "esp32",
 		.mode = COMMAND_ANY,
-		.help = "ESP32 apptrace commands group",
+		.help = "ESP32 command group",
+		.usage = "",
+		.chain = esp32_legacy_semih_command_handlers,
+	},
+	{
+		.name = "esp32",
+		.mode = COMMAND_ANY,
+		.help = "ESP32 command group",
 		.usage = "",
 		.chain = esp32_apptrace_command_handlers,
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
+static const struct command_registration esp32_all_command_handlers[] = {
+	{
+		.usage = "",
+		.chain = esp32_command_handlers,
+	},
+	{
+		.usage = "",
+		.chain = esp32_legacy_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE
 };
@@ -868,7 +931,7 @@ struct target_type esp32_target = {
 	.init_target = esp32_target_init,
 	.examine = xtensa_mcore_examine,
 
-	.commands = esp32_command_handlers,
+	.commands = esp32_all_command_handlers,
 
 	.get_cores_count = esp32_get_enabled_cores_count,
 	.get_active_core = xtensa_mcore_get_active_core,

@@ -147,7 +147,7 @@ XTENSA_SRC= \
 
 ESP32_SRC= \
 	%D%/esp32.c \
-	%D%/esp32_s2.c \
+	%D%/esp32s2.c \
  	%D%/esp32_apptrace.c
 
 INTEL_IA32_SRC = \
@@ -252,7 +252,7 @@ ESIRISC_SRC = \
 	%D%/esp_xtensa_apptrace.h \
 	%D%/esp32_apptrace.h \
 	%D%/esp32.h \
-	%D%/esp32_s2.h \
+	%D%/esp32s2.h \
 	%D%/esirisc.h \
 	%D%/esirisc_jtag.h \
 	%D%/esirisc_regs.h \

@@ -28,7 +28,7 @@
 #include "assert.h"
 #include "rtos/rtos.h"
 #include "flash/nor/esp_xtensa.h"
-#include "esp32_s2.h"
+#include "esp32s2.h"
 #include "esp32_apptrace.h"
 #include "esp_xtensa.h"
 
@@ -478,34 +478,41 @@ static int esp32_s2_target_create(struct target *target, Jim_Interp *interp)
 	return ERROR_OK;
 }
 
-static const struct command_registration esp32_s2_command_handlers[] = {
+static const struct command_registration esp_any_command_handlers[] = {
 	{
-		.name = "esp32_s2",
 		.mode = COMMAND_ANY,
-		.help = "ESP32-S2 commands group",
 		.usage = "",
-		.chain = xtensa_command_handlers,
+		.chain = esp_command_handlers,
 	},
 	{
-		.name = "esp32_s2",
 		.mode = COMMAND_ANY,
-		.help = "ESP32-S2 command group",
-		.usage = "",
-		.chain = esp_xtensa_command_handlers,
-	},
-	{
-		.name = "esp32_s2",
-		.mode = COMMAND_ANY,
-		.help = "ESP32-S2 apptrace commands group",
 		.usage = "",
 		.chain = esp32_apptrace_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE
 };
 
+static const struct command_registration esp32_s2_command_handlers[] = {
+	{
+		.name = "xtensa",
+		.mode = COMMAND_ANY,
+		.help = "Xtensa commands group",
+		.usage = "",
+		.chain = xtensa_command_handlers,
+	},
+	{
+		.name = "esp",
+		.mode = COMMAND_ANY,
+		.help = "ESP command group",
+		.usage = "",
+		.chain = esp_any_command_handlers,
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
 /** Holds methods for Xtensa targets. */
 struct target_type esp32_s2_target = {
-	.name = "esp32_s2",
+	.name = "esp32s2",
 
 	.poll = xtensa_poll,
 	.arch_state = esp32_s2_arch_state,
