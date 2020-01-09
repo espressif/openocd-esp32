@@ -26,7 +26,7 @@
 #include "imp.h"
 #include <target/esp_xtensa_apptrace.h>
 #include <target/esp_xtensa.h>
-#include <target/esp32_s2.h>
+#include <target/esp32s2.h>
 #include "esp_xtensa.h"
 #include "contrib/loaders/flash/esp/esp32_s2/stub_flasher_image.h"
 #include "contrib/loaders/flash/esp/esp32_s2beta/stub_flasher_image.h"
@@ -126,9 +126,9 @@ static int esp32_s2_get_info(struct flash_bank *bank, char *buf, int buf_size)
 
 static const struct command_registration esp32_s2_command_handlers[] = {
 	{
-		.name = "esp32_s2",
+		.name = "esp",
 		.mode = COMMAND_ANY,
-		.help = "esp32_s2 flash command group",
+		.help = "ESP flash command group",
 		.usage = "",
 		.chain = esp_xtensa_exec_command_handlers,
 	},

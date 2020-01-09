@@ -26,7 +26,7 @@
 #include "helper/log.h"
 #include "helper/binarybuffer.h"
 #include "target/esp32.h"
-#include "target/esp32_s2.h"
+#include "target/esp32s2.h"
 
 static int rtos_freertos_esp_xtensa_stack_read_involuntary(struct target *target, int64_t stack_ptr, const struct rtos_register_stacking *stacking, uint8_t *stack_data);
 static int rtos_freertos_esp_xtensa_stack_read_voluntary(struct target *target, int64_t stack_ptr, const struct rtos_register_stacking *stacking, uint8_t *stack_data);

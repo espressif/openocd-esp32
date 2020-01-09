@@ -103,18 +103,41 @@ static int esp32_get_info(struct flash_bank *bank, char *buf, int buf_size)
 
 static const struct command_registration esp32_command_handlers[] = {
 	{
-		.name = "esp32",
+		.name = "esp",
 		.mode = COMMAND_ANY,
-		.help = "esp32 flash command group",
+		.help = "ESP flash command group",
 		.usage = "",
 		.chain = esp_xtensa_exec_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE
 };
 
+static const struct command_registration esp32_legacy_command_handlers[] = {
+	{
+		.name = "esp32",
+		.mode = COMMAND_ANY,
+		.help = "ESP32 flash command group",
+		.usage = "",
+		.chain = esp_xtensa_exec_command_handlers,
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
+static const struct command_registration esp32_all_command_handlers[] = {
+	{
+		.usage = "",
+		.chain = esp32_command_handlers,
+	},
+	{
+		.usage = "",
+		.chain = esp32_legacy_command_handlers,
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
 struct flash_driver esp32_flash = {
 	.name = "esp32",
-	.commands = esp32_command_handlers,
+	.commands = esp32_all_command_handlers,
 	.flash_bank_command = esp32_flash_bank_command,
 	.erase = esp_xtensa_erase,
 	.protect = esp_xtensa_protect,
