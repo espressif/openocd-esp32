@@ -64,7 +64,11 @@
 
 #define ESP_APPTRACE_CMD_MODE_GEN           0
 #define ESP_APPTRACE_CMD_MODE_SYSVIEW       1
-#define ESP_APPTRACE_CMD_MODE_SYNC          2
+#define ESP_APPTRACE_CMD_MODE_SYSVIEW_MCORE     2
+#define ESP_APPTRACE_CMD_MODE_SYNC          3
+
+#define IN_SYSVIEW_MODE(mode) (mode == ESP_APPTRACE_CMD_MODE_SYSVIEW || mode ==	\
+		ESP_APPTRACE_CMD_MODE_SYSVIEW_MCORE)
 
 #define ESP32_APPTRACE_TGT_STATE_TMO            5000
 #define ESP_APPTRACE_TIME_STATS_ENABLE      1
@@ -1067,13 +1071,26 @@ static int esp32_apptrace_connect_targets(struct esp32_apptrace_cmd_ctx *ctx,
 static int esp_sysview_write_trace_header(struct esp32_apptrace_cmd_ctx *ctx)
 {
 	struct esp32_apptrace_cmd_data *cmd_data = ctx->cmd_priv;
+	char *hdr_str;
+	int dests_num;
 
-	char hdr_str[] = ";\n"
-		"; Version     SEGGER SystemViewer V2.42\n"
-		"; Author      Espressif Inc\n"
-		";\n";
+	if (ctx->mode == ESP_APPTRACE_CMD_MODE_SYSVIEW) {
+		hdr_str = ";\n"
+			"; Version     SEGGER SystemViewer V2.42\n"
+			"; Author      Espressif Inc\n"
+			";\n";
+		dests_num = ctx->cores_num;
+	} else {
+		hdr_str = ";\n"
+			"; Version     SEGGER SystemViewer V2.42\n"
+			"; Author      Espressif Inc\n"
+			"; ESP_Extension\n"
+			";\n";
+		dests_num = 1;
+	}
+
 	int hdr_len = strlen(hdr_str);
-	for (int i = 0; i < ctx->cores_num; i++) {
+	for (int i = 0; i < dests_num; i++) {
 		int res = cmd_data->data_dests[i].write(cmd_data->data_dests[i].priv,
 			(uint8_t *)hdr_str,
 			hdr_len);
@@ -1281,7 +1298,7 @@ static uint32_t esp32_apptrace_usr_block_check(struct esp32_apptrace_cmd_ctx *ct
 	struct esp_xtensa_apptrace_target2host_hdr *hdr)
 {
 	uint32_t wr_len = 0, usr_len = 0;
-	if (ctx->mode == ESP_APPTRACE_CMD_MODE_SYSVIEW) {
+	if (IN_SYSVIEW_MODE(ctx->mode)) {
 		wr_len = ESP32_SYSVIEW_USER_BLOCK_LEN(hdr->sys_view.wr_sz);
 		usr_len = ESP32_SYSVIEW_USER_BLOCK_LEN(hdr->sys_view.block_sz);
 	} else {
@@ -1731,9 +1748,9 @@ static int esp32_apptrace_handle_trace_block(struct esp32_apptrace_cmd_ctx *ctx,
 	struct esp32_apptrace_block *block)
 {
 	uint32_t processed = 0;
-	uint32_t hdr_sz = ctx->mode ==
-		ESP_APPTRACE_CMD_MODE_SYSVIEW ? ESP32_SYSVIEW_USER_BLOCK_HDR_SZ :
-		ESP32_APPTRACE_USER_BLOCK_HDR_SZ;
+	uint32_t hdr_sz = IN_SYSVIEW_MODE(ctx->mode) ?
+		ESP32_SYSVIEW_USER_BLOCK_HDR_SZ : ESP32_APPTRACE_USER_BLOCK_HDR_SZ;
+
 	LOG_DEBUG("Got block %d bytes", block->data_len);
 	/* process user blocks one by one */
 	while (processed < block->data_len) {
@@ -1743,11 +1760,9 @@ static int esp32_apptrace_handle_trace_block(struct esp32_apptrace_cmd_ctx *ctx,
 		struct esp_xtensa_apptrace_target2host_hdr *hdr = &tmp_hdr;
 		/* process user block */
 		uint32_t usr_len = esp32_apptrace_usr_block_check(ctx, hdr);
-		int core_id;
-		if (ctx->mode == ESP_APPTRACE_CMD_MODE_SYSVIEW)
-			core_id = ESP32_SYSVIEW_USER_BLOCK_CORE(hdr->sys_view.block_sz);
-		else
-			core_id = ESP32_APPTRACE_USER_BLOCK_CORE(hdr->gen.block_sz);
+		int core_id = IN_SYSVIEW_MODE(ctx->mode) ?
+			ESP32_SYSVIEW_USER_BLOCK_CORE(hdr->sys_view.block_sz) :
+			ESP32_APPTRACE_USER_BLOCK_CORE(hdr->gen.block_sz);
 		/* process user data */
 		int res =
 			ctx->process_data(ctx, core_id, block->data + processed + hdr_sz, usr_len);
@@ -2001,14 +2016,16 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 			return res;
 		}
 		cmd_data = s_at_cmd_ctx.cmd_priv;
-		if (mode == ESP_APPTRACE_CMD_MODE_SYSVIEW) {
+		if (IN_SYSVIEW_MODE(mode)) {
 			if (cmd_data->skip_len != 0) {
 				LOG_ERROR("Data skipping not supported!");
 				s_at_cmd_ctx.running = 0;
 				esp32_apptrace_cmd_cleanup(&s_at_cmd_ctx);
 				return ERROR_FAIL;
 			}
-			s_at_cmd_ctx.process_data = esp32_sysview_process_data;
+			s_at_cmd_ctx.process_data = mode ==
+				ESP_APPTRACE_CMD_MODE_SYSVIEW ? esp32_sysview_process_data :
+				esp32_apptrace_process_data;
 			res = esp_sysview_write_trace_header(&s_at_cmd_ctx);
 			if (res != ERROR_OK) {
 				LOG_ERROR("Failed to write trace header (%d)!", res);
@@ -2037,7 +2054,7 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 			esp32_apptrace_cmd_cleanup(&s_at_cmd_ctx);
 			return res;
 		}
-		if (mode == ESP_APPTRACE_CMD_MODE_SYSVIEW) {
+		if (IN_SYSVIEW_MODE(mode)) {
 			/* start tracing */
 			res = esp_sysview_start(&s_at_cmd_ctx);
 			if (res != ERROR_OK) {
@@ -2079,7 +2096,7 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 				if (duration_measure(&s_at_cmd_ctx.read_time) != 0)
 					LOG_ERROR("Failed to stop trace read time measurement!");
 			}
-			if (mode == ESP_APPTRACE_CMD_MODE_SYSVIEW) {
+			if (IN_SYSVIEW_MODE(mode)) {
 				/* stop tracing */
 				res = esp_sysview_stop(&s_at_cmd_ctx, target);
 				if (res != ERROR_OK)
@@ -2115,7 +2132,7 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 			LOG_ERROR("Failed to unregister target timer handler (%d)!", res);
 			return res;
 		}
-		if (mode == ESP_APPTRACE_CMD_MODE_SYSVIEW) {
+		if (IN_SYSVIEW_MODE(mode)) {
 			/* stop tracing */
 			res = esp_sysview_stop(&s_at_cmd_ctx, target);
 			if (res != ERROR_OK)
@@ -2140,7 +2157,7 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 			LOG_ERROR("Failed to measure trace read time!");
 		esp32_apptrace_print_stats(&s_at_cmd_ctx);
 	} else if (strcmp(argv[0], "dump") == 0) {
-		if (mode == ESP_APPTRACE_CMD_MODE_SYSVIEW) {
+		if (IN_SYSVIEW_MODE(mode)) {
 			LOG_ERROR("Not supported!");
 			return ERROR_FAIL;
 		}
@@ -2191,6 +2208,14 @@ COMMAND_HANDLER(esp32_cmd_sysview)
 {
 	return esp32_cmd_apptrace_generic(get_current_target(CMD_CTX),
 		ESP_APPTRACE_CMD_MODE_SYSVIEW,
+		CMD_ARGV,
+		CMD_ARGC);
+}
+
+COMMAND_HANDLER(esp32_cmd_sysview_mcore)
+{
+	return esp32_cmd_apptrace_generic(get_current_target(CMD_CTX),
+		ESP_APPTRACE_CMD_MODE_SYSVIEW_MCORE,
 		CMD_ARGV,
 		CMD_ARGC);
 }
@@ -2757,6 +2782,15 @@ const struct command_registration esp32_apptrace_command_handlers[] = {
 			"App Tracing: SEGGER SystemView compatible trace control. Starts, stops or queries tracing process status.",
 		.usage =
 			"[start file://<outfile1> [file://<outfile2>] [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]] | [stop] | [status]",
+	},
+	{
+		.name = "sysview_mcore",
+		.handler = esp32_cmd_sysview_mcore,
+		.mode = COMMAND_EXEC,
+		.help =
+			"App Tracing: Espressif multi-core SystemView trace control. Starts, stops or queries tracing process status.",
+		.usage =
+			"[start file://<outfile> [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]] | [stop] | [status]",
 	},
 	{
 		.name = "gcov",

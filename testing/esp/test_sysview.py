@@ -18,6 +18,8 @@ import espytrace.apptrace as apptrace
 import espytrace.sysview as sysview
 
 
+FREERTOS_EVENTS_MAP_FILE = os.path.join(os.path.dirname(__file__), 'SYSVIEW_FreeRTOS.txt')
+
 def get_logger():
     return logging.getLogger(__name__)
 
@@ -173,7 +175,7 @@ class BaseTracingTestsImpl:
         elf_file = self.test_app_cfg.build_app_elf_path()
         self._create_processor(elf_file=elf_file)
         try:
-            self._process_trace();
+            self._process_trace()
         except (apptrace.ReaderTimeoutError) as e:
             get_logger().info("Stop processing trace. (%s)" % e)
         except Exception as e:
@@ -220,7 +222,6 @@ class BaseTracingTestsImpl:
 class SysViewTracingTestsImpl(BaseTracingTestsImpl):
     """ Test cases which are common for dual and single core modes
     """
-    FREERTOS_EVENTS_MAP_FILE = os.path.join(os.path.dirname(__file__), 'SYSVIEW_FreeRTOS.txt')
 
     def _start_tracing(self, trace_src):
         if self.cores_num == 2:
@@ -254,7 +255,7 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
         for i in range(self.cores_num):
             try:
                 get_logger().info("Parse trace from '%s'..." % self.trace_ctrl[i]['src'])
-                sysview.parse_trace(self.trace_ctrl[i]['reader'], self.trace_ctrl[i]['parser'], self.FREERTOS_EVENTS_MAP_FILE)
+                sysview.parse_trace(self.trace_ctrl[i]['reader'], self.trace_ctrl[i]['parser'], FREERTOS_EVENTS_MAP_FILE)
                 get_logger().info("Parsing completed.")
             except (apptrace.ReaderTimeoutError) as e:
                 get_logger().info("Stop parsing trace. (%s)" % e)
@@ -405,6 +406,96 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
             self.assertTrue(freq_dev <= 10) # max event's freq deviation (due to measurement error) is 10%
 
 
+class SysViewMcoreTracingTestsImpl(BaseTracingTestsImpl):
+    """ Test cases which are common for dual and single core modes
+    """
+    def _start_tracing(self, trace_src):
+        self.gdb.sysview_mcore_start(trace_src[0])
+
+    def _stop_tracing(self):
+        self.gdb.sysview_stop()
+
+    def _get_parsers(self):
+        return [self.trace_ctrl['parser']]
+
+    def _create_processor(self, **proc_args):
+        toolchain = ''
+        elf_file = ''
+        keep_all_events = False
+        if 'toolchain' in proc_args:
+            toolchain = proc_args['toolchain']
+        if 'elf_file' in proc_args:
+            elf_file = proc_args['elf_file']
+        if 'keep_all_events' in proc_args:
+            keep_all_events = proc_args['keep_all_events']
+        self.processor = sysview.SysViewMultiStreamTraceDataProcessor(traces=self._get_parsers(), print_events=False, keep_all_events=keep_all_events)
+        self.processor.add_stream_processor(sysview.SysViewTraceDataParser.STREAMID_HEAP,
+                                  sysview.SysViewHeapTraceDataProcessor(toolchain, elf_file, root_proc=self.processor, print_heap_events=False))
+        self.processor.add_stream_processor(sysview.SysViewTraceDataParser.STREAMID_LOG,
+                                  sysview.SysViewLogTraceDataProcessor(root_proc=self.processor, print_log_events=False))
+
+    def _process_trace(self):
+        try:
+            get_logger().info("Parse trace from '%s'..." % self.trace_ctrl['src'])
+            sysview.parse_trace(self.trace_ctrl['reader'], self.trace_ctrl['parser'], FREERTOS_EVENTS_MAP_FILE)
+            get_logger().info("Parsing completed.")
+        except (apptrace.ReaderTimeoutError) as e:
+            get_logger().info("Stop parsing trace. (%s)" % e)
+        except Exception as e:
+            traceback.print_exc()
+            self.fail("Failed to parse trace on core (%s)!" % (e))
+        try:
+            get_logger().info("Process events...")
+            self.processor.merge_and_process()
+            get_logger().info("Processing completed.")
+        except Exception as e:
+            traceback.print_exc()
+            self.fail("Failed to process trace ({})!".format(e))
+
+    def _get_log_stream(self):
+        return self.processor.stream_procs[sysview.SysViewTraceDataParser.STREAMID_LOG]
+
+    def _get_heap_stream(self):
+        return self.processor.stream_procs[sysview.SysViewTraceDataParser.STREAMID_HEAP]
+
+    def setUp(self):
+        BaseTracingTestsImpl.setUp(self)
+        self.processor = None
+        self.trace_ctrl = {'src': '', 'reader': None, 'parser': None}
+        # create parser
+        try:
+            parser = sysview.SysViewMultiTraceDataParser(print_events=False)
+            parser.add_stream_parser(sysview.SysViewTraceDataParser.STREAMID_HEAP,
+                                        sysview.SysViewHeapTraceDataParser(print_events=False))
+            parser.add_stream_parser(sysview.SysViewTraceDataParser.STREAMID_LOG,
+                                        sysview.SysViewLogTraceDataParser(print_events=False))
+            self.trace_ctrl['parser'] = parser
+        except Exception as e:
+            traceback.print_exc()
+            self.fail("Failed to create data parser ({})!".format(e))
+        # create reader with trace source URL
+        self.trace_ctrl['src'],self.trace_ctrl['reader'] = _create_file_reader()
+        if not self.trace_ctrl['reader']:
+            self.fail("Failed to create trace reader!")
+
+    def tearDown(self):
+        BaseTracingTestsImpl.tearDown(self)
+        if self.processor:
+            self.processor.cleanup()
+        if self.trace_ctrl['reader']:
+            self.trace_ctrl['reader'].cleanup()
+
+    @idf_ver_min('latest')
+    def test_log_from_file(self):
+        trace_src = [self.trace_ctrl['src']]
+        self._do_test_log_continuous(trace_src)
+
+    @idf_ver_min('latest')
+    def test_heap_log_from_file(self):
+        trace_src = [self.trace_ctrl['src']]
+        self._do_test_heap_log(trace_src)
+
+
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
 ########################################################################
@@ -442,6 +533,7 @@ class SysViewTracingTestsDual(SysViewTraceTestAppTestsDual, SysViewTracingTestsI
         SysViewTraceTestAppTestsDual.tearDown(self)
         SysViewTracingTestsImpl.tearDown(self)
 
+
 class SysViewTracingTestsSingle(SysViewTraceTestAppTestsSingle, SysViewTracingTestsImpl):
     """ Test cases via GDB in single core mode
     """
@@ -452,3 +544,26 @@ class SysViewTracingTestsSingle(SysViewTraceTestAppTestsSingle, SysViewTracingTe
     def tearDown(self):
         SysViewTraceTestAppTestsSingle.tearDown(self)
         SysViewTracingTestsImpl.tearDown(self)
+
+
+class SysViewMcoreTracingTestsDual(SysViewTraceTestAppTestsDual, SysViewMcoreTracingTestsImpl):
+    """ Test cases via GDB in dual core mode
+    """
+    def setUp(self):
+        SysViewTraceTestAppTestsDual.setUp(self)
+        SysViewMcoreTracingTestsImpl.setUp(self)
+
+    def tearDown(self):
+        SysViewTraceTestAppTestsDual.tearDown(self)
+        SysViewMcoreTracingTestsImpl.tearDown(self)
+
+class SysViewMcoreTracingTestsSingle(SysViewTraceTestAppTestsSingle, SysViewMcoreTracingTestsImpl):
+    """ Test cases via GDB in single core mode
+    """
+    def setUp(self):
+        SysViewTraceTestAppTestsSingle.setUp(self)
+        SysViewMcoreTracingTestsImpl.setUp(self)
+
+    def tearDown(self):
+        SysViewTraceTestAppTestsSingle.tearDown(self)
+        SysViewMcoreTracingTestsImpl.tearDown(self)
