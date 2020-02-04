@@ -27,6 +27,19 @@
 #include "config.h"
 #endif
 
+#ifdef HAVE_ARPA_INET_H
+#include <arpa/inet.h>
+#endif
+
+#ifdef HAVE_NETDB_H
+#include <netdb.h>
+#endif
+
+#ifndef _WIN32
+#include <netinet/tcp.h>
+#include <sys/ioctl.h>
+#endif
+
 #include <pthread.h>
 #include "target.h"
 #include "target_type.h"
@@ -148,6 +161,10 @@ struct esp32_apptrace_dest_file_data {
 	int fout;
 };
 
+struct esp32_apptrace_dest_tcp_data {
+	int sockfd;
+};
+
 typedef int (*esp32_apptrace_dest_write_t)(void *priv, uint8_t *data, uint32_t size);
 typedef int (*esp32_apptrace_dest_cleanup_t)(void *priv);
 
@@ -155,6 +172,7 @@ struct esp32_apptrace_dest {
 	void *priv;
 	esp32_apptrace_dest_write_t write;
 	esp32_apptrace_dest_cleanup_t clean;
+	bool log_progress;
 };
 
 struct esp32_apptrace_cmd_ctx;
@@ -212,7 +230,7 @@ struct esp32_gcov_cmd_data {
 /* need to check `shutdown_openocd` when poll period is less then 1 ms in order to react on CTRL+C
  * etc. */
 /* Actually `shutdown_openocd` is an enum type var. Non-zero value tells that shutdown is requested,
- * for now this hasck works. */
+ * for now this hack works. */
 /* TODO: Currently for periods less then 1ms we loop in command handler until CTRL+C is pressed.
  *       Another trace data polling mechanism is necessary for small periods. */
 extern int shutdown_openocd;
@@ -283,6 +301,146 @@ static int esp32_apptrace_file_dest_init(struct esp32_apptrace_dest *dest, const
 	dest->priv = dest_data;
 	dest->write = esp32_apptrace_file_dest_write;
 	dest->clean = esp32_apptrace_file_dest_cleanup;
+	dest->log_progress = true;
+
+	return ERROR_OK;
+}
+
+static int esp32_apptrace_console_dest_write(void *priv, uint8_t *data, uint32_t size)
+{
+	LOG_USER_N("%.*s", size, data);
+	return ERROR_OK;
+}
+
+static int esp32_apptrace_console_dest_cleanup(void *priv)
+{
+	return ERROR_OK;
+}
+
+static int esp32_apptrace_console_dest_init(struct esp32_apptrace_dest *dest, const char *dest_name)
+{
+	dest->priv = NULL;
+	dest->write = esp32_apptrace_console_dest_write;
+	dest->clean = esp32_apptrace_console_dest_cleanup;
+	dest->log_progress = false;
+
+	return ERROR_OK;
+}
+
+
+static int esp32_apptrace_tcp_dest_write(void *priv, uint8_t *data, uint32_t size)
+{
+	struct esp32_apptrace_dest_tcp_data *dest_data =
+		(struct esp32_apptrace_dest_tcp_data *)priv;
+
+	ssize_t wr_sz = write(dest_data->sockfd, data, size);
+	if (wr_sz != (ssize_t)size) {
+		LOG_ERROR("Failed to write %u bytes to out socket (%d)! Written %d.", size, errno,
+			(int)wr_sz);
+		return ERROR_FAIL;
+	}
+	return ERROR_OK;
+}
+
+static int esp32_apptrace_tcp_dest_cleanup(void *priv)
+{
+	struct esp32_apptrace_dest_tcp_data *dest_data =
+		(struct esp32_apptrace_dest_tcp_data *)priv;
+
+	if (dest_data->sockfd > 0)
+		close(dest_data->sockfd);
+	free(dest_data);
+	return ERROR_OK;
+}
+
+static int esp32_apptrace_tcp_dest_init(struct esp32_apptrace_dest *dest, const char *dest_name)
+{
+	const char *port_sep = strchr(dest_name, ':');
+	/* separator not found, or was the first or the last character */
+	if (port_sep == NULL || port_sep == dest_name || port_sep == dest_name +
+		strlen(dest_name) - 1) {
+		LOG_ERROR("apptrace: Invalid connection URI, format should be tcp://host:port");
+		return ERROR_COMMAND_ARGUMENT_INVALID;
+	}
+	assert(port_sep > dest_name);
+	size_t hostname_len = port_sep - dest_name;
+
+	char hostname[64] = {0};
+	if (hostname_len >= sizeof(hostname)) {
+		LOG_ERROR("apptrace: Hostname too long");
+		return ERROR_COMMAND_ARGUMENT_INVALID;
+	}
+	memcpy(hostname, dest_name, hostname_len);
+
+	const char *port_str = port_sep + 1;
+	struct addrinfo *ai;
+	int flags = 0;
+#ifdef AI_NUMERICSERV
+	flags |= AI_NUMERICSERV;
+#endif	/* AI_NUMERICSERV */
+	struct addrinfo hint = {
+		.ai_family = AF_UNSPEC,
+		.ai_socktype = SOCK_STREAM,
+		.ai_protocol = 0,
+		.ai_flags = flags
+	};
+	int res = getaddrinfo(hostname, port_str, &hint, &ai);
+	if (res != 0) {
+		LOG_ERROR("apptrace: Failed to resolve host name: %s", hostname);
+		return ERROR_FAIL;
+	}
+	int sockfd = -1;
+	for (struct addrinfo *ai_it = ai; ai_it; ai_it = ai_it->ai_next) {
+		sockfd = socket(ai_it->ai_family, ai_it->ai_socktype, ai_it->ai_protocol);
+		if (sockfd < 0) {
+			LOG_DEBUG("apptrace: Failed to create socket (%d, %d, %d) (%s)",
+				(int) ai_it->ai_family,
+				(int) ai_it->ai_socktype,
+				(int) ai_it->ai_protocol,
+				strerror(errno));
+			continue;
+		}
+
+		char cur_hostname[NI_MAXHOST];
+		char cur_portname[NI_MAXSERV];
+		res =
+			getnameinfo(ai_it->ai_addr, ai_it->ai_addrlen, cur_hostname,
+			sizeof(cur_hostname),
+			cur_portname, sizeof(cur_portname),
+			NI_NUMERICHOST | NI_NUMERICSERV);
+		if (res != 0)
+			continue;
+
+		LOG_INFO("apptrace: Trying to connect to %s:%s", cur_hostname, cur_portname);
+		if (connect(sockfd, ai_it->ai_addr, ai_it->ai_addrlen) < 0) {
+			close(sockfd);
+			sockfd = -1;
+			LOG_WARNING("apptrace: Connection failed (%s)", strerror(errno));
+			continue;
+		}
+		break;
+	}
+	freeaddrinfo(ai);
+	if (sockfd < 0) {
+		LOG_ERROR("apptrace: Could not connect to %s:%s", hostname, port_str);
+		return ERROR_FAIL;
+	}
+	LOG_INFO("apptrace: Connected!");
+
+
+	struct esp32_apptrace_dest_tcp_data *dest_data =
+		calloc(1, sizeof(struct esp32_apptrace_dest_tcp_data));
+	if (!dest_data) {
+		LOG_ERROR("apptrace: Failed to alloc mem for tcp dest!");
+		close(sockfd);
+		return ERROR_FAIL;
+	}
+
+	dest_data->sockfd = sockfd;
+	dest->priv = dest_data;
+	dest->write = esp32_apptrace_tcp_dest_write;
+	dest->clean = esp32_apptrace_tcp_dest_cleanup;
+	dest->log_progress = true;
 
 	return ERROR_OK;
 }
@@ -291,17 +449,24 @@ static int esp32_apptrace_dest_init(struct esp32_apptrace_dest dest[],
 	const char *dest_paths[],
 	int max_dests)
 {
-	int res = ERROR_OK, i;
+	int res, i;
 
 	for (i = 0; i < max_dests; i++) {
-		if (strncmp(dest_paths[i], "file://", 7) == 0) {
+		res = ERROR_OK;
+		if (strncmp(dest_paths[i], "file://", 7) == 0)
 			res = esp32_apptrace_file_dest_init(&dest[i], &dest_paths[i][7]);
-			if (res != ERROR_OK) {
-				LOG_ERROR("Failed to init destination '%s'!", dest_paths[i]);
-				return 0;
-			}
-		} else
+		else if (strncmp(dest_paths[i], "con:", 4) == 0)
+			res = esp32_apptrace_console_dest_init(&dest[i], NULL);
+		else if (strncmp(dest_paths[i], "tcp://", 6) == 0)
+			res = esp32_apptrace_tcp_dest_init(&dest[i], &dest_paths[i][6]);
+		else
 			break;
+
+		if (res != ERROR_OK) {
+			LOG_ERROR("apptrace: Failed to init trace data destination '%s'!",
+				dest_paths[i]);
+			return 0;
+		}
 	}
 
 	return i;
@@ -1188,7 +1353,9 @@ static int esp32_apptrace_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 		ctx->tot_len += wr_chunk_len;
 	} else
 		ctx->tot_len += data_len;
-	LOG_USER("%u ", ctx->tot_len);
+
+	if (cmd_data->data_dests[0].log_progress)
+		LOG_USER("%u ", ctx->tot_len);
 	/* check for stop condition */
 	if ((ctx->tot_len > cmd_data->skip_len) &&
 		(ctx->tot_len - cmd_data->skip_len >= cmd_data->max_len)) {
