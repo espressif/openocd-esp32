@@ -17,8 +17,8 @@
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef OPENOCD_JTAG_DRIVERS_LIBUSB1_COMMON_H
-#define OPENOCD_JTAG_DRIVERS_LIBUSB1_COMMON_H
+#ifndef OPENOCD_JTAG_DRIVERS_LIBUSB_HELPER_H
+#define OPENOCD_JTAG_DRIVERS_LIBUSB_HELPER_H
 
 #include <libusb.h>
 
@@ -57,4 +57,4 @@ int jtag_libusb_get_pid(struct jtag_libusb_device *dev, uint16_t *pid);
 int jtag_libusb_get_serial(struct jtag_libusb_device_handle *devh, const char **serial);
 libusb_device *jtag_libusb_find_device(const uint16_t vids[], const uint16_t pids[], const char *serial);
 
-#endif /* OPENOCD_JTAG_DRIVERS_LIBUSB1_COMMON_H */
+#endif /* OPENOCD_JTAG_DRIVERS_LIBUSB_HELPER_H */
