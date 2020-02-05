@@ -1685,30 +1685,6 @@ COMMAND_HANDLER(cmsis_dap_handle_cmd_command)
 	return ERROR_OK;
 }
 
-COMMAND_HANDLER(cmsis_dap_handle_cmd_command)
-{
-	int retval;
-	unsigned i;
-	uint8_t *buffer = cmsis_dap_handle->packet_buffer;
-
-	buffer[0] = 0;	/* report number */
-
-	for (i = 0; i < CMD_ARGC; i++)
-		buffer[i + 1] = strtoul(CMD_ARGV[i], NULL, 16);
-
-	retval = cmsis_dap_usb_xfer(cmsis_dap_handle, CMD_ARGC + 1);
-
-	if (retval != ERROR_OK) {
-		LOG_ERROR("CMSIS-DAP command failed.");
-		return ERROR_JTAG_DEVICE_ERROR;
-	}
-
-	LOG_INFO("Returned data %02" PRIx8 " %02" PRIx8 " %02" PRIx8 " %02" PRIx8,
-		buffer[1], buffer[2], buffer[3], buffer[4]);
-
-	return ERROR_OK;
-}
-
 COMMAND_HANDLER(cmsis_dap_handle_vid_pid_command)
 {
 	if (CMD_ARGC > MAX_USB_IDS * 2) {
