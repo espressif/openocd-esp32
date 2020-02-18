@@ -14,7 +14,7 @@ const static char *TAG = "semihost_test";
 
 static void semihost_task(void *pvParameter)
 {
-    uint8_t s_buf[512];
+    static uint8_t s_buf[512];
     int core_id = xPortGetCoreID();
     char fname[32];
     esp_err_t ret;
@@ -66,7 +66,7 @@ static void semihost_task(void *pvParameter)
     }
     ESP_LOGI(TAG, "CPU[%d]: Closed files", core_id);
 
-    if (core_id == 0) {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+    if (core_id == 0) {
 #if !CONFIG_FREERTOS_UNICORE
         ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
 #endif
@@ -81,7 +81,7 @@ static void semihost_task(void *pvParameter)
     }
     while(1) {
         vTaskDelay(1);
-    }        
+    }
 }
 #endif
 

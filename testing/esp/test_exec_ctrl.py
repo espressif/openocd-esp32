@@ -42,10 +42,7 @@ class DebuggerExecControlTestsImpl:
 class DebuggerExecControlTestsDual(DebuggerGenericTestAppTestsDual, DebuggerExecControlTestsImpl):
     """ Test cases for dual core mode
     """
-
-    @unittest.skip('not implemented')
-    def test_something_special_for_dual_core_mode(self):
-        pass
+    pass
 
 
 @unittest.skip('not implemented')

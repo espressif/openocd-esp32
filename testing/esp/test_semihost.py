@@ -53,8 +53,7 @@ class SemihostTestsImpl:
         """
         self.select_sub_test(700)
         self.add_bp('esp_vfs_semihost_unregister')
-        self.resume_exec()
-        self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 120)
+        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
         get_logger().info('Files %s, %s', self.fout_names, self.fin_names)
         for i in range(self.CORES_NUM):
             get_logger().info('Compare files [%s, %s]', self.fout_names[i], self.fin_names[i])

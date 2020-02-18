@@ -107,11 +107,13 @@ class BaseTracingTestsImpl:
         """
         self.select_sub_test(501)
         self.add_bp('_trace_test_log_continuous_start')
-        self.add_bp('_do_trace_test_log_continuous_end')
+        self.add_bp('_trace_test_log_continuous_end')
         self.add_bp('_trace_test_log_continuous_stop')
-        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'trace_test_log_continuous_main')
+        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, '_trace_test_log_continuous_start')
         self._start_tracing(trace_src)
         for k in range(self.test_tasks_num):
+            # `_trace_test_log_continuous_end` is declared in assembly snippet inside `do_trace_test_log_continuous`,
+            # so GDB locates to `do_trace_test_log_continuous` when stopped at break in `_trace_test_log_continuous_end`
             self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'do_trace_test_log_continuous')
             curr_task = self.gdb.data_eval_expr('curr_task')
             self.tasks_test_data[curr_task] = {'print_num': 0}

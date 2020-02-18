@@ -292,7 +292,7 @@ static void fibonacci_calc(void)
     f2_nm1 = 5;
     while (1)
     {
-        LABEL_SYMBOL("fib_while");
+        LABEL_SYMBOL(fib_while);
         f0_n = f0_nm1 + f0_nm2; // calculating f0_n
         f0_nm2 = f0_nm1; // n shift
         f0_nm1 = f0_n;

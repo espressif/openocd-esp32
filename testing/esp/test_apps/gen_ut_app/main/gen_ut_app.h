@@ -36,7 +36,7 @@
 // used to prevent linker from optimizing out the variables holding BP line numbers
 volatile static int s_tmp_ln = 0;
 
-#define LABEL_SYMBOL(name) __asm__ volatile(".global " name "\n.type " name ",@function\n" name":");
+#define LABEL_SYMBOL(name) __asm__ volatile(".global " #name "\n.type " #name ",@function\n" #name":");
 
 typedef enum {
 	UT_OK,
