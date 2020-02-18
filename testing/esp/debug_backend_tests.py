@@ -384,12 +384,19 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         self.gdb.data_eval_expr('%s=%d' % (self.test_app_cfg.test_select_var, sub_test_num))
 
 
-    def run_to_bp(self, exp_rsn, func_name):
+    def run_to_bp(self, exp_rsn, func_name, tmo=20):
         self.resume_exec()
-        rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 20)
-        self.assertEqual(rsn, exp_rsn)
-        cur_frame = self.gdb.get_current_frame()
-        self.assertEqual(cur_frame['func'], func_name)
+        rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, tmo)
+        try:
+            self.assertEqual(rsn, exp_rsn)
+            cur_frame = self.gdb.get_current_frame()
+            self.assertEqual(cur_frame['func'], func_name)
+        except AssertionError as e:
+            get_logger().error('Invalid stop location! Backtrace:')
+            frames = self.gdb.get_backtrace()
+            for frame in frames:
+                get_logger().error('#%s: %s %s - %s:%s', frame['level'], frame['addr'], frame['func'], frame['file'], frame['line'])
+            raise e
         return cur_frame
 
     def run_to_bp_and_check_basic(self, exp_rsn, func_name):

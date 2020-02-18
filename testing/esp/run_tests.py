@@ -99,7 +99,7 @@ def dbg_start(toolchain, oocd, oocd_tcl, oocd_cfg_files, oocd_cfg_cmds, debug_oo
         # Start GDB
         _gdb_inst = dbg.create_gdb(chip_name=target_name,
                             gdb_path='%sgdb' % toolchain,
-                            remote_target=':%d' % dbg.Oocd.GDB_PORT,
+                            remote_target='127.0.0.1:%d' % dbg.Oocd.GDB_PORT,
                             log_level=log_level,
                             log_stream_handler=log_stream,
                             log_file_handler=log_file)
@@ -159,6 +159,23 @@ def load_tests_by_pattern(loader, search_dir, pattern):
                 suite.addTest(debug_backend_tests.DebuggerTestsBunch([test1]))
     return suite
 
+# excludes tests using pattern <module>[.<test_case>[.<test_method>]] with wildcards (*) in <module> and <test_case> parts
+def exclude_tests_by_patterns(suite, patterns):
+    for test in suite:
+        if not issubclass(type(test), debug_backend_tests.DebuggerTestsBase):
+            continue
+        for pattern in patterns:
+            parts = pattern.split('.')
+            if len(parts) == 1:
+                pattern = '%s.*.*' % parts[0]
+            elif len(parts) == 2:
+                pattern = '%s.%s.*' % (parts[0], parts[1])
+            re_pattern = '^%s$' % pattern.replace('.', '\.').replace('*', '.*')
+            if re.match(re_pattern, test.id()):
+                setattr(test, 'setUp', lambda: test.skipTest('Excluded by pattern'))
+                break
+    return suite
+
 def main():
     board_uart_reader = None
     if args.serial_port:
@@ -216,6 +233,7 @@ def main():
         # run tests from the same directory this file is
         loader = unittest.TestLoader()
         loader.suiteClass = debug_backend_tests.DebuggerTestsBunch
+        # load tests by patterns
         if not isinstance(args.pattern, list):
             tests_patterns = [args.pattern, ]
         else:
@@ -227,6 +245,12 @@ def main():
                 suite.addTest(pattern_suite)
             else:
                 suite = pattern_suite
+        # exclude tests by patterns
+        if not isinstance(args.exclude, list):
+            tests_exclude = [args.exclude, ]
+        else:
+            tests_exclude = args.exclude
+        suite = exclude_tests_by_patterns(suite, tests_exclude)
         # setup loggers in test modules
         for m in suite.modules:
             setup_logger(suite.modules[m].get_logger(), ch, fh, log_lev)
@@ -283,6 +307,10 @@ if __name__ == '__main__':
                         help="""Pattern of test cases to run. Format: <module>[.<test_case>[.<test_method>]].
                                 User can specify several strings separated by space. Wildcards (*) are supported in <module> and <test_case> parts""",
                         default='test_*')
+    parser.add_argument('--exclude', '-e', nargs='*',
+                        help="""Pattern of test cases to exclude. Format: <module>[.<test_case>[.<test_method>]].
+                                User can specify several strings separated by space. Wildcards (*) are supported in <module> and <test_case> parts""",
+                        default='')
     parser.add_argument('--no-load', '-n',
                         help='Do not load test app binaries',
                         action='store_true', default=False)

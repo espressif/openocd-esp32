@@ -23,17 +23,18 @@ class StepTestsImpl():
         self.resume_exec()
         rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
         self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
-        cur_frame = self.gdb.get_current_frame()
-        self.assertEqual(cur_frame['func'], funcs[0])
         old_pc = self.gdb.get_reg('pc')
+        faddr = self.gdb.extract_exec_addr(self.gdb.data_eval_expr('&%s' % funcs[0]))
+        self.assertEqual(old_pc, faddr)
         self.step(insn=True) # step over movi
         new_pc = self.gdb.get_reg('pc')
         self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 3))
         old_pc = new_pc
         self.step(insn=True, stop_rsn=dbg.TARGET_STOP_REASON_BP) # step over nop
         cur_frame = self.gdb.get_current_frame()
-        self.assertEqual(cur_frame['func'], funcs[1])
         new_pc = self.gdb.get_reg('pc')
+        faddr = self.gdb.extract_exec_addr(self.gdb.data_eval_expr('&%s' % funcs[1]))
+        self.assertEqual(new_pc, faddr)
         self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 3))
 
     def test_step_over_bp(self):
@@ -55,11 +56,11 @@ class StepTestsImpl():
         self.select_sub_test(103)
         for i in range(2):
             # step from and over HW BPs
-            self.do_step_over_bp_check(['step_over_bp_task', '_step_over_bp_break2'])
+            self.do_step_over_bp_check(['_step_over_bp_break1', '_step_over_bp_break2'])
             # step from and over SW flash BPs
             self.do_step_over_bp_check(['_step_over_bp_break3', '_step_over_bp_break4'])
             # step from and over SW RAM BPs
-            self.do_step_over_bp_check(['dummy_iram_func', '_step_over_bp_break6'])
+            self.do_step_over_bp_check(['_step_over_bp_break5', '_step_over_bp_break6'])
 
     def do_step_over_wp_check(self, func):
         self.resume_exec()

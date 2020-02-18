@@ -132,7 +132,21 @@ static void trace_test_heap_log_slave(trace_test_task_arg_t *arg)
 #endif
 #endif //CONFIG_HEAP_TRACING
 
-static void do_trace_test_log_continuous(uint32_t num, trace_printf_t trace_printf)
+static __attribute__((noinline)) void _trace_test_log_continuous_start(void)
+{
+    __asm__ volatile (
+        "   nop\n" \
+        :::);
+}
+
+static __attribute__((noinline)) void _trace_test_log_continuous_stop(void)
+{
+    __asm__ volatile (
+        "   nop\n" \
+        :::);
+}
+
+static __attribute__((noinline)) void do_trace_test_log_continuous(uint32_t num, trace_printf_t trace_printf)
 {
     volatile TaskHandle_t curr_task = xTaskGetCurrentTaskHandle();
 
@@ -143,23 +157,18 @@ static void do_trace_test_log_continuous(uint32_t num, trace_printf_t trace_prin
         vTaskDelay(1);
     }
     __asm__ volatile (
-        ".global _do_trace_test_log_continuous_end\n" \
-        ".type   _do_trace_test_log_continuous_end,@function\n" \
-        "_do_trace_test_log_continuous_end:\n" \
+        ".global _trace_test_log_continuous_end\n" \
+        ".type   _trace_test_log_continuous_end,@function\n" \
+        "_trace_test_log_continuous_end:\n" \
         "   nop\n" \
         :::);
 }
 
-static void trace_test_log_continuous_main(trace_test_task_arg_t *arg)
+static __attribute__((noinline)) void trace_test_log_continuous_main(trace_test_task_arg_t *arg)
 {
     static uint32_t num = 0;
 
-    __asm__ volatile (
-        ".global _trace_test_log_continuous_start\n" \
-        ".type   _trace_test_log_continuous_start,@function\n" \
-        "_trace_test_log_continuous_start:\n" \
-        "   nop\n" \
-        :::);
+    _trace_test_log_continuous_start();
 #if !CONFIG_FREERTOS_UNICORE
     xTaskNotify(arg->other_task, 0, eNoAction);
 #endif
@@ -171,12 +180,7 @@ static void trace_test_log_continuous_main(trace_test_task_arg_t *arg)
     xTaskNotifyWait(0, 0, NULL, portMAX_DELAY);
 #endif
     arg->trace_flush(ESP_APPTRACE_TMO_INFINITE);
-    __asm__ volatile (
-        ".global _trace_test_log_continuous_stop\n" \
-        ".type   _trace_test_log_continuous_stop,@function\n" \
-        "_trace_test_log_continuous_stop:\n" \
-        "   nop\n" \
-        :::);
+    _trace_test_log_continuous_stop();
 }
 
 #if !CONFIG_FREERTOS_UNICORE
