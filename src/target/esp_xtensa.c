@@ -91,21 +91,41 @@ static int esp_xtensa_dbgstubs_restore(struct target *target)
 	return ERROR_OK;
 }
 
-static int esp_xtensa_on_exit(struct target *target, void *priv)
+int esp_xtensa_special_breakpoints_clear(struct target *target)
 {
-	if (target != priv)
-		return ERROR_OK;
+	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
 
-	LOG_DEBUG("start");
-	int ret = esp_xtensa_dbgstubs_restore(target);
-	if (ret != ERROR_OK)
-		return ret;
+	for (size_t slot = 0; slot < ESP_XTENSA_SPECIAL_BREAKPOINTS_MAX_NUM;
+		slot++) {
+		struct esp_xtensa_special_breakpoint *spec_bp =
+			&esp_xtensa->spec_brps[slot];
+		if (spec_bp->data.oocd_bp != NULL) {
+			int ret = esp_xtensa->spec_brps_ops.breakpoint_remove(
+				target,
+				spec_bp);
+			if (ret != ERROR_OK) {
+				LOG_ERROR(
+					"%s: Failed to remove SW flash BP @ "
+					TARGET_ADDR_FMT " (%d)!",
+					target_name(target),
+					spec_bp->data.oocd_bp->address,
+					ret);
+				return ret;
+			}
+		}
+	}
+	memset(esp_xtensa->spec_brps,
+		0,
+		ESP_XTENSA_SPECIAL_BREAKPOINTS_MAX_NUM*
+		sizeof(struct esp_xtensa_special_breakpoint));
 	return ERROR_OK;
 }
 
 static int esp_xtensa_handle_target_event(struct target *target, enum target_event event,
 	void *priv)
 {
+	int ret;
+
 	if (target != priv)
 		return ERROR_OK;
 
@@ -120,7 +140,7 @@ static int esp_xtensa_handle_target_event(struct target *target, enum target_eve
 		{
 			enum target_state old_state = target->state;
 			if (target->state != TARGET_HALTED) {
-				int ret = target_halt(target);
+				ret = target_halt(target);
 				if (ret != ERROR_OK) {
 					LOG_ERROR(
 						"%s: Failed to halt target to remove flash BPs (%d)!",
@@ -137,32 +157,11 @@ static int esp_xtensa_handle_target_event(struct target *target, enum target_eve
 					return ret;
 				}
 			}
-			struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
-			for (size_t slot = 0; slot < ESP_XTENSA_SPECIAL_BREAKPOINTS_MAX_NUM;
-				slot++) {
-				struct esp_xtensa_special_breakpoint *spec_bp =
-					&esp_xtensa->spec_brps[slot];
-				if (spec_bp->data.oocd_bp != NULL) {
-					int ret = esp_xtensa->spec_brps_ops.breakpoint_remove(
-						target,
-						spec_bp);
-					if (ret != ERROR_OK) {
-						LOG_ERROR(
-							"%s: Failed to remove SW flash BP @ "
-							TARGET_ADDR_FMT " (%d)!",
-							target_name(target),
-							spec_bp->data.oocd_bp->address,
-							ret);
-						return ret;
-					}
-				}
-			}
-			memset(esp_xtensa->spec_brps,
-				0,
-				ESP_XTENSA_SPECIAL_BREAKPOINTS_MAX_NUM*
-				sizeof(struct esp_xtensa_special_breakpoint));
+			ret = esp_xtensa_special_breakpoints_clear(target);
+			if (ret != ERROR_OK)
+				return ret;
 			if (old_state == TARGET_RUNNING) {
-				int ret = target_resume(target, 1, 0, 1, 0);
+				ret = target_resume(target, 1, 0, 1, 0);
 				if (ret != ERROR_OK) {
 					LOG_ERROR(
 						"%s: Failed to resume target after flash BPs removal (%d)!",
@@ -188,10 +187,7 @@ int esp_xtensa_init_arch_info(struct target *target, struct target *chip_target,
 {
 	struct esp_xtensa_common *esp_xtensa;
 
-	int ret = target_register_exit_callback(esp_xtensa_on_exit, NULL);
-	if (ret != ERROR_OK)
-		return ret;
-	ret = target_register_event_callback(esp_xtensa_handle_target_event, target);
+	int ret = target_register_event_callback(esp_xtensa_handle_target_event, target);
 	if (ret != ERROR_OK)
 		return ret;
 	if (target != chip_target) {
@@ -232,6 +228,16 @@ int esp_xtensa_target_init(struct command_context *cmd_ctx, struct target *targe
 {
 	xtensa_build_reg_cache(target);
 	return ERROR_OK;
+}
+
+void esp_xtensa_target_deinit(struct target *target)
+{
+	LOG_DEBUG("start");
+
+	int ret = esp_xtensa_dbgstubs_restore(target);
+	if (ret != ERROR_OK)
+		return;
+	xtensa_deinit(target);
 }
 
 int esp_xtensa_arch_state(struct target *target)

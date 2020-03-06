@@ -164,7 +164,6 @@ static struct target_event_callback *target_event_callbacks;
 static struct target_timer_callback *target_timer_callbacks;
 LIST_HEAD(target_reset_callback_list);
 LIST_HEAD(target_trace_callback_list);
-LIST_HEAD(target_exit_callback_list);
 static const int polling_interval = 100;
 
 static const Jim_Nvp nvp_assert[] = {
@@ -1571,27 +1570,6 @@ int target_register_timer_callback(int (*callback)(void *priv),
 	return ERROR_OK;
 }
 
-int target_register_exit_callback(int (*callback)(struct target *target, void *priv), void *priv)
-{
-	struct target_exit_callback *entry;
-
-	if (callback == NULL)
-		return ERROR_COMMAND_SYNTAX_ERROR;
-
-	entry = malloc(sizeof(struct target_exit_callback));
-	if (entry == NULL) {
-		LOG_ERROR("error allocating buffer for exit callback entry");
-		return ERROR_COMMAND_SYNTAX_ERROR;
-	}
-
-	entry->callback = callback;
-	entry->priv = priv;
-	list_add(&entry->list, &target_exit_callback_list);
-
-
-	return ERROR_OK;
-}
-
 int target_unregister_event_callback(int (*callback)(struct target *target,
 		enum target_event event, void *priv), void *priv)
 {
@@ -1713,19 +1691,6 @@ int target_call_trace_callbacks(struct target *target, size_t len, uint8_t *data
 
 	list_for_each_entry(callback, &target_trace_callback_list, list)
 		callback->callback(target, len, data, callback->priv);
-
-	return ERROR_OK;
-}
-
-int target_call_exit_callbacks()
-{
-	struct target_exit_callback *callback;
-
-	struct target *target;
-	for (target = all_targets; target; target = target->next) {
-		list_for_each_entry(callback, &target_exit_callback_list, list)
-			callback->callback(target, callback->priv);
-	}
 
 	return ERROR_OK;
 }
@@ -2181,8 +2146,6 @@ static void target_destroy(struct target *target)
 
 void target_quit(void)
 {
-	target_call_exit_callbacks();
-
 	struct target_event_callback *pe = target_event_callbacks;
 	while (pe) {
 		struct target_event_callback *t = pe->next;

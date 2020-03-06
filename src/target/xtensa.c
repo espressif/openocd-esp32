@@ -2136,6 +2136,24 @@ int xtensa_init_arch_info(struct target *target, struct xtensa *xtensa,
 	return ERROR_OK;
 }
 
+void xtensa_deinit(struct target *target)
+{
+	struct xtensa *xtensa = target_to_xtensa(target);
+
+	LOG_DEBUG("start");
+	int ret = xtensa_queue_dbg_reg_write(xtensa, NARADR_DCRCLR, OCDDCR_ENABLEOCD);
+	if (ret != ERROR_OK) {
+		LOG_ERROR("Failed to queue OCDDCR_ENABLEOCD clear operation!");
+		return;
+	}
+	xtensa_dm_queue_tdi_idle(&xtensa->dbg_mod);
+	ret = jtag_execute_queue();
+	if (ret != ERROR_OK) {
+		LOG_ERROR("Failed to clear OCDDCR_ENABLEOCD!");
+		return;
+	}
+}
+
 COMMAND_HELPER(xtensa_cmd_permissive_mode_do, struct xtensa *xtensa)
 {
 	if (CMD_ARGC != 1)

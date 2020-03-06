@@ -549,6 +549,7 @@ struct target_type esp32_s2_target = {
 	.target_create = esp32_s2_target_create,
 	.init_target = esp32_s2_target_init,
 	.examine = xtensa_examine,
+	.deinit_target = esp_xtensa_target_deinit,
 
 	.commands = esp32_s2_command_handlers,
 };

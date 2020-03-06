@@ -134,11 +134,13 @@ int esp_xtensa_init_arch_info(struct target *target,
 	const struct xtensa_chip_ops *chip_ops,
 	const struct esp_xtensa_special_breakpoint_ops *spec_brps_ops);
 int esp_xtensa_target_init(struct command_context *cmd_ctx, struct target *target);
+void esp_xtensa_target_deinit(struct target *target);
 int esp_xtensa_arch_state(struct target *target);
 void esp_xtensa_queue_tdi_idle(struct target *target);
 int esp_xtensa_breakpoint_add(struct target *target, struct breakpoint *breakpoint);
 int esp_xtensa_breakpoint_remove(struct target *target, struct breakpoint *breakpoint);
 bool esp_xtensa_is_special_breakpoint(struct target *target, struct breakpoint *breakpoint);
+int esp_xtensa_special_breakpoints_clear(struct target *target);
 void esp_xtensa_on_reset(struct target *target);
 bool esp_xtensa_on_halt(struct target *target);
 void esp_xtensa_on_poll(struct target *target);

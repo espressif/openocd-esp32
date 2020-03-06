@@ -530,6 +530,7 @@ static int esp32_handle_target_event(struct target *target, enum target_event ev
 {
 	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
 	enum target_state old_state = target->state;
+	int ret;
 
 	if (target != priv)
 		return ERROR_OK;
@@ -544,18 +545,44 @@ static int esp32_handle_target_event(struct target *target, enum target_event ev
 				xtensa_mcore->cores_num = 1;
 			LOG_DEBUG("Detected %d cores", xtensa_mcore->cores_num);
 			break;
+		case TARGET_EVENT_GDB_DETACH:
+		{
+			if (target->state != TARGET_HALTED) {
+				ret = target_halt(target);
+				if (ret != ERROR_OK) {
+					LOG_ERROR(
+						"%s: Failed to halt target to remove flash BPs (%d)!",
+						target_name(target),
+						ret);
+					return ret;
+				}
+				ret = target_wait_state(target, TARGET_HALTED, 3000);
+				if (ret != ERROR_OK) {
+					LOG_ERROR(
+						"%s: Failed to wait halted target to remove flash BPs (%d)!",
+						target_name(target),
+						ret);
+					return ret;
+				}
+			}
+			for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
+				ret = esp_xtensa_special_breakpoints_clear(
+					&xtensa_mcore->cores_targets[i]);
+				if (ret != ERROR_OK)
+					return ret;
+			}
+			break;
+		}
 		default:
 			break;
 	}
 
-	for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++)
-		target_call_event_callbacks(&xtensa_mcore->cores_targets[i], event);
-
-	if (event == TARGET_EVENT_GDB_DETACH && old_state == TARGET_RUNNING) {
-		/* the target was stopped by esp_xtensa_handle_target_event(), but not resumed because
-		 esp32_xtensa_core_resume() does nothing
-		 TODO: remove this hack when normal OpenOCD SMP mechanism is supported */
-		int ret = target_resume(target, 1, 0, 1, 0);
+	if (event != TARGET_EVENT_GDB_DETACH) {
+		for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++)
+			target_call_event_callbacks(&xtensa_mcore->cores_targets[i], event);
+	} else if (old_state == TARGET_RUNNING) {
+		/* TODO: remove this hack when normal OpenOCD SMP mechanism is supported */
+		ret = target_resume(target, 1, 0, 1, 0);
 		if (ret != ERROR_OK) {
 			LOG_ERROR(
 				"%s: Failed to resume target after flash BPs removal (%d)!",
@@ -564,7 +591,6 @@ static int esp32_handle_target_event(struct target *target, enum target_event ev
 			return ret;
 		}
 	}
-
 	return ERROR_OK;
 }
 
@@ -580,6 +606,14 @@ static int esp32_target_init(struct command_context *cmd_ctx, struct target *tar
 		return ret;
 	xtensa_mcore->smp_break = OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN;
 	return ERROR_OK;
+}
+
+static void esp32_target_deinit(struct target *target)
+{
+	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
+
+	for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++)
+		xtensa_mcore->cores_targets[i].type->deinit_target(&xtensa_mcore->cores_targets[i]);
 }
 
 static int esp32_xtensa_core_resume(struct target *target,
@@ -639,6 +673,7 @@ static struct target_type esp32_xtensa_core_target_type = {
 
 	.init_target = esp_xtensa_target_init,
 	.examine = xtensa_examine,
+	.deinit_target = esp_xtensa_target_deinit,
 };
 
 static struct xtensa_debug_ops esp32_dbg_ops = {
@@ -930,6 +965,7 @@ struct target_type esp32_target = {
 	.target_create = esp32_target_create,
 	.init_target = esp32_target_init,
 	.examine = xtensa_mcore_examine,
+	.deinit_target = esp32_target_deinit,
 
 	.commands = esp32_all_command_handlers,
 
