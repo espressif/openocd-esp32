@@ -58,7 +58,7 @@ static int jtag_libusb_error(int err)
 	}
 }
 
-static bool jtag_libusb_match(struct libusb_device_descriptor *dev_desc,
+static bool jtag_libusb_match_ids(struct libusb_device_descriptor *dev_desc,
 		const uint16_t vids[], const uint16_t pids[])
 {
 	for (unsigned i = 0; vids[i]; i++) {
@@ -123,6 +123,7 @@ static bool string_descriptor_equal(libusb_device_handle *device, uint8_t str_in
 	return matched;
 }
 
+//TODO erhan jtag_libusb_match_serial can be use?
 libusb_device *jtag_libusb_find_device(const uint16_t vids[], const uint16_t pids[], const char *serial)
 {
 	libusb_device **devices, *found_dev = NULL;
@@ -163,12 +164,44 @@ libusb_device *jtag_libusb_find_device(const uint16_t vids[], const uint16_t pid
 	}
 	if (cnt >= 0)
 		libusb_free_device_list(devices, 1);
+
 	return found_dev;
+}
+
+static bool jtag_libusb_match_serial(libusb_device_handle *device,
+		struct libusb_device_descriptor *dev_desc, const char *serial,
+		adapter_get_alternate_serial_fn adapter_get_alternate_serial)
+{
+	if (string_descriptor_equal(device, dev_desc->iSerialNumber, serial))
+		return true;
+
+	/* check the alternate serial helper */
+	if (!adapter_get_alternate_serial)
+		return false;
+
+	/* get the alternate serial */
+	char *alternate_serial = adapter_get_alternate_serial(device, dev_desc);
+
+	/* check possible failures */
+	if (alternate_serial == NULL)
+		return false;
+
+	/* then compare and free the alternate serial */
+	bool match = false;
+	if (strcmp(serial, alternate_serial) == 0)
+		match = true;
+	else
+		LOG_DEBUG("Device alternate serial number '%s' doesn't match requested serial '%s'",
+				alternate_serial, serial);
+
+	free(alternate_serial);
+	return match;
 }
 
 int jtag_libusb_open(const uint16_t vids[], const uint16_t pids[],
 		const char *serial,
-		struct libusb_device_handle **out)
+		struct libusb_device_handle **out,
+		adapter_get_alternate_serial_fn adapter_get_alternate_serial)
 {
 	int cnt, idx, errCode;
 	int retval = ERROR_FAIL;
@@ -186,7 +219,7 @@ int jtag_libusb_open(const uint16_t vids[], const uint16_t pids[],
 		if (libusb_get_device_descriptor(devs[idx], &dev_desc) != 0)
 			continue;
 
-		if (!jtag_libusb_match(&dev_desc, vids, pids))
+		if (!jtag_libusb_match_ids(&dev_desc, vids, pids))
 			continue;
 
 		if (jtag_usb_get_location() && !jtag_libusb_location_equal(devs[idx]))
@@ -202,7 +235,7 @@ int jtag_libusb_open(const uint16_t vids[], const uint16_t pids[],
 
 		/* Device must be open to use libusb_get_string_descriptor_ascii. */
 		if (serial != NULL &&
-				!string_descriptor_equal(libusb_handle, dev_desc.iSerialNumber, serial)) {
+				!jtag_libusb_match_serial(libusb_handle, &dev_desc, serial, adapter_get_alternate_serial)) {
 			serial_mismatch = true;
 			libusb_close(libusb_handle);
 			continue;
