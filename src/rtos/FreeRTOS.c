@@ -123,7 +123,7 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 	rtos_freertos_esp32_pick_stacking_info, /* fn to pick stacking_info */
 	},
 	{
-	"esp32_s2",				/* target_name */
+	"esp32s2",				/* target_name */
 	4,						/* thread_count_width; */
 	4,						/* pointer_width; */
 	16,						/* list_next_offset; */
