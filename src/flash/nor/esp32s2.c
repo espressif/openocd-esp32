@@ -120,7 +120,7 @@ FLASH_BANK_COMMAND_HANDLER(esp32_s2_flash_bank_command)
 
 static int esp32_s2_get_info(struct flash_bank *bank, char *buf, int buf_size)
 {
-	snprintf(buf, buf_size, "ESP32_S2");
+	snprintf(buf, buf_size, "ESP32S2");
 	return ERROR_OK;
 }
 
@@ -136,7 +136,7 @@ static const struct command_registration esp32_s2_command_handlers[] = {
 };
 
 struct flash_driver esp32_s2_flash = {
-	.name = "esp32_s2",
+	.name = "esp32s2",
 	.commands = esp32_s2_command_handlers,
 	.flash_bank_command = esp32_s2_flash_bank_command,
 	.erase = esp_xtensa_erase,
