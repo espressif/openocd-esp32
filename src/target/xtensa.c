@@ -1112,6 +1112,14 @@ int xtensa_do_step(struct target *target,
 		return ERROR_OK;
 	}
 
+	/* Xtensa has an ICOUNTLEVEL register which sets the maximum interrupt level at which the
+	 * instructions are to be counted while stepping.
+	 * For example, if we need to step by 2 instructions, and an interrupt occurs inbetween,
+	 * the processor will execute the interrupt, return, and halt after the 2nd instruction.
+	 * However, sometimes we don't want the interrupt handlers to be executed at all, while
+	 * stepping through the code. In this case (XT_STEPPING_ISR_OFF), PS.INTLEVEL can be raised
+	 * to only allow Debug and NMI interrupts.
+	 */
 	if (xtensa->stepping_isr_mode == XT_STEPPING_ISR_OFF) {
 		if (!xtensa->core_config->high_irq.enabled) {
 			LOG_WARNING(
@@ -1119,12 +1127,12 @@ int xtensa_do_step(struct target *target,
 				target_name(target));
 			return ERROR_FAIL;
 		}
-		/* Increasing the interrupt level to avoid taking interrupts while stepping. */
+		/* Mask all interrupts below Debug, i.e. PS.INTLEVEL = DEBUGLEVEL - 1 */
 		xtensa_reg_val_t temp_ps = (oldps & ~0xF) |
-			xtensa->core_config->high_irq.excm_level;
+			(xtensa->core_config->debug.irq_level - 1);
 		xtensa_reg_set(target, XT_REG_IDX_PS, temp_ps);
-		/* Now we have to set up max posssible interrupt level (ilevel + 1) */
-		icountlvl = xtensa->core_config->high_irq.excm_level + 1;
+		/* Update ICOUNTLEVEL accordingly */
+		icountlvl = xtensa->core_config->debug.irq_level;
 	} else
 		icountlvl = (oldps & 0xF) + 1;
 
