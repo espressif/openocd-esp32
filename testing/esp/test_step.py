@@ -263,6 +263,31 @@ class StepTestsImpl():
             cur_frame = self.gdb.get_current_frame()
             self.assertEqual(cur_frame['func'], 'step_out_of_function_test')
 
+    def test_step_level5_int(self):
+        """
+            1) Set a breakpoint inside a level 5 interrupt vector
+            2) Wait until it hits
+            3) Step into the handler
+            4) Return from the interrupt
+        """
+        self.select_sub_test(202)
+        self.add_bp('_Level5Vector')
+        for _ in range(3):
+            self.resume_exec()
+            rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
+            self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
+            self.assertEqual(self.gdb.get_current_frame()['func'], '_Level5Vector')
+
+            # Step into the interrupt handler
+            self.step(insn=True)
+            self.step(insn=True)
+            self.assertEqual(self.gdb.get_current_frame()['func'], 'xt_highint5')
+
+            # Step out of the interrupt handler
+            for _ in range(12):
+                self.step(insn=True)
+            self.assertNotEqual(self.gdb.get_current_frame()['func'], 'xt_highint5')
+
 
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
