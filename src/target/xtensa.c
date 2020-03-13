@@ -1185,7 +1185,7 @@ int xtensa_do_step(struct target *target,
 			/*Do not use target_poll here, it also triggers other things... just
 			 * manually read the DSR until stepping */
 			/*is complete. */
-			usleep(50000);
+			usleep(1000);
 			res = xtensa_dm_core_status_read(&xtensa->dbg_mod);
 			if (res != ERROR_OK) {
 				LOG_ERROR("%s: Failed to read core status!", target_name(target));
@@ -1194,7 +1194,7 @@ int xtensa_do_step(struct target *target,
 			if (xtensa_is_stopped(target))
 				break;
 			else
-				usleep(50000);
+				usleep(1000);
 		}
 		LOG_DEBUG("%s: Finish stepping. dsr=0x%08x",
 			target_name(target),
