@@ -1,4 +1,4 @@
-file(GLOB GEN_UT_SRCS "*.c")
+file(GLOB GEN_UT_SRCS "*.c" "*.S")
 idf_component_register(SRCS ${GEN_UT_SRCS}
                     INCLUDE_DIRS ".")
 
@@ -45,3 +45,5 @@ endif()
 
 configure_file(ut_idf_ver.h.in ${idf_ver_header_path} @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
+target_link_libraries(${COMPONENT_LIB} INTERFACE "-u include_xt_highint5")

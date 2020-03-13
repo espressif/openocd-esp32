@@ -5,3 +5,4 @@ test_apps/gen_ut_app/output
 test_apps/gen_ut_app/sdkconfig
 *.gcov
 results/
+build/

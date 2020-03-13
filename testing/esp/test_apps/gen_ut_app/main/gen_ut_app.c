@@ -10,6 +10,8 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/xtensa_api.h"
+#include "xtensa/core-macros.h"
 #include "driver/gpio.h"
 #include "driver/timer.h"
 #include "gen_ut_app.h"
@@ -218,6 +220,16 @@ void step_out_of_function_test()
     }
 }
 
+#define L5_TIMER_INUM   16
+
+void level5_int_test(void* arg)
+{
+    XTHAL_SET_CCOMPARE(2, XTHAL_GET_CCOUNT() + 1000000);
+    xt_ints_on(BIT(L5_TIMER_INUM));
+    while(true) {
+        vTaskDelay(1);
+    }
+}
 
 static void scratch_reg_using_task(void *pvParameter)
 {
@@ -277,7 +289,7 @@ static void step_over_bp_task(void *pvParameter)
     }
 }
 
-static void fibonacci_calc(void)
+static void fibonacci_calc(void* arg)
 /* calculation of 3 fibonacci sequences: f0, f1 abd f2
  * f(n) = f(n-1) + f(n-2) -> f(n) : 0, 1, 1, 2, 3, 5, 8, 13, 21, 34, ...*/
 {
@@ -332,6 +344,8 @@ void app_main()
         xTaskCreate(&window_exception_test, "win_exc_task", 8192, NULL, 5, NULL);
     } else if (s_run_test == 201){
         xTaskCreate(&step_out_of_function_test, "step_out_func", 2048, NULL, 5, NULL);
+    } else if (s_run_test == 202){
+        xTaskCreate(&level5_int_test, "level5_int_test", 2048, NULL, 5, NULL);
     } else {
         ut_result_t res = UT_UNSUPPORTED;
         for (int i = 0; i < sizeof(s_test_funcs)/sizeof(s_test_funcs[0]); i++) {
