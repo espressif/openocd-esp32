@@ -209,7 +209,7 @@ variables:
   tar -C ${TEST_RUN_DIR} -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
   export DIST_DIR=${PWD}/${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}
   pushd $PWD/testing/esp
-  git clone --depth 1 $GITLAB_SSH_SERVER/espressif/py_debug_backend.git
+  git clone --depth 1 -b feature/gdb_stream_handlers $GITLAB_SSH_SERVER/espressif/py_debug_backend.git
   popd
   export PYTHONPATH=$PWD/${TEST_RUN_DIR}:$PWD/testing/esp/py_debug_backend
   . $PWD/${TEST_RUN_DIR}/gen_ut_app/gcov_data/gcov_env.sh
