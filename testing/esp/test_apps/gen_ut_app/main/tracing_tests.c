@@ -248,6 +248,38 @@ static void os_trace_test_task(void *pvParameter)
     }
 }
 
+/* CONFIG_ESP32_APPTRACE_ENABLE is for IDF <= 4.0 */
+#if defined(CONFIG_APPTRACE_ENABLE) || defined(CONFIG_ESP32_APPTRACE_ENABLE)
+
+static int apptrace_writefn(void* cookie, const char* data, int size)
+{
+    int res = esp_apptrace_write(ESP_APPTRACE_DEST_TRAX, data, size, 1000);
+    if (res != ESP_OK) {
+        return 0;
+    }
+    esp_apptrace_flush(ESP_APPTRACE_DEST_TRAX, 1000);
+    return size;
+}
+
+static void raw_trace_log_done(void)
+{
+    __asm__ __volatile__("nop");
+}
+
+static void raw_trace_log(void* arg)
+{
+    stdout = fwopen(NULL, &apptrace_writefn);
+    static char stdout_buf[128];
+    setvbuf(stdout, stdout_buf, _IOLBF, sizeof(stdout_buf));
+
+    for (int i = 0; i < 10; ++i) {
+        printf("[%d %*.s]\n", i, i * 20, "test");
+    }
+    raw_trace_log_done();
+    vTaskDelete(NULL);
+}
+#endif // CONFIG_APPTRACE_ENABLE
+
 ut_result_t tracing_test_do(int test_num)
 {
 #if UT_IDF_VER == UT_IDF_VER_LATEST
@@ -300,6 +332,13 @@ ut_result_t tracing_test_do(int test_num)
 #endif
             break;
         }
+#if defined(CONFIG_APPTRACE_ENABLE) || defined(CONFIG_ESP32_APPTRACE_ENABLE)
+        case 503:
+        {
+            xTaskCreate(raw_trace_log, "raw_trace_log", 2048, NULL, 5, NULL);
+            break;
+        }
+#endif //CONFIG_APPTRACE_ENABLE
         default:
             return UT_UNSUPPORTED;
     }
