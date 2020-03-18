@@ -310,6 +310,9 @@ int xtensa_mcore_target_init(struct command_context *cmd_ctx, struct target *tar
 		int res = sub_target->type->init_target(cmd_ctx, sub_target);
 		if (res != ERROR_OK)
 			return res;
+		res = xtensa_semihosting_init(sub_target);
+		if (res != ERROR_OK)
+			return res;
 	}
 	return ERROR_OK;
 }
@@ -377,12 +380,19 @@ int xtensa_mcore_init_arch_info(struct target *target, struct xtensa_mcore_commo
 	return ERROR_OK;
 }
 
+static void xtensa_mcore_poll_resume(struct target *target)
+{
+	int res = target_resume(target, 1, 0, 1, 0);
+	if (res != ERROR_OK)
+		LOG_ERROR("Failed to resume target upon core request!");
+}
+
 /* TODO: refactor this function into smaller ones */
 int xtensa_mcore_poll(struct target *target)
 {
 	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
-	bool need_resume = false;
 	int res;
+	bool s_need_resume = false;
 
 	uint32_t core_poweron_mask = 0;
 	for (uint8_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
@@ -452,7 +462,6 @@ int xtensa_mcore_poll(struct target *target)
 		common_power_stat |= xtensa_dm_power_status_get(&xtensa->dbg_mod);
 	}
 	if (common_core_stat & OCDDSR_STOPPED) {
-		int oldstate = target->state;
 		bool algo_stopped = false;
 		if (target->state == TARGET_DEBUG_RUNNING) {
 			/* algo can be run on any CPU while other one can be stalled by SW run on target, in this case OCDDSR_STOPPED will not be set for other CPU;
@@ -483,6 +492,7 @@ int xtensa_mcore_poll(struct target *target)
 			/* TODO: When BreakIn/BreakOut is enabled other CPU is stopped
 			 * automatically. */
 			/* Should we stop the second CPU if BreakIn/BreakOut is not configured? */
+			int target_state_old = target->state;
 			target->state = TARGET_HALTED;
 			/*Examine why the target has been halted */
 			target->debug_reason = DBG_REASON_UNDEFINED;
@@ -570,12 +580,12 @@ int xtensa_mcore_poll(struct target *target)
 				struct target *sub_target = &xtensa_mcore->cores_targets[i];
 				struct xtensa *xtensa = target_to_xtensa(sub_target);
 				LOG_DEBUG(
-					"%s.%s: Target halted, pc=0x%08X, debug_reason=%08x, oldstate=%08x, active=%s",
+					"%s.%s: Target halted, pc=0x%08X, debug_reason=%08x, target_state_old=%08x, active=%s",
 					target_name(target),
 					target_name(sub_target),
 					xtensa_reg_get(sub_target, XT_REG_IDX_PC),
 					target->debug_reason,
-					oldstate,
+					target_state_old,
 					(i == xtensa_mcore->active_core) ? "true" : "false");
 				LOG_DEBUG("%s.%s: Halt reason=0x%08X, exc_cause=%d, dsr=0x%08x",
 					target_name(target),
@@ -599,14 +609,15 @@ int xtensa_mcore_poll(struct target *target)
 			target->coreid = xtensa_mcore->active_core;
 			/*Call any event callbacks that are applicable
 			 * TODO: disable WDTs */
-			if (oldstate == TARGET_DEBUG_RUNNING)
+			if (target_state_old == TARGET_DEBUG_RUNNING)
 				target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
 			else {
-				need_resume = xtensa_mcore->chip_ops->on_halt !=
-					NULL ? xtensa_mcore->chip_ops->on_halt(target) : false;
+				s_need_resume =
+					(xtensa_mcore->chip_ops->on_halt !=
+					NULL ? xtensa_mcore->chip_ops->on_halt(target) : false);
 				/* in case of semihosting call we will resume automatically a bit
 				 * later, so do not confuse GDB */
-				if (!need_resume)
+				if (!s_need_resume)
 					target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 			}
 		}
@@ -628,11 +639,8 @@ int xtensa_mcore_poll(struct target *target)
 	}
 	if (xtensa_mcore->chip_ops->on_poll != NULL)
 		xtensa_mcore->chip_ops->on_poll(target);
-	if (need_resume) {
-		res = target_resume(target, 1, 0, 1, 0);
-		if (res != ERROR_OK)
-			LOG_ERROR("Failed to resume target upon core request!");
-	}
+	if (s_need_resume)
+		xtensa_mcore_poll_resume(target);
 	return ERROR_OK;
 }
 

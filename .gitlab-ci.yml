@@ -134,12 +134,16 @@ variables:
 .finish_test_app_build: &finish_test_app_build |
   export UT_APP_DIR=$PWD
   mkdir -p $UT_APP_DIR/gcov_data
-  pushd $UT_APP_DIR/builds/gcov_dual
-  find . -type d -exec mkdir -p $UT_APP_DIR/gcov_data/gcov_dual/\{\} \;
-  popd
-  pushd $UT_APP_DIR/builds/gcov_single
-  find . -type d -exec mkdir -p $UT_APP_DIR/gcov_data/gcov_single/\{\} \;
-  popd
+  if [ -d "$UT_APP_DIR/builds/gcov_dual" ]; then
+    pushd $UT_APP_DIR/builds/gcov_dual
+    find . -type d -exec mkdir -p $UT_APP_DIR/gcov_data/gcov_dual/\{\} \;
+    popd
+  fi
+  if [ -d "$UT_APP_DIR/builds/gcov_single" ]; then
+    pushd $UT_APP_DIR/builds/gcov_single
+    find . -type d -exec mkdir -p $UT_APP_DIR/gcov_data/gcov_single/\{\} \;
+    popd
+  fi
   echo "export OPENOCD_GCOV_PREFIX=$UT_APP_DIR/gcov_data" > $UT_APP_DIR/gcov_data/gcov_env.sh
   export PREFIX_STRIP=$(awk -F"/" '{print NF-1}' <<< $UT_APP_DIR/builds)
   echo "export OPENOCD_GCOV_PREFIX_STRIP=$PREFIX_STRIP" >> $UT_APP_DIR/gcov_data/gcov_env.sh
@@ -173,6 +177,19 @@ variables:
     - *finish_test_app_build
     - *prepare_espytrace_package
 
+.do_build_test_app: &do_build_test_app |
+  if [ -z "$TEST_APP_CONFIGS" ]; then
+    echo "Build ALL"
+    $IDF_PATH/tools/idf.py -D IDF_TARGET=esp32 ut-build-all-configs
+  else
+    for cfg_name in $TEST_APP_CONFIGS
+    do
+      echo "Build <${cfg_name}>"
+      $IDF_PATH/tools/idf.py ut-apply-config-$cfg_name
+      $IDF_PATH/tools/idf.py ut-build-$cfg_name
+    done
+  fi
+
 .build_test_app_template: &build_test_app_template
   stage: build
   image: $CI_DOCKER_REGISTRY/esp32-ci-env
@@ -200,7 +217,7 @@ variables:
     # in the image and `export.sh` fails w/o adding tools to $PATH
     - idf_exports=$(${IDF_PATH}/tools/idf_tools.py export) || true
     - eval "${idf_exports}"
-    - $IDF_PATH/tools/idf.py -D IDF_TARGET=esp32 ut-build-all-configs
+    - *do_build_test_app
     - *finish_test_app_build
     - *prepare_espytrace_package
 
@@ -393,6 +410,7 @@ build_test_app:
   <<: *build_test_app_template
   variables:
     BUILD_TEST_APP_DIR: "build_test_app"
+    TEST_APP_CONFIGS: ""
     TEST_APP_IDF_TAG: $CI_COMMIT_REF_NAME
     UT_GET_IDF_VER: "0"
 
@@ -400,7 +418,16 @@ build_test_app_legacy_idf_release:
   <<: *build_legacy_test_app_template
   variables:
     BUILD_TEST_APP_DIR: "build_test_app_legacy_idf_release"
-    TEST_APP_IDF_TAG: "release/v$TEST_APP_LEGACY_IDF_RELEASE_TAG"
+    TEST_APP_CONFIGS: ""
+    TEST_APP_IDF_TAG: "v$TEST_APP_LEGACY_IDF_RELEASE_TAG"
+    UT_GET_IDF_VER: "1"
+
+build_test_app_custom_idf_release:
+  <<: *build_test_app_template
+  variables:
+    BUILD_TEST_APP_DIR: "build_test_app_custom_idf_release"
+    TEST_APP_CONFIGS: "default single_core"
+    TEST_APP_IDF_TAG: "v$TEST_APP_CUSTOM_IDF_RELEASE_TAG"
     UT_GET_IDF_VER: "1"
 
 tests_linux64:
@@ -426,6 +453,19 @@ tests_linux64_legacy_idf_release:
     PLATFORM_NAME: "linux64"
     TEST_RUN_DIR: "build_test_app_legacy_idf_release"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v"
+
+tests_linux64_custom_idf_release:
+  <<: *tests_linux_template
+  tags:
+    - test_jtag
+  dependencies:
+    - build_test_app_custom_idf_release
+    - build_linux
+  variables:
+    PLATFORM_NAME: "linux64"
+    TEST_RUN_DIR: "build_test_app_custom_idf_release"
+    # currently we need to run semihost test on IDF with old semihost driver
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_CUSTOM_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_semihost"
 
 tests_armel:
   stage: test

@@ -25,30 +25,10 @@
 #include "esp_xtensa.h"
 #include "xtensa_mcore.h"
 #include "esp_xtensa_apptrace.h"
+#include "esp_xtensa_semihosting.h"
 
 #define ESP_XTENSA_SYSCALL     XT_INS_BREAK(1,1)
 #define ESP_XTENSA_SYSCALL_SZ  3
-
-#define ESP_SYS_OPEN        0x01
-#define ESP_SYS_CLOSE       0x02
-#define ESP_SYS_WRITE       0x05
-#define ESP_SYS_READ        0x06
-#define ESP_SYS_SEEK        0x0A
-
-#define ESP_FD_MIN          2
-
-#define ESP_O_RDONLY        0
-#define ESP_O_WRONLY        1
-#define ESP_O_RDWR          2
-#define ESP_O_APPEND        0x0008
-#define ESP_O_CREAT         0x0200
-#define ESP_O_TRUNC         0x0400
-#define ESP_O_EXCL          0x0800
-#define ESP_O_SEMIHOST_ABSPATH  0x80000000
-
-#define SYSCALL_PARAM2_REG  XT_REG_IDX_A3
-#define SYSCALL_RETVAL_REG  XT_REG_IDX_A2
-#define SYSCALL_ERRNO_REG   SYSCALL_PARAM2_REG
 
 #define ESP_XTENSA_DBGSTUBS_UPDATE_DATA_ENTRY(_e_) \
 	do { \
@@ -70,7 +50,6 @@
 
 static void esp_xtensa_dbgstubs_info_update(struct target *target);
 static void esp_xtensa_dbgstubs_addr_check(struct target *target);
-static int esp_xtensa_do_semihosting(struct target *target);
 
 
 static int esp_xtensa_dbgstubs_restore(struct target *target)
@@ -276,7 +255,7 @@ bool esp_xtensa_on_halt(struct target *target)
 		if (res != ERROR_OK)
 			LOG_ERROR("Failed to read break instruction!");
 		else if (buf_get_u32(brk_insn_buf, 0, 32) == ESP_XTENSA_SYSCALL) {
-			if (esp_xtensa_do_semihosting(target) == ERROR_OK)
+			if (esp_xtensa_semihosting(target) == ERROR_OK)
 				return true;
 		}
 	}
@@ -443,198 +422,6 @@ void esp_xtensa_queue_tdi_idle(struct target *target)
 	jtag_add_plain_ir_scan(1, t, NULL, TAP_IRPAUSE);
 }
 
-static int esp_xtensa_do_semihosting(struct target *target)
-{
-	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
-	int syscall_ret = 0, syscall_errno = 0, retval;
-	/* TODO: use a2, a3, a4, a5, a6 for syscall params when problem with a3 corruption will be
-	 * solved */
-	xtensa_reg_val_t a2 = xtensa_reg_get(target, XT_REG_IDX_A2);
-	xtensa_reg_val_t a3 = xtensa_reg_get(target, SYSCALL_PARAM2_REG);
-	xtensa_reg_val_t a4 = xtensa_reg_get(target, XT_REG_IDX_A4);
-	xtensa_reg_val_t a5 = xtensa_reg_get(target, XT_REG_IDX_A5);
-	xtensa_reg_val_t a6 = xtensa_reg_get(target, XT_REG_IDX_A6);
-
-	LOG_DEBUG("Call 0x%x 0x%x 0x%x 0x%x 0x%x %s",
-		a2,
-		a3,
-		a4,
-		a5,
-		a6,
-		esp_xtensa->semihost.basedir ? esp_xtensa->semihost.basedir : "");
-	switch (a2) {
-		case ESP_SYS_OPEN:
-		{
-			int mode, base_len = 0;
-
-			if (a4 == 0) {
-				LOG_ERROR("Zero file name length!");
-				syscall_ret = -1;
-				/* TODO: check errno corectness, here and in other places */
-				syscall_errno = EINVAL;
-				break;
-			}
-			if (esp_xtensa->semihost.basedir && (a5 & ESP_O_SEMIHOST_ABSPATH) == 0)
-				base_len = strlen(esp_xtensa->semihost.basedir);
-			char *file_name = malloc(base_len+a4+1);
-			if (!file_name) {
-				LOG_ERROR("Failed to alloc memory for file name!");
-				syscall_ret = -1;
-				syscall_errno = EINVAL;
-				break;
-			}
-			if (esp_xtensa->semihost.basedir)
-				strcpy(file_name, esp_xtensa->semihost.basedir);
-			retval = target_read_buffer(target, a3, a4, (uint8_t *)file_name+base_len);
-			if (retval != ERROR_OK) {
-				free(file_name);
-				LOG_ERROR("Failed to read name of file to open!");
-				syscall_ret = -1;
-				syscall_errno = EINVAL;
-				break;
-			}
-			file_name[base_len+a4] = 0;
-
-			if (a5 & ESP_O_RDWR)
-				mode = O_RDWR;
-			else if (a5 & ESP_O_WRONLY)
-				mode = O_WRONLY;
-			else
-				mode = O_RDONLY;
-			if (a5 & ESP_O_APPEND)
-				mode |= O_APPEND;
-			if (a5 & ESP_O_CREAT)
-				mode |= O_CREAT;
-			if (a5 & ESP_O_TRUNC)
-				mode |= O_TRUNC;
-			if (a5 & ESP_O_EXCL)
-				mode |= O_EXCL;
-
-#ifdef _WIN32
-			/* Windows needs O_BINARY flag for proper handling of EOLs */
-			mode |= O_BINARY;
-#endif
-			/* cygwin requires the permission setting
-			 * otherwise it will fail to reopen a previously
-			 * written file */
-			syscall_ret = open(file_name, mode, 0644);
-			syscall_errno = errno;
-			LOG_DEBUG("Open file '%s' -> %d. Error %d.",
-				file_name,
-				syscall_ret,
-				syscall_errno);
-			free(file_name);
-			break;
-		}
-		case ESP_SYS_CLOSE:
-			if (a3 <= ESP_FD_MIN) {
-				LOG_ERROR("Invalid file desc %d!", a3);
-				syscall_ret = -1;
-				/* TODO: check errno corectness, here and in other places */
-				syscall_errno = EINVAL;
-				break;
-			}
-			syscall_ret = close(a3);
-			syscall_errno = errno;
-			LOG_DEBUG("Close file %d. Ret %d. Error %d.", a3, syscall_ret,
-			syscall_errno);
-			break;
-		case ESP_SYS_WRITE:
-		{
-			LOG_DEBUG("Req write file %d. %d bytes.", a3, a5);
-			if (a3 <= ESP_FD_MIN) {
-				LOG_ERROR("Invalid file desc %d!", a3);
-				syscall_ret = -1;
-				/* TODO: check errno corectness, here and in other places */
-				syscall_errno = EINVAL;
-				break;
-			}
-			if (a5 == 0) {
-				syscall_ret = 0;
-				syscall_errno = 0;
-				break;
-			}
-			uint8_t *buf = malloc(a5);
-			if (!buf) {
-				syscall_ret = -1;
-				syscall_errno = ENOMEM;
-				break;
-			}
-			retval = target_read_buffer(target, a4, a5, buf);
-			if (retval != ERROR_OK) {
-				free(buf);
-				syscall_ret = -1;
-				syscall_errno = EINVAL;
-				break;
-			}
-			syscall_ret = write(a3, buf, a5);
-			syscall_errno = errno;
-			LOG_DEBUG("Wrote file %d. %d bytes.", a3, a5);
-			free(buf);
-			break;
-		}
-		case ESP_SYS_READ:
-		{
-			LOG_DEBUG("Req read file %d. %d bytes.", a3, a5);
-			if (a3 <= ESP_FD_MIN) {
-				LOG_ERROR("Invalid file desc %d!", a3);
-				syscall_ret = -1;
-				/* TODO: check errno corectness, here and in other places */
-				syscall_errno = EINVAL;
-				break;
-			}
-			if (a5 == 0) {
-				syscall_ret = 0;
-				syscall_errno = 0;
-				break;
-			}
-			uint8_t *buf = malloc(a5);
-			if (!buf) {
-				syscall_ret = -1;
-				syscall_errno = ENOMEM;
-				break;
-			}
-			syscall_ret = read(a3, buf, a5);
-			syscall_errno = errno;
-			LOG_DEBUG("Read file %d. %d bytes.", a3, a5);
-			if (syscall_ret >= 0) {
-				retval = target_write_buffer(target, a4, syscall_ret, buf);
-				if (retval != ERROR_OK) {
-					free(buf);
-					syscall_ret = -1;
-					syscall_errno = EINVAL;
-					break;
-				}
-			}
-			free(buf);
-			break;
-		}
-		case ESP_SYS_SEEK:
-		{
-			LOG_DEBUG("Req seek file %d. To %x, mode %d.", a3, a4, a5);
-			if (a3 <= ESP_FD_MIN) {
-				LOG_ERROR("Invalid file desc %d!", a3);
-				syscall_ret = -1;
-				/* TODO: check errno corectness, here and in other places */
-				syscall_errno = EINVAL;
-				break;
-			}
-			syscall_ret = lseek(a3, a4, a5);
-			syscall_errno = errno;
-			LOG_DEBUG("Seek file %d. To %x, mode %d.", a3, a4, a5);
-			break;
-		}
-		default:
-			LOG_WARNING("Unsupported syscall %x!", a2);
-			syscall_ret = -1;
-			syscall_errno = EINVAL;
-	}
-
-	xtensa_reg_set(target, SYSCALL_RETVAL_REG, syscall_ret);
-	xtensa_reg_set(target, SYSCALL_PARAM2_REG, syscall_errno);
-
-	return ERROR_OK;
-}
 
 COMMAND_HELPER(esp_xtensa_cmd_flashbootstrap_do, struct esp_xtensa_common *esp_xtensa)
 {

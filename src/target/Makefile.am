@@ -142,8 +142,10 @@ XTENSA_SRC= \
 	%D%/xtensa_debug_module.c \
 	%D%/xtensa_algorithm.c \
 	%D%/xtensa_mcore.c \
+	%D%/xtensa_semihosting.c \
 	%D%/esp_xtensa.c \
-	%D%/esp_xtensa_apptrace.c
+	%D%/esp_xtensa_apptrace.c \
+	%D%/esp_xtensa_semihosting.c
 
 ESP32_SRC= \
 	%D%/esp32.c \
