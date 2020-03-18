@@ -422,6 +422,11 @@ static int esp32_s2_target_init(struct command_context *cmd_ctx, struct target *
 	int ret = esp_xtensa_target_init(cmd_ctx, target);
 	if (ret != ERROR_OK)
 		return ret;
+
+	ret = esp_xtensa_semihosting_init(target);
+	if (ret != ERROR_OK)
+		return ERROR_FAIL;
+
 	return ERROR_OK;
 }
 

@@ -13,7 +13,7 @@ const static char *TAG = "tracing_tests";
 
 // need to protect part of the file with macro to get compiled successfully for the oldest supported IDF ver,
 // this comparison should be updated if oldest supported IDF ver is increased enough to provide those features
-#if UT_IDF_VER == UT_IDF_VER_LATEST
+#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0)
 #if CONFIG_HEAP_TRACING
 #include "esp_heap_trace.h"
 #endif //CONFIG_HEAP_TRACING
@@ -282,13 +282,13 @@ static void raw_trace_log(void* arg)
 
 ut_result_t tracing_test_do(int test_num)
 {
-#if UT_IDF_VER == UT_IDF_VER_LATEST
+#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0)
     static trace_test_task_arg_t task_args[2];
     memset(task_args, 0, sizeof(task_args));
 #endif // UT_IDF_VER
 
     switch(test_num) {
-#if UT_IDF_VER == UT_IDF_VER_LATEST
+#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0)
 #if CONFIG_HEAP_TRACING
         case 500:
         {

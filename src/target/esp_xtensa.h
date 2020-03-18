@@ -25,6 +25,8 @@
 #include "target.h"
 #include "command.h"
 #include "xtensa.h"
+#include "esp_xtensa_semihosting.h"
+
 
 /* must be in sync with ESP-IDF version */
 /** Size of the pre-compiled target buffer for stub trampoline.
@@ -33,6 +35,7 @@
 /** Size of the pre-compiled target buffer for stack.
  * @note Must be in sync with ESP-IDF version */
 #define ESP_DBG_STUBS_STACK_MIN_SIZE        2048/* TODO: move this info to esp_dbg_stubs_desc */
+
 
 /**
  * Debug stubs table entries IDs
@@ -104,8 +107,10 @@ struct esp_xtensa_special_breakpoint_ops {
 		struct esp_xtensa_special_breakpoint *spec_bp);
 };
 
+
 struct esp_xtensa_semihost_data {
 	char *basedir;
+	uint32_t version;	/* sending with drvinfo syscall */
 };
 
 struct esp_xtensa_common {

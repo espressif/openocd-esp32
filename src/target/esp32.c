@@ -516,7 +516,20 @@ static bool esp32_on_halt(struct target *target)
 	if (ret != ERROR_OK)
 		return false;
 	/* do some stuff generic for ESP Xtensa (semihosting) */
-	return esp_xtensa_on_halt(&xtensa_mcore->cores_targets[xtensa_mcore->active_core]);
+	struct target *active_sub_target = &xtensa_mcore->cores_targets[xtensa_mcore->active_core];
+	ret = esp_xtensa_on_halt(active_sub_target);
+
+	/* semihosting's version syncing */
+	for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
+		if (i != xtensa_mcore->active_core) {	/* for non-active cores */
+			/* take a core */
+			struct target *sub_target = &xtensa_mcore->cores_targets[i];
+			/* sync version with an active core */
+			target_to_esp_xtensa(sub_target)->semihost.version =
+				target_to_esp_xtensa(active_sub_target)->semihost.version;
+		}
+	}
+	return ret;
 }
 
 static int esp32_virt2phys(struct target *target,
@@ -597,13 +610,19 @@ static int esp32_handle_target_event(struct target *target, enum target_event ev
 static int esp32_target_init(struct command_context *cmd_ctx, struct target *target)
 {
 	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
-
 	int ret = target_register_event_callback(esp32_handle_target_event, target);
 	if (ret != ERROR_OK)
 		return ret;
+
 	ret = xtensa_mcore_target_init(cmd_ctx, target);
 	if (ret != ERROR_OK)
 		return ret;
+
+	for (int i = 0; i < xtensa_mcore->configured_cores_num; i++) {
+		struct target *sub_target = &xtensa_mcore->cores_targets[i];
+		if (esp_xtensa_semihosting_init(sub_target))
+			return ERROR_FAIL;
+	}
 	xtensa_mcore->smp_break = OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN;
 	return ERROR_OK;
 }

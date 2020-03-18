@@ -1,11 +1,17 @@
 import logging
 import tempfile
+
 import os
 import os.path
 import filecmp
 import debug_backend as dbg
 from debug_backend_tests import *
 
+import random
+import string
+
+REMOVE_TEMP_FILES = True
+USE_TEMP_FOLDER = True
 
 def get_logger():
     return logging.getLogger(__name__)
@@ -15,24 +21,38 @@ def get_logger():
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
 
-@idf_ver_min('latest')
+@idf_ver_min('4.0')
 class SemihostTestsImpl:
-    """ Test cases which are common for dual and single core modes
+    """
+    Test cases which are common for dual and single core modes. The test's scenario:
+    - Creates test_read.* files for each core of random genarated data
+    - Waiting for the end odf the test, expecting to get test_write.* files for each core
+    - Compare test_read.* vs test_write.*
+    - Test is OK if the files in pairs the same
     """
 
     def setUp(self):
-        semi_dir = tempfile.gettempdir()
+        def rand_seq(n_vals):
+            t = ""
+            while(n_vals) :
+                t += random.choice(string.ascii_letters)
+                n_vals -= 1
+            return t
+
+        if USE_TEMP_FOLDER:
+            semi_dir = tempfile.gettempdir()
+        else:
+            semi_dir = os.getcwd()
         self.oocd.set_semihost_basedir(semi_dir)
         self.fout_names = []
         self.fin_names = []
         for i in range(self.CORES_NUM):
             fname = os.path.join(semi_dir, 'test_read.%d' % i)
-            fout = open(fname, 'wb')
+            fout = open(fname, 'w')
             size = 1
             get_logger().info('Generate random file %dKB', size)
             for k in range(size):
-                fout.write(os.urandom(1024))
-            fout.write(os.urandom(3))
+                fout.write(rand_seq(1024))
             fout.close()
             self.fout_names.append(fname)
             fname = os.path.join(semi_dir, 'test_write.%d' % i)
@@ -42,10 +62,10 @@ class SemihostTestsImpl:
 
     def tearDown(self):
         for fname in self.fout_names:
-            if os.path.exists(fname):
+            if os.path.exists(fname) and REMOVE_TEMP_FILES:
                 os.remove(fname)
         for fname in self.fin_names:
-            if os.path.exists(fname):
+            if os.path.exists(fname) and REMOVE_TEMP_FILES:
                 os.remove(fname)
 
     def test_semihost_rw(self):

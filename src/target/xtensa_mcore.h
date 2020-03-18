@@ -26,6 +26,7 @@
 #include "command.h"
 #include "xtensa.h"
 #include "xtensa_algorithm.h"
+#include "xtensa_semihosting.h"
 
 struct xtensa_core_ops {
 	int (*core_init_arch_info)(struct target *target, struct target *chip_target,
