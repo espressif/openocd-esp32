@@ -323,8 +323,8 @@ ut_result_t tracing_test_do(int test_num)
         case 502:
         {
             static struct os_trace_task_arg task_args[2] = {
-                { .tim_grp = TIMER_GROUP_1, .tim_id = TIMER_0, .tim_period = 300000UL, .task_period = 500},
-                { .tim_grp = TIMER_GROUP_1, .tim_id = TIMER_1, .tim_period = 500000UL, .task_period = 2000}
+                { .tim_grp = TIMER_GROUP_1, .tim_id = TIMER_0, .tim_period = 300000UL /*us*/, .task_period = 500 /*ms*/},
+                { .tim_grp = TIMER_GROUP_1, .tim_id = TIMER_1, .tim_period = 500000UL /*us*/, .task_period = 2000 /*ms*/}
             };
             xTaskCreatePinnedToCore(os_trace_test_task, "trace_task0", 2048, (void *)&task_args[0], 5, NULL, 0);
 #if !CONFIG_FREERTOS_UNICORE

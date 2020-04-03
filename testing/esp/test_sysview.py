@@ -350,7 +350,7 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
 
         self.select_sub_test(502)
         self.resume_exec()
-        # colect trace
+        # collect trace
         time.sleep(3.0)
         if self.cores_num > 1:
             self.oocd.sysview_start(self.trace_ctrl[0]['src'], self.trace_ctrl[1]['src'])

@@ -180,13 +180,13 @@ variables:
 .do_build_test_app: &do_build_test_app |
   if [ -z "$TEST_APP_CONFIGS" ]; then
     echo "Build ALL"
-    $IDF_PATH/tools/idf.py -D IDF_TARGET=esp32 ut-build-all-configs
+    IDF_TARGET=${CHIP_NAME} $IDF_PATH/tools/idf.py ut-build-all-configs
   else
     for cfg_name in $TEST_APP_CONFIGS
     do
       echo "Build <${cfg_name}>"
-      $IDF_PATH/tools/idf.py ut-apply-config-$cfg_name
-      $IDF_PATH/tools/idf.py ut-build-$cfg_name
+      IDF_TARGET=${CHIP_NAME} $IDF_PATH/tools/idf.py ut-apply-config-$cfg_name
+      IDF_TARGET=${CHIP_NAME} $IDF_PATH/tools/idf.py ut-build-$cfg_name
     done
   fi
 
@@ -212,7 +212,8 @@ variables:
   script:
     - *add_gitlab_key
     - *prepare_test_app_build
-    - ${IDF_PATH}/tools/idf_tools.py install xtensa-esp32-elf
+    - ${IDF_PATH}/tools/idf_tools.py install xtensa-${CHIP_NAME}-elf
+    - ls -l ~/.espressif/dist/
     # cannot exec '. ${IDF_PATH}/export.sh' here because not all tools distros are presented
     # in the image and `export.sh` fails w/o adding tools to $PATH
     - idf_exports=$(${IDF_PATH}/tools/idf_tools.py export) || true
@@ -233,7 +234,7 @@ variables:
   popd
   export PYTHONPATH=$PWD/${TEST_RUN_DIR}:$PWD/testing/esp/py_debug_backend
   . $PWD/${TEST_RUN_DIR}/gen_ut_app/gcov_data/gcov_env.sh
-  testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log -to $PWD/$TEST_RUN_DIR/results $TEST_RUN_EXTRA_OPTS
+  testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -t xtensa-${CHIP_NAME}-elf- -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log -to $PWD/$TEST_RUN_DIR/results $TEST_RUN_EXTRA_OPTS
 
 .prepare_armel_test_env: &prepare_armel_test_env |
   MIRROR_SERVER="http://mirrors.ustc.edu.cn"
@@ -250,10 +251,10 @@ variables:
   apt-get update || true
   apt-get install -y -q --no-install-recommends python3 python3-pip libusb-1.0-0
   pip3 install -r testing/esp/requirements.txt
-  TOOLCHAIN_TAR=xtensa-esp32-elf-gcc8_2_0-esp-2019r2-linux-armel.tar.gz
+  TOOLCHAIN_TAR=xtensa-${CHIP_NAME}-elf-gcc8_2_0-esp-2020r1-linux-armel.tar.gz
   wget --no-verbose https://dl.espressif.com/dl/${TOOLCHAIN_TAR}
   tar xf ${TOOLCHAIN_TAR}
-  export PATH="${PWD}/xtensa-esp32-elf/bin:${PATH}"
+  export PATH="${PWD}/xtensa-${CHIP_NAME}-elf/bin:${PATH}"
 
 .tests_linux_template: &tests_linux_template
   stage: test
@@ -406,10 +407,20 @@ build_macos:
     - MAKEFLAGS= make install-strip
     - *dist_archive
 
-build_test_app:
+build_test_app_esp32:
   <<: *build_test_app_template
   variables:
-    BUILD_TEST_APP_DIR: "build_test_app"
+    CHIP_NAME: "esp32"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32"
+    TEST_APP_CONFIGS: ""
+    TEST_APP_IDF_TAG: $CI_COMMIT_REF_NAME
+    UT_GET_IDF_VER: "0"
+
+build_test_app_esp32s2:
+  <<: *build_test_app_template
+  variables:
+    CHIP_NAME: "esp32s2"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32s2"
     TEST_APP_CONFIGS: ""
     TEST_APP_IDF_TAG: $CI_COMMIT_REF_NAME
     UT_GET_IDF_VER: "0"
@@ -429,18 +440,6 @@ build_test_app_custom_idf_release:
     TEST_APP_CONFIGS: "default single_core"
     TEST_APP_IDF_TAG: "v$TEST_APP_CUSTOM_IDF_RELEASE_TAG"
     UT_GET_IDF_VER: "1"
-
-tests_linux64:
-  <<: *tests_linux_template
-  tags:
-    - test_jtag
-  dependencies:
-    - build_test_app
-    - build_linux
-  variables:
-    PLATFORM_NAME: "linux64"
-    TEST_RUN_DIR: "build_test_app"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v"
 
 tests_linux64_legacy_idf_release:
   <<: *tests_linux_template
@@ -467,7 +466,19 @@ tests_linux64_custom_idf_release:
     # currently we need to run semihost test on IDF with old semihost driver
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_CUSTOM_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_semihost"
 
-tests_armel:
+tests_linux64_solo:
+  <<: *tests_linux_template
+  tags:
+    - test_jtag_solo
+  dependencies:
+    - build_test_app_esp32
+    - build_linux
+  variables:
+    PLATFORM_NAME: "linux64"
+    TEST_RUN_DIR: "build_test_app_esp32"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
+
+tests_armel_esp32:
   stage: test
   image: $CI_DOCKER_REGISTRY/rpi-esp-idf-env:1
   artifacts:
@@ -481,11 +492,12 @@ tests_armel:
   tags:
     - test_jtag_arm
   dependencies:
-    - build_test_app
+    - build_test_app_esp32
     - build_linux_armel
   variables:
+    CHIP_NAME: "esp32"
     PLATFORM_NAME: "armel"
-    TEST_RUN_DIR: "build_test_app"
+    TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v"
   script:
     - *prepare_armel_test_env
@@ -493,17 +505,32 @@ tests_armel:
     - *submodules_mirror_update
     - *run_tests_linux
 
-tests_linux64_solo:
-  <<: *tests_linux_template
+tests_armel_esp32s2:
+  stage: test
+  image: $CI_DOCKER_REGISTRY/rpi-esp-idf-env:1
+  artifacts:
+    paths:
+      - $TEST_RUN_DIR/debug_backend_tests.log
+    reports:
+      junit:
+        - $TEST_RUN_DIR/results/*
+    when: always
+    expire_in: 1 week
   tags:
-    - test_jtag_solo
+    - test_jtag_arm_esp32s2
   dependencies:
-    - build_test_app
-    - build_linux
+    - build_test_app_esp32s2
+    - build_linux_armel
   variables:
-    PLATFORM_NAME: "linux64"
-    TEST_RUN_DIR: "build_test_app"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
+    CHIP_NAME: "esp32s2"
+    PLATFORM_NAME: "armel"
+    TEST_RUN_DIR: "build_test_app_esp32s2"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
+  script:
+    - *prepare_armel_test_env
+    - *add_gitlab_key
+    - *submodules_mirror_update
+    - *run_tests_linux
 
 style_check:
   stage: test

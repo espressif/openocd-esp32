@@ -59,10 +59,13 @@ struct blink_task_arg {
     uint32_t tim_period;
 };
 
+#define TIMER_DIVIDER         16  //  Hardware timer clock divider
+#define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // convert counter value to seconds
+
 void test_timer_init(int timer_group, int timer_idx, uint32_t period)
 {
     timer_config_t config;
-    uint64_t alarm_val = (period * (TIMER_BASE_CLK / 1000000UL)) / 2;
+    uint64_t alarm_val = ((float)period / 1000000UL) * TIMER_SCALE;
 
     config.alarm_en = 1;
     config.auto_reload = 1;
