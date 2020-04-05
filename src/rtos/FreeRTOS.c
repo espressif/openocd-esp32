@@ -870,15 +870,22 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 		return ERROR_FAIL;
 	}
 
+	/* uxTopUsedPriority was defined as configMAX_PRIORITIES - 1
+	 * in old FreeRTOS versions (before V7.5.3)
+	 * Use contrib/rtos-helpers/FreeRTOS-openocd.c to get compatible symbol
+	 * in newer FreeRTOS versions.
+	 * Here we restore the original configMAX_PRIORITIES value */
+	unsigned int config_max_priorities = top_used_priority + 1;
+
 	symbol_address_t *list_of_lists =
 		malloc(sizeof(symbol_address_t) * (max_used_priority + 5));
 	if (!list_of_lists) {
-		LOG_ERROR("Error allocating memory for %" PRId64 " priorities", max_used_priority);
+		LOG_ERROR("Error allocating memory for %u priorities", config_max_priorities);
 		return ERROR_FAIL;
 	}
 
-	int num_lists;
-	for (num_lists = 0; num_lists < max_used_priority; num_lists++)
+	unsigned int num_lists;
+	for (num_lists = 0; num_lists < config_max_priorities; num_lists++)
 		list_of_lists[num_lists] = rtos->symbols[FreeRTOS_VAL_pxReadyTasksLists].address +
 			num_lists * rtos_data->params->list_width;
 
