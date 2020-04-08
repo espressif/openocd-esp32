@@ -78,8 +78,15 @@ static void semihost_task(void *pvParameter)
         }
     } while(read_bytes > 0);
 
+    /***** Checking *****/
+    long int f_size = ftell(f_out);
+    if (count !=  f_size) {
+        ESP_LOGE(TAG, "CPU[%d]: Failed to determine file size! (size is %ld)", core_id, f_size);
+        return;
+    }
+
     ESP_LOGI(TAG, "CPU[%d]: Read %d bytes", core_id, count);
-    ESP_LOGI(TAG, "CPU[%d]: Wrote %ld bytes", core_id, ftell(f_out));
+    ESP_LOGI(TAG, "CPU[%d]: Wrote %ld bytes", core_id, f_size);
 
     /***** De-init *****/
     ESP_LOGI(TAG, "Closing the files");

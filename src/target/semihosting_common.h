@@ -24,6 +24,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <sys/types.h>
 #include <time.h>
 
 /*
@@ -157,6 +158,7 @@ struct semihosting {
 	int (*read_fields)(struct target *target, size_t number, uint8_t *fields);
 	int (*write_fields)(struct target *target, size_t number, uint8_t *fields);
 	char *(*get_filename)(struct target *target, uint64_t addr_fn, size_t len, uint32_t * mode);
+	off_t (*lseek)(int fd, off_t offset, int whence);
 };
 
 int semihosting_common_init(struct target *target, void *setup, void *post_result);

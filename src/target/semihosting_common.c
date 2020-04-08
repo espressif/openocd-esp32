@@ -131,6 +131,7 @@ int semihosting_common_init(struct target *target, void *setup,
 	semihosting->read_fields = NULL; // a place for a possible custom fields api
 	semihosting->write_fields = NULL; // a place for a possible custom fields api
 	semihosting->get_filename = NULL; // a place for a possible get filename custom implementation
+	semihosting->lseek = NULL; // a place for a possible lseek custom implementation
 
 	target->semihosting = semihosting;
 
@@ -743,11 +744,16 @@ int semihosting_common(struct target *target)
 									(int)semihosting->result);
 							}
 						} else {
+							uint32_t flags = open_modeflags[mode];
+#ifdef _WIN32
+							/* Windows needs O_BINARY flag for proper handling of EOLs */
+							flags |= O_BINARY;
+#endif
 							/* cygwin requires the permission setting
 							 * otherwise it will fail to reopen a previously
 							 * written file */
 							semihosting->result = open((char *)fn,
-									open_modeflags[mode],
+									flags,
 									0644);
 							semihosting->sys_errno = errno;
 							LOG_DEBUG("open('%s')=%d", fn,
@@ -1001,7 +1007,11 @@ int semihosting_common(struct target *target)
 			 * Note: The effect of seeking outside the current extent of
 			 * the file object is undefined.
 			 */
-			retval = semihosting_read_fields(target, 2, fields);
+
+			if (semihosting->lseek == NULL)
+				retval = semihosting_read_fields(target, 2, fields);
+			else
+				retval = semihosting_read_fields(target, 3, fields);
 			if (retval != ERROR_OK)
 				return retval;
 			else {
@@ -1014,7 +1024,12 @@ int semihosting_common(struct target *target)
 					fileio_info->param_2 = pos;
 					fileio_info->param_3 = SEEK_SET;
 				} else {
-					semihosting->result = lseek(fd, pos, SEEK_SET);
+					if (semihosting->lseek == NULL)
+						semihosting->result = lseek(fd, pos, SEEK_SET);
+					else{
+						int whence = semihosting_get_field(target, 2, fields);
+						semihosting->result = semihosting->lseek(fd, pos, whence);
+					}
 					semihosting->sys_errno = errno;
 					LOG_DEBUG("lseek(%d, %d)=%d", fd, (int)pos,
 						(int)semihosting->result);

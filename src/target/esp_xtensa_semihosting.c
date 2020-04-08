@@ -66,6 +66,7 @@ int esp_xtensa_semihosting_init(struct target *target)
 	if (retval != ERROR_OK)
 		return retval;
 	target->semihosting->get_filename = esp_xtensa_semihosting_get_file_name;
+	target->semihosting->lseek = lseek;
 	target->semihosting->word_size_bytes = 4;			/* 32 bits */
 	return retval;
 }
