@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <unistd.h>
 #include "target.h"
 #include "command.h"
 #include "xtensa.h"
