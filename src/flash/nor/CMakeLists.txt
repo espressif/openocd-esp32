@@ -60,6 +60,7 @@ target_sources(nor PRIVATE
 	psoc4.c
 	psoc5lp.c
 	psoc6.c
+	qn908x.c
 	renesas_rpchf.c
 	rp2040.c
 	rsl10.c
