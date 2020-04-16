@@ -131,6 +131,9 @@ class GcovDataFile:
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
 
+# to be skipped for any board with ESP32-S2 chip
+# TODO: enable these tests when gcov is supported for ESP32-S2
+@skip_for_hw_id([r'esp32s2-[.]*'])
 class GcovTestsImpl:
     """ Test cases which are common for dual and single core modes
 
