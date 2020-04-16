@@ -31,6 +31,9 @@ class DebuggerSpecialTestsImpl:
         self.prepare_app_for_debugging(self.test_app_cfg.app_off)
 
 
+# to be skipped for any board with ESP32-S2 chip
+# TODO: enable these tests when PSRAM is supported for ESP32-S2
+@skip_for_hw_id([r'esp32s2-[.]*'])
 class PsramTestsImpl:
     """ PSRAM specific test cases generic for dual and single core modes
     """
@@ -98,7 +101,6 @@ class PsramTestsDual(PsramTestAppTestsDual, PsramTestsImpl):
     def setUp(self):
         PsramTestAppTestsDual.setUp(self)
         PsramTestsImpl.setUp(self)
-
 
 # to be skipped for any board with 'esp32-solo' module, but still needs to be ran
 # for dual-core version of ESP32 modules even in single-core mode
