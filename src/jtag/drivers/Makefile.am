@@ -163,6 +163,7 @@ endif
 if XDS110
 DRIVERFILES += %D%/xds110.c
 endif
+DRIVERFILES += %D%/jtag_esp_remote.c
 
 DRIVERHEADERS = \
 	%D%/bitbang.h \

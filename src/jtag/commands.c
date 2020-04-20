@@ -30,6 +30,7 @@
 #include "config.h"
 #endif
 
+#include <string.h>
 #include <jtag/jtag.h>
 #include "commands.h"
 
@@ -45,6 +46,144 @@ static struct cmd_queue_page *cmd_queue_pages_tail;
 
 struct jtag_command *jtag_command_queue;
 static struct jtag_command **next_command_pointer = &jtag_command_queue;
+
+static FILE* cmd_dump;
+char cmd_annotation[1024];
+void cmd_annotate(const char* what)
+{
+	size_t len = strlen(cmd_annotation);
+	size_t remain = sizeof(cmd_annotation) - len - 1;
+	if (remain == 0) {
+		return;
+	}
+
+	if (len > 0) {
+		strncat(cmd_annotation, " ", remain);
+		remain -= 1;
+	}
+	strncat(cmd_annotation, what, remain);
+}
+
+void cmd_debug_before(struct jtag_command *cmd)
+{
+	if (cmd_dump == NULL) {
+		cmd_dump = fopen("/tmp/jtag_cmd.txt", "w");
+		assert(cmd_dump);
+	}
+
+	if (cmd_annotation[0] != 0) {
+		fprintf(cmd_dump, "> %s\n", cmd_annotation);
+		cmd_annotation[0] = 0;
+	}
+
+	switch(cmd->type) {
+		case JTAG_SCAN:
+		{
+			const struct scan_command* scan = cmd->cmd.scan;
+			enum scan_type st = jtag_scan_type(scan);
+			size_t size = jtag_scan_size(scan);
+			fprintf(cmd_dump, "SCAN size %d %s %s ",
+				(int) size, scan->ir_scan ? "IR" : "DR",
+				st == SCAN_IN ? "IN" : st == SCAN_OUT ? "OUT" : "IO");
+			if (st == SCAN_OUT || st == SCAN_IO) {
+				fprintf(cmd_dump, "out_data: ");
+				uint8_t *buf = NULL;
+				int scan_bits = jtag_build_buffer(scan, &buf);
+				int scan_bytes = (scan_bits + 7) / 8;
+				for (int i = 0; i < scan_bytes; ++i) {
+					fprintf(cmd_dump, "%02x ", buf[i]);
+				}
+				free(buf);
+			}
+			fprintf(cmd_dump, "\n");
+			break;
+		}
+		case JTAG_TLR_RESET:
+			fprintf(cmd_dump, "TLR_RESET\n");
+			break;
+		case JTAG_RUNTEST:
+			fprintf(cmd_dump, "RUNTEST cycles %d\n", cmd->cmd.runtest->num_cycles);
+			break;
+		case JTAG_RESET:
+			fprintf(cmd_dump, "RESET\n");
+			break;
+		case JTAG_PATHMOVE:
+			fprintf(cmd_dump, "PATHMOVE\n");
+			break;
+		case JTAG_SLEEP:
+			fprintf(cmd_dump, "SLEEP\n");
+			break;
+		case JTAG_STABLECLOCKS:
+			fprintf(cmd_dump, "STABLECLOCKS\n");
+			break;
+		case JTAG_TMS:
+			fprintf(cmd_dump, "TMS %d bits\n", cmd->cmd.tms->num_bits);
+			break;
+		default:
+			fprintf(cmd_dump, "UNKNOWN\n");
+			break;
+	}
+	fflush(cmd_dump);
+}
+
+void cmd_debug_after(struct jtag_command *cmd)
+{
+	assert(cmd_dump);
+
+	switch(cmd->type) {
+		case JTAG_SCAN:
+		{
+			const struct scan_command* scan = cmd->cmd.scan;
+			enum scan_type st = jtag_scan_type(scan);
+			size_t size = jtag_scan_size(scan);
+			if (st == SCAN_IN || st == SCAN_IO) {
+				fprintf(cmd_dump, "SCAN size %d %s %s ",
+					(int) size, scan->ir_scan ? "IR" : "DR",
+					st == SCAN_IN ? "IN" : st == SCAN_OUT ? "OUT" : "IO");
+
+				fprintf(cmd_dump, "in_data: ");
+				int scan_bytes = (size + 7) / 8;
+				uint8_t *buf = calloc(1, scan_bytes);
+				int bit_pos = 0;
+				for (int i = 0; i < scan->num_fields; i++) {
+					/* if neither in_value nor in_handler
+					* are specified we don't have to examine this field
+					*/
+					if (scan->fields[i].in_value) {
+						int num_bits = scan->fields[i].num_bits;
+						buf_set_buf(scan->fields[i].out_value, 0, buf, bit_pos, num_bits);
+					}
+					bit_pos += scan->fields[i].num_bits;
+				}
+				for (int i = 0; i < scan_bytes; ++i) {
+					fprintf(cmd_dump, "%02x ", buf[i]);
+				}
+				free(buf);
+				fprintf(cmd_dump, "\n");
+			}
+			break;
+		}
+		default:
+			break;
+	}
+	fflush(cmd_dump);
+}
+
+
+void cmd_queue_debug(void)
+{
+	for (struct jtag_command *it = jtag_command_queue; it != NULL; it = it->next) {
+		cmd_debug_before(it);
+	}
+}
+
+void cmd_queue_debug_after(void)
+{
+	for (struct jtag_command *it = jtag_command_queue; it != NULL; it = it->next) {
+		cmd_debug_after(it);
+	}
+}
+
 
 void jtag_queue_command(struct jtag_command *cmd)
 {

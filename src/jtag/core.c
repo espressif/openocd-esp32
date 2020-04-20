@@ -827,6 +827,9 @@ void jtag_check_value_mask(struct scan_field *field, uint8_t *value, uint8_t *ma
 	jtag_set_error(retval);
 }
 
+extern void cmd_queue_debug(void);
+extern void cmd_queue_debug_after(void);
+
 int default_interface_jtag_execute_queue(void)
 {
 	if (NULL == jtag) {
@@ -836,7 +839,12 @@ int default_interface_jtag_execute_queue(void)
 		return ERROR_FAIL;
 	}
 
+	/* dump queue */
+	cmd_queue_debug();
+
 	int result = jtag->execute_queue();
+
+	cmd_queue_debug_after();
 
 #if !BUILD_ZY1000
 	/* Only build this if we use a regular driver with a command queue.
