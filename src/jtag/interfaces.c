@@ -274,8 +274,3 @@ struct adapter_driver *adapter_drivers[] = {
 #endif //BUILD_ESP_REMOTE
 		NULL,
 	};
-
-void adapter_driver_modules_load(const char *path)
-{
-	/* @todo: implement dynamic module loading for adapter drivers */
-}
