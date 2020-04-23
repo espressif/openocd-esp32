@@ -2052,7 +2052,7 @@ int xtensa_run_algorithm(struct target *target,
 	return retval;
 }
 
-void xtensa_build_reg_cache(struct target *target)
+static void xtensa_build_reg_cache(struct target *target)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
 	struct reg_cache **cache_p = register_get_last_cache_p(&target->reg_cache);
@@ -2144,11 +2144,19 @@ int xtensa_init_arch_info(struct target *target, struct xtensa *xtensa,
 	return ERROR_OK;
 }
 
+int xtensa_target_init(struct command_context *cmd_ctx, struct target *target)
+{
+	xtensa_build_reg_cache(target);
+	return ERROR_OK;
+}
+
 void xtensa_deinit(struct target *target)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
 
 	LOG_DEBUG("start");
+	if (!xtensa->core_cache)
+		return;
 	int ret = xtensa_queue_dbg_reg_write(xtensa, NARADR_DCRCLR, OCDDCR_ENABLEOCD);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to queue OCDDCR_ENABLEOCD clear operation!");

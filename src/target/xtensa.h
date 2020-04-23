@@ -347,7 +347,7 @@ int xtensa_init_arch_info(struct target *target,
 	const struct xtensa_config *cfg,
 	const struct xtensa_debug_module_config *dm_cfg,
 	const struct xtensa_chip_ops *chip_ops);
-void xtensa_build_reg_cache(struct target *target);
+int xtensa_target_init(struct command_context *cmd_ctx, struct target *target);
 void xtensa_deinit(struct target *target);
 
 static inline void xtensa_stepping_isr_mode_set(struct target *target,

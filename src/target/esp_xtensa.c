@@ -205,8 +205,7 @@ int esp_xtensa_init_arch_info(struct target *target, struct target *chip_target,
 
 int esp_xtensa_target_init(struct command_context *cmd_ctx, struct target *target)
 {
-	xtensa_build_reg_cache(target);
-	return ERROR_OK;
+	return xtensa_target_init(cmd_ctx, target);
 }
 
 void esp_xtensa_target_deinit(struct target *target)
