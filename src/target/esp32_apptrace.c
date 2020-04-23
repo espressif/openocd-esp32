@@ -806,7 +806,7 @@ static int esp32_apptrace_cmd_init(struct target *target,
 
 	/*outfile1 [outfile2] [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]] */
 	cmd_data->max_len = (uint32_t)-1;
-	cmd_data->poll_period = 1 /*ms*/;
+	cmd_data->poll_period = 0 /*ms*/;
 	int dests_num = esp32_apptrace_dest_init(cmd_data->data_dests,
 		argv,
 		cmd_ctx->mode == ESP_APPTRACE_CMD_MODE_SYSVIEW ? cmd_ctx->cores_num : 1);
@@ -2068,57 +2068,13 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 				return res;
 			}
 		}
-		/* openocd timer_callback min period is 1 ms, if we need to poll target for trace
-		 * data more frequently polling loop will be used */
-		if (cmd_data->poll_period >= 1) {
-			res = target_register_timer_callback(esp32_apptrace_poll,
-				cmd_data->poll_period,
-				1,
-				&s_at_cmd_ctx);
-			if (res != ERROR_OK) {
-				LOG_ERROR("Failed to register target timer handler (%d)!", res);
-				return res;
-			}
-		} else {/* //////////////// POLLING MODE ///////////////////////////
-			 * check for exit signal and comand completion */
-			while (!shutdown_openocd && s_at_cmd_ctx.running) {
-				res = esp32_apptrace_poll(&s_at_cmd_ctx);
-				if (res != ERROR_OK) {
-					LOG_ERROR("Failed to poll target for trace data (%d)!",
-						res);
-					break;
-				}
-				/* let registered timer callbacks to run */
-				target_call_timer_callbacks();
-			}
-			/* if we stopped due to user pressed CTRL+C */
-			if (shutdown_openocd) {
-				if (duration_measure(&s_at_cmd_ctx.read_time) != 0)
-					LOG_ERROR("Failed to stop trace read time measurement!");
-			}
-			if (IN_SYSVIEW_MODE(mode)) {
-				/* stop tracing */
-				res = esp_sysview_stop(&s_at_cmd_ctx, target);
-				if (res != ERROR_OK)
-					LOG_ERROR("SEGGER: Failed to stop tracing!");
-			}
-			if (s_at_cmd_ctx.running) {
-				/* data processor is alive, so wait for all received blocks to be
-				 * processed */
-				res = esp32_apptrace_wait_tracing_finished(&s_at_cmd_ctx);
-				if (res != ERROR_OK)
-					LOG_ERROR("Failed to wait for pended blocks (%d)!", res);
-			}
-			res = esp32_apptrace_connect_targets(&s_at_cmd_ctx,
-				target,
-				false,
-				old_state == TARGET_RUNNING);
-			if (res != ERROR_OK)
-				LOG_ERROR("Failed to disconnect targets (%d)!", res);
-			esp32_apptrace_print_stats(&s_at_cmd_ctx);
-			res = esp32_apptrace_cmd_cleanup(&s_at_cmd_ctx);
-			if (res != ERROR_OK)
-				LOG_ERROR("Failed to cleanup cmd ctx (%d)!", res);
+		res = target_register_timer_callback(esp32_apptrace_poll,
+			cmd_data->poll_period,
+			TARGET_TIMER_TYPE_PERIODIC,
+			&s_at_cmd_ctx);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to register target timer handler (%d)!", res);
+			return res;
 		}
 	} else if (strcmp(argv[0], "stop") == 0) {
 		if (!s_at_cmd_ctx.running) {
