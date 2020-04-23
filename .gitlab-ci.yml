@@ -272,6 +272,23 @@ variables:
     - *submodules_mirror_update
     - *run_tests_linux
 
+.tests_armel_template: &tests_armel_template
+  stage: test
+  image: $CI_DOCKER_REGISTRY/rpi-esp-idf-env:1
+  artifacts:
+    paths:
+      - $TEST_RUN_DIR/debug_backend_tests.log
+    reports:
+      junit:
+        - $TEST_RUN_DIR/results/*
+    when: always
+    expire_in: 1 week
+  script:
+    - *prepare_armel_test_env
+    - *add_gitlab_key
+    - *submodules_mirror_update
+    - *run_tests_linux
+
 before_script:
   - set -o errexit; set -o pipefail; set -o nounset
   - test ${DEBUG_SHELL:-""} && set -x
@@ -428,6 +445,7 @@ build_test_app_esp32s2:
 build_test_app_legacy_idf_release:
   <<: *build_legacy_test_app_template
   variables:
+    CHIP_NAME: "esp32"
     BUILD_TEST_APP_DIR: "build_test_app_legacy_idf_release"
     TEST_APP_CONFIGS: ""
     TEST_APP_IDF_TAG: "v$TEST_APP_LEGACY_IDF_RELEASE_TAG"
@@ -436,6 +454,7 @@ build_test_app_legacy_idf_release:
 build_test_app_custom_idf_release:
   <<: *build_test_app_template
   variables:
+    CHIP_NAME: "esp32"
     BUILD_TEST_APP_DIR: "build_test_app_custom_idf_release"
     TEST_APP_CONFIGS: "default single_core"
     TEST_APP_IDF_TAG: "v$TEST_APP_CUSTOM_IDF_RELEASE_TAG"
@@ -449,6 +468,7 @@ tests_linux64_legacy_idf_release:
     - build_test_app_legacy_idf_release
     - build_linux
   variables:
+    CHIP_NAME: "esp32"
     PLATFORM_NAME: "linux64"
     TEST_RUN_DIR: "build_test_app_legacy_idf_release"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v"
@@ -461,6 +481,7 @@ tests_linux64_custom_idf_release:
     - build_test_app_custom_idf_release
     - build_linux
   variables:
+    CHIP_NAME: "esp32"
     PLATFORM_NAME: "linux64"
     TEST_RUN_DIR: "build_test_app_custom_idf_release"
     # currently we need to run semihost test on IDF with old semihost driver
@@ -474,21 +495,13 @@ tests_linux64_solo:
     - build_test_app_esp32
     - build_linux
   variables:
+    CHIP_NAME: "esp32"
     PLATFORM_NAME: "linux64"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
 
 tests_armel_esp32:
-  stage: test
-  image: $CI_DOCKER_REGISTRY/rpi-esp-idf-env:1
-  artifacts:
-    paths:
-      - $TEST_RUN_DIR/debug_backend_tests.log
-    reports:
-      junit:
-        - $TEST_RUN_DIR/results/*
-    when: always
-    expire_in: 1 week
+  <<: *tests_armel_template
   tags:
     - test_jtag_arm
   dependencies:
@@ -499,23 +512,9 @@ tests_armel_esp32:
     PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v"
-  script:
-    - *prepare_armel_test_env
-    - *add_gitlab_key
-    - *submodules_mirror_update
-    - *run_tests_linux
 
 tests_armel_esp32s2:
-  stage: test
-  image: $CI_DOCKER_REGISTRY/rpi-esp-idf-env:1
-  artifacts:
-    paths:
-      - $TEST_RUN_DIR/debug_backend_tests.log
-    reports:
-      junit:
-        - $TEST_RUN_DIR/results/*
-    when: always
-    expire_in: 1 week
+  <<: *tests_armel_template
   tags:
     - test_jtag_arm_esp32s2
   dependencies:
@@ -526,11 +525,6 @@ tests_armel_esp32s2:
     PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
-  script:
-    - *prepare_armel_test_env
-    - *add_gitlab_key
-    - *submodules_mirror_update
-    - *run_tests_linux
 
 style_check:
   stage: test
