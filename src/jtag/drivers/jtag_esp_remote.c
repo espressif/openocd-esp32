@@ -34,6 +34,9 @@
 #include <netinet/tcp.h>
 #endif
 
+#include "jtag_usb_common.h"
+#include "libusb_common.h"
+
 #define NO_TAP_SHIFT	0
 #define TAP_SHIFT	1
 
@@ -42,11 +45,25 @@
 
 #define	XFERT_MAX_SIZE		512
 
+//For an USB interface
+#define USB_VID 0x303A
+#define USB_PID 0x1001
+#define USB_CONFIGURATION 0
+//todo: get this from descriptors?
+#define USB_INTERFACE 2
+#define USB_IN_EP 0x83
+#define USB_OUT_EP 0x2
+
 int server_port = SERVER_PORT;
 char *server_address;
 
+/*
+ Note: this all possibly is quite efficient, as each JTAG command is sent as a separate TCP packet
+ or USB bulk write. ToDo: queue up commands and flush when we need to receive something
+*/
 int sockfd;
 struct sockaddr_in serv_addr;
+struct jtag_libusb_device_handle *usb_device;
 
 struct esp_remote_cmd {
 	uint16_t reserved: 4;
@@ -100,10 +117,16 @@ static inline size_t cmd_data_len_bytes(const struct esp_remote_cmd *cmd) {
 static int jtag_esp_remote_send_cmd(struct esp_remote_cmd *cmd)
 {
 	size_t data_len = cmd_data_len_bytes(cmd);
-	int retval = write_socket(sockfd, cmd, sizeof(struct esp_remote_cmd) + data_len);
-	if (retval <= 0)
-		return ERROR_FAIL;
-
+	if (usb_device) {
+		size_t n=jtag_libusb_bulk_write(usb_device, USB_OUT_EP, (char*)cmd, sizeof(struct esp_remote_cmd) + data_len, 1000 /*ms*/); 
+		if (n!=sizeof(struct esp_remote_cmd) + data_len) {
+			LOG_ERROR("jtag_esp_remote: usb sent only %d out of %d bytes.", (int)n, (int)(sizeof(struct esp_remote_cmd) + data_len));
+			return ERROR_FAIL;
+		}
+	} else {
+		int retval = write_socket(sockfd, cmd, sizeof(struct esp_remote_cmd) + data_len);
+		if (retval <= 0) return ERROR_FAIL;
+	}
 	return ERROR_OK;
 }
 
@@ -115,9 +138,19 @@ static int jtag_esp_remote_receive_cmd(struct esp_remote_cmd *cmd)
 	if (retval < (int)sizeof(struct esp_remote_cmd))
 		return ERROR_FAIL;
 #endif
-	size_t data_len = cmd_data_len_bytes(cmd);
-	read_socket(sockfd, cmd->data, data_len);
 
+	size_t data_len = cmd_data_len_bytes(cmd);
+	if (usb_device) {
+		if (data_len!=0) {
+			size_t n=jtag_libusb_bulk_read(usb_device, USB_IN_EP, (char*)cmd->data, data_len, 1000 /*ms*/); 
+			if (n!=data_len) {
+				LOG_ERROR("jtag_esp_remote: usb received only %d out of %d bytes.", (int)n, (int)(data_len));
+				return ERROR_FAIL;
+			}
+		}
+	} else {
+		read_socket(sockfd, cmd->data, data_len);
+	}
 	return ERROR_OK;
 }
 
@@ -240,6 +273,8 @@ static int jtag_esp_remote_queue_tdi_xfer(uint8_t *bits, int nb_bits, int tap_sh
 		memset(cmd->data, 0xff, nb_bytes);
 
 	cmd->scan.bits = nb_bits;
+
+	cmd->scan.read = 1; //always on for now
 
 	int retval = jtag_esp_remote_send_cmd(cmd);
 	if (retval != ERROR_OK)
@@ -497,8 +532,7 @@ static int jtag_esp_remote_execute_queue(void)
 
 	return retval;
 }
-
-static int jtag_esp_remote_init(void)
+static int jtag_esp_remote_init_tcp(void)
 {
 	int flag = 1;
 
@@ -541,10 +575,43 @@ static int jtag_esp_remote_init(void)
 	return ERROR_OK;
 }
 
+static int jtag_esp_remote_init_usb(void)
+{
+	const uint16_t vids[]={USB_VID};
+	const uint16_t pids[]={USB_PID};
+	int r=jtag_libusb_open(vids, pids, NULL, &usb_device);
+	if (r!=ERROR_OK) {
+		if (r==ERROR_FAIL) {
+			return ERROR_JTAG_INVALID_INTERFACE; //we likely can't find the USB device
+		} else {
+			return r; //some other error
+		}
+	}
+
+	jtag_libusb_set_configuration(usb_device, USB_CONFIGURATION);
+	jtag_libusb_claim_interface(usb_device, USB_INTERFACE);
+	return ERROR_OK;
+}
+
+static int jtag_esp_remote_init(void)
+{
+	if (!server_address || strcmp(server_address, "")==0) {
+		int r=jtag_esp_remote_init_usb();
+		//Note: if we succeed, usb_device is also non-NULL.
+		if (r!=ERROR_JTAG_INVALID_INTERFACE) return r;
+	}
+	return jtag_esp_remote_init_tcp();
+}
+
 static int jtag_esp_remote_quit(void)
 {
-	free(server_address);
-	return close(sockfd);
+	if (usb_device) {
+		jtag_libusb_close(usb_device);
+	} else {
+		free(server_address);
+		return close(sockfd);
+	}
+	return ERROR_OK;
 }
 
 COMMAND_HANDLER(jtag_esp_remote_set_port)
