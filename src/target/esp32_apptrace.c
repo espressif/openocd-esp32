@@ -1486,7 +1486,8 @@ static uint16_t esp_sysview_parse_packet(uint8_t *pkt_buf,
 	uint32_t *pkt_len,
 	int *pkt_core_id,
 	uint32_t *delta,
-	uint32_t *delta_len)
+	uint32_t *delta_len,
+	bool clear_core_bit)
 {
 	uint8_t *pkt = pkt_buf;
 	uint16_t event_id = 0, payload_len = 0;
@@ -1497,21 +1498,23 @@ static uint16_t esp_sysview_parse_packet(uint8_t *pkt_buf,
 	 * */
 	if (*pkt & 0x80) {
 		if (*(pkt + 1) & (1 << 6)) {
-			*(pkt + 1) &= ~(1 << 6);/* clear core_id bit */
+			if (clear_core_bit)
+				*(pkt + 1) &= ~(1 << 6);	/* clear core_id bit */
 			*pkt_core_id = 1;
 		}
-		event_id = *(pkt + 1);	/* higher part */
+		event_id = *(pkt + 1) & ~(1 << 6);	/* higher part */
 		event_id = (event_id << 7) | (*pkt & ~0x80);	/* lower 7 bits */
 		pkt += 2;	/* event_id (2 bytes) */
 		/* here pkt points to encoded payload length */
 		payload_len = esp_sysview_decode_plen(&pkt);
 	} else {
 		if (*pkt & (1 << 6)) {
-			*pkt &= ~(1 << 6);	/* clear core_id bit */
+			if (clear_core_bit)
+				*pkt &= ~(1 << 6);	/* clear core_id bit */
 			*pkt_core_id = 1;
 		}
 		/* event_id (1 byte) */
-		event_id = *pkt;
+		event_id = *pkt & ~(1 << 6);
 		pkt++;
 		if (event_id < 24)
 			payload_len = esp_sysview_get_predef_payload_len(event_id, pkt);
@@ -1529,6 +1532,135 @@ static uint16_t esp_sysview_parse_packet(uint8_t *pkt_buf,
 		payload_len,
 		*delta_len);
 	return event_id;
+}
+
+static int esp32_sysview_write_packet(struct esp32_apptrace_cmd_data *cmd_data,
+	int pkt_core_id, uint32_t pkt_len, uint8_t *pkt_buf, uint32_t delta_len, uint8_t *delta_buf)
+{
+	int res = cmd_data->data_dests[pkt_core_id].write(
+		cmd_data->data_dests[pkt_core_id].priv,
+		pkt_buf,
+		pkt_len);
+	if (res != ERROR_OK) {
+		LOG_ERROR("SEGGER: Failed to write %u bytes to dest %d!", pkt_len, pkt_core_id);
+		return res;
+	}
+	if (delta_len) {
+		/* write packet with modified delta */
+		res =
+			cmd_data->data_dests[pkt_core_id].write(
+			cmd_data->data_dests[pkt_core_id].priv,
+			delta_buf,
+			delta_len);
+		if (res != ERROR_OK) {
+			LOG_ERROR("SEGGER: Failed to write %u bytes of delta to dest %d!",
+				delta_len,
+				pkt_core_id);
+			return res;
+		}
+	}
+	return ERROR_OK;
+}
+
+static int esp32_sysview_process_packet(struct esp32_apptrace_cmd_ctx *ctx,
+	int pkt_core_id, uint16_t event_id, uint32_t delta, uint32_t delta_len,
+	uint32_t pkt_len, uint8_t *pkt_buf)
+{
+	struct esp32_apptrace_cmd_data *cmd_data = ctx->cmd_priv;
+	int pkt_core_changed = 0;
+	uint32_t new_delta_len = 0;
+	uint8_t new_delta_buf[10];
+	uint32_t wr_len = pkt_len;
+
+	if (ctx->cores_num > 1) {
+		if (cmd_data->sv_last_core_id == pkt_core_id) {
+			/* if this packet is for the same core as the prev one acc delta and
+			* write packet unmodified */
+			cmd_data->sv_acc_time_delta += delta;
+		} else {
+			/* if this packet is for another core then prev one set acc delta to
+			* the packet's delta */
+			uint8_t *delta_ptr = new_delta_buf;
+			SYSVIEW_ENCODE_U32(delta_ptr, delta + cmd_data->sv_acc_time_delta);
+			cmd_data->sv_acc_time_delta = delta;
+			wr_len -= delta_len;
+			new_delta_len = delta_ptr - new_delta_buf;
+			pkt_core_changed = 1;
+		}
+		cmd_data->sv_last_core_id = pkt_core_id;
+	}
+	if (pkt_core_id >= ctx->cores_num) {
+		LOG_WARNING(
+			"SEGGER: invalid core ID in packet %d, must be less then %d! Event id %d",
+			pkt_core_id,
+			ctx->cores_num,
+			event_id);
+		return ERROR_FAIL;
+	}
+	int res = esp32_sysview_write_packet(cmd_data,
+		pkt_core_id,
+		wr_len,
+		pkt_buf,
+		new_delta_len,
+		new_delta_buf);
+	if (res != ERROR_OK)
+		return res;
+	for (int i = 0; i < ctx->cores_num; i++) {
+		if (pkt_core_id == i)
+			continue;
+		switch (event_id) {
+			/* messages below should be sent to trace destinations for all cores
+			* */
+			case SYSVIEW_EVTID_TRACE_START:
+			case SYSVIEW_EVTID_TRACE_STOP:
+			case SYSVIEW_EVTID_SYSTIME_CYCLES:
+			case SYSVIEW_EVTID_SYSTIME_US:
+			case SYSVIEW_EVTID_SYSDESC:
+			case SYSVIEW_EVTID_TASK_INFO:
+			case SYSVIEW_EVTID_STACK_INFO:
+			case SYSVIEW_EVTID_MODULEDESC:
+			case SYSVIEW_EVTID_INIT:
+			case SYSVIEW_EVTID_NUMMODULES:
+			case SYSVIEW_EVTID_OVERFLOW:
+			case SYSVIEW_EVTID_TASK_START_READY:
+				/* if packet's source core has changed */
+				wr_len = pkt_len;
+				if (pkt_core_changed) {
+					/* clone packet with unmodified delta */
+					new_delta_len = 0;
+				} else {
+					/* clone packet with modified delta */
+					uint8_t *delta_ptr = new_delta_buf;
+					SYSVIEW_ENCODE_U32(delta_ptr,
+					cmd_data->sv_acc_time_delta /*delta has been
+								                        * accumulated
+								                        * above*/);
+					wr_len -= delta_len;
+					new_delta_len = delta_ptr - new_delta_buf;
+				}
+				LOG_DEBUG(
+				"SEGGER: Redirect %d bytes of event %d to dest %d",
+				wr_len,
+				event_id,
+				i);
+				res = esp32_sysview_write_packet(cmd_data,
+				i,
+				wr_len,
+				pkt_buf,
+				new_delta_len,
+				new_delta_buf);
+				if (res != ERROR_OK)
+					return res;
+				/* messages above are cloned to trace files for both cores,
+				* so reset acc time delta, both files have actual delta
+				* info */
+				cmd_data->sv_acc_time_delta = 0;
+				break;
+			default:
+				break;
+		}
+	}
+	return ERROR_OK;
 }
 
 static int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
@@ -1550,6 +1682,8 @@ static int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 		LOG_ERROR("SEGGER: Invalid core id %d in user block!", core_id);
 		return ERROR_FAIL;
 	}
+	if (ctx->mode == ESP_APPTRACE_CMD_MODE_SYSVIEW_MCORE)
+		core_id = 0;
 	if (ctx->tot_len == 0) {
 		/* handle sync seq */
 		if (data_len < SYSVIEW_SYNC_LEN) {
@@ -1574,156 +1708,64 @@ static int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 				core_id);
 			return res;
 		}
-		if (ctx->cores_num > 1) {
-			res =
-				cmd_data->data_dests[core_id ? 0 : 1].write(cmd_data->data_dests[
-					core_id
-					? 0 : 1].priv, data, SYSVIEW_SYNC_LEN);
-			if (res != ERROR_OK) {
-				LOG_ERROR("SEGGER: Failed to write %u sync bytes to dest %d!",
-					SYSVIEW_SYNC_LEN,
-					core_id ? 0 : 1);
-				return res;
+		if (ctx->mode == ESP_APPTRACE_CMD_MODE_SYSVIEW) {
+			for (int i = 0; i < ctx->cores_num; i++) {
+				if (core_id == i)
+					continue;
+				res =
+					cmd_data->data_dests[i].write(cmd_data->data_dests[i].priv,
+					data,
+					SYSVIEW_SYNC_LEN);
+				if (res != ERROR_OK) {
+					LOG_ERROR(
+						"SEGGER: Failed to write %u sync bytes to dest %d!",
+						SYSVIEW_SYNC_LEN,
+						core_id ? 0 : 1);
+					return res;
+				}
 			}
 		}
 		ctx->tot_len += SYSVIEW_SYNC_LEN;
 		processed += SYSVIEW_SYNC_LEN;
 	}
 	while (processed < data_len) {
-		int pkt_core_id, pkt_core_changed = 0;
-		uint32_t delta_len = 0, new_delta_len = 0;
-		uint8_t new_delta_buf[10];
-		uint32_t pkt_len = 0, delta = 0, wr_len;
+		int pkt_core_id;
+		uint32_t delta_len = 0;
+		uint32_t pkt_len = 0, delta = 0;
 		uint16_t event_id = esp_sysview_parse_packet(data + processed,
 			&pkt_len,
 			&pkt_core_id,
 			&delta,
-			&delta_len);
-		LOG_DEBUG("SEGGER: Process packet %d id %d bytes [%x %x %x %x]",
+			&delta_len,
+			ctx->mode == ESP_APPTRACE_CMD_MODE_SYSVIEW);
+		LOG_DEBUG("SEGGER: Process packet: core %d, %d id, %d bytes [%x %x %x %x]",
+			pkt_core_id,
 			event_id,
 			pkt_len,
 			data[processed+0],
 			data[processed+1],
 			data[processed+2],
 			data[processed+3]);
-		wr_len = pkt_len;
-		if (ctx->cores_num > 1) {
-			if (cmd_data->sv_last_core_id == pkt_core_id) {
-				/* if this packet is for the same core as the prev one acc delta and
-				 * write packet unmodified */
-				cmd_data->sv_acc_time_delta += delta;
-			} else {
-				/* if this packet is for another core then prev one set acc delta to
-				 * the packet's delta */
-				uint8_t *delta_ptr = new_delta_buf;
-				SYSVIEW_ENCODE_U32(delta_ptr, delta + cmd_data->sv_acc_time_delta);
-				cmd_data->sv_acc_time_delta = delta;
-				wr_len -= delta_len;
-				new_delta_len = delta_ptr - new_delta_buf;
-				pkt_core_changed = 1;
-			}
-			cmd_data->sv_last_core_id = pkt_core_id;
-		}
-		if (pkt_core_id >= ctx->cores_num) {
-			LOG_WARNING("SEGGER: invalid core ID in packet %d, must be less then %d!",
+		if (ctx->mode == ESP_APPTRACE_CMD_MODE_SYSVIEW) {
+			res = esp32_sysview_process_packet(ctx,
 				pkt_core_id,
-				ctx->cores_num);
-			ctx->tot_len += pkt_len;
-			processed += pkt_len;
-			continue;
-		}
-		res = cmd_data->data_dests[pkt_core_id].write(
-			cmd_data->data_dests[pkt_core_id].priv,
-			data + processed,
-			wr_len);
-		if (res != ERROR_OK) {
-			LOG_ERROR("SEGGER: Failed to write %u bytes to dest %d!", wr_len, core_id);
-			return res;
-		}
-		if (new_delta_len) {
-			/* write packet with modified delta */
-			res =
-				cmd_data->data_dests[pkt_core_id].write(
-				cmd_data->data_dests[pkt_core_id].priv,
-				new_delta_buf,
-				new_delta_len);
-			if (res != ERROR_OK) {
-				LOG_ERROR("SEGGER: Failed to write %u bytes of delta to dest %d!",
-					new_delta_len,
-					core_id);
+				event_id,
+				delta,
+				delta_len,
+				pkt_len,
+				data + processed);
+			if (res != ERROR_OK)
 				return res;
-			}
-		}
-		if (ctx->cores_num > 1) {
-			/* handle other core dest */
-			int other_core_id = pkt_core_id ? 0 : 1;
-			switch (event_id) {
-				/* messages below should be sent to trace destinations for all cores
-				 * */
-				case SYSVIEW_EVTID_TRACE_START:
-				case SYSVIEW_EVTID_TRACE_STOP:
-				case SYSVIEW_EVTID_SYSTIME_CYCLES:
-				case SYSVIEW_EVTID_SYSTIME_US:
-				case SYSVIEW_EVTID_SYSDESC:
-				case SYSVIEW_EVTID_TASK_INFO:
-				case SYSVIEW_EVTID_STACK_INFO:
-				case SYSVIEW_EVTID_MODULEDESC:
-				case SYSVIEW_EVTID_INIT:
-				case SYSVIEW_EVTID_NUMMODULES:
-				case SYSVIEW_EVTID_OVERFLOW:
-				case SYSVIEW_EVTID_TASK_START_READY:
-					/* if packet's source core has changed */
-					wr_len = pkt_len;
-					if (pkt_core_changed) {
-						/* clone packet with unmodified delta */
-						new_delta_len = 0;
-					} else {
-						/* clone packet with modified delta */
-						uint8_t *delta_ptr = new_delta_buf;
-						SYSVIEW_ENCODE_U32(delta_ptr,
-						cmd_data->sv_acc_time_delta /*delta has been
-									             * accumulated
-									             * above*/);
-						wr_len -= delta_len;
-						new_delta_len = delta_ptr - new_delta_buf;
-					}
-					LOG_DEBUG(
-					"SEGGER: Redirect %d bytes of event %d to dest %d",
-					wr_len,
-					event_id,
-					other_core_id);
-					res = cmd_data->data_dests[other_core_id].write(
-					cmd_data->data_dests[other_core_id].priv,
-					data + processed,
-					wr_len);
-					if (res != ERROR_OK) {
-						LOG_ERROR(
-						"SEGGER: Failed to write %u bytes to dest %d!",
-						wr_len,
-						other_core_id);
-						return res;
-					}
-					if (new_delta_len) {
-						/* write packet with modified delta */
-						res = cmd_data->data_dests[other_core_id].write(
-						cmd_data->data_dests[other_core_id].priv,
-						new_delta_buf,
-						new_delta_len);
-						if (res != ERROR_OK) {
-							LOG_ERROR(
-							"SEGGER: Failed to write %u bytes of delta to dest %d!",
-							new_delta_len,
-							other_core_id);
-							return res;
-						}
-					}
-					/* messages above are cloned to trace files for both cores,
-					 * so reset acc time delta, both files have actual delta
-					 * info */
-					cmd_data->sv_acc_time_delta = 0;
-					break;
-				default:
-					break;
+		} else {
+			res = cmd_data->data_dests[0].write(
+				cmd_data->data_dests[0].priv,
+				data + processed,
+				pkt_len);
+			if (res != ERROR_OK) {
+				LOG_ERROR("SEGGER: Failed to write %u bytes to dest %d!",
+					pkt_len,
+					0);
+				return res;
 			}
 		}
 		if (event_id == SYSVIEW_EVTID_TRACE_STOP)
@@ -2023,9 +2065,7 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 				esp32_apptrace_cmd_cleanup(&s_at_cmd_ctx);
 				return ERROR_FAIL;
 			}
-			s_at_cmd_ctx.process_data = mode ==
-				ESP_APPTRACE_CMD_MODE_SYSVIEW ? esp32_sysview_process_data :
-				esp32_apptrace_process_data;
+			s_at_cmd_ctx.process_data = esp32_sysview_process_data;
 			res = esp_sysview_write_trace_header(&s_at_cmd_ctx);
 			if (res != ERROR_OK) {
 				LOG_ERROR("Failed to write trace header (%d)!", res);
