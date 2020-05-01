@@ -122,6 +122,7 @@ m4_define([USB1_ADAPTERS],
 m4_define([USB_ADAPTERS],
 	[[[osbdm], [OSBDM (JTAG only) Programmer], [OSBDM]],
 	[[opendous], [eStick/opendous JTAG Programmer], [OPENDOUS]],
+	[[esp_usb_jtag], [Espressif JTAG Programmer], [ESP_USB_JTAG]],
 	[[aice], [Andes JTAG Programmer], [AICE]]])
 
 m4_define([USB0_ADAPTERS],
@@ -690,6 +691,12 @@ AS_IF([test "x$enable_jlink" != "xno"], [
 AS_IF([test "x$enable_presto" != "xno"], [
   build_bitq=yes
 ])
+
+ # esp-usb-jtag also needs the bitq module
+AS_IF([test "x$enable_esp_usb_jtag" != "xno"], [
+  build_bitq=yes
+])
+
 
 AM_CONDITIONAL([RELEASE], [test "x$build_release" = "xyes"])
 AM_CONDITIONAL([PARPORT], [test "x$build_parport" = "xyes"])
