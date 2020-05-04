@@ -2630,30 +2630,15 @@ static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 		return ret;
 
 	if (resp_len) {
-		struct esp32_apptrace_target_state target_state[ESP_APPTRACE_MAX_CORES_NUM];
-		uint32_t fired_target_num = 0;
-		/* get current block id */
-		int res = esp32_apptrace_get_data_info(ctx, target_state, &fired_target_num);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to read target data info!");
-			free(resp);
-			return res;
-		}
-		if (fired_target_num == (uint32_t)-1) {
-			/* it can happen that there is no pending target data, but block was
-			 * switched */
-			/* in this case block_ids on both CPUs are equal, so select the first one */
-			fired_target_num = 0;
-		}
 		/* write response */
-		res =
-			esp_xtensa_apptrace_usr_block_write(ctx->cpus[fired_target_num],
-			target_state[fired_target_num].block_id,
+		int res =
+			esp_xtensa_apptrace_usr_block_write(ctx->cpus[core_id],
+			ctx->last_blk_id,
 			resp,
 			resp_len);
 		if (res != ERROR_OK) {
 			LOG_ERROR("Failed to write data to (%s)!",
-				target_name(ctx->cpus[fired_target_num]));
+				target_name(ctx->cpus[core_id]));
 			free(resp);
 			return res;
 		}
