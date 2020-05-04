@@ -503,9 +503,27 @@ static int esp32_arch_state(struct target *target)
 static void esp32_on_poll(struct target *target)
 {
 	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
+	struct esp_xtensa_common *esp_xtensa;
+	struct target *dbg_stub_tgt = NULL;
+	uint32_t old_stubs_base = 0, new_stubs_base;
 
-	for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++)
+	for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
+		esp_xtensa = target_to_esp_xtensa(&xtensa_mcore->cores_targets[i]);
+		old_stubs_base = esp_xtensa->dbg_stubs.base;
 		esp_xtensa_on_poll(&xtensa_mcore->cores_targets[i]);
+		if (old_stubs_base != esp_xtensa->dbg_stubs.base)
+			dbg_stub_tgt = &xtensa_mcore->cores_targets[i];
+	}
+	/* sync stubs bases */
+	if (dbg_stub_tgt) {
+		for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
+			if (dbg_stub_tgt == &xtensa_mcore->cores_targets[i])
+				continue;
+			esp_xtensa = target_to_esp_xtensa(&xtensa_mcore->cores_targets[i]);
+			esp_xtensa->dbg_stubs.base =
+				target_to_esp_xtensa(dbg_stub_tgt)->dbg_stubs.base;
+		}
+	}
 }
 
 static bool esp32_on_halt(struct target *target)

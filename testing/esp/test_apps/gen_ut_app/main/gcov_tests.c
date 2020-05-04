@@ -49,10 +49,10 @@ ut_result_t gcov_test_do(int test_num)
     switch (test_num) {
 #if CONFIG_ESP32_GCOV_ENABLE
         case 300:
-            xTaskCreate(&gcov_task, "gcov_task", 2048, (void *)true, 5, NULL);
+            xTaskCreatePinnedToCore(&gcov_task, "gcov_task", 2048, (void *)true, 5, NULL, portNUM_PROCESSORS-1);
             break;
         case 301:
-            xTaskCreate(&gcov_task, "gcov_task", 2048, (void *)false, 5, NULL);
+            xTaskCreatePinnedToCore(&gcov_task, "gcov_task", 2048, (void *)false, 5, NULL, portNUM_PROCESSORS-1);
             break;
 #endif //CONFIG_ESP32_GCOV_ENABLE
         default:
