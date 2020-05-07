@@ -505,7 +505,7 @@ static void esp32_on_poll(struct target *target)
 	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
 	struct esp_xtensa_common *esp_xtensa;
 	struct target *dbg_stub_tgt = NULL;
-	uint32_t old_stubs_base = 0, new_stubs_base;
+	uint32_t old_stubs_base = 0;
 
 	for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
 		esp_xtensa = target_to_esp_xtensa(&xtensa_mcore->cores_targets[i]);

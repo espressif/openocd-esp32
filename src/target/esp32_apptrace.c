@@ -2701,7 +2701,7 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 		esp_gcov_poll(target, &s_at_cmd_ctx);
 	else {
 		struct target *active_core_target = NULL;
-		if (target_get_core_count(target) != 0) {
+		if (target->type->get_cores_count) {
 			struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
 			active_core_target =
 				&xtensa_mcore->cores_targets[xtensa_mcore->active_core];
@@ -2731,7 +2731,10 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 		run.on_board.min_stack_size = ESP_DBG_STUBS_STACK_MIN_SIZE;
 		run.on_board.code_buf_addr = dbg_stubs->desc.tramp_addr;
 		run.on_board.code_buf_size = ESP_DBG_STUBS_CODE_BUF_SIZE;
-		xtensa_run_onboard_func(active_core_target, &run, func_addr, 0);
+		if (target->type->get_cores_count)
+			xtensa_mcore_run_onboard_func(target, &run, func_addr, 0);
+		else
+			xtensa_run_onboard_func(active_core_target, &run, func_addr, 0);
 		LOG_DEBUG("FUNC RET = 0x%x", run.ret_code);
 	}
 	/* disconnect */

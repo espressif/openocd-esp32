@@ -162,4 +162,10 @@ int xtensa_mcore_run_func_image(struct target *target,
 	uint32_t num_args,
 	...);
 
+int xtensa_mcore_run_onboard_func(struct target *target,
+	struct xtensa_algo_run_data *run,
+	uint32_t func_addr,
+	uint32_t num_args,
+	...);
+
 #endif	/* XTENSA_MCORE_H */
