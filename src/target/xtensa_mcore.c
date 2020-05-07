@@ -788,10 +788,13 @@ int xtensa_mcore_wait_algorithm(struct target *target,
 	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
 	struct target *sub_target = &xtensa_mcore->cores_targets[xtensa_mcore->active_core];
 
-	return sub_target->type->wait_algorithm(sub_target,
+	int ret = sub_target->type->wait_algorithm(sub_target,
 		num_mem_params, mem_params,
 		num_reg_params, reg_params,
 		exit_point, timeout_ms, arch_info);
+	/* sync state of composite target that was not polled */
+	target->state = sub_target->state;
+	return ret;
 }
 
 int xtensa_mcore_run_algorithm(struct target *target,
@@ -823,6 +826,39 @@ int xtensa_mcore_run_func_image(struct target *target,
 	va_start(ap, num_args);
 	int retval = xtensa_run_func_image_va(sub_target, run, image, num_args, ap);
 	va_end(ap);
+	/* sync state of composite target that was not polled */
+	target->state = sub_target->state;
+	if ((xtensa_mcore->smp_break & (OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN)) ==
+		(OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN)) {
+		/* need to clear core status bits on other cores */
+		for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
+			if (i != xtensa_mcore->active_core) {
+				sub_target = &xtensa_mcore->cores_targets[i];
+				LOG_DEBUG("%s: check/clear DSR", target_name(target));
+				xtensa_core_status_check(sub_target);
+				xtensa_core_status_clear(sub_target,
+					OCDDSR_DEBUGPENDBREAK|OCDDSR_DEBUGINTBREAK);
+			}
+		}
+	}
+	return retval;
+}
+
+int xtensa_mcore_run_onboard_func(struct target *target,
+	struct xtensa_algo_run_data *run,
+	uint32_t func_addr,
+	uint32_t num_args,
+	...)
+{
+	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
+	struct target *sub_target = &xtensa_mcore->cores_targets[xtensa_mcore->active_core];
+	va_list ap;
+
+	va_start(ap, num_args);
+	int retval = xtensa_run_onboard_func_va(sub_target, run, func_addr, num_args, ap);
+	va_end(ap);
+	/* sync state of composite target that was not polled */
+	target->state = sub_target->state;
 	if ((xtensa_mcore->smp_break & (OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN)) ==
 		(OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN)) {
 		/* need to clear core status bits on other cores */
