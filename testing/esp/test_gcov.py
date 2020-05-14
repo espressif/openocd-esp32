@@ -318,6 +318,9 @@ class GcovTestsImpl:
         time.sleep(3)
         self.stop_exec()
         self.gdb.gcov_dump(True)
+        state,_ = self.gdb.get_target_state()
+        self.assertEqual(state, dbg.TARGET_STATE_STOPPED)
+
         # do not check gcov data, because its hard to precdict their contents
         # just check that files exist, contents are checked in test_simple_xxx tests
         if testee_info.idf_ver < IdfVersion.fromstr('4.0'):
@@ -349,6 +352,8 @@ class GcovTestsImpl:
         time.sleep(3)
         self.oocd.gcov_dump(True)
         time.sleep(1)
+        state,_ = self.gdb.get_target_state()
+        self.assertEqual(state, dbg.TARGET_STATE_RUNNING)
         # do not check gcov data, because its hard to precdict their contents
         # just check that files exist, contents are checked in test_simple_xxx tests
         if testee_info.idf_ver < IdfVersion.fromstr('4.0'):

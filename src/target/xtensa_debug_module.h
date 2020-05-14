@@ -148,6 +148,7 @@
 #define OCDDSR_RUNSTALLSAMPLE   (1<<24)
 #define OCDDSR_BREACKOUTACKITI  (1<<25)
 #define OCDDSR_BREAKINITI       (1<<26)
+#define OCDDSR_DBGMODPOWERON    (1<<31)
 
 #define DEBUGCAUSE_IC           (1<<0)	/*ICOUNT exception */
 #define DEBUGCAUSE_IB           (1<<1)	/*IBREAK exception */
@@ -350,6 +351,11 @@ static inline xtensa_dsr_t xtensa_dm_core_status_get(struct xtensa_debug_module 
 static inline bool xtensa_dm_core_is_stalled(struct xtensa_debug_module *dm)
 {
 	return dm->core_status.dsr & OCDDSR_RUNSTALLSAMPLE;
+}
+
+static inline bool xtensa_dm_is_powered(struct xtensa_debug_module *dm)
+{
+	return dm->core_status.dsr & OCDDSR_DBGMODPOWERON;
 }
 
 int xtensa_dm_device_id_read(struct xtensa_debug_module *dm);

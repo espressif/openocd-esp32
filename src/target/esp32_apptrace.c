@@ -2276,6 +2276,8 @@ static const char *esp_gcov_filename_alloc(const char *orig_fname)
 
 	if (orig_fname_len == 0)
 		return NULL;
+
+	LOG_DEBUG("Convert gcov file path '%s'", orig_fname);
 	/* Check if the level of dirs to strip off specified. */
 	char *tmp = getenv("OPENOCD_GCOV_PREFIX_STRIP");
 	if (tmp) {
@@ -2316,7 +2318,7 @@ static const char *esp_gcov_filename_alloc(const char *orig_fname)
 		striped_fname = tmp;
 	}
 	if (strip > 0)
-		LOG_WARNING("Failed to srip %d dir names in Gcov file path '%s'!", strip,
+		LOG_WARNING("Failed to srip %d dir names in gcov file path '%s'!", strip,
 			orig_fname);
 	strcpy(&filename[prefix_length], striped_fname);
 
