@@ -136,6 +136,16 @@ int xtensa_mcore_resume(struct target *target,
 		sub_target = &xtensa_mcore->cores_targets[i];
 		if (i == xtensa_mcore->active_core)
 			continue;	/*  everything is already done for the active core */
+		struct xtensa *xtensa = target_to_xtensa(sub_target);
+		res = xtensa_dm_core_status_read(&xtensa->dbg_mod);
+		if (res != ERROR_OK) {
+			LOG_ERROR("%s.%s: Failed to read core status!",
+				target_name(target),
+				target_name(sub_target));
+			return res;
+		}
+		if (!xtensa_dm_is_powered(&xtensa->dbg_mod))
+			continue;
 		/* This operation required to clear state of non-active cores, because
 		 * core_prepare_resume() on active can step over watchpoint and */
 		/* activate SMP break-in signals on other cores
@@ -155,6 +165,16 @@ int xtensa_mcore_resume(struct target *target,
 	}
 	for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
 		sub_target = &xtensa_mcore->cores_targets[i];
+		struct xtensa *xtensa = target_to_xtensa(sub_target);
+		res = xtensa_dm_core_status_read(&xtensa->dbg_mod);
+		if (res != ERROR_OK) {
+			LOG_ERROR("%s.%s: Failed to read core status!",
+				target_name(target),
+				target_name(sub_target));
+			return res;
+		}
+		if (!xtensa_dm_is_powered(&xtensa->dbg_mod))
+			continue;
 		res = xtensa_mcore->cores_ops[i]->core_do_resume(sub_target);
 		if (res != ERROR_OK) {
 			LOG_ERROR("%s.%s: Failed to resume!", target_name(target),
@@ -391,12 +411,13 @@ static void xtensa_mcore_poll_resume(struct target *target)
 int xtensa_mcore_poll(struct target *target)
 {
 	struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
+	struct xtensa *xtensa;
 	int res;
 	bool s_need_resume = false;
 
 	uint32_t core_poweron_mask = 0;
 	for (uint8_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
-		struct xtensa *xtensa = target_to_xtensa(&xtensa_mcore->cores_targets[i]);
+		xtensa = target_to_xtensa(&xtensa_mcore->cores_targets[i]);
 		if (xtensa_dm_is_online(&xtensa->dbg_mod))
 			core_poweron_mask |= (1 << i);
 	}
@@ -408,7 +429,7 @@ int xtensa_mcore_poll(struct target *target)
 			target->state = TARGET_UNKNOWN;
 		}
 		for (uint8_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
-			struct xtensa *xtensa = target_to_xtensa(&xtensa_mcore->cores_targets[i]);
+			xtensa = target_to_xtensa(&xtensa_mcore->cores_targets[i]);
 			xtensa_dm_power_status_cache_reset(&xtensa->dbg_mod);
 		}
 		xtensa_mcore->core_poweron_mask = 0;
@@ -421,7 +442,7 @@ int xtensa_mcore_poll(struct target *target)
 		LOG_DEBUG("%s: core_poweron_mask=%x", __func__, core_poweron_mask);
 
 	for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
-		struct xtensa *xtensa = target_to_xtensa(&xtensa_mcore->cores_targets[i]);
+		xtensa = target_to_xtensa(&xtensa_mcore->cores_targets[i]);
 		res = xtensa_dm_power_status_read(&xtensa->dbg_mod,
 			PWRSTAT_DEBUGWASRESET|PWRSTAT_COREWASRESET);
 		if (res != ERROR_OK)
@@ -444,7 +465,7 @@ int xtensa_mcore_poll(struct target *target)
 	}
 
 	for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
-		struct xtensa *xtensa = target_to_xtensa(&xtensa_mcore->cores_targets[i]);
+		xtensa = target_to_xtensa(&xtensa_mcore->cores_targets[i]);
 		if (cores_came_online & (1 << i)) {
 			LOG_DEBUG("%s: Core %d came online, setting up DCR", __func__, (int) i);
 			xtensa_mcore_smpbreak_set_core(xtensa_mcore, i);
@@ -457,8 +478,12 @@ int xtensa_mcore_poll(struct target *target)
 	xtensa_dsr_t common_core_stat = 0;
 	xtensa_pwrstat_t common_power_stat = 0;
 	for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
-		struct xtensa *xtensa = target_to_xtensa(&xtensa_mcore->cores_targets[i]);
-		common_core_stat |= xtensa_dm_core_status_get(&xtensa->dbg_mod);
+		xtensa = target_to_xtensa(&xtensa_mcore->cores_targets[i]);
+		if (xtensa_dm_is_powered(&xtensa->dbg_mod)) {
+			/* do not take into account status of stalled core or core with powered off
+			 * debug module */
+			common_core_stat |= xtensa_dm_core_status_get(&xtensa->dbg_mod);
+		}
 		common_power_stat |= xtensa_dm_power_status_get(&xtensa->dbg_mod);
 	}
 	if (common_core_stat & OCDDSR_STOPPED) {
@@ -470,8 +495,7 @@ int xtensa_mcore_poll(struct target *target)
 			size_t enab_cores_num = xtensa_mcore_get_enabled_cores_count(target);
 			if (enab_cores_num > 1) {
 				for (size_t i = 0; i < enab_cores_num; i++) {
-					struct xtensa *xtensa = target_to_xtensa(
-						&xtensa_mcore->cores_targets[i]);
+					xtensa = target_to_xtensa(&xtensa_mcore->cores_targets[i]);
 					if (!(xtensa_dm_core_status_get(&xtensa->dbg_mod) &
 							(OCDDSR_STOPPED|OCDDSR_RUNSTALLSAMPLE))) {
 						algo_stopped = false;	/* algo is not stopped if
@@ -481,8 +505,7 @@ int xtensa_mcore_poll(struct target *target)
 					}
 				}
 			} else {
-				struct xtensa *xtensa = target_to_xtensa(
-					&xtensa_mcore->cores_targets[0]);
+				xtensa = target_to_xtensa(&xtensa_mcore->cores_targets[0]);
 				algo_stopped = xtensa_dm_core_status_get(&xtensa->dbg_mod) &
 					OCDDSR_STOPPED;
 			}
@@ -497,7 +520,9 @@ int xtensa_mcore_poll(struct target *target)
 			/*Examine why the target has been halted */
 			target->debug_reason = DBG_REASON_UNDEFINED;
 			for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
-				xtensa_fetch_all_regs(&xtensa_mcore->cores_targets[i]);
+				xtensa = target_to_xtensa(&xtensa_mcore->cores_targets[i]);
+				if (xtensa_dm_is_powered(&xtensa->dbg_mod))
+					xtensa_fetch_all_regs(&xtensa_mcore->cores_targets[i]);
 				xtensa_mcore->cores_targets[i].state = TARGET_HALTED;
 			}
 			/* When setting debug reason DEBUGCAUSE events have the followuing
@@ -512,7 +537,7 @@ int xtensa_mcore_poll(struct target *target)
 				struct target *sub_target = &xtensa_mcore->cores_targets[k-1];
 				xtensa_reg_val_t halt_cause = xtensa_reg_get(sub_target,
 					XT_REG_IDX_DEBUGCAUSE);
-				struct xtensa *xtensa = target_to_xtensa(sub_target);
+				xtensa = target_to_xtensa(sub_target);
 				if ((halt_cause & DEBUGCAUSE_DI) &&
 					((xtensa_dm_core_status_get(&xtensa->dbg_mod)&
 							(OCDDSR_DEBUGPENDHOST|
@@ -549,11 +574,11 @@ int xtensa_mcore_poll(struct target *target)
 			/* We need to switch focus to another core in order to be able to run
 			 * algorithms. */
 			if (target->debug_reason == DBG_REASON_DBGRQ) {
-				struct xtensa *xtensa = target_to_xtensa(
+				xtensa = target_to_xtensa(
 					&xtensa_mcore->cores_targets[xtensa_mcore->
 						active_core]);
-				if (xtensa_dm_core_status_get(&xtensa->dbg_mod) &
-					OCDDSR_RUNSTALLSAMPLE) {
+				if (xtensa_dm_core_is_stalled(&xtensa->dbg_mod) ||
+					!xtensa_dm_is_powered(&xtensa->dbg_mod)) {
 					LOG_DEBUG(
 						"Received debug request on stalled active core %d. Switch active core.",
 						(int)xtensa_mcore->active_core);
@@ -564,8 +589,8 @@ int xtensa_mcore_poll(struct target *target)
 							continue;
 						xtensa = target_to_xtensa(
 							&xtensa_mcore->cores_targets[k]);
-						if ((xtensa_dm_core_status_get(&xtensa->dbg_mod) &
-								OCDDSR_RUNSTALLSAMPLE) == 0) {
+						if (!xtensa_dm_core_is_stalled(&xtensa->dbg_mod) &&
+							xtensa_dm_is_powered(&xtensa->dbg_mod)) {
 							xtensa_mcore->active_core = k;
 							break;
 						}
@@ -578,7 +603,7 @@ int xtensa_mcore_poll(struct target *target)
 			}
 			for (size_t i = 0; i < xtensa_mcore->configured_cores_num; i++) {
 				struct target *sub_target = &xtensa_mcore->cores_targets[i];
-				struct xtensa *xtensa = target_to_xtensa(sub_target);
+				xtensa = target_to_xtensa(sub_target);
 				LOG_DEBUG(
 					"%s.%s: Target halted, pc=0x%08X, debug_reason=%08x, target_state_old=%08x, active=%s",
 					target_name(target),
