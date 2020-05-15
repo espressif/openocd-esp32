@@ -340,7 +340,7 @@ if __name__ == '__main__':
                         help='Minimal IDF version to run tests for. Format: x[.y[.z]]. Use "latest" to run all tests. Use "auto" to read version from target.',
                         type=str, default='auto')
     parser.add_argument('--test-runner', '-tr',
-                        help='x - for for XMLTestRunner, t - for TextTestRunner', type=str, default='x')
+                        help='x - for for XMLTestRunner, t - for TextTestRunner', type=str, default='t')
     parser.add_argument('--test-outdir', '-to',
                         help='Output dir for runners needed to it',
                         type=str, default='./results')
