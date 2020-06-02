@@ -33,21 +33,21 @@
  *Corresponds to the amount of regs listed in regformats/reg-xtensa.dat in the gdb source */
 #define ESP32_S2_NUM_REGS_G_COMMAND   72
 
-enum esp32_s2_rev {
+enum esp32s2_rev {
 	ESP32_S2_REV_UNKNOWN = -1,
 	ESP32_S2_REV_BETA,
 	ESP32_S2_REV_0,
 	ESP32_S2_REV_LATEST = ESP32_S2_REV_0
 };
 
-struct esp32_s2_common {
+struct esp32s2_common {
 	struct esp_xtensa_common esp_xtensa;
-	enum esp32_s2_rev chip_rev;
+	enum esp32s2_rev chip_rev;
 };
 
-static inline struct esp32_s2_common *target_to_esp32_s2(struct target *target)
+static inline struct esp32s2_common *target_to_esp32s2(struct target *target)
 {
-	return container_of(target->arch_info, struct esp32_s2_common, esp_xtensa);
+	return container_of(target->arch_info, struct esp32s2_common, esp_xtensa);
 }
 
 #endif	/* XTENSA_ESP32_S2_H */
