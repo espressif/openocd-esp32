@@ -130,7 +130,7 @@ static const struct command_registration esp32s2_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "ESP flash command group",
 		.usage = "",
-		.chain = esp_xtensa_exec_command_handlers,
+		.chain = esp_xtensa_exec_flash_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE
 };

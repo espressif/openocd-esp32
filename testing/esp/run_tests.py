@@ -26,7 +26,7 @@ BOARD_TCL_CONFIG = {
             os.path.join('board', 'esp32-wrover-kit-3.3v.cfg')
         ],
         'commands' : [],
-        'target_name' : 'esp32'
+        'chip_name' : 'esp32'
     },
     'esp32-solo-devkitj' :  {
         'files' : [
@@ -34,7 +34,7 @@ BOARD_TCL_CONFIG = {
             os.path.join('target', 'esp32-solo-1.cfg')
         ],
         'commands' : [],
-        'target_name' : 'esp32'
+        'chip_name' : 'esp32-solo'
     },
     'esp32s2-devkitj' :  {
         'files' : [
@@ -42,7 +42,7 @@ BOARD_TCL_CONFIG = {
             os.path.join('target', 'esp32s2.cfg')
         ],
         'commands' : [],
-        'target_name' : 'esp32s2'
+        'chip_name' : 'esp32s2'
     }
 }
 
@@ -83,11 +83,11 @@ class SerialPortReader(threading.Thread):
 
 
 def dbg_start(toolchain, oocd, oocd_tcl, oocd_cfg_files, oocd_cfg_cmds, debug_oocd,
-              target_name, log_level, log_stream, log_file):
+              chip_name, log_level, log_stream, log_file):
     global _oocd_inst, _gdb_inst
     connect_tmo = 5 if debug_oocd <= 2 else 15
     # Start OpenOCD
-    _oocd_inst = dbg.create_oocd(chip_name=target_name,
+    _oocd_inst = dbg.create_oocd(chip_name=chip_name,
                         oocd_exec=oocd,
                         oocd_scripts=oocd_tcl,
                         oocd_cfg_files=oocd_cfg_files,
@@ -101,7 +101,7 @@ def dbg_start(toolchain, oocd, oocd_tcl, oocd_cfg_files, oocd_cfg_cmds, debug_oo
         # reset the board if it is stuck from the previous test run
         _oocd_inst.cmd_exec('reset halt')
         # Start GDB
-        _gdb_inst = dbg.create_gdb(chip_name=target_name,
+        _gdb_inst = dbg.create_gdb(chip_name=chip_name,
                             gdb_path='%sgdb' % toolchain,
                             remote_target='127.0.0.1:%d' % dbg.Oocd.GDB_PORT,
                             log_level=log_level,
@@ -233,7 +233,7 @@ def main():
 
     # start debugger, ideally we should run all tests w/o restarting it
     dbg_start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'],
-                        args.debug_oocd, board_tcl['target_name'], log_lev, ch, fh)
+                        args.debug_oocd, board_tcl['chip_name'], log_lev, ch, fh)
     res = None
     try:
         # run tests from the same directory this file is
@@ -272,7 +272,7 @@ def main():
             # restart debugger
             dbg_stop()
             dbg_start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'],
-                                args.debug_oocd, board_tcl['target_name'], log_lev, ch, fh)
+                                args.debug_oocd, board_tcl['chip_name'], log_lev, ch, fh)
             err_suite = debug_backend_tests.DebuggerTestsBunch()
             for e in res.errors:
                 err_suite.addTest(e[0])

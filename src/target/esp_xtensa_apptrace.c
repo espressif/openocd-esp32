@@ -593,8 +593,8 @@ int esp_xtensa_apptrace_buffs_write(struct target *target,
 	uint32_t buf_sz[],
 	const uint8_t *bufs[],
 	uint32_t block_id,
-	int ack,
-	int data)
+	bool ack,
+	bool data)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
 	int res = ERROR_OK;
@@ -641,15 +641,6 @@ int esp_xtensa_apptrace_usr_block_write(struct target *core_target,
 	struct esp_xtensa_apptrace_host2target_hdr hdr = {.block_sz = size};
 	uint32_t buf_sz[2] = {sizeof(struct esp_xtensa_apptrace_host2target_hdr), size};
 	const uint8_t *bufs[2] = {(const uint8_t *)&hdr, data};
-	/* uint8_t test_data1[1] = {0xa};
-	 * uint16_t test_data2 = 0xbecf;
-	 * uint8_t test_data3[1] = {0x5};
-	 * uint8_t test_data4[3] = {0xd, 0x6, 0x9};
-	 * struct esp_xtensa_apptrace_host2target_hdr hdr = {.block_sz = 7}; */
-	/* uint32_t buf_sz[] = {sizeof(struct esp_xtensa_apptrace_host2target_hdr),
-	 * sizeof(test_data1), sizeof(test_data2), sizeof(test_data3), sizeof(test_data4)}; */
-	/* const uint8_t *bufs[] = {(const uint8_t *)&hdr, test_data1, (uint8_t *)&test_data2,
-	 * test_data3, test_data4}; */
 
 	if (size > esp_xtensa_apptrace_usr_block_max_size_get(core_target)) {
 		LOG_ERROR("Too large user block %u", size);
@@ -661,8 +652,8 @@ int esp_xtensa_apptrace_usr_block_write(struct target *core_target,
 		buf_sz,
 		bufs,
 		block_id,
-		1 /*ack target data*/,
-		1 /*host data*/);
+		true /*ack target data*/,
+		true /*host data*/);
 }
 
 int esp_xtensa_sysview_cmds_queue(struct target *core_target,

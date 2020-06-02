@@ -323,7 +323,8 @@ int xtensa_dm_queue_pwr_reg_write(struct xtensa_debug_module *dm, unsigned reg, 
 
 static inline void xtensa_dm_queue_tdi_idle(struct xtensa_debug_module *dm)
 {
-	dm->queue_tdi_idle(dm->queue_tdi_idle_arg);
+	if (dm->queue_tdi_idle)
+		dm->queue_tdi_idle(dm->queue_tdi_idle_arg);
 }
 
 int xtensa_dm_power_status_read(struct xtensa_debug_module *dm, uint32_t clear);
@@ -337,7 +338,7 @@ static inline void xtensa_dm_power_status_cache(struct xtensa_debug_module *dm)
 }
 static inline xtensa_pwrstat_t xtensa_dm_power_status_get(struct xtensa_debug_module *dm)
 {
-	return dm->power_status.stath;
+	return dm->power_status.stat;
 }
 
 int xtensa_dm_core_status_read(struct xtensa_debug_module *dm);
@@ -346,16 +347,6 @@ int xtensa_dm_core_status_check(struct xtensa_debug_module *dm);
 static inline xtensa_dsr_t xtensa_dm_core_status_get(struct xtensa_debug_module *dm)
 {
 	return dm->core_status.dsr;
-}
-
-static inline bool xtensa_dm_core_is_stalled(struct xtensa_debug_module *dm)
-{
-	return dm->core_status.dsr & OCDDSR_RUNSTALLSAMPLE;
-}
-
-static inline bool xtensa_dm_is_powered(struct xtensa_debug_module *dm)
-{
-	return dm->core_status.dsr & OCDDSR_DBGMODPOWERON;
 }
 
 int xtensa_dm_device_id_read(struct xtensa_debug_module *dm);
@@ -388,6 +379,16 @@ static inline bool xtensa_dm_core_was_reset(struct xtensa_debug_module *dm)
 {
 	return (!(dm->power_status.prev_stat & PWRSTAT_COREWASRESET) &&
 		dm->power_status.stat & PWRSTAT_COREWASRESET);
+}
+
+static inline bool xtensa_dm_core_is_stalled(struct xtensa_debug_module *dm)
+{
+	return dm->core_status.dsr & OCDDSR_RUNSTALLSAMPLE;
+}
+
+static inline bool xtensa_dm_is_powered(struct xtensa_debug_module *dm)
+{
+	return dm->core_status.dsr & OCDDSR_DBGMODPOWERON;
 }
 
 int xtensa_dm_perfmon_enable(struct xtensa_debug_module *dm, int counter_id,

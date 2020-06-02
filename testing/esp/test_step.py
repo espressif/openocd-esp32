@@ -31,7 +31,6 @@ class StepTestsImpl():
         self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 3))
         old_pc = new_pc
         self.step(insn=True, stop_rsn=dbg.TARGET_STOP_REASON_BP) # step over nop
-        cur_frame = self.gdb.get_current_frame()
         new_pc = self.gdb.get_reg('pc')
         faddr = self.gdb.extract_exec_addr(self.gdb.data_eval_expr('&%s' % funcs[1]))
         self.assertEqual(new_pc, faddr)

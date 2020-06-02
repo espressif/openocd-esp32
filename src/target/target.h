@@ -87,6 +87,7 @@ enum target_debug_reason {
 	DBG_REASON_EXIT = 6,
 	DBG_REASON_EXC_CATCH = 7,
 	DBG_REASON_UNDEFINED = 8,
+	DBG_REASON_NUM,
 };
 
 enum target_endianness {

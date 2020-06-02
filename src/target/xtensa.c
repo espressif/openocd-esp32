@@ -578,22 +578,53 @@ int xtensa_wakeup(struct target *target)
 	return jtag_execute_queue();
 }
 
-int xtensa_smpbreak_set(struct target *target, uint32_t set)
+static int xtensa_smpbreak_write(struct xtensa *xtensa, uint32_t set)
 {
-	struct xtensa *xtensa = target_to_xtensa(target);
 	int res = ERROR_OK;
 	uint32_t dsr_data = 0x00110000;
-	uint32_t clear = set ^
-		(OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN|OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN);
+	uint32_t clear = (set|OCDDCR_ENABLEOCD) ^
+		(OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN|OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN|
+		OCDDCR_ENABLEOCD);
 
+	LOG_DEBUG("%s: write smpbreak=0x%x", target_name(xtensa->target), set);
 	xtensa_queue_dbg_reg_write(xtensa, NARADR_DCRSET, set|OCDDCR_ENABLEOCD);
 	xtensa_queue_dbg_reg_write(xtensa, NARADR_DCRCLR, clear);
 	xtensa_queue_dbg_reg_write(xtensa, NARADR_DSR, dsr_data);
 	xtensa_dm_queue_tdi_idle(&xtensa->dbg_mod);
 	res = jtag_execute_queue();
 
-	LOG_DEBUG("%s set smpbreak=%x, state=%i", __func__, set, xtensa->target->state);
 	return res;
+}
+
+int xtensa_smpbreak_set(struct target *target, uint32_t set)
+{
+	struct xtensa *xtensa = target_to_xtensa(target);
+	int res = ERROR_OK;
+
+	xtensa->smp_break = set;
+	if (target_was_examined(target))
+		res = xtensa_smpbreak_write(xtensa, xtensa->smp_break);
+	LOG_DEBUG("%s: set smpbreak=%x, state=%i", target_name(target), set, target->state);
+	return res;
+}
+
+static int xtensa_smpbreak_read(struct xtensa *xtensa, uint32_t *val)
+{
+	int res = ERROR_OK;
+	uint8_t dcr_buf[sizeof(uint32_t)];
+
+	xtensa_queue_dbg_reg_read(xtensa, NARADR_DCRSET, dcr_buf);
+	xtensa_dm_queue_tdi_idle(&xtensa->dbg_mod);
+	res = jtag_execute_queue();
+	*val = buf_get_u32(dcr_buf, 0, 32);
+
+	return res;
+}
+
+int xtensa_smpbreak_get(struct target *target, uint32_t *val)
+{
+	struct xtensa *xtensa = target_to_xtensa(target);
+	return xtensa_smpbreak_read(xtensa, val);
 }
 
 static inline xtensa_reg_val_t xtensa_reg_get_value(struct reg *reg)
@@ -668,10 +699,8 @@ int xtensa_assert_reset(struct target *target)
 	struct xtensa *xtensa = target_to_xtensa(target);
 	int res;
 
-	LOG_DEBUG("%s[%s] coreid=%i, target_number=%i, begin",
-		__func__,
+	LOG_DEBUG("%s: target_number=%i, begin",
 		target_name(target),
-		target->coreid,
 		target->target_number);
 	target->state = TARGET_RESET;
 	xtensa_queue_pwr_reg_write(xtensa,
@@ -691,7 +720,7 @@ int xtensa_deassert_reset(struct target *target)
 	struct xtensa *xtensa = target_to_xtensa(target);
 	int res;
 
-	LOG_DEBUG("%s coreid=%d halt=%d", __func__, target->coreid, target->reset_halt);
+	LOG_DEBUG("%s halt=%d", target_name(target), target->reset_halt);
 	if (target->reset_halt)
 		xtensa_queue_dbg_reg_write(xtensa,
 			NARADR_DCRSET,
@@ -907,7 +936,9 @@ int xtensa_halt(struct target *target)
 		LOG_ERROR("%s: Failed to read core status!", target_name(target));
 		return res;
 	}
-	if (!(xtensa_dm_core_status_get(&xtensa->dbg_mod) & OCDDSR_STOPPED)) {
+	LOG_DEBUG("%s: Core status 0x%x", target_name(target),
+		xtensa_dm_core_status_get(&xtensa->dbg_mod));
+	if (!xtensa_is_stopped(target)) {
 		xtensa_queue_dbg_reg_write(xtensa,
 			NARADR_DCRSET,
 			OCDDCR_ENABLEOCD|OCDDCR_DEBUGINTERRUPT);
@@ -1012,8 +1043,7 @@ int xtensa_resume(struct target *target,
 	int handle_breakpoints,
 	int debug_execution)
 {
-	LOG_DEBUG("%s:", target_name(target));
-
+	LOG_DEBUG("%s", target_name(target));
 	int res = xtensa_prepare_resume(target,
 		current,
 		address,
@@ -1034,9 +1064,8 @@ int xtensa_resume(struct target *target,
 		target->state = TARGET_RUNNING;
 	else
 		target->state = TARGET_DEBUG_RUNNING;
-	int res1 = target_call_event_callbacks(target, TARGET_EVENT_RESUMED);
-	if (res1 != ERROR_OK)
-		res = res1;
+
+	target_call_event_callbacks(target, TARGET_EVENT_RESUMED);
 	return res;
 }
 
@@ -1501,52 +1530,23 @@ int xtensa_checksum_memory(struct target *target,
 	return ERROR_FAIL;
 }
 
-/* do some general work upon poll */
-void xtensa_on_poll(struct target *target)
-{
-	struct xtensa *xtensa = target_to_xtensa(target);
-	int res;
-
-	if (xtensa->trace_active) {
-		/*Detect if tracing was active but has stopped. */
-		struct xtensa_trace_status trace_status;
-		res = xtensa_dm_trace_status_read(&xtensa->dbg_mod, &trace_status);
-		if (res == ERROR_OK) {
-			if (!(trace_status.stat & TRAXSTAT_TRACT)) {
-				LOG_INFO("Detected end of trace.");
-				if (trace_status.stat & TRAXSTAT_PCMTG)
-					LOG_INFO("%s: Trace stop triggered by PC match",
-						target_name(target));
-				if (trace_status.stat &TRAXSTAT_PTITG)
-					LOG_INFO(
-						"%s: Trace stop triggered by Processor Trigger Input",
-						target_name(target));
-				if (trace_status.stat & TRAXSTAT_CTITG)
-					LOG_INFO("%s: Trace stop triggered by Cross-trigger Input",
-						target_name(target));
-				xtensa->trace_active = false;
-			}
-		}
-	}
-}
-
 int xtensa_poll(struct target *target)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
-	bool need_resume = false;
 
 	int res = xtensa_dm_power_status_read(&xtensa->dbg_mod,
 		PWRSTAT_DEBUGWASRESET|PWRSTAT_COREWASRESET);
 	if (res != ERROR_OK)
 		return res;
 
-	if (xtensa_dm_tap_was_reset(&xtensa->dbg_mod))
-		LOG_INFO("%s: Debug controller %d was reset.", target_name(target), target->coreid);
-	if (xtensa_dm_core_was_reset(&xtensa->dbg_mod)) {
-		LOG_INFO("%s: Core %d was reset.", target_name(target), target->coreid);
-		if (xtensa->chip_ops != NULL && xtensa->chip_ops->on_reset != NULL)
-			xtensa->chip_ops->on_reset(target);
+	if (xtensa_dm_tap_was_reset(&xtensa->dbg_mod)) {
+		LOG_INFO("%s: Debug controller was reset.", target_name(target));
+		res = xtensa_smpbreak_write(xtensa, xtensa->smp_break);
+		if (res != ERROR_OK)
+			return res;
 	}
+	if (xtensa_dm_core_was_reset(&xtensa->dbg_mod))
+		LOG_INFO("%s: Core was reset.", target_name(target));
 	xtensa_dm_power_status_cache(&xtensa->dbg_mod);
 	/*Enable JTAG, set reset if needed */
 	res = xtensa_wakeup(target);
@@ -1556,11 +1556,15 @@ int xtensa_poll(struct target *target)
 	res = xtensa_dm_core_status_read(&xtensa->dbg_mod);
 	if (res != ERROR_OK)
 		return res;
-	/*LOG_DEBUG("%s: 0x%x %d", target_name(target), xtensa->dbg_mod.core_status.dsr,
-	 * xtensa->dbg_mod.core_status.dsr & OCDDSR_STOPPED); */
-	if (xtensa_dm_power_status_get(&xtensa->dbg_mod) & PWRSTAT_COREWASRESET)
+	if (xtensa->dbg_mod.power_status.stath & PWRSTAT_COREWASRESET) {
+		/* if RESET state is persitent  */
 		target->state = TARGET_RESET;
-	else if (xtensa->dbg_mod.core_status.dsr & OCDDSR_STOPPED) {
+	} else if (!xtensa_dm_is_powered(&xtensa->dbg_mod)) {
+		LOG_DEBUG("%s: not powered 0x%x %d", target_name(
+				target), xtensa->dbg_mod.core_status.dsr,
+			xtensa->dbg_mod.core_status.dsr & OCDDSR_STOPPED);
+		target->examined = false;
+	} else if (xtensa_is_stopped(target)) {
 		if (target->state != TARGET_HALTED) {
 			enum target_state oldstate = target->state;
 			target->state = TARGET_HALTED;
@@ -1572,6 +1576,7 @@ int xtensa_poll(struct target *target)
 			/* Watchpoint and breakpoint events at the same time results in special
 			 * debug reason: DBG_REASON_WPTANDBKPT. */
 			xtensa_reg_val_t halt_cause = xtensa_reg_get(target, XT_REG_IDX_DEBUGCAUSE);
+			/* TODO: Add handling of DBG_REASON_EXC_CATCH */
 			if (halt_cause & DEBUGCAUSE_IC)
 				target->debug_reason = DBG_REASON_SINGLESTEP;
 			if (halt_cause & (DEBUGCAUSE_IB | DEBUGCAUSE_BN | DEBUGCAUSE_BI)) {
@@ -1597,19 +1602,6 @@ int xtensa_poll(struct target *target)
 			xtensa_dm_core_status_clear(&xtensa->dbg_mod,
 				OCDDSR_DEBUGPENDBREAK|OCDDSR_DEBUGINTBREAK|OCDDSR_DEBUGPENDHOST|
 				OCDDSR_DEBUGINTHOST);
-
-			/*Call any event callbacks that are applicable */
-			if (oldstate == TARGET_DEBUG_RUNNING)
-				target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
-			else {
-				need_resume = xtensa->chip_ops != NULL &&
-					xtensa->chip_ops->on_halt !=
-					NULL ? xtensa->chip_ops->on_halt(target) : false;
-				/* in case of semihosting call we will resume automatically a bit
-				 * later, so do not confuse GDB */
-				if (!need_resume)
-					target_call_event_callbacks(target, TARGET_EVENT_HALTED);
-			}
 		}
 	} else {
 		target->debug_reason = DBG_REASON_NOTHALTED;
@@ -1618,15 +1610,27 @@ int xtensa_poll(struct target *target)
 			target->debug_reason = DBG_REASON_NOTHALTED;
 		}
 	}
-	if (xtensa->chip_ops != NULL && xtensa->chip_ops->on_poll != NULL)
-		xtensa->chip_ops->on_poll(target);
-
-	if (need_resume) {
-		res = target_resume(target, 1, 0, 1, 0);
-		if (res != ERROR_OK)
-			LOG_ERROR("Failed to resume target upon core request!");
+	if (xtensa->trace_active) {
+		/*Detect if tracing was active but has stopped. */
+		struct xtensa_trace_status trace_status;
+		res = xtensa_dm_trace_status_read(&xtensa->dbg_mod, &trace_status);
+		if (res == ERROR_OK) {
+			if (!(trace_status.stat & TRAXSTAT_TRACT)) {
+				LOG_INFO("Detected end of trace.");
+				if (trace_status.stat & TRAXSTAT_PCMTG)
+					LOG_INFO("%s: Trace stop triggered by PC match",
+						target_name(target));
+				if (trace_status.stat &TRAXSTAT_PTITG)
+					LOG_INFO(
+						"%s: Trace stop triggered by Processor Trigger Input",
+						target_name(target));
+				if (trace_status.stat & TRAXSTAT_CTITG)
+					LOG_INFO("%s: Trace stop triggered by Cross-trigger Input",
+						target_name(target));
+				xtensa->trace_active = false;
+			}
+		}
 	}
-
 	return ERROR_OK;
 }
 
@@ -1705,7 +1709,7 @@ int xtensa_breakpoint_add(struct target *target, struct breakpoint *breakpoint)
 			break;
 	}
 	if (slot == xtensa->core_config->debug.ibreaks_num) {
-		LOG_WARNING("%s: No free slots to add HW breakpoint!", target_name(target));
+		LOG_DEBUG("%s: No free slots to add HW breakpoint!", target_name(target));
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
@@ -1753,7 +1757,7 @@ int xtensa_breakpoint_remove(struct target *target, struct breakpoint *breakpoin
 			break;
 	}
 	if (slot == xtensa->core_config->debug.ibreaks_num) {
-		LOG_WARNING("%s: HW breakpoint not found!", target_name(target));
+		LOG_DEBUG("%s: HW breakpoint not found!", target_name(target));
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 	xtensa->hw_brps[slot] = NULL;
@@ -1845,7 +1849,8 @@ int xtensa_watchpoint_remove(struct target *target, struct watchpoint *watchpoin
 			break;
 	}
 	if (slot == xtensa->core_config->debug.dbreaks_num) {
-		LOG_WARNING("%s: HW watchpoint not found!", target_name(target));
+		LOG_WARNING("%s: HW watchpoint " TARGET_ADDR_FMT " not found!", target_name(
+				target), watchpoint->address);
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 	xtensa_reg_set(target, XT_REG_IDX_DBREAKC0 + slot, 0);
@@ -2101,15 +2106,33 @@ static void xtensa_build_reg_cache(struct target *target)
 	(*cache_p) = reg_cache;
 }
 
+int xtensa_handle_target_event(struct target *target, enum target_event event,
+	void *priv)
+{
+	int res = ERROR_OK;
+	struct xtensa *xtensa = target_to_xtensa(target);
+
+	if (target != priv)
+		return ERROR_OK;
+
+	LOG_DEBUG("%d", event);
+	switch (event) {
+		case TARGET_EVENT_EXAMINE_END:
+			res = xtensa_smpbreak_write(xtensa, xtensa->smp_break);
+			break;
+		default:
+			break;
+	}
+	return res;
+}
+
 int xtensa_init_arch_info(struct target *target, struct xtensa *xtensa,
 	const struct xtensa_config *xtensa_config,
-	const struct xtensa_debug_module_config *dm_cfg,
-	const struct xtensa_chip_ops *chip_ops)
+	const struct xtensa_debug_module_config *dm_cfg)
 {
 	target->arch_info = xtensa;
 	xtensa->target = target;
 	xtensa->core_config = xtensa_config;
-	xtensa->chip_ops = chip_ops;
 	xtensa->stepping_isr_mode = XT_STEPPING_ISR_ON;
 
 	if (!xtensa->core_config->exc.enabled || !xtensa->core_config->irq.enabled ||
@@ -2323,6 +2346,59 @@ COMMAND_HANDLER(xtensa_cmd_mask_interrupts)
 		target_to_xtensa(get_current_target(CMD_CTX)));
 }
 
+COMMAND_HELPER(xtensa_cmd_smpbreak_do, struct target *target)
+{
+	int res = ERROR_OK;
+	uint32_t val = 0;
+
+	if (CMD_ARGC >= 1) {
+		for (uint32_t i = 0; i < CMD_ARGC; i++) {
+			if (!strcasecmp(CMD_ARGV[0], "none"))
+				val = 0;
+			else if (!strcasecmp(CMD_ARGV[i], "BreakIn"))
+				val |= OCDDCR_BREAKINEN;
+			else if (!strcasecmp(CMD_ARGV[i], "BreakOut"))
+				val |= OCDDCR_BREAKOUTEN;
+			else if (!strcasecmp(CMD_ARGV[i], "RunStallIn"))
+				val |= OCDDCR_RUNSTALLINEN;
+			else if (!strcasecmp(CMD_ARGV[i], "DebugModeOut"))
+				val |= OCDDCR_DEBUGMODEOUTEN;
+			else if (!strcasecmp(CMD_ARGV[i], "BreakInOut"))
+				val |= OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN;
+			else if (!strcasecmp(CMD_ARGV[i], "RunStall"))
+				val |= OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN;
+			else {
+				command_print(CMD, "Unknown arg %s", CMD_ARGV[i]);
+				command_print(
+					CMD,
+					"use either BreakInOut, None or RunStall as arguments, or any combination of BreakIn, BreakOut, RunStallIn and DebugModeOut.");
+				return ERROR_OK;
+			}
+		}
+		res = xtensa_smpbreak_set(target, val);
+		if (res != ERROR_OK)
+			command_print(CMD, "Failed to set smpbreak config %d", res);
+	} else {
+		res = xtensa_smpbreak_get(target, &val);
+		if (res == ERROR_OK) {
+			command_print(CMD, "Current bits set:%s%s%s%s",
+				(val & OCDDCR_BREAKINEN) ? " BreakIn" : "",
+				(val & OCDDCR_BREAKOUTEN) ? " BreakOut" : "",
+				(val & OCDDCR_RUNSTALLINEN) ? " RunStallIn" : "",
+				(val & OCDDCR_DEBUGMODEOUTEN) ? " DebugModeOut" : ""
+				);
+		} else
+			command_print(CMD, "Failed to get smpbreak config %d", res);
+	}
+	return res;
+}
+
+COMMAND_HANDLER(xtensa_cmd_smpbreak)
+{
+	return CALL_COMMAND_HANDLER(xtensa_cmd_mask_interrupts_do,
+		target_to_xtensa(get_current_target(CMD_CTX)));
+}
+
 COMMAND_HELPER(xtensa_cmd_tracestart_do, struct xtensa *xtensa)
 {
 	int res;
@@ -2502,7 +2578,7 @@ const struct command_registration xtensa_command_handlers[] = {
 		.name = "set_permissive",
 		.handler = xtensa_cmd_permissive_mode,
 		.mode = COMMAND_ANY,
-		.help = "When set to 1, enable ESP108 permissive mode (less client-side checks)",
+		.help = "When set to 1, enable Xtensa permissive mode (less client-side checks)",
 		.usage = "[0|1]",
 	},
 	{
@@ -2511,6 +2587,14 @@ const struct command_registration xtensa_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "mask Xtensa interrupts at step",
 		.usage = "['on'|'off']",
+	},
+	{
+		.name = "smpbreak",
+		.handler = xtensa_cmd_smpbreak,
+		.mode = COMMAND_ANY,
+		.help = "Set the way the CPU chains OCD breaks",
+		.usage =
+			"[none|breakinout|runstall] | [BreakIn] [BreakOut] [RunStallIn] [DebugModeOut]",
 	},
 	{
 		.name = "perfmon_enable",

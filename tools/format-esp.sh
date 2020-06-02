@@ -9,11 +9,9 @@
 ./tools/uncrustify1.sh src/target/esp_xtensa_apptrace.h
 ./tools/uncrustify1.sh src/target/xtensa_algorithm.c
 ./tools/uncrustify1.sh src/target/xtensa_debug_module.c
-./tools/uncrustify1.sh src/target/xtensa_mcore.c
 ./tools/uncrustify1.sh src/target/esp_xtensa.c
 ./tools/uncrustify1.sh src/target/xtensa_algorithm.h
 ./tools/uncrustify1.sh src/target/xtensa_debug_module.h
-./tools/uncrustify1.sh src/target/xtensa_mcore.h
 ./tools/uncrustify1.sh src/target/esp32.c
 ./tools/uncrustify1.sh src/target/esp32s2.c
 ./tools/uncrustify1.sh src/target/esp_xtensa_apptrace.h

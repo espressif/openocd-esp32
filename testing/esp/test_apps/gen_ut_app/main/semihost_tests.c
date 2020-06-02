@@ -23,11 +23,10 @@
 
 #include "esp_log.h"
 const static char *TAG = "semihost_test";
-#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 
 static void semihost_task(void *pvParameter)
 {
-    static uint8_t s_buf[512];
+    uint8_t s_buf[512];
     int core_id = xPortGetCoreID();
     char fname[32];
     esp_err_t ret;
@@ -41,15 +40,15 @@ static void semihost_task(void *pvParameter)
             ESP_LOGE(TAG, "CPU[%d]: Failed to register semihost driver (%s)!", core_id, esp_err_to_name(ret));
             return;
         }
-#   if !CONFIG_FREERTOS_UNICORE
-        xTaskCreatePinnedToCore(&semihost_task, "semihost_task1", 8000, xTaskGetCurrentTaskHandle(), 5, NULL, 1);
+#if !CONFIG_FREERTOS_UNICORE
+        xTaskCreatePinnedToCore(&semihost_task, "semihost_task1", 4096, xTaskGetCurrentTaskHandle(), 5, NULL, 1);
         vTaskDelay(1);
-#   endif
+#endif
     }
 
     /**** Opening files ****/
     snprintf(fname, sizeof(fname)-1, "/host/test_write.%d", core_id);
-    ESP_LOGI(TAG, "Opening %s", fname);
+    ESP_LOGI(TAG, "CPU[%d]: Opening %s", core_id, fname);
     FILE *f_out = fopen(fname, "w+");
     if(f_out == NULL) {
         ESP_LOGE(TAG, "CPU[%d]: Failed to open file for writing (%d)!", core_id, errno);
@@ -99,9 +98,9 @@ static void semihost_task(void *pvParameter)
     ESP_LOGI(TAG, "CPU[%d]: Closed files", core_id);
 
     if (core_id == 0) {
-#   if !CONFIG_FREERTOS_UNICORE
+#if !CONFIG_FREERTOS_UNICORE
         ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
-#   endif
+#endif
         ESP_LOGI(TAG, "CPU[%d]: Unregister host FS", core_id);
         ret = esp_vfs_semihost_unregister("/host");
         if (ret != ESP_OK) {
@@ -125,10 +124,10 @@ ut_result_t semihost_test_do(int test_num)
 #if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0)
         case 700:
         {
-            xTaskCreatePinnedToCore(&semihost_task, "semihost_task0", 8000, NULL, 5, NULL, 0);
+            xTaskCreatePinnedToCore(&semihost_task, "semihost_task0", 4096, NULL, 5, NULL, 0);
             break;
         }
-#   endif /* #if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0) */
+#endif /* #if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0) */
         default:
             return UT_UNSUPPORTED;
     }

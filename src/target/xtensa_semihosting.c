@@ -57,6 +57,13 @@ static int xtensa_semihosting_setup(struct target *target)
 	return ERROR_OK;
 }
 
+static int xtensa_semihosting_post_result(struct target *target)
+{
+	xtensa_reg_set(target, XTENSA_SYSCALL_RETVAL_REG, target->semihosting->result);
+	xtensa_reg_set(target, XTENSA_SYSCALL_ERRNO_REG, target->semihosting->sys_errno);
+	return ERROR_OK;
+}
+
 /**
  * Initialize esp_xtensa semihosting support.
  *
@@ -71,13 +78,4 @@ int xtensa_semihosting_init(struct target *target)
 	if (retval != ERROR_OK)
 		return retval;
 	return xtensa_semihosting_setup(target);
-}
-
-
-
-int xtensa_semihosting_post_result(struct target *target)	/* TODO make static */
-{
-	xtensa_reg_set(target, SYSCALL_RETVAL_REG, target->semihosting->result);
-	xtensa_reg_set(target, SYSCALL_ERRNO_REG, target->semihosting->sys_errno);
-	return ERROR_OK;
 }
