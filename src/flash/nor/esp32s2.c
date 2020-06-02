@@ -148,4 +148,5 @@ struct flash_driver esp32_s2_flash = {
 	.erase_check = esp_xtensa_blank_check,
 	.protect_check = esp_xtensa_protect_check,
 	.info = esp32_s2_get_info,
+	.free_driver_priv = default_flash_free_driver_priv,
 };
