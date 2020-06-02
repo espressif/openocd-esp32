@@ -79,8 +79,8 @@ int esp_xtensa_probe(struct flash_bank *bank);
 int esp_xtensa_auto_probe(struct flash_bank *bank);
 int esp_xtensa_flash_breakpoint_add(struct target *target,
 	struct breakpoint *breakpoint,
-	struct esp_xtensa_special_breakpoint *sw_bp);
+	struct esp_xtensa_flash_breakpoint *sw_bp);
 int esp_xtensa_flash_breakpoint_remove(struct target *target,
-	struct esp_xtensa_special_breakpoint *sw_bp);
+	struct esp_xtensa_flash_breakpoint *sw_bp);
 
 #endif	/*FLASH_ESP_XTENSA_H*/

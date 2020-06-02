@@ -843,7 +843,7 @@ static void esp_xtensa_flash_bp_op_state_cleanup(struct target *target,
 
 int esp_xtensa_flash_breakpoint_add(struct target *target,
 	struct breakpoint *breakpoint,
-	struct esp_xtensa_special_breakpoint *sw_bp)
+	struct esp_xtensa_flash_breakpoint *sw_bp)
 {
 	struct esp_xtensa_flash_bank *esp_xtensa_info;
 	struct xtensa_algo_run_data run;
@@ -926,7 +926,7 @@ int esp_xtensa_flash_breakpoint_add(struct target *target,
 }
 
 int esp_xtensa_flash_breakpoint_remove(struct target *target,
-	struct esp_xtensa_special_breakpoint *sw_bp)
+	struct esp_xtensa_flash_breakpoint *sw_bp)
 {
 	struct flash_bank *bank = (struct flash_bank *)(sw_bp->priv);
 	struct esp_xtensa_flash_bank *esp_xtensa_info = bank->driver_priv;
