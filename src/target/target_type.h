@@ -297,17 +297,6 @@ struct target_type {
 	 * typically be 32 for 32-bit targets, and 64 for 64-bit targets. If not
 	 * implemented, it's assumed to be 32. */
 	unsigned (*address_bits)(struct target *target);
-
-	// TODO: remove below interface
-	/* get amount of cores for multiprocessor systems.
-	*/
-	size_t(*get_cores_count)(struct target *target);
-	/* get current active core for multiprocessor systems.
-	*/
-	size_t(*get_active_core)(struct target *target);
-	/* set active core for multiprocessor systems.
-	*/
-	void(*set_active_core)(struct target *target, size_t core);
 };
 
 #endif /* OPENOCD_TARGET_TARGET_TYPE_H */

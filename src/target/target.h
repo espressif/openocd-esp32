@@ -777,13 +777,4 @@ void target_handle_md_output(struct command_invocation *cmd,
 
 extern bool get_target_reset_nag(void);
 
-/* Returns the number of CPUs within a target */
-int target_get_core_count(struct target *target);
-
-/* Returns the index of the active CPU */
-int target_get_active_core(struct target *target);
-
-/* Makes given CPU active */
-void target_set_active_core(struct target *target, int core_id);
-
 #endif /* OPENOCD_TARGET_TARGET_H */
