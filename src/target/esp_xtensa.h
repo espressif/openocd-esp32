@@ -93,18 +93,18 @@ enum esp_flash_bootstrap {
 	FBS_TMSHIGH,
 };
 
-#define ESP_XTENSA_SPECIAL_BREAKPOINTS_MAX_NUM  32
+#define ESP_XTENSA_FLASH_BREAKPOINTS_MAX_NUM  32
 
-struct esp_xtensa_special_breakpoint {
+struct esp_xtensa_flash_breakpoint {
 	struct xtensa_sw_breakpoint data;
 	void *priv;
 };
 
-struct esp_xtensa_special_breakpoint_ops {
+struct esp_xtensa_flash_breakpoint_ops {
 	int (*breakpoint_add)(struct target *target, struct breakpoint *breakpoint,
-		struct esp_xtensa_special_breakpoint *spec_bp);
+		struct esp_xtensa_flash_breakpoint *spec_bp);
 	int (*breakpoint_remove)(struct target *target,
-		struct esp_xtensa_special_breakpoint *spec_bp);
+		struct esp_xtensa_flash_breakpoint *spec_bp);
 };
 
 
@@ -120,9 +120,9 @@ struct esp_xtensa_common {
 	 * which is linked with this this esp_xtensa_common. */
 	struct target *chip_target;
 	struct esp_dbg_stubs dbg_stubs;
-	struct esp_xtensa_special_breakpoint_ops spec_brps_ops;
-	struct esp_xtensa_special_breakpoint *spec_brps;
 	enum esp_flash_bootstrap flash_bootstrap;
+	struct esp_xtensa_flash_breakpoint_ops flash_brps_ops;
+	struct esp_xtensa_flash_breakpoint *flash_brps;
 	struct esp_xtensa_semihost_data semihost;
 };
 
@@ -137,15 +137,13 @@ int esp_xtensa_init_arch_info(struct target *target,
 	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
 	const struct xtensa_chip_ops *chip_ops,
-	const struct esp_xtensa_special_breakpoint_ops *spec_brps_ops);
+	const struct esp_xtensa_flash_breakpoint_ops *spec_brps_ops);
 int esp_xtensa_target_init(struct command_context *cmd_ctx, struct target *target);
 void esp_xtensa_target_deinit(struct target *target);
 int esp_xtensa_arch_state(struct target *target);
 void esp_xtensa_queue_tdi_idle(struct target *target);
 int esp_xtensa_breakpoint_add(struct target *target, struct breakpoint *breakpoint);
 int esp_xtensa_breakpoint_remove(struct target *target, struct breakpoint *breakpoint);
-bool esp_xtensa_is_special_breakpoint(struct target *target, struct breakpoint *breakpoint);
-int esp_xtensa_special_breakpoints_clear(struct target *target);
 void esp_xtensa_on_reset(struct target *target);
 bool esp_xtensa_on_halt(struct target *target);
 void esp_xtensa_on_poll(struct target *target);

@@ -733,7 +733,7 @@ static struct xtensa_core_ops esp32_xtensa_mcores_ops = {
 	.core_is_special_breakpoint = esp_xtensa_is_special_breakpoint,
 };
 
-static struct esp_xtensa_special_breakpoint_ops esp32_xtensa_spec_brp_ops = {
+static const struct esp_xtensa_flash_breakpoint_ops esp32_flash_brp_ops = {
 	.breakpoint_add = esp_xtensa_flash_breakpoint_add,
 	.breakpoint_remove = esp_xtensa_flash_breakpoint_remove
 };
