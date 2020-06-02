@@ -86,13 +86,6 @@ struct esp_dbg_stubs {
 	struct esp_dbg_stubs_desc desc;
 };
 
-/* 0 - don't care, 1 - TMS low, 2 - TMS high */
-enum esp_flash_bootstrap {
-	FBS_DONTCARE = 0,
-	FBS_TMSLOW,
-	FBS_TMSHIGH,
-};
-
 #define ESP_XTENSA_FLASH_BREAKPOINTS_MAX_NUM  32
 
 struct esp_xtensa_flash_breakpoint {
@@ -107,20 +100,15 @@ struct esp_xtensa_flash_breakpoint_ops {
 		struct esp_xtensa_flash_breakpoint *spec_bp);
 };
 
-
 struct esp_xtensa_semihost_data {
 	char *basedir;
-	uint32_t version;	/* sending with drvinfo syscall */
+	uint32_t version;		/* sending with drvinfo syscall */
+	bool need_resume;
 };
 
 struct esp_xtensa_common {
 	struct xtensa xtensa;
-	/* Parent target of the chip for multi-core implementations.
-	 * For single-core implementation should be set to the target
-	 * which is linked with this this esp_xtensa_common. */
-	struct target *chip_target;
 	struct esp_dbg_stubs dbg_stubs;
-	enum esp_flash_bootstrap flash_bootstrap;
 	struct esp_xtensa_flash_breakpoint_ops flash_brps_ops;
 	struct esp_xtensa_flash_breakpoint *flash_brps;
 	struct esp_xtensa_semihost_data semihost;
@@ -132,11 +120,9 @@ static inline struct esp_xtensa_common *target_to_esp_xtensa(struct target *targ
 }
 
 int esp_xtensa_init_arch_info(struct target *target,
-	struct target *chip_target,
-	void *arch_info,
+	struct esp_xtensa_common *esp_xtensa,
 	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
-	const struct xtensa_chip_ops *chip_ops,
 	const struct esp_xtensa_flash_breakpoint_ops *spec_brps_ops);
 int esp_xtensa_target_init(struct command_context *cmd_ctx, struct target *target);
 void esp_xtensa_target_deinit(struct target *target);
@@ -144,14 +130,12 @@ int esp_xtensa_arch_state(struct target *target);
 void esp_xtensa_queue_tdi_idle(struct target *target);
 int esp_xtensa_breakpoint_add(struct target *target, struct breakpoint *breakpoint);
 int esp_xtensa_breakpoint_remove(struct target *target, struct breakpoint *breakpoint);
-void esp_xtensa_on_reset(struct target *target);
-bool esp_xtensa_on_halt(struct target *target);
-void esp_xtensa_on_poll(struct target *target);
+int esp_xtensa_poll(struct target *target);
+int esp_xtensa_handle_target_event(struct target *target, enum target_event event,
+	void *priv);
 
-COMMAND_HELPER(esp_xtensa_cmd_flashbootstrap_do, struct esp_xtensa_common *esp_xtensa);
 COMMAND_HELPER(esp_xtensa_cmd_semihost_basedir_do, struct esp_xtensa_common *esp_xtensa);
 
 extern const struct command_registration esp_command_handlers[];
-extern const struct command_registration esp_xtensa_command_handlers[];
 
 #endif	/* ESP_XTENSA_H */

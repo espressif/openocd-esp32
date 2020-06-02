@@ -45,13 +45,14 @@
 #include "target_type.h"
 #include "time_support.h"
 #include "list.h"
-#include "xtensa_mcore.h"
+#include "smp.h"
+#include "xtensa_algorithm.h"
 #include "esp_xtensa.h"
 #include "esp_xtensa_apptrace.h"
 #include "esp32_apptrace.h"
 
 
-#define ESP_APPTRACE_MAX_CORES_NUM 2
+#define ESP32_APPTRACE_MAX_CORES_NUM 2
 
 #define ESP32_APPTRACE_USER_BLOCK_CORE(_v_) ((_v_) >> 15)
 #define ESP32_APPTRACE_USER_BLOCK_LEN(_v_)  ((_v_) & ~(1 << 15))
@@ -194,7 +195,7 @@ struct esp32_apptrace_cmd_ctx {
 	volatile int running;
 	int mode;
 	/* TODO: use subtargets from target arch info */
-	struct target *cpus[ESP_APPTRACE_MAX_CORES_NUM];
+	struct target *cpus[ESP32_APPTRACE_MAX_CORES_NUM];
 	/* TODO: use cores num from target */
 	int cores_num;
 	uint32_t last_blk_id;
@@ -215,7 +216,7 @@ struct esp32_apptrace_cmd_ctx {
 };
 
 struct esp32_apptrace_cmd_data {
-	struct esp32_apptrace_dest data_dests[ESP_APPTRACE_MAX_CORES_NUM];
+	struct esp32_apptrace_dest data_dests[ESP32_APPTRACE_MAX_CORES_NUM];
 	uint32_t poll_period;
 	uint32_t sv_acc_time_delta;
 	int sv_last_core_id;
@@ -644,35 +645,23 @@ static int esp32_apptrace_cmd_ctx_init(struct target *target,
 	cmd_ctx->stop_tmo = -1.0;	/* infinite */
 	cmd_ctx->mode = mode;
 
-	if (target->type->get_cores_count) {	/* single core chips have no get_cores_count()
-						 * callback */
-		struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
-		/* HACK: OOCD has no attach event for telnet session so
-		 * halt and resume target if numbers of working cores has not been detected yet,
-		 * e.g. when we connected via telnet to running target */
-		if (xtensa_mcore->cores_num == 0 && target->state == TARGET_RUNNING) {
-			res = target_halt(target);
-			if (res != ERROR_OK) {
-				LOG_ERROR("Failed to halt target (%d)!", res);
-				return res;
+	if (target->smp) {
+		struct target_list *head;
+		struct target *curr;
+		int i = 0;
+		cmd_ctx->cores_num = 0;
+		foreach_smp_target(head, target->head) {
+			curr = head->target;
+			if (i == ESP32_APPTRACE_MAX_CORES_NUM) {
+				LOG_ERROR("Too many cores configured! Max %d cores are supported.",
+					ESP32_APPTRACE_MAX_CORES_NUM);
+				return ERROR_FAIL;
 			}
-			res =
-				target_wait_state(target,
-				TARGET_HALTED,
-				ESP32_APPTRACE_TGT_STATE_TMO);
-			if (res != ERROR_OK) {
-				LOG_ERROR("Failed to halt target (%d)!", res);
-				return res;
-			}
-			res = target_resume(target, 1, 0, 1, 0);
-			if (res != ERROR_OK) {
-				LOG_ERROR("Failed to halt target (%d)!", res);
-				return res;
-			}
+			if (!target_was_examined(curr))
+				continue;
+			cmd_ctx->cores_num++;
+			cmd_ctx->cpus[i++] = curr;
 		}
-		cmd_ctx->cores_num = target_get_core_count(target);
-		for (int i = 0; i < cmd_ctx->cores_num; i++)
-			cmd_ctx->cpus[i] = &xtensa_mcore->cores_targets[i];
 	} else {
 		cmd_ctx->cores_num = 1;
 		cmd_ctx->cpus[0] = target;
@@ -921,7 +910,6 @@ static int esp32_apptrace_wait4halt(struct esp32_apptrace_cmd_ctx *ctx, struct t
 }
 
 static int esp32_apptrace_safe_halt_targets(struct esp32_apptrace_cmd_ctx *ctx,
-	struct target *target,
 	struct esp32_apptrace_target_state *targets)
 {
 	int res = ERROR_OK;
@@ -929,19 +917,23 @@ static int esp32_apptrace_safe_halt_targets(struct esp32_apptrace_cmd_ctx *ctx,
 	memset(targets, 0, ctx->cores_num*sizeof(struct esp32_apptrace_target_state));
 	/* halt all CPUs */
 	LOG_DEBUG("Halt all targets!");
-	if (target->state != TARGET_HALTED) {
-		res = target_halt(target);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to halt target (%d)!", res);
-			return res;
-		}
-		res = target_wait_state(target, TARGET_HALTED, ESP32_APPTRACE_TGT_STATE_TMO);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to wait halt target %s / %d (%d)!",
-				target_name(target),
-				target->state,
-				res);
-			return res;
+	for (int k = 0; k < ctx->cores_num; k++) {
+		if (target_was_examined(ctx->cpus[k]) && ctx->cpus[k]->state != TARGET_HALTED) {
+			res = target_halt(ctx->cpus[k]);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to halt target (%d)!", res);
+				return res;
+			}
+			res = target_wait_state(ctx->cpus[k],
+				TARGET_HALTED,
+				ESP32_APPTRACE_TGT_STATE_TMO);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to wait halt target %s / %d (%d)!",
+					target_name(ctx->cpus[k]),
+					ctx->cpus[k]->state,
+					res);
+				return res;
+			}
 		}
 	}
 	/* read current block statuses from CPUs */
@@ -961,40 +953,40 @@ static int esp32_apptrace_safe_halt_targets(struct esp32_apptrace_cmd_ctx *ctx,
 				return res;
 			}
 			uint32_t bp_addr = stat;
-			res = breakpoint_add(target, bp_addr, 1, BKPT_HARD);
+			res = breakpoint_add(ctx->cpus[0], bp_addr, 1, BKPT_HARD);
 			if (res != ERROR_OK) {
 				LOG_ERROR("Failed to set breakpoint (%d)!", res);
 				return res;
 			}
 			while (stat) {
 				/* allow this CPU to leave ERI write critical section */
-				res = target_resume(target, 1, 0, 1, 0);
+				res = target_resume(ctx->cpus[0], 1, 0, 1, 0);
 				if (res != ERROR_OK) {
 					LOG_ERROR("Failed to resume target (%d)!", res);
-					breakpoint_remove(target, bp_addr);
+					breakpoint_remove(ctx->cpus[0], bp_addr);
 					return res;
 				}
 				/* wait for CPU to be halted on BP */
 				enum target_debug_reason debug_reason = DBG_REASON_UNDEFINED;
 				while (debug_reason != DBG_REASON_BREAKPOINT) {
-					res = target_wait_state(target,
+					res = target_wait_state(ctx->cpus[0],
 						TARGET_HALTED,
 						ESP32_APPTRACE_TGT_STATE_TMO);
 					if (res != ERROR_OK) {
 						LOG_ERROR("Failed to wait halt on bp (%d)!", res);
-						breakpoint_remove(target, bp_addr);
+						breakpoint_remove(ctx->cpus[0], bp_addr);
 						return res;
 					}
-					debug_reason = target->debug_reason;
+					debug_reason = ctx->cpus[0]->debug_reason;
 				}
 				res = esp_xtensa_apptrace_status_reg_read(ctx->cpus[k], &stat);
 				if (res != ERROR_OK) {
 					LOG_ERROR("Failed to read trace status (%d)!", res);
-					breakpoint_remove(target, bp_addr);
+					breakpoint_remove(ctx->cpus[0], bp_addr);
 					return res;
 				}
 			}
-			breakpoint_remove(target, bp_addr);
+			breakpoint_remove(ctx->cpus[0], bp_addr);
 			res = esp_xtensa_swdbg_activate(ctx->cpus[k], 0	/*disable*/);
 			if (res != ERROR_OK) {
 				LOG_ERROR("Failed to de-activate SW debug (%d)!", res);
@@ -1014,19 +1006,18 @@ static int esp32_apptrace_safe_halt_targets(struct esp32_apptrace_cmd_ctx *ctx,
 }
 
 static int esp32_apptrace_connect_targets(struct esp32_apptrace_cmd_ctx *ctx,
-	struct target *target,
 	bool conn,
 	bool resume_target)
 {
 	int res = ERROR_OK;
-	struct esp32_apptrace_target_state target_to_connect[ESP_APPTRACE_MAX_CORES_NUM];
+	struct esp32_apptrace_target_state target_to_connect[ESP32_APPTRACE_MAX_CORES_NUM];
 
 	if (conn)
 		LOG_USER("Connect targets...");
 	else
 		LOG_USER("Disconnect targets...");
 
-	res = esp32_apptrace_safe_halt_targets(ctx, target, target_to_connect);
+	res = esp32_apptrace_safe_halt_targets(ctx, target_to_connect);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to halt targets (%d)!", res);
 		return res;
@@ -1047,7 +1038,7 @@ static int esp32_apptrace_connect_targets(struct esp32_apptrace_cmd_ctx *ctx,
 			target_to_connect[k].block_id,
 			0 /*ack target data*/,
 			conn,
-			0 /*no host data*/);
+			false /*no host data*/);
 		if (res != ERROR_OK) {
 			LOG_ERROR("Failed to read trace status (%d)!", res);
 			return res;
@@ -1055,7 +1046,7 @@ static int esp32_apptrace_connect_targets(struct esp32_apptrace_cmd_ctx *ctx,
 	}
 	if (resume_target) {
 		LOG_DEBUG("Resume targets");
-		res = target_resume(target, 1, 0, 1, 0);
+		res = target_resume(ctx->cpus[0], 1, 0, 1, 0);
 		if (res != ERROR_OK) {
 			LOG_ERROR("Failed to resume target (%d)!", res);
 			return res;
@@ -1107,7 +1098,7 @@ static int esp_sysview_start(struct esp32_apptrace_cmd_ctx *ctx)
 {
 	uint8_t cmds[] = {SEGGER_SYSVIEW_COMMAND_ID_START};
 	uint32_t fired_target_num = 0;
-	struct esp32_apptrace_target_state target_state[ESP_APPTRACE_MAX_CORES_NUM];
+	struct esp32_apptrace_target_state target_state[ESP32_APPTRACE_MAX_CORES_NUM];
 	struct esp32_apptrace_cmd_data *cmd_data = (struct esp32_apptrace_cmd_data *)ctx->cmd_priv;
 
 	/* get current block id */
@@ -1134,10 +1125,10 @@ static int esp_sysview_start(struct esp32_apptrace_cmd_ctx *ctx)
 	return res;
 }
 
-static int esp_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx, struct target *target)
+static int esp_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx)
 {
 	uint32_t old_block_id, fired_target_num = 0, empty_target_num = 0;
-	struct esp32_apptrace_target_state target_state[ESP_APPTRACE_MAX_CORES_NUM];
+	struct esp32_apptrace_target_state target_state[ESP32_APPTRACE_MAX_CORES_NUM];
 	struct esp32_apptrace_cmd_data *cmd_data = (struct esp32_apptrace_cmd_data *)ctx->cmd_priv;
 	uint8_t cmds[] = {SEGGER_SYSVIEW_COMMAND_ID_STOP};
 	struct duration wait_time;
@@ -1151,7 +1142,7 @@ static int esp_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx, struct target *t
 
 	/* halt all CPUs, otherwise it can happen that there is no target data and
 	 * while we are queueing commands on one CPU another CPU switches TRAX block */
-	int res = esp32_apptrace_safe_halt_targets(ctx, target, target_state);
+	int res = esp32_apptrace_safe_halt_targets(ctx, target_state);
 	if (res != ERROR_OK) {
 		LOG_ERROR("SEGGER: Failed to halt targets (%d)!", res);
 		return res;
@@ -1202,8 +1193,8 @@ static int esp_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx, struct target *t
 			esp_xtensa_apptrace_ctrl_reg_write(ctx->cpus[empty_target_num],
 			target_state[fired_target_num].block_id,
 			0 /*target data ack*/,
-			1 /*host connected*/,
-			0 /*no host data*/);
+			true /*host connected*/,
+			false /*no host data*/);
 		if (res != ERROR_OK) {
 			LOG_ERROR("SEGGER: Failed to ack data on target '%s' (%d)!",
 				target_name(ctx->cpus[empty_target_num]), res);
@@ -1212,9 +1203,10 @@ static int esp_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx, struct target *t
 	}
 	/* resume targets to allow command processing */
 	LOG_INFO("Resume targets");
-	res = target_resume(target, 1, 0, 1, 0);
+	res = target_resume(ctx->cpus[0], 1, 0, 1, 0);
 	if (res != ERROR_OK) {
-		LOG_ERROR("SEGGER: Failed to resume target '%s' (%d)!", target_name(target), res);
+		LOG_ERROR("SEGGER: Failed to resume target '%s' (%d)!", target_name(
+				ctx->cpus[0]), res);
 		return res;
 	}
 	/* wait for block switch (command sent), so we can disconnect from targets */
@@ -1258,8 +1250,8 @@ static int esp_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx, struct target *t
 							ctx->cpus[empty_target_num],
 							target_state[fired_target_num].block_id,
 							0 /*all read*/,
-							1 /*host connected*/,
-							0 /*no host data*/);
+							true /*host connected*/,
+							false /*no host data*/);
 						if (res != ERROR_OK) {
 							LOG_ERROR(
 								"SEGGER: Failed to ack data on target '%s' (%d)!",
@@ -1848,7 +1840,7 @@ static int esp32_apptrace_poll(void *priv)
 	struct esp32_apptrace_cmd_ctx *ctx = (struct esp32_apptrace_cmd_ctx *)priv;
 	int res;
 	uint32_t fired_target_num = 0;
-	struct esp32_apptrace_target_state target_state[ESP_APPTRACE_MAX_CORES_NUM];
+	struct esp32_apptrace_target_state target_state[ESP32_APPTRACE_MAX_CORES_NUM];
 #if ESP_APPTRACE_TIME_STATS_ENABLE
 	struct duration blk_proc_time;
 #endif
@@ -1889,8 +1881,8 @@ static int esp32_apptrace_poll(void *priv)
 					res = esp_xtensa_apptrace_ctrl_reg_write(ctx->cpus[i],
 						max_block_id,
 						0 /*all read*/,
-						1 /*host connected*/,
-						0 /*no host data*/);
+						true /*host connected*/,
+						false /*no host data*/);
 					if (res != ERROR_OK) {
 						ctx->running = 0;
 						LOG_ERROR("Failed to ack empty data block on (%s)!",
@@ -1948,13 +1940,17 @@ static int esp32_apptrace_poll(void *priv)
 		target_state[fired_target_num].data_len,
 		block->data,
 		target_state[fired_target_num].block_id,
-		1 /*ack target data*/);
+		/* do not ack target data in sync mode,
+		   esp32_apptrace_handle_trace_block() can write response data and will do ack thereafter */
+		ctx->mode != ESP_APPTRACE_CMD_MODE_SYNC);
 	if (res != ERROR_OK) {
 		ctx->running = 0;
 		LOG_ERROR("Failed to read data on (%s)!", target_name(ctx->cpus[fired_target_num]));
 		return res;
 	}
 	ctx->last_blk_id = target_state[fired_target_num].block_id;
+	block->data_len = target_state[fired_target_num].data_len;
+	ctx->raw_tot_len += block->data_len;
 #if ESP_APPTRACE_TIME_STATS_ENABLE
 	if (duration_measure(&blk_proc_time) != 0) {
 		ctx->running = 0;
@@ -1974,25 +1970,34 @@ static int esp32_apptrace_poll(void *priv)
 		return ERROR_FAIL;
 	}
 #endif
-	if (ctx->cores_num > 1) {
-		res = esp_xtensa_apptrace_ctrl_reg_write(ctx->cpus[fired_target_num ? 0 : 1],
-			ctx->last_blk_id,
-			0 /*all read*/,
-			1 /*host connected*/,
-			0 /*no host data*/);
+	/* in sync mode do not ack target data on other cores,
+	        esp32_apptrace_handle_trace_block() can write response data and will do ack thereafter */
+	if (ctx->mode != ESP_APPTRACE_CMD_MODE_SYNC) {
+		for (int i = 0; i < ctx->cores_num; i++) {
+			if ((uint32_t)i == fired_target_num)
+				continue;
+			res = esp_xtensa_apptrace_ctrl_reg_write(ctx->cpus[i],
+				ctx->last_blk_id,
+				0 /*all read*/,
+				true /*host connected*/,
+				false /*no host data*/);
+			if (res != ERROR_OK) {
+				ctx->running = 0;
+				LOG_ERROR("Failed to ack data on (%s)!",
+					target_name(ctx->cpus[i]));
+				return res;
+			}
+			LOG_DEBUG("Ack block %d target (%s)!", ctx->last_blk_id,
+				target_name(ctx->cpus[i]));
+		}
+		res = esp32_apptrace_ready_block_put(ctx, block);
 		if (res != ERROR_OK) {
 			ctx->running = 0;
-			LOG_ERROR("Failed to ack data on (%s)!",
-				target_name(ctx->cpus[fired_target_num ? 0 : 1]));
+			LOG_ERROR("Failed to put ready block of data from (%s)!",
+				target_name(ctx->cpus[fired_target_num]));
 			return res;
 		}
-		LOG_DEBUG("Ack block %d target (%s)!", ctx->last_blk_id,
-			target_name(ctx->cpus[fired_target_num ? 0 : 1]));
-	}
-	ctx->raw_tot_len += target_state[fired_target_num].data_len;
-
-	block->data_len = target_state[fired_target_num].data_len;
-	if (ctx->mode == ESP_APPTRACE_CMD_MODE_SYNC) {
+	} else if (ctx->mode == ESP_APPTRACE_CMD_MODE_SYNC) {
 		res = esp32_apptrace_handle_trace_block(ctx, block);
 		if (res != ERROR_OK) {
 			ctx->running = 0;
@@ -2003,14 +2008,6 @@ static int esp32_apptrace_poll(void *priv)
 		if (res != ERROR_OK) {
 			ctx->running = 0;
 			LOG_ERROR("Failed to free ready block!");
-			return res;
-		}
-	} else {
-		res = esp32_apptrace_ready_block_put(ctx, block);
-		if (res != ERROR_OK) {
-			ctx->running = 0;
-			LOG_ERROR("Failed to put ready block of data from (%s)!",
-				target_name(ctx->cpus[fired_target_num]));
 			return res;
 		}
 	}
@@ -2085,7 +2082,6 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 			}
 		}
 		res = esp32_apptrace_connect_targets(&s_at_cmd_ctx,
-			target,
 			true,
 			old_state == TARGET_RUNNING);
 		if (res != ERROR_OK) {
@@ -2100,7 +2096,6 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 			if (res != ERROR_OK) {
 				LOG_ERROR("SEGGER: Failed to start tracing!");
 				esp32_apptrace_connect_targets(&s_at_cmd_ctx,
-					target,
 					false,
 					old_state == TARGET_RUNNING);
 				s_at_cmd_ctx.running = 0;
@@ -2130,7 +2125,7 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 		}
 		if (IN_SYSVIEW_MODE(mode)) {
 			/* stop tracing */
-			res = esp_sysview_stop(&s_at_cmd_ctx, target);
+			res = esp_sysview_stop(&s_at_cmd_ctx);
 			if (res != ERROR_OK)
 				LOG_ERROR("SEGGER: Failed to stop tracing!");
 		}
@@ -2139,7 +2134,6 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 		if (res != ERROR_OK)
 			LOG_ERROR("Failed to wait for pended blocks (%d)!", res);
 		res = esp32_apptrace_connect_targets(&s_at_cmd_ctx,
-			target,
 			false,
 			old_state == TARGET_RUNNING);
 		if (res != ERROR_OK)
@@ -2643,6 +2637,22 @@ static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 			return res;
 		}
 		free(resp);
+		for (int i = 0; i < ctx->cores_num; i++) {
+			if (i == core_id)
+				continue;
+			res = esp_xtensa_apptrace_ctrl_reg_write(ctx->cpus[i],
+				ctx->last_blk_id,
+				0 /*all read*/,
+				true /*host connected*/,
+				true /*host data*/);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to ack data on (%s)!",
+					target_name(ctx->cpus[i]));
+				return res;
+			}
+			LOG_DEBUG("Ack block %d target (%s)!", ctx->last_blk_id,
+				target_name(ctx->cpus[i]));
+		}
 	}
 
 	return ERROR_OK;
@@ -2691,7 +2701,7 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 		return res;
 	}
 	/* connect */
-	res = esp32_apptrace_connect_targets(&s_at_cmd_ctx, target, true, dump);
+	res = esp32_apptrace_connect_targets(&s_at_cmd_ctx, true, dump);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to connect to targets (%d)!", res);
 		esp_gcov_cmd_cleanup(&s_at_cmd_ctx);
@@ -2700,15 +2710,21 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 	if (dump)
 		esp_gcov_poll(target, &s_at_cmd_ctx);
 	else {
-		struct target *active_core_target = NULL;
-		if (target->type->get_cores_count) {
-			struct xtensa_mcore_common *xtensa_mcore = target_to_xtensa_mcore(target);
-			active_core_target =
-				&xtensa_mcore->cores_targets[xtensa_mcore->active_core];
+		struct esp_dbg_stubs *dbg_stubs = NULL;
+		if (target->smp) {
+			struct target_list *head;
+			struct target *curr;
+			foreach_smp_target(head, target->head) {
+				curr = head->target;
+				dbg_stubs = &(target_to_esp_xtensa(curr)->dbg_stubs);
+				if (target_was_examined(curr) && dbg_stubs->base &&
+					dbg_stubs->entries_count > 0) {
+					target = curr;
+					break;
+				}
+			}
 		} else
-			active_core_target = target;
-		struct esp_dbg_stubs *dbg_stubs =
-			&(target_to_esp_xtensa(active_core_target)->dbg_stubs);
+			dbg_stubs = &(target_to_esp_xtensa(target)->dbg_stubs);
 		if (dbg_stubs->entries_count < 1 || dbg_stubs->desc.data_alloc == 0) {
 			LOG_ERROR("No dbg stubs found!");
 			return ERROR_FAIL;
@@ -2731,15 +2747,11 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 		run.on_board.min_stack_size = ESP_DBG_STUBS_STACK_MIN_SIZE;
 		run.on_board.code_buf_addr = dbg_stubs->desc.tramp_addr;
 		run.on_board.code_buf_size = ESP_DBG_STUBS_CODE_BUF_SIZE;
-		if (target->type->get_cores_count)
-			xtensa_mcore_run_onboard_func(target, &run, func_addr, 0);
-		else
-			xtensa_run_onboard_func(active_core_target, &run, func_addr, 0);
+		xtensa_run_onboard_func(target, &run, func_addr, 0);
 		LOG_DEBUG("FUNC RET = 0x%x", run.ret_code);
 	}
 	/* disconnect */
 	res = esp32_apptrace_connect_targets(&s_at_cmd_ctx,
-		target,
 		false,
 		old_state == TARGET_RUNNING);
 	if (res != ERROR_OK)

@@ -29,10 +29,10 @@
 #include "semihosting_common.h"
 
 
-#define SYSCALL_RETVAL_REG  XT_REG_IDX_A2
-#define SYSCALL_ERRNO_REG   XT_REG_IDX_A3
+#define XTENSA_SYSCALL_OP_REG      XT_REG_IDX_A2
+#define XTENSA_SYSCALL_RETVAL_REG  XT_REG_IDX_A2
+#define XTENSA_SYSCALL_ERRNO_REG   XT_REG_IDX_A3
 
 int xtensa_semihosting_init(struct target *target);
-int xtensa_semihosting_post_result(struct target *target);
 
 #endif	/*OPENOCD_XTENSA_SEMIHOSTING_COMMON_H*/

@@ -21,9 +21,8 @@
 #ifndef XTENSA_ESP32_H
 #define XTENSA_ESP32_H
 
-#include "xtensa_mcore.h"
-
-#define ESP32_MAX_CORES_NUM         2
+#include "xtensa_algorithm.h"
+#include "esp_xtensa.h"
 
 #define ESP32_DROM_LOW             0x3F400000
 #define ESP32_DROM_HIGH            0x3F800000
@@ -34,13 +33,28 @@
  *Corresponds to the amount of regs listed in regformats/reg-xtensa.dat in the gdb source */
 #define ESP32_NUM_REGS_G_COMMAND   105
 
+/* 0 - don't care, 1 - TMS low, 2 - TMS high */
+enum esp32_flash_bootstrap {
+	FBS_DONTCARE = 0,
+	FBS_TMSLOW,
+	FBS_TMSHIGH,
+};
+
 struct esp32_common {
-	struct xtensa_mcore_common xtensa_mcore;
+	struct esp_xtensa_common esp_xtensa;
+	enum esp32_flash_bootstrap flash_bootstrap;
+	bool other_core_does_resume;
 };
 
 static inline struct esp32_common *target_to_esp32(struct target *target)
 {
-	return container_of(target->arch_info, struct esp32_common, xtensa_mcore);
+	return container_of(target->arch_info, struct esp32_common, esp_xtensa);
 }
+
+int esp32_run_func_image(struct target *target,
+	struct xtensa_algo_run_data *run,
+	struct xtensa_algo_image *image,
+	uint32_t num_args,
+	...);
 
 #endif	/* XTENSA_ESP32_H */

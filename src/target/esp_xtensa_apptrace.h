@@ -71,8 +71,8 @@ int esp_xtensa_apptrace_buffs_write(struct target *target,
 	uint32_t buf_sz[],
 	const uint8_t *bufs[],
 	uint32_t block_id,
-	int ack,
-	int data);
+	bool ack,
+	bool data);
 int esp_xtensa_swdbg_activate(struct target *target, int enab);
 
 uint8_t *esp_xtensa_apptrace_usr_block_get(uint8_t *buffer, uint32_t *size);

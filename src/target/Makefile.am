@@ -141,7 +141,6 @@ XTENSA_SRC= \
 	%D%/xtensa.c \
 	%D%/xtensa_debug_module.c \
 	%D%/xtensa_algorithm.c \
-	%D%/xtensa_mcore.c \
 	%D%/xtensa_semihosting.c \
 	%D%/esp_xtensa.c \
 	%D%/esp_xtensa_apptrace.c \
@@ -247,7 +246,6 @@ ESIRISC_SRC = \
 	%D%/xtensa.h \
 	%D%/xtensa_algorithm.h \
 	%D%/xtensa_debug_module.h \
-	%D%/xtensa_mcore.h \
 	%D%/xtensa_regs.h \
 	%D%/xtensa.h \
 	%D%/esp_xtensa.h \

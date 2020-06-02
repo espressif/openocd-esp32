@@ -380,14 +380,14 @@ static int esp32s2_arch_state(struct target *target)
 	return ERROR_OK;
 }
 
-static bool esp32_s2_on_halt(struct target *target)
+static int esp32s2_on_halt(struct target *target)
 {
 	struct esp32s2_common *esp32 = target_to_esp32s2(target);
 	uint32_t val = (uint32_t)-1;
 
 	int ret = esp32s2_disable_wdts(target);
 	if (ret != ERROR_OK)
-		return false;
+		return ret;
 
 	if (esp32->chip_rev == ESP32_S2_REV_UNKNOWN) {
 		ret = xtensa_read_buffer(target,
@@ -406,8 +406,39 @@ static bool esp32_s2_on_halt(struct target *target)
 		} else
 			LOG_WARNING("Unknown ESP32-S2 chip revision (0x%x)!", val);
 	}
+	return ERROR_OK;
+}
 
-	return esp_xtensa_on_halt(target);
+static int esp32s2_poll(struct target *target)
+{
+	enum target_state old_state = target->state;
+	int ret;
+
+	ret = esp_xtensa_poll(target);
+
+	if (old_state != TARGET_HALTED && target->state == TARGET_HALTED) {
+		/*Call any event callbacks that are applicable */
+		if (old_state == TARGET_DEBUG_RUNNING)
+			target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
+		else {
+			if (esp_xtensa_semihosting(target, &ret) != 0) {
+				struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
+				if (ret == ERROR_OK && esp_xtensa->semihost.need_resume) {
+					esp_xtensa->semihost.need_resume = false;
+					/* Resume xtensa_resume will handle BREAK instruction. */
+					ret = target_resume(target, 1, 0, 1, 0);
+					if (ret != ERROR_OK) {
+						LOG_ERROR("Failed to resume target");
+						return ret;
+					}
+				}
+				return ret;
+			}
+			target_call_event_callbacks(target, TARGET_EVENT_HALTED);
+		}
+	}
+
+	return ret;
 }
 
 static int esp32s2_virt2phys(struct target *target,
@@ -417,15 +448,40 @@ static int esp32s2_virt2phys(struct target *target,
 	return ERROR_OK;
 }
 
+static int esp32s2_handle_target_event(struct target *target, enum target_event event, void *priv)
+{
+	if (target != priv)
+		return ERROR_OK;
+
+	LOG_DEBUG("%d", event);
+
+	int ret = esp_xtensa_handle_target_event(target, event, priv);
+	if (ret != ERROR_OK)
+		return ret;
+
+	switch (event) {
+		case TARGET_EVENT_HALTED:
+			esp32s2_on_halt(target);
+			break;
+		default:
+			break;
+	}
+	return ERROR_OK;
+}
+
 static int esp32s2_target_init(struct command_context *cmd_ctx, struct target *target)
 {
 	int ret = esp_xtensa_target_init(cmd_ctx, target);
 	if (ret != ERROR_OK)
 		return ret;
 
+	ret = target_register_event_callback(esp32s2_handle_target_event, target);
+	if (ret != ERROR_OK)
+		return ret;
+
 	ret = esp_xtensa_semihosting_init(target);
 	if (ret != ERROR_OK)
-		return ERROR_FAIL;
+		return ret;
 
 	return ERROR_OK;
 }
@@ -446,12 +502,6 @@ static const struct esp_xtensa_flash_breakpoint_ops esp32s2_spec_brp_ops = {
 	.breakpoint_remove = esp_xtensa_flash_breakpoint_remove
 };
 
-static const struct xtensa_chip_ops esp32_s2_chip_ops = {
-	.on_reset = esp_xtensa_on_reset,
-	.on_poll = esp_xtensa_on_poll,
-	.on_halt = esp32_s2_on_halt,
-};
-
 static int esp32s2_target_create(struct target *target, Jim_Interp *interp)
 {
 	struct xtensa_debug_module_config esp32s2_dm_cfg = {
@@ -468,8 +518,8 @@ static int esp32s2_target_create(struct target *target, Jim_Interp *interp)
 		return ERROR_FAIL;
 	}
 
-	int ret = esp_xtensa_init_arch_info(target, target, esp32, &esp32_s2_xtensa_cfg,
-		&esp32_s2_dm_cfg, &esp32_s2_chip_ops, &esp32_s2_spec_brp_ops);
+	int ret = esp_xtensa_init_arch_info(target, &esp32->esp_xtensa, &esp32s2_xtensa_cfg,
+		&esp32s2_dm_cfg, &esp32s2_spec_brp_ops);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to init arch info!");
 		free(esp32);
@@ -519,7 +569,7 @@ static const struct command_registration esp32s2_command_handlers[] = {
 struct target_type esp32s2_target = {
 	.name = "esp32s2",
 
-	.poll = xtensa_poll,
+	.poll = esp32s2_poll,
 	.arch_state = esp32s2_arch_state,
 
 	.halt = xtensa_halt,

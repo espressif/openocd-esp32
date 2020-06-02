@@ -59,7 +59,7 @@ struct esp_xtensa_flasher_stub_config {
 	uint32_t bss_sz;
 };
 
-extern const struct command_registration esp_xtensa_exec_command_handlers[];
+extern const struct command_registration esp_xtensa_exec_flash_command_handlers[];
 
 int esp_xtensa_flash_init(struct esp_xtensa_flash_bank *esp_xtensa_info, uint32_t sec_sz,
 	int (*run_func_image)(struct target *target, struct xtensa_algo_run_data *run,
@@ -82,5 +82,7 @@ int esp_xtensa_flash_breakpoint_add(struct target *target,
 	struct esp_xtensa_flash_breakpoint *sw_bp);
 int esp_xtensa_flash_breakpoint_remove(struct target *target,
 	struct esp_xtensa_flash_breakpoint *sw_bp);
+
+COMMAND_HELPER(esp_xtensa_cmd_appimage_flashoff_do, struct target *target);
 
 #endif	/*FLASH_ESP_XTENSA_H*/

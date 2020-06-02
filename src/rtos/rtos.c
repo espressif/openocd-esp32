@@ -70,6 +70,8 @@ static int rtos_target_for_threadid(struct connection *connection, int64_t threa
 	if (t)
 		*t = curr;
 
+	LOG_DEBUG("%s, core %d for thread 0x%x", curr->type->name, curr->coreid, (int)threadid);
+
 	return ERROR_OK;
 }
 
@@ -432,9 +434,6 @@ int rtos_thread_packet(struct connection *connection, char const *packet, int pa
 				target->rtos->current_threadid = target->rtos->current_thread;
 			else
 				target->rtos->current_threadid = threadid;
-			if (target->rtos->type->set_current_thread != NULL) {
-				target->rtos->type->set_current_thread(target->rtos, target->rtos->current_threadid);
-			}
 		}
 		gdb_put_packet(connection, "OK", 2);
 		return ERROR_OK;
@@ -530,13 +529,6 @@ int rtos_get_gdb_reg_list(struct connection *connection)
 		struct rtos_reg *reg_list;
 		int num_regs;
 
-		// registers for threads currently running on CPUs are not on task's stack and
-		// should retrieved from reg caches via target_get_gdb_reg_list, so return error here
-		for (size_t i = 0; i < (size_t)target_get_core_count(target); i++)	{
-			if (((int)current_threadid == target->rtos->core_running_threads[i])) {
-				return ERROR_FAIL;
-			}
-		}
 		LOG_DEBUG("RTOS: getting register list for thread 0x%" PRIx64
 				  ", target->rtos->current_thread=0x%" PRIx64 "\r\n",
 										current_threadid,
@@ -607,7 +599,7 @@ int rtos_generic_stack_read(struct target *target,
 
 #if 0
 		LOG_OUTPUT("Stack Data :");
-		for (i = 0; i < stacking->stack_registers_size; i++)
+		for (int i = 0; i < stacking->stack_registers_size; i++)
 			LOG_OUTPUT("%02X", stack_data[i]);
 		LOG_OUTPUT("\r\n");
 #endif

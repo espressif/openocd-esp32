@@ -26,9 +26,7 @@
 #include "esp_xtensa.h"
 #include "stdbool.h"
 
-#define SEMIHOSTING_SYS_DRV_INFO 0xE0
-#define XT_FILE_FLAGS_MASK 0xFFF00000
+#define ESP_SYS_DRV_INFO 0xE0
 
 int esp_xtensa_semihosting_init(struct target *target);
-int esp_xtensa_semihosting(struct target *target);
-char *esp_xtensa_semihosting_get_file_name(struct target *target, uint64_t addr_fn, size_t len, uint32_t * mode);
+int esp_xtensa_semihosting(struct target *target, int *retval);
