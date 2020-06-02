@@ -265,7 +265,7 @@ variables:
   script:
     - *add_gitlab_key
     - *submodules_mirror_update
-    - export PATH=${HOME}/.espressif/tools/xtensa-${CHIP_NAME}-elf/esp-2019r2-8.2.0/xtensa-${CHIP_NAME}-elf/bin:${PATH}
+    - export PATH=${HOME}/.espressif/tools/xtensa-${CHIP_NAME}-elf/esp-2020r1-8.2.0/xtensa-${CHIP_NAME}-elf/bin:${PATH}
     - source /opt/pyenv/activate && pyenv global 3.5.5
     - *run_tests_linux
 
