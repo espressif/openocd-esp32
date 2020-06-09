@@ -228,7 +228,7 @@ variables:
   pushd $PWD/testing/esp
   git clone $GITLAB_SSH_SERVER/espressif/py_debug_backend.git
   pushd py_debug_backend
-  git checkout $CI_COMMIT_REF_NAME || echo "using default branch"
+  git checkout $CUSTOM_DEBUG_BACKEND_TAG || git checkout $CI_COMMIT_REF_NAME || echo "using default branch"
   popd
   popd
   export PYTHONPATH=$PWD/${TEST_RUN_DIR}:$PWD/testing/esp/py_debug_backend
