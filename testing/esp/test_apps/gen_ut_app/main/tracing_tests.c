@@ -268,11 +268,12 @@ static void raw_trace_log_done(void)
 
 static void raw_trace_log(void* arg)
 {
+    uint32_t iter_count = (uint32_t)arg;
     stdout = fwopen(NULL, &apptrace_writefn);
     static char stdout_buf[128];
     setvbuf(stdout, stdout_buf, _IOLBF, sizeof(stdout_buf));
 
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < iter_count; ++i) {
         printf("[%d %*.s]\n", i, i * 20, "test");
     }
     raw_trace_log_done();
@@ -335,7 +336,12 @@ ut_result_t tracing_test_do(int test_num)
 #if defined(CONFIG_APPTRACE_ENABLE) || defined(CONFIG_ESP32_APPTRACE_ENABLE)
         case 503:
         {
-            xTaskCreate(raw_trace_log, "raw_trace_log", 2048, NULL, 5, NULL);
+            xTaskCreate(raw_trace_log, "raw_trace_log", 2048, (void *)10, 5, NULL);
+            break;
+        }
+        case 504:
+        {
+            xTaskCreate(raw_trace_log, "raw_trace_log", 2048, (void *)100, 5, NULL);
             break;
         }
 #endif //CONFIG_APPTRACE_ENABLE
