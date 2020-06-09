@@ -42,11 +42,11 @@ class ApptraceTestsImpl:
         trace_src = 'tcp://localhost:53535'
         reader = reader_create(trace_src, 1.0)
             
-        self.gdb.monitor_run("esp apptrace start %s" % trace_src)
+        self.gdb.apptrace_start("%s" % trace_src)
         self.resume_exec()
         rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
         self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
-        self.gdb.monitor_run("esp apptrace stop")
+        self.gdb.apptrace_stop()
         lines = []
         while True:
             try:
@@ -58,6 +58,27 @@ class ApptraceTestsImpl:
         for i, line in enumerate(lines):
             self.assertEqual(line, "[%d %s]\n" % (i, " " * (i * 20)))
 
+    def test_apptrace_autostop(self):
+        self.select_sub_test(504)
+        trace_file = tempfile.NamedTemporaryFile(delete=False)
+        trace_file_name = trace_file.name
+        trace_file.close()
+        trace_src = 'file://%s' % trace_file_name
+        reader = reader_create(trace_src, 1.0)
+        # 0 ms poll period, stop when 9000 bytes are received or due to 5 s timeout
+        self.oocd.apptrace_start("%s 0 10000 5" % trace_src)
+        self.resume_exec()
+        self.oocd.apptrace_wait_stop(tmo=30)
+        lines = []
+        while True:
+            try:
+                lines.append(reader.readline())
+            except ReaderTimeoutError:
+                break
+        reader.cleanup()
+        for i, line in enumerate(lines):
+            self.assertEqual(line, "[%d %s]\n" % (i, " " * (i * 20)))
+        os.remove(trace_file_name)
 
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
