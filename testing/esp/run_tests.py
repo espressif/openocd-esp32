@@ -85,7 +85,7 @@ class SerialPortReader(threading.Thread):
 def dbg_start(toolchain, oocd, oocd_tcl, oocd_cfg_files, oocd_cfg_cmds, debug_oocd,
               target_name, log_level, log_stream, log_file):
     global _oocd_inst, _gdb_inst
-    connect_tmo = 5 if debug_oocd <= 2 else 15
+    connect_tmo = 5 if debug_oocd <= 2 else 30
     # Start OpenOCD
     _oocd_inst = dbg.create_oocd(chip_name=target_name,
                         oocd_exec=oocd,
@@ -107,6 +107,9 @@ def dbg_start(toolchain, oocd, oocd_tcl, oocd_cfg_files, oocd_cfg_cmds, debug_oo
                             log_level=log_level,
                             log_stream_handler=log_stream,
                             log_file_handler=log_file)
+        if debug_oocd > 2:
+            _gdb_inst.gdb_set('remotetimeout', '10')
+            _gdb_inst.tmo_scale_factor = 3
         _gdb_inst.connect(tmo=connect_tmo)
     except Exception as e:
         _oocd_inst.stop()
