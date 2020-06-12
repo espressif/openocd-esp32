@@ -83,7 +83,7 @@ class SerialPortReader(threading.Thread):
 
 
 def dbg_start(toolchain, oocd, oocd_tcl, oocd_cfg_files, oocd_cfg_cmds, debug_oocd,
-              target_name, log_level, log_stream, log_file):
+              target_name, log_level, log_stream, log_file, gdb_log):
     global _oocd_inst, _gdb_inst
     connect_tmo = 5 if debug_oocd <= 2 else 30
     # Start OpenOCD
@@ -107,6 +107,8 @@ def dbg_start(toolchain, oocd, oocd_tcl, oocd_cfg_files, oocd_cfg_cmds, debug_oo
                             log_level=log_level,
                             log_stream_handler=log_stream,
                             log_file_handler=log_file)
+        if len(gdb_log):
+            _gdb_inst.gdb_set('remotelogfile', gdb_log)
         if debug_oocd > 2:
             _gdb_inst.gdb_set('remotetimeout', '10')
             _gdb_inst.tmo_scale_factor = 3
@@ -236,7 +238,7 @@ def main():
 
     # start debugger, ideally we should run all tests w/o restarting it
     dbg_start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'],
-                        args.debug_oocd, board_tcl['target_name'], log_lev, ch, fh)
+                        args.debug_oocd, board_tcl['target_name'], log_lev, ch, fh, args.gdb_log_file)
     res = None
     try:
         # run tests from the same directory this file is
@@ -337,6 +339,8 @@ if __name__ == '__main__':
                         type=int, default=2)
     parser.add_argument('--log-file', '-l',
                         help='Path to log file. Use "stdout" to log to console.')
+    parser.add_argument('--gdb-log-file', '-gl',
+                        help='Path to GDB log file.', default='')
     parser.add_argument('--serial-port', '-u',
                         help='Name of serial port to grab board\'s UART output.')
     parser.add_argument('--idf-ver-min', '-i',
