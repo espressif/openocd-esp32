@@ -130,7 +130,7 @@
 		};					 \
 		*sv_ptr++ = (uint8_t)sv_data;		 \
 		dest = sv_ptr;				 \
-};
+}
 
 typedef enum {
 	SEGGER_SYSVIEW_COMMAND_ID_START = 1,

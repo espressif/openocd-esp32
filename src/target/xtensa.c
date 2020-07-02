@@ -1298,7 +1298,7 @@ static inline bool xtensa_memory_op_validate(struct xtensa *xtensa,
 	mem_region = xtensa_memory_region_find(&xtensa->core_config->uram, address);
 	if (mem_region)
 		return (mem_region->access & access) == access;
-	return true;
+	return false;
 }
 
 int xtensa_read_memory(struct target *target,
