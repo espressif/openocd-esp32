@@ -29,6 +29,8 @@
 #define jtag_libusb_interface_descriptor	libusb_interface_descriptor
 #define jtag_libusb_endpoint_descriptor		libusb_endpoint_descriptor
 #define jtag_libusb_config_descriptor		libusb_config_descriptor
+#define jtag_libusb_kernel_driver_active	libusb_kernel_driver_active
+#define jtag_libusb_detach_kernel_driver	libusb_detach_kernel_driver
 
 #define jtag_libusb_reset_device(dev)		libusb_reset_device(dev)
 #define jtag_libusb_get_device(devh)		libusb_get_device(devh)

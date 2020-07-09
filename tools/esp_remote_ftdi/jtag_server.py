@@ -23,15 +23,15 @@ import socket
 
 
 # ESP-WROVER-KIT FT2232H pin mapping:
-# TCK, TDI, TDO, TMS: ADBUS0-3
+# TCK, TDO, TDI, TMS: ADBUS0-3
 # LEDs: ACBUS4-7 (unused as GpioSyncController only supports low 8 bits)
 TCK_MASK = 0x0001
-TDI_MASK = 0x0002
-TDO_MASK = 0x0004
+TDO_MASK = 0x0002
+TDI_MASK = 0x0004
 TMS_MASK = 0x0008
 
 # Bits which are output
-PORT_DIRECTION = TCK_MASK | TDI_MASK | TMS_MASK
+PORT_DIRECTION = TCK_MASK | TDO_MASK | TMS_MASK
 
 HOST, PORT = "localhost", 5555
 FTDI_PATH = "ftdi:///1"
@@ -52,6 +52,7 @@ CMD_NAME = {
 
 gpio = GpioSyncController()
 
+
 # Utility functions to convert between bits packed into a bytestring, and a list of 0/1 ints.
 # This is similar to the bitstring package, except that bits within byte are counted from the LSB.
 def list_to_bits(l):
@@ -70,6 +71,7 @@ def list_to_bits(l):
         res += struct.pack('B', byte_val)
     return res
 
+
 def bits_to_list(b, n_bits):
     n_bytes = len(b)
     res = [0] * n_bits
@@ -86,7 +88,7 @@ def bits_to_list(b, n_bits):
     return res
 
 
-TEST_BITS = [1,0,0,1,0,0,0,1,1]
+TEST_BITS = [1, 0, 0, 1, 0, 0, 0, 1, 1]
 TEST_BYTES = b'\x89\x01'
 assert list_to_bits(TEST_BITS) == TEST_BYTES
 assert bits_to_list(TEST_BYTES, len(TEST_BITS)) == TEST_BITS
@@ -129,7 +131,7 @@ class JTAGThread(threading.Thread):
                     items.append(it)
                 except queue.Empty:
                     break
-            
+
             all_tms = []
             all_tdo = []
             n_bits = 0
@@ -146,7 +148,7 @@ class JTAGThread(threading.Thread):
                     tdo_list = [1] * i.bits
                 else:
                     tdo_list = bits_to_list(i.tdo, i.bits)
-                
+
                 all_tms += tms_list
                 all_tdo += tdo_list
                 n_bits += i.bits
@@ -164,7 +166,6 @@ class JTAGThread(threading.Thread):
                 self.req.sendall(result)
 
 
-
 def do_jtag(n_bits, tms_bytes=None, tdo_bytes=None, do_read=False, tms_flip=False):
     JTAG_QUEUE.put(JTAGQueueItem(tms_bytes, tdo_bytes, n_bits, do_read, tms_flip))
 
@@ -174,7 +175,7 @@ def do_jtag_inner(n_bits, tms_list, tdo_list):
 
     # prepare the list of GPIO port values from TMS and TDO vectors
     for i in range(n_bits):
-        data = tms_list[i] * TMS_MASK + tdo_list[i] * TDI_MASK
+        data = tms_list[i] * TMS_MASK + tdo_list[i] * TDO_MASK
         # data is clocked in on posedge
         gpio_out[2 * i] = data
         gpio_out[2 * i + 1] = data + TCK_MASK
@@ -184,7 +185,7 @@ def do_jtag_inner(n_bits, tms_list, tdo_list):
     # extract TDI
     tdi_list = [0] * n_bits
     for i in range(n_bits):
-        if gpio_in[2 * i + 1] & TDO_MASK != 0:
+        if gpio_in[2 * i + 1] & TDI_MASK != 0:
             tdi_list[i] = 1
 
     return tdi_list
@@ -244,9 +245,7 @@ class JTAGTCPHandler(socketserver.BaseRequestHandler):
                 do_flip_tms = (val >> 13) & 1
                 n_bytes = (n_bits + 7) // 8
                 data = self.request.recv(n_bytes)
-                ret_data = cmd_scan(n_bits, do_read, do_flip_tms, data)
-                # if do_read:
-                #     self.request.sendall(ret_data)
+                cmd_scan(n_bits, do_read, do_flip_tms, data)
 
             elif cmd == CMD_TMS_SEQ:
                 # bits:12, reserved:4

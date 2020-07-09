@@ -37,60 +37,46 @@
 #include "jtag_usb_common.h"
 #include "libusb_common.h"
 
-#define NO_TAP_SHIFT	0
-#define TAP_SHIFT	1
+#define NO_TAP_SHIFT    0
+#define TAP_SHIFT       1
 
-#define SERVER_ADDRESS	"127.0.0.1"
-#define SERVER_PORT	5555
+#define XFERT_MAX_SIZE          512
 
-#define	XFERT_MAX_SIZE		512
+#define DEFAULT_SERVER_PORT     5555
+#define DEFAULT_SERVER_ADDRESS  "127.0.0.1"
 
-//For an USB interface
-#define USB_VID 0x303A
-#define USB_PID 0x1001
+/*For an USB interface */
 #define USB_CONFIGURATION 0
-//todo: get this from descriptors?
 #define USB_INTERFACE 2
 #define USB_IN_EP 0x83
-#define USB_OUT_EP 0x2
-
-int server_port = SERVER_PORT;
-char *server_address;
-
-/*
- Note: this all possibly is quite efficient, as each JTAG command is sent as a separate TCP packet
- or USB bulk write. ToDo: queue up commands and flush when we need to receive something
-*/
-int sockfd;
-struct sockaddr_in serv_addr;
-struct jtag_libusb_device_handle *usb_device;
+#define USB_OUT_EP 0x3
 
 struct esp_remote_cmd {
-	uint16_t reserved: 4;
-	uint16_t ver: 4;
-		#define ESP_REMOTE_CMD_VER_1	1
+	uint16_t reserved : 4;
+	uint16_t ver : 4;
+		#define ESP_REMOTE_CMD_VER_1    1
 
-	uint16_t function: 8;
-		#define ESP_REMOTE_CMD_RESET	1
-		#define ESP_REMOTE_CMD_SCAN	2
-		#define ESP_REMOTE_CMD_TMS_SEQ	3
+	uint16_t function : 8;
+		#define ESP_REMOTE_CMD_RESET    1
+		#define ESP_REMOTE_CMD_SCAN     2
+		#define ESP_REMOTE_CMD_TMS_SEQ  3
 	union {
 		uint16_t function_specific;
 		struct {
-			uint16_t bits: 12;
+			uint16_t bits : 12;
 				#define MAX_BITS 4095
-			uint16_t read: 1;
-			uint16_t flip_tms: 1;
-			uint16_t reserved: 2;
+			uint16_t read : 1;
+			uint16_t flip_tms : 1;
+			uint16_t reserved : 2;
 		} scan;
 		struct {
-			uint16_t srst: 1;
-			uint16_t trst: 1;
-			uint16_t reserved: 14;
+			uint16_t srst : 1;
+			uint16_t trst : 1;
+			uint16_t reserved : 14;
 		} reset;
 		struct {
-			uint16_t bits: 12;
-			uint16_t reserved: 4;
+			uint16_t bits : 12;
+			uint16_t reserved : 4;
 		} tms_seq;
 	};
 	uint32_t data[0];
@@ -100,12 +86,38 @@ struct esp_remote_cmd {
 	const size_t var ## _len = (sizeof(struct esp_remote_cmd) + data_len + 3) / 4; \
 	uint32_t var ## _storage[var ## _len]; \
 	memset(var ## _storage, 0, var ## _len); \
-	struct esp_remote_cmd *var = (struct esp_remote_cmd *) var ## _storage; \
+	struct esp_remote_cmd *var = (struct esp_remote_cmd *) var ## _storage;	\
 	var->ver = ESP_REMOTE_CMD_VER_1; \
 	var->function = func
 
+typedef int (*jtag_esp_remote_send_cmd_t)(struct esp_remote_cmd *);
+typedef int (*jtag_esp_remote_receive_cmd_t)(struct esp_remote_cmd *);
+
+static jtag_esp_remote_send_cmd_t jtag_esp_remote_send_cmd = NULL;
+static jtag_esp_remote_receive_cmd_t jtag_esp_remote_receive_cmd = NULL;
+
+enum esp_remote_protocols {
+	ESP_REMOTE_TCP,
+	ESP_REMOTE_USB,
+	ESP_REMOTE_UNKNOWN_PROT,
+};
+
+static int esp_remote_protocol = ESP_REMOTE_UNKNOWN_PROT;
+
+static int server_port = 5555;
+static char *server_address = NULL;
+static int sockfd;
+static struct sockaddr_in serv_addr;
+
+static int usb_vid = 0;
+static int usb_pid = 0;
+static struct jtag_libusb_device_handle *usb_device = NULL;
+
+static int s_read_bits_queued = 0;
+
 /* Returns the variable-length data size, in bytes, based on the command header */
-static inline size_t cmd_data_len_bytes(const struct esp_remote_cmd *cmd) {
+static inline size_t cmd_data_len_bytes(const struct esp_remote_cmd *cmd)
+{
 	if (cmd->function == ESP_REMOTE_CMD_SCAN)
 		return DIV_ROUND_UP(cmd->scan.bits, 8);
 	else if (cmd->function == ESP_REMOTE_CMD_TMS_SEQ)
@@ -114,42 +126,82 @@ static inline size_t cmd_data_len_bytes(const struct esp_remote_cmd *cmd) {
 		return 0;
 }
 
-static int jtag_esp_remote_send_cmd(struct esp_remote_cmd *cmd)
+static int jtag_esp_remote_send_cmd_tcp(struct esp_remote_cmd *cmd)
 {
-	size_t data_len = cmd_data_len_bytes(cmd);
-	if (usb_device) {
-		size_t n=jtag_libusb_bulk_write(usb_device, USB_OUT_EP, (char*)cmd, sizeof(struct esp_remote_cmd) + data_len, 1000 /*ms*/); 
-		if (n!=sizeof(struct esp_remote_cmd) + data_len) {
-			LOG_ERROR("jtag_esp_remote: usb sent only %d out of %d bytes.", (int)n, (int)(sizeof(struct esp_remote_cmd) + data_len));
-			return ERROR_FAIL;
-		}
-	} else {
-		int retval = write_socket(sockfd, cmd, sizeof(struct esp_remote_cmd) + data_len);
-		if (retval <= 0) return ERROR_FAIL;
+	const size_t data_len = cmd_data_len_bytes(cmd);
+	const size_t size = sizeof(struct esp_remote_cmd) + data_len;
+	const int retval = write_socket(sockfd, cmd, size);
+	if (retval <= 0)
+		return ERROR_FAIL;
+	return ERROR_OK;
+}
+
+static int jtag_esp_remote_send_cmd_usb(struct esp_remote_cmd *cmd)
+{
+	const size_t data_len = cmd_data_len_bytes(cmd);
+	const size_t size = sizeof(struct esp_remote_cmd) + data_len;
+	size_t n=
+		jtag_libusb_bulk_write(usb_device,
+		USB_OUT_EP,
+		(char *)cmd,
+		size,
+		1000 /*ms*/);
+	if (n != size) {
+		LOG_ERROR("jtag_esp_remote: usb sent only %d out of %d bytes.",
+			(int)n,
+			(int)size);
+		return ERROR_FAIL;
 	}
 	return ERROR_OK;
 }
 
-static int jtag_esp_remote_receive_cmd(struct esp_remote_cmd *cmd)
+static int jtag_esp_remote_receive_cmd_tcp(struct esp_remote_cmd *cmd)
 {
-#if 0
-	/* replies don't include the header. do we need headers in replies? */
-	int retval = read_socket(sockfd, cmd, sizeof(struct esp_remote_cmd));
-	if (retval < (int)sizeof(struct esp_remote_cmd))
-		return ERROR_FAIL;
-#endif
+	const size_t data_len = cmd_data_len_bytes(cmd);
+	read_socket(sockfd, cmd->data, data_len);
+	return ERROR_OK;
+}
 
+static int jtag_esp_remote_receive_cmd_usb(struct esp_remote_cmd *cmd)
+{
 	size_t data_len = cmd_data_len_bytes(cmd);
 	if (usb_device) {
-		if (data_len!=0) {
-			size_t n=jtag_libusb_bulk_read(usb_device, USB_IN_EP, (char*)cmd->data, data_len, 1000 /*ms*/); 
-			if (n!=data_len) {
-				LOG_ERROR("jtag_esp_remote: usb received only %d out of %d bytes.", (int)n, (int)(data_len));
-				return ERROR_FAIL;
+		if (data_len != 0) {
+			/* Need to keep an internal buffer because libusb can read the same amount
+			 * of bytes sent together. */
+			/* E.g. If 2 bytes were sent then it cannot read 1 byte. */
+			static char internal_buffer[64];/* 64 is the size of VENDOR class USB buffer
+							                                **/
+			static size_t internal_buffer_occupied = 0;
+			for (size_t i = 0; i < data_len; ) {
+				if (internal_buffer_occupied > 0) {
+					const size_t t =
+						MIN(data_len - i, internal_buffer_occupied);
+					memcpy(((char *) cmd->data) + i, internal_buffer, t);
+					memmove(internal_buffer,
+						internal_buffer + t,
+						internal_buffer_occupied - t);
+					i += t;
+					internal_buffer_occupied -= t;
+
+					if (i >= data_len)
+						break;
+				}
+				assert (internal_buffer_occupied == 0);
+				size_t n= jtag_libusb_bulk_read(usb_device,
+					USB_IN_EP,
+					internal_buffer,
+					sizeof(internal_buffer),
+					1000 /*ms*/);
+				/* libusb will read groups of bytes which were send toghether and
+				 * not everything in the receive buffer */
+				if (n == 0) {
+					LOG_ERROR("jtag_esp_remote: usb receive error");
+					return ERROR_FAIL;
+				}
+				internal_buffer_occupied = n;
 			}
 		}
-	} else {
-		read_socket(sockfd, cmd->data, data_len);
 	}
 	return ERROR_OK;
 }
@@ -169,7 +221,7 @@ static int jtag_esp_remote_reset(int trst, int srst)
 }
 
 /**
- * jtag_esp_remote_tms_seq - ask a TMS sequence transition to JTAG
+ * jtag_esp_remote_tms_seq - send a TMS sequence transition to JTAG
  * @bits: TMS bits to be written (bit0, bit1 .. bitN)
  * @nb_bits: number of TMS bits (between 1 and 8)
  *
@@ -196,7 +248,7 @@ static int jtag_esp_remote_tms_seq(const uint8_t *bits, int nb_bits)
 }
 
 /**
- * jtag_esp_remote_path_move - ask a TMS sequence transition to JTAG
+ * jtag_esp_remote_path_move - send a TMS sequence transition to JTAG
  * @cmd: path transition
  *
  * Write a serie of TMS transitions, where each transition consists in :
@@ -247,8 +299,6 @@ static int jtag_esp_remote_state_move(tap_state_t state)
 	return ERROR_OK;
 }
 
-static int s_read_bits_queued;
-
 static int jtag_esp_remote_queue_tdi_xfer(uint8_t *bits, int nb_bits, int tap_shift, bool need_read)
 {
 	if (nb_bits > MAX_BITS) {
@@ -261,11 +311,14 @@ static int jtag_esp_remote_queue_tdi_xfer(uint8_t *bits, int nb_bits, int tap_sh
 
 	if (tap_shift)
 		cmd->scan.flip_tms = 1;
+	else
+		cmd->scan.flip_tms = 0;
 
 	if (need_read) {
 		cmd->scan.read = 1;
 		s_read_bits_queued += nb_bits;
-	}
+	} else
+		cmd->scan.read = 0;
 
 	if (bits)
 		memcpy(cmd->data, bits, nb_bytes);
@@ -273,8 +326,6 @@ static int jtag_esp_remote_queue_tdi_xfer(uint8_t *bits, int nb_bits, int tap_sh
 		memset(cmd->data, 0xff, nb_bytes);
 
 	cmd->scan.bits = nb_bits;
-
-	cmd->scan.read = 1; //always on for now
 
 	int retval = jtag_esp_remote_send_cmd(cmd);
 	if (retval != ERROR_OK)
@@ -315,11 +366,15 @@ static int jtag_esp_remote_queue_tdi(uint8_t *bits, int nb_bits, int tap_shift, 
 
 	while (nb_xfer) {
 		if (nb_xfer ==  1) {
-			retval = jtag_esp_remote_queue_tdi_xfer(bits, nb_bits, tap_shift, need_read);
+			retval =
+				jtag_esp_remote_queue_tdi_xfer(bits, nb_bits, tap_shift, need_read);
 			if (retval != ERROR_OK)
 				return retval;
 		} else {
-			retval = jtag_esp_remote_queue_tdi_xfer(bits, XFERT_MAX_SIZE * 8, NO_TAP_SHIFT, need_read);
+			retval = jtag_esp_remote_queue_tdi_xfer(bits,
+				XFERT_MAX_SIZE * 8,
+				NO_TAP_SHIFT,
+				need_read);
 			if (retval != ERROR_OK)
 				return retval;
 			nb_bits -= XFERT_MAX_SIZE * 8;
@@ -367,9 +422,8 @@ static int jtag_esp_remote_scan(struct scan_command *cmd, size_t *out_read_size)
 	*out_read_size = 0;
 	for (int i = 0; i < cmd->num_fields; ++i) {
 		struct scan_field *sf = cmd->fields + i;
-		if (sf->in_value) {
+		if (sf->in_value)
 			*out_read_size += sf->num_bits;
-		}
 	}
 	bool need_read = (*out_read_size > 0);
 
@@ -428,9 +482,8 @@ static int jtag_esp_remote_scan_read(struct scan_command *cmd)
 	size_t read_size = 0;
 	for (int i = 0; i < cmd->num_fields; ++i) {
 		struct scan_field *sf = cmd->fields + i;
-		if (sf->in_value) {
+		if (sf->in_value)
 			read_size += sf->num_bits;
-		}
 	}
 	if (read_size == 0)
 		return ERROR_OK;
@@ -481,52 +534,45 @@ static int jtag_esp_remote_execute_queue(void)
 
 
 	for (cmd = jtag_command_queue; retval == ERROR_OK && cmd != NULL;
-		 cmd = cmd->next) {
+		cmd = cmd->next) {
 		switch (cmd->type) {
-		case JTAG_RESET:
-			LOG_DEBUG("JTAG_RESET");
-			retval = jtag_esp_remote_reset(cmd->cmd.reset->trst, cmd->cmd.reset->srst);
-			break;
-		case JTAG_RUNTEST:
-			LOG_DEBUG("JTAG_RUNTEST");
-			retval = jtag_esp_remote_runtest(cmd->cmd.runtest->num_cycles,
-						cmd->cmd.runtest->end_state);
-			break;
-		case JTAG_STABLECLOCKS:
-			LOG_DEBUG("JTAG_STABLECLOCKS");
-			retval = jtag_esp_remote_stableclocks(cmd->cmd.stableclocks->num_cycles);
-			break;
-		case JTAG_TLR_RESET:
-			LOG_DEBUG("JTAG_TLR_RESET");
-			retval = jtag_esp_remote_state_move(cmd->cmd.statemove->end_state);
-			break;
-		case JTAG_PATHMOVE:
-			LOG_DEBUG("JTAG_PATHMOVE");
-			retval = jtag_esp_remote_path_move(cmd->cmd.pathmove);
-			break;
-		case JTAG_TMS:
-			LOG_DEBUG("JTAG_TMS");
-			retval = jtag_esp_remote_tms(cmd->cmd.tms);
-			break;
-		case JTAG_SLEEP:
-			LOG_DEBUG("JTAG_SLEEP");
-			jtag_sleep(cmd->cmd.sleep->us);
-			break;
-		case JTAG_SCAN:
-			// LOG_DEBUG("JTAG_SCAN");
-			retval = jtag_esp_remote_scan(cmd->cmd.scan, &cmd_read_size);
-			read_size += cmd_read_size;
-			break;
+			case JTAG_RESET:
+				retval = jtag_esp_remote_reset(cmd->cmd.reset->trst,
+				cmd->cmd.reset->srst);
+				break;
+			case JTAG_RUNTEST:
+				retval = jtag_esp_remote_runtest(cmd->cmd.runtest->num_cycles,
+				cmd->cmd.runtest->end_state);
+				break;
+			case JTAG_STABLECLOCKS:
+				retval = jtag_esp_remote_stableclocks(
+				cmd->cmd.stableclocks->num_cycles);
+				break;
+			case JTAG_TLR_RESET:
+				retval = jtag_esp_remote_state_move(cmd->cmd.statemove->end_state);
+				break;
+			case JTAG_PATHMOVE:
+				retval = jtag_esp_remote_path_move(cmd->cmd.pathmove);
+				break;
+			case JTAG_TMS:
+				retval = jtag_esp_remote_tms(cmd->cmd.tms);
+				break;
+			case JTAG_SLEEP:
+				jtag_sleep(cmd->cmd.sleep->us);
+				break;
+			case JTAG_SCAN:
+				retval = jtag_esp_remote_scan(cmd->cmd.scan, &cmd_read_size);
+				read_size += cmd_read_size;
+				break;
 		}
 	}
 
 	if (read_size > 0) {
-			for (cmd = jtag_command_queue; retval == ERROR_OK && cmd != NULL;
-				 cmd = cmd->next) {
-				if (cmd->type == JTAG_SCAN) {
-					jtag_esp_remote_scan_read(cmd->cmd.scan);
-				}
-			}
+		for (cmd = jtag_command_queue; retval == ERROR_OK && cmd != NULL;
+			cmd = cmd->next) {
+			if (cmd->type == JTAG_SCAN)
+				jtag_esp_remote_scan_read(cmd->cmd.scan);
+		}
 	}
 	assert(s_read_bits_queued == 0);
 
@@ -546,9 +592,6 @@ static int jtag_esp_remote_init_tcp(void)
 
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_port = htons(server_port);
-
-	if (!server_address)
-		server_address = strdup(SERVER_ADDRESS);
 
 	serv_addr.sin_addr.s_addr = inet_addr(server_address);
 
@@ -577,83 +620,160 @@ static int jtag_esp_remote_init_tcp(void)
 
 static int jtag_esp_remote_init_usb(void)
 {
-	const uint16_t vids[]={USB_VID};
-	const uint16_t pids[]={USB_PID};
-	int r=jtag_libusb_open(vids, pids, NULL, &usb_device);
-	if (r!=ERROR_OK) {
-		if (r==ERROR_FAIL) {
-			return ERROR_JTAG_INVALID_INTERFACE; //we likely can't find the USB device
-		} else {
-			return r; //some other error
-		}
+	const uint16_t vids[]= {usb_vid};
+	const uint16_t pids[]= {usb_pid};
+	int r= jtag_libusb_open(vids, pids, NULL, &usb_device);
+	if (r != ERROR_OK) {
+		if (r == ERROR_FAIL)
+			return ERROR_JTAG_INVALID_INTERFACE;	/*we likely can't find the USB
+								                                        * device */
+		else
+			return r;	/*some other error */
 	}
 
 	jtag_libusb_set_configuration(usb_device, USB_CONFIGURATION);
+	if (libusb_kernel_driver_active(usb_device, USB_INTERFACE))
+		libusb_detach_kernel_driver(usb_device, USB_INTERFACE);
 	jtag_libusb_claim_interface(usb_device, USB_INTERFACE);
 	return ERROR_OK;
 }
 
 static int jtag_esp_remote_init(void)
 {
-	if (!server_address || strcmp(server_address, "")==0) {
-		int r=jtag_esp_remote_init_usb();
-		//Note: if we succeed, usb_device is also non-NULL.
-		if (r!=ERROR_JTAG_INVALID_INTERFACE) return r;
-	}
-	return jtag_esp_remote_init_tcp();
+	if (esp_remote_protocol == ESP_REMOTE_USB) {
+		int r= jtag_esp_remote_init_usb();
+		/*Note: if we succeed, usb_device is also non-NULL. */
+		if (r != ERROR_JTAG_INVALID_INTERFACE)
+			return r;
+	} else if (esp_remote_protocol == ESP_REMOTE_TCP)
+		return jtag_esp_remote_init_tcp();
+	return ERROR_FAIL;
 }
 
 static int jtag_esp_remote_quit(void)
 {
 	if (usb_device) {
+		jtag_libusb_release_interface(usb_device, USB_INTERFACE);
 		jtag_libusb_close(usb_device);
 	} else {
-		free(server_address);
+		if (server_address) {
+			free(server_address);
+			server_address = NULL;
+		}
 		return close(sockfd);
 	}
 	return ERROR_OK;
 }
 
+COMMAND_HANDLER(jtag_esp_remote_protocol)
+{
+	if (CMD_ARGC > 0) {
+		if (strcmp(CMD_ARGV[0], "usb") == 0) {
+			esp_remote_protocol = ESP_REMOTE_USB;
+			jtag_esp_remote_send_cmd = jtag_esp_remote_send_cmd_usb;
+			jtag_esp_remote_receive_cmd = jtag_esp_remote_receive_cmd_usb;
+			LOG_INFO("USB protocol set for esp remote");
+			return ERROR_OK;
+		}
+		if (strcmp(CMD_ARGV[0], "tcp") == 0) {
+			esp_remote_protocol = ESP_REMOTE_TCP;
+			jtag_esp_remote_send_cmd = jtag_esp_remote_send_cmd_tcp;
+			jtag_esp_remote_receive_cmd = jtag_esp_remote_receive_cmd_tcp;
+			if (!server_address)
+				server_address = strdup(DEFAULT_SERVER_ADDRESS);
+			LOG_INFO("TCP protocol set for esp remote");
+			return ERROR_OK;
+		}
+	}
+	LOG_ERROR("You need to set an esp remote protocol (tcp or usb)");
+	esp_remote_protocol = ESP_REMOTE_UNKNOWN_PROT;
+	return ERROR_FAIL;
+}
+
+COMMAND_HANDLER(jtag_esp_remote_vid_pid)
+{
+	if (esp_remote_protocol != ESP_REMOTE_USB) {
+		LOG_ERROR("USB protocol must be set up for jtag_esp_remote_vid_pid");
+		return ERROR_FAIL;
+	}
+
+	if (CMD_ARGC < 2) {
+		LOG_ERROR("You need to supply the vendor and product IDs");
+		return ERROR_FAIL;
+	}
+
+	COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], usb_vid);
+	COMMAND_PARSE_NUMBER(int, CMD_ARGV[1], usb_pid);
+	LOG_INFO("VID set to 0x%x and PID to 0x%x", usb_vid, usb_pid);
+	return ERROR_OK;
+}
+
 COMMAND_HANDLER(jtag_esp_remote_set_port)
 {
-	if (CMD_ARGC == 0)
-		LOG_WARNING("You need to set a port number");
-	else
-		COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], server_port);
+	if (esp_remote_protocol != ESP_REMOTE_TCP) {
+		LOG_ERROR("TCP protocol must be set up for jtag_esp_remote_set_port");
+		return ERROR_FAIL;
+	}
 
+	if (CMD_ARGC == 0) {
+		LOG_ERROR("You need to set a port number");
+		return ERROR_FAIL;
+	}
+
+	COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], server_port);
 	LOG_INFO("Set server port to %u", server_port);
-
 	return ERROR_OK;
 }
 
 COMMAND_HANDLER(jtag_esp_remote_set_address)
 {
-	free(server_address);
+	if (esp_remote_protocol != ESP_REMOTE_TCP) {
+		LOG_ERROR("TCP protocol must be set up for jtag_esp_remote_set_address");
+		return ERROR_FAIL;
+	}
+
+	if (server_address) {
+		free(server_address);
+		server_address = NULL;
+	}
 
 	if (CMD_ARGC == 0) {
-		LOG_WARNING("You need to set an address");
-		server_address = strdup(SERVER_ADDRESS);
-	} else
-		server_address = strdup(CMD_ARGV[0]);
+		LOG_ERROR("You need to set an address");
+		return ERROR_FAIL;
+	}
 
+	server_address = strdup(CMD_ARGV[0]);
 	LOG_INFO("Set server address to %s", server_address);
-
 	return ERROR_OK;
 }
 
 static const struct command_registration jtag_esp_remote_command_handlers[] = {
 	{
+		.name = "jtag_esp_remote_protocol",
+		.handler = &jtag_esp_remote_protocol,
+		.mode = COMMAND_CONFIG,
+		.help = "set communication protocol for ESP remote driver (tcp or usb)",
+		.usage = "description_string",
+	},
+	{
+		.name = "jtag_esp_remote_vid_pid",
+		.handler = &jtag_esp_remote_vid_pid,
+		.mode = COMMAND_CONFIG,
+		.help = "set vendor ID and product ID for ESP remote driver over USB",
+		.usage = "description_string",
+	},
+	{
 		.name = "jtag_esp_remote_set_port",
 		.handler = &jtag_esp_remote_set_port,
 		.mode = COMMAND_CONFIG,
-		.help = "set the port of the ESP remote server",
+		.help = "set the port of the ESP remote TCP server",
 		.usage = "description_string",
 	},
 	{
 		.name = "jtag_esp_remote_set_address",
 		.handler = &jtag_esp_remote_set_address,
 		.mode = COMMAND_CONFIG,
-		.help = "set the address of the ESP remote server",
+		.help = "set the address of the ESP remote TCP server",
 		.usage = "description_string",
 	},
 	COMMAND_REGISTRATION_DONE

@@ -137,7 +137,9 @@ extern struct jtag_interface xds110_interface;
 #endif
 #endif /* standard drivers */
 
+#if BUILD_ESP_REMOTE
 extern struct jtag_interface jtag_esp_remote_interface;
+#endif //BUILD_ESP_REMOTE
 
 /**
  * The list of built-in JTAG interfaces, containing entries for those
@@ -243,7 +245,9 @@ struct jtag_interface *jtag_interfaces[] = {
 		&xds110_interface,
 #endif
 #endif /* standard drivers */
+#if BUILD_ESP_REMOTE
 		&jtag_esp_remote_interface,
+#endif //BUILD_ESP_REMOTE
 		NULL,
 	};
 
