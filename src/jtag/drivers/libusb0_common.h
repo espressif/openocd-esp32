@@ -29,6 +29,7 @@
 #define jtag_libusb_interface_descriptor	usb_interface_descriptor
 #define jtag_libusb_endpoint_descriptor		usb_endpoint_descriptor
 #define jtag_libusb_config_descriptor		usb_config_descriptor
+#define jtag_libusb_detach_kernel_driver	usb_detach_kernel_driver_np
 
 #define jtag_libusb_reset_device(dev)		usb_reset(dev)
 #define jtag_libusb_get_device(devh)		usb_device(devh)
@@ -39,6 +40,11 @@
 #define LIBUSB_ENDPOINT_OUT				USB_ENDPOINT_OUT
 #define LIBUSB_ENDPOINT_IN				USB_ENDPOINT_IN
 #define LIBUSB_TRANSFER_TYPE_BULK		USB_ENDPOINT_TYPE_BULK
+
+static inline int jtag_libusb_kernel_driver_active(jtag_libusb_device_handle *devh, int iface)
+{
+	return 0;
+}
 
 static inline int jtag_libusb_claim_interface(jtag_libusb_device_handle *devh,
 				       int iface)

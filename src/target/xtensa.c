@@ -29,8 +29,6 @@
 #include "register.h"
 #include "time_support.h"
 
-extern void cmd_annotate(const char* what);
-
 #define XT_WATCHPOINTS_NUM_MAX  2
 
 /* Special register number macro for DDR register.
@@ -889,7 +887,6 @@ int xtensa_fetch_all_regs(struct target *target)
 	uint8_t dsrs[XT_NUM_REGS][sizeof(xtensa_dsr_t)];
 
 	LOG_DEBUG("%s: start", target_name(target));
-	cmd_annotate(__func__);
 
 	/*Assume the CPU has just halted. We now want to fill the register cache with all the
 	 *register contents GDB needs. For speed, we pipeline all the read operations, execute them
@@ -1089,9 +1086,6 @@ int xtensa_fetch_user_regs_u32(struct target *target)
 
 	/*We have used A3 as a scratch register and we will need to write that back. */
 	xtensa_mark_register_dirty(xtensa, XT_REG_IDX_A3);
-
-	cmd_annotate("(end of xtensa_fetch_all_regs)");
-
 	return ERROR_OK;
 }
 
@@ -1627,8 +1621,6 @@ int xtensa_read_memory(struct target *target,
 		}
 	}
 
-	cmd_annotate(__func__);
-
 	/*We're going to use A3 here */
 	xtensa_mark_register_dirty(xtensa, XT_REG_IDX_A3);
 	/*Write start address to A3 */
@@ -1636,7 +1628,6 @@ int xtensa_read_memory(struct target *target,
 	xtensa_queue_exec_ins(xtensa, XT_INS_RSR(XT_SR_DDR, XT_REG_A3));
 	/*Now we can safely read data from addrstart_al up to addrend_al into albuff */
 	while (adr != addrend_al) {
-		cmd_annotate(__func__);
 		xtensa_queue_exec_ins(xtensa, XT_INS_LDDR32P(XT_REG_A3));
 		xtensa_queue_dbg_reg_read(xtensa, NARADR_DDR, &albuff[i]);
 		adr += sizeof(uint32_t);
@@ -1653,8 +1644,6 @@ int xtensa_read_memory(struct target *target,
 		memcpy(buffer, albuff + (address & 3), (size*count));
 		free(albuff);
 	}
-
-	cmd_annotate("(end of xtensa_read_memory)");
 
 	return res;
 }
@@ -1684,8 +1673,6 @@ int xtensa_write_memory(struct target *target,
 	target_addr_t adr = addrstart_al;
 	int i = 0, res;
 	uint8_t *albuff;
-
-	cmd_annotate(__func__);
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("%s: %s: target not halted", __func__, target_name(target));

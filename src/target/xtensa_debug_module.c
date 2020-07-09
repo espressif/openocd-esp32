@@ -33,7 +33,6 @@
 #define TAPINS_IDCODE_LEN       32
 #define TAPINS_BYPASS_LEN       1
 
-extern void cmd_annotate(const char* what);
 
 static void xtensa_dm_add_set_ir(struct xtensa_debug_module *dm, uint8_t value)
 {
@@ -86,7 +85,6 @@ int xtensa_dm_queue_reg_read(struct xtensa_debug_module *dm, unsigned reg, uint8
 		LOG_ERROR("Invalid DBG reg ID %d!", reg);
 		return ERROR_FAIL;
 	}
-	cmd_annotate(__func__);
 	xtensa_dm_add_set_ir(dm, TAPINS_NARSEL);
 	xtensa_dm_add_dr_scan(dm, TAPINS_NARSEL_ADRLEN, &regdata, NULL, TAP_IDLE);
 	xtensa_dm_add_dr_scan(dm, TAPINS_NARSEL_DATALEN, dummy, value, TAP_IDLE);
@@ -102,7 +100,6 @@ int xtensa_dm_queue_reg_write(struct xtensa_debug_module *dm, unsigned reg, uint
 		LOG_ERROR("Invalid DBG reg ID %d!", reg);
 		return ERROR_FAIL;
 	}
-	cmd_annotate(__func__);
 	xtensa_dm_add_set_ir(dm, TAPINS_NARSEL);
 	xtensa_dm_add_dr_scan(dm, TAPINS_NARSEL_ADRLEN, &regdata, NULL, TAP_IDLE);
 	xtensa_dm_add_dr_scan(dm, TAPINS_NARSEL_DATALEN, valdata, NULL, TAP_IDLE);
@@ -128,7 +125,6 @@ int xtensa_dm_queue_pwr_reg_read(struct xtensa_debug_module *dm,
 		LOG_ERROR("Invalid PWR reg ID %d!", reg);
 		return ERROR_FAIL;
 	}
-	cmd_annotate(__func__);
 	xtensa_dm_add_set_ir(dm, tap_insn);
 	xtensa_dm_add_dr_scan(dm, tap_insn_sz, &value_clr, data, TAP_IDLE);
 	return ERROR_OK;
@@ -150,7 +146,6 @@ int xtensa_dm_queue_pwr_reg_write(struct xtensa_debug_module *dm, unsigned reg, 
 		LOG_ERROR("Invalid PWR reg ID %d!", reg);
 		return ERROR_FAIL;
 	}
-	cmd_annotate(__func__);
 	xtensa_dm_add_set_ir(dm, tap_insn);
 	xtensa_dm_add_dr_scan(dm, tap_insn_sz, &value, NULL, TAP_IDLE);
 	return ERROR_OK;
@@ -178,7 +173,6 @@ int xtensa_dm_power_status_read(struct xtensa_debug_module *dm, uint32_t clear)
 	 * function */
 	/* dm->dbg_ops->queue_reg_read(dm, NARADR_OCDID, id_buf);
 	 *Read reset state */
-	cmd_annotate(__func__);
 	dm->pwr_ops->queue_reg_read(dm, DMREG_PWRSTAT, &dm->power_status.stat, clear);
 	dm->pwr_ops->queue_reg_read(dm, DMREG_PWRSTAT, &dm->power_status.stath, clear);
 	xtensa_dm_queue_tdi_idle(dm);
@@ -193,7 +187,6 @@ int xtensa_dm_core_status_read(struct xtensa_debug_module *dm)
 {
 	uint8_t dsr_buf[sizeof(uint32_t)];
 
-	cmd_annotate(__func__);
 	xtensa_dm_queue_enable(dm);
 	dm->dbg_ops->queue_reg_read(dm, NARADR_DSR, dsr_buf);
 	xtensa_dm_queue_tdi_idle(dm);
@@ -206,7 +199,6 @@ int xtensa_dm_core_status_read(struct xtensa_debug_module *dm)
 
 int xtensa_dm_core_status_clear(struct xtensa_debug_module *dm, xtensa_dsr_t bits)
 {
-	cmd_annotate(__func__);
 	dm->dbg_ops->queue_reg_write(dm, NARADR_DSR, bits);
 	xtensa_dm_queue_tdi_idle(dm);
 	int res = jtag_execute_queue();
