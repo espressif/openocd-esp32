@@ -5,6 +5,7 @@
  *   Author: Angus Gratton gus@projectgus.com                              *
  *   Author: Jeroen Domburg <jeroen@espressif.com>                         *
  *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
+ *   Author: Andrey Gramakov <andrei.gramakov@espressif.com>               *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -22,6 +23,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
+#include <stdlib.h>
 #include "xtensa.h"
 #include "xtensa_algorithm.h"
 #include "register.h"
@@ -233,6 +235,51 @@ const struct xtensa_reg_desc xtensa_regs[XT_NUM_REGS] = {
 	{ "a15",                XT_REG_IDX_AR15, XT_REG_RELGEN, 0 },
 };
 
+
+/**
+ * Types of memory used at xtensa target
+ */
+typedef enum {
+	XTENSA_MEM_REG_IROM = 0x0,
+	XTENSA_MEM_REG_IRAM,
+	XTENSA_MEM_REG_DROM,
+	XTENSA_MEM_REG_DRAM,
+	XTENSA_MEM_REG_URAM,
+	XTENSA_MEM_REG_XLMI,
+	XTENSA_MEM_REGS_NUM
+} xtensa_mem_region_type_t;
+
+
+/**
+ * Gets a config for the specific mem type
+ */
+static inline const struct xtensa_local_mem_config *xtensa_get_mem_config(
+	struct xtensa *xtensa,
+	xtensa_mem_region_type_t type)
+{
+	switch (type) {
+		case XTENSA_MEM_REG_IROM:
+			return &(xtensa->core_config->irom);
+		case XTENSA_MEM_REG_IRAM:
+			return &(xtensa->core_config->iram);
+		case XTENSA_MEM_REG_DROM:
+			return &(xtensa->core_config->drom);
+		case XTENSA_MEM_REG_DRAM:
+			return &(xtensa->core_config->dram);
+		case XTENSA_MEM_REG_URAM:
+			return &(xtensa->core_config->uram);
+		case XTENSA_MEM_REG_XLMI:
+			return &(xtensa->core_config->xlmi);
+		default:
+			return NULL;
+	}
+}
+
+/**
+ * Extracts an exact xtensa_local_mem_region_config from xtensa_local_mem_config
+ * for a given address
+ * Returns NULL if nothing found
+ */
 static inline const struct xtensa_local_mem_region_config *xtensa_memory_region_find(
 	const struct xtensa_local_mem_config *mem,
 	target_addr_t address)
@@ -241,6 +288,26 @@ static inline const struct xtensa_local_mem_region_config *xtensa_memory_region_
 		const struct xtensa_local_mem_region_config *region = &mem->regions[i];
 		if (address >= region->base && address < (region->base+region->size))
 			return region;
+	}
+	return NULL;
+}
+
+/**
+ * Returns a corresponding xtensa_local_mem_region_config from the xtensa target
+ * for a given address
+ * Returns NULL if nothing found
+ */
+static inline const struct xtensa_local_mem_region_config *xtensa_target_memory_region_find(
+	struct xtensa *xtensa,
+	target_addr_t address)
+{
+	const struct xtensa_local_mem_region_config *result = NULL;
+	const struct xtensa_local_mem_config *mcgf = NULL;
+	for (size_t mtype = 0; mtype < XTENSA_MEM_REGS_NUM; mtype++) {
+		mcgf = xtensa_get_mem_config(xtensa, mtype);
+		result = xtensa_memory_region_find(mcgf, address);
+		if (result)
+			return result;
 	}
 	return NULL;
 }
@@ -993,7 +1060,7 @@ int xtensa_prepare_resume(struct target *target,
 		if (cause & (DEBUGCAUSE_BI|DEBUGCAUSE_BN)) {
 			/*We stopped due to a break instruction. We can't just resume executing the
 			 * instruction again because */
-			/*that would trigger the breake again. To fix this, we single-step, which
+			/*that would trigger the break again. To fix this, we single-step, which
 			 * ignores break. */
 			xtensa_do_step(target, current, address, handle_breakpoints);
 		}
@@ -1306,27 +1373,72 @@ int xtensa_step(struct target *target,
 	return retval;
 }
 
-static inline bool xtensa_memory_op_validate(struct xtensa *xtensa,
+/**
+ * Returns true if two ranges are overlapping
+ */
+static inline bool xtensa_memory_regions_overlap(target_addr_t r1_start,
+	target_addr_t r1_end,
+	target_addr_t r2_start,
+	target_addr_t r2_end)
+{
+	if ((r2_start >= r1_start) && (r2_start < r1_end))
+		return true;	/* r2_start is in r1 region */
+	if ((r2_end > r1_start) && (r2_end <= r1_end))
+		return true;	/* r2_end is in r1 region */
+	return false;
+}
+
+/**
+ * Returns a size of overlapped region of two ranges.
+ */
+static inline target_addr_t xtensa_get_overlap_size(const target_addr_t r1_start,
+	const target_addr_t r1_end,
+	const target_addr_t r2_start,
+	const target_addr_t r2_end)
+{
+	target_addr_t ov_start;
+	target_addr_t ov_end;
+	if (xtensa_memory_regions_overlap(r1_start, r1_end, r2_start, r2_end)) {
+		if (r1_start < r2_start)
+			ov_start = r2_start;
+		else
+			ov_start = r1_start;
+
+		if (r1_end > r2_end)
+			ov_end = r2_end;
+		else
+			ov_end = r1_end;
+
+		return ov_end - ov_start;
+	}
+	return 0;
+}
+
+/**
+ * Check if the address gets to memory regions, and it's access mode
+ */
+static bool xtensa_memory_op_validate_range(
+	struct xtensa *xtensa,
 	target_addr_t address,
+	size_t size,
 	int access)
 {
-	const struct xtensa_local_mem_region_config *mem_region = xtensa_memory_region_find(
-		&xtensa->core_config->irom,
-		address);
-	if (mem_region)
-		return (mem_region->access & access) == access;
-	mem_region = xtensa_memory_region_find(&xtensa->core_config->drom, address);
-	if (mem_region)
-		return (mem_region->access & access) == access;
-	mem_region = xtensa_memory_region_find(&xtensa->core_config->iram, address);
-	if (mem_region)
-		return (mem_region->access & access) == access;
-	mem_region = xtensa_memory_region_find(&xtensa->core_config->dram, address);
-	if (mem_region)
-		return (mem_region->access & access) == access;
-	mem_region = xtensa_memory_region_find(&xtensa->core_config->uram, address);
-	if (mem_region)
-		return (mem_region->access & access) == access;
+	target_addr_t adr_pos = address;	/* address cursor set to the beginning start */
+	target_addr_t adr_end = address + size;	/* region end */
+	target_addr_t overlap_size;
+	const struct xtensa_local_mem_region_config *cm;	/* current mem region */
+
+	while (adr_pos < adr_end) {
+		cm = xtensa_target_memory_region_find(xtensa, adr_pos);
+		if (!cm)/* address is not belong to anything */
+			return false;
+		if ((cm->access & access) != access)	/* access check */
+			return false;
+		overlap_size =
+			xtensa_get_overlap_size(cm->base, (cm->base + cm->size), adr_pos, adr_end);
+		assert(overlap_size != 0);
+		adr_pos += overlap_size;
+	}
 	return true;
 }
 
@@ -1353,10 +1465,12 @@ int xtensa_read_memory(struct target *target,
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	if (!xtensa_memory_op_validate(xtensa, address,
-			XT_MEM_ACCESS_READ) && !xtensa->permissive_mode) {
-		LOG_DEBUG("address "TARGET_ADDR_FMT " not readable", address);
-		return ERROR_FAIL;
+	if (!xtensa->permissive_mode) {
+		if (!xtensa_memory_op_validate_range(xtensa, address, (size*count),
+				XT_MEM_ACCESS_READ)) {
+			LOG_DEBUG("address "TARGET_ADDR_FMT " not readable", address);
+			return ERROR_FAIL;
+		}
 	}
 
 	if (addrstart_al == address && addrend_al == address + (size*count))
@@ -1428,10 +1542,12 @@ int xtensa_write_memory(struct target *target,
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	if (!xtensa_memory_op_validate(xtensa, address,
-			XT_MEM_ACCESS_WRITE) && !xtensa->permissive_mode) {
-		LOG_DEBUG("address "TARGET_ADDR_FMT " not writable", address);
-		return ERROR_FAIL;
+	if (!xtensa->permissive_mode) {
+		if (!xtensa_memory_op_validate_range(xtensa, address, (size*count),
+				XT_MEM_ACCESS_WRITE)) {
+			LOG_DEBUG("address "TARGET_ADDR_FMT " not writable", address);
+			return ERROR_FAIL;
+		}
 	}
 
 /*  LOG_INFO("%s: %s: writing %d bytes to addr %08X", target_name(target), __FUNCTION__, size*count,
@@ -1571,8 +1687,8 @@ int xtensa_poll(struct target *target)
 			/*Examine why the target has been halted */
 			target->debug_reason = DBG_REASON_DBGRQ;
 			xtensa_fetch_all_regs(target);
-			/* When setting debug reason DEBUGCAUSE events have the followuing
-			 * priorites: watchpoint == breakpoint > single step > debug interrupt. */
+			/* When setting debug reason DEBUGCAUSE events have the following
+			 * priorities: watchpoint == breakpoint > single step > debug interrupt. */
 			/* Watchpoint and breakpoint events at the same time results in special
 			 * debug reason: DBG_REASON_WPTANDBKPT. */
 			xtensa_reg_val_t halt_cause = xtensa_reg_get(target, XT_REG_IDX_DEBUGCAUSE);
@@ -2167,13 +2283,18 @@ int xtensa_init_arch_info(struct target *target, struct xtensa *xtensa,
 	return ERROR_OK;
 }
 
+void xtensa_set_permissive_mode(struct target *target, bool state)
+{
+	target_to_xtensa(target)->permissive_mode = state;
+}
+
 int xtensa_target_init(struct command_context *cmd_ctx, struct target *target)
 {
 	xtensa_build_reg_cache(target);
 	return ERROR_OK;
 }
 
-void xtensa_deinit(struct target *target)
+void xtensa_target_deinit(struct target *target)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
 

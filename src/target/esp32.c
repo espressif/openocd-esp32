@@ -79,24 +79,26 @@ registers of this core will be transfered.
 */
 
 /* ESP32 memory map */
-#define ESP32_EXT_RAM_LOW          0x3F800000
-#define ESP32_EXT_RAM_HIGH         0x3FC00000
-#define ESP32_DPORT_LOW            0x3ff00000
-#define ESP32_DPORT_HIGH           0x3ff80000
-#define ESP32_DRAM_LOW             0x3ffA0000
-#define ESP32_DRAM_HIGH            0x40000000
-#define ESP32_IRAM00_LOW           0x40000000
-#define ESP32_IRAM00_HIGH          0x40070000
-#define ESP32_IRAM02_LOW           0x40070000
-#define ESP32_IRAM02_HIGH          0x400C0000
-#define ESP32_RTC_IRAM_LOW         0x400C0000
-#define ESP32_RTC_IRAM_HIGH        0x400C2000
-#define ESP32_RTC_DATA_LOW         0x50000000
-#define ESP32_RTC_DATA_HIGH        0x50002000
+#define ESP32_DRAM_LOW            0x3ffae000
+#define ESP32_DRAM_HIGH           0x40000000
+#define ESP32_IROM_MASK_LOW       0x40000000
+#define ESP32_IROM_MASK_HIGH      0x40064f00
+#define ESP32_IRAM_LOW            0x40070000
+#define ESP32_IRAM_HIGH           0x400a0000
+#define ESP32_RTC_IRAM_LOW        0x400c0000
+#define ESP32_RTC_IRAM_HIGH       0x400c2000
+#define ESP32_RTC_DRAM_LOW        0x3ff80000
+#define ESP32_RTC_DRAM_HIGH       0x3ff82000
+#define ESP32_RTC_DATA_LOW        0x50000000
+#define ESP32_RTC_DATA_HIGH       0x50002000
+#define ESP32_EXTRAM_DATA_LOW     0x3f800000
+#define ESP32_EXTRAM_DATA_HIGH    0x3fc00000
+#define ESP32_DR_REG_LOW          0x3ff00000
+#define ESP32_DR_REG_HIGH         0x3ff71000
 
 /* ESP32 WDT */
-#define ESP32_WDT_WKEY_VALUE       0x50D83AA1
-#define ESP32_TIMG0_BASE           0x3ff5F000
+#define ESP32_WDT_WKEY_VALUE       0x50d83aa1
+#define ESP32_TIMG0_BASE           0x3ff5f000
 #define ESP32_TIMG1_BASE           0x3ff60000
 #define ESP32_TIMGWDT_CFG0_OFF     0x48
 #define ESP32_TIMGWDT_PROTECT_OFF  0x64
@@ -112,6 +114,10 @@ registers of this core will be transfered.
 
 #define ESP32_TRACEMEM_BLOCK_SZ    0x4000
 
+/* ESP32 dport regs */
+#define ESP32_DR_REG_DPORT_BASE         ESP32_DR_REG_LOW
+#define ESP32_DPORT_APPCPU_CTRL_B_REG   (ESP32_DR_REG_DPORT_BASE + 0x030)
+#define ESP32_DPORT_APPCPU_CLKGATE_EN   (1 << 0)
 /* ESP32 RTC regs */
 #define ESP32_DR_REG_RTCCNTL_BASE       0x3ff48000
 #define ESP32_RTC_CNTL_SW_CPU_STALL_REG (ESP32_DR_REG_RTCCNTL_BASE + 0xac)
@@ -143,8 +149,8 @@ static const struct xtensa_config esp32_xtensa_cfg = {
 				.access = XT_MEM_ACCESS_READ,
 			},
 			{
-				.base = ESP32_IRAM00_LOW,
-				.size = ESP32_IRAM00_HIGH-ESP32_IRAM00_LOW,
+				.base = ESP32_IROM_MASK_LOW,
+				.size = ESP32_IROM_MASK_HIGH-ESP32_IROM_MASK_LOW,
 				.access = XT_MEM_ACCESS_READ,
 			},
 		}
@@ -153,8 +159,8 @@ static const struct xtensa_config esp32_xtensa_cfg = {
 		.count = 2,
 		.regions = {
 			{
-				.base = ESP32_IRAM02_LOW,
-				.size = ESP32_IRAM02_HIGH-ESP32_IRAM02_LOW,
+				.base = ESP32_IRAM_LOW,
+				.size = ESP32_IRAM_HIGH-ESP32_IRAM_LOW,
 				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
 			},
 			{
@@ -175,7 +181,7 @@ static const struct xtensa_config esp32_xtensa_cfg = {
 		}
 	},
 	.dram           = {
-		.count = 2,
+		.count = 5,
 		.regions = {
 			{
 				.base = ESP32_DRAM_LOW,
@@ -183,8 +189,23 @@ static const struct xtensa_config esp32_xtensa_cfg = {
 				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
 			},
 			{
+				.base = ESP32_RTC_DRAM_LOW,
+				.size = ESP32_RTC_DRAM_HIGH-ESP32_RTC_DRAM_LOW,
+				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+			},
+			{
 				.base = ESP32_RTC_DATA_LOW,
 				.size = ESP32_RTC_DATA_HIGH-ESP32_RTC_DATA_LOW,
+				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+			},
+			{
+				.base = ESP32_EXTRAM_DATA_LOW,
+				.size = ESP32_EXTRAM_DATA_HIGH-ESP32_EXTRAM_DATA_LOW,
+				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+			},
+			{
+				.base = ESP32_DR_REG_LOW,
+				.size = ESP32_DR_REG_HIGH-ESP32_DR_REG_LOW,
 				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
 			},
 		}

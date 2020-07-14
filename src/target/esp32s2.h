@@ -24,10 +24,11 @@
 
 #include "esp_xtensa.h"
 
-#define ESP32_S2_DROM_LOW    0x3F000000
-#define ESP32_S2_DROM_HIGH   0x3F400000
-#define ESP32_S2_IROM_LOW    0x40080000
-#define ESP32_S2_IROM_HIGH   0x40c00000
+#define ESP32_S2_DROM_LOW   0x3f000000
+#define ESP32_S2_DROM_HIGH  0x3ff80000
+#define ESP32_S2_IROM_LOW   0x40080000
+#define ESP32_S2_IROM_HIGH  0x40800000
+
 
 /*Number of registers returned directly by the G command
  *Corresponds to the amount of regs listed in regformats/reg-xtensa.dat in the gdb source */

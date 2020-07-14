@@ -265,7 +265,7 @@ variables:
   script:
     - *add_gitlab_key
     - *submodules_mirror_update
-    - export PATH=${HOME}/.espressif/tools/xtensa-${CHIP_NAME}-elf/esp-2020r1-8.2.0/xtensa-${CHIP_NAME}-elf/bin:${PATH}
+    - export PATH=${HOME}/.espressif/tools/xtensa-${CHIP_NAME}-elf/${ESP_TOOLCHAIN_VER}/xtensa-${CHIP_NAME}-elf/bin:${PATH}
     - source /opt/pyenv/activate && pyenv global 3.5.5
     - *run_tests_linux
 
@@ -443,6 +443,7 @@ build_test_app_esp32_custom_idf_rel:
 tests_linux64_solo:
   <<: *tests_linux_template
   tags:
+    - amd64
     - test_jtag_solo
   dependencies:
     - build_test_app_esp32
