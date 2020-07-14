@@ -152,7 +152,7 @@ struct xtensa_cache_config {
 };
 
 struct xtensa_local_mem_region_config {
-	uint32_t base;
+	target_addr_t base;
 	uint32_t size;
 	enum xtensa_mem_err_detect mem_err_check;
 	int access;
@@ -281,7 +281,7 @@ struct xtensa {
 	struct watchpoint **hw_wps;
 	struct xtensa_sw_breakpoint *sw_brps;
 	bool trace_active;
-	bool permissive_mode;
+	bool permissive_mode;	/* bypass memory checks */
 	bool suppress_dsr_errors;
 	uint32_t smp_break;
 };
@@ -341,7 +341,7 @@ int xtensa_init_arch_info(struct target *target,
 	const struct xtensa_config *cfg,
 	const struct xtensa_debug_module_config *dm_cfg);
 int xtensa_target_init(struct command_context *cmd_ctx, struct target *target);
-void xtensa_deinit(struct target *target);
+void xtensa_target_deinit(struct target *target);
 
 static inline void xtensa_stepping_isr_mode_set(struct target *target,
 	enum xtensa_stepping_isr_mode mode)
@@ -465,6 +465,7 @@ int xtensa_run_algorithm(struct target *target,
 int xtensa_handle_target_event(struct target *target,
 	enum target_event event,
 	void *priv);
+void xtensa_set_permissive_mode(struct target *target, bool state);
 
 COMMAND_HELPER(xtensa_cmd_permissive_mode_do, struct xtensa *xtensa);
 COMMAND_HELPER(xtensa_cmd_mask_interrupts_do, struct xtensa *xtensa);

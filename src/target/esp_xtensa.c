@@ -191,7 +191,7 @@ void esp_xtensa_target_deinit(struct target *target)
 	int ret = esp_xtensa_dbgstubs_restore(target);
 	if (ret != ERROR_OK)
 		return;
-	xtensa_deinit(target);
+	xtensa_target_deinit(target);
 }
 
 int esp_xtensa_arch_state(struct target *target)

@@ -34,19 +34,32 @@
 
 /* Overall memory map
  * TODO: read memory configuration from target registers */
-#define ESP32_S2_IRAM_LOW       0x40020000
-#define ESP32_S2_IRAM_HIGH      0x40070000
-#define ESP32_S2_RTC_IRAM_LOW   0x40070000
-#define ESP32_S2_RTC_IRAM_HIGH  0x40072000
-#define ESP32_S2_RTC_DRAM_LOW   0x3ff9e000
-#define ESP32_S2_RTC_DRAM_HIGH  0x3ffa0000
-#define ESP32_S2_DRAM_LOW       0x3FFB0000
-#define ESP32_S2_DRAM_HIGH      0x3FFFFFFF
-#define ESP32_S2_RTC_DATA_LOW   0x50000000
-#define ESP32_S2_RTC_DATA_HIGH  0x50002000
+#define ESP32_S2_IROM_MASK_LOW          0x40000000
+#define ESP32_S2_IROM_MASK_HIGH         0x4001a100
+#define ESP32_S2_IRAM_LOW               0x40020000
+#define ESP32_S2_IRAM_HIGH              0x40070000
+#define ESP32_S2_DRAM_LOW               0x3ffb0000
+#define ESP32_S2_DRAM_HIGH              0x40000000
+#define ESP32_S2_RTC_IRAM_LOW           0x40070000
+#define ESP32_S2_RTC_IRAM_HIGH          0x40072000
+#define ESP32_S2_RTC_DRAM_LOW           0x3ff9e000
+#define ESP32_S2_RTC_DRAM_HIGH          0x3ffa0000
+#define ESP32_S2_RTC_DATA_LOW           0x50000000
+#define ESP32_S2_RTC_DATA_HIGH          0x50002000
+#define ESP32_S2_EXTRAM_DATA_LOW        0x3f500000
+#define ESP32_S2_EXTRAM_DATA_HIGH       0x3ff80000
+#define ESP32_S2_DR_REG_LOW             0x3f400000
+#define ESP32_S2_DR_REG_HIGH            0x3f4d3ffc
+/* ESP32-S2 DROM is not contiguous. */
+/* IDF declares this as 0x3F000000..0x3FF80000, but there are peripheral registers mapped to
+ * 0x3f400000..0x3f4d3FFC. */
+#define ESP32_S2_DROM0_LOW                      ESP32_S2_DROM_LOW
+#define ESP32_S2_DROM0_HIGH                     ESP32_S2_DR_REG_LOW
+#define ESP32_S2_DROM1_LOW                      ESP32_S2_DR_REG_HIGH
+#define ESP32_S2_DROM1_HIGH                     ESP32_S2_DROM_HIGH
 
 /* ESP32 WDT */
-#define ESP32_S2_WDT_WKEY_VALUE       0x50D83AA1
+#define ESP32_S2_WDT_WKEY_VALUE       0x50d83aa1
 #define ESP32_S2_TIMG0_BASE           0x3f41F000
 #define ESP32_S2_TIMG1_BASE           0x3f420000
 #define ESP32_S2_TIMGWDT_CFG0_OFF     0x48
@@ -64,12 +77,11 @@
 #define ESP32_S2_TRACEMEM_BLOCK_SZ      0x4000
 
 #define ESP32_S2_DR_REG_UART_BASE       0x3f400000
-#define ESP32_S2_REG_UART_BASE(i)             (ESP32_S2_DR_REG_UART_BASE + (i) * 0x10000 )
+#define ESP32_S2_REG_UART_BASE(i)       (ESP32_S2_DR_REG_UART_BASE + (i) * 0x10000 )
 #define ESP32_S2_UART_DATE_REG(i)       (ESP32_S2_REG_UART_BASE(i) + 0x74)
-#define ESP32_S2_CHIP_REV_REG                   ESP32_S2_UART_DATE_REG(0)
-#define ESP32_S2_CHIP_REV_VAL                   0x19031400
-#define ESP32_S2BETA_CHIP_REV_VAL               0x18082800
-
+#define ESP32_S2_CHIP_REV_REG           ESP32_S2_UART_DATE_REG(0)
+#define ESP32_S2_CHIP_REV_VAL           0x19031400
+#define ESP32_S2BETA_CHIP_REV_VAL       0x18082800
 
 static const struct xtensa_config esp32s2_xtensa_cfg = {
 	.density        = true,
@@ -80,11 +92,16 @@ static const struct xtensa_config esp32s2_xtensa_cfg = {
 	.threadptr      = true,
 	.gdb_regs_num   = ESP32_S2_NUM_REGS_G_COMMAND,
 	.irom           = {
-		.count = 1,
+		.count = 2,
 		.regions = {
 			{
 				.base = ESP32_S2_IROM_LOW,
 				.size = ESP32_S2_IROM_HIGH-ESP32_S2_IROM_LOW,
+				.access = XT_MEM_ACCESS_READ,
+			},
+			{
+				.base = ESP32_S2_IROM_MASK_LOW,
+				.size = ESP32_S2_IROM_MASK_HIGH-ESP32_S2_IROM_MASK_LOW,
 				.access = XT_MEM_ACCESS_READ,
 			},
 		}
@@ -105,17 +122,22 @@ static const struct xtensa_config esp32s2_xtensa_cfg = {
 		}
 	},
 	.drom           = {
-		.count = 1,
+		.count = 2,
 		.regions = {
 			{
-				.base = ESP32_S2_DROM_LOW,
-				.size = ESP32_S2_DROM_HIGH-ESP32_S2_DROM_LOW,
+				.base = ESP32_S2_DROM0_LOW,
+				.size = ESP32_S2_DROM0_HIGH-ESP32_S2_DROM0_LOW,
+				.access = XT_MEM_ACCESS_READ,
+			},
+			{
+				.base = ESP32_S2_DROM1_LOW,
+				.size = ESP32_S2_DROM1_HIGH-ESP32_S2_DROM1_LOW,
 				.access = XT_MEM_ACCESS_READ,
 			},
 		}
 	},
 	.dram           = {
-		.count = 3,
+		.count = 5,
 		.regions = {
 			{
 				.base = ESP32_S2_DRAM_LOW,
@@ -130,6 +152,16 @@ static const struct xtensa_config esp32s2_xtensa_cfg = {
 			{
 				.base = ESP32_S2_RTC_DATA_LOW,
 				.size = ESP32_S2_RTC_DATA_HIGH-ESP32_S2_RTC_DATA_LOW,
+				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+			},
+			{
+				.base = ESP32_S2_EXTRAM_DATA_LOW,
+				.size = ESP32_S2_EXTRAM_DATA_HIGH-ESP32_S2_EXTRAM_DATA_LOW,
+				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+			},
+			{
+				.base = ESP32_S2_DR_REG_LOW,
+				.size = ESP32_S2_DR_REG_HIGH-ESP32_S2_DR_REG_LOW,
 				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
 			},
 		}
