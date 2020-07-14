@@ -8,15 +8,15 @@ import argparse
 def main(repo_path, comp):
 	try:
 		os.chdir(repo_path)
-		ver_out = subprocess.check_output(['git', 'describe', '--tags'], stderr=subprocess.STDOUT)
+		ver_out = subprocess.check_output(['git', 'describe', '--tags'], stderr=subprocess.STDOUT).decode('utf-8')
 	except:
-		print '0'
+		print ('0')
 		return
 	m = re.search(r'(?P<major>\d+)(\.(?P<minor>\d+)(\.(?P<bugfix>\d+)(\.(?P<update>\d+))?)?)?', ver_out)
 	if m and m.group(comp):
-		print m.group(comp)
+		print( m.group(comp))
 	else:
-		print '0'
+		print ('0')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='get_idf_ver.py - Retrieves version of IDF', prog='get_idf_ver')
