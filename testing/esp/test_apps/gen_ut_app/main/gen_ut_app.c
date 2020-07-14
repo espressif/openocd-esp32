@@ -32,7 +32,7 @@ const static char *TAG = "ut_app";
 #define SPIRAM_TEST_ARRAY_SZ    5
 
 // test app algorithm selector
-volatile static int s_run_test = 0;
+volatile static int s_run_test = CONFIG_GEN_UT_APP_RUNTEST;
 // vars for WP tests
 volatile static int s_count1 = 0;
 volatile static int s_count2 = 100;
@@ -170,7 +170,7 @@ static void blink_task(void *pvParameter)
     }
 }
 
-/* This test calls functions recursively many times, exhausing the
+/* This test calls functions recursively many times, exhausting the
  * register space and triggering window overflow exceptions.
  * Upon returning, it triggers window underflow exceptions.
  * If the test passes, then OpenOCD and GDB can both handle
@@ -293,7 +293,7 @@ static void step_over_bp_task(void *pvParameter)
 }
 
 static void fibonacci_calc(void* arg)
-/* calculation of 3 fibonacci sequences: f0, f1 abd f2
+/* calculation of 3 Fibonacci sequences: f0, f1 and f2
  * f(n) = f(n-1) + f(n-2) -> f(n) : 0, 1, 1, 2, 3, 5, 8, 13, 21, 34, ...*/
 {
     volatile int f0_nm2, f1_nm2, f2_nm2; // n-2

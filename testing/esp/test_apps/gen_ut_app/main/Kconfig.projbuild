@@ -18,4 +18,11 @@ config GEN_UT_APP_CUSTOM_LD_FILENAME
         Name of the custom LD script filename. This path is evaluated
         relative to the project root directory.
 
+config GEN_UT_APP_RUNTEST
+    int "Set test number to run"
+    default 0
+    help
+        A test with the selected number will be executed unless the testing
+        system will not overwrite the value.
+
 endmenu

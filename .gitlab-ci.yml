@@ -508,7 +508,7 @@ tests_armel_esp32s2:
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
 
 style_check:
-  stage: test
+  stage: build
   image: $CI_DOCKER_REGISTRY/esp32-ci-env
   tags:
     - build
