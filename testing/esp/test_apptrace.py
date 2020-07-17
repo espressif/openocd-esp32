@@ -68,8 +68,8 @@ class ApptraceTestAppTestsDual(DebuggerGenericTestAppTests):
     """
     def __init__(self, methodName='runTest'):
         super(ApptraceTestAppTestsDual, self).__init__(methodName)
-        self.test_app_cfg.bin_dir = os.path.join('output', 'gcov_dual')
-        self.test_app_cfg.build_dir = os.path.join('builds', 'gcov_dual')
+        self.test_app_cfg.bin_dir = os.path.join('output', 'apptrace_gcov_dual')
+        self.test_app_cfg.build_dir = os.path.join('builds', 'apptrace_gcov_dual')
 
 
 class ApptraceTestAppTestsSingle(DebuggerGenericTestAppTests):
@@ -77,8 +77,8 @@ class ApptraceTestAppTestsSingle(DebuggerGenericTestAppTests):
     """
     def __init__(self, methodName='runTest'):
         super(ApptraceTestAppTestsSingle, self).__init__(methodName)
-        self.test_app_cfg.bin_dir = os.path.join('output', 'gcov_single')
-        self.test_app_cfg.build_dir = os.path.join('builds', 'gcov_single')
+        self.test_app_cfg.bin_dir = os.path.join('output', 'apptrace_gcov_single')
+        self.test_app_cfg.build_dir = os.path.join('builds', 'apptrace_gcov_single')
 
 
 class ApptraceTestsDual(ApptraceTestAppTestsDual, ApptraceTestsImpl):

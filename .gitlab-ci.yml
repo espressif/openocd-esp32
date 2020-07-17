@@ -134,14 +134,14 @@ variables:
 .finish_test_app_build: &finish_test_app_build |
   export UT_APP_DIR=$PWD
   mkdir -p $UT_APP_DIR/gcov_data
-  if [ -d "$UT_APP_DIR/builds/gcov_dual" ]; then
-    pushd $UT_APP_DIR/builds/gcov_dual
-    find . -type d -exec mkdir -p $UT_APP_DIR/gcov_data/gcov_dual/\{\} \;
+  if [ -d "$UT_APP_DIR/builds/apptrace_gcov_dual" ]; then
+    pushd $UT_APP_DIR/builds/apptrace_gcov_dual
+    find . -type d -exec mkdir -p $UT_APP_DIR/gcov_data/apptrace_gcov_dual/\{\} \;
     popd
   fi
-  if [ -d "$UT_APP_DIR/builds/gcov_single" ]; then
-    pushd $UT_APP_DIR/builds/gcov_single
-    find . -type d -exec mkdir -p $UT_APP_DIR/gcov_data/gcov_single/\{\} \;
+  if [ -d "$UT_APP_DIR/builds/apptrace_gcov_single" ]; then
+    pushd $UT_APP_DIR/builds/apptrace_gcov_single
+    find . -type d -exec mkdir -p $UT_APP_DIR/gcov_data/apptrace_gcov_single/\{\} \;
     popd
   fi
   echo "export OPENOCD_GCOV_PREFIX=$UT_APP_DIR/gcov_data" > $UT_APP_DIR/gcov_data/gcov_env.sh
@@ -165,8 +165,8 @@ variables:
       # Needed to run tests
       - $BUILD_TEST_APP_DIR/gen_ut_app/main/gcov_tests.gcda.gcov
       - $BUILD_TEST_APP_DIR/gen_ut_app/main/helper_funcs.gcda.gcov
-      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_dual
-      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_single
+      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/apptrace_gcov_dual
+      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/apptrace_gcov_single
       - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_env.sh
       - $BUILD_TEST_APP_DIR/espytrace
     expire_in: 2 weeks
@@ -204,8 +204,8 @@ variables:
       # Needed to run tests
       - $BUILD_TEST_APP_DIR/gen_ut_app/main/gcov_tests.gcda.gcov
       - $BUILD_TEST_APP_DIR/gen_ut_app/main/helper_funcs.gcda.gcov
-      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_dual
-      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_single
+      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/apptrace_gcov_dual
+      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/apptrace_gcov_single
       - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_env.sh
       - $BUILD_TEST_APP_DIR/espytrace
     expire_in: 2 weeks
