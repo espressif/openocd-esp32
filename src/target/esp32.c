@@ -95,6 +95,8 @@ registers of this core will be transfered.
 #define ESP32_EXTRAM_DATA_HIGH    0x3fc00000
 #define ESP32_DR_REG_LOW          0x3ff00000
 #define ESP32_DR_REG_HIGH         0x3ff71000
+#define ESP32_SYS_RAM_LOW         0x60000000UL
+#define ESP32_SYS_RAM_HIGH        (ESP32_SYS_RAM_LOW+0x20000000UL)
 
 /* ESP32 WDT */
 #define ESP32_WDT_WKEY_VALUE       0x50d83aa1
@@ -181,7 +183,7 @@ static const struct xtensa_config esp32_xtensa_cfg = {
 		}
 	},
 	.dram           = {
-		.count = 5,
+		.count = 6,
 		.regions = {
 			{
 				.base = ESP32_DRAM_LOW,
@@ -206,6 +208,11 @@ static const struct xtensa_config esp32_xtensa_cfg = {
 			{
 				.base = ESP32_DR_REG_LOW,
 				.size = ESP32_DR_REG_HIGH-ESP32_DR_REG_LOW,
+				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+			},
+			{
+				.base = ESP32_SYS_RAM_LOW,
+				.size = ESP32_SYS_RAM_HIGH-ESP32_SYS_RAM_LOW,
 				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
 			},
 		}

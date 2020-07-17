@@ -49,8 +49,10 @@
 #define ESP32_S2_EXTRAM_DATA_LOW        0x3f500000
 #define ESP32_S2_EXTRAM_DATA_HIGH       0x3ff80000
 #define ESP32_S2_DR_REG_LOW             0x3f400000
-#define ESP32_S2_DR_REG_HIGH            0x3f4d3ffc
-/* ESP32-S2 DROM is not contiguous. */
+#define ESP32_S2_DR_REG_HIGH            0x3f4d3FFC
+#define ESP32_S2_SYS_RAM_LOW            0x60000000UL
+#define ESP32_S2_SYS_RAM_HIGH           (ESP32_S2_SYS_RAM_LOW+0x20000000UL)
+/* ESP32-S2 DROM mapping is not contiguous. */
 /* IDF declares this as 0x3F000000..0x3FF80000, but there are peripheral registers mapped to
  * 0x3f400000..0x3f4d3FFC. */
 #define ESP32_S2_DROM0_LOW                      ESP32_S2_DROM_LOW
@@ -137,7 +139,7 @@ static const struct xtensa_config esp32s2_xtensa_cfg = {
 		}
 	},
 	.dram           = {
-		.count = 5,
+		.count = 6,
 		.regions = {
 			{
 				.base = ESP32_S2_DRAM_LOW,
@@ -162,6 +164,11 @@ static const struct xtensa_config esp32s2_xtensa_cfg = {
 			{
 				.base = ESP32_S2_DR_REG_LOW,
 				.size = ESP32_S2_DR_REG_HIGH-ESP32_S2_DR_REG_LOW,
+				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+			},
+			{
+				.base = ESP32_S2_SYS_RAM_LOW,
+				.size = ESP32_S2_SYS_RAM_HIGH-ESP32_S2_SYS_RAM_LOW,
 				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
 			},
 		}
