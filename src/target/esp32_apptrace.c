@@ -914,22 +914,24 @@ static int esp32_apptrace_safe_halt_targets(struct esp32_apptrace_cmd_ctx *ctx,
 	/* halt all CPUs */
 	LOG_DEBUG("Halt all targets!");
 	for (int k = 0; k < ctx->cores_num; k++) {
-		if (target_was_examined(ctx->cpus[k]) && ctx->cpus[k]->state != TARGET_HALTED) {
-			res = target_halt(ctx->cpus[k]);
-			if (res != ERROR_OK) {
-				LOG_ERROR("Failed to halt target (%d)!", res);
-				return res;
-			}
-			res = target_wait_state(ctx->cpus[k],
-				TARGET_HALTED,
-				ESP32_APPTRACE_TGT_STATE_TMO);
-			if (res != ERROR_OK) {
-				LOG_ERROR("Failed to wait halt target %s / %d (%d)!",
-					target_name(ctx->cpus[k]),
-					ctx->cpus[k]->state,
-					res);
-				return res;
-			}
+		if (!target_was_examined(ctx->cpus[k]))
+			continue;
+		if (ctx->cpus[k]->state == TARGET_HALTED)
+			continue;
+		res = target_halt(ctx->cpus[k]);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to halt target (%d)!", res);
+			return res;
+		}
+		res = target_wait_state(ctx->cpus[k],
+			TARGET_HALTED,
+			ESP32_APPTRACE_TGT_STATE_TMO);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to wait halt target %s / %d (%d)!",
+				target_name(ctx->cpus[k]),
+				ctx->cpus[k]->state,
+				res);
+			return res;
 		}
 	}
 	/* read current block statuses from CPUs */
@@ -949,40 +951,40 @@ static int esp32_apptrace_safe_halt_targets(struct esp32_apptrace_cmd_ctx *ctx,
 				return res;
 			}
 			uint32_t bp_addr = stat;
-			res = breakpoint_add(ctx->cpus[0], bp_addr, 1, BKPT_HARD);
+			res = breakpoint_add(ctx->cpus[k], bp_addr, 1, BKPT_HARD);
 			if (res != ERROR_OK) {
 				LOG_ERROR("Failed to set breakpoint (%d)!", res);
 				return res;
 			}
 			while (stat) {
 				/* allow this CPU to leave ERI write critical section */
-				res = target_resume(ctx->cpus[0], 1, 0, 1, 0);
+				res = target_resume(ctx->cpus[k], 1, 0, 1, 0);
 				if (res != ERROR_OK) {
 					LOG_ERROR("Failed to resume target (%d)!", res);
-					breakpoint_remove(ctx->cpus[0], bp_addr);
+					breakpoint_remove(ctx->cpus[k], bp_addr);
 					return res;
 				}
 				/* wait for CPU to be halted on BP */
 				enum target_debug_reason debug_reason = DBG_REASON_UNDEFINED;
 				while (debug_reason != DBG_REASON_BREAKPOINT) {
-					res = target_wait_state(ctx->cpus[0],
+					res = target_wait_state(ctx->cpus[k],
 						TARGET_HALTED,
 						ESP32_APPTRACE_TGT_STATE_TMO);
 					if (res != ERROR_OK) {
 						LOG_ERROR("Failed to wait halt on bp (%d)!", res);
-						breakpoint_remove(ctx->cpus[0], bp_addr);
+						breakpoint_remove(ctx->cpus[k], bp_addr);
 						return res;
 					}
-					debug_reason = ctx->cpus[0]->debug_reason;
+					debug_reason = ctx->cpus[k]->debug_reason;
 				}
 				res = esp_xtensa_apptrace_status_reg_read(ctx->cpus[k], &stat);
 				if (res != ERROR_OK) {
 					LOG_ERROR("Failed to read trace status (%d)!", res);
-					breakpoint_remove(ctx->cpus[0], bp_addr);
+					breakpoint_remove(ctx->cpus[k], bp_addr);
 					return res;
 				}
 			}
-			breakpoint_remove(ctx->cpus[0], bp_addr);
+			breakpoint_remove(ctx->cpus[k], bp_addr);
 			res = esp_xtensa_swdbg_activate(ctx->cpus[k], 0	/*disable*/);
 			if (res != ERROR_OK) {
 				LOG_ERROR("Failed to de-activate SW debug (%d)!", res);
@@ -1042,10 +1044,19 @@ static int esp32_apptrace_connect_targets(struct esp32_apptrace_cmd_ctx *ctx,
 	}
 	if (resume_target) {
 		LOG_DEBUG("Resume targets");
-		res = target_resume(ctx->cpus[0], 1, 0, 1, 0);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to resume target (%d)!", res);
-			return res;
+		bool smp_resumed = false;
+		for (int k = 0; k < ctx->cores_num; k++) {
+			if (smp_resumed && ctx->cpus[k]->smp) {
+				/* in SMP mode we need to call target_resume for one core only */
+				continue;
+			}
+			res = target_resume(ctx->cpus[k], 1, 0, 1, 0);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to resume target (%d)!", res);
+				return res;
+			}
+			if (ctx->cpus[k]->smp)
+				smp_resumed = true;
 		}
 	}
 	if (conn)
@@ -1199,11 +1210,20 @@ static int esp_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx)
 	}
 	/* resume targets to allow command processing */
 	LOG_INFO("Resume targets");
-	res = target_resume(ctx->cpus[0], 1, 0, 1, 0);
-	if (res != ERROR_OK) {
-		LOG_ERROR("SEGGER: Failed to resume target '%s' (%d)!", target_name(
-				ctx->cpus[0]), res);
-		return res;
+	bool smp_resumed = false;
+	for (int k = 0; k < ctx->cores_num; k++) {
+		if (smp_resumed && ctx->cpus[k]->smp) {
+			/* in SMP mode we need to call target_resume for one core only */
+			continue;
+		}
+		res = target_resume(ctx->cpus[k], 1, 0, 1, 0);
+		if (res != ERROR_OK) {
+			LOG_ERROR("SEGGER: Failed to resume target '%s' (%d)!", target_name(
+					ctx->cpus[k]), res);
+			return res;
+		}
+		if (ctx->cpus[k]->smp)
+			smp_resumed = true;
 	}
 	/* wait for block switch (command sent), so we can disconnect from targets */
 	old_block_id = target_state[fired_target_num].block_id;
