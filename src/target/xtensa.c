@@ -156,7 +156,7 @@ const struct xtensa_reg_desc xtensa_regs[XT_NUM_REGS] = {
 	{ "ibreakenable",               0x60, XT_REG_SPECIAL, 0 },
 	{ "memctl",             0x61, XT_REG_SPECIAL, 0 },
 	{ "atomctl",                0x63, XT_REG_SPECIAL, 0 },
-	{ "ddr",                0x68, XT_REG_DEBUG, XT_REGF_NOREAD },
+	{ "ddr",                0x68, XT_REG_SPECIAL, XT_REGF_NOREAD },
 	{ "ibreaka0",               0x80, XT_REG_SPECIAL, 0 },
 	{ "ibreaka1",               0x81, XT_REG_SPECIAL, 0 },
 	{ "dbreaka0",               0x90, XT_REG_SPECIAL, 0 },
@@ -449,6 +449,8 @@ static bool xtensa_user_reg_exists(struct xtensa *xtensa, int reg_idx)
 {
 	if (reg_idx == XT_REG_IDX_THREADPTR)
 		return xtensa->core_config->threadptr;
+	if (reg_idx == XT_REG_IDX_FCR || reg_idx == XT_REG_IDX_FSR)
+		return xtensa->core_config->fp_coproc;
 	for (uint8_t i = 0; i < xtensa->core_config->user_regs_num; i++) {
 		if (reg_idx == xtensa->core_config->user_regs[i])
 			return true;
@@ -1468,7 +1470,7 @@ int xtensa_read_memory(struct target *target,
 	if (!xtensa->permissive_mode) {
 		if (!xtensa_memory_op_validate_range(xtensa, address, (size*count),
 				XT_MEM_ACCESS_READ)) {
-			LOG_DEBUG("address "TARGET_ADDR_FMT " not readable", address);
+			LOG_WARNING("address "TARGET_ADDR_FMT " not readable", address);
 			return ERROR_FAIL;
 		}
 	}
@@ -1545,7 +1547,7 @@ int xtensa_write_memory(struct target *target,
 	if (!xtensa->permissive_mode) {
 		if (!xtensa_memory_op_validate_range(xtensa, address, (size*count),
 				XT_MEM_ACCESS_WRITE)) {
-			LOG_DEBUG("address "TARGET_ADDR_FMT " not writable", address);
+			LOG_WARNING("address "TARGET_ADDR_FMT " not writable", address);
 			return ERROR_FAIL;
 		}
 	}
@@ -2195,15 +2197,29 @@ static void xtensa_build_reg_cache(struct target *target)
 		if (xtensa_regs[i].type == XT_REG_USER) {
 			if (xtensa_user_reg_exists(xtensa, i))
 				reg_list[i].exist = true;
+			else
+				LOG_DEBUG("User reg '%s' (%d) does not exist",
+					xtensa_regs[i].name,
+					i);
 		} else if (xtensa_regs[i].type == XT_REG_FR) {
 			if (xtensa_fp_reg_exists(xtensa, i))
 				reg_list[i].exist = true;
+			else
+				LOG_DEBUG("FP reg '%s' (%d) does not exist", xtensa_regs[i].name, i);
 		} else if (xtensa_regs[i].type == XT_REG_SPECIAL) {
 			if (xtensa_special_reg_exists(xtensa, i))
 				reg_list[i].exist = true;
+			else
+				LOG_DEBUG("Special reg '%s' (%d) does not exist",
+					xtensa_regs[i].name,
+					i);
 		} else {
 			if (xtensa_regular_reg_exists(xtensa, i))
 				reg_list[i].exist = true;
+			else
+				LOG_DEBUG("Regular reg '%s' (%d) does not exist",
+					xtensa_regs[i].name,
+					i);
 		}
 		reg_list[i].name = xtensa_regs[i].name;
 		reg_list[i].size = 32;

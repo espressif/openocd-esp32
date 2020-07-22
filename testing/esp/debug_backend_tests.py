@@ -272,6 +272,12 @@ class DebuggerTestsBase(unittest.TestCase):
         self.oocd = None
         self.toolchain = ''
 
+    def fail_if_not_hw_id(self, hw_ids):
+        for id in hw_ids:
+            if re.match(id, testee_info.hw_id):
+                return
+        return self.fail("failed due to HW ID '%s' does not match to any of %s" % (testee_info.hw_id, hw_ids))
+
     def stop_exec(self):
         """ Stops target execution and ensures that it is in STOPPED state
         """

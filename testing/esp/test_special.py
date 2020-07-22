@@ -30,6 +30,30 @@ class DebuggerSpecialTestsImpl:
         self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_SIGTRAP, 'crash_task', ['crash'], outmost_func_name='crash_task')
         self.prepare_app_for_debugging(self.test_app_cfg.app_off)
 
+    def test_gdb_regs_mapping(self):
+        """
+            This test checks that GDB and OpenOCD has identical registers mapping.
+            1) Cycles over registers and assigns them specific values using GDB command
+            2) Uses OpenOCD command to check that registers have expected values
+        """
+        # should fail for any new chip.
+        # just to be sure that this test is revised when new chip support is added
+        self.fail_if_not_hw_id([r'esp32-[.]*', r'esp32s2-[.]*'])
+        regs = self.gdb.get_reg_names()
+        i = 10
+        for reg in regs:
+            if reg == 'mmid':
+                break # stop at first priveleged register, currently they are not set by GDB
+            # set to reasonable value, because GDB tries to read memory @ pc
+            val = 0x40000400 if reg == 'pc' else i
+            self.gdb.set_reg(reg, val)
+            self.gdb.console_cmd_run('flushregs')
+            self.assertEqual(self.gdb.get_reg(reg), val)
+            _,res_str = self.gdb.monitor_run('reg %s' % reg, output_type='stdout')
+            self.assertEqual(self.oocd.parse_reg_val(reg, res_str), val)
+            i += 1
+        # reset chip to clear all changes in regs, otherwise the next test can fail
+        self.gdb.target_reset()
 
 # to be skipped for any board with ESP32-S2 chip
 # TODO: enable these tests when PSRAM is supported for ESP32-S2
