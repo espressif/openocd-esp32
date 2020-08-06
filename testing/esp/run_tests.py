@@ -43,6 +43,13 @@ BOARD_TCL_CONFIG = {
         ],
         'commands' : [],
         'chip_name' : 'esp32s2'
+    },
+    'esp32s2-kaluga-1' :  {
+        'files' : [
+            os.path.join('board', 'esp32s2-kaluga-1.cfg')
+        ],
+        'commands' : [],
+        'chip_name' : 'esp32s2'
     }
 }
 
