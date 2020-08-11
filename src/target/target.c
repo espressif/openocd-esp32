@@ -2973,15 +2973,14 @@ COMMAND_HANDLER(handle_reg_command)
 				if (reg->exist == false)
 					continue;
 				/* only print cached values if they are valid */
-				if (reg->exist) {
-					if (reg->valid) {
-						value = buf_to_str(reg->value,
-								reg->size, 16);
-						command_print(CMD,
-								"(%i) %s (/%" PRIu32 "): 0x%s%s",
-								count, reg->name,
-								reg->size, value,
-								reg->dirty
+				if (reg->valid) {
+					value = buf_to_hex_str(reg->value,
+							reg->size);
+					command_print(CMD,
+							"(%i) %s (/%" PRIu32 "): 0x%s%s",
+							count, reg->name,
+							reg->size, value,
+							reg->dirty
 								? " (dirty)"
 								: "");
 					free(value);
@@ -3041,6 +3040,7 @@ COMMAND_HANDLER(handle_reg_command)
 		if ((CMD_ARGC == 2) && (strcmp(CMD_ARGV[1], "force") == 0))
 			reg->valid = 0;
 
+<<<<<<< HEAD
 		if (reg->valid == 0) {
 			retval = reg->type->get(reg);
 			if (retval != ERROR_OK) {
@@ -3049,6 +3049,11 @@ COMMAND_HANDLER(handle_reg_command)
 			}
 		}
 		value = buf_to_str(reg->value, reg->size, 16);
+=======
+		if (reg->valid == 0)
+			reg->type->get(reg);
+		value = buf_to_hex_str(reg->value, reg->size);
+>>>>>>> 3ac010bb9 (Fix debug prints when loading to flash)
 		command_print(CMD, "%s (/%i): 0x%s", reg->name, (int)(reg->size), value);
 		free(value);
 		return ERROR_OK;
@@ -3068,7 +3073,7 @@ COMMAND_HANDLER(handle_reg_command)
 			return retval;
 		}
 
-		value = buf_to_str(reg->value, reg->size, 16);
+		value = buf_to_hex_str(reg->value, reg->size);
 		command_print(CMD, "%s (/%i): 0x%s", reg->name, (int)(reg->size), value);
 		free(value);
 
@@ -3832,8 +3837,8 @@ static int handle_bp_command_list(struct command_invocation *cmd)
 	struct breakpoint *breakpoint = target->breakpoints;
 	while (breakpoint) {
 		if (breakpoint->type == BKPT_SOFT) {
-			char *buf = buf_to_str(breakpoint->orig_instr,
-					breakpoint->length, 16);
+			char *buf = buf_to_hex_str(breakpoint->orig_instr,
+					breakpoint->length);
 			command_print(cmd, "IVA breakpoint: " TARGET_ADDR_FMT ", 0x%x, %i, 0x%s",
 					breakpoint->address,
 					breakpoint->length,
