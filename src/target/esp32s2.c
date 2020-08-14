@@ -94,6 +94,9 @@ static const struct xtensa_config esp32s2_xtensa_cfg = {
 	.reloc_vec      = true,
 	.proc_id        = true,
 	.threadptr      = true,
+	.user_regs_num  = 1,
+	.user_regs      =
+	{XT_REG_IDX_GPIOOUT},
 	.gdb_regs_num   = ESP32_S2_NUM_REGS_G_COMMAND,
 	.irom           = {
 		.count = 2,

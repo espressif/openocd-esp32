@@ -216,6 +216,7 @@ static const struct stack_register_offset rtos_freertos_esp32_s2_stack_offsets[]
 	{ XT_REG_IDX_CONFIGID1, -1, 32 },		/* configid1 */
 	{ XT_REG_IDX_PS, 0x08, 32 },		/* ps */
 	{ XT_REG_IDX_THREADPTR, -1, 32 },		/* threadptr */
+	{ XT_REG_IDX_GPIOOUT, -1, 32 },		/* gpio_out */
 };
 
 //WARNING: There's some deeper magic going on when reading this. Please
@@ -403,6 +404,7 @@ static const struct stack_register_offset rtos_freertos_esp32_s2_voluntary_stack
 	{ XT_REG_IDX_CONFIGID1, -1, 32 },		/* configid1 */
 	{ XT_REG_IDX_PS, 0x18, 32 },		/* ps */
 	{ XT_REG_IDX_THREADPTR, -1, 32 },		/* threadptr */
+	{ XT_REG_IDX_GPIOOUT, -1, 32 },		/* gpio_out */
 };
 
 const struct rtos_register_stacking rtos_freertos_esp32_stacking = {

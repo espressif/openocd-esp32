@@ -130,6 +130,8 @@ enum xtensa_reg_id {
 	XT_REG_IDX_F15,
 	XT_REG_IDX_FCR,
 	XT_REG_IDX_FSR,
+	/* TODO: need to find better way to declare user-defined registers */
+	XT_REG_IDX_GPIOOUT,
 	XT_REG_IDX_MMID,
 	XT_REG_IDX_IBREAKENABLE,
 	XT_REG_IDX_MEMCTL,

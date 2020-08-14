@@ -152,6 +152,7 @@ const struct xtensa_reg_desc xtensa_regs[XT_NUM_REGS] = {
 	{ "f15",                0x0F, XT_REG_FR, XT_REGF_COPROC0 },
 	{ "fcr",                0xE8, XT_REG_USER, XT_REGF_COPROC0 },
 	{ "fsr",                0xE9, XT_REG_USER, XT_REGF_COPROC0 },
+	{ "gpio_out",           0x00, XT_REG_USER, 0 },
 	{ "mmid",               0x59, XT_REG_SPECIAL, XT_REGF_NOREAD },
 	{ "ibreakenable",               0x60, XT_REG_SPECIAL, 0 },
 	{ "memctl",             0x61, XT_REG_SPECIAL, 0 },
