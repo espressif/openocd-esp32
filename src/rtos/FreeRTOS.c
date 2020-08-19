@@ -769,9 +769,9 @@ static int FreeRTOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 		}
 
 		for (int i = 0; i < *num_regs; i++) {
-			(*reg_list)[i].number = (*gdb_reg_list)[i].number;
-			(*reg_list)[i].size = (*gdb_reg_list)[i].size;
-			memcpy((*reg_list)[i].value, (*gdb_reg_list)[i].value,
+			(*reg_list)[i].number = gdb_reg_list[i]->number;
+			(*reg_list)[i].size = gdb_reg_list[i]->size;
+			memcpy((*reg_list)[i].value, gdb_reg_list[i]->value,
 				((*reg_list)[i].size + 7) / 8);
 		}
 		free(gdb_reg_list);
