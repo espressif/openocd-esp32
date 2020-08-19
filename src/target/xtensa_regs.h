@@ -20,9 +20,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-/*Xtensa register list taken from gdb/gdb/xtensa-config.c
- *gdb wants the registers in the order gdb/regformats/reg-xtensa.dat describes
- *them. The enum and xtensa_regs structs should be in the same order. */
+#include <target/register.h>
 
 enum xtensa_reg_id {
 	XT_REG_IDX_PC = 0,
@@ -108,10 +106,6 @@ enum xtensa_reg_id {
 	XT_REG_IDX_M1,
 	XT_REG_IDX_M2,
 	XT_REG_IDX_M3,
-	XT_REG_IDX_EXPSTATE,
-	XT_REG_IDX_F64R_LO,
-	XT_REG_IDX_F64R_HI,
-	XT_REG_IDX_F64S,
 	XT_REG_IDX_F0,
 	XT_REG_IDX_F1,
 	XT_REG_IDX_F2,
@@ -130,13 +124,10 @@ enum xtensa_reg_id {
 	XT_REG_IDX_F15,
 	XT_REG_IDX_FCR,
 	XT_REG_IDX_FSR,
-	/* TODO: need to find better way to declare user-defined registers */
-	XT_REG_IDX_GPIOOUT,
 	XT_REG_IDX_MMID,
 	XT_REG_IDX_IBREAKENABLE,
 	XT_REG_IDX_MEMCTL,
 	XT_REG_IDX_ATOMCTL,
-	XT_REG_IDX_DDR,
 	XT_REG_IDX_IBREAKA0,
 	XT_REG_IDX_IBREAKA1,
 	XT_REG_IDX_DBREAKA0,
@@ -211,7 +202,42 @@ enum xtensa_reg_id {
 	XT_REG_IDX_A13,
 	XT_REG_IDX_A14,
 	XT_REG_IDX_A15,
-	XT_NUM_REGS
+	XT_REG_IDX_PWRCTL,
+	XT_REG_IDX_PWRSTAT,
+	XT_REG_IDX_ERISTAT,
+	XT_REG_IDX_CS_ITCTRL,
+	XT_REG_IDX_CS_CLAIMSET,
+	XT_REG_IDX_CS_CLAIMCLR,
+	XT_REG_IDX_CS_LOCKACCESS,
+	XT_REG_IDX_CS_LOCKSTATUS,
+	XT_REG_IDX_CS_AUTHSTATUS,
+	XT_REG_IDX_FAULT_INFO,
+	XT_REG_IDX_TRAX_ID,
+	XT_REG_IDX_TRAX_CTRL,
+	XT_REG_IDX_TRAX_STAT,
+	XT_REG_IDX_TRAX_DATA,
+	XT_REG_IDX_TRAX_ADDR,
+	XT_REG_IDX_TRAX_PCTRIGGER,
+	XT_REG_IDX_TRAX_PCMATCH,
+	XT_REG_IDX_TRAX_DELAY,
+	XT_REG_IDX_TRAX_MEMSTART,
+	XT_REG_IDX_TRAX_MEMEND,
+	XT_REG_IDX_PMG,
+	XT_REG_IDX_PMPC,
+	XT_REG_IDX_PM0,
+	XT_REG_IDX_PM1,
+	XT_REG_IDX_PMCTRL0,
+	XT_REG_IDX_PMCTRL1,
+	XT_REG_IDX_PMSTAT0,
+	XT_REG_IDX_PMSTAT1,
+	XT_REG_IDX_OCD_ID,
+	XT_REG_IDX_OCD_DCRCLR,
+	XT_REG_IDX_OCD_DCRSET,
+	XT_REG_IDX_OCD_DSR,
+	XT_REG_IDX_OCD_DDR,
+	XT_NUM_REGS,
+	/* chip-specific user registers go after ISA-defined ones */
+	XT_USR_REG_START = XT_NUM_REGS
 };
 
 typedef uint32_t xtensa_reg_val_t;
@@ -239,6 +265,15 @@ struct xtensa_reg_desc {
 							 * register type) */
 	enum xtensa_reg_type_t type;
 	enum xtensa_reg_flags_t flags;
+};
+
+struct xtensa_user_reg_desc {
+	const char *name;
+	/* ISA register num (meaning depends on register type) */
+	int reg_num;
+	enum xtensa_reg_flags_t flags;
+	uint32_t size;
+	const struct reg_arch_type *type;
 };
 
 extern const struct xtensa_reg_desc xtensa_regs[XT_NUM_REGS];
