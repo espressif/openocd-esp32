@@ -222,8 +222,10 @@ struct xtensa_config {
 	bool reloc_vec;
 	bool proc_id;
 	bool mem_err_check;
-	uint8_t user_regs_num;
-	int user_regs[XT_USER_REGS_NUM_MAX];
+	uint16_t user_regs_num;
+	const struct xtensa_user_reg_desc *user_regs;
+	int (*fetch_user_regs)(struct target *target);
+	int (*queue_write_dirty_user_regs)(struct target *target);
 	struct xtensa_cache_config icache;
 	struct xtensa_cache_config dcache;
 	struct xtensa_local_mem_config irom;
@@ -239,7 +241,8 @@ struct xtensa_config {
 	struct xtensa_timer_irq_config tim_irq;
 	struct xtensa_debug_config debug;
 	struct xtensa_tracing_config trace;
-	uint8_t gdb_regs_num;
+	uint32_t gdb_general_regs_num;
+	const int *gdb_regs_mapping;
 };
 
 typedef uint32_t xtensa_insn_t;
@@ -274,6 +277,9 @@ struct xtensa {
 	struct xtensa_debug_module dbg_mod;
 	struct reg_cache *core_cache;
 	uint32_t regs_num;
+	/* An array of pointers to buffers to backup registers' values while algo is run on target.
+	   Size is 'regs_num'. */
+	void **algo_context_backup;
 	struct target *target;
 	bool reset_asserted;
 	enum xtensa_stepping_isr_mode stepping_isr_mode;
@@ -385,6 +391,15 @@ static inline int xtensa_core_status_clear(struct target *target, xtensa_dsr_t b
 	return xtensa_dm_core_status_clear(&xtensa->dbg_mod, bits);
 }
 
+static inline bool xtensa_reg_is_readable(int flags, int cpenable)
+{
+	if (flags & XT_REGF_NOREAD)
+		return false;
+	if ((flags & XT_REGF_COPROC0) && (cpenable & (1 << 0)) == 0)
+		return false;
+	return true;
+}
+
 int xtensa_core_status_check(struct target *target);
 
 int xtensa_examine(struct target *target);
@@ -466,6 +481,10 @@ int xtensa_handle_target_event(struct target *target,
 	enum target_event event,
 	void *priv);
 void xtensa_set_permissive_mode(struct target *target, bool state);
+int xtensa_fetch_user_regs_u32(struct target *target);
+int xtensa_queue_write_dirty_user_regs_u32(struct target *target);
+
+extern const struct reg_arch_type xtensa_user_reg_u32_type;
 
 COMMAND_HELPER(xtensa_cmd_permissive_mode_do, struct xtensa *xtensa);
 COMMAND_HELPER(xtensa_cmd_mask_interrupts_do, struct xtensa *xtensa);

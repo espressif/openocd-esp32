@@ -127,7 +127,6 @@
  */
 struct xtensa_algorithm {
 	enum xtensa_mode core_mode;
-	xtensa_reg_val_t context[XT_NUM_REGS];
 	enum target_debug_reason ctx_debug_reason;
 };
 
