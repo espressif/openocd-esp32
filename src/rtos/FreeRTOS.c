@@ -159,6 +159,8 @@ static int FreeRTOS_create(struct target *target);
 static int FreeRTOS_update_threads(struct rtos *rtos);
 static int FreeRTOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 		struct rtos_reg **reg_list, int *num_regs);
+static int FreeRTOS_get_thread_reg(struct rtos *rtos, int64_t thread_id,
+		uint32_t reg_num, struct rtos_reg *reg);
 static int FreeRTOS_get_symbol_list_to_lookup(symbol_table_elem_t *symbol_list[]);
 static int FreeRTOS_post_reset_cleanup(struct target *target);
 static int FreeRTOS_clean(struct target *target);
@@ -171,7 +173,12 @@ struct rtos_type FreeRTOS_rtos = {
 	.create = FreeRTOS_create,
 	.smp_init = FreeRTOS_smp_init,
 	.update_threads = FreeRTOS_update_threads,
-	.get_thread_reg_list = FreeRTOS_get_thread_reg_list,
+	.get_thread_reg_list = FreeRTOS_get_thread_reg_list, /* get general thread registers */
+	/* We need this API to handle 'p' packets to retrieve non-general (privileged) registers properly in SMP mode.
+		The problem is that without this API rtos code will call `target_get_gdb_reg_list_noread()` on the target/core
+		currently exposed to GDB (gdb_service->target) which can be inconsistent with current thread (actually running on another core).
+		So privileged regiser value for wrong core will be returned. */
+	.get_thread_reg = FreeRTOS_get_thread_reg, /* get any thread register */
 	.get_symbol_list_to_lookup = FreeRTOS_get_symbol_list_to_lookup,
 	.clean = FreeRTOS_clean,
 	.post_reset_cleanup = FreeRTOS_post_reset_cleanup,
@@ -719,28 +726,16 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 	return 0;
 }
 
-static int FreeRTOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
+static int FreeRTOS_get_current_thread_registers(struct rtos *rtos, int64_t thread_id,
+		enum target_register_class reg_class, bool *is_curr_thread,
 		struct rtos_reg **reg_list, int *num_regs)
 {
 	int retval;
-	int64_t stack_ptr = 0;
 	struct target *current_target = NULL;
 
-	if (rtos == NULL)
-		return -1;
+	LOG_DEBUG("FreeRTOS_get_current_thread_registers thread_id=0x%x", (uint32_t)thread_id);
 
-	if (thread_id == 0)
-		return -2;
-
-	if (rtos->rtos_specific_params == NULL)
-		return -1;
-
-	struct FreeRTOS_data* rtos_data = (struct FreeRTOS_data *)rtos->rtos_specific_params;
-
-	LOG_DEBUG("FreeRTOS_get_thread_reg_list thread_id=0x%x", (uint32_t)thread_id);
-
-	// registers for threads currently running on CPUs are not on task's stack and
-	// should retrieved from reg caches via target_get_gdb_reg_list
+	*is_curr_thread = false;
 	if (rtos->target->smp) {
 		struct target_list *head;
 		foreach_smp_target(head, rtos->target->head) {
@@ -752,34 +747,51 @@ static int FreeRTOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 	} else if (thread_id == rtos->current_thread) {
 		current_target = rtos->target;
 	}
-	if (current_target) {
-		if (!target_was_examined(current_target))
-			return ERROR_FAIL;
-
-		struct reg **gdb_reg_list;
-		retval = target_get_gdb_reg_list(current_target, &gdb_reg_list, num_regs,
-				REG_CLASS_GENERAL);
-		if (retval != ERROR_OK)
-			return retval;
-
-		*reg_list = calloc(*num_regs, sizeof(struct rtos_reg));
-		if (*reg_list == NULL) {
-			free(gdb_reg_list);
-			return ERROR_FAIL;
-		}
-
-		for (int i = 0; i < *num_regs; i++) {
-			(*reg_list)[i].number = gdb_reg_list[i]->number;
-			(*reg_list)[i].size = gdb_reg_list[i]->size;
-			memcpy((*reg_list)[i].value, gdb_reg_list[i]->value,
-				((*reg_list)[i].size + 7) / 8);
-		}
-		free(gdb_reg_list);
+	if (current_target == NULL) {
 		return ERROR_OK;
 	}
+	*is_curr_thread = true;
+	if (!target_was_examined(current_target))
+		return ERROR_FAIL;
+
+	// registers for threads currently running on CPUs are not on task's stack and
+	// should retrieved from reg caches via target_get_gdb_reg_list
+	struct reg **gdb_reg_list;
+	retval = target_get_gdb_reg_list(current_target, &gdb_reg_list, num_regs,
+			reg_class);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("target_get_gdb_reg_list failed %d", retval);
+		return retval;
+	}
+
+	*reg_list = calloc(*num_regs, sizeof(struct rtos_reg));
+	if (*reg_list == NULL) {
+		LOG_ERROR("Failed to alloc mem for %d", *num_regs);
+		free(gdb_reg_list);
+		return ERROR_FAIL;
+	}
+
+	for (int i = 0; i < *num_regs; i++) {
+		(*reg_list)[i].number = gdb_reg_list[i]->number;
+		(*reg_list)[i].size = gdb_reg_list[i]->size;
+		memcpy((*reg_list)[i].value, gdb_reg_list[i]->value,
+			((*reg_list)[i].size + 7) / 8);
+	}
+	free(gdb_reg_list);
+	return ERROR_OK;
+}
+
+static int FreeRTOS_get_thread_registers_from_stack(struct rtos *rtos, int64_t thread_id,
+		struct rtos_reg **reg_list, int *num_regs)
+{
+	int64_t stack_ptr = 0;
+	struct FreeRTOS_data* rtos_data = (struct FreeRTOS_data *)rtos->rtos_specific_params;
+
+	if (rtos_data == NULL)
+		return -1;
 
 	/* Read the stack pointer */
-	retval = target_read_buffer(rtos->target,
+	int retval = target_read_buffer(rtos->target,
 			thread_id + rtos_data->params->thread_stack_offset,
 			rtos_data->params->pointer_width,
 			(uint8_t *)&stack_ptr);
@@ -838,6 +850,72 @@ static int FreeRTOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 		return rtos_generic_stack_read(rtos->target, rtos_data->params->stacking_info_cm3, stack_ptr, reg_list, num_regs);
 
 	return -1;
+}
+
+static int FreeRTOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
+		struct rtos_reg **reg_list, int *num_regs)
+{
+	int retval;
+	bool is_curr_thread = false;
+
+	if (rtos == NULL)
+		return -1;
+
+	if (thread_id == 0)
+		return -2;
+
+	LOG_DEBUG("FreeRTOS_get_thread_reg_list thread_id=0x%x", (uint32_t)thread_id);
+
+	retval = FreeRTOS_get_current_thread_registers(rtos, thread_id, REG_CLASS_GENERAL, &is_curr_thread, reg_list, num_regs);
+	if (retval != ERROR_OK)
+		return retval;
+
+	if (is_curr_thread)
+		return ERROR_OK;
+
+	return FreeRTOS_get_thread_registers_from_stack(rtos, thread_id, reg_list, num_regs);
+}
+
+static int FreeRTOS_get_thread_reg(struct rtos *rtos, int64_t thread_id,
+		uint32_t reg_num, struct rtos_reg *reg)
+{
+	int retval;
+	bool is_curr_thread = false;
+	struct rtos_reg *reg_list;
+	int num_regs;
+
+	if (rtos == NULL)
+		return -1;
+
+	if (thread_id == 0)
+		return -2;
+
+	LOG_DEBUG("FreeRTOS_get_thread_reg thread_id=0x%x", (uint32_t)thread_id);
+
+	retval = FreeRTOS_get_current_thread_registers(rtos, thread_id, REG_CLASS_ALL, &is_curr_thread, &reg_list, &num_regs);
+	if (retval != ERROR_OK)
+		return retval;
+
+	if (!is_curr_thread) {
+		/* All registers (general + privileged ones) can be accessed for the threads currently running on cores.
+			It is enough for now. For non-current threads this function can return general registers only. */
+		retval = FreeRTOS_get_thread_reg_list(rtos, thread_id, &reg_list, &num_regs);
+		if (retval != ERROR_OK)
+			return retval;
+	}
+	for (int i = 0; i < num_regs; ++i) {
+		if (reg_list[i].number == (uint32_t)reg_num) {
+			memcpy(reg, &reg_list[reg_num], sizeof(*reg));
+			free(reg_list);
+			return ERROR_OK;
+		}
+	}
+	free(reg_list);
+
+	LOG_WARNING("Can not get register %d for thread 0x%" PRIx64,
+									reg_num,
+									thread_id);
+	return ERROR_FAIL;
 }
 
 static int FreeRTOS_get_symbol_list_to_lookup(symbol_table_elem_t *symbol_list[])
