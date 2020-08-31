@@ -22,7 +22,7 @@
 #define XTENSA_ESP32_H
 
 #include "xtensa_algorithm.h"
-#include "esp_xtensa.h"
+#include "esp_xtensa_smp.h"
 
 #define ESP32_DROM_LOW             0x3F400000
 #define ESP32_DROM_HIGH            0x3F800000
@@ -52,20 +52,13 @@ enum esp32_flash_bootstrap {
 };
 
 struct esp32_common {
-	struct esp_xtensa_common esp_xtensa;
+	struct esp_xtensa_smp_common esp_xtensa_smp;
 	enum esp32_flash_bootstrap flash_bootstrap;
-	bool other_core_does_resume;
 };
 
 static inline struct esp32_common *target_to_esp32(struct target *target)
 {
-	return container_of(target->arch_info, struct esp32_common, esp_xtensa);
+	return container_of(target->arch_info, struct esp32_common, esp_xtensa_smp);
 }
-
-int esp32_run_func_image(struct target *target,
-	struct xtensa_algo_run_data *run,
-	struct xtensa_algo_image *image,
-	uint32_t num_args,
-	...);
 
 #endif	/* XTENSA_ESP32_H */

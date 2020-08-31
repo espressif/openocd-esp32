@@ -83,7 +83,7 @@ FLASH_BANK_COMMAND_HANDLER(esp32_flash_bank_command)
 		return ERROR_FAIL;
 	int ret = esp_xtensa_flash_init(&esp32_info->esp_xtensa,
 		ESP32_FLASH_SECTOR_SIZE,
-		esp32_run_func_image,
+		esp_xtensa_smp_run_func_image,
 		esp32_is_irom_address,
 		esp32_is_drom_address,
 		esp32_get_stub);

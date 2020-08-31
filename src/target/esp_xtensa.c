@@ -77,7 +77,7 @@ static int esp_xtensa_flash_breakpoints_clear(struct target *target)
 		struct esp_xtensa_flash_breakpoint *flash_bp =
 			&esp_xtensa->flash_brps[slot];
 		if (flash_bp->data.oocd_bp != NULL) {
-			int ret = esp_xtensa->flash_brps_ops.breakpoint_remove(
+			int ret = esp_xtensa->flash_brps_ops->breakpoint_remove(
 				target,
 				flash_bp);
 			if (ret != ERROR_OK) {
@@ -169,7 +169,7 @@ int esp_xtensa_init_arch_info(struct target *target,
 	int ret = xtensa_init_arch_info(target, &esp_xtensa->xtensa, xtensa_cfg, dm_cfg);
 	if (ret != ERROR_OK)
 		return ret;
-	memcpy(&esp_xtensa->flash_brps_ops, flash_brps_ops, sizeof(esp_xtensa->flash_brps_ops));
+	esp_xtensa->flash_brps_ops = flash_brps_ops;
 	esp_xtensa->flash_brps =
 		calloc(ESP_XTENSA_FLASH_BREAKPOINTS_MAX_NUM,
 		sizeof(struct esp_xtensa_flash_breakpoint));
@@ -326,7 +326,7 @@ static int esp_xtensa_flash_breakpoint_add(struct target *target, struct breakpo
 		LOG_WARNING("%s: max SW flash slot reached, slot=%u", target_name(target), slot);
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
-	return esp_xtensa->flash_brps_ops.breakpoint_add(target, breakpoint,
+	return esp_xtensa->flash_brps_ops->breakpoint_add(target, breakpoint,
 		&esp_xtensa->flash_brps[slot]);
 }
 
@@ -355,7 +355,7 @@ static int esp_xtensa_flash_breakpoint_remove(struct target *target,
 		   but GDB causes call to esp_xtensa_flash_breakpoint_remove() for every core, since it treats flash breakpoints as HW ones */
 		return target->smp ? ERROR_OK : ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
-	return esp_xtensa->flash_brps_ops.breakpoint_remove(target, &esp_xtensa->flash_brps[slot]);
+	return esp_xtensa->flash_brps_ops->breakpoint_remove(target, &esp_xtensa->flash_brps[slot]);
 }
 
 int esp_xtensa_breakpoint_remove(struct target *target, struct breakpoint *breakpoint)
