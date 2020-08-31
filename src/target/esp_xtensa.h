@@ -109,7 +109,7 @@ struct esp_xtensa_semihost_data {
 struct esp_xtensa_common {
 	struct xtensa xtensa;
 	struct esp_dbg_stubs dbg_stubs;
-	struct esp_xtensa_flash_breakpoint_ops flash_brps_ops;
+	const struct esp_xtensa_flash_breakpoint_ops *flash_brps_ops;
 	struct esp_xtensa_flash_breakpoint *flash_brps;
 	struct esp_xtensa_semihost_data semihost;
 };

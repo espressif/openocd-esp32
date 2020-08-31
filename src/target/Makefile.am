@@ -143,6 +143,7 @@ XTENSA_SRC= \
 	%D%/xtensa_algorithm.c \
 	%D%/xtensa_semihosting.c \
 	%D%/esp_xtensa.c \
+	%D%/esp_xtensa_smp.c \
 	%D%/esp_xtensa_apptrace.c \
 	%D%/esp_xtensa_semihosting.c
 
@@ -250,6 +251,7 @@ ESIRISC_SRC = \
 	%D%/xtensa_regs.h \
 	%D%/xtensa.h \
 	%D%/esp_xtensa.h \
+	%D%/esp_xtensa_smp.h \
 	%D%/esp_xtensa_apptrace.h \
 	%D%/esp32_apptrace.h \
 	%D%/esp32.h \
