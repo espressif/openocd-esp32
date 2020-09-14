@@ -811,7 +811,7 @@ static int esp32_resume(struct target *target,
 	LOG_DEBUG("%s: smp_break=0x%x", target_name(target), smp_break);
 
 	/* dummy resume for smp toggle in order to reduce gdb impact  */
-	if ((target->smp) && (target->gdb_service->core[1] != -1)) {
+	if ((target->smp) && (target->gdb_service) && (target->gdb_service->core[1] != -1)) {
 		/*   simulate a start and halt of target */
 		target->gdb_service->target = NULL;
 		target->gdb_service->core[0] = target->gdb_service->core[1];
@@ -843,7 +843,8 @@ static int esp32_resume(struct target *target,
 	}
 
 	if (target->smp) {
-		target->gdb_service->core[0] = -1;
+		if (target->gdb_service)
+			target->gdb_service->core[0] = -1;
 		res = esp32_smp_resume(target, handle_breakpoints, debug_execution);
 		if (res != ERROR_OK)
 			return res;
