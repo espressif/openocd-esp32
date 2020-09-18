@@ -440,17 +440,17 @@ build_test_app_esp32_custom_idf_rel:
     TEST_APP_IDF_TAG: "v$TEST_APP_CUSTOM_IDF_RELEASE_TAG"
     UT_GET_IDF_VER: "1"
 
-tests_linux64_solo:
-  <<: *tests_linux_template
+tests_armel_esp32_solo:
+  <<: *tests_armel_template
   tags:
-    - amd64
+    - arm
     - test_jtag_solo
   dependencies:
     - build_test_app_esp32
-    - build_linux
+    - build_linux_armel
   variables:
     CHIP_NAME: "esp32"
-    PLATFORM_NAME: "linux64"
+    PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
 
