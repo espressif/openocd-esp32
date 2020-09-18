@@ -26,9 +26,8 @@ class DebuggerThreadsTestsImpl:
             5) Switches between tasks and checks their backtraces
         """
         self.select_sub_test(400)
-        self.resume_exec()
-        time.sleep(5)
-        self.stop_exec()
+        self.add_bp('check_backtrace_test_done')
+        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'check_backtrace_test_done', tmo=120)
         test_tasks = {'1': [3, 0], '2': [7, 0], '3': [5, 0]}
         _,threads_info = self.gdb.get_thread_info()
         for ti in threads_info:
@@ -41,8 +40,9 @@ class DebuggerThreadsTestsImpl:
                     self.assertEqual(len(frames), num+2) # task entry + vPortTaskWrapper
                 else:
                     self.assertEqual(len(frames), num+1) # task entry
-                line_num = self.gdb.data_eval_expr('go_to_level_task%s_break_ln' % suf)
-                self.assertEqual(frames[0]['line'], line_num)
+                line_num = int(self.gdb.data_eval_expr('go_to_level_task%s_break_ln' % suf), 0)
+                # should be at the loop start or loop body
+                self.assertTrue((frames[0]['line'] == '%d' % (line_num+1)) or (frames[0]['line'] == '%d' % (line_num+2)))
                 for i in range(num):
                     self.assertEqual(frames[i]['func'], 'go_to_level_task%s' % suf)
                 self.assertEqual(frames[num]['func'], 'check_backtrace_task%s' % suf)
