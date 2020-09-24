@@ -78,7 +78,7 @@ static inline int esp_xtensa_semihosting_drv_info(struct target *target)
 		LOG_ERROR("Wrong length of file name!");
 		xtensa_reg_set(target, XTENSA_SYSCALL_RETVAL_REG, -1);
 		xtensa_reg_set(target, XTENSA_SYSCALL_ERRNO_REG, EINVAL);
-		return ERROR_FAIL;
+		return ERROR_OK;
 	}
 	uint8_t *buf = malloc(sz);
 	ret = target_read_buffer(target, addr, sz, buf);
@@ -86,7 +86,7 @@ static inline int esp_xtensa_semihosting_drv_info(struct target *target)
 		free(buf);
 		xtensa_reg_set(target, XTENSA_SYSCALL_RETVAL_REG, -1);
 		xtensa_reg_set(target, XTENSA_SYSCALL_ERRNO_REG, EINVAL);
-		return ERROR_FAIL;
+		return ERROR_OK;
 	}
 
 	/* read ver from drv_info_t mapped onto buf */
@@ -114,16 +114,22 @@ static inline int esp_xtensa_semihosting_v0(
 			if (a4 == 0) {
 				LOG_ERROR("Zero file name length!");
 				syscall_ret = -1;
-				syscall_errno = EINVAL;
+				syscall_errno = ENOMEM;
 				break;
 			}
 			if (a4 > PATH_MAX) {
 				LOG_ERROR("File name length if greater then the maximum possible value!");
 				syscall_ret = -1;
-				syscall_errno = EINVAL;
+				syscall_errno = ENOMEM;
 				break;
 			}
 			char *file_name = esp_xtensa_semihosting_get_file_name(target, a3, a4, (uint32_t * )&mode);
+			if(!file_name){
+				syscall_ret = -1;
+				syscall_errno = ENOMEM;
+				break;
+			}
+
 			if (a5 & ESP_O_RDWR)
 				mode = O_RDWR;
 			else if (a5 & ESP_O_WRONLY)
@@ -190,7 +196,7 @@ static inline int esp_xtensa_semihosting_v0(
 			if (retval != ERROR_OK) {
 				free(buf);
 				syscall_ret = -1;
-				syscall_errno = EINVAL;
+				syscall_errno = EIO;
 				break;
 			}
 			syscall_ret = write(a3, buf, a5);
@@ -226,7 +232,7 @@ static inline int esp_xtensa_semihosting_v0(
 				if (retval != ERROR_OK) {
 					free(buf);
 					syscall_ret = -1;
-					syscall_errno = EINVAL;
+					syscall_errno = EIO;
 					break;
 				}
 			}
@@ -300,7 +306,8 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 	xtensa_reg_val_t a5 = xtensa_reg_get(target, XT_REG_IDX_A5);
 	xtensa_reg_val_t a6 = xtensa_reg_get(target, XT_REG_IDX_A6);
 
-	LOG_DEBUG("Call 0x%x 0x%x 0x%x 0x%x 0x%x. Base dir '%s'",
+	LOG_DEBUG("%s: Semihosting. Call 0x%x 0x%x 0x%x 0x%x 0x%x. Base dir '%s'",
+		target_name(target),
 		a2,
 		a3,
 		a4,
@@ -323,10 +330,16 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 		target->semihosting->is_resumable = true;
 		*retval = esp_xtensa_semihosting_v0(target, a2, a3, a4, a5, a6);
 	}
-	if (*retval != ERROR_OK) {
-		LOG_ERROR("Failed semihosting operation");
-		return 0;
-	}
+	LOG_DEBUG("%s: Semihosting. retval: %d, target_ret: %d, target_errno: %d",
+		target_name(target),
+		*retval,
+		xtensa_reg_get(target, XTENSA_SYSCALL_RETVAL_REG),
+		xtensa_reg_get(target, XTENSA_SYSCALL_ERRNO_REG)
+		);
+	if (*retval != ERROR_OK)
+		LOG_ERROR("Semihossting operation (op: 0x%x) error! Code: %d",
+			target->semihosting->op,
+			*retval);
 
 	/* Resume if target it is resumable and we are not waiting on a fileio
 	 * operation to complete:

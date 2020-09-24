@@ -832,7 +832,9 @@ int semihosting_common(struct target *target)
 									buf);
 							if (retval != ERROR_OK) {
 								free(buf);
-								return retval;
+								semihosting->result = -1;
+								semihosting->sys_errno = EIO;
+								break;
 							}
 							/* the number of bytes NOT filled in */
 							semihosting->result = len -
@@ -1033,7 +1035,7 @@ int semihosting_common(struct target *target)
 					semihosting->sys_errno = errno;
 					LOG_DEBUG("lseek(%d, %d)=%d", fd, (int)pos,
 						(int)semihosting->result);
-					if (semihosting->result == pos)
+					if ((semihosting->result != -1) && (semihosting->result == pos))
 						semihosting->result = 0;
 				}
 			}
@@ -1168,7 +1170,9 @@ int semihosting_common(struct target *target)
 						retval = target_read_buffer(target, addr, len, buf);
 						if (retval != ERROR_OK) {
 							free(buf);
-							return retval;
+							semihosting->result = -1;
+							semihosting->sys_errno = EIO;
+							break;
 						}
 						semihosting->result = write(fd, buf, len);
 						semihosting->sys_errno = errno;

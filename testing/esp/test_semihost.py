@@ -79,6 +79,13 @@ class SemihostTestsImpl:
             get_logger().info('Compare files [%s, %s]', self.fout_names[i], self.fin_names[i])
             self.assertTrue(filecmp.cmp(self.fout_names[i], self.fin_names[i]))
 
+    def test_semihost_args(self):
+        """
+        """
+        self.select_sub_test(701)
+        self.add_bp('esp_vfs_semihost_unregister')
+        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
+
 
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
