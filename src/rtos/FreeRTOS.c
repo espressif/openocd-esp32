@@ -857,8 +857,8 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 
 	if (retval != ERROR_OK)
 		return retval;
-
-	LOG_DEBUG("FreeRTOS: Read uxTopUsedPriority at 0x%" PRIx64 ", value %" PRIu32 "\r\n",
+		
+	LOG_DEBUG("FreeRTOS: Read uxTopUsedPriority at 0x%" PRIx64 ", value %" PRIu32,
 										rtos->symbols[FreeRTOS_VAL_uxTopUsedPriority].address,
 										top_used_priority);
 
