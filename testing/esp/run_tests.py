@@ -119,6 +119,8 @@ def dbg_start(toolchain, oocd, oocd_tcl, oocd_cfg_files, oocd_cfg_cmds, debug_oo
             _gdb_inst.gdb_set('remotelogfile', gdb_log)
         if debug_oocd > 2:
             _gdb_inst.tmo_scale_factor = 5
+        else:
+            _gdb_inst.tmo_scale_factor = 3
         _gdb_inst.gdb_set('remotetimeout', '%d' % remote_tmo)
         _gdb_inst.connect(tmo=connect_tmo)
     except Exception as e:
