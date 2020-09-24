@@ -42,6 +42,11 @@
 
 #define FreeRTOS_STRUCT(int_type, ptr_type, list_prev_offset)
 
+/* FIXME: none of the _width parameters are actually observed properly!
+ * you WILL need to edit more if you actually attempt to target a 8/16/64
+ * bit target!
+ */
+
 struct FreeRTOS_params {
 	const char *target_name;
 	const unsigned char thread_count_width;
@@ -777,15 +782,6 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 		return retval;
 	}
 
-	LOG_DEBUG("Read uxTaskNumber at 0x%" PRIx64 ", value %" PRIu64,
-		rtos->symbols[FreeRTOS_VAL_uxTaskNumber].address,
-		uxTaskNumber);
-
-	if (uxTaskNumber < rtos_data->thread_counter) {
-		LOG_ERROR("FreeRTOS uxTaskNumber seems to be corrupted!");
-		return ERROR_FAIL;
-	}
-
 	/* read the current threads */
 	retval = target_read_buffer(target,
 		rtos->symbols[FreeRTOS_VAL_pxCurrentTCB].address,
@@ -848,30 +844,27 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 		}
 	}
 
-	/* Find out how many lists are needed to be read from pxReadyTasksLists, */
 	if (rtos->symbols[FreeRTOS_VAL_uxTopUsedPriority].address == 0) {
 		LOG_ERROR("FreeRTOS: uxTopUsedPriority is not defined, consult the OpenOCD manual for a work-around");
 		return ERROR_FAIL;
 	}
-	uint64_t top_used_priority = 0;
-	/* FIXME: endianness error on almost all target_read_buffer(), see also
-	 * other rtoses */
-	retval = target_read_buffer(rtos->target,
+
+	/* Find out how many lists are needed to be read from pxReadyTasksLists, */
+	uint32_t top_used_priority = 0;
+	retval = target_read_u32(rtos->target,
 			rtos->symbols[FreeRTOS_VAL_uxTopUsedPriority].address,
-			param->pointer_width,
-			(uint8_t *)&top_used_priority);
+			&top_used_priority);
+
 	if (retval != ERROR_OK)
 		return retval;
 
-	LOG_DEBUG("Read uxTopUsedPriority at 0x%" PRIx64 ", value %" PRId64,
-		rtos->symbols[FreeRTOS_VAL_uxTopUsedPriority].address,
-		max_used_priority);
+	LOG_DEBUG("FreeRTOS: Read uxTopUsedPriority at 0x%" PRIx64 ", value %" PRIu32 "\r\n",
+										rtos->symbols[FreeRTOS_VAL_uxTopUsedPriority].address,
+										top_used_priority);
 
-	if (max_used_priority > FREERTOS_MAX_PRIORITIES) {
-		LOG_ERROR(
-			"FreeRTOS maximum used priority is unreasonably big, not proceeding: %"
-			PRId64 "",
-			max_used_priority);
+	if (top_used_priority > FREERTOS_MAX_PRIORITIES) {
+		LOG_ERROR("FreeRTOS top used priority is unreasonably big, not proceeding: %" PRIu32,
+			top_used_priority);
 		return ERROR_FAIL;
 	}
 
