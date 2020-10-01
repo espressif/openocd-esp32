@@ -2,6 +2,9 @@ import logging
 import unittest
 import tempfile
 import filecmp
+import json
+import os
+import shutil
 import debug_backend as dbg
 from debug_backend_tests import *
 
@@ -59,6 +62,87 @@ class FlasherTestsImpl:
         self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_direction', ['gpio_set_direction'], outmost_func_name='cache_check_task')
         for i in range(5):
             self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_level', ['gpio_set_level'], outmost_func_name='cache_check_task')
+
+    def test_program_esp_bins(self):
+        """
+            This test checks flashing complete app works using flasher_args.json.
+            1) Generate a dummy flasher_args.json file
+            2) Create random binaries based on the flasher_args.json
+            3) Write the files to the flash.
+            4) Read written data to another file.
+            5) Compare files.
+        """
+        # Temp Folder where everything will be contained
+        tmp = tempfile.mkdtemp(prefix="esp")
+        
+        obj = generate_flasher_args_json()
+        flash_files = obj["flash_files"]
+        
+        # Write dummy data to bin files
+        for offset in flash_files:
+            fname = "esp_%s.bin" % (offset)
+            fpath = os.path.join(tmp, fname)
+            
+            flash_files[offset] = fname
+            
+            fbin = open(fpath, 'wb')
+            fbin.write(os.urandom(1024))
+            fbin.close()
+        
+        # Write the flasher_args file
+        json_fname = "flasher_args.json"
+        json_fpath = os.path.join(tmp, json_fname)
+        json_fp = open(json_fpath, "w")
+        json.dump(obj, fp=json_fp, indent=2)
+        json_fp.close()
+
+        # Flash the chip
+        self.gdb.monitor_run("program_esp_bins %s %s reset verify" % (tmp, json_fname))
+        # Halt Reset
+        self.gdb.target_reset(action='halt')
+
+        # Read the chip back to verify if flash was successful
+        for offset in flash_files:
+            fname = "esp_%s.bin.verify" % (offset)
+            fpath = os.path.join(tmp, fname)
+            fbin = open(fpath, "wb")
+            fbin.close()
+            self.gdb.monitor_run("flash read_bank 0 %s %s 1024" % (dbg.fixup_path(fpath), offset), tmo=120)
+
+            # Verify the content
+            og_fname = "esp_%s.bin" % (offset)
+            og_fpath = os.path.join(tmp, og_fname)
+            self.assertTrue(filecmp.cmp(og_fpath, fpath))
+
+        # Remove the tmp folder for cleanup
+        shutil.rmtree(tmp)
+            
+
+def generate_flasher_args_json():
+    return {
+        "write_flash_args" : [ "--flash_mode", "dio",
+                            "--flash_size", "detect",
+                            "--flash_freq", "40m" ],
+        "flash_settings" : {
+            "flash_mode": "dio",
+            "flash_size": "detect",
+            "flash_freq": "40m"
+        },
+        "flash_files" : {
+            "0x118000" : "",
+            "0x110000" : "",
+            "0x210000" : ""
+        },
+        "partition_table" : { "offset" : "0x118000", "file" : "" },
+        "bootloader" : { "offset" : "0x110000", "file" : "" },
+        "app" : { "offset" : "0x210000", "file" : "" },
+        "extra_esptool_args" : {
+            "after"  : "hard_reset",
+            "before" : "default_reset",
+            "stub"   : True,
+            "chip"   : "esp32"
+        }
+    }
 
 
 ########################################################################
