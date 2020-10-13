@@ -250,7 +250,7 @@ static void semihost_task(void *pvParameter)
     FILE *f_out = fopen(fname, "w+");
     if (f_out == NULL) {
         ESP_LOGE(TAG, "CPU[%d]: Failed to open file for writing (%d)!", core_id, errno);
-        return;
+        assert(false);
     }
     snprintf(fname, sizeof(fname) - 1, "/host/test_read.%d", core_id);
     ESP_LOGI(TAG, "CPU[%d]: Opening %s", core_id, fname);
@@ -258,8 +258,37 @@ static void semihost_task(void *pvParameter)
     if (fd_in == -1) {
         ESP_LOGE(TAG, "CPU[%d]: Failed to open file for reading (%d)!", core_id, errno);
         fclose(f_out);
-        return;
+        assert(false);
     }
+
+    /**** Seeking test ****/
+    int cursor = lseek(fd_in, 11, SEEK_SET);
+    int cursor_expect = 11;
+    ESP_LOGI(TAG, "CPU[%d]: SEEK_SET to %d", core_id, cursor);
+    if (cursor != cursor_expect){
+        ESP_LOGE(TAG, "CPU[%d]: Wrong cursor location (%d != %d)!", core_id, cursor, cursor_expect);
+        assert(false);
+    }
+
+    cursor = lseek(fd_in, 11, SEEK_CUR);
+    cursor_expect = 22;
+    ESP_LOGI(TAG, "CPU[%d]: SEEK_CUR to %d", core_id, cursor);
+    if (cursor != cursor_expect){
+        ESP_LOGE(TAG, "CPU[%d]: Wrong cursor location (%d != %d)!", core_id, cursor, cursor_expect);
+        assert(false);
+    }
+
+    cursor = lseek(fd_in, -1, SEEK_END);
+    cursor_expect = lseek(fd_in, 0, SEEK_END) - 1;
+    ESP_LOGI(TAG, "CPU[%d]: SEEK_END to %d", core_id, cursor);
+    if (cursor != cursor_expect){
+        ESP_LOGE(TAG, "CPU[%d]: Wrong cursor location (%d != %d)!", core_id, cursor, cursor_expect);
+        assert(false);
+    }
+
+    cursor = lseek(fd_in, 0, SEEK_SET);
+    ESP_LOGI(TAG, "CPU[%d]: Set to the beginning (cur: %d)", core_id, cursor);
+
 
     /**** Copy: In->Buf->Out ****/
     ESP_LOGI(TAG, "CPU[%d]: Writing test_read.%d ->  test_write.%d", core_id, core_id, core_id);
@@ -279,7 +308,7 @@ static void semihost_task(void *pvParameter)
     long int f_size = ftell(f_out);
     if (count != f_size) {
         ESP_LOGE(TAG, "CPU[%d]: Failed to determine file size! (size is %ld)", core_id, f_size);
-        return;
+        assert(false);
     }
 
     ESP_LOGI(TAG, "CPU[%d]: Read %d bytes", core_id, count);
@@ -303,7 +332,7 @@ static void semihost_task(void *pvParameter)
         ret = esp_vfs_semihost_unregister("/host");
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "CPU[%d]: Failed to unregister semihost driver (%s)!", core_id, esp_err_to_name(ret));
-            return;
+            assert(false);
         }
     } else {
         xTaskNotifyGive((TaskHandle_t)pvParameter);
