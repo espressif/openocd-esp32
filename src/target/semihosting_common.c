@@ -995,14 +995,23 @@ int semihosting_common(struct target *target)
 			 *
 			 * Entry
 			 * On entry, the PARAMETER REGISTER contains a pointer to a
-			 * two-field data block:
+			 * two-field data block (old default implementation: lseek(fd, pos,
+			 * SEEK_SET)) or tree-field data block (semihosting->lseek != NULL):
 			 * - field 1 A handle for a seekable file object.
 			 * - field 2 The absolute byte position to seek to.
+			 * - field 3 (for custom) The whence parameter: SEEK_SET, SEEK_CUR
+			 * or SEEK_END.
 			 *
 			 * Return
 			 * On exit, the RETURN REGISTER contains:
+			 *
+			 * [Default implementation]
 			 * - 0 if the request is successful.
 			 * - A negative value if the request is not successful.
+			 *
+			 * [Custom implementation]
+			 * - The value returned by `semihosting->lseek()` function
+			 *
 			 * Use SYS_ERRNO to read the value of the host errno variable
 			 * describing the error.
 			 *
@@ -1010,33 +1019,37 @@ int semihosting_common(struct target *target)
 			 * the file object is undefined.
 			 */
 
-			if (semihosting->lseek == NULL)
-				retval = semihosting_read_fields(target, 2, fields);
-			else
+			if (semihosting->lseek != NULL) /* custom: read extra `whence` */
 				retval = semihosting_read_fields(target, 3, fields);
+			else /* default */
+				retval = semihosting_read_fields(target, 2, fields);
 			if (retval != ERROR_OK)
 				return retval;
 			else {
 				int fd = semihosting_get_field(target, 0, fields);
 				off_t pos = semihosting_get_field(target, 1, fields);
+				int whence = SEEK_SET;
+				if (semihosting->lseek != NULL) /* custom lseek implementation */
+					whence = semihosting_get_field(target, 2, fields);
 				if (semihosting->is_fileio) {
 					semihosting->hit_fileio = true;
 					fileio_info->identifier = "lseek";
 					fileio_info->param_1 = fd;
 					fileio_info->param_2 = pos;
-					fileio_info->param_3 = SEEK_SET;
+					fileio_info->param_3 = whence;
 				} else {
-					if (semihosting->lseek == NULL)
-						semihosting->result = lseek(fd, pos, SEEK_SET);
-					else{
-						int whence = semihosting_get_field(target, 2, fields);
+					if (semihosting->lseek != NULL) /* custom lseek */
 						semihosting->result = semihosting->lseek(fd, pos, whence);
+					else{ /* default */
+						semihosting->result = lseek(fd, pos, whence);
 					}
 					semihosting->sys_errno = errno;
+					if (semihosting->lseek == NULL) { /* default lseek */
+						if ((semihosting->result != -1) && (semihosting->result == pos))
+							semihosting->result = 0;
+					}
 					LOG_DEBUG("lseek(%d, %d)=%d", fd, (int)pos,
 						(int)semihosting->result);
-					if ((semihosting->result != -1) && (semihosting->result == pos))
-						semihosting->result = 0;
 				}
 			}
 			break;
