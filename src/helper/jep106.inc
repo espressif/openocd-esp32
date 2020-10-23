@@ -1404,4 +1404,5 @@
 [11][0x15 - 1] = "Jazer",
 [11][0x16 - 1] = "Xiamen Semiconductor Investment Group",
 [11][0x17 - 1] = "Guangzhou Longdao Network Tech Co",
+[12][0x12 - 1] = "Espressif Systems",
 /* EOF */
