@@ -2020,7 +2020,7 @@ static int stlink_usb_read_regs(void *handle)
 }
 
 /** */
-static int stlink_usb_read_reg(void *handle, int num, uint32_t *val)
+static int stlink_usb_read_reg(void *handle, unsigned int regsel, uint32_t *val)
 {
 	int res;
 	struct stlink_usb_handle_s *h = handle;
@@ -2034,7 +2034,7 @@ static int stlink_usb_read_reg(void *handle, int num, uint32_t *val)
 		h->cmdbuf[h->cmdidx++] = STLINK_DEBUG_APIV1_READREG;
 	else
 		h->cmdbuf[h->cmdidx++] = STLINK_DEBUG_APIV2_READREG;
-	h->cmdbuf[h->cmdidx++] = num;
+	h->cmdbuf[h->cmdidx++] = regsel;
 
 	if (h->version.jtag_api == STLINK_JTAG_API_V1) {
 		res = stlink_usb_xfer_noerrcheck(handle, h->databuf, 4);
@@ -2052,7 +2052,7 @@ static int stlink_usb_read_reg(void *handle, int num, uint32_t *val)
 }
 
 /** */
-static int stlink_usb_write_reg(void *handle, int num, uint32_t val)
+static int stlink_usb_write_reg(void *handle, unsigned int regsel, uint32_t val)
 {
 	struct stlink_usb_handle_s *h = handle;
 
@@ -2065,7 +2065,7 @@ static int stlink_usb_write_reg(void *handle, int num, uint32_t val)
 		h->cmdbuf[h->cmdidx++] = STLINK_DEBUG_APIV1_WRITEREG;
 	else
 		h->cmdbuf[h->cmdidx++] = STLINK_DEBUG_APIV2_WRITEREG;
-	h->cmdbuf[h->cmdidx++] = num;
+	h->cmdbuf[h->cmdidx++] = regsel;
 	h_u32_to_le(h->cmdbuf+h->cmdidx, val);
 	h->cmdidx += 4;
 
