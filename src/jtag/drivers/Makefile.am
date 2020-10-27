@@ -174,6 +174,7 @@ DRIVERHEADERS = \
 	%D%/bitbang.h \
 	%D%/bitq.h \
 	%D%/jtag_usb_common.h \
+	%D%/libftdi_helper.h \
 	%D%/libusb0_common.h \
 	%D%/libusb1_common.h \
 	%D%/libusb_common.h \

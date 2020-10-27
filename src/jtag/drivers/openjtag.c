@@ -82,7 +82,7 @@ typedef enum openjtag_tap_state {
 } openjtag_tap_state_t;
 
 /* OPENJTAG access library includes */
-#include <ftdi.h>
+#include "libftdi_helper.h"
 
 /* OpenJTAG vid/pid */
 static uint16_t openjtag_vid = 0x0403;
@@ -439,7 +439,7 @@ static int openjtag_init_standard(void)
 	}
 
 	if (ftdi_tcioflush(&ftdic) < 0) {
-		LOG_ERROR("ftdi_tcioflush: %s", ftdic.error_str);
+		LOG_ERROR("ftdi flush: %s", ftdic.error_str);
 		return ERROR_JTAG_INIT_FAILED;
 	}
 
