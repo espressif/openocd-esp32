@@ -163,8 +163,8 @@ static struct target_type *target_types[] = {
 struct target *all_targets;
 static struct target_event_callback *target_event_callbacks;
 static struct target_timer_callback *target_timer_callbacks;
-LIST_HEAD(target_reset_callback_list);
-LIST_HEAD(target_trace_callback_list);
+static LIST_HEAD(target_reset_callback_list);
+static LIST_HEAD(target_trace_callback_list);
 static const int polling_interval = 100;
 
 static const Jim_Nvp nvp_assert[] = {
@@ -1341,14 +1341,7 @@ unsigned target_address_bits(struct target *target)
 	return 32;
 }
 
-unsigned target_data_bits(struct target *target)
-{
-	if (target->type->data_bits)
-		return target->type->data_bits(target);
-	return 32;
-}
-
-int target_profiling(struct target *target, uint32_t *samples,
+static int target_profiling(struct target *target, uint32_t *samples,
 			uint32_t max_num_samples, uint32_t *num_samples, uint32_t seconds)
 {
 	return target->type->profiling(target, samples, max_num_samples,
@@ -3028,20 +3021,9 @@ COMMAND_HANDLER(handle_reg_command)
 		if ((CMD_ARGC == 2) && (strcmp(CMD_ARGV[1], "force") == 0))
 			reg->valid = 0;
 
-<<<<<<< HEAD
-		if (reg->valid == 0) {
-			retval = reg->type->get(reg);
-			if (retval != ERROR_OK) {
-			    LOG_DEBUG("Couldn't get register %s.", reg->name);
-			    return retval;
-			}
-		}
-		value = buf_to_str(reg->value, reg->size, 16);
-=======
 		if (reg->valid == 0)
 			reg->type->get(reg);
 		value = buf_to_hex_str(reg->value, reg->size);
->>>>>>> 3ac010bb9 (Fix debug prints when loading to flash)
 		command_print(CMD, "%s (/%i): 0x%s", reg->name, (int)(reg->size), value);
 		free(value);
 		return ERROR_OK;
