@@ -41,6 +41,9 @@ variables:
   GH_TOOL: "./${DIST_ART_DIR}/${GH_TOOL_NAME}"
   RELEASE_DESC: "New release"
 
+  # py_debug_backend repo URL
+  DBG_BACKEND_REPO: "https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/py_debug_backend.git"
+
 .submodules_mirror_update: &submodules_mirror_update |
   # Gitlab doesn't clean submodule contents
   git submodule foreach "git clean -d -x -f" || true
@@ -226,7 +229,7 @@ variables:
   tar -C ${TEST_RUN_DIR} -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
   export DIST_DIR=${PWD}/${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}
   pushd $PWD/testing/esp
-  git clone https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/py_debug_backend.git
+  git clone $DBG_BACKEND_REPO
   pushd py_debug_backend
   git checkout $CUSTOM_DEBUG_BACKEND_TAG || git checkout $CI_COMMIT_REF_NAME || echo "using default branch"
   popd
@@ -595,3 +598,52 @@ Delete_tag_release:
     GIT_STRATEGY: none
   script:
     - ${GH_TOOL} delete -s ${GITHUB_TOKEN} --tag ${CI_COMMIT_TAG} || true
+
+build_nuttx_app:
+  stage: build
+  variables:
+    TRIGGER_JOB: "OPENOCD"
+  trigger:
+    project: idf/apache/esp-nuttx-apps
+    strategy: depend
+
+.copy_nuttx_files: &copy_nuttx_files |
+  cp testing/esp/test_apps/nuttx/gdbstartup $TEST_RUN_DIR/$NUTTX_APP_NAME
+  mv nuttx.bin $TEST_RUN_DIR/$NUTTX_APP_NAME/$NUTTX_APP_NAME.bin
+  mv nuttx $TEST_RUN_DIR/$NUTTX_APP_NAME/$NUTTX_APP_NAME.elf
+  mv bootloader.bin partition-table.bin $TEST_RUN_DIR/$NUTTX_APP_NAME/
+
+test_nuttx_esp32:
+  image: $CI_DOCKER_REGISTRY/rpi-test-env
+  stage: test
+  tags:
+    - test_jtag_arm
+  variables:
+    PLATFORM_NAME: "armel"
+    TEST_RUN_DIR: "nuttx_test"
+    NUTTX_APP_NAME: "nuttx_openocd"
+    CHIP_NAME: "esp32"
+    OOCD_CMDS: "set ESP_RTOS NuttX,set ESP32_ONLYCPU 1"
+    TEST_RUN_EXTRA_OPTS: "-b esp32-wrover-kit-3.3v -p test_nuttx"
+  needs:
+    - job: build_linux_armel
+      artifacts: true
+    - job: build_nuttx_app
+      artifacts: false
+    - project: idf/apache/esp-nuttx-apps
+      job: build_esp32_openocd
+      ref: master
+      artifacts: true
+  script:
+    - export PATH=${HOME}/.espressif/tools/xtensa-${CHIP_NAME}-elf/${ESP_TOOLCHAIN_VER}/xtensa-${CHIP_NAME}-elf/bin:${PATH}
+    - source /opt/pyenv/activate && pyenv global ${TEST_IMAGE_PYTHON_VER}
+    - mkdir -p $TEST_RUN_DIR/$NUTTX_APP_NAME
+    - *copy_nuttx_files
+    - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
+    - tar -C ${TEST_RUN_DIR} -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
+    - export DIST_DIR=${PWD}/${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}
+    - pushd $PWD/testing/esp
+    - git clone $DBG_BACKEND_REPO
+    - popd
+    - export PYTHONPATH=$PWD/${TEST_RUN_DIR}:$PWD/testing/esp/py_debug_backend
+    - testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -t xtensa-${CHIP_NAME}-elf- -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log $TEST_RUN_EXTRA_OPTS -c "${OOCD_CMDS}"
