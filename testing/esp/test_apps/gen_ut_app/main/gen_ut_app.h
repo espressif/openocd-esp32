@@ -24,10 +24,9 @@
 #include "ut_idf_ver.h"
 #include "sdkconfig.h"
 
-#define MAKE_UT_IDF_VER(t,x,y,z)    (((t & 0xFF) << 24) | ((x & 0xFF) << 16) | ((y & 0xFF) << 8) | (z & 0xFF))
+#define MAKE_UT_IDF_VER(t,x,y,z)    ((((t) & 0xFF) << 24) | (((x) & 0xFF) << 16) | (((y) & 0xFF) << 8) | ((z) & 0xFF))
 
-#define UT_IDF_VER_LATEST           MAKE_UT_IDF_VER(0xFF,0xFF,0xFF,0xFF)
-#define UT_IDF_VER 	                MAKE_UT_IDF_VER(UT_IDF_VER_MAJOR,UT_IDF_VER_MINOR,UT_IDF_VER_BUGFIX,UT_IDF_VER_UPDATE)
+#define UT_IDF_VER_LATEST           0xFFFFFFFF
 
 #define TEST_BREAK_LOC(_nm_)  \
     volatile static const int _nm_ ## _break_ln = __LINE__; \

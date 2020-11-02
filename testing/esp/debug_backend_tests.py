@@ -425,10 +425,10 @@ class DebuggerTestAppTests(DebuggerTestsBase):
 
     def run_to_bp_and_check(self, exp_rsn, func_name, lineno_var_prefs, outmost_func_name='blink_task'):
         frames = self.run_to_bp_and_check_basic(exp_rsn, func_name)
-        if testee_info.idf_ver == IdfVersion.fromstr('latest'):
-            outmost_frame = len(frames) - 2 # -2 because our task function is called by FreeRTOS task wrapper
-        else:
+        if testee_info.idf_ver < IdfVersion.fromstr('3.3'):
             outmost_frame = len(frames) - 1
+        else:
+            outmost_frame = len(frames) - 2 # -2 because our task function is called by FreeRTOS task wrapper
         get_logger().debug('outmost_frame = %d', outmost_frame)
         # Sometimes GDB does not provide full backtrace. so check this
         # we can only check line numbers in <outmost_func_name>,
@@ -460,10 +460,10 @@ class DebuggerGenericTestAppTests(DebuggerTestAppTests):
         super(DebuggerGenericTestAppTests, self).__init__(methodName)
         self.test_app_cfg.app_name = 'gen_ut_app'
         self.test_app_cfg.bld_path = os.path.join('bootloader', 'bootloader.bin')
-        if testee_info.idf_ver < IdfVersion.fromstr('4.0'):
+        if testee_info.idf_ver < IdfVersion.fromstr('3.3'):
             self.test_app_cfg.pt_path = 'partitions_singleapp.bin'
         else:
-            # starting from IDF 4.0 test app supports cmake build system which uses another build dir structure
+            # starting from IDF 3.3 test app supports cmake build system which uses another build dir structure
             self.test_app_cfg.pt_path = os.path.join('partition_table', 'partition-table.bin')
         self.test_app_cfg.test_select_var = 's_run_test'
 
