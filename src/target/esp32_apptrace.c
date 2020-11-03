@@ -2086,12 +2086,28 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 	static struct esp32_apptrace_cmd_ctx s_at_cmd_ctx;
 	static struct esp32_apptrace_cmd_data s_cmd_data;
 	int res = ERROR_OK;
-	enum target_state old_state = target->state;
+	enum target_state old_state;
 
 	if (argc < 1) {
 		LOG_ERROR("Action missed!");
 		return ERROR_FAIL;
 	}
+
+	/* command can be invoked on unexamined core, if so find examined one */
+	if (target->smp && !target_was_examined(target)) {
+		struct target_list *head;
+		struct target *curr;
+		LOG_WARNING("Current target '%s' was not examined!", target_name(target));
+		foreach_smp_target(head, target->head) {
+			curr = head->target;
+			if (target_was_examined(curr)) {
+				target = curr;
+				LOG_WARNING("Run command to target '%s'", target_name(target));
+				break;
+			}
+		}
+	}
+	old_state = target->state;
 
 	if (strcmp(argv[0], "start") == 0) {
 		/* init cmd context */
