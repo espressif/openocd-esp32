@@ -1817,6 +1817,7 @@ int xtensa_poll(struct target *target)
 				target), xtensa->dbg_mod.core_status.dsr,
 			xtensa->dbg_mod.core_status.dsr & OCDDSR_STOPPED);
 		target->examined = false;
+		target->state = TARGET_UNKNOWN;
 	} else if (xtensa_is_stopped(target)) {
 		if (target->state != TARGET_HALTED) {
 			enum target_state oldstate = target->state;

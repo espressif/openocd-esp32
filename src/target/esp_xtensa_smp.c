@@ -316,8 +316,8 @@ static int esp_xtensa_smp_resume_cores(struct target *target, int handle_breakpo
 		curr = head->target;
 		if ((curr != target) && (curr->state != TARGET_RUNNING)
 			/* in single-core mode disabled core cannot be examined, but need to be
-			 *resumed too
-			 *&& target_was_examined(curr)*/) {
+			 *resumed too*/
+			 && target_was_examined(curr)) {
 			/*  resume current address, not in SMP mode */
 			curr->smp = 0;
 			res = esp_xtensa_smp_resume(curr, 1, 0, handle_breakpoints, debug_execution);
