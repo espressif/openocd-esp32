@@ -45,9 +45,9 @@ variables:
   # Gitlab doesn't clean submodule contents
   git submodule foreach "git clean -d -x -f" || true
   # Use local mirror for submodules
-  git config submodule.tools/git2cl.url $GITLAB_SSH_SERVER/idf/git2cl.git
-  git config submodule.jimtcl.url $GITLAB_SSH_SERVER/idf/jimtcl.git
-  git config submodule.src/jtag/drivers/libjaylink.url $GITLAB_SSH_SERVER/idf/libjaylink.git
+  git config submodule.tools/git2cl.url https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/idf/git2cl.git
+  git config submodule.jimtcl.url https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/idf/jimtcl.git
+  git config submodule.src/jtag/drivers/libjaylink.url https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/idf/libjaylink.git
   git submodule update --init
 
 .get_release_name: &get_release_name |
@@ -121,7 +121,7 @@ variables:
   mkdir -p $BUILD_TEST_APP_DIR
   cp -rv testing/esp/test_apps/gen_ut_app $BUILD_TEST_APP_DIR/
   pushd $BUILD_TEST_APP_DIR
-  git clone $GITLAB_SSH_SERVER/idf/esp-idf.git
+  git clone https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git
   pushd esp-idf
   git checkout $TEST_APP_IDF_TAG || true
   tools/ci/mirror-submodule-update.sh
@@ -226,7 +226,7 @@ variables:
   tar -C ${TEST_RUN_DIR} -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
   export DIST_DIR=${PWD}/${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}
   pushd $PWD/testing/esp
-  git clone $GITLAB_SSH_SERVER/espressif/py_debug_backend.git
+  git clone https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/py_debug_backend.git
   pushd py_debug_backend
   git checkout $CUSTOM_DEBUG_BACKEND_TAG || git checkout $CI_COMMIT_REF_NAME || echo "using default branch"
   popd

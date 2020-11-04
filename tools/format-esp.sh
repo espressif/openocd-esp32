@@ -2,6 +2,7 @@
 # Run the beautifier "Uncrustify" on Espressif source files.
 
 ./tools/uncrustify1.sh src/jtag/drivers/jtag_esp_remote.c
+./tools/uncrustify1.sh src/jtag/drivers/esp_usb_jtag.c
 ./tools/uncrustify1.sh src/target/esp_xtensa_apptrace.c
 ./tools/uncrustify1.sh src/target/esp_xtensa.h
 ./tools/uncrustify1.sh src/target/xtensa.c

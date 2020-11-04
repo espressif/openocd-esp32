@@ -16,6 +16,7 @@ noinst_LTLIBRARIES += %D%/librtos.la
 	%D%/chromium-ec.c \
 	%D%/embKernel.c \
 	%D%/mqx.c \
+	%D%/riscv_debug.c \
 	%D%/uCOS-III.c \
 	%D%/nuttx.c \
 	%D%/hwthread.c \
@@ -28,7 +29,8 @@ noinst_LTLIBRARIES += %D%/librtos.la
 	%D%/rtos_embkernel_stackings.h \
 	%D%/rtos_mqx_stackings.h \
 	%D%/rtos_ucos_iii_stackings.h \
-	%D%/nuttx_header.h
+	%D%/nuttx_header.h \
+	%D%/riscv_debug.h
 
 %C%_librtos_la_CFLAGS = $(AM_CFLAGS)
 

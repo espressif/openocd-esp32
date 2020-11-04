@@ -810,7 +810,7 @@ static int target_soft_reset_halt(struct target *target)
 int target_run_algorithm(struct target *target,
 		int num_mem_params, struct mem_param *mem_params,
 		int num_reg_params, struct reg_param *reg_param,
-		uint32_t entry_point, uint32_t exit_point,
+		target_addr_t entry_point, target_addr_t exit_point,
 		int timeout_ms, void *arch_info)
 {
 	int retval = ERROR_FAIL;
@@ -1301,6 +1301,13 @@ unsigned target_address_bits(struct target *target)
 {
 	if (target->type->address_bits)
 		return target->type->address_bits(target);
+	return 32;
+}
+
+unsigned target_data_bits(struct target *target)
+{
+	if (target->type->data_bits)
+		return target->type->data_bits(target);
 	return 32;
 }
 
@@ -2252,9 +2259,11 @@ static int target_write_buffer_default(struct target *target,
 {
 	uint32_t size;
 
-	/* Align up to maximum 4 bytes. The loop condition makes sure the next pass
+	/* Align up to maximum bytes. The loop condition makes sure the next pass
 	 * will have something to do with the size we leave to it. */
-	for (size = 1; size < 4 && count >= size * 2 + (address & size); size *= 2) {
+	for (size = 1;
+			size < target_data_bits(target) / 8 && count >= size * 2 + (address & size);
+			size *= 2) {
 		if (address & size) {
 			int retval = target_write_memory(target, address, size, 1, buffer);
 			if (retval != ERROR_OK)
@@ -2313,9 +2322,11 @@ static int target_read_buffer_default(struct target *target, target_addr_t addre
 {
 	uint32_t size;
 
-	/* Align up to maximum 4 bytes. The loop condition makes sure the next pass
+	/* Align up to maximum bytes. The loop condition makes sure the next pass
 	 * will have something to do with the size we leave to it. */
-	for (size = 1; size < 4 && count >= size * 2 + (address & size); size *= 2) {
+	for (size = 1;
+			size < target_data_bits(target) / 8 && count >= size * 2 + (address & size);
+			size *= 2) {
 		if (address & size) {
 			int retval = target_read_memory(target, address, size, 1, buffer);
 			if (retval != ERROR_OK)
@@ -2899,6 +2910,7 @@ COMMAND_HANDLER(handle_reg_command)
 	struct reg *reg = NULL;
 	unsigned count = 0;
 	char *value;
+	int retval;
 
 	LOG_DEBUG("-");
 
@@ -2920,21 +2932,23 @@ COMMAND_HANDLER(handle_reg_command)
 				if (reg->exist == false)
 					continue;
 				/* only print cached values if they are valid */
-				if (reg->valid) {
-					value = buf_to_str(reg->value,
-							reg->size, 16);
-					command_print(CMD,
-							"(%i) %s (/%" PRIu32 "): 0x%s%s",
-							count, reg->name,
-							reg->size, value,
-							reg->dirty
+				if (reg->exist) {
+					if (reg->valid) {
+						value = buf_to_str(reg->value,
+								reg->size, 16);
+						command_print(CMD,
+								"(%i) %s (/%" PRIu32 "): 0x%s%s",
+								count, reg->name,
+								reg->size, value,
+								reg->dirty
 								? " (dirty)"
 								: "");
-					free(value);
-				} else {
-					command_print(CMD, "(%i) %s (/%" PRIu32 ")",
-							  count, reg->name,
-							  reg->size) ;
+						free(value);
+					} else {
+						command_print(CMD, "(%i) %s (/%" PRIu32 ")",
+								count, reg->name,
+								reg->size) ;
+					}
 				}
 			}
 			cache = cache->next;
@@ -2987,8 +3001,13 @@ COMMAND_HANDLER(handle_reg_command)
 		if ((CMD_ARGC == 2) && (strcmp(CMD_ARGV[1], "force") == 0))
 			reg->valid = 0;
 
-		if (reg->valid == 0)
-			reg->type->get(reg);
+		if (reg->valid == 0) {
+			retval = reg->type->get(reg);
+			if (retval != ERROR_OK) {
+			    LOG_DEBUG("Couldn't get register %s.", reg->name);
+			    return retval;
+			}
+		}
 		value = buf_to_str(reg->value, reg->size, 16);
 		command_print(CMD, "%s (/%i): 0x%s", reg->name, (int)(reg->size), value);
 		free(value);
@@ -3002,7 +3021,12 @@ COMMAND_HANDLER(handle_reg_command)
 			return ERROR_FAIL;
 		str_to_buf(CMD_ARGV[1], strlen(CMD_ARGV[1]), buf, reg->size, 0);
 
-		reg->type->set(reg, buf);
+		retval = reg->type->set(reg, buf);
+		if (retval != ERROR_OK) {
+			LOG_DEBUG("Couldn't set register %s.", reg->name);
+			free(buf);
+			return retval;
+		}
 
 		value = buf_to_str(reg->value, reg->size, 16);
 		command_print(CMD, "%s (/%i): 0x%s", reg->name, (int)(reg->size), value);
@@ -5756,6 +5780,7 @@ static int jim_target_smp(Jim_Interp *interp, int argc, Jim_Obj *const *argv)
 	int i;
 	const char *targetname;
 	int retval, len;
+	static int smp_group = 1;
 	struct target *target = (struct target *) NULL;
 	struct target_list *head, *curr, *new;
 	curr = (struct target_list *) NULL;
@@ -5791,10 +5816,11 @@ static int jim_target_smp(Jim_Interp *interp, int argc, Jim_Obj *const *argv)
 
 	while (curr != (struct target_list *)NULL) {
 		target = curr->target;
-		target->smp = 1;
+		target->smp = smp_group;
 		target->head = head;
 		curr = curr->next;
 	}
+	smp_group++;
 
 	if (target && target->rtos)
 		retval = rtos_smp_init(head->target);
