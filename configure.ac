@@ -44,6 +44,7 @@ AC_TYPE_LONG_LONG_INT
 
 AC_SEARCH_LIBS([ioperm], [ioperm])
 AC_SEARCH_LIBS([dlopen], [dl])
+AC_SEARCH_LIBS([openpty], [util])
 
 AC_SEARCH_LIBS([deflate], [z], [], [
   AC_MSG_ERROR([libz library was not found])])
