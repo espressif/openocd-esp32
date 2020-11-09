@@ -107,7 +107,8 @@ class DebuggerTestAppConfig:
         Application binaries (elf and bin) are implied to be located in $test_apps_dir/$app_name/$bin_dir
     """
 
-    def __init__(self, bin_dir='', build_dir='', src_dir='', app_name='', app_off=ESP32_APP_FLASH_OFF):
+    def __init__(self, bin_dir='', build_dir='', src_dir='', app_name='',
+            app_off=ESP32_APP_FLASH_OFF, entry_point='app_main'):
         # Base path for app binaries, relative $test_apps_dir/$app_name
         self.bin_dir = bin_dir
         # Base path for app object files, relative $test_apps_dir/$app_name
@@ -126,6 +127,8 @@ class DebuggerTestAppConfig:
         self.pt_off = ESP32_PT_FLASH_OFF
         # name of test app variable which selects sub-test to run
         self.test_select_var = None
+        # Program's entry point ("app_main" is IDF's default)
+        self.entry_point = entry_point
 
     def __repr__(self):
         return '%s/%x-%s/%x-%s/%x-%s' % (self.bin_dir, self.app_off, self.app_name, self.bld_off, self.bld_path, self.pt_off, self.pt_path)
@@ -363,7 +366,7 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         # TODO: chip dependent
         self.oocd.set_appimage_offset(app_flash_off)
         self.gdb.connect()
-        bp = self.gdb.add_bp('app_main')
+        bp = self.gdb.add_bp(self.test_app_cfg.entry_point)
         self.resume_exec()
         rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
         # workarounds for strange debugger's behaviour
@@ -374,7 +377,7 @@ class DebuggerTestAppTests(DebuggerTestsBase):
             rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
         self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
         frame = self.gdb.get_current_frame()
-        self.assertEqual(frame['func'], 'app_main')
+        self.assertEqual(frame['func'], self.test_app_cfg.entry_point)
         self.gdb.delete_bp(bp)
 
 
