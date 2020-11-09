@@ -2923,6 +2923,30 @@ static int read_memory(struct target *target, target_addr_t address,
 			return read_memory_bus_v0(target, address, size, count, buffer);
 		else if (get_field(info->sbcs, DMI_SBCS_SBVERSION) == 1)
 			return read_memory_bus_v1(target, address, size, count, buffer);
+	} else if (get_field(info->sbcs, DMI_SBCS_SBACCESS32)) {
+		/* emulate using 32-bit access */
+		if (size < 4) {
+			LOG_DEBUG("Use 32-bit access: size: %d\tcount:%d\tstart address: 0x%08"
+					TARGET_PRIxADDR, size, count, address);
+			/* emulate 8- and 16-bit reads */
+			int ret = ERROR_FAIL;
+			target_addr_t al_addr = address & ~0x3;
+			uint32_t al_cnt = 4*((count*size)/4 + 1);
+			uint8_t *al_buf = malloc(al_cnt);
+			assert(al_buf != NULL);
+			if (get_field(info->sbcs, DMI_SBCS_SBVERSION) == 0)
+				ret = read_memory_bus_v0(target, al_addr, 4, al_cnt/4, al_buf);
+			else if (get_field(info->sbcs, DMI_SBCS_SBVERSION) == 1)
+				ret = read_memory_bus_v1(target, al_addr, 4, al_cnt/4, al_buf);
+			if (ret == ERROR_OK) {
+				memcpy(buffer, &al_buf[address & 0x3], size*count);
+				free(al_buf);
+				return ERROR_OK;
+			}
+			free(al_buf);
+		} else {
+			/* TODO: emulate 64- and 128-bit reads */
+		}
 	}
 
 	if (info->progbufsize >= 2)
