@@ -129,6 +129,10 @@ class DebuggerTestAppConfig:
         self.test_select_var = None
         # Program's entry point ("app_main" is IDF's default)
         self.entry_point = entry_point
+        # File containing commands to execute at startup
+        self.startup_script = ''
+        # Execute the script only.
+        self.only_startup = True
 
     def __repr__(self):
         return '%s/%x-%s/%x-%s/%x-%s' % (self.bin_dir, self.app_off, self.app_name, self.bld_off, self.bld_path, self.pt_off, self.pt_path)
@@ -154,6 +158,8 @@ class DebuggerTestAppConfig:
     def build_app_elf_path(self):
         return os.path.join(self.build_bins_dir(), '%s.elf' % self.app_name)
 
+    def startup_script_path(self):
+        return os.path.join(self.build_bins_dir(), '%s' % self.startup_script)
 
 class DebuggerTestsBunch(unittest.BaseTestSuite):
     """ Custom suite which supports groupping tests by target app and
@@ -216,6 +222,11 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
                             result.addError(test, sys.exc_info())
                         continue
                 self.gdb.exec_file_set(self._groupped_suites[app_cfg_id][0].build_app_elf_path())
+
+                if self._groupped_suites[app_cfg_id][0].startup_script != '':
+                    self.gdb.set_prog_startup_script(self._groupped_suites[app_cfg_id][0].startup_script_path())
+                    self.gdb.exec_run(only_startup=self._groupped_suites[app_cfg_id][0].only_startup)
+
             self._groupped_suites[app_cfg_id][1]._run_tests(result, debug)
         return result
 
