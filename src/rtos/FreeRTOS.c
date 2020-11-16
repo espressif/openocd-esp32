@@ -920,7 +920,7 @@ static int FreeRTOS_get_thread_reg(struct rtos *rtos, int64_t thread_id,
 	}
 	for (int i = 0; i < num_regs; ++i) {
 		if (reg_list[i].number == (uint32_t)reg_num) {
-			memcpy(reg, &reg_list[reg_num], sizeof(*reg));
+			memcpy(reg, &reg_list[i], sizeof(*reg));
 			free(reg_list);
 			return ERROR_OK;
 		}
