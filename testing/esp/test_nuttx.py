@@ -73,6 +73,7 @@ class NuttxAppTests(DebuggerTestAppTests):
         self.test_app_cfg.pt_path = 'partition-table.bin'
         self.test_app_cfg.startup_script = 'gdbstartup'
 
+@run_with_version('other')
 class NuttxAppTestsSingle(NuttxAppTests, DebuggerNuttxTestsImpl):
     """ Test cases in single core mode
     """

@@ -624,7 +624,7 @@ test_nuttx_esp32:
     NUTTX_APP_NAME: "nuttx_openocd"
     CHIP_NAME: "esp32"
     OOCD_CMDS: "set ESP_RTOS NuttX,set ESP32_ONLYCPU 1"
-    TEST_RUN_EXTRA_OPTS: "-b esp32-wrover-kit-3.3v -p test_nuttx"
+    TEST_RUN_EXTRA_OPTS: "-i other -b esp32-wrover-kit-3.3v -p test_nuttx"
   needs:
     - job: build_linux_armel
       artifacts: true
