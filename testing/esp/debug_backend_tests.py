@@ -32,6 +32,7 @@ class IdfVersion:
         Keeps IDF ver as 4 bytes int. Format is: x.3.0.2, the most significant byte is not used.
     """
     IDF_VER_LATEST = 0xFFFFFFFF
+    IDF_VER_OTHER  = 0xEFFFFFFF
 
     def __init__(self, ver_num=IDF_VER_LATEST):
         self._idf_ver = ver_num
@@ -40,6 +41,9 @@ class IdfVersion:
     def fromstr(ver_str):
         if ver_str == 'latest':
             return IdfVersion()
+        if ver_str == 'other':
+            return IdfVersion(IdfVersion.IDF_VER_OTHER)
+
         vers = ver_str.split('.')
         # 3 -> 3.0.0
         # 3.1 -> 3.1.0
@@ -84,6 +88,8 @@ testee_info = TesteeInfo()
 def idf_ver_min(ver_str):
     return unittest.skipIf(testee_info.idf_ver < IdfVersion.fromstr(ver_str), "requires min IDF_VER='%s', current IDF_VER='%s'" % (ver_str, testee_info.idf_ver))
 
+def run_with_version(ver_str):
+    return unittest.skipIf(testee_info.idf_ver != IdfVersion.fromstr(ver_str), "Not Applicable to this version")
 
 def skip_for_hw_id(hw_ids_to_skip):
     skip = False
