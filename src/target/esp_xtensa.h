@@ -134,6 +134,23 @@ int esp_xtensa_poll(struct target *target);
 int esp_xtensa_handle_target_event(struct target *target, enum target_event event,
 	void *priv);
 
+static inline int esp_xtensa_set_peri_reg_mask(struct target *target,
+	target_addr_t addr,
+	uint32_t mask,
+	uint32_t val)
+{
+	uint32_t reg_val;
+	int res = target_read_u32(target, addr, &reg_val);
+	if (res != ERROR_OK)
+		return res;
+	reg_val = (reg_val & (~mask)) | val;
+	res = target_write_u32(target, addr, reg_val);
+	if (res != ERROR_OK)
+		return res;
+
+	return ERROR_OK;
+}
+
 COMMAND_HELPER(esp_xtensa_cmd_semihost_basedir_do, struct esp_xtensa_common *esp_xtensa);
 
 extern const struct command_registration esp_command_handlers[];
