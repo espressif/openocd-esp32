@@ -715,7 +715,7 @@ int xtensa_wakeup(struct target *target)
 	return jtag_execute_queue();
 }
 
-static int xtensa_smpbreak_write(struct xtensa *xtensa, uint32_t set)
+int xtensa_smpbreak_write(struct xtensa *xtensa, uint32_t set)
 {
 	int res = ERROR_OK;
 	uint32_t dsr_data = 0x00110000;
@@ -723,7 +723,7 @@ static int xtensa_smpbreak_write(struct xtensa *xtensa, uint32_t set)
 		(OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN|OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN|
 		OCDDCR_ENABLEOCD);
 
-	LOG_DEBUG("%s: write smpbreak=0x%x", target_name(xtensa->target), set);
+	LOG_DEBUG("%s: write smpbreak set=0x%x clear=0x%x", target_name(xtensa->target), set, clear);
 	xtensa_queue_dbg_reg_write(xtensa, NARADR_DCRSET, set|OCDDCR_ENABLEOCD);
 	xtensa_queue_dbg_reg_write(xtensa, NARADR_DCRCLR, clear);
 	xtensa_queue_dbg_reg_write(xtensa, NARADR_DSR, dsr_data);
@@ -809,9 +809,9 @@ int xtensa_core_status_check(struct target *target)
 	if (needclear) {
 		res = xtensa_dm_core_status_clear(&xtensa->dbg_mod,
 			OCDDSR_EXECEXCEPTION|OCDDSR_EXECOVERRUN);
-		if (res != ERROR_OK)
+		if (res != ERROR_OK && !xtensa->suppress_dsr_errors)
 			LOG_ERROR("%s: clearing DSR failed!", target_name(target));
-		return ERROR_FAIL;
+		return xtensa->suppress_dsr_errors ? ERROR_OK : ERROR_FAIL;
 	}
 	return ERROR_OK;
 }

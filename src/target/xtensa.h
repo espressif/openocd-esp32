@@ -406,6 +406,7 @@ int xtensa_examine(struct target *target);
 int xtensa_wakeup(struct target *target);
 int xtensa_smpbreak_set(struct target *target, uint32_t set);
 int xtensa_smpbreak_get(struct target *target, uint32_t *val);
+int xtensa_smpbreak_write(struct xtensa *xtensa, uint32_t set);
 xtensa_reg_val_t xtensa_reg_get(struct target *target, enum xtensa_reg_id reg_id);
 void xtensa_reg_set(struct target *target, enum xtensa_reg_id reg_id, xtensa_reg_val_t value);
 int xtensa_fetch_all_regs(struct target *target);
