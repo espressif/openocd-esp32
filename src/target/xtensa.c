@@ -2737,8 +2737,8 @@ COMMAND_HELPER(xtensa_cmd_smpbreak_do, struct target *target)
 
 COMMAND_HANDLER(xtensa_cmd_smpbreak)
 {
-	return CALL_COMMAND_HANDLER(xtensa_cmd_mask_interrupts_do,
-		target_to_xtensa(get_current_target(CMD_CTX)));
+	return CALL_COMMAND_HANDLER(xtensa_cmd_smpbreak_do,
+		get_current_target(CMD_CTX));
 }
 
 COMMAND_HELPER(xtensa_cmd_tracestart_do, struct xtensa *xtensa)
