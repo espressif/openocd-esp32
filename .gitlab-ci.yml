@@ -292,9 +292,13 @@ build_linux:
     - *add_gitlab_key
     - *submodules_mirror_update
     - ./bootstrap
-    - ./configure --prefix=$PWD/$DIST_INSTALLED_DIR $OPENOCD_CONFIGURE_OPTS
+    - mkdir _build
+    - pushd _build/
+    - ../configure --prefix=$PWD/../$DIST_INSTALLED_DIR $OPENOCD_CONFIGURE_OPTS
     - make
+    - src/openocd --version 2>&1 | { ! grep 'dirty'; }
     - MAKEFLAGS= make install-strip
+    - popd
     - *dist_archive
 
 build_linux_armel:
@@ -314,9 +318,12 @@ build_linux_armel:
     - *add_gitlab_key
     - *submodules_mirror_update
     - ./bootstrap
-    - ./configure --prefix=$PWD/$DIST_INSTALLED_DIR --host=${CONF_HOST}  $OPENOCD_CONFIGURE_OPTS
+    - mkdir _build
+    - pushd _build/
+    - ../configure --prefix=$PWD/../$DIST_INSTALLED_DIR --host=${CONF_HOST}  $OPENOCD_CONFIGURE_OPTS
     - make
     - MAKEFLAGS= make install-strip
+    - popd
     - *dist_archive
 
 build_windows:
@@ -351,9 +358,12 @@ build_windows:
     # Build OpenOCD
     - git submodule update --init
     - ./bootstrap
-    - ./configure --prefix=$PWD/$DIST_INSTALLED_DIR --host=${CONF_HOST} $OPENOCD_CONFIGURE_OPTS
+    - mkdir _build
+    - pushd _build/
+    - ../configure --prefix=$PWD/../$DIST_INSTALLED_DIR --host=${CONF_HOST} $OPENOCD_CONFIGURE_OPTS
     - make
     - MAKEFLAGS= make install-strip
+    - popd
     - cp /usr/${CONF_HOST}/lib/libwinpthread-1.dll $DIST_INSTALLED_DIR/bin/
     - *dist_archive
 
@@ -387,8 +397,8 @@ build_macos:
     - make
     - make install
     - popd
-
     # Cross-compile libusb-1.0 for OSX
+
     - export LIBUSB_VER=libusb-1.0.21
     - wget https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
     - tar xzf $LIBUSB_VER.tar.gz && rm $LIBUSB_VER.tar.gz
@@ -402,9 +412,12 @@ build_macos:
     # Finally, cross-compile OpenOCD
     - export PKG_CONFIG_PATH=$PWD/$LIBUSB_VER/dist/lib/pkgconfig
     - ./bootstrap
-    - ./configure --prefix=$PWD/$DIST_INSTALLED_DIR --host=x86_64-apple-darwin12 $OPENOCD_CONFIGURE_OPTS LDFLAGS="-Wl,-framework,CoreFoundation -Wl,-framework,IOKit" CC=x86_64-apple-darwin12-cc
+    - mkdir _build
+    - pushd _build/
+    - ../configure --prefix=$PWD/../$DIST_INSTALLED_DIR --host=x86_64-apple-darwin12 $OPENOCD_CONFIGURE_OPTS LDFLAGS="-Wl,-framework,CoreFoundation -Wl,-framework,IOKit" CC=x86_64-apple-darwin12-cc
     - make
     - MAKEFLAGS= make install-strip
+    - popd
     - *dist_archive
 
 build_test_app_esp32:
