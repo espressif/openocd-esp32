@@ -4,6 +4,7 @@
 [submodule "jimtcl"]
 	path = jimtcl
 	url = http://repo.or.cz/r/jimtcl.git
+	ignore = untracked
 [submodule "src/jtag/drivers/libjaylink"]
 	path = src/jtag/drivers/libjaylink
 	url = http://repo.or.cz/r/libjaylink.git
