@@ -714,7 +714,10 @@ int semihosting_common(struct target *target)
 							semihosting->hit_fileio = true;
 							fileio_info->identifier = "open";
 							fileio_info->param_1 = addr;
-							fileio_info->param_2 = len;
+							/* Per https://sourceware.org/gdb/current/onlinedocs/gdb/Pointer-Values.html#Pointer-Values:
+							 * The length is defined as the full string length in bytes, including the trailing null byte.
+							 */
+							fileio_info->param_2 = len + 1;
 							fileio_info->param_3 = open_modeflags[mode];
 							fileio_info->param_4 = 0644;
 						}
