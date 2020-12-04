@@ -149,8 +149,8 @@ int riscv_semihosting(struct target *target, int *retval)
 	 * operation to complete.
 	 */
 	if (semihosting->is_resumable && !semihosting->hit_fileio) {
-		/* Resume right after the EBREAK 4 bytes instruction. */
-		*retval = target_resume(target, 0, dpc+4, 0, 0);
+		/* PC has already been corrected in post_result */
+		*retval = target_resume(target, 1, 0, 0, 0);
 		if (*retval != ERROR_OK) {
 			LOG_ERROR("Failed to resume target");
 			return 0;
@@ -189,6 +189,12 @@ static int riscv_semihosting_post_result(struct target *target)
 	}
 
 	LOG_DEBUG("0x%" PRIx64, semihosting->result);
+	riscv_reg_t new_pc;
+	riscv_get_register(target, &new_pc, GDB_REGNO_DPC);
+	new_pc += 4;
+	riscv_set_register(target, GDB_REGNO_DPC, new_pc);
+	riscv_set_register(target, GDB_REGNO_PC, new_pc);
+
 	riscv_set_register(target, GDB_REGNO_A0, semihosting->result);
 	return 0;
 }
