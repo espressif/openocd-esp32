@@ -151,6 +151,7 @@ ESP32_SRC= \
 	%D%/esp32.c \
 	%D%/esp32s2.c \
 	%D%/esp32s3.c \
+	%D%/esp32c3.c \
 	%D%/esp32_apptrace.c
 
 INTEL_IA32_SRC = \

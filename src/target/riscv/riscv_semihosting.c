@@ -45,6 +45,9 @@
 #include "target/semihosting_common.h"
 #include "riscv.h"
 
+// Temporary hack
+extern int esp_riscv_semihosting(struct target *target);
+
 static int riscv_semihosting_setup(struct target *target, int enable);
 static int riscv_semihosting_post_result(struct target *target);
 
@@ -139,8 +142,12 @@ int riscv_semihosting(struct target *target, int *retval)
 				return 0;
 			}
 		} else {
-			/* Unknown operation number, not a semihosting call. */
-			return 0;
+			// Temporary hack
+			*retval = esp_riscv_semihosting(target);
+			if (*retval != ERROR_OK) {
+				/* Unknown operation number, not a semihosting call. */
+				return 0;
+			}
 		}
 	}
 

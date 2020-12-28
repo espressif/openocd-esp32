@@ -427,14 +427,9 @@ static struct target_type *get_target_type(struct target *target)
 	}
 }
 
-static int riscv_init_target(struct command_context *cmd_ctx,
-		struct target *target)
+int riscv_init_target_info(struct command_context *cmd_ctx,
+		struct target *target, riscv_info_t *info)
 {
-	LOG_DEBUG("riscv_init_target()");
-	target->arch_info = calloc(1, sizeof(riscv_info_t));
-	if (!target->arch_info)
-		return ERROR_FAIL;
-	riscv_info_t *info = (riscv_info_t *) target->arch_info;
 	riscv_info_init(target, info);
 	info->cmd_ctx = cmd_ctx;
 
@@ -456,6 +451,17 @@ static int riscv_init_target(struct command_context *cmd_ctx,
 	target->debug_reason = DBG_REASON_DBGRQ;
 
 	return ERROR_OK;
+}
+
+static int riscv_init_target(struct command_context *cmd_ctx,
+		struct target *target)
+{
+	LOG_DEBUG("riscv_init_target()");
+	target->arch_info = calloc(1, sizeof(riscv_info_t));
+	if (!target->arch_info)
+		return ERROR_FAIL;
+	riscv_info_t *info = (riscv_info_t *) target->arch_info;
+	return riscv_init_target_info(cmd_ctx, target, info);
 }
 
 static void riscv_free_registers(struct target *target)

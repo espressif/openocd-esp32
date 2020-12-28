@@ -221,6 +221,8 @@ int riscv_openocd_deassert_reset(struct target *target);
 
 /* Initializes the shared RISC-V structure. */
 void riscv_info_init(struct target *target, riscv_info_t *r);
+int riscv_init_target_info(struct command_context *cmd_ctx,
+		struct target *target, riscv_info_t *info);
 
 /* Steps the hart that's currently selected in the RTOS, or if there is no RTOS
  * then the only hart. */
