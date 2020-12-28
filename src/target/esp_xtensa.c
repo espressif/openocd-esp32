@@ -177,6 +177,7 @@ int esp_xtensa_init_arch_info(struct target *target,
 		sizeof(struct esp_xtensa_flash_breakpoint));
 	if (esp_xtensa->flash_brps == NULL)
 		return ERROR_FAIL;
+	esp_xtensa->apptrace.hw = &esp_xtensa_apptrace_hw;
 	return ERROR_OK;
 }
 

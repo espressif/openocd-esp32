@@ -748,7 +748,7 @@ static int esp_xtensa_read_xfer(struct target *target, uint32_t block_id, uint32
 	uint8_t *ptr = state->rd_buf;
 	while (ptr < state->rd_buf + len) {
 		uint32_t data_sz = 0;
-		ptr = esp_xtensa_apptrace_usr_block_get(ptr, &data_sz);
+		ptr = esp_apptrace_usr_block_get(ptr, &data_sz);
 		if (data_sz > 0)
 			memcpy(state->rw.buffer + state->rw.total_count, ptr, data_sz);
 		ptr += data_sz;

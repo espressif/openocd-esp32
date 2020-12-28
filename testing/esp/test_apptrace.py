@@ -42,7 +42,7 @@ class ApptraceTestsImpl:
         self.add_bp('raw_trace_log_done')
         trace_src = 'tcp://localhost:53535'
         reader = reader_create(trace_src, 1.0)
-            
+
         self.gdb.apptrace_start("%s" % trace_src)
         self.resume_exec()
         rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)

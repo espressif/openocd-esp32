@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Application level tracing API for Espressif Xtensa chips              *
+ *   Application level tracing API for Espressif RISCV chips               *
  *   Copyright (C) 2019 Espressif Systems Ltd.                             *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -17,43 +17,24 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
-#ifndef ESP_XTENSA_APPTRACE_H__
-#define ESP_XTENSA_APPTRACE_H__
+#ifndef ESP_RISCV_APPTRACE_H__
+#define ESP_RISCV_APPTRACE_H__
 
 #include "esp32_apptrace.h"
 
-struct esp_xtensa_apptrace_info {
-	struct esp32_apptrace_hw *hw;
+struct esp_riscv_apptrace_mem_block {
+	uint32_t start;	/* start address */
+	uint32_t sz;	/* size */
 };
 
-extern struct esp32_apptrace_hw esp_xtensa_apptrace_hw;
+struct esp_riscv_apptrace_info {
+	struct esp32_apptrace_hw *hw;
+	target_addr_t ctrl_addr;
+	struct esp_riscv_apptrace_mem_block mem_blocks[2];
+};
 
-int esp_xtensa_apptrace_data_len_read(struct target *target,
-	uint32_t *block_id,
-	uint32_t *len);
-int esp_xtensa_apptrace_data_read(struct target *target,
-	uint32_t size,
-	uint8_t *buffer,
-	uint32_t block_id,
-	bool ack);
-int esp_xtensa_apptrace_ctrl_reg_read(struct target *target,
-	uint32_t *block_id,
-	uint32_t *len,
-	bool *conn);
-int esp_xtensa_apptrace_ctrl_reg_write(struct target *target,
-	uint32_t block_id,
-	uint32_t len,
-	bool conn,
-	bool data);
-int esp_xtensa_apptrace_status_reg_write(struct target *target, uint32_t stat);
-int esp_xtensa_apptrace_status_reg_read(struct target *target, uint32_t *stat);
-uint32_t esp_xtensa_apptrace_block_max_size_get(struct target *target);
-uint32_t esp_xtensa_apptrace_usr_block_max_size_get(struct target *target);
-#define esp_xtensa_apptrace_usr_block_write(target, block_id, data, \
-		size) esp_apptrace_usr_block_write(&esp_xtensa_apptrace_hw, \
-		target,	\
-		block_id, \
-		data, \
-		size)
+int esp_riscv_apptrace_info_init(struct target *target, target_addr_t ctrl_addr);
 
-#endif	/*ESP_XTENSA_APPTRACE_H__*/
+extern struct esp32_apptrace_hw esp_riscv_apptrace_hw;
+
+#endif	/*ESP_RISCV_APPTRACE_H__*/
