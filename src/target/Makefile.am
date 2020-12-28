@@ -152,7 +152,9 @@ ESP32_SRC= \
 	%D%/esp32s2.c \
 	%D%/esp32s3.c \
 	%D%/esp32c3.c \
-	%D%/esp32_apptrace.c
+	%D%/esp_riscv_apptrace.c \
+	%D%/esp32_apptrace.c \
+	%D%/esp32_sysview.c
 
 INTEL_IA32_SRC = \
 	%D%/quark_x10xx.c \

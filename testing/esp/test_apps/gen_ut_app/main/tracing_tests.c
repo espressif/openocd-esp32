@@ -257,6 +257,7 @@ static int apptrace_writefn(void* cookie, const char* data, int size)
     if (res != ESP_OK) {
         return 0;
     }
+    /* this function may fail if host is busy and is not able to read data (flushed previously) within 1 ms  */
     esp_apptrace_flush(ESP_APPTRACE_DEST_TRAX, 1000);
     return size;
 }
@@ -276,6 +277,8 @@ static void raw_trace_log(void* arg)
     for (int i = 0; i < iter_count; ++i) {
         printf("[%d %*.s]\n", i, i * 20, "test");
     }
+    /* ensure that all data are gone to the host in case the last call to esp_apptrace_flush() from apptrace_writefn() failed */
+    esp_apptrace_flush(ESP_APPTRACE_DEST_TRAX, ESP_APPTRACE_TMO_INFINITE);
     raw_trace_log_done();
     vTaskDelete(NULL);
 }

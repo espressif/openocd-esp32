@@ -215,18 +215,86 @@
 /* | 31..XXXXXX..24 | 23 .(host_connect). 23 | 22 .(host_data). 22| 21..(block_id)..15 |
  * 14..(block_len)..0 | */
 #define XTENSA_APPTRACE_CTRL_REG        NARADR_DELAYCNT
+#define XTENSA_APPTRACE_BLOCK_ID_MSK    0x7FUL
+#define XTENSA_APPTRACE_BLOCK_ID_MAX    XTENSA_APPTRACE_BLOCK_ID_MSK
 /* if non-zero then apptrace code entered the critical section and the value is an address of the
  * critical section's exit point */
-#define XTENSA_APPTRACE_STAT_REG        NARADR_TRIGGERPC
+#define XTENSA_APPTRACE_STAT_REG                NARADR_TRIGGERPC
 
-#define XTENSA_APPTRACE_BLOCK_LEN_MSK         0x7FFFUL
-#define XTENSA_APPTRACE_BLOCK_LEN(_l_)        ((_l_) & XTENSA_APPTRACE_BLOCK_LEN_MSK)
-#define XTENSA_APPTRACE_BLOCK_LEN_GET(_v_)    ((_v_) & XTENSA_APPTRACE_BLOCK_LEN_MSK)
-#define XTENSA_APPTRACE_BLOCK_ID(_id_)        (((_id_) & XTENSA_APPTRACE_BLOCK_ID_MSK) << 15)
-#define XTENSA_APPTRACE_BLOCK_ID_GET(_v_)     (((_v_) >> 15) & XTENSA_APPTRACE_BLOCK_ID_MSK)
-#define XTENSA_APPTRACE_HOST_DATA             (1 << 22)
-#define XTENSA_APPTRACE_HOST_CONNECT          (1 << 23)
+#define XTENSA_APPTRACE_BLOCK_LEN_MSK       0x7FFFUL
+#define XTENSA_APPTRACE_BLOCK_LEN(_l_)      ((_l_) & XTENSA_APPTRACE_BLOCK_LEN_MSK)
+#define XTENSA_APPTRACE_BLOCK_LEN_GET(_v_)      ((_v_) & XTENSA_APPTRACE_BLOCK_LEN_MSK)
+#define XTENSA_APPTRACE_BLOCK_ID(_id_)      (((_id_) & XTENSA_APPTRACE_BLOCK_ID_MSK) << 15)
+#define XTENSA_APPTRACE_BLOCK_ID_GET(_v_)   (((_v_) >> 15) & XTENSA_APPTRACE_BLOCK_ID_MSK)
+#define XTENSA_APPTRACE_HOST_DATA           (1 << 22)
+#define XTENSA_APPTRACE_HOST_CONNECT        (1 << 23)
 
+static int esp_xtensa_apptrace_leave_crit_section_start(struct target *target);
+static int esp_xtensa_apptrace_leave_crit_section_stop(struct target *target);
+static int esp_xtensa_apptrace_buffs_write(struct target *target,
+	uint32_t bufs_num,
+	uint32_t buf_sz[],
+	const uint8_t *bufs[],
+	uint32_t block_id,
+	bool ack,
+	bool data);
+
+struct esp32_apptrace_hw esp_xtensa_apptrace_hw = {
+	.max_block_id = XTENSA_APPTRACE_BLOCK_ID_MAX,
+	.max_block_size_get = esp_xtensa_apptrace_block_max_size_get,
+	.status_reg_read = esp_xtensa_apptrace_status_reg_read,
+	.ctrl_reg_write = esp_xtensa_apptrace_ctrl_reg_write,
+	.ctrl_reg_read = esp_xtensa_apptrace_ctrl_reg_read,
+	.data_len_read= esp_xtensa_apptrace_data_len_read,
+	.data_read = esp_xtensa_apptrace_data_read,
+	.usr_block_max_size_get = esp_xtensa_apptrace_usr_block_max_size_get,
+	.buffs_write = esp_xtensa_apptrace_buffs_write,
+	.leave_trace_crit_section_start = esp_xtensa_apptrace_leave_crit_section_start,
+	.leave_trace_crit_section_stop = esp_xtensa_apptrace_leave_crit_section_stop,
+};
+
+
+uint32_t esp_xtensa_apptrace_block_max_size_get(struct target *target)
+{
+	struct xtensa *xtensa = target_to_xtensa(target);
+	struct xtensa_trace_status trace_status;
+	struct xtensa_trace_config trace_config;
+	uint32_t max_trace_block_sz;
+
+	int res = xtensa_dm_trace_status_read(&xtensa->dbg_mod, &trace_status);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to read TRAX status (%d)!", res);
+		return 0;
+	}
+
+	max_trace_block_sz = 1 << (((trace_status.stat >> 8) & 0x1f) - 2);
+	max_trace_block_sz *= 4;
+	res = xtensa_dm_trace_config_read(&xtensa->dbg_mod, &trace_config);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to read TRAX config (%d)!", res);
+		return 0;
+	}
+	LOG_DEBUG("ctrl=0x%x memadrstart=0x%x memadrend=0x%x traxadr=0x%x",
+		trace_config.ctrl,
+		trace_config.memaddr_start,
+		trace_config.memaddr_end,
+		trace_config.addr);
+
+	return max_trace_block_sz;
+}
+
+uint32_t esp_xtensa_apptrace_usr_block_max_size_get(struct target *target)
+{
+	return (esp_xtensa_apptrace_block_max_size_get(target) -
+		sizeof(struct esp_apptrace_host2target_hdr));
+}
+
+int esp_xtensa_apptrace_data_len_read(struct target *target,
+	uint32_t *block_id,
+	uint32_t *len)
+{
+	return esp_xtensa_apptrace_ctrl_reg_read(target, block_id, len, NULL);
+}
 
 static int esp_xtensa_apptrace_data_reverse_read(struct xtensa *xtensa,
 	uint32_t size,
@@ -394,7 +462,7 @@ int esp_xtensa_apptrace_status_reg_write(struct target *target, uint32_t stat)
 	return ERROR_OK;
 }
 
-int esp_xtensa_swdbg_activate(struct target *target, int enab)
+static int esp_xtensa_swdbg_activate(struct target *target, int enab)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
 	int res;
@@ -409,6 +477,28 @@ int esp_xtensa_swdbg_activate(struct target *target, int enab)
 		return ERROR_FAIL;
 	}
 
+	return ERROR_OK;
+}
+
+static int esp_xtensa_apptrace_leave_crit_section_start(struct target *target)
+{
+	/* TODO: not sure that we need this, but it seems that we fail to leave tracing critical
+	 *section w/o this */
+	int res = esp_xtensa_swdbg_activate(target, 1 /*enable*/);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to activate SW debug (%d)!", res);
+		return res;
+	}
+	return ERROR_OK;
+}
+
+static int esp_xtensa_apptrace_leave_crit_section_stop(struct target *target)
+{
+	int res = esp_xtensa_swdbg_activate(target, 0 /*disable*/);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to activate SW debug (%d)!", res);
+		return res;
+	}
 	return ERROR_OK;
 }
 
@@ -592,7 +682,7 @@ static int esp_xtensa_apptrace_queue_normal_write(struct xtensa *xtensa, uint32_
 	return ERROR_OK;
 }
 
-int esp_xtensa_apptrace_buffs_write(struct target *target,
+static int esp_xtensa_apptrace_buffs_write(struct target *target,
 	uint32_t bufs_num,
 	uint32_t buf_sz[],
 	const uint8_t *bufs[],
@@ -602,7 +692,7 @@ int esp_xtensa_apptrace_buffs_write(struct target *target,
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
 	int res = ERROR_OK;
-	uint32_t tmp = (1 << 24) | XTENSA_APPTRACE_HOST_CONNECT |
+	uint32_t tmp = XTENSA_APPTRACE_HOST_CONNECT |
 		(data ? XTENSA_APPTRACE_HOST_DATA : 0) | XTENSA_APPTRACE_BLOCK_ID(block_id) |
 		XTENSA_APPTRACE_BLOCK_LEN(0);
 
@@ -625,53 +715,4 @@ int esp_xtensa_apptrace_buffs_write(struct target *target,
 		return res;
 	}
 	return ERROR_OK;
-}
-
-uint8_t *esp_xtensa_apptrace_usr_block_get(uint8_t *buffer, uint32_t *size)
-{
-	struct esp_xtensa_apptrace_target2host_hdr tmp_hdr;
-	memcpy(&tmp_hdr, buffer, sizeof(tmp_hdr));
-
-	*size = tmp_hdr.gen.wr_sz;
-
-	return buffer + sizeof(struct esp_xtensa_apptrace_target2host_hdr);
-}
-
-int esp_xtensa_apptrace_usr_block_write(struct target *core_target,
-	uint32_t block_id,
-	const uint8_t *data,
-	uint32_t size)
-{
-	struct esp_xtensa_apptrace_host2target_hdr hdr = {.block_sz = size};
-	uint32_t buf_sz[2] = {sizeof(struct esp_xtensa_apptrace_host2target_hdr), size};
-	const uint8_t *bufs[2] = {(const uint8_t *)&hdr, data};
-
-	if (size > esp_xtensa_apptrace_usr_block_max_size_get(core_target)) {
-		LOG_ERROR("Too large user block %u", size);
-		return ERROR_FAIL;
-	}
-
-	return esp_xtensa_apptrace_buffs_write(core_target,
-		sizeof(buf_sz)/sizeof(buf_sz[0]),
-		buf_sz,
-		bufs,
-		block_id,
-		true /*ack target data*/,
-		true /*host data*/);
-}
-
-int esp_xtensa_sysview_cmds_queue(struct target *core_target,
-	uint8_t *cmds,
-	uint32_t cmds_num,
-	uint32_t block_id)
-{
-	for (uint32_t i = 0; i < cmds_num; i++)
-		LOG_DEBUG("SEGGER: Send command %d", cmds[i]);
-	/* write header with or without data */
-	int res = esp_xtensa_apptrace_usr_block_write(core_target, block_id, cmds, cmds_num);
-	if (res != ERROR_OK) {
-		LOG_ERROR("SEGGER: Failed to write data to (%s)!", target_name(core_target));
-		return res;
-	}
-	return res;
 }
