@@ -5249,6 +5249,7 @@ no_params:
 				e = Jim_GetOpt_String(goi, &s, NULL);
 				if (e != JIM_OK)
 					return e;
+				free(target->gdb_port_override);
 				target->gdb_port_override = strdup(s);
 			} else {
 				if (goi->argc != 0)
