@@ -2762,16 +2762,32 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 		LOG_ERROR("Failed to init cmd ctx (%d)!", res);
 		return res;
 	}
-	/* connect */
-	res = esp32_apptrace_connect_targets(&s_at_cmd_ctx, true, dump);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to connect to targets (%d)!", res);
-		esp_gcov_cmd_cleanup(&s_at_cmd_ctx);
-		return res;
-	}
-	if (dump)
+	if (dump) {
+		/* command can be invoked on unexamined core, if so find examined one */
+		if (target->smp && !target_was_examined(target)) {
+			struct target_list *head;
+			struct target *curr;
+			LOG_WARNING("Current target '%s' was not examined!", target_name(target));
+			foreach_smp_target(head, target->head) {
+				curr = head->target;
+				if (target_was_examined(curr)) {
+					target = curr;
+					LOG_WARNING("Run command on target '%s'",
+						target_name(target));
+					break;
+				}
+			}
+		}
+		old_state = target->state;
+		/* connect */
+		res = esp32_apptrace_connect_targets(&s_at_cmd_ctx, true, dump);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to connect to targets (%d)!", res);
+			esp_gcov_cmd_cleanup(&s_at_cmd_ctx);
+			return res;
+		}
 		esp_gcov_poll(target, &s_at_cmd_ctx);
-	else {
+	} else {
 		struct esp_dbg_stubs *dbg_stubs = NULL;
 		if (target->smp) {
 			struct target_list *head;
@@ -2787,6 +2803,7 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 			}
 		} else
 			dbg_stubs = &(target_to_esp_xtensa(target)->dbg_stubs);
+		old_state = target->state;
 		if (dbg_stubs->entries_count < 1 || dbg_stubs->desc.data_alloc == 0) {
 			LOG_ERROR("No dbg stubs found!");
 			return ERROR_FAIL;
@@ -2800,6 +2817,13 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 		if (func_addr == 0) {
 			LOG_ERROR("GCOV stub not found!");
 			return ERROR_FAIL;
+		}
+		/* connect */
+		res = esp32_apptrace_connect_targets(&s_at_cmd_ctx, true, dump);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to connect to targets (%d)!", res);
+			esp_gcov_cmd_cleanup(&s_at_cmd_ctx);
+			return res;
 		}
 		memset(&run, 0, sizeof(run));
 		run.stack_size      = 1024;
