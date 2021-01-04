@@ -80,7 +80,7 @@ int esp_xtensa_smp_assert_reset(struct target *target)
 	LOG_DEBUG("%s: begin", target_name(target));
 	/* in SMP mode we need to ensure that at first we reset SOC on PRO-CPU
 	   and then call xtensa_assert_reset() for all cores */
-	if (target->coreid != 0)
+	if (target->smp && target->coreid != 0)
 		return ERROR_OK;
 	/* Reset the SoC first */
     if (esp_xtensa_smp->chip_ops->reset) {
