@@ -1817,8 +1817,11 @@ int xtensa_poll(struct target *target)
 		LOG_DEBUG("%s: not powered 0x%x %d", target_name(
 				target), xtensa->dbg_mod.core_status.dsr,
 			xtensa->dbg_mod.core_status.dsr & OCDDSR_STOPPED);
-		target->examined = false;
 		target->state = TARGET_UNKNOWN;
+		if (xtensa->come_online_probes_num == 0)
+			target->examined = false;
+		else
+			xtensa->come_online_probes_num--;
 	} else if (xtensa_is_stopped(target)) {
 		if (target->state != TARGET_HALTED) {
 			enum target_state oldstate = target->state;
@@ -2468,6 +2471,7 @@ int xtensa_target_init(struct command_context *cmd_ctx, struct target *target)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
 
+	xtensa->come_online_probes_num = 3;
 	xtensa->hw_brps =
 		calloc(xtensa->core_config->debug.ibreaks_num, sizeof(struct breakpoint *));
 	if (xtensa->hw_brps == NULL) {

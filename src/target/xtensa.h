@@ -290,6 +290,10 @@ struct xtensa {
 	bool permissive_mode;	/* bypass memory checks */
 	bool suppress_dsr_errors;
 	uint32_t smp_break;
+	/* Sometimes debug module's 'powered' bit is cleared after reset, but get set after some time.
+	   This is the number of polling periods after which core is considered
+	   to be powered off (marked as unexamined) if the bit retains to be cleared (e.g. if core is disabled by SW running on target). */
+	uint8_t come_online_probes_num;
 };
 
 static inline struct xtensa *target_to_xtensa(struct target *target)
