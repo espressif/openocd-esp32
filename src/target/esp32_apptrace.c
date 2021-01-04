@@ -2700,6 +2700,21 @@ static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 			LOG_DEBUG("Ack block %d target (%s)!", ctx->last_blk_id,
 				target_name(ctx->cpus[i]));
 		}
+	} else {
+		for (int i = 0; i < ctx->cores_num; i++) {
+			int res = esp_xtensa_apptrace_ctrl_reg_write(ctx->cpus[i],
+				ctx->last_blk_id,
+				0 /*all read*/,
+				true /*host connected*/,
+				false /*host data*/);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to ack data on (%s)!",
+					target_name(ctx->cpus[i]));
+				return res;
+			}
+			LOG_DEBUG("Ack block %d target (%s)!", ctx->last_blk_id,
+				target_name(ctx->cpus[i]));
+		}
 	}
 
 	return ERROR_OK;
