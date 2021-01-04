@@ -745,7 +745,7 @@ int xtensa_smpbreak_set(struct target *target, uint32_t set)
 	return res;
 }
 
-static int xtensa_smpbreak_read(struct xtensa *xtensa, uint32_t *val)
+int xtensa_smpbreak_read(struct xtensa *xtensa, uint32_t *val)
 {
 	int res = ERROR_OK;
 	uint8_t dcr_buf[sizeof(uint32_t)];
@@ -761,7 +761,8 @@ static int xtensa_smpbreak_read(struct xtensa *xtensa, uint32_t *val)
 int xtensa_smpbreak_get(struct target *target, uint32_t *val)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
-	return xtensa_smpbreak_read(xtensa, val);
+	*val = xtensa->smp_break;
+	return ERROR_OK;
 }
 
 static inline xtensa_reg_val_t xtensa_reg_get_value(struct reg *reg)
@@ -2721,7 +2722,8 @@ COMMAND_HELPER(xtensa_cmd_smpbreak_do, struct target *target)
 		if (res != ERROR_OK)
 			command_print(CMD, "Failed to set smpbreak config %d", res);
 	} else {
-		res = xtensa_smpbreak_get(target, &val);
+		struct xtensa *xtensa = target_to_xtensa(target);
+		res = xtensa_smpbreak_read(xtensa, &val);
 		if (res == ERROR_OK) {
 			command_print(CMD, "Current bits set:%s%s%s%s",
 				(val & OCDDCR_BREAKINEN) ? " BreakIn" : "",
