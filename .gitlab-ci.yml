@@ -1,6 +1,7 @@
 stages:
   - build
   - test
+  - private_deploy
   - deploy
   - release_stage1
   - release_submit
@@ -671,3 +672,24 @@ test_nuttx_esp32:
     - popd
     - export PYTHONPATH=$PWD/${TEST_RUN_DIR}:$PWD/testing/esp/py_debug_backend
     - testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -t xtensa-${CHIP_NAME}-elf- -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log $TEST_RUN_EXTRA_OPTS -c "${OOCD_CMDS}"
+
+.use_ci_tools: &use_ci_tools |
+  curl -sSL ${CIT_LOADER_URL} -o cit_loader.sh && sh cit_loader.sh
+  source citools/import_functions
+
+upload_to_http:
+  stage: private_deploy
+  when: manual
+  allow_failure: true
+  tags: [ "deploy", "shiny" ]
+  dependencies:
+    - build_linux_armel
+  before_script:
+    - *use_ci_tools
+  script:
+    - cit_add_ssh_key "${HTTP_UPLOAD_KEY}"
+    - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_armel)
+    - pushd ${DIST_ART_DIR}
+    - scp ${ARCHIVE_NAME} ${HTTP_UPLOAD_DIR}/openocd/
+    - popd
+    - echo "Archive was published there '${HTTP_PUBLIC_DIR}/openocd/${ARCHIVE_NAME}'"
