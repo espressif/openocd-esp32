@@ -3636,7 +3636,9 @@ static bool riscv013_is_halted(struct target *target)
 		LOG_ERROR("Hart %d doesn't exist.", riscv_current_hartid(target));
 	if (get_field(dmstatus, DMI_DMSTATUS_ANYHAVERESET)) {
 		int hartid = riscv_current_hartid(target);
-		LOG_INFO("Hart %d unexpectedly reset!", hartid);
+		if (target->state != TARGET_RESET) {
+			LOG_INFO("Hart %d unexpectedly reset", hartid);
+		}
 		/* TODO: Can we make this more obvious to eg. a gdb user? */
 		uint32_t dmcontrol = DMI_DMCONTROL_DMACTIVE |
 			DMI_DMCONTROL_ACKHAVERESET;
