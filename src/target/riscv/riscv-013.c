@@ -1877,10 +1877,18 @@ static int deassert_reset(struct target *target)
 
 	/* Clear the reset, but make sure haltreq is still set */
 	uint32_t control = 0;
-	control = set_field(control, DMI_DMCONTROL_HALTREQ, target->reset_halt ? 1 : 0);
+	/* FIXME: should only set haltreq if target->reset_halt is set */
+	control = set_field(control, DMI_DMCONTROL_HALTREQ, 1);
 	control = set_field(control, DMI_DMCONTROL_DMACTIVE, 1);
 	dmi_write(target, DMI_DMCONTROL,
 			set_hartsel(control, r->current_hartid));
+
+	if (!target->reset_halt) {
+		control = set_field(0, DMI_DMCONTROL_RESUMEREQ, 1);
+		control = set_field(control, DMI_DMCONTROL_DMACTIVE, 1);
+		dmi_write(target, DMI_DMCONTROL,
+				set_hartsel(control, r->current_hartid));
+	}
 
 	uint32_t dmstatus;
 	int dmi_busy_delay = info->dmi_busy_delay;
