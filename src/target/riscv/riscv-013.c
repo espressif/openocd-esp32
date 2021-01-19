@@ -1814,6 +1814,11 @@ static int init_target(struct command_context *cmd_ctx,
 	return ERROR_OK;
 }
 
+static bool is_riscv_rtos(const struct target *target)
+{
+	return target->rtos != NULL && strcmp(target->rtos->type->name, "riscv") == 0;
+}
+
 static int assert_reset(struct target *target)
 {
 	RISCV_INFO(r);
@@ -1822,7 +1827,7 @@ static int assert_reset(struct target *target)
 
 	uint32_t control_base = set_field(0, DMI_DMCONTROL_DMACTIVE, 1);
 
-	if (target->rtos) {
+	if (is_riscv_rtos(target)) {
 		/* There's only one target, and OpenOCD thinks each hart is a thread.
 		 * We must reset them all. */
 
@@ -1883,7 +1888,7 @@ static int deassert_reset(struct target *target)
 
 	for (int i = 0; i < riscv_count_harts(target); ++i) {
 		int index = i;
-		if (target->rtos) {
+		if (is_riscv_rtos(target)) {
 			if (!riscv_hart_enabled(target, index))
 				continue;
 			dmi_write(target, DMI_DMCONTROL,
@@ -1931,7 +1936,7 @@ static int deassert_reset(struct target *target)
 					DMI_DMCONTROL_ACKHAVERESET);
 		}
 
-		if (!target->rtos)
+		if (!is_riscv_rtos(target))
 			break;
 	}
 	info->dmi_busy_delay = dmi_busy_delay;
