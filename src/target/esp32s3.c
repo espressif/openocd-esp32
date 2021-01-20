@@ -574,6 +574,10 @@ static const struct esp_xtensa_smp_chip_ops esp32s3_chip_ops = {
 	.reset = esp32s3_soc_reset
 };
 
+static const struct esp_xtensa_semihost_ops esp32s3_semihost_ops = {
+	.prepare = esp32s3_disable_wdts
+};
+
 static int esp32s3_target_create(struct target *target, Jim_Interp *interp)
 {
 	struct xtensa_debug_module_config esp32s3_dm_cfg = {
@@ -591,7 +595,7 @@ static int esp32s3_target_create(struct target *target, Jim_Interp *interp)
 	}
 
 	int ret = esp_xtensa_smp_init_arch_info(target, &esp32s3->esp_xtensa_smp, &esp32s3_xtensa_cfg,
-		&esp32s3_dm_cfg, &esp32s3_flash_brp_ops, &esp32s3_chip_ops);
+		&esp32s3_dm_cfg, &esp32s3_flash_brp_ops, &esp32s3_chip_ops, &esp32s3_semihost_ops);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to init arch info!");
 		free(esp32s3);
