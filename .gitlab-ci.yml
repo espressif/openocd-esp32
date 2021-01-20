@@ -1,8 +1,9 @@
 stages:
   - build
   - test
-  - private_deploy
   - deploy
+  - private_deploy
+  - pre_release
   - release_stage1
   - release_submit
 
@@ -680,10 +681,15 @@ test_nuttx_esp32:
 upload_to_http:
   stage: private_deploy
   when: manual
-  allow_failure: true
   tags: [ "deploy", "shiny" ]
+  only:
+    - master
+  allow_failure: true
   dependencies:
     - build_linux_armel
+  artifacts:
+    reports:
+      dotenv: build.env
   before_script:
     - *use_ci_tools
   script:
@@ -692,4 +698,21 @@ upload_to_http:
     - pushd ${DIST_ART_DIR}
     - scp ${ARCHIVE_NAME} ${HTTP_UPLOAD_DIR}/openocd/
     - popd
-    - echo "Archive was published there '${HTTP_PUBLIC_DIR}/openocd/${ARCHIVE_NAME}'"
+    - OOCD_DISTRO_URL=${HTTP_PUBLIC_DIR}/openocd/${ARCHIVE_NAME}
+    - echo "Archive was published there '${OOCD_DISTRO_URL}'"
+    - echo "NEW_OOCD_DISTRO_URL=${OOCD_DISTRO_URL}" >> build.env
+
+test_idf_examples:
+  stage: pre_release
+  when: manual
+  only:
+    - master
+  allow_failure: true
+  variables:
+    OOCD_DISTRO_URL: ${NEW_OOCD_DISTRO_URL}
+  needs:
+    - job: upload_to_http
+      artifacts: true
+  trigger:
+    project: espressif/esp-idf
+    strategy: depend
