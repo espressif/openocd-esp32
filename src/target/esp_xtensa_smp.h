@@ -61,7 +61,8 @@ int esp_xtensa_smp_init_arch_info(struct target *target,
 	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
 	const struct esp_xtensa_flash_breakpoint_ops *flash_brps_ops,
-    const struct esp_xtensa_smp_chip_ops *chip_ops);
+    const struct esp_xtensa_smp_chip_ops *chip_ops,
+	const struct esp_xtensa_semihost_ops *semihost_ops);
 int esp_xtensa_smp_run_func_image(struct target *target,
 	struct xtensa_algo_run_data *run,
 	struct xtensa_algo_image *image,

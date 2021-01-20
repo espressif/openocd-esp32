@@ -667,6 +667,10 @@ static const struct esp_xtensa_flash_breakpoint_ops esp32s2_spec_brp_ops = {
 	.breakpoint_remove = esp_xtensa_flash_breakpoint_remove
 };
 
+static const struct esp_xtensa_semihost_ops esp32s2_semihost_ops = {
+	.prepare = esp32s2_disable_wdts
+};
+
 static int esp32s2_target_create(struct target *target, Jim_Interp *interp)
 {
 	struct xtensa_debug_module_config esp32s2_dm_cfg = {
@@ -684,7 +688,7 @@ static int esp32s2_target_create(struct target *target, Jim_Interp *interp)
 	}
 
 	int ret = esp_xtensa_init_arch_info(target, &esp32->esp_xtensa, &esp32s2_xtensa_cfg,
-		&esp32s2_dm_cfg, &esp32s2_spec_brp_ops);
+		&esp32s2_dm_cfg, &esp32s2_spec_brp_ops, &esp32s2_semihost_ops);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to init arch info!");
 		free(esp32);

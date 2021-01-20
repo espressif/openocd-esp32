@@ -300,6 +300,9 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 		return 0;
 	}
 
+	if (esp_xtensa->semihost.ops && esp_xtensa->semihost.ops->prepare)
+		esp_xtensa->semihost.ops->prepare(target);
+
 	xtensa_reg_val_t a2 = xtensa_reg_get(target, XT_REG_IDX_A2);
 	xtensa_reg_val_t a3 = xtensa_reg_get(target, XT_REG_IDX_A3);
 	xtensa_reg_val_t a4 = xtensa_reg_get(target, XT_REG_IDX_A4);
