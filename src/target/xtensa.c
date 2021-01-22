@@ -2390,7 +2390,8 @@ static void xtensa_build_reg_cache(struct target *target)
 		reg_list[XT_USR_REG_START + i].exist = true;
 		reg_list[XT_USR_REG_START + i].name = xtensa->core_config->user_regs[i].name;
 		reg_list[XT_USR_REG_START + i].size = xtensa->core_config->user_regs[i].size;
-		reg_list[XT_USR_REG_START + i].value = calloc(1, reg_list[i].size/8);
+		reg_list[XT_USR_REG_START + i].value = calloc(1,
+			reg_list[XT_USR_REG_START + i].size/8);
 		reg_list[XT_USR_REG_START + i].dirty = 0;
 		reg_list[XT_USR_REG_START + i].valid = 0;
 		reg_list[XT_USR_REG_START + i].type = xtensa->core_config->user_regs[i].type;
