@@ -148,7 +148,7 @@
 #define OCDDSR_RUNSTALLSAMPLE   (1<<24)
 #define OCDDSR_BREACKOUTACKITI  (1<<25)
 #define OCDDSR_BREAKINITI       (1<<26)
-#define OCDDSR_DBGMODPOWERON    (1<<31)
+#define OCDDSR_DBGMODPOWERON    (1U<<31)
 
 #define DEBUGCAUSE_IC           (1<<0)	/*ICOUNT exception */
 #define DEBUGCAUSE_IB           (1<<1)	/*IBREAK exception */
@@ -182,7 +182,7 @@
 #define TRAXCTRL_ITATV          (1<<24)	/*replaces ATID when in integration mode: ATVALID output */
 #define TRAXCTRL_ATID_MASK      0x7F	/*ARB source ID */
 #define TRAXCTRL_ATID_SHIFT     24
-#define TRAXCTRL_ATEN           (1<<31)	/*ATB interface enable */
+#define TRAXCTRL_ATEN           (1U<<31)	/*ATB interface enable */
 
 #define TRAXSTAT_TRACT          (1<<0)	/*Trace active flag. */
 #define TRAXSTAT_TRIG           (1<<1)	/*Trace stop trigger. Clears on TREN 1->0 */
@@ -207,13 +207,14 @@
 					 * */
 #define TRAXADDR_TWRAP_SHIFT    21	/*Amount of times TADDR has overflown */
 #define TRAXADDR_TWRAP_MASK     0x3FF
-#define TRAXADDR_TWSAT          (1<<31)	/*1 if TWRAP has overflown, clear by disabling tren. */
+#define TRAXADDR_TWSAT          (1U<<31)	/*1 if TWRAP has overflown, clear by disabling tren.
+						 **/
 
 #define PCMATCHCTRL_PCML_SHIFT  0	/*Amount of lower bits to ignore in pc trigger register */
 #define PCMATCHCTRL_PCML_MASK   0x1F
-#define PCMATCHCTRL_PCMS        (1<<31)	/*PC Match Sense, 0 - match when procs PC is in-range, 1 -
-					 * match when */
-					/*out-of-range */
+#define PCMATCHCTRL_PCMS        (1U<<31)	/*PC Match Sense, 0 - match when procs PC is in-range, 1 -
+						* match when */
+/*out-of-range */
 
 #define XTENSA_MAX_PERF_COUNTERS    2
 #define XTENSA_MAX_PERF_SELECT      32

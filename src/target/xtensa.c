@@ -2083,9 +2083,9 @@ int xtensa_watchpoint_add(struct target *target, struct watchpoint *watchpoint)
 	if (watchpoint->rw == WPT_READ)
 		dbreakcval |= (1<<30);
 	if (watchpoint->rw == WPT_WRITE)
-		dbreakcval |= (1<<31);
+		dbreakcval |= (1U<<31);
 	if (watchpoint->rw == WPT_ACCESS)
-		dbreakcval |= (1<<30) + (1<<31);
+		dbreakcval |= (1<<30) + (1U<<31);
 
 	/* Write DBREAKA[slot] and DBCREAKC[slot]*/
 	xtensa_reg_set(target, XT_REG_IDX_DBREAKA0 + slot, watchpoint->address);
