@@ -319,8 +319,21 @@ static void fibonacci_calc(void* arg)
         f2_n = f2_nm1 + f2_nm2;
         f2_nm2 = f2_nm1; // n shift// calculating f2_n
         f2_nm1 = f2_n;
+    }
+}
 
-
+static void step_over_inst_changing_intlevel(void* arg)
+{
+    while(1)
+    {
+        __asm__ volatile (
+            " rsil      a2, 4\n"             // a2 = ps, ps.intlevel = 4
+            ".global _step_over_intlevel_ch\n"
+            ".type   _step_over_intlevel_ch, @function\n"
+            "_step_over_intlevel_ch:\n"
+            " wsr       a2, ps\n"           // ps = a2
+            " movi      a2, 0\n"            // a2 = 0
+        );
     }
 }
 
@@ -343,6 +356,8 @@ void app_main()
         xTaskCreate(&step_over_bp_task, "step_over_bp_task", 2048, NULL, 5, NULL);
     } else if (s_run_test == 104){
         xTaskCreate(&fibonacci_calc, "fibonacci_calc", 2048, NULL, 5, NULL);
+    } else if (s_run_test == 120){
+        xTaskCreate(&step_over_inst_changing_intlevel, "step_over_inst_changing_intlevel", 2048, NULL, 5, NULL);
     } else if (s_run_test == 200){
         xTaskCreate(&window_exception_test, "win_exc_task", 8192, NULL, 5, NULL);
     } else if (s_run_test == 201){

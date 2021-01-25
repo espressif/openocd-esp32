@@ -287,6 +287,45 @@ class StepTestsImpl():
                 self.step(insn=True)
             self.assertNotEqual(self.gdb.get_current_frame()['func'], 'xt_highint5')
 
+    def isr_masking(self, on=True):
+        if on:
+            self.gdb.monitor_run("xtensa maskisr on", 5)
+        else:
+            self.gdb.monitor_run("xtensa maskisr off", 5)
+
+    def test_step_over_intlevel_disabled_isr(self):
+        """
+            This test checks ps.intlevel value after step instruction while ISRs are masked
+            1) Select appropriate sub-test number on target.
+            2) Set breakpoint in step_over_inst_changing_intlevel function to read write ps.intlevel
+            3) Resume target and wait for brekpoint to hit.
+            4) Check that target has stopped in the right place.
+            5) Disable ISRs
+            6) Step over instruction which changes ps value
+            7) Enable ISRs
+            8) Check PS and PC has correct value
+            9) Repeat steps 3 several times
+        """
+        self.select_sub_test(120)
+        self.add_bp('_step_over_intlevel_ch')
+        for i in range(3):
+            get_logger().info('test_step_over_intlevel_disabled_isr loop ' + str(i))
+            self.resume_exec()
+            rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
+            self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
+            cur_frame = self.gdb.get_current_frame()
+            self.assertEqual(cur_frame['func'], 'step_over_inst_changing_intlevel')
+            old_pc = self.gdb.get_reg('pc')
+            old_ps = self.gdb.get_reg('ps')
+            self.isr_masking(on=True)
+            self.step(insn=True)
+            self.isr_masking(on=False)
+            new_ps = self.gdb.get_reg('ps')
+            new_pc = self.gdb.get_reg('pc')
+            self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 3))
+            get_logger().info('PS_old 0x%X', old_ps)
+            get_logger().info('PS_new 0x%X', new_ps)
+            self.assertEqual(old_ps & 0xF, new_ps & 0xF)
 
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
