@@ -65,8 +65,8 @@ implementation.
 #define ESP32_S3_TIMG0WDT_PROTECT     (ESP32_S3_TIMG0_BASE + ESP32_S3_TIMGWDT_PROTECT_OFF)
 #define ESP32_S3_TIMG1WDT_PROTECT     (ESP32_S3_TIMG1_BASE + ESP32_S3_TIMGWDT_PROTECT_OFF)
 #define ESP32_S3_RTCCNTL_BASE         0x60008000
-#define ESP32_S3_RTCWDT_CFG_OFF       0x94
-#define ESP32_S3_RTCWDT_PROTECT_OFF   0xAC
+#define ESP32_S3_RTCWDT_CFG_OFF       0x98
+#define ESP32_S3_RTCWDT_PROTECT_OFF   0xB0
 #define ESP32_S3_SWD_CONF_OFF         0xB0
 #define ESP32_S3_SWD_WPROTECT_OFF     0xB4
 #define ESP32_S3_RTCWDT_CFG           (ESP32_S3_RTCCNTL_BASE + ESP32_S3_RTCWDT_CFG_OFF)
@@ -87,7 +87,7 @@ implementation.
 #define ESP32_S3_RTC_CNTL_SW_CPU_STALL_REG (ESP32_S3_RTCCNTL_BASE + 0xB8)
 #define ESP32_S3_RTC_CNTL_SW_CPU_STALL_DEF 0x0
 
-
+/* this should map local reg IDs to GDB reg mapping as defined in xtensa-config.c 'rmap' in xtensa-overlay */
 static int esp32s3_gdb_regs_mapping[ESP32_S3_NUM_REGS] = {
 	XT_REG_IDX_PC,
 	XT_REG_IDX_AR0, XT_REG_IDX_AR1, XT_REG_IDX_AR2, XT_REG_IDX_AR3,
@@ -111,7 +111,7 @@ static int esp32s3_gdb_regs_mapping[ESP32_S3_NUM_REGS] = {
 	XT_REG_IDX_PS, XT_REG_IDX_THREADPTR, XT_REG_IDX_BR, XT_REG_IDX_SCOMPARE1,
 	XT_REG_IDX_ACCLO, XT_REG_IDX_ACCHI,
 	XT_REG_IDX_M0, XT_REG_IDX_M1, XT_REG_IDX_M2, XT_REG_IDX_M3,
-	ESP32_S3_REG_IDX_GPIOOUT, ESP32_S3_REG_IDX_SAR_BYTE,
+	ESP32_S3_REG_IDX_GPIOOUT,
 	XT_REG_IDX_F0, XT_REG_IDX_F1, XT_REG_IDX_F2, XT_REG_IDX_F3,
 	XT_REG_IDX_F4, XT_REG_IDX_F5, XT_REG_IDX_F6, XT_REG_IDX_F7,
 	XT_REG_IDX_F8, XT_REG_IDX_F9, XT_REG_IDX_F10, XT_REG_IDX_F11,
@@ -120,8 +120,11 @@ static int esp32s3_gdb_regs_mapping[ESP32_S3_NUM_REGS] = {
 	ESP32_S3_REG_IDX_ACCX_0, ESP32_S3_REG_IDX_ACCX_1,
 	ESP32_S3_REG_IDX_QACC_H_0, ESP32_S3_REG_IDX_QACC_H_1, ESP32_S3_REG_IDX_QACC_H_2, ESP32_S3_REG_IDX_QACC_H_3, ESP32_S3_REG_IDX_QACC_H_4,
 	ESP32_S3_REG_IDX_QACC_L_0, ESP32_S3_REG_IDX_QACC_L_1, ESP32_S3_REG_IDX_QACC_L_2, ESP32_S3_REG_IDX_QACC_L_3, ESP32_S3_REG_IDX_QACC_L_4,
+	ESP32_S3_REG_IDX_SAR_BYTE, ESP32_S3_REG_IDX_FFT_BIT_WIDTH,
+	ESP32_S3_REG_IDX_UA_STATE_0, ESP32_S3_REG_IDX_UA_STATE_1, ESP32_S3_REG_IDX_UA_STATE_2, ESP32_S3_REG_IDX_UA_STATE_3,
 	ESP32_S3_REG_IDX_Q0, ESP32_S3_REG_IDX_Q1, ESP32_S3_REG_IDX_Q2, ESP32_S3_REG_IDX_Q3,
-	ESP32_S3_REG_IDX_Q4, ESP32_S3_REG_IDX_Q5,
+	ESP32_S3_REG_IDX_Q4, ESP32_S3_REG_IDX_Q5, ESP32_S3_REG_IDX_Q6, ESP32_S3_REG_IDX_Q7,
+
 	XT_REG_IDX_MMID, XT_REG_IDX_IBREAKENABLE,
 	XT_REG_IDX_MEMCTL, XT_REG_IDX_ATOMCTL, XT_REG_IDX_OCD_DDR,
 	XT_REG_IDX_IBREAKA0, XT_REG_IDX_IBREAKA1, XT_REG_IDX_DBREAKA0, XT_REG_IDX_DBREAKA1,
@@ -139,27 +142,36 @@ static int esp32s3_gdb_regs_mapping[ESP32_S3_NUM_REGS] = {
 	XT_REG_IDX_MISC0, XT_REG_IDX_MISC1, XT_REG_IDX_MISC2, XT_REG_IDX_MISC3,
 };
 
+/* actually this table contains user + TIE registers
+ * TODO: for TIE registers we need to specify custom access functions instead of `xtensa_user_reg_xxx_type`*/
 static const struct xtensa_user_reg_desc esp32s3_user_regs[ESP32_S3_NUM_REGS-XT_NUM_REGS] = {
 	{ "gpio_out",   0x00, 0, 32, &xtensa_user_reg_u32_type },
-	{ "sar_byte",   0x01, 0, 32, &xtensa_user_reg_u32_type },
-	{ "accx_0",     0x02, 0, 32, &xtensa_user_reg_u32_type },
-	{ "accx_1",     0x03, 0, 32, &xtensa_user_reg_u32_type },
-	{ "qacc_h_0",   0x04, 0, 32, &xtensa_user_reg_u32_type },
-	{ "qacc_h_1",   0x05, 0, 32, &xtensa_user_reg_u32_type },
-	{ "qacc_h_2",   0x06, 0, 32, &xtensa_user_reg_u32_type },
-	{ "qacc_h_3",   0x07, 0, 32, &xtensa_user_reg_u32_type },
-	{ "qacc_h_4",   0x08, 0, 32, &xtensa_user_reg_u32_type },
-	{ "qacc_l_0",   0x09, 0, 32, &xtensa_user_reg_u32_type },
-	{ "qacc_l_1",   0x0A, 0, 32, &xtensa_user_reg_u32_type },
-	{ "qacc_l_2",   0x0B, 0, 32, &xtensa_user_reg_u32_type },
-	{ "qacc_l_3",   0x0C, 0, 32, &xtensa_user_reg_u32_type },
-	{ "qacc_l_4",   0x0D, 0, 32, &xtensa_user_reg_u32_type },
-	{ "q0",	0x0E, 0, 128, &xtensa_user_reg_u128_type },
-	{ "q1",	0x0F, 0, 128, &xtensa_user_reg_u128_type },
-	{ "q2",	0x10, 0, 128, &xtensa_user_reg_u128_type },
-	{ "q3",	0x11, 0, 128, &xtensa_user_reg_u128_type },
-	{ "q4",	0x12, 0, 128, &xtensa_user_reg_u128_type },
-	{ "q5",	0x13, 0, 128, &xtensa_user_reg_u128_type },
+	{ "accx_0",     0x01, 0, 32, &xtensa_user_reg_u32_type },
+	{ "accx_1",     0x02, 0, 32, &xtensa_user_reg_u32_type },
+	{ "qacc_h_0",   0x03, 0, 32, &xtensa_user_reg_u32_type },
+	{ "qacc_h_1",   0x04, 0, 32, &xtensa_user_reg_u32_type },
+	{ "qacc_h_2",   0x05, 0, 32, &xtensa_user_reg_u32_type },
+	{ "qacc_h_3",   0x06, 0, 32, &xtensa_user_reg_u32_type },
+	{ "qacc_h_4",   0x07, 0, 32, &xtensa_user_reg_u32_type },
+	{ "qacc_l_0",   0x08, 0, 32, &xtensa_user_reg_u32_type },
+	{ "qacc_l_1",   0x09, 0, 32, &xtensa_user_reg_u32_type },
+	{ "qacc_l_2",   0x0A, 0, 32, &xtensa_user_reg_u32_type },
+	{ "qacc_l_3",   0x0B, 0, 32, &xtensa_user_reg_u32_type },
+	{ "qacc_l_4",   0x0C, 0, 32, &xtensa_user_reg_u32_type },
+	{ "sar_byte",   0x0D, 0, 32, &xtensa_user_reg_u32_type },
+	{ "fft_bit_width",   0x0E, 0, 32, &xtensa_user_reg_u32_type },
+	{ "ua_state_0",   0x0F, 0, 32, &xtensa_user_reg_u32_type },
+	{ "ua_state_1",   0x10, 0, 32, &xtensa_user_reg_u32_type },
+	{ "ua_state_2",   0x11, 0, 32, &xtensa_user_reg_u32_type },
+	{ "ua_state_3",   0x12, 0, 32, &xtensa_user_reg_u32_type },
+	{ "q0",	0x13, 0, 128, &xtensa_user_reg_u128_type },
+	{ "q1",	0x14, 0, 128, &xtensa_user_reg_u128_type },
+	{ "q2",	0x15, 0, 128, &xtensa_user_reg_u128_type },
+	{ "q3",	0x16, 0, 128, &xtensa_user_reg_u128_type },
+	{ "q4",	0x17, 0, 128, &xtensa_user_reg_u128_type },
+	{ "q5",	0x18, 0, 128, &xtensa_user_reg_u128_type },
+	{ "q6",	0x19, 0, 128, &xtensa_user_reg_u128_type },
+	{ "q7",	0x20, 0, 128, &xtensa_user_reg_u128_type },
 };
 
 static int esp32s3_fetch_user_regs(struct target *target);
@@ -378,13 +390,13 @@ static int esp32s3_soc_reset(struct target *target)
 	*/
 	const uint8_t esp32s3_reset_stub_code[] = {
 		0x06, 0x21, 0x00, 0x00, 0x06, 0x17, 0x00, 0x00, 0x38, 0x80, 0x00, 0x60,
-		0xbc, 0x80, 0x00, 0x60, 0xc0, 0x80, 0x00, 0x60, 0x74, 0x80, 0x00, 0x60,
+		0xc0, 0x80, 0x00, 0x60, 0xc4, 0x80, 0x00, 0x60, 0x74, 0x80, 0x00, 0x60,
 		0x18, 0x32, 0x58, 0x01, 0x00, 0xa0, 0x00, 0x9c, 0x00, 0x80, 0x00, 0x60,
 		0xa1, 0x3a, 0xd8, 0x50, 0xac, 0x80, 0x00, 0x60, 0x64, 0xf0, 0x01, 0x60,
 		0x64, 0x00, 0x02, 0x60, 0x94, 0x80, 0x00, 0x60, 0x48, 0xf0, 0x01, 0x60,
 		0x48, 0x00, 0x02, 0x60, 0xb4, 0x80, 0x00, 0x60, 0x2a, 0x31, 0x1d, 0x8f,
-		0xb0, 0x80, 0x00, 0x60, 0x00, 0x00, 0xb0, 0x84, 0x18, 0x00, 0x0c, 0x60,
-		0x14, 0x00, 0x0c, 0x60, 0x14, 0x00, 0x0c, 0x60, 0x38, 0x80, 0x00, 0x60,
+		0xb0, 0x80, 0x00, 0x60, 0x00, 0x00, 0xb0, 0x84, 0x04, 0x00, 0x0c, 0x60,
+		0x00, 0x00, 0x0c, 0x60, 0x00, 0x00, 0x0c, 0x60, 0x38, 0x80, 0x00, 0x60,
 		0x00, 0x30, 0x00, 0x00, 0x50, 0x55, 0x30, 0x41, 0xe8, 0xff, 0x59, 0x04,
 		0x41, 0xe8, 0xff, 0x59, 0x04, 0x41, 0xe7, 0xff, 0x59, 0x04, 0x41, 0xe7,
 		0xff, 0x31, 0xe7, 0xff, 0x39, 0x04, 0x31, 0xe7, 0xff, 0x41, 0xe7, 0xff,
@@ -397,7 +409,7 @@ static int esp32s3_soc_reset(struct target *target)
 		0xff, 0x0c, 0x23, 0x39, 0x04, 0x41, 0xe1, 0xff, 0x0c, 0x43, 0x39, 0x04,
 		0x52, 0x64, 0x00, 0x41, 0xe0, 0xff, 0x31, 0xe0, 0xff, 0x32, 0x64, 0x00,
 		0x00, 0x70, 0x00, 0x46, 0xfe, 0xff
-};
+	};
 
 	LOG_DEBUG("Loading stub code into RTC RAM");
 	uint32_t slow_mem_save[sizeof(esp32s3_reset_stub_code) / sizeof(uint32_t)];

@@ -87,6 +87,7 @@ implementation.
 #define ESP32_RTC_CNTL_SW_CPU_STALL_DEF 0x0
 
 
+/* this should map local reg IDs to GDB reg mapping as defined in xtensa-config.c 'rmap' in xtensa-overlay */
 static const int esp32_gdb_regs_mapping[ESP32_NUM_REGS] = {
 	XT_REG_IDX_PC,
 	XT_REG_IDX_AR0, XT_REG_IDX_AR1, XT_REG_IDX_AR2, XT_REG_IDX_AR3,

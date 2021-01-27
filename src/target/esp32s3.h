@@ -30,12 +30,11 @@
 
 /*Number of registers returned directly by the G command
  *Corresponds to the amount of regs listed in regformats/reg-xtensa.dat in the gdb source */
-#define ESP32_S3_NUM_REGS_G_COMMAND   121
+#define ESP32_S3_NUM_REGS_G_COMMAND   128
 
 enum esp32s3_reg_id {
 	/* chip specific registers that extend ISA go after ISA-defined ones */
 	ESP32_S3_REG_IDX_GPIOOUT = XT_NUM_REGS,
-	ESP32_S3_REG_IDX_SAR_BYTE,
 	ESP32_S3_REG_IDX_ACCX_0,
 	ESP32_S3_REG_IDX_ACCX_1,
 	ESP32_S3_REG_IDX_QACC_H_0,
@@ -48,12 +47,20 @@ enum esp32s3_reg_id {
 	ESP32_S3_REG_IDX_QACC_L_2,
 	ESP32_S3_REG_IDX_QACC_L_3,
 	ESP32_S3_REG_IDX_QACC_L_4,
+	ESP32_S3_REG_IDX_SAR_BYTE,
+	ESP32_S3_REG_IDX_FFT_BIT_WIDTH,
+	ESP32_S3_REG_IDX_UA_STATE_0,
+	ESP32_S3_REG_IDX_UA_STATE_1,
+	ESP32_S3_REG_IDX_UA_STATE_2,
+	ESP32_S3_REG_IDX_UA_STATE_3,
 	ESP32_S3_REG_IDX_Q0,
 	ESP32_S3_REG_IDX_Q1,
 	ESP32_S3_REG_IDX_Q2,
 	ESP32_S3_REG_IDX_Q3,
 	ESP32_S3_REG_IDX_Q4,
 	ESP32_S3_REG_IDX_Q5,
+	ESP32_S3_REG_IDX_Q6,
+	ESP32_S3_REG_IDX_Q7,
 	ESP32_S3_NUM_REGS,
 };
 
