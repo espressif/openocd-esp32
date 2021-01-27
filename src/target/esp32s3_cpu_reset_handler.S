@@ -23,8 +23,8 @@
 #define RTC_CNTL_RESET_STATE_DEF            0x3000
 #define RTC_CNTL_CLK_CONF_REG               0x60008074
 #define RTC_CNTL_CLK_CONF_DEF               0x1583218
-#define RTC_CNTL_STORE4_REG                 0x600080BC
-#define RTC_CNTL_STORE5_REG                 0x600080C0
+#define RTC_CNTL_STORE4_REG                 0x600080C0
+#define RTC_CNTL_STORE5_REG                 0x600080C4
 #define WDT_WKEY_VALUE                      0x50D83AA1
 #define TIMG0_WDTWPROTECT_REG               0x6001F064
 #define TIMG0_WDTCONFIG0_REG                0x6001F048
@@ -39,10 +39,10 @@
 #define RTC_CNTL_SWD_CONF_VAL               0x84B00000
 #define RTC_CNTL_SWD_WPROTECT_REG           0x600080B4
 #define RTC_CNTL_SWD_WKEY_VALUE             0x8F1D312A
-#define SYSTEM_CORE_1_CONTROL_0_REG         0x600C0014
+#define SYSTEM_CORE_1_CONTROL_0_REG         0x600C0000
 #define SYSTEM_CONTROL_CORE_1_RESETING      0x4
 #define SYSTEM_CONTROL_CORE_1_CLKGATE_EN    0x2
-#define SYSTEM_CORE_1_CONTROL_1_REG         0x600C0018
+#define SYSTEM_CORE_1_CONTROL_1_REG         0x600C0004
 
 
 /* This stub is copied to RTC_SLOW_MEM by OpenOCD, and the CPU starts executing
