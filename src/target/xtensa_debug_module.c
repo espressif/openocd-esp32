@@ -304,7 +304,7 @@ int xtensa_dm_trace_config_read(struct xtensa_debug_module *dm, struct xtensa_tr
 
 int xtensa_dm_trace_data_read(struct xtensa_debug_module *dm, uint8_t *dest, uint32_t size)
 {
-	for (uint32_t i = 0; i < size; i++)
+	for (uint32_t i = 0; i < size/4; i++)
 		dm->dbg_ops->queue_reg_read(dm, NARADR_TRAXDATA, &dest[i*4]);
 	xtensa_dm_queue_tdi_idle(dm);
 	int res = jtag_execute_queue();
