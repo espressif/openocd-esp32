@@ -1944,10 +1944,10 @@ static int gdb_memory_map(struct connection *connection,
 	if (offset + length > pos)
 		length = pos - offset;
 
-	char *t = malloc(length + 1);
+	char *t = calloc(length + 2, sizeof(char));
 	t[0] = 'l';
 	memcpy(t + 1, xml + offset, length);
-	gdb_put_packet(connection, t, length + 1);
+	gdb_put_packet(connection, t, strlen(t));
 
 	free(t);
 	free(xml);
