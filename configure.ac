@@ -398,7 +398,7 @@ AC_ARG_ENABLE([build-gcov],
   [build_gcov=$enableval], [build_gcov=no])
 
 AC_ARG_ENABLE([remote-bitbang],
-  AS_HELP_STRING([--enable-remote-bitbang], [Enable building support for the Remote Bitbang jtag driver]),
+  AS_HELP_STRING([--enable-remote-bitbang], [Enable building support for the Remote Bitbang driver]),
   [build_remote_bitbang=$enableval], [build_remote_bitbang=no])
 
 AS_CASE(["${host_cpu}"],
@@ -616,9 +616,9 @@ AS_IF([test "x$use_internal_jimtcl" = "xyes"], [
 
 AS_IF([test "x$build_remote_bitbang" = "xyes"], [
   build_bitbang=yes
-  AC_DEFINE([BUILD_REMOTE_BITBANG], [1], [1 if you want the Remote Bitbang JTAG driver.])
+  AC_DEFINE([BUILD_REMOTE_BITBANG], [1], [1 if you want the Remote Bitbang driver.])
 ], [
-  AC_DEFINE([BUILD_REMOTE_BITBANG], [0], [0 if you don't want the Remote Bitbang JTAG driver.])
+  AC_DEFINE([BUILD_REMOTE_BITBANG], [0], [0 if you don't want the Remote Bitbang driver.])
 ])
 
 AS_IF([test "x$build_sysfsgpio" = "xyes"], [

@@ -73,7 +73,7 @@
 /* 0 if you don't want the Buspirate JTAG driver */
 #cmakedefine01 BUILD_BUSPIRATE
 
-/* 0 if you don't want the Remote Bitbang JTAG driver */
+/* 0 if you don't want the Remote Bitbang driver */
 #cmakedefine01 BUILD_REMOTE_BITBANG
 
 /* 0 if you don't want SysfsGPIO driver */
