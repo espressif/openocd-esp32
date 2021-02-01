@@ -462,9 +462,11 @@ static int esp_xtensa_apptrace_queue_reverse_write(struct xtensa *xtensa, uint32
 		}
 		/* write full dwords */
 		for (uint32_t k = bsz; k >= sizeof(uint32_t); k -= sizeof(uint32_t)) {
+			uint32_t temp = 0;
+			memcpy(&temp, cur_buf - sizeof(uint32_t), sizeof(uint32_t));
 			res =
 				xtensa_queue_dbg_reg_write(xtensa, NARADR_TRAXDATA,
-				*((uint32_t *)(void *)(cur_buf-sizeof(uint32_t))));
+				temp);
 			if (res != ERROR_OK)
 				return res;
 			cur_buf -= sizeof(uint32_t);
@@ -546,9 +548,11 @@ static int esp_xtensa_apptrace_queue_normal_write(struct xtensa *xtensa, uint32_
 		}
 		/* write full dwords */
 		for (uint32_t k = 0; (k+sizeof(uint32_t)) <= bsz; k += sizeof(uint32_t)) {
+			uint32_t temp = 0;
+			memcpy(&temp, cur_buf, sizeof(uint32_t));
 			res =
 				xtensa_queue_dbg_reg_write(xtensa, NARADR_TRAXDATA,
-				*((uint32_t *)(void *)cur_buf));
+				temp);
 			if (res != ERROR_OK)
 				return res;
 			cur_buf += sizeof(uint32_t);
