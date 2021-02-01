@@ -74,7 +74,7 @@ class DebuggerThreadsTestsImpl:
                 #print 'DebuggerThreadsTestsImpl.test_thread_switch loop [%i,%i] ' % (i,k)
                 _,threads_info = self.gdb.get_thread_info() # get info for all threads
                 get_logger().debug('Process thread  %d, k=%d', int(threads_info[k]['id'],10), k)
-                if threads_info[k]['details'].find("thread_task") == 0:
+                if threads_info[k]['details'].find("thread_task") >= 0:
                     # Get expected ID
                     expected_id = int(threads_info[k]['id'],10);
                     self.gdb.set_thread(int(threads_info[k]['id'],10))

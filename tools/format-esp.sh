@@ -39,3 +39,4 @@
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/stub_flasher_int.h
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/stub_flasher.c
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/stub_flasher.h
+./tools/uncrustify1.sh src/rtos/FreeRTOS.c
