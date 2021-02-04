@@ -208,6 +208,7 @@ variables:
       - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gen_ut_app.bin
       - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/partition_table/partition-table.bin
       - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/bootloader/bootloader.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/flasher_args.json
       # Needed to run tests
       - $BUILD_TEST_APP_DIR/gen_ut_app/main/gcov_tests.gcda.gcov
       - $BUILD_TEST_APP_DIR/gen_ut_app/main/helper_funcs.gcda.gcov
@@ -338,7 +339,7 @@ build_linux_armel:
     CONF_HOST: "arm-linux-gnueabi"
     PLATFORM_NAME: "armel"
     TEST_CFLAGS: ""
-    
+
 build_linux_armel_test:
   <<: *build_linux_armel_template
   only:
@@ -808,7 +809,7 @@ test_idf_examples:
     - *submodules_mirror_update
     - export PATH=${HOME}/.espressif/tools/xtensa-${CHIP_NAME}-elf/${ESP_TOOLCHAIN_VER}/xtensa-${CHIP_NAME}-elf/bin:${PATH}
     - source /opt/pyenv/activate && pyenv global ${TEST_IMAGE_PYTHON_VER}
-    - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1 
+    - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
     - *run_tests_linux
 
 tests_sanitizers_esp32_solo:
@@ -911,7 +912,7 @@ test_sanitizers_nuttx_esp32:
     - mkdir -p $TEST_RUN_DIR/$NUTTX_APP_NAME
     - *copy_nuttx_files
     - *run_tests_nuttx
-    
+
 .sanitizer_check_armel: &sanitizer_check_armel
   stage: sanitizer_checks
   image: $CI_DOCKER_REGISTRY/rpi-test-env

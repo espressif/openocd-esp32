@@ -28,13 +28,19 @@ class StepTestsImpl():
         self.assertEqual(old_pc, faddr)
         self.step(insn=True) # step over movi
         new_pc = self.gdb.get_reg('pc')
-        self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 3))
+        if re.match(r'esp32c3-[.]*', testee_info.hw_id):
+            self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 4))
+        else:
+            self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 3))
         old_pc = new_pc
         self.step(insn=True, stop_rsn=dbg.TARGET_STOP_REASON_BP) # step over nop
         new_pc = self.gdb.get_reg('pc')
         faddr = self.gdb.extract_exec_addr(self.gdb.data_eval_expr('&%s' % funcs[1]))
         self.assertEqual(new_pc, faddr)
-        self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 3))
+        if re.match(r'esp32c3-[.]*', testee_info.hw_id):
+            self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 4))
+        else:
+            self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 3))
 
     def test_step_over_bp(self):
         """
@@ -64,13 +70,16 @@ class StepTestsImpl():
     def do_step_over_wp_check(self, func):
         self.resume_exec()
         rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
-        self.assertEqual(rsn, dbg.TARGET_STOP_REASON_SIGTRAP)
+        self.assertTrue(rsn in [dbg.TARGET_STOP_REASON_SIGTRAP, dbg.TARGET_STOP_REASON_WP])
         cur_frame = self.gdb.get_current_frame()
         self.assertEqual(cur_frame['func'], func)
         old_pc = self.gdb.get_reg('pc')
         self.step(insn=True)
         new_pc = self.gdb.get_reg('pc')
-        self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 3))
+        if re.match(r'esp32c3-[.]*', testee_info.hw_id):
+            self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 4))
+        else:
+            self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 3))
 
     def test_step_over_wp(self):
         """
@@ -95,6 +104,7 @@ class StepTestsImpl():
             # 'count' write
             self.do_step_over_wp_check('blink_task')
 
+    @only_for_arch(['xtensa'])
     def test_step_window_exception(self):
         # start the test, stopping at the window_exception_test function
         self.select_sub_test(200)
@@ -120,6 +130,7 @@ class StepTestsImpl():
         cur_frame = self.gdb.get_current_frame()
         self.assertEqual(cur_frame['func'], 'window_exception_test')
 
+    @only_for_arch(['xtensa'])
     def test_step_over_insn_using_scratch_reg(self):
         """
             This test checks that scratch register (A3) used by OpenOCD for its internal purposes
@@ -262,6 +273,7 @@ class StepTestsImpl():
             cur_frame = self.gdb.get_current_frame()
             self.assertEqual(cur_frame['func'], 'step_out_of_function_test')
 
+    @only_for_arch(['xtensa'])
     def test_step_level5_int(self):
         """
             1) Set a breakpoint inside a level 5 interrupt vector
@@ -297,6 +309,7 @@ class StepTestsImpl():
         _, s = self.gdb.monitor_run("xtensa maskisr", 5, output_type='stdout')
         return s.strip('\\n\\n').split("mode: ", 1)[1]
 
+    @only_for_arch(['xtensa'])
     def test_step_over_intlevel_disabled_isr(self):
         """
             This test checks ps.intlevel value after step instruction while ISRs are masked

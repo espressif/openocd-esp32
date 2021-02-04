@@ -1,7 +1,10 @@
+#include "gen_ut_app.h"
+
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
+
 #include <xtensa/coreasm.h>
 #include <xtensa/corebits.h>
 #include <xtensa/config/system.h>
-#include "sdkconfig.h"
 #include "soc/soc.h"
 
     .data
@@ -33,3 +36,5 @@ xt_highint5:
 
     .global     include_xt_highint5
 include_xt_highint5:
+
+#endif

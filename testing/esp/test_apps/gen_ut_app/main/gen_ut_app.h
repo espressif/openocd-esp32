@@ -28,6 +28,13 @@
 
 #define UT_IDF_VER_LATEST           0xFFFFFFFF
 
+#if UT_IDF_VER < MAKE_UT_IDF_VER(4,3,0,0)
+/* multi-arch support appeared in 4.3, so assume Xtensa arch for earlier releases */
+#define CONFIG_IDF_TARGET_ARCH_XTENSA 1
+#endif
+
+#ifndef __ASSEMBLER__
+
 #define TEST_BREAK_LOC(_nm_)  \
     volatile static const int _nm_ ## _break_ln = __LINE__; \
     s_tmp_ln = _nm_ ## _break_ln;
@@ -52,5 +59,7 @@ void test_timer_rearm(int timer_group, int timer_idx);
    or you can edit the following line and set a number here.
 */
 #define BLINK_GPIO CONFIG_BLINK_GPIO
+
+#endif
 
 #endif //GEN_UT_APP_H
