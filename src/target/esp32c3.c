@@ -55,7 +55,7 @@ static int esp_riscv_semihosting_post_result(struct target *target)
 	struct semihosting *semihosting = target->semihosting;
 	if (!semihosting) {
 		/* If not enabled, silently ignored. */
-		return 0;
+		return ERROR_OK;
 	}
 
 	LOG_DEBUG("0x%" PRIx64, semihosting->result);
@@ -66,7 +66,7 @@ static int esp_riscv_semihosting_post_result(struct target *target)
 	riscv_set_register(target, GDB_REGNO_PC, new_pc);
 
 	riscv_set_register(target, GDB_REGNO_A0, semihosting->result);
-	return 0;
+	return ERROR_OK;
 }
 
 static int esp32c3_wdt_disable(struct target *target)
@@ -110,10 +110,13 @@ static int esp32c3_wdt_disable(struct target *target)
 int esp_riscv_semihosting(struct target *target)
 {
 	int res = ERROR_OK;
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 	struct semihosting *semihosting = target->semihosting;
 
 	LOG_DEBUG("enter");
-	esp32c3_wdt_disable(target);
+	if (esp_riscv->semi_ops && esp_riscv->semi_ops->prepare)
+		esp_riscv->semi_ops->prepare(target);
+
 	if (semihosting->op == ESP_RISCV_APPTRACE_SYSNR) {
 		res = esp_riscv_apptrace_info_init(target, semihosting->param);
 		if (res != ERROR_OK)
@@ -131,6 +134,10 @@ int esp_riscv_semihosting(struct target *target)
 	return res;
 }
 
+static const struct esp_semihost_ops esp32c3_semihost_ops = {
+	.prepare = esp32c3_wdt_disable
+};
+
 static int esp32c3_init_target(struct command_context *cmd_ctx,
 	struct target *target)
 {
@@ -139,7 +146,10 @@ static int esp32c3_init_target(struct command_context *cmd_ctx,
 	if (!esp32c3)
 		return ERROR_FAIL;
 	target->arch_info = esp32c3;
-	return esp_riscv_init_target_info(cmd_ctx, target, &esp32c3->esp_riscv);
+	return esp_riscv_init_target_info(cmd_ctx,
+		target,
+		&esp32c3->esp_riscv,
+		&esp32c3_semihost_ops);
 }
 
 static void esp32c3_deinit_target(struct target *target)
@@ -320,29 +330,6 @@ static int esp32c3_deassert_reset(struct target *target)
 	return riscv_target.deassert_reset(target);
 }
 
-static int esp32c3_check_reset(struct target *target)
-{
-	/* if (target->state != TARGET_HALTED) { */
-	/*      / * Need this to configure core to handle ebreak via debugger and handle 'apptrace */
-	/*       * init' syscall correctly. * / */
-	/*      / * We can write core debug register DCSR in HALTED state only, fortunately RISCV */
-	/*       * generic code enables ebreaks on every resume/step, * / */
-	/*      / * so we just halt and resume target * / */
-	/*      LOG_DEBUG("Halt target to enable ebreaks."); */
-	/*      int ret = target_halt(target); */
-	/*      if (ret != ERROR_OK) */
-	/*              return ret; */
-	/*      ret = target_wait_state(target, TARGET_HALTED, 500); */
-	/*      if (ret != ERROR_OK) */
-	/*              return ret; */
-	/*      ret = target_resume(target, 1, 0, 0, 0); */
-	/*      if (ret != ERROR_OK) */
-	/*              return ret; */
-	/* } */
-
-	return ERROR_OK;
-}
-
 static int esp32c3_read_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
@@ -457,7 +444,6 @@ struct target_type esp32c3_target = {
 
 	.assert_reset = esp32c3_assert_reset,
 	.deassert_reset = esp32c3_deassert_reset,
-	.check_reset = esp32c3_check_reset,
 
 	.read_memory = esp32c3_read_memory,
 	.write_memory = esp32c3_write_memory,
