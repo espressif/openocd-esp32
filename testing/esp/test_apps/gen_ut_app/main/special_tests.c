@@ -39,6 +39,7 @@ static void cache_check_task(void *pvParameter)
     }
 }
 
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
 #define SPIRAM_TEST_ARRAY_SZ    100
 
 static void psram_check_task(void *pvParameter)
@@ -72,6 +73,7 @@ static void psram_check_task(void *pvParameter)
         vTaskDelay(100 / portTICK_PERIOD_MS);           TEST_BREAK_LOC(vTaskDelay1);
     }
 }
+#endif
 
 ut_result_t special_test_do(int test_num)
 {
@@ -86,13 +88,16 @@ ut_result_t special_test_do(int test_num)
             xTaskCreatePinnedToCore(&cache_check_task, "cache_check_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
             break;
         }
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
         case 802:
         {
             xTaskCreatePinnedToCore(&psram_check_task, "psram_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
             break;
         }
+#endif
         default:
             return UT_UNSUPPORTED;
     }
     return UT_OK;
 }
+

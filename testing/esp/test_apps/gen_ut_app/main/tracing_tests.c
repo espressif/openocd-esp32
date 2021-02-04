@@ -7,7 +7,6 @@
 #include "gen_ut_app.h"
 #include "esp_app_trace.h"
 
-#define LOG_LOCAL_LEVEL CONFIG_LOG_DEFAULT_LEVEL
 #include "esp_log.h"
 const static char *TAG = "tracing_tests";
 
@@ -25,12 +24,14 @@ struct trace_test_task_arg;
 typedef void (*do_trace_test_t)(struct trace_test_task_arg* task);
 typedef int (*trace_printf_t)(const char *fmt, ...);
 typedef int (*trace_flush_t)(uint32_t tmo);
+typedef bool (*trace_is_started_t)(void);
 
 typedef struct trace_test_task_arg {
     do_trace_test_t test_func;
     TaskHandle_t    other_task;
     trace_printf_t  trace_printf;
     trace_flush_t   trace_flush;
+    trace_is_started_t trace_is_started;
 } trace_test_task_arg_t;
 
 #if CONFIG_SYSVIEW_ENABLE
@@ -49,6 +50,11 @@ static int do_trace_flush(uint32_t tmo)
 {
     return esp_sysview_flush(tmo);
 }
+
+static bool do_trace_is_started(void)
+{
+    return SEGGER_SYSVIEW_Started();
+}
 #else
 int do_trace_printf(const char *fmt, ...)
 {
@@ -58,6 +64,11 @@ int do_trace_printf(const char *fmt, ...)
 static int do_trace_flush(uint32_t tmo)
 {
     return ESP_OK;
+}
+
+static bool do_trace_is_started(void)
+{
+    return true;
 }
 #endif
 
@@ -172,6 +183,9 @@ static __attribute__((noinline)) void trace_test_log_continuous_main(trace_test_
 #if !CONFIG_FREERTOS_UNICORE
     xTaskNotify(arg->other_task, 0, eNoAction);
 #endif
+    while(!arg->trace_is_started()) {
+        vTaskDelay(1);
+    }
 
     do_trace_test_log_continuous(num, arg->trace_printf);
     num += 10;
@@ -291,14 +305,14 @@ static void raw_trace_log_periodic(void* arg)
     setvbuf(stdout, stdout_buf, _IOLBF, sizeof(stdout_buf));
 
     while (!esp_apptrace_host_is_connected(ESP_APPTRACE_DEST_TRAX))
-        vTaskDelay(1);  
+        vTaskDelay(1);
 
     int cnt = 0;
     while (1) {
         printf("apptrace test line#%d\n", cnt++);
-        vTaskDelay(delay / portTICK_PERIOD_MS);  
+        vTaskDelay(delay / portTICK_PERIOD_MS);
     }
-    
+
 }
 #endif // CONFIG_APPTRACE_ENABLE
 
@@ -317,11 +331,13 @@ ut_result_t tracing_test_do(int test_num)
             task_args[0].test_func = (do_trace_test_t)trace_test_heap_log_main;
             task_args[0].trace_printf = do_trace_printf;
             task_args[0].trace_flush = do_trace_flush;
+            task_args[0].trace_is_started = do_trace_is_started;
             xTaskCreatePinnedToCore(trace_test_task, "trace_task0", 2048, (void *)&task_args[0], 5, &task_args[1].other_task, 0);
 #if !CONFIG_FREERTOS_UNICORE
             task_args[1].test_func = (do_trace_test_t)trace_test_heap_log_slave;
             task_args[1].trace_printf = do_trace_printf;
             task_args[1].trace_flush = do_trace_flush;
+            task_args[1].trace_is_started = do_trace_is_started;
             xTaskCreatePinnedToCore(trace_test_task, "trace_task1", 2048, (void *)&task_args[1], 5, &task_args[0].other_task, 1);
 #endif
             break;
@@ -332,11 +348,13 @@ ut_result_t tracing_test_do(int test_num)
             task_args[0].test_func = (do_trace_test_t)trace_test_log_continuous_main;
             task_args[0].trace_printf = do_trace_printf;
             task_args[0].trace_flush = do_trace_flush;
+            task_args[0].trace_is_started = do_trace_is_started;
             xTaskCreatePinnedToCore(trace_test_task, "trace_task0", 2048, (void *)&task_args[0], 5, &task_args[1].other_task, 0);
 #if !CONFIG_FREERTOS_UNICORE
             task_args[1].test_func = (do_trace_test_t)trace_test_log_continuous_slave;
             task_args[1].trace_printf = do_trace_printf;
             task_args[1].trace_flush = do_trace_flush;
+            task_args[1].trace_is_started = do_trace_is_started;
             xTaskCreatePinnedToCore(trace_test_task, "trace_task1", 2048, (void *)&task_args[1], 5, &task_args[0].other_task, 1);
 #endif
             break;
@@ -345,8 +363,8 @@ ut_result_t tracing_test_do(int test_num)
         case 502:
         {
             static struct os_trace_task_arg task_args[2] = {
-                { .tim_grp = TIMER_GROUP_1, .tim_id = TIMER_0, .tim_period = 300000UL /*us*/, .task_period = 500 /*ms*/},
-                { .tim_grp = TIMER_GROUP_1, .tim_id = TIMER_1, .tim_period = 500000UL /*us*/, .task_period = 2000 /*ms*/}
+                { .tim_grp = TIMER_GROUP_0, .tim_id = TIMER_0, .tim_period = 300000UL /*us*/, .task_period = 500 /*ms*/},
+                { .tim_grp = TIMER_GROUP_1, .tim_id = TIMER_0, .tim_period = 500000UL /*us*/, .task_period = 2000 /*ms*/}
             };
             xTaskCreatePinnedToCore(os_trace_test_task, "trace_task0", 2048, (void *)&task_args[0], 5, NULL, 0);
 #if !CONFIG_FREERTOS_UNICORE

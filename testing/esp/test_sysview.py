@@ -314,6 +314,9 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
             trace_src.append(self.trace_ctrl[1]['src'])
         self._do_test_log_continuous(trace_src)
 
+    # this test fails because `__builtin_return_address` returns zeroes for non-zero frames numbers
+    # TODO: remove this
+    @skip_for_chip(['esp32c3'])
     @idf_ver_min('latest')
     def test_heap_log_from_file(self):
         trace_src = [self.trace_ctrl[0]['src']]
@@ -335,18 +338,18 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
         trace_tasks = ['trace_task0']
         if self.test_tasks_num > 1:
             trace_tasks.append('trace_task1')
-        trace_irqs = ['SysTick', 'TG1_T0_LEVEL']
+        trace_irqs = ['SysTick', 'TG0_T0_LEVEL']
         if self.test_tasks_num > 1:
-            trace_irqs.append('TG1_T1_LEVEL')
+            trace_irqs.append('TG1_T0_LEVEL')
         task_ref_data = {}
         task_ref_data['trace_task0'] = {'freq': 1.0/0.5, 'core': 0}
         if self.test_tasks_num > 1:
             task_ref_data['trace_task1'] = {'freq': 1.0/2.0, 'core': 1}
         irq_ref_data = {}
         irq_ref_data['SysTick'] = {'freq': 100.0, 'core': -1}
-        irq_ref_data['TG1_T0_LEVEL'] = {'freq': 1.0/0.3, 'core': 0}
+        irq_ref_data['TG0_T0_LEVEL'] = {'freq': 1.0/0.3, 'core': 0}
         if self.test_tasks_num > 1:
-            irq_ref_data['TG1_T1_LEVEL'] = {'freq': 1.0/0.5, 'core': 1}
+            irq_ref_data['TG1_T0_LEVEL'] = {'freq': 1.0/0.5, 'core': 1}
 
         self.select_sub_test(502)
         self.resume_exec()
@@ -490,6 +493,9 @@ class SysViewMcoreTracingTestsImpl(BaseTracingTestsImpl):
         trace_src = [self.trace_ctrl['src']]
         self._do_test_log_continuous(trace_src)
 
+    # this test fails because `__builtin_return_address` returns zeroes for non-zero frames numbers
+    # TODO: remove this
+    @skip_for_chip(['esp32c3'])
     @idf_ver_min('latest')
     def test_heap_log_from_file(self):
         trace_src = [self.trace_ctrl['src']]

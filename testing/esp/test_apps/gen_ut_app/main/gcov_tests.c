@@ -6,8 +6,6 @@
 #include "gen_ut_app.h"
 #include "esp_app_trace.h"
 
-#define BLINK_GPIO CONFIG_BLINK_GPIO
-
 #if CONFIG_ESP32_GCOV_ENABLE
 
 void gcov_dummy_func(void);

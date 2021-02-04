@@ -57,7 +57,7 @@ class DebuggerSpecialTestsImpl:
 
 # to be skipped for any board with ESP32-S2 chip
 # TODO: enable these tests when PSRAM is supported for ESP32-S2
-@skip_for_hw_id([r'esp32s2-[.]*'])
+@skip_for_chip(['esp32s2'])
 class PsramTestsImpl:
     """ PSRAM specific test cases generic for dual and single core modes
     """
@@ -128,7 +128,7 @@ class PsramTestsDual(PsramTestAppTestsDual, PsramTestsImpl):
 
 # to be skipped for any board with 'esp32-solo' module, but still needs to be ran
 # for dual-core version of ESP32 modules even in single-core mode
-@skip_for_hw_id([r'esp32-solo[.]*'])
+@skip_for_chip(['esp32-solo'])
 class PsramTestsSingle(PsramTestAppTestsSingle, PsramTestsImpl):
     """ Test cases via GDB in single core mode
     """

@@ -59,21 +59,21 @@ $(BINARIES_DIR)/%/$(PROJECT_NAME).bin: configs/%
 	# Create build and output directories
 	mkdir -p $(BINARIES_DIR)/$*/bootloader
 	mkdir -p $(BUILDS_DIR)/$*
+	mkdir -p $(BUILDS_DIR)//$*/include
 	# Prepare configuration: top-level sdkconfig.defaults file plus the current configuration (configs/$*)
 	echo CONFIG $(BUILDS_DIR)/$*/sdkconfig
 	rm -f $(BUILDS_DIR)/$*/sdkconfig
 	cat sdkconfig.defaults > $(BUILDS_DIR)/$*/sdkconfig.defaults
 	echo "" >> $(BUILDS_DIR)/$*/sdkconfig.defaults # in case there is no trailing newline in sdkconfig.defaults
 	cat configs/$* >> $(BUILDS_DIR)/$*/sdkconfig.defaults
-	touch $(BUILDS_DIR)/$*/ut_idf_ver.h
-	echo -n "#define UT_IDF_VER_MAJOR " >> $(BUILDS_DIR)/$*/ut_idf_ver.h
-	./main/get_idf_ver.py $(IDF_PATH) -c major >> $(BUILDS_DIR)/$*/ut_idf_ver.h
-	echo -n "#define UT_IDF_VER_MINOR " >> $(BUILDS_DIR)/$*/ut_idf_ver.h
-	./main/get_idf_ver.py $(IDF_PATH) -c minor >> $(BUILDS_DIR)/$*/ut_idf_ver.h
-	echo -n "#define UT_IDF_VER_BUGFIX " >> $(BUILDS_DIR)/$*/ut_idf_ver.h
-	./main/get_idf_ver.py $(IDF_PATH) -c bugfix >> $(BUILDS_DIR)/$*/ut_idf_ver.h
-	echo -n "#define UT_IDF_VER_UPDATE " >> $(BUILDS_DIR)/$*/ut_idf_ver.h
-	./main/get_idf_ver.py $(IDF_PATH) -c update >> $(BUILDS_DIR)/$*/ut_idf_ver.h
+	echo -n "#define UT_IDF_VER_MAJOR " > $(BUILDS_DIR)/$*/include/ut_idf_ver.h
+	./main/get_idf_ver.py $(IDF_PATH) -c major >> $(BUILDS_DIR)/$*/include/ut_idf_ver.h
+	echo -n "#define UT_IDF_VER_MINOR " >> $(BUILDS_DIR)/$*/include/ut_idf_ver.h
+	./main/get_idf_ver.py $(IDF_PATH) -c minor >> $(BUILDS_DIR)/$*/include/ut_idf_ver.h
+	echo -n "#define UT_IDF_VER_BUGFIX " >> $(BUILDS_DIR)/$*/include/ut_idf_ver.h
+	./main/get_idf_ver.py $(IDF_PATH) -c bugfix >> $(BUILDS_DIR)/$*/include/ut_idf_ver.h
+	echo -n "#define UT_IDF_VER_UPDATE " >> $(BUILDS_DIR)/$*/include/ut_idf_ver.h
+	./main/get_idf_ver.py $(IDF_PATH) -c update >> $(BUILDS_DIR)/$*/include/ut_idf_ver.h
 
 	# Build, tweaking paths to sdkconfig and sdkconfig.defaults
 	echo BUILD_CONFIG $(BUILDS_DIR)/$*

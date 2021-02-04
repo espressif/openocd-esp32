@@ -5,7 +5,8 @@
 #include "freertos/task.h"
 #include "sdkconfig.h"
 #include "gen_ut_app.h"
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0)
+/* TODO: enable semihost tests for ESP32-C3 */
+#if CONFIG_IDF_TARGET_ARCH_XTENSA && UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0)
 #include "esp_vfs_semihost.h"
 
 #include "esp_log.h"
@@ -160,7 +161,7 @@ static inline int semihosting_wrong_args(int wrong_arg)
     ESP_LOGI(TAG, "CPU[%d]: wrong data size", core_id);
     syscall_ret = generic_syscall(SYS_WRITE, fd, (int)data, wrong_arg, 0, &test_errno);
     assert(syscall_ret == -1);
-    assert(test_errno == ENOMEM);
+    assert(test_errno == ENOMEM || test_errno == EIO);
 
     /**** SYS_READ ****/
     ESP_LOGI(TAG, "CPU[%d]:------ SYS_READ test -------", core_id);
@@ -177,10 +178,14 @@ static inline int semihosting_wrong_args(int wrong_arg)
     assert(syscall_ret == -1);
     assert(test_errno == EIO);
 
+    /* skip this test because on some systems it is possible to allocate 4GB in heap and
+       OOCD will try to write read data back to target what will lead to 'read_data' buffer overflow and crash
+
     ESP_LOGI(TAG, "CPU[%d]: wrong data size", core_id);
     syscall_ret = generic_syscall(SYS_READ, fd, (int)read_data, wrong_arg, 0, &test_errno);
     assert(syscall_ret == -1);
     assert(test_errno == ENOMEM);
+    */
 
     /**** SYS_SEEK ****/
     ESP_LOGI(TAG, "CPU[%d]:------ SYS_SEEK test -------", core_id);
@@ -389,7 +394,7 @@ static void semihost_args_task(void *pvParameter)
 ut_result_t semihost_test_do(int test_num)
 {
     switch (test_num) {
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0)
+#if CONFIG_IDF_TARGET_ARCH_XTENSA && UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0)
         case 700: {
         /*
         * *** About the test ***

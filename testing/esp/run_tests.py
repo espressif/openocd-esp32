@@ -18,7 +18,10 @@ _oocd_inst = None
 _gdb_inst = None
 
 # Keys in this map are special names for boards to run tests on
-# tets can be declared to be sckipped for some types boards using 'skip_for_hw_id()' decorator.
+# tests can be declared to be sckipped for:
+# - some types of boards using 'skip_for_hw_id()' decorator.
+# - some types of chips using 'skip_for_chip()' decorator.
+# - some types of archs using 'skip_for_arch()' decorator.
 # For usage example see 'test_special.PsramTestsSingle'
 BOARD_TCL_CONFIG = {
     'esp32-wrover-kit-3.3v' :  {
@@ -50,7 +53,15 @@ BOARD_TCL_CONFIG = {
         ],
         'commands' : [],
         'chip_name' : 'esp32s2'
-    }
+    },
+    'esp32c3-ftdi' :  {
+        'files' : [
+            os.path.join('interface', 'ftdi', 'esp32_devkitj_v1.cfg'),
+            os.path.join('target', 'esp32c3.cfg')
+        ],
+        'commands' : [],
+        'chip_name' : 'esp32c3'
+    },
 }
 
 class SerialPortReader(threading.Thread):
@@ -235,6 +246,7 @@ def main():
 
     # init testee info
     debug_backend_tests.testee_info.hw_id = args.board_type
+    debug_backend_tests.testee_info.chip = board_tcl['chip_name']
     if args.idf_ver_min != 'auto':
         debug_backend_tests.testee_info.idf_ver = debug_backend_tests.IdfVersion.fromstr(args.idf_ver_min)
     debug_backend_tests.test_apps_dir = args.apps_dir

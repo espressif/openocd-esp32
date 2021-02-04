@@ -10,23 +10,25 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "gen_ut_app.h"
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
 #include "freertos/xtensa_api.h"
 #include "xtensa/core-macros.h"
+#endif
 #include "driver/gpio.h"
 #include "driver/timer.h"
-#include "gen_ut_app.h"
 
 
 #define LOG_LOCAL_LEVEL CONFIG_LOG_DEFAULT_LEVEL
 #include "esp_log.h"
 const static char *TAG = "ut_app";
 
-#if CONFIG_IDF_TARGET_ESP32S2BETA || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
-#define TIM_CLR(_tg_, _tn_) do{ TIMERG ## _tg_.int_clr.t ## _tn_ = 1;}while(0)
-#define TIM_UPD(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].update.update = 1;}while(0)
-#else
+#if CONFIG_IDF_TARGET_ESP32
 #define TIM_CLR(_tg_, _tn_) do{ TIMERG ## _tg_.int_clr_timers.t ## _tn_ = 1;}while(0)
 #define TIM_UPD(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].update = 1;}while(0)
+#else
+#define TIM_CLR(_tg_, _tn_) do{ TIMERG ## _tg_.int_clr.t ## _tn_ = 1;}while(0)
+#define TIM_UPD(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].update.update = 1;}while(0)
 #endif
 
 #define SPIRAM_TEST_ARRAY_SZ    5
@@ -93,9 +95,11 @@ void test_timer_rearm(int timer_group, int timer_idx)
             TIM_UPD(0, 0);
             TIMERG0.hw_timer[0].config.alarm_en = 1;
         } else {
+#if !CONFIG_IDF_TARGET_ESP32C3
             TIM_CLR(0, 1);
             TIM_UPD(0, 1);
             TIMERG0.hw_timer[1].config.alarm_en = 1;
+#endif
         }
     } else if (timer_group == 1) {
         if (timer_idx == 0) {
@@ -103,9 +107,11 @@ void test_timer_rearm(int timer_group, int timer_idx)
             TIM_UPD(1, 0);
             TIMERG1.hw_timer[0].config.alarm_en = 1;
         } else {
+#if !CONFIG_IDF_TARGET_ESP32C3
             TIM_CLR(1, 1);
             TIM_UPD(1, 1);
             TIMERG1.hw_timer[1].config.alarm_en = 1;
+#endif
         }
     }
 }
@@ -181,7 +187,7 @@ int sum;  // not static so the whole loop is not optimized away
 static void recursive(int levels)
 {
     LABEL_SYMBOL(_recursive_func);
-    
+
     if (levels - 1 == 0) {
         return;
     }
@@ -225,6 +231,7 @@ void step_out_of_function_test()
     }
 }
 
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
 #define L5_TIMER_INUM   16
 
 void level5_int_test(void* arg)
@@ -251,9 +258,11 @@ static void scratch_reg_using_task(void *pvParameter)
             val = 100;
     }
 }
+#endif
 
 static void IRAM_ATTR dummy_iram_func(void)
 {
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
     __asm__ volatile (
         ".global _step_over_bp_break5\n" \
         ".type   _step_over_bp_break5,@function\n" \
@@ -265,11 +274,28 @@ static void IRAM_ATTR dummy_iram_func(void)
         "_step_over_bp_break6:\n" \
         "   mov a4,a3\n" \
         :::"a3", "a4");
+#elif CONFIG_IDF_TARGET_ARCH_RISCV
+    __asm__ volatile (
+        ".option push\n" \
+        ".option norvc\n" \
+        ".global _step_over_bp_break5\n" \
+        ".type   _step_over_bp_break5,@function\n" \
+        "_step_over_bp_break5:\n" \
+        "   li a3,30\n" \
+        "   nop\n" \
+        ".global _step_over_bp_break6\n" \
+        ".type   _step_over_bp_break6,@function\n" \
+        "_step_over_bp_break6:\n" \
+        "   mv a4,a3\n" \
+    	".option pop\n" \
+        :::"a3", "a4");
+#endif
 }
 
 static void step_over_bp_task(void *pvParameter)
 {
     while(1) {
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
         __asm__ volatile (
             ".global _step_over_bp_break1\n" \
             ".type   _step_over_bp_break1,@function\n" \
@@ -290,6 +316,31 @@ static void step_over_bp_task(void *pvParameter)
             "_step_over_bp_break4:\n" \
             "   mov a5,a4\n" \
             :::"a3","a4","a5");
+#elif CONFIG_IDF_TARGET_ARCH_RISCV
+        __asm__ volatile (
+            ".option push\n" \
+            ".option norvc\n" \
+            ".global _step_over_bp_break1\n" \
+            ".type   _step_over_bp_break1,@function\n" \
+            "_step_over_bp_break1:\n" \
+            "   li a3,20\n" \
+            "   nop\n" \
+            ".global _step_over_bp_break2\n" \
+            ".type   _step_over_bp_break2,@function\n" \
+            "_step_over_bp_break2:\n" \
+            "   mv a4,a3\n" \
+            ".global _step_over_bp_break3\n" \
+            ".type   _step_over_bp_break3,@function\n" \
+            "_step_over_bp_break3:\n" \
+            "   li a4,10\n" \
+            "   nop\n" \
+            ".global _step_over_bp_break4\n" \
+            ".type   _step_over_bp_break4,@function\n" \
+            "_step_over_bp_break4:\n" \
+            "   mv a5,a4\n" \
+        	".option pop\n" \
+            :::"a3","a4","a5");
+#endif
         dummy_iram_func();
     }
 }
@@ -324,6 +375,7 @@ static void fibonacci_calc(void* arg)
     }
 }
 
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
 static void step_over_inst_changing_intlevel(void* arg)
 {
     while(1)
@@ -338,6 +390,8 @@ static void step_over_inst_changing_intlevel(void* arg)
         );
     }
 }
+#endif
+
 
 void app_main()
 {
@@ -348,24 +402,26 @@ void app_main()
     } else if (s_run_test == 101){
         xTaskCreatePinnedToCore(&blink_task, "blink_task0", 2048, NULL, 5, NULL, 0);
         xTaskCreatePinnedToCore(&blink_task, "blink_task1", 2048, NULL, 5, NULL, 1);
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
     } else if (s_run_test == 102){
-#if CONFIG_FREERTOS_UNICORE
-        xTaskCreatePinnedToCore(&scratch_reg_using_task, "sreg_task", 2048, NULL, 5, NULL, 0);
-#else
-        xTaskCreatePinnedToCore(&scratch_reg_using_task, "sreg_task", 2048, NULL, 5, NULL, 1);
+        xTaskCreatePinnedToCore(&scratch_reg_using_task, "sreg_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
 #endif
     } else if (s_run_test == 103){
         xTaskCreate(&step_over_bp_task, "step_over_bp_task", 2048, NULL, 5, NULL);
     } else if (s_run_test == 104){
         xTaskCreate(&fibonacci_calc, "fibonacci_calc", 2048, NULL, 5, NULL);
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
     } else if (s_run_test == 120){
         xTaskCreate(&step_over_inst_changing_intlevel, "step_over_inst_changing_intlevel", 2048, NULL, 5, NULL);
+#endif
     } else if (s_run_test == 200){
-        xTaskCreate(&window_exception_test, "win_exc_task", 8192, NULL, 5, NULL);
+        xTaskCreate(&window_exception_test, "win_exc_task", 10240, NULL, 5, NULL);
     } else if (s_run_test == 201){
         xTaskCreate(&step_out_of_function_test, "step_out_func", 2048, NULL, 5, NULL);
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
     } else if (s_run_test == 202){
         xTaskCreate(&level5_int_test, "level5_int_test", 2048, NULL, 5, NULL);
+#endif
     } else {
         ut_result_t res = UT_UNSUPPORTED;
         for (int i = 0; i < sizeof(s_test_funcs)/sizeof(s_test_funcs[0]); i++) {
