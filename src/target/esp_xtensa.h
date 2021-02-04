@@ -44,15 +44,11 @@ struct esp_xtensa_flash_breakpoint_ops {
 		struct esp_xtensa_flash_breakpoint *spec_bp);
 };
 
-struct esp_xtensa_semihost_ops {
-	int (*prepare)(struct target *target);
-};
-
 struct esp_xtensa_semihost_data {
 	char *basedir;
 	uint32_t version;		/* sending with drvinfo syscall */
 	bool need_resume;
-	struct esp_xtensa_semihost_ops *ops;
+	struct esp_semihost_ops *ops;
 };
 
 struct esp_xtensa_common {
@@ -74,7 +70,7 @@ int esp_xtensa_init_arch_info(struct target *target,
 	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
 	const struct esp_xtensa_flash_breakpoint_ops *spec_brps_ops,
-	const struct esp_xtensa_semihost_ops *semihost_ops);
+	const struct esp_semihost_ops *semihost_ops);
 int esp_xtensa_target_init(struct command_context *cmd_ctx, struct target *target);
 void esp_xtensa_target_deinit(struct target *target);
 int esp_xtensa_arch_state(struct target *target);

@@ -31,6 +31,7 @@ struct esp_riscv_common {
 	riscv_info_t riscv;
 	struct esp_riscv_apptrace_info apptrace;
 	struct esp_dbg_stubs dbg_stubs;
+	struct esp_semihost_ops *semi_ops;
 };
 
 static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *target)
@@ -38,11 +39,11 @@ static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *
 	return target->arch_info;
 }
 
-static inline int esp_riscv_init_target_info(struct command_context *cmd_ctx,
-	struct target *target,
-	struct esp_riscv_common *esp_riscv)
+static inline int esp_riscv_init_target_info(struct command_context *cmd_ctx, struct target *target,
+	struct esp_riscv_common *esp_riscv, const struct esp_semihost_ops *semi_ops)
 {
 	esp_riscv->apptrace.hw = &esp_riscv_apptrace_hw;
+	esp_riscv->semi_ops = (struct esp_semihost_ops *)semi_ops;
 	return riscv_init_target_info(cmd_ctx, target, &esp_riscv->riscv);
 }
 

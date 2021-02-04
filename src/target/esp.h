@@ -81,4 +81,12 @@ struct esp_dbg_stubs {
 	struct esp_dbg_stubs_desc desc;
 };
 
+/**
+ * Semihost calls handling operations.
+ */
+struct esp_semihost_ops {
+	/** Callback called before handling semihost call */
+	int (*prepare)(struct target *target);
+};
+
 #endif	/* _ESP_H */

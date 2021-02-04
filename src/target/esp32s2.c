@@ -691,7 +691,7 @@ static const struct esp_xtensa_flash_breakpoint_ops esp32s2_spec_brp_ops = {
 	.breakpoint_remove = esp_xtensa_flash_breakpoint_remove
 };
 
-static const struct esp_xtensa_semihost_ops esp32s2_semihost_ops = {
+static const struct esp_semihost_ops esp32s2_semihost_ops = {
 	.prepare = esp32s2_disable_wdts
 };
 

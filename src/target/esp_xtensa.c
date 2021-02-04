@@ -165,12 +165,12 @@ int esp_xtensa_init_arch_info(struct target *target,
 	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
 	const struct esp_xtensa_flash_breakpoint_ops *flash_brps_ops,
-	const struct esp_xtensa_semihost_ops *semihost_ops)
+	const struct esp_semihost_ops *semihost_ops)
 {
 	int ret = xtensa_init_arch_info(target, &esp_xtensa->xtensa, xtensa_cfg, dm_cfg);
 	if (ret != ERROR_OK)
 		return ret;
-	esp_xtensa->semihost.ops = (struct esp_xtensa_semihost_ops *)semihost_ops;
+	esp_xtensa->semihost.ops = (struct esp_semihost_ops *)semihost_ops;
 	esp_xtensa->flash_brps_ops = flash_brps_ops;
 	esp_xtensa->flash_brps =
 		calloc(ESP_XTENSA_FLASH_BREAKPOINTS_MAX_NUM,
