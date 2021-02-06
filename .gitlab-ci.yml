@@ -472,6 +472,15 @@ build_test_app_esp32_custom_idf_rel:
     TEST_APP_IDF_TAG: "${TEST_APP_CUSTOM_IDF_RELEASE_BRANCH}"
     UT_GET_IDF_VER: "1"
 
+build_test_app_esp32_flash_encrypted:
+  <<: *build_test_app_template
+  variables:
+    CHIP_NAME: "esp32"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32_flash_encrypted"
+    TEST_APP_CONFIGS: "default_encrypted single_core_encrypted"
+    TEST_APP_IDF_TAG: $CI_COMMIT_REF_NAME
+    UT_GET_IDF_VER: "0"
+
 tests_armel_esp32_solo:
   <<: *tests_armel_template
   tags:
@@ -497,7 +506,7 @@ tests_armel_esp32_legacy_idf_rel:
     CHIP_NAME: "esp32"
     PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_armel_esp32_custom_idf_rel:
   <<: *tests_armel_template
@@ -511,7 +520,7 @@ tests_armel_esp32_custom_idf_rel:
     PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32_custom_idf_rel"
     # currently we need to run semihost test on IDF with old semihost driver
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_CUSTOM_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_semihost"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_CUSTOM_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_semihost -e *.*Encrypted"
 
 tests_armel_esp32:
   <<: *tests_armel_template
@@ -524,7 +533,20 @@ tests_armel_esp32:
     CHIP_NAME: "esp32"
     PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
+
+tests_armel_esp32_flash_encrypted:
+  <<: *tests_armel_template
+  tags:
+    - test_jtag_arm_flash_encryption
+  dependencies:
+    - build_test_app_esp32_flash_encrypted
+    - build_linux_armel
+  variables:
+    CHIP_NAME: "esp32"
+    PLATFORM_NAME: "armel"
+    TEST_RUN_DIR: "build_test_app_esp32_flash_encrypted"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
 
 tests_armel_esp32s2:
   <<: *tests_armel_template
@@ -673,7 +695,7 @@ test_nuttx_esp32:
     NUTTX_APP_NAME: "nuttx_openocd"
     CHIP_NAME: "esp32"
     OOCD_CMDS: "set ESP_RTOS NuttX,set ESP32_ONLYCPU 1"
-    TEST_RUN_EXTRA_OPTS: "-i other -b esp32-wrover-kit-3.3v -p test_nuttx"
+    TEST_RUN_EXTRA_OPTS: "-i other -b esp32-wrover-kit-3.3v -p test_nuttx -e *.*Encrypted"
   needs:
     - job: build_linux_armel
       artifacts: true

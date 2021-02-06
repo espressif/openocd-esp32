@@ -636,7 +636,7 @@ int esp_xtensa_write(struct flash_bank *bank, const uint8_t *buffer,
 	struct xtensa_algo_image flasher_image;
 	uint8_t *compressed_buff = NULL;
 	uint32_t compressed_len = 0;
-	uint32_t stack_size = 1024;
+	uint32_t stack_size = 1024 + ESP_XTENSA_STUB_UNZIP_BUFF_SIZE;
 
 	if (esp_xtensa_info->hw_flash_base + offset < ESP_XTENSA_FLASH_MIN_OFFSET) {
 		LOG_ERROR("Invalid offset!");
@@ -670,7 +670,7 @@ int esp_xtensa_write(struct flash_bank *bank, const uint8_t *buffer,
 			compressed_len,
 			duration_elapsed(&bench));
 
-		stack_size += ESP_XTENSA_STUB_UNZIP_BUFF_SIZE + ESP_XTENSA_STUB_IFLATOR_SIZE;
+		stack_size += ESP_XTENSA_STUB_IFLATOR_SIZE;
 	}
 
 	memset(&run, 0, sizeof(run));
@@ -1036,11 +1036,13 @@ int esp_xtensa_flash_breakpoint_add(struct target *target,
 	if (ret != ERROR_OK) {
 		LOG_ERROR("%s: Failed to run flasher stub (%d)!", target_name(target), ret);
 		destroy_mem_param(&mp);
+		sw_bp->data.oocd_bp = NULL;
 		return ret;
 	}
 	if (run.ret_code == 0) {
 		LOG_ERROR("%s: Failed to set bp (%d)!", target_name(target), run.ret_code);
 		destroy_mem_param(&mp);
+		sw_bp->data.oocd_bp = NULL;
 		return ERROR_FAIL;
 	}
 	sw_bp->data.insn_sz = run.ret_code;

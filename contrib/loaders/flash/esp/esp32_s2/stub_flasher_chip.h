@@ -21,6 +21,8 @@
 #ifndef ESP32_S2_FLASHER_STUB_H
 #define ESP32_S2_FLASHER_STUB_H
 
+#include <stdint.h>
+
 #define STUB_FLASH_SECTOR_SIZE  4096
 /* Flash geometry constants */
 #define STUB_FLASH_BLOCK_SIZE   65536
@@ -29,6 +31,9 @@
 
 struct stub_flash_state {
 	uint32_t cache_flags[2];
+	bool cache_enabled;
 };
+void stub_flash_state_prepare(struct stub_flash_state *state);
+void stub_flash_state_restore(struct stub_flash_state *state);
 
 #endif	/*ESP32_S2_FLASHER_STUB_H */

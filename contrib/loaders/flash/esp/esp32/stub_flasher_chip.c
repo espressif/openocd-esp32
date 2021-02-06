@@ -20,16 +20,21 @@
  ***************************************************************************/
 
 #include <stdlib.h>
+#include <string.h>
 #include "soc/rtc_cntl_reg.h"
 #include "soc/rtc.h"
 #include "soc/efuse_periph.h"
 #include "soc/dport_reg.h"
 #include "soc/spi_reg.h"
 #include "soc/gpio_reg.h"
+#include "soc/mmu.h"
+#include "esp_spi_flash.h"
 #include "esp32/spiram.h"
 #include "stub_rom_chip.h"
 #include "stub_flasher_int.h"
 #include "stub_flasher_chip.h"
+
+uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * MHZ;
 
 #define ESP32_STUB_FLASH_STATE_SPI_USER_REG_VAL     0x80000040UL
 #define ESP32_STUB_FLASH_STATE_SPI_USER1_REG_VAL    0x5c000007UL
@@ -44,16 +49,60 @@
 #define PERIPHS_SPI_MISO_DLEN_REG                   SPI_MISO_DLEN_REG(1)
 #define SPI_USR2_DLEN_SHIFT                         SPI_USR_COMMAND_BITLEN_S
 
-uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * MHZ;
+/* Cache MMU related definitions */
+#define STUB_CACHE_BUS_PRO              DPORT_PRO_CACHE_MASK_DROM0
+#define STUB_CACHE_BUS_APP              DPORT_APP_CACHE_MASK_DROM0
+#define STUB_MMU_DROM_VADDR             SOC_MMU_VADDR0_START_ADDR
+#define STUB_MMU_DROM_PAGES_START       SOC_MMU_DROM0_PAGES_START	/* 0 */
+#define STUB_MMU_DROM_PAGES_END         SOC_MMU_DROM0_PAGES_END		/* 64 */
+#define STUB_PRO_MMU_TABLE              ((volatile uint32_t *) 0x3FF10000)
+#define STUB_APP_MMU_TABLE              ((volatile uint32_t *) 0x3FF12000)
+#define STUB_MMU_INVALID_ENTRY_VAL      SOC_MMU_INVALID_ENTRY_VAL	/* 0x100 */
+
+/* SPI Flash map request data */
+struct spiflash_map_req {
+	/* Request mapping SPI Flash base address */
+	uint32_t src_addr;
+	/* Request mapping SPI Flash size */
+	uint32_t size;
+	/* Mapped memory pointer */
+	void *ptr;
+	/* Mapped started MMU page index */
+	uint32_t start_page;
+	/* Mapped MMU page count */
+	uint32_t page_cnt;
+	/* ID of the core currently executing this code */
+	int core_id;
+};
+
+static volatile uint32_t *mmu_table_s[2] = {STUB_PRO_MMU_TABLE, STUB_APP_MMU_TABLE};
 
 extern esp_rom_spiflash_chip_t g_rom_spiflash_chip;
 extern uint8_t g_rom_spiflash_dummy_len_plus[];
 
-/**
- * The following two functions are replacements for Cache_Read_Disable and Cache_Read_Enable
- * function in ROM. They are used to work around a bug where Cache_Read_Disable requires a call to
- * Cache_Flush before Cache_Read_Enable, even if cached data was not modified.
- */
+#if STUB_LOG_LOCAL_LEVEL > STUB_LOG_INFO
+void stub_print_cache_mmu_registers(void)
+{
+	uint32_t ctrl_reg = DPORT_READ_PERI_REG(DPORT_PRO_CACHE_CTRL_REG);
+	uint32_t ctrl1_reg = DPORT_READ_PERI_REG(DPORT_PRO_CACHE_CTRL1_REG);
+	uint32_t dbug0_reg = DPORT_READ_PERI_REG(DPORT_PRO_DCACHE_DBUG0_REG);
+
+	STUB_LOGD("pro ctrl_reg: 0x%x ctrl1_reg: 0x%x dbug0_reg: 0x%x\n",
+		ctrl_reg,
+		ctrl1_reg,
+		dbug0_reg);
+
+	ctrl_reg = DPORT_READ_PERI_REG(DPORT_APP_CACHE_CTRL_REG);
+	ctrl1_reg = DPORT_READ_PERI_REG(DPORT_APP_CACHE_CTRL1_REG);
+	dbug0_reg = DPORT_READ_PERI_REG(DPORT_APP_DCACHE_DBUG0_REG);
+
+	STUB_LOGD("app ctrl_reg: 0x%x ctrl1_reg: 0x%x dbug0_reg: 0x%x\n",
+		ctrl_reg,
+		ctrl1_reg,
+		dbug0_reg);
+}
+#endif
+
 static const uint32_t cache_mask  = DPORT_APP_CACHE_MASK_OPSDRAM | DPORT_APP_CACHE_MASK_DROM0 |
 	DPORT_APP_CACHE_MASK_DRAM1 | DPORT_APP_CACHE_MASK_IROM0 |
 	DPORT_APP_CACHE_MASK_IRAM1 | DPORT_APP_CACHE_MASK_IRAM0;
@@ -88,6 +137,34 @@ static void esp32_flash_restore_cache_for_cpu(uint32_t cpuid, uint32_t saved_sta
 		DPORT_SET_PERI_REG_BITS(DPORT_APP_CACHE_CTRL_REG, 1, 1, DPORT_APP_CACHE_ENABLE_S);
 		DPORT_SET_PERI_REG_BITS(DPORT_APP_CACHE_CTRL1_REG, cache_mask, saved_state, 0);
 	}
+}
+
+static void stub_cache_init(int cpuid)
+{
+	Cache_Read_Disable(cpuid);
+	Cache_Flush(cpuid);
+	/* we are mapping external flash to the DROM so don't need to enable other buses */
+	if (cpuid == 0)
+		DPORT_REG_CLR_BIT(DPORT_PRO_CACHE_CTRL1_REG, STUB_CACHE_BUS_PRO);
+	else
+		DPORT_REG_CLR_BIT(DPORT_APP_CACHE_CTRL1_REG, STUB_CACHE_BUS_APP);
+	Cache_Read_Enable(cpuid);
+}
+
+static bool esp32_flash_cache_bus_enabled(uint32_t cpuid)
+{
+	uint32_t cache_bus = 0;
+	uint32_t cache_mask = 0;
+
+	if (cpuid == 0) {
+		cache_bus = DPORT_READ_PERI_REG(DPORT_PRO_CACHE_CTRL1_REG);
+		cache_mask = STUB_CACHE_BUS_PRO;
+	} else {
+		cache_bus = DPORT_READ_PERI_REG(DPORT_APP_CACHE_CTRL1_REG);
+		cache_mask = STUB_CACHE_BUS_APP;
+	}
+
+	return !(cache_bus & cache_mask);
 }
 
 static bool esp32_flash_cache_enabled(uint32_t cpuid)
@@ -267,11 +344,12 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 			state->cache_flags[other_core_id],
 			esp32_flash_cache_enabled(other_core_id));
 	}
-	esp32_flash_disable_cache_for_cpu(core_id, &state->cache_flags[core_id]);
-	STUB_LOGI("Cache disable CPU%d: 0x%x %d\n",
-		core_id,
-		state->cache_flags[core_id],
-		esp32_flash_cache_enabled(core_id));
+	state->cache_enabled = esp32_flash_cache_enabled(core_id) && esp32_flash_cache_bus_enabled(
+		core_id);
+	if (!state->cache_enabled) {
+		STUB_LOGI("Cache needs to be enabled for CPU%d\n", core_id);
+		stub_cache_init(core_id);
+	}
 
 	state->spi_regs[ESP32_STUB_FLASH_STATE_SPI_USER_REG_ID] = READ_PERI_REG(SPI_USER_REG(1));
 	state->spi_regs[ESP32_STUB_FLASH_STATE_SPI_USER1_REG_ID] = READ_PERI_REG(SPI_USER1_REG(1));
@@ -315,11 +393,10 @@ void stub_flash_state_restore(struct stub_flash_state *state)
 			state->cache_flags[other_core_id],
 			esp32_flash_cache_enabled(other_core_id));
 	}
-	esp32_flash_restore_cache_for_cpu(core_id, state->cache_flags[core_id]);
-	STUB_LOGI("Cache restored CPU%d: 0x%x %d\n",
-		core_id,
-		state->cache_flags[core_id],
-		esp32_flash_cache_enabled(core_id));
+	if (state->cache_enabled) {
+		/* we are managing the running core's cache while map unmap. So nothing to do here..
+		 **/
+	}
 }
 
 int stub_cpu_clock_configure(int cpu_freq_mhz)
@@ -372,3 +449,139 @@ void stub_uart_console_configure(void)
 		(rtc_clk_apb_freq_get() << 4) / CONFIG_CONSOLE_UART_BAUDRATE);
 }
 #endif
+
+static inline bool esp_flash_encryption_enabled(void)
+{
+	uint32_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_BLK0_RDATA0_REG,
+		EFUSE_RD_FLASH_CRYPT_CNT);
+
+	/* __builtin_parity is in flash, so we calculate parity inline */
+	bool enabled = false;
+	while (flash_crypt_cnt) {
+		if (flash_crypt_cnt & 1)
+			enabled = !enabled;
+		flash_crypt_cnt >>= 1;
+	}
+	return enabled;
+}
+
+esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
+{
+	static esp_flash_enc_mode_t mode = ESP_FLASH_ENC_MODE_DEVELOPMENT;
+	static bool first = true;
+
+	if (first) {
+		if (esp_flash_encryption_enabled()) {
+			/* Check if FLASH CRYPT CNT is write protected */
+			bool flash_crypt_cnt_wr_dis = REG_READ(EFUSE_BLK0_RDATA0_REG) &
+				EFUSE_WR_DIS_FLASH_CRYPT_CNT;
+			if (!flash_crypt_cnt_wr_dis) {
+				uint8_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_BLK0_RDATA0_REG,
+					EFUSE_RD_FLASH_CRYPT_CNT);
+				/* Check if FLASH_CRYPT_CNT set for permanent encryption */
+				if (flash_crypt_cnt == EFUSE_RD_FLASH_CRYPT_CNT_V)
+					flash_crypt_cnt_wr_dis = true;
+			}
+
+			if (flash_crypt_cnt_wr_dis) {
+				uint8_t dis_dl_cache = REG_GET_FIELD(EFUSE_BLK0_RDATA6_REG,
+					EFUSE_RD_DISABLE_DL_CACHE);
+				uint8_t dis_dl_enc = REG_GET_FIELD(EFUSE_BLK0_RDATA6_REG,
+					EFUSE_RD_DISABLE_DL_ENCRYPT);
+				uint8_t dis_dl_dec = REG_GET_FIELD(EFUSE_BLK0_RDATA6_REG,
+					EFUSE_RD_DISABLE_DL_DECRYPT);
+				/* Check if DISABLE_DL_DECRYPT, DISABLE_DL_ENCRYPT & DISABLE_DL_CACHE are
+				        set */
+				if (dis_dl_cache && dis_dl_enc && dis_dl_dec)
+					mode = ESP_FLASH_ENC_MODE_RELEASE;
+			}
+
+		} else
+			mode = ESP_FLASH_ENC_MODE_DISABLED;
+
+		first = false;
+	}
+
+	STUB_LOGD("flash encryption mode: %d\n", mode);
+
+	return mode;
+}
+
+static int stub_flash_mmap(struct spiflash_map_req *req)
+{
+	uint32_t map_src = req->src_addr & (~(SPI_FLASH_MMU_PAGE_SIZE - 1));
+	uint32_t map_size = req->size + (req->src_addr - map_src);
+	uint32_t flash_page = map_src / SPI_FLASH_MMU_PAGE_SIZE;
+	uint32_t page_cnt = (map_size + SPI_FLASH_MMU_PAGE_SIZE - 1) / SPI_FLASH_MMU_PAGE_SIZE;
+	int start_page, ret = ESP_ROM_SPIFLASH_RESULT_ERR;
+	uint32_t saved_state = 0;
+	esp32_flash_disable_cache_for_cpu(req->core_id, &saved_state);
+
+	for (start_page = STUB_MMU_DROM_PAGES_START; start_page < STUB_MMU_DROM_PAGES_END;
+		++start_page) {
+		if (mmu_table_s[req->core_id][start_page] == STUB_MMU_INVALID_ENTRY_VAL)
+			break;
+	}
+
+	if (start_page == STUB_MMU_DROM_PAGES_END)
+		start_page = STUB_MMU_DROM_PAGES_START;
+
+	if (start_page + page_cnt < STUB_MMU_DROM_PAGES_END) {
+		for (int i = 0; i < page_cnt; i++)
+			mmu_table_s[req->core_id][start_page + i] = SOC_MMU_PAGE_IN_FLASH(
+				flash_page + i);
+
+		req->start_page = start_page;
+		req->page_cnt = page_cnt;
+		req->ptr = (void *)(STUB_MMU_DROM_VADDR +
+			(start_page - STUB_MMU_DROM_PAGES_START) * SPI_FLASH_MMU_PAGE_SIZE +
+			(req->src_addr - map_src));
+		Cache_Flush(req->core_id);
+		ret = ESP_ROM_SPIFLASH_RESULT_OK;
+	}
+
+	STUB_LOGD(
+		"start_page: %d map_src: %x map_size: %x page_cnt: %d flash_page: %d map_ptr: %x\n",
+		start_page,
+		map_src,
+		map_size,
+		page_cnt,
+		flash_page,
+		req->ptr);
+
+	esp32_flash_restore_cache_for_cpu(req->core_id, saved_state);
+
+	return ret;
+}
+
+static void stub_flash_ummap(const struct spiflash_map_req *req)
+{
+	uint32_t saved_state = 0;
+
+	esp32_flash_disable_cache_for_cpu(req->core_id, &saved_state);
+
+	for (int i = req->start_page; i < req->start_page + req->page_cnt; ++i)
+		mmu_table_s[req->core_id][i] = STUB_MMU_INVALID_ENTRY_VAL;
+
+	esp32_flash_restore_cache_for_cpu(req->core_id, saved_state);
+}
+
+int stub_flash_read_buff(uint32_t addr, void *buffer, uint32_t size)
+{
+	struct spiflash_map_req req = {
+		.src_addr = addr,
+		.size = size,
+		.core_id = stub_get_coreid()
+	};
+
+	int ret = stub_flash_mmap(&req);
+
+	if (ret)
+		return ret;
+
+	memcpy(buffer, req.ptr, size);
+
+	stub_flash_ummap(&req);
+
+	return ESP_ROM_SPIFLASH_RESULT_OK;
+}

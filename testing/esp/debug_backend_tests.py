@@ -508,3 +508,28 @@ class DebuggerGenericTestAppTestsSingle(DebuggerGenericTestAppTests):
         # use default config with modified path to binaries
         self.test_app_cfg.bin_dir = os.path.join('output', 'single_core')
         self.test_app_cfg.build_dir = os.path.join('builds', 'single_core')
+
+class DebuggerGenericTestAppTestsDualEncrypted(DebuggerGenericTestAppTests):
+    """ Base class to run tests which use generic test app in dual core encrypted mode
+    """
+    CORES_NUM = 2
+    def __init__(self, methodName='runTest'):
+        super(DebuggerGenericTestAppTestsDualEncrypted, self).__init__(methodName)
+        # use default_encrypted config with modified path to binaries
+        self.test_app_cfg.bin_dir = os.path.join('output', 'default_encrypted')
+        self.test_app_cfg.build_dir = os.path.join('builds', 'default_encrypted')
+        self.test_app_cfg.pt_off = 0x10000
+        self.test_app_cfg.app_off = 0x20000
+
+class DebuggerGenericTestAppTestsSingleEncrypted(DebuggerGenericTestAppTests):
+    """ Base class to run tests which use generic test app in single core encrypted mode
+    """
+    CORES_NUM = 1
+    def __init__(self, methodName='runTest'):
+        super(DebuggerGenericTestAppTestsSingleEncrypted, self).__init__(methodName)
+        # use single_core_encrypted config with modified path to binaries
+        self.test_app_cfg.bin_dir = os.path.join('output', 'single_core_encrypted')
+        self.test_app_cfg.build_dir = os.path.join('builds', 'single_core_encrypted')
+        self.test_app_cfg.pt_off = 0x10000
+        self.test_app_cfg.app_off = 0x20000
+
