@@ -29,9 +29,9 @@ endif
 STUB = stub_flasher
 SRCS += $(STUB_COMMON_PATH)/stub_flasher.c \
 	$(STUB_CHIP_PATH)/stub_flasher_chip.c \
-	$(IDF_PATH)/components/spi_flash/spi_flash_rom_patch.c \
 	$(IDF_PATH)/components/app_trace/app_trace.c \
-	$(IDF_PATH)/components/app_trace/app_trace_util.c
+	$(IDF_PATH)/components/app_trace/app_trace_util.c \
+	$(IDF_PATH)/components/xtensa/eri.c
 
 BUILD_DIR = build
 
@@ -48,14 +48,19 @@ all: $(STUB_ELF) $(STUB_IMAGE_HDR) $(STUB_CODE_SECT) $(STUB_DATA_SECT)
 $(BUILD_DIR):
 	$(Q) mkdir $@
 
-CFLAGS += -std=c99 -Wall -Werror -Os \
+CFLAGS += -std=gnu99 -Wall -Werror -Os \
          -mtext-section-literals -mlongcalls -nostdlib -fno-builtin -flto \
          -Wl,-static -g -ffunction-sections -Wl,--gc-sections
 
 INCLUDES += -I. -I$(STUB_COMMON_PATH) -I$(STUB_CHIP_PATH) -I$(IDF_PATH)/components/soc/include \
-		-I$(IDF_PATH)/components/app_trace/include -I$(IDF_PATH)/components/xtensa-debug-module/include -I$(IDF_PATH)/components/driver/include \
+		-I$(IDF_PATH)/components/app_trace/include -I$(IDF_PATH)/components/xtensa/include -I$(IDF_PATH)/components/driver/include \
 		-I$(IDF_PATH)/components/freertos/include -I$(IDF_PATH)/components/log/include -I$(IDF_PATH)/components/heap/include \
-		-I$(IDF_PATH)/components/bootloader_support/include
+		-I$(IDF_PATH)/components/bootloader_support/include -I$(IDF_PATH)/components/esp_rom/include \
+		-I$(IDF_PATH)/components/esp_common/include -I$(IDF_PATH)/components/efuse/include \
+		-I$(IDF_PATH)/components/esp_hw_support/include -I$(IDF_PATH)/components/freertos/port/xtensa/include \
+		-I$(IDF_PATH)/components/hal/include -I$(IDF_PATH)/components/esp_timer/include \
+		-I$(IDF_PATH)/components/esp_system/include -I$(IDF_PATH)/components/newlib/platform_include \
+		-I$(IDF_PATH)/components/spi_flash/private_include
 
 DEFINES += -Dasm=__asm__
 
@@ -90,7 +95,7 @@ $(STUB_IMAGE_HDR): $(STUB_ELF)
 	$(Q) $(CROSS)readelf -s $^ | fgrep stub_main | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR)
 	$(Q) @printf "/*#define $(STUB_CHIP)_STUB_BUILD_IDF_REV " >> $(STUB_IMAGE_HDR)
 	$(Q) cd $(IDF_PATH); git rev-parse --short HEAD >> $(STUB_CHIP_PATH)/$(STUB_IMAGE_HDR)
-	$(Q) @printf "*/" >> $(STUB_IMAGE_HDR)
+	$(Q) @printf "*/\n" >> $(STUB_IMAGE_HDR)
 
 clean:
 	$(Q) rm -rf $(BUILD_DIR) $(STUB_CODE_SECT) $(STUB_DATA_SECT) $(STUB_WRAPPER) $(STUB_IMAGE_HDR)

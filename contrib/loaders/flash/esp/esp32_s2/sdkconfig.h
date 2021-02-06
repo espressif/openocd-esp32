@@ -1,14 +1,15 @@
 #ifndef _STUB_SDKCONFIG_H_
 #define _STUB_SDKCONFIG_H_
 
+#define CONFIG_IDF_TARGET_ESP32S2               1
 /* Use ROM flash driver patch */
 #define CONFIG_SPI_FLASH_ROM_DRIVER_PATCH       1
 /* Disable application module multi-threading lock */
-#define CONFIG_ESP32_APPTRACE_LOCK_ENABLE       0
+#define CONFIG_APPTRACE_LOCK_ENABLE             0
 /* Enable apptarce module for flash data transfers */
-#define CONFIG_ESP32_APPTRACE_ENABLE            1
+#define CONFIG_APPTRACE_ENABLE                  1
 /* Send over Trace Memory Transport */
-#define CONFIG_ESP32_APPTRACE_DEST_TRAX         1
+#define CONFIG_APPTRACE_DEST_TRAX               1
 #define CONFIG_TRACEMEM_RESERVE_DRAM            0x8000
 /* Debug UART number */
 #define CONFIG_CONSOLE_UART_NUM                 0
