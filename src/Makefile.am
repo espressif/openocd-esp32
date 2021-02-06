@@ -19,6 +19,7 @@ else
 endif
 
 %C%_openocd_LDADD += -lpthread
+%C%_openocd_LDADD += -lz
 
 %C%_libopenocd_la_CPPFLAGS =
 

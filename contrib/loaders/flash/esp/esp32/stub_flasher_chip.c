@@ -22,17 +22,14 @@
 #include <stdlib.h>
 #include "soc/rtc_cntl_reg.h"
 #include "soc/rtc.h"
-#include "soc/efuse_reg.h"
+#include "soc/efuse_periph.h"
 #include "soc/dport_reg.h"
 #include "soc/spi_reg.h"
 #include "soc/gpio_reg.h"
-#include "rom/spi_flash.h"
-#include "rom/cache.h"
-#include "rom/efuse.h"
-#include "esp_spiram.h"
+#include "esp32/spiram.h"
+#include "stub_rom_chip.h"
 #include "stub_flasher_int.h"
 #include "stub_flasher_chip.h"
-
 
 #define ESP32_STUB_FLASH_STATE_SPI_USER_REG_VAL     0x80000040UL
 #define ESP32_STUB_FLASH_STATE_SPI_USER1_REG_VAL    0x5c000007UL
@@ -324,11 +321,16 @@ void stub_flash_state_restore(struct stub_flash_state *state)
 		esp32_flash_cache_enabled(core_id));
 }
 
+uint32_t stub_esp_clk_cpu_freq(void)
+{
+	return (CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * MHZ);
+}
+
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
 void stub_clock_configure(void)
 {
-	/* Set CPU to 80MHz. Keep other clocks unmodified. */
-	rtc_cpu_freq_t cpu_freq = RTC_CPU_FREQ_80M;
+	/* Set CPU to configured value. Keep other clocks unmodified. */
+	int cpu_freq_mhz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
 
 	/* On ESP32 rev 0, switching to 80MHz if clock was previously set to
 	 * 240 MHz may cause the chip to lock up (see section 3.5 of the errata
@@ -338,19 +340,23 @@ void stub_clock_configure(void)
 	uint32_t chip_ver_reg = REG_READ(EFUSE_BLK0_RDATA3_REG);
 	if ((chip_ver_reg & EFUSE_RD_CHIP_VER_REV1_M) == 0 &&
 		CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ == 240)
-		cpu_freq = RTC_CPU_FREQ_240M;
+		cpu_freq_mhz = 240;
 
 	/* uart_tx_wait_idle(CONFIG_CONSOLE_UART_NUM); */
 	rtc_clk_config_t clk_cfg = RTC_CLK_CONFIG_DEFAULT();
 	clk_cfg.xtal_freq = CONFIG_ESP32_XTAL_FREQ;
-	clk_cfg.cpu_freq = cpu_freq;
+	clk_cfg.cpu_freq_mhz = cpu_freq_mhz;
 	clk_cfg.slow_freq = rtc_clk_slow_freq_get();
 	clk_cfg.fast_freq = rtc_clk_fast_freq_get();
 	rtc_clk_init(clk_cfg);
 }
-#endif
 
-uint32_t esp_clk_cpu_freq(void)
+void stub_uart_console_configure(void)
 {
-	return (CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * 1000000);
+	uartAttach();
+	ets_install_uart_printf();
+	/* Set configured UART console baud rate */
+	uart_div_modify(CONFIG_CONSOLE_UART_NUM,
+		(rtc_clk_apb_freq_get() << 4) / CONFIG_CONSOLE_UART_BAUDRATE);
 }
+#endif

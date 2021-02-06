@@ -48,6 +48,8 @@ struct esp_xtensa_flash_bank {
 		struct xtensa_algo_image *image, uint32_t num_args, ...);
 	bool (*is_irom_address)(target_addr_t addr);
 	bool (*is_drom_address)(target_addr_t addr);
+	/* Upload compressed or uncompressed image */
+	int compression;
 };
 
 struct esp_xtensa_flasher_stub_config {
@@ -84,5 +86,6 @@ int esp_xtensa_flash_breakpoint_remove(struct target *target,
 	struct esp_xtensa_flash_breakpoint *sw_bp);
 
 COMMAND_HELPER(esp_xtensa_cmd_appimage_flashoff_do, struct target *target);
+COMMAND_HELPER(esp_xtensa_cmd_set_compression, struct target *target);
 
 #endif	/*FLASH_ESP_XTENSA_H*/

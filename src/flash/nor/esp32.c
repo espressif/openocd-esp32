@@ -119,6 +119,24 @@ COMMAND_HANDLER(esp32_cmd_appimage_flashoff)
 	return CALL_COMMAND_HANDLER(esp_xtensa_cmd_appimage_flashoff_do, target);
 }
 
+COMMAND_HANDLER(esp32_cmd_compression)
+{
+	struct target *target = get_current_target(CMD_CTX);
+
+	if (target->smp) {
+		struct target_list *head;
+		struct target *curr;
+		foreach_smp_target(head, target->head) {
+			curr = head->target;
+			int ret = CALL_COMMAND_HANDLER(esp_xtensa_cmd_set_compression, curr);
+			if (ret != ERROR_OK)
+				return ret;
+		}
+		return ERROR_OK;
+	}
+	return CALL_COMMAND_HANDLER(esp_xtensa_cmd_set_compression, target);
+}
+
 const struct command_registration esp32_flash_command_handlers[] = {
 	{
 		.name = "appimage_offset",
@@ -127,6 +145,14 @@ const struct command_registration esp32_flash_command_handlers[] = {
 		.help =
 			"Set offset of application image in flash. Use -1 to debug the first application image from partition table.",
 		.usage = "offset",
+	},
+	{
+		.name = "compression",
+		.handler = esp32_cmd_compression,
+		.mode = COMMAND_ANY,
+		.help =
+			"Set compression flag",
+		.usage = "['on'|'off']",
 	},
 	COMMAND_REGISTRATION_DONE
 };

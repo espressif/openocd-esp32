@@ -1,7 +1,7 @@
 /***************************************************************************
- *   ESP32-S2 flasher stub definitions                                     *
+ *   ESP32-S2 specific rom header files                                    *
  *   Copyright (C) 2019 Espressif Systems Ltd.                             *
- *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
+ *   Author: Erhan Kurubas <erhan.kurubas@espressif.com>                   *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -18,17 +18,16 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
-#ifndef ESP32_S2_FLASHER_STUB_H
-#define ESP32_S2_FLASHER_STUB_H
+#ifndef ESP_STUB_ROM_H
+#define ESP_STUB_ROM_H
 
-#define STUB_FLASH_SECTOR_SIZE  4096
-/* Flash geometry constants */
-#define STUB_FLASH_BLOCK_SIZE   65536
-#define STUB_FLASH_PAGE_SIZE    256
-#define STUB_FLASH_STATUS_MASK  0xFFFF
+#include "esp32s2/rom/ets_sys.h"
+#include "esp32s2/rom/spi_flash.h"  
+#include "esp32s2/rom/miniz.h"
+#include "esp32s2/rom/spi_flash.h"
+#include "esp32s2/rom/cache.h"
+#include "esp32s2/rom/efuse.h"
+#include "esp32s2/rom/uart.h"
+#include "esp32s2/rom/rtc.h"
 
-struct stub_flash_state {
-	uint32_t cache_flags[2];
-};
-
-#endif	/*ESP32_S2_FLASHER_STUB_H */
+#endif

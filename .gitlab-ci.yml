@@ -355,6 +355,17 @@ build_windows:
     - make install-strip
     - export PKG_CONFIG_PATH=$PWD/dist/lib/pkgconfig
     - popd
+    # Build zlib-1.2.11
+    - export ZLIB_VER=zlib-1.2.11
+    - wget https://dl.espressif.com/dl/$ZLIB_VER.tar.xz -O $ZLIB_VER.tar.xz
+    - tar xf $ZLIB_VER.tar.xz && rm $ZLIB_VER.tar.xz
+    - pushd $ZLIB_VER
+    - mkdir _build
+    - INSTALLDIR=_build
+    - make -f win32/Makefile.gcc BINARY_PATH=$INSTALLDIR/bin INCLUDE_PATH=$INSTALLDIR/include LIBRARY_PATH=$INSTALLDIR/lib SHARED_MODE=1 PREFIX=i686-w64-mingw32- install
+    - export CPPFLAGS="-I$PWD/$INSTALLDIR/include"
+    - export LDFLAGS="-L$PWD/$INSTALLDIR/lib"
+    - popd
     # Build OpenOCD
     - git submodule update --init
     - ./bootstrap

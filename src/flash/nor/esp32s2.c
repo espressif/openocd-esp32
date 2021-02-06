@@ -29,7 +29,6 @@
 #include <target/esp32s2.h>
 #include "esp_xtensa.h"
 #include "contrib/loaders/flash/esp/esp32_s2/stub_flasher_image.h"
-#include "contrib/loaders/flash/esp/esp32_s2beta/stub_flasher_image.h"
 
 #define ESP32_S2_FLASH_SECTOR_SIZE 4096
 
@@ -44,14 +43,6 @@ static const uint8_t esp32s2_flasher_stub_data[] = {
 #include "contrib/loaders/flash/esp/esp32_s2/stub_flasher_data.inc"
 };
 
-static const uint8_t esp32s2beta_flasher_stub_code[] = {
-#include "contrib/loaders/flash/esp/esp32_s2beta/stub_flasher_code.inc"
-};
-static const uint8_t esp32s2beta_flasher_stub_data[] = {
-#include "contrib/loaders/flash/esp/esp32_s2beta/stub_flasher_data.inc"
-};
-
-
 static struct esp_xtensa_flasher_stub_config s_esp32s2_stub_cfg = {
 	.code = esp32s2_flasher_stub_code,
 	.code_sz = sizeof(esp32s2_flasher_stub_code),
@@ -59,15 +50,6 @@ static struct esp_xtensa_flasher_stub_config s_esp32s2_stub_cfg = {
 	.data_sz = sizeof(esp32s2_flasher_stub_data),
 	.entry_addr = ESP32_S2_STUB_ENTRY_ADDR,
 	.bss_sz = ESP32_S2_STUB_BSS_SIZE
-};
-
-static struct esp_xtensa_flasher_stub_config s_esp32s2beta_stub_cfg = {
-	.code = esp32s2beta_flasher_stub_code,
-	.code_sz = sizeof(esp32s2beta_flasher_stub_code),
-	.data = esp32s2beta_flasher_stub_data,
-	.data_sz = sizeof(esp32s2beta_flasher_stub_data),
-	.entry_addr = ESP32_S2BETA_STUB_ENTRY_ADDR,
-	.bss_sz = ESP32_S2BETA_STUB_BSS_SIZE
 };
 
 static bool esp32s2_is_irom_address(target_addr_t addr)
@@ -84,9 +66,10 @@ static const struct esp_xtensa_flasher_stub_config *esp32s2_get_stub(struct flas
 {
 	struct esp32s2_common *esp32 = target_to_esp32s2(bank->target);
 
-	if (esp32->chip_rev == ESP32_S2_REV_BETA)
-		return &s_esp32s2beta_stub_cfg;
-	else if (esp32->chip_rev == ESP32_S2_REV_0)
+	if (esp32->chip_rev == ESP32_S2_REV_BETA) {
+		LOG_WARNING("esp32s2-beta support is removed. Using esp32s2 stub instead");
+		return &s_esp32s2_stub_cfg;
+	} else if (esp32->chip_rev == ESP32_S2_REV_0)
 		return &s_esp32s2_stub_cfg;
 	return NULL;
 }

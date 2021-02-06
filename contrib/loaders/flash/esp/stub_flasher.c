@@ -21,19 +21,15 @@
 
 #include <stdarg.h>
 #include <string.h>
-#include "rom/spi_flash.h"
 #include "eri.h"
 #include "trax.h"
 #include "esp_app_trace.h"
 #include "esp_flash_partitions.h"
 #include "esp_image_format.h"
 #include "stub_flasher.h"
+#include "stub_rom_chip.h"
 #include "stub_flasher_int.h"
 #include "stub_flasher_chip.h"
-#if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
-#include "soc/rtc.h"
-#include "rom/uart.h"
-#endif
 
 #define STUB_DEBUG    0
 
@@ -48,26 +44,52 @@
 #define XT_INS_BREAK    0x004000
 #define XT_INS_BREAKN   0xF02D
 
+#define MHZ (1000000)
+
 #ifdef XT_CLOCK_FREQ
 #undef XT_CLOCK_FREQ
 #endif
-#define XT_CLOCK_FREQ         (esp_clk_cpu_freq())
-#define CPUTICKS2US(_t_)      ((_t_)/(XT_CLOCK_FREQ/1000000))
+#define XT_CLOCK_FREQ         (stub_esp_clk_cpu_freq())
+#define CPUTICKS2US(_t_)      ((_t_)/(XT_CLOCK_FREQ/MHZ))
 
 extern uint32_t _bss_start;
 extern uint32_t _bss_end;
+
+/* g_ticks_us defined in ROMs for PRO and APP CPU */
+extern uint32_t g_ticks_per_us_pro;
 
 extern uint32_t stub_flash_get_id(void);
 extern void stub_flash_cache_flush(void);
 extern void stub_flash_state_prepare(struct stub_flash_state *state);
 extern void stub_flash_state_restore(struct stub_flash_state *state);
 extern void stub_clock_configure(void);
-extern uint32_t esp_clk_cpu_freq(void);
+extern void stub_uart_console_configure(void);
+
+static struct {
+	/* offset of next flash write */
+	uint32_t next_write;
+	/* number of output bytes remaining to write */
+	uint32_t remaining_uncompressed;
+	/* number of compressed bytes remaining to read */
+	uint32_t remaining_compressed;
+	/* inflator state for deflate write */
+	tinfl_decompressor *inflator;
+	/* unzip buffer */
+	uint8_t *out_buf;
+	/* */
+	uint8_t *next_out;
+} s_fs;
 
 /* used in app trace module */
 uint32_t esp_log_early_timestamp()
 {
 	return 0;
+}
+
+/* used in app trace module */
+uint32_t esp_clk_cpu_freq(void)
+{
+	return (g_ticks_per_us_pro * MHZ);
 }
 
 void __assert_func(const char *path, int line, const char *func, const char *msg)
@@ -240,24 +262,29 @@ static int stub_flash_read(uint32_t addr, uint32_t size)
 	return ESP_XTENSA_STUB_ERR_OK;
 }
 
-static int stub_flash_write(uint32_t addr, uint32_t size, uint8_t *down_buf, uint32_t down_size)
+static int stub_flash_write(void *args)
 {
 	esp_rom_spiflash_result_t rc;
 	uint32_t total_cnt = 0;
 	uint8_t cached_bytes_num = 0, cached_bytes[4];
-	STUB_LOGD("Start writing %d bytes @ 0x%x\n", size, addr);
+	struct esp_xtensa_stub_flash_write_args *wargs =
+		(struct esp_xtensa_stub_flash_write_args *)args;
+
+	STUB_LOGD("Start writing %d bytes @ 0x%x\n", wargs->size, wargs->start_addr);
 
 	int ret = stub_apptrace_init();
 	if (ret != ESP_XTENSA_STUB_ERR_OK)
 		return ret;
-	STUB_LOGI("Init apptrace module down buffer %d bytes @ 0x%x\n", down_size, down_buf);
-	esp_apptrace_down_buffer_config(down_buf, down_size);
+	STUB_LOGI("Init apptrace module down buffer %d bytes @ 0x%x\n",
+		wargs->down_buf_size,
+		wargs->down_buf_addr);
+	esp_apptrace_down_buffer_config((uint8_t *)wargs->down_buf_addr, wargs->down_buf_size);
 
-	while (total_cnt < size) {
-		uint32_t wr_sz = size - total_cnt - cached_bytes_num;
+	while (total_cnt < wargs->size) {
+		uint32_t wr_sz = wargs->size - total_cnt - cached_bytes_num;
 		STUB_LOGD("Req trace down buf %d bytes %d-%d-%d\n",
 			wr_sz,
-			size,
+			wargs->size,
 			total_cnt,
 			cached_bytes_num);
 		uint32_t start = xthal_get_ccount();
@@ -269,21 +296,23 @@ static int stub_flash_write(uint32_t addr, uint32_t size, uint8_t *down_buf, uin
 			return ESP_XTENSA_STUB_ERR_FAIL;
 		}
 		uint32_t end = xthal_get_ccount();
-		STUB_LOGD("Got trace down buf %d bytes @ 0x%x in %d ms\n", wr_sz, buf,
-			CPUTICKS2US(end - start) / 1000);
+		STUB_LOGD("Got trace down buf %d bytes @ 0x%x in %d us\n", wr_sz, buf,
+			CPUTICKS2US(end - start));
 
 		wr_p = buf;
 		if (cached_bytes_num != 0) {
 			/* add cached bytes from the end of the prev buffer to the starting bytes of
 			 * the current one */
 			memcpy(&cached_bytes[cached_bytes_num], buf, 4 - cached_bytes_num);
-			rc = esp_rom_spiflash_write(addr + total_cnt, (uint32_t *)cached_bytes, 4);
+			rc = esp_rom_spiflash_write(wargs->start_addr + total_cnt,
+				(uint32_t *)cached_bytes,
+				4);
 			STUB_LOGD("Write padded word [%x %x %x %x] to flash @ 0x%x\n",
 				cached_bytes[0],
 				cached_bytes[1],
 				cached_bytes[2],
 				cached_bytes[3],
-				addr + total_cnt);
+				wargs->start_addr + total_cnt);
 			if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 				STUB_LOGE("Failed to write flash (%d)\n", rc);
 				esp_apptrace_down_buffer_put(ESP_APPTRACE_DEST_TRAX,
@@ -304,12 +333,14 @@ static int stub_flash_write(uint32_t addr, uint32_t size, uint8_t *down_buf, uin
 		/* write buffer with aligned size */
 		if (wr_sz) {
 			start = xthal_get_ccount();
-			rc = esp_rom_spiflash_write(addr + total_cnt, (uint32_t *)wr_p, wr_sz);
+			rc = esp_rom_spiflash_write(wargs->start_addr + total_cnt,
+				(uint32_t *)wr_p,
+				wr_sz);
 			end = xthal_get_ccount();
-			STUB_LOGD("Write flash @ 0x%x sz %d in %d ms\n",
-				addr + total_cnt,
+			STUB_LOGD("Write flash @ 0x%x sz %d in %d us\n",
+				wargs->start_addr + total_cnt,
 				wr_sz,
-				CPUTICKS2US(end - start) / 1000);
+				CPUTICKS2US(end - start));
 			if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 				STUB_LOGE("Failed to write flash (%d)\n", rc);
 				esp_apptrace_down_buffer_put(ESP_APPTRACE_DEST_TRAX,
@@ -335,15 +366,187 @@ static int stub_flash_write(uint32_t addr, uint32_t size, uint8_t *down_buf, uin
 		while (cached_bytes_num & 0x3UL) {
 			cached_bytes[cached_bytes_num++] = 0xFF;
 		}
-		rc = esp_rom_spiflash_write(addr + total_cnt, (uint32_t *)cached_bytes, 4);
-		STUB_LOGD("Write last padded word to flash @ 0x%x\n", addr + total_cnt);
+		rc = esp_rom_spiflash_write(wargs->start_addr + total_cnt,
+			(uint32_t *)cached_bytes,
+			4);
+		STUB_LOGD("Write last padded word to flash @ 0x%x\n",
+			wargs->start_addr + total_cnt);
 		if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 			STUB_LOGE("Failed to write flash (%d)\n", rc);
 			return ESP_XTENSA_STUB_ERR_FAIL;
 		}
 	}
 
-	STUB_LOGD("Wrote %d bytes @ 0x%x\n", size, addr);
+	STUB_LOGD("Wrote %d bytes @ 0x%x\n", wargs->size, wargs->start_addr);
+
+	return ESP_XTENSA_STUB_ERR_OK;
+}
+
+static int stub_write_inflated_data(void *data_buf, uint32_t length)
+{
+	if (length > s_fs.remaining_uncompressed) {
+		/* Trim the final block, as it may have padding beyond
+		    the length we are writing */
+		length = s_fs.remaining_uncompressed;
+	}
+
+	if (length == 0)
+		return ESP_XTENSA_STUB_ERR_OK;
+
+	/* check alignment */
+	if (length & 0x03UL) {
+		STUB_LOGE("Unaligned offset!\n");
+		return ESP_XTENSA_STUB_ERR_FAIL;
+	}
+
+	/* write buffer with aligned size */
+	uint32_t start = xthal_get_ccount();
+	esp_rom_spiflash_result_t rc = esp_rom_spiflash_write(s_fs.next_write,
+		(uint32_t *)data_buf,
+		length);
+	uint32_t end = xthal_get_ccount();
+	STUB_LOGD("Write flash @ 0x%x sz %d in %d us\n",
+		s_fs.next_write,
+		length,
+		CPUTICKS2US(end - start));
+	if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
+		STUB_LOGE("Failed to write flash (%d)\n", rc);
+		esp_apptrace_down_buffer_put(ESP_APPTRACE_DEST_TRAX,
+			data_buf,
+			ESP_APPTRACE_TMO_INFINITE);
+		return ESP_XTENSA_STUB_ERR_FAIL;
+	}
+
+	s_fs.next_write += length;
+	s_fs.remaining_uncompressed -= length;
+
+	return ESP_XTENSA_STUB_ERR_OK;
+}
+
+static int stub_run_inflator(void *data_buf, uint32_t length)
+{
+	int status = TINFL_STATUS_NEEDS_MORE_INPUT;
+
+	while (length > 0 && s_fs.remaining_uncompressed > 0 && status > TINFL_STATUS_DONE) {
+		/* input remaining */
+		size_t in_bytes = length;
+		/* output space remaining */
+		size_t out_bytes = s_fs.out_buf + ESP_XTENSA_STUB_UNZIP_BUFF_SIZE - s_fs.next_out;
+		int flags = 0;
+
+		if (s_fs.remaining_compressed > length)
+			flags |= TINFL_FLAG_HAS_MORE_INPUT;
+
+		uint32_t start = xthal_get_ccount();
+		status = tinfl_decompress(s_fs.inflator, data_buf, &in_bytes,
+			s_fs.out_buf, s_fs.next_out, &out_bytes,
+			flags);
+		uint32_t end = xthal_get_ccount();
+		STUB_LOGD("tinfl_decompress in(%d) out(%d) (%d)us\n",
+			in_bytes,
+			out_bytes,
+			CPUTICKS2US(end - start));
+
+		s_fs.remaining_compressed -= in_bytes;
+		length -= in_bytes;
+		data_buf += in_bytes;
+		s_fs.next_out += out_bytes;
+		size_t bytes_in_out_buf = s_fs.next_out - s_fs.out_buf;
+
+		if (status <= TINFL_STATUS_DONE ||
+			bytes_in_out_buf == ESP_XTENSA_STUB_UNZIP_BUFF_SIZE) {
+			/* Output buffer full, or done */
+			if (stub_write_inflated_data(s_fs.out_buf,
+					bytes_in_out_buf) != ESP_XTENSA_STUB_ERR_OK)
+				return ESP_XTENSA_STUB_ERR_FAIL;
+			s_fs.next_out = s_fs.out_buf;
+		}
+	}	/* while */
+
+	if (status < TINFL_STATUS_DONE) {
+		STUB_LOGE("Failed to inflate data (%d)\n", status);
+		return ESP_XTENSA_STUB_ERR_INFLATE;
+	}
+	if (status == TINFL_STATUS_DONE && s_fs.remaining_uncompressed > 0) {
+		STUB_LOGE("Not enough compressed data\n");
+		return ESP_XTENSA_STUB_ERR_NOT_ENOUGH_DATA;
+	}
+	if (status != TINFL_STATUS_DONE && s_fs.remaining_uncompressed == 0) {
+		STUB_LOGE("Too much compressed data\n");
+		return ESP_XTENSA_STUB_ERR_TOO_MUCH_DATA;
+	}
+	return ESP_XTENSA_STUB_ERR_OK;
+}
+
+static int stub_flash_write_deflated(void *args)
+{
+	uint32_t total_cnt = 0;
+	uint8_t *buf = NULL;
+	struct esp_xtensa_stub_flash_write_args *wargs =
+		(struct esp_xtensa_stub_flash_write_args *)args;
+
+	STUB_LOGD("Start writing deflated %d bytes @ 0x%x\n", wargs->size, wargs->start_addr);
+
+	int ret = stub_apptrace_init();
+	if (ret != ESP_XTENSA_STUB_ERR_OK)
+		return ret;
+
+	STUB_LOGI("Init apptrace module down buffer %d bytes @ 0x%x\n",
+		wargs->down_buf_size,
+		wargs->down_buf_addr);
+	esp_apptrace_down_buffer_config((uint8_t *)wargs->down_buf_addr, wargs->down_buf_size);
+
+	STUB_LOGI("Uncompressed data size %d bytes\n", wargs->total_size);
+
+	/* both of them must be in stack! */
+	tinfl_decompressor inflator;
+	uint8_t out_buf[ESP_XTENSA_STUB_UNZIP_BUFF_SIZE];
+	/* */
+
+	s_fs.next_write = wargs->start_addr;
+	s_fs.remaining_uncompressed = wargs->total_size;
+	s_fs.remaining_compressed = wargs->size;
+	s_fs.inflator = &inflator;
+	s_fs.out_buf = out_buf;
+	s_fs.next_out = out_buf;
+	tinfl_init(s_fs.inflator);
+
+	while (total_cnt < wargs->size) {
+		uint32_t wr_sz = wargs->size - total_cnt;
+		STUB_LOGD("Req trace down buf %d bytes %d-%d [%d]\n",
+			wr_sz,
+			wargs->size,
+			total_cnt,
+			CPUTICKS2US(xthal_get_ccount()));
+		uint32_t start = xthal_get_ccount();
+		buf = esp_apptrace_down_buffer_get(ESP_APPTRACE_DEST_TRAX,
+			&wr_sz,
+			ESP_APPTRACE_TMO_INFINITE);
+		if (!buf) {
+			STUB_LOGE("Failed to get trace down buf!\n");
+			return ESP_XTENSA_STUB_ERR_FAIL;
+		}
+
+		uint32_t end = xthal_get_ccount();
+		STUB_LOGD("Got trace down buf %d bytes @ 0x%x in %d us\n", wr_sz, buf,
+			CPUTICKS2US(end - start));
+
+		if (stub_run_inflator(buf, wr_sz) != ESP_XTENSA_STUB_ERR_OK)
+			return ESP_XTENSA_STUB_ERR_INFLATE;
+
+		total_cnt += wr_sz;
+
+		/* free buffer */
+		esp_err_t err = esp_apptrace_down_buffer_put(ESP_APPTRACE_DEST_TRAX,
+			buf,
+			ESP_APPTRACE_TMO_INFINITE);
+		if (err != ESP_OK) {
+			STUB_LOGE("Failed to put trace buf!\n");
+			return ESP_XTENSA_STUB_ERR_FAIL;
+		}
+	}
+
+	STUB_LOGD("Wrote %d bytes @ 0x%x\n", wargs->total_size, wargs->start_addr);
 
 	return ESP_XTENSA_STUB_ERR_OK;
 }
@@ -359,12 +562,15 @@ static int stub_flash_erase(uint32_t flash_addr, uint32_t size)
 		size = (size + (STUB_FLASH_SECTOR_SIZE - 1)) & ~(STUB_FLASH_SECTOR_SIZE - 1);
 
 	STUB_LOGD("erase flash @ 0x%x, sz %d\n", flash_addr, size);
+	uint32_t start = xthal_get_ccount();
 	esp_rom_spiflash_result_t rc = esp_rom_spiflash_erase_area(flash_addr, size);
 	if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 		STUB_LOGE("Failed to erase flash (%d)\n", rc);
 		return ESP_XTENSA_STUB_ERR_FAIL;
 	}
-
+	uint32_t end = xthal_get_ccount();
+	STUB_LOGD("Erased %d bytes @ 0x%x in %d ms\n", size, flash_addr,
+		CPUTICKS2US(end - start) / 1000);
 	return ret;
 }
 
@@ -662,9 +868,8 @@ static int stub_flash_handler(int cmd, va_list ap)
 	int ret = ESP_XTENSA_STUB_ERR_OK;
 	struct stub_flash_state flash_state;
 	uint32_t arg1 = va_arg(ap, uint32_t);	/* flash_addr, start_sect */
-	uint32_t arg2 = va_arg(ap, uint32_t);	/* size, number of sectors */
-	uint8_t *arg3 = va_arg(ap, uint8_t *);	/* down_buf_addr, sectorts' state buf address */
-	uint32_t arg4 = va_arg(ap, uint32_t);	/* down buf size */
+	uint32_t arg2 = va_arg(ap, uint32_t);	/* number of sectors */
+	uint8_t *arg3 = va_arg(ap, uint8_t *);	/* sectors' state buf address */
 
 	STUB_LOGD("%s a %x, s %d\n", __func__, arg1, arg2);
 
@@ -705,7 +910,10 @@ static int stub_flash_handler(int cmd, va_list ap)
 			ret = stub_flash_erase_check(arg1, arg2, arg3);
 			break;
 		case ESP_XTENSA_STUB_CMD_FLASH_WRITE:
-			ret = stub_flash_write(arg1, arg2, arg3, arg4);
+			ret = stub_flash_write((void *)arg1);
+			break;
+		case ESP_XTENSA_STUB_CMD_FLASH_WRITE_DEFLATED:
+			ret = stub_flash_write_deflated((void *)arg1);
 			break;
 		case ESP_XTENSA_STUB_CMD_FLASH_MAP_GET:
 			ret = stub_flash_get_map(arg1, arg2);
@@ -735,17 +943,6 @@ void ets_update_cpu_frequency(uint32_t ticks_per_us)
 	/* do nothing for stub */
 }
 
-#if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
-static void uart_console_configure(void)
-{
-	uartAttach();
-	ets_install_uart_printf();
-	/* Set configured UART console baud rate */
-	uart_div_modify(CONFIG_CONSOLE_UART_NUM,
-		(rtc_clk_apb_freq_get() << 4) / CONFIG_CONSOLE_UART_BAUDRATE);
-}
-#endif
-
 int stub_main(int cmd, ...)
 {
 	va_list ap;
@@ -762,7 +959,8 @@ int stub_main(int cmd, ...)
 	/* We need Debug Interrupt Level to allow breakpoints handling by OpenOCD */
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
 	stub_clock_configure();
-	uart_console_configure();
+	stub_uart_console_configure();
+	STUB_LOGD("cpu_freq:%d Mhz\n", stub_esp_clk_cpu_freq()/MHZ);
 #endif
 	STUB_LOGD("BSS 0x%x..0x%x\n", &_bss_start, &_bss_end);
 	STUB_LOGD("cmd %d\n", cmd);

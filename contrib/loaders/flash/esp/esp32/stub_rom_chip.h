@@ -1,7 +1,7 @@
 /***************************************************************************
- *   LD script for ESP32-S2 flassher stub                                  *
+ *   ESP32 specific rom header files                                       *
  *   Copyright (C) 2019 Espressif Systems Ltd.                             *
- *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
+ *   Author: Erhan Kurubas <erhan.kurubas@espressif.com>                   *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -18,12 +18,15 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
+#ifndef ESP_STUB_ROM_H
+#define ESP_STUB_ROM_H
 
-MEMORY {
-  /* place stub at the beginning of the OpenOCD working area,
-     remaining space will be used for other chunks */
-  iram : org = 0x40030000, len = 0x3100
-  dram : org = 0x3FFE0000, len = 0x3000
-}
+#include "esp32/rom/ets_sys.h"
+#include "esp32/rom/spi_flash.h"  
+#include "esp32/rom/miniz.h"
+#include "esp32/rom/spi_flash.h"
+#include "esp32/rom/cache.h"
+#include "esp32/rom/efuse.h"
+#include "esp32/rom/uart.h"
 
-INCLUDE stub_common.ld
+#endif

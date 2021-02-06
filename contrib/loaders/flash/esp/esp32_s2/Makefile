@@ -33,18 +33,22 @@ STUB_OBJ_DEPS := sdkconfig.h
 STUB_LD_SCRIPT := stub.ld
 STUB_CHIP := ESP32_S2
 
-SRCS := $(IDF_PATH)/components/soc/esp32c/rtc_clk.c \
-	$(IDF_PATH)/components/soc/esp32c/rtc_time.c \
-	$(IDF_PATH)/components/xtensa-debug-module/eri.c
+SRCS := $(IDF_PATH)/components/esp_hw_support/port/esp32s2/rtc_clk.c \
+	$(IDF_PATH)/components/esp_hw_support/port/esp32s2/rtc_clk_init.c \
+	$(IDF_PATH)/components/esp_hw_support/port/esp32s2/rtc_time.c \
+	$(IDF_PATH)/components/esp_hw_support/port/esp32s2/regi2c_ctrl.c
 
-CFLAGS +=
+CFLAGS :=
 
-INCLUDES := -I$(IDF_PATH)/components/esp32c/include -I$(IDF_PATH)/components/soc/esp32c/include
-
+INCLUDES := -I$(IDF_PATH)/components/esp32s2/include -I$(IDF_PATH)/components/soc/esp32s2/include \
+	-I$(IDF_PATH)/components/esp_rom/include/esp32s2 -I$(IDF_PATH)/components/xtensa/esp32s2/include \
+	-I$(IDF_PATH)/components/hal/esp32s2/include -I$(IDF_PATH)/components/esp_hw_support/port/esp32s2/private_include
+ 
 DEFINES :=
 
-LDFLAGS += -L$(IDF_PATH)/components/esp32c/ld -T$(IDF_PATH)/components/esp32c/ld/esp32.rom.spiflash.ld \
-	-T$(IDF_PATH)/components/esp32c/ld/esp32.rom.ld -T$(IDF_PATH)/components/esp32c/ld/esp32.rom.spiram_incompatible_fns.ld \
-	-T$(IDF_PATH)/components/esp32c/ld/esp32.peripherals.ld
+LDFLAGS := -L$(IDF_PATH)/components/esp32s2/ld -T$(IDF_PATH)/components/esp_rom/esp32s2/ld/esp32s2.rom.ld \
+	-T$(IDF_PATH)/components/esp_rom/esp32s2/ld/esp32s2.rom.newlib-funcs.ld -T$(IDF_PATH)/components/esp32s2/ld/esp32s2.peripherals.ld \
+	-T$(IDF_PATH)/components/esp_rom/esp32s2/ld/esp32s2.rom.spiflash.ld -T$(IDF_PATH)/components/esp_rom/esp32s2/ld/esp32s2.rom.api.ld \
+	-T$(IDF_PATH)/components/esp_rom/esp32s2/ld/esp32s2.rom.libgcc.ld
 
 include ../stub_common.mk

@@ -21,7 +21,7 @@
 #ifndef ESP_FLASHER_STUB_INT_H
 #define ESP_FLASHER_STUB_INT_H
 
-#include "rom/ets_sys.h"
+#include "stub_rom_chip.h"
 
 #define STUB_LOG_NONE           0
 #define STUB_LOG_ERROR          1

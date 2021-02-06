@@ -76,6 +76,8 @@
 #include "time_support.h"
 #include "contrib/loaders/flash/esp/stub_flasher.h"
 
+#include <zlib.h>
+
 #define ESP_XTENSA_FLASH_MIN_OFFSET      0x1000	/* protect secure boot digest data */
 #define ESP_XTENSA_RW_TMO                20000	/* ms */
 #define ESP_XTENSA_ERASE_TMO             60000	/* ms */
@@ -93,6 +95,8 @@ struct esp_xtensa_write_state {
 	uint32_t prev_block_id;
 	struct working_area *target_buf;
 	struct esp_xtensa_flash_bank *esp_xtensa_info;
+	struct working_area *stub_wargs_area;
+	struct esp_xtensa_stub_flash_write_args stub_wargs;
 };
 
 struct esp_xtensa_read_state {
@@ -109,6 +113,66 @@ struct esp_xtensa_flash_bp_op_state {
 	struct working_area *target_buf;
 	struct esp_xtensa_flash_bank *esp_xtensa_info;
 };
+
+static int esp_xtensa_compress(const uint8_t *in, uint32_t in_len, uint8_t **out, uint32_t *out_len)
+{
+	z_stream strm;
+	int wbits = -MAX_WBITS;		/*deflate */
+	int level = Z_DEFAULT_COMPRESSION;	/*Z_BEST_SPEED; */
+
+	strm.zalloc = Z_NULL;
+	strm.zfree = Z_NULL;
+	strm.opaque = Z_NULL;
+
+	if (deflateInit2(&strm, level, Z_DEFLATED, wbits, MAX_MEM_LEVEL,
+			Z_DEFAULT_STRATEGY) != Z_OK) {
+		LOG_ERROR("deflateInit2 error!");
+		return ERROR_FAIL;
+	}
+
+	strm.avail_out = deflateBound(&strm, (uLong)in_len);
+
+	/* Some compression methods may need a little more space */
+	strm.avail_out += 100;
+
+	if (strm.avail_out > INT_MAX) {
+		deflateEnd(&strm);
+		return ERROR_FAIL;
+	}
+
+	*out = (uint8_t *)malloc((int)strm.avail_out);
+	if (*out == NULL) {
+		LOG_ERROR("out buffer allocation failed!");
+		return ERROR_FAIL;
+	}
+	strm.next_out = *out;
+	strm.next_in = (uint8_t *)in;
+	strm.avail_in = (uInt)in_len;
+
+	/* always compress in one pass - the return value holds the entire
+	 * decompressed data anyway, so there's no reason to do chunked
+	 * decompression */
+	if (deflate(&strm, Z_FINISH) != Z_STREAM_END) {
+		free(*out);
+		deflateEnd(&strm);
+		LOG_ERROR("not enough output space");
+		return ERROR_FAIL;
+	}
+
+	deflateEnd(&strm);
+
+	if (strm.total_out > INT_MAX) {
+		free(*out);
+		LOG_ERROR("too much output");
+		return ERROR_FAIL;
+	}
+
+	*out_len = strm.total_out;
+
+	LOG_DEBUG("inlen:(%u) outlen:(%u)!", in_len, *out_len);
+
+	return ERROR_OK;
+}
 
 static int esp_xtensa_flasher_image_init(struct xtensa_algo_image *flasher_image,
 	const struct esp_xtensa_flasher_stub_config *stub_cfg)
@@ -165,6 +229,7 @@ int esp_xtensa_flash_init(struct esp_xtensa_flash_bank *esp_xtensa_info, uint32_
 	esp_xtensa_info->is_drom_address = is_drom_address;
 	esp_xtensa_info->hw_flash_base = 0;
 	esp_xtensa_info->appimage_flash_base = (uint32_t)-1;
+	esp_xtensa_info->compression = 1;	/* enables compression by default */
 	return ERROR_OK;
 }
 
@@ -404,7 +469,7 @@ static int esp_xtensa_rw_do(struct target *target, void *priv)
 		LOG_ERROR("Failed to stop data write measurement!");
 		return ERROR_FAIL;
 	}
-	LOG_DEBUG("PROF: Data transffered in %g ms @ %g KB/s",
+	LOG_INFO("PROF: Data transferred in %g ms @ %g KB/s",
 		duration_elapsed(&algo_time)*1000,
 		duration_kbps(&algo_time, rw->total_count));
 
@@ -485,22 +550,32 @@ static int esp_xtensa_write_state_init(struct target *target,
 		LOG_ERROR("Failed to stop workarea alloc measurement!");
 		return ERROR_FAIL;
 	}
-	LOG_DEBUG("PROF: Allocated target buffer %d bytes in %g ms", buffer_size,
+	LOG_DEBUG("PROF: Allocated target buffer %d bytes in %g ms",
+		buffer_size,
 		duration_elapsed(&algo_time)*1000);
 
-	buf_set_u32(run->priv.stub.reg_params[XTENSA_STUB_ARGS_FUNC_START+3].value,
+	/* alloc memory for stub flash write arguments in data working area */
+	if (target_alloc_alt_working_area(target, sizeof(state->stub_wargs),
+			&state->stub_wargs_area) != ERROR_OK) {
+		LOG_ERROR("no working area available, can't alloc space for stub flash arguments");
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	}
+
+	state->stub_wargs.down_buf_addr = state->target_buf->address;
+	state->stub_wargs.down_buf_size = state->target_buf->size;
+
+	ret = target_write_buffer(target, state->stub_wargs_area->address,
+		sizeof(state->stub_wargs), (uint8_t *)&state->stub_wargs);
+	if (ret != ERROR_OK) {
+		LOG_ERROR("Write memory at address " TARGET_ADDR_FMT " failed",
+			state->stub_wargs_area->address);
+		return ERROR_TARGET_FAILURE;
+	}
+
+	buf_set_u32(run->priv.stub.reg_params[XTENSA_STUB_ARGS_FUNC_START + 1].value,
 		0,
 		32,
-		state->target_buf->address);										/*
-															 * down
-															 * buffer */
-	buf_set_u32(run->priv.stub.reg_params[XTENSA_STUB_ARGS_FUNC_START+4].value,
-		0,
-		32,
-		state->target_buf->size);									/*
-														 * down
-														 * buffer
-														 * size */
+		state->stub_wargs_area->address);
 
 	return ERROR_OK;
 }
@@ -516,6 +591,7 @@ static void esp_xtensa_write_state_cleanup(struct target *target,
 	if (duration_start(&algo_time) != 0)
 		LOG_ERROR("Failed to start workarea alloc time measurement!");
 	target_free_alt_working_area(target, state->target_buf);
+	target_free_alt_working_area(target, state->stub_wargs_area);
 	if (duration_measure(&algo_time) != 0)
 		LOG_ERROR("Failed to stop data write measurement!");
 	LOG_DEBUG("PROF: Workarea freed in %g ms", duration_elapsed(&algo_time)*1000);
@@ -528,6 +604,9 @@ int esp_xtensa_write(struct flash_bank *bank, const uint8_t *buffer,
 	struct xtensa_algo_run_data run;
 	struct esp_xtensa_write_state wr_state;
 	struct xtensa_algo_image flasher_image;
+	uint8_t *compressed_buff = NULL;
+	uint32_t compressed_len = 0;
+	uint32_t stack_size = 1024;
 
 	if (esp_xtensa_info->hw_flash_base + offset < ESP_XTENSA_FLASH_MIN_OFFSET) {
 		LOG_ERROR("Invalid offset!");
@@ -546,32 +625,56 @@ int esp_xtensa_write(struct flash_bank *bank, const uint8_t *buffer,
 	if (ret != ERROR_OK)
 		return ret;
 
+	if (esp_xtensa_info->compression) {
+		struct duration bench;
+		duration_start(&bench);
+		if (esp_xtensa_compress(buffer, count, &compressed_buff,
+				&compressed_len) != ERROR_OK) {
+			LOG_ERROR("Compression failed!");
+			return ERROR_FAIL;
+		}
+		duration_measure(&bench);
+		LOG_INFO("Compressed %" PRIu32 " bytes to %" PRIu32 " bytes "
+			"in %fs",
+			count,
+			compressed_len,
+			duration_elapsed(&bench));
+
+		stack_size += ESP_XTENSA_STUB_UNZIP_BUFF_SIZE + ESP_XTENSA_STUB_IFLATOR_SIZE;
+	}
+
 	memset(&run, 0, sizeof(run));
-	run.stack_size = 1024;
+	run.stack_size = stack_size;
 	run.usr_func = esp_xtensa_rw_do;
 	run.usr_func_arg = &wr_state;
 	run.usr_func_init = (xtensa_algo_usr_func_init_t)esp_xtensa_write_state_init;
 	run.usr_func_done = (xtensa_algo_usr_func_done_t)esp_xtensa_write_state_cleanup;
 	memset(&wr_state, 0, sizeof(struct esp_xtensa_write_state));
-	wr_state.rw.buffer = (uint8_t *)buffer;
-	wr_state.rw.count = count;
+	wr_state.rw.buffer = esp_xtensa_info->compression ? compressed_buff : (uint8_t *)buffer;
+	wr_state.rw.count = esp_xtensa_info->compression ? compressed_len : count;
 	wr_state.rw.xfer = esp_xtensa_write_xfer;
 	wr_state.prev_block_id = (uint32_t)-1;
 	wr_state.esp_xtensa_info = esp_xtensa_info;
+	/* stub flasher arguments */
+	wr_state.stub_wargs.size = wr_state.rw.count;
+	wr_state.stub_wargs.total_size = count;
+	wr_state.stub_wargs.start_addr = esp_xtensa_info->hw_flash_base + offset;
+	wr_state.stub_wargs.down_buf_addr = 0;
+	wr_state.stub_wargs.down_buf_size = 0;
 
-	ret = esp_xtensa_info->run_func_image(bank->target,
+	ret = esp_xtensa_info->run_func_image(
+		bank->target,
 		&run,
 		&flasher_image,
-		5,
+		2,
+		esp_xtensa_info->compression ? ESP_XTENSA_STUB_CMD_FLASH_WRITE_DEFLATED :
 		ESP_XTENSA_STUB_CMD_FLASH_WRITE,
 		/* cmd */
-		esp_xtensa_info->hw_flash_base + offset,
-		/* start addr */
-		count,
-		/* size */
-		0,
-		/* down buf addr */
-		0);						/* down buf size */
+		0
+		/* esp_xtensa_stub_flash_write_args */);
+
+	if (compressed_buff)
+		free(compressed_buff);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
 		return ret;
@@ -782,7 +885,7 @@ int esp_xtensa_probe(struct flash_bank *bank)
 	LOG_INFO("Using flash bank '%s' size %d KB", bank->name, bank->size/1024);
 
 	if (bank->size) {
-		/* Bank size can be 0 for IRON/DROM emulated banks when there is no app in flash */
+		/* Bank size can be 0 for IROM/DROM emulated banks when there is no app in flash */
 		bank->num_sectors = bank->size / esp_xtensa_info->sec_sz;
 		bank->sectors = malloc(sizeof(struct flash_sector) * bank->num_sectors);
 		if (bank->sectors == NULL) {
@@ -1042,6 +1145,63 @@ COMMAND_HANDLER(esp_xtensa_cmd_appimage_flashoff)
 		get_current_target(CMD_CTX));
 }
 
+static int esp_xtensa_set_compression(struct target *target,
+	char *bank_name_suffix,
+	int compression)
+{
+	struct flash_bank *bank;
+	struct esp_xtensa_flash_bank *esp_xtensa_info;
+	char bank_name[64];
+
+	int ret = snprintf(bank_name,
+		sizeof(bank_name),
+		"%s.%s",
+		target_name(target),
+		bank_name_suffix);
+	if (ret == sizeof(bank_name)) {
+		LOG_ERROR("Failed to build bank name string!");
+		return ERROR_FAIL;
+	}
+	LOG_DEBUG("compression:%d for bank_name:%s", compression, bank_name);
+	ret = get_flash_bank_by_name(bank_name, &bank);
+	if (ret != ERROR_OK || bank == NULL) {
+		LOG_ERROR("Failed to find bank '%s'!",  bank_name);
+		return ret;
+	}
+	esp_xtensa_info = (struct esp_xtensa_flash_bank *)bank->driver_priv;
+	esp_xtensa_info->compression = compression;
+	return ERROR_OK;
+}
+
+COMMAND_HELPER(esp_xtensa_cmd_set_compression, struct target *target)
+{
+	if (CMD_ARGC != 1) {
+		command_print(CMD, "Compression not specified!");
+		return ERROR_FAIL;
+	}
+
+	int compression = 0;
+
+	if (0 == strcmp("on", CMD_ARGV[0])) {
+		LOG_DEBUG("Flash compressed upload is on");
+		compression = 1;
+	} else if (0 == strcmp("off", CMD_ARGV[0])) {
+		LOG_DEBUG("Flash compressed upload is off");
+		compression = 0;
+	} else {
+		LOG_DEBUG("unknown flag");
+		return ERROR_FAIL;
+	}
+
+	return esp_xtensa_set_compression(target, "flash", compression);
+}
+
+COMMAND_HANDLER(esp_xtensa_cmd_compression)
+{
+	return CALL_COMMAND_HANDLER(esp_xtensa_cmd_set_compression,
+		get_current_target(CMD_CTX));
+}
+
 const struct command_registration esp_xtensa_exec_flash_command_handlers[] = {
 	{
 		.name = "appimage_offset",
@@ -1050,6 +1210,14 @@ const struct command_registration esp_xtensa_exec_flash_command_handlers[] = {
 		.help =
 			"Set offset of application image in flash. Use -1 to debug the first application image from partition table.",
 		.usage = "offset",
+	},
+	{
+		.name = "compression",
+		.handler = esp_xtensa_cmd_compression,
+		.mode = COMMAND_ANY,
+		.help =
+			"Set compression flag",
+		.usage = "['on'|'off']",
 	},
 	COMMAND_REGISTRATION_DONE
 };
