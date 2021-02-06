@@ -98,14 +98,14 @@ class StepTestsImpl():
     def test_step_window_exception(self):
         # start the test, stopping at the window_exception_test function
         self.select_sub_test(200)
-        bp = self.gdb.add_bp('window_exception_test')
+        bp = self.gdb.add_bp('_recursive_func')
         self.resume_exec()
         rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
         self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
         self.gdb.delete_bp(bp)
 
         # do "step in", 3 steps per recursion level
-        for i in range(0, 59):
+        for i in range(0, 57):
             get_logger().info('Step in {}'.format(i))
             self.step_in()
 
@@ -154,7 +154,7 @@ class StepTestsImpl():
 
     def test_step_multimode(self):
         """
-        1) Step over lines multiple times. Checks: correct line numer change.
+        1) Step over lines multiple times. Checks: correct line number change.
         2) Step over instructions multiple times. Checks: correct insn addr change.
         3) Combine stepping over lines and instructions.
         4) Resume target (continue).
@@ -336,8 +336,19 @@ class DebuggerStepTestsDual(DebuggerGenericTestAppTestsDual, StepTestsImpl):
     """
     pass
 
+class DebuggerStepTestsDualEncrypted(DebuggerGenericTestAppTestsDualEncrypted, StepTestsImpl):
+    """ Test cases for encrypted dual core mode
+    """
+    pass
 
 class DebuggerStepTestsSingle(DebuggerGenericTestAppTestsSingle, StepTestsImpl):
     """ Test cases for single core mode
     """
     pass
+
+class DebuggerStepTestsSingleEncrypted(DebuggerGenericTestAppTestsSingleEncrypted, StepTestsImpl):
+    """ Test cases for encrypted single core mode
+    """
+    pass
+
+

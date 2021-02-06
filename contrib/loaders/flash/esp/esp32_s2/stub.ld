@@ -22,8 +22,8 @@
 MEMORY {
   /* place stub at the beginning of the OpenOCD working area,
      remaining space will be used for other chunks */
-  iram : org = 0x40030000, len = 0x3100
-  dram : org = 0x3FFE0000, len = 0x3000
+  iram : org = 0x40030000, len = 0x4000
+  dram : org = 0x3FFE0000, len = 0x18000
 }
 
 INCLUDE stub_common.ld

@@ -180,6 +180,8 @@ int sum;  // not static so the whole loop is not optimized away
 
 static void recursive(int levels)
 {
+    LABEL_SYMBOL(_recursive_func);
+    
     if (levels - 1 == 0) {
         return;
     }

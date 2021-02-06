@@ -182,8 +182,19 @@ class FlasherTestsDual(DebuggerGenericTestAppTestsDual, FlasherTestsImpl):
     # no special tests for single core mode yet
     pass
 
+class FlasherTestsDualEncrypted(DebuggerGenericTestAppTestsDualEncrypted, FlasherTestsImpl):
+    """ Encrypted flash test cases in dual core mode
+    """
+    pass
+
 class FlasherTestsSingle(DebuggerGenericTestAppTestsSingle, FlasherTestsImpl):
     """ Test cases in single core mode
     """
     # no special tests for single core mode yet
     pass
+
+class FlasherTestsSingleEncrypted(DebuggerGenericTestAppTestsSingleEncrypted, FlasherTestsImpl):
+    """ Encrypted flash test cases in single core mode
+    """
+    pass
+

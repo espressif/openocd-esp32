@@ -18,12 +18,15 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
-
+#include <string.h>
 #include "sdkconfig.h"
 #include "soc/rtc_cntl_reg.h"
 #include "soc/rtc.h"
 #include "soc/efuse_periph.h"
 #include "soc/gpio_reg.h"
+#include "soc/mmu.h"
+#include "soc/extmem_reg.h"
+#include "esp_spi_flash.h"
 #include "esp32s2/spiram.h"
 #include "soc/system_reg.h"
 #include "rtc_clk_common.h"
@@ -34,19 +37,48 @@
 
 uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * MHZ;
 
+/* Cache MMU related definitions */
+#define STUB_CACHE_BUS                  EXTMEM_PRO_ICACHE_MASK_DROM0
+#define STUB_MMU_DROM_VADDR             SOC_MMU_VADDR0_START_ADDR
+#define STUB_MMU_DROM_PAGES_START       SOC_MMU_DROM0_PAGES_START	/* 128 */
+#define STUB_MMU_DROM_PAGES_END         SOC_MMU_DROM0_PAGES_END		/* 192 */
+#define STUB_MMU_TABLE                  ((volatile uint32_t *)DR_REG_MMU_TABLE)
+#define STUB_MMU_INVALID_ENTRY_VAL      MMU_TABLE_INVALID_VAL	/* 0x400 */
+
+/* SPI Flash map request data */
+struct spiflash_map_req {
+	/* Request mapping SPI Flash base address */
+	uint32_t src_addr;
+	/* Request mapping SPI Flash size */
+	uint32_t size;
+	/* Mapped memory pointer */
+	void *ptr;
+	/* Mapped started MMU page index */
+	uint32_t start_page;
+	/* Mapped MMU page count */
+	uint32_t page_cnt;
+};
+
 extern esp_rom_spiflash_chip_t g_rom_spiflash_chip;
 
 extern void spi_flash_attach(uint32_t spiconfig, uint32_t arg2);
 
-static void esp32_s2_flash_disable_cache(uint32_t *saved_state)
+#if STUB_LOG_LOCAL_LEVEL > STUB_LOG_INFO
+void stub_print_cache_mmu_registers(void)
 {
-	saved_state[0] = Cache_Suspend_ICache();
-}
+	uint32_t icache_ctrl_reg = REG_READ(EXTMEM_PRO_ICACHE_CTRL_REG);
+	uint32_t icache_ctrl1_reg = REG_READ(EXTMEM_PRO_ICACHE_CTRL1_REG);
+	uint32_t dbg_status0_reg = REG_READ(EXTMEM_CACHE_DBG_STATUS0_REG);
+	uint32_t dbg_status1_reg = REG_READ(EXTMEM_CACHE_DBG_STATUS1_REG);
 
-static void esp32_s2_flash_restore_cache(uint32_t *saved_state)
-{
-	Cache_Resume_ICache(saved_state[0]);
+	STUB_LOGD("icache_ctrl_reg: 0x%x icache_ctrl1_reg: 0x%x "
+		"dbg_status0_reg: 0x%x dbg_status1_reg: 0x%x\n",
+		icache_ctrl_reg,
+		icache_ctrl1_reg,
+		dbg_status0_reg,
+		dbg_status1_reg);
 }
+#endif
 
 uint32_t stub_flash_get_id(void)
 {
@@ -74,6 +106,29 @@ void stub_flash_cache_flush(void)
 	Cache_Invalidate_ICache_Items(0, 4*1024*1024);
 }
 
+void stub_cache_init(void)
+{
+	STUB_LOGD("stub_cache_init\n");
+
+	Cache_Allocate_SRAM(CACHE_MEMORY_ICACHE_LOW,
+		CACHE_MEMORY_INVALID,
+		CACHE_MEMORY_INVALID,
+		CACHE_MEMORY_INVALID);
+	Cache_Suspend_ICache();
+	Cache_Set_ICache_Mode(CACHE_SIZE_8KB, CACHE_4WAYS_ASSOC, CACHE_LINE_SIZE_32B);
+	Cache_Invalidate_ICache_All();
+	Cache_MMU_Init();
+	REG_CLR_BIT(EXTMEM_PRO_ICACHE_CTRL1_REG, STUB_CACHE_BUS);
+	Cache_Resume_ICache(0);
+}
+
+bool stub_is_cache_enabled(void)
+{
+	bool is_enabled = REG_GET_BIT(EXTMEM_PRO_ICACHE_CTRL_REG, EXTMEM_PRO_ICACHE_ENABLE) != 0;
+	int cache_bus = REG_READ(EXTMEM_PRO_ICACHE_CTRL1_REG);
+	return is_enabled && !(cache_bus & STUB_CACHE_BUS);
+}
+
 void stub_flash_state_prepare(struct stub_flash_state *state)
 {
 	uint32_t spiconfig = ets_efuse_get_spiconfig();
@@ -83,13 +138,18 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 	if (spiconfig == 0 && (strapping & 0x1c) == 0x08)
 		spiconfig = 1;	/* HSPI flash mode */
 
-	esp32_s2_flash_disable_cache(state->cache_flags);
+	state->cache_enabled = stub_is_cache_enabled();
+	if (!state->cache_enabled) {
+		STUB_LOGI("Cache needs to be enabled\n");
+		stub_cache_init();
+	}
+
 	spi_flash_attach(spiconfig, 0);
 }
 
 void stub_flash_state_restore(struct stub_flash_state *state)
 {
-	esp32_s2_flash_restore_cache(state->cache_flags);
+	/* we do not disable or store the cache settings. So, nothing to restore*/
 }
 
 #define RTC_PLL_FREQ_320M   320
@@ -104,6 +164,7 @@ rtc_xtal_freq_t stub_rtc_clk_xtal_freq_get(void)
 	}
 	return reg_val_to_clk_val(xtal_freq_reg);
 }
+
 /* Obviously we can call rtc_clk_cpu_freq_get_config() from esp-idf
 But this call may cause undesired locks due to ets_printf or abort
 */
@@ -277,6 +338,135 @@ esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint3
 		sector_no++;
 		total_sector_num--;
 	}
+
+	return ESP_ROM_SPIFLASH_RESULT_OK;
+}
+
+static inline bool esp_flash_encryption_enabled(void)
+{
+	uint32_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA1_REG,
+		EFUSE_SPI_BOOT_CRYPT_CNT);
+
+	/* __builtin_parity is in flash, so we calculate parity inline */
+	bool enabled = false;
+	while (flash_crypt_cnt) {
+		if (flash_crypt_cnt & 1)
+			enabled = !enabled;
+		flash_crypt_cnt >>= 1;
+	}
+	return enabled;
+}
+
+esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
+{
+	static esp_flash_enc_mode_t mode = ESP_FLASH_ENC_MODE_DEVELOPMENT;
+	static bool first = true;
+
+	if (first) {
+		if (esp_flash_encryption_enabled()) {
+			/* Check if SPI_BOOT_CRYPT_CNT is write protected */
+			bool flash_crypt_cnt_wr_dis = REG_READ(EFUSE_RD_WR_DIS_REG) &
+				EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT;
+			if (!flash_crypt_cnt_wr_dis) {
+				uint8_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA1_REG,
+					EFUSE_SPI_BOOT_CRYPT_CNT);
+				/* Check if SPI_BOOT_CRYPT_CNT set for permanent encryption */
+				if (flash_crypt_cnt == EFUSE_SPI_BOOT_CRYPT_CNT_V)
+					flash_crypt_cnt_wr_dis = true;
+			}
+
+			if (flash_crypt_cnt_wr_dis) {
+				uint8_t dis_dl_enc = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
+					EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT);
+				uint8_t dis_dl_icache = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
+					EFUSE_DIS_DOWNLOAD_ICACHE);
+				uint8_t dis_dl_dcache = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
+					EFUSE_DIS_DOWNLOAD_DCACHE);
+				if (dis_dl_enc && dis_dl_icache && dis_dl_dcache)
+					mode = ESP_FLASH_ENC_MODE_RELEASE;
+			}
+
+		} else
+			mode = ESP_FLASH_ENC_MODE_DISABLED;
+
+		first = false;
+	}
+
+	STUB_LOGD("flash_encryption_mode: %d\n", mode);
+
+	return mode;
+}
+
+static int stub_flash_mmap(struct spiflash_map_req *req)
+{
+	uint32_t map_src = req->src_addr & (~(SPI_FLASH_MMU_PAGE_SIZE - 1));
+	uint32_t map_size = req->size + (req->src_addr - map_src);
+	uint32_t flash_page = map_src / SPI_FLASH_MMU_PAGE_SIZE;
+	uint32_t page_cnt = (map_size + SPI_FLASH_MMU_PAGE_SIZE - 1) / SPI_FLASH_MMU_PAGE_SIZE;
+	int start_page, ret = ESP_ROM_SPIFLASH_RESULT_ERR;
+	uint32_t saved_state = Cache_Suspend_ICache();
+
+	for (start_page = STUB_MMU_DROM_PAGES_START; start_page < STUB_MMU_DROM_PAGES_END;
+		++start_page) {
+		if (STUB_MMU_TABLE[start_page] == STUB_MMU_INVALID_ENTRY_VAL)
+			break;
+	}
+
+	if (start_page + page_cnt < STUB_MMU_DROM_PAGES_END) {
+		for (int i = 0; i < page_cnt; i++)
+			STUB_MMU_TABLE[start_page + i] = SOC_MMU_PAGE_IN_FLASH(
+				flash_page + i);
+
+		req->start_page = start_page;
+		req->page_cnt = page_cnt;
+		req->ptr = (void *)(STUB_MMU_DROM_VADDR +
+			(start_page - STUB_MMU_DROM_PAGES_START) * SPI_FLASH_MMU_PAGE_SIZE +
+			(req->src_addr - map_src));
+		Cache_Invalidate_Addr((uint32_t)(STUB_MMU_DROM_VADDR +
+				(start_page - STUB_MMU_DROM_PAGES_START) * SPI_FLASH_MMU_PAGE_SIZE),
+			SPI_FLASH_MMU_PAGE_SIZE);
+		ret = ESP_ROM_SPIFLASH_RESULT_OK;
+	}
+
+	STUB_LOGD(
+		"start_page: %d map_src: %x map_size: %x page_cnt: %d flash_page: %d map_ptr: %x\n",
+		start_page,
+		map_src,
+		map_size,
+		page_cnt,
+		flash_page,
+		req->ptr);
+
+	Cache_Resume_ICache(saved_state);
+
+	return ret;
+}
+
+static void stub_flash_ummap(const struct spiflash_map_req *req)
+{
+	uint32_t saved_state = Cache_Suspend_ICache();
+
+	for (int i = req->start_page; i < req->start_page + req->page_cnt; ++i)
+		STUB_MMU_TABLE[i] = STUB_MMU_INVALID_ENTRY_VAL;
+
+	Cache_Resume_ICache(saved_state);
+}
+
+int stub_flash_read_buff(uint32_t addr, void *buffer, uint32_t size)
+{
+	struct spiflash_map_req req = {
+		.src_addr = addr,
+		.size = size,
+	};
+
+	int ret = stub_flash_mmap(&req);
+
+	if (ret)
+		return ret;
+
+	memcpy(buffer, req.ptr, size);
+
+	stub_flash_ummap(&req);
 
 	return ESP_ROM_SPIFLASH_RESULT_OK;
 }
