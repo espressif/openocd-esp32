@@ -74,6 +74,7 @@ void write_memory_sba_simple(struct target *target, target_addr_t addr, uint32_t
 void read_memory_sba_simple(struct target *target, target_addr_t addr,
 		uint32_t *rd_buf, uint32_t read_size, uint32_t sbcs);
 static int	riscv013_test_compliance(struct target *target);
+static int batch_run(const struct target *target, struct riscv_batch *batch);
 
 /**
  * Since almost everything can be accomplish by scanning the dbus register, all
@@ -2082,37 +2083,6 @@ static void log_memory_access(target_addr_t address, uint64_t value,
 	LOG_DEBUG(fmt, value);
 }
 
-/* Read the relevant sbdata regs depending on size, and put the results into
- * buffer. */
-static int read_memory_bus_word(struct target *target, target_addr_t address,
-		uint32_t size, uint8_t *buffer)
-{
-	uint32_t value;
-	if (size > 12) {
-		if (dmi_read(target, &value, DMI_SBDATA3) != ERROR_OK)
-			return ERROR_FAIL;
-		write_to_buf(buffer + 12, value, 4);
-		log_memory_access(address + 12, value, 4, true);
-	}
-	if (size > 8) {
-		if (dmi_read(target, &value, DMI_SBDATA2) != ERROR_OK)
-			return ERROR_FAIL;
-		write_to_buf(buffer + 8, value, 4);
-		log_memory_access(address + 8, value, 4, true);
-	}
-	if (size > 4) {
-		if (dmi_read(target, &value, DMI_SBDATA1) != ERROR_OK)
-			return ERROR_FAIL;
-		write_to_buf(buffer + 4, value, 4);
-		log_memory_access(address + 4, value, 4, true);
-	}
-	if (dmi_read(target, &value, DMI_SBDATA0) != ERROR_OK)
-		return ERROR_FAIL;
-	write_to_buf(buffer, value, MIN(size, 4));
-	log_memory_access(address, value, MIN(size, 4), true);
-	return ERROR_OK;
-}
-
 static uint32_t sb_sbaccess(unsigned size_bytes)
 {
 	switch (size_bytes) {
@@ -2294,12 +2264,46 @@ static int read_memory_bus_v0(struct target *target, target_addr_t address,
 	return ERROR_OK;
 }
 
+static int fill_buffer_from_dmi_read_batch(struct riscv_batch *batch, riscv_addr_t address,
+		riscv_addr_t read_addr, uint32_t count, uint8_t *buffer)
+{
+	unsigned read = 0;
+	dmi_status_t status = DMI_STATUS_SUCCESS;
+	riscv_addr_t receive_addr = read_addr;
+
+	for (size_t i = 0; i < count; i++) {
+		uint64_t dmi_out = riscv_batch_get_dmi_read(batch, read++);
+		status = get_field(dmi_out, DTM_DMI_OP);
+		if (status != DMI_STATUS_SUCCESS) {
+			/* If we're here because of busy count, dmi_busy_delay will
+				* already have been increased and busy state will have been
+				* cleared in dmi_read(). */
+			/* In at least some implementations, we issue a read, and then
+				* can get busy back when we try to scan out the read result,
+				* and the actual read value is lost forever. Since this is
+				* rare in any case, we return error here and rely on our
+				* caller to reread the entire block. */
+			LOG_WARNING("Batch memory read encountered DMI error %d. "
+					"Falling back on slower reads.", status);
+			return ERROR_FAIL;
+		}
+		uint64_t value = get_field(dmi_out, DTM_DMI_DATA);
+		riscv_addr_t offset = receive_addr - address;
+		write_to_buf(buffer + offset, value, 4);
+		log_memory_access(receive_addr, value, 4, true);
+
+		receive_addr += 4;
+	}
+	return ERROR_OK;
+}
+
 /**
  * Read the requested memory using the system bus interface.
  */
 static int read_memory_bus_v1(struct target *target, target_addr_t address,
 		uint32_t size, uint32_t count, uint8_t *buffer)
 {
+	int result;
 	RISCV013_INFO(info);
 	target_addr_t next_address = address;
 	target_addr_t end_address = address + count * size;
@@ -2307,76 +2311,99 @@ static int read_memory_bus_v1(struct target *target, target_addr_t address,
 	LOG_DEBUG("System Bus Access: size: %d\tcount:%d\tstart address: 0x%08"
 			TARGET_PRIxADDR, size, count, address);
 
+	uint32_t sbcs = set_field(0, DMI_SBCS_SBREADONADDR, 1);
+	sbcs |= sb_sbaccess(size);
+	sbcs = set_field(sbcs, DMI_SBCS_SBAUTOINCREMENT, 1);
+	if (count > 1)
+		sbcs = set_field(sbcs, DMI_SBCS_SBREADONDATA, count > 1);
+	if (dmi_write(target, DMI_SBCS, sbcs) != ERROR_OK)
+		return ERROR_FAIL;
+
+	/* This address write will trigger the first read. */
+	if (sb_write_address(target, next_address) != ERROR_OK)
+		return ERROR_FAIL;
 	while (next_address < end_address) {
-		uint32_t sbcs_write = set_field(0, DMI_SBCS_SBREADONADDR, 1);
-		sbcs_write |= sb_sbaccess(size);
-		sbcs_write = set_field(sbcs_write, DMI_SBCS_SBAUTOINCREMENT, 1);
-		if (count > 1)
-			sbcs_write = set_field(sbcs_write, DMI_SBCS_SBREADONDATA, count > 1);
-		if (dmi_write(target, DMI_SBCS, sbcs_write) != ERROR_OK)
+		LOG_DEBUG("reading burst starting at address 0x%" TARGET_PRIxADDR,
+				next_address);
+
+		target_addr_t batch_start_read_addr = next_address;
+		struct riscv_batch *batch = riscv_batch_alloc(
+				target,
+				32,
+				info->dmi_busy_delay + info->bus_master_read_delay);
+
+		for (uint32_t i = (next_address - address) / size; i < count; i++) {
+
+			if (riscv_batch_available_scans(batch) < (size + 3) / 4)
+				break;
+
+			if (size > 12)
+				riscv_batch_add_dmi_read(batch, DMI_SBDATA3);
+			if (size > 8)
+				riscv_batch_add_dmi_read(batch, DMI_SBDATA2);
+			if (size > 4)
+				riscv_batch_add_dmi_read(batch, DMI_SBDATA1);
+			riscv_batch_add_dmi_read(batch, DMI_SBDATA0);
+
+			next_address += size;
+		}
+
+		result = batch_run(target, batch);
+		if (result != ERROR_OK)
+			return result;
+
+		bool dmi_busy_encountered;
+		if (dmi_op(target, &sbcs, &dmi_busy_encountered, DMI_OP_READ,
+			   DMI_SBCS, 0, false, false) != ERROR_OK)
 			return ERROR_FAIL;
 
-		/* This address write will trigger the first read. */
-		if (sb_write_address(target, next_address) != ERROR_OK)
-			return ERROR_FAIL;
-
-		if (info->bus_master_read_delay) {
-			jtag_add_runtest(info->bus_master_read_delay, TAP_IDLE);
-			if (jtag_execute_queue() != ERROR_OK) {
-				LOG_ERROR("Failed to scan idle sequence");
+		time_t start = time(NULL);
+		while (get_field(sbcs, DMI_SBCS_SBBUSY)) {
+			if (time(NULL) - start > riscv_command_timeout_sec) {
+				LOG_ERROR("Timed out after %ds waiting for sbbusy to go low (sbcs=0x%x). "
+					  "Increase the timeout with riscv set_command_timeout_sec.",
+					  riscv_command_timeout_sec, sbcs);
 				return ERROR_FAIL;
 			}
-		}
 
-		for (uint32_t i = (next_address - address) / size; i < count - 1; i++) {
-			if (read_memory_bus_word(target, address + i * size, size,
-					buffer + i * size) != ERROR_OK)
+			if (dmi_read(target, &sbcs, DMI_SBCS) != ERROR_OK)
 				return ERROR_FAIL;
 		}
 
-		uint32_t sbcs_read = 0;
-		if (count > 1) {
-			/* "Writes to sbcs while sbbusy is high result in undefined behavior.
-			 * A debugger must not write to sbcs until it reads sbbusy as 0." */
-			if (read_sbcs_nonbusy(target, &sbcs_read) != ERROR_OK)
-				return ERROR_FAIL;
-
-			sbcs_write = set_field(sbcs_write, DMI_SBCS_SBREADONDATA, 0);
-			if (dmi_write(target, DMI_SBCS, sbcs_write) != ERROR_OK)
-				return ERROR_FAIL;
-		}
-
-		if (!get_field(sbcs_read, DMI_SBCS_SBERROR) &&
-				!get_field(sbcs_read, DMI_SBCS_SBBUSYERROR)) {
-			if (read_memory_bus_word(target, address + (count - 1) * size, size,
-						buffer + (count - 1) * size) != ERROR_OK)
-				return ERROR_FAIL;
-
-			if (read_sbcs_nonbusy(target, &sbcs_read) != ERROR_OK)
-				return ERROR_FAIL;
-		}
-
-		if (get_field(sbcs_read, DMI_SBCS_SBBUSYERROR)) {
-			/* We read while the target was busy. Slow down and try again. */
-			if (dmi_write(target, DMI_SBCS, DMI_SBCS_SBBUSYERROR) != ERROR_OK)
-				return ERROR_FAIL;
-			next_address = sb_read_address(target);
+		if (get_field(sbcs, DMI_SBCS_SBBUSYERROR) || dmi_busy_encountered) {
+			/* We wrote while the target was busy. Slow down and try again. */
+			dmi_write(target, DMI_SBCS, DMI_SBCS_SBBUSYERROR);
 			info->bus_master_read_delay += info->bus_master_read_delay / 10 + 1;
+
+			next_address = sb_read_address(target);
+			if (next_address < address) {
+				/* This should never happen, probably buggy hardware. */
+				LOG_DEBUG("unexpected system bus address 0x%" TARGET_PRIxADDR,
+					  next_address);
+				return ERROR_FAIL;
+			}
+			result = fill_buffer_from_dmi_read_batch(batch, address, batch_start_read_addr,
+				(next_address - batch_start_read_addr)/4, buffer);
+			riscv_batch_free(batch);
+			if (result != ERROR_OK)
+				return result;
 			continue;
 		}
 
-		unsigned error = get_field(sbcs_read, DMI_SBCS_SBERROR);
-		if (error == 0) {
-			next_address = end_address;
-		} else {
+		unsigned error = get_field(sbcs, DMI_SBCS_SBERROR);
+		if (error != 0) {
 			/* Some error indicating the bus access failed, but not because of
 			 * something we did wrong. */
-			if (dmi_write(target, DMI_SBCS, DMI_SBCS_SBERROR) != ERROR_OK)
-				return ERROR_FAIL;
+			dmi_write(target, DMI_SBCS, DMI_SBCS_SBERROR);
 			return ERROR_FAIL;
 		}
-	}
 
+		result = fill_buffer_from_dmi_read_batch(batch, address, batch_start_read_addr,
+			(next_address - batch_start_read_addr)/4, buffer);
+		riscv_batch_free(batch);
+		if (result != ERROR_OK)
+			return result;
+	}
 	return ERROR_OK;
 }
 
