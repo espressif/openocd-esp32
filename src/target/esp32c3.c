@@ -28,6 +28,7 @@
 #include "semihosting_common.h"
 #include "riscv/debug_defines.h"
 #include "esp32_apptrace.h"
+#include "rtos/rtos.h"
 
 #define ESP_RISCV_APPTRACE_SYSNR    0x64
 
@@ -283,6 +284,12 @@ static int esp32c3_poll(struct target *target)
 						LOG_ERROR("Failed to disable WDTs (%d)!", res);
 				} else
 					LOG_ERROR("Failed to halt core (%d)!", res);
+			}
+			/* Clear memory which is used by RTOS layer to get the task count */
+			if (target->rtos && target->rtos->type->post_reset_cleanup) {
+				res = (*target->rtos->type->post_reset_cleanup)(target);
+				if (res != ERROR_OK)
+					LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
 			}
 			/* enable ebreaks */
 			res = esp32c3_core_ebreaks_enable(target);
