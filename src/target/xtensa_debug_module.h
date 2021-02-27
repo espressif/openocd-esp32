@@ -281,7 +281,7 @@ struct xtensa_trace_start_config {
 
 struct xtensa_perfmon_config {
 	int select;
-	int mask;
+	uint32_t mask;
 	int kernelcnt;
 	int tracelevel;
 };
