@@ -44,6 +44,9 @@ AC_TYPE_LONG_LONG_INT
 AC_SEARCH_LIBS([ioperm], [ioperm])
 AC_SEARCH_LIBS([dlopen], [dl])
 
+AC_SEARCH_LIBS([deflate], [z], [], [
+  AC_MSG_ERROR([libz library was not found])])
+
 AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([elf.h])
 AC_CHECK_HEADERS([dirent.h])
@@ -52,6 +55,7 @@ AC_CHECK_HEADERS([malloc.h])
 AC_CHECK_HEADERS([netdb.h])
 AC_CHECK_HEADERS([poll.h])
 AC_CHECK_HEADERS([pthread.h])
+AC_CHECK_HEADERS([zlib.h])
 AC_CHECK_HEADERS([strings.h])
 AC_CHECK_HEADERS([sys/ioctl.h])
 AC_CHECK_HEADERS([sys/param.h])
