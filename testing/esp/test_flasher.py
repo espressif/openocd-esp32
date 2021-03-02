@@ -21,6 +21,23 @@ class FlasherTestsImpl:
     """ Test cases which are common for dual and single core modes
     """
 
+    def program_big_binary(self, actions):
+        fhnd,fname1 = tempfile.mkstemp()
+        fbin = os.fdopen(fhnd, 'wb')
+        size = int((ESP32_FLASH_SZ - (ESP32_APP_FLASH_OFF + ESP32_APP_FLASH_SZ))/1024)
+        get_logger().debug('Generate random file %dKB "%s"', size, fname1)
+        for i in range(size):
+            fbin.write(os.urandom(1024))
+        fbin.close()
+        self.gdb.target_program(fname1, ESP32_APP_FLASH_OFF + ESP32_APP_FLASH_SZ, actions=actions, tmo=130)
+        # since we can not get result from OpenOCD (output parsing seems not to be good idea),
+        # we need to read written flash and compare data manually
+        fhnd,fname2 = tempfile.mkstemp()
+        fbin = os.fdopen(fhnd, 'wb')
+        fbin.close()
+        self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (dbg.fixup_path(fname2), ESP32_APP_FLASH_OFF + ESP32_APP_FLASH_SZ, size*1024), tmo=120)
+        self.assertTrue(filecmp.cmp(fname1, fname2))
+
     def test_big_binary(self):
         """
             This test checks flashing big binaries works.
@@ -30,21 +47,18 @@ class FlasherTestsImpl:
             4) Read written data to another file.
             5) Compare files.
         """
-        fhnd,fname1 = tempfile.mkstemp()
-        fbin = os.fdopen(fhnd, 'wb')
-        size = int((ESP32_FLASH_SZ - (ESP32_APP_FLASH_OFF + ESP32_APP_FLASH_SZ))/1024)
-        get_logger().debug('Generate random file %dKB "%s"', size, fname1)
-        for i in range(size):
-            fbin.write(os.urandom(1024))
-        fbin.close()
-        self.gdb.target_program(fname1, ESP32_APP_FLASH_OFF + ESP32_APP_FLASH_SZ, actions='', tmo=130)
-        # since we can not get result from OpenOCD (output parsing seems not to be good idea),
-        # we need to read written flash and compare data manually
-        fhnd,fname2 = tempfile.mkstemp()
-        fbin = os.fdopen(fhnd, 'wb')
-        fbin.close()
-        self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (dbg.fixup_path(fname2), ESP32_APP_FLASH_OFF + ESP32_APP_FLASH_SZ, size*1024), tmo=120)
-        self.assertTrue(filecmp.cmp(fname1, fname2))
+        self.program_big_binary('')
+        
+    def test_big_binary_compressed(self):
+        """
+            This test checks flashing big compressed binaries works.
+            1) Create test binary file of the most possible size.
+            2) Fill it with random data.
+            3) Write the file to the flash with compress option.
+            4) Read written data to another file.
+            5) Compare files.
+        """
+        self.program_big_binary('compress')
 
     def test_cache_handling(self):
         """
@@ -63,15 +77,7 @@ class FlasherTestsImpl:
         for i in range(5):
             self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_level', ['gpio_set_level'], outmost_func_name='cache_check_task')
 
-    def test_program_esp_bins(self):
-        """
-            This test checks flashing complete app works using flasher_args.json.
-            1) Generate a dummy flasher_args.json file
-            2) Create random binaries based on the flasher_args.json
-            3) Write the files to the flash.
-            4) Read written data to another file.
-            5) Compare files.
-        """
+    def program_esp_bins(self, actions):
         # Temp Folder where everything will be contained
         tmp = tempfile.mkdtemp(prefix="esp")
         
@@ -97,7 +103,7 @@ class FlasherTestsImpl:
         json_fp.close()
 
         # Flash the chip
-        self.gdb.monitor_run("program_esp_bins %s %s reset verify" % (tmp, json_fname))
+        self.gdb.monitor_run("program_esp_bins %s %s %s" % (tmp, json_fname, actions))
         # Halt Reset
         self.gdb.target_reset(action='halt')
 
@@ -117,6 +123,27 @@ class FlasherTestsImpl:
         # Remove the tmp folder for cleanup
         shutil.rmtree(tmp)
             
+    def test_program_esp_bins(self):
+        """
+            This test checks flashing complete app works using flasher_args.json.
+            1) Generate a dummy flasher_args.json file
+            2) Create random binaries based on the flasher_args.json
+            3) Write the files to the flash.
+            4) Read written data to another file.
+            5) Compare files.
+        """
+        self.program_esp_bins('reset verify')
+
+    def test_program_esp_bins_compressed(self):
+        """
+            This test checks flashing all compressed apps works using flasher_args.json.
+            1) Generate a dummy flasher_args.json file
+            2) Create random binaries based on the flasher_args.json
+            3) Write the files to the flash with compress option.
+            4) Read written data to another file.
+            5) Compare files.
+        """
+        self.program_esp_bins('reset verify compress')
 
 def generate_flasher_args_json():
     return {
