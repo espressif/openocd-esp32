@@ -272,11 +272,11 @@ static void esp_xtensa_dbgstubs_info_update(struct target *target)
 	}
 	if (esp_xtensa->dbg_stubs.entries_count <
 		(ESP_DBG_STUB_ENTRY_MAX-ESP_DBG_STUB_TABLE_START)) {
-		LOG_DEBUG("Not full dbg stub table %d of %d", esp_xtensa->dbg_stubs.entries_count,
+		LOG_WARNING("Not full dbg stub table %d of %d", esp_xtensa->dbg_stubs.entries_count,
 			(ESP_DBG_STUB_ENTRY_MAX-ESP_DBG_STUB_TABLE_START));
-		esp_xtensa->dbg_stubs.entries_count = 0;
-		return;
 	}
+	if (esp_xtensa->dbg_stubs.entries_count == 0)
+		return;
 	/* read debug stubs descriptor */
 	ESP_XTENSA_DBGSTUBS_UPDATE_DATA_ENTRY(esp_xtensa->dbg_stubs.entries[ESP_DBG_STUB_DESC]);
 	res =
