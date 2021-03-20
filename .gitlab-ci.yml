@@ -1,6 +1,7 @@
 stages:
   - build
   - test
+  - sanitizer_checks
   - deploy
   - private_deploy
   - pre_release
@@ -241,10 +242,6 @@ variables:
   export PYTHONPATH=$PWD/${TEST_RUN_DIR}:$PWD/testing/esp/py_debug_backend
   . $PWD/${TEST_RUN_DIR}/gen_ut_app/gcov_data/gcov_env.sh
   testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -t xtensa-${CHIP_NAME}-elf- -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log -to $PWD/$TEST_RUN_DIR/results $TEST_RUN_EXTRA_OPTS
-  errors=$(grep -i -e".*sanitizer" -e"runtime error" ${TEST_RUN_DIR}/debug_backend_tests.log || true)
-  if [[ $errors ]]; then
-    echo "Sanitizer issues found!"; exit 0 #TODO exit 1 after all sanitizer errors fixed
-  fi
 
 .tests_linux_template: &tests_linux_template
   stage: test
@@ -781,3 +778,61 @@ test_idf_examples:
   trigger:
     project: espressif/esp-idf
     strategy: depend
+
+.sanitizer_check_armel: &sanitizer_check_armel
+  stage: sanitizer_checks
+  image: $CI_DOCKER_REGISTRY/rpi-test-env
+  tags:
+    - arm
+  allow_failure: true
+  artifacts:
+    paths:
+      - $TEST_RUN_DIR/sanitizer_errors.log
+    when: always
+    expire_in: 1 week
+  script:
+    - grep -i -e".*sanitizer" -e"runtime error" ${TEST_RUN_DIR}/debug_backend_tests.log > ${TEST_RUN_DIR}/sanitizer_errors.log || true
+    # fail if `sanitizer_errors.log` is not empty
+    - "[[ ! -s ${TEST_RUN_DIR}/sanitizer_errors.log ]]"
+
+sanitizer_check_armel_esp32_solo:
+  <<: *sanitizer_check_armel
+  dependencies:
+    - tests_armel_esp32_solo
+  variables:
+    TEST_RUN_DIR: "build_test_app_esp32"
+
+sanitizer_check_armel_esp32_legacy_idf_rel:
+  <<: *sanitizer_check_armel
+  dependencies:
+    - tests_armel_esp32_legacy_idf_rel
+  variables:
+    TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
+
+sanitizer_check_armel_esp32_custom_idf_rel:
+  <<: *sanitizer_check_armel
+  dependencies:
+    - tests_armel_esp32_custom_idf_rel
+  variables:
+    TEST_RUN_DIR: "build_test_app_esp32_custom_idf_rel"
+
+sanitizer_check_armel_esp32:
+  <<: *sanitizer_check_armel
+  dependencies:
+    - tests_armel_esp32
+  variables:
+    TEST_RUN_DIR: "build_test_app_esp32"
+
+sanitizer_check_armel_esp32s2:
+  <<: *sanitizer_check_armel
+  dependencies:
+    - tests_armel_esp32s2
+  variables:
+    TEST_RUN_DIR: "build_test_app_esp32s2"
+
+sanitizer_check_armel_nuttx_esp32:
+  <<: *sanitizer_check_armel
+  dependencies:
+    - test_nuttx_esp32
+  variables:
+    TEST_RUN_DIR: "nuttx_test"
