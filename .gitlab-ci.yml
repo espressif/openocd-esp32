@@ -309,32 +309,7 @@ build_linux:
     - popd
     - *dist_archive
 
-build_linux_armel:
-  stage: build
-  image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross
-  tags:
-    - build
-  artifacts:
-    paths:
-      - ${DIST_ART_DIR}
-    expire_in: 2 weeks
-  variables:
-    CONF_HOST: "arm-linux-gnueabi"
-    PLATFORM_NAME: "armel"
-  script:
-    - *get_release_name
-    - *add_gitlab_key
-    - *submodules_mirror_update
-    - ./bootstrap
-    - mkdir _build
-    - pushd _build/
-    - ../configure --prefix=$PWD/../$DIST_INSTALLED_DIR --host=${CONF_HOST}  $OPENOCD_CONFIGURE_OPTS
-    - make
-    - MAKEFLAGS= make install-strip
-    - popd
-    - *dist_archive
-
-build_linux_armel_test:
+.build_linux_armel_template: &build_linux_armel_template
   stage: build
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross
   tags:
@@ -347,10 +322,6 @@ build_linux_armel_test:
         - _build/*.log
     when: always
     expire_in: 2 weeks
-  variables:
-    CONF_HOST: "arm-linux-gnueabi"
-    PLATFORM_NAME: "armel-test"
-    TEST_CFLAGS: "-Wl,--no-as-needed -ldl -fsanitize=address -fsanitize=undefined -fsanitize-recover=address -ggdb3"
   script:
     - *get_release_name
     - *add_gitlab_key
@@ -363,6 +334,20 @@ build_linux_armel_test:
     - MAKEFLAGS= make install-strip
     - popd
     - *dist_archive
+
+build_linux_armel:
+  <<: *build_linux_armel_template
+  variables:
+    CONF_HOST: "arm-linux-gnueabi"
+    PLATFORM_NAME: "armel"
+    TEST_CFLAGS: ""
+
+build_linux_armel_test:
+  <<: *build_linux_armel_template
+  variables:
+    CONF_HOST: "arm-linux-gnueabi"
+    PLATFORM_NAME: "armel-test"
+    TEST_CFLAGS: "-Wl,--no-as-needed -ldl -fsanitize=address -fsanitize=undefined -fsanitize-recover=address -ggdb3"
 
 build_windows:
   stage: build
