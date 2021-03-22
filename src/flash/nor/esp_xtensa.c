@@ -355,6 +355,9 @@ static int esp_xtensa_get_mappings(struct flash_bank *bank,
 	}
 	if (run.ret_code != ESP_XTENSA_STUB_ERR_OK) {
 		LOG_ERROR("Failed to get flash maps (%d)!", run.ret_code);
+		if (run.ret_code == ESP_XTENSA_STUB_ERR_INVALID_IMAGE)
+			LOG_WARNING(
+				"Application image is invalid! Check configured binary flash offset 'appimage_offset'.");
 		ret = ERROR_FAIL;
 	} else {
 		memcpy(flash_map, mp.value, sizeof(struct esp_xtensa_flash_mapping));

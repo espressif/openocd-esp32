@@ -650,7 +650,7 @@ static int stub_flash_get_app_mappings(uint32_t off, struct esp_xtensa_flash_map
 	}
 	if (img_hdr.magic != ESP_IMAGE_HEADER_MAGIC) {
 		STUB_LOGE("Invalid magic number 0x%x in app image!\n", img_hdr.magic);
-		return ESP_XTENSA_STUB_ERR_FAIL;
+		return ESP_XTENSA_STUB_ERR_INVALID_IMAGE;
 	}
 
 	STUB_LOGI("Found app image: magic 0x%x, %d segments, entry @ 0x%x\n",
@@ -707,12 +707,12 @@ static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr)
 			(uint32_t *)&part,
 			sizeof(part));
 		if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-			STUB_LOGE("Failed to read partitions table entrt (%d)!\n", rc);
+			STUB_LOGE("Failed to read partitions table entry (%d)!\n", rc);
 			return ESP_XTENSA_STUB_ERR_FAIL;
 		}
 		if (part.magic != ESP_PARTITION_MAGIC) {
-			STUB_LOGI("No app partition found 0x%x\n", part.magic);
-			break;
+			STUB_LOGE("Invalid partition table magic! (0x%x)\n", part.magic);
+			return ESP_XTENSA_STUB_ERR_INVALID_IMAGE;
 		}
 		if (part.pos.offset > flash_size || part.pos.offset + part.pos.size > flash_size) {
 			STUB_LOGE(
@@ -721,7 +721,7 @@ static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr)
 				part.pos.offset,
 				part.pos.size,
 				flash_size);
-			return ESP_XTENSA_STUB_ERR_FAIL;
+			return ESP_XTENSA_STUB_ERR_INVALID_IMAGE;
 		}
 		STUB_LOGD("Found partition %d, m 0x%x, t 0x%x, st 0x%x, l '%s'\n",
 			i,
@@ -737,7 +737,9 @@ static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr)
 			return stub_flash_get_app_mappings(part.pos.offset, flash_map);
 		}
 	}
-	return ESP_XTENSA_STUB_ERR_OK;
+
+	/* PART_TYPE_APP not found */
+	return ESP_XTENSA_STUB_ERR_INVALID_IMAGE;
 }
 
 /**
