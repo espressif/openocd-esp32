@@ -29,6 +29,7 @@
 #define ESP_XTENSA_STUB_ERR_INFLATE                     (-3)
 #define ESP_XTENSA_STUB_ERR_NOT_ENOUGH_DATA             (-4)
 #define ESP_XTENSA_STUB_ERR_TOO_MUCH_DATA               (-5)
+#define ESP_XTENSA_STUB_ERR_INVALID_IMAGE               (-6)
 
 #define ESP_XTENSA_STUB_CMD_FLASH_READ                  0
 #define ESP_XTENSA_STUB_CMD_FLASH_WRITE                 1
