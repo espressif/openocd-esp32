@@ -326,31 +326,37 @@ uint32_t stub_esp_clk_cpu_freq(void)
 	return (CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * MHZ);
 }
 
-#if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
 void stub_clock_configure(void)
 {
-	/* Set CPU to configured value. Keep other clocks unmodified. */
-	int cpu_freq_mhz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
+	static bool first = true;
 
-	/* On ESP32 rev 0, switching to 80MHz if clock was previously set to
-	 * 240 MHz may cause the chip to lock up (see section 3.5 of the errata
-	 * document). For rev. 0, switch to 240 instead if it was chosen in
-	 * menuconfig.
-	 */
-	uint32_t chip_ver_reg = REG_READ(EFUSE_BLK0_RDATA3_REG);
-	if ((chip_ver_reg & EFUSE_RD_CHIP_VER_REV1_M) == 0 &&
-		CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ == 240)
-		cpu_freq_mhz = 240;
+	if (first) {
+		/* Set CPU to configured value. Keep other clocks unmodified. */
+		int cpu_freq_mhz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
 
-	/* uart_tx_wait_idle(CONFIG_CONSOLE_UART_NUM); */
-	rtc_clk_config_t clk_cfg = RTC_CLK_CONFIG_DEFAULT();
-	clk_cfg.xtal_freq = CONFIG_ESP32_XTAL_FREQ;
-	clk_cfg.cpu_freq_mhz = cpu_freq_mhz;
-	clk_cfg.slow_freq = rtc_clk_slow_freq_get();
-	clk_cfg.fast_freq = rtc_clk_fast_freq_get();
-	rtc_clk_init(clk_cfg);
+		/* On ESP32 rev 0, switching to 80MHz if clock was previously set to
+		* 240 MHz may cause the chip to lock up (see section 3.5 of the errata
+		* document). For rev. 0, switch to 240 instead if it was chosen in
+		* menuconfig.
+		*/
+		uint32_t chip_ver_reg = REG_READ(EFUSE_BLK0_RDATA3_REG);
+		if ((chip_ver_reg & EFUSE_RD_CHIP_VER_REV1_M) == 0 &&
+			CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ == 240)
+			cpu_freq_mhz = 240;
+
+		/* uart_tx_wait_idle(CONFIG_CONSOLE_UART_NUM); */
+		rtc_clk_config_t clk_cfg = RTC_CLK_CONFIG_DEFAULT();
+		clk_cfg.xtal_freq = CONFIG_ESP32_XTAL_FREQ;
+		clk_cfg.cpu_freq_mhz = cpu_freq_mhz;
+		clk_cfg.slow_freq = rtc_clk_slow_freq_get();
+		clk_cfg.fast_freq = rtc_clk_fast_freq_get();
+		rtc_clk_init(clk_cfg);
+
+		first = false;
+	}
 }
 
+#if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
 void stub_uart_console_configure(void)
 {
 	uartAttach();

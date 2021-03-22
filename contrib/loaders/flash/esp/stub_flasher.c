@@ -875,6 +875,20 @@ static int stub_flash_handler(int cmd, va_list ap)
 
 	STUB_LOGD("%s a %x, s %d\n", __func__, arg1, arg2);
 
+	switch (cmd) {
+		case ESP_XTENSA_STUB_CMD_FLASH_READ:
+		case ESP_XTENSA_STUB_CMD_FLASH_ERASE:
+		case ESP_XTENSA_STUB_CMD_FLASH_ERASE_CHECK:
+		case ESP_XTENSA_STUB_CMD_FLASH_WRITE:
+		case ESP_XTENSA_STUB_CMD_FLASH_WRITE_DEFLATED:
+		case ESP_XTENSA_STUB_CMD_FLASH_MAP_GET:
+			stub_clock_configure();
+			break;
+		case ESP_XTENSA_STUB_CMD_FLASH_BP_SET:
+		case ESP_XTENSA_STUB_CMD_FLASH_BP_CLEAR:
+			break;
+	}
+
 	stub_flash_state_prepare(&flash_state);
 
 	uint32_t flash_size = stub_flash_get_size();

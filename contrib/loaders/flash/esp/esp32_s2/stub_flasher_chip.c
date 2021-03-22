@@ -92,21 +92,27 @@ uint32_t stub_esp_clk_cpu_freq(void)
 	return (CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * MHZ);
 }
 
-#if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
 void stub_clock_configure(void)
 {
-	/* Set CPU to configured value. Keep other clocks unmodified. */
-	int cpu_freq_mhz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
+	static bool first = true;
 
-	rtc_clk_config_t clk_cfg = RTC_CLK_CONFIG_DEFAULT();
-	/* ESP32-S2 doesn't have XTAL_FREQ choice, always 40MHz */
-	clk_cfg.xtal_freq = RTC_XTAL_FREQ_40M;
-	clk_cfg.cpu_freq_mhz = cpu_freq_mhz;
-	clk_cfg.slow_freq = rtc_clk_slow_freq_get();
-	clk_cfg.fast_freq = rtc_clk_fast_freq_get();
-	rtc_clk_init(clk_cfg);
+	if (first) {
+		/* Set CPU to configured value. Keep other clocks unmodified. */
+		int cpu_freq_mhz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
+
+		rtc_clk_config_t clk_cfg = RTC_CLK_CONFIG_DEFAULT();
+		/* ESP32-S2 doesn't have XTAL_FREQ choice, always 40MHz */
+		clk_cfg.xtal_freq = RTC_XTAL_FREQ_40M;
+		clk_cfg.cpu_freq_mhz = cpu_freq_mhz;
+		clk_cfg.slow_freq = rtc_clk_slow_freq_get();
+		clk_cfg.fast_freq = rtc_clk_fast_freq_get();
+		rtc_clk_init(clk_cfg);
+
+		first = false;
+	}
 }
 
+#if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
 void stub_uart_console_configure(void)
 {
 	uartAttach(NULL);
