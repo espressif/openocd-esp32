@@ -69,6 +69,7 @@
 #endif
 
 #include "imp.h"
+#include <helper/sha256.h>
 #include <helper/binarybuffer.h>
 #include <target/register.h>
 #include <target/esp_xtensa_apptrace.h>
@@ -170,6 +171,31 @@ static int esp_xtensa_compress(const uint8_t *in, uint32_t in_len, uint8_t **out
 	*out_len = strm.total_out;
 
 	LOG_DEBUG("inlen:(%u) outlen:(%u)!", in_len, *out_len);
+
+	return ERROR_OK;
+}
+
+static int esp_xtensa_calc_hash(const uint8_t *data, size_t datalen, uint8_t *hash)
+{
+	if (data == NULL || hash == NULL || datalen == 0)
+		return ERROR_FAIL;
+
+	struct tc_sha256_state_struct sha256_state;
+
+	if (tc_sha256_init(&sha256_state) != TC_CRYPTO_SUCCESS) {
+		LOG_ERROR("tc_sha256_init failed!");
+		return ERROR_FAIL;
+	}
+
+	if (tc_sha256_update(&sha256_state, data, datalen) != TC_CRYPTO_SUCCESS) {
+		LOG_ERROR("tc_sha256_update failed!");
+		return ERROR_FAIL;
+	}
+
+	if (tc_sha256_final(hash, &sha256_state) != TC_CRYPTO_SUCCESS) {
+		LOG_ERROR("tc_sha256_final failed!");
+		return ERROR_FAIL;
+	}
 
 	return ERROR_OK;
 }
@@ -1091,35 +1117,101 @@ int esp_xtensa_flash_breakpoint_remove(struct target *target,
 	return ret;
 }
 
+static int esp_xtensa_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
+	uint32_t offset, uint32_t count)
+{
+	struct esp_xtensa_flash_bank *esp_xtensa_info = bank->driver_priv;
+	struct xtensa_algo_run_data run;
+	struct xtensa_algo_image flasher_image;
+
+	if (offset & 0x3UL) {
+		LOG_ERROR("Unaligned offset!");
+		return ERROR_FAIL;
+	}
+
+	if (bank->target->state != TARGET_HALTED) {
+		LOG_ERROR("Target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	int ret = esp_xtensa_flasher_image_init(&flasher_image, esp_xtensa_info->get_stub(bank));
+	if (ret != ERROR_OK)
+		return ret;
+
+	memset(&run, 0, sizeof(run));
+	run.stack_size = 1024 + ESP_XTENSA_STUB_RDWR_BUFF_SIZE;
+
+	struct mem_param mp;
+	init_mem_param(&mp,
+		3 /*2nd usr arg*/,
+		32 /*sha256 hash size in bytes*/,
+		PARAM_IN);
+	run.mem_args.params = &mp;
+	run.mem_args.count = 1;
+
+	ret = esp_xtensa_info->run_func_image(bank->target,
+		&run,
+		&flasher_image,
+		4 /*args num*/,
+		ESP_XTENSA_STUB_CMD_FLASH_CALC_HASH /*cmd*/,
+		esp_xtensa_info->hw_flash_base + offset,
+		count,
+		0 /*address to store hash value*/);
+	if (ret != ERROR_OK) {
+		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
+		destroy_mem_param(&mp);
+		return ret;
+	}
+	if (run.ret_code != ESP_XTENSA_STUB_ERR_OK) {
+		LOG_ERROR("Failed to get hash value (%d)!", run.ret_code);
+		ret = ERROR_FAIL;
+	} else
+		memcpy(hash, mp.value, 32);
+	destroy_mem_param(&mp);
+	return ret;
+}
+
+static int esp_xtensa_target_to_flash_bank(struct target *target,
+	struct flash_bank **bank, char *bank_name_suffix)
+{
+	if (target == NULL || bank == NULL)
+		return ERROR_FAIL;
+
+	char bank_name[64];
+	int retval = snprintf(bank_name,
+		sizeof(bank_name),
+		"%s.%s",
+		target_name(target),
+		bank_name_suffix);
+	if (retval == sizeof(bank_name)) {
+		LOG_ERROR("Failed to build bank name string!");
+		return ERROR_FAIL;
+	}
+	retval = get_flash_bank_by_name(bank_name, bank);
+	if (retval != ERROR_OK || bank == NULL) {
+		LOG_ERROR("Failed to find bank '%s'!",  bank_name);
+		return retval;
+	}
+
+	return ERROR_OK;
+}
+
 static int esp_xtensa_appimage_flash_base_update(struct target *target,
 	char *bank_name_suffix,
 	uint32_t appimage_flash_base)
 {
 	struct flash_bank *bank;
 	struct esp_xtensa_flash_bank *esp_xtensa_info;
-	char bank_name[64];
 
-	int ret = snprintf(bank_name,
-		sizeof(bank_name),
-		"%s.%s",
-		target_name(target),
-		bank_name_suffix);
-	if (ret == sizeof(bank_name)) {
-		LOG_ERROR("Failed to build bank name string!");
+	int retval = esp_xtensa_target_to_flash_bank(target, &bank, bank_name_suffix);
+	if (retval != ERROR_OK)
 		return ERROR_FAIL;
-	}
-	ret = get_flash_bank_by_name(bank_name, &bank);
-	if (ret != ERROR_OK || bank == NULL) {
-		LOG_ERROR("Failed to find bank '%s'!",  bank_name);
-		return ret;
-	}
+
 	esp_xtensa_info = (struct esp_xtensa_flash_bank *)bank->driver_priv;
 	esp_xtensa_info->probed = 0;
 	esp_xtensa_info->appimage_flash_base = appimage_flash_base;
-	ret = bank->driver->auto_probe(bank);
-	if (ret != ERROR_OK)
-		return ret;
-	return ERROR_OK;
+	retval = bank->driver->auto_probe(bank);
+	return retval;
 }
 
 COMMAND_HELPER(esp_xtensa_cmd_appimage_flashoff_do, struct target *target)
@@ -1154,23 +1246,11 @@ static int esp_xtensa_set_compression(struct target *target,
 {
 	struct flash_bank *bank;
 	struct esp_xtensa_flash_bank *esp_xtensa_info;
-	char bank_name[64];
 
-	int ret = snprintf(bank_name,
-		sizeof(bank_name),
-		"%s.%s",
-		target_name(target),
-		bank_name_suffix);
-	if (ret == sizeof(bank_name)) {
-		LOG_ERROR("Failed to build bank name string!");
+	int retval = esp_xtensa_target_to_flash_bank(target, &bank, bank_name_suffix);
+	if (retval != ERROR_OK)
 		return ERROR_FAIL;
-	}
-	LOG_DEBUG("compression:%d for bank_name:%s", compression, bank_name);
-	ret = get_flash_bank_by_name(bank_name, &bank);
-	if (ret != ERROR_OK || bank == NULL) {
-		LOG_ERROR("Failed to find bank '%s'!",  bank_name);
-		return ret;
-	}
+
 	esp_xtensa_info = (struct esp_xtensa_flash_bank *)bank->driver_priv;
 	esp_xtensa_info->compression = compression;
 	return ERROR_OK;
@@ -1205,6 +1285,116 @@ COMMAND_HANDLER(esp_xtensa_cmd_compression)
 		get_current_target(CMD_CTX));
 }
 
+static int esp_xtensa_verify_bank_hash(struct target *target,
+	uint32_t offset,
+	const char *file_name)
+{
+	uint8_t file_hash[TC_SHA256_DIGEST_SIZE], target_hash[TC_SHA256_DIGEST_SIZE];
+	uint8_t *buffer_file;
+	struct fileio *fileio;
+	size_t filesize, length, read_cnt;
+	int differ, retval;
+	struct flash_bank *bank;
+
+	retval = esp_xtensa_target_to_flash_bank(target, &bank, "flash");
+	if (retval != ERROR_OK)
+		return ERROR_FAIL;
+
+	if (offset > bank->size) {
+		LOG_ERROR("Offset 0x%8.8" PRIx32 " is out of range of the flash bank",
+			offset);
+		return ERROR_COMMAND_ARGUMENT_INVALID;
+	}
+
+	retval = fileio_open(&fileio, file_name, FILEIO_READ, FILEIO_BINARY);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Could not open file");
+		return retval;
+	}
+
+	retval = fileio_size(fileio, &filesize);
+	if (retval != ERROR_OK) {
+		fileio_close(fileio);
+		return retval;
+	}
+
+	length = MIN(filesize, bank->size - offset);
+
+	if (!length) {
+		LOG_INFO("Nothing to compare with flash bank");
+		fileio_close(fileio);
+		return ERROR_OK;
+	}
+
+	if (length != filesize)
+		LOG_INFO("File content exceeds flash bank size. Only comparing the "
+			"first %zu bytes of the file", length);
+
+	LOG_DEBUG("File size: %zu bank_size: %u offset: %u",
+		filesize, bank->size, offset);
+
+	buffer_file = malloc(length);
+	if (buffer_file == NULL) {
+		LOG_ERROR("Out of memory");
+		fileio_close(fileio);
+		return ERROR_FAIL;
+	}
+
+	retval = fileio_read(fileio, length, buffer_file, &read_cnt);
+	fileio_close(fileio);
+	if (retval != ERROR_OK || read_cnt != length) {
+		LOG_ERROR("File read failure");
+		free(buffer_file);
+		return retval;
+	}
+
+	retval = esp_xtensa_calc_hash(buffer_file, length, file_hash);
+	free(buffer_file);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("File sha256 calculation failure");
+		return retval;
+	}
+
+	retval = esp_xtensa_flash_calc_hash(bank, target_hash, offset, length);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Flash sha256 calculation failure");
+		return retval;
+	}
+
+	differ = memcmp(file_hash, target_hash, TC_SHA256_DIGEST_SIZE);
+
+	if (differ) {
+		LOG_ERROR("**** Verification failure! ****");
+		LOG_ERROR("target_hash %x%x%x...%x%x%x",
+			target_hash[0], target_hash[1], target_hash[2],
+			target_hash[29], target_hash[30], target_hash[31]);
+		LOG_ERROR("file_hash: %x%x%x...%x%x%x",
+			file_hash[0], file_hash[1], file_hash[2],
+			file_hash[29], file_hash[30], file_hash[31]);
+	}
+
+	return differ ? ERROR_FAIL : ERROR_OK;
+}
+
+COMMAND_HELPER(esp_xtensa_parse_cmd_verify_bank_hash, struct target *target)
+{
+	if (CMD_ARGC < 2 || CMD_ARGC > 3)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	uint32_t offset = 0;
+
+	if (CMD_ARGC > 2)
+		COMMAND_PARSE_NUMBER(u32, CMD_ARGV[2], offset);
+
+	return esp_xtensa_verify_bank_hash(target, offset, CMD_ARGV[1]);
+}
+
+COMMAND_HANDLER(esp_xtensa_cmd_verify_bank_hash)
+{
+	return CALL_COMMAND_HANDLER(esp_xtensa_parse_cmd_verify_bank_hash,
+		get_current_target(CMD_CTX));
+}
+
 const struct command_registration esp_xtensa_exec_flash_command_handlers[] = {
 	{
 		.name = "appimage_offset",
@@ -1221,6 +1411,15 @@ const struct command_registration esp_xtensa_exec_flash_command_handlers[] = {
 		.help =
 			"Set compression flag",
 		.usage = "['on'|'off']",
+	},
+	{
+		.name = "verify_bank_hash",
+		.handler = esp_xtensa_cmd_verify_bank_hash,
+		.mode = COMMAND_ANY,
+		.help = "Perform a comparison between the file and the contents of the "
+			"flash bank using SHA256 hash values. Allow optional offset from beginning of the bank "
+			"(defaults to zero).",
+		.usage = "bank_id filename [offset]",
 	},
 	COMMAND_REGISTRATION_DONE
 };

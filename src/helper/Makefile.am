@@ -30,7 +30,10 @@ noinst_LTLIBRARIES += %D%/libhelper.la
 	%D%/system.h \
 	%D%/jep106.h \
 	%D%/jep106.inc \
-	%D%/jim-nvp.h
+	%D%/jim-nvp.h \
+	%D%/sha256.c \
+	%D%/sha256.h
+
 
 if IOUTIL
 %C%_libhelper_la_SOURCES += %D%/ioutil.c

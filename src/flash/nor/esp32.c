@@ -137,6 +137,12 @@ COMMAND_HANDLER(esp32_cmd_compression)
 	return CALL_COMMAND_HANDLER(esp_xtensa_cmd_set_compression, target);
 }
 
+COMMAND_HANDLER(esp32_cmd_verify_bank_hash)
+{
+	return CALL_COMMAND_HANDLER(esp_xtensa_parse_cmd_verify_bank_hash,
+		get_current_target(CMD_CTX));
+}
+
 const struct command_registration esp32_flash_command_handlers[] = {
 	{
 		.name = "appimage_offset",
@@ -153,6 +159,15 @@ const struct command_registration esp32_flash_command_handlers[] = {
 		.help =
 			"Set compression flag",
 		.usage = "['on'|'off']",
+	},
+	{
+		.name = "verify_bank_hash",
+		.handler = esp32_cmd_verify_bank_hash,
+		.mode = COMMAND_ANY,
+		.usage = "bank_id filename [offset]",
+		.help = "Perform a comparison between the file and the contents of the "
+			"flash bank using SHA256 hash values. Allow optional offset from beginning of the bank "
+			"(defaults to zero).",
 	},
 	COMMAND_REGISTRATION_DONE
 };

@@ -45,4 +45,8 @@
 #define STUB_LOGD(format, ...)  STUB_LOG(STUB_LOG_DEBUG, "STUB_D: "format, ## __VA_ARGS__)
 #define STUB_LOGV(format, ...)  STUB_LOG(STUB_LOG_VERBOSE, "STUB_V: "format, ## __VA_ARGS__)
 
+#ifndef MIN
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#endif
+
 #endif	/*ESP_FLASHER_STUB_INT_H */

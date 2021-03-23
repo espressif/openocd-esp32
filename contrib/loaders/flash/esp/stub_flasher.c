@@ -30,10 +30,11 @@
 #include "stub_rom_chip.h"
 #include "stub_flasher_int.h"
 #include "stub_flasher_chip.h"
+#include "stub_sha.h"
 
 #define STUB_DEBUG    0
 
-#define STUB_BP_INSN_SECT_BUF_SIZE        (2*STUB_FLASH_SECTOR_SIZE)
+#define STUB_BP_INSN_SECT_BUF_SIZE      (2*STUB_FLASH_SECTOR_SIZE)
 
 #define ESP_APPTRACE_TRAX_BLOCK_SIZE    (0x4000UL)
 #define ESP_APPTRACE_USR_DATA_LEN_MAX   (ESP_APPTRACE_TRAX_BLOCK_SIZE - 2)
@@ -150,6 +151,37 @@ static int stub_apptrace_init()
 	uint32_t reg = eri_read(ESP_APPTRACE_TRAX_CTRL_REG);
 	reg |= ESP_APPTRACE_TRAX_HOST_CONNECT;
 	eri_write(ESP_APPTRACE_TRAX_CTRL_REG, reg);
+
+	return ESP_XTENSA_STUB_ERR_OK;
+}
+
+static int stub_flash_calc_hash(uint32_t addr, uint32_t size, uint8_t *hash)
+{
+	esp_rom_spiflash_result_t rc;
+	uint32_t rd_cnt = 0, rd_sz = 0;
+	uint8_t read_buf[ESP_XTENSA_STUB_RDWR_BUFF_SIZE];
+
+	STUB_LOGD("stub_flash_calc_hash %d bytes @ 0x%x\n", size, addr);
+
+	stub_sha256_start();
+
+	while (size > 0) {
+		rd_sz = MIN(ESP_XTENSA_STUB_RDWR_BUFF_SIZE, size);
+		rc = esp_rom_spiflash_read(addr + rd_cnt, (uint32_t *)read_buf, rd_sz);
+		if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
+			STUB_LOGE("Failed to read flash (%d)!\n", rc);
+			return ESP_XTENSA_STUB_ERR_FAIL;
+		}
+		stub_sha256_data(read_buf, rd_sz);
+		size -= rd_sz;
+		rd_cnt += rd_sz;
+	}
+
+	stub_sha256_finish(hash);
+
+	STUB_LOGD("hash: %x%x%x...%x%x%x\n",
+		hash[0], hash[1], hash[2],
+		hash[29], hash[30], hash[31]);
 
 	return ESP_XTENSA_STUB_ERR_OK;
 }
@@ -882,6 +914,7 @@ static int stub_flash_handler(int cmd, va_list ap)
 		case ESP_XTENSA_STUB_CMD_FLASH_WRITE:
 		case ESP_XTENSA_STUB_CMD_FLASH_WRITE_DEFLATED:
 		case ESP_XTENSA_STUB_CMD_FLASH_MAP_GET:
+		case ESP_XTENSA_STUB_CMD_FLASH_CALC_HASH:
 			stub_clock_configure();
 			break;
 		case ESP_XTENSA_STUB_CMD_FLASH_BP_SET:
@@ -930,6 +963,9 @@ static int stub_flash_handler(int cmd, va_list ap)
 			break;
 		case ESP_XTENSA_STUB_CMD_FLASH_WRITE_DEFLATED:
 			ret = stub_flash_write_deflated((void *)arg1);
+			break;
+		case ESP_XTENSA_STUB_CMD_FLASH_CALC_HASH:
+			ret = stub_flash_calc_hash(arg1, arg2, arg3);
 			break;
 		case ESP_XTENSA_STUB_CMD_FLASH_MAP_GET:
 			ret = stub_flash_get_map(arg1, arg2);
