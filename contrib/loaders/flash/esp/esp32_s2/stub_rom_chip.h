@@ -29,5 +29,5 @@
 #include "esp32s2/rom/efuse.h"
 #include "esp32s2/rom/uart.h"
 #include "esp32s2/rom/rtc.h"
-
+#include "esp32s2/rom/sha.h"
 #endif

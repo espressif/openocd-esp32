@@ -87,5 +87,6 @@ int esp_xtensa_flash_breakpoint_remove(struct target *target,
 
 COMMAND_HELPER(esp_xtensa_cmd_appimage_flashoff_do, struct target *target);
 COMMAND_HELPER(esp_xtensa_cmd_set_compression, struct target *target);
+COMMAND_HELPER(esp_xtensa_parse_cmd_verify_bank_hash, struct target *target);
 
 #endif	/*FLASH_ESP_XTENSA_H*/

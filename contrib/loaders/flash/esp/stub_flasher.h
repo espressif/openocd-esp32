@@ -41,7 +41,8 @@
 #define ESP_XTENSA_STUB_CMD_FLASH_BP_CLEAR              7
 #define ESP_XTENSA_STUB_CMD_FLASH_TEST                  8
 #define ESP_XTENSA_STUB_CMD_FLASH_WRITE_DEFLATED        9
-#define ESP_XTENSA_STUB_CMD_FLASH_MAX_ID                ESP_XTENSA_STUB_CMD_FLASH_WRITE_DEFLATED
+#define ESP_XTENSA_STUB_CMD_FLASH_CALC_HASH             10
+#define ESP_XTENSA_STUB_CMD_FLASH_MAX_ID                ESP_XTENSA_STUB_CMD_FLASH_CALC_HASH
 #define ESP_XTENSA_STUB_CMD_TEST                        (ESP_XTENSA_STUB_CMD_FLASH_MAX_ID+2)
 
 #define ESP_XTENSA_STUB_FLASH_MAPPINGS_MAX_NUM  2	/* IROM, DROM */
@@ -69,5 +70,5 @@ struct esp_xtensa_stub_flash_write_args {
 /* exported to let openocd know for stack allocation */
 #define ESP_XTENSA_STUB_UNZIP_BUFF_SIZE         32768
 #define ESP_XTENSA_STUB_IFLATOR_SIZE            11000
-
+#define ESP_XTENSA_STUB_RDWR_BUFF_SIZE          32768
 #endif	/* ESP_XTENSA_FLASHER_STUB_H */

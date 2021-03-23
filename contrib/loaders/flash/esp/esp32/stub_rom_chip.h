@@ -28,5 +28,6 @@
 #include "esp32/rom/cache.h"
 #include "esp32/rom/efuse.h"
 #include "esp32/rom/uart.h"
+#include "esp32/rom/sha.h"
 
 #endif

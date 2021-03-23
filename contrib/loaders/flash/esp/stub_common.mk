@@ -29,6 +29,7 @@ endif
 STUB = stub_flasher
 SRCS += $(STUB_COMMON_PATH)/stub_flasher.c \
 	$(STUB_CHIP_PATH)/stub_flasher_chip.c \
+	$(STUB_CHIP_PATH)/stub_sha.c \
 	$(IDF_PATH)/components/app_trace/app_trace.c \
 	$(IDF_PATH)/components/app_trace/app_trace_util.c \
 	$(IDF_PATH)/components/xtensa/eri.c
