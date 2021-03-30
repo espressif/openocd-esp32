@@ -31,6 +31,4 @@ struct stub_flash_state {
 	uint32_t cache_flags[2];
 };
 
-uint32_t stub_esp_clk_cpu_freq(void);
-
 #endif	/*ESP32_S2_FLASHER_STUB_H */

@@ -29,6 +29,8 @@
 #include "stub_flasher_int.h"
 #include "stub_flasher_chip.h"
 
+uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * MHZ;
+
 extern esp_rom_spiflash_chip_t g_rom_spiflash_chip;
 
 extern void spi_flash_attach(uint32_t spiconfig, uint32_t arg2);
@@ -87,29 +89,33 @@ void stub_flash_state_restore(struct stub_flash_state *state)
 	esp32_s2_flash_restore_cache(state->cache_flags);
 }
 
-uint32_t stub_esp_clk_cpu_freq(void)
+int stub_cpu_clock_configure(int cpu_freq_mhz)
 {
-	return (CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * MHZ);
-}
+	rtc_cpu_freq_config_t old_config;
+	rtc_clk_cpu_freq_get_config(&old_config);
 
-void stub_clock_configure(void)
-{
-	static bool first = true;
+#if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
+	uart_tx_wait_idle(CONFIG_CONSOLE_UART_NUM);
+#endif
 
-	if (first) {
-		/* Set CPU to configured value. Keep other clocks unmodified. */
-		int cpu_freq_mhz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
+	/* set to maximum possible value */
+	if (cpu_freq_mhz == -1)
+		cpu_freq_mhz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
 
+	/* Set CPU to configured value. Keep other clocks unmodified. */
+	if (cpu_freq_mhz > 0) {
 		rtc_clk_config_t clk_cfg = RTC_CLK_CONFIG_DEFAULT();
-		/* ESP32-S2 doesn't have XTAL_FREQ choice, always 40MHz */
-		clk_cfg.xtal_freq = RTC_XTAL_FREQ_40M;
+		/* ESP32-S2 doesn't have XTAL_FREQ choice, always 40MHz.
+		   So using default value is fine */
 		clk_cfg.cpu_freq_mhz = cpu_freq_mhz;
 		clk_cfg.slow_freq = rtc_clk_slow_freq_get();
 		clk_cfg.fast_freq = rtc_clk_fast_freq_get();
 		rtc_clk_init(clk_cfg);
 
-		first = false;
+		g_stub_cpu_freq_hz = cpu_freq_mhz * MHZ;
 	}
+
+	return old_config.freq_mhz;
 }
 
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE

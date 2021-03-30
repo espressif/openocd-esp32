@@ -30,7 +30,6 @@
 #include "stub_rom_chip.h"
 #include "stub_flasher_int.h"
 #include "stub_flasher_chip.h"
-#include "stub_sha.h"
 
 #define STUB_DEBUG    0
 
@@ -50,21 +49,17 @@
 #ifdef XT_CLOCK_FREQ
 #undef XT_CLOCK_FREQ
 #endif
-#define XT_CLOCK_FREQ         (stub_esp_clk_cpu_freq())
+#define XT_CLOCK_FREQ         (g_stub_cpu_freq_hz)
 #define CPUTICKS2US(_t_)      ((_t_)/(XT_CLOCK_FREQ/MHZ))
+
+extern void stub_flash_state_prepare(struct stub_flash_state *state);
+extern void stub_flash_state_restore(struct stub_flash_state *state);
 
 extern uint32_t _bss_start;
 extern uint32_t _bss_end;
 
 /* g_ticks_us defined in ROMs for PRO and APP CPU */
 extern uint32_t g_ticks_per_us_pro;
-
-extern uint32_t stub_flash_get_id(void);
-extern void stub_flash_cache_flush(void);
-extern void stub_flash_state_prepare(struct stub_flash_state *state);
-extern void stub_flash_state_restore(struct stub_flash_state *state);
-extern void stub_clock_configure(void);
-extern void stub_uart_console_configure(void);
 
 static struct {
 	/* offset of next flash write */
@@ -905,22 +900,7 @@ static int stub_flash_handler(int cmd, va_list ap)
 	uint32_t arg2 = va_arg(ap, uint32_t);	/* number of sectors */
 	uint8_t *arg3 = va_arg(ap, uint8_t *);	/* sectors' state buf address */
 
-	STUB_LOGD("%s a %x, s %d\n", __func__, arg1, arg2);
-
-	switch (cmd) {
-		case ESP_XTENSA_STUB_CMD_FLASH_READ:
-		case ESP_XTENSA_STUB_CMD_FLASH_ERASE:
-		case ESP_XTENSA_STUB_CMD_FLASH_ERASE_CHECK:
-		case ESP_XTENSA_STUB_CMD_FLASH_WRITE:
-		case ESP_XTENSA_STUB_CMD_FLASH_WRITE_DEFLATED:
-		case ESP_XTENSA_STUB_CMD_FLASH_MAP_GET:
-		case ESP_XTENSA_STUB_CMD_FLASH_CALC_HASH:
-			stub_clock_configure();
-			break;
-		case ESP_XTENSA_STUB_CMD_FLASH_BP_SET:
-		case ESP_XTENSA_STUB_CMD_FLASH_BP_CLEAR:
-			break;
-	}
+	STUB_LOGD("%s arg1 %x, arg2 %d\n", __func__, arg1, arg2);
 
 	stub_flash_state_prepare(&flash_state);
 
@@ -976,6 +956,12 @@ static int stub_flash_handler(int cmd, va_list ap)
 		case ESP_XTENSA_STUB_CMD_FLASH_BP_CLEAR:
 			ret = stub_flash_clear_bp(arg1, arg2, arg3);
 			break;
+		case ESP_XTENSA_STUB_CMD_CLOCK_CONFIGURE:
+			ret = stub_cpu_clock_configure(arg1);
+#if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
+			stub_uart_console_configure();
+#endif
+			break;
 #if STUB_DEBUG
 		case ESP_XTENSA_STUB_CMD_FLASH_TEST:
 			ret = stub_flash_test();
@@ -1010,9 +996,9 @@ int stub_main(int cmd, ...)
 	 * Interrupt) */
 	/* We need Debug Interrupt Level to allow breakpoints handling by OpenOCD */
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
-	stub_clock_configure();
+	stub_cpu_clock_configure(-1);
 	stub_uart_console_configure();
-	STUB_LOGD("cpu_freq:%d Mhz\n", stub_esp_clk_cpu_freq()/MHZ);
+	STUB_LOGD("cpu_freq:%d Mhz\n", XT_CLOCK_FREQ/MHZ);
 #endif
 	STUB_LOGD("BSS 0x%x..0x%x\n", &_bss_start, &_bss_end);
 	STUB_LOGD("cmd %d\n", cmd);

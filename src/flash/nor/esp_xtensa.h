@@ -50,6 +50,8 @@ struct esp_xtensa_flash_bank {
 	bool (*is_drom_address)(target_addr_t addr);
 	/* Upload compressed or uncompressed image */
 	int compression;
+	/* Stub cpu frequency before boost */
+	int old_cpu_freq;
 };
 
 struct esp_xtensa_flasher_stub_config {
@@ -88,5 +90,6 @@ int esp_xtensa_flash_breakpoint_remove(struct target *target,
 COMMAND_HELPER(esp_xtensa_cmd_appimage_flashoff_do, struct target *target);
 COMMAND_HELPER(esp_xtensa_cmd_set_compression, struct target *target);
 COMMAND_HELPER(esp_xtensa_parse_cmd_verify_bank_hash, struct target *target);
+COMMAND_HELPER(esp_xtensa_parse_cmd_clock_boost, struct target *target);
 
 #endif	/*FLASH_ESP_XTENSA_H*/
