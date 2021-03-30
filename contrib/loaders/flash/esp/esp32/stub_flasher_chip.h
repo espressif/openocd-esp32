@@ -44,6 +44,4 @@ struct stub_flash_state {
 	uint32_t dummy_len_plus;
 };
 
-uint32_t stub_esp_clk_cpu_freq(void);
-
 #endif	/*ESP32_FLASHER_STUB_H */

@@ -143,6 +143,12 @@ COMMAND_HANDLER(esp32_cmd_verify_bank_hash)
 		get_current_target(CMD_CTX));
 }
 
+COMMAND_HANDLER(esp32_cmd_set_clock)
+{
+	return CALL_COMMAND_HANDLER(esp_xtensa_parse_cmd_clock_boost,
+		get_current_target(CMD_CTX));
+}
+
 const struct command_registration esp32_flash_command_handlers[] = {
 	{
 		.name = "appimage_offset",
@@ -168,6 +174,14 @@ const struct command_registration esp32_flash_command_handlers[] = {
 		.help = "Perform a comparison between the file and the contents of the "
 			"flash bank using SHA256 hash values. Allow optional offset from beginning of the bank "
 			"(defaults to zero).",
+	},
+	{
+		.name = "flash_stub_clock_boost",
+		.handler = esp32_cmd_set_clock,
+		.mode = COMMAND_ANY,
+		.help =
+			"Set cpu clock freq to the max level. Use 'off' to restore the clock speed",
+		.usage = "['on'|'off']",
 	},
 	COMMAND_REGISTRATION_DONE
 };

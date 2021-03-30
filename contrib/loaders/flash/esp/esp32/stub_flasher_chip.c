@@ -44,6 +44,8 @@
 #define PERIPHS_SPI_MISO_DLEN_REG                   SPI_MISO_DLEN_REG(1)
 #define SPI_USR2_DLEN_SHIFT                         SPI_USR_COMMAND_BITLEN_S
 
+uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * MHZ;
+
 extern esp_rom_spiflash_chip_t g_rom_spiflash_chip;
 extern uint8_t g_rom_spiflash_dummy_len_plus[];
 
@@ -279,7 +281,6 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 	state->spi_regs[ESP32_STUB_FLASH_STATE_SPI_CTRL_REG_ID] = READ_PERI_REG(SPI_CTRL_REG(1));
 	state->dummy_len_plus = g_rom_spiflash_dummy_len_plus[1];
 
-
 	WRITE_PERI_REG(SPI_USER_REG(1), ESP32_STUB_FLASH_STATE_SPI_USER_REG_VAL);
 	WRITE_PERI_REG(SPI_USER1_REG(1), ESP32_STUB_FLASH_STATE_SPI_USER1_REG_VAL);
 	WRITE_PERI_REG(SPI_USER2_REG(1), ESP32_STUB_FLASH_STATE_SPI_USER2_REG_VAL);
@@ -321,39 +322,44 @@ void stub_flash_state_restore(struct stub_flash_state *state)
 		esp32_flash_cache_enabled(core_id));
 }
 
-uint32_t stub_esp_clk_cpu_freq(void)
+int stub_cpu_clock_configure(int cpu_freq_mhz)
 {
-	return (CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * MHZ);
-}
+	rtc_cpu_freq_config_t old_config;
+	rtc_clk_cpu_freq_get_config(&old_config);
 
-void stub_clock_configure(void)
-{
-	static bool first = true;
+#if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
+	uart_tx_wait_idle(CONFIG_CONSOLE_UART_NUM);
+#endif
 
-	if (first) {
-		/* Set CPU to configured value. Keep other clocks unmodified. */
-		int cpu_freq_mhz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
+	/* set to maximum possible value */
+	if (cpu_freq_mhz == -1)
+		cpu_freq_mhz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
+
+	/* Set CPU to configured value. Keep other clocks unmodified. */
+	if (cpu_freq_mhz > 0) {
 
 		/* On ESP32 rev 0, switching to 80MHz if clock was previously set to
 		 * 240 MHz may cause the chip to lock up (see section 3.5 of the errata
 		 * document). For rev. 0, switch to 240 instead if it was chosen in
 		 * menuconfig.
 		 */
-		uint32_t chip_ver_reg = REG_READ(EFUSE_BLK0_RDATA3_REG);
-		if ((chip_ver_reg & EFUSE_RD_CHIP_VER_REV1_M) == 0 &&
-			CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ == 240)
-			cpu_freq_mhz = 240;
+		if (cpu_freq_mhz == 80 && old_config.freq_mhz == 240) {
+			uint32_t chip_ver_reg = REG_READ(EFUSE_BLK0_RDATA3_REG);
+			if ((chip_ver_reg & EFUSE_RD_CHIP_VER_REV1_M) == 0)
+				cpu_freq_mhz = 240;
+		}
 
-		/* uart_tx_wait_idle(CONFIG_CONSOLE_UART_NUM); */
 		rtc_clk_config_t clk_cfg = RTC_CLK_CONFIG_DEFAULT();
-		clk_cfg.xtal_freq = CONFIG_ESP32_XTAL_FREQ;
+		clk_cfg.xtal_freq = RTC_XTAL_FREQ_AUTO;
 		clk_cfg.cpu_freq_mhz = cpu_freq_mhz;
 		clk_cfg.slow_freq = rtc_clk_slow_freq_get();
 		clk_cfg.fast_freq = rtc_clk_fast_freq_get();
 		rtc_clk_init(clk_cfg);
 
-		first = false;
+		g_stub_cpu_freq_hz = cpu_freq_mhz * MHZ;
 	}
+
+	return old_config.freq_mhz;
 }
 
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE

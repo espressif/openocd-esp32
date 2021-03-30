@@ -256,6 +256,7 @@ int esp_xtensa_flash_init(struct esp_xtensa_flash_bank *esp_xtensa_info, uint32_
 	esp_xtensa_info->hw_flash_base = 0;
 	esp_xtensa_info->appimage_flash_base = (uint32_t)-1;
 	esp_xtensa_info->compression = 1;	/* enables compression by default */
+	esp_xtensa_info->old_cpu_freq = 0;
 	return ERROR_OK;
 }
 
@@ -1171,6 +1172,41 @@ static int esp_xtensa_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 	return ret;
 }
 
+static int esp_xtensa_boost_clock_freq(struct flash_bank *bank, int boost)
+{
+	struct esp_xtensa_flash_bank *esp_xtensa_info = bank->driver_priv;
+	struct xtensa_algo_run_data run;
+	struct xtensa_algo_image flasher_image;
+	int new_cpu_freq = -1;	/* set to max level */
+
+	int ret = esp_xtensa_flasher_image_init(&flasher_image, esp_xtensa_info->get_stub(bank));
+	if (ret != ERROR_OK)
+		return ret;
+
+	/* restore */
+	if (boost == 0)
+		new_cpu_freq = esp_xtensa_info->old_cpu_freq;
+
+	memset(&run, 0, sizeof(run));
+	run.stack_size = 1024;
+	ret = esp_xtensa_info->run_func_image(bank->target,
+		&run,
+		&flasher_image,
+		2,
+		ESP_XTENSA_STUB_CMD_CLOCK_CONFIGURE,
+		new_cpu_freq);
+	if (ret != ERROR_OK) {
+		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
+		return ERROR_FAIL;
+	}
+	esp_xtensa_info->old_cpu_freq = run.ret_code;
+	LOG_DEBUG("%s old_freq (%d) new_freq (%d)",
+		__func__,
+		esp_xtensa_info->old_cpu_freq,
+		new_cpu_freq);
+	return ERROR_OK;
+}
+
 static int esp_xtensa_target_to_flash_bank(struct target *target,
 	struct flash_bank **bank, char *bank_name_suffix)
 {
@@ -1327,7 +1363,7 @@ static int esp_xtensa_verify_bank_hash(struct target *target,
 	}
 
 	if (length != filesize)
-		LOG_INFO("File content exceeds flash bank size. Only comparing the "
+		LOG_WARNING("File content exceeds flash bank size. Only comparing the "
 			"first %zu bytes of the file", length);
 
 	LOG_DEBUG("File size: %zu bank_size: %u offset: %u",
@@ -1395,6 +1431,40 @@ COMMAND_HANDLER(esp_xtensa_cmd_verify_bank_hash)
 		get_current_target(CMD_CTX));
 }
 
+COMMAND_HELPER(esp_xtensa_parse_cmd_clock_boost, struct target *target)
+{
+	if (CMD_ARGC != 1) {
+		command_print(CMD, "Clock boost flag not specified!");
+		return ERROR_FAIL;
+	}
+
+	int boost = 0;
+
+	if (0 == strcmp("on", CMD_ARGV[0])) {
+		LOG_DEBUG("Clock boost is on");
+		boost = 1;
+	} else if (0 == strcmp("off", CMD_ARGV[0])) {
+		LOG_DEBUG("Clock boost is off");
+		boost = 0;
+	} else {
+		LOG_DEBUG("unknown flag");
+		return ERROR_FAIL;
+	}
+
+	struct flash_bank *bank;
+	int retval = esp_xtensa_target_to_flash_bank(target, &bank, "flash");
+	if (retval != ERROR_OK)
+		return ERROR_FAIL;
+
+	return esp_xtensa_boost_clock_freq(bank, boost);
+}
+
+COMMAND_HANDLER(esp_xtensa_cmd_clock_boost)
+{
+	return CALL_COMMAND_HANDLER(esp_xtensa_parse_cmd_clock_boost,
+		get_current_target(CMD_CTX));
+}
+
 const struct command_registration esp_xtensa_exec_flash_command_handlers[] = {
 	{
 		.name = "appimage_offset",
@@ -1420,6 +1490,14 @@ const struct command_registration esp_xtensa_exec_flash_command_handlers[] = {
 			"flash bank using SHA256 hash values. Allow optional offset from beginning of the bank "
 			"(defaults to zero).",
 		.usage = "bank_id filename [offset]",
+	},
+	{
+		.name = "flash_stub_clock_boost",
+		.handler = esp_xtensa_cmd_clock_boost,
+		.mode = COMMAND_ANY,
+		.help =
+			"Set cpu clock freq to the max level. Use 'off' to restore the clock speed",
+		.usage = "['on'|'off']",
 	},
 	COMMAND_REGISTRATION_DONE
 };

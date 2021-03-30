@@ -49,4 +49,14 @@
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #endif
 
+extern uint32_t g_stub_cpu_freq_hz;
+
+void stub_sha256_start(void);
+void stub_sha256_data(const void *data, size_t data_len);
+void stub_sha256_finish(uint8_t *digest);
+uint32_t stub_flash_get_id(void);
+void stub_flash_cache_flush(void);
+void stub_uart_console_configure(void);
+int stub_cpu_clock_configure(int cpu_freq_mhz);
+
 #endif	/*ESP_FLASHER_STUB_INT_H */
