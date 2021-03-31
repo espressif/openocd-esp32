@@ -364,9 +364,10 @@ build_windows:
     - pushd $ZLIB_VER
     - mkdir _build
     - INSTALLDIR=_build
-    - make -f win32/Makefile.gcc BINARY_PATH=$INSTALLDIR/bin INCLUDE_PATH=$INSTALLDIR/include LIBRARY_PATH=$INSTALLDIR/lib SHARED_MODE=1 PREFIX=i686-w64-mingw32- install
+    - make -f win32/Makefile.gcc BINARY_PATH=$INSTALLDIR/bin INCLUDE_PATH=$INSTALLDIR/include LIBRARY_PATH=$INSTALLDIR/lib SHARED_MODE=1 PREFIX=${CONF_HOST}- install
     - export CPPFLAGS="-I$PWD/$INSTALLDIR/include"
     - export LDFLAGS="-L$PWD/$INSTALLDIR/lib"
+    - export ZLIB_DIR=$PWD/$INSTALLDIR/bin
     - popd
     # Build OpenOCD
     - git submodule update --init
@@ -378,6 +379,7 @@ build_windows:
     - MAKEFLAGS= make install-strip
     - popd
     - cp /usr/${CONF_HOST}/lib/libwinpthread-1.dll $DIST_INSTALLED_DIR/bin/
+    - cp ${ZLIB_DIR}/zlib1.dll $DIST_INSTALLED_DIR/bin/
     - *dist_archive
 
 build_macos:
