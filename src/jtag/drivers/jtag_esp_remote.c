@@ -130,8 +130,8 @@ static int jtag_esp_remote_send_cmd_tcp(struct esp_remote_cmd *cmd)
 {
 	const size_t data_len = cmd_data_len_bytes(cmd);
 	const size_t size = sizeof(struct esp_remote_cmd) + data_len;
-	const int retval = write_socket(sockfd, cmd, size);
-	if (retval <= 0)
+	const size_t retval = write_socket(sockfd, cmd, size);
+	if (retval != size)
 		return ERROR_FAIL;
 	return ERROR_OK;
 }
@@ -158,7 +158,9 @@ static int jtag_esp_remote_send_cmd_usb(struct esp_remote_cmd *cmd)
 static int jtag_esp_remote_receive_cmd_tcp(struct esp_remote_cmd *cmd)
 {
 	const size_t data_len = cmd_data_len_bytes(cmd);
-	read_socket(sockfd, cmd->data, data_len);
+	const size_t ret_val = read_socket(sockfd, cmd->data, data_len);
+	if (ret_val != data_len)
+		return ERROR_FAIL;
 	return ERROR_OK;
 }
 
@@ -251,7 +253,7 @@ static int jtag_esp_remote_tms_seq(const uint8_t *bits, int nb_bits)
  * jtag_esp_remote_path_move - send a TMS sequence transition to JTAG
  * @cmd: path transition
  *
- * Write a serie of TMS transitions, where each transition consists in :
+ * Write a series of TMS transitions, where each transition consists of:
  *  - writing out TCK=0, TMS=<new_state>, TDI=<???>
  *  - writing out TCK=1, TMS=<new_state>, TDI=<???> which triggers the transition
  * The function ensures that at the end of the sequence, the clock (TCK) is put
@@ -284,11 +286,14 @@ static int jtag_esp_remote_tms(struct tms_command *cmd)
 
 static int jtag_esp_remote_state_move(tap_state_t state)
 {
-	if (tap_get_state() == state)
+	const tap_state_t cur_state = tap_get_state();
+	if (cur_state == state)
 		return ERROR_OK;
 
-	uint8_t tms_scan = tap_get_tms_path(tap_get_state(), state);
-	int tms_len = tap_get_tms_path_len(tap_get_state(), state);
+	uint8_t tms_scan = tap_get_tms_path(cur_state, state);
+	int tms_len = tap_get_tms_path_len(cur_state, state);
+
+	assert(((unsigned) tms_len) <= sizeof(tms_scan) * 8);
 
 	int retval = jtag_esp_remote_tms_seq(&tms_scan, tms_len);
 	if (retval != ERROR_OK)
@@ -427,56 +432,35 @@ static int jtag_esp_remote_scan(struct scan_command *cmd, size_t *out_read_size)
 	}
 	bool need_read = (*out_read_size > 0);
 
-	if (cmd->ir_scan) {
-		retval = jtag_esp_remote_state_move(TAP_IRSHIFT);
-		if (retval != ERROR_OK)
-			return retval;
-	} else {
-		retval = jtag_esp_remote_state_move(TAP_DRSHIFT);
-		if (retval != ERROR_OK)
-			return retval;
-	}
+	retval = jtag_esp_remote_state_move(cmd->ir_scan ? TAP_IRSHIFT : TAP_DRSHIFT);
+	if (retval != ERROR_OK)
+		goto jtag_esp_remote_scan_exit;
 
-	if (cmd->end_state == TAP_DRSHIFT) {
-		retval = jtag_esp_remote_queue_tdi(buf, scan_bits, NO_TAP_SHIFT, need_read);
-		if (retval != ERROR_OK)
-			return retval;
-	} else {
-		retval = jtag_esp_remote_queue_tdi(buf, scan_bits, TAP_SHIFT, need_read);
-		if (retval != ERROR_OK)
-			return retval;
-	}
+	retval = jtag_esp_remote_queue_tdi(buf, scan_bits, TAP_SHIFT, need_read);
+	if (retval != ERROR_OK)
+		goto jtag_esp_remote_scan_exit;
 
-	if (cmd->end_state != TAP_DRSHIFT) {
-		/*
-		 * As our JTAG is in an unstable state (IREXIT1 or DREXIT1), move it
-		 * forward to a stable IRPAUSE or DRPAUSE.
-		 */
-		retval = jtag_esp_remote_clock_tms(0);
-		if (retval != ERROR_OK)
-			return retval;
+	/* TAP_SHIFT moved the state into IREXIT/DREXIT. Another TMS=0 will move it to
+	 * IRPAUSE/DRPAUSE */
 
-		if (cmd->ir_scan)
-			tap_set_state(TAP_IRPAUSE);
-		else
-			tap_set_state(TAP_DRPAUSE);
-	}
+	retval = jtag_esp_remote_clock_tms(0);
+	if (retval != ERROR_OK)
+		goto jtag_esp_remote_scan_exit;
 
+	tap_set_state(cmd->ir_scan ? TAP_IRPAUSE : TAP_DRPAUSE);
+
+	retval = jtag_esp_remote_state_move(cmd->end_state);
+
+jtag_esp_remote_scan_exit:
 	if (buf)
 		free(buf);
 
-	if (cmd->end_state != TAP_DRSHIFT) {
-		retval = jtag_esp_remote_state_move(cmd->end_state);
-		if (retval != ERROR_OK)
-			return retval;
-	}
-
-	return ERROR_OK;
+	return retval;
 }
 
 static int jtag_esp_remote_scan_read(struct scan_command *cmd)
 {
-	int retval;
+	int retval = ERROR_OK;
 	uint8_t *buf = NULL;
 
 	size_t read_size = 0;
@@ -486,23 +470,19 @@ static int jtag_esp_remote_scan_read(struct scan_command *cmd)
 			read_size += sf->num_bits;
 	}
 	if (read_size == 0)
-		return ERROR_OK;
+		return retval;
 
 	int nbits = jtag_build_buffer(cmd, &buf);
 	int nbytes = DIV_ROUND_UP(nbits, 8);
 	memset(buf, 0xcc, nbytes);
 	retval = jtag_esp_remote_get_tdi_xfer_result(buf, nbits);
-	if (retval != ERROR_OK) {
-		free(buf);
-		return retval;
-	}
+	if (retval != ERROR_OK)
+		goto jtag_esp_remote_scan_read_exit;
 	retval = jtag_read_buffer(buf, cmd);
-	if (retval != ERROR_OK) {
-		free(buf);
-		return retval;
-	}
 
-	return ERROR_OK;
+jtag_esp_remote_scan_read_exit:
+	free(buf);
+	return retval;
 }
 
 static int jtag_esp_remote_runtest(int cycles, tap_state_t state)
@@ -522,7 +502,27 @@ static int jtag_esp_remote_runtest(int cycles, tap_state_t state)
 
 static int jtag_esp_remote_stableclocks(int cycles)
 {
-	return jtag_esp_remote_queue_tdi(NULL, cycles, TAP_SHIFT, false);
+	uint8_t tms_bits[4];
+	int cycles_remain = cycles;
+	int nb_bits;
+	int retval;
+	const int cycles_one_batch = sizeof(tms_bits) * 8;
+
+	assert(cycles >= 0);
+
+	/* use TMS=1 in TAP RESET state, TMS=0 in all other stable states */
+	memset(tms_bits, (tap_get_state() == TAP_RESET) ? 0xff : 0x00, sizeof(tms_bits));
+
+	/* send the TMS bits */
+	while (cycles_remain > 0) {
+		nb_bits = (cycles_remain < cycles_one_batch) ? cycles_remain : cycles_one_batch;
+		retval = jtag_esp_remote_tms_seq(tms_bits, nb_bits);
+		if (retval != ERROR_OK)
+			return retval;
+		cycles_remain -= nb_bits;
+	}
+
+	return ERROR_OK;
 }
 
 static int jtag_esp_remote_execute_queue(void)
@@ -564,6 +564,10 @@ static int jtag_esp_remote_execute_queue(void)
 				retval = jtag_esp_remote_scan(cmd->cmd.scan, &cmd_read_size);
 				read_size += cmd_read_size;
 				break;
+			default:
+				LOG_ERROR("Unknown JTAG command type 0x%X", cmd->type);
+				retval = ERROR_FAIL;
+				break;
 		}
 	}
 
@@ -571,7 +575,7 @@ static int jtag_esp_remote_execute_queue(void)
 		for (cmd = jtag_command_queue; retval == ERROR_OK && cmd != NULL;
 			cmd = cmd->next) {
 			if (cmd->type == JTAG_SCAN)
-				jtag_esp_remote_scan_read(cmd->cmd.scan);
+				retval = jtag_esp_remote_scan_read(cmd->cmd.scan);
 		}
 	}
 	assert(s_read_bits_queued == 0);
@@ -620,8 +624,8 @@ static int jtag_esp_remote_init_tcp(void)
 
 static int jtag_esp_remote_init_usb(void)
 {
-	const uint16_t vids[]= {usb_vid};
-	const uint16_t pids[]= {usb_pid};
+	const uint16_t vids[]= {usb_vid, 0};	/* must be null terminated */
+	const uint16_t pids[]= {usb_pid, 0};	/* must be null terminated */
 	int r= jtag_libusb_open(vids, pids, NULL, &usb_device);
 	if (r != ERROR_OK) {
 		if (r == ERROR_FAIL)
