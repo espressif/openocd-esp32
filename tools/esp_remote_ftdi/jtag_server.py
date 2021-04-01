@@ -20,6 +20,7 @@ import logging
 import threading
 import queue
 import socket
+import time
 
 
 # ESP-WROVER-KIT FT2232H pin mapping:
@@ -55,8 +56,8 @@ gpio = GpioSyncController()
 
 # Utility functions to convert between bits packed into a bytestring, and a list of 0/1 ints.
 # This is similar to the bitstring package, except that bits within byte are counted from the LSB.
-def list_to_bits(l):
-    n_bits = len(l)
+def list_to_bits(list_of_ints):
+    n_bits = len(list_of_ints)
     n_bytes = (n_bits + 7) // 8
     pos = 0
     res = b''
@@ -65,7 +66,7 @@ def list_to_bits(l):
         for i_bit in range(8):
             if pos == n_bits:
                 break
-            if l[pos]:
+            if list_of_ints[pos]:
                 byte_val |= (1 << i_bit)
             pos += 1
         res += struct.pack('B', byte_val)
@@ -96,7 +97,7 @@ assert bits_to_list(TEST_BYTES, len(TEST_BITS)) == TEST_BITS
 
 # JTAG related
 def init_jtag():
-    gpio.exchange(struct.pack("B", TMS_MASK))
+    gpio.exchange(b'\x00')
 
 
 class JTAGQueueItem(object):
@@ -139,10 +140,11 @@ class JTAGThread(threading.Thread):
                 if i.tms is None:
                     tms_list = [last_tms] * i.bits
                     if i.tms_flip:
-                        tms_list[i.bits - 1] = 1 - last_tms
+                        tms_list[-1] = 1 - last_tms
                 else:
+                    assert not i.tms_flip
                     tms_list = bits_to_list(i.tms, i.bits)
-                last_tms = tms_list[i.bits - 1]
+                last_tms = tms_list[-1]
 
                 if i.tdo is None:
                     tdo_list = [1] * i.bits
@@ -153,7 +155,7 @@ class JTAGThread(threading.Thread):
                 all_tdo += tdo_list
                 n_bits += i.bits
 
-            tdi_list = do_jtag_inner(n_bits, all_tms, all_tdo)
+            tdi_list = self.do_jtag_inner(n_bits, all_tms, all_tdo)
 
             result = b''
             for i in items:
@@ -162,33 +164,49 @@ class JTAGThread(threading.Thread):
                 if i.do_read:
                     result += list_to_bits(tdi_part)
 
-            if len(result) > 0:
+            assert len(tdi_list) == 0
+
+            if len(result) > 0 and not self.done:
                 self.req.sendall(result)
+
+    @staticmethod
+    def do_jtag_inner(n_bits, tms_list, tdo_list):
+        gpio_out = [0] * (2 * n_bits + 1)
+
+        # prepare the list of GPIO port values from TMS and TDO vectors
+        for i in range(n_bits):
+            data = tms_list[i] * TMS_MASK + tdo_list[i] * TDO_MASK
+            # data is clocked in on posedge
+            gpio_out[2 * i] = data
+            gpio_out[2 * i + 1] = data + TCK_MASK
+
+        # Move TCK back to 0
+        gpio_out[-1] = data
+
+        def data_to_str(n):
+            s = 'C' if n & TCK_MASK else '-'
+            s += 'M' if n & TMS_MASK else '-'
+            s += 'I' if n & TDI_MASK else '-'
+            s += 'O' if n & TDO_MASK else '-'
+            return s
+
+        gpio_in = gpio.exchange(bytearray(gpio_out))
+        logging.debug("GPIO output {}".format(' '.join([data_to_str(i) for i in gpio_out])))
+        logging.debug("GPIO input  {}".format(' '.join([data_to_str(i) for i in gpio_in])))
+
+        # extract TDI
+        tdi_list = [0] * n_bits
+        for i in range(n_bits):
+            # TDI (TDO at the target side) changes at falling TCK and should be captured at the next raising TCK.
+            # This can be observed and the the data is not stable at gpio_in[2 * i + 1].
+            if gpio_in[2 * i + 2] & TDI_MASK != 0:
+                tdi_list[i] = 1
+
+        return tdi_list
 
 
 def do_jtag(n_bits, tms_bytes=None, tdo_bytes=None, do_read=False, tms_flip=False):
     JTAG_QUEUE.put(JTAGQueueItem(tms_bytes, tdo_bytes, n_bits, do_read, tms_flip))
-
-
-def do_jtag_inner(n_bits, tms_list, tdo_list):
-    gpio_out = [0] * (2 * n_bits)
-
-    # prepare the list of GPIO port values from TMS and TDO vectors
-    for i in range(n_bits):
-        data = tms_list[i] * TMS_MASK + tdo_list[i] * TDO_MASK
-        # data is clocked in on posedge
-        gpio_out[2 * i] = data
-        gpio_out[2 * i + 1] = data + TCK_MASK
-
-    gpio_in = gpio.exchange(bytearray(gpio_out))
-
-    # extract TDI
-    tdi_list = [0] * n_bits
-    for i in range(n_bits):
-        if gpio_in[2 * i + 1] & TDI_MASK != 0:
-            tdi_list[i] = 1
-
-    return tdi_list
 
 
 # Protocol commands
@@ -218,57 +236,83 @@ class JTAGTCPHandler(socketserver.BaseRequestHandler):
         init_jtag()
         jtag_thread = JTAGThread(JTAG_QUEUE, self.request)
         jtag_thread.start()
-        request_count = 0
-        self.request.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
-        while True:
-            # reserved:4, ver:4, function:8
-            header_bytes = self.request.recv(CMD_HEADER_LEN + CMD_PARAM_LEN)
-            if request_count % 100 == 0:
-                print("%d\r" % request_count)
-            request_count += 1
-            logging.debug("header: {}".format(hexlify(header_bytes)))
+        try:
+            request_count = 0
+            self.request.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
 
-            rsv_ver, cmd = struct.unpack_from("BB", header_bytes, 0)
-            ver = rsv_ver >> 4
+            def receive(length):
+                """
+                socket recv() can return less data than requested no matter what flags are selected. This function
+                ensures that the required amount is received.
+                """
+                buf = b''
+                to_read = length
+                while to_read > 0:
+                    buf += self.request.recv(to_read, socket.MSG_WAITALL)
+                    done = len(buf)
+                    to_read = length - done
+                    if to_read > 0:
+                        logging.info("socket receive got only {} bytes out of {}".format(done, length))
+                        time.sleep(0.5)
+                return buf
 
-            logging.debug("cmd {}, args {}".format(
-                CMD_NAME.get(cmd, "%d" % cmd),
-                hexlify(header_bytes[CMD_HEADER_LEN:])))
+            while True:
+                # reserved:4, ver:4, function:8
+                header_bytes = receive(CMD_HEADER_LEN + CMD_PARAM_LEN)
+                request_count += 1
+                if request_count % 100 == 0:
+                    print("\r{} requests processed".format(request_count), end='')
+                logging.debug("header: {}".format(hexlify(header_bytes)))
 
-            assert ver == VER_1
-            val = struct.unpack_from("H", header_bytes, CMD_HEADER_LEN)[0]
+                rsv_ver, cmd = struct.unpack_from("BB", header_bytes, 0)
+                ver = rsv_ver >> 4
 
-            if cmd == CMD_SCAN:
-                # bits:12, read:1, flip_tms:1, reserved:2
-                n_bits = val & 0xfff
-                do_read = (val >> 12) & 1
-                do_flip_tms = (val >> 13) & 1
-                n_bytes = (n_bits + 7) // 8
-                data = self.request.recv(n_bytes)
-                cmd_scan(n_bits, do_read, do_flip_tms, data)
+                logging.debug("cmd {}, args {}".format(
+                    CMD_NAME.get(cmd, "%d" % cmd),
+                    hexlify(header_bytes[CMD_HEADER_LEN:])))
 
-            elif cmd == CMD_TMS_SEQ:
-                # bits:12, reserved:4
-                n_bits = val & 0xfff
-                n_bytes = (n_bits + 7) // 8
-                data = self.request.recv(n_bytes)
-                cmd_tms_seq(n_bits, data)
+                assert ver == VER_1
+                val = struct.unpack_from("H", header_bytes, CMD_HEADER_LEN)[0]
 
-            elif cmd == CMD_RESET:
-                # srst:1, trst:1, reserved:14
-                srst = val & 1
-                trst = (val >> 1) & 1
-                cmd_reset(srst, trst)
+                if cmd == CMD_SCAN:
+                    # bits:12, read:1, flip_tms:1, reserved:2
+                    n_bits = val & 0xfff
+                    do_read = (val >> 12) & 1
+                    do_flip_tms = (val >> 13) & 1
+                    n_bytes = (n_bits + 7) // 8
+                    data = receive(n_bytes)
+                    cmd_scan(n_bits, do_read, do_flip_tms, data)
 
-            else:
-                logging.error("Unknown command: {}".format(cmd))
+                elif cmd == CMD_TMS_SEQ:
+                    # bits:12, reserved:4
+                    n_bits = val & 0xfff
+                    n_bytes = (n_bits + 7) // 8
+                    data = receive(n_bytes)
+                    cmd_tms_seq(n_bits, data)
+
+                elif cmd == CMD_RESET:
+                    # srst:1, trst:1, reserved:14
+                    srst = val & 1
+                    trst = (val >> 1) & 1
+                    cmd_reset(srst, trst)
+
+                else:
+                    logging.error("Unknown command: {}".format(cmd))
+        finally:
+            print('')
+            jtag_thread.done = True
+            jtag_thread.join(timeout=10)
 
 
 def main():
     logging.basicConfig(level=logging.INFO)
     gpio.configure(FTDI_PATH, direction=PORT_DIRECTION, frequency=10000000)
-    with socketserver.TCPServer((HOST, PORT), JTAGTCPHandler) as server:
-        server.serve_forever()
+    try:
+        with socketserver.TCPServer((HOST, PORT), JTAGTCPHandler) as server:
+            server.serve_forever()
+    except KeyboardInterrupt:
+        print('\nExiting...')
+        logging.shutdown()
 
 
 if __name__ == "__main__":
