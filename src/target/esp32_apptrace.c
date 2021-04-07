@@ -2411,14 +2411,21 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 		memset(&run, 0, sizeof(run));
 		run.hw = s_at_cmd_ctx.algo_hw;
 		run.stack_size      = 1024;
-		run.usr_func_arg    = &s_at_cmd_ctx;
-		run.usr_func        = esp_gcov_poll;
 		run.on_board.min_stack_addr = dbg_stubs->desc.min_stack_addr;
 		run.on_board.min_stack_size = ESP_DBG_STUBS_STACK_MIN_SIZE;
 		run.on_board.code_buf_addr = dbg_stubs->desc.tramp_addr;
 		run.on_board.code_buf_size = ESP_DBG_STUBS_CODE_BUF_SIZE;
-		algorithm_run_onboard_func(target, &run, func_addr, 0);
-		LOG_DEBUG("FUNC RET = 0x%" PRIx64, run.ret_code);
+		/* this function works for SMP and non-SMP targets */
+		esp_xtensa_smp_run_onboard_func(run_target, &run, func_addr, 0);
+		LOG_DEBUG("FUNC RET = 0x%x", run.ret_code);
+		if (run.ret_code == ERROR_OK) {
+			res = target_resume(target, 1, 0, 1, 0);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to resume target (%d)!", res);
+				return res;
+			}
+			esp_gcov_poll(target, &s_at_cmd_ctx);
+		}
 	}
 	/* disconnect */
 	res = esp32_apptrace_connect_targets(&s_at_cmd_ctx,
