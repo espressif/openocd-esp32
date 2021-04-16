@@ -276,7 +276,7 @@ variables:
 
 before_script:
   - set -o errexit; set -o pipefail; set -o nounset
-  - test ${DEBUG_SHELL:-""} && set -x
+  - test "${DEBUG_SHELL:-''}" = "1" && set -x
 
 build_linux:
   stage: build
