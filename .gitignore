@@ -104,3 +104,6 @@ GTAGS
 #gcov files
 *.gcda
 *.gcno
+
+# checkpatch script files
+.checkpatch-camelcase.*
