@@ -500,8 +500,8 @@ static int esp_usb_jtag_init(void)
 {
 	memset(priv, 0, sizeof(struct esp_usb_jtag));
 
-	const uint16_t vids[]= {USB_VID};
-	const uint16_t pids[]= {USB_PID};
+	const uint16_t vids[]= {USB_VID, 0};	/* must be null terminated */
+	const uint16_t pids[]= {USB_PID, 0};	/* must be null terminated */
 
 	bitq_interface= calloc(sizeof(struct bitq_interface), 1);
 	bitq_interface->out= esp_usb_jtag_out;
