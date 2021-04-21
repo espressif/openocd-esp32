@@ -25,6 +25,7 @@
 #include "esp32c3.h"
 #include "command.h"
 #include "target_type.h"
+#include "register.h"
 #include "semihosting_common.h"
 #include "riscv/debug_defines.h"
 #include "esp32_apptrace.h"
@@ -158,9 +159,23 @@ static void esp32c3_deinit_target(struct target *target)
 	riscv_target.deinit_target(target);
 }
 
+static const char *s_nonexistent_regs[] = {
+	"mie", "mip", "tdata3",
+};
+
 static int esp32c3_examine(struct target *target)
 {
-	return riscv_target.examine(target);
+	int ret = riscv_target.examine(target);
+	if (ret != ERROR_OK)
+		return ret;
+	/* RISCV code initializes registers upon target examination.
+	   disable some register because their reading causes exception. Not supported in ESP32-C3??? */
+	for (size_t i = 0; i < sizeof(s_nonexistent_regs)/sizeof(s_nonexistent_regs[0]); i++) {
+		struct reg *r = register_get_by_name(target->reg_cache, s_nonexistent_regs[i], 1);
+		if (r)
+			r->exist = false;
+	}
+	return ERROR_OK;
 }
 
 #define get_field(reg, mask) (((reg) & (mask)) / ((mask) & ~((mask) << 1)))
@@ -375,6 +390,26 @@ static int esp32c3_arch_state(struct target *target)
 	return riscv_target.arch_state(target);
 }
 
+static int esp32c3_start_algorithm(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	target_addr_t entry_point, target_addr_t exit_point,
+	void *arch_info)
+{
+	return riscv_target.start_algorithm(target, num_mem_params, mem_params, num_reg_params,
+		reg_params, entry_point, exit_point, arch_info);
+}
+
+static int esp32c3_wait_algorithm(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	target_addr_t exit_point, int timeout_ms,
+	void *arch_info)
+{
+	return riscv_target.wait_algorithm(target, num_mem_params, mem_params, num_reg_params,
+		reg_params, exit_point, timeout_ms, arch_info);
+}
+
 static int esp32c3_run_algorithm(struct target *target, int num_mem_params,
 	struct mem_param *mem_params, int num_reg_params,
 	struct reg_param *reg_params, target_addr_t entry_point,
@@ -420,7 +455,6 @@ static unsigned esp32c3_data_bits(struct target *target)
 {
 	return riscv_target.data_bits(target);
 }
-
 
 static const struct command_registration esp32c3_command_handlers[] = {
 	{
@@ -470,6 +504,8 @@ struct target_type esp32c3_target = {
 	.arch_state = esp32c3_arch_state,
 
 	.run_algorithm = esp32c3_run_algorithm,
+	.start_algorithm = esp32c3_start_algorithm,
+	.wait_algorithm = esp32c3_wait_algorithm,
 
 	.commands = esp32c3_command_handlers,
 

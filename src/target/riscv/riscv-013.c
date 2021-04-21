@@ -3417,7 +3417,7 @@ static int write_memory(struct target *target, target_addr_t address,
 			return write_memory_bus_v0(target, address, size, count, buffer);
 		else if (get_field(info->sbcs, DMI_SBCS_SBVERSION) == 1)
 			return write_memory_bus_v1(target, address, size, count, buffer);
-	} else if (target->state == TARGET_RUNNING && get_field(info->sbcs, DMI_SBCS_SBACCESS32)) {
+	} else if ((target->state == TARGET_RUNNING || target->state == TARGET_DEBUG_RUNNING) && get_field(info->sbcs, DMI_SBCS_SBACCESS32)) {
 		/* Emulate using 32-bit SBA access if target is running.
 		   Access via prog_buf or abstartct commands does not work in running state and
 		   fails with abstractcs.cmderr == 4 (halt/resume) */

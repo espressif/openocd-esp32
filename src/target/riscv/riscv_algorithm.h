@@ -1,6 +1,6 @@
 /***************************************************************************
- *   ESP RISCV common definitions for OpenOCD                              *
- *   Copyright (C) 2020 Espressif Systems Ltd.                             *
+ *   Module to run arbitrary code on RISCV using OpenOCD                   *
+ *   Copyright (C) 2021 Espressif Systems Ltd.                             *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -18,36 +18,23 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-#ifndef _ESP_RISCV_H
-#define _ESP_RISCV_H
+#ifndef RISCV_ALGO_H
+#define RISCV_ALGO_H
 
-#include "target.h"
-#include "riscv/riscv.h"
-#include "riscv/riscv_algorithm.h"
-#include "esp_riscv_apptrace.h"
-#include "esp.h"
+#include "target/algorithm.h"
 
-struct esp_riscv_common {
-	/* should be first, will be accessed by riscv generic code */
-	riscv_info_t riscv;
-	struct esp_riscv_apptrace_info apptrace;
-	const struct algorithm_hw *algo_hw;
-	struct esp_dbg_stubs dbg_stubs;
-	struct esp_semihost_ops *semi_ops;
+/** Index of the first user-defined algo arg. @see algorithm_stub */
+#define RISCV_STUB_ARGS_FUNC_START  2
+
+/**
+ * RISCV algorithm data.
+ */
+struct riscv_algorithm {
+	/** Registers with numbers below and including this number will be backuped before algo start.
+	 * Set to GDB_REGNO_COUNT-1 to save all existing registers. @see enum gdb_regno. */
+	size_t max_saved_reg;
 };
 
-static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *target)
-{
-	return target->arch_info;
-}
+extern const struct algorithm_hw riscv_algo_hw;
 
-static inline int esp_riscv_init_target_info(struct command_context *cmd_ctx, struct target *target,
-	struct esp_riscv_common *esp_riscv, const struct esp_semihost_ops *semi_ops)
-{
-	esp_riscv->apptrace.hw = &esp_riscv_apptrace_hw;
-	esp_riscv->algo_hw = &riscv_algo_hw;
-	esp_riscv->semi_ops = (struct esp_semihost_ops *)semi_ops;
-	return riscv_init_target_info(cmd_ctx, target, &esp_riscv->riscv);
-}
-
-#endif	/* _ESP_RISCV_H */
+#endif	/* RISCV_ALGO_H */

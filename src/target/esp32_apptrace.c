@@ -557,10 +557,13 @@ int esp32_apptrace_cmd_ctx_init(struct target *target,
 	assert(cmd_ctx->cores_num <= ESP32_APPTRACE_MAX_CORES_NUM && "Too many cores number!");
 
 	/* TODO: find better way to detect chip arch */
-	if (strncmp(target_type_name(target), "esp32c3", 7) == 0)
+	if (strncmp(target_type_name(target), "esp32c3", 7) == 0) {
 		cmd_ctx->hw = target_to_esp_riscv(target)->apptrace.hw;
-	else
+		cmd_ctx->algo_hw = target_to_esp_riscv(target)->algo_hw;
+	} else {
 		cmd_ctx->hw = target_to_esp_xtensa(target)->apptrace.hw;
+		cmd_ctx->algo_hw = target_to_esp_xtensa(target)->algo_hw;
+	}
 
 	cmd_ctx->max_trace_block_sz = cmd_ctx->hw->max_block_size_get(cmd_ctx->cpus[0]);
 	if (cmd_ctx->max_trace_block_sz == 0) {
@@ -975,7 +978,7 @@ uint8_t *esp_apptrace_usr_block_get(uint8_t *buffer, uint32_t *size)
 	return buffer + sizeof(tmp_hdr);
 }
 
-int esp_apptrace_usr_block_write(struct esp32_apptrace_hw *hw, struct target *target,
+int esp_apptrace_usr_block_write(const struct esp32_apptrace_hw *hw, struct target *target,
 	uint32_t block_id,
 	const uint8_t *data,
 	uint32_t size)
@@ -2328,7 +2331,7 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 	int res = ERROR_OK;
 	struct target *target = get_current_target(CMD_CTX);
 	enum target_state old_state = target->state;
-	struct xtensa_algo_run_data run;
+	struct algorithm_run_data run;
 	uint32_t func_addr;
 	bool dump = false;
 
@@ -2406,6 +2409,7 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 			return ERROR_FAIL;
 		}
 		memset(&run, 0, sizeof(run));
+		run.hw = s_at_cmd_ctx.algo_hw;
 		run.stack_size      = 1024;
 		run.usr_func_arg    = &s_at_cmd_ctx;
 		run.usr_func        = esp_gcov_poll;
@@ -2413,9 +2417,8 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 		run.on_board.min_stack_size = ESP_DBG_STUBS_STACK_MIN_SIZE;
 		run.on_board.code_buf_addr = dbg_stubs->desc.tramp_addr;
 		run.on_board.code_buf_size = ESP_DBG_STUBS_CODE_BUF_SIZE;
-		/* this gunction works for SMP and non-SMP targets */
-		esp_xtensa_smp_run_onboard_func(run_target, &run, func_addr, 0);
-		LOG_DEBUG("FUNC RET = 0x%x", run.ret_code);
+		algorithm_run_onboard_func(target, &run, func_addr, 0);
+		LOG_DEBUG("FUNC RET = 0x%" PRIx64, run.ret_code);
 	}
 	/* disconnect */
 	res = esp32_apptrace_connect_targets(&s_at_cmd_ctx,

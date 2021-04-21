@@ -23,7 +23,7 @@
 #include "esp32_apptrace.h"
 
 struct esp_xtensa_apptrace_info {
-	struct esp32_apptrace_hw *hw;
+	const struct esp32_apptrace_hw *hw;
 };
 
 extern struct esp32_apptrace_hw esp_xtensa_apptrace_hw;

@@ -95,7 +95,8 @@ struct esp32_apptrace_cmd_ctx {
 	struct target *cpus[ESP32_APPTRACE_MAX_CORES_NUM];
 	/* TODO: use cores num from target */
 	int cores_num;
-	struct esp32_apptrace_hw *hw;
+	const struct esp32_apptrace_hw *hw;
+	const struct algorithm_hw *algo_hw;
 	enum target_state target_state;
 	uint32_t last_blk_id;
 	pthread_mutex_t trax_blocks_mux;
@@ -136,7 +137,7 @@ int esp32_apptrace_dest_init(struct esp32_apptrace_dest dest[],
 	const char *dest_paths[],
 	int max_dests);
 int esp32_apptrace_dest_cleanup(struct esp32_apptrace_dest dest[], int max_dests);
-int esp_apptrace_usr_block_write(struct esp32_apptrace_hw *hw, struct target *target,
+int esp_apptrace_usr_block_write(const struct esp32_apptrace_hw *hw, struct target *target,
 	uint32_t block_id,
 	const uint8_t *data,
 	uint32_t size);

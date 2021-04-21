@@ -60,6 +60,8 @@ typedef struct {
 	/* FIXME: This should probably be a bunch of register caches. */
 	uint64_t saved_registers[RISCV_MAX_HARTS][RISCV_MAX_REGISTERS];
 	bool valid_saved_registers[RISCV_MAX_HARTS][RISCV_MAX_REGISTERS];
+	/* hart which algo is running on */
+	int algo_hartid;
 
 	/* OpenOCD's register cache points into here. This is not per-hart because
 	 * we just invalidate the entire cache when we change which hart is

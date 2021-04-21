@@ -28,7 +28,7 @@ struct esp_riscv_apptrace_mem_block {
 };
 
 struct esp_riscv_apptrace_info {
-	struct esp32_apptrace_hw *hw;
+	const struct esp32_apptrace_hw *hw;
 	target_addr_t ctrl_addr;
 	struct esp_riscv_apptrace_mem_block mem_blocks[2];
 };
