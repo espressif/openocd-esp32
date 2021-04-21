@@ -1179,6 +1179,43 @@ int riscv_resume_prep_all_harts(struct target *target)
 	return ERROR_OK;
 }
 
+static int watchpoints_disable(struct target *target, bool trigger_cleared[])
+{
+	struct watchpoint *watchpoint = target->watchpoints;
+	int i = 0;
+	int result = ERROR_OK;
+
+	while (watchpoint && result == ERROR_OK) {
+		LOG_DEBUG("watchpoint %d: set=%d", i, watchpoint->set);
+		trigger_cleared[i] = watchpoint->set;
+		if (watchpoint->set)
+			result = riscv_remove_watchpoint(target, watchpoint);
+		watchpoint = watchpoint->next;
+		i++;
+	}
+	return result;
+}
+
+static int watchpoints_restore(struct target *target, bool trigger_cleared[])
+{
+	struct watchpoint *watchpoint = target->watchpoints;
+	int i = 0;
+	int result = ERROR_OK;
+
+	while (watchpoint) {
+		LOG_DEBUG("watchpoint %d: cleared=%d", i, trigger_cleared[i]);
+		if (trigger_cleared[i]) {
+			if (result == ERROR_OK)
+				result = riscv_add_watchpoint(target, watchpoint);
+			else
+				riscv_add_watchpoint(target, watchpoint);
+		}
+		watchpoint = watchpoint->next;
+		i++;
+	}
+	return result;
+}
+
 /**
  * Get everything ready to resume.
  */
@@ -1186,6 +1223,7 @@ static int resume_prep(struct target *target, int current,
 		target_addr_t address, int handle_breakpoints, int debug_execution)
 {
 	RISCV_INFO(r);
+	bool trigger_temporarily_cleared[RISCV_MAX_HWBPS] = {0};
 	LOG_DEBUG("[%d]", target->coreid);
 
 	if (!current)
@@ -1194,36 +1232,15 @@ static int resume_prep(struct target *target, int current,
 	if (target->debug_reason == DBG_REASON_WATCHPOINT) {
 		/* To be able to run off a trigger, disable all the triggers, step, and
 		 * then resume as usual. */
-		struct watchpoint *watchpoint = target->watchpoints;
-		bool trigger_temporarily_cleared[RISCV_MAX_HWBPS] = {0};
-
-		int i = 0;
-		int result = ERROR_OK;
-		while (watchpoint && result == ERROR_OK) {
-			LOG_DEBUG("watchpoint %d: set=%d", i, watchpoint->set);
-			trigger_temporarily_cleared[i] = watchpoint->set;
-			if (watchpoint->set)
-				result = riscv_remove_watchpoint(target, watchpoint);
-			watchpoint = watchpoint->next;
-			i++;
-		}
+		int result = watchpoints_disable(target, trigger_temporarily_cleared);
 
 		if (result == ERROR_OK)
 			result = old_or_new_riscv_step(target, true, 0, false);
 
-		watchpoint = target->watchpoints;
-		i = 0;
-		while (watchpoint) {
-			LOG_DEBUG("watchpoint %d: cleared=%d", i, trigger_temporarily_cleared[i]);
-			if (trigger_temporarily_cleared[i]) {
-				if (result == ERROR_OK)
-					result = riscv_add_watchpoint(target, watchpoint);
-				else
-					riscv_add_watchpoint(target, watchpoint);
-			}
-			watchpoint = watchpoint->next;
-			i++;
-		}
+		if (result == ERROR_OK)
+			result = watchpoints_restore(target, trigger_temporarily_cleared);
+		else
+			watchpoints_restore(target, trigger_temporarily_cleared);
 
 		if (result != ERROR_OK)
 			return result;
@@ -2757,6 +2774,8 @@ int riscv_step_rtos_hart(struct target *target)
 	int retval;
 	uint64_t mstatus;
 	RISCV_INFO(r);
+	bool trigger_temporarily_cleared[RISCV_MAX_HWBPS] = {0};
+
 	int hartid = r->current_hartid;
 	if (riscv_rtos_enabled(target)) {
 		hartid = r->rtos_hartid;
@@ -2772,6 +2791,14 @@ int riscv_step_rtos_hart(struct target *target)
 	if (!riscv_is_halted(target)) {
 		LOG_ERROR("Hart isn't halted before single step!");
 		return ERROR_FAIL;
+	}
+
+	if (target->debug_reason == DBG_REASON_WATCHPOINT) {
+		/* To be able to step over instruction caused a trigger, disable all the triggers, step, and
+		 * restore triggers. */
+		retval = watchpoints_disable(target, trigger_temporarily_cleared);
+		if (retval != ERROR_OK)
+			return retval;
 	}
 
 	if (r->isrmask_mode == RISCV_ISRMASK_STEPONLY) {
@@ -2800,6 +2827,12 @@ _on_exit:
 			retval = riscv_interrupts_restore(target, mstatus);
 		else
 			riscv_interrupts_restore(target, mstatus);
+	}
+	if (target->debug_reason == DBG_REASON_WATCHPOINT) {
+		if (retval == ERROR_OK)
+			retval = watchpoints_restore(target, trigger_temporarily_cleared);
+		else
+			watchpoints_restore(target, trigger_temporarily_cleared);
 	}
 
 	return retval;
