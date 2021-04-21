@@ -1,7 +1,6 @@
 /***************************************************************************
- *   Generic flash driver for Espressif Xtensa chips                       *
- *   Copyright (C) 2019 Espressif Systems Ltd.                             *
- *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
+ *   ESP RISCV flash driver for OpenOCD                                    *
+ *   Copyright (C) 2021 Espressif Systems Ltd.                             *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -19,23 +18,35 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-#ifndef FLASH_ESP_XTENSA_H
-#define FLASH_ESP_XTENSA_H
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+#include "esp_riscv.h"
+#include <target/esp_riscv_apptrace.h>
+#include <target/riscv/riscv_algorithm.h>
 
-#include "esp_flash.h"
-
-/* ESP Xtensa flash data.
-   It should be the first member of flash data structs for concrete chips.
-   For example see ESP32 flash driver implementation. */
-struct esp_xtensa_flash_bank {
-	struct esp_flash_bank esp;
+static const struct esp_flash_apptrace_hw s_esp_riscv_flash_apptrace_hw = {
+	.info_init = esp_riscv_apptrace_info_init,
+	.data_len_read = esp_riscv_apptrace_data_len_read,
+	.data_read = esp_riscv_apptrace_data_read,
+	.ctrl_reg_read = esp_riscv_apptrace_ctrl_reg_read,
+	.ctrl_reg_write = esp_riscv_apptrace_ctrl_reg_write,
+	.usr_block_write = esp_riscv_apptrace_usr_block_write,
+	.usr_block_get = esp_apptrace_usr_block_get,
+	.block_max_size_get = esp_riscv_apptrace_block_max_size_get,
+	.usr_block_max_size_get = esp_riscv_apptrace_usr_block_max_size_get,
 };
 
-int esp_xtensa_flash_init(struct esp_xtensa_flash_bank *esp_info, uint32_t sec_sz,
+int esp_riscv_flash_init(struct esp_riscv_flash_bank *esp_info, uint32_t sec_sz,
 	int (*run_func_image)(struct target *target, struct algorithm_run_data *run,
 		uint32_t num_args, ...),
 	bool (*is_irom_address)(target_addr_t addr),
 	bool (*is_drom_address)(target_addr_t addr),
-	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank));
+	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank))
+{
+	memset(esp_info, 0, sizeof(*esp_info));
+	return esp_flash_init(&esp_info->esp, sec_sz, run_func_image, is_irom_address,
+		is_drom_address, get_stub, &s_esp_riscv_flash_apptrace_hw,
+		&riscv_algo_hw);
 
-#endif	/*FLASH_ESP_XTENSA_H*/
+}

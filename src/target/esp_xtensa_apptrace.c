@@ -296,6 +296,15 @@ int esp_xtensa_apptrace_data_len_read(struct target *target,
 	return esp_xtensa_apptrace_ctrl_reg_read(target, block_id, len, NULL);
 }
 
+int esp_xtensa_apptrace_usr_block_write(struct target *target,
+	uint32_t block_id,
+	const uint8_t *data,
+	uint32_t size)
+{
+	return esp_apptrace_usr_block_write(&esp_xtensa_apptrace_hw,
+		target, block_id, data, size);
+}
+
 static int esp_xtensa_apptrace_data_reverse_read(struct xtensa *xtensa,
 	uint32_t size,
 	uint8_t *buffer,

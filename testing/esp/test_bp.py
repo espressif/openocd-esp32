@@ -163,7 +163,7 @@ class BreakpointTestsImpl:
 
     def test_bp_in_isr(self):
         """
-            This test checks that the first several breakpoint's hits can be ignored:
+            This test checks that the breakpoint's are handled in ISR properly:
             1) Select appropriate sub-test number on target.
             2) Set several breakpoints in ISR code to cover all types of them (HW, SW).
             3) Resume target and wait for brekpoints to hit.
@@ -201,21 +201,25 @@ class WatchpointTestsImpl:
         for e in self.wps:
             self.add_wp(e, 'rw')
         cnt = 0
+        wp_stop_reason = [dbg.TARGET_STOP_REASON_SIGTRAP, dbg.TARGET_STOP_REASON_WP]
         for i in range(3):
             # 'count' read
-            self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_SIGTRAP, 'blink_task', ['s_count10'])
+            self.run_to_bp_and_check(wp_stop_reason, 'blink_task', ['s_count10'])
             var_val = int(self.gdb.data_eval_expr('s_count1'))
             self.assertEqual(var_val, cnt)
             # 'count' read
-            self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_SIGTRAP, 'blink_task', ['s_count11'])
+            self.run_to_bp_and_check(wp_stop_reason, 'blink_task', ['s_count11'])
             var_val = int(self.gdb.data_eval_expr('s_count1'))
             self.assertEqual(var_val, cnt)
             # 'count' write
-            self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_SIGTRAP, 'blink_task', ['s_count11'])
+            self.run_to_bp_and_check(wp_stop_reason, 'blink_task', ['s_count11'])
             var_val = int(self.gdb.data_eval_expr('s_count1'))
             self.assertEqual(var_val, cnt)
             cnt += 1
 
+    # OpenOCD resets eps32c3/esp32s2 on every GDB connect to ensure that memory protection is disabled
+    # TODO: add check to config file to reset chip only when memory protection is really enabled
+    @skip_for_chip(['esp32s2', 'esp32c3'])
     def test_wp_and_reconnect(self):
         """
             This test checks that watchpoints work after GDB re-connection.

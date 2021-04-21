@@ -28,20 +28,16 @@
 #include "xtensa.h"
 #include "esp_xtensa_apptrace.h"
 #include "esp_xtensa_semihosting.h"
+#include "flash/nor/esp_flash.h"
 
 
 #define ESP_XTENSA_FLASH_BREAKPOINTS_MAX_NUM  32
 
-struct esp_xtensa_flash_breakpoint {
-	struct xtensa_sw_breakpoint data;
-	void *priv;
-};
-
 struct esp_xtensa_flash_breakpoint_ops {
 	int (*breakpoint_add)(struct target *target, struct breakpoint *breakpoint,
-		struct esp_xtensa_flash_breakpoint *spec_bp);
+		struct esp_flash_breakpoint *bp);
 	int (*breakpoint_remove)(struct target *target,
-		struct esp_xtensa_flash_breakpoint *spec_bp);
+		struct esp_flash_breakpoint *bp);
 };
 
 struct esp_xtensa_semihost_data {
@@ -55,7 +51,7 @@ struct esp_xtensa_common {
 	struct xtensa xtensa;
 	struct esp_dbg_stubs dbg_stubs;
 	const struct esp_xtensa_flash_breakpoint_ops *flash_brps_ops;
-	struct esp_xtensa_flash_breakpoint *flash_brps;
+	struct esp_flash_breakpoint *flash_brps;
 	struct esp_xtensa_semihost_data semihost;
 	struct esp_xtensa_apptrace_info apptrace;
 	const struct algorithm_hw *algo_hw;

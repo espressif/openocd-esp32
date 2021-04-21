@@ -120,7 +120,7 @@ int esp_riscv_semihosting(struct target *target)
 		esp_riscv->semi_ops->prepare(target);
 
 	if (semihosting->op == ESP_RISCV_APPTRACE_SYSNR) {
-		res = esp_riscv_apptrace_info_init(target, semihosting->param);
+		res = esp_riscv_apptrace_info_init(target, semihosting->param, NULL);
 		if (res != ERROR_OK)
 			return res;
 	} else

@@ -23,6 +23,11 @@
 
 #include "esp_riscv.h"
 
+#define ESP32C3_DROM_LOW    0x3C000000
+#define ESP32C3_DROM_HIGH   0x3C800000
+#define ESP32C3_IROM_LOW    0x42000000
+#define ESP32C3_IROM_HIGH   0x42800000
+
 struct esp32c3_common {
 	struct esp_riscv_common esp_riscv;
 	bool was_reset;

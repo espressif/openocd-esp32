@@ -43,13 +43,14 @@ static const uint8_t esp32_flasher_stub_data[] = {
 #include "contrib/loaders/flash/esp/esp32/stub_flasher_data.inc"
 };
 
-static struct esp_xtensa_flasher_stub_config s_stub_cfg = {
+static const struct esp_flasher_stub_config s_stub_cfg = {
 	.code = esp32_flasher_stub_code,
 	.code_sz = sizeof(esp32_flasher_stub_code),
 	.data = esp32_flasher_stub_data,
 	.data_sz = sizeof(esp32_flasher_stub_data),
 	.entry_addr = ESP32_STUB_ENTRY_ADDR,
-	.bss_sz = ESP32_STUB_BSS_SIZE
+	.bss_sz = ESP32_STUB_BSS_SIZE,
+	.first_user_reg_param = XTENSA_STUB_ARGS_FUNC_START
 };
 
 
@@ -63,7 +64,7 @@ static bool esp32_is_drom_address(target_addr_t addr)
 	return (addr >= ESP32_DROM_LOW && addr < ESP32_DROM_HIGH);
 }
 
-static const struct esp_xtensa_flasher_stub_config *esp32_get_stub(struct flash_bank *bank)
+static const struct esp_flasher_stub_config *esp32_get_stub(struct flash_bank *bank)
 {
 	return &s_stub_cfg;
 }
@@ -110,13 +111,13 @@ COMMAND_HANDLER(esp32_cmd_appimage_flashoff)
 		struct target *curr;
 		foreach_smp_target(head, target->head) {
 			curr = head->target;
-			int ret = CALL_COMMAND_HANDLER(esp_xtensa_cmd_appimage_flashoff_do, curr);
+			int ret = CALL_COMMAND_HANDLER(esp_flash_cmd_appimage_flashoff_do, curr);
 			if (ret != ERROR_OK)
 				return ret;
 		}
 		return ERROR_OK;
 	}
-	return CALL_COMMAND_HANDLER(esp_xtensa_cmd_appimage_flashoff_do, target);
+	return CALL_COMMAND_HANDLER(esp_flash_cmd_appimage_flashoff_do, target);
 }
 
 COMMAND_HANDLER(esp32_cmd_compression)
@@ -128,24 +129,24 @@ COMMAND_HANDLER(esp32_cmd_compression)
 		struct target *curr;
 		foreach_smp_target(head, target->head) {
 			curr = head->target;
-			int ret = CALL_COMMAND_HANDLER(esp_xtensa_cmd_set_compression, curr);
+			int ret = CALL_COMMAND_HANDLER(esp_flash_cmd_set_compression, curr);
 			if (ret != ERROR_OK)
 				return ret;
 		}
 		return ERROR_OK;
 	}
-	return CALL_COMMAND_HANDLER(esp_xtensa_cmd_set_compression, target);
+	return CALL_COMMAND_HANDLER(esp_flash_cmd_set_compression, target);
 }
 
 COMMAND_HANDLER(esp32_cmd_verify_bank_hash)
 {
-	return CALL_COMMAND_HANDLER(esp_xtensa_parse_cmd_verify_bank_hash,
+	return CALL_COMMAND_HANDLER(esp_flash_parse_cmd_verify_bank_hash,
 		get_current_target(CMD_CTX));
 }
 
 COMMAND_HANDLER(esp32_cmd_set_clock)
 {
-	return CALL_COMMAND_HANDLER(esp_xtensa_parse_cmd_clock_boost,
+	return CALL_COMMAND_HANDLER(esp_flash_parse_cmd_clock_boost,
 		get_current_target(CMD_CTX));
 }
 
@@ -224,14 +225,14 @@ struct flash_driver esp32_flash = {
 	.name = "esp32",
 	.commands = esp32_all_command_handlers,
 	.flash_bank_command = esp32_flash_bank_command,
-	.erase = esp_xtensa_erase,
-	.protect = esp_xtensa_protect,
-	.write = esp_xtensa_write,
-	.read = esp_xtensa_read,
-	.probe = esp_xtensa_probe,
-	.auto_probe = esp_xtensa_auto_probe,
-	.erase_check = esp_xtensa_blank_check,
-	.protect_check = esp_xtensa_protect_check,
+	.erase = esp_flash_erase,
+	.protect = esp_flash_protect,
+	.write = esp_flash_write,
+	.read = esp_flash_read,
+	.probe = esp_flash_probe,
+	.auto_probe = esp_flash_auto_probe,
+	.erase_check = esp_flash_blank_check,
+	.protect_check = esp_flash_protect_check,
 	.info = esp32_get_info,
 	.free_driver_priv = default_flash_free_driver_priv,
 };

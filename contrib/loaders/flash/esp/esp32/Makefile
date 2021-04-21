@@ -36,15 +36,16 @@ STUB_CHIP := ESP32
 SRCS := $(IDF_PATH)/components/esp_hw_support/port/esp32/rtc_clk.c \
 	$(IDF_PATH)/components/esp_hw_support/port/esp32/rtc_clk_init.c \
 	$(IDF_PATH)/components/esp_hw_support/port/esp32/rtc_time.c \
-	$(IDF_PATH)/components/spi_flash/esp32/spi_flash_rom_patch.c
+	$(IDF_PATH)/components/spi_flash/esp32/spi_flash_rom_patch.c \
+	$(IDF_PATH)/components/xtensa/eri.c
 
-CFLAGS :=
+CFLAGS := -mlongcalls -mtext-section-literals
 
 INCLUDES := -I$(IDF_PATH)/components/esp32/include -I$(IDF_PATH)/components/soc/esp32/include \
 	-I$(IDF_PATH)/components/esp_rom/include/esp32 -I$(IDF_PATH)/components/xtensa/esp32/include \
 	-I$(IDF_PATH)/components/hal/esp32/include -I$(IDF_PATH)/components/esp_hw_support/port/esp32/private_include \
-	-I$(IDF_PATH)/components/spi_flash/include
- 
+	-I$(IDF_PATH)/components/xtensa/include -I$(IDF_PATH)/components/freertos/port/xtensa/include
+
 DEFINES :=
 
 LDFLAGS := -L$(IDF_PATH)/components/esp32/ld -T$(IDF_PATH)/components/esp_rom/esp32/ld/esp32.rom.ld \

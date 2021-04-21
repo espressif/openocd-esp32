@@ -49,26 +49,7 @@ struct esp_apptrace_riscv_ctrl_block {
 	uint32_t mem_blocks_cfg_addr;	/* 4 bytes for target pointer */
 };
 
-static int esp_riscv_apptrace_data_len_read(struct target *target,
-	uint32_t *block_id,
-	uint32_t *len);
-static int esp_riscv_apptrace_data_read(struct target *target,
-	uint32_t size,
-	uint8_t *buffer,
-	uint32_t block_id,
-	bool ack);
-static int esp_riscv_apptrace_ctrl_reg_write(struct target *target,
-	uint32_t block_id,
-	uint32_t len,
-	bool conn,
-	bool data);
-static int esp_riscv_apptrace_ctrl_reg_read(struct target *target,
-	uint32_t *block_id,
-	uint32_t *len,
-	bool *conn);
 static int esp_riscv_apptrace_status_reg_read(struct target *target, uint32_t *stat);
-static uint32_t esp_riscv_apptrace_block_max_size_get(struct target *target);
-static uint32_t esp_riscv_apptrace_usr_block_max_size_get(struct target *target);
 static int esp_riscv_apptrace_buffs_write(struct target *target,
 	uint32_t bufs_num,
 	uint32_t buf_sz[],
@@ -92,7 +73,9 @@ struct esp32_apptrace_hw esp_riscv_apptrace_hw = {
 };
 
 
-int esp_riscv_apptrace_info_init(struct target *target, target_addr_t ctrl_addr)
+int esp_riscv_apptrace_info_init(struct target *target,
+	target_addr_t ctrl_addr,
+	target_addr_t *old_ctrl_addr)
 {
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 	uint32_t mem_cfg_addr;
@@ -126,30 +109,42 @@ int esp_riscv_apptrace_info_init(struct target *target, target_addr_t ctrl_addr)
 	LOG_DEBUG("Detected memory blocks: [0] %d bytes @ 0x%x, [1] %d bytes @ 0x%x",
 		esp_riscv->apptrace.mem_blocks[0].sz, esp_riscv->apptrace.mem_blocks[0].start,
 		esp_riscv->apptrace.mem_blocks[1].sz, esp_riscv->apptrace.mem_blocks[1].start);
+
+	if (old_ctrl_addr)
+		*old_ctrl_addr = esp_riscv->apptrace.ctrl_addr;
 	esp_riscv->apptrace.ctrl_addr = ctrl_addr;
 	return ERROR_OK;
 }
 
-static uint32_t esp_riscv_apptrace_block_max_size_get(struct target *target)
+uint32_t esp_riscv_apptrace_block_max_size_get(struct target *target)
 {
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 	return esp_riscv->apptrace.mem_blocks[0].sz;	/* assume blocks are of equal size */
 }
 
-static uint32_t esp_riscv_apptrace_usr_block_max_size_get(struct target *target)
+uint32_t esp_riscv_apptrace_usr_block_max_size_get(struct target *target)
 {
 	return (esp_riscv_apptrace_block_max_size_get(target) -
 		sizeof(struct esp_apptrace_host2target_hdr));
 }
 
-static int esp_riscv_apptrace_data_len_read(struct target *target,
+int esp_riscv_apptrace_usr_block_write(struct target *target,
+	uint32_t block_id,
+	const uint8_t *data,
+	uint32_t size)
+{
+	return esp_apptrace_usr_block_write(&esp_riscv_apptrace_hw,
+		target, block_id, data, size);
+}
+
+int esp_riscv_apptrace_data_len_read(struct target *target,
 	uint32_t *block_id,
 	uint32_t *len)
 {
 	return esp_riscv_apptrace_ctrl_reg_read(target, block_id, len, NULL);
 }
 
-static int esp_riscv_apptrace_data_read(struct target *target,
+int esp_riscv_apptrace_data_read(struct target *target,
 	uint32_t size,
 	uint8_t *buffer,
 	uint32_t block_id,
@@ -173,7 +168,7 @@ static int esp_riscv_apptrace_data_read(struct target *target,
 	return res;
 }
 
-static int esp_riscv_apptrace_ctrl_reg_read(struct target *target,
+int esp_riscv_apptrace_ctrl_reg_read(struct target *target,
 	uint32_t *block_id,
 	uint32_t *len,
 	bool *conn)
@@ -197,7 +192,7 @@ static int esp_riscv_apptrace_ctrl_reg_read(struct target *target,
 	return ERROR_OK;
 }
 
-static int esp_riscv_apptrace_ctrl_reg_write(struct target *target,
+int esp_riscv_apptrace_ctrl_reg_write(struct target *target,
 	uint32_t block_id,
 	uint32_t len,
 	bool conn,

@@ -49,11 +49,9 @@ int esp_xtensa_apptrace_status_reg_write(struct target *target, uint32_t stat);
 int esp_xtensa_apptrace_status_reg_read(struct target *target, uint32_t *stat);
 uint32_t esp_xtensa_apptrace_block_max_size_get(struct target *target);
 uint32_t esp_xtensa_apptrace_usr_block_max_size_get(struct target *target);
-#define esp_xtensa_apptrace_usr_block_write(target, block_id, data, \
-		size) esp_apptrace_usr_block_write(&esp_xtensa_apptrace_hw, \
-		target,	\
-		block_id, \
-		data, \
-		size)
+int esp_xtensa_apptrace_usr_block_write(struct target *target,
+	uint32_t block_id,
+	const uint8_t *data,
+	uint32_t size);
 
 #endif	/*ESP_XTENSA_APPTRACE_H__*/

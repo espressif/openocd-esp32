@@ -1,7 +1,6 @@
 /***************************************************************************
- *   ESP32-S2 flasher stub definitions                                     *
- *   Copyright (C) 2019 Espressif Systems Ltd.                             *
- *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
+ *   Generic flash driver for Espressif RISCV chips                        *
+ *   Copyright (C) 2021 Espressif Systems Ltd.                             *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -18,26 +17,25 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
-#ifndef ESP32_S2_FLASHER_STUB_H
-#define ESP32_S2_FLASHER_STUB_H
 
-#include <stdint.h>
+#ifndef FLASH_ESP_RISCV_H
+#define FLASH_ESP_RISCV_H
 
-#define STUB_FLASH_SECTOR_SIZE  4096
-/* Flash geometry constants */
-#define STUB_FLASH_BLOCK_SIZE   65536
-#define STUB_FLASH_PAGE_SIZE    256
-#define STUB_FLASH_STATUS_MASK  0xFFFF
+#include "esp_flash.h"
 
-struct stub_flash_state {
-	uint32_t cache_flags[2];
-	bool cache_enabled;
+/* ESP RISCV flash data.
+   It should be the first member of flash data structs for concrete chips.
+   For example see ESP32-C3 flash driver implementation. */
+struct esp_riscv_flash_bank {
+	struct esp_flash_bank esp;
 };
-void stub_flash_state_prepare(struct stub_flash_state *state);
-void stub_flash_state_restore(struct stub_flash_state *state);
 
-uint32_t stub_esp_clk_cpu_freq(void);
+int esp_riscv_flash_init(struct esp_riscv_flash_bank *esp_info, uint32_t sec_sz,
+	int (*run_func_image)(struct target *target, struct algorithm_run_data *run,
+		uint32_t num_args, ...),
+	bool (*is_irom_address)(target_addr_t addr),
+	bool (*is_drom_address)(target_addr_t addr),
+	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank));
 
-#include "stub_xtensa_chips.h"
 
-#endif	/*ESP32_S2_FLASHER_STUB_H */
+#endif	/*FLASH_ESP_RISCV_H*/
