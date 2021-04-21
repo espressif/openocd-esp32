@@ -36,6 +36,13 @@ enum riscv_halt_reason {
 	RISCV_HALT_ERROR
 };
 
+enum riscv_isrmasking_mode {
+	RISCV_ISRMASK_AUTO,
+	RISCV_ISRMASK_OFF,
+	RISCV_ISRMASK_ON,
+	RISCV_ISRMASK_STEPONLY,
+};
+
 typedef struct {
 	struct target *target;
 	unsigned custom_number;
@@ -107,6 +114,8 @@ typedef struct {
 	bool prepped;
 	/* This target was selected using hasel. */
 	bool selected;
+
+	enum riscv_isrmasking_mode isrmask_mode;
 
 	/* Helper functions that target the various RISC-V debug spec
 	 * implementations. */

@@ -1515,6 +1515,23 @@ static int riscv_start_algorithm(struct target *target,
 	return riscv_resume_internal(target, 0, entry_point, 0, 1, true);
 }
 
+static int riscv_interrupts_restore(struct target *target, uint64_t old_mstatus)
+{
+	riscv_info_t *info = (riscv_info_t *) target->arch_info;
+	uint8_t mstatus_bytes[8];
+
+	LOG_DEBUG("Restore Interrupts");
+	struct reg *reg_mstatus = register_get_by_name(target->reg_cache,
+			"mstatus", 1);
+	if (!reg_mstatus) {
+		LOG_ERROR("Couldn't find mstatus!");
+		return ERROR_FAIL;
+	}
+
+	buf_set_u64(mstatus_bytes, 0, info->xlen[0], old_mstatus);
+	return reg_mstatus->type->set(reg_mstatus, mstatus_bytes);
+}
+
 static int riscv_interrupts_disable(struct target *target, uint64_t ie_mask, uint64_t *old_mstatus)
 {
 	riscv_info_t *info = (riscv_info_t *) target->arch_info;
@@ -2365,6 +2382,35 @@ COMMAND_HANDLER(riscv_use_bscan_tunnel)
 	return ERROR_OK;
 }
 
+COMMAND_HANDLER(riscv_mask_interrupts)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	RISCV_INFO(r);
+
+	static const Jim_Nvp nvp_maskisr_modes[] = {
+		/* not supported yet, left for future compatibility with ARM implementation */
+		// { .name = "auto", .value = RISCV_ISRMASK_AUTO },
+		{ .name = "off", .value = RISCV_ISRMASK_OFF },
+		/* not supported yet, left for future  compatibility with ARM implementation */
+		// { .name = "on", .value = RISCV_ISRMASK_ON },
+		{ .name = "steponly", .value = RISCV_ISRMASK_STEPONLY },
+		{ .name = NULL, .value = -1 },
+	};
+	const Jim_Nvp *n;
+
+	if (CMD_ARGC > 0) {
+		n = Jim_Nvp_name2value_simple(nvp_maskisr_modes, CMD_ARGV[0]);
+		if (n->name == NULL)
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		r->isrmask_mode = n->value;
+	}
+
+	n = Jim_Nvp_value2name_simple(nvp_maskisr_modes, r->isrmask_mode);
+	command_print(CMD, "riscv interrupt mask %s", n->name);
+
+	return ERROR_OK;
+}
+
 static const struct command_registration riscv_exec_command_handlers[] = {
 	{
 		.name = "test_compliance",
@@ -2507,6 +2553,13 @@ static const struct command_registration riscv_exec_command_handlers[] = {
 		.usage = "riscv set_default_misa value",
 		.help = "Set the value of MISA that will be used if the target doesn't"
 			"implement this register (i.e. it returns zero)."
+	},
+	{
+		.name = "maskisr",
+		.handler = riscv_mask_interrupts,
+		.mode = COMMAND_EXEC,
+		.help = "mask riscv interrupts",
+		.usage = "['off'|'steponly']",
 	},
 	COMMAND_REGISTRATION_DONE
 };
@@ -2654,6 +2707,7 @@ void riscv_info_init(struct target *target, riscv_info_t *r)
 		for (size_t e = 0; e < RISCV_MAX_REGISTERS; ++e)
 			r->valid_saved_registers[h][e] = false;
 	}
+	r->isrmask_mode = RISCV_ISRMASK_OFF;
 }
 
 static int riscv_resume_go_all_harts(struct target *target)
@@ -2700,6 +2754,8 @@ static int riscv_resume_go_all_harts(struct target *target)
 
 int riscv_step_rtos_hart(struct target *target)
 {
+	int retval;
+	uint64_t mstatus;
 	RISCV_INFO(r);
 	int hartid = r->current_hartid;
 	if (riscv_rtos_enabled(target)) {
@@ -2717,17 +2773,36 @@ int riscv_step_rtos_hart(struct target *target)
 		LOG_ERROR("Hart isn't halted before single step!");
 		return ERROR_FAIL;
 	}
+
+	if (r->isrmask_mode == RISCV_ISRMASK_STEPONLY) {
+		/* Disable Interrupts before stepping. */
+		retval = riscv_interrupts_disable(target, MSTATUS_MIE | MSTATUS_HIE | MSTATUS_SIE | MSTATUS_UIE, &mstatus);
+		if (retval != ERROR_OK) {
+			watchpoints_restore(target, trigger_temporarily_cleared);
+			return retval;
+		}
+	}
 	riscv_invalidate_register_cache(target);
 	r->on_step(target);
-	if (r->step_current_hart(target) != ERROR_OK)
-		return ERROR_FAIL;
+	retval = r->step_current_hart(target);
+	if (retval != ERROR_OK)
+		goto _on_exit;
 	riscv_invalidate_register_cache(target);
 	r->on_halt(target);
 	if (!riscv_is_halted(target)) {
 		LOG_ERROR("Hart was not halted after single step!");
-		return ERROR_FAIL;
+		retval = ERROR_FAIL;
+		goto _on_exit;
 	}
-	return ERROR_OK;
+_on_exit:
+	if (r->isrmask_mode == RISCV_ISRMASK_STEPONLY) {
+		if (retval == ERROR_OK)
+			retval = riscv_interrupts_restore(target, mstatus);
+		else
+			riscv_interrupts_restore(target, mstatus);
+	}
+
+	return retval;
 }
 
 bool riscv_supports_extension(struct target *target, int hartid, char letter)
