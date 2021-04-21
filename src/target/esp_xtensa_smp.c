@@ -468,8 +468,7 @@ int esp_xtensa_smp_watchpoint_remove(struct target *target, struct watchpoint *w
 }
 
 int esp_xtensa_smp_run_func_image(struct target *target,
-	struct xtensa_algo_run_data *run,
-	struct xtensa_algo_image *image,
+	struct algorithm_run_data *run,
 	uint32_t num_args,
 	...)
 {
@@ -497,7 +496,7 @@ int esp_xtensa_smp_run_func_image(struct target *target,
 		run_target = target;
 
 	va_start(ap, num_args);
-	res = xtensa_run_func_image_va(run_target, run, image, num_args, ap);
+	res = algorithm_run_func_image_va(run_target, run, num_args, ap);
 	va_end(ap);
 
 	if (target->smp) {

@@ -58,6 +58,7 @@ struct esp_xtensa_common {
 	struct esp_xtensa_flash_breakpoint *flash_brps;
 	struct esp_xtensa_semihost_data semihost;
 	struct esp_xtensa_apptrace_info apptrace;
+	const struct algorithm_hw *algo_hw;
 };
 
 static inline struct esp_xtensa_common *target_to_esp_xtensa(struct target *target)

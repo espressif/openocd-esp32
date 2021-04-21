@@ -1,6 +1,6 @@
 /***************************************************************************
- *   ESP RISCV common definitions for OpenOCD                              *
- *   Copyright (C) 2020 Espressif Systems Ltd.                             *
+ *   RISCV flasher stub wrapper                                            *
+ *   Copyright (C) 2021 Espressif Systems Ltd.                             *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -18,36 +18,32 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-#ifndef _ESP_RISCV_H
-#define _ESP_RISCV_H
+/* To assemble:
+ * riscv32-esp-elf-gcc -c riscv_stub_tramp.S -o riscv_stub_tramp.o
+ *
+ * To disassemble:
+ * riscv32-esp-elf-objdump -d riscv_stub_tramp.o
+ *
+ * To generate binary file:
+ * riscv32-esp-elf-objcopy -O binary riscv_stub_tramp.o riscv_stub_tramp.bin
+ *
+ * To generate include file:
+ * cat riscv_stub_tramp.bin | xxd -i > riscv_stub_tramp.inc
+ */
 
-#include "target.h"
-#include "riscv/riscv.h"
-#include "riscv/riscv_algorithm.h"
-#include "esp_riscv_apptrace.h"
-#include "esp.h"
+/*
+ * Expects :
+ * ra = zero
+ * sp = stack_base + stack_size - 16, 16 bytes aligned
+ * a7 = address of the function to call
+ * Params :
+ * a0 = command arg0, result (out)
+ * a1..a6 = other command args
+ */
+    .text
 
-struct esp_riscv_common {
-	/* should be first, will be accessed by riscv generic code */
-	riscv_info_t riscv;
-	struct esp_riscv_apptrace_info apptrace;
-	const struct algorithm_hw *algo_hw;
-	struct esp_dbg_stubs dbg_stubs;
-	struct esp_semihost_ops *semi_ops;
-};
-
-static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *target)
-{
-	return target->arch_info;
-}
-
-static inline int esp_riscv_init_target_info(struct command_context *cmd_ctx, struct target *target,
-	struct esp_riscv_common *esp_riscv, const struct esp_semihost_ops *semi_ops)
-{
-	esp_riscv->apptrace.hw = &esp_riscv_apptrace_hw;
-	esp_riscv->algo_hw = &riscv_algo_hw;
-	esp_riscv->semi_ops = (struct esp_semihost_ops *)semi_ops;
-	return riscv_init_target_info(cmd_ctx, target, &esp_riscv->riscv);
-}
-
-#endif	/* _ESP_RISCV_H */
+    /*.balign  4*/
+_stub_enter:
+    /* call stub */
+    jalr a7
+    ebreak

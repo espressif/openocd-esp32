@@ -22,6 +22,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "register.h"
+#include "xtensa_algorithm.h"
 #include "esp_xtensa.h"
 #include "esp_xtensa_apptrace.h"
 #include "esp_xtensa_semihosting.h"
@@ -178,6 +179,7 @@ int esp_xtensa_init_arch_info(struct target *target,
 	if (esp_xtensa->flash_brps == NULL)
 		return ERROR_FAIL;
 	esp_xtensa->apptrace.hw = &esp_xtensa_apptrace_hw;
+	esp_xtensa->algo_hw = &xtensa_algo_hw;
 	return ERROR_OK;
 }
 

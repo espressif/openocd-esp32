@@ -2228,19 +2228,6 @@ int xtensa_wait_algorithm(struct target *target,
 			exit_point);
 		return ERROR_TARGET_TIMEOUT;
 	}
-	/* Read memory values to mem_params */
-	LOG_DEBUG("Read mem params");
-	for (int i = 0; i < num_mem_params; i++) {
-		LOG_DEBUG("Check mem param @ " TARGET_ADDR_FMT, mem_params[i].address);
-		if (mem_params[i].direction != PARAM_OUT) {
-			LOG_DEBUG("Read mem param @ " TARGET_ADDR_FMT, mem_params[i].address);
-			retval = target_read_buffer(target, mem_params[i].address,
-				mem_params[i].size,
-				mem_params[i].value);
-			if (retval != ERROR_OK)
-				return retval;
-		}
-	}
 	/* Copy core register values to reg_params[] */
 	for (int i = 0; i < num_reg_params; i++) {
 		if (reg_params[i].direction != PARAM_OUT) {
@@ -2258,6 +2245,19 @@ int xtensa_wait_algorithm(struct target *target,
 				return ERROR_COMMAND_SYNTAX_ERROR;
 			}
 			buf_set_u32(reg_params[i].value, 0, 32, xtensa_reg_get_value(reg));
+		}
+	}
+	/* Read memory values to mem_params */
+	LOG_DEBUG("Read mem params");
+	for (int i = 0; i < num_mem_params; i++) {
+		LOG_DEBUG("Check mem param @ " TARGET_ADDR_FMT, mem_params[i].address);
+		if (mem_params[i].direction != PARAM_OUT) {
+			LOG_DEBUG("Read mem param @ " TARGET_ADDR_FMT, mem_params[i].address);
+			retval = target_read_buffer(target, mem_params[i].address,
+				mem_params[i].size,
+				mem_params[i].value);
+			if (retval != ERROR_OK)
+				return retval;
 		}
 	}
 
