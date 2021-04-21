@@ -145,7 +145,7 @@ void dump_field(int idle, const struct scan_field *field)
 	static const char * const op_string[] = {"-", "r", "w", "?"};
 	static const char * const status_string[] = {"+", "?", "F", "b"};
 
-	if (debug_level < LOG_LVL_DEBUG)
+	if (debug_level < LOG_LVL_DEBUG_IO)
 		return;
 
 	assert(field->out_value != NULL);
