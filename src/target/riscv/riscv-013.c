@@ -2059,7 +2059,7 @@ static int execute_fence(struct target *target)
 static void log_memory_access(target_addr_t address, uint64_t value,
 		unsigned size_bytes, bool read)
 {
-	if (debug_level < LOG_LVL_DEBUG)
+	if (debug_level < LOG_LVL_DEBUG_IO)
 		return;
 
 	char fmt[80];
