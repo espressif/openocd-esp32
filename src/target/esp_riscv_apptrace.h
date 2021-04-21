@@ -33,8 +33,33 @@ struct esp_riscv_apptrace_info {
 	struct esp_riscv_apptrace_mem_block mem_blocks[2];
 };
 
-int esp_riscv_apptrace_info_init(struct target *target, target_addr_t ctrl_addr);
-
 extern struct esp32_apptrace_hw esp_riscv_apptrace_hw;
+
+int esp_riscv_apptrace_info_init(struct target *target,
+	target_addr_t ctrl_addr,
+	target_addr_t *old_ctrl_addr);
+int esp_riscv_apptrace_data_len_read(struct target *target,
+	uint32_t *block_id,
+	uint32_t *len);
+int esp_riscv_apptrace_data_read(struct target *target,
+	uint32_t size,
+	uint8_t *buffer,
+	uint32_t block_id,
+	bool ack);
+int esp_riscv_apptrace_ctrl_reg_read(struct target *target,
+	uint32_t *block_id,
+	uint32_t *len,
+	bool *conn);
+int esp_riscv_apptrace_ctrl_reg_write(struct target *target,
+	uint32_t block_id,
+	uint32_t len,
+	bool conn,
+	bool data);
+uint32_t esp_riscv_apptrace_block_max_size_get(struct target *target);
+uint32_t esp_riscv_apptrace_usr_block_max_size_get(struct target *target);
+int esp_riscv_apptrace_usr_block_write(struct target *target,
+	uint32_t block_id,
+	const uint8_t *data,
+	uint32_t size);
 
 #endif	/*ESP_RISCV_APPTRACE_H__*/

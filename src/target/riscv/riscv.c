@@ -1545,23 +1545,6 @@ static int riscv_interrupts_disable(struct target *target, uint64_t ie_mask, uin
 	return ERROR_OK;
 }
 
-static int riscv_interrupts_restore(struct target *target, uint64_t old_mstatus)
-{
-	riscv_info_t *info = (riscv_info_t *) target->arch_info;
-	uint8_t mstatus_bytes[8];
-
-	LOG_DEBUG("Restore Interrupts");
-	struct reg *reg_mstatus = register_get_by_name(target->reg_cache,
-			"mstatus", 1);
-	if (!reg_mstatus) {
-		LOG_ERROR("Couldn't find mstatus!");
-		return ERROR_FAIL;
-	}
-
-	buf_set_u64(mstatus_bytes, 0, info->xlen[0], old_mstatus);
-	return reg_mstatus->type->set(reg_mstatus, mstatus_bytes);
-}
-
 /* Algorithm must end with a software breakpoint instruction. */
 static int riscv_wait_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,

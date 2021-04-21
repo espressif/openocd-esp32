@@ -47,4 +47,8 @@ struct stub_flash_state {
 void stub_flash_state_prepare(struct stub_flash_state *state);
 void stub_flash_state_restore(struct stub_flash_state *state);
 
+uint32_t stub_esp_clk_cpu_freq(void);
+
+#include "stub_xtensa_chips.h"
+
 #endif	/*ESP32_FLASHER_STUB_H */

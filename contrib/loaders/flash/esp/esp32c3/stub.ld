@@ -1,5 +1,5 @@
 /***************************************************************************
- *   ESP32-S2 flasher stub definitions                                     *
+ *   LD script for ESP32-S2 flassher stub                                  *
  *   Copyright (C) 2019 Espressif Systems Ltd.                             *
  *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  *                                                                         *
@@ -18,26 +18,12 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
-#ifndef ESP32_S2_FLASHER_STUB_H
-#define ESP32_S2_FLASHER_STUB_H
 
-#include <stdint.h>
+MEMORY {
+  /* place stub at the beginning of the OpenOCD working area,
+     remaining space will be used for other chunks */
+  iram : org = 0x40380000, len = 0x4000
+  dram : org = 0x3FC84000, len = 0xC000
+}
 
-#define STUB_FLASH_SECTOR_SIZE  4096
-/* Flash geometry constants */
-#define STUB_FLASH_BLOCK_SIZE   65536
-#define STUB_FLASH_PAGE_SIZE    256
-#define STUB_FLASH_STATUS_MASK  0xFFFF
-
-struct stub_flash_state {
-	uint32_t cache_flags[2];
-	bool cache_enabled;
-};
-void stub_flash_state_prepare(struct stub_flash_state *state);
-void stub_flash_state_restore(struct stub_flash_state *state);
-
-uint32_t stub_esp_clk_cpu_freq(void);
-
-#include "stub_xtensa_chips.h"
-
-#endif	/*ESP32_S2_FLASHER_STUB_H */
+INCLUDE stub_common.ld

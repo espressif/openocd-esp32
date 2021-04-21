@@ -32,7 +32,7 @@ SRCS += $(STUB_COMMON_PATH)/stub_flasher.c \
 	$(STUB_CHIP_PATH)/stub_sha.c \
 	$(IDF_PATH)/components/app_trace/app_trace.c \
 	$(IDF_PATH)/components/app_trace/app_trace_util.c \
-	$(IDF_PATH)/components/xtensa/eri.c
+	$(IDF_PATH)/components/app_trace/app_trace_membufs_proto.c
 
 BUILD_DIR = build
 
@@ -50,18 +50,19 @@ $(BUILD_DIR):
 	$(Q) mkdir $@
 
 CFLAGS += -std=gnu99 -Wall -Werror -Os \
-         -mtext-section-literals -mlongcalls -nostdlib -fno-builtin -flto \
+         -nostdlib -fno-builtin -flto \
          -Wl,-static -g -ffunction-sections -Wl,--gc-sections
 
 INCLUDES += -I. -I$(STUB_COMMON_PATH) -I$(STUB_CHIP_PATH) -I$(IDF_PATH)/components/soc/include \
-		-I$(IDF_PATH)/components/app_trace/include -I$(IDF_PATH)/components/xtensa/include -I$(IDF_PATH)/components/driver/include \
+		-I$(IDF_PATH)/components/app_trace/include -I$(IDF_PATH)/components/driver/include \
 		-I$(IDF_PATH)/components/freertos/include -I$(IDF_PATH)/components/log/include -I$(IDF_PATH)/components/heap/include \
 		-I$(IDF_PATH)/components/bootloader_support/include -I$(IDF_PATH)/components/esp_rom/include \
 		-I$(IDF_PATH)/components/esp_common/include -I$(IDF_PATH)/components/efuse/include \
-		-I$(IDF_PATH)/components/esp_hw_support/include -I$(IDF_PATH)/components/freertos/port/xtensa/include \
+		-I$(IDF_PATH)/components/esp_hw_support/include \
 		-I$(IDF_PATH)/components/hal/include -I$(IDF_PATH)/components/esp_timer/include \
 		-I$(IDF_PATH)/components/esp_system/include -I$(IDF_PATH)/components/newlib/platform_include \
-		-I$(IDF_PATH)/components/spi_flash/private_include
+		-I$(IDF_PATH)/components/spi_flash/private_include -I$(IDF_PATH)/components/app_trace/private_include \
+		-I$(IDF_PATH)/components/app_trace/port/include
 
 DEFINES += -Dasm=__asm__
 
@@ -71,7 +72,7 @@ LDFLAGS += -L$(STUB_COMMON_PATH) -T$(STUB_LD_SCRIPT) -Wl,--start-group -lgcc -lc
 
 $(STUB_ELF): $(SRCS) $(STUB_COMMON_PATH)/stub_common.ld $(STUB_LD_SCRIPT) $(BUILD_DIR)
 	@echo "  CC   $^ -> $@"
-	$(Q) $(CROSS)gcc $(CFLAGS) -DSTUB_IMAGE=1 -Wl,-Map=$(@:.elf=.map) -o $@ $(LDFLAGS) $(filter %.c, $^)
+	$(Q) $(CROSS)gcc $(CFLAGS) -DSTUB_IMAGE=1 -Wl,-Map=$(@:.elf=.map) -o $@ $(filter %.c, $^) $(LDFLAGS)
 	$(Q) $(CROSS)size $@
 
 $(STUB_OBJ): $(SRCS) $(STUB_OBJ_DEPS)
@@ -94,6 +95,9 @@ $(STUB_IMAGE_HDR): $(STUB_ELF)
 	$(Q) $(CROSS)readelf -S $^ | fgrep .bss | awk '{print $$7"UL"}' >> $(STUB_IMAGE_HDR)
 	$(Q) @printf "\\n#define $(STUB_CHIP)_STUB_ENTRY_ADDR 0x0" >> $(STUB_IMAGE_HDR)
 	$(Q) $(CROSS)readelf -s $^ | fgrep stub_main | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR)
+	$(Q) @printf "\\n#define $(STUB_CHIP)_STUB_APPTRACE_CTRL_ADDR 0x0" >> $(STUB_IMAGE_HDR)
+	$(Q) $(CROSS)readelf -s $^ | fgrep s_tracing_ctrl | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR)
+	$(Q) @printf "\n" >> $(STUB_CHIP_PATH)/$(STUB_IMAGE_HDR)
 	$(Q) @printf "/*#define $(STUB_CHIP)_STUB_BUILD_IDF_REV " >> $(STUB_IMAGE_HDR)
 	$(Q) cd $(IDF_PATH); git rev-parse --short HEAD >> $(STUB_CHIP_PATH)/$(STUB_IMAGE_HDR)
 	$(Q) @printf "*/\n" >> $(STUB_IMAGE_HDR)
