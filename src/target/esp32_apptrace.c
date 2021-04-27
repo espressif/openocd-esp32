@@ -1852,6 +1852,59 @@ static void *esp32_apptrace_data_processor(void *arg)
 	return (void *)res;
 }
 
+static int esp32_apptrace_check_connection(struct esp32_apptrace_cmd_ctx *ctx)
+{
+	if (!ctx)
+		return ERROR_FAIL;
+
+	int busy_target_num = 0;
+	int res;
+
+	for (int i = 0; i < ctx->cores_num; i++) {
+		bool conn = true;
+		res = esp_xtensa_apptrace_ctrl_reg_read(ctx->cpus[i], NULL, NULL, &conn);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to read apptrace control reg for cpu(%d) res(%d)!",
+				i,
+				res);
+			return res;
+		}
+		if (!conn) {
+			uint32_t stat = 0;
+			LOG_WARNING("%s apptrace connection is lost. Re-connect.",
+				target_name(ctx->cpus[i]));
+			res = esp_xtensa_apptrace_status_reg_read(ctx->cpus[i], &stat);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to read trace status (%d)!", res);
+				return res;
+			}
+			if (stat) {
+				LOG_WARNING("%s is in critical state. Retry in next poll",
+					target_name(ctx->cpus[i]));
+				if (++busy_target_num == ctx->cores_num) {
+					LOG_WARNING("No available core");
+					return ERROR_WAIT;
+				}
+				continue;
+			}
+			res = esp_xtensa_apptrace_ctrl_reg_write(ctx->cpus[i],
+				0,
+				0,
+				true /*host connected*/,
+				false /*no host data*/);
+			if (res != ERROR_OK) {
+				LOG_ERROR(
+					"Failed to write apptrace control reg for cpu(%d) res(%d)!",
+					i,
+					res);
+				return res;
+			}
+		}
+	}
+
+	return ERROR_OK;
+}
+
 static int esp32_apptrace_poll(void *priv)
 {
 	struct esp32_apptrace_cmd_ctx *ctx = (struct esp32_apptrace_cmd_ctx *)priv;
@@ -1866,6 +1919,15 @@ static int esp32_apptrace_poll(void *priv)
 		if (ctx->auto_clean)
 			ctx->auto_clean(ctx);
 		return ERROR_FAIL;
+	}
+
+	/*  Check for connection is alive.For some reason target and therefore host_connected flag
+	 *  might have been reset */
+	res = esp32_apptrace_check_connection(ctx);
+	if (res != ERROR_OK) {
+		if (res != ERROR_WAIT)
+			ctx->running = 0;
+		return res;
 	}
 
 	/* check for data from target */
