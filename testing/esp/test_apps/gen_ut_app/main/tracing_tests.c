@@ -279,6 +279,24 @@ static void raw_trace_log(void* arg)
     raw_trace_log_done();
     vTaskDelete(NULL);
 }
+
+static void raw_trace_log_periodic(void* arg)
+{
+    uint32_t delay = (uint32_t)arg;
+    stdout = fwopen(NULL, &apptrace_writefn);
+    static char stdout_buf[128];
+    setvbuf(stdout, stdout_buf, _IOLBF, sizeof(stdout_buf));
+
+    while (!esp_apptrace_host_is_connected(ESP_APPTRACE_DEST_TRAX))
+        vTaskDelay(1);  
+
+    int cnt = 0;
+    while (1) {
+        printf("apptrace test line#%d\n", cnt++);
+        vTaskDelay(delay / portTICK_PERIOD_MS);  
+    }
+    
+}
 #endif // CONFIG_APPTRACE_ENABLE
 
 ut_result_t tracing_test_do(int test_num)
@@ -342,6 +360,11 @@ ut_result_t tracing_test_do(int test_num)
         case 504:
         {
             xTaskCreate(raw_trace_log, "raw_trace_log", 2048, (void *)100, 5, NULL);
+            break;
+        }
+        case 505:
+        {
+            xTaskCreate(raw_trace_log_periodic, "raw_trace_log_periodic", 2048, (void *)100, 5, NULL);
             break;
         }
 #endif //CONFIG_APPTRACE_ENABLE
