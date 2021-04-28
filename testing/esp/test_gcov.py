@@ -134,10 +134,6 @@ class GcovDataFile:
 ########################################################################
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
-
-# to be skipped for any board with ESP32-S2 and ESP32-C3 chip
-# TODO: enable these tests when gcov is supported for ESP32-S2 and ESP32-C3
-@skip_for_chip(['esp32s2', 'esp32c3'])
 class GcovTestsImpl:
     """ Test cases which are common for dual and single core modes
 
@@ -387,7 +383,7 @@ class GcovTestAppTestsDual(DebuggerGenericTestAppTests):
         self.test_app_cfg.bin_dir = os.path.join('output', 'apptrace_gcov_dual')
         self.test_app_cfg.build_dir = os.path.join('builds', 'apptrace_gcov_dual')
 
-@unittest.skip("single core gcov dump improvement is in progress..")
+@idf_ver_min('latest')
 class GcovTestAppTestsSingle(DebuggerGenericTestAppTests):
     """ Base class to run tests which use gcov test app in single core mode
     """
