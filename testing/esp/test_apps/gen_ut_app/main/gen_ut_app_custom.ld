@@ -6,23 +6,37 @@ MEMORY
 {
   /* Even though the segment name is iram, it is actually mapped to flash
   */
-  iram0_2_seg_cstm (RX) :                 org = 0x400D0018 + 0x10000, len = 0x330000-0x18 - 0x10000
+  iram0_2_seg_cstm (RX) :                 org = 0x400D0020 + 0x10000, len = 0x330000-0x20 - 0x10000
 
-  /*
-    (0x18 offset above is a convenience for the app binary image generation. Flash cache has 64KB pages. The .bin file
-    which is flashed to the chip has a 0x18 byte file header. Setting this offset makes it simple to meet the flash
-    cache MMU's constraint that (paddr % 64KB == vaddr % 64KB).)
+/*
+    (0x20 offset above is a convenience for the app binary image generation.
+    Flash cache has 64KB pages. The .bin file which is flashed to the chip
+    has a 0x18 byte file header, and each segment has a 0x08 byte segment
+    header. Setting this offset makes it simple to meet the flash cache MMU's
+    constraint that (paddr % 64KB == vaddr % 64KB).)
   */
 
   /* Flash mapped constant data */
-  drom0_0_seg_cstm (R) :                  org = 0x3F400018 + 0x10000, len = 0x400000-0x18 - 0x10000
+  drom0_0_seg_cstm (R) :                  org = 0x3F400020 + 0x10000, len = 0x400000-0x20 - 0x10000
 }
 
 SECTIONS
 {
+  .flash.appdesc : ALIGN(0x10)
+  {
+    _appdesc_start_addr = ABSOLUTE(.);
+    
+    . += (0x10000 - (_appdesc_start_addr - 0x3F400020));
+
+    /* Create an empty gap within this section. Thanks to this, the end of this
+     * section will match .flah.rodata's begin address. Thus, both sections
+     * will be merged when creating the final bin image. */
+    . = ALIGN(ALIGNOF(.flash.rodata));
+  } >default_rodata_seg
+
   .flash.rodata :
   {
-    _rodata_start = ABSOLUTE(.);
+    _flash_rodata_start = ABSOLUTE(.);
     *(.rodata)
     *(.rodata.*)
     *(.irom1.text) /* catch stray ICACHE_RODATA_ATTR */
@@ -72,6 +86,8 @@ SECTIONS
     _thread_local_end = ABSOLUTE(.);
     . = ALIGN(4);
   } >drom0_0_seg_cstm
+
+  _flash_rodata_align = ALIGNOF(.flash.rodata);
 
   .flash.text :
   {
