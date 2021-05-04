@@ -25,6 +25,9 @@
 #include "soc/efuse_periph.h"
 #include "soc/gpio_reg.h"
 #include "esp32s2/spiram.h"
+#include "soc/system_reg.h"
+#include "rtc_clk_common.h"
+#include "soc/dport_access.h"
 #include "stub_rom_chip.h"
 #include "stub_flasher_int.h"
 #include "stub_flasher_chip.h"
@@ -89,10 +92,89 @@ void stub_flash_state_restore(struct stub_flash_state *state)
 	esp32_s2_flash_restore_cache(state->cache_flags);
 }
 
+#define RTC_PLL_FREQ_320M   320
+#define RTC_PLL_FREQ_480M   480
+
+rtc_xtal_freq_t stub_rtc_clk_xtal_freq_get(void)
+{
+	uint32_t xtal_freq_reg = READ_PERI_REG(RTC_XTAL_FREQ_REG);
+	if (!clk_val_is_valid(xtal_freq_reg)) {
+		/* invalid RTC_XTAL_FREQ_REG */
+		return RTC_XTAL_FREQ_40M;
+	}
+	return reg_val_to_clk_val(xtal_freq_reg);
+}
+/* Obviously we can call rtc_clk_cpu_freq_get_config() from esp-idf
+But this call may cause undesired locks due to ets_printf or abort
+*/
+int stub_rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t *out_config)
+{
+	rtc_cpu_freq_src_t source;
+	uint32_t source_freq_mhz;
+	uint32_t div;
+	uint32_t freq_mhz;
+	uint32_t soc_clk_sel = REG_GET_FIELD(DPORT_SYSCLK_CONF_REG, DPORT_SOC_CLK_SEL);
+	switch (soc_clk_sel) {
+		case DPORT_SOC_CLK_SEL_XTAL: {
+			source = RTC_CPU_FREQ_SRC_XTAL;
+			div = REG_GET_FIELD(DPORT_SYSCLK_CONF_REG, DPORT_PRE_DIV_CNT) + 1;
+			source_freq_mhz = (uint32_t)stub_rtc_clk_xtal_freq_get();
+			freq_mhz = source_freq_mhz / div;
+		}
+		break;
+		case DPORT_SOC_CLK_SEL_PLL: {
+			source = RTC_CPU_FREQ_SRC_PLL;
+			uint32_t cpuperiod_sel = DPORT_REG_GET_FIELD(DPORT_CPU_PER_CONF_REG,
+				DPORT_CPUPERIOD_SEL);
+			uint32_t pllfreq_sel = DPORT_REG_GET_FIELD(DPORT_CPU_PER_CONF_REG,
+				DPORT_PLL_FREQ_SEL);
+			source_freq_mhz = (pllfreq_sel) ? RTC_PLL_FREQ_480M : RTC_PLL_FREQ_320M;
+			if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_80) {
+				div = (source_freq_mhz == RTC_PLL_FREQ_480M) ? 6 : 4;
+				freq_mhz = 80;
+			} else if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_160) {
+				div = (source_freq_mhz == RTC_PLL_FREQ_480M) ? 3 : 2;
+				div = 3;
+				freq_mhz = 160;
+			} else if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_240) {
+				div = 2;
+				freq_mhz = 240;
+			} else {
+				/* unsupported frequency configuration */
+				return -1;
+			}
+			break;
+		}
+		case DPORT_SOC_CLK_SEL_8M:
+			source = RTC_CPU_FREQ_SRC_8M;
+			source_freq_mhz = 8;
+			div = 1;
+			freq_mhz = source_freq_mhz;
+			break;
+		case DPORT_SOC_CLK_SEL_APLL:
+		default:
+			/* unsupported frequency configuration */
+			return -2;
+	}
+	*out_config = (rtc_cpu_freq_config_t) {
+		.source = source,
+		.source_freq_mhz = source_freq_mhz,
+		.div = div,
+		.freq_mhz = freq_mhz
+	};
+
+	return 0;
+}
+
 int stub_cpu_clock_configure(int cpu_freq_mhz)
 {
 	rtc_cpu_freq_config_t old_config;
-	rtc_clk_cpu_freq_get_config(&old_config);
+	int ret = stub_rtc_clk_cpu_freq_get_config(&old_config);
+	if (ret < 0) {
+		/* this return value will avoid undesired restore requests for unsupported frequency
+		 *configuration */
+		old_config.freq_mhz = 0;
+	}
 
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
 	uart_tx_wait_idle(CONFIG_CONSOLE_UART_NUM);
