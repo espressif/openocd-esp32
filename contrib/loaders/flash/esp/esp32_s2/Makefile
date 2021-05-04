@@ -42,7 +42,8 @@ CFLAGS :=
 
 INCLUDES := -I$(IDF_PATH)/components/esp32s2/include -I$(IDF_PATH)/components/soc/esp32s2/include \
 	-I$(IDF_PATH)/components/esp_rom/include/esp32s2 -I$(IDF_PATH)/components/xtensa/esp32s2/include \
-	-I$(IDF_PATH)/components/hal/esp32s2/include -I$(IDF_PATH)/components/esp_hw_support/port/esp32s2/private_include
+	-I$(IDF_PATH)/components/hal/esp32s2/include -I$(IDF_PATH)/components/esp_hw_support/port/esp32s2/private_include \
+	-I$(IDF_PATH)/components/esp_hw_support/port/esp32s2
  
 DEFINES :=
 
