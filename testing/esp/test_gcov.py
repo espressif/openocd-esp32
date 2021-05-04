@@ -387,7 +387,7 @@ class GcovTestAppTestsDual(DebuggerGenericTestAppTests):
         self.test_app_cfg.bin_dir = os.path.join('output', 'apptrace_gcov_dual')
         self.test_app_cfg.build_dir = os.path.join('builds', 'apptrace_gcov_dual')
 
-
+@unittest.skip("single core gcov dump improvement is in progress..")
 class GcovTestAppTestsSingle(DebuggerGenericTestAppTests):
     """ Base class to run tests which use gcov test app in single core mode
     """
