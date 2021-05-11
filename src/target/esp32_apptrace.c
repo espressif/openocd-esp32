@@ -485,8 +485,11 @@ static int esp32_apptrace_dest_init(struct esp32_apptrace_dest dest[],
 static int esp32_apptrace_dest_cleanup(struct esp32_apptrace_dest dest[], int max_dests)
 {
 	for (int i = 0; i < max_dests; i++) {
-		if (dest[i].clean)
-			return dest[i].clean(dest[i].priv);
+		if (dest[i].clean && dest[i].priv) {
+			int res = dest[i].clean(dest[i].priv);
+			dest[i].priv = NULL;
+			return res;
+		}
 	}
 	return ERROR_OK;
 }
@@ -2360,6 +2363,7 @@ static int esp_gcov_cmd_cleanup(struct esp32_apptrace_cmd_ctx *cmd_ctx)
 		}
 	}
 	free(cmd_data);
+	cmd_ctx->cmd_priv = NULL;
 	esp32_apptrace_cmd_ctx_cleanup(cmd_ctx);
 	return res;
 }
