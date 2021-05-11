@@ -35,6 +35,10 @@
 #define RTC_CNTL_OPTIONS0_REG               0x60008000
 #define RTC_CNTL_OPTIONS0_DEF               0x1C00A000
 #define RTC_CNTL_SW_SYS_RST                 0x80000000
+#define RTC_CNTL_SWD_CONF_REG               0x600080B0
+#define RTC_CNTL_SWD_CONF_VAL               0x84B00000
+#define RTC_CNTL_SWD_WPROTECT_REG           0x600080B4
+#define RTC_CNTL_SWD_WKEY_VALUE             0x8F1D312A
 #define SYSTEM_CORE_1_CONTROL_0_REG         0x600C0014
 #define SYSTEM_CONTROL_CORE_1_RESETING      0x4
 #define SYSTEM_CONTROL_CORE_1_CLKGATE_EN    0x2
@@ -116,6 +120,12 @@ start:
     s32i.n a5, a4, 0
     movi a4, TIMG1_WDTCONFIG0_REG
     s32i.n a5, a4, 0
+    movi a4, RTC_CNTL_SWD_WPROTECT_REG
+    movi a3, RTC_CNTL_SWD_WKEY_VALUE
+    s32i.n a3, a4, 0
+    movi a4, RTC_CNTL_SWD_CONF_REG
+    movi a3, RTC_CNTL_SWD_CONF_VAL
+    s32i.n a3, a4, 0
     /* Clear APP_CPU boot address */
     movi a4, SYSTEM_CORE_1_CONTROL_1_REG
     s32i.n a5, a4, 0

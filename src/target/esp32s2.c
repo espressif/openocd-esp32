@@ -73,8 +73,14 @@
 #define ESP32_S2_RTCCNTL_BASE         0x3f408000
 #define ESP32_S2_RTCWDT_CFG_OFF       0x94
 #define ESP32_S2_RTCWDT_PROTECT_OFF   0xAC
+#define ESP32_S2_SWD_CONF_OFF         0xB0
+#define ESP32_S2_SWD_WPROTECT_OFF     0xB4
 #define ESP32_S2_RTCWDT_CFG           (ESP32_S2_RTCCNTL_BASE + ESP32_S2_RTCWDT_CFG_OFF)
 #define ESP32_S2_RTCWDT_PROTECT       (ESP32_S2_RTCCNTL_BASE + ESP32_S2_RTCWDT_PROTECT_OFF)
+#define ESP32_S2_SWD_CONF_REG         (ESP32_S2_RTCCNTL_BASE + ESP32_S2_SWD_CONF_OFF)
+#define ESP32_S2_SWD_WPROTECT_REG     (ESP32_S2_RTCCNTL_BASE + ESP32_S2_SWD_WPROTECT_OFF)
+#define ESP32_S2_SWD_AUTO_FEED_EN_M   (1U << 31)
+#define ESP32_S2_SWD_WKEY_VALUE       0x8F1D312AU
 #define ESP32_S2_OPTIONS0                       (ESP32_S2_RTCCNTL_BASE + 0x0000)
 #define ESP32_S2_SW_SYS_RST_M  0x80000000
 #define ESP32_S2_SW_SYS_RST_V  0x1
@@ -535,6 +541,24 @@ static int esp32s2_disable_wdts(struct target *target)
 	res = target_write_u32(target, ESP32_S2_RTCWDT_CFG, 0);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to write ESP32_S2_RTCWDT_CFG (%d)!", res);
+		return res;
+	}
+	/* Enable SWD auto-feed */
+	res = target_write_u32(target, ESP32_S2_SWD_WPROTECT_REG, ESP32_S2_SWD_WKEY_VALUE);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32_S2_SWD_WPROTECT_REG (%d)!", res);
+		return res;
+	}
+	uint32_t swd_conf_reg = 0;
+	res = target_read_u32(target, ESP32_S2_SWD_CONF_REG, &swd_conf_reg);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to read ESP32_S2_SWD_CONF_REG (%d)!", res);
+		return res;
+	}
+	swd_conf_reg |= ESP32_S2_SWD_AUTO_FEED_EN_M;
+	res = target_write_u32(target, ESP32_S2_SWD_CONF_REG, swd_conf_reg);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32_S2_SWD_CONF_REG (%d)!", res);
 		return res;
 	}
 	return ERROR_OK;
