@@ -2,6 +2,7 @@ import logging
 import unittest
 import debug_backend as dbg
 from debug_backend_tests import *
+from time import sleep
 
 
 def get_logger():
@@ -157,6 +158,7 @@ class BreakpointTestsImpl:
             self.assertEqual(frames[0]['func'], cur_frame['func'])
             self.assertEqual(frames[0]['line'], cur_frame['line'])
             self.gdb.disconnect()
+            sleep(0.1) #sleep 100ms
             self.gdb.connect()
 
     def test_bp_in_isr(self):
@@ -245,6 +247,7 @@ class WatchpointTestsImpl:
                 self.assertEqual(var_val, cnt2)
                 cnt2 -= 1
             self.gdb.disconnect()
+            sleep(0.1) #sleep 100ms
             self.gdb.connect()
 
 
