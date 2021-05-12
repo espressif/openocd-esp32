@@ -2,7 +2,7 @@ import logging
 import unittest
 import debug_backend as dbg
 from debug_backend_tests import *
-
+from time import sleep
 
 def get_logger():
     return logging.getLogger(__name__)
@@ -24,6 +24,7 @@ class GDBConnectTestsImpl:
         # When the test starts, symbol table is already loaded and
         # gdb is connected. Undo that.
         self.gdb.disconnect()
+        sleep(0.1) #sleep 100ms
         self.gdb.exec_file_set('')
         # Target is now running, try connecting and doing a reset
         self.gdb.connect()
