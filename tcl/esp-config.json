@@ -11,19 +11,19 @@
             "name": "ESP-WROVER-KIT 3.3V",
             "description": "ESP-WROVER-KIT with 3.3V ESP32-WROVER-B module",
             "target": "esp32",
-            "config_files": ["boards/esp32-wrover-kit-3.3v.cfg"]
+            "config_files": ["board/esp32-wrover-kit-3.3v.cfg"]
         },
         {
             "name": "ESP-WROVER-KIT 1.8V",
             "description": "ESP-WROVER-KIT with 1.8V ESP32-WROVER-B module",
             "target": "esp32",
-            "config_files": ["boards/esp32-wrover-kit-1.8v.cfg"]
+            "config_files": ["board/esp32-wrover-kit-1.8v.cfg"]
         },
         {
             "name": "ESP32-ETHERNET-KIT",
             "description": "ESP32-ETHERNET-KIT with ESP32-WROVER-E module",
             "target": "esp32",
-            "config_files": ["boards/esp32-ethernet-kit-3.3v.cfg"]
+            "config_files": ["board/esp32-ethernet-kit-3.3v.cfg"]
         },
         {
             "name": "ESP32 chip (via ESP-PROG)",
@@ -47,7 +47,7 @@
             "name": "ESP32-S2-KALUGA-1",
             "description": "ESP32-S2-KALUGA-1 kit",
             "target": "esp32s2",
-            "config_files": ["boards/esp32s2-kaluga-1.cfg"]
+            "config_files": ["board/esp32s2-kaluga-1.cfg"]
         },
         {
             "name": "ESP32-S2 chip (via ESP-PROG)",
@@ -72,7 +72,7 @@
             "description": "ESP32-C3 used with ESP-PROG board",
             "target": "esp32c3",
             "config_files": [
-                "boards/esp32c3-ftdi.cfg"
+                "board/esp32c3-ftdi.cfg"
             ]
         },
         {
@@ -80,7 +80,7 @@
             "description": "ESP32-C3 debugging via builtin USB-JTAG",
             "target": "esp32c3",
             "config_files": [
-                "boards/esp32c3-builtin.cfg"
+                "board/esp32c3-builtin.cfg"
             ]
         }
     ],
