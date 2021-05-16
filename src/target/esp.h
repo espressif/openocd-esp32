@@ -31,20 +31,24 @@
  * @note Must be in sync with ESP-IDF version */
 #define ESP_DBG_STUBS_STACK_MIN_SIZE        2048/* TODO: move this info to esp_dbg_stubs_desc */
 
-
 /**
  * Debug stubs table entries IDs
  *
  * @note Must be in sync with ESP-IDF version
  */
 enum esp_dbg_stub_id {
+	ESP_DBG_STUB_ENTRY_MAGIC_NUM,
 	ESP_DBG_STUB_TABLE_START,
 	ESP_DBG_STUB_DESC = ESP_DBG_STUB_TABLE_START,	/*< Stubs descriptor ID */
 	ESP_DBG_STUB_ENTRY_FIRST,
 	ESP_DBG_STUB_ENTRY_GCOV = ESP_DBG_STUB_ENTRY_FIRST,	/*< GCOV stub ID */
+	ESP_DBG_STUB_CAPABILITIES,
 	/* add new stub entries here */
 	ESP_DBG_STUB_ENTRY_MAX,
 };
+
+#define ESP_DBG_STUB_MAGIC_NUM_VAL      0xFEEDBEEF
+#define ESP_DBG_STUB_CAP_GCOV_THREAD    (1 << 0)
 
 /**
  * Debug stubs descriptor. ID: ESP_DBG_STUB_DESC

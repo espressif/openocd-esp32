@@ -139,7 +139,6 @@ static int esp32_apptrace_handle_trace_block(struct esp32_apptrace_cmd_ctx *ctx,
 static int esp32_sysview_start(struct esp32_apptrace_cmd_ctx *ctx);
 static int esp32_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx);
 
-
 /*********************************************************************
 *                       Trace destination API
 **********************************************************************/
@@ -2334,6 +2333,8 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 	struct algorithm_run_data run;
 	uint32_t func_addr;
 	bool dump = false;
+	uint32_t stub_capabilites = 0;
+	bool gcov_idf_has_thread = false;
 
 	if (CMD_ARGC > 0) {
 		if (strcmp(CMD_ARGV[0], "dump") == 0)
@@ -2396,11 +2397,6 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 			esp_gcov_cmd_cleanup(&s_at_cmd_ctx);
 			return ERROR_FAIL;
 		}
-		if (dbg_stubs->entries_count < ESP_DBG_STUB_ENTRY_GCOV+1) {
-			LOG_ERROR("No GCOV stubs found!");
-			esp_gcov_cmd_cleanup(&s_at_cmd_ctx);
-			return ERROR_FAIL;
-		}
 		func_addr = dbg_stubs->entries[ESP_DBG_STUB_ENTRY_GCOV];
 		LOG_DEBUG("GCOV_FUNC = 0x%x", func_addr);
 		if (func_addr == 0) {
@@ -2408,17 +2404,25 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 			esp_gcov_cmd_cleanup(&s_at_cmd_ctx);
 			return ERROR_FAIL;
 		}
+		stub_capabilites = dbg_stubs->entries[ESP_DBG_STUB_CAPABILITIES];
+		gcov_idf_has_thread = stub_capabilites & ESP_DBG_STUB_CAP_GCOV_THREAD;
+		LOG_DEBUG("STUB_CAP = 0x%x", stub_capabilites);
 		memset(&run, 0, sizeof(run));
 		run.hw = s_at_cmd_ctx.algo_hw;
 		run.stack_size      = 1024;
+		if (!gcov_idf_has_thread) {
+			run.usr_func_arg    = &s_at_cmd_ctx;
+			run.usr_func        = esp_gcov_poll;
+		}
 		run.on_board.min_stack_addr = dbg_stubs->desc.min_stack_addr;
 		run.on_board.min_stack_size = ESP_DBG_STUBS_STACK_MIN_SIZE;
 		run.on_board.code_buf_addr = dbg_stubs->desc.tramp_addr;
 		run.on_board.code_buf_size = ESP_DBG_STUBS_CODE_BUF_SIZE;
-		/* this function works for SMP and non-SMP targets */
-		esp_xtensa_smp_run_onboard_func(run_target, &run, func_addr, 0);
-		LOG_DEBUG("FUNC RET = 0x%x", run.ret_code);
-		if (run.ret_code == ERROR_OK) {
+		/* this function works for SMP and non-SMP targets
+		 * set num_args to 1 in order to read return code coming with "a2" reg */
+		esp_xtensa_smp_run_onboard_func(run_target, &run, func_addr, 1);
+		LOG_DEBUG("FUNC RET = 0x%" PRIx64, run.ret_code);
+		if (run.ret_code == ERROR_OK && gcov_idf_has_thread) {
 			res = target_resume(target, 1, 0, 1, 0);
 			if (res != ERROR_OK) {
 				LOG_ERROR("Failed to resume target (%d)!", res);
