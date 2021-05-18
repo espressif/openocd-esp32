@@ -1208,7 +1208,7 @@ static int esp_xtensa_boost_clock_freq(struct flash_bank *bank, int boost)
 }
 
 static int esp_xtensa_target_to_flash_bank(struct target *target,
-	struct flash_bank **bank, char *bank_name_suffix)
+	struct flash_bank **bank, char *bank_name_suffix, bool probe)
 {
 	if (target == NULL || bank == NULL)
 		return ERROR_FAIL;
@@ -1223,10 +1223,18 @@ static int esp_xtensa_target_to_flash_bank(struct target *target,
 		LOG_ERROR("Failed to build bank name string!");
 		return ERROR_FAIL;
 	}
-	retval = get_flash_bank_by_name(bank_name, bank);
-	if (retval != ERROR_OK || bank == NULL) {
-		LOG_ERROR("Failed to find bank '%s'!",  bank_name);
-		return retval;
+	if (probe) {
+		retval = get_flash_bank_by_name(bank_name, bank);
+		if (retval != ERROR_OK || bank == NULL) {
+			LOG_ERROR("Failed to find bank '%s'!",  bank_name);
+			return retval;
+		}
+	} else {/* noprobe */
+		*bank = get_flash_bank_by_name_noprobe(bank_name);
+		if (*bank == NULL) {
+			LOG_ERROR("Failed to find bank '%s'!",  bank_name);
+			return ERROR_FAIL;
+		}
 	}
 
 	return ERROR_OK;
@@ -1239,7 +1247,7 @@ static int esp_xtensa_appimage_flash_base_update(struct target *target,
 	struct flash_bank *bank;
 	struct esp_xtensa_flash_bank *esp_xtensa_info;
 
-	int retval = esp_xtensa_target_to_flash_bank(target, &bank, bank_name_suffix);
+	int retval = esp_xtensa_target_to_flash_bank(target, &bank, bank_name_suffix, false);
 	if (retval != ERROR_OK)
 		return ERROR_FAIL;
 
@@ -1283,7 +1291,7 @@ static int esp_xtensa_set_compression(struct target *target,
 	struct flash_bank *bank;
 	struct esp_xtensa_flash_bank *esp_xtensa_info;
 
-	int retval = esp_xtensa_target_to_flash_bank(target, &bank, bank_name_suffix);
+	int retval = esp_xtensa_target_to_flash_bank(target, &bank, bank_name_suffix, true);
 	if (retval != ERROR_OK)
 		return ERROR_FAIL;
 
@@ -1332,7 +1340,7 @@ static int esp_xtensa_verify_bank_hash(struct target *target,
 	int differ, retval;
 	struct flash_bank *bank;
 
-	retval = esp_xtensa_target_to_flash_bank(target, &bank, "flash");
+	retval = esp_xtensa_target_to_flash_bank(target, &bank, "flash", true);
 	if (retval != ERROR_OK)
 		return ERROR_FAIL;
 
@@ -1452,7 +1460,7 @@ COMMAND_HELPER(esp_xtensa_parse_cmd_clock_boost, struct target *target)
 	}
 
 	struct flash_bank *bank;
-	int retval = esp_xtensa_target_to_flash_bank(target, &bank, "flash");
+	int retval = esp_xtensa_target_to_flash_bank(target, &bank, "flash", true);
 	if (retval != ERROR_OK)
 		return ERROR_FAIL;
 
