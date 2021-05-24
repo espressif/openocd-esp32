@@ -293,6 +293,10 @@ class StepTestsImpl():
         else:
             self.gdb.monitor_run("xtensa maskisr off", 5)
 
+    def get_isr_masking(self):
+        _, s = self.gdb.monitor_run("xtensa maskisr", 5, output_type='stdout')
+        return s.strip('\\n\\n').split("mode: ", 1)[1]
+
     def test_step_over_intlevel_disabled_isr(self):
         """
             This test checks ps.intlevel value after step instruction while ISRs are masked
@@ -317,9 +321,10 @@ class StepTestsImpl():
             self.assertEqual(cur_frame['func'], 'step_over_inst_changing_intlevel')
             old_pc = self.gdb.get_reg('pc')
             old_ps = self.gdb.get_reg('ps')
+            old_masking = self.get_isr_masking();
             self.isr_masking(on=True)
             self.step(insn=True)
-            self.isr_masking(on=False)
+            self.isr_masking(on=(old_masking == 'ON'))
             new_ps = self.gdb.get_reg('ps')
             new_pc = self.gdb.get_reg('pc')
             self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 3))
