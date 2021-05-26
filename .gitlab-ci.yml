@@ -1,6 +1,7 @@
 stages:
   - build
   - test
+  - sanitizer_tests
   - sanitizer_checks
   - deploy
   - private_deploy
@@ -238,7 +239,6 @@ variables:
   git checkout $CUSTOM_DEBUG_BACKEND_TAG || git checkout $CI_COMMIT_REF_NAME || echo "using default branch"
   popd
   popd
-  export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1 
   export PYTHONPATH=$PWD/${TEST_RUN_DIR}:$PWD/testing/esp/py_debug_backend
   . $PWD/${TEST_RUN_DIR}/gen_ut_app/gcov_data/gcov_env.sh
   testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -t xtensa-${CHIP_NAME}-elf- -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log -to $PWD/$TEST_RUN_DIR/results $TEST_RUN_EXTRA_OPTS
@@ -338,9 +338,14 @@ build_linux_armel:
     CONF_HOST: "arm-linux-gnueabi"
     PLATFORM_NAME: "armel"
     TEST_CFLAGS: ""
-
+    
 build_linux_armel_test:
   <<: *build_linux_armel_template
+  only:
+    refs:
+      - schedules
+    variables:
+      - $SCHEDULE_TYPE == "build_sanitizer_test"
   variables:
     CONF_HOST: "arm-linux-gnueabi"
     PLATFORM_NAME: "armel-test"
@@ -505,10 +510,10 @@ tests_armel_esp32_solo:
     - test_jtag_solo
   dependencies:
     - build_test_app_esp32
-    - build_linux_armel_test
+    - build_linux_armel
   variables:
     CHIP_NAME: "esp32"
-    PLATFORM_NAME: "armel-test"
+    PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
 
@@ -518,10 +523,10 @@ tests_armel_esp32_legacy_idf_rel:
     - test_jtag_arm
   dependencies:
     - build_test_app_esp32_legacy_idf_rel
-    - build_linux_armel_test
+    - build_linux_armel
   variables:
     CHIP_NAME: "esp32"
-    PLATFORM_NAME: "armel-test"
+    PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
@@ -531,10 +536,10 @@ tests_armel_esp32_custom_idf_rel:
     - test_jtag_arm
   dependencies:
     - build_test_app_esp32_custom_idf_rel
-    - build_linux_armel_test
+    - build_linux_armel
   variables:
     CHIP_NAME: "esp32"
-    PLATFORM_NAME: "armel-test"
+    PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32_custom_idf_rel"
     # currently we need to run semihost test on IDF with old semihost driver
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_CUSTOM_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_semihost -e *.*Encrypted"
@@ -545,10 +550,10 @@ tests_armel_esp32:
     - test_jtag_arm
   dependencies:
     - build_test_app_esp32
-    - build_linux_armel_test
+    - build_linux_armel
   variables:
     CHIP_NAME: "esp32"
-    PLATFORM_NAME: "armel-test"
+    PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
@@ -571,10 +576,10 @@ tests_armel_esp32s2:
     - test_jtag_arm_esp32s2
   dependencies:
     - build_test_app_esp32s2
-    - build_linux_armel_test
+    - build_linux_armel
   variables:
     CHIP_NAME: "esp32s2"
-    PLATFORM_NAME: "armel-test"
+    PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
 
@@ -701,20 +706,30 @@ build_nuttx_app:
   mv nuttx $TEST_RUN_DIR/$NUTTX_APP_NAME/$NUTTX_APP_NAME.elf
   mv bootloader.bin partition-table.bin $TEST_RUN_DIR/$NUTTX_APP_NAME/
 
+.run_tests_nuttx: &run_tests_nuttx |
+  ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
+  tar -C ${TEST_RUN_DIR} -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
+  export DIST_DIR=${PWD}/${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}
+  pushd $PWD/testing/esp
+  git clone $DBG_BACKEND_REPO
+  popd
+  export PYTHONPATH=$PWD/${TEST_RUN_DIR}:$PWD/testing/esp/py_debug_backend
+  testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -t xtensa-${CHIP_NAME}-elf- -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log $TEST_RUN_EXTRA_OPTS -c "${OOCD_CMDS}"
+
 test_nuttx_esp32:
   image: $CI_DOCKER_REGISTRY/rpi-test-env
   stage: test
   tags:
     - test_jtag_arm
   variables:
-    PLATFORM_NAME: "armel-test"
+    PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "nuttx_test"
     NUTTX_APP_NAME: "nuttx_openocd"
     CHIP_NAME: "esp32"
     OOCD_CMDS: "set ESP_RTOS NuttX,set ESP32_ONLYCPU 1"
     TEST_RUN_EXTRA_OPTS: "-i other -b esp32-wrover-kit-3.3v -p test_nuttx -e *.*Encrypted"
   needs:
-    - job: build_linux_armel_test
+    - job: build_linux_armel
       artifacts: true
     - job: build_nuttx_app
       artifacts: false
@@ -727,14 +742,7 @@ test_nuttx_esp32:
     - source /opt/pyenv/activate && pyenv global ${TEST_IMAGE_PYTHON_VER}
     - mkdir -p $TEST_RUN_DIR/$NUTTX_APP_NAME
     - *copy_nuttx_files
-    - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
-    - tar -C ${TEST_RUN_DIR} -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
-    - export DIST_DIR=${PWD}/${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}
-    - pushd $PWD/testing/esp
-    - git clone $DBG_BACKEND_REPO
-    - popd
-    - export PYTHONPATH=$PWD/${TEST_RUN_DIR}:$PWD/testing/esp/py_debug_backend
-    - testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -t xtensa-${CHIP_NAME}-elf- -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log $TEST_RUN_EXTRA_OPTS -c "${OOCD_CMDS}"
+    - *run_tests_nuttx
 
 .use_ci_tools: &use_ci_tools |
   curl -sSL ${CIT_LOADER_URL} -o cit_loader.sh && sh cit_loader.sh
@@ -779,6 +787,131 @@ test_idf_examples:
     project: espressif/esp-idf
     strategy: depend
 
+.tests_sanitizers_template: &tests_sanitizers_template
+  stage: sanitizer_tests
+  image: $CI_DOCKER_REGISTRY/rpi-test-env
+  artifacts:
+    paths:
+      - $TEST_RUN_DIR/debug_backend_tests.log
+    reports:
+      junit:
+        - $TEST_RUN_DIR/results/*
+    when: always
+    expire_in: 1 week
+  only:
+    refs:
+      - schedules
+    variables:
+      - $SCHEDULE_TYPE == "build_sanitizer_test"
+  script:
+    - *add_gitlab_key
+    - *submodules_mirror_update
+    - export PATH=${HOME}/.espressif/tools/xtensa-${CHIP_NAME}-elf/${ESP_TOOLCHAIN_VER}/xtensa-${CHIP_NAME}-elf/bin:${PATH}
+    - source /opt/pyenv/activate && pyenv global ${TEST_IMAGE_PYTHON_VER}
+    - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1 
+    - *run_tests_linux
+
+tests_sanitizers_esp32_solo:
+  <<: *tests_sanitizers_template
+  tags:
+    - arm
+    - test_jtag_solo
+  dependencies:
+    - build_test_app_esp32
+    - build_linux_armel_test
+  variables:
+    CHIP_NAME: "esp32"
+    PLATFORM_NAME: "armel-test"
+    TEST_RUN_DIR: "build_test_app_esp32"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
+
+tests_sanitizers_esp32_legacy_idf_rel:
+  <<: *tests_sanitizers_template
+  tags:
+    - test_jtag_arm
+  dependencies:
+    - build_test_app_esp32_legacy_idf_rel
+    - build_linux_armel_test
+  variables:
+    CHIP_NAME: "esp32"
+    PLATFORM_NAME: "armel-test"
+    TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v"
+
+tests_sanitizers_esp32_custom_idf_rel:
+  <<: *tests_sanitizers_template
+  tags:
+    - test_jtag_arm
+  dependencies:
+    - build_test_app_esp32_custom_idf_rel
+    - build_linux_armel_test
+  variables:
+    CHIP_NAME: "esp32"
+    PLATFORM_NAME: "armel-test"
+    TEST_RUN_DIR: "build_test_app_esp32_custom_idf_rel"
+    # currently we need to run semihost test on IDF with old semihost driver
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_CUSTOM_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_semihost"
+
+tests_sanitizers_esp32:
+  <<: *tests_sanitizers_template
+  tags:
+    - test_jtag_arm
+  dependencies:
+    - build_test_app_esp32
+    - build_linux_armel_test
+  variables:
+    CHIP_NAME: "esp32"
+    PLATFORM_NAME: "armel-test"
+    TEST_RUN_DIR: "build_test_app_esp32"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v"
+
+tests_sanitizers_esp32s2:
+  <<: *tests_sanitizers_template
+  tags:
+    - test_jtag_arm_esp32s2
+  dependencies:
+    - build_test_app_esp32s2
+    - build_linux_armel_test
+  variables:
+    CHIP_NAME: "esp32s2"
+    PLATFORM_NAME: "armel-test"
+    TEST_RUN_DIR: "build_test_app_esp32s2"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
+
+test_sanitizers_nuttx_esp32:
+  image: $CI_DOCKER_REGISTRY/rpi-test-env
+  stage: sanitizer_tests
+  tags:
+    - test_jtag_arm
+  variables:
+    PLATFORM_NAME: "armel-test"
+    TEST_RUN_DIR: "nuttx_test"
+    NUTTX_APP_NAME: "nuttx_openocd"
+    CHIP_NAME: "esp32"
+    OOCD_CMDS: "set ESP_RTOS NuttX,set ESP32_ONLYCPU 1"
+    TEST_RUN_EXTRA_OPTS: "-i other -b esp32-wrover-kit-3.3v -p test_nuttx"
+  needs:
+    - job: build_linux_armel_test
+      artifacts: true
+    - job: build_nuttx_app
+      artifacts: false
+    - project: idf/apache/esp-nuttx-apps
+      job: build_esp32_openocd
+      ref: master
+      artifacts: true
+  only:
+    refs:
+      - schedules
+    variables:
+      - $SCHEDULE_TYPE == "build_sanitizer_test"
+  script:
+    - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
+    - export PATH=${HOME}/.espressif/tools/xtensa-${CHIP_NAME}-elf/${ESP_TOOLCHAIN_VER}/xtensa-${CHIP_NAME}-elf/bin:${PATH}
+    - source /opt/pyenv/activate && pyenv global ${TEST_IMAGE_PYTHON_VER}
+    - mkdir -p $TEST_RUN_DIR/$NUTTX_APP_NAME
+    - *copy_nuttx_files
+    - *run_tests_nuttx
+    
 .sanitizer_check_armel: &sanitizer_check_armel
   stage: sanitizer_checks
   image: $CI_DOCKER_REGISTRY/rpi-test-env
@@ -790,6 +923,11 @@ test_idf_examples:
       - $TEST_RUN_DIR/sanitizer_errors.log
     when: always
     expire_in: 1 week
+  only:
+    refs:
+      - schedules
+    variables:
+      - $SCHEDULE_TYPE == "build_sanitizer_test"
   script:
     - grep -i -e".*sanitizer" -e"runtime error" ${TEST_RUN_DIR}/debug_backend_tests.log > ${TEST_RUN_DIR}/sanitizer_errors.log || true
     # fail if `sanitizer_errors.log` is not empty
@@ -798,41 +936,41 @@ test_idf_examples:
 sanitizer_check_armel_esp32_solo:
   <<: *sanitizer_check_armel
   dependencies:
-    - tests_armel_esp32_solo
+    - tests_sanitizers_esp32_solo
   variables:
     TEST_RUN_DIR: "build_test_app_esp32"
 
 sanitizer_check_armel_esp32_legacy_idf_rel:
   <<: *sanitizer_check_armel
   dependencies:
-    - tests_armel_esp32_legacy_idf_rel
+    - tests_sanitizers_esp32_legacy_idf_rel
   variables:
     TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
 
 sanitizer_check_armel_esp32_custom_idf_rel:
   <<: *sanitizer_check_armel
   dependencies:
-    - tests_armel_esp32_custom_idf_rel
+    - tests_sanitizers_esp32_custom_idf_rel
   variables:
     TEST_RUN_DIR: "build_test_app_esp32_custom_idf_rel"
 
 sanitizer_check_armel_esp32:
   <<: *sanitizer_check_armel
   dependencies:
-    - tests_armel_esp32
+    - tests_sanitizers_esp32
   variables:
     TEST_RUN_DIR: "build_test_app_esp32"
 
 sanitizer_check_armel_esp32s2:
   <<: *sanitizer_check_armel
   dependencies:
-    - tests_armel_esp32s2
+    - tests_sanitizers_esp32s2
   variables:
     TEST_RUN_DIR: "build_test_app_esp32s2"
 
 sanitizer_check_armel_nuttx_esp32:
   <<: *sanitizer_check_armel
   dependencies:
-    - test_nuttx_esp32
+    - test_sanitizers_nuttx_esp32
   variables:
     TEST_RUN_DIR: "nuttx_test"
