@@ -836,7 +836,7 @@ tests_sanitizers_esp32_legacy_idf_rel:
     CHIP_NAME: "esp32"
     PLATFORM_NAME: "armel-test"
     TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_sanitizers_esp32_custom_idf_rel:
   <<: *tests_sanitizers_template
@@ -850,7 +850,7 @@ tests_sanitizers_esp32_custom_idf_rel:
     PLATFORM_NAME: "armel-test"
     TEST_RUN_DIR: "build_test_app_esp32_custom_idf_rel"
     # currently we need to run semihost test on IDF with old semihost driver
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_CUSTOM_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_semihost"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_CUSTOM_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_semihost -e *.*Encrypted"
 
 tests_sanitizers_esp32:
   <<: *tests_sanitizers_template
@@ -863,7 +863,7 @@ tests_sanitizers_esp32:
     CHIP_NAME: "esp32"
     PLATFORM_NAME: "armel-test"
     TEST_RUN_DIR: "build_test_app_esp32"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_sanitizers_esp32s2:
   <<: *tests_sanitizers_template
@@ -889,7 +889,7 @@ test_sanitizers_nuttx_esp32:
     NUTTX_APP_NAME: "nuttx_openocd"
     CHIP_NAME: "esp32"
     OOCD_CMDS: "set ESP_RTOS NuttX,set ESP32_ONLYCPU 1"
-    TEST_RUN_EXTRA_OPTS: "-i other -b esp32-wrover-kit-3.3v -p test_nuttx"
+    TEST_RUN_EXTRA_OPTS: "-i other -b esp32-wrover-kit-3.3v -p test_nuttx -e *.*Encrypted"
   needs:
     - job: build_linux_armel_test
       artifacts: true
