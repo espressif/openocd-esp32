@@ -20,6 +20,7 @@
 
 #include "sdkconfig.h"
 #include "soc/rtc.h"
+#include "soc/efuse_periph.h"
 #include "soc/spi_mem_reg.h"
 #include "soc/gpio_reg.h"
 #include "rtc_clk_common.h"
@@ -29,6 +30,7 @@
 #include "stub_flasher_chip.h"
 #include "stub_flasher.h"
 
+#define EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT          (1 << 4)
 
 #define ESP_APPTRACE_RISCV_BLOCK_LEN_MSK         0x7FFFUL
 #define ESP_APPTRACE_RISCV_BLOCK_LEN(_l_)        ((_l_) & ESP_APPTRACE_RISCV_BLOCK_LEN_MSK)
@@ -381,4 +383,57 @@ bool esp_cpu_in_ocd_debug_mode(void)
 int stub_flash_read_buff(uint32_t addr, void *buffer, uint32_t size)
 {
 	return esp_rom_spiflash_read(addr, buffer, size);
+}
+
+static inline bool esp_flash_encryption_enabled(void)
+{
+	uint32_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA1_REG,
+		EFUSE_SPI_BOOT_CRYPT_CNT);
+
+	/* __builtin_parity is in flash, so we calculate parity inline */
+	bool enabled = false;
+	while (flash_crypt_cnt) {
+		if (flash_crypt_cnt & 1)
+			enabled = !enabled;
+		flash_crypt_cnt >>= 1;
+	}
+	return enabled;
+}
+
+esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
+{
+	static esp_flash_enc_mode_t mode = ESP_FLASH_ENC_MODE_DEVELOPMENT;
+	static bool first = true;
+
+	if (first) {
+		if (esp_flash_encryption_enabled()) {
+			/* Check if SPI_BOOT_CRYPT_CNT is write protected */
+			bool flash_crypt_cnt_wr_dis = REG_READ(EFUSE_RD_WR_DIS_REG) &
+				EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT;
+			if (!flash_crypt_cnt_wr_dis) {
+				uint8_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA1_REG,
+					EFUSE_SPI_BOOT_CRYPT_CNT);
+				/* Check if SPI_BOOT_CRYPT_CNT set for permanent encryption */
+				if (flash_crypt_cnt == EFUSE_SPI_BOOT_CRYPT_CNT_V)
+					flash_crypt_cnt_wr_dis = true;
+			}
+
+			if (flash_crypt_cnt_wr_dis) {
+				uint8_t dis_dl_enc = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
+					EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT);
+				uint8_t dis_dl_icache = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
+					EFUSE_DIS_DOWNLOAD_ICACHE);
+				if (dis_dl_enc && dis_dl_icache)
+					mode = ESP_FLASH_ENC_MODE_RELEASE;
+			}
+
+		} else
+			mode = ESP_FLASH_ENC_MODE_DISABLED;
+
+		first = false;
+	}
+
+	STUB_LOGD("flash_encryption_mode: %d\n", mode);
+
+	return mode;
 }
