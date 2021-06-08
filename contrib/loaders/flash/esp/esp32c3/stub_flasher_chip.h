@@ -31,6 +31,7 @@
 
 struct stub_flash_state {
 	uint32_t cache_flags[2];
+	bool cache_enabled;
 };
 
 #define ESP_APPTRACE_USR_DATA_LEN_MAX   (CONFIG_APPTRACE_BUF_SIZE - 2)
