@@ -17,12 +17,15 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
-
+#include <string.h>
 #include "sdkconfig.h"
 #include "soc/rtc.h"
 #include "soc/efuse_periph.h"
 #include "soc/spi_mem_reg.h"
+#include "soc/extmem_reg.h"
 #include "soc/gpio_reg.h"
+#include "soc/mmu.h"
+#include "esp_spi_flash.h"
 #include "rtc_clk_common.h"
 #include "esp_app_trace_membufs_proto.h"
 #include "stub_rom_chip.h"
@@ -31,6 +34,14 @@
 #include "stub_flasher.h"
 
 #define EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT          (1 << 4)
+
+/* Cache MMU related definitions */
+#define STUB_CACHE_BUS                  EXTMEM_ICACHE_SHUT_DBUS
+#define STUB_MMU_DROM_VADDR             SOC_MMU_VADDR0_START_ADDR	/* 0x3c020000 */
+#define STUB_MMU_DROM_PAGES_START       SOC_MMU_DROM0_PAGES_START	/* 2 */
+#define STUB_MMU_DROM_PAGES_END         SOC_MMU_DROM0_PAGES_END		/* 128 */
+#define STUB_MMU_TABLE                  SOC_MMU_DPORT_PRO_FLASH_MMU_TABLE	/* 0x600c5000 */
+#define STUB_MMU_INVALID_ENTRY_VAL      SOC_MMU_INVALID_ENTRY_VAL	/* 0x100 */
 
 #define ESP_APPTRACE_RISCV_BLOCK_LEN_MSK         0x7FFFUL
 #define ESP_APPTRACE_RISCV_BLOCK_LEN(_l_)        ((_l_) & ESP_APPTRACE_RISCV_BLOCK_LEN_MSK)
@@ -51,12 +62,25 @@ typedef struct {
 	esp_apptrace_mem_block_t *mem_blocks;
 } esp_apptrace_riscv_ctrl_block_t;
 
-
 static esp_apptrace_riscv_ctrl_block_t *s_apptrace_ctrl;
 #if CONFIG_STUB_STACK_DATA_POOL_SIZE > 0
 static uint8_t *s_stack_data_pool;
 static size_t s_stack_data_pool_sz;
 #endif
+
+/* SPI Flash map request data */
+struct spiflash_map_req {
+	/* Request mapping SPI Flash base address */
+	uint32_t src_addr;
+	/* Request mapping SPI Flash size */
+	uint32_t size;
+	/* Mapped memory pointer */
+	void *ptr;
+	/* Mapped started MMU page index */
+	uint32_t start_page;
+	/* Mapped MMU page count */
+	uint32_t page_cnt;
+};
 
 uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32C3_DEFAULT_CPU_FREQ_MHZ * MHZ;
 
@@ -69,17 +93,15 @@ void vPortExitCritical(void)
 {
 }
 
-static void esp32c3_flash_disable_cache(uint32_t *saved_state)
+#if STUB_LOG_LOCAL_LEVEL > STUB_LOG_INFO
+void stub_print_cache_mmu_registers(void)
 {
-	uint32_t icache_state;
-	icache_state = Cache_Suspend_ICache() << 16;
-	saved_state[0] = icache_state;
-}
+	uint32_t icache_ctrl1_reg = REG_READ(EXTMEM_ICACHE_CTRL1_REG);
 
-static void esp32c3_flash_restore_cache(uint32_t *saved_state)
-{
-	Cache_Resume_ICache(saved_state[0] >> 16);
+	STUB_LOGD("icache_ctrl1_reg: 0x%x\n",
+		icache_ctrl1_reg);
 }
+#endif
 
 uint32_t stub_flash_get_id(void)
 {
@@ -107,6 +129,30 @@ void stub_flash_cache_flush(void)
 	Cache_Invalidate_ICache_All();
 }
 
+void stub_cache_init(void)
+{
+	STUB_LOGD("stub_cache_init\n");
+	/* init cache mmu, set cache mode, invalidate cache tags, enable cache*/
+	REG_SET_BIT(SYSTEM_CACHE_CONTROL_REG, SYSTEM_ICACHE_CLK_ON);
+	REG_SET_BIT(SYSTEM_CACHE_CONTROL_REG, SYSTEM_ICACHE_RESET);
+	REG_CLR_BIT(SYSTEM_CACHE_CONTROL_REG, SYSTEM_ICACHE_RESET);
+	/* init cache owner bit */
+	Cache_Owner_Init();
+	/* clear mmu entry */
+	Cache_MMU_Init();
+	/* config cache mode */
+	Cache_Set_Default_Mode();
+	Cache_Enable_ICache(0);
+	REG_CLR_BIT(EXTMEM_ICACHE_CTRL1_REG, STUB_CACHE_BUS);
+}
+
+bool stub_is_cache_enabled(void)
+{
+	bool is_enabled = REG_GET_BIT(EXTMEM_ICACHE_CTRL_REG, EXTMEM_ICACHE_ENABLE) != 0;
+	int cache_bus = REG_READ(EXTMEM_ICACHE_CTRL1_REG);
+	return is_enabled && !(cache_bus & STUB_CACHE_BUS);
+}
+
 void stub_flash_state_prepare(struct stub_flash_state *state)
 {
 	uint32_t spiconfig = ets_efuse_get_spiconfig();
@@ -116,13 +162,18 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 	if (spiconfig == 0 && (strapping & 0x1c) == 0x08)
 		spiconfig = 1;	/* HSPI flash mode */
 
-	esp32c3_flash_disable_cache(state->cache_flags);
+	state->cache_enabled = stub_is_cache_enabled();
+	if (!state->cache_enabled) {
+		STUB_LOGI("Cache needs to be enabled\n");
+		stub_cache_init();
+	}
+
 	esp_rom_spiflash_attach(spiconfig, 0);
 }
 
 void stub_flash_state_restore(struct stub_flash_state *state)
 {
-	esp32c3_flash_restore_cache(state->cache_flags);
+	/* we do not disable or store the cache settings. So, nothing to restore*/
 }
 
 #define RTC_PLL_FREQ_320M   320
@@ -380,11 +431,6 @@ bool esp_cpu_in_ocd_debug_mode(void)
 	return true;
 }
 
-int stub_flash_read_buff(uint32_t addr, void *buffer, uint32_t size)
-{
-	return esp_rom_spiflash_read(addr, buffer, size);
-}
-
 static inline bool esp_flash_encryption_enabled(void)
 {
 	uint32_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA1_REG,
@@ -436,4 +482,78 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 	STUB_LOGD("flash_encryption_mode: %d\n", mode);
 
 	return mode;
+}
+
+static int stub_flash_mmap(struct spiflash_map_req *req)
+{
+	uint32_t map_src = req->src_addr & (~(SPI_FLASH_MMU_PAGE_SIZE - 1));
+	uint32_t map_size = req->size + (req->src_addr - map_src);
+	uint32_t flash_page = map_src / SPI_FLASH_MMU_PAGE_SIZE;
+	uint32_t page_cnt = (map_size + SPI_FLASH_MMU_PAGE_SIZE - 1) / SPI_FLASH_MMU_PAGE_SIZE;
+	int start_page, ret = ESP_ROM_SPIFLASH_RESULT_ERR;
+	uint32_t saved_state = Cache_Suspend_ICache() << 16;
+
+	for (start_page = STUB_MMU_DROM_PAGES_START; start_page < STUB_MMU_DROM_PAGES_END;
+		++start_page) {
+		if (STUB_MMU_TABLE[start_page] == STUB_MMU_INVALID_ENTRY_VAL)
+			break;
+	}
+
+	if (start_page + page_cnt < STUB_MMU_DROM_PAGES_END) {
+		for (int i = 0; i < page_cnt; i++)
+			STUB_MMU_TABLE[start_page + i] = SOC_MMU_PAGE_IN_FLASH(
+				flash_page + i);
+
+		req->start_page = start_page;
+		req->page_cnt = page_cnt;
+		req->ptr = (void *)(STUB_MMU_DROM_VADDR +
+			(start_page - STUB_MMU_DROM_PAGES_START) * SPI_FLASH_MMU_PAGE_SIZE +
+			(req->src_addr - map_src));
+		Cache_Invalidate_Addr((uint32_t)(STUB_MMU_DROM_VADDR +
+				(start_page - STUB_MMU_DROM_PAGES_START) * SPI_FLASH_MMU_PAGE_SIZE),
+			SPI_FLASH_MMU_PAGE_SIZE);
+		ret = ESP_ROM_SPIFLASH_RESULT_OK;
+	}
+
+	STUB_LOGD(
+		"start_page: %d map_src: %x map_size: %x page_cnt: %d flash_page: %d map_ptr: %x\n",
+		start_page,
+		map_src,
+		map_size,
+		page_cnt,
+		flash_page,
+		req->ptr);
+
+	Cache_Resume_ICache(saved_state >> 16);
+
+	return ret;
+}
+
+static void stub_flash_ummap(const struct spiflash_map_req *req)
+{
+	uint32_t saved_state = Cache_Suspend_ICache() << 16;
+
+	for (int i = req->start_page; i < req->start_page + req->page_cnt; ++i)
+		STUB_MMU_TABLE[i] = STUB_MMU_INVALID_ENTRY_VAL;
+
+	Cache_Resume_ICache(saved_state >> 16);
+}
+
+int stub_flash_read_buff(uint32_t addr, void *buffer, uint32_t size)
+{
+	struct spiflash_map_req req = {
+		.src_addr = addr,
+		.size = size,
+	};
+
+	int ret = stub_flash_mmap(&req);
+
+	if (ret)
+		return ret;
+
+	memcpy(buffer, req.ptr, size);
+
+	stub_flash_ummap(&req);
+
+	return ESP_ROM_SPIFLASH_RESULT_OK;
 }

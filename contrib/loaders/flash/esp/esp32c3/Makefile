@@ -46,7 +46,8 @@ INCLUDES := -I$(IDF_PATH)/components/soc/esp32c3/include -I$(IDF_PATH)/component
 	-I$(IDF_PATH)/components/esp_hw_support/port/esp32c3/private_include -I$(IDF_PATH)/components/esp_rom/include/esp32c3 \
 	-I$(IDF_PATH)/components/esp_hw_support/port/esp32c3 \
 	-I$(IDF_PATH)/components/freertos/include \
-	-I$(IDF_PATH)/components/freertos/port/riscv/include
+	-I$(IDF_PATH)/components/freertos/port/riscv/include \
+	-I$(IDF_PATH)/components/spi_flash/include \
 
 DEFINES :=
 
