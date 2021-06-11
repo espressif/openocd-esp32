@@ -34,14 +34,20 @@ SECTIONS {
   } > iram : text_phdr
 
   .data : ALIGN(4) {
+    _data_start = ABSOLUTE(.);
     *(.data)
     *(.rodata .rodata.*)
+    *(.sdata .sdata.*)
+    *(.sdata2 .sdata2.*)
+    _data_end = ABSOLUTE(.);
   } > dram : data_phdr
 
   /* need to be put just after .data section, will be allocated in workspace area along with .data */
   .bss (NOLOAD) : ALIGN(4) {
     _bss_start = ABSOLUTE(.);
     *(.bss)
+    *(.sbss .sbss.*)
+    *(.sbss2 .sbss2.*)
     _bss_end = ABSOLUTE(.);
   } > dram : data_phdr
 }
