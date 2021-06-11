@@ -1,6 +1,6 @@
 /***************************************************************************
- *   LD script for ESP32-S2 flassher stub                                  *
- *   Copyright (C) 2019 Espressif Systems Ltd.                             *
+ *   LD script for ESP32-C3 flasher stub                                   *
+ *   Copyright (C) 2021 Espressif Systems Ltd.                             *
  *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *

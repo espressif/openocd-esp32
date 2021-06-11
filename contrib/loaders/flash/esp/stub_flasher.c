@@ -40,6 +40,8 @@ extern void stub_flash_state_restore(struct stub_flash_state *state);
 
 extern uint32_t _bss_start;
 extern uint32_t _bss_end;
+extern uint32_t _data_start;
+extern uint32_t _data_end;
 
 /* g_ticks_us defined in ROMs for PRO and APP CPU */
 extern uint32_t g_ticks_per_us_pro;
@@ -1070,6 +1072,7 @@ int stub_main(int cmd, ...)
 	stub_uart_console_configure();
 	STUB_LOGD("cpu_freq:%d Mhz\n", stub_esp_clk_cpu_freq()/MHZ);
 	stub_print_cache_mmu_registers();
+	STUB_LOGD("DATA 0x%x..0x%x\n", &_data_start, &_data_end);
 	STUB_LOGD("BSS 0x%x..0x%x\n", &_bss_start, &_bss_end);
 	STUB_LOGD("cmd %d\n", cmd);
 

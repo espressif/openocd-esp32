@@ -84,7 +84,6 @@ struct spiflash_map_req {
 
 uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32C3_DEFAULT_CPU_FREQ_MHZ * MHZ;
 
-
 void vPortEnterCritical(void)
 {
 }
@@ -448,10 +447,10 @@ static inline bool esp_flash_encryption_enabled(void)
 
 esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 {
-	static esp_flash_enc_mode_t mode = ESP_FLASH_ENC_MODE_DEVELOPMENT;
-	static bool first = true;
+	static esp_flash_enc_mode_t s_mode = ESP_FLASH_ENC_MODE_DEVELOPMENT;
+	static bool s_first = true;
 
-	if (first) {
+	if (s_first) {
 		if (esp_flash_encryption_enabled()) {
 			/* Check if SPI_BOOT_CRYPT_CNT is write protected */
 			bool flash_crypt_cnt_wr_dis = REG_READ(EFUSE_RD_WR_DIS_REG) &
@@ -470,18 +469,18 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 				uint8_t dis_dl_icache = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
 					EFUSE_DIS_DOWNLOAD_ICACHE);
 				if (dis_dl_enc && dis_dl_icache)
-					mode = ESP_FLASH_ENC_MODE_RELEASE;
+					s_mode = ESP_FLASH_ENC_MODE_RELEASE;
 			}
 
 		} else
-			mode = ESP_FLASH_ENC_MODE_DISABLED;
+			s_mode = ESP_FLASH_ENC_MODE_DISABLED;
 
-		first = false;
+		s_first = false;
 	}
 
-	STUB_LOGD("flash_encryption_mode: %d\n", mode);
+	STUB_LOGD("flash_encryption_mode: %d\n", s_mode);
 
-	return mode;
+	return s_mode;
 }
 
 static int stub_flash_mmap(struct spiflash_map_req *req)
