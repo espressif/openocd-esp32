@@ -871,6 +871,15 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 	list_of_lists[num_lists++] = rtos->symbols[FreeRTOS_VAL_xDelayedTaskList1].address;
 	list_of_lists[num_lists++] = rtos->symbols[FreeRTOS_VAL_xDelayedTaskList2].address;
 	list_of_lists[num_lists++] = rtos->symbols[FreeRTOS_VAL_xPendingReadyList].address;
+	/* TODO: For ESP32 there is 'xPendingReadyList' for every core. In SMP mode we need to detect the number of actually enabled cores and read all lists.
+	        'rtos_data->nr_cpus' holds number of configured cores (including disabled ones).
+	*/
+	/*if (target->smp) {
+	        for (int i = 1; i < rtos_data->nr_cpus; i++) {
+	                list_of_lists[num_lists++] = rtos->symbols[FreeRTOS_VAL_xPendingReadyList].address +
+	                i * rtos_data->params->list_width;
+	        }
+	}*/
 	list_of_lists[num_lists++] = rtos->symbols[FreeRTOS_VAL_xSuspendedTaskList].address;
 	list_of_lists[num_lists++] = rtos->symbols[FreeRTOS_VAL_xTasksWaitingTermination].address;
 
