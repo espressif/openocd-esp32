@@ -981,8 +981,6 @@ static int stub_flash_handler(int cmd, va_list ap)
 		goto _flash_end;
 	}
 
-	STUB_LOGD("%s 1\n", __func__);
-
 	switch (cmd) {
 		case ESP_STUB_CMD_FLASH_READ:
 			ret = stub_flash_read(arg1, arg2);

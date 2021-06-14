@@ -37,9 +37,9 @@
 
 /* Cache MMU related definitions */
 #define STUB_CACHE_BUS                  EXTMEM_ICACHE_SHUT_DBUS
-#define STUB_MMU_DROM_VADDR             SOC_MMU_VADDR0_START_ADDR	/* 0x3c020000 */
-#define STUB_MMU_DROM_PAGES_START       SOC_MMU_DROM0_PAGES_START	/* 2 */
-#define STUB_MMU_DROM_PAGES_END         SOC_MMU_DROM0_PAGES_END		/* 128 */
+#define STUB_MMU_DROM_VADDR             0x3c020000
+#define STUB_MMU_DROM_PAGES_START       2
+#define STUB_MMU_DROM_PAGES_END         128
 #define STUB_MMU_TABLE                  SOC_MMU_DPORT_PRO_FLASH_MMU_TABLE	/* 0x600c5000 */
 #define STUB_MMU_INVALID_ENTRY_VAL      SOC_MMU_INVALID_ENTRY_VAL	/* 0x100 */
 
@@ -497,6 +497,9 @@ static int stub_flash_mmap(struct spiflash_map_req *req)
 		if (STUB_MMU_TABLE[start_page] == STUB_MMU_INVALID_ENTRY_VAL)
 			break;
 	}
+
+	if (start_page == STUB_MMU_DROM_PAGES_END)
+		start_page = STUB_MMU_DROM_PAGES_START;
 
 	if (start_page + page_cnt < STUB_MMU_DROM_PAGES_END) {
 		for (int i = 0; i < page_cnt; i++)
