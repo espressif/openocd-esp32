@@ -722,6 +722,14 @@ test_nuttx_esp32:
   stage: test
   tags:
     - test_jtag_arm
+  artifacts:
+    paths:
+      - $TEST_RUN_DIR/debug_backend_tests.log
+    reports:
+      junit:
+        - $TEST_RUN_DIR/results/*
+    when: always
+    expire_in: 1 week
   variables:
     PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "nuttx_test"
