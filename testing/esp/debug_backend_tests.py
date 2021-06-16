@@ -10,6 +10,7 @@ import re
 import debug_backend as dbg
 
 # TODO: fixed???
+ESP32C3_BLD_FLASH_OFF = 0x0
 ESP32_BLD_FLASH_OFF = 0x1000
 ESP32_PT_FLASH_OFF = 0x8000
 # TODO: get from partition table
@@ -165,7 +166,10 @@ class DebuggerTestAppConfig:
         # Path for bootloader binary, relative $test_apps_dir/$app_name/$bin_dir
         self.bld_path = None
         # App binary offeset in flash
-        self.bld_off = ESP32_BLD_FLASH_OFF
+        if testee_info.arch == "xtensa":
+            self.bld_off = ESP32_BLD_FLASH_OFF
+        else: #riscv32
+            self.bld_off = ESP32C3_BLD_FLASH_OFF
         # Path for partitions table binary, relative $test_apps_dir/$app_name/$bin_dir
         self.pt_path = None
         # App binary offeset in flash
