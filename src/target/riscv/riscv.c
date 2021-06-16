@@ -1375,6 +1375,17 @@ static int riscv_write_memory(struct target *target, target_addr_t address,
 	return tt->write_memory(target, address, size, count, buffer);
 }
 
+const char *riscv_get_gdb_arch(struct target *target)
+{
+	switch (riscv_xlen(target)) {
+		case 32:
+			return "riscv:rv32";
+		case 64:
+			return "riscv:rv64";
+	}
+	return NULL;
+}
+
 static int riscv_get_gdb_reg_list_internal(struct target *target,
 		struct reg **reg_list[], int *reg_list_size,
 		enum target_register_class reg_class, bool read)
@@ -2684,6 +2695,7 @@ struct target_type riscv_target = {
 
 	.checksum_memory = riscv_checksum_memory,
 
+	.get_gdb_arch = riscv_get_gdb_arch,
 	.get_gdb_reg_list = riscv_get_gdb_reg_list,
 	.get_gdb_reg_list_noread = riscv_get_gdb_reg_list_noread,
 
