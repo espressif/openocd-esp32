@@ -214,6 +214,7 @@ class BaseTracingTestsImpl:
     def test_log_from_file(self):
         self._test_trace_from_file(self._do_test_log_continuous)
 
+    @skip_for_chip(['esp32c3'])
     @idf_ver_min('latest')
     def test_heap_log_from_file(self):
         self._test_trace_from_file(self._do_test_heap_log)

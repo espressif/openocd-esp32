@@ -18,6 +18,15 @@ def get_logger():
 class StepTestsImpl():
     """ Stepping test cases generic for dual and single core modes
     """
+    def compare_pc_diffs(self, new_pc, old_pc):
+        get_logger().info('new_pc ' + str(new_pc))
+        get_logger().info('old_pc ' + str(old_pc))
+        pc_diff = new_pc - old_pc
+        get_logger().info('pc_diff ' + str(pc_diff))
+        if testee_info.arch == "xtensa":
+            self.assertTrue(pc_diff == 2 or pc_diff == 3)
+        else: #riscv32
+            self.assertTrue(pc_diff == 2 or pc_diff == 4)
 
     def do_step_over_bp_check(self, funcs):
         self.resume_exec()
@@ -28,19 +37,13 @@ class StepTestsImpl():
         self.assertEqual(old_pc, faddr)
         self.step(insn=True) # step over movi
         new_pc = self.gdb.get_reg('pc')
-        if re.match(r'esp32c3-[.]*', testee_info.hw_id):
-            self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 4))
-        else:
-            self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 3))
+        self.compare_pc_diffs(new_pc, old_pc)
         old_pc = new_pc
         self.step(insn=True, stop_rsn=dbg.TARGET_STOP_REASON_BP) # step over nop
         new_pc = self.gdb.get_reg('pc')
         faddr = self.gdb.extract_exec_addr(self.gdb.data_eval_expr('&%s' % funcs[1]))
         self.assertEqual(new_pc, faddr)
-        if re.match(r'esp32c3-[.]*', testee_info.hw_id):
-            self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 4))
-        else:
-            self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 3))
+        self.compare_pc_diffs(new_pc, old_pc)
 
     def test_step_over_bp(self):
         """
@@ -76,10 +79,7 @@ class StepTestsImpl():
         old_pc = self.gdb.get_reg('pc')
         self.step(insn=True)
         new_pc = self.gdb.get_reg('pc')
-        if re.match(r'esp32c3-[.]*', testee_info.hw_id):
-            self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 4))
-        else:
-            self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 3))
+        self.compare_pc_diffs(new_pc, old_pc)
 
     def test_step_over_wp(self):
         """
@@ -202,11 +202,7 @@ class StepTestsImpl():
                 pc_a = self.gdb.get_reg('pc')
                 self.step(insn=True)
                 pc_b = self.gdb.get_reg('pc')
-                get_logger().info('pc_a' + str(pc_a))
-                get_logger().info('pc_b' + str(pc_b))
-                pc_dif = int(pc_b)-int(pc_a)
-                get_logger().info('pc_dif' + str(pc_dif))
-                self.assertTrue((pc_dif == 2) or (pc_dif == 3))
+                self.compare_pc_diffs(pc_b, pc_a)
                 get_logger().info('done')
 
             # catching of bp
@@ -224,15 +220,12 @@ class StepTestsImpl():
                 pc_a = self.gdb.get_reg('pc')
                 self.step(insn=True)
                 pc_b = self.gdb.get_reg('pc')
-                get_logger().info('pc_a' + str(pc_a))
-                get_logger().info('pc_b' + str(pc_b))
                 line_b = (self.gdb.get_current_frame())['line']
                 get_logger().info('line_a' + str(line_a))
                 get_logger().info('line_b' + str(line_b))
                 line_dif = int(line_b)-int(line_a)
-                pc_dif = int(pc_b)-int(pc_a)
                 self.assertTrue(line_dif == 1)
-                self.assertTrue((pc_dif == 2) or (pc_dif == 3))
+                self.compare_pc_diffs(pc_b, pc_a)
                 get_logger().info("done")
 
             get_logger().info("interrupt test")

@@ -45,6 +45,13 @@ variables:
   GH_TOOL: "./${DIST_ART_DIR}/${GH_TOOL_NAME}"
   RELEASE_DESC: "New release"
 
+  #
+  # default variables
+  ESP_TOOLCHAIN: "${ESP_TOOLCHAIN_VER}"
+  TOOLCHAIN_PREFIX: "xtensa-esp32"
+  CHIP_NAME: "esp32"
+  TEST_APP_IDF_TAG: $CI_COMMIT_REF_NAME
+
   # py_debug_backend repo URL
   DBG_BACKEND_REPO: "https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/py_debug_backend.git"
 
@@ -221,7 +228,7 @@ variables:
     - *add_gitlab_key
     - *prepare_test_app_build
     - ${IDF_PATH}/tools/idf_tools.py install-python-env
-    - ${IDF_PATH}/tools/idf_tools.py install xtensa-${CHIP_NAME}-elf
+    - ${IDF_PATH}/tools/idf_tools.py install ${TOOLCHAIN_PREFIX}-elf
     # cannot exec '. ${IDF_PATH}/export.sh' here because not all tools distros are presented
     # in the image and `export.sh` fails w/o adding tools to $PATH
     - idf_exports=$(${IDF_PATH}/tools/idf_tools.py export) || true
@@ -242,7 +249,7 @@ variables:
   popd
   export PYTHONPATH=$PWD/${TEST_RUN_DIR}:$PWD/testing/esp/py_debug_backend
   . $PWD/${TEST_RUN_DIR}/gen_ut_app/gcov_data/gcov_env.sh
-  testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -t xtensa-${CHIP_NAME}-elf- -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log -to $PWD/$TEST_RUN_DIR/results $TEST_RUN_EXTRA_OPTS
+  testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -t ${TOOLCHAIN_PREFIX}-elf- -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log -to $PWD/$TEST_RUN_DIR/results $TEST_RUN_EXTRA_OPTS
 
 .tests_linux_template: &tests_linux_template
   stage: test
@@ -260,6 +267,10 @@ variables:
     - *submodules_mirror_update
     - *run_tests_linux
 
+.export_toolchain: &export_toolchain |
+  export PATH=${HOME}/.espressif/tools/${TOOLCHAIN_PREFIX}-elf/${ESP_TOOLCHAIN}/${TOOLCHAIN_PREFIX}-elf/bin:${PATH}
+  source /opt/pyenv/activate && pyenv global ${TEST_IMAGE_PYTHON_VER}
+
 .tests_armel_template: &tests_armel_template
   stage: test
   image: $CI_DOCKER_REGISTRY/rpi-test-env
@@ -274,8 +285,7 @@ variables:
   script:
     - *add_gitlab_key
     - *submodules_mirror_update
-    - export PATH=${HOME}/.espressif/tools/xtensa-${CHIP_NAME}-elf/${ESP_TOOLCHAIN_VER}/xtensa-${CHIP_NAME}-elf/bin:${PATH}
-    - source /opt/pyenv/activate && pyenv global ${TEST_IMAGE_PYTHON_VER}
+    - *export_toolchain
     - *run_tests_linux
 
 before_script:
@@ -462,25 +472,22 @@ build_macos:
 build_test_app_esp32:
   <<: *build_test_app_template
   variables:
-    CHIP_NAME: "esp32"
     BUILD_TEST_APP_DIR: "build_test_app_esp32"
     TEST_APP_CONFIGS: ""
-    TEST_APP_IDF_TAG: $CI_COMMIT_REF_NAME
     UT_GET_IDF_VER: "0"
 
 build_test_app_esp32s2:
   <<: *build_test_app_template
   variables:
     CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
     BUILD_TEST_APP_DIR: "build_test_app_esp32s2"
     TEST_APP_CONFIGS: ""
-    TEST_APP_IDF_TAG: $CI_COMMIT_REF_NAME
     UT_GET_IDF_VER: "0"
 
 build_test_app_esp32_legacy_idf_rel:
   <<: *build_legacy_test_app_template
   variables:
-    CHIP_NAME: "esp32"
     BUILD_TEST_APP_DIR: "build_test_app_esp32_legacy_idf_rel"
     TEST_APP_CONFIGS: ""
     TEST_APP_IDF_TAG: "${TEST_APP_LEGACY_IDF_RELEASE_BRANCH}"
@@ -489,7 +496,6 @@ build_test_app_esp32_legacy_idf_rel:
 build_test_app_esp32_custom_idf_rel:
   <<: *build_test_app_template
   variables:
-    CHIP_NAME: "esp32"
     BUILD_TEST_APP_DIR: "build_test_app_esp32_custom_idf_rel"
     TEST_APP_CONFIGS: "default single_core"
     TEST_APP_IDF_TAG: "${TEST_APP_CUSTOM_IDF_RELEASE_BRANCH}"
@@ -498,11 +504,34 @@ build_test_app_esp32_custom_idf_rel:
 build_test_app_esp32_flash_encrypted:
   <<: *build_test_app_template
   variables:
-    CHIP_NAME: "esp32"
     BUILD_TEST_APP_DIR: "build_test_app_esp32_flash_encrypted"
     TEST_APP_CONFIGS: "default_encrypted single_core_encrypted"
-    TEST_APP_IDF_TAG: $CI_COMMIT_REF_NAME
     UT_GET_IDF_VER: "0"
+
+build_test_app_esp32c3:
+  <<: *build_test_app_template
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32c3"
+    TEST_APP_CONFIGS: "single_core svtrace_single"
+    UT_GET_IDF_VER: "0"
+
+tests_armel_esp32c3:
+  <<: *tests_armel_template
+  tags:
+    - arm
+    - test_jtag_arm_esp32c3
+  dependencies:
+    - build_test_app_esp32c3
+    - build_linux_armel
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
+    PLATFORM_NAME: "armel"
+    TEST_RUN_DIR: "build_test_app_esp32c3"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single" 
 
 tests_armel_esp32_solo:
   <<: *tests_armel_template
@@ -513,7 +542,6 @@ tests_armel_esp32_solo:
     - build_test_app_esp32
     - build_linux_armel
   variables:
-    CHIP_NAME: "esp32"
     PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
@@ -526,7 +554,6 @@ tests_armel_esp32_legacy_idf_rel:
     - build_test_app_esp32_legacy_idf_rel
     - build_linux_armel
   variables:
-    CHIP_NAME: "esp32"
     PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
@@ -539,7 +566,6 @@ tests_armel_esp32_custom_idf_rel:
     - build_test_app_esp32_custom_idf_rel
     - build_linux_armel
   variables:
-    CHIP_NAME: "esp32"
     PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32_custom_idf_rel"
     # currently we need to run semihost test on IDF with old semihost driver
@@ -553,7 +579,6 @@ tests_armel_esp32:
     - build_test_app_esp32
     - build_linux_armel
   variables:
-    CHIP_NAME: "esp32"
     PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
@@ -566,7 +591,6 @@ tests_armel_esp32_flash_encrypted:
     - build_test_app_esp32_flash_encrypted
     - build_linux_armel
   variables:
-    CHIP_NAME: "esp32"
     PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32_flash_encrypted"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
@@ -580,6 +604,7 @@ tests_armel_esp32s2:
     - build_linux_armel
   variables:
     CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
     PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
@@ -715,7 +740,7 @@ build_nuttx_app:
   git clone $DBG_BACKEND_REPO
   popd
   export PYTHONPATH=$PWD/${TEST_RUN_DIR}:$PWD/testing/esp/py_debug_backend
-  testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -t xtensa-${CHIP_NAME}-elf- -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log $TEST_RUN_EXTRA_OPTS -c "${OOCD_CMDS}"
+  testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -t ${TOOLCHAIN_PREFIX}-elf- -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log $TEST_RUN_EXTRA_OPTS -c "${OOCD_CMDS}"
 
 test_nuttx_esp32:
   image: $CI_DOCKER_REGISTRY/rpi-test-env
@@ -734,7 +759,6 @@ test_nuttx_esp32:
     PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "nuttx_test"
     NUTTX_APP_NAME: "nuttx_openocd"
-    CHIP_NAME: "esp32"
     OOCD_CMDS: "set ESP_RTOS NuttX,set ESP32_ONLYCPU 1"
     TEST_RUN_EXTRA_OPTS: "-i other -b esp32-wrover-kit-3.3v -p test_nuttx -e *.*Encrypted"
   needs:
@@ -747,8 +771,7 @@ test_nuttx_esp32:
       ref: master
       artifacts: true
   script:
-    - export PATH=${HOME}/.espressif/tools/xtensa-${CHIP_NAME}-elf/${ESP_TOOLCHAIN_VER}/xtensa-${CHIP_NAME}-elf/bin:${PATH}
-    - source /opt/pyenv/activate && pyenv global ${TEST_IMAGE_PYTHON_VER}
+    - *export_toolchain
     - mkdir -p $TEST_RUN_DIR/$NUTTX_APP_NAME
     - *copy_nuttx_files
     - *run_tests_nuttx
@@ -815,8 +838,7 @@ test_idf_examples:
   script:
     - *add_gitlab_key
     - *submodules_mirror_update
-    - export PATH=${HOME}/.espressif/tools/xtensa-${CHIP_NAME}-elf/${ESP_TOOLCHAIN_VER}/xtensa-${CHIP_NAME}-elf/bin:${PATH}
-    - source /opt/pyenv/activate && pyenv global ${TEST_IMAGE_PYTHON_VER}
+    - *export_toolchain
     - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
     - *run_tests_linux
 
@@ -829,7 +851,6 @@ tests_sanitizers_esp32_solo:
     - build_test_app_esp32
     - build_linux_armel_test
   variables:
-    CHIP_NAME: "esp32"
     PLATFORM_NAME: "armel-test"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
@@ -842,7 +863,6 @@ tests_sanitizers_esp32_legacy_idf_rel:
     - build_test_app_esp32_legacy_idf_rel
     - build_linux_armel_test
   variables:
-    CHIP_NAME: "esp32"
     PLATFORM_NAME: "armel-test"
     TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
@@ -855,7 +875,6 @@ tests_sanitizers_esp32_custom_idf_rel:
     - build_test_app_esp32_custom_idf_rel
     - build_linux_armel_test
   variables:
-    CHIP_NAME: "esp32"
     PLATFORM_NAME: "armel-test"
     TEST_RUN_DIR: "build_test_app_esp32_custom_idf_rel"
     # currently we need to run semihost test on IDF with old semihost driver
@@ -869,7 +888,6 @@ tests_sanitizers_esp32:
     - build_test_app_esp32
     - build_linux_armel_test
   variables:
-    CHIP_NAME: "esp32"
     PLATFORM_NAME: "armel-test"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
@@ -883,9 +901,26 @@ tests_sanitizers_esp32s2:
     - build_linux_armel_test
   variables:
     CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
     PLATFORM_NAME: "armel-test"
     TEST_RUN_DIR: "build_test_app_esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
+
+tests_sanitizers_esp32c3:
+  <<: *tests_sanitizers_template
+  tags:
+    - arm
+    - test_jtag_arm_esp32c3
+  dependencies:
+    - build_test_app_esp32c3
+    - build_linux_armel_test
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
+    PLATFORM_NAME: "armel-test"
+    TEST_RUN_DIR: "build_test_app_esp32c3"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single" 
 
 test_sanitizers_nuttx_esp32:
   image: $CI_DOCKER_REGISTRY/rpi-test-env
@@ -896,7 +931,6 @@ test_sanitizers_nuttx_esp32:
     PLATFORM_NAME: "armel-test"
     TEST_RUN_DIR: "nuttx_test"
     NUTTX_APP_NAME: "nuttx_openocd"
-    CHIP_NAME: "esp32"
     OOCD_CMDS: "set ESP_RTOS NuttX,set ESP32_ONLYCPU 1"
     TEST_RUN_EXTRA_OPTS: "-i other -b esp32-wrover-kit-3.3v -p test_nuttx -e *.*Encrypted"
   needs:
@@ -914,11 +948,10 @@ test_sanitizers_nuttx_esp32:
     variables:
       - $SCHEDULE_TYPE == "build_sanitizer_test"
   script:
-    - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
-    - export PATH=${HOME}/.espressif/tools/xtensa-${CHIP_NAME}-elf/${ESP_TOOLCHAIN_VER}/xtensa-${CHIP_NAME}-elf/bin:${PATH}
-    - source /opt/pyenv/activate && pyenv global ${TEST_IMAGE_PYTHON_VER}
+    - *export_toolchain
     - mkdir -p $TEST_RUN_DIR/$NUTTX_APP_NAME
     - *copy_nuttx_files
+    - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
     - *run_tests_nuttx
 
 .sanitizer_check_armel: &sanitizer_check_armel
@@ -976,6 +1009,13 @@ sanitizer_check_armel_esp32s2:
     - tests_sanitizers_esp32s2
   variables:
     TEST_RUN_DIR: "build_test_app_esp32s2"
+
+sanitizer_check_armel_esp32c3:
+  <<: *sanitizer_check_armel
+  dependencies:
+    - tests_sanitizers_esp32c3
+  variables:
+    TEST_RUN_DIR: "build_test_app_esp32c3"
 
 sanitizer_check_armel_nuttx_esp32:
   <<: *sanitizer_check_armel

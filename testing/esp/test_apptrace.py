@@ -25,7 +25,7 @@ def get_logger():
 ########################################################################
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
-
+@skip_for_chip(['esp32c3'])
 class ApptraceTestsImpl:
     """
     Tests for "raw" apptrace.
@@ -101,7 +101,9 @@ class ApptraceTestsImpl:
         lines_before_reset = []
         while True:
             try:
-                lines_before_reset.append(reader.readline())
+                line = reader.readline()
+                if (len(line)):
+                    lines_before_reset.append(line)
             except ReaderTimeoutError:
                 break
 
@@ -114,7 +116,9 @@ class ApptraceTestsImpl:
         lines_after_reset = []
         while True:
             try:
-                lines_after_reset.append(reader.readline())
+                line = reader.readline()
+                if (len(line)):
+                    lines_after_reset.append(line)
             except ReaderTimeoutError:
                 break
         reader.cleanup()

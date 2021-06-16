@@ -10,8 +10,6 @@ def get_logger():
 ########################################################################
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
-
-
 class MacTestsImpl:
     """
     Test cases which are common for dual and single core modes. The test's scenario:
@@ -30,9 +28,12 @@ class MacTestsImpl:
         -------
         List[str]
         """
-        self.oocd.cmd_exec("xtensa set_permissive 1")
-        self.oocd.cmd_exec("mem2array mac 8 $EFUSE_BLK0_RDATA1_REG 6")
-        self.oocd.cmd_exec("xtensa set_permissive 0")
+        if testee_info.arch == "xtensa":
+            self.oocd.cmd_exec("xtensa set_permissive 1")
+            self.oocd.cmd_exec("mem2array mac 8 $EFUSE_MAC_ADDR_REG 6")
+            self.oocd.cmd_exec("xtensa set_permissive 0")
+        else: #riscv32
+            self.oocd.cmd_exec("mem2array mac 8 $EFUSE_MAC_ADDR_REG 6")
         m0 = self.oocd.cmd_exec("format %02x $mac(0)").strip('\n')
         m1 = self.oocd.cmd_exec("format %02x $mac(1)").strip('\n')
         m2 = self.oocd.cmd_exec("format %02x $mac(2)").strip('\n')

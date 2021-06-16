@@ -17,7 +17,8 @@ def get_logger():
 class DebuggerSpecialTestsImpl:
     """ Special test cases generic for dual and single core modes
     """
-
+    # TODO: SIGTRAP is not generated for RISCV when crash occures
+    @skip_for_chip(['esp32c3'])
     def test_restart_debug_from_crash(self):
         """
             This test checks that debugger can operate correctly after SW reset with stalled CPU.
@@ -38,11 +39,13 @@ class DebuggerSpecialTestsImpl:
         """
         # should fail for any new chip.
         # just to be sure that this test is revised when new chip support is added
-        self.fail_if_not_hw_id([r'esp32-[.]*', r'esp32s2-[.]*'])
+        self.fail_if_not_hw_id([r'esp32-[.]*', r'esp32s2-[.]*', r'esp32c3-[.]*'])
         regs = self.gdb.get_reg_names()
         i = 10
         for reg in regs:
-            if reg == 'mmid':
+            if (len(reg) == 0):
+                continue
+            if reg == 'mmid' or reg == 'mstatus':
                 break # stop at first priveleged register, currently they are not set by GDB
             # set to reasonable value, because GDB tries to read memory @ pc
             val = 0x40000400 if reg == 'pc' else i
@@ -57,7 +60,7 @@ class DebuggerSpecialTestsImpl:
 
 # to be skipped for any board with ESP32-S2 chip
 # TODO: enable these tests when PSRAM is supported for ESP32-S2
-@skip_for_chip(['esp32s2'])
+@skip_for_chip(['esp32s2', 'esp32c3'])
 class PsramTestsImpl:
     """ PSRAM specific test cases generic for dual and single core modes
     """
