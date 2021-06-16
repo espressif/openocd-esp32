@@ -16,7 +16,6 @@ def get_logger():
 ########################################################################
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
-
 class FlasherTestsImpl:
     """ Test cases which are common for dual and single core modes
     """
@@ -37,7 +36,7 @@ class FlasherTestsImpl:
         fbin.close()
         self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (dbg.fixup_path(fname2), ESP32_APP_FLASH_OFF + ESP32_APP_FLASH_SZ, size*1024), tmo=120)
         self.assertTrue(filecmp.cmp(fname1, fname2))
-
+    
     def test_big_binary(self):
         """
             This test checks flashing big binaries works.
@@ -48,7 +47,7 @@ class FlasherTestsImpl:
             5) Compare files.
         """
         self.program_big_binary('')
-        
+    
     def test_big_binary_compressed(self):
         """
             This test checks flashing big compressed binaries works.
@@ -59,7 +58,7 @@ class FlasherTestsImpl:
             5) Compare files.
         """
         self.program_big_binary('compress')
-
+    
     def test_cache_handling(self):
         """
             This test checks that flasher does not corrupts cache config registers when setting breakpoints.
@@ -76,14 +75,14 @@ class FlasherTestsImpl:
         self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_direction', ['gpio_set_direction'], outmost_func_name='cache_check_task')
         for i in range(5):
             self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_level', ['gpio_set_level'], outmost_func_name='cache_check_task')
-
+  
     def program_esp_bins(self, actions):
         # Temp Folder where everything will be contained
         tmp = tempfile.mkdtemp(prefix="esp")
         
         obj = generate_flasher_args_json()
         flash_files = obj["flash_files"]
-        
+
         # Write dummy data to bin files
         for offset in flash_files:
             fname = "esp_%s.bin" % (offset)
@@ -122,7 +121,7 @@ class FlasherTestsImpl:
 
         # Remove the tmp folder for cleanup
         shutil.rmtree(tmp)
-            
+
     def test_program_esp_bins(self):
         """
             This test checks flashing complete app works using flasher_args.json.

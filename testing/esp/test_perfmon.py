@@ -12,7 +12,7 @@ def get_logger():
 ########################################################################
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
-
+@only_for_arch(['xtensa'])
 class PerfMonTestsImpl:
     """ Test cases for performance monitor
     """

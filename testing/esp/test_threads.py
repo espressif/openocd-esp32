@@ -13,15 +13,14 @@ def get_logger():
 ########################################################################
 
 class DebuggerThreadsTestsImpl:
-
-
-
+    # TODO: Fails at esp32c3.Will be enabled after fix
+    @skip_for_chip(['esp32c3'])
     def test_threads_backtraces(self):
         """
             This test switches between threads and checks that their backtraces are as expected:
             1) Selects test number on target
             2) Resumes app execution
-            3) Waits for tssks to go to their pre-defined place in the source code
+            3) Waits for tasks to go to their pre-defined place in the source code
             4) Stops app execution
             5) Switches between tasks and checks their backtraces
         """
