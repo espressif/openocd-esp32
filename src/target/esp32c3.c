@@ -385,6 +385,11 @@ static int esp32c3_get_gdb_reg_list(struct target *target,
 	return riscv_target.get_gdb_reg_list(target, reg_list, reg_list_size, reg_class);
 }
 
+static const char *esp32c3_get_gdb_arch(struct target *target)
+{
+	return riscv_target.get_gdb_arch(target);
+}
+
 static int esp32c3_arch_state(struct target *target)
 {
 	return riscv_target.arch_state(target);
@@ -491,6 +496,7 @@ struct target_type esp32c3_target = {
 
 	.checksum_memory = esp32c3_checksum_memory,
 
+	.get_gdb_arch = esp32c3_get_gdb_arch,
 	.get_gdb_reg_list = esp32c3_get_gdb_reg_list,
 	.get_gdb_reg_list_noread = esp32c3_get_gdb_reg_list_noread,
 
