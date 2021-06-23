@@ -38,7 +38,7 @@ variables:
 
   DIST_ART_DIR: "dist"
   DIST_INSTALLED_DIR: "${CI_PROJECT_NAME}"
-  ARCHIVE_TOOL: "tar czvf"
+  ARCHIVE_TOOL: "tar czf"
 #  UNARCHIVE_TOOL: "tar xvf"
   ARCHIVE_EXT: "tar.gz"
   GH_TOOL_NAME: github-release
@@ -420,7 +420,7 @@ build_windows:
 
 build_macos:
   stage: build
-  image: $CI_DOCKER_REGISTRY/osxcross
+  image: $CI_DOCKER_REGISTRY/esp32-toolchain-macos-cross:2
   tags:
     - build
   artifacts:
@@ -429,6 +429,7 @@ build_macos:
     expire_in: 2 weeks
   variables:
     PLATFORM_NAME: "macos"
+    CONF_HOST: "x86_64-apple-darwin14"
   script:
     - *get_release_name
     - *add_gitlab_key
@@ -436,7 +437,7 @@ build_macos:
     # Osxcross comes with a no-op symlink for pkg-confg,
     # remove it and install pkg-config.
     # TODO: prepare a Docker image which would have it included.
-    - rm -f `which x86_64-apple-darwin12-pkg-config`
+    - rm -f `which ${CONF_HOST}-pkg-config`
     - wget https://dl.espressif.com/dl/pkg-config_0.28-1_amd64.deb
     - dpkg -i ./pkg-config_0.28-1_amd64.deb
 
@@ -455,7 +456,7 @@ build_macos:
     - tar xzf $LIBUSB_VER.tar.gz && rm $LIBUSB_VER.tar.gz
     - pushd $LIBUSB_VER
     - ./bootstrap.sh
-    - ./configure --prefix=$PWD/dist --host=x86_64-apple-darwin12 --enable-shared=no --enable-static=yes CC=x86_64-apple-darwin12-cc
+    - ./configure --prefix=$PWD/dist --host=${CONF_HOST} --enable-shared=no --enable-static=yes CC=${CONF_HOST}-cc
     - make
     - make install
     - popd
@@ -465,7 +466,7 @@ build_macos:
     - ./bootstrap
     - mkdir _build
     - pushd _build/
-    - ../configure --prefix=$PWD/../$DIST_INSTALLED_DIR --host=x86_64-apple-darwin12 $OPENOCD_CONFIGURE_OPTS LDFLAGS="-Wl,-framework,CoreFoundation -Wl,-framework,IOKit" CC=x86_64-apple-darwin12-cc
+    - ../configure --prefix=$PWD/../$DIST_INSTALLED_DIR --host=${CONF_HOST} $OPENOCD_CONFIGURE_OPTS LDFLAGS="-Wl,-framework,CoreFoundation -Wl,-framework,IOKit" CC=${CONF_HOST}-cc
     - make
     - MAKEFLAGS= make install-strip
     - popd
@@ -687,6 +688,28 @@ style_check:
     - tools/check-line-endings.sh $PWD
     - tools/format-esp.sh && git diff --exit-code
 
+osx_code_sign:
+  stage: pre_release
+  only:
+    - master
+  when: on_success
+  tags:
+    - macos_shell
+  dependencies:
+   - build_macos
+  artifacts:
+    paths:
+      - ${DIST_ART_DIR}
+  script:
+    - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_macos)
+    - tar -xzf ${DIST_ART_DIR}/$ARCHIVE_NAME -C ${DIST_ART_DIR} && rm ${DIST_ART_DIR}/$ARCHIVE_NAME
+    - export TARGET_BINARY="${DIST_ART_DIR}/openocd-esp32/bin/openocd"
+    - $PWD/tools/codesign.sh
+    - $PWD/tools/notarize.sh
+    - cd ${DIST_ART_DIR}
+    - ${ARCHIVE_TOOL} ${ARCHIVE_NAME} openocd-esp32/
+    - rm -r openocd-esp32/
+
 push_master_to_github:
   stage: deploy
   image: $CI_DOCKER_REGISTRY/esp32-ci-env
@@ -717,6 +740,8 @@ release_tag_draft:
   stage: release_stage1
   <<: *release_tag_filter
   when: on_success
+  dependencies:
+    - osx_code_sign
   script:
     - *add_gh_key_remote
     - git push github --force ${CI_COMMIT_TAG}
