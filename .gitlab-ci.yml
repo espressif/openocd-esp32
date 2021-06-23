@@ -206,7 +206,7 @@ variables:
 
 .build_test_app_template: &build_test_app_template
   stage: build
-  image: $CI_DOCKER_REGISTRY/esp32-ci-env
+  image: $CI_DOCKER_REGISTRY/esp-env:${ESP_ENV_DOCKER_IMG_TAG}
   tags:
     - build
   artifacts:
@@ -227,6 +227,8 @@ variables:
   script:
     - *add_gitlab_key
     - *prepare_test_app_build
+    - source /opt/pyenv/activate
+    - pyenv global $(pyenv versions --bare)
     - ${IDF_PATH}/tools/idf_tools.py install-python-env
     - ${IDF_PATH}/tools/idf_tools.py install ${TOOLCHAIN_PREFIX}-elf
     # cannot exec '. ${IDF_PATH}/export.sh' here because not all tools distros are presented
