@@ -510,6 +510,15 @@ build_test_app_esp32_flash_encrypted:
     TEST_APP_CONFIGS: "default_encrypted single_core_encrypted"
     UT_GET_IDF_VER: "0"
 
+build_test_app_esp32s2_flash_encrypted:
+  <<: *build_test_app_template
+  variables:
+    CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32s2_flash_encrypted"
+    TEST_APP_CONFIGS: "single_core_encrypted"
+    UT_GET_IDF_VER: "0"
+
 build_test_app_esp32c3:
   <<: *build_test_app_template
   variables:
@@ -619,6 +628,20 @@ tests_armel_esp32s2:
     PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
+
+tests_armel_esp32s2_flash_encrypted:
+  <<: *tests_armel_template
+  tags:
+    - test_jtag_arm_flash_encryption_esp32s2
+  dependencies:
+    - build_test_app_esp32s2_flash_encrypted
+    - build_linux_armel
+  variables:
+    CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    PLATFORM_NAME: "armel"
+    TEST_RUN_DIR: "build_test_app_esp32s2_flash_encrypted"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*SingleEncrypted"
 
 tests_armel_esp32c3_flash_encrypted:
   <<: *tests_armel_template
