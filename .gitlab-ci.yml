@@ -519,6 +519,15 @@ build_test_app_esp32c3:
     TEST_APP_CONFIGS: "single_core svtrace_single"
     UT_GET_IDF_VER: "0"
 
+build_test_app_esp32c3_flash_encrypted:
+  <<: *build_test_app_template
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32c3_flash_encrypted"
+    TEST_APP_CONFIGS: "single_core_encrypted"
+    UT_GET_IDF_VER: "0"
+
 tests_armel_esp32c3:
   <<: *tests_armel_template
   tags:
@@ -610,6 +619,21 @@ tests_armel_esp32s2:
     PLATFORM_NAME: "armel"
     TEST_RUN_DIR: "build_test_app_esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
+
+tests_armel_esp32c3_flash_encrypted:
+  <<: *tests_armel_template
+  tags:
+    - test_jtag_arm_flash_encryption_esp32c3
+  dependencies:
+    - build_test_app_esp32c3_flash_encrypted
+    - build_linux_armel
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
+    PLATFORM_NAME: "armel"
+    TEST_RUN_DIR: "build_test_app_esp32c3_flash_encrypted"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
 tests_win_simple_esp32:
   stage: test
