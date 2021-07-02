@@ -110,7 +110,8 @@
 #define ESP32_S2BETA_CHIP_REV_VAL       0x18082800
 
 
-/* this should map local reg IDs to GDB reg mapping as defined in xtensa-config.c 'rmap' in xtensa-overlay */
+/* this should map local reg IDs to GDB reg mapping as defined in xtensa-config.c 'rmap' in
+ *xtensa-overlay */
 static const int esp32s2_gdb_regs_mapping[ESP32_S2_NUM_REGS] = {
 	XT_REG_IDX_PC,
 	XT_REG_IDX_AR0, XT_REG_IDX_AR1, XT_REG_IDX_AR2, XT_REG_IDX_AR3,
