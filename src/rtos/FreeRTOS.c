@@ -162,7 +162,7 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 		NULL,					/* stacking_info */
 		NULL,
 		NULL,
-		rtos_freertos_esp32_pick_stacking_info,	/* fn to pick stacking_info */
+		rtos_freertos_esp32_s3_pick_stacking_info,	/* fn to pick stacking_info */
 	},
 	{
 		"esp32c3",				/* target_name */
