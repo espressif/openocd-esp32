@@ -15,6 +15,7 @@
 ./tools/uncrustify1.sh src/target/esp_riscv_apptrace.c
 ./tools/uncrustify1.sh src/target/esp32.c
 ./tools/uncrustify1.sh src/target/esp32s2.c
+./tools/uncrustify1.sh src/target/esp32s3.c
 ./tools/uncrustify1.sh src/target/esp32c3.c
 ./tools/uncrustify1.sh src/target/esp32_apptrace.c
 ./tools/uncrustify1.sh src/target/esp32_sysview.c
@@ -25,6 +26,7 @@
 ./tools/uncrustify1.sh src/target/esp_riscv_apptrace.h
 ./tools/uncrustify1.sh src/target/esp32.h
 ./tools/uncrustify1.sh src/target/esp32s2.h
+./tools/uncrustify1.sh src/target/esp32s3.h
 ./tools/uncrustify1.sh src/target/esp32c3.h
 ./tools/uncrustify1.sh src/target/esp32_apptrace.h
 ./tools/uncrustify1.sh src/target/esp32_sysview.h

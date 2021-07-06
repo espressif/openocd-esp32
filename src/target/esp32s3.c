@@ -39,20 +39,20 @@ implementation.
 */
 
 /* ESP32_S3 memory map */
-#define ESP32_S3_IRAM_LOW    		0x40370000
-#define ESP32_S3_IRAM_HIGH   		0x403E0000
-#define ESP32_S3_DRAM_LOW    		0x3FC88000
-#define ESP32_S3_DRAM_HIGH   		0x3FD00000
-#define ESP32_S3_RTC_IRAM_LOW  		0x600FE000
-#define ESP32_S3_RTC_IRAM_HIGH 		0x60100000
-#define ESP32_S3_RTC_DRAM_LOW  		0x600FE000
-#define ESP32_S3_RTC_DRAM_HIGH 		0x60100000
-#define ESP32_S3_RTC_DATA_LOW  		0x50000000
-#define ESP32_S3_RTC_DATA_HIGH 		0x50002000
-#define ESP32_S3_EXTRAM_DATA_LOW 	0x3D800000
-#define ESP32_S3_EXTRAM_DATA_HIGH 	0x3E000000
-#define ESP32_S3_SYS_RAM_LOW      	0x60000000UL
-#define ESP32_S3_SYS_RAM_HIGH      	(ESP32_S3_SYS_RAM_LOW+0x10000000UL)
+#define ESP32_S3_IRAM_LOW               0x40370000
+#define ESP32_S3_IRAM_HIGH              0x403E0000
+#define ESP32_S3_DRAM_LOW               0x3FC88000
+#define ESP32_S3_DRAM_HIGH              0x3FD00000
+#define ESP32_S3_RTC_IRAM_LOW           0x600FE000
+#define ESP32_S3_RTC_IRAM_HIGH          0x60100000
+#define ESP32_S3_RTC_DRAM_LOW           0x600FE000
+#define ESP32_S3_RTC_DRAM_HIGH          0x60100000
+#define ESP32_S3_RTC_DATA_LOW           0x50000000
+#define ESP32_S3_RTC_DATA_HIGH          0x50002000
+#define ESP32_S3_EXTRAM_DATA_LOW        0x3D800000
+#define ESP32_S3_EXTRAM_DATA_HIGH       0x3E000000
+#define ESP32_S3_SYS_RAM_LOW            0x60000000UL
+#define ESP32_S3_SYS_RAM_HIGH           (ESP32_S3_SYS_RAM_LOW+0x10000000UL)
 
 /* ESP32_S3 WDT */
 #define ESP32_S3_WDT_WKEY_VALUE       0x50D83AA1
@@ -87,7 +87,8 @@ implementation.
 #define ESP32_S3_RTC_CNTL_SW_CPU_STALL_REG (ESP32_S3_RTCCNTL_BASE + 0xBC)
 #define ESP32_S3_RTC_CNTL_SW_CPU_STALL_DEF 0x0
 
-/* this should map local reg IDs to GDB reg mapping as defined in xtensa-config.c 'rmap' in xtensa-overlay */
+/* this should map local reg IDs to GDB reg mapping as defined in xtensa-config.c 'rmap' in
+ *xtensa-overlay */
 static int esp32s3_gdb_regs_mapping[ESP32_S3_NUM_REGS] = {
 	XT_REG_IDX_PC,
 	XT_REG_IDX_AR0, XT_REG_IDX_AR1, XT_REG_IDX_AR2, XT_REG_IDX_AR3,
@@ -118,10 +119,13 @@ static int esp32s3_gdb_regs_mapping[ESP32_S3_NUM_REGS] = {
 	XT_REG_IDX_F12, XT_REG_IDX_F13, XT_REG_IDX_F14, XT_REG_IDX_F15,
 	XT_REG_IDX_FCR, XT_REG_IDX_FSR,
 	ESP32_S3_REG_IDX_ACCX_0, ESP32_S3_REG_IDX_ACCX_1,
-	ESP32_S3_REG_IDX_QACC_H_0, ESP32_S3_REG_IDX_QACC_H_1, ESP32_S3_REG_IDX_QACC_H_2, ESP32_S3_REG_IDX_QACC_H_3, ESP32_S3_REG_IDX_QACC_H_4,
-	ESP32_S3_REG_IDX_QACC_L_0, ESP32_S3_REG_IDX_QACC_L_1, ESP32_S3_REG_IDX_QACC_L_2, ESP32_S3_REG_IDX_QACC_L_3, ESP32_S3_REG_IDX_QACC_L_4,
+	ESP32_S3_REG_IDX_QACC_H_0, ESP32_S3_REG_IDX_QACC_H_1, ESP32_S3_REG_IDX_QACC_H_2,
+	ESP32_S3_REG_IDX_QACC_H_3, ESP32_S3_REG_IDX_QACC_H_4,
+	ESP32_S3_REG_IDX_QACC_L_0, ESP32_S3_REG_IDX_QACC_L_1, ESP32_S3_REG_IDX_QACC_L_2,
+	ESP32_S3_REG_IDX_QACC_L_3, ESP32_S3_REG_IDX_QACC_L_4,
 	ESP32_S3_REG_IDX_SAR_BYTE, ESP32_S3_REG_IDX_FFT_BIT_WIDTH,
-	ESP32_S3_REG_IDX_UA_STATE_0, ESP32_S3_REG_IDX_UA_STATE_1, ESP32_S3_REG_IDX_UA_STATE_2, ESP32_S3_REG_IDX_UA_STATE_3,
+	ESP32_S3_REG_IDX_UA_STATE_0, ESP32_S3_REG_IDX_UA_STATE_1, ESP32_S3_REG_IDX_UA_STATE_2,
+	ESP32_S3_REG_IDX_UA_STATE_3,
 	ESP32_S3_REG_IDX_Q0, ESP32_S3_REG_IDX_Q1, ESP32_S3_REG_IDX_Q2, ESP32_S3_REG_IDX_Q3,
 	ESP32_S3_REG_IDX_Q4, ESP32_S3_REG_IDX_Q5, ESP32_S3_REG_IDX_Q6, ESP32_S3_REG_IDX_Q7,
 
@@ -164,14 +168,14 @@ static const struct xtensa_user_reg_desc esp32s3_user_regs[ESP32_S3_NUM_REGS-XT_
 	{ "ua_state_1",   0x10, 0, 32, &xtensa_user_reg_u32_type },
 	{ "ua_state_2",   0x11, 0, 32, &xtensa_user_reg_u32_type },
 	{ "ua_state_3",   0x12, 0, 32, &xtensa_user_reg_u32_type },
-	{ "q0",	0x13, 0, 128, &xtensa_user_reg_u128_type },
-	{ "q1",	0x14, 0, 128, &xtensa_user_reg_u128_type },
-	{ "q2",	0x15, 0, 128, &xtensa_user_reg_u128_type },
-	{ "q3",	0x16, 0, 128, &xtensa_user_reg_u128_type },
-	{ "q4",	0x17, 0, 128, &xtensa_user_reg_u128_type },
-	{ "q5",	0x18, 0, 128, &xtensa_user_reg_u128_type },
-	{ "q6",	0x19, 0, 128, &xtensa_user_reg_u128_type },
-	{ "q7",	0x20, 0, 128, &xtensa_user_reg_u128_type },
+	{ "q0", 0x13, 0, 128, &xtensa_user_reg_u128_type },
+	{ "q1", 0x14, 0, 128, &xtensa_user_reg_u128_type },
+	{ "q2", 0x15, 0, 128, &xtensa_user_reg_u128_type },
+	{ "q3", 0x16, 0, 128, &xtensa_user_reg_u128_type },
+	{ "q4", 0x17, 0, 128, &xtensa_user_reg_u128_type },
+	{ "q5", 0x18, 0, 128, &xtensa_user_reg_u128_type },
+	{ "q6", 0x19, 0, 128, &xtensa_user_reg_u128_type },
+	{ "q7", 0x20, 0, 128, &xtensa_user_reg_u128_type },
 };
 
 static int esp32s3_fetch_user_regs(struct target *target);
@@ -633,8 +637,13 @@ static int esp32s3_target_create(struct target *target, Jim_Interp *interp)
 		return ERROR_FAIL;
 	}
 
-	int ret = esp_xtensa_smp_init_arch_info(target, &esp32s3->esp_xtensa_smp, &esp32s3_xtensa_cfg,
-		&esp32s3_dm_cfg, &esp32s3_flash_brp_ops, &esp32s3_chip_ops, &esp32s3_semihost_ops);
+	int ret = esp_xtensa_smp_init_arch_info(target,
+		&esp32s3->esp_xtensa_smp,
+		&esp32s3_xtensa_cfg,
+		&esp32s3_dm_cfg,
+		&esp32s3_flash_brp_ops,
+		&esp32s3_chip_ops,
+		&esp32s3_semihost_ops);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to init arch info!");
 		free(esp32s3);
