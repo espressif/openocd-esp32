@@ -84,7 +84,7 @@ implementation.
 #define ESP32_S3_SYSTEM_CONTROL_CORE_1_CLKGATE_EN  (1 << 1)
 
 /* ESP32_S3 RTC regs */
-#define ESP32_S3_RTC_CNTL_SW_CPU_STALL_REG (ESP32_S3_RTCCNTL_BASE + 0xB8)
+#define ESP32_S3_RTC_CNTL_SW_CPU_STALL_REG (ESP32_S3_RTCCNTL_BASE + 0xBC)
 #define ESP32_S3_RTC_CNTL_SW_CPU_STALL_DEF 0x0
 
 /* this should map local reg IDs to GDB reg mapping as defined in xtensa-config.c 'rmap' in xtensa-overlay */
