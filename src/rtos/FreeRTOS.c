@@ -46,9 +46,10 @@ struct FreeRTOS_params {
 	const char *target_name;
 	const unsigned char thread_count_width;
 	const unsigned char pointer_width;
-	const unsigned char list_next_offset;
+	const unsigned char list_next_offset;	/* offset of `xListEnd.pxPrevious` in List_t */
+	const unsigned char list_end_offset;	/* offset of `xListEnd` in List_t */
 	const unsigned char list_width;
-	const unsigned char list_elem_next_offset;
+	const unsigned char list_elem_next_offset;	/* offset of `pxPrevious` in ListItem_t */
 	const unsigned char list_elem_content_offset;
 	const unsigned char thread_stack_offset;
 	const unsigned char thread_name_offset;
@@ -66,6 +67,7 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
 		16,						/* list_next_offset; */
+		8,						/* list_end_offset; */
 		20,						/* list_width; */
 		8,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
@@ -82,6 +84,7 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
 		16,						/* list_next_offset; */
+		8,						/* list_end_offset; */
 		20,						/* list_width; */
 		8,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
@@ -98,6 +101,7 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
 		16,						/* list_next_offset; */
+		8,						/* list_end_offset; */
 		20,						/* list_width; */
 		8,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
@@ -114,6 +118,7 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
 		16,						/* list_next_offset; */
+		8,						/* list_end_offset; */
 		20,						/* list_width; */
 		8,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
@@ -130,6 +135,7 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
 		16,						/* list_next_offset; */
+		8,						/* list_end_offset; */
 		20,						/* list_width; */
 		8,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
@@ -146,6 +152,7 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
 		16,						/* list_next_offset; */
+		8,						/* list_end_offset; */
 		20,						/* list_width; */
 		8,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
@@ -162,6 +169,7 @@ static const struct FreeRTOS_params FreeRTOS_params_list[] = {
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
 		16,						/* list_next_offset; */
+		8,						/* list_end_offset; */
 		20,						/* list_width; */
 		8,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
@@ -545,7 +553,7 @@ static int FreeRTOS_get_tasks_details(struct target *target,
 			(uint64_t *)&list_task_count);
 
 		if (retval != ERROR_OK) {
-			LOG_ERROR("Error reading number of threads in FreeRTOS thread list");
+			LOG_ERROR("Error reading number of threads in FreeRTOS thread list!");
 			return retval;
 		}
 
@@ -558,9 +566,7 @@ static int FreeRTOS_get_tasks_details(struct target *target,
 			continue;
 
 		/* Read the location of first list item */
-		uint64_t prev_list_elem_ptr = -1;
 		uint64_t list_elem_ptr = 0;
-
 		retval = target_buffer_read_uint(target,
 			task_lists[i] + rtos_data->params->list_next_offset,
 			rtos_data->params->pointer_width,
@@ -568,8 +574,8 @@ static int FreeRTOS_get_tasks_details(struct target *target,
 
 		if (retval != ERROR_OK) {
 			LOG_ERROR(
-				"Error reading first thread item location in FreeRTOS thread list");
-			return retval;
+				"Error reading first thread item location in FreeRTOS thread list!");
+			continue;
 		}
 
 		LOG_DEBUG(
@@ -578,8 +584,11 @@ static int FreeRTOS_get_tasks_details(struct target *target,
 			task_lists[i] + rtos_data->params->list_next_offset,
 			list_elem_ptr);
 
+		uint64_t list_end_ptr = task_lists[i] + rtos_data->params->list_end_offset;
+		LOG_DEBUG("FreeRTOS: End list element at 0x%" PRIx64, list_end_ptr);
+
 		while ((list_task_count > 0) && (list_elem_ptr != 0) &&
-			(list_elem_ptr != prev_list_elem_ptr) &&
+			(list_elem_ptr != list_end_ptr) &&
 			(index < current_num_of_tasks)) {
 
 			/* Get the location of the thread structure. */
@@ -589,9 +598,9 @@ static int FreeRTOS_get_tasks_details(struct target *target,
 				(uint64_t *)&rtos->thread_details[index].threadid);
 
 			if (retval != ERROR_OK) {
-				LOG_ERROR(
-					"Error reading thread list item object in FreeRTOS thread list");
-				return retval;
+				LOG_WARNING(
+					"Error reading thread list item object in FreeRTOS thread list!");
+				break;	/* stop list processing */
 			}
 
 			LOG_DEBUG(
@@ -612,71 +621,76 @@ static int FreeRTOS_get_tasks_details(struct target *target,
 				FREERTOS_THREAD_NAME_STR_SIZE,
 				(uint8_t *)&tmp_str);
 
-			if (retval != ERROR_OK) {
-				LOG_ERROR("Error reading FreeRTOS thread name");
-				return retval;
-			}
+			if (retval != ERROR_OK)
+				LOG_WARNING("Error reading FreeRTOS thread 0x%" PRIx64 " name!",
+					rtos->thread_details[index].threadid);
+			else {
+				LOG_DEBUG(
+					"FreeRTOS: Read Thread Name at 0x%" PRIx64 ", value \"%s\"",
+					rtos->thread_details[index].threadid +
+					rtos_data->params->thread_name_offset,
+					tmp_str);
 
-			LOG_DEBUG(
-				"FreeRTOS: Read Thread Name at 0x%" PRIx64 ", value \"%s\"",
-				rtos->thread_details[index].threadid +
-				rtos_data->params->thread_name_offset,
-				tmp_str);
+				if (tmp_str[0] == '\x00')
+					strcpy(tmp_str, "No Name");
 
-			if (tmp_str[0] == '\x00')
-				strcpy(tmp_str, "No Name");
+				rtos->thread_details[index].thread_name_str = strdup(tmp_str);
+				if (rtos->thread_details[index].thread_name_str == NULL) {
+					LOG_ERROR("Failed to alloc mem for thread name!");
+					/* Sever error. Smth went wrong on host */
+					return ERROR_FAIL;
+				}
+				rtos->thread_details[index].exists = true;
 
-			rtos->thread_details[index].thread_name_str = strdup(tmp_str);
-			if (rtos->thread_details[index].thread_name_str == NULL) {
-				LOG_ERROR("Failed to alloc mem for thread name!");
-				return ERROR_FAIL;
-			}
-			rtos->thread_details[index].exists = true;
-
-			if (target->smp) {
-				struct target *current_target;
-				retval = FreeRTOS_find_target_from_threadid(target,
-					rtos->thread_details[index].threadid,
-					&current_target);
-				if (retval == ERROR_OK) {
-					retval = asprintf(
-						&rtos->thread_details[index].extra_info_str,
-						STATE_RUNNING_STR,
-						current_target->coreid);
-					if (retval == -1) {
-						LOG_ERROR(
-							"Failed to alloc mem for thread extra info!");
-						free(rtos->thread_details[index].thread_name_str);
-						return ERROR_FAIL;
+				if (target->smp) {
+					struct target *current_target;
+					retval = FreeRTOS_find_target_from_threadid(target,
+						rtos->thread_details[index].threadid,
+						&current_target);
+					if (retval == ERROR_OK) {
+						retval = asprintf(
+							&rtos->thread_details[index].extra_info_str,
+							STATE_RUNNING_STR,
+							current_target->coreid);
+						if (retval == -1) {
+							LOG_ERROR(
+								"Failed to alloc mem for thread extra info!");
+							free(
+								rtos->thread_details[index].
+								thread_name_str);
+							/* Sever error. Smth went wrong on host */
+							return ERROR_FAIL;
+						}
 					}
 				}
+				/* save info only for those threads which data can be accessed
+				 *successfully */
+				index++;
 			}
-
-			index++;
 			list_task_count--;
 
-			if (list_task_count <= 0)
-				break;
-
-			prev_list_elem_ptr = list_elem_ptr;
+			uint64_t cur_list_elem_ptr = list_elem_ptr;
 			list_elem_ptr = 0;
 			retval = target_buffer_read_uint(target,
-				prev_list_elem_ptr + rtos_data->params->list_elem_next_offset,
+				cur_list_elem_ptr + rtos_data->params->list_elem_next_offset,
 				rtos_data->params->pointer_width,
 				&list_elem_ptr);
 
 			if (retval != ERROR_OK) {
-				LOG_ERROR(
-					"Error reading next thread item location in FreeRTOS thread list");
-				return retval;
+				LOG_WARNING(
+					"Error reading next thread item location in FreeRTOS thread list!");
+				break;	/* stop list processing */
 			}
 
 			LOG_DEBUG(
 				"FreeRTOS: Read next thread location at 0x%" PRIx64 ", value 0x%"
 				PRIx64,
-				prev_list_elem_ptr + rtos_data->params->list_elem_next_offset,
+				cur_list_elem_ptr + rtos_data->params->list_elem_next_offset,
 				list_elem_ptr);
 		}
+
+		if (list_elem_ptr == list_end_ptr)
+			LOG_DEBUG("FreeRTOS: Reached the end of list %d", i);
 	}
 
 	*tasks_found = index;
