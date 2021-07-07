@@ -45,6 +45,13 @@ class StepTestsImpl():
         self.assertEqual(new_pc, faddr)
         self.compare_pc_diffs(new_pc, old_pc)
 
+    def setUp(self):
+        self.old_masking = self.get_isr_masking()
+
+    def tearDown(self):
+        # restore ISR masking
+        self.isr_masking(on=(self.old_masking == 'ON'))
+
     def test_step_over_bp(self):
         """
             This test checks that debugger can step over breakpoint.
@@ -114,10 +121,14 @@ class StepTestsImpl():
         self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
         self.gdb.delete_bp(bp)
 
+        # ensure ISR masking is ON in order not to step into WindowOverflow
+        self.isr_masking(on=True)
         # do "step in", 3 steps per recursion level
         for i in range(0, 57):
             get_logger().info('Step in {}'.format(i))
             self.step_in()
+        # restore ISR masking
+        self.isr_masking(on=(self.old_masking == 'ON'))
 
         # check that we have reached the end of recursion
         self.assertEqual(int(self.gdb.data_eval_expr('levels')), 1)
@@ -129,6 +140,36 @@ class StepTestsImpl():
 
         cur_frame = self.gdb.get_current_frame()
         self.assertEqual(cur_frame['func'], 'window_exception_test')
+
+    @only_for_arch(['xtensa'])
+    def test_step_in_window_exception_handler(self):
+        """
+            This test checks that debugger can step and get backtraces in window exception handler w/o crash.
+            This is special test for GDB crash when it access priveleged registers.
+            1) Select appropriate sub-test number on target.
+            2) Set breakpoint to '_WindowOverflow8'.
+            3) Resume target and wait for breakpoint to hit.
+            4) Check that target has stopped in the right place.
+            5) Performs steps until _WindowOverflow8 is left.
+            6) After every step backtrace is checked.
+        """
+        # start the test, stopping at the window_exception_test function
+        self.select_sub_test(200)
+        bp = self.gdb.add_bp('_WindowOverflow8')
+        self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, "_WindowOverflow8")
+        self.gdb.delete_bp(bp)
+        # ensure ISR masking is ON in order not to step in WindowOverflow
+        self.isr_masking(on=False)
+        for i in range(0, 20):
+            get_logger().info('Step in {}'.format(i))
+            self.step(insn=True)
+            cur_frame = self.gdb.get_current_frame()
+            frames = self.gdb.get_backtrace()
+            self.assertTrue(len(frames) > 0)
+            self.assertEqual(frames[0]['func'], cur_frame['func'])
+            self.assertEqual(frames[0]['line'], cur_frame['line'])
+            if cur_frame['func'] != '_WindowOverflow8':
+                break
 
     @only_for_arch(['xtensa'])
     def test_step_over_insn_using_scratch_reg(self):
@@ -165,6 +206,7 @@ class StepTestsImpl():
 
     def test_step_multimode(self):
         """
+        Checks that sources line level and instruction level stepping can be mixed.
         1) Step over lines multiple times. Checks: correct line number change.
         2) Step over instructions multiple times. Checks: correct insn addr change.
         3) Combine stepping over lines and instructions.
@@ -238,6 +280,7 @@ class StepTestsImpl():
 
     def test_step_out_of_function(self):
         """
+            Checks that stepping out of function works.
             1) Set BP inside a deep nested function
             2) Catch it
             3) Do step out until getting to the main test function
@@ -269,6 +312,7 @@ class StepTestsImpl():
     @only_for_arch(['xtensa'])
     def test_step_level5_int(self):
         """
+            Checks that steppiing can be done in high level interrupt handler.
             1) Set a breakpoint inside a level 5 interrupt vector
             2) Wait until it hits
             3) Step into the handler
@@ -293,12 +337,18 @@ class StepTestsImpl():
             self.assertNotEqual(self.gdb.get_current_frame()['func'], 'xt_highint5')
 
     def isr_masking(self, on=True):
+        # This function is used for Xtensa only
+        if testee_info.arch != "xtensa":
+            return
         if on:
             self.gdb.monitor_run("xtensa maskisr on", 5)
         else:
             self.gdb.monitor_run("xtensa maskisr off", 5)
 
     def get_isr_masking(self):
+        # This function is used for Xtensa only
+        if testee_info.arch != "xtensa":
+            return ""
         _, s = self.gdb.monitor_run("xtensa maskisr", 5, output_type='stdout')
         return s.strip('\\n\\n').split("mode: ", 1)[1]
 
@@ -327,7 +377,7 @@ class StepTestsImpl():
             self.assertEqual(cur_frame['func'], 'step_over_inst_changing_intlevel')
             old_pc = self.gdb.get_reg('pc')
             old_ps = self.gdb.get_reg('ps')
-            old_masking = self.get_isr_masking();
+            old_masking = self.get_isr_masking()
             self.isr_masking(on=True)
             self.step(insn=True)
             self.isr_masking(on=(old_masking == 'ON'))
@@ -345,21 +395,45 @@ class StepTestsImpl():
 class DebuggerStepTestsDual(DebuggerGenericTestAppTestsDual, StepTestsImpl):
     """ Test cases for dual core mode
     """
-    pass
+    def setUp(self):
+        DebuggerGenericTestAppTestsDual.setUp(self)
+        StepTestsImpl.setUp(self)
+
+    def tearDown(self):
+        DebuggerGenericTestAppTestsDual.tearDown(self)
+        StepTestsImpl.tearDown(self)
 
 class DebuggerStepTestsDualEncrypted(DebuggerGenericTestAppTestsDualEncrypted, StepTestsImpl):
     """ Test cases for encrypted dual core mode
     """
-    pass
+    def setUp(self):
+        DebuggerGenericTestAppTestsDualEncrypted.setUp(self)
+        StepTestsImpl.setUp(self)
+
+    def tearDown(self):
+        DebuggerGenericTestAppTestsDualEncrypted.tearDown(self)
+        StepTestsImpl.tearDown(self)
 
 class DebuggerStepTestsSingle(DebuggerGenericTestAppTestsSingle, StepTestsImpl):
     """ Test cases for single core mode
     """
-    pass
+    def setUp(self):
+        DebuggerGenericTestAppTestsSingle.setUp(self)
+        StepTestsImpl.setUp(self)
+
+    def tearDown(self):
+        DebuggerGenericTestAppTestsSingle.tearDown(self)
+        StepTestsImpl.tearDown(self)
 
 class DebuggerStepTestsSingleEncrypted(DebuggerGenericTestAppTestsSingleEncrypted, StepTestsImpl):
     """ Test cases for encrypted single core mode
     """
-    pass
+    def setUp(self):
+        DebuggerGenericTestAppTestsSingleEncrypted.setUp(self)
+        StepTestsImpl.setUp(self)
+
+    def tearDown(self):
+        DebuggerGenericTestAppTestsSingleEncrypted.tearDown(self)
+        StepTestsImpl.tearDown(self)
 
 
