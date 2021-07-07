@@ -415,7 +415,7 @@ void app_main()
         xTaskCreate(&step_over_inst_changing_intlevel, "step_over_inst_changing_intlevel", 2048, NULL, 5, NULL);
 #endif
     } else if (s_run_test == 200){
-        xTaskCreate(&window_exception_test, "win_exc_task", 10240, NULL, 5, NULL);
+        xTaskCreate(&window_exception_test, "win_exc_task", 8192, NULL, 5, NULL);
     } else if (s_run_test == 201){
         xTaskCreate(&step_out_of_function_test, "step_out_func", 2048, NULL, 5, NULL);
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
