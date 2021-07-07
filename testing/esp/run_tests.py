@@ -56,8 +56,14 @@ BOARD_TCL_CONFIG = {
     },
     'esp32c3-ftdi' :  {
         'files' : [
-            os.path.join('interface', 'ftdi', 'esp32_devkitj_v1.cfg'),
-            os.path.join('target', 'esp32c3.cfg')
+            os.path.join('board', 'esp32c3-ftdi.cfg')
+        ],
+        'commands' : [],
+        'chip_name' : 'esp32c3'
+    },
+    'esp32c3-builtin' :  {
+        'files' : [
+            os.path.join('board', 'esp32c3-builtin.cfg')
         ],
         'commands' : [],
         'chip_name' : 'esp32c3'
