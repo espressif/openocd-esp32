@@ -1365,10 +1365,14 @@ int xtensa_do_step(struct target *target,
 		xtensa_reg_val_t temp_ps = (oldps & ~0xF) |
 			(xtensa->core_config->debug.irq_level - 1);
 		xtensa_reg_set(target, XT_REG_IDX_PS, temp_ps);
-		/* Update ICOUNTLEVEL accordingly */
-		icountlvl = xtensa->core_config->debug.irq_level;
-	} else
-		icountlvl = (oldps & 0xF) + 1;
+	}
+	/* Regardless of ISRs masking mode we need to count instructions at any CINTLEVEL during step.
+	   So set `icountlvl` to DEBUGLEVEL.
+	   If ISRs are masked they are disabled in PS (see above), so having `icountlvl` set to DEBUGLEVEL
+	   will allow to step through any type of the code, e.g. 'high int level' ISR.
+	   If ISRs are not masked With `icountlvl` set to DEBUGLEVEL we can step into any ISR which can happen (enabled in PS).
+	 */
+	icountlvl = xtensa->core_config->debug.irq_level;
 
 	if (cause & DEBUGCAUSE_DB) {
 		/*We stopped due to a watchpoint. We can't just resume executing the instruction
@@ -1454,6 +1458,9 @@ int xtensa_do_step(struct target *target,
 			xtensa_reg_get(target, XT_REG_IDX_DEBUGCAUSE),
 			xtensa_reg_get(target, XT_REG_IDX_EXCCAUSE));
 
+		/* Do not step into WindowOverflow if ISRs are masked.
+		   If we stop in WindowOverflow at breakpoint with masked ISRs and
+		   try to do a step it will get us out of that handler */
 		if (xtensa->core_config->windowed &&
 			xtensa->stepping_isr_mode == XT_STEPPING_ISR_OFF &&
 			xtensa_pc_in_winexc(target, cur_pc)) {
