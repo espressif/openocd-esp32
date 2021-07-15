@@ -134,6 +134,8 @@ class GcovDataFile:
 ########################################################################
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
+# TODO: enable these tests when "gcov dump in a task" is supported by idf (MR!13328)
+@unittest.skip("Will be enabled after dependent idf branch is merged")
 class GcovTestsImpl:
     """ Test cases which are common for dual and single core modes
 
