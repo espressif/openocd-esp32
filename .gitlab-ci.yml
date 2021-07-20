@@ -690,8 +690,7 @@ style_check:
 
 osx_code_sign:
   stage: pre_release
-  only:
-    - master
+  <<: *release_tag_filter
   when: on_success
   tags:
     - macos_shell
@@ -740,8 +739,6 @@ release_tag_draft:
   stage: release_stage1
   <<: *release_tag_filter
   when: on_success
-  dependencies:
-    - osx_code_sign
   script:
     - *add_gh_key_remote
     - git push github --force ${CI_COMMIT_TAG}
