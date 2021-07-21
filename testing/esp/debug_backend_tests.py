@@ -237,7 +237,7 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
             self.modules[test.__module__] = importlib.import_module(test.__module__)
             # get_logger().debug('Modules: %s', self.modules)
 
-    def config_tests(self, oocd, gdb, toolchain):
+    def config_tests(self, oocd, gdb, toolchain, uart_reader, port_name):
         self.oocd = oocd
         self.gdb = gdb
         for test in self:
@@ -246,6 +246,8 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
             test.oocd = oocd
             test.gdb = gdb
             test.toolchain = toolchain
+            test.uart_reader = uart_reader
+            test.port_name = port_name
 
     def run(self, result, debug=False):
         """ Runs tests
