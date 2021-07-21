@@ -33,6 +33,8 @@ struct esp_xtensa_smp_common {
 	struct esp_xtensa_common esp_xtensa;
     const struct esp_xtensa_smp_chip_ops *chip_ops;
 	bool other_core_does_resume;
+	/* number of attempts to examine other SMP cores, attempts are made after reset on target poll */
+	int examine_other_cores;
 };
 
 static inline struct esp_xtensa_smp_common *target_to_esp_xtensa_smp(struct target *target)
