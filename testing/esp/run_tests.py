@@ -72,7 +72,9 @@ BOARD_TCL_CONFIG = {
 
 class SerialPortReader(threading.Thread):
     def __init__(self, port_name):
+        self._logger = logging.getLogger('BOARD_UART')
         threading.Thread.__init__(self, name='serial_reader')
+        self.port_name = port_name
         # connect to serial port
         self.ser = serial.serial_for_url(port_name, do_not_open=True)
         self.ser.baudrate = 115200
@@ -82,12 +84,17 @@ class SerialPortReader(threading.Thread):
         # self.ser.rtscts = False
         # self.ser.xonxoff = False
         self.ser.timeout = 0
-        self.ser.open()
-        self.do_work = True
-        self._logger = logging.getLogger('BOARD_UART')
 
     def get_logger(self):
         return self._logger
+
+    def is_connected(self):
+        self.ser.is_open()
+
+    def start(self):
+        self.ser.open()
+        self.do_work = True
+        threading.Thread.start(self)
 
     def stop(self):
         self.do_work = False
@@ -217,7 +224,7 @@ def exclude_tests_by_patterns(suite, patterns):
 
 def main():
     board_uart_reader = None
-    if args.serial_port:
+    if args.log_uart:
         try:
             board_uart_reader = SerialPortReader(args.serial_port)
         except serial.SerialException as e:
@@ -299,7 +306,7 @@ def main():
             setup_logger(suite.modules[m].get_logger(), ch, fh, log_lev)
         suite.load_app_bins = not args.no_load
         global _oocd_inst, _gdb_inst
-        suite.config_tests(_oocd_inst, _gdb_inst, args.toolchain)
+        suite.config_tests(_oocd_inst, _gdb_inst, args.toolchain, board_uart_reader, args.serial_port)
         # RUN TESTS
         res = test_runner.run(suite)
         if not res.wasSuccessful() and args.retry:
@@ -378,6 +385,9 @@ if __name__ == '__main__':
                         help='Path to GDB log file.', default='')
     parser.add_argument('--serial-port', '-u',
                         help='Name of serial port to grab board\'s UART output.')
+    parser.add_argument('--log-uart', '-lu',
+                        help='Connect to UART and log data from it.',
+                        action='store_true', default=False)
     parser.add_argument('--idf-ver-min', '-i',
                         help='Minimal IDF version to run tests for. Format: x[.y[.z]]. Use "latest" to run all tests. Use "auto" to read version from target.',
                         type=str, default='auto')

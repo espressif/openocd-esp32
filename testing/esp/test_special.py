@@ -1,5 +1,6 @@
 import logging
 import unittest
+import subprocess
 import debug_backend as dbg
 from debug_backend_tests import *
 
@@ -94,7 +95,34 @@ class PsramTestsImpl:
 class DebuggerSpecialTestsDual(DebuggerGenericTestAppTestsDual, DebuggerSpecialTestsImpl):
     """ Test cases for dual core mode
     """
-    pass
+    def test_cores_states_after_esptool_connection(self):
+        """
+            This test checks that cores are in running or halted state after esptool connection.
+            1) Select appropriate sub-test number on target.
+            2) Resume target and wait some time.
+            3) Check that all targets are in state 'running'.
+            4) Run `esptool.py` to get chip ID and reset target.
+            5) Wait some time.
+            6) Check that all targets are in state 'running'.
+        """
+        # avoid simultaneous access to UART with SerialReader
+        self.assertIsNone(self.uart_reader, "Can not run this test with UART logging enabled!")
+        self.select_sub_test(100)
+        self.resume_exec()
+        time.sleep(2.0)
+        for target in self.oocd.targets():
+            state = self.oocd.target_state(target)
+            self.assertEqual(state, 'running')
+        if self.port_name:
+            cmd = ['esptool.py', '-p', self.port_name, 'chip_id']
+        else:
+            cmd = ['esptool.py', 'chip_id']
+        proc = subprocess.run(cmd)
+        proc.check_returncode()
+        time.sleep(2.0)
+        for target in self.oocd.targets():
+            state = self.oocd.target_state(target)
+            self.assertEqual(state, 'running')
 
 class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpecialTestsImpl):
     """ Test cases for single core mode
