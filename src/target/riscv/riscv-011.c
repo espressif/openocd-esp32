@@ -421,7 +421,7 @@ static dbus_status_t dbus_scan(struct target *target, uint16_t *address_in,
 {
 	riscv011_info_t *info = get_info(target);
 	uint8_t in[8] = {0};
-	uint8_t out[8];
+	uint8_t out[8] = {0};
 	struct scan_field field = {
 		.num_bits = info->addrbits + DBUS_OP_SIZE + DBUS_DATA_SIZE,
 		.out_value = out,
