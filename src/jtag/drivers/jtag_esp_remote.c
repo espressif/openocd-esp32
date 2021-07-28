@@ -60,6 +60,7 @@ struct esp_remote_cmd {
 		#define ESP_REMOTE_CMD_RESET    1
 		#define ESP_REMOTE_CMD_SCAN     2
 		#define ESP_REMOTE_CMD_TMS_SEQ  3
+		#define ESP_REMOTE_CMD_SET_CLK  4
 	union {
 		uint16_t function_specific;
 		struct {
@@ -122,6 +123,8 @@ static inline size_t cmd_data_len_bytes(const struct esp_remote_cmd *cmd)
 		return DIV_ROUND_UP(cmd->scan.bits, 8);
 	else if (cmd->function == ESP_REMOTE_CMD_TMS_SEQ)
 		return DIV_ROUND_UP(cmd->tms_seq.bits, 8);
+	else if (cmd->function == ESP_REMOTE_CMD_SET_CLK)
+		return sizeof(int);
 	else
 		return 0;
 }
@@ -669,6 +672,39 @@ static int jtag_esp_remote_quit(void)
 	return ERROR_OK;
 }
 
+static int jtag_esp_remote_jtag_speed_div(int speed, int *khz)
+{
+	*khz = speed / 1000;
+
+	return ERROR_OK;
+}
+
+static int jtag_esp_remote_jtag_khz(int khz, int *speed)
+{
+	if (khz == 0) {
+		LOG_ERROR("jtag_esp_remote: Adaptive clocking is not supported.");
+		return ERROR_JTAG_NOT_IMPLEMENTED;
+	}
+
+	*speed = khz * 1000;
+
+	return ERROR_OK;
+}
+
+static int jtag_esp_remote_jtag_speed(int speed)
+{
+	if (speed == 0) {
+		LOG_ERROR("jtag_esp_remote: Adaptive clocking is not supported.");
+		return ERROR_JTAG_NOT_IMPLEMENTED;
+	}
+
+	ESP_REMOTE_CMD_DECL(cmd, ESP_REMOTE_CMD_SET_CLK, sizeof(speed));
+
+	memcpy(cmd->data, &speed, sizeof(speed));
+
+	return jtag_esp_remote_send_cmd(cmd);
+}
+
 COMMAND_HANDLER(jtag_esp_remote_protocol)
 {
 	if (CMD_ARGC > 0) {
@@ -792,4 +828,7 @@ struct jtag_interface jtag_esp_remote_interface = {
 	.init = jtag_esp_remote_init,
 	.quit = jtag_esp_remote_quit,
 	.execute_queue = jtag_esp_remote_execute_queue,
+	.speed_div = jtag_esp_remote_jtag_speed_div,
+	.speed = jtag_esp_remote_jtag_speed,
+	.khz = jtag_esp_remote_jtag_khz,
 };
