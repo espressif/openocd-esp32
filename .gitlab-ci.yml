@@ -52,8 +52,6 @@ variables:
   CHIP_NAME: "esp32"
   TEST_APP_IDF_TAG: $CI_COMMIT_REF_NAME
 
-  # py_debug_backend repo URL
-  DBG_BACKEND_REPO: "https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/py_debug_backend.git"
 
 .submodules_mirror_update: &submodules_mirror_update |
   # Gitlab doesn't clean submodule contents
@@ -252,12 +250,6 @@ variables:
   ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
   tar -C ${TEST_RUN_DIR} -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
   export DIST_DIR=${PWD}/${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}
-  pushd $PWD/testing/esp
-  git clone $DBG_BACKEND_REPO
-  pushd py_debug_backend
-  git checkout $CUSTOM_DEBUG_BACKEND_TAG || git checkout $CI_COMMIT_REF_NAME || echo "using default branch"
-  popd
-  popd
   export PATH=$PWD/${TEST_RUN_DIR}/esptool:$PATH
   export PYTHONPATH=$PWD/${TEST_RUN_DIR}:$PWD/testing/esp/py_debug_backend
   . $PWD/${TEST_RUN_DIR}/gen_ut_app/gcov_data/gcov_env.sh
@@ -817,9 +809,6 @@ build_nuttx_app:
   ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
   tar -C ${TEST_RUN_DIR} -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
   export DIST_DIR=${PWD}/${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}
-  pushd $PWD/testing/esp
-  git clone $DBG_BACKEND_REPO
-  popd
   export PYTHONPATH=$PWD/${TEST_RUN_DIR}:$PWD/testing/esp/py_debug_backend
   testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -t ${TOOLCHAIN_PREFIX}-elf- -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log $TEST_RUN_EXTRA_OPTS -c "${OOCD_CMDS}"
 
