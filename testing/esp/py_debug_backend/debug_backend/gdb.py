@@ -56,14 +56,30 @@ class Gdb(object):
         self._curr_frame = None
         self._curr_wp_val = None
         # gdb config
-        self.prog_startup_cmdfile = None
-        self.gdb_set("mi-async", "on")
-        if gdb_log_file is not None:
-            pardirs = os.path.dirname(gdb_log_file)
-            if pardirs:
-                os.makedirs(pardirs, exist_ok=True)  # create non-existing folders
-            self.gdb_set("logging", "file %s" % gdb_log_file)
-            self.gdb_set("logging", "on")
+        try:
+            self.prog_startup_cmdfile = None
+            self.gdb_set("mi-async", "on")
+            if gdb_log_file is not None:
+                pardirs = os.path.dirname(gdb_log_file)
+                if pardirs:
+                    os.makedirs(pardirs, exist_ok=True)  # create non-existing folders
+                self.gdb_set("logging", "file %s" % gdb_log_file)
+                self.gdb_set("logging", "on")
+        except Exception as e:
+            self._logger.error('Failed to config GDB (%s)!', e)
+            if self._gdbmi.gdb_process.stdout:
+                out = self._gdbmi.gdb_process.stdout.read()
+                self._logger.debug(
+                    '================== GDB OUTPUT START =================\n'
+                    '%s================== GDB OUTPUT END =================\n',
+                    out)
+            if self._gdbmi.gdb_process.stderr:
+                out = self._gdbmi.gdb_process.stderr.read()
+                self._logger.debug(
+                    '================== GDB ERR OUTPUT START =================\n'
+                    '%s================== GDB ERR OUTPUT END =================\n',
+                    out)
+            raise e
 
     def _on_notify(self, rec):
         if rec['message'] == 'stopped':
