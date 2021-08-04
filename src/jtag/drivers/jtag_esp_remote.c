@@ -124,7 +124,7 @@ static inline size_t cmd_data_len_bytes(const struct esp_remote_cmd *cmd)
 	else if (cmd->function == ESP_REMOTE_CMD_TMS_SEQ)
 		return DIV_ROUND_UP(cmd->tms_seq.bits, 8);
 	else if (cmd->function == ESP_REMOTE_CMD_SET_CLK)
-		return sizeof(int);
+		return 4;
 	else
 		return 0;
 }
@@ -698,9 +698,16 @@ static int jtag_esp_remote_jtag_speed(int speed)
 		return ERROR_JTAG_NOT_IMPLEMENTED;
 	}
 
-	ESP_REMOTE_CMD_DECL(cmd, ESP_REMOTE_CMD_SET_CLK, sizeof(speed));
+	uint8_t speed_buff[4] = {
+		((uint32_t)speed >> 24) & 0xFF,
+		((uint32_t)speed >> 16) & 0xFF,
+		((uint32_t)speed >> 8) & 0xFF,
+		((uint32_t)speed >> 0) & 0xFF
+	};
 
-	memcpy(cmd->data, &speed, sizeof(speed));
+	ESP_REMOTE_CMD_DECL(cmd, ESP_REMOTE_CMD_SET_CLK, sizeof(speed_buff));
+
+	memcpy(cmd->data, &speed_buff, sizeof(speed_buff));
 
 	return jtag_esp_remote_send_cmd(cmd);
 }
