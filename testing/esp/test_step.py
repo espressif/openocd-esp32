@@ -297,6 +297,11 @@ class StepTestsImpl():
             self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
             cur_frame = self.gdb.get_current_frame()
             self.assertEqual(cur_frame['func'], 'nested_bottom')
+            # Workaround for strange behaviour in dual-core mode when flash is encrypted.
+            # When function call is made with `callN` `a0` is not updated upon that instruction,
+            # instead it is updated when the following `entry` is executed in called function.
+            # So when stopped at the entry to function GDB unwinds callstack incorrectly missing the closest caller.
+            self.step(insn=True)
 
             # stepping out:
             self.step_out()
