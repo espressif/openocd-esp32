@@ -927,6 +927,16 @@ test_idf_examples:
     - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
     - *run_tests_linux
 
+.tests_sanitizers_template_esp32c3_fixed: &tests_sanitizers_template_esp32c3_fixed
+  extends: .tests_sanitizers_template
+  script:
+    - *add_gitlab_key
+    - *submodules_mirror_update
+    - *export_toolchain
+    - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
+    - *get_fixed_riscv32_esp_elf_gdb
+    - *run_tests_linux
+
 tests_sanitizers_esp32_solo:
   <<: *tests_sanitizers_template
   tags:
@@ -992,7 +1002,7 @@ tests_sanitizers_esp32s2:
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
 
 tests_sanitizers_esp32c3:
-  <<: *tests_sanitizers_template
+  <<: *tests_sanitizers_template_esp32c3_fixed
   tags:
     - arm
     - test_jtag_arm_esp32c3
