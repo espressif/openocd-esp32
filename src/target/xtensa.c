@@ -2895,8 +2895,10 @@ COMMAND_HELPER(xtensa_cmd_tracedump_do, struct xtensa *xtensa, const char *fname
 		return ERROR_FAIL;
 	}
 	res = xtensa_dm_trace_data_read(&xtensa->dbg_mod, tracemem, memsz*4);
-	if (res != ERROR_OK)
+	if (res != ERROR_OK) {
+		free(tracemem);
 		return res;
+	}
 
 	int f = open(fname, O_WRONLY|O_CREAT|O_TRUNC, 0666);
 	if (f <= 0) {
@@ -2917,6 +2919,7 @@ COMMAND_HELPER(xtensa_cmd_tracedump_do, struct xtensa *xtensa, const char *fname
 			break;
 		}
 	}
+	free(tracemem);
 	if (is_all_zeroes)
 		command_print(
 			CMD,
