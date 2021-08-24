@@ -786,6 +786,7 @@ struct target_type esp32_target = {
 
 	.checksum_memory = xtensa_checksum_memory,
 
+	.get_gdb_arch = xtensa_get_gdb_arch,
 	.get_gdb_reg_list = xtensa_get_gdb_reg_list,
 
 	.run_algorithm = xtensa_run_algorithm,

@@ -2550,6 +2550,11 @@ void xtensa_target_deinit(struct target *target)
 	free(xtensa->sw_brps);
 }
 
+const char *xtensa_get_gdb_arch(struct target *target)
+{
+	return "xtensa";
+}
+
 COMMAND_HELPER(xtensa_cmd_permissive_mode_do, struct xtensa *xtensa)
 {
 	if (CMD_ARGC != 1)

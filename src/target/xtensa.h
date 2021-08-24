@@ -489,6 +489,7 @@ int xtensa_handle_target_event(struct target *target,
 void xtensa_set_permissive_mode(struct target *target, bool state);
 int xtensa_fetch_user_regs_u32(struct target *target);
 int xtensa_queue_write_dirty_user_regs_u32(struct target *target);
+const char *xtensa_get_gdb_arch(struct target *target);
 
 extern const struct reg_arch_type xtensa_user_reg_u32_type;
 extern const struct reg_arch_type xtensa_user_reg_u128_type;
