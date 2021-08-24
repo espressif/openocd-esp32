@@ -555,13 +555,21 @@ int esp32_apptrace_cmd_ctx_init(struct target *target,
 	 * TODO: remove that dependency */
 	assert(cmd_ctx->cores_num <= ESP32_APPTRACE_MAX_CORES_NUM && "Too many cores number!");
 
-	/* TODO: find better way to detect chip arch */
-	if (strncmp(target_type_name(target), "esp32c3", 7) == 0) {
-		cmd_ctx->hw = target_to_esp_riscv(target)->apptrace.hw;
-		cmd_ctx->algo_hw = target_to_esp_riscv(target)->algo_hw;
+	const char *arch = target_get_gdb_arch(target);
+	if (arch != NULL) {
+		if (strncmp(arch, "riscv", 5) == 0) {
+			cmd_ctx->hw = target_to_esp_riscv(target)->apptrace.hw;
+			cmd_ctx->algo_hw = target_to_esp_riscv(target)->algo_hw;
+		} else if (strncmp(arch, "xtensa", 6) == 0) {
+			cmd_ctx->hw = target_to_esp_xtensa(target)->apptrace.hw;
+			cmd_ctx->algo_hw = target_to_esp_xtensa(target)->algo_hw;
+		} else {
+			LOG_ERROR("Unsupported target arch '%s'!", arch);
+			return ERROR_FAIL;
+		}
 	} else {
-		cmd_ctx->hw = target_to_esp_xtensa(target)->apptrace.hw;
-		cmd_ctx->algo_hw = target_to_esp_xtensa(target)->algo_hw;
+		LOG_ERROR("Unsupported target arch '%s'!", arch);
+		return ERROR_FAIL;
 	}
 
 	cmd_ctx->max_trace_block_sz = cmd_ctx->hw->max_block_size_get(cmd_ctx->cpus[0]);
