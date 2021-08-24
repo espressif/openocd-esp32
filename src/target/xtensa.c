@@ -1864,9 +1864,11 @@ int xtensa_poll(struct target *target)
 			LOG_INFO("%s: Target halted, PC=0x%08X, debug_reason=%08x",
 				target_name(target),
 				xtensa_reg_get(target, XT_REG_IDX_PC), target->debug_reason);
-			xtensa_dm_core_status_clear(&xtensa->dbg_mod,
-				OCDDSR_DEBUGPENDBREAK|OCDDSR_DEBUGINTBREAK|OCDDSR_DEBUGPENDHOST|
-				OCDDSR_DEBUGINTHOST);
+			xtensa_dm_core_status_clear(
+				&xtensa->dbg_mod,
+				OCDDSR_DEBUGPENDBREAK|OCDDSR_DEBUGINTBREAK|OCDDSR_DEBUGPENDTRAX|
+				OCDDSR_DEBUGINTTRAX|
+				OCDDSR_DEBUGPENDHOST|OCDDSR_DEBUGINTHOST);
 		}
 	} else {
 		target->debug_reason = DBG_REASON_NOTHALTED;
@@ -2759,6 +2761,7 @@ COMMAND_HELPER(xtensa_cmd_tracestart_do, struct xtensa *xtensa)
 {
 	int res;
 	unsigned int i;
+	struct xtensa_trace_status trace_status;
 	struct xtensa_trace_start_config cfg = {
 		.stoppc = 0,
 		.stopmask = -1,
@@ -2787,12 +2790,16 @@ COMMAND_HELPER(xtensa_cmd_tracestart_do, struct xtensa *xtensa)
 			return ERROR_FAIL;
 		}
 	}
-	/* TODO: check this, it was copied from original ESP32/ESP108 implementation */
-	cfg.stopmask = 1;
 
-	res = xtensa_dm_trace_stop(&xtensa->dbg_mod);
+	res = xtensa_dm_trace_status_read(&xtensa->dbg_mod, &trace_status);
 	if (res != ERROR_OK)
 		return res;
+	if (trace_status.stat & TRAXSTAT_TRACT) {
+		LOG_WARNING("Silently stop active tracing!");
+		res = xtensa_dm_trace_stop(&xtensa->dbg_mod, false);
+		if (res != ERROR_OK)
+			return res;
+	}
 
 	res = xtensa_dm_trace_start(&xtensa->dbg_mod, &cfg);
 	if (res != ERROR_OK)
@@ -2822,7 +2829,7 @@ COMMAND_HELPER(xtensa_cmd_tracestop_do, struct xtensa *xtensa)
 		return ERROR_FAIL;
 	}
 
-	res = xtensa_dm_trace_stop(&xtensa->dbg_mod);
+	res = xtensa_dm_trace_stop(&xtensa->dbg_mod, true);
 	if (res != ERROR_OK)
 		return res;
 

@@ -236,7 +236,7 @@ int xtensa_dm_trace_start(struct xtensa_debug_module *dm, struct xtensa_trace_st
 	return jtag_execute_queue();
 }
 
-int xtensa_dm_trace_stop(struct xtensa_debug_module *dm)
+int xtensa_dm_trace_stop(struct xtensa_debug_module *dm, bool pto_enable)
 {
 	uint8_t traxctl_buf[sizeof(uint32_t)];
 	uint32_t traxctl;
@@ -248,6 +248,9 @@ int xtensa_dm_trace_stop(struct xtensa_debug_module *dm)
 	if (res != ERROR_OK)
 		return res;
 	traxctl = buf_get_u32(traxctl_buf, 0, 32);
+
+	if (!pto_enable)
+		traxctl &= ~(TRAXCTRL_PTOWS|TRAXCTRL_PTOWT);
 
 	dm->dbg_ops->queue_reg_write(dm, NARADR_TRAXCTRL, traxctl | TRAXCTRL_TRSTP);
 	xtensa_dm_queue_tdi_idle(dm);
@@ -261,7 +264,7 @@ int xtensa_dm_trace_stop(struct xtensa_debug_module *dm)
 		return res;
 
 	if (trace_status.stat & TRAXSTAT_TRACT) {
-		LOG_ERROR("Tracing is already active. Please stop it first.");
+		LOG_ERROR("Failed to stop tracing (0x%x)!", trace_status.stat);
 		return ERROR_FAIL;
 	}
 	return ERROR_OK;

@@ -357,7 +357,7 @@ static inline xtensa_ocdid_t xtensa_dm_device_id_get(struct xtensa_debug_module 
 }
 
 int xtensa_dm_trace_start(struct xtensa_debug_module *dm, struct xtensa_trace_start_config *cfg);
-int xtensa_dm_trace_stop(struct xtensa_debug_module *dm);
+int xtensa_dm_trace_stop(struct xtensa_debug_module *dm, bool pto_enable);
 int xtensa_dm_trace_config_read(struct xtensa_debug_module *dm, struct xtensa_trace_config *config);
 int xtensa_dm_trace_status_read(struct xtensa_debug_module *dm, struct xtensa_trace_status *status);
 int xtensa_dm_trace_data_read(struct xtensa_debug_module *dm, uint8_t *dest, uint32_t size);
