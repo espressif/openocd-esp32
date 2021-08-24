@@ -345,6 +345,8 @@ int algorithm_load_func_image(struct target *target,
 			section->base_address,
 			section->size,
 			section->flags);
+		if (section->size == 0)
+			continue;
 		if (section->flags & IMAGE_ELF_PHF_EXEC) {
 			if (target_alloc_working_area(target, section->size,
 					&run->stub.code) != ERROR_OK) {
