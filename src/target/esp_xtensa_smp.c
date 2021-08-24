@@ -773,7 +773,7 @@ COMMAND_HANDLER(esp_xtensa_smp_cmd_tracestart)
 COMMAND_HANDLER(esp_xtensa_smp_cmd_tracestop)
 {
 	struct target *target = get_current_target(CMD_CTX);
-	if (target->smp && CMD_ARGC > 0) {
+	if (target->smp){
 		struct target_list *head;
 		struct target *curr;
 		foreach_smp_target(head, target->head) {
