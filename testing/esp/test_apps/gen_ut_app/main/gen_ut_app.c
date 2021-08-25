@@ -26,9 +26,11 @@ const static char *TAG = "ut_app";
 #if CONFIG_IDF_TARGET_ESP32
 #define TIM_CLR(_tg_, _tn_) do{ TIMERG ## _tg_.int_clr_timers.t ## _tn_ = 1;}while(0)
 #define TIM_UPD(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].update = 1;}while(0)
+#define TIM_ALARM_EN(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].config.alarm_en = 1;}while(0)
 #else
-#define TIM_CLR(_tg_, _tn_) do{ TIMERG ## _tg_.int_clr.t ## _tn_ = 1;}while(0)
-#define TIM_UPD(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].update.update = 1;}while(0)
+#define TIM_CLR(_tg_, _tn_) do{ TIMERG ## _tg_.int_clr_timers.t ## _tn_ ## _int_clr = 1;}while(0) 
+#define TIM_UPD(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].update.tx_update = 1;}while(0)
+#define TIM_ALARM_EN(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].config.tx_alarm_en = 1;}while(0)
 #endif
 
 #define SPIRAM_TEST_ARRAY_SZ    5
@@ -93,24 +95,24 @@ void test_timer_rearm(int timer_group, int timer_idx)
         if (timer_idx == 0) {
             TIM_CLR(0, 0);
             TIM_UPD(0, 0);
-            TIMERG0.hw_timer[0].config.alarm_en = 1;
+            TIM_ALARM_EN(0, 0);
         } else {
 #if !CONFIG_IDF_TARGET_ESP32C3
             TIM_CLR(0, 1);
             TIM_UPD(0, 1);
-            TIMERG0.hw_timer[1].config.alarm_en = 1;
+            TIM_ALARM_EN(0, 1);
 #endif
         }
     } else if (timer_group == 1) {
         if (timer_idx == 0) {
             TIM_CLR(1, 0);
             TIM_UPD(1, 0);
-            TIMERG1.hw_timer[0].config.alarm_en = 1;
+            TIM_ALARM_EN(1, 0);
         } else {
 #if !CONFIG_IDF_TARGET_ESP32C3
             TIM_CLR(1, 1);
             TIM_UPD(1, 1);
-            TIMERG1.hw_timer[1].config.alarm_en = 1;
+            TIM_ALARM_EN(1, 1);
 #endif
         }
     }
