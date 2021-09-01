@@ -488,7 +488,7 @@ jtag_esp_remote_scan_read_exit:
 	return retval;
 }
 
-static int jtag_esp_remote_runtest(int cycles, tap_state_t state)
+static int jtag_esp_remote_runtest(int cycles, tap_state_t end_state)
 {
 	int retval;
 
@@ -496,11 +496,10 @@ static int jtag_esp_remote_runtest(int cycles, tap_state_t state)
 	if (retval != ERROR_OK)
 		return retval;
 
-	retval = jtag_esp_remote_queue_tdi(NULL, cycles, TAP_SHIFT, false);
-	if (retval != ERROR_OK)
-		return retval;
+	for (int i = 0; i < cycles; i++)
+		jtag_esp_remote_clock_tms(0);
 
-	return jtag_esp_remote_state_move(state);
+	return jtag_esp_remote_state_move(end_state);
 }
 
 static int jtag_esp_remote_stableclocks(int cycles)
