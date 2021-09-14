@@ -264,9 +264,8 @@ static inline int algorithm_run_func_image_va(struct target *target,
 	if (ret != ERROR_OK)
 		return ret;
 	ret = algorithm_exec_func_image_va(target, run, num_args, ap);
-	if (ret != ERROR_OK)
-		return ret;
-	return algorithm_unload_func_image(target, run);
+	int rc = algorithm_unload_func_image(target, run);
+	return ret != ERROR_OK ? ret : rc;
 }
 
 static inline int algorithm_run_func_image(struct target *target,
