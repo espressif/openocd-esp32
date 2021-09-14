@@ -28,9 +28,14 @@ const static char *TAG = "ut_app";
 #define TIM_UPD(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].update = 1;}while(0)
 #define TIM_ALARM_EN(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].config.alarm_en = 1;}while(0)
 #else
-#define TIM_CLR(_tg_, _tn_) do{ TIMERG ## _tg_.int_clr_timers.t ## _tn_ ## _int_clr = 1;}while(0) 
+#define TIM_CLR(_tg_, _tn_) do{ TIMERG ## _tg_.int_clr_timers.t ## _tn_ ## _int_clr = 1;}while(0)
+#if CONFIG_IDF_TARGET_ESP32S3
+#define TIM_UPD(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].update.tn_update = 1;}while(0)
+#define TIM_ALARM_EN(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].config.tn_alarm_en = 1;}while(0)
+#else
 #define TIM_UPD(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].update.tx_update = 1;}while(0)
 #define TIM_ALARM_EN(_tg_, _tn_) do{ TIMERG ## _tg_.hw_timer[(_tn_)].config.tx_alarm_en = 1;}while(0)
+#endif
 #endif
 
 #define SPIRAM_TEST_ARRAY_SZ    5

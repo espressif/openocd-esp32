@@ -32,6 +32,7 @@ NOR_DRIVERS = \
 	%D%/esp32.c \
 	%D%/esp32s2.c \
 	%D%/esp32c3.c \
+	%D%/esp32s3.c \
 	%D%/esirisc_flash.c \
 	%D%/faux.c \
 	%D%/fespi.c \
