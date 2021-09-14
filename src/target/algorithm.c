@@ -133,7 +133,7 @@ static int algorithm_run(struct target *target, struct algorithm_image *image,
 	uint32_t num_args,
 	va_list ap)
 {
-	int retval;
+	int retval, ret;
 	void **mem_handles = NULL;
 
 	retval = run->hw->algo_init(target, run, run->arch_info, num_args, ap);
@@ -210,7 +210,7 @@ static int algorithm_run(struct target *target, struct algorithm_image *image,
 	}
 
 #if ALGO_STUB_STACK_DEBUG
-	LOG_DEBUG("Fill stack 0x%x", run->priv.stub.stack_addr);
+	LOG_DEBUG("Fill stack " TARGET_ADDR_FMT, run->stub.stack_addr);
 	retval = algorithm_stub_fill_stack(target,
 		run->stub.stack_addr - run->stack_size,
 		run->stack_size,
@@ -254,16 +254,15 @@ static int algorithm_run(struct target *target, struct algorithm_image *image,
 		/* target has been forced to stop in target_wait_algorithm() */
 	}
 #if ALGO_STUB_STACK_DEBUG
-	int ret = algorithm_stub_check_stack(target,
+	ret = algorithm_stub_check_stack(target,
 		run->stub.stack_addr - run->stack_size,
 		run->stack_size,
 		ALGO_STUB_STACK_DEBUG);
 	if (ret != ERROR_OK) {
-		LOG_ERROR("Failed to check stub stack (%d)!", retval);
+		LOG_ERROR("Failed to check stub stack (%d)!", ret);
 		if (retval == ERROR_OK)
 			retval = ret;
 	}
-
 #endif
 	if (run->usr_func_done)
 		run->usr_func_done(target, run, run->usr_func_arg);
@@ -293,7 +292,7 @@ _cleanup:
 						run->on_board.code_buf_size;
 					free_run.on_board.code_buf_addr =
 						run->on_board.code_buf_addr;
-					int ret = algorithm_run_onboard_func(target,
+					ret = algorithm_run_onboard_func(target,
 						&free_run,
 						run->on_board.free_func,
 						1,
@@ -370,8 +369,16 @@ int algorithm_load_func_image(struct target *target,
 				goto _on_error;
 			}
 		} else {
+			/* target_alloc_alt_working_area() aligns the whole working area size to 4-byte boundary.
+			   We alloc one area for both DATA and BSS, so align each of them ourselves. */
+			uint32_t data_sec_sz = section->size;
+			data_sec_sz = (data_sec_sz + 3) & (~3UL);
+			LOG_DEBUG("DATA sec size %" PRIu32 " -> %" PRIu32, section->size, data_sec_sz);
+			uint32_t bss_sec_sz = run->image.bss_size;
+			bss_sec_sz = (bss_sec_sz + 3) & (~3UL);
+			LOG_DEBUG("BSS sec size %" PRIu32 " -> %" PRIu32, run->image.bss_size, bss_sec_sz);
 			if (target_alloc_alt_working_area(target,
-					section->size + run->image.bss_size,
+					data_sec_sz + bss_sec_sz,
 					&run->stub.data) != ERROR_OK) {
 				LOG_ERROR(
 					"no working area available, can't alloc space for stub data!");
