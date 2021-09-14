@@ -513,7 +513,7 @@ static int stub_flash_mmap(struct spiflash_map_req *req)
 			(req->src_addr - map_src));
 		Cache_Invalidate_Addr((uint32_t)(STUB_MMU_DROM_VADDR +
 				(start_page - STUB_MMU_DROM_PAGES_START) * SPI_FLASH_MMU_PAGE_SIZE),
-			SPI_FLASH_MMU_PAGE_SIZE);
+			page_cnt * SPI_FLASH_MMU_PAGE_SIZE);
 		ret = ESP_ROM_SPIFLASH_RESULT_OK;
 	}
 
