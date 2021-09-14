@@ -32,7 +32,8 @@ SRCS += $(STUB_COMMON_PATH)/stub_flasher.c \
 	$(STUB_CHIP_PATH)/stub_sha.c \
 	$(IDF_PATH)/components/app_trace/app_trace.c \
 	$(IDF_PATH)/components/app_trace/app_trace_util.c \
-	$(IDF_PATH)/components/app_trace/app_trace_membufs_proto.c
+	$(IDF_PATH)/components/app_trace/app_trace_membufs_proto.c \
+	$(IDF_PATH)/components/esp_hw_support/regi2c_ctrl.c
 
 BUILD_DIR = build
 
@@ -61,6 +62,8 @@ INCLUDES += -I. -I$(STUB_COMMON_PATH) -I$(STUB_CHIP_PATH) -I$(STUB_CHIP_ARCH_PAT
 		-I$(IDF_PATH)/components/bootloader_support/include \
 		-I$(IDF_PATH)/components/efuse/include \
 		-I$(IDF_PATH)/components/hal/include \
+		-I$(IDF_PATH)/components/hal/platform_port/include \
+		-I$(IDF_PATH)/components/spi_flash/include/spi_flash \
 		-I$(IDF_PATH)/components/newlib/platform_include \
 		-I$(IDF_PATH)/components/esp_timer/include \
 		-I$(IDF_PATH)/components/esp_rom/include \

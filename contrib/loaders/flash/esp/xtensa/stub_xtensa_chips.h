@@ -22,6 +22,7 @@
 
 #include "eri.h"
 #include "trax.h"
+#include "xtensa/hal.h"
 #include "stub_flasher.h"
 
 #define ESP_APPTRACE_TRAX_BLOCK_SIZE    (0x4000UL)

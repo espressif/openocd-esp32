@@ -36,7 +36,7 @@
 #include "stub_flasher_chip.h"
 #include "stub_xtensa_chips.h"
 
-uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * MHZ;
+uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32S2_DEFAULT_CPU_FREQ_MHZ * MHZ;
 
 /* Cache MMU related definitions */
 #define STUB_CACHE_BUS                  EXTMEM_PRO_ICACHE_MASK_DROM0
@@ -62,7 +62,14 @@ struct spiflash_map_req {
 
 extern esp_rom_spiflash_chip_t g_rom_spiflash_chip;
 
-extern void spi_flash_attach(uint32_t spiconfig, uint32_t arg2);
+
+void vPortEnterCritical(void *mux)
+{
+}
+
+void vPortExitCritical(void *mux)
+{
+}
 
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_INFO
 void stub_print_cache_mmu_registers(void)
@@ -145,7 +152,7 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 		stub_cache_init();
 	}
 
-	spi_flash_attach(spiconfig, 0);
+	esp_rom_spiflash_attach(spiconfig, 0);
 }
 
 void stub_flash_state_restore(struct stub_flash_state *state)
@@ -244,7 +251,7 @@ int stub_cpu_clock_configure(int cpu_freq_mhz)
 
 	/* set to maximum possible value */
 	if (cpu_freq_mhz == -1)
-		cpu_freq_mhz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
+		cpu_freq_mhz = CONFIG_ESP32S2_DEFAULT_CPU_FREQ_MHZ;
 
 	/* Set CPU to configured value. Keep other clocks unmodified. */
 	if (cpu_freq_mhz > 0) {
@@ -272,6 +279,11 @@ void stub_uart_console_configure(void)
 		(rtc_clk_apb_freq_get() << 4) / CONFIG_CONSOLE_UART_BAUDRATE);
 }
 #endif
+
+uint32_t stub_esp_clk_cpu_freq(void)
+{
+	return g_stub_cpu_freq_hz;
+}
 
 esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint32_t area_len)
 {

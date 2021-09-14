@@ -29,28 +29,34 @@ IDF_PATH ?= ../..
 
 STUB_CHIP_PATH := $(shell pwd)
 STUB_COMMON_PATH := $(STUB_CHIP_PATH)/..
+STUB_CHIP_ARCH_PATH := $(STUB_COMMON_PATH)/xtensa
 STUB_OBJ_DEPS := sdkconfig.h
 STUB_LD_SCRIPT := stub.ld
 STUB_CHIP := ESP32_S2
 
-SRCS := $(IDF_PATH)/components/esp_hw_support/port/esp32s2/rtc_clk.c \
+SRCS := $(IDF_PATH)/components/app_trace/port/xtensa/port.c \
+	$(IDF_PATH)/components/xtensa/eri.c \
+	$(IDF_PATH)/components/esp_hw_support/port/esp32s2/rtc_clk.c \
 	$(IDF_PATH)/components/esp_hw_support/port/esp32s2/rtc_clk_init.c \
 	$(IDF_PATH)/components/esp_hw_support/port/esp32s2/rtc_time.c \
 	$(IDF_PATH)/components/esp_hw_support/port/esp32s2/regi2c_ctrl.c \
-	$(IDF_PATH)/components/xtensa/eri.c
+	$(IDF_PATH)/components/esp_hw_support/regi2c_ctrl.c
 
 CFLAGS := -mlongcalls -mtext-section-literals
 
 INCLUDES := -I$(IDF_PATH)/components/esp32s2/include -I$(IDF_PATH)/components/soc/esp32s2/include \
 	-I$(IDF_PATH)/components/esp_rom/include/esp32s2 -I$(IDF_PATH)/components/xtensa/esp32s2/include \
-	-I$(IDF_PATH)/components/hal/esp32s2/include -I$(IDF_PATH)/components/esp_hw_support/port/esp32s2/private_include \
+	-I$(IDF_PATH)/components/hal/esp32s2/include \
+	-I$(IDF_PATH)/components/esp_hw_support/port/esp32s2/private_include \
 	-I$(IDF_PATH)/components/esp_hw_support/port/esp32s2 \
-	-I$(IDF_PATH)/components/xtensa/include -I$(IDF_PATH)/components/freertos/port/xtensa/include
+	-I$(IDF_PATH)/components/xtensa/include \
+	-I$(IDF_PATH)/components/freertos/include \
+	-I$(IDF_PATH)/components/freertos/port/xtensa/include
 
 DEFINES :=
 
 LDFLAGS := -L$(IDF_PATH)/components/esp32s2/ld -T$(IDF_PATH)/components/esp_rom/esp32s2/ld/esp32s2.rom.ld \
-	-T$(IDF_PATH)/components/esp_rom/esp32s2/ld/esp32s2.rom.newlib-funcs.ld -T$(IDF_PATH)/components/esp32s2/ld/esp32s2.peripherals.ld \
+	-T$(IDF_PATH)/components/esp_rom/esp32s2/ld/esp32s2.rom.newlib-funcs.ld \
 	-T$(IDF_PATH)/components/esp_rom/esp32s2/ld/esp32s2.rom.spiflash.ld -T$(IDF_PATH)/components/esp_rom/esp32s2/ld/esp32s2.rom.api.ld \
 	-T$(IDF_PATH)/components/esp_rom/esp32s2/ld/esp32s2.rom.libgcc.ld
 
