@@ -41,6 +41,7 @@
 ./tools/uncrustify1.sh src/flash/nor/esp32s2.c
 ./tools/uncrustify1.sh src/flash/nor/esp32.c
 ./tools/uncrustify1.sh src/flash/nor/esp32c3.c
+./tools/uncrustify1.sh src/flash/nor/esp32s3.c
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32/sdkconfig.h
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32/stub_flasher_chip.h
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32/stub_flasher_image.h
@@ -56,6 +57,11 @@
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32c3/stub_flasher_chip.h
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32c3/stub_flasher_image.h
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32c3/stub_sha.c
+./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32s3/sdkconfig.h
+./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32s3/stub_flasher_chip.c
+./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32s3/stub_flasher_chip.h
+./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32s3/stub_flasher_image.h
+./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32s3/stub_sha.c
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/xtensa/stub_xtensa_chips.h
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/stub_flasher_int.h
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/stub_flasher.c

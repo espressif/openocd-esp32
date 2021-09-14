@@ -317,14 +317,18 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
         if state != dbg.TARGET_STATE_STOPPED:
             self.gdb.exec_interrupt()
             self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
-        # write bootloader
-        self.gdb.target_program(app_cfg.build_bld_bin_path(), app_cfg.bld_off)
-        # write partition table
-        self.gdb.target_program(app_cfg.build_pt_bin_path(), app_cfg.pt_off)
-        # write application
-        # Currently we can not use GDB ELF loading facility for ESP32, so write binary image instead
-        # _gdb.target_download()
-        self.gdb.target_program(app_cfg.build_app_bin_path(), app_cfg.app_off)
+        if testee_info.idf_ver < IdfVersion.fromstr('4.0'):
+            # write bootloader
+            self.gdb.target_program(app_cfg.build_bld_bin_path(), app_cfg.bld_off)
+            # write partition table
+            self.gdb.target_program(app_cfg.build_pt_bin_path(), app_cfg.pt_off)
+            # write application
+            # Currently we can not use GDB ELF loading facility for ESP32, so write binary image instead
+            # _gdb.target_download()
+            self.gdb.target_program(app_cfg.build_app_bin_path(), app_cfg.app_off)
+        else:
+            # flash using 'flasher_args.json'
+            self.gdb.target_program_bins(app_cfg.build_bins_dir())
         self.gdb.target_reset()
 
 

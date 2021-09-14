@@ -23,10 +23,10 @@
 
 #include "esp_xtensa_smp.h"
 
-#define ESP32_S3_DROM_LOW             0x3D000000
-#define ESP32_S3_DROM_HIGH            0x3D800000
+#define ESP32_S3_DROM_LOW             0x3C000000
+#define ESP32_S3_DROM_HIGH            0x3D000000
 #define ESP32_S3_IROM_LOW             0x42000000
-#define ESP32_S3_IROM_HIGH            0x43000000
+#define ESP32_S3_IROM_HIGH            0x44000000
 
 /*Number of registers returned directly by the G command
  *Corresponds to the amount of regs listed in regformats/reg-xtensa.dat in the gdb source */

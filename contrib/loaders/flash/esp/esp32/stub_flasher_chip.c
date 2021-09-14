@@ -178,16 +178,6 @@ static bool esp32_flash_cache_enabled(uint32_t cpuid)
 	return result;
 }
 
-static inline uint32_t stub_get_coreid()
-{
-	int id;
-	__asm__ volatile (
-		"rsr.prid %0\n"
-		" extui %0,%0,13,1"
-		: "=r" (id));
-	return id;
-}
-
 static uint32_t esp32_flash_exec_usr_cmd(uint32_t cmd)
 {
 	uint32_t status_value = ESP_ROM_SPIFLASH_BUSY_FLAG;
