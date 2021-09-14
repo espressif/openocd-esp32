@@ -484,11 +484,17 @@ static int esp_flash_rw_do(struct target *target, void *priv)
 			return retval;
 		} else
 			busy_num = 0;
-		alive_sleep(10);
-		if (target->state != TARGET_DEBUG_RUNNING) {
-			LOG_ERROR("Algorithm accidentally stopped (%d)!", target->state);
+		if (rw->total_count < rw->count && target->state != TARGET_DEBUG_RUNNING) {
+			LOG_ERROR(
+				"Algorithm accidentally stopped (%d)! Transferred %" PRIu32 " of %"
+				PRIu32,
+				target->state,
+				rw->total_count,
+				rw->count);
 			return ERROR_FAIL;
 		}
+		alive_sleep(10);
+		target_poll(target);
 	}
 	if (duration_measure(&algo_time) != 0) {
 		LOG_ERROR("Failed to stop data write measurement!");
