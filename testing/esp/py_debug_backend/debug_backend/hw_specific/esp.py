@@ -146,6 +146,21 @@ class GdbEspImpl:
         """
         self.monitor_run('program_esp %s %s 0x%x' % (fixup_path(file_name), actions, int(off)), tmo)
 
+    def target_program_bins(self, build_dir, file_name='flasher_args.json', actions='verify', tmo=45):
+        """
+
+        actions can be any or both of 'verify reset'
+
+        Parameters
+        ----------
+        build_dir : str
+        file_name : str
+        actions : str
+        tmo : int
+
+        """
+        self.monitor_run('program_esp_bins %s %s %s' % (fixup_path(build_dir), file_name, actions), tmo)
+
     def _update_memory_map(self):
         self.monitor_run('esp appimage_offset 0x%x' % self.app_flash_offset, 5)
         self.disconnect()
@@ -330,5 +345,4 @@ class GdbEsp32c3(GdbEspRiscv):
                                          gdb_log_file=gdb_log_file, log_level=log_level,
                                          log_stream_handler=log_stream_handler,
                                          log_file_handler=log_file_handler)
-        # self.console_cmd_run('set arch riscv:rv32')
         self.gdb_set('arch', 'riscv:rv32')
