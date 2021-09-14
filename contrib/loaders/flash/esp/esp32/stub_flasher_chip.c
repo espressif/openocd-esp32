@@ -80,6 +80,15 @@ static volatile uint32_t *mmu_table_s[2] = {STUB_PRO_MMU_TABLE, STUB_APP_MMU_TAB
 extern esp_rom_spiflash_chip_t g_rom_spiflash_chip;
 extern uint8_t g_rom_spiflash_dummy_len_plus[];
 
+
+void vPortEnterCritical(void *mux)
+{
+}
+
+void vPortExitCritical(void *mux)
+{
+}
+
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_INFO
 void stub_print_cache_mmu_registers(void)
 {
@@ -439,6 +448,11 @@ void stub_uart_console_configure(void)
 		(rtc_clk_apb_freq_get() << 4) / CONFIG_CONSOLE_UART_BAUDRATE);
 }
 #endif
+
+uint32_t stub_esp_clk_cpu_freq(void)
+{
+	return g_stub_cpu_freq_hz;
+}
 
 static inline bool esp_flash_encryption_enabled(void)
 {
