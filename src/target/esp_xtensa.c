@@ -246,86 +246,24 @@ static void esp_xtensa_dbgstubs_addr_check(struct target *target)
 static void esp_xtensa_dbgstubs_info_update(struct target *target)
 {
 	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
-	int table_size, table_start_id, desc_entry_id, gcov_entry_id;
-	uint32_t entries[ESP_DBG_STUB_ENTRY_MAX];
-
-	LOG_DEBUG("%s: Read debug stubs info %d / %d", target_name(target),
-		esp_xtensa->dbg_stubs.base, esp_xtensa->dbg_stubs.entries_count);
 
 	if (esp_xtensa->dbg_stubs.base == 0 || esp_xtensa->dbg_stubs.entries_count != 0)
 		return;
 
-	/* first read 2 entries to get magic num and table size */
-	int res = target_read_memory(target, esp_xtensa->dbg_stubs.base, sizeof(uint32_t),
-		2,
-		(uint8_t *)&entries[0]);
-	if (res != ERROR_OK) {
-		LOG_ERROR("%s: Failed to read first debug stub entry!", target_name(target));
+	int res = esp_dbgstubs_table_read(target, &esp_xtensa->dbg_stubs);
+	if (res != ERROR_OK)
 		return;
-	}
-	if (entries[0] != ESP_DBG_STUB_MAGIC_NUM_VAL) {
-		/* idf with the old table entry structure */
-		table_size = 2;
-		table_start_id = desc_entry_id = 0;
-		gcov_entry_id = 1;
-	} else {
-		table_size = entries[1];
-		table_start_id = desc_entry_id = ESP_DBG_STUB_TABLE_START;
-		gcov_entry_id = ESP_DBG_STUB_ENTRY_FIRST;
-
-		if (table_size < 2) {
-			LOG_ERROR("Invalid stub table entry size (%x)", table_size);
-			return;
-		}
-		/* discard unsupported entries */
-		if (table_size > ESP_DBG_STUB_ENTRY_MAX)
-			table_size = ESP_DBG_STUB_ENTRY_MAX;
-
-		/* now read the remaining entries */
-		res = target_read_memory(target,
-			esp_xtensa->dbg_stubs.base + 2 * sizeof(uint32_t),
-			sizeof(uint32_t),
-			table_size - 2,
-			(uint8_t *)&entries[2]);
-		if (res != ERROR_OK) {
-			LOG_ERROR("%s: Failed to read debug stubs info!", target_name(target));
-			return;
-		}
-		esp_xtensa->dbg_stubs.entries[ESP_DBG_STUB_CAPABILITIES] =
-			entries[ESP_DBG_STUB_CAPABILITIES];
-	}
-
-	esp_xtensa->dbg_stubs.entries[ESP_DBG_STUB_DESC] = entries[desc_entry_id];
-	esp_xtensa->dbg_stubs.entries[ESP_DBG_STUB_ENTRY_GCOV] = entries[gcov_entry_id];
-
-	for (enum esp_dbg_stub_id i = ESP_DBG_STUB_DESC; i < ESP_DBG_STUB_ENTRY_MAX; i++) {
-		LOG_DEBUG("Check dbg stub %d - %x", i, esp_xtensa->dbg_stubs.entries[i]);
-		if (esp_xtensa->dbg_stubs.entries[i]) {
-			esp_xtensa->dbg_stubs.entries[i] = buf_get_u32(
-				(uint8_t *)&esp_xtensa->dbg_stubs.entries[i],
-				0,
-				32);
-			LOG_DEBUG("New dbg stub %d at %x",
-				esp_xtensa->dbg_stubs.entries_count,
-				esp_xtensa->dbg_stubs.entries[i]);
-			esp_xtensa->dbg_stubs.entries_count++;
-		}
-	}
-	if (esp_xtensa->dbg_stubs.entries_count <
-		(uint32_t)(table_size - table_start_id)) {
-		LOG_WARNING("Not full dbg stub table %d of %d", esp_xtensa->dbg_stubs.entries_count,
-			(table_size - table_start_id));
-	}
 	if (esp_xtensa->dbg_stubs.entries_count == 0)
 		return;
+
 	/* read debug stubs descriptor */
 	ESP_XTENSA_DBGSTUBS_UPDATE_DATA_ENTRY(esp_xtensa->dbg_stubs.entries[ESP_DBG_STUB_DESC]);
 	res =
-		target_read_memory(target, esp_xtensa->dbg_stubs.entries[ESP_DBG_STUB_DESC],
-		sizeof(struct esp_dbg_stubs_desc), 1,
+		target_read_buffer(target, esp_xtensa->dbg_stubs.entries[ESP_DBG_STUB_DESC],
+		sizeof(struct esp_dbg_stubs_desc),
 		(uint8_t *)&esp_xtensa->dbg_stubs.desc);
 	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to read target memory (%d)!", res);
+		LOG_ERROR("Failed to read debug stubs descriptor (%d)!", res);
 		return;
 	}
 	ESP_XTENSA_DBGSTUBS_UPDATE_CODE_ENTRY(esp_xtensa->dbg_stubs.desc.tramp_addr);
