@@ -152,6 +152,8 @@ ESP32_SRC= \
 	%D%/esp32s2.c \
 	%D%/esp32s3.c \
 	%D%/esp32c3.c \
+	%D%/esp.c \
+	%D%/esp_riscv.c \
 	%D%/esp_riscv_apptrace.c \
 	%D%/esp32_apptrace.c \
 	%D%/esp32_sysview.c

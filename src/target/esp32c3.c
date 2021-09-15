@@ -26,13 +26,10 @@
 #include "command.h"
 #include "target_type.h"
 #include "register.h"
-#include "semihosting_common.h"
 #include "riscv/debug_defines.h"
 #include "esp32_apptrace.h"
 #include "rtos/rtos.h"
 #include "bits.h"
-
-#define ESP_RISCV_APPTRACE_SYSNR    0x64
 
 /* ESP32-C3 WDT */
 #define ESP32C3_WDT_WKEY_VALUE       0x50d83aa1
@@ -60,25 +57,6 @@ extern const struct command_registration riscv_command_handlers[];
 
 static int esp32c3_on_reset(struct target *target);
 
-
-static int esp_riscv_semihosting_post_result(struct target *target)
-{
-	struct semihosting *semihosting = target->semihosting;
-	if (!semihosting) {
-		/* If not enabled, silently ignored. */
-		return ERROR_OK;
-	}
-
-	LOG_DEBUG("0x%" PRIx64, semihosting->result);
-	riscv_reg_t new_pc;
-	riscv_get_register(target, &new_pc, GDB_REGNO_DPC);
-	new_pc += 4;
-	riscv_set_register(target, GDB_REGNO_DPC, new_pc);
-	riscv_set_register(target, GDB_REGNO_PC, new_pc);
-
-	riscv_set_register(target, GDB_REGNO_A0, semihosting->result);
-	return ERROR_OK;
-}
 
 static int esp32c3_wdt_disable(struct target *target)
 {
@@ -116,33 +94,6 @@ static int esp32c3_wdt_disable(struct target *target)
 		return res;
 	}
 	return ERROR_OK;
-}
-
-int esp_riscv_semihosting(struct target *target)
-{
-	int res = ERROR_OK;
-	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
-	struct semihosting *semihosting = target->semihosting;
-
-	LOG_DEBUG("enter");
-	if (esp_riscv->semi_ops && esp_riscv->semi_ops->prepare)
-		esp_riscv->semi_ops->prepare(target);
-
-	if (semihosting->op == ESP_RISCV_APPTRACE_SYSNR) {
-		res = esp_riscv_apptrace_info_init(target, semihosting->param, NULL);
-		if (res != ERROR_OK)
-			return res;
-	} else
-		return ERROR_FAIL;
-	semihosting->result = res == ERROR_OK ? 0 : -1;
-	semihosting->is_resumable = true;
-	res = esp_riscv_semihosting_post_result(target);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to post semihosting result (%d)!", res);
-		return res;
-	}
-
-	return res;
 }
 
 static const struct esp_semihost_ops esp32c3_semihost_ops = {
