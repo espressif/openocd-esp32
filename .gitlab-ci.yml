@@ -306,7 +306,7 @@ build_linux:
       - ${DIST_ART_DIR}
     expire_in: 2 weeks
   variables:
-    PLATFORM_NAME: "linux64"
+    PLATFORM_NAME: "linux-amd64"
   script:
     - *get_release_name
     - *add_gitlab_key
@@ -321,7 +321,7 @@ build_linux:
     - popd
     - *dist_archive
 
-.build_linux_armel_template: &build_linux_armel_template
+.build_linux_arm_template: &build_linux_arm_template
   stage: build
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross
   tags:
@@ -348,14 +348,14 @@ build_linux:
     - *dist_archive
 
 build_linux_armel:
-  <<: *build_linux_armel_template
+  <<: *build_linux_arm_template
   variables:
     CONF_HOST: "arm-linux-gnueabi"
-    PLATFORM_NAME: "armel"
+    PLATFORM_NAME: "linux-armel"
     TEST_CFLAGS: ""
 
 build_linux_armel_test:
-  <<: *build_linux_armel_template
+  <<: *build_linux_arm_template
   only:
     refs:
       - schedules
@@ -363,8 +363,22 @@ build_linux_armel_test:
       - $SCHEDULE_TYPE == "build_sanitizer_test"
   variables:
     CONF_HOST: "arm-linux-gnueabi"
-    PLATFORM_NAME: "armel-test"
+    PLATFORM_NAME: "linux-armel-test"
     TEST_CFLAGS: "-Wl,--no-as-needed -ldl -fsanitize=address -fsanitize=undefined -fsanitize-recover=address -ggdb3"
+
+build_linux_armhf:
+  <<: *build_linux_arm_template
+  variables:
+    CONF_HOST: "arm-linux-gnueabihf"
+    PLATFORM_NAME: "linux-armhf"
+    TEST_CFLAGS: ""
+
+build_linux_arm64:
+  <<: *build_linux_arm_template
+  variables:
+    CONF_HOST: "aarch64-linux-gnu"
+    PLATFORM_NAME: "linux-arm64"
+    TEST_CFLAGS: ""
 
 build_windows:
   stage: build
@@ -567,7 +581,7 @@ tests_armel_esp32c3:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "armel"
+    PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "build_test_app_esp32c3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single"
 
@@ -580,7 +594,7 @@ tests_armel_esp32_solo:
     - build_test_app_esp32
     - build_linux_armel
   variables:
-    PLATFORM_NAME: "armel"
+    PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
 
@@ -592,7 +606,7 @@ tests_armel_esp32_legacy_idf_rel:
     - build_test_app_esp32_legacy_idf_rel
     - build_linux_armel
   variables:
-    PLATFORM_NAME: "armel"
+    PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
@@ -604,7 +618,7 @@ tests_armel_esp32_custom_idf_rel:
     - build_test_app_esp32_custom_idf_rel
     - build_linux_armel
   variables:
-    PLATFORM_NAME: "armel"
+    PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "build_test_app_esp32_custom_idf_rel"
     # currently we need to run semihost test on IDF with old semihost driver
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_CUSTOM_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_semihost -e *.*Encrypted"
@@ -617,7 +631,7 @@ tests_armel_esp32:
     - build_test_app_esp32
     - build_linux_armel
   variables:
-    PLATFORM_NAME: "armel"
+    PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
@@ -629,7 +643,7 @@ tests_armel_esp32_flash_encrypted:
     - build_test_app_esp32_flash_encrypted
     - build_linux_armel
   variables:
-    PLATFORM_NAME: "armel"
+    PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "build_test_app_esp32_flash_encrypted"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
 
@@ -643,7 +657,7 @@ tests_armel_esp32s2:
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
-    PLATFORM_NAME: "armel"
+    PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "build_test_app_esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
 
@@ -657,7 +671,7 @@ tests_armel_esp32s2_flash_encrypted:
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
-    PLATFORM_NAME: "armel"
+    PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "build_test_app_esp32s2_flash_encrypted"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*SingleEncrypted"
 
@@ -672,7 +686,7 @@ tests_armel_esp32c3_flash_encrypted:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "armel"
+    PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "build_test_app_esp32c3_flash_encrypted"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
@@ -764,9 +778,13 @@ release_tag_draft:
     - ${GH_TOOL} release -s ${GITHUB_TOKEN} --tag ${CI_COMMIT_TAG} --description "${RELEASE_DESC}" --draft
     - GH_REL_TAG=${CI_COMMIT_TAG}
     # Upload archives
-    - PLATFORM_NAME="linux64"
+    - PLATFORM_NAME="linux-amd64"
     - *gh_upload_archive
-    - PLATFORM_NAME="armel"
+    - PLATFORM_NAME="linux-armel"
+    - *gh_upload_archive
+    - PLATFORM_NAME="linux-armhf"
+    - *gh_upload_archive
+    - PLATFORM_NAME="linux-arm64"
     - *gh_upload_archive
     - PLATFORM_NAME="win32"
     - *gh_upload_archive
@@ -841,7 +859,7 @@ test_nuttx_esp32:
     when: always
     expire_in: 1 week
   variables:
-    PLATFORM_NAME: "armel"
+    PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "nuttx_test"
     NUTTX_APP_NAME: "nuttx_openocd"
     OOCD_CMDS: "set ESP_RTOS NuttX,set ESP32_ONLYCPU 1"
@@ -946,7 +964,7 @@ tests_sanitizers_esp32_solo:
     - build_test_app_esp32
     - build_linux_armel_test
   variables:
-    PLATFORM_NAME: "armel-test"
+    PLATFORM_NAME: "linux-armel-test"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
 
@@ -958,7 +976,7 @@ tests_sanitizers_esp32_legacy_idf_rel:
     - build_test_app_esp32_legacy_idf_rel
     - build_linux_armel_test
   variables:
-    PLATFORM_NAME: "armel-test"
+    PLATFORM_NAME: "linux-armel-test"
     TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
@@ -970,7 +988,7 @@ tests_sanitizers_esp32_custom_idf_rel:
     - build_test_app_esp32_custom_idf_rel
     - build_linux_armel_test
   variables:
-    PLATFORM_NAME: "armel-test"
+    PLATFORM_NAME: "linux-armel-test"
     TEST_RUN_DIR: "build_test_app_esp32_custom_idf_rel"
     # currently we need to run semihost test on IDF with old semihost driver
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_CUSTOM_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_semihost -e *.*Encrypted"
@@ -983,7 +1001,7 @@ tests_sanitizers_esp32:
     - build_test_app_esp32
     - build_linux_armel_test
   variables:
-    PLATFORM_NAME: "armel-test"
+    PLATFORM_NAME: "linux-armel-test"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
@@ -997,7 +1015,7 @@ tests_sanitizers_esp32s2:
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
-    PLATFORM_NAME: "armel-test"
+    PLATFORM_NAME: "linux-armel-test"
     TEST_RUN_DIR: "build_test_app_esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
 
@@ -1013,7 +1031,7 @@ tests_sanitizers_esp32c3:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "armel-test"
+    PLATFORM_NAME: "linux-armel-test"
     TEST_RUN_DIR: "build_test_app_esp32c3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single"
 
@@ -1023,7 +1041,7 @@ test_sanitizers_nuttx_esp32:
   tags:
     - test_jtag_arm
   variables:
-    PLATFORM_NAME: "armel-test"
+    PLATFORM_NAME: "linux-armel-test"
     TEST_RUN_DIR: "nuttx_test"
     NUTTX_APP_NAME: "nuttx_openocd"
     OOCD_CMDS: "set ESP_RTOS NuttX,set ESP32_ONLYCPU 1"
