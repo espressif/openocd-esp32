@@ -196,16 +196,21 @@ class BaseTracingTestsImpl:
                 # every alloc has unique size
                 for t in self.tasks_test_data:
                     if len(self.tasks_test_data[t]['leaks']) > 0 and self.tasks_test_data[t]['leaks'][0]['sz'] == alloc.size:
-                        leak = self.tasks_test_data[t]['leaks'][0]
-                        self.assertEqual(len(alloc.callers), len(leak['callers']))
-                        for i in range(len(alloc.callers)):
-                            ln = apptrace.addr2line(self.toolchain, elf_file, alloc.callers[i])
-                            ln = ln.split(':')[-1].split('(')[0].strip()
-                            if int(ln, 0) != int(leak['callers'][i], 0):
-                                break
-                            elif i == len(alloc.callers)-1:
-                                self.tasks_test_data[t]['leaks'].pop(0)
-                                alloc_valid = True
+                        if testee_info.arch == "riscv32":
+                            # skip backtrace check for RISCV
+                            self.tasks_test_data[t]['leaks'].pop(0)
+                            alloc_valid = True
+                        else:
+                            leak = self.tasks_test_data[t]['leaks'][0]
+                            self.assertEqual(len(alloc.callers), len(leak['callers']))
+                            for i in range(len(alloc.callers)):
+                                ln = apptrace.addr2line(self.toolchain, elf_file, alloc.callers[i])
+                                ln = ln.split(':')[-1].split('(')[0].strip()
+                                if int(ln, 0) != int(leak['callers'][i], 0):
+                                    break
+                                elif i == len(alloc.callers)-1:
+                                    self.tasks_test_data[t]['leaks'].pop(0)
+                                    alloc_valid = True
                     if alloc_valid:
                         break
                 self.assertTrue(alloc_valid)
@@ -214,7 +219,6 @@ class BaseTracingTestsImpl:
     def test_log_from_file(self):
         self._test_trace_from_file(self._do_test_log_continuous)
 
-    @skip_for_chip(['esp32c3'])
     @idf_ver_min('latest')
     def test_heap_log_from_file(self):
         self._test_trace_from_file(self._do_test_heap_log)
@@ -315,9 +319,6 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
             trace_src.append(self.trace_ctrl[1]['src'])
         self._do_test_log_continuous(trace_src)
 
-    # this test fails because `__builtin_return_address` returns zeroes for non-zero frames numbers
-    # TODO: remove this
-    @skip_for_chip(['esp32c3'])
     @idf_ver_min('latest')
     def test_heap_log_from_file(self):
         trace_src = [self.trace_ctrl[0]['src']]
@@ -494,9 +495,6 @@ class SysViewMcoreTracingTestsImpl(BaseTracingTestsImpl):
         trace_src = [self.trace_ctrl['src']]
         self._do_test_log_continuous(trace_src)
 
-    # this test fails because `__builtin_return_address` returns zeroes for non-zero frames numbers
-    # TODO: remove this
-    @skip_for_chip(['esp32c3'])
     @idf_ver_min('latest')
     def test_heap_log_from_file(self):
         trace_src = [self.trace_ctrl['src']]
