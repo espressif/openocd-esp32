@@ -1171,7 +1171,16 @@ static int gdb_get_registers_packet(struct connection *connection,
 	if ((target->rtos != NULL) && (ERROR_OK == rtos_get_gdb_reg_list(connection)))
 		return ERROR_OK;
 
-	retval = target_get_gdb_reg_list(target, &reg_list, &reg_list_size,
+	/*  `target_get_gdb_reg_list()` should read registers from target,
+		but it can happen that packet is received when target is running.
+		Register access error reporting is controlled by `gdb_report_register_access_error`,
+		so use `target_get_gdb_reg_list_noread()` here and get cached registers values.
+		If `gdb_report_register_access_error` is enabled we will fail
+		below when trying to updated non-valid registers.
+		For targets that do not support `target_get_gdb_reg_list_noread` (currently only RISCV support xxx_noread)
+		`target_get_gdb_reg_list` will be effectively called.
+		*/
+	retval = target_get_gdb_reg_list_noread(target, &reg_list, &reg_list_size,
 			REG_CLASS_GENERAL);
 	if (retval != ERROR_OK)
 		return gdb_error(connection, retval);
