@@ -25,7 +25,6 @@ def get_logger():
 ########################################################################
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
-@skip_for_chip(['esp32c3'])
 class ApptraceTestsImpl:
     """
     Tests for "raw" apptrace.
@@ -83,7 +82,7 @@ class ApptraceTestsImpl:
 
     def test_apptrace_reset(self):
         """
-            This test checks that apptracing continue to work if target resets between start and stop 
+            This test checks that apptracing continue to work if target resets between start and stop
         """
         self.select_sub_test(505)
         trace_file = tempfile.NamedTemporaryFile(delete=False)

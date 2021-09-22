@@ -124,7 +124,7 @@ build_test_app_esp32c3:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     BUILD_TEST_APP_DIR: "build_test_app_esp32c3"
-    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single"
+    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single"
     UT_GET_IDF_VER: "0"
 
 build_test_app_esp32_premajor_idf_rel:
@@ -153,7 +153,7 @@ build_test_app_esp32c3_premajor_idf_rel:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     BUILD_TEST_APP_DIR: "build_test_app_esp32c3_premajor_idf_rel"
-    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single"
+    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single"
     TEST_APP_IDF_TAG: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
     UT_GET_IDF_VER: "1"
 
