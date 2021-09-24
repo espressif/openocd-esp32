@@ -29,7 +29,7 @@
 #include <target/esp_xtensa.h>
 #include <target/esp32s2.h>
 #include "esp_xtensa.h"
-#include "contrib/loaders/flash/esp/esp32_s2/stub_flasher_image.h"
+#include "contrib/loaders/flash/esp/esp32s2/stub_flasher_image.h"
 
 #define ESP32_S2_FLASH_SECTOR_SIZE 4096
 
@@ -38,10 +38,10 @@ struct esp32s2_flash_bank {
 };
 
 static const uint8_t esp32s2_flasher_stub_code[] = {
-#include "contrib/loaders/flash/esp/esp32_s2/stub_flasher_code.inc"
+#include "contrib/loaders/flash/esp/esp32s2/stub_flasher_code.inc"
 };
 static const uint8_t esp32s2_flasher_stub_data[] = {
-#include "contrib/loaders/flash/esp/esp32_s2/stub_flasher_data.inc"
+#include "contrib/loaders/flash/esp/esp32s2/stub_flasher_data.inc"
 };
 
 static struct esp_flasher_stub_config s_esp32s2_stub_cfg = {
@@ -49,8 +49,8 @@ static struct esp_flasher_stub_config s_esp32s2_stub_cfg = {
 	.code_sz = sizeof(esp32s2_flasher_stub_code),
 	.data = esp32s2_flasher_stub_data,
 	.data_sz = sizeof(esp32s2_flasher_stub_data),
-	.entry_addr = ESP32_S2_STUB_ENTRY_ADDR,
-	.bss_sz = ESP32_S2_STUB_BSS_SIZE,
+	.entry_addr = ESP32S2_STUB_ENTRY_ADDR,
+	.bss_sz = ESP32S2_STUB_BSS_SIZE,
 	.first_user_reg_param = XTENSA_STUB_ARGS_FUNC_START
 };
 
