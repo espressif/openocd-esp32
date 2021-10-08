@@ -175,9 +175,6 @@ struct jtag_interface *jtag_interfaces[] = {
 #if BUILD_JTAG_VPI == 1
 		&jtag_vpi_interface,
 #endif
-#if BUILD_ESP_USB_JTAG == 1
-		&esp_usb_jtag_interface,
-#endif
 #if BUILD_FT232R == 1
 		&ft232r_interface,
 #endif
