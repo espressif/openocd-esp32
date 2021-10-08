@@ -98,6 +98,33 @@ static bool string_descriptor_equal(libusb_device_handle *device, uint8_t str_in
 	return matched;
 }
 
+libusb_device *jtag_libusb_find_device(const uint16_t vids[], const uint16_t pids[])
+{
+	libusb_device **devices, *found_dev = NULL;
+
+	int cnt = libusb_get_device_list(jtag_libusb_context, &devices);
+
+	for (int idx = 0; idx < cnt; idx++) {
+		struct libusb_device_descriptor dev_desc;
+
+		if (libusb_get_device_descriptor(devices[idx], &dev_desc) != 0)
+			continue;
+
+		if (jtag_libusb_match(&dev_desc, vids, pids)) {
+			LOG_DEBUG("USB dev found %x:%x @ %d:%d-%d", dev_desc.idVendor, dev_desc.idProduct,
+				libusb_get_bus_number(devices[idx]),
+				libusb_get_port_number(devices[idx]),
+				libusb_get_device_address(devices[idx]));
+			found_dev = devices[idx];
+			libusb_ref_device(found_dev);
+			break;
+		}
+	}
+	if (cnt >= 0)
+		libusb_free_device_list(devices, 1);
+	return found_dev;
+}
+
 int jtag_libusb_open(const uint16_t vids[], const uint16_t pids[],
 		const char *serial,
 		struct jtag_libusb_device_handle **out)
