@@ -30,6 +30,7 @@
 #include "riscv/debug_defines.h"
 #include "esp32_apptrace.h"
 #include "rtos/rtos.h"
+#include "bits.h"
 
 #define ESP_RISCV_APPTRACE_SYSNR    0x64
 
@@ -48,6 +49,11 @@
 #define ESP32C3_RTCWDT_PROTECT_OFF   0xa8
 #define ESP32C3_RTCWDT_CFG           (ESP32C3_RTCCNTL_BASE + ESP32C3_RTCWDT_CFG_OFF)
 #define ESP32C3_RTCWDT_PROTECT       (ESP32C3_RTCCNTL_BASE + ESP32C3_RTCWDT_PROTECT_OFF)
+
+#define ESP32C3_GPIO_STRAP_REG      0x60004038UL
+#define IS_1XXX(v)                  (((v)&0x08) == 0x08)
+#define ESP32C3_IS_FLASH_BOOT(_r_)  IS_1XXX(_r_)
+#define ESP32C3_FLASH_BOOT_MODE     0x08
 
 extern struct target_type riscv_target;
 extern const struct command_registration riscv_command_handlers[];
@@ -289,8 +295,15 @@ static int esp32c3_poll(struct target *target)
 			esp32c3->was_reset = true;
 		} else if (esp32c3->was_reset) {
 			LOG_DEBUG("Core is out of reset: dmstatus 0x%x", dmstatus);
+			uint32_t strap_reg;
+			res = target_read_u32(target, ESP32C3_GPIO_STRAP_REG, &strap_reg);
+			if (res != ERROR_OK) {
+				LOG_WARNING("Failed to read ESP32C3_GPIO_STRAP_REG (%d)!", res);
+				strap_reg = ESP32C3_FLASH_BOOT_MODE;
+			}
 			esp32c3->was_reset = false;
-			if (get_field(dmstatus, DMI_DMSTATUS_ALLHALTED) == 0) {
+			if (ESP32C3_IS_FLASH_BOOT(strap_reg) &&
+				get_field(dmstatus, DMI_DMSTATUS_ALLHALTED) == 0) {
 				LOG_DEBUG("Halt core");
 				res = esp32c3_core_halt(target);
 				if (res == ERROR_OK) {
@@ -306,16 +319,18 @@ static int esp32c3_poll(struct target *target)
 				if (res != ERROR_OK)
 					LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
 			}
-			/* enable ebreaks */
-			res = esp32c3_core_ebreaks_enable(target);
-			if (res != ERROR_OK)
-				LOG_ERROR("Failed to enable EBREAKS handling (%d)!", res);
-			if (get_field(dmstatus, DMI_DMSTATUS_ALLHALTED) == 0) {
-				LOG_DEBUG("Resume core");
-				res = esp32c3_core_resume(target);
+			if (ESP32C3_IS_FLASH_BOOT(strap_reg)) {
+				/* enable ebreaks */
+				res = esp32c3_core_ebreaks_enable(target);
 				if (res != ERROR_OK)
-					LOG_ERROR("Failed to resume core (%d)!", res);
-				LOG_DEBUG("resumed core");
+					LOG_ERROR("Failed to enable EBREAKS handling (%d)!", res);
+				if (get_field(dmstatus, DMI_DMSTATUS_ALLHALTED) == 0) {
+					LOG_DEBUG("Resume core");
+					res = esp32c3_core_resume(target);
+					if (res != ERROR_OK)
+						LOG_ERROR("Failed to resume core (%d)!", res);
+					LOG_DEBUG("resumed core");
+				}
 			}
 		}
 	}
