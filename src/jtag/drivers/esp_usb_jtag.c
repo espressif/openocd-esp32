@@ -225,6 +225,7 @@ struct esp_usb_jtag {
 								 * traces here. */
 
 	int hw_in_fifo_len;
+	char *serial[256+1];	/* device serial */
 };
 
 /*For now, we only use one static private struct. Technically, we can re-work this, but I don't
@@ -232,6 +233,7 @@ struct esp_usb_jtag {
 /*OpenOCD supports multiple JTAG adapters anyway. */
 static struct esp_usb_jtag esp_usb_jtag_priv;
 static struct esp_usb_jtag *priv= &esp_usb_jtag_priv;
+static const char *esp_usb_jtag_serial;
 
 /*The JTAG adapter can drop a logfile detailing all low-level USB transactions that are done.
  *If this is defined, the log will have entries that allow replay on a testbed. */
@@ -638,10 +640,16 @@ static int esp_usb_jtag_init(void)
 	bitq_interface->in_rdy= esp_usb_jtag_in_rdy;
 	bitq_interface->in= esp_usb_jtag_in;
 
-	int r= jtag_libusb_open(vids, pids, NULL, &priv->usb_device);
+	int r= jtag_libusb_open(vids, pids, esp_usb_jtag_serial, &priv->usb_device);
 	if (r != ERROR_OK) {
 		LOG_ERROR("esp_usb_jtag: could not find or open device!");
 		goto out;
+	}
+
+	if (!esp_usb_jtag_serial) {
+		r = jtag_libusb_get_serial(priv->usb_device, &esp_usb_jtag_serial);
+		if (r != ERROR_OK)
+			goto out;
 	}
 
 	jtag_libusb_set_configuration(priv->usb_device, USB_CONFIGURATION);
@@ -703,6 +711,8 @@ static int esp_usb_jtag_init(void)
 
 	return ERROR_OK;
 out:
+	free((void *)esp_usb_jtag_serial);
+	esp_usb_jtag_serial = NULL;
 	jtag_libusb_close(priv->usb_device);
 	free(bitq_interface);
 	bitq_interface= NULL;
@@ -829,6 +839,18 @@ COMMAND_HANDLER(esp_usb_jtag_log_cmd)
 	return ERROR_OK;
 }
 
+COMMAND_HANDLER(esp_usb_jtag_serial_cmd)
+{
+	if (CMD_ARGC != 1)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	esp_usb_jtag_serial = strdup(CMD_ARGV[0]);
+	if (!esp_usb_jtag_serial)
+		command_print(CMD, "Could not set ESP USB JTAG serial number: %s.", strerror(errno));
+
+	return ERROR_OK;
+}
+
 
 static const struct command_registration esp_usb_jtag_subcommands[] = {
 	{
@@ -851,6 +873,13 @@ static const struct command_registration esp_usb_jtag_subcommands[] = {
 		.mode = COMMAND_EXEC,
 		.help = "Log USB comms to file",
 		.usage = "logfile.txt"
+	},
+	{
+		.name = "serial",
+		.handler = &esp_usb_jtag_serial_cmd,
+		.mode = COMMAND_CONFIG,
+		.help = "Sets serial number of USB device to connect to",
+		.usage = "serial_number"
 	},
 	COMMAND_REGISTRATION_DONE
 };
