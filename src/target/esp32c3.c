@@ -58,6 +58,9 @@
 extern struct target_type riscv_target;
 extern const struct command_registration riscv_command_handlers[];
 
+static int esp32c3_on_reset(struct target *target);
+
+
 static int esp_riscv_semihosting_post_result(struct target *target)
 {
 	struct semihosting *semihosting = target->semihosting;
@@ -157,6 +160,7 @@ static int esp32c3_init_target(struct command_context *cmd_ctx,
 	return esp_riscv_init_target_info(cmd_ctx,
 		target,
 		&esp32c3->esp_riscv,
+		esp32c3_on_reset,
 		&esp32c3_semihost_ops);
 }
 
@@ -279,29 +283,33 @@ static int esp32c3_core_ebreaks_enable(struct target *target)
 	return r->set_register(target, 0, GDB_REGNO_DCSR, dcsr);
 }
 
+static int esp32c3_on_reset(struct target *target)
+{
+	struct esp32c3_common *esp32c3 = esp32c3_common(target);
+	esp32c3->was_reset = true;
+	return ERROR_OK;
+}
+
 static int esp32c3_poll(struct target *target)
 {
 	struct esp32c3_common *esp32c3 = esp32c3_common(target);
 	int res = ERROR_OK;
 
 	RISCV_INFO(r);
-	if (r->dmi_read && r->dmi_write) {
+	if (esp32c3->was_reset && r->dmi_read && r->dmi_write) {
 		uint32_t dmstatus;
 		res = r->dmi_read(target, &dmstatus, DMI_DMSTATUS);
 		if (res != ERROR_OK)
 			LOG_ERROR("Failed to read DMSTATUS (%d)!", res);
-		else if (get_field(dmstatus, DMI_DMSTATUS_ANYHAVERESET)) {
-			LOG_DEBUG("Core is reset");
-			esp32c3->was_reset = true;
-		} else if (esp32c3->was_reset) {
-			LOG_DEBUG("Core is out of reset: dmstatus 0x%x", dmstatus);
+		else {
 			uint32_t strap_reg;
+			LOG_DEBUG("Core is out of reset: dmstatus 0x%x", dmstatus);
+			esp32c3->was_reset = false;
 			res = target_read_u32(target, ESP32C3_GPIO_STRAP_REG, &strap_reg);
 			if (res != ERROR_OK) {
 				LOG_WARNING("Failed to read ESP32C3_GPIO_STRAP_REG (%d)!", res);
 				strap_reg = ESP32C3_FLASH_BOOT_MODE;
 			}
-			esp32c3->was_reset = false;
 			if (ESP32C3_IS_FLASH_BOOT(strap_reg) &&
 				get_field(dmstatus, DMI_DMSTATUS_ALLHALTED) == 0) {
 				LOG_DEBUG("Halt core");

@@ -42,12 +42,15 @@ static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *
 }
 
 static inline int esp_riscv_init_target_info(struct command_context *cmd_ctx, struct target *target,
-	struct esp_riscv_common *esp_riscv, const struct esp_semihost_ops *semi_ops)
+	struct esp_riscv_common *esp_riscv, int (*on_reset)(struct target *),
+	const struct esp_semihost_ops *semi_ops)
 {
 	esp_riscv->apptrace.hw = &esp_riscv_apptrace_hw;
 	esp_riscv->algo_hw = &riscv_algo_hw;
 	esp_riscv->semi_ops = (struct esp_semihost_ops *)semi_ops;
-	return riscv_init_target_info(cmd_ctx, target, &esp_riscv->riscv);
+	int ret = riscv_init_target_info(cmd_ctx, target, &esp_riscv->riscv);
+	esp_riscv->riscv.on_reset = on_reset;
+	return ret;
 }
 
 #endif	/* _ESP_RISCV_H */
