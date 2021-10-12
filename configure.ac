@@ -116,7 +116,6 @@ m4_define([ADAPTER_OPT], [m4_translit(ADAPTER_ARG($1), [_], [-])])
 
 m4_define([USB1_ADAPTERS],
 	[[[ftdi], [MPSSE mode of FTDI based devices], [FTDI]],
-	[[ftdi_oscan1], [cJTAG OSCAN1 tunneled thru MPSSE], [FTDI_OSCAN1]],
 	[[stlink], [ST-Link Programmer], [HLADAPTER_STLINK]],
 	[[ti_icdi], [TI ICDI JTAG Programmer], [HLADAPTER_ICDI]],
 	[[ulink], [Keil ULINK JTAG Programmer], [ULINK]],
@@ -391,7 +390,7 @@ AC_ARG_ENABLE([esp-remote],
   AS_HELP_STRING([--disable-esp-remote],
   [Disable building support for the ESP remote protocol over TCP or USB]),
   [build_esp_remote=$enableval], [build_esp_remote=yes])
-
+  
 build_minidriver=no
 AC_MSG_CHECKING([whether to enable ZY1000 minidriver])
 AS_IF([test "x$build_zy1000" = "xyes"], [

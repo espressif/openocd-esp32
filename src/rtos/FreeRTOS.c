@@ -782,6 +782,15 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 		return retval;
 	}
 
+	LOG_DEBUG("Read uxTaskNumber at 0x%" PRIx64 ", value %" PRIu64,
+		rtos->symbols[FreeRTOS_VAL_uxTaskNumber].address,
+		uxTaskNumber);
+
+	if (uxTaskNumber < rtos_data->thread_counter) {
+		LOG_ERROR("FreeRTOS uxTaskNumber seems to be corrupted!");
+		return ERROR_FAIL;
+	}
+
 	/* read the current threads */
 	retval = target_read_buffer(target,
 		rtos->symbols[FreeRTOS_VAL_pxCurrentTCB].address,
@@ -845,25 +854,27 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 	}
 
 	if (rtos->symbols[FreeRTOS_VAL_uxTopUsedPriority].address == 0) {
-		LOG_ERROR("FreeRTOS: uxTopUsedPriority is not defined, consult the OpenOCD manual for a work-around");
+		LOG_ERROR(
+			"FreeRTOS: uxTopUsedPriority is not defined, consult the OpenOCD manual for a work-around");
 		return ERROR_FAIL;
 	}
 
 	/* Find out how many lists are needed to be read from pxReadyTasksLists, */
 	uint32_t top_used_priority = 0;
 	retval = target_read_u32(rtos->target,
-			rtos->symbols[FreeRTOS_VAL_uxTopUsedPriority].address,
-			&top_used_priority);
-
+		rtos->symbols[FreeRTOS_VAL_uxTopUsedPriority].address,
+		&top_used_priority);
 	if (retval != ERROR_OK)
 		return retval;
-		
-	LOG_DEBUG("FreeRTOS: Read uxTopUsedPriority at 0x%" PRIx64 ", value %" PRIu32,
-										rtos->symbols[FreeRTOS_VAL_uxTopUsedPriority].address,
-										top_used_priority);
+
+	LOG_DEBUG("Read uxTopUsedPriority at 0x%" PRIx64 ", value %" PRId32,
+		rtos->symbols[FreeRTOS_VAL_uxTopUsedPriority].address,
+		top_used_priority);
 
 	if (top_used_priority > FREERTOS_MAX_PRIORITIES) {
-		LOG_ERROR("FreeRTOS top used priority is unreasonably big, not proceeding: %" PRIu32,
+		LOG_ERROR(
+			"FreeRTOS maximum used priority is unreasonably big, not proceeding: %"
+			PRId32 "",
 			top_used_priority);
 		return ERROR_FAIL;
 	}
@@ -876,12 +887,13 @@ static int FreeRTOS_update_threads(struct rtos *rtos)
 	unsigned int config_max_priorities = top_used_priority + 1;
 
 	symbol_address_t *list_of_lists =
-		malloc(sizeof(symbol_address_t) * (max_used_priority + 5));
+		malloc(sizeof(symbol_address_t) * (config_max_priorities + 5));
 	if (!list_of_lists) {
 		LOG_ERROR("Error allocating memory for %u priorities", config_max_priorities);
 		return ERROR_FAIL;
 	}
 
+	/* TODO: check!!! num_lists < top_used_priority or num_lists < config_max_priorities */
 	unsigned int num_lists;
 	for (num_lists = 0; num_lists < config_max_priorities; num_lists++)
 		list_of_lists[num_lists] = rtos->symbols[FreeRTOS_VAL_pxReadyTasksLists].address +

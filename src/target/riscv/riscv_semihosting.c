@@ -147,9 +147,12 @@ semihosting_result_t riscv_semihosting(struct target *target, int *retval)
 				return SEMI_ERROR;
 			}
 		} else {
-			/* Unknown operation number, not a semihosting call. */
-			LOG_DEBUG("   -> NONE (unknown operation number)");
-			return SEMI_NONE;
+			// Temporary hack
+			*retval = esp_riscv_semihosting(target);
+			if (*retval != ERROR_OK) {
+				/* Unknown operation number, not a semihosting call. */
+				return SEMI_NONE;
+			}
 		}
 	}
 
@@ -158,10 +161,12 @@ semihosting_result_t riscv_semihosting(struct target *target, int *retval)
 	 * operation to complete.
 	 */
 	if (semihosting->is_resumable && !semihosting->hit_fileio) {
-		/* Resume right after the EBREAK 4 bytes instruction. */
-		*retval = riscv_set_register(target, GDB_REGNO_PC, pc + 4);
-		if (*retval != ERROR_OK)
+		/* PC has already been corrected in post_result */
+		*retval = target_resume(target, 1, 0, 0, 0);
+		if (*retval != ERROR_OK) {
+			LOG_ERROR("Failed to resume target");
 			return SEMI_ERROR;
+		}
 
 		LOG_DEBUG("   -> HANDLED");
 		return SEMI_HANDLED;

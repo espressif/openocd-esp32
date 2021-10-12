@@ -92,9 +92,12 @@ static int hwthread_update_threads(struct rtos *rtos)
 	enum target_debug_reason current_reason = DBG_REASON_UNDEFINED;
 
 	if (rtos == NULL)
-		return ERROR_FAIL;
+		return -1;
 
 	target = rtos->target;
+
+	/* wipe out previous thread details if any */
+	rtos_free_threadlist(rtos);
 
 	/* determine the number of "threads" */
 	if (target->smp) {
@@ -108,11 +111,6 @@ static int hwthread_update_threads(struct rtos *rtos)
 		}
 	} else
 		thread_list_size = 1;
-
-	/* Wipe out previous thread details if any, but preserve threadid. */
-	int64_t current_threadid = rtos->current_threadid;
-	rtos_free_threadlist(rtos);
-	rtos->current_threadid = current_threadid;
 
 	/* create space for new thread details */
 	rtos->thread_details = malloc(sizeof(struct thread_detail) * thread_list_size);
@@ -397,9 +395,4 @@ static int hwthread_create(struct target *target)
 	target->rtos->gdb_target_for_threadid = hwthread_target_for_threadid;
 	target->rtos->gdb_thread_packet = hwthread_thread_packet;
 	return 0;
-}
-
-bool hwthread_needs_fake_step(struct target *target, int64_t thread_id)
-{
-	return false;
 }

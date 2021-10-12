@@ -152,8 +152,6 @@ static const struct stack_register_offset rtos_standard_NDS32_N1068_stack_offset
 	{ 35, 0x10, 32 },		/* IFC_LP */
 };
 
-
-
 static int64_t rtos_generic_stack_align(struct target *target,
 	const uint8_t *stack_data, const struct rtos_register_stacking *stacking,
 	int64_t stack_ptr, int align)

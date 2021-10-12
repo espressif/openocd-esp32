@@ -60,7 +60,7 @@ extern struct adapter_driver ftdi_adapter_driver;
 extern struct adapter_driver usb_blaster_adapter_driver;
 #endif
 #if BUILD_ESP_USB_JTAG == 1
-extern struct jtag_interface esp_usb_jtag_interface;
+extern struct adapter_driver esp_usb_adapter_driver;
 #endif
 #if BUILD_JTAG_VPI == 1
 extern struct adapter_driver jtag_vpi_adapter_driver;
@@ -158,7 +158,7 @@ extern struct adapter_driver rshim_dap_adapter_driver;
 #endif /* standard drivers */
 
 #if BUILD_ESP_REMOTE
-extern struct jtag_interface jtag_esp_remote_interface;
+extern struct adapter_driver esp_remote_adapter_driver;
 #endif //BUILD_ESP_REMOTE
 
 /**
@@ -187,7 +187,7 @@ struct adapter_driver *adapter_drivers[] = {
 		&usb_blaster_adapter_driver,
 #endif
 #if BUILD_ESP_USB_JTAG == 1
-		&esp_usb_jtag_interface,
+		&esp_usb_adapter_driver,
 #endif
 #if BUILD_JTAG_VPI == 1
 		&jtag_vpi_adapter_driver,
@@ -284,7 +284,7 @@ struct adapter_driver *adapter_drivers[] = {
 #endif
 #endif /* standard drivers */
 #if BUILD_ESP_REMOTE
-		&jtag_esp_remote_interface,
+		&esp_remote_adapter_driver,
 #endif //BUILD_ESP_REMOTE
 		NULL,
 	};

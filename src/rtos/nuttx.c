@@ -95,11 +95,6 @@ struct tcb {
 	uint8_t dat[512];
 };
 
-static struct {
-	uint32_t addr;
-	uint32_t prio;
-} g_tasklist[TASK_QUEUE_NUM];
-
 static char *task_state_str[] = {
 	"INVALID",
 	"PENDING",

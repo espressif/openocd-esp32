@@ -98,9 +98,7 @@ fail:
 			return retval;
 	}
 
-	LOG_DEBUG("[%d] added %s breakpoint at " TARGET_ADDR_FMT
-			" of length 0x%8.8x, (BPID: %" PRIu32 ")",
-		target->coreid,
+	LOG_DEBUG("added %s breakpoint at " TARGET_ADDR_FMT " of length 0x%8.8x, (BPID: %" PRIu32 ")",
 		breakpoint_type_strings[(*breakpoint_p)->type],
 		(*breakpoint_p)->address, (*breakpoint_p)->length,
 		(*breakpoint_p)->unique_id);

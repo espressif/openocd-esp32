@@ -116,10 +116,10 @@ int esp_flash_init(struct esp_flash_bank *esp_info, uint32_t sec_sz,
 	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank),
 	const struct esp_flash_apptrace_hw *apptrace_hw,
 	const struct algorithm_hw *stub_hw);
-int esp_flash_protect(struct flash_bank *bank, int set, int first, int last);
+int esp_flash_protect(struct flash_bank *bank, int set, unsigned first, unsigned last);
 int esp_flash_protect_check(struct flash_bank *bank);
 int esp_flash_blank_check(struct flash_bank *bank);
-int esp_flash_erase(struct flash_bank *bank, int first, int last);
+int esp_flash_erase(struct flash_bank *bank, unsigned first, unsigned last);
 int esp_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	uint32_t offset, uint32_t count);
 int esp_flash_read(struct flash_bank *bank, uint8_t *buffer,

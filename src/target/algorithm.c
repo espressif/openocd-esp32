@@ -338,7 +338,7 @@ int algorithm_load_func_image(struct target *target,
 		run->image.image.start_address,
 		run->image.image.num_sections);
 	run->stub.entry = run->image.image.start_address;
-	for (int i = 0; i < run->image.image.num_sections; i++) {
+	for (unsigned i = 0; i < run->image.image.num_sections; i++) {
 		struct imagesection *section = &run->image.image.sections[i];
 		LOG_DEBUG("addr " TARGET_ADDR_FMT ", sz %d, flags %x",
 			section->base_address,
