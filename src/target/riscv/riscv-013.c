@@ -3703,6 +3703,9 @@ static int riscv013_on_halt(struct target *target)
 static bool riscv013_is_halted(struct target *target)
 {
 	uint32_t dmstatus;
+
+	RISCV_INFO(r);
+
 	if (dmstatus_read(target, &dmstatus, true) != ERROR_OK)
 		return false;
 	if (get_field(dmstatus, DMI_DMSTATUS_ANYUNAVAIL))
@@ -3726,6 +3729,8 @@ static bool riscv013_is_halted(struct target *target)
 		if (target->state == TARGET_HALTED)
 			dmcontrol |= DMI_DMCONTROL_HALTREQ;
 		dmi_write(target, DMI_DMCONTROL, dmcontrol);
+		if (r->on_reset)
+			r->on_reset(target);
 	}
 	return get_field(dmstatus, DMI_DMSTATUS_ALLHALTED);
 }

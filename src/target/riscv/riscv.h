@@ -115,6 +115,9 @@ typedef struct {
 	/* This target was selected using hasel. */
 	bool selected;
 
+	/* Indicates that target was reset. Currently used by ESP32-C3 to enable ebreaks upon target reset */
+	int (*on_reset)(struct target *target);
+
 	enum riscv_isrmasking_mode isrmask_mode;
 
 	/* Helper functions that target the various RISC-V debug spec
