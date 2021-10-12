@@ -77,13 +77,10 @@ typedef struct {
 	/* FIXME: This should probably be a bunch of register caches. */
 	uint64_t saved_registers[RISCV_MAX_HARTS][RISCV_MAX_REGISTERS];
 	bool valid_saved_registers[RISCV_MAX_HARTS][RISCV_MAX_REGISTERS];
-	
+
 	/* hart which algo is running on */
 	int algo_hartid;
 
-	/* OpenOCD's register cache points into here. This is not per-hart because
-	 * we just invalidate the entire cache when we change which hart is
-	 * selected. Use an array of 8 uint8_t per register. */
 	uint8_t reg_cache_values[RISCV_MAX_REGISTERS][8];
 
 	/* Single buffer that contains all register names, instead of calling
@@ -377,9 +374,6 @@ typedef enum {
 	SEMI_ERROR		/* Something went wrong. */
 } semihosting_result_t;
 semihosting_result_t riscv_semihosting(struct target *target, int *retval);
-
-void riscv_add_bscan_tunneled_scan(struct target *target, struct scan_field *field,
-		riscv_bscan_tunneled_scan_context_t *ctxt);
 
 void riscv_add_bscan_tunneled_scan(struct target *target, struct scan_field *field,
 		riscv_bscan_tunneled_scan_context_t *ctxt);

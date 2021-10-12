@@ -487,8 +487,21 @@ static int slow_fespi_write_buffer(struct flash_bank *bank,
 	return ERROR_OK;
 }
 
-static const uint8_t riscv32_bin[] = {
-#include "../../../contrib/loaders/flash/fespi/riscv32_fespi.inc"
+static const uint8_t algorithm_bin[] = {
+#include "../../../contrib/loaders/flash/fespi/fespi.inc"
+};
+#define STEP_EXIT			4
+#define STEP_TX				8
+#define STEP_TXWM_WAIT		12
+#define STEP_WRITE_REG		16
+#define STEP_WIP_WAIT		20
+#define STEP_SET_DIR		24
+#define STEP_NOP			0xff
+
+struct algorithm_steps {
+	unsigned size;
+	unsigned used;
+	uint8_t **steps;
 };
 
 static struct algorithm_steps *as_new(void)
@@ -739,8 +752,8 @@ static int fespi_write(struct flash_bank *bank, const uint8_t *buffer,
 	uint32_t cur_count, page_size, page_offset;
 	int retval = ERROR_OK;
 
-	LOG_DEBUG("bank->size=0x%x offset=0x%08" PRIx32 " count=0x%08" PRIx32,
-			bank->size, offset, count);
+	LOG_DEBUG("%s: offset=0x%08" PRIx32 " count=0x%08" PRIx32,
+			__func__, offset, count);
 
 	if (target->state != TARGET_HALTED) {
 		LOG_ERROR("Target not halted");
@@ -765,147 +778,80 @@ static int fespi_write(struct flash_bank *bank, const uint8_t *buffer,
 		}
 	}
 
-	int xlen = riscv_xlen(target);
-	struct working_area *algorithm_wa = NULL;
-	struct working_area *data_wa = NULL;
-	const uint8_t *bin;
-	size_t bin_size;
-	if (xlen == 32) {
-		bin = riscv32_bin;
-		bin_size = sizeof(riscv32_bin);
+	struct working_area *algorithm_wa;
+	if (target_alloc_working_area(target, sizeof(algorithm_bin),
+				&algorithm_wa) != ERROR_OK) {
+		LOG_WARNING("Couldn't allocate %zd-byte working area.",
+				sizeof(algorithm_bin));
+		algorithm_wa = NULL;
 	} else {
-		bin = riscv64_bin;
-		bin_size = sizeof(riscv64_bin);
-	}
-
-	unsigned data_wa_size = 0;
-	if (target_alloc_working_area(target, bin_size, &algorithm_wa) == ERROR_OK) {
 		retval = target_write_buffer(target, algorithm_wa->address,
-				bin_size, bin);
+				sizeof(algorithm_bin), algorithm_bin);
 		if (retval != ERROR_OK) {
 			LOG_ERROR("Failed to write code to " TARGET_ADDR_FMT ": %d",
 					algorithm_wa->address, retval);
 			target_free_working_area(target, algorithm_wa);
 			algorithm_wa = NULL;
 		}
+	}
 
-		data_wa_size = MIN(target->working_area_cfg.size - algorithm_wa->size, count);
-		while (1) {
-			if (data_wa_size < 128) {
-				LOG_WARNING("Couldn't allocate data working area.");
-				target_free_working_area(target, algorithm_wa);
-				algorithm_wa = NULL;
-			}
-			if (target_alloc_working_area_try(target, data_wa_size, &data_wa) ==
-					ERROR_OK) {
-				break;
-			}
-
-			data_wa_size = data_wa_size * 3 / 4;
+	struct working_area *data_wa = NULL;
+	unsigned data_wa_size = 2 * count;
+	while (1) {
+		if (data_wa_size < 128) {
+			LOG_WARNING("Couldn't allocate data working area.");
+			target_free_working_area(target, algorithm_wa);
+			algorithm_wa = NULL;
 		}
-	} else {
-		LOG_WARNING("Couldn't allocate %zd-byte working area.", bin_size);
-		algorithm_wa = NULL;
+		if (target_alloc_working_area_try(target, data_wa_size, &data_wa) ==
+				ERROR_OK) {
+			break;
+		}
+
+		data_wa_size /= 2;
 	}
 
 	/* If no valid page_size, use reasonable default. */
 	page_size = fespi_info->dev->pagesize ?
 		fespi_info->dev->pagesize : SPIFLASH_DEF_PAGESIZE;
 
-	if (algorithm_wa) {
-		struct reg_param reg_params[6];
-		init_reg_param(&reg_params[0], "a0", xlen, PARAM_IN_OUT);
-		init_reg_param(&reg_params[1], "a1", xlen, PARAM_OUT);
-		init_reg_param(&reg_params[2], "a2", xlen, PARAM_OUT);
-		init_reg_param(&reg_params[3], "a3", xlen, PARAM_OUT);
-		init_reg_param(&reg_params[4], "a4", xlen, PARAM_OUT);
-		init_reg_param(&reg_params[5], "a5", xlen, PARAM_OUT);
+	fespi_txwm_wait(bank);
 
-		while (count > 0) {
-			cur_count = MIN(count, data_wa_size);
-			buf_set_u64(reg_params[0].value, 0, xlen, fespi_info->ctrl_base);
-			buf_set_u64(reg_params[1].value, 0, xlen, page_size);
-			buf_set_u64(reg_params[2].value, 0, xlen, data_wa->address);
-			buf_set_u64(reg_params[3].value, 0, xlen, offset);
-			buf_set_u64(reg_params[4].value, 0, xlen, cur_count);
-			buf_set_u64(reg_params[5].value, 0, xlen,
-					fespi_info->dev->pprog_cmd | (bank->size > 0x1000000 ? 0x100 : 0));
+	/* Disable Hardware accesses*/
+	if (fespi_disable_hw_mode(bank) != ERROR_OK)
+		return ERROR_FAIL;
 
-			retval = target_write_buffer(target, data_wa->address, cur_count,
-					buffer);
-			if (retval != ERROR_OK) {
-				LOG_DEBUG("Failed to write %d bytes to " TARGET_ADDR_FMT ": %d",
-						cur_count, data_wa->address, retval);
-				goto err;
-			}
+	struct algorithm_steps *as = as_new();
 
-			LOG_DEBUG("write(ctrl_base=0x%" TARGET_PRIxADDR ", page_size=0x%x, "
-					"address=0x%" TARGET_PRIxADDR ", offset=0x%" PRIx32
-					", count=0x%" PRIx32 "), buffer=%02x %02x %02x %02x %02x %02x ..." PRIx32,
-					fespi_info->ctrl_base, page_size, data_wa->address, offset, cur_count,
-					buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
-			retval = target_run_algorithm(target, 0, NULL,
-					ARRAY_SIZE(reg_params), reg_params,
-					algorithm_wa->address, 0, cur_count * 2, NULL);
-			if (retval != ERROR_OK) {
-				LOG_ERROR("Failed to execute algorithm at " TARGET_ADDR_FMT ": %d",
-						algorithm_wa->address, retval);
-				goto err;
-			}
+	/* poll WIP */
+	retval = fespi_wip(bank, FESPI_PROBE_TIMEOUT);
+	if (retval != ERROR_OK)
+		goto err;
 
-			int algorithm_result = buf_get_u64(reg_params[0].value, 0, xlen);
-			if (algorithm_result != 0) {
-				LOG_ERROR("Algorithm returned error %d", algorithm_result);
-				retval = ERROR_FAIL;
-				goto err;
-			}
+	page_offset = offset % page_size;
+	/* central part, aligned words */
+	while (count > 0) {
+		/* clip block at page boundary */
+		if (page_offset + count > page_size)
+			cur_count = page_size - page_offset;
+		else
+			cur_count = count;
 
-			page_offset = 0;
-			buffer += cur_count;
-			offset += cur_count;
-			count -= cur_count;
-		}
-
-		target_free_working_area(target, data_wa);
-		target_free_working_area(target, algorithm_wa);
-
-	} else {
-		fespi_txwm_wait(bank);
-
-		/* Disable Hardware accesses*/
-		if (fespi_disable_hw_mode(bank) != ERROR_OK)
-			return ERROR_FAIL;
-
-		/* poll WIP */
-		retval = fespi_wip(bank, FESPI_PROBE_TIMEOUT);
+		if (algorithm_wa)
+			retval = steps_add_buffer_write(as, buffer, offset, cur_count);
+		else
+			retval = slow_fespi_write_buffer(bank, buffer, offset, cur_count);
 		if (retval != ERROR_OK)
 			goto err;
 
-		page_offset = offset % page_size;
-		/* central part, aligned words */
-		while (count > 0) {
-			/* clip block at page boundary */
-			if (page_offset + count > page_size)
-				cur_count = page_size - page_offset;
-			else
-				cur_count = count;
-
-			retval = slow_fespi_write_buffer(bank, buffer, offset, cur_count);
-			if (retval != ERROR_OK)
-				goto err;
-
-			page_offset = 0;
-			buffer += cur_count;
-			offset += cur_count;
-			count -= cur_count;
-		}
-
-		/* Switch to HW mode before return to prompt */
-		if (fespi_enable_hw_mode(bank) != ERROR_OK)
-			return ERROR_FAIL;
+		page_offset = 0;
+		buffer += cur_count;
+		offset += cur_count;
+		count -= cur_count;
 	}
 
-	return ERROR_OK;
+	if (algorithm_wa)
+		retval = steps_execute(as, bank, algorithm_wa, data_wa);
 
 err:
 	if (algorithm_wa) {
@@ -913,10 +859,11 @@ err:
 		target_free_working_area(target, algorithm_wa);
 	}
 
+	as_delete(as);
+
 	/* Switch to HW mode before return to prompt */
 	if (fespi_enable_hw_mode(bank) != ERROR_OK)
 		return ERROR_FAIL;
-
 	return retval;
 }
 

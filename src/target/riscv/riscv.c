@@ -213,8 +213,6 @@ bool riscv_ebreaku = true;
 
 bool riscv_enable_virtual;
 
-bool riscv_enable_virtual;
-
 /* If the target doesn't implement MISA register, use this value */
 int riscv_default_misa = 0x100;
 
@@ -275,6 +273,7 @@ virt2phys_info_t sv48 = {
 };
 
 static int riscv_resume_go_all_harts(struct target *target);
+static int riscv_interrupts_disable(struct target *target, uint64_t ie_mask, uint64_t *old_mstatus);
 
 void select_dmi_via_bscan(struct target *target)
 {
@@ -1171,7 +1170,6 @@ int riscv_resume_prep_all_harts(struct target *target)
 
 	LOG_DEBUG("[%d] mark as prepped", target->coreid);
 	r->prepped = true;
-
 	return ERROR_OK;
 }
 
@@ -1210,6 +1208,8 @@ static int watchpoints_restore(struct target *target, bool trigger_cleared[])
 		i++;
 	}
 	return result;
+}
+
 /* state must be riscv_reg_t state[RISCV_MAX_HWBPS] = {0}; */
 static int disable_triggers(struct target *target, riscv_reg_t *state)
 {
@@ -1306,7 +1306,6 @@ static int resume_prep(struct target *target, int current,
 		target_addr_t address, int handle_breakpoints, int debug_execution)
 {
 	RISCV_INFO(r);
-	bool trigger_temporarily_cleared[RISCV_MAX_HWBPS] = {0};
 	LOG_DEBUG("[%d]", target->coreid);
 
 	if (!current)
@@ -1315,18 +1314,16 @@ static int resume_prep(struct target *target, int current,
 	if (target->debug_reason == DBG_REASON_WATCHPOINT) {
 		/* To be able to run off a trigger, disable all the triggers, step, and
 		 * then resume as usual. */
-		int result = watchpoints_disable(target, trigger_temporarily_cleared);
+		riscv_reg_t trigger_state[RISCV_MAX_HWBPS] = {0};
 
-		if (result == ERROR_OK)
-			result = old_or_new_riscv_step(target, true, 0, false);
+		if (disable_triggers(target, trigger_state) != ERROR_OK)
+			return ERROR_FAIL;
 
-		if (result == ERROR_OK)
-			result = watchpoints_restore(target, trigger_temporarily_cleared);
-		else
-			watchpoints_restore(target, trigger_temporarily_cleared);
+		if (old_or_new_riscv_step(target, true, 0, false) != ERROR_OK)
+			return ERROR_FAIL;
 
-		if (result != ERROR_OK)
-			return result;
+		if (enable_triggers(target, trigger_state) != ERROR_OK)
+			return ERROR_FAIL;
 	}
 
 	if (r->is_halted) {
@@ -1366,35 +1363,6 @@ static int resume_finish(struct target *target,
 	register_cache_invalidate(target->reg_cache);
 
 	target->state = debug_execution ? TARGET_DEBUG_RUNNING : TARGET_RUNNING;
-	target->debug_reason = DBG_REASON_NOTHALTED;
-	return target_call_event_callbacks(target, TARGET_EVENT_RESUMED);
-}
-
-/**
- * Resume all the harts that have been prepped, as close to instantaneous as
- * possible.
- */
-static int resume_go(struct target *target, int current,
-		target_addr_t address, int handle_breakpoints, int debug_execution)
-{
-	riscv_info_t *r = riscv_info(target);
-	int result;
-	if (r->is_halted == NULL) {
-		struct target_type *tt = get_target_type(target);
-		result = tt->resume(target, current, address, handle_breakpoints,
-				debug_execution);
-	} else {
-		result = riscv_resume_go_all_harts(target);
-	}
-
-	return result;
-}
-
-static int resume_finish(struct target *target)
-{
-	register_cache_invalidate(target->reg_cache);
-
-	target->state = TARGET_RUNNING;
 	target->debug_reason = DBG_REASON_NOTHALTED;
 	return target_call_event_callbacks(target, TARGET_EVENT_RESUMED);
 }
@@ -1782,7 +1750,7 @@ static int riscv_start_algorithm(struct target *target,
 	int num_reg_params, struct reg_param *reg_params,
 	target_addr_t entry_point, target_addr_t exit_point,
 	void *arch_info)
-{,
+{
 	riscv_info_t *info = (riscv_info_t *) target->arch_info;
 	struct riscv_algorithm *algorithm_info = arch_info;
 	size_t max_saved_reg = algorithm_info ? algorithm_info->max_saved_reg : GDB_REGNO_XPR31;
@@ -1811,6 +1779,7 @@ static int riscv_start_algorithm(struct target *target,
 
 		if (r->type->get(r) != ERROR_OK) {
 			LOG_ERROR("get(%s) failed", r->name);
+			r->exist = false;
 			return ERROR_FAIL;
 		}
 		info->saved_registers[info->algo_hartid][r->number] = buf_get_u64(r->value, 0, r->size);
@@ -1861,7 +1830,7 @@ static int riscv_start_algorithm(struct target *target,
 
 	/* Run algorithm */
 	LOG_DEBUG("resume at 0x%" TARGET_PRIxADDR, entry_point);
-	return riscv_resume_internal(target, 0, entry_point, 0, 1, true);
+	return riscv_resume(target, 0, entry_point, 0, 1, true);
 }
 
 static int riscv_interrupts_restore(struct target *target, uint64_t old_mstatus)
@@ -2199,6 +2168,9 @@ int riscv_openocd_poll(struct target *target)
 			case RPH_ERROR:
 				return ERROR_FAIL;
 			}
+
+			LOG_DEBUG("Halt other targets in this SMP group.");
+			riscv_halt(target);
 		}
 
 		LOG_DEBUG("should_remain_halted=%d, should_resume=%d",
@@ -2928,6 +2900,8 @@ static const struct command_registration riscv_exec_command_handlers[] = {
 		.mode = COMMAND_EXEC,
 		.help = "mask riscv interrupts",
 		.usage = "['off'|'steponly']",
+	},
+	{
 		.name = "set_enable_virt2phys",
 		.handler = riscv_set_enable_virt2phys,
 		.mode = COMMAND_ANY,
@@ -2997,14 +2971,6 @@ const struct command_registration riscv_command_handlers[] = {
 
 static unsigned riscv_xlen_nonconst(struct target *target)
 {
-	return riscv_xlen(target);
-}
-
-static unsigned riscv_data_bits(struct target *target)
-{
-	RISCV_INFO(r);
-	if (r->data_bits)
-		return r->data_bits(target);
 	return riscv_xlen(target);
 }
 
@@ -3212,7 +3178,7 @@ int riscv_xlen_of_hart(const struct target *target, int hartid)
 
 bool riscv_rtos_enabled(const struct target *target)
 {
-	return target->rtos && target->rtos->type == &riscv_rtos;
+	return false;
 }
 
 int riscv_set_current_hartid(struct target *target, int hartid)
@@ -3390,13 +3356,6 @@ int riscv_get_register_on_hart(struct target *target, riscv_reg_t *value,
 		*value = buf_get_u64(reg->value, 0, reg->size);
 		LOG_DEBUG("{%d} %s: %" PRIx64 " (cached)", hartid,
 				  gdb_regno_name(regid), *value);
-		return ERROR_OK;
-	}
-
-	/* TODO: Hack to deal with gdb that thinks these registers still exist. */
-	if (regid > GDB_REGNO_XPR15 && regid <= GDB_REGNO_XPR31 &&
-			riscv_supports_extension(target, hartid, 'E')) {
-		*value = 0;
 		return ERROR_OK;
 	}
 
@@ -4021,8 +3980,6 @@ int riscv_init_registers(struct target *target)
 		return ERROR_FAIL;
 	shared_reg_info->target = target;
 
-	int hartid = riscv_current_hartid(target);
-
 	/* When gdb requests register N, gdb_get_register_packet() assumes that this
 	 * is register at index N in reg_list. So if there are certain registers
 	 * that don't exist, we need to leave holes in the list (or renumber, but
@@ -4419,11 +4376,10 @@ int riscv_init_registers(struct target *target)
 				case CSR_PMPCFG3:
 					r->exist = riscv_xlen(target) == 32;
 					break;
-
-				case CSR_PMPCFG1:
-				case CSR_PMPCFG3:
+					
 				case CSR_CYCLEH:
 				case CSR_TIMEH:
+				case CSR_INSTRETH:
 				case CSR_HPMCOUNTER3H:
 				case CSR_HPMCOUNTER4H:
 				case CSR_HPMCOUNTER5H:
@@ -4491,7 +4447,6 @@ int riscv_init_registers(struct target *target)
 							riscv_supports_extension(target, hartid, 'U');
 					}
 					break;
-
 				case CSR_VSTART:
 				case CSR_VXSAT:
 				case CSR_VXRM:

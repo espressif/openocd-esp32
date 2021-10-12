@@ -48,7 +48,7 @@ class DebuggerSpecialTestsImpl:
             if (len(reg) == 0):
                 continue
 
-            if reg == 'mmid' or reg == 'mstatus' or reg == 'sar_byte':
+            if reg == 'mmid' or reg == 'ustatus' or reg == 'sar_byte':
                 break # stop at first priveleged register, currently they are not set by GDB
 
             # set to reasonable value, because GDB tries to read memory @ pc

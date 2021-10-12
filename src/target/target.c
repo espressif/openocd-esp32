@@ -2468,11 +2468,9 @@ static int target_write_buffer_default(struct target *target,
 {
 	uint32_t size;
 
-	/* Align up to maximum bytes. The loop condition makes sure the next pass
+	/* Align up to maximum 4 bytes. The loop condition makes sure the next pass
 	 * will have something to do with the size we leave to it. */
-	for (size = 1;
-			size < target_data_bits(target) / 8 && count >= size * 2 + (address & size);
-			size *= 2) {
+	for (size = 1; size < 4 && count >= size * 2 + (address & size); size *= 2) {
 		if (address & size) {
 			int retval = target_write_memory(target, address, size, 1, buffer);
 			if (retval != ERROR_OK)
@@ -2531,11 +2529,9 @@ static int target_read_buffer_default(struct target *target, target_addr_t addre
 {
 	uint32_t size;
 
-	/* Align up to maximum bytes. The loop condition makes sure the next pass
+	/* Align up to maximum 4 bytes. The loop condition makes sure the next pass
 	 * will have something to do with the size we leave to it. */
-	for (size = 1;
-			size < target_data_bits(target) / 8 && count >= size * 2 + (address & size);
-			size *= 2) {
+	for (size = 1; size < 4 && count >= size * 2 + (address & size); size *= 2) {
 		if (address & size) {
 			int retval = target_read_memory(target, address, size, 1, buffer);
 			if (retval != ERROR_OK)
@@ -3119,7 +3115,6 @@ COMMAND_HANDLER(handle_reg_command)
 	struct reg *reg = NULL;
 	unsigned count = 0;
 	char *value;
-	int retval;
 
 	LOG_DEBUG("-");
 
@@ -3223,7 +3218,7 @@ COMMAND_HANDLER(handle_reg_command)
 			return ERROR_FAIL;
 		str_to_buf(CMD_ARGV[1], strlen(CMD_ARGV[1]), buf, reg->size, 0);
 
-		retval = reg->type->set(reg, buf);
+		int retval = reg->type->set(reg, buf);
 		if (retval != ERROR_OK) {
 			LOG_DEBUG("Couldn't set register %s.", reg->name);
 			free(buf);

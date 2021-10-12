@@ -123,51 +123,6 @@ static bool string_descriptor_equal(libusb_device_handle *device, uint8_t str_in
 	return matched;
 }
 
-//TODO erhan jtag_libusb_match_serial can be use?
-libusb_device *jtag_libusb_find_device(const uint16_t vids[], const uint16_t pids[], const char *serial)
-{
-	libusb_device **devices, *found_dev = NULL;
-
-	int cnt = libusb_get_device_list(jtag_libusb_context, &devices);
-
-	for (int idx = 0; idx < cnt; idx++) {
-		struct libusb_device_descriptor dev_desc;
-		struct jtag_libusb_device_handle *libusb_handle = NULL;
-
-		if (libusb_get_device_descriptor(devices[idx], &dev_desc) != 0)
-			continue;
-
-		if (!jtag_libusb_match(&dev_desc, vids, pids))
-			continue;
-
-		LOG_DEBUG("USB dev found %x:%x @ %d:%d-%d", dev_desc.idVendor, dev_desc.idProduct,
-			libusb_get_bus_number(devices[idx]),
-			libusb_get_port_number(devices[idx]),
-			libusb_get_device_address(devices[idx]));
-
-		if (serial != NULL) {
-			int ret = libusb_open(devices[idx], &libusb_handle);
-			if (ret) {
-				LOG_ERROR("libusb_open() failed with %s",
-					libusb_error_name(ret));
-				continue;
-			}
-			if (!string_descriptor_equal(libusb_handle, dev_desc.iSerialNumber, serial)) {
-				libusb_close(libusb_handle);
-				continue;
-			}
-			libusb_close(libusb_handle);
-		}
-		found_dev = devices[idx];
-		libusb_ref_device(found_dev);
-		break;
-	}
-	if (cnt >= 0)
-		libusb_free_device_list(devices, 1);
-
-	return found_dev;
-}
-
 static bool jtag_libusb_match_serial(libusb_device_handle *device,
 		struct libusb_device_descriptor *dev_desc, const char *serial,
 		adapter_get_alternate_serial_fn adapter_get_alternate_serial)
@@ -409,9 +364,9 @@ int jtag_libusb_get_pid(struct libusb_device *dev, uint16_t *pid)
 	return ERROR_FAIL;
 }
 
-int jtag_libusb_get_serial(struct jtag_libusb_device_handle *devh, const char **serial)
+int jtag_libusb_get_serial(struct libusb_device_handle *devh, const char **serial)
 {
-	struct jtag_libusb_device *dev = libusb_get_device(devh);
+	struct libusb_device *dev = libusb_get_device(devh);
 	struct libusb_device_descriptor dev_desc;
 	char desc_string[256+1]; /* Max size of string descriptor */
 
@@ -432,4 +387,48 @@ int jtag_libusb_get_serial(struct jtag_libusb_device_handle *devh, const char **
 	}
 
 	return ERROR_FAIL;
+}
+
+libusb_device *jtag_libusb_find_device(const uint16_t vids[], const uint16_t pids[], const char *serial)
+{
+	libusb_device **devices, *found_dev = NULL;
+
+	int cnt = libusb_get_device_list(jtag_libusb_context, &devices);
+
+	for (int idx = 0; idx < cnt; idx++) {
+		struct libusb_device_descriptor dev_desc;
+		struct libusb_device_handle *libusb_handle = NULL;
+
+		if (libusb_get_device_descriptor(devices[idx], &dev_desc) != 0)
+			continue;
+
+		if (!jtag_libusb_match_ids(&dev_desc, vids, pids))
+			continue;
+
+		LOG_DEBUG("USB dev found %x:%x @ %d:%d-%d", dev_desc.idVendor, dev_desc.idProduct,
+			libusb_get_bus_number(devices[idx]),
+			libusb_get_port_number(devices[idx]),
+			libusb_get_device_address(devices[idx]));
+
+		if (serial != NULL) {
+			int ret = libusb_open(devices[idx], &libusb_handle);
+			if (ret) {
+				LOG_ERROR("libusb_open() failed with %s",
+					libusb_error_name(ret));
+				continue;
+			}
+			if (!string_descriptor_equal(libusb_handle, dev_desc.iSerialNumber, serial)) {
+				libusb_close(libusb_handle);
+				continue;
+			}
+			libusb_close(libusb_handle);
+		}
+		found_dev = devices[idx];
+		libusb_ref_device(found_dev);
+		break;
+	}
+	if (cnt >= 0)
+		libusb_free_device_list(devices, 1);
+
+	return found_dev;
 }

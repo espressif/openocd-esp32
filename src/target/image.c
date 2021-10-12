@@ -422,12 +422,11 @@ static int image_elf_read_headers(struct image *image)
 
 	/* count useful segments (loadable), ignore BSS section */
 	image->num_sections = 0;
-	for (i = 0; i < elf->segment_count; i++) {
+	for (i = 0; i < elf->segment_count; i++)
 		if ((field32(elf,
 			elf->segments[i].p_type) == PT_LOAD) &&
 			(field32(elf, elf->segments[i].p_filesz) != 0))
 			image->num_sections++;
-	}
 
 	assert(image->num_sections > 0);
 
@@ -1053,7 +1052,7 @@ int image_calculate_checksum(const uint8_t *buffer, uint32_t nbytes, uint32_t *c
 		keep_alive();
 	}
 
-	LOG_DEBUG("Calculating checksum done; checksum=0x%x", crc);
+	LOG_DEBUG("Calculating checksum done");
 
 	*checksum = crc;
 	return ERROR_OK;

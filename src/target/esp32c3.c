@@ -121,7 +121,15 @@ static void esp32c3_deinit_target(struct target *target)
 }
 
 static const char *s_nonexistent_regs[] = {
-	"mie", "mip", "tdata3",
+	"mie", "mip", "tdata3", "uie", "utvt", "utvec", "vcsr", "uscratch", "utval",
+	"uip", "unxti", "uintstatus", "uscratchcsw", "uscratchcswl", "sedeleg",
+	"sideleg", "stvt", "snxti", "sintstatus", "sscratchcsw", "sscratchcswl",
+	"vsstatus", "vsie", "vstvec", "vsscratch", "vsepc", "vscause", "vstval",
+	"vsip", "vsatp", "mtvt", "mstatush", "mcountinhibit", "mnxti", "mintstatus",
+	"mscratchcsw", "mscratchcswl", "mtinst", "mtval2", "hstatus", "hedeleg",
+	"hideleg", "hie", "htimedelta", "hcounteren", "hgeie", "htimedeltah",
+	"htval", "hip", "hvip", "htinst", "hgatp", "hgeip", "mvendorid", "marchid",
+	"mimpid", "mhartid"
 };
 
 static int esp32c3_examine(struct target *target)
@@ -130,7 +138,7 @@ static int esp32c3_examine(struct target *target)
 	if (ret != ERROR_OK)
 		return ret;
 	/* RISCV code initializes registers upon target examination.
-	   disable some register because their reading causes exception. Not supported in ESP32-C3??? */
+	   disable some registers because their reading or writing causes exception. Not supported in ESP32-C3??? */
 	for (size_t i = 0; i < sizeof(s_nonexistent_regs)/sizeof(s_nonexistent_regs[0]); i++) {
 		struct reg *r = register_get_by_name(target->reg_cache, s_nonexistent_regs[i], 1);
 		if (r)
@@ -147,9 +155,9 @@ static bool esp32c3_core_is_halted(struct target *target)
 	uint32_t dmstatus;
 	RISCV_INFO(r);
 
-	if (r->dmi_read(target, &dmstatus, DMI_DMSTATUS) != ERROR_OK)
+	if (r->dmi_read(target, &dmstatus, DM_DMSTATUS) != ERROR_OK)
 		return false;
-	return get_field(dmstatus, DMI_DMSTATUS_ALLHALTED);
+	return get_field(dmstatus, DM_DMSTATUS_ALLHALTED);
 }
 
 static int esp32c3_core_halt(struct target *target)
@@ -157,17 +165,17 @@ static int esp32c3_core_halt(struct target *target)
 	RISCV_INFO(r);
 
 	/* Issue the halt command, and then wait for the current hart to halt. */
-	uint32_t dmcontrol = DMI_DMCONTROL_DMACTIVE | DMI_DMCONTROL_HALTREQ;
-	r->dmi_write(target, DMI_DMCONTROL, dmcontrol);
+	uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE | DM_DMCONTROL_HALTREQ;
+	r->dmi_write(target, DM_DMCONTROL, dmcontrol);
 	for (size_t i = 0; i < 256; ++i)
 		if (esp32c3_core_is_halted(target))
 			break;
 
 	if (!esp32c3_core_is_halted(target)) {
 		uint32_t dmstatus;
-		if (r->dmi_read(target, &dmstatus, DMI_DMSTATUS) != ERROR_OK)
+		if (r->dmi_read(target, &dmstatus, DM_DMSTATUS) != ERROR_OK)
 			return ERROR_FAIL;
-		if (r->dmi_read(target, &dmcontrol, DMI_DMCONTROL) != ERROR_OK)
+		if (r->dmi_read(target, &dmcontrol, DM_DMCONTROL) != ERROR_OK)
 			return ERROR_FAIL;
 
 		LOG_ERROR("unable to halt core");
@@ -176,8 +184,8 @@ static int esp32c3_core_halt(struct target *target)
 		return ERROR_FAIL;
 	}
 
-	dmcontrol = set_field(dmcontrol, DMI_DMCONTROL_HALTREQ, 0);
-	r->dmi_write(target, DMI_DMCONTROL, dmcontrol);
+	dmcontrol = set_field(dmcontrol, DM_DMCONTROL_HALTREQ, 0);
+	r->dmi_write(target, DM_DMCONTROL, dmcontrol);
 	return ERROR_OK;
 }
 
@@ -186,23 +194,23 @@ static int esp32c3_core_resume(struct target *target)
 	RISCV_INFO(r);
 
 	/* Issue the resume command, and then wait for the current hart to resume. */
-	uint32_t dmcontrol = DMI_DMCONTROL_DMACTIVE | DMI_DMCONTROL_RESUMEREQ;
-	r->dmi_write(target, DMI_DMCONTROL, dmcontrol);
+	uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE | DM_DMCONTROL_RESUMEREQ;
+	r->dmi_write(target, DM_DMCONTROL, dmcontrol);
 
-	dmcontrol = set_field(dmcontrol, DMI_DMCONTROL_HASEL, 0);
-	dmcontrol = set_field(dmcontrol, DMI_DMCONTROL_RESUMEREQ, 0);
+	dmcontrol = set_field(dmcontrol, DM_DMCONTROL_HASEL, 0);
+	dmcontrol = set_field(dmcontrol, DM_DMCONTROL_RESUMEREQ, 0);
 
 	uint32_t dmstatus;
 	for (size_t i = 0; i < 256; ++i) {
 		usleep(10);
-		int res = r->dmi_read(target, &dmstatus, DMI_DMSTATUS);
+		int res = r->dmi_read(target, &dmstatus, DM_DMSTATUS);
 		if (res != ERROR_OK) {
 			LOG_ERROR("Failed to read dmstatus!");
 			return res;
 		}
-		if (get_field(dmstatus, DMI_DMSTATUS_ALLRESUMEACK) == 0)
+		if (get_field(dmstatus, DM_DMSTATUS_ALLRESUMEACK) == 0)
 			continue;
-		res = r->dmi_write(target, DMI_DMCONTROL, dmcontrol);
+		res = r->dmi_write(target, DM_DMCONTROL, dmcontrol);
 		if (res != ERROR_OK) {
 			LOG_ERROR("Failed to write dmcontrol!");
 			return res;
@@ -210,10 +218,10 @@ static int esp32c3_core_resume(struct target *target)
 		return ERROR_OK;
 	}
 
-	r->dmi_write(target, DMI_DMCONTROL, dmcontrol);
+	r->dmi_write(target, DM_DMCONTROL, dmcontrol);
 
 	LOG_ERROR("unable to resume core");
-	if (r->dmi_read(target, &dmstatus, DMI_DMSTATUS) != ERROR_OK)
+	if (r->dmi_read(target, &dmstatus, DM_DMSTATUS) != ERROR_OK)
 		return ERROR_FAIL;
 	LOG_ERROR("  dmstatus =0x%08x", dmstatus);
 
@@ -249,7 +257,7 @@ static int esp32c3_poll(struct target *target)
 	RISCV_INFO(r);
 	if (esp32c3->was_reset && r->dmi_read && r->dmi_write) {
 		uint32_t dmstatus;
-		res = r->dmi_read(target, &dmstatus, DMI_DMSTATUS);
+		res = r->dmi_read(target, &dmstatus, DM_DMSTATUS);
 		if (res != ERROR_OK)
 			LOG_ERROR("Failed to read DMSTATUS (%d)!", res);
 		else {
@@ -262,7 +270,7 @@ static int esp32c3_poll(struct target *target)
 				strap_reg = ESP32C3_FLASH_BOOT_MODE;
 			}
 			if (ESP32C3_IS_FLASH_BOOT(strap_reg) &&
-				get_field(dmstatus, DMI_DMSTATUS_ALLHALTED) == 0) {
+				get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
 				LOG_DEBUG("Halt core");
 				res = esp32c3_core_halt(target);
 				if (res == ERROR_OK) {
@@ -283,7 +291,7 @@ static int esp32c3_poll(struct target *target)
 				res = esp32c3_core_ebreaks_enable(target);
 				if (res != ERROR_OK)
 					LOG_ERROR("Failed to enable EBREAKS handling (%d)!", res);
-				if (get_field(dmstatus, DMI_DMSTATUS_ALLHALTED) == 0) {
+				if (get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
 					LOG_DEBUG("Resume core");
 					res = esp32c3_core_resume(target);
 					if (res != ERROR_OK)
@@ -430,11 +438,6 @@ static unsigned esp32c3_address_bits(struct target *target)
 	return riscv_target.address_bits(target);
 }
 
-static unsigned esp32c3_data_bits(struct target *target)
-{
-	return riscv_target.data_bits(target);
-}
-
 static const struct command_registration esp32c3_command_handlers[] = {
 	{
 		.usage = "",
@@ -490,5 +493,4 @@ struct target_type esp32c3_target = {
 	.commands = esp32c3_command_handlers,
 
 	.address_bits = esp32c3_address_bits,
-	.data_bits = esp32c3_data_bits
 };

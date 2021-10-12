@@ -213,11 +213,6 @@ static int adapter_target_create(struct target *target,
 		return ERROR_FAIL;
 	}
 
-	if (pc != NULL && pc->ap_num > 0) {
-		LOG_ERROR("hla_target: invalid parameter -ap-num (> 0)");
-		return ERROR_FAIL;
-	}
-
 	adapter_init_arch_info(target, cortex_m, target->tap);
 
 	return ERROR_OK;

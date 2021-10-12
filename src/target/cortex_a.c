@@ -60,9 +60,6 @@
 #include "smp.h"
 #include <helper/time_support.h>
 
-#define foreach_smp_target(pos, head) \
-	for (pos = head; (pos != NULL); pos = pos->next)
-
 static int cortex_a_poll(struct target *target);
 static int cortex_a_debug_entry(struct target *target);
 static int cortex_a_restore_context(struct target *target, bool bpwp);

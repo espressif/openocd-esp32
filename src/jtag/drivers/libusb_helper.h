@@ -59,8 +59,9 @@ int jtag_libusb_choose_interface(struct libusb_device_handle *devh,
 		unsigned int *usb_read_ep,
 		unsigned int *usb_write_ep,
 		int bclass, int subclass, int protocol, int trans_type);
-int jtag_libusb_get_pid(struct jtag_libusb_device *dev, uint16_t *pid);
-int jtag_libusb_get_serial(struct jtag_libusb_device_handle *devh, const char **serial);
+int jtag_libusb_get_pid(struct libusb_device *dev, uint16_t *pid);
+
+int jtag_libusb_get_serial(struct libusb_device_handle *devh, const char **serial);
 libusb_device *jtag_libusb_find_device(const uint16_t vids[], const uint16_t pids[], const char *serial);
 
 #endif /* OPENOCD_JTAG_DRIVERS_LIBUSB_HELPER_H */

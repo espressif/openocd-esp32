@@ -267,7 +267,7 @@ int esp_flash_init(struct esp_flash_bank *esp_info, uint32_t sec_sz,
 	return ERROR_OK;
 }
 
-int esp_flash_protect(struct flash_bank *bank, int set, int first, int last)
+int esp_flash_protect(struct flash_bank *bank, int set, unsigned first, unsigned last)
 {
 	return ERROR_FAIL;
 }
@@ -313,7 +313,7 @@ int esp_flash_blank_check(struct flash_bank *bank)
 		LOG_ERROR("Failed to check erase flash (%" PRId64 ")!", run.ret_code);
 		ret = ERROR_FAIL;
 	} else {
-		for (int i = 0; i < bank->num_sectors; i++)
+		for (unsigned i = 0; i < bank->num_sectors; i++)
 			bank->sectors[i].is_erased = mp.value[i];
 	}
 	destroy_mem_param(&mp);
@@ -399,7 +399,7 @@ static int esp_flash_get_mappings(struct flash_bank *bank,
 	return ret;
 }
 
-int esp_flash_erase(struct flash_bank *bank, int first, int last)
+int esp_flash_erase(struct flash_bank *bank, unsigned first, unsigned last)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	struct algorithm_run_data run;
@@ -408,7 +408,7 @@ int esp_flash_erase(struct flash_bank *bank, int first, int last)
 		LOG_ERROR("Target not halted");
 		return ERROR_TARGET_NOT_HALTED;
 	}
-	assert((0 <= first) && (first <= last) && (last < bank->num_sectors));
+	assert((first <= last) && (last < bank->num_sectors));
 	if (esp_info->hw_flash_base + first*esp_info->sec_sz <
 		esp_info->flash_min_offset) {
 		LOG_ERROR("Invalid offset!");
@@ -985,7 +985,7 @@ int esp_flash_probe(struct flash_bank *bank)
 			LOG_ERROR("Failed to alloc mem for sectors!");
 			return ERROR_FAIL;
 		}
-		for (int i = 0; i < bank->num_sectors; i++) {
+		for (unsigned i = 0; i < bank->num_sectors; i++) {
 			bank->sectors[i].offset = i*esp_info->sec_sz;
 			bank->sectors[i].size = esp_info->sec_sz;
 			bank->sectors[i].is_erased = -1;

@@ -456,12 +456,8 @@ struct jtag_xfer {
 	struct libusb_transfer *transfer;
 };
 
-<<<<<<< HEAD
-static int jtag_libusb_bulk_transfer_n(jtag_libusb_device_handle *dev_handle,
-=======
 static int jtag_libusb_bulk_transfer_n(
 		struct libusb_device_handle *dev_handle,
->>>>>>> 93c6bf2cc (drivers: libusb1_common code cleanup)
 		struct jtag_xfer *transfers,
 		size_t n_transfers,
 		int timeout)

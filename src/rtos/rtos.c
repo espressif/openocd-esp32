@@ -39,11 +39,7 @@ extern struct rtos_type mqx_rtos;
 extern struct rtos_type uCOS_III_rtos;
 extern struct rtos_type nuttx_rtos;
 extern struct rtos_type hwthread_rtos;
-<<<<<<< HEAD
-extern struct rtos_type riscv_rtos;
-=======
 extern struct rtos_type riot_rtos;
->>>>>>> 6a78c8581 (rtos: add support for RIOT)
 
 static struct rtos_type *rtos_types[] = {
 	&ThreadX_rtos,
@@ -59,7 +55,6 @@ static struct rtos_type *rtos_types[] = {
 	&riot_rtos,
 	/* keep this as last, as it always matches with rtos auto */
 	&hwthread_rtos,
-	&riscv_rtos,
 	NULL
 };
 
@@ -100,7 +95,6 @@ static int os_alloc(struct target *target, struct rtos_type *ostype)
 
 	/* RTOS drivers can override the packet handler in _create(). */
 	os->gdb_thread_packet = rtos_thread_packet;
-	os->gdb_v_packet = NULL;
 	os->gdb_target_for_threadid = rtos_target_for_threadid;
 
 	return JIM_OK;
@@ -691,11 +685,4 @@ void rtos_free_threadlist(struct rtos *rtos)
 		rtos->current_threadid = -1;
 		rtos->current_thread = 0;
 	}
-}
-
-bool rtos_needs_fake_step(struct target *target, int64_t thread_id)
-{
-	if (target->rtos->type->needs_fake_step)
-		return target->rtos->type->needs_fake_step(target, thread_id);
-	return target->rtos->current_thread != thread_id;
 }
