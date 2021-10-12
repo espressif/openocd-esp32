@@ -373,7 +373,7 @@ static int esp_usb_jtag_recv_buf(void)
 			priv->cur_in_buf_wr,
 			priv->in_buf_size_bits[priv->cur_in_buf_wr]);
 
-	size_t ct= (priv->pending_in_bits+7)/8;
+	size_t recvd = 0, ct = (priv->pending_in_bits+7)/8;
 	if (ct > IN_BUF_SZ)
 		ct= IN_BUF_SZ;
 	if (ct == 0) {
@@ -383,37 +383,43 @@ static int esp_usb_jtag_recv_buf(void)
 		 * read it. */
 		return ERROR_OK;
 	}
-	size_t n=
-		jtag_libusb_bulk_read(priv->usb_device,
-		priv->read_ep,
-		(char *)priv->in_buf[priv->cur_in_buf_wr],
-		ct,
-		5000 /*ms*/);
-	if (priv->logfile)
-		log_resp(priv->in_buf[priv->cur_in_buf_wr], ct, n);
-	if (n == 0) {
-		/*Sometimes the hardware returns 0 bytes instead of NAKking the transaction. Ignore
-		 * this. */
-		return ERROR_FAIL;
+
+	priv->in_buf_size_bits[priv->cur_in_buf_wr]= 0;
+	while (recvd < ct) {
+		size_t n=
+			jtag_libusb_bulk_read(priv->usb_device,
+			priv->read_ep,
+			(char *)priv->in_buf[priv->cur_in_buf_wr] + recvd,
+			ct,
+			500 /*ms*/);
+		if (priv->logfile)
+			log_resp(priv->in_buf[priv->cur_in_buf_wr], ct, n);
+		if (n == 0) {
+			/*Sometimes the hardware returns 0 bytes instead of NAKking the transaction. Ignore
+			* this. */
+			return ERROR_FAIL;
+		}
+		if (n != ct) {
+			/*Huh, short read? */
+			LOG_ERROR("esp_usb_jtag: usb received only %d out of %d bytes.", (int)n,
+				(int)ct);
+		}
+		/*Adjust the amount of bits we still expect to read from the USB device after this.
+		 **/
+		int bits_in_buf= priv->pending_in_bits;			/*initially assume we read
+									* everything that was pending */
+		if (bits_in_buf > (int)n*8)
+			bits_in_buf= n*8;			/*...but correct that if that was not the
+								* case. */
+		priv->pending_in_bits-= bits_in_buf;
+		priv->in_buf_size_bits[priv->cur_in_buf_wr]+= bits_in_buf;
+		recvd += n;
 	}
-	if (n != ct) {
-		/*Huh, short read? */
-		LOG_ERROR("esp_usb_jtag: usb received only %d out of %d bytes.", (int)n, (int)ct);
-		return ERROR_FAIL;
-	}
-	/*Adjust the amount of bits we still expect to read from the USB device after this. */
-	int bits_in_buf= priv->pending_in_bits;			/*initially assume we read
-								 * everything that was pending */
-	if (bits_in_buf > (int)ct*8)
-		bits_in_buf= ct*8;			/*...but correct that if that was not the
-							 * case. */
-	priv->pending_in_bits-= bits_in_buf;
-	priv->in_buf_size_bits[priv->cur_in_buf_wr]= bits_in_buf;
 	/*next in buffer for the next time. */
 	priv->cur_in_buf_wr++;
 	if (priv->cur_in_buf_wr == IN_BUF_CT)
 		priv->cur_in_buf_wr= 0;
-	LOG_DEBUG_IO("esp_usb_jtag: In ep: received %d bytes; %d bytes (%d bits) left.", (int)n,
+	LOG_DEBUG_IO("esp_usb_jtag: In ep: received %d bytes; %d bytes (%d bits) left.", (int)recvd,
 		(priv->pending_in_bits+7)/8, priv->pending_in_bits);
 	return ERROR_OK;
 }
@@ -422,24 +428,31 @@ static int esp_usb_jtag_recv_buf(void)
 static int esp_usb_jtag_send_buf(void)
 {
 	size_t ct= priv->out_buf_pos_nibbles/2;
-	size_t n= 0;
+	size_t n= 0, written = 0;
 
-	n= jtag_libusb_bulk_write(priv->usb_device,
-		priv->write_ep,
-		((char *)priv->out_buf),
-		ct,
-		5000 /*ms*/);
-	LOG_DEBUG_IO("esp_usb_jtag: sent %d bytes.", (int)n);
-	if (priv->logfile)
-		log_cmds(priv->out_buf, ct, n);
-	if (n != ct) {
-		LOG_WARNING("esp_usb_jtag: usb sent only %d out of %d bytes.", (int)n, (int)ct);
-		int ret = esp_usb_jtag_reenum_device(priv->usb_device);
-		if (ret != ERROR_OK) {
-			LOG_ERROR("esp_usb_jtag: failed to re-enum USB device!");
-			return ret;
+	while (written < ct) {
+		n= jtag_libusb_bulk_write(priv->usb_device,
+			priv->write_ep,
+			((char *)priv->out_buf) + written,
+			ct,
+			500 /*ms*/);
+		LOG_DEBUG_IO("esp_usb_jtag: sent %d bytes.", (int)n);
+		if (priv->logfile)
+			log_cmds(priv->out_buf, ct, n);
+		if (n != ct) {
+			LOG_WARNING("esp_usb_jtag: usb sent only %d out of %d bytes.",
+				(int)n,
+				(int)ct);
+			if (n == 0) {
+				int ret = esp_usb_jtag_revive_device(priv->usb_device);
+				if (ret != ERROR_OK) {
+					LOG_ERROR("esp_usb_jtag: failed to revive USB device!");
+					return ret;
+				}
+				return ERROR_FAIL;
+			}
 		}
-		return ERROR_FAIL;
+		written += n;
 	}
 	priv->out_buf_pos_nibbles= 0;
 
