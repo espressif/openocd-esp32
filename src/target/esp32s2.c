@@ -75,6 +75,9 @@
 #define ESP32_S2_RTCWDT_PROTECT_OFF   0xAC
 #define ESP32_S2_SWD_CONF_OFF         0xB0
 #define ESP32_S2_SWD_WPROTECT_OFF     0xB4
+#define ESP32_S2_RTC_CNTL_DIG_PWC_REG_OFF      0x8C
+#define ESP32_S2_RTC_CNTL_DIG_PWC_REG             (ESP32_S2_RTCCNTL_BASE + \
+		ESP32_S2_RTC_CNTL_DIG_PWC_REG_OFF)
 #define ESP32_S2_RTCWDT_CFG           (ESP32_S2_RTCCNTL_BASE + ESP32_S2_RTCWDT_CFG_OFF)
 #define ESP32_S2_RTCWDT_PROTECT       (ESP32_S2_RTCCNTL_BASE + ESP32_S2_RTCWDT_PROTECT_OFF)
 #define ESP32_S2_SWD_CONF_REG         (ESP32_S2_RTCCNTL_BASE + ESP32_S2_SWD_CONF_OFF)
@@ -436,6 +439,13 @@ static int esp32s2_soc_reset(struct target *target)
 		0);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to write ESP32_S2_STORE5 (%d)!", res);
+		return res;
+	}
+	res = target_write_u32(target,
+		ESP32_S2_RTC_CNTL_DIG_PWC_REG,
+		0);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32_S2_RTC_CNTL_DIG_PWC_REG (%d)!", res);
 		return res;
 	}
 	res = target_write_u32(target,
