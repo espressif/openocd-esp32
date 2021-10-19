@@ -35,6 +35,7 @@
 #define RTC_CNTL_OPTIONS0_REG               0x60008000
 #define RTC_CNTL_OPTIONS0_DEF               0x1C00A000
 #define RTC_CNTL_SW_SYS_RST                 0x80000000
+#define RTC_CNTL_DIG_PWC_REG                0x60008090
 #define RTC_CNTL_SWD_CONF_REG               0x600080B0
 #define RTC_CNTL_SWD_CONF_VAL               0x84B00000
 #define RTC_CNTL_SWD_WPROTECT_REG           0x600080B4
@@ -87,6 +88,8 @@ reset:
     movi a4, RTC_CNTL_STORE4_REG
     s32i a5, a4, 0
     movi a4, RTC_CNTL_STORE5_REG
+    s32i a5, a4, 0
+    movi a4, RTC_CNTL_DIG_PWC_REG
     s32i a5, a4, 0
     movi a4, RTC_CNTL_CLK_CONF_REG
     movi a3, RTC_CNTL_CLK_CONF_DEF
