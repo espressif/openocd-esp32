@@ -1,0 +1,224 @@
+.get_release_name: &get_release_name |
+  PREFX=${CI_PROJECT_NAME}
+  tmpVER=$( tmpTAG=$(git describe --tags | grep -E "^v[0-9]") && ( echo $tmpTAG | sed -n -r "s|^v(.*)|\1|gp" ) || echo "" )
+  if [ ! $tmpVER ]; then
+    tmpVER=$( tmpTAG=$(git describe --tags | grep -E "^${PREFX}-")  && ( echo $tmpTAG | sed -n -r "s|^${PREFX}-(.*)|\1|gp" ) || echo "" )
+    if [ ! $tmpVER ]; then
+      echo "There is not a correct tag"; exit 1
+    fi
+  fi
+  REL_VERSION=$tmpVER
+  REL_NAME=${CI_PROJECT_NAME}-${PLATFORM_NAME}-${REL_VERSION}
+  ARCHIVE_NAME=${REL_NAME}.${ARCHIVE_EXT}
+  echo "PLATFORM_NAME: $PLATFORM_NAME"
+  echo "REL_VERSION: $REL_VERSION"
+  echo "REL_NAME: $REL_NAME"
+  echo "ARCHIVE_NAME: $ARCHIVE_NAME"
+
+.dist_archive: &dist_archive |
+  ${ARCHIVE_TOOL} ${ARCHIVE_NAME} ${DIST_INSTALLED_DIR}
+  mkdir -p ${DIST_ART_DIR}
+  mv ${ARCHIVE_NAME} ${DIST_ART_DIR}
+  echo "${ARCHIVE_NAME}" > ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME}
+
+.build_linux_arm_template: &build_linux_arm_template
+  stage: build
+  image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross
+  tags:
+    - build
+  artifacts:
+    paths:
+      - ${DIST_ART_DIR}
+    reports:
+      junit:
+        - _build/*.log
+    when: always
+    expire_in: 2 weeks
+  script:
+    - *get_release_name
+    - !reference [.add_gitlab_key, script]
+    - !reference [.submodules_mirror_update, script]
+    - ./bootstrap
+    - mkdir _build
+    - pushd _build/
+    - ../configure CFLAGS="${TEST_CFLAGS}" --prefix=$PWD/../$DIST_INSTALLED_DIR --host=${CONF_HOST}  $OPENOCD_CONFIGURE_OPTS
+    - make
+    - MAKEFLAGS= make install-strip
+    - popd
+    - *dist_archive
+
+
+build_linux:
+  stage: build
+  image: $CI_DOCKER_REGISTRY/esp32-toolchain
+  tags:
+    - build
+  artifacts:
+    paths:
+      - ${DIST_ART_DIR}
+    expire_in: 2 weeks
+  variables:
+    PLATFORM_NAME: "linux-amd64"
+  script:
+    - *get_release_name
+    - !reference [.add_gitlab_key, script]
+    - !reference [.submodules_mirror_update, script]
+    - ./bootstrap
+    - mkdir _build
+    - pushd _build/
+    - ../configure --prefix=$PWD/../$DIST_INSTALLED_DIR $OPENOCD_CONFIGURE_OPTS
+    - make
+    - src/openocd --version 2>&1 | { ! grep 'dirty'; }
+    - MAKEFLAGS= make install-strip
+    - popd
+    - *dist_archive
+
+build_linux_armel:
+  <<: *build_linux_arm_template
+  variables:
+    CONF_HOST: "arm-linux-gnueabi"
+    PLATFORM_NAME: "linux-armel"
+    TEST_CFLAGS: ""
+
+build_linux_armel_test:
+  <<: *build_linux_arm_template
+  only:
+    refs:
+      - schedules
+    variables:
+      - $SCHEDULE_TYPE == "build_sanitizer_test"
+  variables:
+    CONF_HOST: "arm-linux-gnueabi"
+    PLATFORM_NAME: "linux-armel-test"
+    TEST_CFLAGS: "-Wl,--no-as-needed -ldl -fsanitize=address -fsanitize=undefined -fsanitize-recover=address -ggdb3"
+
+build_linux_armhf:
+  <<: *build_linux_arm_template
+  variables:
+    CONF_HOST: "arm-linux-gnueabihf"
+    PLATFORM_NAME: "linux-armhf"
+    TEST_CFLAGS: ""
+
+build_linux_arm64:
+  <<: *build_linux_arm_template
+  variables:
+    CONF_HOST: "aarch64-linux-gnu"
+    PLATFORM_NAME: "linux-arm64"
+    TEST_CFLAGS: ""
+
+build_windows:
+  stage: build
+  image: $CI_DOCKER_REGISTRY/esp32-toolchain-win-cross
+  tags:
+    - build
+  artifacts:
+    paths:
+      - ${DIST_ART_DIR}
+    expire_in: 2 weeks
+  variables:
+    CONF_HOST: "i686-w64-mingw32"
+    PLATFORM_NAME: "win32"
+    ARCHIVE_TOOL: "zip -r"
+    ARCHIVE_EXT: "zip"
+  script:
+    - *get_release_name
+    - !reference [.add_gitlab_key, script]
+    - !reference [.submodules_mirror_update, script]
+    # Build libusb-1.0
+    - export LIBUSB_VER=libusb-1.0.21
+    - wget https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
+    - tar xzf $LIBUSB_VER.tar.gz && rm $LIBUSB_VER.tar.gz
+    - pushd $LIBUSB_VER
+    - ./bootstrap.sh
+    - ./configure --prefix=$PWD/dist --host=${CONF_HOST} --enable-shared=no --enable-static=yes
+    - make
+    - make install-strip
+    - export PKG_CONFIG_PATH=$PWD/dist/lib/pkgconfig
+    - popd
+    # Build zlib-1.2.11
+    - export ZLIB_VER=zlib-1.2.11
+    - wget https://dl.espressif.com/dl/$ZLIB_VER.tar.xz -O $ZLIB_VER.tar.xz
+    - tar xf $ZLIB_VER.tar.xz && rm $ZLIB_VER.tar.xz
+    - pushd $ZLIB_VER
+    - mkdir _build
+    - INSTALLDIR=_build
+    - make -f win32/Makefile.gcc BINARY_PATH=$INSTALLDIR/bin INCLUDE_PATH=$INSTALLDIR/include LIBRARY_PATH=$INSTALLDIR/lib SHARED_MODE=1 PREFIX=${CONF_HOST}- install
+    - export CPPFLAGS="-I$PWD/$INSTALLDIR/include"
+    - export LDFLAGS="-L$PWD/$INSTALLDIR/lib"
+    - export ZLIB_DIR=$PWD/$INSTALLDIR/bin
+    - popd
+    # Build OpenOCD
+    - git submodule update --init
+    - ./bootstrap
+    - mkdir _build
+    - pushd _build/
+    - ../configure --prefix=$PWD/../$DIST_INSTALLED_DIR --host=${CONF_HOST} $OPENOCD_CONFIGURE_OPTS
+    - make
+    - MAKEFLAGS= make install-strip
+    - popd
+    - cp /usr/${CONF_HOST}/lib/libwinpthread-1.dll $DIST_INSTALLED_DIR/bin/
+    - cp ${ZLIB_DIR}/zlib1.dll $DIST_INSTALLED_DIR/bin/
+    - *dist_archive
+
+build_macos:
+  stage: build
+  image: $CI_DOCKER_REGISTRY/esp32-toolchain-macos-cross:2
+  tags:
+    - build
+  artifacts:
+    paths:
+      - ${DIST_ART_DIR}
+    expire_in: 2 weeks
+  variables:
+    PLATFORM_NAME: "macos"
+    CONF_HOST: "x86_64-apple-darwin14"
+  script:
+    - *get_release_name
+    - !reference [.add_gitlab_key, script]
+    - !reference [.submodules_mirror_update, script]
+    # Osxcross comes with a no-op symlink for pkg-confg,
+    # remove it and install pkg-config.
+    # TODO: prepare a Docker image which would have it included.
+    - rm -f `which ${CONF_HOST}-pkg-config`
+    - wget https://dl.espressif.com/dl/pkg-config_0.28-1_amd64.deb
+    - dpkg -i ./pkg-config_0.28-1_amd64.deb
+
+    # Build bootstrap tcl interpreter.
+    # TODO: include 'tcl' package into the docker image instead
+    - cp -r jimtcl jimtcl-bootstarp
+    - pushd jimtcl-bootstarp/
+    - ./configure --prefix=$PWD/local
+    - make
+    - make install
+    - popd
+    # Cross-compile libusb-1.0 for OSX
+
+    - export LIBUSB_VER=libusb-1.0.21
+    - wget https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
+    - tar xzf $LIBUSB_VER.tar.gz && rm $LIBUSB_VER.tar.gz
+    - pushd $LIBUSB_VER
+    - ./bootstrap.sh
+    - ./configure --prefix=$PWD/dist --host=${CONF_HOST} --enable-shared=no --enable-static=yes CC=${CONF_HOST}-cc
+    - make
+    - make install
+    - popd
+
+    # Finally, cross-compile OpenOCD
+    - export PKG_CONFIG_PATH=$PWD/$LIBUSB_VER/dist/lib/pkgconfig
+    - ./bootstrap
+    - mkdir _build
+    - pushd _build/
+    - ../configure --prefix=$PWD/../$DIST_INSTALLED_DIR --host=${CONF_HOST} $OPENOCD_CONFIGURE_OPTS LDFLAGS="-Wl,-framework,CoreFoundation -Wl,-framework,IOKit" CC=${CONF_HOST}-cc
+    - make
+    - MAKEFLAGS= make install-strip
+    - popd
+    - *dist_archive
+
+style_check:
+  stage: build
+  image: $CI_DOCKER_REGISTRY/esp32-ci-env
+  tags:
+    - build
+  script:
+    - tools/check-line-endings.sh $PWD
+    - tools/format-esp.sh && git diff --exit-code

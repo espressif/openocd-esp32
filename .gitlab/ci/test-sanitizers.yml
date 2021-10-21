@@ -1,0 +1,259 @@
+.tests_sanitizers_template: &tests_sanitizers_template
+  stage: sanitizer_tests
+  image: $CI_DOCKER_REGISTRY/rpi-test-env
+  artifacts:
+    paths:
+      - $TEST_RUN_DIR/debug_backend_tests.log
+    reports:
+      junit:
+        - $TEST_RUN_DIR/results/*
+    when: always
+    expire_in: 1 week
+  only:
+    refs:
+      - schedules
+    variables:
+      - $SCHEDULE_TYPE == "build_sanitizer_test"
+  script:
+    - !reference [.add_gitlab_key, script]
+    - !reference [.submodules_mirror_update, script]
+    - !reference [.export_toolchain, script]
+    - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
+    - !reference [.run_tests_linux, script]
+
+.tests_sanitizers_template_esp32c3_fixed: &tests_sanitizers_template_esp32c3_fixed
+  extends: .tests_sanitizers_template
+  script:
+    - !reference [.add_gitlab_key, script]
+    - !reference [.submodules_mirror_update, script]
+    - !reference [.export_toolchain, script]
+    - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
+    - !reference [.get_fixed_riscv32_esp_elf_gdb, script]
+    - !reference [.run_tests_linux, script]
+
+tests_sanitizers_esp32_solo:
+  <<: *tests_sanitizers_template
+  tags:
+    - arm
+    - test_jtag_solo
+  allow_failure: true
+  dependencies:
+    - build_test_app_esp32
+    - build_linux_armel_test
+  variables:
+    PLATFORM_NAME: "linux-armel-test"
+    TEST_RUN_DIR: "build_test_app_esp32"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
+
+tests_sanitizers_esp32_legacy_idf_rel:
+  <<: *tests_sanitizers_template
+  tags:
+    - test_jtag_arm
+  dependencies:
+    - build_test_app_esp32_legacy_idf_rel
+    - build_linux_armel_test
+  variables:
+    PLATFORM_NAME: "linux-armel-test"
+    TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
+
+tests_sanitizers_esp32:
+  <<: *tests_sanitizers_template
+  tags:
+    - test_jtag_arm
+  allow_failure: true
+  dependencies:
+    - build_test_app_esp32
+    - build_linux_armel_test
+  variables:
+    PLATFORM_NAME: "linux-armel-test"
+    TEST_RUN_DIR: "build_test_app_esp32"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
+
+tests_sanitizers_esp32_premajor_idf_rel:
+  <<: *tests_sanitizers_template
+  tags:
+    - test_jtag_arm
+  dependencies:
+    - build_test_app_esp32_premajor_idf_rel
+    - build_linux_armel_test
+  variables:
+    PLATFORM_NAME: "linux-armel-test"
+    TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
+
+tests_sanitizers_esp32s2:
+  <<: *tests_sanitizers_template
+  tags:
+    - test_jtag_arm_esp32s2
+  allow_failure: true
+  dependencies:
+    - build_test_app_esp32s2
+    - build_linux_armel_test
+  variables:
+    CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    PLATFORM_NAME: "linux-armel-test"
+    TEST_RUN_DIR: "build_test_app_esp32s2"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
+
+tests_sanitizers_esp32s2_premajor_idf_rel:
+  <<: *tests_sanitizers_template
+  tags:
+    - test_jtag_arm_esp32s2
+  dependencies:
+    - build_test_app_esp32s2_premajor_idf_rel
+    - build_linux_armel_test
+  variables:
+    CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    PLATFORM_NAME: "linux-armel-test"
+    TEST_RUN_DIR: "build_test_app_esp32s2_premajor_idf_rel"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32s2-devkitj -p test_*.*Single"
+
+tests_sanitizers_esp32c3:
+  <<: *tests_sanitizers_template_esp32c3_fixed
+  tags:
+    - test_jtag_arm_esp32c3
+  allow_failure: true
+  dependencies:
+    - build_test_app_esp32c3
+    - build_linux_armel_test
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
+    PLATFORM_NAME: "linux-armel-test"
+    TEST_RUN_DIR: "build_test_app_esp32c3"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single"
+
+tests_sanitizers_esp32c3_premajor_idf_rel:
+  <<: *tests_sanitizers_template_esp32c3_fixed
+  tags:
+    - test_jtag_arm_esp32c3
+  dependencies:
+    - build_test_app_esp32c3_premajor_idf_rel
+    - build_linux_armel_test
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
+    PLATFORM_NAME: "linux-armel-test"
+    TEST_RUN_DIR: "build_test_app_esp32c3_premajor_idf_rel"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single"
+
+test_sanitizers_nuttx_esp32:
+  image: $CI_DOCKER_REGISTRY/rpi-test-env
+  stage: sanitizer_tests
+  tags:
+    - test_jtag_arm
+  variables:
+    PLATFORM_NAME: "linux-armel-test"
+    TEST_RUN_DIR: "nuttx_test"
+    NUTTX_APP_NAME: "nuttx_openocd"
+    OOCD_CMDS: "set ESP_RTOS NuttX,set ESP32_ONLYCPU 1"
+    TEST_RUN_EXTRA_OPTS: "-i other -b esp32-wrover-kit-3.3v -p test_nuttx -e *.*Encrypted"
+  needs:
+    - job: build_linux_armel_test
+      artifacts: true
+    - job: build_nuttx_app
+      artifacts: false
+    - project: idf/apache/esp-nuttx-apps
+      job: build_esp32_openocd
+      ref: master
+      artifacts: true
+  only:
+    refs:
+      - schedules
+    variables:
+      - $SCHEDULE_TYPE == "build_sanitizer_test"
+  script:
+    - !reference [.export_toolchain, script]
+    - mkdir -p $TEST_RUN_DIR/$NUTTX_APP_NAME
+    - !reference [.copy_nuttx_files, script]
+    - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
+    - !reference [.run_tests_nuttx, script]
+
+.sanitizer_check_armel: &sanitizer_check_armel
+  stage: sanitizer_checks
+  image: $CI_DOCKER_REGISTRY/rpi-test-env
+  tags:
+    - arm
+  allow_failure: true
+  artifacts:
+    paths:
+      - $TEST_RUN_DIR/sanitizer_errors.log
+    when: always
+    expire_in: 1 week
+  only:
+    refs:
+      - schedules
+    variables:
+      - $SCHEDULE_TYPE == "build_sanitizer_test"
+  script:
+    - grep -i -e".*sanitizer" -e"runtime error" ${TEST_RUN_DIR}/debug_backend_tests.log > ${TEST_RUN_DIR}/sanitizer_errors.log || true
+    # fail if `sanitizer_errors.log` is not empty
+    - "[[ ! -s ${TEST_RUN_DIR}/sanitizer_errors.log ]]"
+
+sanitizer_check_armel_esp32_solo:
+  <<: *sanitizer_check_armel
+  dependencies:
+    - tests_sanitizers_esp32_solo
+  variables:
+    TEST_RUN_DIR: "build_test_app_esp32"
+
+sanitizer_check_armel_esp32_legacy_idf_rel:
+  <<: *sanitizer_check_armel
+  dependencies:
+    - tests_sanitizers_esp32_legacy_idf_rel
+  variables:
+    TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
+
+sanitizer_check_armel_esp32:
+  <<: *sanitizer_check_armel
+  dependencies:
+    - tests_sanitizers_esp32
+  variables:
+    TEST_RUN_DIR: "build_test_app_esp32"
+
+sanitizer_check_armel_esp32_premajor_idf_rel:
+  <<: *sanitizer_check_armel
+  dependencies:
+    - tests_sanitizers_esp32_premajor_idf_rel
+  variables:
+    TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
+
+sanitizer_check_armel_esp32s2:
+  <<: *sanitizer_check_armel
+  dependencies:
+    - tests_sanitizers_esp32s2
+  variables:
+    TEST_RUN_DIR: "build_test_app_esp32s2"
+
+sanitizer_check_armel_esp32s2_premajor_idf_rel:
+  <<: *sanitizer_check_armel
+  dependencies:
+    - tests_sanitizers_esp32s2_premajor_idf_rel
+  variables:
+    TEST_RUN_DIR: "build_test_app_esp32s2_premajor_idf_rel"
+
+sanitizer_check_armel_esp32c3:
+  <<: *sanitizer_check_armel
+  dependencies:
+    - tests_sanitizers_esp32c3
+  variables:
+    TEST_RUN_DIR: "build_test_app_esp32c3"
+
+sanitizer_check_armel_esp32c3_premajor_idf_rel:
+  <<: *sanitizer_check_armel
+  dependencies:
+    - tests_sanitizers_esp32c3_premajor_idf_rel
+  variables:
+    TEST_RUN_DIR: "build_test_app_esp32c3_premajor_idf_rel"
+
+sanitizer_check_armel_nuttx_esp32:
+  <<: *sanitizer_check_armel
+  dependencies:
+    - test_sanitizers_nuttx_esp32
+  variables:
+    TEST_RUN_DIR: "nuttx_test"

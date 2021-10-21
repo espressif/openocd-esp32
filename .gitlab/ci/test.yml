@@ -1,0 +1,307 @@
+.tests_linux_template: &tests_linux_template
+  stage: test
+  image: $CI_DOCKER_REGISTRY/esp32-ci-env
+  artifacts:
+    paths:
+      - $TEST_RUN_DIR/debug_backend_tests.log
+    reports:
+      junit:
+        - $TEST_RUN_DIR/results/*
+    when: always
+    expire_in: 1 week
+  script:
+    - !reference [.add_gitlab_key, script]
+    - !reference [.submodules_mirror_update, script]
+    - !reference [.run_tests_linux, script]
+
+.tests_armel_template: &tests_armel_template
+  stage: test
+  image: $CI_DOCKER_REGISTRY/rpi-test-env
+  artifacts:
+    paths:
+      - $TEST_RUN_DIR/debug_backend_tests.log
+    reports:
+      junit:
+        - $TEST_RUN_DIR/results/*
+    when: always
+    expire_in: 1 week
+  script:
+    - !reference [.add_gitlab_key, script]
+    - !reference [.submodules_mirror_update, script]
+    - !reference [.export_toolchain, script]
+    - !reference [.run_tests_linux, script]
+
+.tests_armel_esp32c3_fixed:
+  extends: .tests_armel_template
+  script:
+    - !reference [.add_gitlab_key, script]
+    - !reference [.submodules_mirror_update, script]
+    - !reference [.export_toolchain, script]
+    - !reference [.get_fixed_riscv32_esp_elf_gdb, script]
+    - !reference [.run_tests_linux, script]
+
+
+tests_armel_esp32:
+  <<: *tests_armel_template
+  tags:
+    - test_jtag_arm
+  allow_failure: true
+  dependencies:
+    - build_test_app_esp32
+    - build_linux_armel
+  variables:
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
+
+tests_armel_esp32_flash_encrypted:
+  <<: *tests_armel_template
+  tags:
+    - test_jtag_arm_flash_encryption
+  allow_failure: true
+  dependencies:
+    - build_test_app_esp32
+    - build_linux_armel
+  variables:
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
+
+tests_armel_esp32_solo:
+  <<: *tests_armel_template
+  tags:
+    - arm
+    - test_jtag_solo
+  allow_failure: true
+  dependencies:
+    - build_test_app_esp32
+    - build_linux_armel
+  variables:
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
+
+tests_armel_esp32s2:
+  <<: *tests_armel_template
+  tags:
+    - test_jtag_arm_esp32s2
+  allow_failure: true
+  dependencies:
+    - build_test_app_esp32s2
+    - build_linux_armel
+  variables:
+    CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32s2"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
+
+tests_armel_esp32s2_flash_encrypted:
+  <<: *tests_armel_template
+  tags:
+    - test_jtag_arm_flash_encryption_esp32s2
+  allow_failure: true
+  dependencies:
+    - build_test_app_esp32s2
+    - build_linux_armel
+  variables:
+    CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32s2"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*SingleEncrypted"
+
+tests_armel_esp32c3:
+  extends: .tests_armel_esp32c3_fixed
+  tags:
+    - arm
+    - test_jtag_arm_esp32c3
+  allow_failure: true
+  dependencies:
+    - build_test_app_esp32c3
+    - build_linux_armel
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32c3"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single"
+
+tests_armel_esp32c3_flash_encrypted:
+  extends: .tests_armel_esp32c3_fixed
+  tags:
+    - test_jtag_arm_flash_encryption_esp32c3
+  allow_failure: true
+  dependencies:
+    - build_test_app_esp32c3
+    - build_linux_armel
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32c3"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*SingleEncrypted"
+
+tests_armel_esp32_solo_premajor_idf_rel:
+  <<: *tests_armel_template
+  tags:
+    - arm
+    - test_jtag_solo
+  dependencies:
+    - build_test_app_esp32_premajor_idf_rel
+    - build_linux_armel
+  variables:
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32-solo-devkitj -p test_*.*Single"
+
+tests_armel_esp32_premajor_idf_rel:
+  <<: *tests_armel_template
+  tags:
+    - test_jtag_arm
+  dependencies:
+    - build_test_app_esp32_premajor_idf_rel
+    - build_linux_armel
+  variables:
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
+
+tests_armel_esp32_premajor_idf_rel_flash_encrypted:
+  <<: *tests_armel_template
+  tags:
+    - test_jtag_arm_flash_encryption
+  dependencies:
+    - build_test_app_esp32_premajor_idf_rel
+    - build_linux_armel
+  variables:
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
+
+tests_armel_esp32s2_premajor_idf_rel:
+  <<: *tests_armel_template
+  tags:
+    - test_jtag_arm_esp32s2
+  dependencies:
+    - build_test_app_esp32s2_premajor_idf_rel
+    - build_linux_armel
+  variables:
+    CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32s2_premajor_idf_rel"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32s2-devkitj -p test_*.*Single"
+
+tests_armel_esp32s2_premajor_idf_rel_flash_encrypted:
+  <<: *tests_armel_template
+  tags:
+    - test_jtag_arm_flash_encryption_esp32s2
+  dependencies:
+    - build_test_app_esp32s2_premajor_idf_rel
+    - build_linux_armel
+  variables:
+    CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32s2_premajor_idf_rel"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32s2-devkitj -p test_*.*SingleEncrypted"
+
+tests_armel_esp32c3_premajor_idf_rel:
+  extends: .tests_armel_esp32c3_fixed
+  tags:
+    - test_jtag_arm_esp32c3
+  dependencies:
+    - build_test_app_esp32c3_premajor_idf_rel
+    - build_linux_armel
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32c3_premajor_idf_rel"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single"
+
+tests_armel_esp32c3_premajor_idf_rel_flash_encrypted:
+  extends: .tests_armel_esp32c3_fixed
+  tags:
+    - test_jtag_arm_flash_encryption_esp32c3
+  dependencies:
+    - build_test_app_esp32c3_premajor_idf_rel
+    - build_linux_armel
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32c3_premajor_idf_rel"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32c3-ftdi -p test_*.*SingleEncrypted"
+
+tests_armel_esp32_legacy_idf_rel:
+  <<: *tests_armel_template
+  tags:
+    - test_jtag_arm
+  dependencies:
+    - build_test_app_esp32_legacy_idf_rel
+    - build_linux_armel
+  variables:
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
+
+tests_win_simple_esp32:
+  stage: test
+  tags:
+    - test_jtag_win
+  dependencies:
+    - build_windows
+  variables:
+    # actually we don't need the project sources, but we need the `git clean` gitlab-runner's stage.
+    # It's possible only for `fetch` or `clone`.
+    GIT_STRATEGY: fetch
+    PLATFORM_NAME: "win32"
+  before_script: []
+  script:
+    - $ARCHIVE_NAME=$(cat "$DIST_ART_DIR/dist_name_$PLATFORM_NAME")
+    - Expand-Archive -DestinationPath . "$DIST_ART_DIR/$ARCHIVE_NAME"
+    - $OPENOCD_SCRIPTS="$PWD\openocd-esp32\share\openocd\scripts"
+    - .\openocd-esp32\bin\openocd --version
+    - echo $OPENOCD_SCRIPTS
+    - .\openocd-esp32\bin\openocd.exe -f board\esp32-ethernet-kit-3.3v.cfg -c "init; reset halt; sleep 5; exit"
+
+
+test_nuttx_esp32:
+  image: $CI_DOCKER_REGISTRY/rpi-test-env
+  stage: test
+  tags:
+    - test_jtag_arm
+  artifacts:
+    paths:
+      - $TEST_RUN_DIR/debug_backend_tests.log
+    reports:
+      junit:
+        - $TEST_RUN_DIR/results/*
+    when: always
+    expire_in: 1 week
+  variables:
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "nuttx_test"
+    NUTTX_APP_NAME: "nuttx_openocd"
+    OOCD_CMDS: "set ESP_RTOS NuttX,set ESP32_ONLYCPU 1"
+    TEST_RUN_EXTRA_OPTS: "-i other -b esp32-wrover-kit-3.3v -p test_nuttx -e *.*Encrypted"
+  needs:
+    - job: build_linux_armel
+      artifacts: true
+    - job: build_nuttx_app
+      artifacts: false
+    - project: idf/apache/esp-nuttx-apps
+      job: build_esp32_openocd
+      ref: master
+      artifacts: true
+  script:
+    - !reference [.export_toolchain, script]
+    - mkdir -p $TEST_RUN_DIR/$NUTTX_APP_NAME
+    - !reference [.copy_nuttx_files, script]
+    - !reference [.run_tests_nuttx, script]
