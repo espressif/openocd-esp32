@@ -288,6 +288,7 @@ def two_cores_concurrently_hit_bps(self):
     for cnt in hit_cnt[1:]:
         self.assertTrue(cnt > 0)
 
+@skip_for_chip(['esp32s3']) #TODO: Will be enabled after fix
 def two_cores_concurrently_hit_wps(self):
     """
         This test checks that 2 cores can concurrently hit the same set of watchpoints.

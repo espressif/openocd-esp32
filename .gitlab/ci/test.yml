@@ -40,15 +40,14 @@
     - !reference [.get_fixed_riscv32_esp_elf_gdb, script]
     - !reference [.run_tests_linux, script]
 
-
 tests_armel_esp32:
   <<: *tests_armel_template
   tags:
     - test_jtag_arm
   allow_failure: true
-  dependencies:
-    - build_test_app_esp32
-    - build_linux_armel
+  needs:
+    - job: build_test_app_esp32
+    - job: build_linux_armel
   variables:
     PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "build_test_app_esp32"
@@ -59,9 +58,9 @@ tests_armel_esp32_flash_encrypted:
   tags:
     - test_jtag_arm_flash_encryption
   allow_failure: true
-  dependencies:
-    - build_test_app_esp32
-    - build_linux_armel
+  needs:
+    - job: build_test_app_esp32
+    - job: build_linux_armel
   variables:
     PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "build_test_app_esp32"
@@ -73,9 +72,9 @@ tests_armel_esp32_solo:
     - arm
     - test_jtag_solo
   allow_failure: true
-  dependencies:
-    - build_test_app_esp32
-    - build_linux_armel
+  needs:
+    - job: build_test_app_esp32
+    - job: build_linux_armel
   variables:
     PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "build_test_app_esp32"
@@ -86,9 +85,9 @@ tests_armel_esp32s2:
   tags:
     - test_jtag_arm_esp32s2
   allow_failure: true
-  dependencies:
-    - build_test_app_esp32s2
-    - build_linux_armel
+  needs:
+    - job: build_test_app_esp32s2
+    - job: build_linux_armel
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
@@ -101,9 +100,9 @@ tests_armel_esp32s2_flash_encrypted:
   tags:
     - test_jtag_arm_flash_encryption_esp32s2
   allow_failure: true
-  dependencies:
-    - build_test_app_esp32s2
-    - build_linux_armel
+  needs:
+    - job: build_test_app_esp32s2
+    - job: build_linux_armel
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
@@ -111,15 +110,30 @@ tests_armel_esp32s2_flash_encrypted:
     TEST_RUN_DIR: "build_test_app_esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*SingleEncrypted"
 
+tests_armel_esp32s3:
+  <<: *tests_armel_template
+  tags:
+    - test_jtag_arm_esp32s3
+  allow_failure: true
+  needs:
+    - job: build_test_app_esp32s3
+    - job: build_linux_armel
+  variables:
+    CHIP_NAME: "esp32s3"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s3"
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32s3"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
+
 tests_armel_esp32c3:
   extends: .tests_armel_esp32c3_fixed
   tags:
     - arm
     - test_jtag_arm_esp32c3
   allow_failure: true
-  dependencies:
-    - build_test_app_esp32c3
-    - build_linux_armel
+  needs:
+    - job: build_test_app_esp32c3
+    - job: build_linux_armel
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
@@ -133,9 +147,9 @@ tests_armel_esp32c3_flash_encrypted:
   tags:
     - test_jtag_arm_flash_encryption_esp32c3
   allow_failure: true
-  dependencies:
-    - build_test_app_esp32c3
-    - build_linux_armel
+  needs:
+    - job: build_test_app_esp32c3
+    - job: build_linux_armel
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
@@ -149,9 +163,9 @@ tests_armel_esp32_solo_premajor_idf_rel:
   tags:
     - arm
     - test_jtag_solo
-  dependencies:
-    - build_test_app_esp32_premajor_idf_rel
-    - build_linux_armel
+  needs:
+    - job: build_test_app_esp32_premajor_idf_rel
+    - job: build_linux_armel
   variables:
     PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
@@ -161,9 +175,9 @@ tests_armel_esp32_premajor_idf_rel:
   <<: *tests_armel_template
   tags:
     - test_jtag_arm
-  dependencies:
-    - build_test_app_esp32_premajor_idf_rel
-    - build_linux_armel
+  needs:
+    - job: build_test_app_esp32_premajor_idf_rel
+    - job: build_linux_armel
   variables:
     PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
@@ -173,9 +187,9 @@ tests_armel_esp32_premajor_idf_rel_flash_encrypted:
   <<: *tests_armel_template
   tags:
     - test_jtag_arm_flash_encryption
-  dependencies:
-    - build_test_app_esp32_premajor_idf_rel
-    - build_linux_armel
+  needs:
+    - job: build_test_app_esp32_premajor_idf_rel
+    - job: build_linux_armel
   variables:
     PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
@@ -185,9 +199,9 @@ tests_armel_esp32s2_premajor_idf_rel:
   <<: *tests_armel_template
   tags:
     - test_jtag_arm_esp32s2
-  dependencies:
-    - build_test_app_esp32s2_premajor_idf_rel
-    - build_linux_armel
+  needs:
+    - job: build_test_app_esp32s2_premajor_idf_rel
+    - job: build_linux_armel
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
@@ -199,9 +213,9 @@ tests_armel_esp32s2_premajor_idf_rel_flash_encrypted:
   <<: *tests_armel_template
   tags:
     - test_jtag_arm_flash_encryption_esp32s2
-  dependencies:
-    - build_test_app_esp32s2_premajor_idf_rel
-    - build_linux_armel
+  needs:
+    - job: build_test_app_esp32s2_premajor_idf_rel
+    - job: build_linux_armel
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
@@ -209,13 +223,27 @@ tests_armel_esp32s2_premajor_idf_rel_flash_encrypted:
     TEST_RUN_DIR: "build_test_app_esp32s2_premajor_idf_rel"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32s2-devkitj -p test_*.*SingleEncrypted"
 
+tests_armel_esp32s3_premajor_idf_rel:
+  <<: *tests_armel_template
+  tags:
+    - test_jtag_arm_esp32s3
+  needs:
+    - job: build_test_app_esp32s3_premajor_idf_rel
+    - job: build_linux_armel
+  variables:
+    CHIP_NAME: "esp32s3"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s3"
+    PLATFORM_NAME: "linux-armel"
+    TEST_RUN_DIR: "build_test_app_esp32s3_premajor_idf_rel"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
+
 tests_armel_esp32c3_premajor_idf_rel:
   extends: .tests_armel_esp32c3_fixed
   tags:
     - test_jtag_arm_esp32c3
-  dependencies:
-    - build_test_app_esp32c3_premajor_idf_rel
-    - build_linux_armel
+  needs:
+    - job: build_test_app_esp32c3_premajor_idf_rel
+    - job: build_linux_armel
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
@@ -228,9 +256,9 @@ tests_armel_esp32c3_premajor_idf_rel_flash_encrypted:
   extends: .tests_armel_esp32c3_fixed
   tags:
     - test_jtag_arm_flash_encryption_esp32c3
-  dependencies:
-    - build_test_app_esp32c3_premajor_idf_rel
-    - build_linux_armel
+  needs:
+    - job: build_test_app_esp32c3_premajor_idf_rel
+    - job: build_linux_armel
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
@@ -243,9 +271,9 @@ tests_armel_esp32_legacy_idf_rel:
   <<: *tests_armel_template
   tags:
     - test_jtag_arm
-  dependencies:
-    - build_test_app_esp32_legacy_idf_rel
-    - build_linux_armel
+  needs:
+    - job: build_test_app_esp32_legacy_idf_rel
+    - job: build_linux_armel
   variables:
     PLATFORM_NAME: "linux-armel"
     TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
@@ -257,6 +285,8 @@ tests_win_simple_esp32:
     - test_jtag_win
   dependencies:
     - build_windows
+  needs:
+    - job: build_windows
   variables:
     # actually we don't need the project sources, but we need the `git clean` gitlab-runner's stage.
     # It's possible only for `fetch` or `clone`.
@@ -270,7 +300,6 @@ tests_win_simple_esp32:
     - .\openocd-esp32\bin\openocd --version
     - echo $OPENOCD_SCRIPTS
     - .\openocd-esp32\bin\openocd.exe -f board\esp32-ethernet-kit-3.3v.cfg -c "init; reset halt; sleep 5; exit"
-
 
 test_nuttx_esp32:
   image: $CI_DOCKER_REGISTRY/rpi-test-env
@@ -294,13 +323,11 @@ test_nuttx_esp32:
     TEST_RUN_EXTRA_OPTS: "-i other -b esp32-wrover-kit-3.3v -p test_nuttx -e *.*Encrypted"
   needs:
     - job: build_linux_armel
-      artifacts: true
     - job: build_nuttx_app
       artifacts: false
     - project: idf/apache/esp-nuttx-apps
       job: build_esp32_openocd
       ref: master
-      artifacts: true
   script:
     - !reference [.export_toolchain, script]
     - mkdir -p $TEST_RUN_DIR/$NUTTX_APP_NAME

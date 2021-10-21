@@ -52,7 +52,6 @@ variables:
 
   TEST_APP_IDF_TAG: $CI_COMMIT_REF_NAME
 
-
 .add_gh_key_remote: &add_gh_key_remote |
   command -v ssh-agent >/dev/null || exit 1
   eval $(ssh-agent -s)
@@ -85,7 +84,6 @@ variables:
 before_script:
   - set -o errexit; set -o pipefail; set -o nounset
   - test "${DEBUG_SHELL:-''}" = "1" && set -x
-
 
 osx_code_sign:
   stage: pre_release

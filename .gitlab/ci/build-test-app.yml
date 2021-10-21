@@ -96,7 +96,6 @@
     - *prepare_espytrace_package
     - *get_esptool
 
-
 build_test_app_esp32:
   <<: *build_test_app_template
   allow_failure: true
@@ -115,6 +114,16 @@ build_test_app_esp32s2:
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
     BUILD_TEST_APP_DIR: "build_test_app_esp32s2"
     TEST_APP_CONFIGS: ""
+    UT_GET_IDF_VER: "0"
+
+build_test_app_esp32s3:
+  <<: *build_test_app_template
+  allow_failure: true
+  variables:
+    CHIP_NAME: "esp32s3"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s3"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32s3"
+    TEST_APP_CONFIGS: "default single_core"
     UT_GET_IDF_VER: "0"
 
 build_test_app_esp32c3:
@@ -144,6 +153,16 @@ build_test_app_esp32s2_premajor_idf_rel:
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
     BUILD_TEST_APP_DIR: "build_test_app_esp32s2_premajor_idf_rel"
     TEST_APP_CONFIGS: ""
+    TEST_APP_IDF_TAG: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
+    UT_GET_IDF_VER: "1"
+
+build_test_app_esp32s3_premajor_idf_rel:
+  <<: *build_test_app_template
+  variables:
+    CHIP_NAME: "esp32s3"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s3"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32s3_premajor_idf_rel"
+    TEST_APP_CONFIGS: "default single_core"
     TEST_APP_IDF_TAG: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
     UT_GET_IDF_VER: "1"
 

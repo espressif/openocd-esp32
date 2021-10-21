@@ -13,8 +13,8 @@ def get_logger():
 ########################################################################
 
 class DebuggerThreadsTestsImpl:
-    # TODO: Fails at esp32c3.Will be enabled after fix
-    @skip_for_chip(['esp32c3'])
+    # TODO: Fails at esp32c3 and esp32s3.Will be enabled after fix
+    @skip_for_chip(['esp32c3', 'esp32s3'])
     def test_threads_backtraces(self):
         """
             This test switches between threads and checks that their backtraces are as expected:

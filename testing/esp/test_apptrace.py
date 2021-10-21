@@ -25,6 +25,7 @@ def get_logger():
 ########################################################################
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
+@skip_for_chip(['esp32s3'])
 class ApptraceTestsImpl:
     """
     Tests for "raw" apptrace.
