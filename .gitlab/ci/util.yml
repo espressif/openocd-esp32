@@ -1,0 +1,81 @@
+.add_gitlab_key_snippet: &add_gitlab_key_snippet |
+  command -v ssh-agent >/dev/null || exit 1
+  eval $(ssh-agent -s)
+  printf '%s\n' "${GITLAB_KEY}" | tr -d '\r' | ssh-add - > /dev/null
+  mkdir -p ~/.ssh && chmod 700 ~/.ssh
+  [[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config || true
+
+.add_gitlab_key:
+  script:
+    - *add_gitlab_key_snippet
+
+
+.submodules_mirror_update_snippet: &submodules_mirror_update_snippet |
+  # Gitlab doesn't clean submodule contents
+  git submodule foreach "git clean -d -x -f" || true
+  # Use local mirror for submodules
+  git config submodule.tools/git2cl.url https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/idf/git2cl.git
+  git config submodule.jimtcl.url https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/idf/jimtcl.git
+  git config submodule.src/jtag/drivers/libjaylink.url https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/idf/libjaylink.git
+  git submodule update --init
+
+.submodules_mirror_update:
+  script:
+    - *submodules_mirror_update_snippet
+
+
+.export_toolchain_snippet: &export_toolchain_snippet |
+  export PATH=${HOME}/.espressif/tools/${TOOLCHAIN_PREFIX}-elf/${ESP_TOOLCHAIN}/${TOOLCHAIN_PREFIX}-elf/bin:${PATH}
+  source /opt/pyenv/activate && pyenv global ${TEST_IMAGE_PYTHON_VER}
+
+.export_toolchain:
+  script:
+    - *export_toolchain_snippet
+
+
+.get_fixed_riscv32_esp_elf_gdb_snippet: &get_fixed_riscv32_esp_elf_gdb_snippet
+    - pushd $TEST_RUN_DIR
+    - git clone https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/alexey/temp_binary_storage.git
+    - export PATH=$PWD/temp_binary_storage/riscv32-esp-elf:$PATH
+    - popd
+
+.get_fixed_riscv32_esp_elf_gdb:
+  script:
+    - *get_fixed_riscv32_esp_elf_gdb_snippet
+
+
+.run_tests_linux_snippet: &run_tests_linux_snippet |
+  ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
+  tar -C ${TEST_RUN_DIR} -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
+  export DIST_DIR=${PWD}/${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}
+  export PATH=$PWD/${TEST_RUN_DIR}/esptool:$PATH
+  export PYTHONPATH=$PWD/${TEST_RUN_DIR}:$PWD/testing/esp/py_debug_backend
+  . $PWD/${TEST_RUN_DIR}/gen_ut_app/gcov_data/gcov_env.sh
+  testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -t ${TOOLCHAIN_PREFIX}-elf- -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log -to $PWD/$TEST_RUN_DIR/results $TEST_RUN_EXTRA_OPTS
+
+.run_tests_linux:
+  script:
+    - *run_tests_linux_snippet
+
+
+.copy_nuttx_files_snippet: &copy_nuttx_files_snippet |
+  cp testing/esp/test_apps/nuttx/gdbstartup $TEST_RUN_DIR/$NUTTX_APP_NAME
+  mv nuttx.bin $TEST_RUN_DIR/$NUTTX_APP_NAME/$NUTTX_APP_NAME.bin
+  mv nuttx $TEST_RUN_DIR/$NUTTX_APP_NAME/$NUTTX_APP_NAME.elf
+  mv bootloader.bin partition-table.bin $TEST_RUN_DIR/$NUTTX_APP_NAME/
+
+.copy_nuttx_files:
+  script:
+    - *copy_nuttx_files_snippet
+
+
+.run_tests_nuttx_snippet: &run_tests_nuttx_snippet |
+  ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
+  tar -C ${TEST_RUN_DIR} -x -f ${DIST_ART_DIR}/${ARCHIVE_NAME}
+  export DIST_DIR=${PWD}/${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}
+  export PYTHONPATH=$PWD/${TEST_RUN_DIR}:$PWD/testing/esp/py_debug_backend
+  testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -t ${TOOLCHAIN_PREFIX}-elf- -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log $TEST_RUN_EXTRA_OPTS -c "${OOCD_CMDS}"
+
+.run_tests_nuttx:
+  script:
+    - *run_tests_nuttx_snippet

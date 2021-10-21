@@ -1,0 +1,176 @@
+.get_esptool: &get_esptool |
+  IDF_ESPTOOL_PATH=$IDF_PATH/components/esptool_py/esptool/esptool.py
+  mkdir -p $BUILD_TEST_APP_DIR/esptool
+  cp -v $IDF_ESPTOOL_PATH $BUILD_TEST_APP_DIR/esptool/
+
+.prepare_espytrace_package: &prepare_espytrace_package |
+  IDF_ESPYTRACE_DIR=$IDF_PATH/tools/esp_app_trace/espytrace
+  if [ -d "$IDF_ESPYTRACE_DIR" ]; then
+    cp -rv $IDF_ESPYTRACE_DIR $BUILD_TEST_APP_DIR/
+  else
+    cp -rv testing/esp/extra/espytrace $BUILD_TEST_APP_DIR/
+  fi
+
+.prepare_test_app_build: &prepare_test_app_build |
+  mkdir -p $BUILD_TEST_APP_DIR
+  cp -rv testing/esp/test_apps/gen_ut_app $BUILD_TEST_APP_DIR/
+  pushd $BUILD_TEST_APP_DIR
+  git clone https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git
+  pushd esp-idf
+  git checkout $TEST_APP_IDF_TAG || true
+  tools/ci/mirror-submodule-update.sh
+  export IDF_PATH=$PWD
+  export BATCH_BUILD=1
+  export V=0
+  popd
+  pushd gen_ut_app
+
+.finish_test_app_build: &finish_test_app_build |
+  export UT_APP_DIR=$PWD
+  mkdir -p $UT_APP_DIR/gcov_data
+  if [ -d "$UT_APP_DIR/builds/apptrace_gcov_dual" ]; then
+    pushd $UT_APP_DIR/builds/apptrace_gcov_dual
+    find . -type d -exec mkdir -p $UT_APP_DIR/gcov_data/apptrace_gcov_dual/\{\} \;
+    popd
+  fi
+  if [ -d "$UT_APP_DIR/builds/apptrace_gcov_single" ]; then
+    pushd $UT_APP_DIR/builds/apptrace_gcov_single
+    find . -type d -exec mkdir -p $UT_APP_DIR/gcov_data/apptrace_gcov_single/\{\} \;
+    popd
+  fi
+  echo "export OPENOCD_GCOV_PREFIX=$UT_APP_DIR/gcov_data" > $UT_APP_DIR/gcov_data/gcov_env.sh
+  export PREFIX_STRIP=$(awk -F"/" '{print NF-1}' <<< $UT_APP_DIR/builds)
+  echo "export OPENOCD_GCOV_PREFIX_STRIP=$PREFIX_STRIP" >> $UT_APP_DIR/gcov_data/gcov_env.sh
+  popd
+  popd
+
+.do_build_test_app: &do_build_test_app |
+  if [ -z "$TEST_APP_CONFIGS" ]; then
+    echo "Build ALL"
+    IDF_TARGET=${CHIP_NAME} $IDF_PATH/tools/idf.py ut-build-all-configs
+  else
+    for cfg_name in $TEST_APP_CONFIGS
+    do
+      echo "Build <${cfg_name}>"
+      IDF_TARGET=${CHIP_NAME} $IDF_PATH/tools/idf.py ut-apply-config-$cfg_name
+      IDF_TARGET=${CHIP_NAME} $IDF_PATH/tools/idf.py ut-build-$cfg_name
+    done
+  fi
+
+.build_test_app_template: &build_test_app_template
+  stage: build
+  image: $CI_DOCKER_REGISTRY/esp-env:${ESP_ENV_DOCKER_IMG_TAG}
+  tags:
+    - build
+  artifacts:
+    paths:
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gen_ut_app.elf
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gen_ut_app.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/partition_table/partition-table.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/bootloader/bootloader.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/flasher_args.json
+      # Needed to run tests
+      - $BUILD_TEST_APP_DIR/gen_ut_app/main/gcov_tests.gcda.gcov
+      - $BUILD_TEST_APP_DIR/gen_ut_app/main/helper_funcs.gcda.gcov
+      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/apptrace_gcov_dual
+      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/apptrace_gcov_single
+      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_env.sh
+      - $BUILD_TEST_APP_DIR/espytrace
+      - $BUILD_TEST_APP_DIR/esptool
+    expire_in: 2 weeks
+  script:
+    - !reference [.add_gitlab_key, script]
+    - *prepare_test_app_build
+    - source /opt/pyenv/activate
+    - pyenv global $(pyenv versions --bare)
+    - ${IDF_PATH}/tools/idf_tools.py install-python-env
+    - ${IDF_PATH}/tools/idf_tools.py install ${TOOLCHAIN_PREFIX}-elf
+    # TODO: remove
+    - ls -l ${HOME}/.espressif/tools/${TOOLCHAIN_PREFIX}-elf
+    # cannot exec '. ${IDF_PATH}/export.sh' here because not all tools distros are presented
+    # in the image and `export.sh` fails w/o adding tools to $PATH
+    - idf_exports=$(${IDF_PATH}/tools/idf_tools.py export) || true
+    - eval "${idf_exports}"
+    - *do_build_test_app
+    - *finish_test_app_build
+    - *prepare_espytrace_package
+    - *get_esptool
+
+
+build_test_app_esp32:
+  <<: *build_test_app_template
+  allow_failure: true
+  variables:
+    CHIP_NAME: "esp32"
+    TOOLCHAIN_PREFIX: "xtensa-esp32"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32"
+    TEST_APP_CONFIGS: ""
+    UT_GET_IDF_VER: "0"
+
+build_test_app_esp32s2:
+  <<: *build_test_app_template
+  allow_failure: true
+  variables:
+    CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32s2"
+    TEST_APP_CONFIGS: ""
+    UT_GET_IDF_VER: "0"
+
+build_test_app_esp32c3:
+  <<: *build_test_app_template
+  allow_failure: true
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32c3"
+    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single"
+    UT_GET_IDF_VER: "0"
+
+build_test_app_esp32_premajor_idf_rel:
+  <<: *build_test_app_template
+  variables:
+    CHIP_NAME: "esp32"
+    TOOLCHAIN_PREFIX: "xtensa-esp32"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32_premajor_idf_rel"
+    TEST_APP_CONFIGS: ""
+    TEST_APP_IDF_TAG: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
+    UT_GET_IDF_VER: "1"
+
+build_test_app_esp32s2_premajor_idf_rel:
+  <<: *build_test_app_template
+  variables:
+    CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32s2_premajor_idf_rel"
+    TEST_APP_CONFIGS: ""
+    TEST_APP_IDF_TAG: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
+    UT_GET_IDF_VER: "1"
+
+build_test_app_esp32c3_premajor_idf_rel:
+  <<: *build_test_app_template
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32c3_premajor_idf_rel"
+    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single"
+    TEST_APP_IDF_TAG: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
+    UT_GET_IDF_VER: "1"
+
+build_test_app_esp32_legacy_idf_rel:
+  <<: *build_test_app_template
+  variables:
+    CHIP_NAME: "esp32"
+    TOOLCHAIN_PREFIX: "xtensa-esp32"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32_legacy_idf_rel"
+    TEST_APP_CONFIGS: ""
+    TEST_APP_IDF_TAG: "${TEST_APP_LEGACY_IDF_RELEASE_BRANCH}"
+    UT_GET_IDF_VER: "1"
+
+build_nuttx_app:
+  stage: build
+  variables:
+    TRIGGER_JOB: "OPENOCD"
+  trigger:
+    project: idf/apache/esp-nuttx-apps
+    strategy: depend
