@@ -20,7 +20,7 @@ def get_logger():
 ########################################################################
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
-@skip_for_chip(['esp32c3'])
+@skip_for_chip(['esp32c3', 'esp32s3'])
 @idf_ver_min('4.0')
 class SemihostTestsImpl:
     """

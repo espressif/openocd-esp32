@@ -235,21 +235,6 @@ class GdbEspXtensa(GdbEspImpl, GdbXtensa):
         self.halt()
         return super(GdbEspXtensa, self).get_thread_info(thread_id)
 
-
-class GdbEspRiscv(GdbEspImpl, GdbRiscv):
-    """
-        Class to communicate to GDB supporting ESP RISCV-specific features
-    """
-
-    def __init__(self, gdb_path, remote_target='127.0.0.1:3333', extended_remote_mode=False, gdb_log_file=None,
-                 log_level=None, log_stream_handler=None, log_file_handler=None):
-        GdbRiscv.__init__(self, gdb_path=gdb_path, remote_target=remote_target,
-                                           extended_remote_mode=extended_remote_mode, gdb_log_file=gdb_log_file,
-                                           log_level=log_level, log_stream_handler=log_stream_handler,
-                                           log_file_handler=log_file_handler)
-        GdbEspImpl.__init__(self)
-
-
 class OocdEsp32(OocdEspXtensa):
     """
         Class to communicate to OpenOCD supporting ESP32 specific features
@@ -265,71 +250,34 @@ class OocdEsp32(OocdEspXtensa):
                                         log_stream_handler=log_stream_handler,
                                         log_file_handler=log_file_handler)
 
-
-class GdbEsp32(GdbEspXtensa):
+class OocdEsp32s3(OocdEspXtensa):
     """
-        Class to communicate to GDB supporting ESP32 specific features
+        Class to communicate to OpenOCD supporting ESP32-S3 specific features
     """
-    chip_name = 'esp32'
+    chip_name = 'esp32s3'
 
-    def __init__(self, gdb_path='xtensa-esp32-elf-gdb', remote_target='127.0.0.1:3333', extended_remote_mode=False,
-                 gdb_log_file=None, log_level=None, log_stream_handler=None, log_file_handler=None):
-        super(GdbEsp32, self).__init__(gdb_path=gdb_path, remote_target=remote_target,
-                                       extended_remote_mode=extended_remote_mode,
-                                       gdb_log_file=gdb_log_file, log_level=log_level,
-                                       log_stream_handler=log_stream_handler,
-                                       log_file_handler=log_file_handler)
+    def __init__(self, oocd_exec=None, oocd_scripts=None, oocd_cfg_files=[], oocd_cfg_cmds=[], oocd_debug=2,
+                 oocd_args=[], host='127.0.0.1', log_level=None, log_stream_handler=None, log_file_handler=None):
+        super(OocdEsp32s3, self).__init__(cores_num=2, oocd_exec=oocd_exec, oocd_scripts=oocd_scripts,
+                                        oocd_cfg_files=oocd_cfg_files, oocd_cfg_cmds=oocd_cfg_cmds,
+                                        oocd_debug=oocd_debug,
+                                        oocd_args=oocd_args, host=host, log_level=log_level,
+                                        log_stream_handler=log_stream_handler,
+                                        log_file_handler=log_file_handler)
 
 
-class OocdEsp32Solo(OocdEspXtensa):
+class GdbEspRiscv(GdbEspImpl, GdbRiscv):
     """
-        Class to communicate to OpenOCD supporting ESP32-SOLO specific features
+        Class to communicate to GDB supporting ESP RISCV-specific features
     """
-    chip_name = 'esp32-solo'
 
-
-class GdbEsp32Solo(GdbEspXtensa):
-    """
-        Class to communicate to GDB supporting ESP32-SOLO specific features
-    """
-    chip_name = 'esp32-solo'
-
-    def __init__(self, gdb_path='xtensa-esp32-elf-gdb', remote_target='127.0.0.1:3333', extended_remote_mode=False,
-                 gdb_log_file=None, log_level=None, log_stream_handler=None, log_file_handler=None):
-        super(GdbEsp32Solo, self).__init__(gdb_path=gdb_path, remote_target=remote_target,
-                                           extended_remote_mode=extended_remote_mode,
-                                           gdb_log_file=gdb_log_file, log_level=log_level,
-                                           log_stream_handler=log_stream_handler,
+    def __init__(self, gdb_path, remote_target='127.0.0.1:3333', extended_remote_mode=False, gdb_log_file=None,
+                 log_level=None, log_stream_handler=None, log_file_handler=None):
+        GdbRiscv.__init__(self, gdb_path=gdb_path, remote_target=remote_target,
+                                           extended_remote_mode=extended_remote_mode, gdb_log_file=gdb_log_file,
+                                           log_level=log_level, log_stream_handler=log_stream_handler,
                                            log_file_handler=log_file_handler)
-
-
-class OocdEsp32s2(OocdEspXtensa):
-    """
-        Class to communicate to OpenOCD supporting ESP32-S2 specific features
-    """
-    chip_name = 'esp32s2'
-
-
-class GdbEsp32s2(GdbEspXtensa):
-    """
-        Class to communicate to GDB supporting ESP32-S2 specific features
-    """
-    chip_name = 'esp32s2'
-
-    def __init__(self, gdb_path='xtensa-esp32s2-elf-gdb', remote_target='127.0.0.1:3333', extended_remote_mode=False,
-                 gdb_log_file=None, log_level=None, log_stream_handler=None, log_file_handler=None):
-        super(GdbEsp32s2, self).__init__(gdb_path=gdb_path, remote_target=remote_target,
-                                         extended_remote_mode=extended_remote_mode,
-                                         gdb_log_file=gdb_log_file, log_level=log_level,
-                                         log_stream_handler=log_stream_handler,
-                                         log_file_handler=log_file_handler)
-
-
-class OocdEsp32c3(OocdEspRiscv):
-    """
-        Class to communicate to OpenOCD supporting ESP32-C3 specific features
-    """
-    chip_name = 'esp32c3'
+        GdbEspImpl.__init__(self)
 
 
 class GdbEsp32c3(GdbEspRiscv):

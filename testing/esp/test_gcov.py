@@ -134,6 +134,7 @@ class GcovDataFile:
 ########################################################################
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
+@skip_for_chip(['esp32s3'])
 class GcovTestsImpl:
     """ Test cases which are common for dual and single core modes
 
@@ -383,7 +384,7 @@ class GcovTestAppTestsDual(DebuggerGenericTestAppTests):
         self.test_app_cfg.bin_dir = os.path.join('output', 'apptrace_gcov_dual')
         self.test_app_cfg.build_dir = os.path.join('builds', 'apptrace_gcov_dual')
 
-@idf_ver_min('latest')
+@idf_ver_min('4.4')
 class GcovTestAppTestsSingle(DebuggerGenericTestAppTests):
     """ Base class to run tests which use gcov test app in single core mode
     """
