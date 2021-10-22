@@ -83,7 +83,9 @@ void test_timer_init(int timer_group, int timer_idx, uint32_t period)
     config.intr_type = TIMER_INTR_LEVEL;
     config.counter_en = TIMER_PAUSE;
 #if UT_IDF_VER >= MAKE_UT_IDF_VER(4,1,0,0)
+#if SOC_TIMER_GROUP_SUPPORT_XTAL
     config.clk_src = TIMER_SRC_CLK_APB;
+#endif
 #endif
     /*Configure timer*/
     timer_init(timer_group, timer_idx, &config);
