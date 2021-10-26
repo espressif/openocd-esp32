@@ -33,6 +33,8 @@ class DebuggerNuttxTestsImpl:
                 frames = self.gdb.get_backtrace()
 
                 # The frame should be like the following:
+                #   nxtask_start
+                #   nxtask_startup
                 #   taskX_daemon
                 #   taskX_lvl
                 #    ...
@@ -41,7 +43,7 @@ class DebuggerNuttxTestsImpl:
                 # We extract here from the end (the daemon) up to the last
                 # taskX_lvl.  This should be the expected level + 1 for the
                 # daemon.
-                lvlsframe = frames[-(expectedlvl + 1):]
+                lvlsframe = frames[-(expectedlvl + 3):]
                 extractedlvl = 0
                 lvlname = 'task%s_lvls' % i
                 for f in lvlsframe:
