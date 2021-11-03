@@ -147,6 +147,7 @@ test_sanitizers_nuttx_esp32:
   stage: sanitizer_tests
   tags:
     - test_jtag_arm
+  allow_failure: true
   variables:
     PLATFORM_NAME: "linux-armel-test"
     TEST_RUN_DIR: "nuttx_test"

@@ -277,6 +277,7 @@ test_nuttx_esp32:
   stage: test
   tags:
     - test_jtag_arm
+  allow_failure: true
   artifacts:
     paths:
       - $TEST_RUN_DIR/debug_backend_tests.log
