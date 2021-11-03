@@ -257,7 +257,8 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
             # check if suite have at least one test to run
             skip_count = 0
             for test in self._groupped_suites[app_cfg_id][1]:
-                if getattr(type(test), '__unittest_skip__', False):
+                # if the whole class of tests or particular test is marked to be skipped
+                if getattr(type(test), '__unittest_skip__', False) or getattr(test, '__esp_unittest_skip_reason__', '') != '':
                     skip_count += 1
             if skip_count == self._groupped_suites[app_cfg_id][1].countTestCases():
                 get_logger().debug('Skip loading %s for %d tests', app_cfg_id, skip_count)
@@ -340,6 +341,12 @@ class DebuggerTestsBase(unittest.TestCase):
         self.gdb = None
         self.oocd = None
         self.toolchain = ''
+        self.__esp_unittest_skip_reason__ = ''
+
+    def setUp(self):
+        super(DebuggerTestsBase, self).setUp()
+        if self.__esp_unittest_skip_reason__ != '':
+            self.skipTest(self.__esp_unittest_skip_reason__)
 
     def fail_if_not_hw_id(self, hw_ids):
         for id in hw_ids:
@@ -416,6 +423,7 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         """ Setup test.
             In order to select sub-test all tests of this class need target to be reset and halted.
         """
+        super(DebuggerTestAppTests, self).setUp()
         self.stop_exec()
         self.prepare_app_for_debugging(self.test_app_cfg.app_off)
         # ready to select and start test (should be done in test method)

@@ -242,7 +242,9 @@ def exclude_tests_by_patterns(suite, patterns):
                 pattern = '%s.%s.*' % (parts[0], parts[1])
             re_pattern = '^%s$' % pattern.replace('.', '\.').replace('*', '.*')
             if re.match(re_pattern, test.id()):
-                setattr(test, 'setUp', lambda: test.skipTest('Excluded by pattern'))
+                # '__esp_unittest_skip_reason__' flag is used by test suite to check if app binaries need to be flashed,
+                # so we can skip individual tests w/o need for having binaries for them. See DebuggerTestsBunch.run() for details
+                setattr(test, '__esp_unittest_skip_reason__', 'Excluded by pattern')
                 break
     return suite
 
