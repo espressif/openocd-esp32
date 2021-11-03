@@ -220,7 +220,7 @@ upload_to_http:
     - echo "Archive was published there '${OOCD_DISTRO_URL}'"
     - echo "NEW_OOCD_DISTRO_URL=${OOCD_DISTRO_URL}" >> build.env
 
-test_idf_examples:
+test_premajor_idf_rel_examples:
   stage: pre_release
   when: manual
   only:
@@ -233,6 +233,7 @@ test_idf_examples:
       artifacts: true
   trigger:
     project: espressif/esp-idf
+    branch: ${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}
     strategy: depend
 
 include:
