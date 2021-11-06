@@ -212,7 +212,7 @@ upload_to_http:
     - *use_ci_tools
   script:
     - cit_add_ssh_key "${HTTP_UPLOAD_KEY}"
-    - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_armel)
+    - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_linux-armel)
     - pushd ${DIST_ART_DIR}
     - scp ${ARCHIVE_NAME} ${HTTP_UPLOAD_DIR}/openocd/
     - popd
