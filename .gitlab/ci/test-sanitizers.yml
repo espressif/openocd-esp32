@@ -140,7 +140,7 @@ tests_sanitizers_esp32c3_premajor_idf_rel:
     ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
     PLATFORM_NAME: "linux-armel-test"
     TEST_RUN_DIR: "build_test_app_esp32c3_premajor_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single -e test_apptrace test_gcov"
 
 test_sanitizers_nuttx_esp32:
   image: $CI_DOCKER_REGISTRY/rpi-test-env

@@ -94,4 +94,6 @@ struct esp_semihost_ops {
 	int (*prepare)(struct target *target);
 };
 
+int esp_dbgstubs_table_read(struct target *target, struct esp_dbg_stubs *dbg_stubs);
+
 #endif	/* _ESP_H */
