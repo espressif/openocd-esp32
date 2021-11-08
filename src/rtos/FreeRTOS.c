@@ -222,7 +222,7 @@ static int freertos_post_reset_cleanup(struct target *target);
 static int freertos_clean(struct target *target);
 static int freertos_smp_init(struct target *target);
 
-struct rtos_type freertos_rtos = {
+const struct rtos_type freertos_rtos = {
 	.name = "FreeRTOS",
 	.detect_rtos = freertos_detect_rtos,
 	.create = freertos_create,
