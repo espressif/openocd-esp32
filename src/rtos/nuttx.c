@@ -130,7 +130,7 @@ static const struct nuttx_params nuttx_params_list[] = {
 	},
 };
 
-struct rtos_type nuttx_rtos = {
+const struct rtos_type nuttx_rtos = {
 	.name = "NuttX",
 	.detect_rtos = nuttx_detect_rtos,
 	.create = nuttx_create,
