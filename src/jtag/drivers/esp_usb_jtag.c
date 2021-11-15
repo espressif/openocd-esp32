@@ -172,9 +172,7 @@ struct jtag_proto_caps_speed_apb {
  *row at max. This translates to ('b1111111111+1=)1024 reps max. */
 #define CMD_REP_MAX_REPS 1024
 
-/*Currently we only support one USB device. Its PID/VID are defined here. */
-#define USB_VID 0x303A
-#define USB_PID 0x1001
+/*Currently we only support one USB device. */
 #define USB_CONFIGURATION 0
 
 /*Buffer size; is equal to the endpoint size. In bytes
@@ -234,6 +232,9 @@ struct esp_usb_jtag {
 static struct esp_usb_jtag esp_usb_jtag_priv;
 static struct esp_usb_jtag *priv= &esp_usb_jtag_priv;
 static const char *esp_usb_jtag_serial;
+
+static int esp_usb_vid = 0;
+static int esp_usb_pid = 0;
 
 /*The JTAG adapter can drop a logfile detailing all low-level USB transactions that are done.
  *If this is defined, the log will have entries that allow replay on a testbed. */
@@ -317,8 +318,8 @@ static bool esp_usb_jtag_libusb_location_equal(libusb_device *dev1, libusb_devic
 
 static int esp_usb_jtag_revive_device(struct libusb_device_handle *usb_device)
 {
-	const uint16_t vids[]= {USB_VID, 0};	/* must be null terminated */
-	const uint16_t pids[]= {USB_PID, 0};	/* must be null terminated */
+	const uint16_t vids[]= {esp_usb_vid, 0};	/* must be null terminated */
+	const uint16_t pids[]= {esp_usb_pid, 0};	/* must be null terminated */
 	libusb_device *cur_dev = libusb_get_device(usb_device);
 	libusb_device *new_dev = NULL;
 	int ret, tries = 5;
@@ -642,8 +643,8 @@ static int esp_usb_jtag_init(void)
 {
 	memset(priv, 0, sizeof(struct esp_usb_jtag));
 
-	const uint16_t vids[]= {USB_VID, 0};	/* must be null terminated */
-	const uint16_t pids[]= {USB_PID, 0};	/* must be null terminated */
+	const uint16_t vids[]= {esp_usb_vid, 0};	/* must be null terminated */
+	const uint16_t pids[]= {esp_usb_pid, 0};	/* must be null terminated */
 
 	bitq_interface= calloc(sizeof(struct bitq_interface), 1);
 	bitq_interface->out= esp_usb_jtag_out;
@@ -864,6 +865,19 @@ COMMAND_HANDLER(esp_usb_jtag_serial_cmd)
 	return ERROR_OK;
 }
 
+COMMAND_HANDLER(esp_usb_jtag_vid_pid)
+{
+	if (CMD_ARGC < 2) {
+		LOG_ERROR("You need to supply the vendor and product IDs");
+		return ERROR_FAIL;
+	}
+
+	COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], esp_usb_vid);
+	COMMAND_PARSE_NUMBER(int, CMD_ARGV[1], esp_usb_pid);
+	LOG_INFO("esp_usb_jtag: VID set to 0x%x and PID to 0x%x", esp_usb_vid, esp_usb_pid);
+
+	return ERROR_OK;
+}
 
 static const struct command_registration esp_usb_jtag_subcommands[] = {
 	{
@@ -899,11 +913,18 @@ static const struct command_registration esp_usb_jtag_subcommands[] = {
 
 static const struct command_registration esp_usb_jtag_commands[] = {
 	{
-		.name = "espusbjtag",
+		.name = "esp_usb_jtag",
 		.mode = COMMAND_ANY,
 		.help = "ESP-USB-JTAG commands",
 		.chain = esp_usb_jtag_subcommands,
 		.usage = "",
+	},
+	{
+		.name = "esp_usb_jtag_vid_pid",
+		.handler = &esp_usb_jtag_vid_pid,
+		.mode = COMMAND_CONFIG,
+		.help = "set vendor ID and product ID for ESP usb jtag driver",
+		.usage = "description_string",
 	},
 	COMMAND_REGISTRATION_DONE
 };
