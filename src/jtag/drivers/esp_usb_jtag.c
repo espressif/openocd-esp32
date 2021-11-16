@@ -150,23 +150,23 @@ struct jtag_proto_caps_speed_apb {
 	uint16_t div_max;	/*maximum divisor (to base speed), inclusive */
 } __packed;
 
-#define VEND_DESCRIPTOR_JTAG_CAPS 0x2000
+#define VEND_DESCRIPTOR_BUILTIN_JTAG_CAPS 0x2000
 
-#define VEND_JTAG_SETDIV 0
-#define VEND_JTAG_SETIO 1
-#define VEND_JTAG_GETTDO 2
+#define VEND_JTAG_SETDIV        0
+#define VEND_JTAG_SETIO         1
+#define VEND_JTAG_GETTDO        2
 
-#define VEND_JTAG_SETIO_TDI             (1<<0)
-#define VEND_JTAG_SETIO_TMS             (1<<1)
-#define VEND_JTAG_SETIO_TCK             (1<<2)
+#define VEND_JTAG_SETIO_TDI     (1<<0)
+#define VEND_JTAG_SETIO_TMS     (1<<1)
+#define VEND_JTAG_SETIO_TCK     (1<<2)
 #define VEND_JTAG_SETIO_TRST    (1<<3)
 #define VEND_JTAG_SETIO_SRST    (1<<4)
 
 #define CMD_CLK(cap, tdi, tms) ((cap ? 4 : 0)|(tms ? 2 : 0)|(tdi ? 1 : 0))
-#define CMD_RST(srst) (8|(srst ? 1 : 0))
-#define CMD_FLUSH 0xA
-#define CMD_RSVD 0xB
-#define CMD_REP(r) (0xC+(r))
+#define CMD_RST(srst)   (8|(srst ? 1 : 0))
+#define CMD_FLUSH       0xA
+#define CMD_RSVD        0xB
+#define CMD_REP(r)      (0xC+(r))
 
 /*The internal repeats register is 10 bits, which means we can have 5 repeat commands in a
  *row at max. This translates to ('b1111111111+1=)1024 reps max. */
@@ -235,6 +235,7 @@ static const char *esp_usb_jtag_serial;
 
 static int esp_usb_vid = 0;
 static int esp_usb_pid = 0;
+static int esp_usb_jtag_caps = 0;
 
 /*The JTAG adapter can drop a logfile detailing all low-level USB transactions that are done.
  *If this is defined, the log will have entries that allow replay on a testbed. */
@@ -404,7 +405,8 @@ static int esp_usb_jtag_recv_buf(void)
 
 		if (tr != ct) {
 			/*Huh, short read? */
-			LOG_ERROR("esp_usb_jtag: usb received only %d out of %d bytes.", tr, ct);
+			LOG_DEBUG("esp_usb_jtag: usb received only %d out of %d bytes.", (int)n,
+				(int)ct);
 		}
 		/*Adjust the amount of bits we still expect to read from the USB device after this.
 		 **/
@@ -678,7 +680,7 @@ static int esp_usb_jtag_init(void)
 	char jtag_caps_desc[256];
 	r= jtag_libusb_control_transfer(priv->usb_device,
 		LIBUSB_ENDPOINT_IN|LIBUSB_REQUEST_TYPE_STANDARD|LIBUSB_RECIPIENT_DEVICE,
-		LIBUSB_REQUEST_GET_DESCRIPTOR, VEND_DESCRIPTOR_JTAG_CAPS, 0,
+		LIBUSB_REQUEST_GET_DESCRIPTOR, esp_usb_jtag_caps, 0,
 		jtag_caps_desc, 255, 1000);
 	if (r <= 0) {
 		LOG_ERROR("esp_usb_jtag: could not retrieve jtag_caps descriptor!");
@@ -690,13 +692,19 @@ static int esp_usb_jtag_init(void)
 	priv->div_min= 1;
 	priv->div_max= 1;
 
-	struct jtag_proto_caps_hdr *hdr= (struct jtag_proto_caps_hdr *)jtag_caps_desc;
+	/* start of the descriptor header *
+	 * eub uses string descriptor. Skip 1 byte length and 1 byte descriptor type */
+	int p = esp_usb_jtag_caps == VEND_DESCRIPTOR_BUILTIN_JTAG_CAPS ? 0 : 2;
+
+	struct jtag_proto_caps_hdr *hdr= (struct jtag_proto_caps_hdr *)&jtag_caps_desc[p];
 	if (hdr->proto_ver != JTAG_PROTO_CAPS_VER) {
 		LOG_ERROR("esp_usb_jtag: unknown jtag_caps descriptor version 0x%X!",
 			hdr->proto_ver);
 		goto out;
 	}
-	int p= 2;	/*start of rest of descriptors */
+
+	p += sizeof(struct jtag_proto_caps_hdr);
+
 	while (p < hdr->length) {
 		struct jtag_gen_hdr *dhdr= (struct jtag_gen_hdr *)&jtag_caps_desc[p];
 		if (dhdr->type == JTAG_PROTO_CAPS_SPEED_APB_TYPE) {
@@ -707,7 +715,7 @@ static int esp_usb_jtag_init(void)
 			priv->div_min= spcap->div_min;
 			priv->div_max= spcap->div_max;
 			/*todo: mark in priv that this is apb-derived and as such may change if apb
-			 * ever changes? */
+			* ever changes? */
 		} else
 			LOG_WARNING("esp_usb_jtag: unknown caps type 0x%X", dhdr->type);
 		p+= dhdr->length;
@@ -879,6 +887,19 @@ COMMAND_HANDLER(esp_usb_jtag_vid_pid)
 	return ERROR_OK;
 }
 
+COMMAND_HANDLER(esp_usb_jtag_caps_descriptor)
+{
+	if (CMD_ARGC < 1) {
+		LOG_ERROR("You need to supply the jtag capabilities descriptor");
+		return ERROR_FAIL;
+	}
+
+	COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], esp_usb_jtag_caps);
+	LOG_INFO("esp_usb_jtag: capabilities descriptor set to 0x%x", esp_usb_jtag_caps);
+
+	return ERROR_OK;
+}
+
 static const struct command_registration esp_usb_jtag_subcommands[] = {
 	{
 		.name = "tdo",
@@ -924,7 +945,14 @@ static const struct command_registration esp_usb_jtag_commands[] = {
 		.handler = &esp_usb_jtag_vid_pid,
 		.mode = COMMAND_CONFIG,
 		.help = "set vendor ID and product ID for ESP usb jtag driver",
-		.usage = "description_string",
+		.usage = "",
+	},
+	{
+		.name = "esp_usb_jtag_caps_descriptor",
+		.handler = &esp_usb_jtag_caps_descriptor,
+		.mode = COMMAND_CONFIG,
+		.help = "set jtag descriptor to read capabilities of ESP usb jtag driver",
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };
