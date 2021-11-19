@@ -31,6 +31,9 @@
 #include "jtag_usb_common.h"
 #include "libusb_helper.h"
 
+#include "target/target.h"
+#include "target/target_type.h"
+
 #define __packed __attribute__((packed))
 
 /*
@@ -155,6 +158,7 @@ struct jtag_proto_caps_speed_apb {
 #define VEND_JTAG_SETDIV        0
 #define VEND_JTAG_SETIO         1
 #define VEND_JTAG_GETTDO        2
+#define VEND_JTAG_SET_CHIPID    3
 
 #define VEND_JTAG_SETIO_TDI     (1<<0)
 #define VEND_JTAG_SETIO_TMS     (1<<1)
@@ -280,6 +284,35 @@ static void log_resp(uint8_t *buf, int ct, int recvd)
 		fprintf(priv->logfile, "%02X ", buf[n]);
 	fprintf(priv->logfile, "\n");
 	fflush(priv->logfile);
+}
+
+static int esp_chip_model_id(const char *target_name)
+{
+	typedef enum {
+		CHIP_ESP32  = 1,	/* !< ESP32 */
+		CHIP_ESP32S2 = 2,	/* !< ESP32-S2 */
+		CHIP_ESP32S3 = 9,	/* !< ESP32-S3 */
+		CHIP_ESP32C3 = 5,	/* !< ESP32-C3 */
+		CHIP_ESP32H2 = 6,	/* !< ESP32-H2 */
+	} esp_chip_model_t;
+
+	struct {
+		esp_chip_model_t id;
+		const char *name;
+	} chip_models[] = {
+		{ CHIP_ESP32,   "esp32"  },
+		{ CHIP_ESP32S2, "esp32s2"},
+		{ CHIP_ESP32S3, "esp32s3"},
+		{ CHIP_ESP32C3, "esp32c3"},
+		{ CHIP_ESP32H2, "esp32h2"},
+	};
+
+	for (size_t i = 0; i < sizeof(chip_models) / sizeof(chip_models[0]); ++i) {
+		if (!strcmp(target_name, chip_models[i].name))
+			return chip_models[i].id;
+	}
+
+	return -1;
 }
 
 static bool esp_usb_jtag_libusb_location_equal(libusb_device *dev1, libusb_device *dev2)
@@ -731,7 +764,17 @@ static int esp_usb_jtag_init(void)
 	/*ToDo: grab from (future) descriptor if we ever have a device with larger IN buffers */
 	priv->hw_in_fifo_len= 4;
 
+	struct target *target = get_target_by_num(0);
+	if (target) {
+		LOG_DEBUG("esp_usb_jtag: target (%s - %d)", target->type->name,
+			esp_chip_model_id(target->type->name));
+		jtag_libusb_control_transfer(priv->usb_device,
+			0x40, VEND_JTAG_SET_CHIPID, esp_chip_model_id(
+				target->type->name), 0, NULL, 0, 1000);
+	}
+
 	return ERROR_OK;
+
 out:
 	free((void *)esp_usb_jtag_serial);
 	esp_usb_jtag_serial = NULL;
