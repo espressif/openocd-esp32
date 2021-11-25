@@ -80,6 +80,7 @@
 
 #define ESP_FLASH_RW_TMO                20000	/* ms */
 #define ESP_FLASH_ERASE_TMO             60000	/* ms */
+#define ESP_FLASH_MAPS_MAX              2
 
 struct esp_flash_rw_args {
 	int (*xfer)(struct target *target, uint32_t block_id, uint32_t len, void *priv);
@@ -386,14 +387,21 @@ static int esp_flash_get_mappings(struct flash_bank *bank,
 		ret = ERROR_FAIL;
 	} else {
 		memcpy(flash_map, mp.value, sizeof(struct esp_flash_mapping));
-		if (flash_map->maps_num == 0)
+		if (flash_map->maps_num > ESP_FLASH_MAPS_MAX) {
+			LOG_ERROR("Too many flash mappings %d! Must be %d.",
+				flash_map->maps_num,
+				ESP_FLASH_MAPS_MAX);
+			ret = ERROR_FAIL;
+		} else if (flash_map->maps_num == 0)
 			LOG_WARNING("Empty flash mapping!");
-		for (uint32_t i = 0; i < flash_map->maps_num; i++)
-			LOG_INFO("Flash mapping %d: 0x%x -> 0x%x, %d KB",
-				i,
-				flash_map->maps[i].phy_addr,
-				flash_map->maps[i].load_addr,
-				flash_map->maps[i].size/1024);
+		else {
+			for (uint32_t i = 0; i < flash_map->maps_num; i++)
+				LOG_INFO("Flash mapping %d: 0x%x -> 0x%x, %d KB",
+					i,
+					flash_map->maps[i].phy_addr,
+					flash_map->maps[i].load_addr,
+					flash_map->maps[i].size/1024);
+		}
 	}
 	destroy_mem_param(&mp);
 	return ret;
