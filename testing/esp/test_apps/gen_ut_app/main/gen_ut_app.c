@@ -397,10 +397,10 @@ void app_main()
     ESP_LOGI(TAG, "Run test %d\n", s_run_test);
     if (s_run_test == 100){
         static struct blink_task_arg task_arg = { .tim_grp = TIMER_GROUP_1, .tim_id = TIMER_0, .tim_period = 500000UL};
-        xTaskCreate(&blink_task, "blink_task", 2048, &task_arg, 5, NULL);
+        xTaskCreate(&blink_task, "blink_task", 4096, &task_arg, 5, NULL);
     } else if (s_run_test == 101){
-        xTaskCreatePinnedToCore(&blink_task, "blink_task0", 2048, NULL, 5, NULL, 0);
-        xTaskCreatePinnedToCore(&blink_task, "blink_task1", 2048, NULL, 5, NULL, 1);
+        xTaskCreatePinnedToCore(&blink_task, "blink_task0", 4096, NULL, 5, NULL, 0);
+        xTaskCreatePinnedToCore(&blink_task, "blink_task1", 4096, NULL, 5, NULL, 1);
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
     } else if (s_run_test == 102){
         xTaskCreatePinnedToCore(&scratch_reg_using_task, "sreg_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);

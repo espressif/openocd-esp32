@@ -317,7 +317,7 @@ class StepTestsImpl():
     @only_for_arch(['xtensa'])
     def test_step_level5_int(self):
         """
-            Checks that steppiing can be done in high level interrupt handler.
+            Checks that stepping can be done in high level interrupt handler.
             1) Set a breakpoint inside a level 5 interrupt vector
             2) Wait until it hits
             3) Step into the handler
