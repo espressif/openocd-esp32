@@ -27,14 +27,15 @@ CROSS ?= xtensa-esp32s3-elf-
 # Path to the esp-idf root dir
 IDF_PATH ?= ../..
 
+STUB_ARCH := xtensa
 STUB_CHIP_PATH := $(shell pwd)
 STUB_COMMON_PATH := $(STUB_CHIP_PATH)/..
-STUB_CHIP_ARCH_PATH := $(STUB_COMMON_PATH)/xtensa
+STUB_CHIP_ARCH_PATH := $(STUB_COMMON_PATH)/$(STUB_ARCH)
 STUB_OBJ_DEPS := sdkconfig.h
 STUB_LD_SCRIPT := stub.ld
 STUB_CHIP := ESP32S3
 
-SRCS := $(IDF_PATH)/components/app_trace/port/xtensa/port.c \
+SRCS := $(IDF_PATH)/components/app_trace/port/$(STUB_ARCH)/port.c \
 	$(IDF_PATH)/components/xtensa/eri.c \
 	$(IDF_PATH)/components/esp_hw_support/port/esp32s3/rtc_clk.c \
 	$(IDF_PATH)/components/esp_hw_support/port/esp32s3/rtc_clk_init.c \
@@ -46,10 +47,7 @@ INCLUDES := -I$(IDF_PATH)/components/esp32s3/include -I$(IDF_PATH)/components/so
 	-I$(IDF_PATH)/components/esp_rom/include/esp32s3 -I$(IDF_PATH)/components/xtensa/esp32s3/include \
 	-I$(IDF_PATH)/components/hal/esp32s3/include \
 	-I$(IDF_PATH)/components/esp_hw_support/port/esp32s3/private_include \
-	-I$(IDF_PATH)/components/esp_hw_support/port/esp32s3 \
-	-I$(IDF_PATH)/components/xtensa/include \
-	-I$(IDF_PATH)/components/freertos/include \
-	-I$(IDF_PATH)/components/freertos/port/xtensa/include
+	-I$(IDF_PATH)/components/esp_hw_support/port/esp32s3
 
 DEFINES :=
 
