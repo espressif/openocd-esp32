@@ -225,63 +225,63 @@ test_sanitizers_nuttx_esp32:
 
 sanitizer_check_armel_esp32_solo:
   <<: *sanitizer_check_armel
-  dependencies:
-    - tests_sanitizers_esp32_solo
+  needs:
+    - job: tests_sanitizers_esp32_solo
   variables:
     TEST_RUN_DIR: "build_test_app_esp32"
 
 sanitizer_check_armel_esp32_legacy_idf_rel:
   <<: *sanitizer_check_armel
-  dependencies:
-    - tests_sanitizers_esp32_legacy_idf_rel
+  needs:
+    - job: tests_sanitizers_esp32_legacy_idf_rel
   variables:
     TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
 
 sanitizer_check_armel_esp32:
   <<: *sanitizer_check_armel
-  dependencies:
-    - tests_sanitizers_esp32
+  needs:
+    - job: tests_sanitizers_esp32
   variables:
     TEST_RUN_DIR: "build_test_app_esp32"
 
 sanitizer_check_armel_esp32_premajor_idf_rel:
   <<: *sanitizer_check_armel
-  dependencies:
-    - tests_sanitizers_esp32_premajor_idf_rel
+  needs:
+    - job: tests_sanitizers_esp32_premajor_idf_rel
   variables:
     TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
 
 sanitizer_check_armel_esp32s2:
   <<: *sanitizer_check_armel
-  dependencies:
-    - tests_sanitizers_esp32s2
+  needs:
+    - job: tests_sanitizers_esp32s2
   variables:
     TEST_RUN_DIR: "build_test_app_esp32s2"
 
 sanitizer_check_armel_esp32s2_premajor_idf_rel:
   <<: *sanitizer_check_armel
-  dependencies:
-    - tests_sanitizers_esp32s2_premajor_idf_rel
+  needs:
+    - job: tests_sanitizers_esp32s2_premajor_idf_rel
   variables:
     TEST_RUN_DIR: "build_test_app_esp32s2_premajor_idf_rel"
 
 sanitizer_check_armel_esp32c3:
   <<: *sanitizer_check_armel
-  dependencies:
-    - tests_sanitizers_esp32c3
+  needs:
+    - job: tests_sanitizers_esp32c3 
   variables:
     TEST_RUN_DIR: "build_test_app_esp32c3"
 
 sanitizer_check_armel_esp32c3_premajor_idf_rel:
   <<: *sanitizer_check_armel
-  dependencies:
-    - tests_sanitizers_esp32c3_premajor_idf_rel
+  needs:
+    - job: tests_sanitizers_esp32c3_premajor_idf_rel 
   variables:
     TEST_RUN_DIR: "build_test_app_esp32c3_premajor_idf_rel"
 
 sanitizer_check_armel_nuttx_esp32:
   <<: *sanitizer_check_armel
-  dependencies:
-    - test_sanitizers_nuttx_esp32
+  needs:
+    - job: test_sanitizers_nuttx_esp32 
   variables:
     TEST_RUN_DIR: "nuttx_test"
