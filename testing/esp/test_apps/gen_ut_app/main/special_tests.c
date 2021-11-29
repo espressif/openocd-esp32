@@ -85,7 +85,7 @@ ut_result_t special_test_do(int test_num)
         }
         case 801:
         {
-            xTaskCreatePinnedToCore(&cache_check_task, "cache_check_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
+            xTaskCreatePinnedToCore(&cache_check_task, "cache_check_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
             break;
         }
 #if CONFIG_IDF_TARGET_ARCH_XTENSA

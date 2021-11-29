@@ -283,8 +283,6 @@ tests_win_simple_esp32:
   stage: test
   tags:
     - test_jtag_win
-  dependencies:
-    - build_windows
   needs:
     - job: build_windows
   variables:
