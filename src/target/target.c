@@ -2305,6 +2305,8 @@ static void target_destroy(struct target *target)
 
 	target_free_all_working_areas(target);
 
+	rtos_destroy(target);
+
 	/* release the targets SMP list */
 	if (target->smp) {
 		struct target_list *head = target->head;
@@ -2316,8 +2318,6 @@ static void target_destroy(struct target *target)
 		}
 		target->smp = 0;
 	}
-
-	rtos_destroy(target);
 
 	free(target->gdb_port_override);
 	free(target->type);

@@ -107,7 +107,15 @@ static void os_free(struct target *target)
 
 	free(target->rtos->symbols);
 	free(target->rtos);
-	target->rtos = NULL;
+
+	/* For ESP chips there is one rtos instance for both target */
+	if (target->smp) {
+		for (struct target_list *pos = target->head; (pos != NULL); pos = pos->next) {
+			pos->target->rtos = NULL;
+		}
+	} else {
+		target->rtos = NULL;
+	}
 }
 
 static int os_alloc_create(struct target *target, struct rtos_type *ostype)
