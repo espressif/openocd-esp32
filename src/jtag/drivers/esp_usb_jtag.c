@@ -407,8 +407,7 @@ static int esp_usb_jtag_recv_buf(void)
 
 		if (tr != ct) {
 			/*Huh, short read? */
-			LOG_DEBUG("esp_usb_jtag: usb received only %d out of %d bytes.", (int)n,
-				(int)ct);
+			LOG_DEBUG("esp_usb_jtag: usb received only %d out of %d bytes.", tr, ct);
 		}
 		/*Adjust the amount of bits we still expect to read from the USB device after this.
 		 **/
@@ -446,16 +445,16 @@ static int esp_usb_jtag_send_buf(void)
 		LOG_DEBUG_IO("esp_usb_jtag: sent %d bytes.", tr);
 		if (priv->logfile)
 			log_cmds(priv->out_buf, ct, tr);
-		if (tr != ct) {
-			LOG_WARNING("esp_usb_jtag: usb sent only %d out of %d bytes.", tr, ct);
-			if (tr == 0) {
-				ret = esp_usb_jtag_revive_device(priv->usb_device);
-				if (ret != ERROR_OK) {
-					LOG_ERROR("esp_usb_jtag: failed to revive USB device!");
-					return ret;
-				}
-				return ERROR_FAIL;
-			}
+		if (written + tr != ct) {
+			LOG_DEBUG("esp_usb_jtag: usb sent only %d out of %d bytes.",
+				written + tr,
+				ct);
+		}
+		if (ret != ERROR_OK) {
+			ret = esp_usb_jtag_revive_device(priv->usb_device);
+			if (ret != ERROR_OK)
+				LOG_ERROR("esp_usb_jtag: failed to revive USB device!");
+			return ret;
 		}
 		written += tr;
 	}
@@ -733,8 +732,8 @@ static int esp_usb_jtag_init(void)
 	/*ToDo: grab from (future) descriptor if we ever have a device with larger IN buffers */
 	priv->hw_in_fifo_len= 4;
 
-	/* inform bridge board about the connected target chip for the specific operations */
-	/* it is also safe to send this info to chips that have builtin usb jtag */
+	/* inform bridge board about the connected target chip for the specific operations
+	 * it is also safe to send this info to chips that have builtin usb jtag */
 	jtag_libusb_control_transfer(priv->usb_device,
 		0x40,
 		VEND_JTAG_SET_CHIPID,
