@@ -31,15 +31,6 @@
     - !reference [.export_toolchain, script]
     - !reference [.run_tests_linux, script]
 
-.tests_armel_esp32c3_fixed:
-  extends: .tests_armel_template
-  script:
-    - !reference [.add_gitlab_key, script]
-    - !reference [.submodules_mirror_update, script]
-    - !reference [.export_toolchain, script]
-    - !reference [.get_fixed_riscv32_esp_elf_gdb, script]
-    - !reference [.run_tests_linux, script]
-
 tests_armel_esp32:
   <<: *tests_armel_template
   tags:
@@ -126,7 +117,7 @@ tests_armel_esp32s3:
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
 tests_armel_esp32c3:
-  extends: .tests_armel_esp32c3_fixed
+  extends: .tests_armel_template
   tags:
     - arm
     - test_jtag_arm_esp32c3
@@ -143,7 +134,7 @@ tests_armel_esp32c3:
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single"
 
 tests_armel_esp32c3_flash_encrypted:
-  extends: .tests_armel_esp32c3_fixed
+  extends: .tests_armel_template
   tags:
     - test_jtag_arm_flash_encryption_esp32c3
   allow_failure: true
@@ -238,7 +229,7 @@ tests_armel_esp32s3_premajor_idf_rel:
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
 tests_armel_esp32c3_premajor_idf_rel:
-  extends: .tests_armel_esp32c3_fixed
+  extends: .tests_armel_template
   tags:
     - test_jtag_arm_esp32c3
   needs:
@@ -253,7 +244,7 @@ tests_armel_esp32c3_premajor_idf_rel:
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single -e test_apptrace test_gcov"
 
 tests_armel_esp32c3_premajor_idf_rel_flash_encrypted:
-  extends: .tests_armel_esp32c3_fixed
+  extends: .tests_armel_template
   tags:
     - test_jtag_arm_flash_encryption_esp32c3
   needs:
