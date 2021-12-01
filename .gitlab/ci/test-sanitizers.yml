@@ -21,16 +21,6 @@
     - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
     - !reference [.run_tests_linux, script]
 
-.tests_sanitizers_template_esp32c3_fixed: &tests_sanitizers_template_esp32c3_fixed
-  extends: .tests_sanitizers_template
-  script:
-    - !reference [.add_gitlab_key, script]
-    - !reference [.submodules_mirror_update, script]
-    - !reference [.export_toolchain, script]
-    - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
-    - !reference [.get_fixed_riscv32_esp_elf_gdb, script]
-    - !reference [.run_tests_linux, script]
-
 tests_sanitizers_esp32_solo:
   <<: *tests_sanitizers_template
   tags:
@@ -141,7 +131,7 @@ tests_sanitizers_esp32s3_premajor_idf_rel:
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
 tests_sanitizers_esp32c3:
-  <<: *tests_sanitizers_template_esp32c3_fixed
+  <<: *tests_sanitizers_template
   tags:
     - test_jtag_arm_esp32c3
   allow_failure: true
@@ -157,7 +147,7 @@ tests_sanitizers_esp32c3:
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single"
 
 tests_sanitizers_esp32c3_premajor_idf_rel:
-  <<: *tests_sanitizers_template_esp32c3_fixed
+  <<: *tests_sanitizers_template
   tags:
     - test_jtag_arm_esp32c3
   needs:
@@ -268,20 +258,20 @@ sanitizer_check_armel_esp32s2_premajor_idf_rel:
 sanitizer_check_armel_esp32c3:
   <<: *sanitizer_check_armel
   needs:
-    - job: tests_sanitizers_esp32c3 
+    - job: tests_sanitizers_esp32c3
   variables:
     TEST_RUN_DIR: "build_test_app_esp32c3"
 
 sanitizer_check_armel_esp32c3_premajor_idf_rel:
   <<: *sanitizer_check_armel
   needs:
-    - job: tests_sanitizers_esp32c3_premajor_idf_rel 
+    - job: tests_sanitizers_esp32c3_premajor_idf_rel
   variables:
     TEST_RUN_DIR: "build_test_app_esp32c3_premajor_idf_rel"
 
 sanitizer_check_armel_nuttx_esp32:
   <<: *sanitizer_check_armel
   needs:
-    - job: test_sanitizers_nuttx_esp32 
+    - job: test_sanitizers_nuttx_esp32
   variables:
     TEST_RUN_DIR: "nuttx_test"
