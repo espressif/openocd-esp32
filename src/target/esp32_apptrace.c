@@ -1191,6 +1191,13 @@ static int esp32_apptrace_check_connection(struct esp32_apptrace_cmd_ctx *ctx)
 					res);
 				return res;
 			}
+			if (ctx->stop_tmo != -1.0) {
+				/* re-start idle time measurement */
+				if (duration_start(&ctx->idle_time) != 0) {
+					LOG_ERROR("Failed to re-start idle time measure!");
+					return ERROR_FAIL;
+				}
+			}
 		}
 	}
 
