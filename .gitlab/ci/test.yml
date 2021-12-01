@@ -125,8 +125,7 @@ tests_armel_esp32s3:
     TEST_RUN_DIR: "build_test_app_esp32s3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
-  # will be enabled after fixing the issues. Causing hard reset and this blocks the other tests using same device.
-.tests_armel_esp32c3:
+tests_armel_esp32c3:
   extends: .tests_armel_esp32c3_fixed
   tags:
     - arm
