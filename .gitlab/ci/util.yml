@@ -27,6 +27,17 @@
 .export_toolchain_snippet: &export_toolchain_snippet |
   export PATH=${HOME}/.espressif/tools/${TOOLCHAIN_PREFIX}-elf/${ESP_TOOLCHAIN}/${TOOLCHAIN_PREFIX}-elf/bin:${PATH}
   source /opt/pyenv/activate && pyenv global ${TEST_IMAGE_PYTHON_VER}
+  if [ "${GDB_ARMHF_DISTRO_URL:-test}" != "test" ]; then
+    case $CI_JOB_NAME in "tests_armhf_"*)
+      echo "Replacing GDBs from $GDB_ARMHF_DISTRO_URL"
+      wget --no-verbose $GDB_ARMHF_DISTRO_URL
+      ARCH_NAME=$(basename $GDB_ARMHF_DISTRO_URL)
+      tar -xf $ARCH_NAME
+      export PATH=$PWD/$NEW_GDB_ARMHF_DISTRO_DIR/bin:$PATH
+      xtensa-esp32-elf-gdb --version
+    ;;
+    esac
+  fi
 
 .export_toolchain:
   script:
