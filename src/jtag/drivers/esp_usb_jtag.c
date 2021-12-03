@@ -748,10 +748,11 @@ static int esp_usb_jtag_init(void)
 out:
 	free((void *)esp_usb_jtag_serial);
 	esp_usb_jtag_serial = NULL;
-	jtag_libusb_close(priv->usb_device);
+	if (priv->usb_device)
+		jtag_libusb_close(priv->usb_device);
 	free(bitq_interface);
-	bitq_interface= NULL;
-	priv->usb_device= NULL;
+	bitq_interface = NULL;
+	priv->usb_device = NULL;
 	return ERROR_FAIL;
 }
 
