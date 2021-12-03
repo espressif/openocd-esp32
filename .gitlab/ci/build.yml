@@ -80,7 +80,7 @@ build_linux_armel:
     PLATFORM_NAME: "linux-armel"
     TEST_CFLAGS: ""
 
-build_linux_armel_test:
+build_linux_armhf_test:
   <<: *build_linux_arm_template
   only:
     refs:
@@ -88,8 +88,8 @@ build_linux_armel_test:
     variables:
       - $SCHEDULE_TYPE == "build_sanitizer_test"
   variables:
-    CONF_HOST: "arm-linux-gnueabi"
-    PLATFORM_NAME: "linux-armel-test"
+    CONF_HOST: "arm-linux-gnueabihf"
+    PLATFORM_NAME: "linux-armhf-test"
     TEST_CFLAGS: "-Wl,--no-as-needed -ldl -fsanitize=address -fsanitize=undefined -fsanitize-recover=address -ggdb3"
 
 build_linux_armhf:

@@ -29,9 +29,9 @@ tests_sanitizers_esp32_solo:
   allow_failure: true
   needs:
     - job: build_test_app_esp32
-    - job: build_linux_armel_test
+    - job: build_linux_armhf_test
   variables:
-    PLATFORM_NAME: "linux-armel-test"
+    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
 
@@ -41,9 +41,9 @@ tests_sanitizers_esp32_legacy_idf_rel:
     - test_jtag_arm
   needs:
     - job: build_test_app_esp32_legacy_idf_rel
-    - job: build_linux_armel_test
+    - job: build_linux_armhf_test
   variables:
-    PLATFORM_NAME: "linux-armel-test"
+    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
@@ -54,9 +54,9 @@ tests_sanitizers_esp32:
   allow_failure: true
   needs:
     - job: build_test_app_esp32
-    - job: build_linux_armel_test
+    - job: build_linux_armhf_test
   variables:
-    PLATFORM_NAME: "linux-armel-test"
+    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
@@ -66,9 +66,9 @@ tests_sanitizers_esp32_premajor_idf_rel:
     - test_jtag_arm
   needs:
     - job: build_test_app_esp32_premajor_idf_rel
-    - job: build_linux_armel_test
+    - job: build_linux_armhf_test
   variables:
-    PLATFORM_NAME: "linux-armel-test"
+    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
@@ -79,11 +79,11 @@ tests_sanitizers_esp32s2:
   allow_failure: true
   needs:
     - job: build_test_app_esp32s2
-    - job: build_linux_armel_test
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
-    PLATFORM_NAME: "linux-armel-test"
+    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
 
@@ -93,11 +93,11 @@ tests_sanitizers_esp32s2_premajor_idf_rel:
     - test_jtag_arm_esp32s2
   needs:
     - job: build_test_app_esp32s2_premajor_idf_rel
-    - job: build_linux_armel_test
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
-    PLATFORM_NAME: "linux-armel-test"
+    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32s2_premajor_idf_rel"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32s2-devkitj -p test_*.*Single"
 
@@ -108,11 +108,11 @@ tests_sanitizers_esp32s3:
   allow_failure: true
   needs:
     - job: build_test_app_esp32s3
-    - job: build_linux_armel_test
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
-    PLATFORM_NAME: "linux-armel-test"
+    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32s3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
@@ -122,11 +122,11 @@ tests_sanitizers_esp32s3_premajor_idf_rel:
     - test_jtag_arm_esp32s3
   needs:
     - job: build_test_app_esp32s3_premajor_idf_rel
-    - job: build_linux_armel_test
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
-    PLATFORM_NAME: "linux-armel-test"
+    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32s3_premajor_idf_rel"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
@@ -137,12 +137,12 @@ tests_sanitizers_esp32c3:
   allow_failure: true
   needs:
     - job: build_test_app_esp32c3
-    - job: build_linux_armel_test
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "linux-armel-test"
+    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32c3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single"
 
@@ -152,12 +152,12 @@ tests_sanitizers_esp32c3_premajor_idf_rel:
     - test_jtag_arm_esp32c3
   needs:
     - job: build_test_app_esp32c3_premajor_idf_rel
-    - job: build_linux_armel_test
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "linux-armel-test"
+    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32c3_premajor_idf_rel"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single -e test_apptrace test_gcov"
 
@@ -168,13 +168,13 @@ test_sanitizers_nuttx_esp32:
     - test_jtag_arm
   allow_failure: true
   variables:
-    PLATFORM_NAME: "linux-armel-test"
+    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "nuttx_test"
     NUTTX_APP_NAME: "nuttx_openocd"
     OOCD_CMDS: "set ESP_RTOS NuttX,set ESP32_ONLYCPU 1"
     TEST_RUN_EXTRA_OPTS: "-i other -b esp32-wrover-kit-3.3v -p test_nuttx -e *.*Encrypted"
   needs:
-    - job: build_linux_armel_test
+    - job: build_linux_armhf_test
     - job: build_nuttx_app
       artifacts: false
     - project: idf/apache/esp-nuttx-apps
@@ -192,7 +192,7 @@ test_sanitizers_nuttx_esp32:
     - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
     - !reference [.run_tests_nuttx, script]
 
-.sanitizer_check_armel: &sanitizer_check_armel
+.sanitizer_check_armhf: &sanitizer_check_armhf
   stage: sanitizer_checks
   image: $CI_DOCKER_REGISTRY/rpi-test-env
   tags:
@@ -213,64 +213,64 @@ test_sanitizers_nuttx_esp32:
     # fail if `sanitizer_errors.log` is not empty
     - "[[ ! -s ${TEST_RUN_DIR}/sanitizer_errors.log ]]"
 
-sanitizer_check_armel_esp32_solo:
-  <<: *sanitizer_check_armel
+sanitizer_check_armhf_esp32_solo:
+  <<: *sanitizer_check_armhf
   needs:
     - job: tests_sanitizers_esp32_solo
   variables:
     TEST_RUN_DIR: "build_test_app_esp32"
 
-sanitizer_check_armel_esp32_legacy_idf_rel:
-  <<: *sanitizer_check_armel
+sanitizer_check_armhf_esp32_legacy_idf_rel:
+  <<: *sanitizer_check_armhf
   needs:
     - job: tests_sanitizers_esp32_legacy_idf_rel
   variables:
     TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
 
-sanitizer_check_armel_esp32:
-  <<: *sanitizer_check_armel
+sanitizer_check_armhf_esp32:
+  <<: *sanitizer_check_armhf
   needs:
     - job: tests_sanitizers_esp32
   variables:
     TEST_RUN_DIR: "build_test_app_esp32"
 
-sanitizer_check_armel_esp32_premajor_idf_rel:
-  <<: *sanitizer_check_armel
+sanitizer_check_armhf_esp32_premajor_idf_rel:
+  <<: *sanitizer_check_armhf
   needs:
     - job: tests_sanitizers_esp32_premajor_idf_rel
   variables:
     TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
 
-sanitizer_check_armel_esp32s2:
-  <<: *sanitizer_check_armel
+sanitizer_check_armhf_esp32s2:
+  <<: *sanitizer_check_armhf
   needs:
     - job: tests_sanitizers_esp32s2
   variables:
     TEST_RUN_DIR: "build_test_app_esp32s2"
 
-sanitizer_check_armel_esp32s2_premajor_idf_rel:
-  <<: *sanitizer_check_armel
+sanitizer_check_armhf_esp32s2_premajor_idf_rel:
+  <<: *sanitizer_check_armhf
   needs:
     - job: tests_sanitizers_esp32s2_premajor_idf_rel
   variables:
     TEST_RUN_DIR: "build_test_app_esp32s2_premajor_idf_rel"
 
-sanitizer_check_armel_esp32c3:
-  <<: *sanitizer_check_armel
+sanitizer_check_armhf_esp32c3:
+  <<: *sanitizer_check_armhf
   needs:
     - job: tests_sanitizers_esp32c3
   variables:
     TEST_RUN_DIR: "build_test_app_esp32c3"
 
-sanitizer_check_armel_esp32c3_premajor_idf_rel:
-  <<: *sanitizer_check_armel
+sanitizer_check_armhf_esp32c3_premajor_idf_rel:
+  <<: *sanitizer_check_armhf
   needs:
     - job: tests_sanitizers_esp32c3_premajor_idf_rel
   variables:
     TEST_RUN_DIR: "build_test_app_esp32c3_premajor_idf_rel"
 
-sanitizer_check_armel_nuttx_esp32:
-  <<: *sanitizer_check_armel
+sanitizer_check_armhf_nuttx_esp32:
+  <<: *sanitizer_check_armhf
   needs:
     - job: test_sanitizers_nuttx_esp32
   variables:
