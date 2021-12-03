@@ -27,6 +27,8 @@
 #define ESP32_S3_DROM_HIGH            0x3D000000
 #define ESP32_S3_IROM_LOW             0x42000000
 #define ESP32_S3_IROM_HIGH            0x44000000
+#define ESP32_S3_IROM_MASK_LOW        0x40000000
+#define ESP32_S3_IROM_MASK_HIGH       0x4001a100
 
 /*Number of registers returned directly by the G command
  *Corresponds to the amount of regs listed in regformats/reg-xtensa.dat in the gdb source */
