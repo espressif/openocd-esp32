@@ -202,11 +202,16 @@ static const struct xtensa_config esp32s3_xtensa_cfg = {
 	.gdb_general_regs_num   = ESP32_S3_NUM_REGS_G_COMMAND,
 	.gdb_regs_mapping               = esp32s3_gdb_regs_mapping,
 	.irom           = {
-		.count = 1,
+		.count = 2,
 		.regions = {
 			{
 				.base = ESP32_S3_IROM_LOW,
 				.size = ESP32_S3_IROM_HIGH-ESP32_S3_IROM_LOW,
+				.access = XT_MEM_ACCESS_READ,
+			},
+			{
+				.base = ESP32_S3_IROM_MASK_LOW,
+				.size = ESP32_S3_IROM_MASK_HIGH-ESP32_S3_IROM_MASK_LOW,
 				.access = XT_MEM_ACCESS_READ,
 			}
 		}
