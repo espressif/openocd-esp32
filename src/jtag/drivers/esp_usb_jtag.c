@@ -451,8 +451,8 @@ static int esp_usb_jtag_send_buf(void)
 				ct);
 		}
 		if (ret != ERROR_OK) {
-			ret = esp_usb_jtag_revive_device(priv->usb_device);
-			if (ret != ERROR_OK)
+			int reset_ret = esp_usb_jtag_revive_device(priv->usb_device);
+			if (reset_ret != ERROR_OK)
 				LOG_ERROR("esp_usb_jtag: failed to revive USB device!");
 			return ret;
 		}
