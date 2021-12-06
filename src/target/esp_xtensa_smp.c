@@ -517,6 +517,16 @@ int esp_xtensa_smp_run_func_image(struct target *target,
 			LOG_ERROR("Failed to find HALTED core!");
 			return ERROR_FAIL;
 		}
+
+		/* FIXME: dummy call to prevent esp32s3 to stuck in consecutive algorithm runs
+			Issue can be seen with usb jag only.
+			e.g; first ESP_STUB_CMD_FLASH_MAP_GET stub call ends with success.
+			however during workarea_backup process in consecutive ESP_STUB_CMD_FLASH_SIZE
+			USB timeout occurs. Looks like below dummy call recover the usb jtag hardware/software
+			Same behaviur does not seen with the esp usb bridge
+		*/
+		xtensa_core_status_check(run_target);
+
 		res = esp_xtensa_smp_smpbreak_disable(run_target, &smp_break);
 		if (res != ERROR_OK)
 			return res;
