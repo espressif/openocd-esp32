@@ -22,6 +22,7 @@
 #define _ESP_H
 
 #include <stdint.h>
+#include "flash/nor/esp_flash.h"
 
 /* must be in sync with ESP-IDF version */
 /** Size of the pre-compiled target buffer for stub trampoline.
@@ -93,6 +94,44 @@ struct esp_semihost_ops {
 	/** Callback called before handling semihost call */
 	int (*prepare)(struct target *target);
 };
+
+struct esp_semihost_data {
+	char *basedir;
+	uint32_t version;		/* sending with drvinfo syscall */
+	bool need_resume;
+	struct esp_semihost_ops *ops;
+};
+
+struct esp_flash_breakpoint_ops {
+	int (*breakpoint_add)(struct target *target, struct breakpoint *breakpoint,
+		struct esp_flash_breakpoint *bp);
+	int (*breakpoint_remove)(struct target *target,
+		struct esp_flash_breakpoint *bp);
+};
+
+struct esp_flash_breakpoints {
+	const struct esp_flash_breakpoint_ops *ops;
+	struct esp_flash_breakpoint *brps;
+};
+
+struct esp_common {
+	struct esp_flash_breakpoints flash_brps;
+	const struct algorithm_hw *algo_hw;
+	struct esp_dbg_stubs dbg_stubs;
+};
+
+int esp_common_init(struct esp_common *esp,
+	const struct esp_flash_breakpoint_ops *flash_brps_ops,
+	const struct algorithm_hw *algo_hw);
+int esp_common_flash_breakpoint_add(struct target *target,
+	struct esp_common *esp,
+	struct breakpoint *breakpoint);
+int esp_common_flash_breakpoint_remove(struct target *target,
+	struct esp_common *esp,
+	struct breakpoint *breakpoint);
+bool esp_common_flash_breakpoint_exists(struct esp_common *esp,
+	struct breakpoint *breakpoint);
+int esp_common_handle_gdb_detach(struct target *target, struct esp_common *esp_common);
 
 int esp_dbgstubs_table_read(struct target *target, struct esp_dbg_stubs *dbg_stubs);
 

@@ -1085,7 +1085,7 @@ int esp_flash_breakpoint_add(struct target *target,
 	sw_bp->oocd_bp = breakpoint;
 	sw_bp->bank = bank;
 
-	init_mem_param(&mp, 2 /*2nd usr arg*/, 3 /*size in bytes*/, PARAM_IN);
+	init_mem_param(&mp, 2 /*2nd usr arg*/, 4 /*size in bytes*/, PARAM_IN);
 	run.mem_args.params = &mp;
 	run.mem_args.count = 1;
 	uint32_t bp_flash_addr = esp_info->hw_flash_base +

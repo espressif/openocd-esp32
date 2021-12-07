@@ -20,6 +20,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "smp.h"
 #include "semihosting_common.h"
 #include "esp_riscv.h"
 
@@ -106,30 +107,94 @@ static int esp_riscv_debug_stubs_info_init(struct target *target,
 
     LOG_INFO("%s: Detected debug stubs @ " TARGET_ADDR_FMT, target_name(target), vec_addr);
 
-    memset(&esp_riscv->dbg_stubs, 0, sizeof(esp_riscv->dbg_stubs));
+    memset(&esp_riscv->esp.dbg_stubs, 0, sizeof(esp_riscv->esp.dbg_stubs));
 
-	esp_riscv->dbg_stubs.base = vec_addr;
-	int res = esp_dbgstubs_table_read(target, &esp_riscv->dbg_stubs);
+	esp_riscv->esp.dbg_stubs.base = vec_addr;
+	int res = esp_dbgstubs_table_read(target, &esp_riscv->esp.dbg_stubs);
 	if (res != ERROR_OK) {
 		return res;
 	}
-	if (esp_riscv->dbg_stubs.entries_count == 0)
+	if (esp_riscv->esp.dbg_stubs.entries_count == 0)
 		return ERROR_OK;
 
 	/* read debug stubs descriptor */
-	ESP_RISCV_DBGSTUBS_UPDATE_DATA_ENTRY(esp_riscv->dbg_stubs.entries[ESP_DBG_STUB_DESC]);
+	ESP_RISCV_DBGSTUBS_UPDATE_DATA_ENTRY(esp_riscv->esp.dbg_stubs.entries[ESP_DBG_STUB_DESC]);
 	res =
-		target_read_buffer(target, esp_riscv->dbg_stubs.entries[ESP_DBG_STUB_DESC],
+		target_read_buffer(target, esp_riscv->esp.dbg_stubs.entries[ESP_DBG_STUB_DESC],
 		sizeof(struct esp_dbg_stubs_desc),
-		(uint8_t *)&esp_riscv->dbg_stubs.desc);
+		(uint8_t *)&esp_riscv->esp.dbg_stubs.desc);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to read debug stubs descriptor (%d)!", res);
 		return res;
 	}
-	ESP_RISCV_DBGSTUBS_UPDATE_CODE_ENTRY(esp_riscv->dbg_stubs.desc.tramp_addr);
-	ESP_RISCV_DBGSTUBS_UPDATE_DATA_ENTRY(esp_riscv->dbg_stubs.desc.min_stack_addr);
-	ESP_RISCV_DBGSTUBS_UPDATE_CODE_ENTRY(esp_riscv->dbg_stubs.desc.data_alloc);
-	ESP_RISCV_DBGSTUBS_UPDATE_CODE_ENTRY(esp_riscv->dbg_stubs.desc.data_free);
+	ESP_RISCV_DBGSTUBS_UPDATE_CODE_ENTRY(esp_riscv->esp.dbg_stubs.desc.tramp_addr);
+	ESP_RISCV_DBGSTUBS_UPDATE_DATA_ENTRY(esp_riscv->esp.dbg_stubs.desc.min_stack_addr);
+	ESP_RISCV_DBGSTUBS_UPDATE_CODE_ENTRY(esp_riscv->esp.dbg_stubs.desc.data_alloc);
+	ESP_RISCV_DBGSTUBS_UPDATE_CODE_ENTRY(esp_riscv->esp.dbg_stubs.desc.data_free);
 
+	return ERROR_OK;
+}
+
+int esp_riscv_breakpoint_add(struct target *target, struct breakpoint *breakpoint)
+{
+	struct esp_riscv_common *esp_riscv;
+
+	int res = riscv_add_breakpoint(target, breakpoint);
+	if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && breakpoint->type == BKPT_HARD) {
+		/* For SMP target return OK if SW flash breakpoint is already set using another core;
+			GDB causes call to esp_flash_breakpoint_add() for every core, since it treats flash breakpoints as HW ones */
+		if (target->smp) {
+			struct target_list *curr;
+			foreach_smp_target(curr, target->head) {
+				esp_riscv = target_to_esp_riscv(curr->target);
+				if (esp_common_flash_breakpoint_exists(&esp_riscv->esp, breakpoint))
+					return ERROR_OK;
+			}
+		}
+		esp_riscv = target_to_esp_riscv(target);
+		return esp_common_flash_breakpoint_add(target, &esp_riscv->esp, breakpoint);
+	}
+	return res;
+}
+
+int esp_riscv_breakpoint_remove(struct target *target, struct breakpoint *breakpoint)
+{
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+
+	int res = riscv_remove_breakpoint(target, breakpoint);
+	if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && breakpoint->type == BKPT_HARD) {
+		res = esp_common_flash_breakpoint_remove(target, &esp_riscv->esp, breakpoint);
+		if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && target->smp) {
+			/* For SMP target return OK always, because SW flash breakpoint are set only using one core,
+			but GDB causes call to esp_flash_breakpoint_remove() for every core, since it treats flash breakpoints as HW ones */
+			return ERROR_OK;
+		}
+	}
+
+	return res;
+}
+
+int esp_riscv_handle_target_event(struct target *target, enum target_event event,
+	void *priv)
+{
+	int ret;
+
+	if (target != priv)
+		return ERROR_OK;
+
+	LOG_DEBUG("%d", event);
+
+	switch (event) {
+		case TARGET_EVENT_GDB_DETACH:
+		{
+			struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+			ret = esp_common_handle_gdb_detach(target, &esp_riscv->esp);
+			if (ret != ERROR_OK)
+				return ret;
+			break;
+		}
+		default:
+			break;
+	}
 	return ERROR_OK;
 }

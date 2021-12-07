@@ -135,7 +135,7 @@ int esp_xtensa_smp_poll(struct target *target)
 	enum target_state old_state = target->state;
 	struct esp_xtensa_smp_common *esp_xtensa_smp = target_to_esp_xtensa_smp(target);
 	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
-	uint32_t old_dbg_stubs_base = esp_xtensa->dbg_stubs.base;
+	uint32_t old_dbg_stubs_base = esp_xtensa->esp.dbg_stubs.base;
 	struct target_list *head;
 	struct target *curr;
 	bool other_core_resume_req = false;
@@ -156,13 +156,13 @@ int esp_xtensa_smp_poll(struct target *target)
 	}
 
 	ret = esp_xtensa_poll(target);
-	if (esp_xtensa->dbg_stubs.base && old_dbg_stubs_base != esp_xtensa->dbg_stubs.base) {
+	if (esp_xtensa->esp.dbg_stubs.base && old_dbg_stubs_base != esp_xtensa->esp.dbg_stubs.base) {
 		/* debug stubs base is set only in PRO-CPU TRAX register, so sync this info */
 		foreach_smp_target(head, target->head) {
 			curr = head->target;
 			if (curr == target)
 				continue;
-			target_to_esp_xtensa(curr)->dbg_stubs.base = esp_xtensa->dbg_stubs.base;
+			target_to_esp_xtensa(curr)->esp.dbg_stubs.base = esp_xtensa->esp.dbg_stubs.base;
 		}
 	}
 
@@ -590,7 +590,7 @@ int esp_xtensa_smp_init_arch_info(struct target *target,
 	struct esp_xtensa_smp_common *esp_xtensa_smp,
 	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
-	const struct esp_xtensa_flash_breakpoint_ops *flash_brps_ops,
+	const struct esp_flash_breakpoint_ops *flash_brps_ops,
     const struct esp_xtensa_smp_chip_ops *chip_ops,
 	const struct esp_semihost_ops *semihost_ops)
 {

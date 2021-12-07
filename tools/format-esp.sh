@@ -13,6 +13,7 @@
 ./tools/uncrustify1.sh src/target/esp_xtensa.c
 ./tools/uncrustify1.sh src/target/esp_xtensa_apptrace.c
 ./tools/uncrustify1.sh src/target/esp_riscv_apptrace.c
+./tools/uncrustify1.sh src/target/esp.c
 ./tools/uncrustify1.sh src/target/esp32.c
 ./tools/uncrustify1.sh src/target/esp32s2.c
 ./tools/uncrustify1.sh src/target/esp32s3.c

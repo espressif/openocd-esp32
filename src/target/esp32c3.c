@@ -100,6 +100,25 @@ static const struct esp_semihost_ops esp32c3_semihost_ops = {
 	.prepare = esp32c3_wdt_disable
 };
 
+static const struct esp_flash_breakpoint_ops esp32c3_flash_brp_ops = {
+	.breakpoint_add = esp_flash_breakpoint_add,
+	.breakpoint_remove = esp_flash_breakpoint_remove
+};
+
+static int esp32c3_handle_target_event(struct target *target, enum target_event event, void *priv)
+{
+	if (target != priv)
+		return ERROR_OK;
+
+	LOG_DEBUG("%d", event);
+
+	int ret = esp_riscv_handle_target_event(target, event, priv);
+	if (ret != ERROR_OK)
+		return ret;
+
+	return ERROR_OK;
+}
+
 static int esp32c3_init_target(struct command_context *cmd_ctx,
 	struct target *target)
 {
@@ -108,11 +127,20 @@ static int esp32c3_init_target(struct command_context *cmd_ctx,
 	if (!esp32c3)
 		return ERROR_FAIL;
 	target->arch_info = esp32c3;
-	return esp_riscv_init_target_info(cmd_ctx,
+	int ret = esp_riscv_init_target_info(cmd_ctx,
 		target,
 		&esp32c3->esp_riscv,
 		esp32c3_on_reset,
+		&esp32c3_flash_brp_ops,
 		&esp32c3_semihost_ops);
+	if (ret != ERROR_OK)
+		return ret;
+
+	ret = target_register_event_callback(esp32c3_handle_target_event, target);
+	if (ret != ERROR_OK)
+		return ret;
+
+	return ERROR_OK;
 }
 
 static void esp32c3_deinit_target(struct target *target)
@@ -406,17 +434,6 @@ static int esp32c3_run_algorithm(struct target *target, int num_mem_params,
 		reg_params, entry_point, exit_point, timeout_ms, arch_info);
 }
 
-static int esp32c3_add_breakpoint(struct target *target, struct breakpoint *breakpoint)
-{
-	return riscv_target.add_breakpoint(target, breakpoint);
-}
-
-static int esp32c3_remove_breakpoint(struct target *target,
-	struct breakpoint *breakpoint)
-{
-	return riscv_target.remove_breakpoint(target, breakpoint);
-}
-
 static int esp32c3_add_watchpoint(struct target *target, struct watchpoint *watchpoint)
 {
 	return riscv_target.add_watchpoint(target, watchpoint);
@@ -477,8 +494,8 @@ struct target_type esp32c3_target = {
 	.get_gdb_reg_list = esp32c3_get_gdb_reg_list,
 	.get_gdb_reg_list_noread = esp32c3_get_gdb_reg_list_noread,
 
-	.add_breakpoint = esp32c3_add_breakpoint,
-	.remove_breakpoint = esp32c3_remove_breakpoint,
+	.add_breakpoint = esp_riscv_breakpoint_add,
+	.remove_breakpoint = esp_riscv_breakpoint_remove,
 
 	.add_watchpoint = esp32c3_add_watchpoint,
 	.remove_watchpoint = esp32c3_remove_watchpoint,
