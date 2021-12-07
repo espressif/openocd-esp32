@@ -175,6 +175,31 @@ static void blink_task(void *pvParameter)
     }
 }
 
+void unused_func0(void)
+{
+    s_tmp_ln++;
+}
+void unused_func1(void)
+{
+    s_tmp_ln++;
+}
+void unused_func2(void)
+{
+    s_tmp_ln++;
+}
+void unused_func3(void)
+{
+    s_tmp_ln++;
+}
+void unused_func4(void)
+{
+    s_tmp_ln++;
+}
+void unused_func5(void)
+{
+    s_tmp_ln++;
+}
+
 /* This test calls functions recursively many times, exhausting the
  * register space and triggering window overflow exceptions.
  * Upon returning, it triggers window underflow exceptions.

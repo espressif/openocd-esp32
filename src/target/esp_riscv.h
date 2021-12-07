@@ -30,9 +30,8 @@
 struct esp_riscv_common {
 	/* should be first, will be accessed by riscv generic code */
 	riscv_info_t riscv;
+	struct esp_common esp;
 	struct esp_riscv_apptrace_info apptrace;
-	const struct algorithm_hw *algo_hw;
-	struct esp_dbg_stubs dbg_stubs;
 	struct esp_semihost_ops *semi_ops;
 };
 
@@ -43,14 +42,27 @@ static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *
 
 static inline int esp_riscv_init_target_info(struct command_context *cmd_ctx, struct target *target,
 	struct esp_riscv_common *esp_riscv, int (*on_reset)(struct target *),
+	const struct esp_flash_breakpoint_ops *flash_brps_ops,
 	const struct esp_semihost_ops *semi_ops)
 {
-	esp_riscv->apptrace.hw = &esp_riscv_apptrace_hw;
-	esp_riscv->algo_hw = &riscv_algo_hw;
-	esp_riscv->semi_ops = (struct esp_semihost_ops *)semi_ops;
 	int ret = riscv_init_target_info(cmd_ctx, target, &esp_riscv->riscv);
+	if (ret != ERROR_OK)
+		return ret;
 	esp_riscv->riscv.on_reset = on_reset;
-	return ret;
+
+	ret = esp_common_init(&esp_riscv->esp, flash_brps_ops, &riscv_algo_hw);
+	if (ret != ERROR_OK)
+		return ret;
+
+	esp_riscv->apptrace.hw = &esp_riscv_apptrace_hw;
+	esp_riscv->semi_ops = (struct esp_semihost_ops *)semi_ops;
+
+	return ERROR_OK;
 }
+
+int esp_riscv_breakpoint_add(struct target *target, struct breakpoint *breakpoint);
+int esp_riscv_breakpoint_remove(struct target *target, struct breakpoint *breakpoint);
+int esp_riscv_handle_target_event(struct target *target, enum target_event event,
+	void *priv);
 
 #endif	/* _ESP_RISCV_H */

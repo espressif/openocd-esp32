@@ -22,12 +22,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "register.h"
+#include "smp.h"
 #include "xtensa_algorithm.h"
 #include "esp_xtensa.h"
 #include "esp_xtensa_apptrace.h"
 #include "esp_xtensa_semihosting.h"
-#include "smp.h"
-
 
 #define ESP_XTENSA_DBGSTUBS_UPDATE_DATA_ENTRY(_e_) \
 	do { \
@@ -55,47 +54,17 @@ static int esp_xtensa_dbgstubs_restore(struct target *target)
 {
 	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
 
-	if (esp_xtensa->dbg_stubs.base == 0)
+	if (esp_xtensa->esp.dbg_stubs.base == 0)
 		return ERROR_OK;
 
 	LOG_INFO("%s: Restore debug stubs address %x",
 		target_name(target),
-		esp_xtensa->dbg_stubs.base);
-	int res = esp_xtensa_apptrace_status_reg_write(target, esp_xtensa->dbg_stubs.base);
+		esp_xtensa->esp.dbg_stubs.base);
+	int res = esp_xtensa_apptrace_status_reg_write(target, esp_xtensa->esp.dbg_stubs.base);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to write trace status (%d)!", res);
 		return res;
 	}
-	return ERROR_OK;
-}
-
-static int esp_xtensa_flash_breakpoints_clear(struct target *target)
-{
-	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
-
-	for (size_t slot = 0; slot < ESP_XTENSA_FLASH_BREAKPOINTS_MAX_NUM;
-		slot++) {
-		struct esp_flash_breakpoint *flash_bp =
-			&esp_xtensa->flash_brps[slot];
-		if (flash_bp->oocd_bp != NULL) {
-			int ret = esp_xtensa->flash_brps_ops->breakpoint_remove(
-				target,
-				flash_bp);
-			if (ret != ERROR_OK) {
-				LOG_ERROR(
-					"%s: Failed to remove SW flash BP @ "
-					TARGET_ADDR_FMT " (%d)!",
-					target_name(target),
-					flash_bp->oocd_bp->address,
-					ret);
-				return ret;
-			}
-		}
-	}
-	memset(esp_xtensa->flash_brps,
-		0,
-		ESP_XTENSA_FLASH_BREAKPOINTS_MAX_NUM*
-		sizeof(struct esp_flash_breakpoint));
 	return ERROR_OK;
 }
 
@@ -121,38 +90,10 @@ int esp_xtensa_handle_target_event(struct target *target, enum target_event even
 			break;
 		case TARGET_EVENT_GDB_DETACH:
 		{
-			enum target_state old_state = target->state;
-			if (target->state != TARGET_HALTED) {
-				ret = target_halt(target);
-				if (ret != ERROR_OK) {
-					LOG_ERROR(
-						"%s: Failed to halt target to remove flash BPs (%d)!",
-						target_name(target),
-						ret);
-					return ret;
-				}
-				ret = target_wait_state(target, TARGET_HALTED, 3000);
-				if (ret != ERROR_OK) {
-					LOG_ERROR(
-						"%s: Failed to wait halted target to remove flash BPs (%d)!",
-						target_name(target),
-						ret);
-					return ret;
-				}
-			}
-			ret = esp_xtensa_flash_breakpoints_clear(target);
+			struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
+			ret = esp_common_handle_gdb_detach(target, &esp_xtensa->esp);
 			if (ret != ERROR_OK)
 				return ret;
-			if (old_state == TARGET_RUNNING) {
-				ret = target_resume(target, 1, 0, 1, 0);
-				if (ret != ERROR_OK) {
-					LOG_ERROR(
-						"%s: Failed to resume target after flash BPs removal (%d)!",
-						target_name(target),
-						ret);
-					return ret;
-				}
-			}
 			break;
 		}
 		default:
@@ -165,21 +106,17 @@ int esp_xtensa_init_arch_info(struct target *target,
 	struct esp_xtensa_common *esp_xtensa,
 	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
-	const struct esp_xtensa_flash_breakpoint_ops *flash_brps_ops,
+	const struct esp_flash_breakpoint_ops *flash_brps_ops,
 	const struct esp_semihost_ops *semihost_ops)
 {
 	int ret = xtensa_init_arch_info(target, &esp_xtensa->xtensa, xtensa_cfg, dm_cfg);
 	if (ret != ERROR_OK)
 		return ret;
+	ret = esp_common_init(&esp_xtensa->esp, flash_brps_ops, &xtensa_algo_hw);
+	if (ret != ERROR_OK)
+		return ret;
 	esp_xtensa->semihost.ops = (struct esp_semihost_ops *)semihost_ops;
-	esp_xtensa->flash_brps_ops = flash_brps_ops;
-	esp_xtensa->flash_brps =
-		calloc(ESP_XTENSA_FLASH_BREAKPOINTS_MAX_NUM,
-		sizeof(struct esp_flash_breakpoint));
-	if (esp_xtensa->flash_brps == NULL)
-		return ERROR_FAIL;
 	esp_xtensa->apptrace.hw = &esp_xtensa_apptrace_hw;
-	esp_xtensa->algo_hw = &xtensa_algo_hw;
 	return ERROR_OK;
 }
 
@@ -213,7 +150,7 @@ int esp_xtensa_poll(struct target *target)
 
 	if (xtensa_dm_power_status_get(&xtensa->dbg_mod) & PWRSTAT_COREWASRESET) {
 		LOG_DEBUG("%s: Clear debug stubs info", target_name(target));
-		memset(&esp_xtensa->dbg_stubs, 0, sizeof(esp_xtensa->dbg_stubs));
+		memset(&esp_xtensa->esp.dbg_stubs, 0, sizeof(esp_xtensa->esp.dbg_stubs));
 	}
 	if (target->state != TARGET_DEBUG_RUNNING)
 		esp_xtensa_dbgstubs_addr_check(target);
@@ -226,7 +163,7 @@ static void esp_xtensa_dbgstubs_addr_check(struct target *target)
 	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
 	uint32_t vec_addr = 0;
 
-	if (esp_xtensa->dbg_stubs.base != 0)
+	if (esp_xtensa->esp.dbg_stubs.base != 0)
 		return;
 
 	int res = esp_xtensa_apptrace_status_reg_read(target, &vec_addr);
@@ -239,7 +176,7 @@ static void esp_xtensa_dbgstubs_addr_check(struct target *target)
 		res = esp_xtensa_apptrace_status_reg_write(target, 0);
 		if (res != ERROR_OK)
 			LOG_ERROR("Failed to clear debug stubs address location (%d)!", res);
-		esp_xtensa->dbg_stubs.base = vec_addr;
+		esp_xtensa->esp.dbg_stubs.base = vec_addr;
 	}
 }
 
@@ -247,103 +184,66 @@ static void esp_xtensa_dbgstubs_info_update(struct target *target)
 {
 	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
 
-	if (esp_xtensa->dbg_stubs.base == 0 || esp_xtensa->dbg_stubs.entries_count != 0)
+	if (esp_xtensa->esp.dbg_stubs.base == 0 || esp_xtensa->esp.dbg_stubs.entries_count != 0)
 		return;
 
-	int res = esp_dbgstubs_table_read(target, &esp_xtensa->dbg_stubs);
+	int res = esp_dbgstubs_table_read(target, &esp_xtensa->esp.dbg_stubs);
 	if (res != ERROR_OK)
 		return;
-	if (esp_xtensa->dbg_stubs.entries_count == 0)
+	if (esp_xtensa->esp.dbg_stubs.entries_count == 0)
 		return;
 
 	/* read debug stubs descriptor */
-	ESP_XTENSA_DBGSTUBS_UPDATE_DATA_ENTRY(esp_xtensa->dbg_stubs.entries[ESP_DBG_STUB_DESC]);
+	ESP_XTENSA_DBGSTUBS_UPDATE_DATA_ENTRY(esp_xtensa->esp.dbg_stubs.entries[ESP_DBG_STUB_DESC]);
 	res =
-		target_read_buffer(target, esp_xtensa->dbg_stubs.entries[ESP_DBG_STUB_DESC],
+		target_read_buffer(target, esp_xtensa->esp.dbg_stubs.entries[ESP_DBG_STUB_DESC],
 		sizeof(struct esp_dbg_stubs_desc),
-		(uint8_t *)&esp_xtensa->dbg_stubs.desc);
+		(uint8_t *)&esp_xtensa->esp.dbg_stubs.desc);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to read debug stubs descriptor (%d)!", res);
 		return;
 	}
-	ESP_XTENSA_DBGSTUBS_UPDATE_CODE_ENTRY(esp_xtensa->dbg_stubs.desc.tramp_addr);
-	ESP_XTENSA_DBGSTUBS_UPDATE_DATA_ENTRY(esp_xtensa->dbg_stubs.desc.min_stack_addr);
-	ESP_XTENSA_DBGSTUBS_UPDATE_CODE_ENTRY(esp_xtensa->dbg_stubs.desc.data_alloc);
-	ESP_XTENSA_DBGSTUBS_UPDATE_CODE_ENTRY(esp_xtensa->dbg_stubs.desc.data_free);
-}
-
-static bool esp_xtensa_flash_breakpoint_exists(struct target *target, struct breakpoint *breakpoint)
-{
-	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
-	for (uint32_t slot = 0; slot < ESP_XTENSA_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
-		struct breakpoint *curr = esp_xtensa->flash_brps[slot].oocd_bp;
-		if (curr != NULL && curr->address == breakpoint->address)
-			return true;
-	}
-	return false;
-}
-
-static int esp_xtensa_flash_breakpoint_add(struct target *target, struct breakpoint *breakpoint)
-{
-	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
-	uint32_t slot;
-
-	/* For SMP target return OK if SW flash breakpoint is already set using another core;
-	        GDB causes call to esp_xtensa_flash_breakpoint_add() for every core, since it treats flash breakpoints as HW ones */
-	if (target->smp) {
-		struct target_list *head;
-		foreach_smp_target(head, target->head) {
-			if (esp_xtensa_flash_breakpoint_exists(head->target, breakpoint))
-				return ERROR_OK;
-		}
-	}
-
-	for (slot = 0; slot < ESP_XTENSA_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
-		if (esp_xtensa->flash_brps[slot].oocd_bp == NULL ||
-			esp_xtensa->flash_brps[slot].oocd_bp == breakpoint)
-			break;
-	}
-	if (slot == ESP_XTENSA_FLASH_BREAKPOINTS_MAX_NUM) {
-		LOG_WARNING("%s: max SW flash slot reached, slot=%u", target_name(target), slot);
-		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
-	}
-	return esp_xtensa->flash_brps_ops->breakpoint_add(target, breakpoint,
-		&esp_xtensa->flash_brps[slot]);
+	ESP_XTENSA_DBGSTUBS_UPDATE_CODE_ENTRY(esp_xtensa->esp.dbg_stubs.desc.tramp_addr);
+	ESP_XTENSA_DBGSTUBS_UPDATE_DATA_ENTRY(esp_xtensa->esp.dbg_stubs.desc.min_stack_addr);
+	ESP_XTENSA_DBGSTUBS_UPDATE_CODE_ENTRY(esp_xtensa->esp.dbg_stubs.desc.data_alloc);
+	ESP_XTENSA_DBGSTUBS_UPDATE_CODE_ENTRY(esp_xtensa->esp.dbg_stubs.desc.data_free);
 }
 
 int esp_xtensa_breakpoint_add(struct target *target, struct breakpoint *breakpoint)
 {
+	struct esp_xtensa_common *esp_xtensa;
+
 	int res = xtensa_breakpoint_add(target, breakpoint);
-	if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && breakpoint->type == BKPT_HARD)
-		return esp_xtensa_flash_breakpoint_add(target, breakpoint);
+	if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && breakpoint->type == BKPT_HARD) {
+		/* For SMP target return OK if SW flash breakpoint is already set using another core;
+		        GDB causes call to esp_flash_breakpoint_add() for every core, since it treats flash breakpoints as HW ones */
+		if (target->smp) {
+			struct target_list *curr;
+			foreach_smp_target(curr, target->head) {
+				esp_xtensa = target_to_esp_xtensa(curr->target);
+				if (esp_common_flash_breakpoint_exists(&esp_xtensa->esp, breakpoint))
+					return ERROR_OK;
+			}
+		}
+		esp_xtensa = target_to_esp_xtensa(target);
+		return esp_common_flash_breakpoint_add(target, &esp_xtensa->esp, breakpoint);
+	}
 	return res;
-}
-
-static int esp_xtensa_flash_breakpoint_remove(struct target *target,
-	struct breakpoint *breakpoint)
-{
-	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
-	uint32_t slot;
-
-	for (slot = 0; slot < ESP_XTENSA_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
-		if (esp_xtensa->flash_brps[slot].oocd_bp != NULL &&
-			esp_xtensa->flash_brps[slot].oocd_bp == breakpoint)
-			break;
-	}
-	if (slot == ESP_XTENSA_FLASH_BREAKPOINTS_MAX_NUM) {
-		LOG_DEBUG("%s: max SW flash slot reached, slot=%u", target_name(target), slot);
-		/* For SMP target return OK always, because SW flash breakpoint are set only using one core,
-		   but GDB causes call to esp_xtensa_flash_breakpoint_remove() for every core, since it treats flash breakpoints as HW ones */
-		return target->smp ? ERROR_OK : ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
-	}
-	return esp_xtensa->flash_brps_ops->breakpoint_remove(target, &esp_xtensa->flash_brps[slot]);
 }
 
 int esp_xtensa_breakpoint_remove(struct target *target, struct breakpoint *breakpoint)
 {
+	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
+
 	int res = xtensa_breakpoint_remove(target, breakpoint);
-	if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && breakpoint->type == BKPT_HARD)
-		return esp_xtensa_flash_breakpoint_remove(target, breakpoint);
+	if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && breakpoint->type == BKPT_HARD) {
+		res = esp_common_flash_breakpoint_remove(target, &esp_xtensa->esp, breakpoint);
+		if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && target->smp) {
+			/* For SMP target return OK always, because SW flash breakpoint are set only using one core,
+			but GDB causes call to esp_flash_breakpoint_remove() for every core, since it treats flash breakpoints as HW ones */
+			return ERROR_OK;
+		}
+	}
 	return res;
 }
 

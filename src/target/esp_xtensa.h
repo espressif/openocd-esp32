@@ -28,17 +28,7 @@
 #include "xtensa.h"
 #include "esp_xtensa_apptrace.h"
 #include "esp_xtensa_semihosting.h"
-#include "flash/nor/esp_flash.h"
 
-
-#define ESP_XTENSA_FLASH_BREAKPOINTS_MAX_NUM  32
-
-struct esp_xtensa_flash_breakpoint_ops {
-	int (*breakpoint_add)(struct target *target, struct breakpoint *breakpoint,
-		struct esp_flash_breakpoint *bp);
-	int (*breakpoint_remove)(struct target *target,
-		struct esp_flash_breakpoint *bp);
-};
 
 struct esp_xtensa_semihost_data {
 	char *basedir;
@@ -49,12 +39,9 @@ struct esp_xtensa_semihost_data {
 
 struct esp_xtensa_common {
 	struct xtensa xtensa;
-	struct esp_dbg_stubs dbg_stubs;
-	const struct esp_xtensa_flash_breakpoint_ops *flash_brps_ops;
-	struct esp_flash_breakpoint *flash_brps;
+	struct esp_common esp;
 	struct esp_xtensa_semihost_data semihost;
 	struct esp_xtensa_apptrace_info apptrace;
-	const struct algorithm_hw *algo_hw;
 };
 
 static inline struct esp_xtensa_common *target_to_esp_xtensa(struct target *target)
@@ -66,7 +53,7 @@ int esp_xtensa_init_arch_info(struct target *target,
 	struct esp_xtensa_common *esp_xtensa,
 	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
-	const struct esp_xtensa_flash_breakpoint_ops *spec_brps_ops,
+	const struct esp_flash_breakpoint_ops *spec_brps_ops,
 	const struct esp_semihost_ops *semihost_ops);
 int esp_xtensa_target_init(struct command_context *cmd_ctx, struct target *target);
 void esp_xtensa_target_deinit(struct target *target);

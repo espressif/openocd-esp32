@@ -559,10 +559,10 @@ int esp32_apptrace_cmd_ctx_init(struct target *target,
 	if (arch != NULL) {
 		if (strncmp(arch, "riscv", 5) == 0) {
 			cmd_ctx->hw = target_to_esp_riscv(target)->apptrace.hw;
-			cmd_ctx->algo_hw = target_to_esp_riscv(target)->algo_hw;
+			cmd_ctx->algo_hw = target_to_esp_riscv(target)->esp.algo_hw;
 		} else if (strncmp(arch, "xtensa", 6) == 0) {
 			cmd_ctx->hw = target_to_esp_xtensa(target)->apptrace.hw;
-			cmd_ctx->algo_hw = target_to_esp_xtensa(target)->algo_hw;
+			cmd_ctx->algo_hw = target_to_esp_xtensa(target)->esp.algo_hw;
 		} else {
 			LOG_ERROR("Unsupported target arch '%s'!", arch);
 			return ERROR_FAIL;
@@ -2343,8 +2343,8 @@ static struct esp_dbg_stubs *get_stubs_from_target(struct target **target)
 		struct target *curr;
 		foreach_smp_target(head, (*target)->head) {
 			curr = head->target;
-			dbg_stubs = xtensa_arch ? &(target_to_esp_xtensa(curr)->dbg_stubs) :
-				&(target_to_esp_riscv(curr)->dbg_stubs);
+			dbg_stubs = xtensa_arch ? &(target_to_esp_xtensa(curr)->esp.dbg_stubs) :
+				&(target_to_esp_riscv(curr)->esp.dbg_stubs);
 			if (target_was_examined(curr) && dbg_stubs->base &&
 				dbg_stubs->entries_count > 0) {
 				*target = curr;
@@ -2352,8 +2352,8 @@ static struct esp_dbg_stubs *get_stubs_from_target(struct target **target)
 			}
 		}
 	} else
-		dbg_stubs = xtensa_arch ? &(target_to_esp_xtensa(*target)->dbg_stubs) :
-			&(target_to_esp_riscv(*target)->dbg_stubs);
+		dbg_stubs = xtensa_arch ? &(target_to_esp_xtensa(*target)->esp.dbg_stubs) :
+			&(target_to_esp_riscv(*target)->esp.dbg_stubs);
 	return dbg_stubs;
 }
 

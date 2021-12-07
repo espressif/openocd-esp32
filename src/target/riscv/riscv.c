@@ -774,9 +774,9 @@ static int remove_trigger(struct target *target, struct trigger *trigger)
 			break;
 	}
 	if (i >= r->trigger_count[first_hart]) {
-		LOG_ERROR("Couldn't find the hardware resources used by hardware "
+		LOG_WARNING("Couldn't find the hardware resources used by hardware "
 				"trigger.");
-		return ERROR_FAIL;
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 	LOG_DEBUG("[%d] Stop using resource %d for bp %d", target->coreid, i,
 			trigger->unique_id);
@@ -4376,7 +4376,7 @@ int riscv_init_registers(struct target *target)
 				case CSR_PMPCFG3:
 					r->exist = riscv_xlen(target) == 32;
 					break;
-					
+
 				case CSR_CYCLEH:
 				case CSR_TIMEH:
 				case CSR_INSTRETH:

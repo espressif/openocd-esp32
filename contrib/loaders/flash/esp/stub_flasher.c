@@ -824,10 +824,11 @@ static uint8_t stub_flash_set_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr,
 	memcpy((void *)insn_buf_addr,
 		&insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1))],
 		insn_sz);
-	STUB_LOGI("Read insn [%02x %02x %02x] %d bytes @ 0x%x\n",
+	STUB_LOGI("Read insn [%02x %02x %02x %02x] %d bytes @ 0x%x\n",
 		insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 0],
 		insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 1],
 		insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 2],
+		insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 3],
 		insn_sz,
 		bp_flash_addr);
 
@@ -843,8 +844,10 @@ static uint8_t stub_flash_set_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr,
 	break_insn.d32 = stub_get_break_insn(insn_sz);
 	insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 0] = break_insn.d8[0];
 	insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 1] = break_insn.d8[1];
-	if (insn_sz == 3)
+	if (insn_sz > 2)
 		insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 2] = break_insn.d8[2];
+	if (insn_sz > 3)
+		insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 3] = break_insn.d8[3];
 	rc = stub_spiflash_write(bp_flash_addr & ~(STUB_FLASH_SECTOR_SIZE - 1),
 		(uint32_t *)insn_sect,
 		STUB_BP_INSN_SECT_BUF_SIZE);
@@ -883,13 +886,14 @@ static int stub_flash_clear_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr, u
 	esp_rom_spiflash_result_t rc;
 	uint8_t *insn = (uint8_t *)insn_buf_addr;
 
-	STUB_LOGD("%s: 0x%x 0x%x [%02x %02x %02x]\n",
+	STUB_LOGD("%s: 0x%x 0x%x [%02x %02x %02x %02x]\n",
 		__func__,
 		bp_flash_addr,
 		insn_buf_addr,
 		insn[0],
 		insn[1],
-		insn[2]);
+		insn[2],
+		insn[3]);
 
 	stub_flash_cache_flush();
 
@@ -908,9 +912,9 @@ static int stub_flash_clear_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr, u
 	}
 	insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 0] = insn[0];
 	insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 1] = insn[1];
-	if (insn_sz == 3)
+	if (insn_sz > 2)
 		insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 2] = insn[2];
-	if (insn_sz == 4)
+	if (insn_sz > 3)
 		insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 3] = insn[3];
 	rc = stub_spiflash_write(bp_flash_addr & ~(STUB_FLASH_SECTOR_SIZE - 1),
 		(uint32_t *)insn_sect,
