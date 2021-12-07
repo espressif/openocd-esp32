@@ -20,16 +20,41 @@
   artifacts:
     paths:
       - $TEST_RUN_DIR/debug_backend_tests.log
+      - $TEST_RUN_DIR/${CI_JOB_NAME}.info
     reports:
       junit:
         - $TEST_RUN_DIR/results/*
     when: always
     expire_in: 1 week
+  before_script:
+    - export GCOV_PREFIX=$PWD/$TEST_RUN_DIR
+    - export GCOV_PREFIX_STRIP=2
   script:
     - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
     - !reference [.export_toolchain, script]
     - !reference [.run_tests_linux, script]
+  after_script:
+    # Below lines gets esp related file paths from tools/format-esp.sh 
+    # and change file extension as .gcno and .gcda
+    - >
+      input="tools/format-esp.sh";
+      file_full_path="";
+      dir_path="";
+      file_name="";
+      command_arg="";
+      while IFS= read -r line ; do    
+        if [[ ${line:0:2} == "./" ]] ; then
+          file_full_path=${line##*.sh };
+          file_name=${file_full_path##*/} ;
+          dir_path=${file_full_path%$file_name} ;
+          command_arg+="--include "${dir_path}"*"${file_name:0:-2}".gcno ";
+          command_arg+="--include "${dir_path}"*"${file_name:0:-2}".gcda ";
+        fi
+      done < "$input"
+    - mkdir ${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}/esp_cov_files
+    - rsync -a --prune-empty-dirs --include '*/' ${command_arg} --exclude '*' ${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}/_build ${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}/esp_cov_files
+    - lcov --capture --directory ${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}/esp_cov_files --output-file ${TEST_RUN_DIR}/${CI_JOB_NAME}.info
 
 tests_armhf_esp32:
   <<: *tests_armhf_template
@@ -322,3 +347,4 @@ test_nuttx_esp32:
     - mkdir -p $TEST_RUN_DIR/$NUTTX_APP_NAME
     - !reference [.copy_nuttx_files, script]
     - !reference [.run_tests_nuttx, script]
+

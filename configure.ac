@@ -390,6 +390,11 @@ AC_ARG_ENABLE([esp-remote],
   AS_HELP_STRING([--disable-esp-remote],
   [Disable building support for the ESP remote protocol over TCP or USB]),
   [build_esp_remote=$enableval], [build_esp_remote=yes])
+
+AC_ARG_ENABLE([build-gcov],
+  AS_HELP_STRING([--enable-build-gcov],
+  [Enable building support with coverage]),
+  [build_gcov=$enableval], [build_gcov=no])
   
 build_minidriver=no
 AC_MSG_CHECKING([whether to enable ZY1000 minidriver])
@@ -657,6 +662,12 @@ AS_IF([test "x$build_esp_remote" = "xyes"], [
   AC_DEFINE([BUILD_ESP_REMOTE], [0], [0 if you don't want ESP remote protocol support.])
 ])
 
+AS_IF([test "x$build_gcov" = "xyes"], [
+  AC_DEFINE([BUILD_GCOV], [1], [1 if you want OpenOCD source code coverage support.])
+  CFLAGS+=" -fprofile-arcs -ftest-coverage"
+], [
+  AC_DEFINE([BUILD_GCOV], [0], [0 if you don't want OpenOCD source code coverage support.])
+])
 
 PKG_CHECK_MODULES([LIBUSB1], [libusb-1.0], [
 	use_libusb1=yes
@@ -827,6 +838,8 @@ AM_CONDITIONAL([INTERNAL_JIMTCL], [test "x$use_internal_jimtcl" = "xyes"])
 AM_CONDITIONAL([INTERNAL_LIBJAYLINK], [test "x$use_internal_libjaylink" = "xyes"])
 
 AM_CONDITIONAL([BUILD_ESP_REMOTE], [test "x$build_esp_remote" = "xyes"])
+
+AM_CONDITIONAL([BUILD_GCOV], [test "x$build_gcov" = "xyes"])
 
 # Look for environ alternatives.  Possibility #1: is environ in unistd.h or stdlib.h?
 AC_MSG_CHECKING([for environ in unistd.h and stdlib.h])
