@@ -23,7 +23,7 @@
 
 .build_linux_arm_template: &build_linux_arm_template
   stage: build
-  image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross
+  image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross:3
   tags:
     - build
   artifacts:
@@ -41,12 +41,16 @@
     - ./bootstrap
     - mkdir _build
     - pushd _build/
-    - ../configure CFLAGS="${TEST_CFLAGS}" --prefix=$PWD/../$DIST_INSTALLED_DIR --host=${CONF_HOST}  $OPENOCD_CONFIGURE_OPTS
+    - ../configure CFLAGS="${TEST_CFLAGS}" --prefix=$PWD/../$DIST_INSTALLED_DIR --host=${CONF_HOST}  $OPENOCD_CONFIGURE_OPTS $GCOV_BUILD_OPTS
     - make
     - MAKEFLAGS= make install-strip
     - popd
+    - >
+      if [[ "${GCOV_BUILD_OPTS}" != "" ]]; then
+        echo coverage enabled
+        rsync -a --prune-empty-dirs --include '*/' --include '*.gcno' --exclude '*' _build/ ${DIST_INSTALLED_DIR}/_build
+      fi
     - *dist_archive
-
 
 build_linux:
   stage: build
@@ -73,13 +77,6 @@ build_linux:
     - popd
     - *dist_archive
 
-build_linux_armel:
-  <<: *build_linux_arm_template
-  variables:
-    CONF_HOST: "arm-linux-gnueabi"
-    PLATFORM_NAME: "linux-armel"
-    TEST_CFLAGS: ""
-
 build_linux_armhf_test:
   <<: *build_linux_arm_template
   only:
@@ -98,6 +95,7 @@ build_linux_armhf:
     CONF_HOST: "arm-linux-gnueabihf"
     PLATFORM_NAME: "linux-armhf"
     TEST_CFLAGS: ""
+    GCOV_BUILD_OPTS: "--enable-build-gcov"
 
 build_linux_arm64:
   <<: *build_linux_arm_template

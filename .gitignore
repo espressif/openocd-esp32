@@ -105,3 +105,6 @@ tags
 *.old
 temp/**
 
+#gcov files
+*.gcda
+*.gcno

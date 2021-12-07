@@ -2,6 +2,7 @@ stages:
   - pre_check
   - build
   - test
+  - coverage
   - sanitizer_tests
   - sanitizer_checks
   - deploy
@@ -19,6 +20,8 @@ variables:
 
   # Common parameters for the 'make' during CI tests
   MAKEFLAGS: "-j4 --no-keep-going"
+
+  GCOV_BUILD_OPTS: ""
 
   # OpenOCD configuration options
   OPENOCD_CONFIGURE_OPTS: "--disable-doxygen-html --disable-doxygen-pdf --enable-ftdi --enable-jlink --enable-ulink"
@@ -170,7 +173,7 @@ upload_to_http:
     - master
   allow_failure: true
   dependencies:
-    - build_linux_armel
+    - build_linux_armhf
   artifacts:
     reports:
       dotenv: build.env
@@ -216,6 +219,45 @@ test_premajor_idf_rel_examples:
     project: espressif/esp-idf
     branch: ${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}
     strategy: depend
+
+create_coverage_reports:
+  stage: coverage
+  image: $CI_DOCKER_REGISTRY/rpi-test-env
+  tags:
+    - arm
+  allow_failure: true
+  artifacts:
+    paths:
+      - dist/lcov_all_report.tar.gz
+    reports:
+      metrics: cov_infos/metrics.txt
+    when: always
+    expire_in: 1 week
+  script:
+    - mkdir -p cov_infos
+    - mkdir -p dist
+    # Below lines copies all .info files into cov_infos folder
+    - > 
+      folder_list=$(ls -d build_test_app*);
+      for each_folder in $folder_list ;
+      do 
+      cp ${each_folder}/*.info cov_infos;
+      done
+    - ls -la cov_infos/
+    # Creating a html report of coverage files. 
+    - genhtml --ignore-errors source cov_infos/*.info -o lcov_html_report/
+    - tar czf dist/lcov_all_report.tar.gz lcov_html_report/ 
+    # Below lines collecting all coverage file names with '-a' flag for lcov merge command. 
+    - > 
+      FILES="" ;
+      for each_file in cov_infos/*.info ;
+      do 
+      FILES+=" -a ${each_file}" ;
+      done
+    - lcov ${FILES} -o cov_infos/merged.info
+    # Line in below creates a txt file from merged coverage file which includes coverage percentages. 
+    - lcov --rc lcov_list_width=150 --list cov_infos/merged.info > cov_infos/metrics_input.txt
+    - python3 tools/list_to_metrics.py --file cov_infos/metrics_input.txt
 
 include:
   - '.gitlab/ci/util.yml'
