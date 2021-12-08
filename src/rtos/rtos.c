@@ -23,6 +23,7 @@
 #include "rtos.h"
 #include "target/target.h"
 #include "target/target_type.h"
+#include "target/smp.h"
 #include "helper/log.h"
 #include "helper/binarybuffer.h"
 #include "server/gdb_server.h"
@@ -110,7 +111,8 @@ static void os_free(struct target *target)
 
 	/* For ESP chips there is one rtos instance for both target */
 	if (target->smp) {
-		for (struct target_list *pos = target->head; (pos != NULL); pos = pos->next) {
+		struct target_list *pos;
+		foreach_smp_target(pos, target->head) {
 			pos->target->rtos = NULL;
 		}
 	} else {

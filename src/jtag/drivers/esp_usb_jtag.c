@@ -439,7 +439,7 @@ static int esp_usb_jtag_send_buf(void)
 		ret = jtag_libusb_bulk_write(priv->usb_device,
 			priv->write_ep,
 			((char *)priv->out_buf) + written,
-			ct,
+			ct - written,
 			500,	/*ms*/
 			&tr);
 		LOG_DEBUG_IO("esp_usb_jtag: sent %d bytes.", tr);
@@ -956,37 +956,37 @@ static const struct command_registration esp_usb_jtag_subcommands[] = {
 		.help = "Sets serial number of USB device to connect to",
 		.usage = "serial_number"
 	},
-	COMMAND_REGISTRATION_DONE
-};
-
-static const struct command_registration esp_usb_jtag_commands[] = {
 	{
-		.name = "esp_usb_jtag",
-		.mode = COMMAND_ANY,
-		.help = "ESP-USB-JTAG commands",
-		.chain = esp_usb_jtag_subcommands,
-		.usage = "",
-	},
-	{
-		.name = "esp_usb_jtag_vid_pid",
+		.name = "vid_pid",
 		.handler = &esp_usb_jtag_vid_pid,
 		.mode = COMMAND_CONFIG,
 		.help = "set vendor ID and product ID for ESP usb jtag driver",
 		.usage = "",
 	},
 	{
-		.name = "esp_usb_jtag_caps_descriptor",
+		.name = "caps_descriptor",
 		.handler = &esp_usb_jtag_caps_descriptor,
 		.mode = COMMAND_CONFIG,
 		.help = "set jtag descriptor to read capabilities of ESP usb jtag driver",
 		.usage = "",
 	},
 	{
-		.name = "esp_usb_jtag_chip_id",
+		.name = "chip_id",
 		.handler = &esp_usb_jtag_chip_id,
 		.mode = COMMAND_CONFIG,
 		.help =
 			"set chip_id to transfer to the bridge",
+		.usage = "",
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
+static const struct command_registration esp_usb_jtag_commands[] = {
+	{
+		.name = "espusbjtag",
+		.mode = COMMAND_ANY,
+		.help = "ESP-USB-JTAG commands",
+		.chain = esp_usb_jtag_subcommands,
 		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
