@@ -1,0 +1,121 @@
+name: Issue report 
+description: Create a report to help us improve #m
+labels: ["bug"]
+#assignees: ''
+#title: ''
+body:
+- type: input
+  id: development_kit
+  attributes:
+    label: Development Kit
+    description: On which development kit does this issue occur?
+    placeholder: e.g. ESP32-DevKitC
+  validations:
+    required: true
+- type: input
+  id: module_or_chip_used
+  attributes:
+    label: Module or chip used
+    description: On which module or chip does this issue occur?
+    placeholder: e.g. ESP32-WROOM-32
+  validations:
+    required: true
+      
+- type: input
+  id: debug_adapter
+  attributes:
+    label: Debug Adapter
+    description: On which debug adapter does this issue occur?
+    placeholder: e.g. ESP-PROG
+  validations:
+    required: true
+      
+- type: input
+  id: openocd_version
+  attributes:
+    label: OpenOCD version
+    description: On which OpenOCD version does this issue occur?
+    placeholder: e.g v0.10.0-esp32-20201202
+  validations:
+    required: true
+      
+- type: input
+  id: operating_system
+  attributes:
+    label: Operating System
+    description: On which operating system does this issue occur?
+    placeholder: e.g. Windows
+  validations:
+    required: true
+      
+- type: input
+  id: using_an_iDE
+  attributes:
+    label: Using an IDE ?
+    description: Did you use any IDE when this issue occurred? If yes, which IDE does this issue occur in?
+    placeholder: 
+  validations:
+    required: true
+      
+- type: input
+  id: openocd_command_line
+  attributes:
+    label: OpenOCD command line
+    description: On which OpenOCD command does this issue occur?
+    placeholder: e.g. openocd -f board/esp32-wrover-kit-3.3v.cfg
+  validations:
+    required: true
+      
+- type: input
+  id: jtag_clock_speed
+  attributes:
+    label: JTAG Clock Speed
+    description: On which JTAG Clock Speed does this issue occur?
+    placeholder: e.g. default
+  validations:
+    required: true
+      
+- type: input
+  id: esp_idf_version
+  attributes:
+    label: ESP-IDF version
+    description: On which ESP-IDF version does this issue occur?
+    placeholder: e.g. v4.2
+  validations:
+    required: true
+  
+- type: textarea
+  id: problem_description
+  attributes:
+    label: Problem Description
+    description: Steps to reproduce the behavior
+    placeholder: |
+      1. Go to '...'
+      2. Click on '....'
+      3. Scroll down to '....'
+      4. See error
+  validations:
+    required: true
+
+- type: textarea
+  id: debug_logs
+  attributes:
+    label: Debug Logs
+    description: Attach verbose debug logs for OpenOCD and GDB. See [item 3 here](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/jtag-debugging/tips-and-quirks.html#reporting-issues-with-openocd-gdb) for how to generate verbose logs.
+    render: shell
+
+- type: textarea
+  id: expected_behavior
+  attributes:
+    label: Expected behavior
+    description: A clear and concise description of what you expected to happen.
+  validations:
+    required: true
+    
+- type: textarea
+  id: screenshots
+  attributes:
+    label: Screenshots
+    description: If applicable, add screenshots to help explain your problem.
+
+
