@@ -2,3 +2,4 @@ pyserial
 xmlrunner
 pygdbmi<=0.9.0.2
 pyelftools
+jsonschema

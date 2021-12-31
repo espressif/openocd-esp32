@@ -1,4 +1,5 @@
 stages:
+  - pre_check
   - build
   - test
   - sanitizer_tests
@@ -222,3 +223,4 @@ include:
   - '.gitlab/ci/build-test-app.yml'
   - '.gitlab/ci/test.yml'
   - '.gitlab/ci/test-sanitizers.yml'
+  - '.gitlab/ci/pre-check.yml'
