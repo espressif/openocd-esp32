@@ -1,0 +1,147 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/espressif/openocd-esp32/blob/master/tcl/esp-config-schema.json",
+    "title": "esp_config",
+    "description": "esp_config",
+    "type": "object",
+    "properties": {
+        "version": {
+            "description": "Metadata file version",
+            "type": "string"
+        },
+        "targets": {
+            "description": "List of targets",
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/targetsInfo"
+            }
+        },
+        "boards": {
+            "description": "List of boards",
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/boardsInfo"
+            }
+        },
+        "options": {
+            "description": "List of options",
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/optionsInfo"
+            }
+        }
+    },
+    "required": [
+        "version",
+        "targets",
+        "boards",
+        "options"
+    ],
+    "definitions": {
+        "targetsInfo": {
+            "type": "object",
+            "description": "Information about a target",
+            "properties": {
+                "id": {
+                    "$ref": "#/definitions/chipID",
+                    "description": "ID of the target e.g. 'esp32'"
+                },
+                "name": {
+                    "description": "Name of the target e.g. 'ESP32'",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "id",
+                "name"
+            ]
+        },
+        "boardsInfo": {
+            "type": "object",
+            "description": "Information about a board",
+            "properties": {
+                "name": {
+                    "description": "Name of the board e.g. 'ESP-WROVER-KIT 1.8V'",
+                    "type": "string"
+                },
+                "description": {
+                    "description": "Description of the board e.g. 'ESP-WROVER-KIT with 1.8V ESP32-WROVER-B module'",
+                    "type": "string"
+                },
+                "target": {
+                    "description": "Target of the board e.g. 'esp32s2'",
+                    "$ref": "#/definitions/chipID"
+                },
+                "config_files": {
+                    "description": "Config Files of the board e.g. 'board/esp32-wrover-kit-1.8v.cfg'",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "name",
+                "description",
+                "target",
+                "config_files"
+            ]
+        },
+        "optionsInfo": {
+            "type": "object",
+            "description": "Information about options",
+            "properties": {
+                "name": {
+                    "description": "Name of the option e.g. 'ESP_FLASH_VOLTAGE'",
+                    "type": "string"
+                },
+                "values": {
+                    "description": "Values of the option e.g. 'default', '1,8', 'auto'",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "description": "Description of the option e.g. 'Flash voltage', 'Flash size'",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Type of the option e.g. 'choice'",
+                    "$ref": "#/definitions/optionTypes"
+                },
+                "targets": {
+                    "description": "Targets for which the option is defined e.g. 'esp32', 'esp32s2'",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/chipID"
+                    }
+                }
+            },
+            "required": [
+                "name",
+                "values",
+                "description",
+                "type"
+            ]
+        },
+        "chipID": {
+            "type": "string",
+            "description": "Name of the chip target",
+            "enum": [
+                "esp32",
+                "esp32s2",
+                "esp32s3",
+                "esp32c3"
+            ]
+        },
+        "optionTypes": {
+            "type": "string",
+            "description": "Option types",
+            "enum": [
+                "choice",
+                "choice_edit"
+            ]
+        }
+    }
+}

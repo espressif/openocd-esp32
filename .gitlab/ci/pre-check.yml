@@ -1,0 +1,16 @@
+style_check:
+  stage: pre_check
+  image: $CI_DOCKER_REGISTRY/esp32-ci-env
+  tags:
+    - build
+  script:
+    - tools/check-line-endings.sh $PWD
+    - tools/format-esp.sh && git diff --exit-code
+
+esp_config_check:
+  stage: pre_check
+  image: $CI_DOCKER_REGISTRY/esp32-ci-env
+  tags:
+    - build
+  script:
+    - python3 tools/esp-config-validator.py --json tcl/esp-config.json --schema tcl/esp-config-schema.json
