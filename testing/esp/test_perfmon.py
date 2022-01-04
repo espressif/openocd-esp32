@@ -13,8 +13,6 @@ def get_logger():
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
 @only_for_arch(['xtensa'])
-# TODO: Fails at esp32s3.Will be enabled after fix
-@skip_for_chip(['esp32s3'])
 class PerfMonTestsImpl:
     """ Test cases for performance monitor
     """
