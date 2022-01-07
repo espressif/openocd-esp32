@@ -21,7 +21,7 @@
 #define ESP_XTENSA_CHIPS_FLASHER_STUB_H
 
 #include "eri.h"
-#include "trax.h"
+#include "esp_private/trax.h"
 #include "xtensa/hal.h"
 #include "stub_flasher.h"
 

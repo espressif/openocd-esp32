@@ -37,8 +37,9 @@ struct stub_flash_state {
 #define ESP_APPTRACE_USR_DATA_LEN_MAX   (CONFIG_APPTRACE_BUF_SIZE - 2)
 #define RISCV_EBREAK    0x9002
 
-uint32_t stub_esp_clk_cpu_freq(void);
+extern bool ets_efuse_flash_octal_mode(void);
 
+uint32_t stub_esp_clk_cpu_freq(void);
 
 static inline uint8_t stub_get_insn_size(uint8_t *insn)
 {
