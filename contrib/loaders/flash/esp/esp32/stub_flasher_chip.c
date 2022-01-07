@@ -403,6 +403,10 @@ int stub_cpu_clock_configure(int cpu_freq_mhz)
 	rtc_cpu_freq_config_t old_config;
 	rtc_clk_cpu_freq_get_config(&old_config);
 
+	/* FIXME rtc_clk_init function depends on the `xPortEnterCriticalTimeout'. find a way to
+	 * overcome FreeRTOS dependencies */
+	return old_config.freq_mhz;
+
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
 	uart_tx_wait_idle(CONFIG_CONSOLE_UART_NUM);
 #endif

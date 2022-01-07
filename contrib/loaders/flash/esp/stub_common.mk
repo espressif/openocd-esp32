@@ -74,10 +74,12 @@ INCLUDES += -I. -I$(STUB_COMMON_PATH) -I$(STUB_CHIP_PATH) -I$(STUB_CHIP_ARCH_PAT
 		-I$(IDF_PATH)/components/esp_system/port/public_compat \
 		-I$(IDF_PATH)/components/esp_hw_support/include \
 		-I$(IDF_PATH)/components/esp_hw_support/include/soc \
-		-I$(IDF_PATH)/components/freertos/include \
-		-I$(IDF_PATH)/components/freertos/include/esp_additions/freertos \
+		-I$(IDF_PATH)/components/freertos/FreeRTOS-Kernel/include \
+		-I$(IDF_PATH)/components/freertos/esp_additions/include/freertos \
+		-I$(IDF_PATH)/components/freertos/FreeRTOS-Kernel/portable/$(STUB_ARCH)/include \
 		-I$(IDF_PATH)/components/spi_flash/include \
 		-I$(IDF_PATH)/components/spi_flash/private_include \
+		-I$(IDF_PATH)/components/esp_system/port/include/private \
 		-I$(IDF_PATH)/components/app_trace/include \
 		-I$(IDF_PATH)/components/app_trace/private_include \
 		-I$(IDF_PATH)/components/app_trace/port/include

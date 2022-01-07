@@ -39,8 +39,8 @@ SRCS := $(IDF_PATH)/components/app_trace/port/$(STUB_ARCH)/port.c \
 	$(IDF_PATH)/components/esp_hw_support/port/esp32/rtc_clk.c \
 	$(IDF_PATH)/components/esp_hw_support/port/esp32/rtc_clk_init.c \
 	$(IDF_PATH)/components/esp_hw_support/port/esp32/rtc_time.c \
-	$(IDF_PATH)/components/spi_flash/esp32/spi_flash_rom_patch.c \
-	$(IDF_PATH)/components/xtensa/eri.c
+	$(IDF_PATH)/components/xtensa/eri.c \
+	$(STUB_CHIP_PATH)/stub_spiflash_rom_patch.c
 
 CFLAGS := -mlongcalls -mtext-section-literals
 
@@ -58,6 +58,6 @@ DEFINES :=
 LDFLAGS := -L$(IDF_PATH)/components/esp32/ld -T$(IDF_PATH)/components/esp_rom/esp32/ld/esp32.rom.ld \
 	-T$(IDF_PATH)/components/esp_rom/esp32/ld/esp32.rom.newlib-funcs.ld \
 	-T$(IDF_PATH)/components/esp_rom/esp32/ld/esp32.rom.libgcc.ld -T$(IDF_PATH)/components/esp_rom/esp32/ld/esp32.rom.api.ld \
-	-T$(IDF_PATH)/components/esp_rom/esp32/ld/esp32.rom.redefined.ld
+	-T$(IDF_PATH)/components/esp_rom/esp32/ld/esp32.rom.redefined.ld -T$(IDF_PATH)/components/esp_rom/esp32/ld/esp32.rom.spiflash.ld
 
 include ../stub_common.mk

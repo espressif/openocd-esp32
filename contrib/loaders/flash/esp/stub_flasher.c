@@ -1056,6 +1056,11 @@ __attribute__((weak)) void stub_print_cache_mmu_registers(void)
 {
 }
 
+__attribute__((weak)) bool ets_efuse_flash_octal_mode(void) //TODO check if this is the correct way
+{
+	return false;
+}
+
 int stub_main(int cmd, ...)
 {
 	va_list ap;
