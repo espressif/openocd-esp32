@@ -2270,6 +2270,9 @@ int xtensa_wait_algorithm(struct target *target,
 		}
 	}
 
+	/* avoid gdb keep_alive warning */
+	keep_alive();
+
 	for (int i = xtensa->core_cache->num_regs - 1; i >= 0; i--) {
 		struct reg *reg = &xtensa->core_cache->reg_list[i];
 		if (i == XT_REG_IDX_DEBUGCAUSE) {
