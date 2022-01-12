@@ -47,6 +47,7 @@
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32/stub_flasher_chip.h
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32/stub_flasher_image.h
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32/stub_flasher_chip.c
+./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32/stub_spiflash_rom_patch.c
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32/stub_sha.c
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32s2/sdkconfig.h
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32s2/stub_flasher_chip.h

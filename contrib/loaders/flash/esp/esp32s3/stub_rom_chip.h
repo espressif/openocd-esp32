@@ -23,7 +23,7 @@
 #include "esp32s3/rom/ets_sys.h"
 #include "esp32s3/rom/spi_flash.h"
 #include "esp32s3/rom/miniz.h"
-#include "esp32s3/rom/spi_flash.h"
+#include "esp32s3/rom/opi_flash.h"
 #include "esp32s3/rom/cache.h"
 #include "esp32s3/rom/efuse.h"
 #include "esp32s3/rom/uart.h"
