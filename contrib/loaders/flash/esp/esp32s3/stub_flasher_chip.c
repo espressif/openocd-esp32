@@ -165,9 +165,6 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 	}
 
 	if (ets_efuse_flash_octal_mode()) {
-		STUB_LOGI("erase_sector (%p)\n", rom_spiflash_legacy_funcs->erase_sector);
-		STUB_LOGI("unlock (%p)\n", rom_spiflash_legacy_funcs->unlock);
-
 		static spiflash_legacy_funcs_t rom_default_spiflash_legacy_funcs = {
 			.se_addr_bit_len = 24,
 			.be_addr_bit_len = 24,

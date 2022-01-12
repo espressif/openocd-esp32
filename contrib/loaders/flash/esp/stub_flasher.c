@@ -94,6 +94,12 @@ void abort(void)
 	while (1) ;
 }
 
+/* used in REGI2C_WRITE and REGI2C_WRITE_MASK */
+BaseType_t xPortEnterCriticalTimeout(portMUX_TYPE *mux, BaseType_t timeout)
+{
+	return (BaseType_t)1;
+}
+
 #if STUB_DEBUG
 static int stub_flash_test(void)
 {
