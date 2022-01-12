@@ -89,6 +89,11 @@ void vPortExitCritical(void *mux)
 {
 }
 
+bool ets_efuse_flash_octal_mode(void)
+{
+	return false;
+}
+
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_INFO
 void stub_print_cache_mmu_registers(void)
 {

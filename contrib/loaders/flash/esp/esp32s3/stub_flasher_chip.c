@@ -33,6 +33,10 @@
 #include "stub_flasher_int.h"
 #include "stub_flasher_chip.h"
 
+#define ESP_FLASH_CHIP_MXIC_OCT     0xC2/*Supported Octal Flash chip vendor id*/
+#define SPI_BUFF_BYTE_WRITE_NUM         32
+#define SPI_BUFF_BYTE_READ_NUM      16
+
 #define EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT          (1 << 4)
 
 /* Cache MMU related definitions */
@@ -107,6 +111,10 @@ uint32_t stub_flash_get_id(void)
 	while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0) ;
 	ret = READ_PERI_REG(PERIPHS_SPI_FLASH_C0) & 0xffffff;
 	STUB_LOGD("Flash ID read %x\n", ret);
+	if (ets_efuse_flash_octal_mode() && (ret & 0xFF) != ESP_FLASH_CHIP_MXIC_OCT) {
+		STUB_LOGE("Unsupported octal flash manufacturer");
+		return 0;
+	}
 	return ret >> 16;
 }
 
@@ -156,10 +164,24 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 		stub_cache_init(core_id);
 	}
 
-	if (ets_efuse_flash_octal_mode())
-		STUB_LOGE("Octal flah not supported yet!\n");
+	if (ets_efuse_flash_octal_mode()) {
+		STUB_LOGI("erase_sector (%p)\n", rom_spiflash_legacy_funcs->erase_sector);
+		STUB_LOGI("unlock (%p)\n", rom_spiflash_legacy_funcs->unlock);
+
+		static spiflash_legacy_funcs_t rom_default_spiflash_legacy_funcs = {
+			.se_addr_bit_len = 24,
+			.be_addr_bit_len = 24,
+			.pp_addr_bit_len = 24,
+			.rd_addr_bit_len = 24,
+			.read_sub_len  = SPI_BUFF_BYTE_READ_NUM,
+			.write_sub_len = SPI_BUFF_BYTE_WRITE_NUM,
+		};
+		rom_spiflash_legacy_funcs = &rom_default_spiflash_legacy_funcs;
+	}
 
 	esp_rom_spiflash_attach(spiconfig, 0);
+
+	STUB_LOGI("Flash state prepared...\n");
 }
 
 void stub_flash_state_restore(struct stub_flash_state *state)
@@ -491,7 +513,6 @@ static void stub_flash_ummap(const struct spiflash_map_req *req)
 	Cache_Resume_DCache(dcache_state);
 	Cache_Resume_ICache(icache_state);
 }
-
 
 int stub_flash_read_buff(uint32_t addr, void *buffer, uint32_t size)
 {
