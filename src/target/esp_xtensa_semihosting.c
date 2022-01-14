@@ -344,7 +344,7 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 		xtensa_reg_get(target, XTENSA_SYSCALL_ERRNO_REG)
 		);
 	if (*retval != ERROR_OK)
-		LOG_ERROR("Semihossting operation (op: 0x%x) error! Code: %d",
+		LOG_ERROR("Semihosting operation (op: 0x%x) error! Code: %d",
 			target->semihosting->op,
 			*retval);
 

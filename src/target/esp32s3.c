@@ -315,13 +315,13 @@ static const struct xtensa_config esp32s3_xtensa_cfg = {
 
 static int esp32s3_fetch_user_regs(struct target *target)
 {
-	LOG_DEBUG("%s: user regs fetching is not implememnted!", target_name(target));
+	LOG_DEBUG("%s: user regs fetching is not implemented!", target_name(target));
 	return ERROR_OK;
 }
 
 static int esp32s3_queue_write_dirty_user_regs(struct target *target)
 {
-	LOG_DEBUG("%s: user regs writing is not implememnted!", target_name(target));
+	LOG_DEBUG("%s: user regs writing is not implemented!", target_name(target));
 	return ERROR_OK;
 }
 
@@ -615,6 +615,10 @@ static int esp32s3_target_init(struct command_context *cmd_ctx, struct target *t
 		return ret;
 
 	ret = target_register_event_callback(esp32s3_handle_target_event, target);
+	if (ret != ERROR_OK)
+		return ret;
+
+	ret = esp_xtensa_semihosting_init(target);
 	if (ret != ERROR_OK)
 		return ret;
 
