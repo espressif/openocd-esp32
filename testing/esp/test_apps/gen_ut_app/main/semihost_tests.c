@@ -12,8 +12,10 @@
 #include "esp_log.h"
 const static char *TAG = "semihost_test";
 
-#define ESP_ENOTSUP_WIN 129
-#define ESP_ENOTSUP_UNIX 95
+/* operation not supported */
+#define ESP_ENOTSUP_WIN         129
+#define ESP_ENOTSUP_UNIX        95
+#define ESP_ENOTSUP_DARWIN      45
 
 #define SYSCALL_INSTR           "break 1,1\n"
 #define SYS_OPEN                0x01
@@ -75,7 +77,7 @@ static inline int semihosting_wrong_args(int wrong_arg)
     ESP_LOGI(TAG, "CPU[%d]:------ wrong SYSCALL -------", core_id);
     syscall_ret = generic_syscall(wrong_arg, 0, 0, 0, 0, &test_errno);
     assert(syscall_ret == -1);
-    assert((test_errno == ESP_ENOTSUP_WIN) || (test_errno == ESP_ENOTSUP_UNIX));
+    assert((test_errno == ESP_ENOTSUP_WIN) || (test_errno == ESP_ENOTSUP_UNIX) || (test_errno == ESP_ENOTSUP_DARWIN));
 
     /**** SYS_DRVINFO ****/
     ESP_LOGI(TAG, "CPU[%d]:------ SYS_DRVINFO test -------", core_id);

@@ -46,10 +46,11 @@ class DebuggerSpecialTestsImpl:
         for reg in regs:
             if (len(reg) == 0):
                 continue
-            print(reg)
-            if reg == 'mmid' or reg == 'ustatus' or reg == 'f0':
-                break # stop at first privileged register, currently they are not set by GDB
-            # Does this test make sense for s3? f0 is the first privileged reg but gdb can set it.
+
+            # TODO: With the new gdb version (gdb9) privileged regs now can be set. So, break condition needs to be changed for each chip. 
+            # eg. Now mmid is pass but it is failing at a0 for esp32
+            if reg == 'mmid' or reg == 'ustatus' or reg == 'q0':
+                break
 
             # set to reasonable value, because GDB tries to read memory @ pc
             val = 0x40000400 if reg == 'pc' else i
