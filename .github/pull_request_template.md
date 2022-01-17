@@ -7,11 +7,11 @@ Please include a summary of the change and which issue is fixed. Please also inc
 
 - [ ] Bug fix (non-breaking change which fixes an issue)
 - [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
+- [ ] Breaking change (fix or feature that would cause existing functionality not to work as expected)
 - [ ] This change requires a documentation update
 
 ## User Impact
-Please describe the impact of this change. This can be positive or negative impact.
+Please describe the impact of this change. This can be a list of positive and/or negative impacts.
 
 ## Performance Impact
 Please describe any relevant performance impact of this change. This can be positive or negative impact. How did you characterize/test the performance impact?
@@ -25,6 +25,7 @@ Please describe the tests that you ran to verify your changes. Provide instructi
 * Development Kit: 
 * Module or Chip Used: 
 * Debug Adapter: 
+
 **Software Configuration**:
 * OpenOCD version: 
 * Branch:
