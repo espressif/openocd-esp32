@@ -103,7 +103,7 @@ class DebuggerSpecialTestsImpl:
 
 # to be skipped for any board with ESP32-S2 chip
 # TODO: enable these tests when PSRAM is supported for ESP32-S2
-@skip_for_chip(['esp32s2', 'esp32c3', 'esp32s3'])
+@skip_for_chip(['esp32s2', 'esp32c3'])
 class PsramTestsImpl:
     """ PSRAM specific test cases generic for dual and single core modes
     """

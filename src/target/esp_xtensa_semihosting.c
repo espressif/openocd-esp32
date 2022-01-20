@@ -94,6 +94,8 @@ static inline int esp_xtensa_semihosting_drv_info(struct target *target)
 	/* read ver from drv_info_t mapped onto buf */
 	esp_xtensa->semihost.version = le_to_h_u32(&buf[0]);
 
+	LOG_DEBUG("semihost.version: %d", esp_xtensa->semihost.version);
+
 	xtensa_reg_set(target, XTENSA_SYSCALL_RETVAL_REG, 0);
 	xtensa_reg_set(target, XTENSA_SYSCALL_ERRNO_REG, 0);
 	return ERROR_OK;
