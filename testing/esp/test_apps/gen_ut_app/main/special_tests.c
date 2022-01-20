@@ -44,7 +44,15 @@ static void cache_check_task(void *pvParameter)
 
 static void psram_check_task(void *pvParameter)
 {
+#if CONFIG_IDF_TARGET_ESP32S3
+    /* In ESP32S3, PSRAM is mapped from high to low. Check s_mapped_vaddr_start at esp32s3/spiram.c 
+        There is a plan to change from low to high same as ESP32 
+        Follow up jira https://jira.espressif.com:8443/browse/IDF-4318
+    */
+    uint32_t *mem = (uint32_t *)SOC_EXTRAM_DATA_HIGH - (SPIRAM_TEST_ARRAY_SZ * (xPortGetCoreID() + 1));
+#else
     uint32_t *mem = (uint32_t *)SOC_EXTRAM_DATA_LOW;
+#endif
     mem += xPortGetCoreID() * SPIRAM_TEST_ARRAY_SZ;
     for (int i = 0, k = 0x20; i < SPIRAM_TEST_ARRAY_SZ; i++, k++) {
         mem[i] = k;
@@ -91,7 +99,7 @@ ut_result_t special_test_do(int test_num)
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
         case 802:
         {
-            xTaskCreatePinnedToCore(&psram_check_task, "psram_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
+            xTaskCreatePinnedToCore(&psram_check_task, "psram_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
             break;
         }
 #endif

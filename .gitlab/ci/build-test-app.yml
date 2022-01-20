@@ -123,7 +123,7 @@ build_test_app_esp32s3:
     CHIP_NAME: "esp32s3"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
     BUILD_TEST_APP_DIR: "build_test_app_esp32s3"
-    TEST_APP_CONFIGS: "default single_core"
+    TEST_APP_CONFIGS: "default single_core psram_single psram_dual"
     UT_GET_IDF_VER: "0"
 
 build_test_app_esp32c3:
@@ -162,7 +162,7 @@ build_test_app_esp32s3_premajor_idf_rel:
     CHIP_NAME: "esp32s3"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
     BUILD_TEST_APP_DIR: "build_test_app_esp32s3_premajor_idf_rel"
-    TEST_APP_CONFIGS: "default single_core"
+    TEST_APP_CONFIGS: "default single_core psram_single psram_dual"
     TEST_APP_IDF_TAG: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
     UT_GET_IDF_VER: "1"
 
