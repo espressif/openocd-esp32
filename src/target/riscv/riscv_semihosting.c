@@ -149,7 +149,7 @@ semihosting_result_t riscv_semihosting(struct target *target, int *retval)
 
 		/* Check for ARM operation numbers. */
 		if ((semihosting->op >= 0 && semihosting->op <= 0x31) ||
-			(semihosting->op >= 0x100 && semihosting->op <= 0x107)) {
+			(semihosting->op >= 0x100 && semihosting->op <= 0x115)) {
 
 			*retval = semihosting_common(target);
 			if (*retval != ERROR_OK) {

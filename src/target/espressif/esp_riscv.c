@@ -756,6 +756,15 @@ int esp_riscv_core_ebreaks_enable(struct target *target)
 	return r->set_register(target, GDB_REGNO_DCSR, dcsr);
 }
 
+void esp_riscv_deinit_target(struct target *target)
+{
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	if (esp_riscv->semi_ops->post_reset)
+		esp_riscv->semi_ops->post_reset(target);
+
+	riscv_target.deinit_target(target);
+}
+
 const struct command_registration esp_riscv_command_handlers[] = {
 	{
 		.name = "semihost_basedir",

@@ -606,7 +606,8 @@ static const struct esp_xtensa_smp_chip_ops esp32s3_chip_ops = {
 };
 
 static const struct esp_semihost_ops esp32s3_semihost_ops = {
-	.prepare = esp32s3_disable_wdts
+	.prepare = esp32s3_disable_wdts,
+	.post_reset = esp_semihosting_post_reset
 };
 
 static int esp32s3_target_create(struct target *target, Jim_Interp *interp)

@@ -116,6 +116,8 @@ int esp_xtensa_init_arch_info(struct target *target,
 	ret = esp_common_init(&esp_xtensa->esp, flash_brps_ops, &xtensa_algo_hw);
 	if (ret != ERROR_OK)
 		return ret;
+
+	INIT_LIST_HEAD(&esp_xtensa->semihost.dir_map_list);
 	esp_xtensa->semihost.ops = (struct esp_semihost_ops *)semihost_ops;
 	esp_xtensa->apptrace.hw = &esp_xtensa_apptrace_hw;
 	return ERROR_OK;
@@ -137,6 +139,8 @@ void esp_xtensa_target_deinit(struct target *target)
 	}
 	xtensa_target_deinit(target);
 	struct esp_xtensa_common *esp_xtensa_common = target_to_esp_xtensa(target);
+	if (esp_xtensa_common->semihost.ops->post_reset)
+		esp_xtensa_common->semihost.ops->post_reset(target);
 	free(esp_xtensa_common->esp.flash_brps.brps);
 	free(esp_xtensa_common);	/* same as free(xtensa) */
 }
@@ -149,13 +153,15 @@ int esp_xtensa_arch_state(struct target *target)
 int esp_xtensa_poll(struct target *target)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
-	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
+	struct esp_xtensa_common *esp_xtensa_common = target_to_esp_xtensa(target);
 
 	int ret = xtensa_poll(target);
 
 	if (xtensa_dm_power_status_get(&xtensa->dbg_mod) & PWRSTAT_COREWASRESET) {
 		LOG_DEBUG("%s: Clear debug stubs info", target_name(target));
-		memset(&esp_xtensa->esp.dbg_stubs, 0, sizeof(esp_xtensa->esp.dbg_stubs));
+		memset(&esp_xtensa_common->esp.dbg_stubs, 0, sizeof(esp_xtensa_common->esp.dbg_stubs));
+		if (esp_xtensa_common->semihost.ops->post_reset)
+			esp_xtensa_common->semihost.ops->post_reset(target);
 	}
 	if (target->state != TARGET_DEBUG_RUNNING)
 		esp_xtensa_dbgstubs_addr_check(target);

@@ -27,6 +27,7 @@
 #include <time.h>
 #include "helper/replacements.h"
 #include <server/server.h>
+#include <dirent.h>
 
 /*
  * According to:
@@ -76,9 +77,9 @@ enum semihosting_operation_numbers {
 	SEMIHOSTING_SYS_WRITE = 0x05,
 	SEMIHOSTING_SYS_WRITEC = 0x03,
 	SEMIHOSTING_SYS_WRITE0 = 0x04,
-	SEMIHOSTING_USER_CMD_0x100 = 0x100, /* First user cmd op code */
-	SEMIHOSTING_USER_CMD_0x107 = 0x107, /* Last supported user cmd op code */
-	SEMIHOSTING_USER_CMD_0x1FF = 0x1FF, /* Last user cmd op code */
+	SEMIHOSTING_USER_CMD_0x100 = 0x100,	/* First user cmd op code */
+	SEMIHOSTING_USER_CMD_0x115 = 0x115,	/* Last supported user cmd op code */
+	SEMIHOSTING_USER_CMD_0x1FF = 0x1FF,	/* Last user cmd op code */
 };
 
 /** Maximum allowed Tcl command segment length in bytes*/
@@ -190,19 +191,14 @@ struct semihosting {
 	int (*post_result)(struct target *target);
 };
 
-int semihosting_common_init(struct target *target, void *setup,
-	void *post_result);
+int semihosting_common_init(struct target *target, void *setup, void *post_result);
 int semihosting_common(struct target *target);
 
 /* utility functions which may also be used by semihosting extensions (custom vendor-defined syscalls) */
-int semihosting_read_fields(struct target *target, size_t number,
-	uint8_t *fields);
-int semihosting_write_fields(struct target *target, size_t number,
-	uint8_t *fields);
-uint64_t semihosting_get_field(struct target *target, size_t index,
-	uint8_t *fields);
-void semihosting_set_field(struct target *target, uint64_t value,
-	size_t index,
-	uint8_t *fields);
+int semihosting_read_fields(struct target *target, size_t number, uint8_t *fields);
+int semihosting_write_fields(struct target *target, size_t number, uint8_t *fields);
+uint64_t semihosting_get_field(struct target *target, size_t index, uint8_t *fields);
+void semihosting_set_field(struct target *target, uint64_t value, size_t index, uint8_t *fields);
+int semihosting_get_file_name(struct target *target, uint64_t addr, size_t len, char **fname);
 
 #endif	/* OPENOCD_TARGET_SEMIHOSTING_COMMON_H */

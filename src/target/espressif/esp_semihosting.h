@@ -48,6 +48,7 @@
 #define ESP_SEMIHOSTING_SYS_UNLINK                  0x115
 
 int esp_semihosting_common(struct target *target);
+int esp_semihosting_post_reset(struct target *target);
 int esp_semihosting_basedir_command(struct command_invocation *cmd);
 
 #endif	/* OPENOCD_TARGET_ESP_SEMIHOSTING_H */

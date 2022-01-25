@@ -158,7 +158,8 @@ static int esp32c2_wdt_disable(struct target *target)
 }
 
 static const struct esp_semihost_ops esp32c2_semihost_ops = {
-	.prepare = esp32c2_wdt_disable
+	.prepare = esp32c2_wdt_disable,
+	.post_reset = esp_semihosting_post_reset
 };
 
 static const struct esp_flash_breakpoint_ops esp32c2_flash_brp_ops = {
@@ -218,11 +219,6 @@ static int esp32c2_init_target(struct command_context *cmd_ctx,
 		return ret;
 
 	return ERROR_OK;
-}
-
-static void esp32c2_deinit_target(struct target *target)
-{
-	riscv_target.deinit_target(target);
 }
 
 static const char *const s_nonexistent_regs[] = {
@@ -318,7 +314,6 @@ static int esp32c2_poll(struct target *target)
 				LOG_WARNING("Failed to read ESP32C3_GPIO_STRAP_REG (%d)!", res);
 				strap_reg = ESP32C2_FLASH_BOOT_MODE;
 			}
-
 			uint32_t reset_buffer = 0;
 			res = target_read_u32(target,
 				ESP32C2_RTCCNTL_RESET_STATE_REG,
@@ -343,6 +338,8 @@ static int esp32c2_poll(struct target *target)
 					LOG_ERROR("Failed to halt core (%d)!", res);
 				}
 			}
+			if (esp32c2->esp_riscv.semi_ops->post_reset)
+				esp32c2->esp_riscv.semi_ops->post_reset(target);
 			/* Clear memory which is used by RTOS layer to get the task count */
 			if (target->rtos && target->rtos->type->post_reset_cleanup) {
 				res = (*target->rtos->type->post_reset_cleanup)(target);
@@ -468,7 +465,7 @@ struct target_type esp32c2_target = {
 
 	.target_create = esp32c2_target_create,
 	.init_target = esp32c2_init_target,
-	.deinit_target = esp32c2_deinit_target,
+	.deinit_target = esp_riscv_deinit_target,
 	.examine = esp32c2_examine,
 
 	/* poll current target status */
