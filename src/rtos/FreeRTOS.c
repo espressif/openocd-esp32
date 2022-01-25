@@ -244,8 +244,9 @@ enum freertos_symbol_values {
 	FREERTOS_VAL_X_SUSPENDED_TASK_LIST = 8,
 	FREERTOS_VAL_UX_CURRENT_NUMBER_OF_TASKS = 9,
 	FREERTOS_VAL_UX_TOP_USED_PRIORITY = 10,
-	FreeRTOS_VAL_PORT_INTERRUPT_NESTING = 11,
-	FreeRTOS_VAL_UX_TASK_NUMBER = 12,
+	FREERTOS_VAL_PORT_INTERRUPT_NESTING = 11,
+	FREERTOS_VAL_UX_TASK_NUMBER = 12,
+	FREERTOS_VAL_ESP_OPENOCD_PARAMS = 13,
 };
 
 struct symbols {
@@ -267,10 +268,104 @@ static const struct symbols freertos_symbol_list[] = {
 	{ "uxTopUsedPriority", true },	/* Unavailable since v7.5.3 */
 	{ "port_interruptNesting", true },
 	{ "uxTaskNumber", false },
+	{ "FreeRTOS_openocd_params", true},	/* Only if ESP_PLATFORM defined */
 	{ NULL, false }
 };
 
+enum {
+	ESP_FREERTOS_DEBUG_TABLE_SIZE = 0,
+	ESP_FREERTOS_DEBUG_TABLE_VERSION,
+	ESP_FREERTOS_DEBUG_KERNEL_VER_MAJOR,
+	ESP_FREERTOS_DEBUG_KERNEL_VER_MINOR,
+	ESP_FREERTOS_DEBUG_KERNEL_VER_BUILD,
+	ESP_FREERTOS_DEBUG_UX_TOP_USED_PIORITY,
+	ESP_FREERTOS_DEBUG_PX_TOP_OF_STACK,
+	ESP_FREERTOS_DEBUG_PC_TASK_NAME,
+	/* New entries must be inserted here */
+	ESP_FREERTOS_DEBUG_TABLE_END,
+};
+
 static const char *const STATE_RUNNING_STR = "State: Running @CPU%d";
+
+static int freertos_read_esp_symbol_table(struct rtos *rtos, int index, uint8_t *val)
+{
+	int retval = ERROR_FAIL;
+
+	if (rtos->symbols[FREERTOS_VAL_ESP_OPENOCD_PARAMS].address != 0) {
+		LOG_DEBUG(
+			"Read FREERTOS_VAL_ESP_OPENOCD_PARAMS from address 0x%"
+			PRIx64,
+			rtos->symbols[FREERTOS_VAL_ESP_OPENOCD_PARAMS].address);
+
+		uint8_t table_size = 0;
+		retval = target_read_buffer(
+			rtos->target,
+			rtos->symbols[FREERTOS_VAL_ESP_OPENOCD_PARAMS].address +
+			ESP_FREERTOS_DEBUG_TABLE_SIZE,
+			1,
+			&table_size);
+		if (retval != ERROR_OK)
+			return retval;
+
+		uint8_t symbols[table_size];
+		retval = target_read_buffer(rtos->target,
+			rtos->symbols[FREERTOS_VAL_ESP_OPENOCD_PARAMS].address,
+			table_size,
+			symbols);
+		if (retval == ERROR_OK) {
+			if (val) {
+				*val = symbols[index];
+				LOG_DEBUG("requested inx (%d) val (%d)",
+					index,
+					*val);
+			}
+		}
+	}
+
+	return retval;
+}
+
+uint8_t freertos_get_thread_name_offset(struct rtos *rtos)
+{
+	struct freertos_data *rtos_data = (struct freertos_data *)rtos->rtos_specific_params;
+
+	uint8_t thread_name_offset = rtos_data->params->thread_name_offset;
+
+	freertos_read_esp_symbol_table(rtos, ESP_FREERTOS_DEBUG_PC_TASK_NAME, &thread_name_offset);
+
+	return thread_name_offset;
+}
+
+uint8_t freertos_get_thread_stack_offset(struct rtos *rtos)
+{
+	struct freertos_data *rtos_data = (struct freertos_data *)rtos->rtos_specific_params;
+
+	uint8_t thread_stack_offset = rtos_data->params->thread_stack_offset;
+
+	freertos_read_esp_symbol_table(rtos,
+		ESP_FREERTOS_DEBUG_PX_TOP_OF_STACK,
+		&thread_stack_offset);
+
+	return thread_stack_offset;
+}
+
+uint8_t freertos_get_ux_top_used_priority(struct rtos *rtos)
+{
+	uint32_t ux_top_used_priority = 0;
+
+	if (freertos_read_esp_symbol_table(rtos, ESP_FREERTOS_DEBUG_UX_TOP_USED_PIORITY,
+			(uint8_t *)&ux_top_used_priority) == ERROR_OK)
+		return ux_top_used_priority;
+
+	if (rtos->symbols[FREERTOS_VAL_UX_TOP_USED_PRIORITY].address == 0)
+		return 0;
+
+	int retval = target_read_u32(rtos->target,
+		rtos->symbols[FREERTOS_VAL_UX_TOP_USED_PRIORITY].address,
+		&ux_top_used_priority);
+
+	return retval == ERROR_OK ? ux_top_used_priority : 0;
+}
 
 static int freertos_smp_init(struct target *target)
 {
@@ -617,11 +712,12 @@ static int freertos_get_tasks_details(struct target *target,
 			#define FREERTOS_THREAD_NAME_STR_SIZE (64)
 			char tmp_str[FREERTOS_THREAD_NAME_STR_SIZE] = {0};
 
-			/* Read the thread name */
+			int thread_name_offset = freertos_get_thread_name_offset(rtos);
+
 			retval = target_read_buffer(
 				target,
 				rtos->thread_details[index].threadid +
-				rtos_data->params->thread_name_offset,
+				thread_name_offset,
 				FREERTOS_THREAD_NAME_STR_SIZE,
 				(uint8_t *)&tmp_str);
 
@@ -632,7 +728,7 @@ static int freertos_get_tasks_details(struct target *target,
 				LOG_DEBUG(
 					"FreeRTOS: Read Thread Name at 0x%" PRIx64 ", value \"%s\"",
 					rtos->thread_details[index].threadid +
-					rtos_data->params->thread_name_offset,
+					thread_name_offset,
 					tmp_str);
 
 				if (tmp_str[0] == '\x00')
@@ -726,9 +822,19 @@ static int freertos_update_threads(struct rtos *rtos)
 		return ERROR_FAIL;
 	}
 
-	if (rtos->symbols[FREERTOS_VAL_UX_TOP_USED_PRIORITY].address == 0) {
+	uint8_t top_used_priority = freertos_get_ux_top_used_priority(rtos);
+	if (top_used_priority == 0) {
 		LOG_ERROR(
 			"FreeRTOS: uxTopUsedPriority is not defined, consult the OpenOCD manual for a work-around!");
+		return ERROR_FAIL;
+	}
+
+	/* Find out how many lists are needed to be read from pxReadyTasksLists, */
+	if (top_used_priority > FREERTOS_MAX_PRIORITIES) {
+		LOG_ERROR(
+			"FreeRTOS maximum used priority is unreasonably big, not proceeding: %"
+			PRId32 "",
+			top_used_priority);
 		return ERROR_FAIL;
 	}
 
@@ -772,7 +878,7 @@ static int freertos_update_threads(struct rtos *rtos)
 	/* Read uxTaskNumber to detect the task lists changes */
 	int64_t uxTaskNumber = 0;
 	retval = target_buffer_read_uint(target,
-		rtos->symbols[FreeRTOS_VAL_UX_TASK_NUMBER].address,
+		rtos->symbols[FREERTOS_VAL_UX_TASK_NUMBER].address,
 		rtos_data->params->thread_counter_width,
 		(uint64_t *)&uxTaskNumber);
 
@@ -782,7 +888,7 @@ static int freertos_update_threads(struct rtos *rtos)
 	}
 
 	LOG_DEBUG("Read uxTaskNumber at 0x%" PRIx64 ", value %" PRIu64,
-		rtos->symbols[FreeRTOS_VAL_UX_TASK_NUMBER].address,
+		rtos->symbols[FREERTOS_VAL_UX_TASK_NUMBER].address,
 		uxTaskNumber);
 
 	if (uxTaskNumber < rtos_data->thread_counter) {
@@ -850,32 +956,6 @@ static int freertos_update_threads(struct rtos *rtos)
 				thread_list_size);
 			return ERROR_FAIL;
 		}
-	}
-
-	if (rtos->symbols[FREERTOS_VAL_UX_TOP_USED_PRIORITY].address == 0) {
-		LOG_ERROR(
-			"FreeRTOS: uxTopUsedPriority is not defined, consult the OpenOCD manual for a work-around");
-		return ERROR_FAIL;
-	}
-
-	/* Find out how many lists are needed to be read from pxReadyTasksLists, */
-	uint32_t top_used_priority = 0;
-	retval = target_read_u32(rtos->target,
-		rtos->symbols[FREERTOS_VAL_UX_TOP_USED_PRIORITY].address,
-		&top_used_priority);
-	if (retval != ERROR_OK)
-		return retval;
-
-	LOG_DEBUG("Read uxTopUsedPriority at 0x%" PRIx64 ", value %" PRId32,
-		rtos->symbols[FREERTOS_VAL_UX_TOP_USED_PRIORITY].address,
-		top_used_priority);
-
-	if (top_used_priority > FREERTOS_MAX_PRIORITIES) {
-		LOG_ERROR(
-			"FreeRTOS maximum used priority is unreasonably big, not proceeding: %"
-			PRId32 "",
-			top_used_priority);
-		return ERROR_FAIL;
 	}
 
 	/* uxTopUsedPriority was defined as configMAX_PRIORITIES - 1
@@ -977,8 +1057,10 @@ static int freertos_get_thread_registers_from_stack(struct rtos *rtos, int64_t t
 		return -1;
 
 	/* Read the stack pointer */
+	int thread_stack_offset = freertos_get_thread_stack_offset(rtos);
+
 	int retval = target_read_buffer(rtos->target,
-		thread_id + rtos_data->params->thread_stack_offset,
+		thread_id + thread_stack_offset,
 		rtos_data->params->pointer_width,
 		(uint8_t *)&stack_ptr);
 
@@ -988,13 +1070,13 @@ static int freertos_get_thread_registers_from_stack(struct rtos *rtos, int64_t t
 	}
 
 	LOG_DEBUG("FreeRTOS: Read stack pointer at 0x%" PRIx64 ", value 0x%" PRIx64,
-		thread_id + rtos_data->params->thread_stack_offset,
+		thread_id + thread_stack_offset,
 		stack_ptr);
 
 	if (rtos_data->params->stacking_info_pick_fn) {
 		retval = rtos_generic_stack_read(rtos->target,
 			rtos_data->params->stacking_info_pick_fn(rtos, thread_id,
-				thread_id + rtos_data->params->thread_stack_offset),
+				thread_id + thread_stack_offset),
 			stack_ptr, reg_list, num_regs);
 		return retval;
 	}
@@ -1213,7 +1295,6 @@ static int freertos_clean(struct target *target)
 	 * TODO: fix this in GDB server code */
 	if (!target->rtos_auto_detect)
 		return ERROR_OK;
-
 	free(rtos_data->curr_threads_handles_buff);
 	free(rtos_data);
 	target->rtos->rtos_specific_params = NULL;
@@ -1256,7 +1337,6 @@ static int freertos_create(struct target *target)
 		LOG_ERROR("Failed to allocate OS data!");
 		return JIM_ERR;
 	}
-
 	rtos_data->nr_cpus = 1;
 	rtos_data->thread_counter = 0;
 	rtos_data->params = &freertos_params_list[i];
