@@ -91,12 +91,15 @@ struct esp_dbg_stubs {
 struct esp_semihost_ops {
 	/** Callback called before handling semihost call */
 	int (*prepare)(struct target *target);
+	/** Callback called after chip reset */
+	int (*post_reset)(struct target *target);
 };
 
 struct esp_semihost_data {
 	uint32_t version;		/* sending with drvinfo syscall */
 	bool need_resume;
 	struct esp_semihost_ops *ops;
+	struct list_head dir_map_list;
 };
 
 struct esp_flash_breakpoint_ops {

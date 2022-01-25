@@ -680,7 +680,8 @@ static const struct esp_flash_breakpoint_ops esp32s2_spec_brp_ops = {
 };
 
 static const struct esp_semihost_ops esp32s2_semihost_ops = {
-	.prepare = esp32s2_disable_wdts
+	.prepare = esp32s2_disable_wdts,
+	.post_reset = esp_semihosting_post_reset
 };
 
 static int esp32s2_target_create(struct target *target, Jim_Interp *interp)

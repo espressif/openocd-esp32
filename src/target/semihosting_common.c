@@ -98,10 +98,8 @@ static const int open_host_modeflags[12] = {
 	O_RDWR   | O_CREAT | O_APPEND | O_BINARY
 };
 
-static int semihosting_common_fileio_info(struct target *target,
-	struct gdb_fileio_info *fileio_info);
-static int semihosting_common_fileio_end(struct target *target, int result,
-	int fileio_errno, bool ctrl_c);
+static int semihosting_common_fileio_info(struct target *target, struct gdb_fileio_info *fileio_info);
+static int semihosting_common_fileio_end(struct target *target, int result, int fileio_errno, bool ctrl_c);
 
 /* Attempts to include gdb_server.h failed. */
 extern int gdb_actual_connections;
@@ -862,30 +860,18 @@ int semihosting_common(struct target *target)
 					semihosting->sys_errno = EINVAL;
 					break;
 				}
-				size_t basedir_len = semihosting->basedir ? strlen(semihosting->basedir) : 0;
-				uint8_t *fn = malloc(basedir_len + len + 2);
-				if (!fn) {
-					semihosting->result = -1;
-					semihosting->sys_errno = ENOMEM;
-				} else {
-					if (basedir_len > 0) {
-						strcpy((char *)fn, semihosting->basedir);
-						if (fn[basedir_len - 1] != '/')
-							fn[basedir_len++] = '/';
-					}
-					retval = target_read_memory(target, addr, 1, len, fn + basedir_len);
-					if (retval != ERROR_OK) {
-						free(fn);
-						return retval;
-					}
-					fn[basedir_len + len] = 0;
+				char *fn;
+				retval = semihosting_get_file_name(target, addr, len, &fn);
+				if (retval != ERROR_OK)
+					return retval;
+				if (fn) {
 					/* TODO: implement the :semihosting-features special file.
 					 * */
 					if (semihosting->is_fileio) {
-						if (strcmp((char *)fn, ":semihosting-features") == 0) {
+						if (strcmp(fn, ":semihosting-features") == 0) {
 							semihosting->result = -1;
 							semihosting->sys_errno = EINVAL;
-						} else if (strcmp((char *)fn, ":tt") == 0) {
+						} else if (strcmp(fn, ":tt") == 0) {
 							if (mode == 0)
 								semihosting->result = 0;
 							else if (mode == 4)
@@ -903,7 +889,7 @@ int semihosting_common(struct target *target)
 							fileio_info->param_4 = 0644;
 						}
 					} else {
-						if (strcmp((char *)fn, ":tt") == 0) {
+						if (strcmp(fn, ":tt") == 0) {
 							/* Mode is:
 							 * - 0-3 ("r") for stdin,
 							 * - 4-7 ("w") for stdout,
@@ -939,7 +925,7 @@ int semihosting_common(struct target *target)
 								/* Windows needs O_BINARY flag for proper handling of EOLs */
 								flags |= O_BINARY;
 							#endif
-							semihosting->result = open((char *)fn,
+							semihosting->result = open(fn,
 									flags,
 									0644);
 							semihosting->sys_errno = errno;
@@ -1136,35 +1122,23 @@ int semihosting_common(struct target *target)
 					fileio_info->param_3 = addr2;
 					fileio_info->param_4 = len2;
 				} else {
-					uint8_t *fn1 = malloc(len1+1);
-					uint8_t *fn2 = malloc(len2+1);
-					if (!fn1 || !fn2) {
+					char *fn1;
+					retval = semihosting_get_file_name(target, addr1, len1, &fn1);
+					if (retval != ERROR_OK)
+						return retval;
+
+					char *fn2;
+					retval = semihosting_get_file_name(target, addr2, len2, &fn2);
+					if (retval != ERROR_OK) {
 						free(fn1);
-						free(fn2);
-						semihosting->result = -1;
-						semihosting->sys_errno = ENOMEM;
-					} else {
-						retval = target_read_memory(target, addr1, 1, len1,
-								fn1);
-						if (retval != ERROR_OK) {
-							free(fn1);
-							free(fn2);
-							return retval;
-						}
-						retval = target_read_memory(target, addr2, 1, len2,
-								fn2);
-						if (retval != ERROR_OK) {
-							free(fn1);
-							free(fn2);
-							return retval;
-						}
-						fn1[len1] = 0;
-						fn2[len2] = 0;
-						semihosting->result = rename((char *)fn1,
-								(char *)fn2);
+						return retval;
+					}
+
+					if (fn1 && fn2) {
+						semihosting->result = rename((char *)fn1, (char *)fn2);
 						semihosting->sys_errno = errno;
-						LOG_DEBUG("rename('%s', '%s')=%d", fn1, fn2,
-							(int)semihosting->result);
+						LOG_DEBUG("rename('%s', '%s')=%d %d", fn1, fn2,
+							(int)semihosting->result, errno);
 
 						free(fn1);
 						free(fn2);
@@ -1444,7 +1418,7 @@ int semihosting_common(struct target *target)
 			}
 			break;
 
-		case SEMIHOSTING_USER_CMD_0x100 ... SEMIHOSTING_USER_CMD_0x107:
+		case SEMIHOSTING_USER_CMD_0x100 ... SEMIHOSTING_USER_CMD_0x115:
 			/**
 			 * This is a user defined operation (while user cmds 0x100-0x1ff
 			 * are possible, only 0x100-0x107 are currently implemented).
@@ -1718,15 +1692,42 @@ uint64_t semihosting_get_field(struct target *target, size_t index,
 /**
  * Store a field in the buffer, considering register size and endianness.
  */
-void semihosting_set_field(struct target *target, uint64_t value,
-	size_t index,
-	uint8_t *fields)
+void semihosting_set_field(struct target *target, uint64_t value, size_t index, uint8_t *fields)
 {
 	struct semihosting *semihosting = target->semihosting;
 	if (semihosting->word_size_bytes == 8)
 		target_buffer_set_u64(target, fields + (index * 8), value);
 	else
 		target_buffer_set_u32(target, fields + (index * 4), value);
+}
+
+/**
+ * Returns file name including basedir and null character.
+ */
+int semihosting_get_file_name(struct target *target, uint64_t addr, size_t len, char **fname)
+{
+	int retval;
+	size_t basedir_len = target->semihosting->basedir ? strlen(target->semihosting->basedir) : 0;
+	char *fn = malloc(basedir_len + len + 2);
+	if (!fn) {
+		target->semihosting->result = -1;
+		target->semihosting->sys_errno = ENOMEM;
+		return ERROR_OK;
+	} else {
+		if (basedir_len > 0) {
+			strcpy((char *)fn, target->semihosting->basedir);
+			if (fn[basedir_len - 1] != '/')
+				fn[basedir_len++] = '/';
+		}
+		retval = target_read_memory(target, addr, 1, len, (uint8_t *)(fn + basedir_len));
+		if (retval != ERROR_OK) {
+			free(fn);
+			return ERROR_FAIL;
+		}
+		fn[basedir_len + len] = 0;
+	}
+	*fname = fn;
+	return ERROR_OK;
 }
 
 /* -------------------------------------------------------------------------

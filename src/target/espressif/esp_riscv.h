@@ -54,6 +54,8 @@ static inline int esp_riscv_init_arch_info(struct command_context *cmd_ctx, stru
 {
 	esp_riscv->riscv.on_reset = on_reset;
 
+	INIT_LIST_HEAD(&esp_riscv->semihost.dir_map_list);
+
 	int ret = esp_common_init(&esp_riscv->esp, flash_brps_ops, &riscv_algo_hw);
 	if (ret != ERROR_OK)
 		return ret;
@@ -118,6 +120,7 @@ bool esp_riscv_core_is_halted(struct target *target);
 int esp_riscv_core_halt(struct target *target);
 int esp_riscv_core_resume(struct target *target);
 int esp_riscv_core_ebreaks_enable(struct target *target);
+void esp_riscv_deinit_target(struct target *target);
 
 extern const struct command_registration esp_riscv_command_handlers[];
 
