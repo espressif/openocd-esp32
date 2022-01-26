@@ -7,7 +7,7 @@ MEMORY
 {
   /* Even though the segment name is iram, it is actually mapped to flash
   */
-  iram0_2_seg_cstm (RX) :                 org = 0x40080020 + 0x10000, len = 0x780000 - 0x20 - 0x10000
+  iram0_2_seg_cstm (RX) :                 org = 0x42000020 + 0x10000, len = 0x800000 - 0x20 - 0x10000
 }
 
 SECTIONS
@@ -15,7 +15,7 @@ SECTIONS
   .flash.appdesc : ALIGN(0x10)
   {
     /* add a boundary to create a non-standard flash mapping */
-    . = ALIGN(0x3F000020 + 0x10000);
+    . = ALIGN(0x3C000020 + 0x10000);
   } >default_rodata_seg
 
   .flash.rodata : ALIGN(0x10)
