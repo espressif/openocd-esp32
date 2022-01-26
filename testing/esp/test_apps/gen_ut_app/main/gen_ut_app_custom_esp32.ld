@@ -7,7 +7,7 @@ MEMORY
 {
   /* Even though the segment name is iram, it is actually mapped to flash
   */
-  iram0_2_seg_cstm (RX) :                 org = 0x400D0020 + 0x10000, len = 0x330000-0x20 - 0x10000
+  iram0_2_seg_cstm (RX) :                 org = 0x400D0020 + 0x10000, len = 0x330000 - 0x20 - 0x10000
 }
 
 SECTIONS
