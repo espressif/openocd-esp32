@@ -14,23 +14,40 @@
 .prepare_test_app_build: &prepare_test_app_build |
   mkdir -p $BUILD_TEST_APP_DIR
   cp -rv testing/esp/test_apps/gen_ut_app $BUILD_TEST_APP_DIR/
-  pushd $BUILD_TEST_APP_DIR
-  # Clone esp-idf
-  git clone --shallow-submodules --recursive --single-branch --branch $TEST_APP_IDF_BRANCH -- https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git esp-idf
-  export IDF_PATH=$PWD/esp-idf
   export BATCH_BUILD=1
   export V=0
-  # Activate pyenv
-  source /opt/pyenv/activate
-  pyenv global $(pyenv versions --bare)
-  # Install tools
-  ${IDF_PATH}/tools/idf_tools.py install-python-env
-  ${IDF_PATH}/tools/idf_tools.py install ${TOOLCHAIN_PREFIX}-elf
-  # cannot exec '. ${IDF_PATH}/export.sh' here because not all tools distros are presented
-  # in the image and `export.sh` fails w/o adding tools to $PATH
-  idf_exports=$(${IDF_PATH}/tools/idf_tools.py export) || true
-  eval "${idf_exports}"
-  pushd gen_ut_app
+
+  # Check if having custom idf branch
+  if [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF_BRANCH:-}" ]; then
+    TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF_BRANCH"
+  elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_PREMAJOR_IDF_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_PREMAJOR_IDF_BRANCH:-}" ]; then
+    TEST_APP_CUSTOM_BRANCH="$TEST_APP_PREMAJOR_IDF_BRANCH"
+  elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_LEGACY_IDF_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_LEGACY_IDF_BRANCH:-}" ]; then
+    TEST_APP_CUSTOM_BRANCH="$TEST_APP_LEGACY_IDF_BRANCH"
+  fi
+
+  # Use custom idf in case custom branch is present
+  if [ -n "${TEST_APP_CUSTOM_BRANCH:-}" ]; then
+    pushd $BUILD_TEST_APP_DIR
+    # Clone esp-idf
+    git clone --shallow-submodules --recursive --single-branch --branch $TEST_APP_CUSTOM_BRANCH -- https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git esp-idf
+    export IDF_PATH=$PWD/esp-idf
+    # Activate pyenv
+    if [ $(command -v pyenv) ]; then
+      source /opt/pyenv/activate
+      pyenv global $(pyenv versions --bare)
+    fi
+    # Install tools
+    ${IDF_PATH}/tools/idf_tools.py install-python-env
+    ${IDF_PATH}/tools/idf_tools.py install ${TOOLCHAIN_PREFIX}-elf
+    # cannot exec '. ${IDF_PATH}/export.sh' here because not all tools distros are presented
+    # in the image and `export.sh` fails w/o adding tools to $PATH
+    idf_exports=$(${IDF_PATH}/tools/idf_tools.py export) || true
+    eval "${idf_exports}"
+    popd
+  fi
+  idf.py --version || true
+  pushd $BUILD_TEST_APP_DIR/gen_ut_app
 
 .finish_test_app_build: &finish_test_app_build |
   export UT_APP_DIR=$PWD
@@ -49,7 +66,6 @@
   export PREFIX_STRIP=$(awk -F"/" '{print NF-1}' <<< $UT_APP_DIR/builds)
   echo "export OPENOCD_GCOV_PREFIX_STRIP=$PREFIX_STRIP" >> $UT_APP_DIR/gcov_data/gcov_env.sh
   popd
-  popd
 
 .do_build_test_app: &do_build_test_app |
   if [ -z "$TEST_APP_CONFIGS" ]; then
@@ -66,8 +82,7 @@
 
 .build_test_app_template: &build_test_app_template
   stage: build
-  variables:
-    TEST_APP_IDF_BRANCH: "master"
+  image: ${TEST_APP_IDF_DOCKER_IMAGE}
   tags:
     - build
   artifacts:
@@ -102,6 +117,7 @@ build_test_app_esp32:
     TOOLCHAIN_PREFIX: "xtensa-esp32"
     BUILD_TEST_APP_DIR: "build_test_app_esp32"
     TEST_APP_CONFIGS: ""
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF_RELEASE_DOCKER_IMAGE}"
     UT_GET_IDF_VER: "0"
   extends: .build_test_app_template
 
@@ -113,6 +129,7 @@ build_test_app_esp32s2:
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
     BUILD_TEST_APP_DIR: "build_test_app_esp32s2"
     TEST_APP_CONFIGS: ""
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF_RELEASE_DOCKER_IMAGE}"
     UT_GET_IDF_VER: "0"
   extends: .build_test_app_template
 
@@ -124,6 +141,7 @@ build_test_app_esp32s3:
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
     BUILD_TEST_APP_DIR: "build_test_app_esp32s3"
     TEST_APP_CONFIGS: ""
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF_RELEASE_DOCKER_IMAGE}"
     UT_GET_IDF_VER: "0"
   extends: .build_test_app_template
 
@@ -135,6 +153,7 @@ build_test_app_esp32c3:
     TOOLCHAIN_PREFIX: "riscv32-esp"
     BUILD_TEST_APP_DIR: "build_test_app_esp32c3"
     TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single"
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF_RELEASE_DOCKER_IMAGE}"
     UT_GET_IDF_VER: "0"
   extends: .build_test_app_template
 
@@ -145,7 +164,7 @@ build_test_app_esp32_premajor_idf_rel:
     TOOLCHAIN_PREFIX: "xtensa-esp32"
     BUILD_TEST_APP_DIR: "build_test_app_esp32_premajor_idf_rel"
     TEST_APP_CONFIGS: ""
-    TEST_APP_IDF_BRANCH: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_PREMAJOR_IDF_RELEASE_DOCKER_IMAGE}"
     UT_GET_IDF_VER: "1"
   extends: .build_test_app_template
 
@@ -156,7 +175,7 @@ build_test_app_esp32s2_premajor_idf_rel:
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
     BUILD_TEST_APP_DIR: "build_test_app_esp32s2_premajor_idf_rel"
     TEST_APP_CONFIGS: ""
-    TEST_APP_IDF_BRANCH: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_PREMAJOR_IDF_RELEASE_DOCKER_IMAGE}"
     UT_GET_IDF_VER: "1"
   extends: .build_test_app_template
 
@@ -167,7 +186,7 @@ build_test_app_esp32s3_premajor_idf_rel:
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
     BUILD_TEST_APP_DIR: "build_test_app_esp32s3_premajor_idf_rel"
     TEST_APP_CONFIGS: ""
-    TEST_APP_IDF_BRANCH: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_PREMAJOR_IDF_RELEASE_DOCKER_IMAGE}"
     UT_GET_IDF_VER: "1"
   extends: .build_test_app_template
 
@@ -178,7 +197,7 @@ build_test_app_esp32c3_premajor_idf_rel:
     TOOLCHAIN_PREFIX: "riscv32-esp"
     BUILD_TEST_APP_DIR: "build_test_app_esp32c3_premajor_idf_rel"
     TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single"
-    TEST_APP_IDF_BRANCH: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_PREMAJOR_IDF_RELEASE_DOCKER_IMAGE}"
     UT_GET_IDF_VER: "1"
   extends: .build_test_app_template
 
@@ -189,7 +208,7 @@ build_test_app_esp32_legacy_idf_rel:
     TOOLCHAIN_PREFIX: "xtensa-esp32"
     BUILD_TEST_APP_DIR: "build_test_app_esp32_legacy_idf_rel"
     TEST_APP_CONFIGS: ""
-    TEST_APP_IDF_BRANCH: "${TEST_APP_LEGACY_IDF_RELEASE_BRANCH}"
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_LEGACY_IDF_RELEASE_DOCKER_IMAGE}"
     UT_GET_IDF_VER: "1"
   extends: .build_test_app_template
 
