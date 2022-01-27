@@ -16,18 +16,10 @@
 #include "xtensa/core-macros.h"
 #endif
 #include "driver/gpio.h"
-#include "driver/timer.h"
-
-
+#include "test_timer.h"
 #define LOG_LOCAL_LEVEL CONFIG_LOG_DEFAULT_LEVEL
 #include "esp_log.h"
 const static char *TAG = "ut_app";
-
-#if UT_IDF_VER <= MAKE_UT_IDF_VER(4,1,0,0)
-#define TIM_CLR(_tg_, _tn_) do{ TIMERG ## _tg_.int_clr_timers.t ## _tn_ = 1;}while(0)
-#else
-#define TIM_CLR(_tg_, _tn_) do{  timer_group_clr_intr_status_in_isr(_tg_, _tn_); }while(0)
-#endif
 
 #define SPIRAM_TEST_ARRAY_SZ    5
 
@@ -53,105 +45,17 @@ static test_func_t s_test_funcs[] = {
     //TODO: auto-manage test numbers and addition of new tests
 };
 
-struct blink_task_arg {
-    int tim_grp;
-    int tim_id;
-    uint32_t tim_period;
-};
-
-#define TIMER_DIVIDER         16  //  Hardware timer clock divider
-#define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // convert counter value to seconds
-
-void test_timer_init(int timer_group, int timer_idx, uint32_t period)
-{
-    timer_config_t config;
-    uint64_t alarm_val = ((float)period / 1000000UL) * TIMER_SCALE;
-
-    config.alarm_en = 1;
-    config.auto_reload = 1;
-    config.counter_dir = TIMER_COUNT_UP;
-    config.divider = 2;     //Range is 2 to 65536
-    config.intr_type = TIMER_INTR_LEVEL;
-    config.counter_en = TIMER_PAUSE;
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,1,0,0)
-#if SOC_TIMER_GROUP_SUPPORT_XTAL
-    config.clk_src = TIMER_SRC_CLK_APB;
-#endif
-#endif
-    /*Configure timer*/
-    timer_init(timer_group, timer_idx, &config);
-    /*Stop timer counter*/
-    timer_pause(timer_group, timer_idx);
-    /*Load counter value */
-    timer_set_counter_value(timer_group, timer_idx, 0x00000000ULL);
-    /*Set alarm value*/
-    timer_set_alarm_value(timer_group, timer_idx, alarm_val);
-    /*Enable timer interrupt*/
-    timer_enable_intr(timer_group, timer_idx);
-}
-
-void test_timer_rearm(int timer_group, int timer_idx)
-{
-    if (timer_group == 0) {
-        if (timer_idx == 0) {
-            TIM_CLR(0, 0);
-            timer_set_alarm(0, 0, TIMER_ALARM_EN);
-        } else {
-#if !CONFIG_IDF_TARGET_ESP32C3
-            TIM_CLR(0, 1);
-            timer_set_alarm(0, 1, TIMER_ALARM_EN);
-#endif
-        }
-    } else if (timer_group == 1) {
-        if (timer_idx == 0) {
-            TIM_CLR(1, 0);
-            timer_set_alarm(1, 0, TIMER_ALARM_EN);
-        } else {
-#if !CONFIG_IDF_TARGET_ESP32C3
-            TIM_CLR(1, 1);
-            timer_set_alarm(1, 1, TIMER_ALARM_EN);
-#endif
-        }
-    }
-}
-
-static void test_timer_isr_func(void)
-{
-    s_tmp_ln++;
-}
-
-static void IRAM_ATTR test_timer_isr_ram_func(void)
-{
-    s_tmp_ln++;
-}
-
-static void test_timer_isr(void *arg)
-{
-    struct blink_task_arg *tim_arg = (struct blink_task_arg *)arg;
-
-    test_timer_isr_func();
-    test_timer_isr_ram_func();
-
-    test_timer_rearm(tim_arg->tim_grp, tim_arg->tim_id);
-}
-
 static void blink_task(void *pvParameter)
 {
-    struct blink_task_arg *arg = (struct blink_task_arg *)pvParameter;
-
+    struct timer_task_arg *arg = (struct timer_task_arg *)pvParameter;
     if (arg) {
-        test_timer_init(arg->tim_grp, arg->tim_id, arg->tim_period);
-        int res = timer_isr_register(arg->tim_grp, arg->tim_id, test_timer_isr, arg, 0, NULL);
+        int res = test_timer_init(arg);
         if (res != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to register timer ISR (%d)!", res);
-            return;
-        }
-        res = timer_start(arg->tim_grp, arg->tim_id);
-        if (res != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to start timer (%d)!", res);
+            ESP_LOGE(TAG, "Failed to initilaze timer (%d)!", res);
             return;
         }
     }
+
     /* Configure the IOMUX register for pad BLINK_GPIO (some pads are
        muxed to GPIO on reset already, but some default to other
        functions and need to be switched to GPIO. Consult the
@@ -421,7 +325,7 @@ void app_main()
 {
     ESP_LOGI(TAG, "Run test %d\n", s_run_test);
     if (s_run_test == 100){
-        static struct blink_task_arg task_arg = { .tim_grp = TIMER_GROUP_1, .tim_id = TIMER_0, .tim_period = 500000UL};
+        static struct timer_task_arg task_arg = { .tim_grp = TEST_TIMER_GROUP_1, .tim_id = TEST_TIMER_0, .tim_period = 500000UL, .isr_func = test_timer_isr};
         xTaskCreate(&blink_task, "blink_task", 4096, &task_arg, 5, NULL);
     } else if (s_run_test == 101){
         xTaskCreatePinnedToCore(&blink_task, "blink_task0", 4096, NULL, 5, NULL, 0);

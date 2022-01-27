@@ -406,9 +406,10 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
             freq_dev = 100*(task_ref_data[name]['freq'] - task_run_data[name]['run_count']/iv)/task_ref_data[name]['freq']
             self.assertTrue(freq_dev <= 10) # max event's freq deviation (due to measurement error) is 10%
         for name in irq_run_data:
-            print_run_data('IRQ "%s"' % name, irq_run_data[name], iv)
-            freq_dev = 100*(irq_ref_data[name]['freq'] - irq_run_data[name]['run_count']/iv)/irq_ref_data[name]['freq']
-            self.assertTrue(freq_dev <= 10) # max event's freq deviation (due to measurement error) is 10%
+            if ((testee_info.idf_ver < IdfVersion.fromstr('5.0')) or (name == "SysTick")):
+                print_run_data('IRQ "%s"' % name, irq_run_data[name], iv)
+                freq_dev = 100*(irq_ref_data[name]['freq'] - irq_run_data[name]['run_count']/iv)/irq_ref_data[name]['freq']
+                self.assertTrue(freq_dev <= 10) # max event's freq deviation (due to measurement error) is 10%
 @skip_for_chip(['esp32s3'])
 class SysViewMcoreTracingTestsImpl(BaseTracingTestsImpl):
     """ Test cases which are common for dual and single core modes
