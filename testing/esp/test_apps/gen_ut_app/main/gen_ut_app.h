@@ -52,9 +52,6 @@ typedef enum {
 
 typedef ut_result_t (*test_func_t)(int test_num);
 
-void test_timer_init(int timer_group, int timer_idx, uint32_t period);
-void test_timer_rearm(int timer_group, int timer_idx);
-
 /* Can run 'make menuconfig' to choose the GPIO to blink,
    or you can edit the following line and set a number here.
 */
