@@ -15,14 +15,21 @@
   mkdir -p $BUILD_TEST_APP_DIR
   cp -rv testing/esp/test_apps/gen_ut_app $BUILD_TEST_APP_DIR/
   pushd $BUILD_TEST_APP_DIR
-  git clone https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git
-  pushd esp-idf
-  git checkout $TEST_APP_IDF_TAG || true
-  tools/ci/mirror-submodule-update.sh
-  export IDF_PATH=$PWD
+  # Clone esp-idf
+  git clone --shallow-submodules --recursive --single-branch --branch $TEST_APP_IDF_BRANCH -- https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git esp-idf
+  export IDF_PATH=$PWD/esp-idf
   export BATCH_BUILD=1
   export V=0
-  popd
+  # Activate pyenv
+  source /opt/pyenv/activate
+  pyenv global $(pyenv versions --bare)
+  # Install tools
+  ${IDF_PATH}/tools/idf_tools.py install-python-env
+  ${IDF_PATH}/tools/idf_tools.py install ${TOOLCHAIN_PREFIX}-elf
+  # cannot exec '. ${IDF_PATH}/export.sh' here because not all tools distros are presented
+  # in the image and `export.sh` fails w/o adding tools to $PATH
+  idf_exports=$(${IDF_PATH}/tools/idf_tools.py export) || true
+  eval "${idf_exports}"
   pushd gen_ut_app
 
 .finish_test_app_build: &finish_test_app_build |
@@ -60,6 +67,8 @@
 .build_test_app_template: &build_test_app_template
   stage: build
   image: $CI_DOCKER_REGISTRY/esp-env:${ESP_ENV_DOCKER_IMG_TAG}
+  variables:
+    TEST_APP_IDF_BRANCH: "master"
   tags:
     - build
   artifacts:
@@ -81,23 +90,12 @@
   script:
     - !reference [.add_gitlab_key, script]
     - *prepare_test_app_build
-    - source /opt/pyenv/activate
-    - pyenv global $(pyenv versions --bare)
-    - ${IDF_PATH}/tools/idf_tools.py install-python-env
-    - ${IDF_PATH}/tools/idf_tools.py install ${TOOLCHAIN_PREFIX}-elf
-    # TODO: remove
-    - ls -l ${HOME}/.espressif/tools/${TOOLCHAIN_PREFIX}-elf
-    # cannot exec '. ${IDF_PATH}/export.sh' here because not all tools distros are presented
-    # in the image and `export.sh` fails w/o adding tools to $PATH
-    - idf_exports=$(${IDF_PATH}/tools/idf_tools.py export) || true
-    - eval "${idf_exports}"
     - *do_build_test_app
     - *finish_test_app_build
     - *prepare_espytrace_package
     - *get_esptool
 
 build_test_app_esp32:
-  <<: *build_test_app_template
   allow_failure: true
   variables:
     CHIP_NAME: "esp32"
@@ -105,9 +103,9 @@ build_test_app_esp32:
     BUILD_TEST_APP_DIR: "build_test_app_esp32"
     TEST_APP_CONFIGS: ""
     UT_GET_IDF_VER: "0"
+  extends: .build_test_app_template
 
 build_test_app_esp32s2:
-  <<: *build_test_app_template
   allow_failure: true
   variables:
     CHIP_NAME: "esp32s2"
@@ -115,9 +113,9 @@ build_test_app_esp32s2:
     BUILD_TEST_APP_DIR: "build_test_app_esp32s2"
     TEST_APP_CONFIGS: ""
     UT_GET_IDF_VER: "0"
+  extends: .build_test_app_template
 
 build_test_app_esp32s3:
-  <<: *build_test_app_template
   allow_failure: true
   variables:
     CHIP_NAME: "esp32s3"
@@ -125,9 +123,9 @@ build_test_app_esp32s3:
     BUILD_TEST_APP_DIR: "build_test_app_esp32s3"
     TEST_APP_CONFIGS: ""
     UT_GET_IDF_VER: "0"
+  extends: .build_test_app_template
 
 build_test_app_esp32c3:
-  <<: *build_test_app_template
   allow_failure: true
   variables:
     CHIP_NAME: "esp32c3"
@@ -135,56 +133,57 @@ build_test_app_esp32c3:
     BUILD_TEST_APP_DIR: "build_test_app_esp32c3"
     TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single"
     UT_GET_IDF_VER: "0"
+  extends: .build_test_app_template
 
 build_test_app_esp32_premajor_idf_rel:
-  <<: *build_test_app_template
   variables:
     CHIP_NAME: "esp32"
     TOOLCHAIN_PREFIX: "xtensa-esp32"
     BUILD_TEST_APP_DIR: "build_test_app_esp32_premajor_idf_rel"
     TEST_APP_CONFIGS: ""
-    TEST_APP_IDF_TAG: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
+    TEST_APP_IDF_BRANCH: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
     UT_GET_IDF_VER: "1"
+  extends: .build_test_app_template
 
 build_test_app_esp32s2_premajor_idf_rel:
-  <<: *build_test_app_template
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
     BUILD_TEST_APP_DIR: "build_test_app_esp32s2_premajor_idf_rel"
     TEST_APP_CONFIGS: ""
-    TEST_APP_IDF_TAG: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
+    TEST_APP_IDF_BRANCH: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
     UT_GET_IDF_VER: "1"
+  extends: .build_test_app_template
 
 build_test_app_esp32s3_premajor_idf_rel:
-  <<: *build_test_app_template
   variables:
     CHIP_NAME: "esp32s3"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
     BUILD_TEST_APP_DIR: "build_test_app_esp32s3_premajor_idf_rel"
     TEST_APP_CONFIGS: ""
-    TEST_APP_IDF_TAG: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
+    TEST_APP_IDF_BRANCH: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
     UT_GET_IDF_VER: "1"
+  extends: .build_test_app_template
 
 build_test_app_esp32c3_premajor_idf_rel:
-  <<: *build_test_app_template
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     BUILD_TEST_APP_DIR: "build_test_app_esp32c3_premajor_idf_rel"
     TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single"
-    TEST_APP_IDF_TAG: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
+    TEST_APP_IDF_BRANCH: "${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}"
     UT_GET_IDF_VER: "1"
+  extends: .build_test_app_template
 
 build_test_app_esp32_legacy_idf_rel:
-  <<: *build_test_app_template
   variables:
     CHIP_NAME: "esp32"
     TOOLCHAIN_PREFIX: "xtensa-esp32"
     BUILD_TEST_APP_DIR: "build_test_app_esp32_legacy_idf_rel"
     TEST_APP_CONFIGS: ""
-    TEST_APP_IDF_TAG: "${TEST_APP_LEGACY_IDF_RELEASE_BRANCH}"
+    TEST_APP_IDF_BRANCH: "${TEST_APP_LEGACY_IDF_RELEASE_BRANCH}"
     UT_GET_IDF_VER: "1"
+  extends: .build_test_app_template
 
 build_nuttx_app:
   stage: build
