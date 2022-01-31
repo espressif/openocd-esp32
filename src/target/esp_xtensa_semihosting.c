@@ -17,7 +17,9 @@
 
 #include "esp_xtensa_semihosting.h"
 
-#define ESP_XTENSA_SYSCALL     XT_INS_BREAK(1,1)
+#define ESP_XTENSA_SYSCALL_LEGACY     XT_INS_BREAK(1,1)
+#define ESP_XTENSA_SYSCALL     XT_INS_BREAK(1,14)
+
 #define ESP_XTENSA_SYSCALL_SZ  3
 
 #define ESP_FD_MIN          2
@@ -296,7 +298,9 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 		LOG_ERROR("Failed to read break instruction!");
 		return 0;
 	}
-	if (buf_get_u32(brk_insn_buf, 0, 32) != ESP_XTENSA_SYSCALL) {
+
+	uint32_t syscall_ins = buf_get_u32(brk_insn_buf, 0, 32); 
+	if ((syscall_ins != ESP_XTENSA_SYSCALL) && (syscall_ins != ESP_XTENSA_SYSCALL_LEGACY)) {
 		return 0;
 	}
 
