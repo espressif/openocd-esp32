@@ -45,8 +45,8 @@ static void cache_check_task(void *pvParameter)
 static void psram_check_task(void *pvParameter)
 {
 #if CONFIG_IDF_TARGET_ESP32S3
-    /* In ESP32S3, PSRAM is mapped from high to low. Check s_mapped_vaddr_start at esp32s3/spiram.c 
-        There is a plan to change from low to high same as ESP32 
+    /* In ESP32S3, PSRAM is mapped from high to low. Check s_mapped_vaddr_start at esp32s3/spiram.c
+        There is a plan to change from low to high same as ESP32
         Follow up jira https://jira.espressif.com:8443/browse/IDF-4318
     */
     uint32_t *mem = (uint32_t *)SOC_EXTRAM_DATA_HIGH - (SPIRAM_TEST_ARRAY_SZ * (xPortGetCoreID() + 1));
@@ -83,6 +83,41 @@ static void psram_check_task(void *pvParameter)
 }
 #endif
 
+#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,3,0,0)
+volatile static int s_var1;
+volatile static int s_var2;
+
+static void target_bp_func2()
+{
+    TEST_BREAK_LOC_EX(target_bp_func2, -1); /* -1 to keep previous line number (function entry)*/
+    s_var2 = 0x56789; TEST_BREAK_LOC(target_wp_var2_1);
+    ESP_LOGI(TAG, "Target BP func '%s' on core %d", __func__,  xPortGetCoreID());
+    volatile int tmp = s_var2; (void)tmp; TEST_BREAK_LOC(target_wp_var2_2);
+}
+
+static void target_bp_func1()
+{
+    TEST_BREAK_LOC_EX(target_bp_func1, -1); /* -1 to keep previous line number (function entry)*/
+    s_var1 = 0x12345; TEST_BREAK_LOC(target_wp_var1_1);
+    ESP_LOGI(TAG, "Target BP func '%s' on core %d.", __func__,  xPortGetCoreID());
+    volatile int tmp = s_var1; (void)tmp; TEST_BREAK_LOC(target_wp_var1_2);
+    /* we've just resumed from WP on previous line, deugger could modify breakpoints config, so set next BP here */
+    cpu_hal_set_breakpoint(1, target_bp_func2);
+    target_bp_func2();
+}
+
+static void target_bp_task(void *pvParameter)
+{
+    ESP_LOGI(TAG, "Start target BP task on core %d", xPortGetCoreID());
+
+    cpu_hal_set_breakpoint(0, target_bp_func1);
+    cpu_hal_set_watchpoint(0, (const void *)&s_var1, sizeof(s_var1), WATCHPOINT_TRIGGER_ON_RW);
+    cpu_hal_set_watchpoint(1, (const void *)&s_var2, sizeof(s_var2), WATCHPOINT_TRIGGER_ON_RW);
+
+    target_bp_func1();
+}
+#endif /* UT_IDF_VER >= MAKE_UT_IDF_VER(4,3,0,0) */
+
 ut_result_t special_test_do(int test_num)
 {
     switch (test_num) {
@@ -103,6 +138,13 @@ ut_result_t special_test_do(int test_num)
             break;
         }
 #endif
+#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,3,0,0)
+        case 803:
+        {
+            xTaskCreatePinnedToCore(&target_bp_task, "target_bp_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
+            break;
+        }
+#endif /* UT_IDF_VER >= MAKE_UT_IDF_VER(4,3,0,0) */
         default:
             return UT_UNSUPPORTED;
     }

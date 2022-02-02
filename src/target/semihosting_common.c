@@ -105,11 +105,7 @@ static int semihosting_common_fileio_info(struct target *target,
 static int semihosting_common_fileio_end(struct target *target, int result,
 	int fileio_errno, bool ctrl_c);
 
-static int semihosting_read_fields(struct target *target, size_t number,
-	uint8_t *fields);
 static int semihosting_write_fields(struct target *target, size_t number,
-	uint8_t *fields);
-static uint64_t semihosting_get_field(struct target *target, size_t index,
 	uint8_t *fields);
 static void semihosting_set_field(struct target *target, uint64_t value,
 	size_t index,
@@ -1564,7 +1560,7 @@ static int semihosting_common_fileio_end(struct target *target, int result,
 /**
  * Read all fields of a command from target to buffer.
  */
-static int semihosting_read_fields(struct target *target, size_t number,
+int semihosting_read_fields(struct target *target, size_t number,
 	uint8_t *fields)
 {
 	struct semihosting *semihosting = target->semihosting;
@@ -1600,7 +1596,7 @@ static int semihosting_write_fields(struct target *target, size_t number,
 /**
  * Extract a field from the buffer, considering register size and endianness.
  */
-static uint64_t semihosting_get_field(struct target *target, size_t index,
+uint64_t semihosting_get_field(struct target *target, size_t index,
 	uint8_t *fields)
 {
 	struct semihosting *semihosting = target->semihosting;

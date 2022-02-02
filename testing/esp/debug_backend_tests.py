@@ -533,6 +533,10 @@ class DebuggerTestAppTests(DebuggerTestsBase):
                 line_nums.append(self.gdb.data_eval_expr('%s_break_ln' % p))
             self.assertTrue(frames[outmost_frame]['line'] in line_nums)
 
+    def run_to_bp_and_check_location(self, exp_rsn, func_name, lineno_var_pref):
+        frames = self.run_to_bp_and_check_basic(exp_rsn, func_name)
+        line = self.gdb.data_eval_expr('%s_break_ln' % lineno_var_pref)
+        self.assertEqual(line, frames[0]['line'])
 
 class DebuggerGenericTestAppTests(DebuggerTestAppTests):
     """ Base class to run tests which use generic test app
