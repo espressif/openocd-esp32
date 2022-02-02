@@ -142,6 +142,14 @@ def only_for_arch(archs_to_run):
             break
     return unittest.skipIf(skip, "skipped due to arch '%s' does not match to '%s'" % (testee_info.arch, archs_to_run))
 
+def idf_ver_min_for_arch(ver_str, archs_to_run):
+    skip = True
+    for id in archs_to_run:
+        if re.match(id, testee_info.arch):
+            return idf_ver_min(ver_str)
+    # do not skip if arch is not found
+    return unittest.skipIf(False, "")
+
 class DebuggerTestError(RuntimeError):
     """ Base class for debugger's test errors
     """
@@ -509,7 +517,8 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         if testee_info.idf_ver < IdfVersion.fromstr('3.3'):
             outmost_frame = len(frames) - 1
         else:
-            outmost_frame = len(frames) - 2 # -2 because our task function is called by FreeRTOS task wrapper
+            # -2 because our task function is called by FreeRTOS task wrapper for Xtensa or 'prvTaskExitError' for RISCV
+            outmost_frame = len(frames) - 2
         get_logger().debug('outmost_frame = %d', outmost_frame)
         self.assertGreaterEqual(outmost_frame, 0)
         # Sometimes GDB does not provide full backtrace. so check this

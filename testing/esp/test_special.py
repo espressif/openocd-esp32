@@ -18,8 +18,8 @@ def get_logger():
 class DebuggerSpecialTestsImpl:
     """ Special test cases generic for dual and single core modes
     """
-    # TODO: SIGTRAP is not generated for RISCV when crash occures
-    @skip_for_chip(['esp32c3'])
+
+    @idf_ver_min_for_arch('latest', ['riscv32'])
     def test_restart_debug_from_crash(self):
         """
             This test checks that debugger can operate correctly after SW reset with stalled CPU.
@@ -48,7 +48,7 @@ class DebuggerSpecialTestsImpl:
             if (len(reg) == 0 or reg == 'zero'):
                 continue
 
-            # TODO: With the new gdb version (gdb9) privileged regs now can be set. So, break condition needs to be changed for each chip. 
+            # TODO: With the new gdb version (gdb9) privileged regs now can be set. So, break condition needs to be changed for each chip.
             # eg. Now mmid is pass but it is failing at a0 for esp32
             if reg == 'mmid' or reg == 'mstatus' or reg == 'q0':
                 break
@@ -103,9 +103,10 @@ class DebuggerSpecialTestsImpl:
         self._debug_image()
 
     @idf_ver_min('4.3')
+    @idf_ver_min_for_arch('latest', ['riscv32'])
     def test_bp_and_wp_set_by_program(self):
         """
-            This test checks that breakpoints set by program on target works.
+            This test checks that breakpoints and watchpoints set by program on target work.
             1) Select appropriate sub-test number on target.
             2) Resume target, wait for the program to hit breakpoints.
         """

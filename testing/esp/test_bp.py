@@ -222,9 +222,6 @@ class WatchpointTestsImpl:
             self.assertEqual(var_val, cnt)
             cnt += 1
 
-    # OpenOCD resets eps32c3/esp32s2 on every GDB connect to ensure that memory protection is disabled
-    # TODO: add check to config file to reset chip only when memory protection is really enabled
-    @skip_for_chip(['esp32s2', 'esp32c3'])
     def test_wp_and_reconnect(self):
         """
             This test checks that watchpoints work after GDB re-connection.
