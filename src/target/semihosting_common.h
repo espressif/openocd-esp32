@@ -171,5 +171,10 @@ struct semihosting {
 int semihosting_common_init(struct target *target, void *setup,
 	void *post_result);
 int semihosting_common(struct target *target);
+/* utility functions which may also be used by semihosting extensions (custom vendor-defined syscalls) */
+int semihosting_read_fields(struct target *target, size_t number,
+	uint8_t *fields);
+uint64_t semihosting_get_field(struct target *target, size_t index,
+	uint8_t *fields);
 
 #endif	/* OPENOCD_TARGET_SEMIHOSTING_COMMON_H */

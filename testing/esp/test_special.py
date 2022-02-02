@@ -102,6 +102,28 @@ class DebuggerSpecialTestsImpl:
         self.prepare_app_for_debugging(self.test_app_cfg.app_off)
         self._debug_image()
 
+    @idf_ver_min('4.3')
+    def test_bp_and_wp_set_by_program(self):
+        """
+            This test checks that breakpoints set by program on target works.
+            1) Select appropriate sub-test number on target.
+            2) Resume target, wait for the program to hit breakpoints.
+        """
+        self.select_sub_test(803)
+        # breakpoint at 'target_bp_func1' entry
+        self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func1', 'target_bp_func1')
+        # watchpoint hit on write var in 'target_bp_func1'
+        self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func1', 'target_wp_var1_1')
+        # watchpoint hit on read var in 'target_bp_func1'
+        self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func1', 'target_wp_var1_2')
+        # breakpoint at 'target_bp_func2' entry
+        self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_bp_func2')
+        # watchpoint hit on write var in 'target_bp_func2'
+        self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_wp_var2_1')
+        # watchpoint hit on read var in 'target_bp_func2'
+        self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_wp_var2_2')
+
+
 # to be skipped for any board with ESP32-S2 chip
 # TODO: enable these tests when PSRAM is supported for ESP32-S2
 @skip_for_chip(['esp32s2', 'esp32c3'])
