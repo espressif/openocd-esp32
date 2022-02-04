@@ -17,7 +17,9 @@ const static char *TAG = "semihost_test";
 #define ESP_ENOTSUP_UNIX        95
 #define ESP_ENOTSUP_DARWIN      45
 
-#define SYSCALL_INSTR           "break 1,1\n"
+#define SYSCALL_INSTR_LEGACY    "break 1,1\n"
+#define SYSCALL_INSTR           "break 1,14\n"
+
 #define SYS_OPEN                0x01
 #define SYS_CLOSE               0x02
 #define SYS_WRITE               0x05
@@ -37,6 +39,8 @@ static inline void done(void)
         vTaskDelay(1);
     }
 }
+
+typedef int (*syscall_fptr_t)(int, int, int, int, int, int *);
 
 static inline int generic_syscall(int sys_nr, int arg1, int arg2, int arg3, int arg4,
                                   int *ret_errno)
@@ -66,8 +70,40 @@ static inline int generic_syscall(int sys_nr, int arg1, int arg2, int arg3, int 
     return host_ret;
 }
 
+static inline int generic_syscall_legacy(int sys_nr, int arg1, int arg2, int arg3, int arg4,
+                                  int *ret_errno)
+{
+    int host_ret, host_errno;
+    int core_id = xPortGetCoreID();
+    if (!esp_cpu_in_ocd_debug_mode()) {
+        *ret_errno = EIO;
+        return -1;
+    }
+    ESP_LOGI(TAG, "CPU[%d]: -> legacy syscall 0x%x, args: 0x%x, 0x%x, 0x%x, 0x%x", core_id, sys_nr, arg1, arg2, arg3, arg4);
+    __asm__ volatile (
+        "mov a2, %[sys_nr]\n" \
+        "mov a3, %[arg1]\n" \
+        "mov a4, %[arg2]\n" \
+        "mov a5, %[arg3]\n" \
+        "mov a6, %[arg4]\n" \
+        SYSCALL_INSTR_LEGACY \
+        "mov %[host_ret], a2\n" \
+        "mov %[host_errno], a3\n" \
+        :[host_ret] "=r" (host_ret),[host_errno] "=r" (host_errno)
+        :[sys_nr] "r" (sys_nr),[arg1] "r" (arg1),[arg2] "r" (arg2),[arg3] "r" (arg3),
+        [arg4] "r" (arg4)
+        : "a2","a3","a4","a5","a6");
+    *ret_errno = host_errno;
+    ESP_LOGI(TAG, "CPU[%d]: <- return:%d, errno:%d", core_id, host_ret, host_errno);
+    return host_ret;
+}
+
+static syscall_fptr_t syscall_fptr = generic_syscall;
+
 static inline int semihosting_wrong_args(int wrong_arg)
 {
+    assert(syscall_fptr);
+    
     int core_id = xPortGetCoreID();
     ESP_LOGI(TAG, "Started wrong args test for a core #%d. Arg is: %x", core_id, wrong_arg);
     int test_errno, syscall_ret;
@@ -75,7 +111,7 @@ static inline int semihosting_wrong_args(int wrong_arg)
     snprintf(fname, sizeof(fname) - 1, "/test_read.%d", core_id);
 
     ESP_LOGI(TAG, "CPU[%d]:------ wrong SYSCALL -------", core_id);
-    syscall_ret = generic_syscall(wrong_arg, 0, 0, 0, 0, &test_errno);
+    syscall_ret = syscall_fptr(wrong_arg, 0, 0, 0, 0, &test_errno);
     assert(syscall_ret == -1);
     assert((test_errno == ESP_ENOTSUP_WIN) || (test_errno == ESP_ENOTSUP_UNIX) || (test_errno == ESP_ENOTSUP_DARWIN));
 
@@ -87,12 +123,12 @@ static inline int semihosting_wrong_args(int wrong_arg)
     };
 
     ESP_LOGI(TAG, "CPU[%d]: wrong address", core_id);
-    syscall_ret = generic_syscall(SYS_DRVINFO, wrong_arg, sizeof(drv_info), flags, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_DRVINFO, wrong_arg, sizeof(drv_info), flags, 0, &test_errno);
     assert(syscall_ret == -1);
     assert(test_errno == EINVAL);
 
     ESP_LOGI(TAG, "CPU[%d]: wrong size", core_id);
-    syscall_ret = generic_syscall(SYS_DRVINFO, (int)&drv_info, wrong_arg, flags, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_DRVINFO, (int)&drv_info, wrong_arg, flags, 0, &test_errno);
     assert(syscall_ret == -1);
     assert(test_errno == EINVAL);
 
@@ -101,29 +137,29 @@ static inline int semihosting_wrong_args(int wrong_arg)
 
     ESP_LOGI(TAG, "CPU[%d]: wrong fname_addr", core_id);
 #if UT_IDF_VER >= MAKE_UT_IDF_VER(4,2,0,0)
-    syscall_ret = generic_syscall(SYS_OPEN, wrong_arg, O_RDWR | O_BINARY, strlen(fname) + 1, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_OPEN, wrong_arg, O_RDWR | O_BINARY, strlen(fname) + 1, 0, &test_errno);
 #else
-    syscall_ret = generic_syscall(SYS_OPEN, wrong_arg, strlen(fname) + 1, O_RDWR | O_BINARY, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_OPEN, wrong_arg, strlen(fname) + 1, O_RDWR | O_BINARY, 0, &test_errno);
 #endif
     assert(syscall_ret == -1);
     assert(test_errno == ENOMEM);
 
     ESP_LOGI(TAG, "CPU[%d]: wrong fname_len", core_id);
 #if UT_IDF_VER >= MAKE_UT_IDF_VER(4,2,0,0)
-    syscall_ret = generic_syscall(SYS_OPEN, (int)fname, O_RDWR | O_BINARY, wrong_arg, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_OPEN, (int)fname, O_RDWR | O_BINARY, wrong_arg, 0, &test_errno);
 #else
-    syscall_ret = generic_syscall(SYS_OPEN, (int)fname, wrong_arg, O_RDWR | O_BINARY, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_OPEN, (int)fname, wrong_arg, O_RDWR | O_BINARY, 0, &test_errno);
 #endif
     assert(syscall_ret == -1);
     assert(test_errno == ENOMEM);
 
     ESP_LOGI(TAG, "CPU[%d]: wrong flags", core_id);
 #if UT_IDF_VER >= MAKE_UT_IDF_VER(4,2,0,0)
-    syscall_ret = generic_syscall(SYS_OPEN, (int)fname, wrong_arg, strlen(fname) + 1, 0, &test_errno);
+    syscall_ret = syscall_fptr( SYS_OPEN, (int)fname, wrong_arg, strlen(fname) + 1, 0, &test_errno);
     assert(syscall_ret == -1);
     assert(test_errno == EINVAL);
 #else
-    syscall_ret = generic_syscall(SYS_OPEN, (int)fname, strlen(fname) + 1, wrong_arg, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_OPEN, (int)fname, strlen(fname) + 1, wrong_arg, 0, &test_errno);
     assert(syscall_ret == -1);
     /* For the semihosting v0 we have no a flags checking so the returning error is solely depends on the platform's
     open-syscall implementation which is different from platform to platform */
@@ -134,9 +170,9 @@ static inline int semihosting_wrong_args(int wrong_arg)
     return the global one (inside the target scope). For interacting via `generic_syscall` we need the local one -
     a file descriptor assigned to the file by the host */
 #if UT_IDF_VER >= MAKE_UT_IDF_VER(4,2,0,0)
-    int fd = generic_syscall(SYS_OPEN, (int)fname, O_RDWR | O_BINARY, strlen(fname) + 1, 0, &test_errno);
+    int fd = syscall_fptr(SYS_OPEN, (int)fname, O_RDWR | O_BINARY, strlen(fname) + 1, 0, &test_errno);
 #else
-    int fd = generic_syscall(SYS_OPEN, (int)fname, strlen(fname) + 1, O_RDWR | O_BINARY, 0, &test_errno);
+    int fd = syscall_fptr(SYS_OPEN, (int)fname, strlen(fname) + 1, O_RDWR | O_BINARY, 0, &test_errno);
 #endif
     if (fd == -1) {
         ESP_LOGE(TAG, "CPU[%d]: Failed to open file `%s` (%d)!", core_id, fname, errno);
@@ -150,18 +186,18 @@ static inline int semihosting_wrong_args(int wrong_arg)
     int write_size = strlen(data) + 1;
 
     ESP_LOGI(TAG, "CPU[%d]: wrong fd", core_id);
-    syscall_ret = generic_syscall(SYS_WRITE, wrong_arg, (int)data, write_size, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_WRITE, wrong_arg, (int)data, write_size, 0, &test_errno);
     assert(syscall_ret == -1);
     assert(test_errno == EBADF);
 
     test_errno = 0;
     ESP_LOGI(TAG, "CPU[%d]: wrong data pointer", core_id);
-    syscall_ret = generic_syscall(SYS_WRITE, fd, wrong_arg, write_size, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_WRITE, fd, wrong_arg, write_size, 0, &test_errno);
     assert(syscall_ret == -1);
     assert(test_errno == EIO);
 
     ESP_LOGI(TAG, "CPU[%d]: wrong data size", core_id);
-    syscall_ret = generic_syscall(SYS_WRITE, fd, (int)data, wrong_arg, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_WRITE, fd, (int)data, wrong_arg, 0, &test_errno);
     assert(syscall_ret == -1);
     assert(test_errno == ENOMEM || test_errno == EIO);
 
@@ -171,12 +207,12 @@ static inline int semihosting_wrong_args(int wrong_arg)
     int read_size = sizeof(read_data);
 
     ESP_LOGI(TAG, "CPU[%d]: wrong fd", core_id);
-    syscall_ret = generic_syscall(SYS_READ, wrong_arg, (int)read_data, read_size, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_READ, wrong_arg, (int)read_data, read_size, 0, &test_errno);
     assert(syscall_ret == -1);
     assert(test_errno == EBADF);
 
     ESP_LOGI(TAG, "CPU[%d]: wrong data pointer", core_id);
-    syscall_ret = generic_syscall(SYS_READ, fd, wrong_arg, read_size, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_READ, fd, wrong_arg, read_size, 0, &test_errno);
     assert(syscall_ret == -1);
     assert(test_errno == EIO);
 
@@ -194,17 +230,17 @@ static inline int semihosting_wrong_args(int wrong_arg)
     int seek_offset = 3;
 
     ESP_LOGI(TAG, "CPU[%d]: wrong fd", core_id);
-    syscall_ret = generic_syscall(SYS_SEEK, wrong_arg, seek_offset, SEEK_SET, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_SEEK, wrong_arg, seek_offset, SEEK_SET, 0, &test_errno);
     assert(syscall_ret == -1);
     assert(test_errno == EBADF);
 
     ESP_LOGI(TAG, "CPU[%d]: wrong offset", core_id);
-    syscall_ret = generic_syscall(SYS_SEEK, fd, wrong_arg, SEEK_SET, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_SEEK, fd, wrong_arg, SEEK_SET, 0, &test_errno);
     assert(syscall_ret == -1);
     assert(test_errno == EINVAL);
 
     ESP_LOGI(TAG, "CPU[%d]: wrong mode", core_id);
-    syscall_ret = generic_syscall(SYS_SEEK, fd, seek_offset, wrong_arg, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_SEEK, fd, seek_offset, wrong_arg, 0, &test_errno);
     assert(syscall_ret == -1);
     assert(test_errno == EINVAL);
 
@@ -212,7 +248,7 @@ static inline int semihosting_wrong_args(int wrong_arg)
     ESP_LOGI(TAG, "CPU[%d]:------ SYS_CLOSE test -------", core_id);
 
     ESP_LOGI(TAG, "CPU[%d]: wrong fd", core_id);
-    syscall_ret = generic_syscall(SYS_CLOSE, wrong_arg, 0, 0, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_CLOSE, wrong_arg, 0, 0, 0, &test_errno);
     assert(syscall_ret == -1);
     assert(test_errno == EBADF);
 
@@ -221,7 +257,7 @@ static inline int semihosting_wrong_args(int wrong_arg)
     return the global one (inside the target scope). For interacting via `generic_syscall` we need the local one -
     a file descriptor assigned to the file by the host */
     ESP_LOGI(TAG, "Closing the files");
-    syscall_ret = generic_syscall(SYS_CLOSE, fd, 0, 0, 0, &test_errno);
+    syscall_ret = syscall_fptr(SYS_CLOSE, fd, 0, 0, 0, &test_errno);
     if (syscall_ret == -1) {
         ESP_LOGE(TAG, "CPU[%d] :Failed to close input file (%d)!", core_id, errno);
     }
@@ -393,6 +429,7 @@ static void semihost_args_task(void *pvParameter)
 }
 #endif /* #if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0) */
 
+
 ut_result_t semihost_test_do(int test_num)
 {
     switch (test_num) {
@@ -413,7 +450,8 @@ ut_result_t semihost_test_do(int test_num)
             xTaskCreatePinnedToCore(&semihost_task, "semihost_task0", 4096, NULL, 5, NULL, 0);
             break;
         }
-        case 701: {
+        case 701: 
+        case 702: {
         /*
         * *** About the test ***
         *
@@ -433,9 +471,15 @@ ut_result_t semihost_test_do(int test_num)
         * - Send SYS_CLOSE syscall with wrong args
         * - Close the file
         */
-        xTaskCreatePinnedToCore(&semihost_args_task, "semihost_args_task0", 8000, NULL, 5, NULL, 0);
-        break;
-    }
+            if (test_num == 701) {
+                syscall_fptr = (syscall_fptr_t)generic_syscall;
+            } else {
+                syscall_fptr = (syscall_fptr_t)generic_syscall_legacy;
+            }                                
+            xTaskCreatePinnedToCore(&semihost_args_task, "semihost_args_task0", 8000, NULL, 5, 
+                NULL, 0);
+            break;
+        }    
 #endif /* #if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0) */
         default:
             return UT_UNSUPPORTED;
