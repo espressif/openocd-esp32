@@ -70,6 +70,7 @@ class SemihostTestsImpl:
 
     def test_semihost_rw(self):
         """
+        This test checks that semihost functions working as expected.
         """
         self.select_sub_test(700)
         self.add_bp('esp_vfs_semihost_unregister')
@@ -81,8 +82,19 @@ class SemihostTestsImpl:
 
     def test_semihost_args(self):
         """
+        This test checks that 'break 1,14' syscall instruction properly with 
+        wrong argumented functions
         """
         self.select_sub_test(701)
+        self.add_bp('esp_vfs_semihost_unregister')
+        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
+
+    def test_semihost_args_legacy(self):
+        """
+        This test checks that 'break 1,1' syscall working properly with
+        wrong argumented functions 
+        """
+        self.select_sub_test(702)
         self.add_bp('esp_vfs_semihost_unregister')
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
 
