@@ -66,7 +66,6 @@
 
 .build_test_app_template: &build_test_app_template
   stage: build
-  image: $CI_DOCKER_REGISTRY/esp-env:${ESP_ENV_DOCKER_IMG_TAG}
   variables:
     TEST_APP_IDF_BRANCH: "master"
   tags:
@@ -96,6 +95,7 @@
     - *get_esptool
 
 build_test_app_esp32:
+  image: $CI_DOCKER_REGISTRY/esp-env-${ESP_ENV_5_DOCKER_IMG_TAG}
   allow_failure: true
   variables:
     CHIP_NAME: "esp32"
@@ -106,6 +106,7 @@ build_test_app_esp32:
   extends: .build_test_app_template
 
 build_test_app_esp32s2:
+  image: $CI_DOCKER_REGISTRY/esp-env-${ESP_ENV_5_DOCKER_IMG_TAG}
   allow_failure: true
   variables:
     CHIP_NAME: "esp32s2"
@@ -116,6 +117,7 @@ build_test_app_esp32s2:
   extends: .build_test_app_template
 
 build_test_app_esp32s3:
+  image: $CI_DOCKER_REGISTRY/esp-env-${ESP_ENV_5_DOCKER_IMG_TAG}
   allow_failure: true
   variables:
     CHIP_NAME: "esp32s3"
@@ -126,6 +128,7 @@ build_test_app_esp32s3:
   extends: .build_test_app_template
 
 build_test_app_esp32c3:
+  image: $CI_DOCKER_REGISTRY/esp-env-${ESP_ENV_5_DOCKER_IMG_TAG}
   allow_failure: true
   variables:
     CHIP_NAME: "esp32c3"
@@ -136,6 +139,7 @@ build_test_app_esp32c3:
   extends: .build_test_app_template
 
 build_test_app_esp32_premajor_idf_rel:
+  image: $CI_DOCKER_REGISTRY/esp-env:${ESP_ENV_DOCKER_IMG_TAG}
   variables:
     CHIP_NAME: "esp32"
     TOOLCHAIN_PREFIX: "xtensa-esp32"
@@ -146,6 +150,7 @@ build_test_app_esp32_premajor_idf_rel:
   extends: .build_test_app_template
 
 build_test_app_esp32s2_premajor_idf_rel:
+  image: $CI_DOCKER_REGISTRY/esp-env:${ESP_ENV_DOCKER_IMG_TAG}
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
@@ -156,6 +161,7 @@ build_test_app_esp32s2_premajor_idf_rel:
   extends: .build_test_app_template
 
 build_test_app_esp32s3_premajor_idf_rel:
+  image: $CI_DOCKER_REGISTRY/esp-env:${ESP_ENV_DOCKER_IMG_TAG}
   variables:
     CHIP_NAME: "esp32s3"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
@@ -166,6 +172,7 @@ build_test_app_esp32s3_premajor_idf_rel:
   extends: .build_test_app_template
 
 build_test_app_esp32c3_premajor_idf_rel:
+  image: $CI_DOCKER_REGISTRY/esp-env:${ESP_ENV_DOCKER_IMG_TAG}
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
@@ -176,6 +183,7 @@ build_test_app_esp32c3_premajor_idf_rel:
   extends: .build_test_app_template
 
 build_test_app_esp32_legacy_idf_rel:
+  image: $CI_DOCKER_REGISTRY/esp-env:${ESP_ENV_DOCKER_IMG_TAG}
   variables:
     CHIP_NAME: "esp32"
     TOOLCHAIN_PREFIX: "xtensa-esp32"
