@@ -1,8 +1,8 @@
-AC_PREREQ([2.69])
-AC_INIT([openocd], [0.11.0+dev],
+AC_PREREQ(2.64)
+AC_INIT([openocd], [ ],
   [OpenOCD Mailing List <openocd-devel@lists.sourceforge.net>])
 AC_CONFIG_SRCDIR([src/openocd.c])
-AC_CONFIG_AUX_DIR([build-aux])
+AC_CONFIG_AUX_DIR([.])
 
 m4_include([config_subdir.m4])dnl
 
@@ -41,6 +41,8 @@ AC_TYPE_LONG_LONG_INT
 AC_SEARCH_LIBS([ioperm], [ioperm])
 AC_SEARCH_LIBS([dlopen], [dl])
 AC_SEARCH_LIBS([openpty], [util])
+AC_SEARCH_LIBS([deflate], [z], [], [
+  AC_MSG_ERROR([libz library was not found])])
 
 AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([elf.h])
@@ -124,7 +126,8 @@ m4_define([USB1_ADAPTERS],
 	[[armjtagew], [Olimex ARM-JTAG-EW Programmer], [ARMJTAGEW]],
 	[[rlink], [Raisonance RLink JTAG Programmer], [RLINK]],
 	[[usbprog], [USBProg JTAG Programmer], [USBPROG]],
-	[[aice], [Andes JTAG Programmer], [AICE]]])
+	[[aice], [Andes JTAG Programmer], [AICE]],
+  [[esp_usb_jtag], [Espressif JTAG Programmer], [ESP_USB_JTAG]]])
 
 m4_define([HIDAPI_ADAPTERS],
 	[[[cmsis_dap], [CMSIS-DAP Compliant Debugger], [CMSIS_DAP_HID]],
@@ -302,20 +305,6 @@ AS_CASE(["${host_cpu}"],
 ])
 
 AS_CASE(["${host_cpu}"],
-  [arm*|aarch64], [
-    AC_ARG_ENABLE([bcm2835gpio],
-      AS_HELP_STRING([--enable-bcm2835gpio], [Enable building support for bitbanging on BCM2835 (as found in Raspberry Pi)]),
-      [build_bcm2835gpio=$enableval], [build_bcm2835gpio=no])
-    AC_ARG_ENABLE([imx_gpio],
-      AS_HELP_STRING([--enable-imx_gpio], [Enable building support for bitbanging on NXP IMX processors]),
-      [build_imx_gpio=$enableval], [build_imx_gpio=no])
-  ],
-  [
-    build_bcm2835gpio=no
-    build_imx_gpio=no
-])
-
-AS_CASE(["${host_cpu}"],
   [arm*], [
     AC_ARG_ENABLE([ep93xx],
       AS_HELP_STRING([--enable-ep93xx], [Enable building support for EP93xx based SBCs]),
@@ -373,6 +362,16 @@ AC_ARG_ENABLE([internal-libjaylink],
   AS_HELP_STRING([--disable-internal-libjaylink],
   [Disable building internal libjaylink]),
   [use_internal_libjaylink=$enableval], [use_internal_libjaylink=yes])
+
+AC_ARG_ENABLE([esp-remote],
+  AS_HELP_STRING([--disable-esp-remote],
+  [Disable building support for the ESP remote protocol over TCP or USB]),
+  [build_esp_remote=$enableval], [build_esp_remote=yes])
+
+AC_ARG_ENABLE([build-gcov],
+  AS_HELP_STRING([--enable-build-gcov],
+  [Enable building support with coverage]),
+  [build_gcov=$enableval], [build_gcov=no])
 
 AC_ARG_ENABLE([remote-bitbang],
   AS_HELP_STRING([--enable-remote-bitbang], [Enable building support for the Remote Bitbang jtag driver]),
@@ -592,6 +591,19 @@ AS_IF([test "x$build_xlnx_pcie_xvc" = "xyes"], [
   AC_DEFINE([BUILD_XLNX_PCIE_XVC], [0], [0 if you don't want Xilinx XVC/PCIe driver.])
 ])
 
+AS_IF([test "x$build_esp_remote" = "xyes"], [
+  AC_DEFINE([BUILD_ESP_REMOTE], [1], [1 if you want ESP remote protocol support.])
+], [
+  AC_DEFINE([BUILD_ESP_REMOTE], [0], [0 if you don't want ESP remote protocol support.])
+])
+
+AS_IF([test "x$build_gcov" = "xyes"], [
+  AC_DEFINE([BUILD_GCOV], [1], [1 if you want OpenOCD source code coverage support.])
+  CFLAGS+=" -fprofile-arcs -ftest-coverage"
+], [
+  AC_DEFINE([BUILD_GCOV], [0], [0 if you don't want OpenOCD source code coverage support.])
+])
+
 PKG_CHECK_MODULES([LIBUSB1], [libusb-1.0], [
 	use_libusb1=yes
 	AC_DEFINE([HAVE_LIBUSB1], [1], [Define if you have libusb-1.x])
@@ -602,26 +614,6 @@ PKG_CHECK_MODULES([LIBUSB1], [libusb-1.0], [
   ], [
 	use_libusb1=no
 	AC_MSG_WARN([libusb-1.x not found, trying legacy libusb-0.1 as a fallback; consider installing libusb-1.x instead])
-])
-
-AC_ARG_WITH([capstone],
-		AS_HELP_STRING([--with-capstone], [Use Capstone disassembly library (default=auto)])
-	, [
-		enable_capstone=$withval
-	], [
-		enable_capstone=auto
-])
-
-AS_IF([test "x$enable_capstone" != xno], [
-	PKG_CHECK_MODULES([CAPSTONE], [capstone], [
-		AC_DEFINE([HAVE_CAPSTONE], [1], [1 if you have Capstone disassembly framework.])
-	], [
-		AC_DEFINE([HAVE_CAPSTONE], [0], [0 if you don't have Capstone disassembly framework.])
-		if test "x$enable_capstone" != xauto; then
-			AC_MSG_ERROR([--with-capstone was given, but test for Capstone failed])
-		fi
-		enable_capstone=no
-	])
 ])
 
 AC_ARG_WITH([capstone],

@@ -19,6 +19,103 @@
 #ifndef OPENOCD_TARGET_ALGORITHM_H
 #define OPENOCD_TARGET_ALGORITHM_H
 
+/**
+ * API defined below allows to execute pieces of code on target without breaking execution of running program.
+ * This functionality can be useful for various debugging and maintenance procedures.
+ * @note ESP flashing code to load flasher stub on target and write/read/erase flash.
+ * Also ESP GCOV command uses some of these functions to run onboard routines to dump coverage info.
+ * Stub entry function can take up to 5 arguments and should be of the following form:
+ *
+ * int stub_entry([uint32_t a1 [, uint32_t a2 [, uint32_t a3 [, uint32_t a4 [, uint32_t a5]]]]]);
+ *
+ * General scheme of stub code execution is shown below.
+ *
+ *  -------                                                    -----------   (initial frame)    ----
+ * |       | -------(registers, stub entry, stub args)------> |trampoline | ---(stub args)---> |    |
+ * |       |                                                  |           |                    |    |
+ * |OpenOCD| <----------(stub-specific communications)---------------------------------------> |stub|
+ * |       |                                                  |           |                    |    |
+ * |       | <---------(target halted event, ret code)------- |tramp break| <---(ret code)---- |    |
+ *  -------                                                    -----------                      ----
+ *
+ * Procedure of executing stub on target includes:
+ * 1) User prepares struct algorithm_run_data and calls one of algorithm_run_xxx() functions.
+ * 2) Routine allocates all necessary stub code and data sections.
+ * 3) If user specifies an initializer func algorithm_usr_func_init_t it is called just before stub start.
+ * 4) If user specifies stub communication func algorithm_usr_func_t (@see esp_flash_write/read in ESP flash driver)
+ *    it is called just after the stub start. When communication with stub is finished this function must return.
+ * 5) OpenOCD waits for stub to finish (hit exit breakpoint).
+ * 6) If user specified arguments cleanup func algorithm_usr_func_done_t it is called just after stub finishes.
+ *
+ * There are two options to run code on target under OpenOCD control:
+ * - Run externally compiled stub code.
+ * - Run onboard pre-compiled code. @note For ESP chips debug stubs must be enabled in target code @see ESP IDF docs.
+ * The main difference between execution of external stub code and target built-in functions is that in latter case
+ * working areas can not be used to allocate target memory for code and data because they can overlap
+ * with code and data involved into onboard function execution. For example if memory allocated in working area
+ * for stub stack will overlap with some on-board data used by the stub the stack will get overwritten.
+ * The same stands for allocations in target code space.
+ *
+ * External Code Execution
+ * -----------------------
+ * To run external code on target user should use algorithm_run_func_image().
+ * In this case all necesarry memory (code/data) is alocated in working areas which have fixed configuration
+ * defined in target TCL file. Stub code is actually a standalone program, so all its segments must have known
+ * addresses due to position dependent code nature. So stub must be linked in such way that its code segment
+ * starts at the beginning of working area for code space defined in TCL. The same restriction must be applied
+ * to stub's data segment and base addresses of working area for data space. @see ESP stub flasher LD scripts.
+ * Also in order to simplify memory allocation BSS section must follow DATA section in stub image.
+ * The size of BSS section must be specified in bss_size field of struct algorithm_image.
+ * Sample stub memory map is shown below.
+ *  ___________________________________________
+ * | data space working area start             |
+ * |                                           |
+ * | <stub .data segment>                      |
+ * |___________________________________________|
+ * | stub .bss start                           |
+ * |                                           |
+ * | <stub .bss segment of size 'bss_size'>    |
+ * |___________________________________________|
+ * | stub stack base                           |
+ * |                                           |
+ * | <stub stack>                              |
+ * |___________________________________________|
+ * |                                           |
+ * | <stub mem arg1>                           |
+ * |___________________________________________|
+ * |                                           |
+ * | <stub mem arg2>                           |
+ * |___________________________________________|
+ *  ___________________________________________
+ * | code space working area start             |
+ * |                                           |
+ * | <stub .text segment>                      |
+ * |___________________________________________|
+ * |                                           |
+ * | <stub trampoline with exit breakpoint>    |
+ * |___________________________________________|
+ *
+ * For example on how to execute external code with memory arguments @see esp_flash_blank_check in ESP flash driver.
+ *
+ * On-Board Code Execution
+ * -----------------------
+ * To run on-board code on target user should use algorithm_run_onboard_func().
+ * On-board code execution process does not need to allocate target memory for stub code and data,
+ * because stub is pre-compiled to the code running on target.
+ * But it still needs memory for stub trampoline, stack and memory arguments.
+ * Working areas can not be used due to possible memory layout conflicts with on-board stub code and data.
+ * Debug stubs functionality provided by ESP IDF allows to overcome above problem. It provides special descriptor
+ * which provides info necessary to safely allocate memory on target @see struct esp_dbg_stubs_desc.
+ * That info is also used to locate memory for stub trampoline code.
+ * User can execute target function at any address, but @see ESP IDF debug stubs also provide a way to pass to the host
+ * an entry address of pre-defined registered stub functions.
+ * For example of an on-board code execution @see esp32_cmd_gcov() in ESP32 apptrace module.
+*/
+
+#include <stdarg.h>
+#include "image.h"
+#include "helper/log.h"
+#include "helper/binarybuffer.h"
 #include "helper/types.h"
 #include "helper/replacements.h"
 

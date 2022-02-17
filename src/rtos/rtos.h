@@ -82,6 +82,7 @@ struct rtos_type {
 	int (*clean)(struct target *target);
 	char * (*ps_command)(struct target *target);
 	int (*set_reg)(struct rtos *rtos, uint32_t reg_num, uint8_t *reg_value);
+	int (*post_reset_cleanup)(struct target *target);
 	/* Implement these if different threads in the RTOS can see memory
 	 * differently (for instance because address translation might be different
 	 * for each thread). */

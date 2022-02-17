@@ -20,11 +20,11 @@
 #include "config.h"
 #endif
 
-#include "log.h"
+#include <helper/time_support.h>
+#include <helper/binarybuffer.h>
+#include <helper/log.h>
 #include "algorithm.h"
 #include "target.h"
-#include "time_support.h"
-#include <helper/binarybuffer.h>
 
 #define ALGO_STUB_DEBUG            0
 #define ALGO_ALGORITHM_EXIT_TMO    40000	/* ms */

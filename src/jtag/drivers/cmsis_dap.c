@@ -2055,16 +2055,6 @@ COMMAND_HANDLER(cmsis_dap_handle_vid_pid_command)
 
 COMMAND_HANDLER(cmsis_dap_handle_backend_command)
 {
-	if (CMD_ARGC == 1)
-		cmsis_dap_serial = strdup(CMD_ARGV[0]);
-	else
-		LOG_ERROR("expected exactly one argument to cmsis_dap_serial <serial-number>");
-
-	return ERROR_OK;
-}
-
-COMMAND_HANDLER(cmsis_dap_handle_backend_command)
-{
 	if (CMD_ARGC == 1) {
 		if (strcmp(CMD_ARGV[0], "auto") == 0) {
 			cmsis_dap_backend = -1; /* autoselect */

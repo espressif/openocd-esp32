@@ -23,8 +23,8 @@
 #define ESP32_APPTRACE_H
 
 #include <pthread.h>
-#include "command.h"
-#include "time_support.h"
+#include <helper/command.h>
+#include <helper/time_support.h>
 #include "target.h"
 
 #define ESP32_APPTRACE_MAX_CORES_NUM 2

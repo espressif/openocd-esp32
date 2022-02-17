@@ -23,7 +23,7 @@
 #define ESP_XTENSA_H
 
 #include "target.h"
-#include "command.h"
+#include <helper/command.h>
 #include "esp.h"
 #include "xtensa.h"
 #include "esp_xtensa_apptrace.h"

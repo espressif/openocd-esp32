@@ -71,10 +71,9 @@
 #include <helper/sha256.h>
 #include <helper/binarybuffer.h>
 #include <target/register.h>
-#include "time_support.h"
+#include <helper/time_support.h>
 #include "contrib/loaders/flash/esp/stub_flasher.h"
 #include "esp_flash.h"
-#include "time_support.h"
 
 #include <zlib.h>
 

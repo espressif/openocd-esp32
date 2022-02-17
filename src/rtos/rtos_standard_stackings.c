@@ -287,4 +287,3 @@ const struct rtos_register_stacking rtos_standard_nds32_n1068_stacking = {
 	.calculate_process_stack = rtos_generic_stack_align8,
 	.register_offsets = rtos_standard_nds32_n1068_stack_offsets
 };
-

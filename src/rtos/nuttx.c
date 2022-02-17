@@ -34,56 +34,37 @@
 #include "nuttx_header.h"
 #include "rtos_nuttx_stackings.h"
 
+int rtos_thread_packet(struct connection *connection, const char *packet, int packet_size);
+
 #ifdef CONFIG_DISABLE_SIGNALS
 #define SIG_QUEUE_NUM 0
 #else
 #define SIG_QUEUE_NUM 1
-#endif	/* CONFIG_DISABLE_SIGNALS */
+#endif /* CONFIG_DISABLE_SIGNALS */
 
 #ifdef CONFIG_DISABLE_MQUEUE
 #define M_QUEUE_NUM 0
 #else
 #define M_QUEUE_NUM 2
-#endif	/* CONFIG_DISABLE_MQUEUE */
+#endif /* CONFIG_DISABLE_MQUEUE */
 
 #ifdef CONFIG_PAGING
 #define PAGING_QUEUE_NUM 1
 #else
 #define PAGING_QUEUE_NUM 0
-#endif	/* CONFIG_PAGING */
+#endif /* CONFIG_PAGING */
+
 
 #define TASK_QUEUE_NUM (6 + SIG_QUEUE_NUM + M_QUEUE_NUM + PAGING_QUEUE_NUM)
-
-#define NUTTX_NUM_PARAMS ((int)(sizeof(nuttx_params_list) / sizeof(struct nuttx_params)))
-
-int rtos_thread_packet(struct connection *connection, const char *packet, int packet_size);
-
-static bool cortexm_hasfpu(struct target *target);
-static const struct rtos_register_stacking *
-	cortexm_select_stackinfo(struct target *target);
-
-static const struct rtos_register_stacking *
-	esp32_select_stackinfo(struct target *target);
-
-static int rcmd_offset(const char *cmd, const char *name);
-static int nuttx_thread_packet(struct connection *connection,
-	char const *packet, int packet_size);
-
-static bool nuttx_detect_rtos(struct target *target);
-static int nuttx_create(struct target *target);
-static int nuttx_update_threads(struct rtos *rtos);
-static int nuttx_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
-	struct rtos_reg **reg_list, int *num_regs);
-static int nuttx_get_symbol_list_to_lookup(symbol_table_elem_t *symbol_list[]);
 
 struct nuttx_params {
 	const char *target_name;
 	const struct rtos_register_stacking *(*select_stackinfo)(struct target *target);
 };
 
-/* see nuttx/sched/nx_start.c */
+/* see nuttx/sched/os_start.c */
 static char *nuttx_symbol_list[] = {
-	"g_readytorun",			/* 0: must be top of this array */
+	"g_readytorun",            /* 0: must be top of this array */
 	"g_tasklisttable",
 	NULL
 };
@@ -92,7 +73,7 @@ static char *nuttx_symbol_list[] = {
 struct tcb {
 	uint32_t flink;
 	uint32_t blink;
-	uint8_t dat[512];
+	uint8_t  dat[512];
 };
 
 static struct {
@@ -109,51 +90,53 @@ static char *task_state_str[] = {
 	"WAIT_SEM",
 #ifndef CONFIG_DISABLE_SIGNALS
 	"WAIT_SIG",
-#endif	/* CONFIG_DISABLE_SIGNALS */
+#endif /* CONFIG_DISABLE_SIGNALS */
 #ifndef CONFIG_DISABLE_MQUEUE
 	"WAIT_MQNOTEMPTY",
 	"WAIT_MQNOTFULL",
-#endif	/* CONFIG_DISABLE_MQUEUE */
+#endif /* CONFIG_DISABLE_MQUEUE */
 #ifdef CONFIG_PAGING
 	"WAIT_PAGEFILL",
-#endif	/* CONFIG_PAGING */
+#endif /* CONFIG_PAGING */
 };
 
-struct {
-	uint32_t addr;
-	uint32_t prio;
-} g_tasklist[TASK_QUEUE_NUM];
+
 
 static int pid_offset = PID;
 static int state_offset = STATE;
-static int name_offset = NAME;
+static int name_offset =  NAME;
 static int xcpreg_offset = XCPREG;
 static int name_size = NAME_SIZE;
 
-static const struct rtos_register_stacking nuttx_stacking_cortex_m = {
-	.stack_registers_size = 0x48,
-	.stack_growth_direction = -1,
-	.num_output_registers = 17,
-	.register_offsets = nuttx_stack_offsets_cortex_m
+static const struct rtos_register_stacking *
+	cortexm_select_stackinfo(struct target *target);
+static const struct rtos_register_stacking *
+	esp32_select_stackinfo(struct target *target);
+
+static const struct nuttx_params nuttx_params_list[] = {
+	{
+		.target_name      = "cortex_m",
+		.select_stackinfo = cortexm_select_stackinfo,
+	},
+	{
+		.target_name      = "hla_target",
+		.select_stackinfo = cortexm_select_stackinfo,
+	},
+	{
+		.target_name      = "esp32",
+		.select_stackinfo = esp32_select_stackinfo,
+	},
 };
 
-struct rtos_type nuttx_rtos = {
-	.name = "NuttX",
-	.detect_rtos = nuttx_detect_rtos,
-	.create = nuttx_create,
-	.update_threads = nuttx_update_threads,
-	.get_thread_reg_list = nuttx_get_thread_reg_list,
-	.get_symbol_list_to_lookup = nuttx_get_symbol_list_to_lookup,
-};
+#define NUTTX_NUM_PARAMS ARRAY_SIZE(nuttx_params_list)
 
-static const struct rtos_register_stacking nuttx_stacking_cortex_m_fpu = {
-	.stack_registers_size = 0x8c,
-	.stack_growth_direction = -1,
-	.num_output_registers = 17,
-	.register_offsets = nuttx_stack_offsets_cortex_m_fpu
-};
+static bool cortexm_hasfpu(struct target *target)
+{
+	uint32_t cpacr;
+	int retval;
+	struct armv7m_common *armv7m_target = target_to_armv7m(target);
 
-	if (!is_armv7m(armv7m_target) || armv7m_target->fp_feature != FPv4_SP)
+	if (!is_armv7m(armv7m_target) || armv7m_target->fp_feature != FPV4_SP)
 		return false;
 
 	retval = target_read_u32(target, FPU_CPACR, &cpacr);
@@ -240,13 +223,12 @@ static int nuttx_thread_packet(struct connection *connection,
 		}
 	}
 pass:
-
 	return rtos_thread_packet(connection, packet, packet_size);
 retok:
-
 	gdb_put_packet(connection, "OK", 2);
 	return ERROR_OK;
 }
+
 
 static bool nuttx_detect_rtos(struct target *target)
 {
@@ -254,13 +236,14 @@ static bool nuttx_detect_rtos(struct target *target)
 			(target->rtos->symbols[0].address != 0) &&
 			(target->rtos->symbols[1].address != 0)) {
 		return true;
+	}
 	return false;
 }
 
 static int nuttx_create(struct target *target)
 {
 	const struct nuttx_params *param;
-	int i;
+	size_t i;
 
 	for (i = 0; i < NUTTX_NUM_PARAMS; i++) {
 		param = &nuttx_params_list[i];
@@ -277,7 +260,6 @@ static int nuttx_create(struct target *target)
 	}
 
 	/* We found a target in our list, copy its reference. */
-
 	target->rtos->rtos_specific_params = (void *)param;
 	target->rtos->gdb_thread_packet = nuttx_thread_packet;
 
@@ -303,7 +285,7 @@ static int nuttx_update_threads(struct rtos *rtos)
 	rtos_free_threadlist(rtos);
 
 	ret = target_read_buffer(rtos->target, rtos->symbols[1].address,
-			sizeof(g_tasklist), (uint8_t *)&g_tasklist);
+		sizeof(g_tasklist), (uint8_t *)&g_tasklist);
 	if (ret) {
 		LOG_ERROR("target_read_buffer : ret = %d\n", ret);
 		return ERROR_FAIL;
@@ -316,7 +298,9 @@ static int nuttx_update_threads(struct rtos *rtos)
 		if (g_tasklist[i].addr == 0)
 			continue;
 
-		ret = target_read_u32(rtos->target, g_tasklist[i].addr, &head);
+		ret = target_read_u32(rtos->target, g_tasklist[i].addr,
+			&head);
+
 		if (ret) {
 			LOG_ERROR("target_read_u32 : ret = %d\n", ret);
 			return ERROR_FAIL;
@@ -326,11 +310,12 @@ static int nuttx_update_threads(struct rtos *rtos)
 		if (g_tasklist[i].addr == rtos->symbols[0].address)
 			rtos->current_thread = head;
 
+
 		tcb_addr = head;
 		while (tcb_addr) {
 			struct thread_detail *thread;
 			ret = target_read_buffer(rtos->target, tcb_addr,
-					sizeof(tcb), (uint8_t *)&tcb);
+				sizeof(tcb), (uint8_t *)&tcb);
 			if (ret) {
 				LOG_ERROR("target_read_buffer : ret = %d\n",
 					ret);
@@ -339,7 +324,7 @@ static int nuttx_update_threads(struct rtos *rtos)
 			thread_count++;
 
 			rtos->thread_details = realloc(rtos->thread_details,
-					sizeof(struct thread_detail) * thread_count);
+				sizeof(struct thread_detail) * thread_count);
 			thread = &rtos->thread_details[thread_count - 1];
 			thread->threadid = tcb_addr;
 			thread->exists = true;
@@ -349,15 +334,15 @@ static int nuttx_update_threads(struct rtos *rtos)
 			if (state < ARRAY_SIZE(task_state_str)) {
 				thread->extra_info_str = malloc(256);
 				snprintf(thread->extra_info_str, 256, "pid:%d, %s",
-					tcb.dat[pid_offset - 8] |
-					tcb.dat[pid_offset - 8 + 1] << 8,
-							task_state_str[state]);
+				    tcb.dat[pid_offset - 8] |
+				    tcb.dat[pid_offset - 8 + 1] << 8,
+				    task_state_str[state]);
 			}
 
 			if (name_offset) {
 				thread->thread_name_str = malloc(name_size + 1);
 				snprintf(thread->thread_name_str, name_size,
-					"%s", (char *)&tcb.dat[name_offset - 8]);
+				    "%s", (char *)&tcb.dat[name_offset - 8]);
 			} else {
 				thread->thread_name_str = malloc(sizeof("None"));
 				strcpy(thread->thread_name_str, "None");
@@ -374,25 +359,17 @@ static int nuttx_update_threads(struct rtos *rtos)
 /*
  * thread_id = tcb address;
  */
+/*
+ * thread_id = tcb address;
+ */
 static int nuttx_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 	struct rtos_reg **reg_list, int *num_regs)
 {
 	const struct nuttx_params *priv;
 	const struct rtos_register_stacking *stacking;
 
-	/* Check for armv7m with *enabled* FPU, i.e. a Cortex-M4F */
-	bool cm4_fpu_enabled = false;
-	struct armv7m_common *armv7m_target = target_to_armv7m(rtos->target);
-	if (is_armv7m(armv7m_target)) {
-		if (armv7m_target->fp_feature == FPV4_SP) {
-			/* Found ARM v7m target which includes a FPU */
-			uint32_t cpacr;
-
-			retval = target_read_u32(rtos->target, FPU_CPACR, &cpacr);
-			if (retval != ERROR_OK) {
-				LOG_ERROR("Could not read CPACR register to check FPU state");
-				return -1;
-			}
+	if (rtos == NULL)
+		return -1;
 
 	priv = (const struct nuttx_params *)rtos->rtos_specific_params;
 
@@ -404,7 +381,7 @@ static int nuttx_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 	}
 
 	return rtos_generic_stack_read(rtos->target, stacking,
-			(uint32_t)thread_id + xcpreg_offset, reg_list, num_regs);
+	    (uint32_t)thread_id + xcpreg_offset, reg_list, num_regs);
 }
 
 static int nuttx_get_symbol_list_to_lookup(struct symbol_table_elem *symbol_list[])

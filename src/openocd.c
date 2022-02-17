@@ -403,9 +403,6 @@ int openocd_main(int argc, char *argv[])
 	if (rtt_init() != ERROR_OK)
 		return EXIT_FAILURE;
 
-	if (rtt_init() != ERROR_OK)
-		return EXIT_FAILURE;
-
 	LOG_OUTPUT("For bug reports, read\n\t"
 		"http://openocd.org/doc/doxygen/bugs.html"
 		"\n");
@@ -444,6 +441,10 @@ int openocd_main(int argc, char *argv[])
 
 	if (ret == ERROR_FAIL)
 		return EXIT_FAILURE;
+#if !BUILD_GCOV
+	/* We want openocd to exit normally in order to 
+	generate coverage and profiling data. Killing openocd with
+	signals prevents data generation */
 	else if (ret != ERROR_OK)
 		exit_on_signal(ret);
 #endif

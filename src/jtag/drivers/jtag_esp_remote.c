@@ -25,6 +25,7 @@
 #include "config.h"
 #endif
 
+#include <jtag/adapter.h>
 #include <jtag/interface.h>
 #ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
@@ -34,7 +35,6 @@
 #include <netinet/tcp.h>
 #endif
 
-#include "jtag_usb_common.h"
 #include "libusb_helper.h"
 
 #define NO_TAP_SHIFT    0
@@ -631,7 +631,7 @@ static int jtag_esp_remote_init_usb(void)
 {
 	const uint16_t vids[]= {usb_vid, 0};	/* must be null terminated */
 	const uint16_t pids[]= {usb_pid, 0};	/* must be null terminated */
-	int r= jtag_libusb_open(vids, pids, NULL, &usb_device, NULL);
+	int r= jtag_libusb_open(vids, pids, &usb_device, NULL);
 	if (r != ERROR_OK) {
 		if (r == ERROR_FAIL)
 			return ERROR_JTAG_INVALID_INTERFACE;	/*we likely can't find the USB

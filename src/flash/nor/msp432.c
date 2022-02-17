@@ -1029,12 +1029,6 @@ static int msp432_protect_check(struct flash_bank *bank)
 	return ERROR_OK;
 }
 
-static int msp432_protect_check(struct flash_bank *bank)
-{
-	/* Added to suppress warning, not needed for MSP432 flash */
-	return ERROR_OK;
-}
-
 static void msp432_flash_free_driver_priv(struct flash_bank *bank)
 {
 	bool is_main = bank->base == FLASH_BASE;

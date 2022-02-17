@@ -68,7 +68,8 @@ enum {
 };
 
 /* GDB remote protocol does not differentiate between text and binary open modes. */
-static const int open_modeflags[12] = {
+#if 0 //TODO-UPS esp-idf not supported these flags yet.
+static const int open_modeflags_new[12] = {
 	TARGET_O_RDONLY,
 	TARGET_O_RDONLY,
 	TARGET_O_RDWR,
@@ -81,6 +82,22 @@ static const int open_modeflags[12] = {
 	TARGET_O_WRONLY | TARGET_O_CREAT | TARGET_O_APPEND,
 	TARGET_O_RDWR   | TARGET_O_CREAT | TARGET_O_APPEND,
 	TARGET_O_RDWR   | TARGET_O_CREAT | TARGET_O_APPEND
+};
+#endif 
+
+static const int open_modeflags[12] = {
+	O_RDONLY,
+	O_RDONLY | O_BINARY,
+	O_RDWR,
+	O_RDWR | O_BINARY,
+	O_WRONLY | O_CREAT | O_TRUNC,
+	O_WRONLY | O_CREAT | O_TRUNC | O_BINARY,
+	O_RDWR | O_CREAT | O_TRUNC,
+	O_RDWR | O_CREAT | O_TRUNC | O_BINARY,
+	O_WRONLY | O_CREAT | O_APPEND,
+	O_WRONLY | O_CREAT | O_APPEND | O_BINARY,
+	O_RDWR | O_CREAT | O_APPEND,
+	O_RDWR | O_CREAT | O_APPEND | O_BINARY
 };
 
 static int semihosting_common_fileio_info(struct target *target,

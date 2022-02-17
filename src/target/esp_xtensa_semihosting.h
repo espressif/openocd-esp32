@@ -19,7 +19,7 @@
 
 #include <unistd.h>
 #include "target.h"
-#include "command.h"
+#include <helper/command.h> 
 #include "xtensa.h"
 #include "xtensa_semihosting.h"
 #include "semihosting_common.h"

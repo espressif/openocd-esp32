@@ -367,6 +367,75 @@ int jtag_libusb_get_pid(struct libusb_device *dev, uint16_t *pid)
 	return ERROR_FAIL;
 }
 
+int jtag_libusb_get_serial(struct libusb_device_handle *devh, const char **serial)
+{
+	struct libusb_device *dev = libusb_get_device(devh);
+	struct libusb_device_descriptor dev_desc;
+	char desc_string[256+1]; /* Max size of string descriptor */
+
+	if (libusb_get_device_descriptor(dev, &dev_desc) == 0) {
+
+		if (dev_desc.iSerialNumber == 0)
+			return ERROR_FAIL;
+
+		int ret = libusb_get_string_descriptor_ascii(devh, dev_desc.iSerialNumber,
+				(unsigned char *)desc_string, sizeof(desc_string)-1);
+		if (ret < 0) {
+			LOG_ERROR("libusb_get_string_descriptor_ascii() failed with %d", ret);
+			return ERROR_FAIL;
+		}
+		desc_string[sizeof(desc_string)-1] = '\0';
+		*serial = strdup(desc_string);
+		return *serial ? ERROR_OK : ERROR_FAIL;
+	}
+
+	return ERROR_FAIL;
+}
+
+libusb_device *jtag_libusb_find_device(const uint16_t vids[], const uint16_t pids[], const char *serial)
+{
+	libusb_device **devices, *found_dev = NULL;
+
+	int cnt = libusb_get_device_list(jtag_libusb_context, &devices);
+
+	for (int idx = 0; idx < cnt; idx++) {
+		struct libusb_device_descriptor dev_desc;
+		struct libusb_device_handle *libusb_handle = NULL;
+
+		if (libusb_get_device_descriptor(devices[idx], &dev_desc) != 0)
+			continue;
+
+		if (!jtag_libusb_match_ids(&dev_desc, vids, pids))
+			continue;
+
+		LOG_DEBUG("USB dev found %x:%x @ %d:%d-%d", dev_desc.idVendor, dev_desc.idProduct,
+			libusb_get_bus_number(devices[idx]),
+			libusb_get_port_number(devices[idx]),
+			libusb_get_device_address(devices[idx]));
+
+		if (serial != NULL) {
+			int ret = libusb_open(devices[idx], &libusb_handle);
+			if (ret) {
+				LOG_ERROR("libusb_open() failed with %s",
+					libusb_error_name(ret));
+				continue;
+			}
+			if (!string_descriptor_equal(libusb_handle, dev_desc.iSerialNumber, serial)) {
+				libusb_close(libusb_handle);
+				continue;
+			}
+			libusb_close(libusb_handle);
+		}
+		found_dev = devices[idx];
+		libusb_ref_device(found_dev);
+		break;
+	}
+	if (cnt >= 0)
+		libusb_free_device_list(devices, 1);
+
+	return found_dev;
+}
+
 int jtag_libusb_handle_events_completed(int *completed)
 {
 	return libusb_handle_events_completed(jtag_libusb_context, completed);

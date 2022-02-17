@@ -18,9 +18,9 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-#include "log.h"
+#include <helper/log.h>
+#include <helper/binarybuffer.h>
 #include "target.h"
-#include "binarybuffer.h"
 #include "esp.h"
 
 #define ESP_FLASH_BREAKPOINTS_MAX_NUM  32

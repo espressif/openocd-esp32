@@ -203,9 +203,6 @@ struct arm {
 	/** ARM architecture version */
 	enum arm_arch arch;
 
-	/** Flag reporting armv8m based core. */
-	bool is_armv8m;
-
 	/** Floating point or VFP version, 0 if disabled. */
 	int arm_vfp_version;
 

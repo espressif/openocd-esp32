@@ -23,13 +23,13 @@
 #endif
 
 #include "esp32c3.h"
-#include "command.h"
+#include <helper/command.h>
+#include <helper/bits.h>
 #include "target_type.h"
 #include "register.h"
 #include "riscv/debug_defines.h"
 #include "esp32_apptrace.h"
 #include "rtos/rtos.h"
-#include "bits.h"
 
 /* ESP32-C3 WDT */
 #define ESP32C3_WDT_WKEY_VALUE       0x50d83aa1
@@ -119,15 +119,29 @@ static int esp32c3_handle_target_event(struct target *target, enum target_event 
 	return ERROR_OK;
 }
 
+static int esp32c3_target_create(struct target *target, Jim_Interp *interp)
+{
+	struct esp32c3_common *esp32c3 = calloc(1, sizeof(struct esp32c3_common));
+	if (!esp32c3)
+		return ERROR_FAIL;
+
+	target->arch_info = esp32c3;
+
+	riscv_info_init(target, &esp32c3->esp_riscv.riscv);
+
+	return ERROR_OK;
+}
+
 static int esp32c3_init_target(struct command_context *cmd_ctx,
 	struct target *target)
 {
-	LOG_DEBUG("enter");
-	struct  esp32c3_common *esp32c3 = calloc(1, sizeof(struct  esp32c3_common));
-	if (!esp32c3)
-		return ERROR_FAIL;
-	target->arch_info = esp32c3;
-	int ret = esp_riscv_init_target_info(cmd_ctx,
+	int ret = riscv_target.init_target(cmd_ctx, target);
+	if (ret != ERROR_OK)
+		return ret;
+
+	struct esp32c3_common *esp32c3 = esp32c3_common(target);
+
+	ret = esp_riscv_init_arch_info(cmd_ctx,
 		target,
 		&esp32c3->esp_riscv,
 		esp32c3_on_reset,
@@ -157,7 +171,44 @@ static const char *s_nonexistent_regs[] = {
 	"mscratchcsw", "mscratchcswl", "mtinst", "mtval2", "hstatus", "hedeleg",
 	"hideleg", "hie", "htimedelta", "hcounteren", "hgeie", "htimedeltah",
 	"htval", "hip", "hvip", "htinst", "hgatp", "hgeip", "mvendorid", "marchid",
-	"mimpid", "mhartid"
+	"mimpid", "mhartid", "seed", "mcounteren", "mhpmevent3", "mhpmevent4", "mhpmevent5",
+	"mhpmevent6", "mhpmevent7", "mhpmevent8", "mhpmevent9", "mhpmevent10", "mhpmevent11",
+	"mhpmevent12", "mhpmevent13", "mhpmevent14", "mhpmevent15", "mhpmevent16", "mhpmevent17",
+	"mhpmevent18", "mhpmevent19", "mhpmevent20", "mhpmevent21", "mhpmevent22", "mhpmevent23",
+	"mhpmevent24", "mhpmevent25", "mhpmevent26", "mhpmevent27", "mhpmevent28", "mhpmevent29",
+	"mhpmevent30", "mhpmevent31",
+	"scontext", "hcontext", "tinfo", "mcontext", "mscontext", "mcycle", "minstret",
+	"mhpmcounter3", "mhpmcounter4", "mhpmcounter5", "mhpmcounter6", "mhpmcounter7",
+	"mhpmcounter8", "mhpmcounter9", "mhpmcounter10", "mhpmcounter11", "mhpmcounter12",
+	"mhpmcounter13", "mhpmcounter14", "mhpmcounter15", "mhpmcounter16", "mhpmcounter17",
+	"mhpmcounter18", "mhpmcounter19", "mhpmcounter20", "mhpmcounter21", "mhpmcounter22",
+	"mhpmcounter23", "mhpmcounter24", "mhpmcounter25", "mhpmcounter26", "mhpmcounter27",
+	"mhpmcounter28", "mhpmcounter29", "mhpmcounter30", "mhpmcounter31", "mcycleh",
+	"minstreth", "mhpmcounter3h", "mhpmcounter4h", "mhpmcounter5h", "mhpmcounter6h",
+	"mhpmcounter7h", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter10h", "mhpmcounter11h",
+	"mhpmcounter12h", "mhpmcounter13h", "mhpmcounter14h", "mhpmcounter15h", "mhpmcounter16h",
+	"mhpmcounter17h", "mhpmcounter18h", "mhpmcounter19h", "mhpmcounter20h", "mhpmcounter21h",
+	"mhpmcounter22h", "mhpmcounter23h", "mhpmcounter24h", "mhpmcounter25h", "mhpmcounter26h",
+	"mhpmcounter27h", "mhpmcounter28h", "mhpmcounter29h", "mhpmcounter30h", "mhpmcounter31h",
+	"cycle", "time", "instret", "hpmcounter3", "hpmcounter4", "hpmcounter5", "hpmcounter6",
+	"hpmcounter7", "hpmcounter8", "hpmcounter9", "hpmcounter10", "hpmcounter11", "hpmcounter12",
+	"hpmcounter13", "hpmcounter14", "hpmcounter15", "hpmcounter17", "hpmcounter18",
+	"hpmcounter19",
+	"hpmcounter20", "hpmcounter21", "hpmcounter22", "hpmcounter23", "hpmcounter24",
+	"hpmcounter25",
+	"hpmcounter26", "hpmcounter27", "hpmcounter28", "hpmcounter29", "hpmcounter30",
+	"hpmcounter31",
+	"cycleh", "timeh", "instreth", "hpmcounter3h", "hpmcounter4h", "hpmcounter5h",
+	"hpmcounter6h",
+	"hpmcounter7h", "hpmcounter8h", "hpmcounter9h", "hpmcounter10h", "hpmcounter11h",
+	"hpmcounter12h",
+	"hpmcounter13h", "hpmcounter14h", "hpmcounter15h", "hpmcounter17h", "hpmcounter18h",
+	"hpmcounter19h",
+	"hpmcounter20h", "hpmcounter21h", "hpmcounter22h", "hpmcounter23h", "hpmcounter24h",
+	"hpmcounter25h",
+	"hpmcounter26h", "hpmcounter27h", "hpmcounter28h", "hpmcounter29h", "hpmcounter30h",
+	"hpmcounter31h",
+	"hpmcounter16h", "mhpmevent4"
 };
 
 static int esp32c3_examine(struct target *target)
@@ -260,18 +311,19 @@ static int esp32c3_core_ebreaks_enable(struct target *target)
 {
 	riscv_reg_t dcsr;
 	RISCV_INFO(r);
-	int result = r->get_register(target, &dcsr, 0, GDB_REGNO_DCSR);
+	int result = r->get_register(target, &dcsr, GDB_REGNO_DCSR);
 	if (result != ERROR_OK)
 		return result;
 	LOG_DEBUG("DCSR: %" PRIx64, dcsr);
 	dcsr = set_field(dcsr, CSR_DCSR_EBREAKM, 1);
 	dcsr = set_field(dcsr, CSR_DCSR_EBREAKS, 1);
 	dcsr = set_field(dcsr, CSR_DCSR_EBREAKU, 1);
-	return r->set_register(target, 0, GDB_REGNO_DCSR, dcsr);
+	return r->set_register(target, GDB_REGNO_DCSR, dcsr);
 }
 
 static int esp32c3_on_reset(struct target *target)
 {
+	LOG_DEBUG("esp32c3_on_reset!");
 	struct esp32c3_common *esp32c3 = esp32c3_common(target);
 	esp32c3->was_reset = true;
 	return ERROR_OK;
@@ -365,14 +417,67 @@ static int esp32c3_deassert_reset(struct target *target)
 static int esp32c3_read_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
+	/* TODO: find out the widest system bus access size. For now we are assuming it is
+	        equal to xlen */
+	uint32_t sba_access_size = target_data_bits(target) / 8;
+
+	if (size < sba_access_size) {
+		LOG_DEBUG("Use %d-bit access: size: %d\tcount:%d\tstart address: 0x%08"
+			TARGET_PRIxADDR, sba_access_size * 8, size, count, address);
+		target_addr_t al_addr = address & ~(sba_access_size - 1);
+		uint32_t al_cnt = 4 * ((size * count) / sba_access_size + 1);
+		uint8_t al_buf[al_cnt];
+		int ret = riscv_target.read_memory(target,
+			al_addr,
+			sba_access_size,
+			al_cnt / sba_access_size,
+			al_buf);
+		if (ret == ERROR_OK)
+			memcpy(buffer, &al_buf[address & (sba_access_size - 1)], size * count);
+		return ret;
+	}
+
 	return riscv_target.read_memory(target, address, size, count, buffer);
 }
 
 static int esp32c3_write_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, const uint8_t *buffer)
 {
+	/* TODO: find out the widest system bus access size. For now we are assuming it is
+	        equal to xlen */
+	uint32_t sba_access_size = target_data_bits(target) / 8;
+
+	if (target->state == TARGET_RUNNING || target->state == TARGET_DEBUG_RUNNING) {
+		/* Emulate using 32-bit SBA access if target is running.
+		   Access via prog_buf or abstartct commands does not work in running state and
+		   fails with abstractcs.cmderr == 4 (halt/resume) */
+		if (size < sba_access_size) {
+			LOG_DEBUG("Use %d-bit access: size: %d\tcount:%d\tstart address: 0x%08"
+				TARGET_PRIxADDR, sba_access_size * 8, size, count, address);
+			target_addr_t al_addr = address & ~(sba_access_size - 1);
+			uint32_t al_cnt = 4 * ((size * count) / sba_access_size + 1);
+			uint8_t al_buf[al_cnt];
+			int ret = riscv_target.read_memory(target,
+				al_addr,
+				sba_access_size,
+				al_cnt / sba_access_size,
+				al_buf);
+			if (ret == ERROR_OK) {
+				memcpy(&al_buf[address & (sba_access_size - 1)],
+					buffer,
+					size * count);
+				ret = riscv_target.write_memory(target,
+					address,
+					sba_access_size,
+					al_cnt / sba_access_size,
+					al_buf);
+			}
+			return ret;
+		}
+	}
 	return riscv_target.write_memory(target, address, size, count, buffer);
 }
+
 
 static int esp32c3_checksum_memory(struct target *target,
 	target_addr_t address, uint32_t count,
@@ -403,35 +508,6 @@ static const char *esp32c3_get_gdb_arch(struct target *target)
 static int esp32c3_arch_state(struct target *target)
 {
 	return riscv_target.arch_state(target);
-}
-
-static int esp32c3_start_algorithm(struct target *target,
-	int num_mem_params, struct mem_param *mem_params,
-	int num_reg_params, struct reg_param *reg_params,
-	target_addr_t entry_point, target_addr_t exit_point,
-	void *arch_info)
-{
-	return riscv_target.start_algorithm(target, num_mem_params, mem_params, num_reg_params,
-		reg_params, entry_point, exit_point, arch_info);
-}
-
-static int esp32c3_wait_algorithm(struct target *target,
-	int num_mem_params, struct mem_param *mem_params,
-	int num_reg_params, struct reg_param *reg_params,
-	target_addr_t exit_point, int timeout_ms,
-	void *arch_info)
-{
-	return riscv_target.wait_algorithm(target, num_mem_params, mem_params, num_reg_params,
-		reg_params, exit_point, timeout_ms, arch_info);
-}
-
-static int esp32c3_run_algorithm(struct target *target, int num_mem_params,
-	struct mem_param *mem_params, int num_reg_params,
-	struct reg_param *reg_params, target_addr_t entry_point,
-	target_addr_t exit_point, int timeout_ms, void *arch_info)
-{
-	return riscv_target.run_algorithm(target, num_mem_params, mem_params, num_reg_params,
-		reg_params, entry_point, exit_point, timeout_ms, arch_info);
 }
 
 static int esp32c3_add_watchpoint(struct target *target, struct watchpoint *watchpoint)
@@ -471,6 +547,7 @@ static const struct command_registration esp32c3_command_handlers[] = {
 struct target_type esp32c3_target = {
 	.name = "esp32c3",
 
+	.target_create = esp32c3_target_create,
 	.init_target = esp32c3_init_target,
 	.deinit_target = esp32c3_deinit_target,
 	.examine = esp32c3_examine,
@@ -503,9 +580,9 @@ struct target_type esp32c3_target = {
 
 	.arch_state = esp32c3_arch_state,
 
-	.run_algorithm = esp32c3_run_algorithm,
-	.start_algorithm = esp32c3_start_algorithm,
-	.wait_algorithm = esp32c3_wait_algorithm,
+	.run_algorithm = esp_riscv_run_algorithm,
+	.start_algorithm = esp_riscv_start_algorithm,
+	.wait_algorithm = esp_riscv_wait_algorithm,
 
 	.commands = esp32c3_command_handlers,
 

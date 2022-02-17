@@ -168,7 +168,8 @@ struct semihosting {
 	off_t (*lseek)(int fd, off_t offset, int whence);
 };
 
-int semihosting_common_init(struct target *target, void *setup, void *post_result);
+int semihosting_common_init(struct target *target, void *setup,
+	void *post_result);
 int semihosting_common(struct target *target);
 
 #endif	/* OPENOCD_TARGET_SEMIHOSTING_COMMON_H */

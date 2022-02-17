@@ -342,7 +342,7 @@ static int esp32_soc_reset(struct target *target)
 	assert(target->state == TARGET_HALTED);
 
 	if (target->smp) {
-		foreach_smp_target(head, target->head) {
+		foreach_smp_target(head, target->smp_targets) {
 			xtensa = target_to_xtensa(head->target);
 			/* if any of the cores is stalled unstall them */
 			if (xtensa_dm_core_is_stalled(&xtensa->dbg_mod)) {
@@ -678,7 +678,7 @@ COMMAND_HANDLER(esp32_cmd_flashbootstrap)
 	if (target->smp) {
 		struct target_list *head;
 		struct target *curr;
-		foreach_smp_target(head, target->head) {
+		foreach_smp_target(head, target->smp_targets) {
 			curr = head->target;
 			int ret = CALL_COMMAND_HANDLER(esp32_cmd_flashbootstrap_do,
 				target_to_esp32(curr));

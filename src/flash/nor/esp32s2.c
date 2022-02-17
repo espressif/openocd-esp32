@@ -103,9 +103,10 @@ FLASH_BANK_COMMAND_HANDLER(esp32s2_flash_bank_command)
 	return ERROR_OK;
 }
 
-static int esp32s2_get_info(struct flash_bank *bank, char *buf, int buf_size)
+static int esp32s2_get_info(struct flash_bank *bank, struct command_invocation *cmd)
 {
-	snprintf(buf, buf_size, "ESP32S2");
+	/* TODO: print some flash information */
+	command_print_sameline(cmd, "Flash driver: ESP32-S2\n");
 	return ERROR_OK;
 }
 

@@ -2491,23 +2491,6 @@ In most cases need not to be specified and interfaces are searched by
 interface string or for user class interface.
 @end deffn
 
-@deffn {Config Command} {cmsis_dap_backend} [@option{auto}|@option{usb_bulk}|@option{hid}]
-Specifies how to communicate with the adapter:
-
-@itemize @minus
-@item @option{hid} Use HID generic reports - CMSIS-DAP v1
-@item @option{usb_bulk} Use USB bulk - CMSIS-DAP v2
-@item @option{auto} First try USB bulk CMSIS-DAP v2, if not found try HID CMSIS-DAP v1.
-This is the default if @command{cmsis_dap_backend} is not specified.
-@end itemize
-@end deffn
-
-@deffn {Config Command} {cmsis_dap_usb interface} [number]
-Specifies the @var{number} of the USB interface to use in v2 mode (USB bulk).
-In most cases need not to be specified and interfaces are searched by
-interface string or for user class interface.
-@end deffn
-
 @deffn {Command} {cmsis-dap info}
 Display various device information, like hardware version, firmware version, current bus status.
 @end deffn
@@ -7318,13 +7301,6 @@ by the @command{stm32f1x options_write} or @command{flash protect} commands
 without having to power cycle the target. Not applicable to stm32f1x devices.
 The @var{num} parameter is a value shown by @command{flash banks}.
 @end deffn
-
-@deffn Command {stm32f1x options_load} num
-Generates a special kind of reset to re-load the stm32 option bytes written
-by the @command{stm32f1x options_write} or @command{flash protect} commands
-without having to power cycle the target. Not applicable to stm32f1x devices.
-The @var{num} parameter is a value shown by @command{flash banks}.
-@end deffn
 @end deffn
 
 @deffn {Flash Driver} {stm32f2x}
@@ -10476,6 +10452,11 @@ and DBUS registers, respectively.
 @deffn {Command} {riscv use_bscan_tunnel} value
 Enable or disable use of a BSCAN tunnel to reach DM.  Supply the width of
 the DM transport TAP's instruction register to enable.  Supply a value of 0 to disable.
+@end deffn
+
+@deffn {Command} {riscv set_maskisr} [@option{off}|@option{steponly}]
+Selects whether interrupts will be disabled when single stepping. The default configuration is
+@option{off}.
 @end deffn
 
 @deffn {Command} {riscv set_ebreakm} on|off
