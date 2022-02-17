@@ -20,6 +20,7 @@
 #include "config.h"
 #endif
 
+#include <jtag/adapter.h>
 #include <jtag/interface.h>
 #include <jtag/commands.h>
 #include <transport/transport.h>
@@ -121,7 +122,7 @@ int aice_init_targets(void)
  */
 static int aice_init(void)
 {
-	if (ERROR_OK != aice_port->api->open(&param)) {
+	if (aice_port->api->open(&param) != ERROR_OK) {
 		LOG_ERROR("Cannot find AICE Interface! Please check "
 				"connection and permissions.");
 		return ERROR_JTAG_INIT_FAILED;
@@ -217,7 +218,7 @@ static int aice_khz(int khz, int *jtag_speed)
 	int i;
 	for (i = 0 ; i < AICE_KHZ_TO_SPEED_MAP_SIZE ; i++) {
 		if (khz == aice_khz_to_speed_map[i]) {
-			if (8 <= i)
+			if (i >= 8)
 				*jtag_speed = i | AICE_TCK_CONTROL_TCK3048;
 			else
 				*jtag_speed = i;
@@ -269,7 +270,7 @@ COMMAND_HANDLER(aice_handle_aice_info_command)
 	LOG_DEBUG("aice_handle_aice_info_command");
 
 	command_print(CMD, "Description: %s", param.device_desc);
-	command_print(CMD, "Serial number: %s", param.serial);
+	command_print(CMD, "Serial number: %s", adapter_get_required_serial());
 	if (strncmp(aice_port->name, "aice_pipe", 9) == 0)
 		command_print(CMD, "Adapter: %s", param.adapter_name);
 
@@ -304,18 +305,6 @@ COMMAND_HANDLER(aice_handle_aice_desc_command)
 		param.device_desc = strdup(CMD_ARGV[0]);
 	else
 		LOG_ERROR("expected exactly one argument to aice desc <description>");
-
-	return ERROR_OK;
-}
-
-COMMAND_HANDLER(aice_handle_aice_serial_command)
-{
-	LOG_DEBUG("aice_handle_aice_serial_command");
-
-	if (CMD_ARGC == 1)
-		param.serial = strdup(CMD_ARGV[0]);
-	else
-		LOG_ERROR("expected exactly one argument to aice serial <serial-number>");
 
 	return ERROR_OK;
 }
@@ -436,14 +425,7 @@ static const struct command_registration aice_subcommand_handlers[] = {
 		.handler = &aice_handle_aice_desc_command,
 		.mode = COMMAND_CONFIG,
 		.help = "set the aice device description",
-		.usage = "[desciption string]",
-	},
-	{
-		.name = "serial",
-		.handler = &aice_handle_aice_serial_command,
-		.mode = COMMAND_CONFIG,
-		.help = "set the serial number of the AICE device",
-		.usage = "[serial string]",
+		.usage = "[description string]",
 	},
 	{
 		.name = "vid_pid",

@@ -26,6 +26,7 @@
 #define OPENOCD_HELPER_TIME_SUPPORT_H
 
 #include <time.h>
+#include "types.h"
 
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -45,7 +46,7 @@ struct duration {
 
 /** Update the duration->start field to start the @a duration measurement. */
 int duration_start(struct duration *duration);
-/** Update the duration->elapsed field to finish the @a duration measurment. */
+/** Update the duration->elapsed field to finish the @a duration measurement. */
 int duration_measure(struct duration *duration);
 
 /** @returns Elapsed time in seconds. */

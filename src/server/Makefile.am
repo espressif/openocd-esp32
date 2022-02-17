@@ -6,16 +6,11 @@ noinst_LTLIBRARIES += %D%/libserver.la
 	%D%/server.h \
 	%D%/telnet_server.h \
 	%D%/gdb_server.h \
-	%D%/server_stubs.c \
 	%D%/tcl_server.c \
 	%D%/tcl_server.h \
 	%D%/rtt_server.c \
-	%D%/rtt_server.h
-
-%C%_libserver_la_CFLAGS = $(AM_CFLAGS)
-if IS_MINGW
-# FD_* macros are sloppy with their signs on MinGW32 platform
-%C%_libserver_la_CFLAGS += -Wno-sign-compare
-endif
+	%D%/rtt_server.h \
+	%D%/ipdbg.c \
+	%D%/ipdbg.h
 
 STARTUP_TCL_SRCS += %D%/startup.tcl

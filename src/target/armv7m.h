@@ -25,9 +25,10 @@
 #ifndef OPENOCD_TARGET_ARMV7M_H
 #define OPENOCD_TARGET_ARMV7M_H
 
-#include "arm_adi_v5.h"
 #include "arm.h"
 #include "armv7m_trace.h"
+
+struct adiv5_ap;
 
 extern const int armv7m_psp_reg_map[];
 extern const int armv7m_msp_reg_map[];
@@ -60,7 +61,18 @@ enum {
 	ARMV7M_REGSEL_MSP,
 	ARMV7M_REGSEL_PSP,
 
+	ARMV8M_REGSEL_MSP_NS = 0x18,
+	ARMV8M_REGSEL_PSP_NS,
+	ARMV8M_REGSEL_MSP_S,
+	ARMV8M_REGSEL_PSP_S,
+	ARMV8M_REGSEL_MSPLIM_S,
+	ARMV8M_REGSEL_PSPLIM_S,
+	ARMV8M_REGSEL_MSPLIM_NS,
+	ARMV8M_REGSEL_PSPLIM_NS,
+
 	ARMV7M_REGSEL_PMSK_BPRI_FLTMSK_CTRL = 0x14,
+	ARMV8M_REGSEL_PMSK_BPRI_FLTMSK_CTRL_S = 0x22,
+	ARMV8M_REGSEL_PMSK_BPRI_FLTMSK_CTRL_NS = 0x23,
 	ARMV7M_REGSEL_FPSCR = 0x21,
 
 	/* 32bit Floating-point registers */
@@ -129,6 +141,8 @@ enum {
 
 	/* following indices are arbitrary, do not match DCRSR.REGSEL selectors */
 
+	/* A block of container and contained registers follows:
+	 * THE ORDER IS IMPORTANT to the end of the block ! */
 	/* working register for packing/unpacking special regs, hidden from gdb */
 	ARMV7M_PMSK_BPRI_FLTMSK_CTRL,
 
@@ -142,6 +156,35 @@ enum {
 	ARMV7M_BASEPRI,
 	ARMV7M_FAULTMASK,
 	ARMV7M_CONTROL,
+	/* The end of block of container and contained registers */
+
+	/* ARMv8-M specific registers */
+	ARMV8M_MSP_NS,
+	ARMV8M_PSP_NS,
+	ARMV8M_MSP_S,
+	ARMV8M_PSP_S,
+	ARMV8M_MSPLIM_S,
+	ARMV8M_PSPLIM_S,
+	ARMV8M_MSPLIM_NS,
+	ARMV8M_PSPLIM_NS,
+
+	/* A block of container and contained registers follows:
+	 * THE ORDER IS IMPORTANT to the end of the block ! */
+	ARMV8M_PMSK_BPRI_FLTMSK_CTRL_S,
+	ARMV8M_PRIMASK_S,
+	ARMV8M_BASEPRI_S,
+	ARMV8M_FAULTMASK_S,
+	ARMV8M_CONTROL_S,
+	/* The end of block of container and contained registers */
+
+	/* A block of container and contained registers follows:
+	 * THE ORDER IS IMPORTANT to the end of the block ! */
+	ARMV8M_PMSK_BPRI_FLTMSK_CTRL_NS,
+	ARMV8M_PRIMASK_NS,
+	ARMV8M_BASEPRI_NS,
+	ARMV8M_FAULTMASK_NS,
+	ARMV8M_CONTROL_NS,
+	/* The end of block of container and contained registers */
 
 	/* 64bit Floating-point registers */
 	ARMV7M_D0,
@@ -164,23 +207,29 @@ enum {
 	/* Floating-point status register */
 	ARMV7M_FPSCR,
 
+	/* for convenience add registers' block delimiters */
 	ARMV7M_LAST_REG,
+	ARMV7M_CORE_FIRST_REG = ARMV7M_R0,
+	ARMV7M_CORE_LAST_REG = ARMV7M_xPSR,
+	ARMV7M_FPU_FIRST_REG = ARMV7M_D0,
+	ARMV7M_FPU_LAST_REG = ARMV7M_FPSCR,
+	ARMV8M_FIRST_REG = ARMV8M_MSP_NS,
+	ARMV8M_LAST_REG = ARMV8M_CONTROL_NS,
 };
 
 enum {
 	FP_NONE = 0,
-	FPv4_SP,
-	FPv5_SP,
-	FPv5_DP,
+	FPV4_SP,
+	FPV5_SP,
+	FPV5_DP,
 };
 
-#define ARMV7M_NUM_CORE_REGS (ARMV7M_xPSR + 1)
-#define ARMV7M_NUM_CORE_REGS_NOFP (ARMV7M_CONTROL + 1)
+#define ARMV7M_NUM_CORE_REGS (ARMV7M_CORE_LAST_REG - ARMV7M_CORE_FIRST_REG + 1)
 
 #define ARMV7M_COMMON_MAGIC 0x2A452A45
 
 struct armv7m_common {
-	struct arm	arm;
+	struct arm arm;
 
 	int common_magic;
 	int exception_number;
@@ -191,8 +240,8 @@ struct armv7m_common {
 	int fp_feature;
 	uint32_t demcr;
 
-	/* stlink is a high level adapter, does not support all functions */
-	bool stlink;
+	/* hla_target uses a high level adapter that does not support all functions */
+	bool is_hla_target;
 
 	struct armv7m_trace_config trace_config;
 
@@ -259,6 +308,11 @@ int armv7m_wait_algorithm(struct target *target,
 int armv7m_invalidate_core_regs(struct target *target);
 
 int armv7m_restore_context(struct target *target);
+
+uint32_t armv7m_map_id_to_regsel(unsigned int arm_reg_id);
+
+bool armv7m_map_reg_packing(unsigned int arm_reg_id,
+		unsigned int *reg32_id, uint32_t *offset);
 
 int armv7m_checksum_memory(struct target *target,
 		target_addr_t address, uint32_t count, uint32_t *checksum);

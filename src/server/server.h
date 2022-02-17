@@ -30,6 +30,7 @@
 #endif
 
 #include <helper/log.h>
+#include <helper/replacements.h>
 
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
@@ -95,15 +96,6 @@ int server_register_commands(struct command_context *context);
 
 int connection_write(struct connection *connection, const void *data, int len);
 int connection_read(struct connection *connection, void *data, int len);
-
-/**
- * Used by server_loop(), defined in server_stubs.c
- */
-void openocd_sleep_prelude(void);
-/**
- * Used by server_loop(), defined in server_stubs.c
- */
-void openocd_sleep_postlude(void);
 
 /**
  * Defines an extended command handler function declaration to enable

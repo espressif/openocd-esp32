@@ -23,7 +23,7 @@
 #include "rtos.h"
 #include "target/armv7m.h"
 
-static const struct stack_register_offset rtos_standard_Cortex_M3_stack_offsets[ARMV7M_NUM_CORE_REGS] = {
+static const struct stack_register_offset rtos_standard_cortex_m3_stack_offsets[ARMV7M_NUM_CORE_REGS] = {
 	{ ARMV7M_R0,   0x20, 32 },		/* r0   */
 	{ ARMV7M_R1,   0x24, 32 },		/* r1   */
 	{ ARMV7M_R2,   0x28, 32 },		/* r2   */
@@ -43,7 +43,7 @@ static const struct stack_register_offset rtos_standard_Cortex_M3_stack_offsets[
 	{ ARMV7M_xPSR, 0x3c, 32 },		/* xPSR */
 };
 
-static const struct stack_register_offset rtos_standard_Cortex_M4F_stack_offsets[] = {
+static const struct stack_register_offset rtos_standard_cortex_m4f_stack_offsets[] = {
 	{ ARMV7M_R0,   0x24, 32 },		/* r0   */
 	{ ARMV7M_R1,   0x28, 32 },		/* r1   */
 	{ ARMV7M_R2,   0x2c, 32 },		/* r2   */
@@ -63,7 +63,7 @@ static const struct stack_register_offset rtos_standard_Cortex_M4F_stack_offsets
 	{ ARMV7M_xPSR, 0x40, 32 },		/* xPSR */
 };
 
-static const struct stack_register_offset rtos_standard_Cortex_M4F_FPU_stack_offsets[] = {
+static const struct stack_register_offset rtos_standard_cortex_m4f_fpu_stack_offsets[] = {
 	{ ARMV7M_R0,   0x64, 32 },		/* r0   */
 	{ ARMV7M_R1,   0x68, 32 },		/* r1   */
 	{ ARMV7M_R2,   0x6c, 32 },		/* r2   */
@@ -84,7 +84,7 @@ static const struct stack_register_offset rtos_standard_Cortex_M4F_FPU_stack_off
 };
 
 
-static const struct stack_register_offset rtos_standard_Cortex_R4_stack_offsets[] = {
+static const struct stack_register_offset rtos_standard_cortex_r4_stack_offsets[] = {
 	{ 0,  0x08, 32 },		/* r0  (a1)   */
 	{ 1,  0x0c, 32 },		/* r1  (a2)  */
 	{ 2,  0x10, 32 },		/* r2  (a3)  */
@@ -113,7 +113,7 @@ static const struct stack_register_offset rtos_standard_Cortex_R4_stack_offsets[
 	{ 26, 0x04, 32 },		/* CSPR */
 };
 
-static const struct stack_register_offset rtos_standard_NDS32_N1068_stack_offsets[] = {
+static const struct stack_register_offset rtos_standard_nds32_n1068_stack_offsets[] = {
 	{ 0,  0x88, 32 },		/* R0  */
 	{ 1,  0x8C, 32 },		/* R1 */
 	{ 2,  0x14, 32 },		/* R2 */
@@ -152,29 +152,29 @@ static const struct stack_register_offset rtos_standard_NDS32_N1068_stack_offset
 	{ 35, 0x10, 32 },		/* IFC_LP */
 };
 
-static int64_t rtos_generic_stack_align(struct target *target,
+static target_addr_t rtos_generic_stack_align(struct target *target,
 	const uint8_t *stack_data, const struct rtos_register_stacking *stacking,
-	int64_t stack_ptr, int align)
+	target_addr_t stack_ptr, int align)
 {
-	int64_t new_stack_ptr;
-	int64_t aligned_stack_ptr;
+	target_addr_t new_stack_ptr;
+	target_addr_t aligned_stack_ptr;
 	new_stack_ptr = stack_ptr - stacking->stack_growth_direction *
 		stacking->stack_registers_size;
-	aligned_stack_ptr = new_stack_ptr & ~((int64_t)align - 1);
+	aligned_stack_ptr = new_stack_ptr & ~((target_addr_t)align - 1);
 	if (aligned_stack_ptr != new_stack_ptr &&
 		stacking->stack_growth_direction == -1) {
 		/* If we have a downward growing stack, the simple alignment code
 		 * above results in a wrong result (since it rounds down to nearest
 		 * alignment).  We want to round up so add an extra align.
 		 */
-		aligned_stack_ptr += (int64_t)align;
+		aligned_stack_ptr += (target_addr_t)align;
 	}
 	return aligned_stack_ptr;
 }
 
-int64_t rtos_generic_stack_align8(struct target *target,
+target_addr_t rtos_generic_stack_align8(struct target *target,
 	const uint8_t *stack_data, const struct rtos_register_stacking *stacking,
-	int64_t stack_ptr)
+	target_addr_t stack_ptr)
 {
 	return rtos_generic_stack_align(target, stack_data,
 			stacking, stack_ptr, 8);
@@ -199,13 +199,13 @@ int64_t rtos_generic_stack_align8(struct target *target,
  * This is just a helper function for use in the calculate_process_stack
  * function for a given architecture/rtos.
  */
-int64_t rtos_Cortex_M_stack_align(struct target *target,
+target_addr_t rtos_cortex_m_stack_align(struct target *target,
 	const uint8_t *stack_data, const struct rtos_register_stacking *stacking,
-	int64_t stack_ptr, size_t xpsr_offset)
+	target_addr_t stack_ptr, size_t xpsr_offset)
 {
 	const uint32_t ALIGN_NEEDED = (1 << 9);
 	uint32_t xpsr;
-	int64_t new_stack_ptr;
+	target_addr_t new_stack_ptr;
 
 	new_stack_ptr = stack_ptr - stacking->stack_growth_direction *
 		stacking->stack_registers_size;
@@ -220,76 +220,71 @@ int64_t rtos_Cortex_M_stack_align(struct target *target,
 	return new_stack_ptr;
 }
 
-static int64_t rtos_standard_Cortex_M3_stack_align(struct target *target,
+static target_addr_t rtos_standard_cortex_m3_stack_align(struct target *target,
 	const uint8_t *stack_data, const struct rtos_register_stacking *stacking,
-	int64_t stack_ptr)
+	target_addr_t stack_ptr)
 {
 	const int XPSR_OFFSET = 0x3c;
-	return rtos_Cortex_M_stack_align(target, stack_data, stacking,
+	return rtos_cortex_m_stack_align(target, stack_data, stacking,
 		stack_ptr, XPSR_OFFSET);
 }
 
-static int64_t rtos_standard_Cortex_M4F_stack_align(struct target *target,
+static target_addr_t rtos_standard_cortex_m4f_stack_align(struct target *target,
 	const uint8_t *stack_data, const struct rtos_register_stacking *stacking,
-	int64_t stack_ptr)
+	target_addr_t stack_ptr)
 {
 	const int XPSR_OFFSET = 0x40;
-	return rtos_Cortex_M_stack_align(target, stack_data, stacking,
+	return rtos_cortex_m_stack_align(target, stack_data, stacking,
 		stack_ptr, XPSR_OFFSET);
 }
 
-static int64_t rtos_standard_Cortex_M4F_FPU_stack_align(struct target *target,
+static target_addr_t rtos_standard_cortex_m4f_fpu_stack_align(struct target *target,
 	const uint8_t *stack_data, const struct rtos_register_stacking *stacking,
-	int64_t stack_ptr)
+	target_addr_t stack_ptr)
 {
 	const int XPSR_OFFSET = 0x80;
-	return rtos_Cortex_M_stack_align(target, stack_data, stacking,
+	return rtos_cortex_m_stack_align(target, stack_data, stacking,
 		stack_ptr, XPSR_OFFSET);
 }
 
 
-const struct rtos_register_stacking rtos_standard_Cortex_M3_stacking = {
-	0x40,					/* stack_registers_size */
-	-1,						/* stack_growth_direction */
-	ARMV7M_NUM_CORE_REGS,	/* num_output_registers */
-	rtos_standard_Cortex_M3_stack_align,	/* stack_alignment */
-	rtos_standard_Cortex_M3_stack_offsets,	/* register_offsets */
-	NULL					/* Custom stack frame read function */
+const struct rtos_register_stacking rtos_standard_cortex_m3_stacking = {
+	.stack_registers_size = 0x40,
+	.stack_growth_direction = -1,
+	.num_output_registers = ARMV7M_NUM_CORE_REGS,
+	.calculate_process_stack = rtos_standard_cortex_m3_stack_align,
+	.register_offsets = rtos_standard_cortex_m3_stack_offsets
 };
 
-const struct rtos_register_stacking rtos_standard_Cortex_M4F_stacking = {
-	0x44,					/* stack_registers_size 4 more for LR*/
-	-1,						/* stack_growth_direction */
-	ARMV7M_NUM_CORE_REGS,	/* num_output_registers */
-	rtos_standard_Cortex_M4F_stack_align,	/* stack_alignment */
-	rtos_standard_Cortex_M4F_stack_offsets,	/* register_offsets */
-	NULL					/* Custom stack frame read function */
+const struct rtos_register_stacking rtos_standard_cortex_m4f_stacking = {
+	.stack_registers_size = 0x44,
+	.stack_growth_direction = -1,
+	.num_output_registers = ARMV7M_NUM_CORE_REGS,
+	.calculate_process_stack = rtos_standard_cortex_m4f_stack_align,
+	.register_offsets = rtos_standard_cortex_m4f_stack_offsets
 };
 
-const struct rtos_register_stacking rtos_standard_Cortex_M4F_FPU_stacking = {
-	0xcc,					/* stack_registers_size 4 more for LR + 48 more for FPU S0-S15 register*/
-	-1,						/* stack_growth_direction */
-	ARMV7M_NUM_CORE_REGS,	/* num_output_registers */
-	rtos_standard_Cortex_M4F_FPU_stack_align,	/* stack_alignment */
-	rtos_standard_Cortex_M4F_FPU_stack_offsets,	/* register_offsets */
-	NULL					/* Custom stack frame read function */
+const struct rtos_register_stacking rtos_standard_cortex_m4f_fpu_stacking = {
+	.stack_registers_size = 0xcc,
+	.stack_growth_direction = -1,
+	.num_output_registers = ARMV7M_NUM_CORE_REGS,
+	.calculate_process_stack = rtos_standard_cortex_m4f_fpu_stack_align,
+	.register_offsets = rtos_standard_cortex_m4f_fpu_stack_offsets
 };
 
-const struct rtos_register_stacking rtos_standard_Cortex_R4_stacking = {
-	0x48,				/* stack_registers_size */
-	-1,					/* stack_growth_direction */
-	26,					/* num_output_registers */
-	rtos_generic_stack_align8,	/* stack_alignment */
-	rtos_standard_Cortex_R4_stack_offsets,	/* register_offsets */
-	NULL					/* Custom stack frame read function */
+const struct rtos_register_stacking rtos_standard_cortex_r4_stacking = {
+	.stack_registers_size = 0x48,
+	.stack_growth_direction = -1,
+	.num_output_registers = 26,
+	.calculate_process_stack = rtos_generic_stack_align8,
+	.register_offsets = rtos_standard_cortex_r4_stack_offsets
 };
 
-const struct rtos_register_stacking rtos_standard_NDS32_N1068_stacking = {
-	0x90,				/* stack_registers_size */
-	-1,					/* stack_growth_direction */
-	32,					/* num_output_registers */
-	rtos_generic_stack_align8,	/* stack_alignment */
-	rtos_standard_NDS32_N1068_stack_offsets,	/* register_offsets */
-	NULL					/* Custom stack frame read function */
+const struct rtos_register_stacking rtos_standard_nds32_n1068_stacking = {
+	.stack_registers_size = 0x90,
+	.stack_growth_direction = -1,
+	.num_output_registers = 32,
+	.calculate_process_stack = rtos_generic_stack_align8,
+	.register_offsets = rtos_standard_nds32_n1068_stack_offsets
 };
 

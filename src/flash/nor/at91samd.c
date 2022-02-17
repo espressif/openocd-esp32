@@ -23,6 +23,7 @@
 #include "imp.h"
 #include "helper/binarybuffer.h"
 
+#include <jtag/jtag.h>
 #include <target/cortex_m.h>
 
 #define SAMD_NUM_PROT_BLOCKS	16
@@ -250,6 +251,7 @@ static const struct samd_part saml21_parts[] = {
 
     /* SAMR34/R35 parts have integrated SAML21 with a lora radio */
 	{ 0x28, "SAMR34J18", 256, 32 },
+	{ 0x2B, "SAMR35J18", 256, 32 },
 };
 
 /* Known SAML22 parts. */
@@ -385,7 +387,7 @@ static const struct samd_part *samd_find_part(uint32_t id)
 {
 	uint8_t devsel = SAMD_GET_DEVSEL(id);
 	const struct samd_family *family = samd_find_family(id);
-	if (family == NULL)
+	if (!family)
 		return NULL;
 
 	for (unsigned i = 0; i < family->num_parts; i++) {
@@ -452,7 +454,7 @@ static int samd_probe(struct flash_bank *bank)
 	}
 
 	part = samd_find_part(id);
-	if (part == NULL) {
+	if (!part) {
 		LOG_ERROR("Couldn't find part corresponding to DID %08" PRIx32, id);
 		return ERROR_FAIL;
 	}
@@ -606,7 +608,7 @@ static int samd_get_reservedmask(struct target *target, uint64_t *mask)
 	}
 	const struct samd_family *family;
 	family = samd_find_family(id);
-	if (family == NULL) {
+	if (!family) {
 		LOG_ERROR("Couldn't determine device family");
 		return ERROR_FAIL;
 	}
@@ -944,11 +946,6 @@ FLASH_BANK_COMMAND_HANDLER(samd_flash_bank_command)
 	return ERROR_OK;
 }
 
-COMMAND_HANDLER(samd_handle_info_command)
-{
-	return ERROR_OK;
-}
-
 COMMAND_HANDLER(samd_handle_chip_erase_command)
 {
 	struct target *target = get_current_target(CMD_CTX);
@@ -1051,31 +1048,6 @@ COMMAND_HANDLER(samd_handle_eeprom_command)
 	return res;
 }
 
-static COMMAND_HELPER(get_u64_from_hexarg, unsigned int num, uint64_t *value)
-{
-	if (num >= CMD_ARGC) {
-		command_print(CMD, "Too few Arguments.");
-		return ERROR_COMMAND_SYNTAX_ERROR;
-	}
-
-	if (strlen(CMD_ARGV[num]) >= 3 &&
-		CMD_ARGV[num][0] == '0' &&
-		CMD_ARGV[num][1] == 'x') {
-		char *check = NULL;
-		*value = strtoull(&(CMD_ARGV[num][2]), &check, 16);
-		if ((value == 0 && errno == ERANGE) ||
-			check == NULL || *check != 0) {
-			command_print(CMD, "Invalid 64-bit hex value in argument %d.",
-				num + 1);
-			return ERROR_COMMAND_SYNTAX_ERROR;
-		}
-	} else {
-		command_print(CMD, "Argument %d needs to be a hex value.", num + 1);
-		return ERROR_COMMAND_SYNTAX_ERROR;
-	}
-	return ERROR_OK;
-}
-
 COMMAND_HANDLER(samd_handle_nvmuserrow_command)
 {
 	int res = ERROR_OK;
@@ -1102,14 +1074,12 @@ COMMAND_HANDLER(samd_handle_nvmuserrow_command)
 			mask &= NVMUSERROW_LOCKBIT_MASK;
 
 			uint64_t value;
-			res = CALL_COMMAND_HANDLER(get_u64_from_hexarg, 0, &value);
-			if (res != ERROR_OK)
-				return res;
+			COMMAND_PARSE_NUMBER(u64, CMD_ARGV[0], value);
+
 			if (CMD_ARGC == 2) {
 				uint64_t mask_temp;
-				res = CALL_COMMAND_HANDLER(get_u64_from_hexarg, 1, &mask_temp);
-				if (res != ERROR_OK)
-					return res;
+				COMMAND_PARSE_NUMBER(u64, CMD_ARGV[1], mask_temp);
+
 				mask &= mask_temp;
 			}
 			res = samd_modify_user_row_masked(target, value, mask);
@@ -1234,14 +1204,6 @@ static const struct command_registration at91samd_exec_command_handlers[] = {
 		.handler = samd_handle_reset_deassert,
 		.mode = COMMAND_EXEC,
 		.help = "Deassert internal reset held by DSU.",
-		.usage = "",
-	},
-	{
-		.name = "info",
-		.handler = samd_handle_info_command,
-		.mode = COMMAND_EXEC,
-		.help = "Print information about the current at91samd chip "
-			"and its flash configuration.",
 		.usage = "",
 	},
 	{

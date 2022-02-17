@@ -1,8 +1,8 @@
-AC_PREREQ(2.64)
-AC_INIT([openocd], [ ],
+AC_PREREQ([2.69])
+AC_INIT([openocd], [0.11.0+dev],
   [OpenOCD Mailing List <openocd-devel@lists.sourceforge.net>])
 AC_CONFIG_SRCDIR([src/openocd.c])
-AC_CONFIG_AUX_DIR([.])
+AC_CONFIG_AUX_DIR([build-aux])
 
 m4_include([config_subdir.m4])dnl
 
@@ -17,11 +17,6 @@ AC_SUBST([MAKEINFO])
 AM_INIT_AUTOMAKE([-Wall -Wno-portability dist-bzip2 dist-zip subdir-objects])
 
 AC_CONFIG_HEADERS([config.h])
-AH_BOTTOM([
-#include <helper/system.h>
-#include <helper/types.h>
-#include <helper/replacements.h>
-])
 
 AC_LANG([C])
 AC_PROG_CC
@@ -47,11 +42,11 @@ AC_SEARCH_LIBS([ioperm], [ioperm])
 AC_SEARCH_LIBS([dlopen], [dl])
 AC_SEARCH_LIBS([openpty], [util])
 
-AC_SEARCH_LIBS([deflate], [z], [], [
-  AC_MSG_ERROR([libz library was not found])])
-
 AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([elf.h])
+AC_EGREP_HEADER(Elf64_Ehdr, [elf.h], [
+  AC_DEFINE([HAVE_ELF64], [1], [Define to 1 if the system has the type `Elf64_Ehdr'.])
+])
 AC_CHECK_HEADERS([dirent.h])
 AC_CHECK_HEADERS([fcntl.h])
 AC_CHECK_HEADERS([malloc.h])
@@ -126,13 +121,10 @@ m4_define([USB1_ADAPTERS],
 	[[cmsis_dap_v2], [CMSIS-DAP v2 Compliant Debugger], [CMSIS_DAP_USB]],
 	[[osbdm], [OSBDM (JTAG only) Programmer], [OSBDM]],
 	[[opendous], [eStick/opendous JTAG Programmer], [OPENDOUS]],
-	[[esp_usb_jtag], [Espressif JTAG Programmer], [ESP_USB_JTAG]],
-	[[aice], [Andes JTAG Programmer], [AICE]]])
-
-m4_define([USB0_ADAPTERS],
-	[[[usbprog], [USBProg JTAG Programmer], [USBPROG]],
+	[[armjtagew], [Olimex ARM-JTAG-EW Programmer], [ARMJTAGEW]],
 	[[rlink], [Raisonance RLink JTAG Programmer], [RLINK]],
-	[[armjtagew], [Olimex ARM-JTAG-EW Programmer], [ARMJTAGEW]]])
+	[[usbprog], [USBProg JTAG Programmer], [USBPROG]],
+	[[aice], [Andes JTAG Programmer], [AICE]]])
 
 m4_define([HIDAPI_ADAPTERS],
 	[[[cmsis_dap], [CMSIS-DAP Compliant Debugger], [CMSIS_DAP_HID]],
@@ -156,6 +148,9 @@ m4_define([LIBJAYLINK_ADAPTERS],
 
 m4_define([PCIE_ADAPTERS],
 	[[[xlnx_pcie_xvc], [Xilinx XVC/PCIe], [XLNX_PCIE_XVC]]])
+
+m4_define([SERIAL_PORT_ADAPTERS],
+	[[[buspirate], [Bus Pirate], [BUS_PIRATE]]])
 
 m4_define([OPTIONAL_LIBRARIES],
 	[[[capstone], [Use Capstone disassembly framework], []]])
@@ -253,12 +248,12 @@ m4_define([AC_ARG_ADAPTERS], [
 
 AC_ARG_ADAPTERS([
   USB1_ADAPTERS,
-  USB0_ADAPTERS,
   HIDAPI_ADAPTERS,
   HIDAPI_USB1_ADAPTERS,
   LIBFTDI_ADAPTERS,
   LIBFTDI_USB1_ADAPTERS
   LIBGPIOD_ADAPTERS,
+  SERIAL_PORT_ADAPTERS,
   LIBJAYLINK_ADAPTERS
   ],[auto])
 
@@ -280,6 +275,10 @@ AC_ARG_ENABLE([jtag_vpi],
   AS_HELP_STRING([--enable-jtag_vpi], [Enable building support for JTAG VPI]),
   [build_jtag_vpi=$enableval], [build_jtag_vpi=no])
 
+AC_ARG_ENABLE([vdebug],
+  AS_HELP_STRING([--enable-vdebug], [Enable building support for Cadence Virtual Debug Interface]),
+  [build_vdebug=$enableval], [build_vdebug=no])
+
 AC_ARG_ENABLE([jtag_dpi],
   AS_HELP_STRING([--enable-jtag_dpi], [Enable building support for JTAG DPI]),
   [build_jtag_dpi=$enableval], [build_jtag_dpi=no])
@@ -288,17 +287,19 @@ AC_ARG_ENABLE([amtjtagaccel],
   AS_HELP_STRING([--enable-amtjtagaccel], [Enable building the Amontec JTAG-Accelerator driver]),
   [build_amtjtagaccel=$enableval], [build_amtjtagaccel=no])
 
-AC_ARG_ENABLE([zy1000_master],
-  AS_HELP_STRING([--enable-zy1000-master], [Use ZY1000 JTAG master registers]),
-  [build_zy1000_master=$enableval], [build_zy1000_master=no])
-
-AC_ARG_ENABLE([zy1000],
-  AS_HELP_STRING([--enable-zy1000], [Enable ZY1000 interface]),
-  [build_zy1000=$enableval], [build_zy1000=no])
-
-AC_ARG_ENABLE([ioutil],
-  AS_HELP_STRING([--enable-ioutil], [Enable ioutil functions - useful for standalone OpenOCD implementations]),
-  [build_ioutil=$enableval], [build_ioutil=no])
+AS_CASE(["${host_cpu}"],
+  [arm*|aarch64], [
+    AC_ARG_ENABLE([bcm2835gpio],
+      AS_HELP_STRING([--enable-bcm2835gpio], [Enable building support for bitbanging on BCM2835 (as found in Raspberry Pi)]),
+      [build_bcm2835gpio=$enableval], [build_bcm2835gpio=no])
+    AC_ARG_ENABLE([imx_gpio],
+      AS_HELP_STRING([--enable-imx_gpio], [Enable building support for bitbanging on NXP IMX processors]),
+      [build_imx_gpio=$enableval], [build_imx_gpio=no])
+  ],
+  [
+    build_bcm2835gpio=no
+    build_imx_gpio=no
+])
 
 AS_CASE(["${host_cpu}"],
   [arm*|aarch64], [
@@ -333,15 +334,6 @@ AC_ARG_ENABLE([gw16012],
   AS_HELP_STRING([--enable-gw16012], [Enable building support for the Gateworks GW16012 JTAG Programmer]),
   [build_gw16012=$enableval], [build_gw16012=no])
 
-AC_ARG_ENABLE([oocd_trace],
-  AS_HELP_STRING([--enable-oocd_trace],
-  [Enable building support for some prototype OpenOCD+trace ETM capture hardware]),
-  [build_oocd_trace=$enableval], [build_oocd_trace=no])
-
-AC_ARG_ENABLE([buspirate],
-  AS_HELP_STRING([--enable-buspirate], [Enable building support for the Buspirate]),
-  [build_buspirate=$enableval], [build_buspirate=no])
-
 AC_ARG_ENABLE([sysfsgpio],
   AS_HELP_STRING([--enable-sysfsgpio], [Enable building support for programming driven via sysfs gpios.]),
   [build_sysfsgpio=$enableval], [build_sysfsgpio=no])
@@ -373,10 +365,6 @@ AS_CASE([$host_os],
     ])
 ])
 
-AC_ARG_ENABLE([minidriver_dummy],
-  AS_HELP_STRING([--enable-minidriver-dummy], [Enable the dummy minidriver.]),
-  [build_minidriver_dummy=$enableval], [build_minidriver_dummy=no])
-
 AC_ARG_ENABLE([internal-jimtcl],
   AS_HELP_STRING([--disable-internal-jimtcl], [Disable building internal jimtcl]),
   [use_internal_jimtcl=$enableval], [use_internal_jimtcl=yes])
@@ -386,52 +374,9 @@ AC_ARG_ENABLE([internal-libjaylink],
   [Disable building internal libjaylink]),
   [use_internal_libjaylink=$enableval], [use_internal_libjaylink=yes])
 
-AC_ARG_ENABLE([esp-remote],
-  AS_HELP_STRING([--disable-esp-remote],
-  [Disable building support for the ESP remote protocol over TCP or USB]),
-  [build_esp_remote=$enableval], [build_esp_remote=yes])
-
-AC_ARG_ENABLE([build-gcov],
-  AS_HELP_STRING([--enable-build-gcov],
-  [Enable building support with coverage]),
-  [build_gcov=$enableval], [build_gcov=no])
-  
-build_minidriver=no
-AC_MSG_CHECKING([whether to enable ZY1000 minidriver])
-AS_IF([test "x$build_zy1000" = "xyes"], [
-  AS_IF([test "x$build_minidriver" = "xyes"], [
-    AC_MSG_ERROR([Multiple minidriver options have been enabled.])
-  ])
-  AC_DEFINE([HAVE_JTAG_MINIDRIVER_H], [1],
-      [Define to 1 if you have the <jtag_minidriver.h> header file.])
-  build_minidriver=yes
-])
-AC_MSG_RESULT([$build_zy1000])
-
 AC_ARG_ENABLE([remote-bitbang],
   AS_HELP_STRING([--enable-remote-bitbang], [Enable building support for the Remote Bitbang jtag driver]),
   [build_remote_bitbang=$enableval], [build_remote_bitbang=no])
-
-AC_MSG_CHECKING([whether to enable dummy minidriver])
-AS_IF([test "x$build_minidriver_dummy" = "xyes"], [
-  AS_IF([test "x$build_minidriver" = "xyes"], [
-    AC_MSG_ERROR([Multiple minidriver options have been enabled.])
-  ])
-  build_minidriver=yes
-  AC_DEFINE([BUILD_MINIDRIVER_DUMMY], [1], [Use the dummy minidriver.])
-  AC_DEFINE([HAVE_JTAG_MINIDRIVER_H], [1],
-      [Define to 1 if you have the <jtag_minidriver.h> header file.])
-])
-AC_MSG_RESULT([$build_minidriver_dummy])
-
-AC_MSG_CHECKING([whether standard drivers can be built])
-AS_IF([test "x$build_minidriver" = "xyes"], [
-  AC_MSG_RESULT([no])
-  AC_MSG_WARN([Using the minidriver disables all other drivers.])
-  sleep 2
-], [
-  AC_MSG_RESULT([yes])
-])
 
 AS_CASE(["${host_cpu}"],
   [i?86|x86*], [],
@@ -473,9 +418,12 @@ AS_CASE([$host],
     ])
     parport_use_giveio=yes
 
-    AS_IF([test "x$build_buspirate" = "xyes"], [
+    AS_IF([test "x$enable_buspirate" = "xyes"], [
       AC_MSG_ERROR([buspirate currently not supported by MinGW32 hosts])
     ])
+
+    # In case enable_buspirate=auto, make sure it will not be built.
+    enable_buspirate=no
 
     AC_SUBST([HOST_CPPFLAGS], [-D__USE_MINGW_ANSI_STDIO])
   ],
@@ -545,18 +493,6 @@ AS_IF([test "x$build_ep93xx" = "xyes"], [
   AC_DEFINE([BUILD_EP93XX], [0], [0 if you don't want ep93xx.])
 ])
 
-AS_IF([test "x$build_zy1000" = "xyes"], [
-  AC_DEFINE([BUILD_ZY1000], [1], [1 if you want ZY1000.])
-], [
-  AC_DEFINE([BUILD_ZY1000], [0], [0 if you don't want ZY1000.])
-])
-
-AS_IF([test "x$build_zy1000_master" = "xyes"], [
-  AC_DEFINE([BUILD_ZY1000_MASTER], [1], [1 if you want ZY1000 JTAG master registers.])
-], [
-  AC_DEFINE([BUILD_ZY1000_MASTER], [0], [0 if you don't want ZY1000 JTAG master registers.])
-])
-
 AS_IF([test "x$build_at91rm9200" = "xyes"], [
   build_bitbang=yes
   AC_DEFINE([BUILD_AT91RM9200], [1], [1 if you want at91rm9200.])
@@ -596,6 +532,12 @@ AS_IF([test "x$build_jtag_vpi" = "xyes"], [
   AC_DEFINE([BUILD_JTAG_VPI], [0], [0 if you don't want JTAG VPI.])
 ])
 
+AS_IF([test "x$build_vdebug" = "xyes"], [
+  AC_DEFINE([BUILD_VDEBUG], [1], [1 if you want Cadence vdebug interface.])
+], [
+  AC_DEFINE([BUILD_VDEBUG], [0], [0 if you don't want Cadence vdebug interface.])
+])
+
 AS_IF([test "x$build_jtag_dpi" = "xyes"], [
   AC_DEFINE([BUILD_JTAG_DPI], [1], [1 if you want JTAG DPI.])
 ], [
@@ -615,13 +557,7 @@ AS_IF([test "x$build_gw16012" = "xyes"], [
   AC_DEFINE([BUILD_GW16012], [0], [0 if you don't want the Gateworks GW16012 driver.])
 ])
 
-AS_IF([test "x$build_oocd_trace" = "xyes"], [
-  AC_DEFINE([BUILD_OOCD_TRACE], [1], [1 if you want the OpenOCD+trace ETM capture driver.])
-], [
-  AC_DEFINE([BUILD_OOCD_TRACE], [0], [0 if you don't want the OpenOCD+trace ETM capture driver.])
-])
-
-AS_IF([test "x$build_buspirate" = "xyes"], [
+AS_IF([test "x$enable_buspirate" != "xno"], [
   AC_DEFINE([BUILD_BUSPIRATE], [1], [1 if you want the Buspirate JTAG driver.])
 ], [
   AC_DEFINE([BUILD_BUSPIRATE], [0], [0 if you don't want the Buspirate JTAG driver.])
@@ -656,25 +592,9 @@ AS_IF([test "x$build_xlnx_pcie_xvc" = "xyes"], [
   AC_DEFINE([BUILD_XLNX_PCIE_XVC], [0], [0 if you don't want Xilinx XVC/PCIe driver.])
 ])
 
-AS_IF([test "x$build_esp_remote" = "xyes"], [
-  AC_DEFINE([BUILD_ESP_REMOTE], [1], [1 if you want ESP remote protocol support.])
-], [
-  AC_DEFINE([BUILD_ESP_REMOTE], [0], [0 if you don't want ESP remote protocol support.])
-])
-
-AS_IF([test "x$build_gcov" = "xyes"], [
-  AC_DEFINE([BUILD_GCOV], [1], [1 if you want OpenOCD source code coverage support.])
-  CFLAGS+=" -fprofile-arcs -ftest-coverage"
-], [
-  AC_DEFINE([BUILD_GCOV], [0], [0 if you don't want OpenOCD source code coverage support.])
-])
-
 PKG_CHECK_MODULES([LIBUSB1], [libusb-1.0], [
 	use_libusb1=yes
 	AC_DEFINE([HAVE_LIBUSB1], [1], [Define if you have libusb-1.x])
-	PKG_CHECK_EXISTS([libusb-1.0 >= 1.0.9],
-		[AC_DEFINE([HAVE_LIBUSB_ERROR_NAME], [1], [Define if your libusb has libusb_error_name()])],
-		[AC_MSG_WARN([libusb-1.x older than 1.0.9 detected, consider updating])])
 	LIBUSB1_CFLAGS=`echo $LIBUSB1_CFLAGS | sed 's/-I/-isystem /'`
 	AC_MSG_NOTICE([libusb-1.0 header bug workaround: LIBUSB1_CFLAGS changed to "$LIBUSB1_CFLAGS"])
 	PKG_CHECK_EXISTS([libusb-1.0 >= 1.0.16],
@@ -684,7 +604,25 @@ PKG_CHECK_MODULES([LIBUSB1], [libusb-1.0], [
 	AC_MSG_WARN([libusb-1.x not found, trying legacy libusb-0.1 as a fallback; consider installing libusb-1.x instead])
 ])
 
-PKG_CHECK_MODULES([LIBUSB0], [libusb], [use_libusb0=yes], [use_libusb0=no])
+AC_ARG_WITH([capstone],
+		AS_HELP_STRING([--with-capstone], [Use Capstone disassembly library (default=auto)])
+	, [
+		enable_capstone=$withval
+	], [
+		enable_capstone=auto
+])
+
+AS_IF([test "x$enable_capstone" != xno], [
+	PKG_CHECK_MODULES([CAPSTONE], [capstone], [
+		AC_DEFINE([HAVE_CAPSTONE], [1], [1 if you have Capstone disassembly framework.])
+	], [
+		AC_DEFINE([HAVE_CAPSTONE], [0], [0 if you don't have Capstone disassembly framework.])
+		if test "x$enable_capstone" != xauto; then
+			AC_MSG_ERROR([--with-capstone was given, but test for Capstone failed])
+		fi
+		enable_capstone=no
+	])
+])
 
 AC_ARG_WITH([capstone],
 		AS_HELP_STRING([--with-capstone], [Use Capstone disassembly library (default=auto)])
@@ -730,9 +668,6 @@ PKG_CHECK_MODULES([LIBJAYLINK], [libjaylink >= 0.2],
 
 m4_define([PROCESS_ADAPTERS], [
   m4_foreach([adapter], [$1], [
-	AS_IF([test "x$build_zy1000" = "xyes"], [
-		ADAPTER_VAR([adapter])=no
-	])
 	AS_IF([test $2], [
 		AS_IF([test "x$ADAPTER_VAR([adapter])" != "xno"], [
 			AC_DEFINE([BUILD_]ADAPTER_SYM([adapter]), [1], [1 if you want the ]ADAPTER_DESC([adapter]).)
@@ -744,13 +679,13 @@ m4_define([PROCESS_ADAPTERS], [
 			AC_MSG_ERROR([$3 is required for the ADAPTER_DESC([adapter])])
 		])
 		ADAPTER_VAR([adapter])=no
+		AC_DEFINE([BUILD_]ADAPTER_SYM([adapter]), [0], [0 if you do not want the ]ADAPTER_DESC([adapter]).)
 	])
 	AM_CONDITIONAL(ADAPTER_SYM([adapter]), [test "x$ADAPTER_VAR([adapter])" != "xno"])
   ])
 ])
 
 PROCESS_ADAPTERS([USB1_ADAPTERS], ["x$use_libusb1" = "xyes"], [libusb-1.x])
-PROCESS_ADAPTERS([USB0_ADAPTERS], ["x$use_libusb0" = "xyes"], [libusb-0.1])
 PROCESS_ADAPTERS([HIDAPI_ADAPTERS], ["x$use_hidapi" = "xyes"], [hidapi])
 PROCESS_ADAPTERS([HIDAPI_USB1_ADAPTERS], ["x$use_hidapi" = "xyes" -a "x$use_libusb1" = "xyes"], [hidapi and libusb-1.x])
 PROCESS_ADAPTERS([LIBFTDI_ADAPTERS], ["x$use_libftdi" = "xyes"], [libftdi])
@@ -800,24 +735,20 @@ AM_CONDITIONAL([PARPORT], [test "x$build_parport" = "xyes"])
 AM_CONDITIONAL([DUMMY], [test "x$build_dummy" = "xyes"])
 AM_CONDITIONAL([GIVEIO], [test "x$parport_use_giveio" = "xyes"])
 AM_CONDITIONAL([EP93XX], [test "x$build_ep93xx" = "xyes"])
-AM_CONDITIONAL([ZY1000], [test "x$build_zy1000" = "xyes"])
-AM_CONDITIONAL([ZY1000_MASTER], [test "x$build_zy1000_master" = "xyes"])
-AM_CONDITIONAL([IOUTIL], [test "x$build_ioutil" = "xyes"])
 AM_CONDITIONAL([AT91RM9200], [test "x$build_at91rm9200" = "xyes"])
 AM_CONDITIONAL([BCM2835GPIO], [test "x$build_bcm2835gpio" = "xyes"])
 AM_CONDITIONAL([IMX_GPIO], [test "x$build_imx_gpio" = "xyes"])
 AM_CONDITIONAL([BITBANG], [test "x$build_bitbang" = "xyes"])
-AM_CONDITIONAL([JTAG_VPI], [test "x$build_jtag_vpi" = "xyes" -o "x$build_jtag_vpi" = "xyes"])
-AM_CONDITIONAL([JTAG_DPI], [test "x$build_jtag_dpi" = "xyes" -o "x$build_jtag_dpi" = "xyes"])
+AM_CONDITIONAL([JTAG_VPI], [test "x$build_jtag_vpi" = "xyes"])
+AM_CONDITIONAL([VDEBUG], [test "x$build_vdebug" = "xyes"])
+AM_CONDITIONAL([JTAG_DPI], [test "x$build_jtag_dpi" = "xyes"])
 AM_CONDITIONAL([USB_BLASTER_DRIVER], [test "x$enable_usb_blaster" != "xno" -o "x$enable_usb_blaster_2" != "xno"])
 AM_CONDITIONAL([AMTJTAGACCEL], [test "x$build_amtjtagaccel" = "xyes"])
 AM_CONDITIONAL([GW16012], [test "x$build_gw16012" = "xyes"])
-AM_CONDITIONAL([OOCD_TRACE], [test "x$build_oocd_trace" = "xyes"])
 AM_CONDITIONAL([REMOTE_BITBANG], [test "x$build_remote_bitbang" = "xyes"])
-AM_CONDITIONAL([BUSPIRATE], [test "x$build_buspirate" = "xyes"])
+AM_CONDITIONAL([BUSPIRATE], [test "x$enable_buspirate" != "xno"])
 AM_CONDITIONAL([SYSFSGPIO], [test "x$build_sysfsgpio" = "xyes"])
 AM_CONDITIONAL([XLNX_PCIE_XVC], [test "x$build_xlnx_pcie_xvc" = "xyes"])
-AM_CONDITIONAL([USE_LIBUSB0], [test "x$use_libusb0" = "xyes"])
 AM_CONDITIONAL([USE_LIBUSB1], [test "x$use_libusb1" = "xyes"])
 AM_CONDITIONAL([IS_CYGWIN], [test "x$is_cygwin" = "xyes"])
 AM_CONDITIONAL([IS_MINGW], [test "x$is_mingw" = "xyes"])
@@ -830,9 +761,6 @@ AM_CONDITIONAL([USE_HIDAPI], [test "x$use_hidapi" = "xyes"])
 AM_CONDITIONAL([USE_LIBJAYLINK], [test "x$use_libjaylink" = "xyes"])
 AM_CONDITIONAL([RSHIM], [test "x$build_rshim" = "xyes"])
 AM_CONDITIONAL([HAVE_CAPSTONE], [test "x$enable_capstone" != "xno"])
-
-AM_CONDITIONAL([MINIDRIVER], [test "x$build_minidriver" = "xyes"])
-AM_CONDITIONAL([MINIDRIVER_DUMMY], [test "x$build_minidriver_dummy" = "xyes"])
 
 AM_CONDITIONAL([INTERNAL_JIMTCL], [test "x$use_internal_jimtcl" = "xyes"])
 AM_CONDITIONAL([INTERNAL_LIBJAYLINK], [test "x$use_internal_libjaylink" = "xyes"])
@@ -882,6 +810,8 @@ AS_IF([test "x${gcc_wextra}" = "xyes"], [
   GCC_WARNINGS="${GCC_WARNINGS} -Wcast-align"
   GCC_WARNINGS="${GCC_WARNINGS} -Wredundant-decls"
   GCC_WARNINGS="${GCC_WARNINGS} -Wpointer-arith"
+  GCC_WARNINGS="${GCC_WARNINGS} -Wundef"
+  GCC_WARNINGS="${GCC_WARNINGS} -Wno-error=deprecated-declarations"
 ])
 AS_IF([test "x${gcc_werror}" = "xyes"], [
   GCC_WARNINGS="${GCC_WARNINGS} -Werror"
@@ -903,11 +833,11 @@ echo
 echo
 echo OpenOCD configuration summary
 echo --------------------------------------------------
-m4_foreach([adapter], [USB1_ADAPTERS, USB0_ADAPTERS,
+m4_foreach([adapter], [USB1_ADAPTERS,
 	HIDAPI_ADAPTERS, HIDAPI_USB1_ADAPTERS, LIBFTDI_ADAPTERS,
 	LIBFTDI_USB1_ADAPTERS,
 	LIBGPIOD_ADAPTERS,
-	LIBJAYLINK_ADAPTERS, PCIE_ADAPTERS,
+	LIBJAYLINK_ADAPTERS, PCIE_ADAPTERS, SERIAL_PORT_ADAPTERS,
 	OPTIONAL_LIBRARIES],
 	[s=m4_format(["%-40s"], ADAPTER_DESC([adapter]))
 	AS_CASE([$ADAPTER_VAR([adapter])],
@@ -922,26 +852,3 @@ m4_foreach([adapter], [USB1_ADAPTERS, USB0_ADAPTERS,
 	])
 ])
 echo
-
-AS_IF([test "x$build_oocd_trace" = "xyes"], [
-  echo 'WARNING! Deprecated configure option (--enable-oocd_trace)'
-  echo 'The oocd_trace driver is deprecated and will be removed in the next release.'
-  echo 'If you regularly use this driver, please report to the OpenOCD Mailing List.'
-  echo
-])
-
-AS_IF([test "x$build_zy1000" = "xyes" -o "x$build_zy1000_master" = "xyes"], [
-  echo 'WARNING! Deprecated configure option (--enable-zy1000, --enable-zy1000-master)'
-  echo 'Support for the ZY1000 platform is deprecated and will be removed in the next'
-  echo 'release. If you regularly use this platform, please report to the OpenOCD'
-  echo 'Mailing List.'
-  echo
-])
-
-AS_IF([test "x$build_ioutil" = "xyes"], [
-  echo 'WARNING! Deprecated configure option (--enable-ioutil)'
-  echo 'Support for the ioutil functions is deprecated and will be removed in the next'
-  echo 'release. If you regularly depend on this functionality, please report to the'
-  echo 'OpenOCD Mailing List.'
-  echo
-])

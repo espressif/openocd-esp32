@@ -28,6 +28,7 @@
 #include "helper/binarybuffer.h"
 
 #include <helper/time_support.h>
+#include <jtag/jtag.h>
 #include <target/cortex_m.h>
 
 /* A note to prefixing.
@@ -113,7 +114,7 @@ struct samd_part {
 };
 
 /* See SAM D5x/E5x Family Silicon Errata and Data Sheet Clarification
- * DS80000748B */
+ * DS80000748K */
 /* Known SAMD51 parts. */
 static const struct samd_part samd51_parts[] = {
 	{ 0x00, "SAMD51P20A", 1024, 256 },
@@ -134,6 +135,8 @@ static const struct samd_part same51_parts[] = {
 	{ 0x02, "SAME51J19A", 512, 192 },
 	{ 0x03, "SAME51J18A", 256, 128 },
 	{ 0x04, "SAME51J20A", 1024, 256 },
+	{ 0x05, "SAME51G19A", 512, 192 },	/* New in rev D */
+	{ 0x06, "SAME51G18A", 256, 128 },	/* New in rev D */
 };
 
 /* Known SAME53 parts. */
@@ -143,6 +146,9 @@ static const struct samd_part same53_parts[] = {
 	{ 0x04, "SAME53J20A", 1024, 256 },
 	{ 0x05, "SAME53J19A", 512, 192 },
 	{ 0x06, "SAME53J18A", 256, 128 },
+	{ 0x55, "LAN9255/ZMX020", 1024, 256 },
+	{ 0x56, "LAN9255/ZMX019", 512, 192 },
+	{ 0x57, "LAN9255/ZMX018", 256, 128 },
 };
 
 /* Known SAME54 parts. */
@@ -218,7 +224,7 @@ static const struct samd_part *samd_find_part(uint32_t id)
 {
 	uint8_t devsel = SAMD_GET_DEVSEL(id);
 	const struct samd_family *family = samd_find_family(id);
-	if (family == NULL)
+	if (!family)
 		return NULL;
 
 	for (unsigned i = 0; i < family->num_parts; i++) {
@@ -285,7 +291,7 @@ static int same5_probe(struct flash_bank *bank)
 	}
 
 	part = samd_find_part(id);
-	if (part == NULL) {
+	if (!part) {
 		LOG_ERROR("Couldn't find part corresponding to DID %08" PRIx32, id);
 		return ERROR_FAIL;
 	}
@@ -795,11 +801,12 @@ COMMAND_HANDLER(same5_handle_userpage_command)
 	}
 
 	if (CMD_ARGC >= 1) {
-		uint64_t mask = NVMUSERROW_SAM_E5_D5_MASK;
-		uint64_t value = strtoull(CMD_ARGV[0], NULL, 0);
+		uint64_t value, mask = NVMUSERROW_SAM_E5_D5_MASK;
+		COMMAND_PARSE_NUMBER(u64, CMD_ARGV[0], value);
 
 		if (CMD_ARGC == 2) {
-			uint64_t mask_temp = strtoull(CMD_ARGV[1], NULL, 0);
+			uint64_t mask_temp;
+			COMMAND_PARSE_NUMBER(u64, CMD_ARGV[1], mask_temp);
 			mask &= mask_temp;
 		}
 
@@ -835,7 +842,9 @@ COMMAND_HANDLER(same5_handle_bootloader_command)
 		return ERROR_FAIL;
 
 	if (CMD_ARGC >= 1) {
-		unsigned long size = strtoul(CMD_ARGV[0], NULL, 0);
+		unsigned long size;
+
+		COMMAND_PARSE_NUMBER(ulong, CMD_ARGV[0], size);
 		uint32_t code = (size + 8191) / 8192;
 		if (code > 15) {
 			command_print(CMD, "Invalid bootloader size.  Please "

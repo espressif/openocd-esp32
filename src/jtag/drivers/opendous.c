@@ -161,7 +161,7 @@ COMMAND_HANDLER(opendous_handle_opendous_type_command)
 		return ERROR_OK;
 
 	/* only if the cable name wasn't overwritten by cmdline */
-	if (opendous_type == NULL) {
+	if (!opendous_type) {
 		/* REVISIT first verify that it's listed in cables[] ... */
 		opendous_type = strdup(CMD_ARGV[0]);
 	}
@@ -256,7 +256,7 @@ static int opendous_execute_queue(void)
 	enum scan_type type;
 	uint8_t *buffer;
 
-	while (cmd != NULL) {
+	while (cmd) {
 		switch (cmd->type) {
 			case JTAG_RUNTEST:
 				LOG_DEBUG_IO("runtest %i cycles, end in %i", cmd->cmd.runtest->num_cycles,
@@ -331,7 +331,7 @@ static int opendous_init(void)
 
 	cur_opendous_probe = opendous_probes;
 
-	if (opendous_type == NULL) {
+	if (!opendous_type) {
 		opendous_type = strdup("opendous");
 		LOG_WARNING("No opendous_type specified, using default 'opendous'");
 	}
@@ -706,7 +706,7 @@ struct opendous_jtag *opendous_usb_open(void)
 	struct opendous_jtag *result;
 
 	struct libusb_device_handle *devh;
-	if (jtag_libusb_open(opendous_probe->VID, opendous_probe->PID, NULL, &devh, NULL) != ERROR_OK)
+	if (jtag_libusb_open(opendous_probe->VID, opendous_probe->PID, &devh, NULL) != ERROR_OK)
 		return NULL;
 
 	jtag_libusb_set_configuration(devh, 0);

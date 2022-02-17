@@ -45,8 +45,7 @@ COMMAND_HANDLER(hl_transport_reset_command)
 	return hl_interface_init_reset();
 }
 
-static const struct command_registration
-hl_swd_transport_subcommand_handlers[] = {
+static const struct command_registration hl_swd_transport_subcommand_handlers[] = {
 	{
 	 .name = "newdap",
 	 .mode = COMMAND_CONFIG,
@@ -67,8 +66,16 @@ static const struct command_registration hl_swd_transport_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-static const struct command_registration
-hl_transport_jtag_subcommand_handlers[] = {
+static const struct command_registration hl_transport_jtag_subcommand_handlers[] = {
+	{
+	 .name = "newtap",
+	 .mode = COMMAND_CONFIG,
+	 .jim_handler = jim_hl_newtap,
+	 .help = "Create a new TAP instance named basename.tap_type, "
+	 "and appends it to the scan chain.",
+	 .usage = "basename tap_type '-irlen' count "
+	 "['-expected_id' number]",
+	 },
 	{
 	 .name = "newtap",
 	 .mode = COMMAND_CONFIG,
@@ -196,15 +203,13 @@ static int hl_jtag_transport_select(struct command_context *cmd_ctx)
 	 * That works with only C code ... no Tcl glue required.
 	 */
 
-	return register_commands(cmd_ctx, NULL,
-				hl_jtag_transport_command_handlers);
+	return register_commands(cmd_ctx, NULL, hl_jtag_transport_command_handlers);
 }
 
 static int hl_swd_transport_select(struct command_context *cmd_ctx)
 {
 	LOG_DEBUG("hl_swd_transport_select");
-	return register_commands(cmd_ctx, NULL,
-				hl_swd_transport_command_handlers);
+	return register_commands(cmd_ctx, NULL, hl_swd_transport_command_handlers);
 }
 
 static struct transport hl_swd_transport = {

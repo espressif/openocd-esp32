@@ -22,6 +22,7 @@
 
 /* project specific includes */
 #include <helper/binarybuffer.h>
+#include <jtag/adapter.h>
 #include <jtag/interface.h>
 #include <jtag/hla/hla_layout.h>
 #include <jtag/hla/hla_transport.h>
@@ -253,7 +254,7 @@ static int nulink_usb_write_debug_reg(void *handle, uint32_t addr, uint32_t val)
 {
 	struct nulink_usb_handle_s *h = handle;
 
-	LOG_DEBUG("nulink_usb_write_debug_reg 0x%08" PRIX32 "0x%08" PRIX32, addr, val);
+	LOG_DEBUG("nulink_usb_write_debug_reg 0x%08" PRIX32 " 0x%08" PRIX32, addr, val);
 
 	nulink_usb_init_buffer(handle, 8 + 12 * 1);
 	/* set command ID */
@@ -503,7 +504,7 @@ static int nulink_usb_read_mem8(void *handle, uint32_t addr, uint16_t len,
 		aligned_addr = aligned_addr * 4;
 		offset = addr - aligned_addr;
 		LOG_DEBUG("nulink_usb_read_mem8: unaligned address addr 0x%08" PRIx32
-				"/aligned addr 0x%08" PRIx32 "offset %" PRIu32,
+				"/aligned addr 0x%08" PRIx32 " offset %" PRIu32,
 				addr, aligned_addr, offset);
 
 		addr = aligned_addr;
@@ -844,11 +845,11 @@ static int nulink_usb_read_mem(void *handle, uint32_t addr, uint32_t size,
 		/* the nulink only supports 8/32bit memory read/writes
 		 * honour 32bit, all others will be handled as 8bit access */
 		if (size == 4) {
-			/* When in jtag mode the nulink uses the auto-increment functinality.
+			/* When in jtag mode the nulink uses the auto-increment functionality.
 			 * However it expects us to pass the data correctly, this includes
 			 * alignment and any page boundaries. We already do this as part of the
 			 * adi_v5 implementation, but the nulink is a hla adapter and so this
-			 * needs implementiong manually.
+			 * needs implementing manually.
 			 * currently this only affects jtag mode, they do single
 			 * access in SWD mode - but this may change and so we do it for both modes */
 
@@ -909,11 +910,11 @@ static int nulink_usb_write_mem(void *handle, uint32_t addr, uint32_t size,
 		/* the nulink only supports 8/32bit memory read/writes
 		 * honour 32bit, all others will be handled as 8bit access */
 		if (size == 4) {
-			/* When in jtag mode the nulink uses the auto-increment functinality.
+			/* When in jtag mode the nulink uses the auto-increment functionality.
 			 * However it expects us to pass the data correctly, this includes
 			 * alignment and any page boundaries. We already do this as part of the
 			 * adi_v5 implementation, but the nulink is a hla adapter and so this
-			 * needs implementiong manually.
+			 * needs implementing manually.
 			 * currently this only affects jtag mode, do single
 			 * access in SWD mode - but this may change and so we do it for both modes */
 
@@ -1054,8 +1055,9 @@ static int nulink_usb_open(struct hl_interface_param_s *param, void **fd)
 		goto error_open;
 	}
 
-	if (param->serial) {
-		size_t len = mbstowcs(NULL, param->serial, 0);
+	const char *serial = adapter_get_required_serial();
+	if (serial) {
+		size_t len = mbstowcs(NULL, serial, 0);
 
 		target_serial = calloc(len + 1, sizeof(wchar_t));
 		if (!target_serial) {
@@ -1063,7 +1065,7 @@ static int nulink_usb_open(struct hl_interface_param_s *param, void **fd)
 			goto error_open;
 		}
 
-		if (mbstowcs(target_serial, param->serial, len + 1) == (size_t)(-1)) {
+		if (mbstowcs(target_serial, serial, len + 1) == (size_t)(-1)) {
 			LOG_WARNING("unable to convert serial");
 			free(target_serial);
 			target_serial = NULL;

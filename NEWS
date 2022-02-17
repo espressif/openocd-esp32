@@ -205,6 +205,8 @@ RTOS:
 	* NuttX rtos support
 	* RIOT rtos support
 
+RTOS:
+
 Documentation:
 	* Improve STM32 flash driver
 	* Various typo fix and improvements

@@ -35,7 +35,20 @@
 
 #include <target/target.h>
 
-static struct hl_interface_s hl_if = { {0, 0, { 0 }, { 0 }, HL_TRANSPORT_UNKNOWN, false, -1}, 0, 0 };
+static struct hl_interface_s hl_if = {
+	.param = {
+		.device_desc = NULL,
+		.vid = { 0 },
+		.pid = { 0 },
+		.transport = HL_TRANSPORT_UNKNOWN,
+		.connect_under_reset = false,
+		.initial_interface_speed = -1,
+		.use_stlink_tcp = false,
+		.stlink_tcp_port = 7184,
+	},
+	.layout = NULL,
+	.handle = NULL,
+};
 
 int hl_interface_open(enum hl_transports tr)
 {
@@ -122,7 +135,6 @@ static int hl_interface_quit(void)
 	jtag_command_queue_reset();
 
 	free((void *)hl_if.param.device_desc);
-	free((void *)hl_if.param.serial);
 
 	return ERROR_OK;
 }
@@ -147,7 +159,7 @@ int hl_interface_init_reset(void)
 
 static int hl_interface_khz(int khz, int *jtag_speed)
 {
-	if (hl_if.layout->api->speed == NULL)
+	if (!hl_if.layout->api->speed)
 		return ERROR_OK;
 
 	*jtag_speed = hl_if.layout->api->speed(hl_if.handle, khz, true);
@@ -162,10 +174,10 @@ static int hl_interface_speed_div(int speed, int *khz)
 
 static int hl_interface_speed(int speed)
 {
-	if (hl_if.layout->api->speed == NULL)
+	if (!hl_if.layout->api->speed)
 		return ERROR_OK;
 
-	if (hl_if.handle == NULL) {
+	if (!hl_if.handle) {
 		/* pass speed as initial param as interface not open yet */
 		hl_if.param.initial_interface_speed = speed;
 		return ERROR_OK;
@@ -219,19 +231,6 @@ COMMAND_HANDLER(hl_interface_handle_device_desc_command)
 		hl_if.param.device_desc = strdup(CMD_ARGV[0]);
 	} else {
 		LOG_ERROR("expected exactly one argument to hl_device_desc <description>");
-	}
-
-	return ERROR_OK;
-}
-
-COMMAND_HANDLER(hl_interface_handle_serial_command)
-{
-	LOG_DEBUG("hl_interface_handle_serial_command");
-
-	if (CMD_ARGC == 1) {
-		hl_if.param.serial = strdup(CMD_ARGV[0]);
-	} else {
-		LOG_ERROR("expected exactly one argument to hl_serial <serial-number>");
 	}
 
 	return ERROR_OK;
@@ -292,6 +291,31 @@ COMMAND_HANDLER(hl_interface_handle_vid_pid_command)
 	return ERROR_OK;
 }
 
+COMMAND_HANDLER(hl_interface_handle_stlink_backend_command)
+{
+	/* default values */
+	bool use_stlink_tcp = false;
+	uint16_t stlink_tcp_port = 7184;
+
+	if (CMD_ARGC == 0 || CMD_ARGC > 2)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	else if (strcmp(CMD_ARGV[0], "usb") == 0) {
+		if (CMD_ARGC > 1)
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		/* else use_stlink_tcp = false (already the case ) */
+	} else if (strcmp(CMD_ARGV[0], "tcp") == 0) {
+		use_stlink_tcp = true;
+		if (CMD_ARGC == 2)
+			COMMAND_PARSE_NUMBER(u16, CMD_ARGV[1], stlink_tcp_port);
+	} else
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	hl_if.param.use_stlink_tcp = use_stlink_tcp;
+	hl_if.param.stlink_tcp_port = stlink_tcp_port;
+
+	return ERROR_OK;
+}
+
 COMMAND_HANDLER(interface_handle_hla_command)
 {
 	if (CMD_ARGC != 1)
@@ -316,13 +340,6 @@ static const struct command_registration hl_interface_command_handlers[] = {
 	 .usage = "description_string",
 	 },
 	{
-	 .name = "hla_serial",
-	 .handler = &hl_interface_handle_serial_command,
-	 .mode = COMMAND_CONFIG,
-	 .help = "set the serial number of the adapter",
-	 .usage = "serial_string",
-	 },
-	{
 	 .name = "hla_layout",
 	 .handler = &hl_interface_handle_layout_command,
 	 .mode = COMMAND_CONFIG,
@@ -334,8 +351,15 @@ static const struct command_registration hl_interface_command_handlers[] = {
 	 .handler = &hl_interface_handle_vid_pid_command,
 	 .mode = COMMAND_CONFIG,
 	 .help = "the vendor and product ID of the adapter",
-	 .usage = "(vid pid)* ",
+	 .usage = "(vid pid)*",
 	 },
+	{
+	 .name = "hla_stlink_backend",
+	 .handler = &hl_interface_handle_stlink_backend_command,
+	 .mode = COMMAND_CONFIG,
+	 .help = "select which ST-Link backend to use",
+	 .usage = "usb | tcp [port]",
+	},
 	 {
 	 .name = "hla_command",
 	 .handler = &interface_handle_hla_command,

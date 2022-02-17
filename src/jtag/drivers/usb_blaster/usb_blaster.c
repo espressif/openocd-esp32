@@ -77,6 +77,7 @@
 #include <jtag/interface.h>
 #include <jtag/commands.h>
 #include <helper/time_support.h>
+#include <helper/replacements.h>
 #include "ublast_access.h"
 
 /* system includes */
@@ -118,7 +119,6 @@ struct ublast_info {
 
 	char *lowlevel_name;
 	struct ublast_lowlevel *drv;
-	char *ublast_device_desc;
 	uint16_t ublast_vid, ublast_pid;
 	uint16_t ublast_vid_uninit, ublast_pid_uninit;
 	int flags;
@@ -139,7 +139,7 @@ static struct ublast_info info = {
 };
 
 /*
- * Available lowlevel drivers (FTDI, FTD2xx, ...)
+ * Available lowlevel drivers (FTDI, libusb, ...)
  */
 struct drvs_map {
 	char *name;
@@ -560,8 +560,8 @@ static int ublast_read_byteshifted_tdos(uint8_t *buf, int nb_bytes)
  *  - first bit is stored in byte0, bit0 (LSB)
  *  - second bit is stored in byte0, bit 1
  *  ...
- *  - eight bit is sotred in byte0, bit 7
- *  - ninth bit is sotred in byte1, bit 0
+ *  - eight bit is stored in byte0, bit 7
+ *  - ninth bit is stored in byte1, bit 0
  *  - etc ...
  *
  * Returns ERROR_OK if OK, ERROR_xxx if a read error occurred
@@ -787,7 +787,7 @@ static int ublast_execute_queue(void)
 		ublast_initial_wipeout();
 	}
 
-	for (cmd = jtag_command_queue; ret == ERROR_OK && cmd != NULL;
+	for (cmd = jtag_command_queue; ret == ERROR_OK && cmd;
 	     cmd = cmd->next) {
 		switch (cmd->type) {
 		case JTAG_RESET:
@@ -873,7 +873,6 @@ static int ublast_init(void)
 	info.drv->ublast_pid = info.ublast_pid;
 	info.drv->ublast_vid_uninit = info.ublast_vid_uninit;
 	info.drv->ublast_pid_uninit = info.ublast_pid_uninit;
-	info.drv->ublast_device_desc = info.ublast_device_desc;
 	info.drv->firmware_path = info.firmware_path;
 
 	info.flags |= info.drv->flags;
@@ -905,16 +904,6 @@ static int ublast_quit(void)
 
 	ublast_buf_write(&byte0, 1, &retlen);
 	return info.drv->close(info.drv);
-}
-
-COMMAND_HANDLER(ublast_handle_device_desc_command)
-{
-	if (CMD_ARGC != 1)
-		return ERROR_COMMAND_SYNTAX_ERROR;
-
-	info.ublast_device_desc = strdup(CMD_ARGV[0]);
-
-	return ERROR_OK;
 }
 
 COMMAND_HANDLER(ublast_handle_vid_pid_command)
@@ -1029,16 +1018,9 @@ COMMAND_HANDLER(ublast_firmware_command)
 }
 
 
-static const struct command_registration ublast_command_handlers[] = {
+static const struct command_registration ublast_subcommand_handlers[] = {
 	{
-		.name = "usb_blaster_device_desc",
-		.handler = ublast_handle_device_desc_command,
-		.mode = COMMAND_CONFIG,
-		.help = "set the USB device description of the USB-Blaster",
-		.usage = "description-string",
-	},
-	{
-		.name = "usb_blaster_vid_pid",
+		.name = "vid_pid",
 		.handler = ublast_handle_vid_pid_command,
 		.mode = COMMAND_CONFIG,
 		.help = "the vendor ID and product ID of the USB-Blaster and "
@@ -1047,25 +1029,36 @@ static const struct command_registration ublast_command_handlers[] = {
 		.usage = "vid pid vid_uninit pid_uninit",
 	},
 	{
-		.name = "usb_blaster_lowlevel_driver",
+		.name = "lowlevel_driver",
 		.handler = ublast_handle_lowlevel_drv_command,
 		.mode = COMMAND_CONFIG,
 		.help = "set the lowlevel access for the USB Blaster (ftdi, ublast2)",
 		.usage = "(ftdi|ublast2)",
 	},
 	{
-		.name = "usb_blaster_pin",
+		.name = "pin",
 		.handler = ublast_handle_pin_command,
 		.mode = COMMAND_ANY,
 		.help = "show or set pin state for the unused GPIO pins",
 		.usage = "(pin6|pin8) (0|1|s|t)",
 	},
 		{
-		.name = "usb_blaster_firmware",
+		.name = "firmware",
 		.handler = &ublast_firmware_command,
 		.mode = COMMAND_CONFIG,
 		.help = "configure the USB-Blaster II firmware location",
 		.usage = "path/to/blaster_xxxx.hex",
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
+static const struct command_registration ublast_command_handlers[] = {
+	{
+		.name = "usb_blaster",
+		.mode = COMMAND_ANY,
+		.help = "perform usb_blaster management",
+		.chain = ublast_subcommand_handlers,
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };

@@ -95,6 +95,11 @@ struct tcb {
 	uint8_t dat[512];
 };
 
+static struct {
+	uint32_t addr;
+	uint32_t prio;
+} g_tasklist[TASK_QUEUE_NUM];
+
 static char *task_state_str[] = {
 	"INVALID",
 	"PENDING",
@@ -125,19 +130,11 @@ static int name_offset = NAME;
 static int xcpreg_offset = XCPREG;
 static int name_size = NAME_SIZE;
 
-static const struct nuttx_params nuttx_params_list[] = {
-	{
-		.target_name      = "cortex_m",
-		.select_stackinfo = cortexm_select_stackinfo,
-	},
-	{
-		.target_name      = "hla_target",
-		.select_stackinfo = cortexm_select_stackinfo,
-	},
-	{
-		.target_name      = "esp32",
-		.select_stackinfo = esp32_select_stackinfo,
-	},
+static const struct rtos_register_stacking nuttx_stacking_cortex_m = {
+	.stack_registers_size = 0x48,
+	.stack_growth_direction = -1,
+	.num_output_registers = 17,
+	.register_offsets = nuttx_stack_offsets_cortex_m
 };
 
 struct rtos_type nuttx_rtos = {
@@ -149,11 +146,12 @@ struct rtos_type nuttx_rtos = {
 	.get_symbol_list_to_lookup = nuttx_get_symbol_list_to_lookup,
 };
 
-static bool cortexm_hasfpu(struct target *target)
-{
-	uint32_t cpacr;
-	int retval;
-	struct armv7m_common *armv7m_target = target_to_armv7m(target);
+static const struct rtos_register_stacking nuttx_stacking_cortex_m_fpu = {
+	.stack_registers_size = 0x8c,
+	.stack_growth_direction = -1,
+	.num_output_registers = 17,
+	.register_offsets = nuttx_stack_offsets_cortex_m_fpu
+};
 
 	if (!is_armv7m(armv7m_target) || armv7m_target->fp_feature != FPv4_SP)
 		return false;
@@ -252,9 +250,9 @@ retok:
 
 static bool nuttx_detect_rtos(struct target *target)
 {
-	if ((target->rtos->symbols != NULL) &&
-		(target->rtos->symbols[0].address != 0) &&
-		(target->rtos->symbols[1].address != 0))
+	if ((target->rtos->symbols) &&
+			(target->rtos->symbols[0].address != 0) &&
+			(target->rtos->symbols[1].address != 0)) {
 		return true;
 	return false;
 }
@@ -296,7 +294,7 @@ static int nuttx_update_threads(struct rtos *rtos)
 	uint32_t i;
 	uint8_t state;
 
-	if (rtos->symbols == NULL) {
+	if (!rtos->symbols) {
 		LOG_ERROR("No symbols for NuttX");
 		return -3;
 	}
@@ -348,7 +346,7 @@ static int nuttx_update_threads(struct rtos *rtos)
 
 			state = tcb.dat[state_offset - 8];
 			thread->extra_info_str = NULL;
-			if (state < sizeof(task_state_str)/sizeof(char *)) {
+			if (state < ARRAY_SIZE(task_state_str)) {
 				thread->extra_info_str = malloc(256);
 				snprintf(thread->extra_info_str, 256, "pid:%d, %s",
 					tcb.dat[pid_offset - 8] |
@@ -382,8 +380,19 @@ static int nuttx_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 	const struct nuttx_params *priv;
 	const struct rtos_register_stacking *stacking;
 
-	if (rtos == NULL)
-		return -1;
+	/* Check for armv7m with *enabled* FPU, i.e. a Cortex-M4F */
+	bool cm4_fpu_enabled = false;
+	struct armv7m_common *armv7m_target = target_to_armv7m(rtos->target);
+	if (is_armv7m(armv7m_target)) {
+		if (armv7m_target->fp_feature == FPV4_SP) {
+			/* Found ARM v7m target which includes a FPU */
+			uint32_t cpacr;
+
+			retval = target_read_u32(rtos->target, FPU_CPACR, &cpacr);
+			if (retval != ERROR_OK) {
+				LOG_ERROR("Could not read CPACR register to check FPU state");
+				return -1;
+			}
 
 	priv = (const struct nuttx_params *)rtos->rtos_specific_params;
 
@@ -398,15 +407,24 @@ static int nuttx_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 			(uint32_t)thread_id + xcpreg_offset, reg_list, num_regs);
 }
 
-static int nuttx_get_symbol_list_to_lookup(symbol_table_elem_t *symbol_list[])
+static int nuttx_get_symbol_list_to_lookup(struct symbol_table_elem *symbol_list[])
 {
 	unsigned int i;
 
-	*symbol_list = (symbol_table_elem_t *) calloc(1,
-			sizeof(symbol_table_elem_t) * ARRAY_SIZE(nuttx_symbol_list));
+	*symbol_list = (struct symbol_table_elem *) calloc(1,
+		sizeof(struct symbol_table_elem) * ARRAY_SIZE(nuttx_symbol_list));
 
 	for (i = 0; i < ARRAY_SIZE(nuttx_symbol_list); i++)
 		(*symbol_list)[i].symbol_name = nuttx_symbol_list[i];
 
 	return 0;
 }
+
+struct rtos_type nuttx_rtos = {
+	.name = "nuttx",
+	.detect_rtos = nuttx_detect_rtos,
+	.create = nuttx_create,
+	.update_threads = nuttx_update_threads,
+	.get_thread_reg_list = nuttx_get_thread_reg_list,
+	.get_symbol_list_to_lookup = nuttx_get_symbol_list_to_lookup,
+};
