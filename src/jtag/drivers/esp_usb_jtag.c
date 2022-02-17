@@ -25,10 +25,10 @@
 #include "windows.h"
 #endif
 
+#include <jtag/adapter.h>
 #include <jtag/interface.h>
 #include <helper/time_support.h>
 #include "bitq.h"
-#include "jtag_usb_common.h"
 #include "libusb_helper.h"
 
 #define __packed __attribute__((packed))
@@ -657,7 +657,7 @@ static int esp_usb_jtag_init(void)
 	bitq_interface->in_rdy= esp_usb_jtag_in_rdy;
 	bitq_interface->in= esp_usb_jtag_in;
 
-	int r= jtag_libusb_open(vids, pids, esp_usb_jtag_serial, &priv->usb_device, NULL);
+	int r= jtag_libusb_open(vids, pids, &priv->usb_device, NULL);
 	if (r != ERROR_OK) {
 		LOG_ERROR("esp_usb_jtag: could not find or open device!");
 		goto out;

@@ -48,5 +48,4 @@ int esp_riscv_flash_init(struct esp_riscv_flash_bank *esp_info, uint32_t sec_sz,
 	return esp_flash_init(&esp_info->esp, sec_sz, run_func_image, is_irom_address,
 		is_drom_address, get_stub, &s_esp_riscv_flash_apptrace_hw,
 		&riscv_algo_hw);
-
 }

@@ -205,15 +205,6 @@ enum swd_special_seq {
 	DORMANT_TO_JTAG,
 };
 
-/* FIXME: not SWD specific; should be renamed, e.g. adiv5_special_seq */
-enum swd_special_seq {
-	LINE_RESET,
-	JTAG_TO_SWD,
-	SWD_TO_JTAG,
-	SWD_TO_DORMANT,
-	DORMANT_TO_SWD,
-};
-
 /**
  * This represents an ARM Debug Interface (v5) Access Port (AP).
  * Most common is a MEM-AP, for memory access.
@@ -441,21 +432,6 @@ static inline int dap_send_sequence(struct adiv5_dap *dap,
 		enum swd_special_seq seq)
 {
 	assert(dap->ops);
-	return dap->ops->send_sequence(dap, seq);
-}
-
-/**
- * Send an adi-v5 sequence to the DAP.
- *
- * @param dap The DAP used for reading.
- * @param seq The sequence to send.
- *
- * @return ERROR_OK for success, else a fault code.
- */
-static inline int dap_send_sequence(struct adiv5_dap *dap,
-		enum swd_special_seq seq)
-{
-	assert(dap->ops != NULL);
 	return dap->ops->send_sequence(dap, seq);
 }
 
@@ -704,15 +680,5 @@ struct adiv5_mem_ap_spot {
 extern int adiv5_mem_ap_spot_init(struct adiv5_mem_ap_spot *p);
 extern int adiv5_jim_mem_ap_spot_configure(struct adiv5_mem_ap_spot *cfg,
 		struct jim_getopt_info *goi);
-
-struct adiv5_mem_ap_spot {
-	struct adiv5_dap *dap;
-	int ap_num;
-	uint32_t base;
-};
-
-extern int adiv5_mem_ap_spot_init(struct adiv5_mem_ap_spot *p);
-extern int adiv5_jim_mem_ap_spot_configure(struct adiv5_mem_ap_spot *cfg,
-		Jim_GetOptInfo *goi);
 
 #endif /* OPENOCD_TARGET_ARM_ADI_V5_H */

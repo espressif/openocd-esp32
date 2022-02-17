@@ -33,6 +33,9 @@ struct esp_riscv_common {
 	struct esp_common esp;
 	struct esp_riscv_apptrace_info apptrace;
 	struct esp_semihost_ops *semi_ops;
+	/* TODO-UPS can be in struct riscv_algorithm ? */
+	uint64_t saved_registers[RISCV_MAX_REGISTERS];
+	bool valid_saved_registers[RISCV_MAX_REGISTERS];
 };
 
 static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *target)
@@ -40,17 +43,14 @@ static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *
 	return target->arch_info;
 }
 
-static inline int esp_riscv_init_target_info(struct command_context *cmd_ctx, struct target *target,
+static inline int esp_riscv_init_arch_info(struct command_context *cmd_ctx, struct target *target,
 	struct esp_riscv_common *esp_riscv, int (*on_reset)(struct target *),
 	const struct esp_flash_breakpoint_ops *flash_brps_ops,
 	const struct esp_semihost_ops *semi_ops)
 {
-	int ret = riscv_init_target_info(cmd_ctx, target, &esp_riscv->riscv);
-	if (ret != ERROR_OK)
-		return ret;
 	esp_riscv->riscv.on_reset = on_reset;
 
-	ret = esp_common_init(&esp_riscv->esp, flash_brps_ops, &riscv_algo_hw);
+	int ret = esp_common_init(&esp_riscv->esp, flash_brps_ops, &riscv_algo_hw);
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -64,5 +64,19 @@ int esp_riscv_breakpoint_add(struct target *target, struct breakpoint *breakpoin
 int esp_riscv_breakpoint_remove(struct target *target, struct breakpoint *breakpoint);
 int esp_riscv_handle_target_event(struct target *target, enum target_event event,
 	void *priv);
+int esp_riscv_start_algorithm(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	target_addr_t entry_point, target_addr_t exit_point,
+	void *arch_info);
+int esp_riscv_wait_algorithm(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	target_addr_t exit_point, int timeout_ms,
+	void *arch_info);
+int esp_riscv_run_algorithm(struct target *target, int num_mem_params,
+	struct mem_param *mem_params, int num_reg_params,
+	struct reg_param *reg_params, target_addr_t entry_point,
+	target_addr_t exit_point, int timeout_ms, void *arch_info);
 
 #endif	/* _ESP_RISCV_H */

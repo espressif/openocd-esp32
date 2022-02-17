@@ -865,7 +865,6 @@ static const struct command_registration adapter_command_handlers[] = {
 		.usage = "",
 		.chain = adapter_usb_command_handlers,
 	},
-#endif /* MINIDRIVER */
 	{
 		.name = "assert",
 		.handler = handle_adapter_reset_de_assert,

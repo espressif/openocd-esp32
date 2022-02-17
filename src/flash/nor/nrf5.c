@@ -766,51 +766,6 @@ static int nrf5_get_ram_size(struct target *target, uint32_t *ram_size)
 static int nrf5_probe(struct flash_bank *bank)
 {
 	int res;
-	struct nrf5_info *chip;
-
-	/* UICR cannot be write protected so just bail out early */
-	if (bank->base == NRF5_UICR_BASE) {
-		LOG_ERROR("UICR page does not support protection");
-		return ERROR_FLASH_OPER_UNSUPPORTED;
-	}
-
-	res = nrf5_get_probed_chip_if_halted(bank, &chip);
-	if (res != ERROR_OK)
-		return res;
-
-	if (chip->features & NRF5_FEATURE_SERIES_51)
-		return nrf5_protect_clenr0(bank, set, first, last);
-
-	LOG_ERROR("Flash protection setting is not supported on this nRF5 device");
-	return ERROR_FLASH_OPER_UNSUPPORTED;
-}
-
-static bool nrf5_info_variant_to_str(uint32_t variant, char *bf)
-{
-	uint8_t b[4];
-
-	h_u32_to_be(b, variant);
-	if (isalnum(b[0]) && isalnum(b[1]) && isalnum(b[2]) && isalnum(b[3])) {
-		memcpy(bf, b, 4);
-		bf[4] = 0;
-		return true;
-	}
-
-	strcpy(bf, "xxxx");
-	return false;
-}
-
-static const char *nrf5_decode_info_package(uint32_t package)
-{
-	for (size_t i = 0; i < ARRAY_SIZE(nrf5_packages_table); i++) {
-		if (nrf5_packages_table[i].package == package)
-			return nrf5_packages_table[i].code;
-	}
-	return "xx";
-}
-
-static int nrf5_info(struct flash_bank *bank, char *buf, int buf_size)
-{
 	struct nrf5_bank *nbank = bank->driver_priv;
 	struct nrf5_info *chip = nbank->chip;
 	struct target *target = chip->target;
@@ -818,7 +773,7 @@ static int nrf5_info(struct flash_bank *bank, char *buf, int buf_size)
 	uint32_t configid;
 	res = target_read_u32(target, NRF5_FICR_CONFIGID, &configid);
 	if (res != ERROR_OK) {
-		LOG_DEBUG("Couldn't read FICR INFO.PART register");
+		LOG_ERROR("Couldn't read CONFIGID register");
 		return res;
 	}
 
@@ -839,12 +794,6 @@ static int nrf5_info(struct flash_bank *bank, char *buf, int buf_size)
 			chip->features = chip->spec->features;
 			break;
 		}
-		break;
-
-	default:
-		LOG_DEBUG("FICR INFO likely not implemented. Invalid PART value 0x%08"
-				PRIx32, chip->ficr_info.part);
-		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
 	if (chip->spec && chip->ficr_info_valid) {

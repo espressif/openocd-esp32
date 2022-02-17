@@ -96,9 +96,10 @@ FLASH_BANK_COMMAND_HANDLER(esp32c3_flash_bank_command)
 	return ERROR_OK;
 }
 
-static int esp32c3_get_info(struct flash_bank *bank, char *buf, int buf_size)
+static int esp32c3_get_info(struct flash_bank *bank, struct command_invocation *cmd)
 {
-	snprintf(buf, buf_size, "ESP32C3");
+	/* TODO: print some flash information */
+	command_print_sameline(cmd, "Flash driver: ESP32-C3\n");
 	return ERROR_OK;
 }
 

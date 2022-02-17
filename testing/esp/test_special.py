@@ -44,12 +44,12 @@ class DebuggerSpecialTestsImpl:
         regs = self.gdb.get_reg_names()
         i = 10
         for reg in regs:
-            if (len(reg) == 0):
+            if (len(reg) == 0 or reg == 'zero'):
                 continue
 
             # TODO: With the new gdb version (gdb9) privileged regs now can be set. So, break condition needs to be changed for each chip. 
             # eg. Now mmid is pass but it is failing at a0 for esp32
-            if reg == 'mmid' or reg == 'ustatus' or reg == 'q0':
+            if reg == 'mmid' or reg == 'mstatus' or reg == 'q0':
                 break
 
             # set to reasonable value, because GDB tries to read memory @ pc

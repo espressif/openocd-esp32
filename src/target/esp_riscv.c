@@ -24,7 +24,6 @@
 #include "semihosting_common.h"
 #include "esp_riscv.h"
 
-
 #define ESP_RISCV_APPTRACE_SYSNR    0x64
 #define ESP_RISCV_DEBUG_STUBS_SYSNR 0x65
 
@@ -32,7 +31,7 @@
 	do { \
 		(_e_) = buf_get_u32((uint8_t *)&(_e_), 0, 32); \
 		if ((_e_) == 0) { \
-			LOG_WARNING("No valid stub data entry found (0x%x)!", (uint32_t)(_e_)); \
+			LOG_WARNING("No valid stub data entry found (0x%x)!", (uint32_t)(_e_));	\
 		} \
 	} while (0)
 
@@ -40,7 +39,7 @@
 	do { \
 		(_e_) = buf_get_u32((uint8_t *)&(_e_), 0, 32); \
 		if ((_e_) == 0) { \
-			LOG_WARNING("No valid stub code entry found (0x%x)!", (uint32_t)(_e_)); \
+			LOG_WARNING("No valid stub code entry found (0x%x)!", (uint32_t)(_e_));	\
 		} \
 	} while (0)
 
@@ -63,8 +62,7 @@ int esp_riscv_semihosting(struct target *target)
 		res = esp_riscv_apptrace_info_init(target, semihosting->param, NULL);
 		if (res != ERROR_OK)
 			return res;
-	}
-	else if (semihosting->op == ESP_RISCV_DEBUG_STUBS_SYSNR) {
+	} else if (semihosting->op == ESP_RISCV_DEBUG_STUBS_SYSNR) {
 		res = esp_riscv_debug_stubs_info_init(target, semihosting->param);
 		if (res != ERROR_OK)
 			return res;
@@ -105,15 +103,14 @@ static int esp_riscv_debug_stubs_info_init(struct target *target,
 {
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 
-    LOG_INFO("%s: Detected debug stubs @ " TARGET_ADDR_FMT, target_name(target), vec_addr);
+	LOG_INFO("%s: Detected debug stubs @ " TARGET_ADDR_FMT, target_name(target), vec_addr);
 
-    memset(&esp_riscv->esp.dbg_stubs, 0, sizeof(esp_riscv->esp.dbg_stubs));
+	memset(&esp_riscv->esp.dbg_stubs, 0, sizeof(esp_riscv->esp.dbg_stubs));
 
 	esp_riscv->esp.dbg_stubs.base = vec_addr;
 	int res = esp_dbgstubs_table_read(target, &esp_riscv->esp.dbg_stubs);
-	if (res != ERROR_OK) {
+	if (res != ERROR_OK)
 		return res;
-	}
 	if (esp_riscv->esp.dbg_stubs.entries_count == 0)
 		return ERROR_OK;
 
@@ -142,10 +139,10 @@ int esp_riscv_breakpoint_add(struct target *target, struct breakpoint *breakpoin
 	int res = riscv_add_breakpoint(target, breakpoint);
 	if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && breakpoint->type == BKPT_HARD) {
 		/* For SMP target return OK if SW flash breakpoint is already set using another core;
-			GDB causes call to esp_flash_breakpoint_add() for every core, since it treats flash breakpoints as HW ones */
+		        GDB causes call to esp_flash_breakpoint_add() for every core, since it treats flash breakpoints as HW ones */
 		if (target->smp) {
 			struct target_list *curr;
-			foreach_smp_target(curr, target->head) {
+			foreach_smp_target(curr, target->smp_targets) {
 				esp_riscv = target_to_esp_riscv(curr->target);
 				if (esp_common_flash_breakpoint_exists(&esp_riscv->esp, breakpoint))
 					return ERROR_OK;
@@ -197,4 +194,230 @@ int esp_riscv_handle_target_event(struct target *target, enum target_event event
 			break;
 	}
 	return ERROR_OK;
+}
+
+int esp_riscv_start_algorithm(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	target_addr_t entry_point, target_addr_t exit_point,
+	void *arch_info)
+{
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	struct riscv_algorithm *algorithm_info = arch_info;
+	size_t max_saved_reg = algorithm_info ? algorithm_info->max_saved_reg : GDB_REGNO_XPR31;
+
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	/* Save registers */
+	for (uint32_t number = GDB_REGNO_ZERO+1;
+		number <= max_saved_reg && number < target->reg_cache->num_regs; number++) {
+		struct reg *r = &target->reg_cache->reg_list[number];
+
+		esp_riscv->valid_saved_registers[r->number] = r->exist;
+		if (!r->exist)
+			continue;
+
+		LOG_DEBUG("save %s", r->name);
+
+		if (r->size > 64) {
+			LOG_ERROR("Register %s is %d bits! Max 64-bits are supported.",
+				r->name,
+				r->size);
+			return ERROR_FAIL;
+		}
+
+		if (r->type->get(r) != ERROR_OK) {
+			LOG_ERROR("get(%s) failed", r->name);
+			r->exist = false;
+			return ERROR_FAIL;
+		}
+		esp_riscv->saved_registers[r->number] = buf_get_u64(r->value,
+			0,
+			r->size);
+	}
+
+	/* write mem params */
+	for (int i = 0; i < num_mem_params; i++) {
+		if (mem_params[i].direction != PARAM_IN) {
+			int retval = target_write_buffer(target, mem_params[i].address,
+				mem_params[i].size,
+				mem_params[i].value);
+			if (retval != ERROR_OK)
+				return retval;
+		}
+	}
+
+	for (int i = 0; i < num_reg_params; i++) {
+		LOG_DEBUG("set %s", reg_params[i].reg_name);
+		struct reg *r = register_get_by_name(target->reg_cache,
+			reg_params[i].reg_name,
+			false);
+		if (!r) {
+			LOG_ERROR("Couldn't find register named '%s'", reg_params[i].reg_name);
+			return ERROR_FAIL;
+		}
+
+		if (r->size != reg_params[i].size) {
+			LOG_ERROR("Register %s is %d bits instead of %d bits.",
+				reg_params[i].reg_name, r->size, reg_params[i].size);
+			return ERROR_FAIL;
+		}
+
+		if (r->number > GDB_REGNO_XPR31) {
+			LOG_ERROR("Only GPRs can be use as argument registers.");
+			return ERROR_FAIL;
+		}
+
+		if (reg_params[i].direction == PARAM_OUT || reg_params[i].direction ==
+			PARAM_IN_OUT) {
+			if (r->type->set(r, reg_params[i].value) != ERROR_OK) {
+				LOG_ERROR("set(%s) failed", reg_params[i].reg_name);
+				return ERROR_FAIL;
+			}
+		}
+	}
+
+	/* Disable Interrupts before attempting to run the algorithm. */
+	int retval = riscv_interrupts_disable(target,
+		MSTATUS_MIE | MSTATUS_HIE | MSTATUS_SIE | MSTATUS_UIE,
+		NULL);
+	if (retval != ERROR_OK)
+		return retval;
+
+	/* Run algorithm */
+	LOG_DEBUG("resume at 0x%" TARGET_PRIxADDR, entry_point);
+	return riscv_resume(target, 0, entry_point, 0, 1, true);
+}
+
+/* Algorithm must end with a software breakpoint instruction. */
+int esp_riscv_wait_algorithm(struct target *target,
+	int num_mem_params, struct mem_param *mem_params,
+	int num_reg_params, struct reg_param *reg_params,
+	target_addr_t exit_point, int timeout_ms,
+	void *arch_info)
+{
+	RISCV_INFO(info);
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	struct riscv_algorithm *algorithm_info = arch_info;
+	size_t max_saved_reg = algorithm_info ? algorithm_info->max_saved_reg : GDB_REGNO_XPR31;
+
+	int64_t start = timeval_ms();
+	while (target->state != TARGET_HALTED) {
+		LOG_DEBUG_IO("poll()");
+		int64_t now = timeval_ms();
+		if (now - start > timeout_ms) {
+			LOG_ERROR("Algorithm timed out after %" PRId64 " ms.", now - start);
+			riscv_halt(target);
+			riscv_openocd_poll(target);
+			enum gdb_regno regnums[] = {
+				GDB_REGNO_RA, GDB_REGNO_SP, GDB_REGNO_GP, GDB_REGNO_TP,
+				GDB_REGNO_T0, GDB_REGNO_T1, GDB_REGNO_T2, GDB_REGNO_FP,
+				GDB_REGNO_S1, GDB_REGNO_A0, GDB_REGNO_A1, GDB_REGNO_A2,
+				GDB_REGNO_A3, GDB_REGNO_A4, GDB_REGNO_A5, GDB_REGNO_A6,
+				GDB_REGNO_A7, GDB_REGNO_S2, GDB_REGNO_S3, GDB_REGNO_S4,
+				GDB_REGNO_S5, GDB_REGNO_S6, GDB_REGNO_S7, GDB_REGNO_S8,
+				GDB_REGNO_S9, GDB_REGNO_S10, GDB_REGNO_S11, GDB_REGNO_T3,
+				GDB_REGNO_T4, GDB_REGNO_T5, GDB_REGNO_T6,
+				GDB_REGNO_PC,
+				GDB_REGNO_MSTATUS, GDB_REGNO_MEPC, GDB_REGNO_MCAUSE,
+			};
+			for (unsigned i = 0; i < ARRAY_SIZE(regnums); i++) {
+				enum gdb_regno regno = regnums[i];
+				riscv_reg_t reg_value;
+				if (riscv_get_register(target, &reg_value, regno) != ERROR_OK)
+					break;
+				LOG_ERROR("%s = 0x%" PRIx64, gdb_regno_name(regno), reg_value);
+			}
+			return ERROR_TARGET_TIMEOUT;
+		}
+
+		int result = riscv_openocd_poll(target);
+		if (result != ERROR_OK)
+			return result;
+	}
+
+	/* The current hart id might have been changed in poll(). */
+	if (riscv_select_current_hart(target) != ERROR_OK)
+		return ERROR_FAIL;
+
+	struct reg *reg_pc = register_get_by_name(target->reg_cache, "pc", true);
+	if (reg_pc->type->get(reg_pc) != ERROR_OK)
+		return ERROR_FAIL;
+	uint64_t final_pc = buf_get_u64(reg_pc->value, 0, reg_pc->size);
+	if (exit_point && final_pc != exit_point) {
+		LOG_ERROR("PC ended up at 0x%" PRIx64 " instead of 0x%"
+			TARGET_PRIxADDR, final_pc, exit_point);
+		return ERROR_FAIL;
+	}
+
+	for (int i = 0; i < num_reg_params; i++) {
+		if (reg_params[i].direction == PARAM_IN ||
+			reg_params[i].direction == PARAM_IN_OUT) {
+			struct reg *r = register_get_by_name(target->reg_cache,
+				reg_params[i].reg_name,
+				false);
+			if (r->type->get(r) != ERROR_OK) {
+				LOG_ERROR("get(%s) failed", r->name);
+				return ERROR_FAIL;
+			}
+			buf_cpy(r->value, reg_params[i].value, reg_params[i].size);
+		}
+	}
+	/* Read memory values to mem_params */
+	LOG_DEBUG("Read mem params");
+	for (int i = 0; i < num_mem_params; i++) {
+		LOG_DEBUG("Check mem param @ " TARGET_ADDR_FMT, mem_params[i].address);
+		if (mem_params[i].direction != PARAM_OUT) {
+			LOG_DEBUG("Read mem param @ " TARGET_ADDR_FMT, mem_params[i].address);
+			int retval = target_read_buffer(target, mem_params[i].address,
+				mem_params[i].size,
+				mem_params[i].value);
+			if (retval != ERROR_OK)
+				return retval;
+		}
+	}
+
+	/* Restore registers */
+	for (uint32_t number = GDB_REGNO_ZERO+1;
+		number <= max_saved_reg && number < target->reg_cache->num_regs; number++) {
+		struct reg *r = &target->reg_cache->reg_list[number];
+
+		if (!esp_riscv->valid_saved_registers[r->number])
+			continue;
+
+		LOG_DEBUG("restore %s", r->name);
+		uint8_t buf[8];
+		buf_set_u64(buf, 0, info->xlen, esp_riscv->saved_registers[r->number]);
+		if (r->type->set(r, buf) != ERROR_OK) {
+			LOG_ERROR("set(%s) failed", r->name);
+			return ERROR_FAIL;
+		}
+	}
+	return ERROR_OK;
+}
+
+int esp_riscv_run_algorithm(struct target *target, int num_mem_params,
+	struct mem_param *mem_params, int num_reg_params,
+	struct reg_param *reg_params, target_addr_t entry_point,
+	target_addr_t exit_point, int timeout_ms, void *arch_info)
+{
+	int retval;
+
+	retval = esp_riscv_start_algorithm(target,
+		num_mem_params, mem_params,
+		num_reg_params, reg_params,
+		entry_point, exit_point,
+		arch_info);
+
+	if (retval == ERROR_OK)
+		retval = esp_riscv_wait_algorithm(target,
+			num_mem_params, mem_params,
+			num_reg_params, reg_params,
+			exit_point, timeout_ms,
+			arch_info);
+
+	return retval;
 }

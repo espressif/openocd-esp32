@@ -18,7 +18,7 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-#include "log.h"
+#include <helper/log.h>
 #include "esp_riscv.h"
 #include "esp_riscv_apptrace.h"
 
@@ -81,7 +81,7 @@ int esp_riscv_apptrace_info_init(struct target *target,
 	uint32_t mem_cfg_addr;
 
 	int res = target_read_u32(target,
-		ctrl_addr+sizeof(struct esp_apptrace_riscv_ctrl_regs),
+		ctrl_addr + sizeof(struct esp_apptrace_riscv_ctrl_regs),
 		&mem_cfg_addr);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to read control block @ "TARGET_ADDR_FMT "!", ctrl_addr);

@@ -76,7 +76,7 @@ proc show_mmr_bitfield { MSB LSB VAL FIELDNAME FIELDVALUES } {
 
 proc mmr_get_bit { ADDR BIT } {
 	set val [memread32 $ADDR]
-    set bit_val [expr $val & [expr 1 << $BIT]]
+    set bit_val [expr {$val & [expr {1 << $BIT}]}]
     return $bit_val
 }
 

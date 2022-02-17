@@ -100,3 +100,7 @@ tags
 GPATH
 GRTAGS
 GTAGS
+
+#gcov files
+*.gcda
+*.gcno

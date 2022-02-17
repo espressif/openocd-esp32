@@ -27,7 +27,7 @@
 #include "xtensa.h"
 #include "xtensa_algorithm.h"
 #include "register.h"
-#include "time_support.h"
+#include <helper/time_support.h>
 
 #define XT_WATCHPOINTS_NUM_MAX  2
 

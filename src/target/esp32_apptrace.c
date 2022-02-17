@@ -40,9 +40,9 @@
 #include <sys/ioctl.h>
 #endif
 
+#include <helper/list.h>
 #include "target.h"
 #include "target_type.h"
-#include "list.h"
 #include "smp.h"
 #include "xtensa_algorithm.h"
 #include "esp_xtensa.h"
@@ -120,6 +120,7 @@ struct esp32_gcov_cmd_data {
  * for now this hack works. */
 /* TODO: Currently for periods less then 1ms we loop in command handler until CTRL+C is pressed.
  *       Another trace data polling mechanism is necessary for small periods. */
+/* TODO: this is declared as static in upstream code. Erhan */
 extern int shutdown_openocd;
 
 static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
@@ -374,26 +375,35 @@ int esp32_apptrace_dest_cleanup(struct esp32_apptrace_dest dest[], int max_dests
 /*********************************************************************
 *                 Trace data blocks management API
 **********************************************************************/
-
 static void esp32_apptrace_blocks_pool_cleanup(struct esp32_apptrace_cmd_ctx *ctx)
 {
 	struct esp32_apptrace_block *cur;
-	struct hlist_node *pos, *tmp;
-	hlist_for_each_entry_safe(cur, pos, tmp, &ctx->free_trace_blocks, node) {
+	struct hlist_head *head = &ctx->free_trace_blocks;
+	struct hlist_node *tmp, *pos = head->first;
+
+	while (pos && ({ tmp = pos->next; 1; })) {
+		cur = hlist_entry(pos, struct esp32_apptrace_block, node);
 		if (cur) {
 			hlist_del(&cur->node);
 			if (cur->data)
 				free(cur->data);
 			free(cur);
 		}
+		pos = tmp;
 	}
-	hlist_for_each_entry_safe(cur, pos, tmp, &ctx->ready_trace_blocks, node) {
+
+	head = &ctx->ready_trace_blocks;
+	pos = head->first;
+
+	while (pos && ({ tmp = pos->next; 1; })) {
+		cur = hlist_entry(pos, struct esp32_apptrace_block, node);
 		if (cur) {
 			hlist_del(&cur->node);
 			if (cur->data)
 				free(cur->data);
 			free(cur);
 		}
+		pos = tmp;
 	}
 }
 
@@ -448,12 +458,14 @@ static struct esp32_apptrace_block *esp32_apptrace_ready_block_get(
 	struct esp32_apptrace_cmd_ctx *ctx)
 {
 	struct esp32_apptrace_block *block = NULL;
-
 	if (pthread_mutex_trylock(&ctx->trax_blocks_mux) == 0) {
 		if (!hlist_empty(&ctx->ready_trace_blocks)) {
-			struct hlist_node *tmp;
-			/* find to the last */
-			hlist_for_each_entry(block, tmp, &ctx->ready_trace_blocks, node);
+			struct hlist_head *head = &ctx->ready_trace_blocks;
+			struct hlist_node *pos = head->first;
+			while (pos) {
+				block = hlist_entry(pos, struct esp32_apptrace_block, node);
+				pos = pos->next;
+			}
 			/* remove it from ready list */
 			hlist_del(&block->node);
 		}
@@ -461,7 +473,6 @@ static struct esp32_apptrace_block *esp32_apptrace_ready_block_get(
 		if (res)
 			LOG_ERROR("Failed to unlock blocks pool (%d)!", res);
 	}
-
 	return block;
 }
 
@@ -535,7 +546,7 @@ int esp32_apptrace_cmd_ctx_init(struct target *target,
 		struct target *curr;
 		int i = 0;
 		cmd_ctx->cores_num = 0;
-		foreach_smp_target(head, target->head) {
+		foreach_smp_target(head, target->smp_targets) {
 			curr = head->target;
 			if (i == ESP32_APPTRACE_MAX_CORES_NUM) {
 				LOG_ERROR("Too many cores configured! Max %d cores are supported.",
@@ -1667,7 +1678,7 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 		struct target_list *head;
 		struct target *curr;
 		LOG_WARNING("Current target '%s' was not examined!", target_name(target));
-		foreach_smp_target(head, target->head) {
+		foreach_smp_target(head, target->smp_targets) {
 			curr = head->target;
 			if (target_was_examined(curr)) {
 				target = curr;
@@ -2341,7 +2352,7 @@ static struct esp_dbg_stubs *get_stubs_from_target(struct target **target)
 	if ((*target)->smp) {
 		struct target_list *head;
 		struct target *curr;
-		foreach_smp_target(head, (*target)->head) {
+		foreach_smp_target(head, (*target)->smp_targets) {
 			curr = head->target;
 			dbg_stubs = xtensa_arch ? &(target_to_esp_xtensa(curr)->esp.dbg_stubs) :
 				&(target_to_esp_riscv(curr)->esp.dbg_stubs);
@@ -2389,7 +2400,7 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 		struct target_list *head;
 		struct target *curr = target;
 		LOG_WARNING("Current target '%s' was not examined!", target_name(target));
-		foreach_smp_target(head, target->head) {
+		foreach_smp_target(head, target->smp_targets) {
 			curr = head->target;
 			if (target_was_examined(curr)) {
 				LOG_WARNING("Run command on target '%s'",

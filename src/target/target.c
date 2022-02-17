@@ -529,19 +529,6 @@ struct target *get_target(const char *id)
 	return NULL;
 }
 
-/* returns a amount of targets*/
-int get_targets_count()
-{
-	int result = 0;
-	struct target *target = all_targets;
-
-	while (target) {
-		target = target->next;
-		result++;
-	}
-	return result;
-}
-
 /* returns a pointer to the n-th configured target */
 struct target *get_target_by_num(int num)
 {
@@ -2060,7 +2047,7 @@ static void target_merge_working_areas(struct working_area_config *wa_cfg)
 static int alloc_working_area_try_do(struct target *target, struct working_area_config *wa_cfg, uint32_t size, struct working_area **area)
 {
 	/* Reevaluate working area address based on MMU state*/
-	if (!target->working_areas) {
+	if (!wa_cfg->areas) {
 		int retval;
 		int enabled;
 
@@ -2128,8 +2115,8 @@ static int alloc_working_area_try_do(struct target *target, struct working_area_
 	LOG_DEBUG("allocated new working area of %" PRIu32 " bytes at address " TARGET_ADDR_FMT,
 			  size, c->address);
 
-	if (target->backup_working_area) {
-		if (!c->backup) {
+	if (wa_cfg->backup) {
+		if (c->backup == NULL) {
 			c->backup = malloc(c->size);
 			if (!c->backup)
 				return ERROR_FAIL;
@@ -2186,7 +2173,7 @@ static int target_restore_working_area(struct target *target, struct working_are
 {
 	int retval = ERROR_OK;
 
-	if (target->backup_working_area && area->backup) {
+	if (wa_cfg->backup && area->backup) {
 		retval = target_write_memory(target, area->address, 4, area->size / 4, area->backup);
 		if (retval != ERROR_OK)
 			LOG_ERROR("failed to restore %" PRIu32 " bytes of working area at address " TARGET_ADDR_FMT,
@@ -2294,8 +2281,8 @@ static uint32_t get_working_area_avail_do(struct target *target, struct working_
 	struct working_area *c = wa_cfg->areas;
 	uint32_t max_size = 0;
 
-	if (!c)
-		return target->working_area_size;
+	if (c == NULL)
+		return wa_cfg->size;
 
 	while (c) {
 		if (c->free && max_size < c->size)
@@ -2336,6 +2323,7 @@ static void target_destroy(struct target *target)
 
 	target_free_all_working_areas(target);
 
+    //TODO-UPS -- create a patch
 	rtos_destroy(target);
 
 	/* release the targets SMP list */
@@ -2351,8 +2339,6 @@ static void target_destroy(struct target *target)
 			free(target->smp_targets);
 		target->smp = 0;
 	}
-
-	rtos_destroy(target);
 
 	free(target->gdb_port_override);
 	free(target->type);
@@ -5122,7 +5108,8 @@ no_params:
 		case TCFG_WORK_AREA_VIRT:
 		case TCFG_ALT_WORK_AREA_VIRT:
 			if (goi->isconfigure) {
-				target_free_all_working_areas(target);
+				target_free_all_working_areas_restore(target, n->value == TCFG_ALT_WORK_AREA_VIRT ?
+					&target->alt_working_area_cfg : &target->working_area_cfg, 1);
 				e = jim_getopt_wide(goi, &w);
 				if (e != JIM_OK)
 					return e;
@@ -5148,7 +5135,8 @@ no_params:
 		case TCFG_WORK_AREA_PHYS:
 		case TCFG_ALT_WORK_AREA_PHYS:
 			if (goi->isconfigure) {
-				target_free_all_working_areas(target);
+				target_free_all_working_areas_restore(target, n->value == TCFG_ALT_WORK_AREA_VIRT ?
+					&target->alt_working_area_cfg : &target->working_area_cfg, 1);
 				e = jim_getopt_wide(goi, &w);
 				if (e != JIM_OK)
 					return e;
@@ -5174,7 +5162,8 @@ no_params:
 		case TCFG_WORK_AREA_SIZE:
 		case TCFG_ALT_WORK_AREA_SIZE:
 			if (goi->isconfigure) {
-				target_free_all_working_areas(target);
+				target_free_all_working_areas_restore(target, n->value == TCFG_ALT_WORK_AREA_VIRT ?
+					&target->alt_working_area_cfg : &target->working_area_cfg, 1);
 				e = jim_getopt_wide(goi, &w);
 				if (e != JIM_OK)
 					return e;
@@ -5198,7 +5187,8 @@ no_params:
 		case TCFG_WORK_AREA_BACKUP:
 		case TCFG_ALT_WORK_AREA_BACKUP:
 			if (goi->isconfigure) {
-				target_free_all_working_areas(target);
+				target_free_all_working_areas_restore(target, n->value == TCFG_ALT_WORK_AREA_VIRT ?
+					&target->alt_working_area_cfg : &target->working_area_cfg, 1);
 				e = jim_getopt_wide(goi, &w);
 				if (e != JIM_OK)
 					return e;
@@ -5268,6 +5258,7 @@ no_params:
 				}
 
 				target_free_all_working_areas(target);
+				target_free_all_alt_working_areas(target);
 				e = jim_getopt_obj(goi, &o_t);
 				if (e != JIM_OK)
 					return e;
@@ -6155,10 +6146,14 @@ static int jim_target_smp(Jim_Interp *interp, int argc, Jim_Obj *const *argv)
 		target->smp = 1;
 		target->smp_targets = lh;
 	}
-	smp_group++;
 
-	if (target && target->rtos)
-		retval = rtos_smp_init(head->target);
+	if (target && target->rtos) {
+		//TODO-UPS patch for the upstream
+		foreach_smp_target(head, lh) {
+			retval = rtos_smp_init(head->target);  
+			break;
+		}
+	}
 
 	return retval;
 }
@@ -6867,6 +6862,7 @@ static const struct command_registration target_exec_command_handlers[] = {
 		.help = "Test the target's memory access functions",
 		.usage = "size",
 	},
+
 	COMMAND_REGISTRATION_DONE
 };
 static int target_register_user_commands(struct command_context *cmd_ctx)

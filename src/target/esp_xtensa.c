@@ -21,12 +21,12 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "register.h"
 #include "smp.h"
 #include "xtensa_algorithm.h"
 #include "esp_xtensa.h"
 #include "esp_xtensa_apptrace.h"
 #include "esp_xtensa_semihosting.h"
+#include "register.h"
 
 #define ESP_XTENSA_DBGSTUBS_UPDATE_DATA_ENTRY(_e_) \
 	do { \
@@ -219,7 +219,7 @@ int esp_xtensa_breakpoint_add(struct target *target, struct breakpoint *breakpoi
 		        GDB causes call to esp_flash_breakpoint_add() for every core, since it treats flash breakpoints as HW ones */
 		if (target->smp) {
 			struct target_list *curr;
-			foreach_smp_target(curr, target->head) {
+			foreach_smp_target(curr, target->smp_targets) {
 				esp_xtensa = target_to_esp_xtensa(curr->target);
 				if (esp_common_flash_breakpoint_exists(&esp_xtensa->esp, breakpoint))
 					return ERROR_OK;

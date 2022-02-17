@@ -473,17 +473,25 @@ bye:
 int watchpoint_add(struct target *target, target_addr_t address,
 		uint32_t length, enum watchpoint_rw rw, uint32_t value, uint32_t mask)
 {
+	int retval = ERROR_OK;
+
 	if (target->smp) {
 		struct target_list *head;
-
+		bool wp_set = false;
 		foreach_smp_target(head, target->smp_targets) {
 			struct target *curr = head->target;
-			int retval = watchpoint_add_internal(curr, address, length, rw, value, mask);
-			if (retval != ERROR_OK)
-				return retval;
+			if (target_was_examined(curr)) {
+				retval = watchpoint_add_internal(curr, address, length, rw, value, mask);
+				if (retval != ERROR_OK)
+					return retval;
+				wp_set = true;
+			}
 		}
-
-		return ERROR_OK;
+		if (!wp_set) {
+			LOG_ERROR("Failed to find any alive core to set watchpoint!");
+			return ERROR_FAIL;
+		}
+		return retval;
 	} else {
 		return watchpoint_add_internal(target, address, length, rw, value,
 				mask);

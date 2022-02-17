@@ -161,13 +161,6 @@ static int avr_jtagprg_writeflashpage(struct avr_common *avr,
 			0x0b00 | ((addr >> 17) & 0xFF),
 			AVR_JTAG_REG_PROGRAMMING_COMMAND_LEN);
 
-	/* load extended high byte */
-	if (ext_addressing)
-		avr_jtag_senddat(avr->jtag_info.tap,
-			NULL,
-			0x0b00 | ((addr >> 17) & 0xFF),
-			AVR_JTAG_REG_ProgrammingCommand_Len);
-
 	/* load addr high byte */
 	avr_jtag_senddat(avr->jtag_info.tap,
 		NULL,

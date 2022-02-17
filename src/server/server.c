@@ -53,7 +53,7 @@ enum shutdown_reason {
 	SHUTDOWN_WITH_ERROR_CODE,	/* set by shutdown command; quit with non-zero return code */
 	SHUTDOWN_WITH_SIGNAL_CODE	/* set by sig_handler; exec shutdown then exit with signal as return code */
 };
-enum shutdown_reason shutdown_openocd = CONTINUE_MAIN_LOOP;
+enum shutdown_reason shutdown_openocd = CONTINUE_MAIN_LOOP; //TODO: check this erhan. should be static
 
 /* store received signal to exit application by killing ourselves */
 static int last_signal;
@@ -211,8 +211,7 @@ int add_service(char *name,
 	new_connection_handler_t new_connection_handler,
 	input_handler_t input_handler,
 	connection_closed_handler_t connection_closed_handler,
-	void *priv,
-	struct service **new_service)
+	void *priv)
 {
 	struct service *c, **p;
 	struct hostent *hp;
@@ -347,10 +346,6 @@ int add_service(char *name,
 	for (p = &services; *p; p = &(*p)->next)
 		;
 	*p = c;
-
-	/* if new_service is not NULL, return the created service into it */
-	if (new_service)
-		*new_service = c;
 
 	return ERROR_OK;
 }

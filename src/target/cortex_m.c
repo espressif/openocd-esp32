@@ -1985,8 +1985,6 @@ void cortex_m_deinit_target(struct target *target)
 {
 	struct cortex_m_common *cortex_m = target_to_cm(target);
 
-	armv7m_trace_tpiu_exit(target);
-
 	free(cortex_m->fp_comparator_list);
 
 	cortex_m_dwt_free(target);
@@ -2391,19 +2389,6 @@ int cortex_m_examine(struct target *target)
 
 		if (!(cortex_m->dcb_dhcsr & C_DEBUGEN)) {
 			/* Enable debug requests */
-			uint32_t dhcsr = (cortex_m->dcb_dhcsr | C_DEBUGEN) & ~(C_HALT | C_STEP | C_MASKINTS);
-
-			retval = target_write_u32(target, DCB_DHCSR, DBGKEY | (dhcsr & 0x0000FFFFUL));
-			if (retval != ERROR_OK)
-				return retval;
-			cortex_m->dcb_dhcsr = dhcsr;
-		}
-
-		/* Enable debug requests */
-		retval = target_read_u32(target, DCB_DHCSR, &cortex_m->dcb_dhcsr);
-		if (retval != ERROR_OK)
-			return retval;
-		if (!(cortex_m->dcb_dhcsr & C_DEBUGEN)) {
 			uint32_t dhcsr = (cortex_m->dcb_dhcsr | C_DEBUGEN) & ~(C_HALT | C_STEP | C_MASKINTS);
 
 			retval = target_write_u32(target, DCB_DHCSR, DBGKEY | (dhcsr & 0x0000FFFFUL));

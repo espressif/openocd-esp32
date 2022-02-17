@@ -1358,7 +1358,7 @@ static int stm32l4_write_block(struct flash_bank *bank, const uint8_t *buffer,
 	struct working_area *write_algorithm;
 	struct working_area *source;
 	uint32_t address = bank->base + offset;
-	struct reg_param reg_params[6];
+	struct reg_param reg_params[5];
 	struct armv7m_algorithm armv7m_info;
 	int retval = ERROR_OK;
 
@@ -1470,7 +1470,6 @@ static int stm32l4_write_block(struct flash_bank *bank, const uint8_t *buffer,
 	destroy_reg_param(&reg_params[2]);
 	destroy_reg_param(&reg_params[3]);
 	destroy_reg_param(&reg_params[4]);
-	destroy_reg_param(&reg_params[5]);
 
 	return retval;
 }
@@ -1798,16 +1797,6 @@ static int stm32l4_probe(struct flash_bank *bank)
 		return ERROR_FAIL;
 	}
 
-	part_info = stm32l4_info->part_info;
-	stm32l4_info->flash_regs = stm32l4_info->part_info->default_flash_regs;
-
-	char device_info[1024];
-	retval = bank->driver->info(bank, device_info, sizeof(device_info));
-	if (retval != ERROR_OK)
-		return retval;
-
-	LOG_INFO("device idcode = 0x%08" PRIx32 " (%s)", stm32l4_info->idcode, device_info);
-
 	/* get flash size from target. */
 	retval = target_read_u16(target, part_info->fsize_addr, &flash_size_kb);
 
@@ -1833,9 +1822,6 @@ static int stm32l4_probe(struct flash_bank *bank)
 	assert((flash_size_kb != 0xffff) && flash_size_kb);
 
 	const bool is_max_flash_size = flash_size_kb == stm32l4_info->part_info->max_flash_size_kb;
-
-	stm32l4_info->bank1_sectors = 0;
-	stm32l4_info->hole_sectors = 0;
 
 	stm32l4_info->bank1_sectors = 0;
 	stm32l4_info->hole_sectors = 0;

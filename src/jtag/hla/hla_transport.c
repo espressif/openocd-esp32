@@ -77,15 +77,6 @@ static const struct command_registration hl_transport_jtag_subcommand_handlers[]
 	 "['-expected_id' number]",
 	 },
 	{
-	 .name = "newtap",
-	 .mode = COMMAND_CONFIG,
-	 .jim_handler = jim_hl_newtap,
-	 .help = "Create a new TAP instance named basename.tap_type, "
-	 "and appends it to the scan chain.",
-	 .usage = "basename tap_type '-irlen' count "
-	 "['-expected_id' number] ",
-	 },
-	{
 	 .name = "init",
 	 .mode = COMMAND_ANY,
 	 .handler = hl_transport_jtag_command,

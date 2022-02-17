@@ -57,9 +57,9 @@ enum riscv_halt_reason {
 };
 
 enum riscv_isrmasking_mode {
-	RISCV_ISRMASK_AUTO,
+	/* RISCV_ISRMASK_AUTO,	*/ /* not supported yet */
 	RISCV_ISRMASK_OFF,
-	RISCV_ISRMASK_ON,
+	/* RISCV_ISRMASK_ON,	*/ /* not supported yet */
 	RISCV_ISRMASK_STEPONLY,
 };
 
@@ -142,6 +142,8 @@ typedef struct {
 	/* This target was selected using hasel. */
 	bool selected;
 
+	enum riscv_isrmasking_mode isrmask_mode;
+
 	/* Helper functions that target the various RISC-V debug spec
 	 * implementations. */
 	int (*get_register)(struct target *target, riscv_reg_t *value, int regid);
@@ -157,6 +159,12 @@ typedef struct {
 	int (*resume_go)(struct target *target);
 	int (*step_current_hart)(struct target *target);
 	int (*on_halt)(struct target *target);
+
+	/* Indicates that target was reset. 
+	 * Currently used by Espressif to enable ebreaks upon target reset 
+	 */
+	int (*on_reset)(struct target *target);
+
 	/* Get this target as ready as possible to resume, without actually
 	 * resuming. */
 	int (*resume_prep)(struct target *target);
@@ -262,11 +270,6 @@ extern int riscv_command_timeout_sec;
 
 /* Wall-clock timeout after reset. Settable via RISC-V Target commands.*/
 extern int riscv_reset_timeout_sec;
-
-extern bool riscv_enable_virtual;
-extern bool riscv_ebreakm;
-extern bool riscv_ebreaks;
-extern bool riscv_ebreaku;
 
 extern bool riscv_enable_virtual;
 extern bool riscv_ebreakm;
@@ -405,5 +408,8 @@ void riscv_add_bscan_tunneled_scan(struct target *target, struct scan_field *fie
 
 int riscv_read_by_any_size(struct target *target, target_addr_t address, uint32_t size, uint8_t *buffer);
 int riscv_write_by_any_size(struct target *target, target_addr_t address, uint32_t size, uint8_t *buffer);
+
+int riscv_interrupts_disable(struct target *target, uint64_t ie_mask, uint64_t *old_mstatus);
+int riscv_interrupts_restore(struct target *target, uint64_t old_mstatus);
 
 #endif

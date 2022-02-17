@@ -171,15 +171,10 @@ struct target {
 	struct target_event_action *event_action;
 
 	bool reset_halt;						/* attempt resetting the CPU into the halted mode? */
-	target_addr_t working_area;				/* working area (initialised RAM). Evaluated
-										 * upon first allocation from virtual/physical address. */
-	bool working_area_virt_spec;		/* virtual address specified? */
-	target_addr_t working_area_virt;			/* virtual address */
-	bool working_area_phys_spec;		/* physical address specified? */
-	target_addr_t working_area_phys;			/* physical address */
-	uint32_t working_area_size;			/* size in bytes */
-	uint32_t backup_working_area;		/* whether the content of the working area has to be preserved */
-	struct working_area *working_areas;/* list of allocated working areas */
+	
+	struct working_area_config	working_area_cfg;
+	struct working_area_config	alt_working_area_cfg;
+
 	enum target_debug_reason debug_reason;/* reason why the target entered debug state */
 	enum target_endianness endianness;	/* target endianness */
 	/* also see: target_state_name() */
@@ -362,12 +357,6 @@ struct target_timer_callback {
 	struct target_timer_callback *next;
 };
 
-struct target_exit_callback {
-	struct list_head list;
-	void *priv;
-	int (*callback)(struct target *target, void *priv);
-};
-
 struct target_memory_check_block {
 	target_addr_t address;
 	uint32_t size;
@@ -447,7 +436,6 @@ struct target *get_target_by_num(int num);
 struct target *get_current_target(struct command_context *cmd_ctx);
 struct target *get_current_target_or_null(struct command_context *cmd_ctx);
 struct target *get_target(const char *id);
-int get_targets_count(void);
 
 /**
  * Get the target type name.
@@ -758,6 +746,8 @@ int target_alloc_alt_working_area(struct target *target,
  * and have a fallback to another behaviour(slower?).
  */
 int target_alloc_working_area_try(struct target *target,
+		uint32_t size, struct working_area **area);
+int target_alloc_alt_working_area_try(struct target *target,
 		uint32_t size, struct working_area **area);
 /**
  * Free a working area.

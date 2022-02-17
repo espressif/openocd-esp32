@@ -24,7 +24,7 @@
 #define OPENOCD_XTENSA_SEMIHOSTING_COMMON_H
 
 #include "target.h"
-#include "command.h"
+#include <helper/command.h> 
 #include "xtensa.h"
 #include "semihosting_common.h"
 

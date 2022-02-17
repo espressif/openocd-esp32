@@ -114,7 +114,7 @@ static void os_free(struct target *target)
 	/* For ESP chips there is one rtos instance for both target */
 	if (target->smp) {
 		struct target_list *pos;
-		foreach_smp_target(pos, target->head) {
+		foreach_smp_target(pos, target->smp_targets) {
 			pos->target->rtos = NULL;
 		}
 	} else {

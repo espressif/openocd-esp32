@@ -1533,7 +1533,7 @@
 [12][0x0f - 1] = "Shenzhen Monarch Memory Technology",
 [12][0x10 - 1] = "Reliance Memory Inc",
 [12][0x11 - 1] = "Jesis",
-[12][0x12 - 1] = "Espressif Systems (Shanghai) Co Ltd",
+[12][0x12 - 1] = "Espressif Systems",
 [12][0x13 - 1] = "Shenzhen Sati Smart Technology Co Ltd",
 [12][0x14 - 1] = "NeuMem Co Ltd",
 [12][0x15 - 1] = "Lifelong",

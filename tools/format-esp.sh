@@ -22,6 +22,7 @@
 ./tools/uncrustify1.sh src/target/esp32_sysview.c
 ./tools/uncrustify1.sh src/target/esp.h
 ./tools/uncrustify1.sh src/target/esp_xtensa.h
+./tools/uncrustify1.sh src/target/esp_riscv.c
 ./tools/uncrustify1.sh src/target/esp_riscv.h
 ./tools/uncrustify1.sh src/target/esp_xtensa_apptrace.h
 ./tools/uncrustify1.sh src/target/esp_riscv_apptrace.h
