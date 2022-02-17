@@ -18,19 +18,26 @@
 #ifndef OPENOCD_JTAG_SWD_H
 #define OPENOCD_JTAG_SWD_H
 
+#include <helper/log.h>
 #include <target/arm_adi_v5.h>
 
 /* Bits in SWD command packets, written from host to target
  * first bit on the wire is START
  */
 #define SWD_CMD_START	(1 << 0)	/* always set */
-#define SWD_CMD_APnDP	(1 << 1)	/* set only for AP access */
-#define SWD_CMD_RnW	(1 << 2)		/* set only for read access */
+#define SWD_CMD_APNDP	(1 << 1)	/* set only for AP access */
+#define SWD_CMD_RNW	(1 << 2)		/* set only for read access */
 #define SWD_CMD_A32	(3 << 3)		/* bits A[3:2] of register addr */
 #define SWD_CMD_PARITY	(1 << 5)	/* parity of APnDP|RnW|A32 */
 #define SWD_CMD_STOP	(0 << 6)	/* always clear for synch SWD */
 #define SWD_CMD_PARK	(1 << 7)	/* driven high by host */
 /* followed by TRN, 3-bits of ACK, TRN */
+
+/*
+ * The SWD subsystem error codes
+ */
+#define ERROR_SWD_FAIL	(-400)	/** protocol or parity error */
+#define ERROR_SWD_FAULT	(-401)	/** device returned FAULT in ACK field */
 
 /**
  * Construct a "cmd" byte, in lSB bit order, which swd_driver.read_reg()
@@ -38,8 +45,8 @@
  */
 static inline uint8_t swd_cmd(bool is_read, bool is_ap, uint8_t regnum)
 {
-	uint8_t cmd = (is_ap ? SWD_CMD_APnDP : 0)
-		| (is_read ? SWD_CMD_RnW : 0)
+	uint8_t cmd = (is_ap ? SWD_CMD_APNDP : 0)
+		| (is_read ? SWD_CMD_RNW : 0)
 		| ((regnum & 0xc) << 1);
 
 	/* 8 cmd bits 4:1 may be set */
@@ -52,6 +59,40 @@ static inline uint8_t swd_cmd(bool is_read, bool is_ap, uint8_t regnum)
 }
 
 /* SWD_ACK_* bits are defined in <target/arm_adi_v5.h> */
+
+/**
+ * Test if we can rely on ACK returned by SWD command
+ *
+ * @param cmd Byte constructed by swd_cmd(), START, STOP and TRN are filtered off
+ * @returns true if ACK should be checked, false if should be ignored
+ */
+static inline bool swd_cmd_returns_ack(uint8_t cmd)
+{
+	uint8_t base_cmd = cmd & (SWD_CMD_APNDP | SWD_CMD_RNW | SWD_CMD_A32);
+
+	/* DPv2 does not reply to DP_TARGETSEL write cmd */
+	return base_cmd != swd_cmd(false, false, DP_TARGETSEL);
+}
+
+/**
+ * Convert SWD ACK value returned from DP to OpenOCD error code
+ *
+ * @param ack
+ * @returns error code
+ */
+static inline int swd_ack_to_error_code(uint8_t ack)
+{
+	switch (ack) {
+	case SWD_ACK_OK:
+		return ERROR_OK;
+	case SWD_ACK_WAIT:
+		return ERROR_WAIT;
+	case SWD_ACK_FAULT:
+		return ERROR_SWD_FAULT;
+	default:
+		return ERROR_SWD_FAIL;
+	}
+}
 
 /*
  * The following sequences are updated to

@@ -60,6 +60,7 @@ extern const struct flash_driver mdr_flash;
 extern const struct flash_driver mrvlqspi_flash;
 extern const struct flash_driver msp432_flash;
 extern const struct flash_driver niietcm4_flash;
+extern const struct flash_driver npcx_flash;
 extern const struct flash_driver nrf5_flash;
 extern const struct flash_driver nrf51_flash;
 extern const struct flash_driver numicro_flash;
@@ -71,6 +72,7 @@ extern const struct flash_driver psoc5lp_eeprom_flash;
 extern const struct flash_driver psoc5lp_nvl_flash;
 extern const struct flash_driver psoc6_flash;
 extern const struct flash_driver renesas_rpchf_flash;
+extern const struct flash_driver rp2040_flash;
 extern const struct flash_driver sh_qspi_flash;
 extern const struct flash_driver sim3x_flash;
 extern const struct flash_driver stellaris_flash;
@@ -137,6 +139,7 @@ static const struct flash_driver * const flash_drivers[] = {
 	&mrvlqspi_flash,
 	&msp432_flash,
 	&niietcm4_flash,
+	&npcx_flash,
 	&nrf5_flash,
 	&nrf51_flash,
 	&numicro_flash,
@@ -148,6 +151,7 @@ static const struct flash_driver * const flash_drivers[] = {
 	&psoc5lp_nvl_flash,
 	&psoc6_flash,
 	&renesas_rpchf_flash,
+	&rp2040_flash,
 	&sh_qspi_flash,
 	&sim3x_flash,
 	&stellaris_flash,

@@ -2,6 +2,8 @@
 # have all needed files, that a GNU package needs
 AUTOMAKE_OPTIONS = gnu 1.6
 
+.DELETE_ON_ERROR:
+
 # make sure we pass the correct jimtcl flags to distcheck
 DISTCHECK_CONFIGURE_FLAGS = --disable-install-jim
 
@@ -34,7 +36,6 @@ AM_CFLAGS = $(GCC_WARNINGS)
 AM_CPPFLAGS = $(HOST_CPPFLAGS)\
 			  -I$(top_srcdir)/src \
 			  -I$(top_builddir)/src \
-			  -I$(top_srcdir)/src/helper \
 			  -DPKGDATADIR=\"$(pkgdatadir)\" \
 			  -DBINDIR=\"$(bindir)\"
 
@@ -50,6 +51,15 @@ EXTRA_DIST += \
 	README.macOS \
 	$(EXTRA_DIST_NEWS) \
 	Doxyfile.in \
+	LICENSES/license-rules.txt \
+	LICENSES/preferred/BSD-1-Clause \
+	LICENSES/preferred/BSD-2-Clause \
+	LICENSES/preferred/BSD-3-Clause \
+	LICENSES/preferred/GFDL-1.2 \
+	LICENSES/preferred/gfdl-1.2.texi.readme \
+	LICENSES/preferred/GPL-2.0 \
+	LICENSES/preferred/MIT \
+	LICENSES/stand-alone/GPL-3.0 \
 	tools/logger.pl \
 	tools/rlink_make_speed_table \
 	tools/st7_dtc_as \

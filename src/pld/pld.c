@@ -22,6 +22,7 @@
 
 #include "pld.h"
 #include <helper/log.h>
+#include <helper/replacements.h>
 #include <helper/time_support.h>
 
 
@@ -66,9 +67,8 @@ COMMAND_HANDLER(handle_pld_device_command)
 			/* register pld specific commands */
 			int retval;
 			if (pld_drivers[i]->commands) {
-				retval = register_commands(CMD_CTX, NULL,
-						pld_drivers[i]->commands);
-				if (ERROR_OK != retval) {
+				retval = register_commands(CMD_CTX, NULL, pld_drivers[i]->commands);
+				if (retval != ERROR_OK) {
 					LOG_ERROR("couldn't register '%s' commands", CMD_ARGV[0]);
 					return ERROR_FAIL;
 				}
@@ -80,7 +80,7 @@ COMMAND_HANDLER(handle_pld_device_command)
 
 			retval = CALL_COMMAND_HANDLER(
 					pld_drivers[i]->pld_device_command, c);
-			if (ERROR_OK != retval) {
+			if (retval != ERROR_OK) {
 				LOG_ERROR("'%s' driver rejected pld device",
 					CMD_ARGV[0]);
 				free(c);
@@ -187,8 +187,7 @@ static int pld_init(struct command_context *cmd_ctx)
 	if (!pld_devices)
 		return ERROR_OK;
 
-	struct command *parent = command_find_in_context(cmd_ctx, "pld");
-	return register_commands(cmd_ctx, parent, pld_exec_command_handlers);
+	return register_commands(cmd_ctx, "pld", pld_exec_command_handlers);
 }
 
 COMMAND_HANDLER(handle_pld_init_command)

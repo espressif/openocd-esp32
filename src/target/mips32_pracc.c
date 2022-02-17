@@ -68,7 +68,9 @@
 #include "config.h"
 #endif
 
+#include <helper/align.h>
 #include <helper/time_support.h>
+#include <jtag/adapter.h>
 
 #include "mips32.h"
 #include "mips32_pracc.h"
@@ -317,7 +319,7 @@ void pracc_add(struct pracc_queue_info *ctx, uint32_t addr, uint32_t instr)
 	if (ctx->retval != ERROR_OK)	/* On previous out of memory, return */
 		return;
 	if (ctx->code_count == ctx->max_code) {
-		void *p = realloc(ctx->pracc_list, sizeof(pa_list) * (ctx->max_code + PRACC_BLOCK));
+		void *p = realloc(ctx->pracc_list, sizeof(struct pa_list) * (ctx->max_code + PRACC_BLOCK));
 		if (p) {
 			ctx->max_code += PRACC_BLOCK;
 			ctx->pracc_list = p;
@@ -373,13 +375,13 @@ int mips32_pracc_queue_exec(struct mips_ejtag *ejtag_info, struct pracc_queue_in
 		} scan_32;
 
 	} *scan_in = malloc(sizeof(union scan_in) * (ctx->code_count + ctx->store_count));
-	if (scan_in == NULL) {
+	if (!scan_in) {
 		LOG_ERROR("Out of memory");
 		return ERROR_FAIL;
 	}
 
 	unsigned num_clocks =
-		((uint64_t)(ejtag_info->scan_delay) * jtag_get_speed_khz() + 500000) / 1000000;
+		((uint64_t)(ejtag_info->scan_delay) * adapter_get_speed_khz() + 500000) / 1000000;
 
 	uint32_t ejtag_ctrl = ejtag_info->ejtag_ctrl & ~EJTAG_CTRL_PRACC;
 	mips_ejtag_set_instr(ejtag_info, EJTAG_INST_ALL);
@@ -483,7 +485,7 @@ int mips32_pracc_read_mem(struct mips_ejtag *ejtag_info, uint32_t addr, int size
 	uint32_t *data = NULL;
 	if (size != 4) {
 		data = malloc(256 * sizeof(uint32_t));
-		if (data == NULL) {
+		if (!data) {
 			LOG_ERROR("Out of memory");
 			goto exit;
 		}
@@ -658,7 +660,7 @@ static int mips32_pracc_synchronize_cache(struct mips_ejtag *ejtag_info,
 		goto exit;  /* Nothing to do */
 
 	/* make sure clsiz is power of 2 */
-	if (clsiz & (clsiz - 1)) {
+	if (!IS_PWR_OF_2(clsiz)) {
 		LOG_DEBUG("clsiz must be power of 2");
 		ctx.retval = ERROR_FAIL;
 		goto exit;
@@ -1009,7 +1011,7 @@ int mips32_pracc_fastdata_xfer(struct mips_ejtag *ejtag_info, struct working_are
 
 	unsigned num_clocks = 0;	/* like in legacy code */
 	if (ejtag_info->mode != 0)
-		num_clocks = ((uint64_t)(ejtag_info->scan_delay) * jtag_get_speed_khz() + 500000) / 1000000;
+		num_clocks = ((uint64_t)(ejtag_info->scan_delay) * adapter_get_speed_khz() + 500000) / 1000000;
 
 	for (int i = 0; i < count; i++) {
 		jtag_add_clocks(num_clocks);

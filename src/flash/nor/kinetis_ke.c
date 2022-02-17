@@ -41,6 +41,7 @@
 #include "imp.h"
 #include <helper/binarybuffer.h>
 #include <target/algorithm.h>
+#include <target/arm_adi_v5.h>
 #include <target/armv7m.h>
 #include <target/cortex_m.h>
 
@@ -932,39 +933,6 @@ static int kinetis_ke_ftmrx_command(struct flash_bank *bank, uint8_t count,
 	return ERROR_OK;
 }
 
-COMMAND_HANDLER(kinetis_ke_securing_test)
-{
-	int result;
-	struct target *target = get_current_target(CMD_CTX);
-	struct flash_bank *bank = NULL;
-	uint32_t address;
-
-	uint8_t FCCOBIX[2], FCCOBHI[2], FCCOBLO[2], fstat;
-
-	result = get_flash_bank_by_addr(target, 0x00000000, true, &bank);
-	if (result != ERROR_OK)
-		return result;
-
-	assert(bank != NULL);
-
-	if (target->state != TARGET_HALTED) {
-		LOG_ERROR("Target not halted");
-		return ERROR_TARGET_NOT_HALTED;
-	}
-
-	address = bank->base + 0x00000400;
-
-	FCCOBIX[0] = 0;
-	FCCOBHI[0] = FTMRX_CMD_ERASESECTOR;
-	FCCOBLO[0] = address >> 16;
-
-	FCCOBIX[1] = 1;
-	FCCOBHI[1] = address >> 8;
-	FCCOBLO[1] = address;
-
-	return kinetis_ke_ftmrx_command(bank, 2, FCCOBIX, FCCOBHI, FCCOBLO, &fstat);
-}
-
 static int kinetis_ke_erase(struct flash_bank *bank, unsigned int first,
 		unsigned int last)
 {
@@ -999,8 +967,6 @@ static int kinetis_ke_erase(struct flash_bank *bank, unsigned int first,
 			LOG_WARNING("erase sector %u failed", i);
 			return ERROR_FLASH_OPERATION_FAILED;
 		}
-
-		bank->sectors[i].is_erased = 1;
 
 		if (i == 2)
 			fcf_erased = true;
@@ -1046,7 +1012,7 @@ static int kinetis_ke_write(struct flash_bank *bank, const uint8_t *buffer,
 		uint32_t old_count = count;
 		count = (old_count | 3) + 1;
 		new_buffer = malloc(count);
-		if (new_buffer == NULL) {
+		if (!new_buffer) {
 			LOG_ERROR("odd number of bytes to write and no memory "
 				"for padding buffer");
 			return ERROR_FAIL;
@@ -1171,10 +1137,9 @@ static int kinetis_ke_auto_probe(struct flash_bank *bank)
 	return kinetis_ke_probe(bank);
 }
 
-static int kinetis_ke_info(struct flash_bank *bank, char *buf, int buf_size)
+static int kinetis_ke_info(struct flash_bank *bank, struct command_invocation *cmd)
 {
-	(void) snprintf(buf, buf_size,
-			"%s driver for flash bank %s at " TARGET_ADDR_FMT,
+	command_print_sameline(cmd, "%s driver for flash bank %s at " TARGET_ADDR_FMT,
 			bank->driver->name,	bank->name, bank->base);
 
 	return ERROR_OK;
@@ -1243,23 +1208,16 @@ static const struct command_registration kinetis_ke_security_command_handlers[] 
 	{
 		.name = "check_security",
 		.mode = COMMAND_EXEC,
-		.help = "",
+		.help = "Check status of device security lock",
 		.usage = "",
 		.handler = kinetis_ke_check_flash_security_status,
 	},
 	{
 		.name = "mass_erase",
 		.mode = COMMAND_EXEC,
-		.help = "",
+		.help = "Issue a complete flash erase via the MDM-AP",
 		.usage = "",
 		.handler = kinetis_ke_mdm_mass_erase,
-	},
-	{
-		.name = "test_securing",
-		.mode = COMMAND_EXEC,
-		.help = "",
-		.usage = "",
-		.handler = kinetis_ke_securing_test,
 	},
 	COMMAND_REGISTRATION_DONE
 };
@@ -1268,7 +1226,7 @@ static const struct command_registration kinetis_ke_exec_command_handlers[] = {
 	{
 		.name = "mdm",
 		.mode = COMMAND_ANY,
-		.help = "",
+		.help = "MDM-AP command group",
 		.usage = "",
 		.chain = kinetis_ke_security_command_handlers,
 	},
@@ -1286,7 +1244,7 @@ static const struct command_registration kinetis_ke_command_handler[] = {
 	{
 		.name = "kinetis_ke",
 		.mode = COMMAND_ANY,
-		.help = "Kinetis KE NAND flash controller commands",
+		.help = "Kinetis KE flash controller commands",
 		.usage = "",
 		.chain = kinetis_ke_exec_command_handlers,
 	},

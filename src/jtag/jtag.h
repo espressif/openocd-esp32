@@ -24,6 +24,7 @@
 
 #include <helper/binarybuffer.h>
 #include <helper/log.h>
+#include <helper/replacements.h>
 
 #ifndef DEBUG_JTAG_IOZ
 #define DEBUG_JTAG_IOZ 64
@@ -46,15 +47,6 @@
 typedef enum tap_state {
 	TAP_INVALID = -1,
 
-#if BUILD_ZY1000
-	/* These are the old numbers. Leave as-is for now... */
-	TAP_RESET    = 0, TAP_IDLE = 8,
-	TAP_DRSELECT = 1, TAP_DRCAPTURE = 2, TAP_DRSHIFT = 3, TAP_DREXIT1 = 4,
-	TAP_DRPAUSE  = 5, TAP_DREXIT2 = 6, TAP_DRUPDATE = 7,
-	TAP_IRSELECT = 9, TAP_IRCAPTURE = 10, TAP_IRSHIFT = 11, TAP_IREXIT1 = 12,
-	TAP_IRPAUSE  = 13, TAP_IREXIT2 = 14, TAP_IRUPDATE = 15,
-
-#else
 	/* Proper ARM recommended numbers */
 	TAP_DREXIT2 = 0x0,
 	TAP_DREXIT1 = 0x1,
@@ -72,8 +64,6 @@ typedef enum tap_state {
 	TAP_IRUPDATE = 0xd,
 	TAP_IRCAPTURE = 0xe,
 	TAP_RESET = 0x0f,
-
-#endif
 } tap_state_t;
 
 /**
@@ -144,6 +134,9 @@ struct jtag_tap {
 
 	/** Flag saying whether to ignore version field in expected_ids[] */
 	bool ignore_version;
+
+	/** Flag saying whether to ignore the bypass bit in the code */
+	bool ignore_bypass;
 
 	/** current instruction */
 	uint8_t *cur_instr;
@@ -227,31 +220,6 @@ int jtag_unregister_event_callback(jtag_event_handler_t f, void *x);
 
 int jtag_call_event_callbacks(enum jtag_event event);
 
-
-/** @returns The current JTAG speed setting. */
-int jtag_get_speed(int *speed);
-
-/**
- * Given a @a speed setting, use the interface @c speed_div callback to
- * adjust the setting.
- * @param speed The speed setting to convert back to readable KHz.
- * @returns ERROR_OK if the interface has not been initialized or on success;
- *	otherwise, the error code produced by the @c speed_div callback.
- */
-int jtag_get_speed_readable(int *speed);
-
-/** Attempt to configure the interface for the specified KHz. */
-int jtag_config_khz(unsigned khz);
-
-/**
- * Attempt to enable RTCK/RCLK. If that fails, fallback to the
- * specified frequency.
- */
-int jtag_config_rclk(unsigned fallback_speed_khz);
-
-/** Retrieves the clock speed of the JTAG interface in KHz. */
-unsigned jtag_get_speed_khz(void);
-
 enum reset_types {
 	RESET_NONE            = 0x0,
 	RESET_HAS_TRST        = 0x1,
@@ -294,12 +262,6 @@ bool jtag_will_verify(void);
 void jtag_set_verify_capture_ir(bool enable);
 /** @returns True if IR scan verification will be performed. */
 bool jtag_will_verify_capture_ir(void);
-
-/** Initialize debug adapter upon startup.  */
-int adapter_init(struct command_context *cmd_ctx);
-
-/** Shutdown the debug adapter upon program exit. */
-int adapter_quit(void);
 
 /** Set ms to sleep after jtag_execute_queue() flushes queue. Debug purposes. */
 void jtag_set_flush_queue_sleep(int ms);
@@ -584,7 +546,8 @@ int jtag_srst_asserted(int *srst_asserted);
  * @param field Pointer to scan field.
  * @param value Pointer to scan value.
  * @param mask Pointer to scan mask; may be NULL.
- * @returns Nothing, but calls jtag_set_error() on any error.
+ *
+ * returns Nothing, but calls jtag_set_error() on any error.
  */
 void jtag_check_value_mask(struct scan_field *field, uint8_t *value, uint8_t *mask);
 
@@ -635,9 +598,6 @@ bool jtag_poll_get_enabled(void);
  */
 void jtag_poll_set_enabled(bool value);
 
-
-/* The minidriver may have inline versions of some of the low
- * level APIs that are used in inner loops. */
 #include <jtag/minidriver.h>
 
 int jim_jtag_newtap(Jim_Interp *interp, int argc, Jim_Obj *const *argv);

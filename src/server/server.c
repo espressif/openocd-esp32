@@ -27,6 +27,7 @@
 #endif
 
 #include "server.h"
+#include <helper/time_support.h>
 #include <target/target.h>
 #include <target/target_request.h>
 #include <target/openrisc/jsp_server.h>
@@ -263,11 +264,11 @@ int add_service(char *name,
 		memset(&c->sin, 0, sizeof(c->sin));
 		c->sin.sin_family = AF_INET;
 
-		if (bindto_name == NULL)
+		if (!bindto_name)
 			c->sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 		else {
 			hp = gethostbyname(bindto_name);
-			if (hp == NULL) {
+			if (!hp) {
 				LOG_ERROR("couldn't resolve bindto address: %s", bindto_name);
 				close_socket(c->fd);
 				free_service(c);
@@ -441,6 +442,8 @@ int server_loop(struct command_context *command_context)
 	/* used in accept() */
 	int retval;
 
+	int64_t next_event = timeval_ms() + polling_period;
+
 #ifndef _WIN32
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
 		LOG_ERROR("couldn't set SIGPIPE to SIG_IGN");
@@ -482,12 +485,15 @@ int server_loop(struct command_context *command_context)
 			retval = socket_select(fd_max + 1, &read_fds, NULL, NULL, &tv);
 		} else {
 			/* Every 100ms, can be changed with "poll_period" command */
-			tv.tv_usec = polling_period * 1000;
+			int timeout_ms = next_event - timeval_ms();
+			if (timeout_ms < 0)
+				timeout_ms = 0;
+			else if (timeout_ms > polling_period)
+				timeout_ms = polling_period;
+			tv.tv_usec = timeout_ms * 1000;
 			/* Only while we're sleeping we'll let others run */
-			openocd_sleep_prelude();
 			kept_alive();
 			retval = socket_select(fd_max + 1, &read_fds, NULL, NULL, &tv);
-			openocd_sleep_postlude();
 		}
 
 		if (retval == -1) {
@@ -515,7 +521,8 @@ int server_loop(struct command_context *command_context)
 		if (retval == 0) {
 			/* We only execute these callbacks when there was nothing to do or we timed
 			 *out */
-			target_call_timer_callbacks();
+			target_call_timer_callbacks_now();
+			next_event = target_timer_next_event();
 			process_jim_events(command_context);
 
 			FD_ZERO(&read_fds);	/* eCos leaves read_fds unchanged in this case!  */
@@ -613,7 +620,7 @@ static void sig_handler(int sig)
 
 
 #ifdef _WIN32
-BOOL WINAPI ControlHandler(DWORD dwCtrlType)
+BOOL WINAPI control_handler(DWORD ctrl_type)
 {
 	shutdown_openocd = SHUTDOWN_WITH_SIGNAL_CODE;
 	return TRUE;
@@ -638,12 +645,12 @@ int server_host_os_entry(void)
 	 * This is an issue if you call init in your config script */
 
 #ifdef _WIN32
-	WORD wVersionRequested;
-	WSADATA wsaData;
+	WORD version_requested;
+	WSADATA wsadata;
 
-	wVersionRequested = MAKEWORD(2, 2);
+	version_requested = MAKEWORD(2, 2);
 
-	if (WSAStartup(wVersionRequested, &wsaData) != 0) {
+	if (WSAStartup(version_requested, &wsadata) != 0) {
 		LOG_ERROR("Failed to Open Winsock");
 		return ERROR_FAIL;
 	}
@@ -663,7 +670,7 @@ int server_preinit(void)
 {
 #ifdef _WIN32
 	/* register ctrl-c handler */
-	SetConsoleCtrlHandler(ControlHandler, TRUE);
+	SetConsoleCtrlHandler(control_handler, TRUE);
 
 	signal(SIGBREAK, sig_handler);
 	signal(SIGINT, sig_handler);
@@ -702,7 +709,7 @@ int server_quit(void)
 	target_quit();
 
 #ifdef _WIN32
-	SetConsoleCtrlHandler(ControlHandler, FALSE);
+	SetConsoleCtrlHandler(control_handler, FALSE);
 
 	return ERROR_OK;
 #endif
@@ -823,15 +830,15 @@ static const struct command_registration server_command_handlers[] = {
 int server_register_commands(struct command_context *cmd_ctx)
 {
 	int retval = telnet_register_commands(cmd_ctx);
-	if (ERROR_OK != retval)
+	if (retval != ERROR_OK)
 		return retval;
 
 	retval = tcl_register_commands(cmd_ctx);
-	if (ERROR_OK != retval)
+	if (retval != ERROR_OK)
 		return retval;
 
 	retval = jsp_register_commands(cmd_ctx);
-	if (ERROR_OK != retval)
+	if (retval != ERROR_OK)
 		return retval;
 
 	return register_commands(cmd_ctx, NULL, server_command_handlers);

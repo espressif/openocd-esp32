@@ -22,6 +22,7 @@
 
 #include "imp.h"
 
+#include <jtag/jtag.h>
 #include <target/cortex_m.h>
 
 /* At this time, the SAM4L Flash is available in these capacities:
@@ -480,9 +481,6 @@ static int sam4l_erase(struct flash_bank *bank, unsigned int first,
 					return ERROR_FAIL;
 				}
 			}
-
-			/* This sector is definitely erased. */
-			bank->sectors[i].is_erased = 1;
 		}
 	}
 

@@ -72,6 +72,7 @@ __attribute__ ((format (PRINTF_ATTRIBUTE_FORMAT, 5, 6)));
  * Initialize logging module.  Call during program startup.
  */
 void log_init(void);
+void log_exit(void);
 int set_log_output(struct command_context *cmd_ctx, FILE *output);
 
 int log_register_commands(struct command_context *cmd_ctx);
@@ -99,6 +100,8 @@ int log_remove_callback(log_callback_fn fn, void *priv);
 char *alloc_vprintf(const char *fmt, va_list ap);
 char *alloc_printf(const char *fmt, ...)
 	__attribute__ ((format (PRINTF_ATTRIBUTE_FORMAT, 1, 2)));
+
+char *find_nonprint_char(char *buf, unsigned buf_len);
 
 extern int debug_level;
 
@@ -140,6 +143,23 @@ extern int debug_level;
 
 #define LOG_OUTPUT(expr ...) \
 	log_printf(LOG_LVL_OUTPUT, __FILE__, __LINE__, __func__, expr)
+
+/* Output a log entry that is related to a given target */
+
+#define LOG_TARGET_DEBUG_IO(target, fmt_str, ...) \
+	LOG_DEBUG_IO("[%s] " fmt_str, target_name(target), ##__VA_ARGS__)
+
+#define LOG_TARGET_DEBUG(target, fmt_str, ...) \
+	LOG_DEBUG("[%s] " fmt_str, target_name(target), ##__VA_ARGS__)
+
+#define LOG_TARGET_INFO(target, fmt_str, ...) \
+	LOG_INFO("[%s] " fmt_str, target_name(target), ##__VA_ARGS__)
+
+#define LOG_TARGET_WARNING(target, fmt_str, ...) \
+	LOG_WARNING("[%s] " fmt_str, target_name(target), ##__VA_ARGS__)
+
+#define LOG_TARGET_ERROR(target, fmt_str, ...) \
+	LOG_ERROR("[%s] " fmt_str, target_name(target), ##__VA_ARGS__)
 
 /* general failures
  * error codes < 100

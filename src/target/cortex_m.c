@@ -34,6 +34,7 @@
 #include "cortex_m.h"
 #include "target_request.h"
 #include "target_type.h"
+#include "arm_adi_v5.h"
 #include "arm_disassembler.h"
 #include "register.h"
 #include "arm_opcodes.h"
@@ -52,17 +53,109 @@
  * any longer.
  */
 
+/* Timeout for register r/w */
+#define DHCSR_S_REGRDY_TIMEOUT (500)
+
+/* Supported Cortex-M Cores */
+static const struct cortex_m_part_info cortex_m_parts[] = {
+	{
+		.partno = CORTEX_M0_PARTNO,
+		.name = "Cortex-M0",
+		.arch = ARM_ARCH_V6M,
+	},
+	{
+		.partno = CORTEX_M0P_PARTNO,
+		.name = "Cortex-M0+",
+		.arch = ARM_ARCH_V6M,
+	},
+	{
+		.partno = CORTEX_M1_PARTNO,
+		.name = "Cortex-M1",
+		.arch = ARM_ARCH_V6M,
+	},
+	{
+		.partno = CORTEX_M3_PARTNO,
+		.name = "Cortex-M3",
+		.arch = ARM_ARCH_V7M,
+		.flags = CORTEX_M_F_TAR_AUTOINCR_BLOCK_4K,
+	},
+	{
+		.partno = CORTEX_M4_PARTNO,
+		.name = "Cortex-M4",
+		.arch = ARM_ARCH_V7M,
+		.flags = CORTEX_M_F_HAS_FPV4 | CORTEX_M_F_TAR_AUTOINCR_BLOCK_4K,
+	},
+	{
+		.partno = CORTEX_M7_PARTNO,
+		.name = "Cortex-M7",
+		.arch = ARM_ARCH_V7M,
+		.flags = CORTEX_M_F_HAS_FPV5,
+	},
+	{
+		.partno = CORTEX_M23_PARTNO,
+		.name = "Cortex-M23",
+		.arch = ARM_ARCH_V8M,
+	},
+	{
+		.partno = CORTEX_M33_PARTNO,
+		.name = "Cortex-M33",
+		.arch = ARM_ARCH_V8M,
+		.flags = CORTEX_M_F_HAS_FPV5,
+	},
+	{
+		.partno = CORTEX_M35P_PARTNO,
+		.name = "Cortex-M35P",
+		.arch = ARM_ARCH_V8M,
+		.flags = CORTEX_M_F_HAS_FPV5,
+	},
+	{
+		.partno = CORTEX_M55_PARTNO,
+		.name = "Cortex-M55",
+		.arch = ARM_ARCH_V8M,
+		.flags = CORTEX_M_F_HAS_FPV5,
+	},
+};
+
 /* forward declarations */
 static int cortex_m_store_core_reg_u32(struct target *target,
 		uint32_t num, uint32_t value);
 static void cortex_m_dwt_free(struct target *target);
 
+/** DCB DHCSR register contains S_RETIRE_ST and S_RESET_ST bits cleared
+ *  on a read. Call this helper function each time DHCSR is read
+ *  to preserve S_RESET_ST state in case of a reset event was detected.
+ */
+static inline void cortex_m_cumulate_dhcsr_sticky(struct cortex_m_common *cortex_m,
+		uint32_t dhcsr)
+{
+	cortex_m->dcb_dhcsr_cumulated_sticky |= dhcsr;
+}
+
+/** Read DCB DHCSR register to cortex_m->dcb_dhcsr and cumulate
+ * sticky bits in cortex_m->dcb_dhcsr_cumulated_sticky
+ */
+static int cortex_m_read_dhcsr_atomic_sticky(struct target *target)
+{
+	struct cortex_m_common *cortex_m = target_to_cm(target);
+	struct armv7m_common *armv7m = target_to_armv7m(target);
+
+	int retval = mem_ap_read_atomic_u32(armv7m->debug_ap, DCB_DHCSR,
+				&cortex_m->dcb_dhcsr);
+	if (retval != ERROR_OK)
+		return retval;
+
+	cortex_m_cumulate_dhcsr_sticky(cortex_m, cortex_m->dcb_dhcsr);
+	return ERROR_OK;
+}
+
 static int cortex_m_load_core_reg_u32(struct target *target,
 		uint32_t regsel, uint32_t *value)
 {
+	struct cortex_m_common *cortex_m = target_to_cm(target);
 	struct armv7m_common *armv7m = target_to_armv7m(target);
 	int retval;
-	uint32_t dcrdr;
+	uint32_t dcrdr, tmp_value;
+	int64_t then;
 
 	/* because the DCB_DCRDR is used for the emulated dcc channel
 	 * we have to save/restore the DCB_DCRDR when used */
@@ -76,9 +169,29 @@ static int cortex_m_load_core_reg_u32(struct target *target,
 	if (retval != ERROR_OK)
 		return retval;
 
-	retval = mem_ap_read_atomic_u32(armv7m->debug_ap, DCB_DCRDR, value);
-	if (retval != ERROR_OK)
-		return retval;
+	/* check if value from register is ready and pre-read it */
+	then = timeval_ms();
+	while (1) {
+		retval = mem_ap_read_u32(armv7m->debug_ap, DCB_DHCSR,
+								 &cortex_m->dcb_dhcsr);
+		if (retval != ERROR_OK)
+			return retval;
+		retval = mem_ap_read_atomic_u32(armv7m->debug_ap, DCB_DCRDR,
+										&tmp_value);
+		if (retval != ERROR_OK)
+			return retval;
+		cortex_m_cumulate_dhcsr_sticky(cortex_m, cortex_m->dcb_dhcsr);
+		if (cortex_m->dcb_dhcsr & S_REGRDY)
+			break;
+		cortex_m->slow_register_read = true; /* Polling (still) needed. */
+		if (timeval_ms() > then + DHCSR_S_REGRDY_TIMEOUT) {
+			LOG_ERROR("Timeout waiting for DCRDR transfer ready");
+			return ERROR_TIMEOUT_REACHED;
+		}
+		keep_alive();
+	}
+
+	*value = tmp_value;
 
 	if (target->dbg_msg_enabled) {
 		/* restore DCB_DCRDR - this needs to be in a separate
@@ -90,12 +203,180 @@ static int cortex_m_load_core_reg_u32(struct target *target,
 	return retval;
 }
 
-static int cortex_m_store_core_reg_u32(struct target *target,
-		uint32_t regsel, uint32_t value)
+static int cortex_m_slow_read_all_regs(struct target *target)
+{
+	struct cortex_m_common *cortex_m = target_to_cm(target);
+	struct armv7m_common *armv7m = target_to_armv7m(target);
+	const unsigned int num_regs = armv7m->arm.core_cache->num_regs;
+
+	/* Opportunistically restore fast read, it'll revert to slow
+	 * if any register needed polling in cortex_m_load_core_reg_u32(). */
+	cortex_m->slow_register_read = false;
+
+	for (unsigned int reg_id = 0; reg_id < num_regs; reg_id++) {
+		struct reg *r = &armv7m->arm.core_cache->reg_list[reg_id];
+		if (r->exist) {
+			int retval = armv7m->arm.read_core_reg(target, r, reg_id, ARM_MODE_ANY);
+			if (retval != ERROR_OK)
+				return retval;
+		}
+	}
+
+	if (!cortex_m->slow_register_read)
+		LOG_DEBUG("Switching back to fast register reads");
+
+	return ERROR_OK;
+}
+
+static int cortex_m_queue_reg_read(struct target *target, uint32_t regsel,
+		uint32_t *reg_value, uint32_t *dhcsr)
 {
 	struct armv7m_common *armv7m = target_to_armv7m(target);
 	int retval;
+
+	retval = mem_ap_write_u32(armv7m->debug_ap, DCB_DCRSR, regsel);
+	if (retval != ERROR_OK)
+		return retval;
+
+	retval = mem_ap_read_u32(armv7m->debug_ap, DCB_DHCSR, dhcsr);
+	if (retval != ERROR_OK)
+		return retval;
+
+	return mem_ap_read_u32(armv7m->debug_ap, DCB_DCRDR, reg_value);
+}
+
+static int cortex_m_fast_read_all_regs(struct target *target)
+{
+	struct cortex_m_common *cortex_m = target_to_cm(target);
+	struct armv7m_common *armv7m = target_to_armv7m(target);
+	int retval;
 	uint32_t dcrdr;
+
+	/* because the DCB_DCRDR is used for the emulated dcc channel
+	 * we have to save/restore the DCB_DCRDR when used */
+	if (target->dbg_msg_enabled) {
+		retval = mem_ap_read_u32(armv7m->debug_ap, DCB_DCRDR, &dcrdr);
+		if (retval != ERROR_OK)
+			return retval;
+	}
+
+	const unsigned int num_regs = armv7m->arm.core_cache->num_regs;
+	const unsigned int n_r32 = ARMV7M_LAST_REG - ARMV7M_CORE_FIRST_REG + 1
+							   + ARMV7M_FPU_LAST_REG - ARMV7M_FPU_FIRST_REG + 1;
+	/* we need one 32-bit word for each register except FP D0..D15, which
+	 * need two words */
+	uint32_t r_vals[n_r32];
+	uint32_t dhcsr[n_r32];
+
+	unsigned int wi = 0; /* write index to r_vals and dhcsr arrays */
+	unsigned int reg_id; /* register index in the reg_list, ARMV7M_R0... */
+	for (reg_id = 0; reg_id < num_regs; reg_id++) {
+		struct reg *r = &armv7m->arm.core_cache->reg_list[reg_id];
+		if (!r->exist)
+			continue;	/* skip non existent registers */
+
+		if (r->size <= 8) {
+			/* Any 8-bit or shorter register is unpacked from a 32-bit
+			 * container register. Skip it now. */
+			continue;
+		}
+
+		uint32_t regsel = armv7m_map_id_to_regsel(reg_id);
+		retval = cortex_m_queue_reg_read(target, regsel, &r_vals[wi],
+										 &dhcsr[wi]);
+		if (retval != ERROR_OK)
+			return retval;
+		wi++;
+
+		assert(r->size == 32 || r->size == 64);
+		if (r->size == 32)
+			continue;	/* done with 32-bit register */
+
+		assert(reg_id >= ARMV7M_FPU_FIRST_REG && reg_id <= ARMV7M_FPU_LAST_REG);
+		/* the odd part of FP register (S1, S3...) */
+		retval = cortex_m_queue_reg_read(target, regsel + 1, &r_vals[wi],
+											 &dhcsr[wi]);
+		if (retval != ERROR_OK)
+			return retval;
+		wi++;
+	}
+
+	assert(wi <= n_r32);
+
+	retval = dap_run(armv7m->debug_ap->dap);
+	if (retval != ERROR_OK)
+		return retval;
+
+	if (target->dbg_msg_enabled) {
+		/* restore DCB_DCRDR - this needs to be in a separate
+		 * transaction otherwise the emulated DCC channel breaks */
+		retval = mem_ap_write_atomic_u32(armv7m->debug_ap, DCB_DCRDR, dcrdr);
+		if (retval != ERROR_OK)
+			return retval;
+	}
+
+	bool not_ready = false;
+	for (unsigned int i = 0; i < wi; i++) {
+		if ((dhcsr[i] & S_REGRDY) == 0) {
+			not_ready = true;
+			LOG_DEBUG("Register %u was not ready during fast read", i);
+		}
+		cortex_m_cumulate_dhcsr_sticky(cortex_m, dhcsr[i]);
+	}
+
+	if (not_ready) {
+		/* Any register was not ready,
+		 * fall back to slow read with S_REGRDY polling */
+		return ERROR_TIMEOUT_REACHED;
+	}
+
+	LOG_DEBUG("read %u 32-bit registers", wi);
+
+	unsigned int ri = 0; /* read index from r_vals array */
+	for (reg_id = 0; reg_id < num_regs; reg_id++) {
+		struct reg *r = &armv7m->arm.core_cache->reg_list[reg_id];
+		if (!r->exist)
+			continue;	/* skip non existent registers */
+
+		r->dirty = false;
+
+		unsigned int reg32_id;
+		uint32_t offset;
+		if (armv7m_map_reg_packing(reg_id, &reg32_id, &offset)) {
+			/* Unpack a partial register from 32-bit container register */
+			struct reg *r32 = &armv7m->arm.core_cache->reg_list[reg32_id];
+
+			/* The container register ought to precede all regs unpacked
+			 * from it in the reg_list. So the value should be ready
+			 * to unpack */
+			assert(r32->valid);
+			buf_cpy(r32->value + offset, r->value, r->size);
+
+		} else {
+			assert(r->size == 32 || r->size == 64);
+			buf_set_u32(r->value, 0, 32, r_vals[ri++]);
+
+			if (r->size == 64) {
+				assert(reg_id >= ARMV7M_FPU_FIRST_REG && reg_id <= ARMV7M_FPU_LAST_REG);
+				/* the odd part of FP register (S1, S3...) */
+				buf_set_u32(r->value + 4, 0, 32, r_vals[ri++]);
+			}
+		}
+		r->valid = true;
+	}
+	assert(ri == wi);
+
+	return retval;
+}
+
+static int cortex_m_store_core_reg_u32(struct target *target,
+		uint32_t regsel, uint32_t value)
+{
+	struct cortex_m_common *cortex_m = target_to_cm(target);
+	struct armv7m_common *armv7m = target_to_armv7m(target);
+	int retval;
+	uint32_t dcrdr;
+	int64_t then;
 
 	/* because the DCB_DCRDR is used for the emulated dcc channel
 	 * we have to save/restore the DCB_DCRDR when used */
@@ -109,9 +390,24 @@ static int cortex_m_store_core_reg_u32(struct target *target,
 	if (retval != ERROR_OK)
 		return retval;
 
-	retval = mem_ap_write_atomic_u32(armv7m->debug_ap, DCB_DCRSR, regsel | DCRSR_WnR);
+	retval = mem_ap_write_u32(armv7m->debug_ap, DCB_DCRSR, regsel | DCRSR_WNR);
 	if (retval != ERROR_OK)
 		return retval;
+
+	/* check if value is written into register */
+	then = timeval_ms();
+	while (1) {
+		retval = cortex_m_read_dhcsr_atomic_sticky(target);
+		if (retval != ERROR_OK)
+			return retval;
+		if (cortex_m->dcb_dhcsr & S_REGRDY)
+			break;
+		if (timeval_ms() > then + DHCSR_S_REGRDY_TIMEOUT) {
+			LOG_ERROR("Timeout waiting for DCRDR transfer ready");
+			return ERROR_TIMEOUT_REACHED;
+		}
+		keep_alive();
+	}
 
 	if (target->dbg_msg_enabled) {
 		/* restore DCB_DCRDR - this needs to be in a separate
@@ -240,7 +536,6 @@ static int cortex_m_clear_halt(struct target *target)
 static int cortex_m_single_step_core(struct target *target)
 {
 	struct cortex_m_common *cortex_m = target_to_cm(target);
-	struct armv7m_common *armv7m = &cortex_m->armv7m;
 	int retval;
 
 	/* Mask interrupts before clearing halt, if not done already.  This avoids
@@ -248,13 +543,11 @@ static int cortex_m_single_step_core(struct target *target)
 	 * HALT can put the core into an unknown state.
 	 */
 	if (!(cortex_m->dcb_dhcsr & C_MASKINTS)) {
-		retval = mem_ap_write_atomic_u32(armv7m->debug_ap, DCB_DHCSR,
-				DBGKEY | C_MASKINTS | C_HALT | C_DEBUGEN);
+		retval = cortex_m_write_debug_halt_mask(target, C_MASKINTS, 0);
 		if (retval != ERROR_OK)
 			return retval;
 	}
-	retval = mem_ap_write_atomic_u32(armv7m->debug_ap, DCB_DHCSR,
-			DBGKEY | C_MASKINTS | C_STEP | C_DEBUGEN);
+	retval = cortex_m_write_debug_halt_mask(target, C_STEP, C_HALT);
 	if (retval != ERROR_OK)
 		return retval;
 	LOG_DEBUG(" ");
@@ -285,7 +578,6 @@ static int cortex_m_enable_fpb(struct target *target)
 
 static int cortex_m_endreset_event(struct target *target)
 {
-	int i;
 	int retval;
 	uint32_t dcb_demcr;
 	struct cortex_m_common *cortex_m = target_to_cm(target);
@@ -305,11 +597,12 @@ static int cortex_m_endreset_event(struct target *target)
 	if (retval != ERROR_OK)
 		return retval;
 
-	/* Enable debug requests */
-	retval = mem_ap_read_atomic_u32(armv7m->debug_ap, DCB_DHCSR, &cortex_m->dcb_dhcsr);
+	retval = cortex_m_read_dhcsr_atomic_sticky(target);
 	if (retval != ERROR_OK)
 		return retval;
+
 	if (!(cortex_m->dcb_dhcsr & C_DEBUGEN)) {
+		/* Enable debug requests */
 		retval = cortex_m_write_debug_halt_mask(target, 0, C_HALT | C_STEP | C_MASKINTS);
 		if (retval != ERROR_OK)
 			return retval;
@@ -343,14 +636,14 @@ static int cortex_m_endreset_event(struct target *target)
 	cortex_m->fpb_enabled = true;
 
 	/* Restore FPB registers */
-	for (i = 0; i < cortex_m->fp_num_code + cortex_m->fp_num_lit; i++) {
+	for (unsigned int i = 0; i < cortex_m->fp_num_code + cortex_m->fp_num_lit; i++) {
 		retval = target_write_u32(target, fp_list[i].fpcr_address, fp_list[i].fpcr_value);
 		if (retval != ERROR_OK)
 			return retval;
 	}
 
 	/* Restore DWT registers */
-	for (i = 0; i < cortex_m->dwt_num_comp; i++) {
+	for (unsigned int i = 0; i < cortex_m->dwt_num_comp; i++) {
 		retval = target_write_u32(target, dwt_list[i].dwt_comparator_address + 0,
 				dwt_list[i].comp);
 		if (retval != ERROR_OK)
@@ -371,7 +664,9 @@ static int cortex_m_endreset_event(struct target *target)
 	register_cache_invalidate(armv7m->arm.core_cache);
 
 	/* make sure we have latest dhcsr flags */
-	retval = mem_ap_read_atomic_u32(armv7m->debug_ap, DCB_DHCSR, &cortex_m->dcb_dhcsr);
+	retval = cortex_m_read_dhcsr_atomic_sticky(target);
+	if (retval != ERROR_OK)
+		return retval;
 
 	return retval;
 }
@@ -480,7 +775,6 @@ static int cortex_m_examine_exception_reason(struct target *target)
 
 static int cortex_m_debug_entry(struct target *target)
 {
-	int i;
 	uint32_t xPSR;
 	int retval;
 	struct cortex_m_common *cortex_m = target_to_cm(target);
@@ -495,7 +789,8 @@ static int cortex_m_debug_entry(struct target *target)
 	cortex_m_set_maskints_for_halt(target);
 
 	cortex_m_clear_halt(target);
-	retval = mem_ap_read_atomic_u32(armv7m->debug_ap, DCB_DHCSR, &cortex_m->dcb_dhcsr);
+
+	retval = cortex_m_read_dhcsr_atomic_sticky(target);
 	if (retval != ERROR_OK)
 		return retval;
 
@@ -505,7 +800,7 @@ static int cortex_m_debug_entry(struct target *target)
 
 	/* examine PE security state */
 	bool secure_state = false;
-	if (armv7m->arm.is_armv8m) {
+	if (armv7m->arm.arch == ARM_ARCH_V8M) {
 		uint32_t dscsr;
 
 		retval = mem_ap_read_u32(armv7m->debug_ap, DCB_DSCSR, &dscsr);
@@ -515,15 +810,20 @@ static int cortex_m_debug_entry(struct target *target)
 		secure_state = (dscsr & DSCSR_CDS) == DSCSR_CDS;
 	}
 
-	/* Examine target state and mode
-	 * First load register accessible through core debug port */
-	int num_regs = arm->core_cache->num_regs;
-
-	for (i = 0; i < num_regs; i++) {
-		r = &armv7m->arm.core_cache->reg_list[i];
-		if (!r->valid)
-			arm->read_core_reg(target, r, i, ARM_MODE_ANY);
+	/* Load all registers to arm.core_cache */
+	if (!cortex_m->slow_register_read) {
+		retval = cortex_m_fast_read_all_regs(target);
+		if (retval == ERROR_TIMEOUT_REACHED) {
+			cortex_m->slow_register_read = true;
+			LOG_DEBUG("Switched to slow register read");
+		}
 	}
+
+	if (cortex_m->slow_register_read)
+		retval = cortex_m_slow_read_all_regs(target);
+
+	if (retval != ERROR_OK)
+		return retval;
 
 	r = arm->cpsr;
 	xPSR = buf_get_u32(r->value, 0, 32);
@@ -579,7 +879,7 @@ static int cortex_m_poll(struct target *target)
 	struct armv7m_common *armv7m = &cortex_m->armv7m;
 
 	/* Read from Debug Halting Control and Status Register */
-	retval = mem_ap_read_atomic_u32(armv7m->debug_ap, DCB_DHCSR, &cortex_m->dcb_dhcsr);
+	retval = cortex_m_read_dhcsr_atomic_sticky(target);
 	if (retval != ERROR_OK) {
 		target->state = TARGET_UNKNOWN;
 		return retval;
@@ -600,12 +900,13 @@ static int cortex_m_poll(struct target *target)
 		detected_failure = ERROR_FAIL;
 
 		/* refresh status bits */
-		retval = mem_ap_read_atomic_u32(armv7m->debug_ap, DCB_DHCSR, &cortex_m->dcb_dhcsr);
+		retval = cortex_m_read_dhcsr_atomic_sticky(target);
 		if (retval != ERROR_OK)
 			return retval;
 	}
 
-	if (cortex_m->dcb_dhcsr & S_RESET_ST) {
+	if (cortex_m->dcb_dhcsr_cumulated_sticky & S_RESET_ST) {
+		cortex_m->dcb_dhcsr_cumulated_sticky &= ~S_RESET_ST;
 		if (target->state != TARGET_RESET) {
 			target->state = TARGET_RESET;
 			LOG_INFO("%s: external reset detected", target_name(target));
@@ -652,7 +953,12 @@ static int cortex_m_poll(struct target *target)
 	}
 
 	if (target->state == TARGET_UNKNOWN) {
-		/* check if processor is retiring instructions or sleeping */
+		/* Check if processor is retiring instructions or sleeping.
+		 * Unlike S_RESET_ST here we test if the target *is* running now,
+		 * not if it has been running (possibly in the past). Instructions are
+		 * typically processed much faster than OpenOCD polls DHCSR so S_RETIRE_ST
+		 * is read always 1. That's the reason not to use dcb_dhcsr_cumulated_sticky.
+		 */
 		if (cortex_m->dcb_dhcsr & S_RETIRE_ST || cortex_m->dcb_dhcsr & S_SLEEP) {
 			target->state = TARGET_RUNNING;
 			retval = ERROR_OK;
@@ -719,7 +1025,6 @@ static int cortex_m_soft_reset_halt(struct target *target)
 {
 	struct cortex_m_common *cortex_m = target_to_cm(target);
 	struct armv7m_common *armv7m = &cortex_m->armv7m;
-	uint32_t dcb_dhcsr = 0;
 	int retval, timeout = 0;
 
 	/* on single cortex_m MCU soft_reset_halt should be avoided as same functionality
@@ -727,6 +1032,11 @@ static int cortex_m_soft_reset_halt(struct target *target)
 	 * As this reset only uses VC_CORERESET it would only ever reset the cortex_m
 	 * core, not the peripherals */
 	LOG_DEBUG("soft_reset_halt is discouraged, please use 'reset halt' instead.");
+
+	if (!cortex_m->vectreset_supported) {
+		LOG_ERROR("VECTRESET is not supported on this Cortex-M core");
+		return ERROR_FAIL;
+	}
 
 	/* Set C_DEBUGEN */
 	retval = cortex_m_write_debug_halt_mask(target, 0, C_STEP | C_MASKINTS);
@@ -750,25 +1060,23 @@ static int cortex_m_soft_reset_halt(struct target *target)
 	register_cache_invalidate(cortex_m->armv7m.arm.core_cache);
 
 	while (timeout < 100) {
-		retval = mem_ap_read_atomic_u32(armv7m->debug_ap, DCB_DHCSR, &dcb_dhcsr);
+		retval = cortex_m_read_dhcsr_atomic_sticky(target);
 		if (retval == ERROR_OK) {
 			retval = mem_ap_read_atomic_u32(armv7m->debug_ap, NVIC_DFSR,
 					&cortex_m->nvic_dfsr);
 			if (retval != ERROR_OK)
 				return retval;
-			if ((dcb_dhcsr & S_HALT)
+			if ((cortex_m->dcb_dhcsr & S_HALT)
 				&& (cortex_m->nvic_dfsr & DFSR_VCATCH)) {
-				LOG_DEBUG("system reset-halted, DHCSR 0x%08x, "
-					"DFSR 0x%08x",
-					(unsigned) dcb_dhcsr,
-					(unsigned) cortex_m->nvic_dfsr);
+				LOG_DEBUG("system reset-halted, DHCSR 0x%08" PRIx32 ", DFSR 0x%08" PRIx32,
+					cortex_m->dcb_dhcsr, cortex_m->nvic_dfsr);
 				cortex_m_poll(target);
 				/* FIXME restore user's vector catch config */
 				return ERROR_OK;
 			} else
 				LOG_DEBUG("waiting for system reset-halt, "
-					"DHCSR 0x%08x, %d ms",
-					(unsigned) dcb_dhcsr, timeout);
+					"DHCSR 0x%08" PRIx32 ", %d ms",
+					cortex_m->dcb_dhcsr, timeout);
 		}
 		timeout++;
 		alive_sleep(1);
@@ -911,8 +1219,11 @@ static int cortex_m_step(struct target *target, int current,
 	}
 
 	/* current = 1: continue on current pc, otherwise continue at <address> */
-	if (!current)
+	if (!current) {
 		buf_set_u32(pc->value, 0, 32, address);
+		pc->dirty = true;
+		pc->valid = true;
+	}
 
 	uint32_t pc_value = buf_get_u32(pc->value, 0, 32);
 
@@ -1014,9 +1325,7 @@ static int cortex_m_step(struct target *target, int current,
 
 					/* Wait for pending handlers to complete or timeout */
 					do {
-						retval = mem_ap_read_atomic_u32(armv7m->debug_ap,
-								DCB_DHCSR,
-								&cortex_m->dcb_dhcsr);
+						retval = cortex_m_read_dhcsr_atomic_sticky(target);
 						if (retval != ERROR_OK) {
 							target->state = TARGET_UNKNOWN;
 							return retval;
@@ -1051,7 +1360,7 @@ static int cortex_m_step(struct target *target, int current,
 		}
 	}
 
-	retval = mem_ap_read_atomic_u32(armv7m->debug_ap, DCB_DHCSR, &cortex_m->dcb_dhcsr);
+	retval = cortex_m_read_dhcsr_atomic_sticky(target);
 	if (retval != ERROR_OK)
 		return retval;
 
@@ -1129,8 +1438,8 @@ static int cortex_m_assert_reset(struct target *target)
 	}
 
 	/* Enable debug requests */
-	int retval;
-	retval = mem_ap_read_atomic_u32(armv7m->debug_ap, DCB_DHCSR, &cortex_m->dcb_dhcsr);
+	int retval = cortex_m_read_dhcsr_atomic_sticky(target);
+
 	/* Store important errors instead of failing and proceed to reset assert */
 
 	if (retval != ERROR_OK || !(cortex_m->dcb_dhcsr & C_DEBUGEN))
@@ -1176,7 +1485,7 @@ static int cortex_m_assert_reset(struct target *target)
 		retval = ERROR_OK;
 	} else {
 		/* Use a standard Cortex-M3 software reset mechanism.
-		 * We default to using VECRESET as it is supported on all current cores
+		 * We default to using VECTRESET as it is supported on all current cores
 		 * (except Cortex-M0, M0+ and M1 which support SYSRESETREQ only!)
 		 * This has the disadvantage of not resetting the peripherals, so a
 		 * reset-init event handler is needed to perform any peripheral resets.
@@ -1266,7 +1575,7 @@ static int cortex_m_deassert_reset(struct target *target)
 int cortex_m_set_breakpoint(struct target *target, struct breakpoint *breakpoint)
 {
 	int retval;
-	int fp_num = 0;
+	unsigned int fp_num = 0;
 	struct cortex_m_common *cortex_m = target_to_cm(target);
 	struct cortex_m_fp_comparator *comparator_list = cortex_m->fp_comparator_list;
 
@@ -1353,7 +1662,7 @@ int cortex_m_unset_breakpoint(struct target *target, struct breakpoint *breakpoi
 	struct cortex_m_common *cortex_m = target_to_cm(target);
 	struct cortex_m_fp_comparator *comparator_list = cortex_m->fp_comparator_list;
 
-	if (!breakpoint->set) {
+	if (breakpoint->set <= 0) {
 		LOG_WARNING("breakpoint not set");
 		return ERROR_OK;
 	}
@@ -1366,8 +1675,8 @@ int cortex_m_unset_breakpoint(struct target *target, struct breakpoint *breakpoi
 		breakpoint->set);
 
 	if (breakpoint->type == BKPT_HARD) {
-		int fp_num = breakpoint->set - 1;
-		if ((fp_num < 0) || (fp_num >= cortex_m->fp_num_code)) {
+		unsigned int fp_num = breakpoint->set - 1;
+		if (fp_num >= cortex_m->fp_num_code) {
 			LOG_DEBUG("Invalid FP Comparator number in breakpoint");
 			return ERROR_OK;
 		}
@@ -1413,7 +1722,7 @@ int cortex_m_remove_breakpoint(struct target *target, struct breakpoint *breakpo
 
 static int cortex_m_set_watchpoint(struct target *target, struct watchpoint *watchpoint)
 {
-	int dwt_num = 0;
+	unsigned int dwt_num = 0;
 	struct cortex_m_common *cortex_m = target_to_cm(target);
 
 	/* REVISIT Don't fully trust these "not used" records ... users
@@ -1498,21 +1807,20 @@ static int cortex_m_unset_watchpoint(struct target *target, struct watchpoint *w
 {
 	struct cortex_m_common *cortex_m = target_to_cm(target);
 	struct cortex_m_dwt_comparator *comparator;
-	int dwt_num;
 
-	if (!watchpoint->set) {
+	if (watchpoint->set <= 0) {
 		LOG_WARNING("watchpoint (wpid: %d) not set",
 			watchpoint->unique_id);
 		return ERROR_OK;
 	}
 
-	dwt_num = watchpoint->set - 1;
+	unsigned int dwt_num = watchpoint->set - 1;
 
 	LOG_DEBUG("Watchpoint (ID %d) DWT%d address: 0x%08x clear",
 		watchpoint->unique_id, dwt_num,
 		(unsigned) watchpoint->address);
 
-	if ((dwt_num < 0) || (dwt_num >= cortex_m->dwt_num_comp)) {
+	if (dwt_num >= cortex_m->dwt_num_comp) {
 		LOG_DEBUG("Invalid DWT Comparator number in watchpoint");
 		return ERROR_OK;
 	}
@@ -1596,6 +1904,35 @@ int cortex_m_remove_watchpoint(struct target *target, struct watchpoint *watchpo
 	return ERROR_OK;
 }
 
+int cortex_m_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint)
+{
+	if (target->debug_reason != DBG_REASON_WATCHPOINT)
+		return ERROR_FAIL;
+
+	struct cortex_m_common *cortex_m = target_to_cm(target);
+
+	for (struct watchpoint *wp = target->watchpoints; wp; wp = wp->next) {
+		if (!wp->set)
+			continue;
+
+		unsigned int dwt_num = wp->set - 1;
+		struct cortex_m_dwt_comparator *comparator = cortex_m->dwt_comparator_list + dwt_num;
+
+		uint32_t dwt_function;
+		int retval = target_read_u32(target, comparator->dwt_comparator_address + 8, &dwt_function);
+		if (retval != ERROR_OK)
+			return ERROR_FAIL;
+
+		/* check the MATCHED bit */
+		if (dwt_function & BIT(24)) {
+			*hit_watchpoint = wp;
+			return ERROR_OK;
+		}
+	}
+
+	return ERROR_FAIL;
+}
+
 void cortex_m_enable_watchpoints(struct target *target)
 {
 	struct watchpoint *watchpoint = target->watchpoints;
@@ -1613,7 +1950,7 @@ static int cortex_m_read_memory(struct target *target, target_addr_t address,
 {
 	struct armv7m_common *armv7m = target_to_armv7m(target);
 
-	if (armv7m->arm.is_armv6m) {
+	if (armv7m->arm.arch == ARM_ARCH_V6M) {
 		/* armv6m does not handle unaligned memory access */
 		if (((size == 4) && (address & 0x3u)) || ((size == 2) && (address & 0x1u)))
 			return ERROR_TARGET_UNALIGNED_ACCESS;
@@ -1627,7 +1964,7 @@ static int cortex_m_write_memory(struct target *target, target_addr_t address,
 {
 	struct armv7m_common *armv7m = target_to_armv7m(target);
 
-	if (armv7m->arm.is_armv6m) {
+	if (armv7m->arm.arch == ARM_ARCH_V6M) {
 		/* armv6m does not handle unaligned memory access */
 		if (((size == 4) && (address & 0x3u)) || ((size == 2) && (address & 0x1u)))
 			return ERROR_TARGET_UNALIGNED_ACCESS;
@@ -1824,7 +2161,7 @@ static void cortex_m_dwt_setup(struct cortex_m_common *cm, struct target *target
 	uint32_t dwtcr;
 	struct reg_cache *cache;
 	struct cortex_m_dwt_comparator *comparator;
-	int reg, i;
+	int reg;
 
 	target_read_u32(target, DWT_CTRL, &dwtcr);
 	LOG_DEBUG("DWT_CTRL: 0x%" PRIx32, dwtcr);
@@ -1866,7 +2203,7 @@ fail1:
 			dwt_base_regs + reg);
 
 	comparator = cm->dwt_comparator_list;
-	for (i = 0; i < cm->dwt_num_comp; i++, comparator++) {
+	for (unsigned int i = 0; i < cm->dwt_num_comp; i++, comparator++) {
 		int j;
 
 		comparator->dwt_comparator_address = DWT_COMP0 + 0x10 * i;
@@ -1937,14 +2274,13 @@ int cortex_m_examine(struct target *target)
 {
 	int retval;
 	uint32_t cpuid, fpcr, mvfr0, mvfr1;
-	int i;
 	struct cortex_m_common *cortex_m = target_to_cm(target);
 	struct adiv5_dap *swjdp = cortex_m->armv7m.arm.dap;
 	struct armv7m_common *armv7m = target_to_armv7m(target);
 
-	/* stlink shares the examine handler but does not support
+	/* hla_target shares the examine handler but does not support
 	 * all its calls */
-	if (!armv7m->stlink) {
+	if (!armv7m->is_hla_target) {
 		if (cortex_m->apsel == DP_APSEL_INVALID) {
 			/* Search for the MEM-AP */
 			retval = cortex_m_find_mem_ap(swjdp, &armv7m->debug_ap);
@@ -1956,7 +2292,6 @@ int cortex_m_examine(struct target *target)
 			armv7m->debug_ap = dap_ap(swjdp, cortex_m->apsel);
 		}
 
-		/* Leave (only) generic DAP stuff for debugport_init(); */
 		armv7m->debug_ap->memaccess_tck = 8;
 
 		retval = mem_ap_init(armv7m->debug_ap);
@@ -1972,35 +2307,31 @@ int cortex_m_examine(struct target *target)
 		if (retval != ERROR_OK)
 			return retval;
 
-		/* Get CPU Type */
-		i = (cpuid >> 4) & 0xf;
+		/* Get ARCH and CPU types */
+		const enum cortex_m_partno core_partno = (cpuid & ARM_CPUID_PARTNO_MASK) >> ARM_CPUID_PARTNO_POS;
 
-		/* Check if it is an ARMv8-M core */
-		armv7m->arm.is_armv8m = true;
-
-		switch (cpuid & ARM_CPUID_PARTNO_MASK) {
-			case CORTEX_M23_PARTNO:
-				i = 23;
+		for (unsigned int n = 0; n < ARRAY_SIZE(cortex_m_parts); n++) {
+			if (core_partno == cortex_m_parts[n].partno) {
+				cortex_m->core_info = &cortex_m_parts[n];
 				break;
-			case CORTEX_M33_PARTNO:
-				i = 33;
-				break;
-			case CORTEX_M35P_PARTNO:
-				i = 35;
-				break;
-			case CORTEX_M55_PARTNO:
-				i = 55;
-				break;
-			default:
-				armv7m->arm.is_armv8m = false;
-				break;
+			}
 		}
 
+		if (!cortex_m->core_info) {
+			LOG_ERROR("Cortex-M PARTNO 0x%x is unrecognized", core_partno);
+			return ERROR_FAIL;
+		}
 
-		LOG_DEBUG("Cortex-M%d r%" PRId8 "p%" PRId8 " processor detected",
-				i, (uint8_t)((cpuid >> 20) & 0xf), (uint8_t)((cpuid >> 0) & 0xf));
+		armv7m->arm.arch = cortex_m->core_info->arch;
+
+		LOG_INFO("%s: %s r%" PRId8 "p%" PRId8 " processor detected",
+				target_name(target),
+				cortex_m->core_info->name,
+				(uint8_t)((cpuid >> 20) & 0xf),
+				(uint8_t)((cpuid >> 0) & 0xf));
+
 		cortex_m->maskints_erratum = false;
-		if (i == 7) {
+		if (core_partno == CORTEX_M7_PARTNO) {
 			uint8_t rev, patch;
 			rev = (cpuid >> 20) & 0xf;
 			patch = (cpuid >> 0) & 0xf;
@@ -2011,57 +2342,61 @@ int cortex_m_examine(struct target *target)
 		}
 		LOG_DEBUG("cpuid: 0x%8.8" PRIx32 "", cpuid);
 
-		/* VECTRESET is supported only on ARMv7-M cores */
-		cortex_m->vectreset_supported = !armv7m->arm.is_armv8m && !armv7m->arm.is_armv6m;
-
-		if (i == 4) {
+		if (cortex_m->core_info->flags & CORTEX_M_F_HAS_FPV4) {
 			target_read_u32(target, MVFR0, &mvfr0);
 			target_read_u32(target, MVFR1, &mvfr1);
 
 			/* test for floating point feature on Cortex-M4 */
 			if ((mvfr0 == MVFR0_DEFAULT_M4) && (mvfr1 == MVFR1_DEFAULT_M4)) {
-				LOG_DEBUG("Cortex-M%d floating point feature FPv4_SP found", i);
-				armv7m->fp_feature = FPv4_SP;
+				LOG_DEBUG("%s floating point feature FPv4_SP found", cortex_m->core_info->name);
+				armv7m->fp_feature = FPV4_SP;
 			}
-		} else if (i == 7 || i == 33 || i == 35 || i == 55) {
+		} else if (cortex_m->core_info->flags & CORTEX_M_F_HAS_FPV5) {
 			target_read_u32(target, MVFR0, &mvfr0);
 			target_read_u32(target, MVFR1, &mvfr1);
 
 			/* test for floating point features on Cortex-M7 */
 			if ((mvfr0 == MVFR0_DEFAULT_M7_SP) && (mvfr1 == MVFR1_DEFAULT_M7_SP)) {
-				LOG_DEBUG("Cortex-M%d floating point feature FPv5_SP found", i);
-				armv7m->fp_feature = FPv5_SP;
+				LOG_DEBUG("%s floating point feature FPv5_SP found", cortex_m->core_info->name);
+				armv7m->fp_feature = FPV5_SP;
 			} else if ((mvfr0 == MVFR0_DEFAULT_M7_DP) && (mvfr1 == MVFR1_DEFAULT_M7_DP)) {
-				LOG_DEBUG("Cortex-M%d floating point feature FPv5_DP found", i);
-				armv7m->fp_feature = FPv5_DP;
+				LOG_DEBUG("%s floating point feature FPv5_DP found", cortex_m->core_info->name);
+				armv7m->fp_feature = FPV5_DP;
 			}
-		} else if (i == 0) {
-			/* Cortex-M0 does not support unaligned memory access */
-			armv7m->arm.is_armv6m = true;
 		}
 
-		if (armv7m->fp_feature == FP_NONE &&
-		    armv7m->arm.core_cache->num_regs > ARMV7M_NUM_CORE_REGS_NOFP) {
-			/* free unavailable FPU registers */
-			size_t idx;
+		/* VECTRESET is supported only on ARMv7-M cores */
+		cortex_m->vectreset_supported = armv7m->arm.arch == ARM_ARCH_V7M;
 
-			for (idx = ARMV7M_NUM_CORE_REGS_NOFP;
-			     idx < armv7m->arm.core_cache->num_regs;
-			     idx++) {
-				free(armv7m->arm.core_cache->reg_list[idx].feature);
-				free(armv7m->arm.core_cache->reg_list[idx].reg_data_type);
-			}
-			armv7m->arm.core_cache->num_regs = ARMV7M_NUM_CORE_REGS_NOFP;
-		}
+		/* Check for FPU, otherwise mark FPU register as non-existent */
+		if (armv7m->fp_feature == FP_NONE)
+			for (size_t idx = ARMV7M_FPU_FIRST_REG; idx <= ARMV7M_FPU_LAST_REG; idx++)
+				armv7m->arm.core_cache->reg_list[idx].exist = false;
 
-		if (!armv7m->stlink) {
-			if (i == 3 || i == 4)
+		if (armv7m->arm.arch != ARM_ARCH_V8M)
+			for (size_t idx = ARMV8M_FIRST_REG; idx <= ARMV8M_LAST_REG; idx++)
+				armv7m->arm.core_cache->reg_list[idx].exist = false;
+
+		if (!armv7m->is_hla_target) {
+			if (cortex_m->core_info->flags & CORTEX_M_F_TAR_AUTOINCR_BLOCK_4K)
 				/* Cortex-M3/M4 have 4096 bytes autoincrement range,
 				 * s. ARM IHI 0031C: MEM-AP 7.2.2 */
 				armv7m->debug_ap->tar_autoincr_block = (1 << 12);
-			else if (i == 7)
-				/* Cortex-M7 has only 1024 bytes autoincrement range */
-				armv7m->debug_ap->tar_autoincr_block = (1 << 10);
+		}
+
+		retval = target_read_u32(target, DCB_DHCSR, &cortex_m->dcb_dhcsr);
+		if (retval != ERROR_OK)
+			return retval;
+		cortex_m_cumulate_dhcsr_sticky(cortex_m, cortex_m->dcb_dhcsr);
+
+		if (!(cortex_m->dcb_dhcsr & C_DEBUGEN)) {
+			/* Enable debug requests */
+			uint32_t dhcsr = (cortex_m->dcb_dhcsr | C_DEBUGEN) & ~(C_HALT | C_STEP | C_MASKINTS);
+
+			retval = target_write_u32(target, DCB_DHCSR, DBGKEY | (dhcsr & 0x0000FFFFUL));
+			if (retval != ERROR_OK)
+				return retval;
+			cortex_m->dcb_dhcsr = dhcsr;
 		}
 
 		/* Enable debug requests */
@@ -2082,10 +2417,8 @@ int cortex_m_examine(struct target *target)
 		if (retval != ERROR_OK)
 			return retval;
 
-		if (armv7m->trace_config.config_type != TRACE_CONFIG_TYPE_DISABLED) {
-			armv7m_trace_tpiu_config(target);
+		if (armv7m->trace_config.itm_deferred_config)
 			armv7m_trace_itm_config(target);
-		}
 
 		/* NOTE: FPB and DWT are both optional. */
 
@@ -2102,7 +2435,7 @@ int cortex_m_examine(struct target *target)
 				cortex_m->fp_num_code + cortex_m->fp_num_lit,
 				sizeof(struct cortex_m_fp_comparator));
 		cortex_m->fpb_enabled = fpcr & 1;
-		for (i = 0; i < cortex_m->fp_num_code + cortex_m->fp_num_lit; i++) {
+		for (unsigned int i = 0; i < cortex_m->fp_num_code + cortex_m->fp_num_lit; i++) {
 			cortex_m->fp_comparator_list[i].type =
 				(i < cortex_m->fp_num_code) ? FPCR_CODE : FPCR_LITERAL;
 			cortex_m->fp_comparator_list[i].fpcr_address = FP_COMP0 + 4 * i;
@@ -2120,7 +2453,7 @@ int cortex_m_examine(struct target *target)
 		cortex_m_dwt_setup(cortex_m, target);
 
 		/* These hardware breakpoints only work for code in flash! */
-		LOG_INFO("%s: hardware has %d breakpoints, %d watchpoints",
+		LOG_INFO("%s: target has %d breakpoints, %d watchpoints",
 			target_name(target),
 			cortex_m->fp_num_code,
 			cortex_m->dwt_num_comp);
@@ -2250,7 +2583,7 @@ static int cortex_m_target_create(struct target *target, Jim_Interp *interp)
 		return ERROR_FAIL;
 
 	struct cortex_m_common *cortex_m = calloc(1, sizeof(struct cortex_m_common));
-	if (cortex_m == NULL) {
+	if (!cortex_m) {
 		LOG_ERROR("No memory creating target");
 		return ERROR_FAIL;
 	}
@@ -2268,7 +2601,7 @@ static int cortex_m_target_create(struct target *target, Jim_Interp *interp)
 static int cortex_m_verify_pointer(struct command_invocation *cmd,
 	struct cortex_m_common *cm)
 {
-	if (cm->common_magic != CORTEX_M_COMMON_MAGIC) {
+	if (!is_cortex_m_with_dap_access(cm)) {
 		command_print(cmd, "target is not a Cortex-M");
 		return ERROR_TARGET_INVALID;
 	}
@@ -2376,14 +2709,14 @@ COMMAND_HANDLER(handle_cortex_m_mask_interrupts_command)
 	struct cortex_m_common *cortex_m = target_to_cm(target);
 	int retval;
 
-	static const Jim_Nvp nvp_maskisr_modes[] = {
+	static const struct jim_nvp nvp_maskisr_modes[] = {
 		{ .name = "auto", .value = CORTEX_M_ISRMASK_AUTO },
 		{ .name = "off", .value = CORTEX_M_ISRMASK_OFF },
 		{ .name = "on", .value = CORTEX_M_ISRMASK_ON },
 		{ .name = "steponly", .value = CORTEX_M_ISRMASK_STEPONLY },
 		{ .name = NULL, .value = -1 },
 	};
-	const Jim_Nvp *n;
+	const struct jim_nvp *n;
 
 
 	retval = cortex_m_verify_pointer(CMD, cortex_m);
@@ -2396,14 +2729,14 @@ COMMAND_HANDLER(handle_cortex_m_mask_interrupts_command)
 	}
 
 	if (CMD_ARGC > 0) {
-		n = Jim_Nvp_name2value_simple(nvp_maskisr_modes, CMD_ARGV[0]);
-		if (n->name == NULL)
+		n = jim_nvp_name2value_simple(nvp_maskisr_modes, CMD_ARGV[0]);
+		if (!n->name)
 			return ERROR_COMMAND_SYNTAX_ERROR;
 		cortex_m->isrmasking_mode = n->value;
 		cortex_m_set_maskints_for_halt(target);
 	}
 
-	n = Jim_Nvp_value2name_simple(nvp_maskisr_modes, cortex_m->isrmasking_mode);
+	n = jim_nvp_value2name_simple(nvp_maskisr_modes, cortex_m->isrmasking_mode);
 	command_print(CMD, "cortex_m interrupt mask %s", n->name);
 
 	return ERROR_OK;
@@ -2485,6 +2818,11 @@ static const struct command_registration cortex_m_command_handlers[] = {
 	{
 		.chain = armv7m_trace_command_handlers,
 	},
+	/* START_DEPRECATED_TPIU */
+	{
+		.chain = arm_tpiu_deprecated_command_handlers,
+	},
+	/* END_DEPRECATED_TPIU */
 	{
 		.name = "cortex_m",
 		.mode = COMMAND_EXEC,
@@ -2500,7 +2838,6 @@ static const struct command_registration cortex_m_command_handlers[] = {
 
 struct target_type cortexm_target = {
 	.name = "cortex_m",
-	.deprecated_name = "cortex_m3",
 
 	.poll = cortex_m_poll,
 	.arch_state = armv7m_arch_state,
@@ -2531,6 +2868,7 @@ struct target_type cortexm_target = {
 	.remove_breakpoint = cortex_m_remove_breakpoint,
 	.add_watchpoint = cortex_m_add_watchpoint,
 	.remove_watchpoint = cortex_m_remove_watchpoint,
+	.hit_watchpoint = cortex_m_hit_watchpoint,
 
 	.commands = cortex_m_command_handlers,
 	.target_create = cortex_m_target_create,

@@ -21,7 +21,7 @@
 
 #include "server/server.h"
 #include "target/target.h"
-#include <jim-nvp.h>
+#include <helper/jim-nvp.h>
 
 typedef int64_t threadid_t;
 typedef int64_t symbol_address_t;
@@ -31,11 +31,11 @@ struct reg;
 /**
  * Table should be terminated by an element with NULL in symbol_name
  */
-typedef struct symbol_table_elem_struct {
+struct symbol_table_elem {
 	const char *symbol_name;
 	symbol_address_t address;
 	bool optional;
-} symbol_table_elem_t;
+};
 
 struct thread_detail {
 	threadid_t threadid;
@@ -47,7 +47,7 @@ struct thread_detail {
 struct rtos {
 	const struct rtos_type *type;
 
-	symbol_table_elem_t *symbols;
+	struct symbol_table_elem *symbols;
 	struct target *target;
 	/*  add a context variable instead of global variable */
 	/* The thread currently selected by gdb. */
@@ -78,11 +78,17 @@ struct rtos_type {
 			struct rtos_reg **reg_list, int *num_regs);
 	int (*get_thread_reg)(struct rtos *rtos, int64_t thread_id,
 			uint32_t reg_num, struct rtos_reg *reg);
-	int (*get_symbol_list_to_lookup)(symbol_table_elem_t *symbol_list[]);
+	int (*get_symbol_list_to_lookup)(struct symbol_table_elem *symbol_list[]);
 	int (*clean)(struct target *target);
 	char * (*ps_command)(struct target *target);
 	int (*set_reg)(struct rtos *rtos, uint32_t reg_num, uint8_t *reg_value);
-	int (*post_reset_cleanup)(struct target *target);
+	/* Implement these if different threads in the RTOS can see memory
+	 * differently (for instance because address translation might be different
+	 * for each thread). */
+	int (*read_buffer)(struct rtos *rtos, target_addr_t address, uint32_t size,
+			uint8_t *buffer);
+	int (*write_buffer)(struct rtos *rtos, target_addr_t address, uint32_t size,
+			const uint8_t *buffer);
 };
 
 struct stack_register_offset {
@@ -102,10 +108,10 @@ struct rtos_register_stacking {
 	 * just use stacking->stack_registers_size * stack_growth_direction
 	 * to calculate adjustment.
 	 */
-	int64_t (*calculate_process_stack)(struct target *target,
+	target_addr_t (*calculate_process_stack)(struct target *target,
 		const uint8_t *stack_data,
 		const struct rtos_register_stacking *stacking,
-		int64_t stack_ptr);
+		target_addr_t stack_ptr);
 	const struct stack_register_offset *register_offsets;
 	/* Some targets have to implement their own stack read function,
 	 * because the stack is formatted weird or needs mangling before
@@ -116,7 +122,7 @@ struct rtos_register_stacking {
 
 #define GDB_THREAD_PACKET_NOT_CONSUMED (-40)
 
-int rtos_create(Jim_GetOptInfo *goi, struct target *target);
+int rtos_create(struct jim_getopt_info *goi, struct target *target);
 void rtos_destroy(struct target *target);
 int rtos_set_reg(struct connection *connection, int reg_num,
 		uint8_t *reg_value);
@@ -133,6 +139,9 @@ void rtos_free_threadlist(struct rtos *rtos);
 int rtos_smp_init(struct target *target);
 /*  function for handling symbol access */
 int rtos_qsymbol(struct connection *connection, char const *packet, int packet_size);
-bool rtos_needs_fake_step(struct target *target, int64_t thread_id);
+int rtos_read_buffer(struct target *target, target_addr_t address,
+		uint32_t size, uint8_t *buffer);
+int rtos_write_buffer(struct target *target, target_addr_t address,
+		uint32_t size, const uint8_t *buffer);
 
 #endif /* OPENOCD_RTOS_RTOS_H */

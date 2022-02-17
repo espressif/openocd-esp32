@@ -23,6 +23,7 @@
 #endif
 #include <jtag/interface.h>
 #include <jtag/commands.h>
+#include "helper/system.h"
 #include <libusb_helper.h>
 #include <target/image.h>
 
@@ -133,13 +134,18 @@ static int load_usb_blaster_firmware(struct libusb_device_handle *libusb_dev,
 		return ERROR_FAIL;
 	}
 
+	if (libusb_claim_interface(libusb_dev, 0)) {
+		LOG_ERROR("unable to claim interface");
+		return ERROR_JTAG_INIT_FAILED;
+	}
+
 	ublast2_firmware_image.base_address = 0;
 	ublast2_firmware_image.base_address_set = false;
 
 	int ret = image_open(&ublast2_firmware_image, low->firmware_path, "ihex");
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Could not load firmware image");
-		return ret;
+		goto error_release_usb;
 	}
 
 	/** A host loader program must write 0x01 to the CPUCS register
@@ -167,7 +173,7 @@ static int load_usb_blaster_firmware(struct libusb_device_handle *libusb_dev,
 						     &ublast2_firmware_image, i);
 		if (ret != ERROR_OK) {
 			LOG_ERROR("Error while downloading the firmware");
-			return ret;
+			goto error_close_firmware;
 		}
 	}
 
@@ -182,9 +188,18 @@ static int load_usb_blaster_firmware(struct libusb_device_handle *libusb_dev,
 				     1,
 				     100);
 
+error_close_firmware:
 	image_close(&ublast2_firmware_image);
 
-	return ERROR_OK;
+error_release_usb:
+	/*
+	 * Release claimed interface. Most probably it is already disconnected
+	 * and re-enumerated as new devices after firmware upload, so we do
+	 * not need to care about errors.
+	 */
+	libusb_release_interface(libusb_dev, 0);
+
+	return ret;
 }
 
 static int ublast2_libusb_init(struct ublast_lowlevel *low)
@@ -195,7 +210,7 @@ static int ublast2_libusb_init(struct ublast_lowlevel *low)
 	bool renumeration = false;
 	int ret;
 
-	if (jtag_libusb_open(vids, pids, NULL, &temp, NULL) == ERROR_OK) {
+	if (jtag_libusb_open(vids, pids, &temp, NULL) == ERROR_OK) {
 		LOG_INFO("Altera USB-Blaster II (uninitialized) found");
 		LOG_INFO("Loading firmware...");
 		ret = load_usb_blaster_firmware(temp, low);
@@ -209,15 +224,13 @@ static int ublast2_libusb_init(struct ublast_lowlevel *low)
 	const uint16_t pids_renum[] = { low->ublast_pid, 0 };
 
 	if (renumeration == false) {
-		if (jtag_libusb_open(vids_renum, pids_renum, NULL,
-				&low->libusb_dev, NULL) != ERROR_OK) {
+		if (jtag_libusb_open(vids_renum, pids_renum, &low->libusb_dev, NULL) != ERROR_OK) {
 			LOG_ERROR("Altera USB-Blaster II not found");
 			return ERROR_FAIL;
 		}
 	} else {
 		int retry = 10;
-		while (jtag_libusb_open(vids_renum, pids_renum, NULL,
-				&low->libusb_dev, NULL) != ERROR_OK && retry--) {
+		while (jtag_libusb_open(vids_renum, pids_renum, &low->libusb_dev, NULL) != ERROR_OK && retry--) {
 			usleep(1000000);
 			LOG_INFO("Waiting for reenumerate...");
 		}
@@ -226,6 +239,12 @@ static int ublast2_libusb_init(struct ublast_lowlevel *low)
 			LOG_ERROR("Altera USB-Blaster II not found");
 			return ERROR_FAIL;
 		}
+	}
+
+	if (libusb_claim_interface(low->libusb_dev, 0)) {
+		LOG_ERROR("unable to claim interface");
+		jtag_libusb_close(low->libusb_dev);
+		return ERROR_JTAG_INIT_FAILED;
 	}
 
 	char buffer[5];
@@ -246,6 +265,9 @@ static int ublast2_libusb_init(struct ublast_lowlevel *low)
 
 static int ublast2_libusb_quit(struct ublast_lowlevel *low)
 {
+	if (libusb_release_interface(low->libusb_dev, 0))
+		LOG_ERROR("usb release interface failed");
+
 	jtag_libusb_close(low->libusb_dev);
 	return ERROR_OK;
 };

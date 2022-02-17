@@ -33,7 +33,7 @@
 #include <netinet/tcp.h>
 #endif
 
-#include <string.h>
+#include "helper/replacements.h"
 
 #define NO_TAP_SHIFT	0
 #define TAP_SHIFT	1
@@ -159,7 +159,7 @@ retry_write:
 		/* This means we could not send all data, which is most likely fatal
 		   for the jtag_vpi connection (the underlying TCP connection likely not
 		   usable anymore) */
-		LOG_ERROR("Could not send all data through jtag_vpi connection.");
+		LOG_ERROR("jtag_vpi: Could not send all data through jtag_vpi connection.");
 		exit(-1);
 	}
 
@@ -496,7 +496,7 @@ static int jtag_vpi_execute_queue(void)
 	struct jtag_command *cmd;
 	int retval = ERROR_OK;
 
-	for (cmd = jtag_command_queue; retval == ERROR_OK && cmd != NULL;
+	for (cmd = jtag_command_queue; retval == ERROR_OK && cmd;
 	     cmd = cmd->next) {
 		switch (cmd->type) {
 		case JTAG_RESET:
@@ -541,7 +541,7 @@ static int jtag_vpi_init(void)
 
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd < 0) {
-		LOG_ERROR("Could not create socket");
+		LOG_ERROR("jtag_vpi: Could not create client socket");
 		return ERROR_FAIL;
 	}
 
@@ -556,13 +556,13 @@ static int jtag_vpi_init(void)
 	serv_addr.sin_addr.s_addr = inet_addr(server_address);
 
 	if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
-		LOG_ERROR("inet_addr error occurred");
+		LOG_ERROR("jtag_vpi: inet_addr error occurred");
 		return ERROR_FAIL;
 	}
 
 	if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
 		close(sockfd);
-		LOG_ERROR("Can't connect to %s : %u", server_address, server_port);
+		LOG_ERROR("jtag_vpi: Can't connect to %s : %u", server_address, server_port);
 		return ERROR_COMMAND_CLOSE_CONNECTION;
 	}
 
@@ -573,7 +573,7 @@ static int jtag_vpi_init(void)
 		setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int));
 	}
 
-	LOG_INFO("Connection to %s : %u succeed", server_address, server_port);
+	LOG_INFO("jtag_vpi: Connection to %s : %u successful", server_address, server_port);
 
 	return ERROR_OK;
 }
@@ -640,28 +640,39 @@ COMMAND_HANDLER(jtag_vpi_stop_sim_on_exit_handler)
 	return ERROR_OK;
 }
 
-static const struct command_registration jtag_vpi_command_handlers[] = {
+static const struct command_registration jtag_vpi_subcommand_handlers[] = {
 	{
-		.name = "jtag_vpi_set_port",
+		.name = "set_port",
 		.handler = &jtag_vpi_set_port,
 		.mode = COMMAND_CONFIG,
 		.help = "set the port of the VPI server",
 		.usage = "tcp_port_num",
 	},
 	{
-		.name = "jtag_vpi_set_address",
+		.name = "set_address",
 		.handler = &jtag_vpi_set_address,
 		.mode = COMMAND_CONFIG,
 		.help = "set the address of the VPI server",
 		.usage = "ipv4_addr",
 	},
 	{
-		.name = "jtag_vpi_stop_sim_on_exit",
+		.name = "stop_sim_on_exit",
 		.handler = &jtag_vpi_stop_sim_on_exit_handler,
 		.mode = COMMAND_CONFIG,
 		.help = "Configure if simulation stop command shall be sent "
 			"before OpenOCD exits (default: off)",
 		.usage = "<on|off>",
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
+static const struct command_registration jtag_vpi_command_handlers[] = {
+	{
+		.name = "jtag_vpi",
+		.mode = COMMAND_ANY,
+		.help = "perform jtag_vpi management",
+		.chain = jtag_vpi_subcommand_handlers,
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };

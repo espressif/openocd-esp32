@@ -21,7 +21,7 @@
 #include "imp.h"
 #include <helper/binarybuffer.h>
 #include <target/algorithm.h>
-#include <target/armv7m.h>
+#include <target/cortex_m.h>
 
 
 /* Erase time can be as high as 1000ms, 10x this and it's toast... */
@@ -100,6 +100,11 @@
 #define FLASH_REG_BASE_B0       0x52002000
 #define FLASH_REG_BASE_B1       0x52002100
 
+/* Supported device IDs */
+#define DEVID_STM32H74_H75XX    0x450
+#define DEVID_STM32H7A_H7BXX    0x480
+#define DEVID_STM32H72_H73XX    0x483
+
 struct stm32h7x_rev {
 	uint16_t rev;
 	const char *str;
@@ -139,24 +144,24 @@ enum stm32h7x_opt_rdp {
 	OPT_RDP_L2 = 0xcc
 };
 
-static const struct stm32h7x_rev stm32_450_revs[] = {
+static const struct stm32h7x_rev stm32h74_h75xx_revs[] = {
 	{ 0x1000, "A" }, { 0x1001, "Z" }, { 0x1003, "Y" }, { 0x2001, "X"  }, { 0x2003, "V"  },
 };
 
-static const struct stm32h7x_rev stm32_480_revs[] = {
+static const struct stm32h7x_rev stm32h7a_h7bxx_revs[] = {
 	{ 0x1000, "A"},
 };
 
-static const struct stm32h7x_rev stm32_483_revs[] = {
+static const struct stm32h7x_rev stm32h72_h73xx_revs[] = {
 	{ 0x1000, "A" }, { 0x1001, "Z" },
 };
 
-static uint32_t stm32x_compute_flash_cr_450_483(uint32_t cmd, int snb)
+static uint32_t stm32h74_h75xx_compute_flash_cr(uint32_t cmd, int snb)
 {
 	return cmd | (snb << 8);
 }
 
-static uint32_t stm32x_compute_flash_cr_480(uint32_t cmd, int snb)
+static uint32_t stm32h7a_h7bxx_compute_flash_cr(uint32_t cmd, int snb)
 {
 	/* save FW and START bits, to be right shifted by 2 bits later */
 	const uint32_t tmp = cmd & (FLASH_FW | FLASH_START);
@@ -169,9 +174,9 @@ static uint32_t stm32x_compute_flash_cr_480(uint32_t cmd, int snb)
 
 static const struct stm32h7x_part_info stm32h7x_parts[] = {
 	{
-	.id					= 0x450,
-	.revs				= stm32_450_revs,
-	.num_revs			= ARRAY_SIZE(stm32_450_revs),
+	.id					= DEVID_STM32H74_H75XX,
+	.revs				= stm32h74_h75xx_revs,
+	.num_revs			= ARRAY_SIZE(stm32h74_h75xx_revs),
 	.device_str			= "STM32H74x/75x",
 	.page_size_kb		= 128,
 	.block_size			= 32,
@@ -181,12 +186,12 @@ static const struct stm32h7x_part_info stm32h7x_parts[] = {
 	.fsize_addr			= 0x1FF1E880,
 	.wps_group_size		= 1,
 	.wps_mask			= 0xFF,
-	.compute_flash_cr	= stm32x_compute_flash_cr_450_483,
+	.compute_flash_cr	= stm32h74_h75xx_compute_flash_cr,
 	},
 	{
-	.id					= 0x480,
-	.revs				= stm32_480_revs,
-	.num_revs			= ARRAY_SIZE(stm32_480_revs),
+	.id					= DEVID_STM32H7A_H7BXX,
+	.revs				= stm32h7a_h7bxx_revs,
+	.num_revs			= ARRAY_SIZE(stm32h7a_h7bxx_revs),
 	.device_str			= "STM32H7Ax/7Bx",
 	.page_size_kb		= 8,
 	.block_size			= 16,
@@ -196,12 +201,12 @@ static const struct stm32h7x_part_info stm32h7x_parts[] = {
 	.fsize_addr			= 0x08FFF80C,
 	.wps_group_size		= 4,
 	.wps_mask			= 0xFFFFFFFF,
-	.compute_flash_cr	= stm32x_compute_flash_cr_480,
+	.compute_flash_cr	= stm32h7a_h7bxx_compute_flash_cr,
 	},
 	{
-	.id					= 0x483,
-	.revs				= stm32_483_revs,
-	.num_revs			= ARRAY_SIZE(stm32_483_revs),
+	.id					= DEVID_STM32H72_H73XX,
+	.revs				= stm32h72_h73xx_revs,
+	.num_revs			= ARRAY_SIZE(stm32h72_h73xx_revs),
 	.device_str			= "STM32H72x/73x",
 	.page_size_kb		= 128,
 	.block_size			= 32,
@@ -211,7 +216,7 @@ static const struct stm32h7x_part_info stm32h7x_parts[] = {
 	.fsize_addr			= 0x1FF1E880,
 	.wps_group_size		= 1,
 	.wps_mask			= 0xFF,
-	.compute_flash_cr   = stm32x_compute_flash_cr_450_483,
+	.compute_flash_cr   = stm32h74_h75xx_compute_flash_cr,
 	},
 };
 
@@ -512,7 +517,6 @@ static int stm32x_erase(struct flash_bank *bank, unsigned int first,
 			LOG_ERROR("erase time-out or operation error sector %u", i);
 			goto flash_lock;
 		}
-		bank->sectors[i].is_erased = 1;
 	}
 
 flash_lock:
@@ -755,6 +759,7 @@ static int stm32x_read_id_code(struct flash_bank *bank, uint32_t *id)
 static int stm32x_probe(struct flash_bank *bank)
 {
 	struct target *target = bank->target;
+	struct cortex_m_common *cortex_m = target_to_cm(target);
 	struct stm32h7x_flash_bank *stm32x_info = bank->driver_priv;
 	uint16_t flash_size_in_kb;
 	uint32_t device_id;
@@ -793,15 +798,19 @@ static int stm32x_probe(struct flash_bank *bank)
 	LOG_DEBUG("flash_regs_base: 0x%" PRIx32, stm32x_info->flash_regs_base);
 
 	/* get flash size from target */
-	retval = target_read_u16(target, stm32x_info->part_info->fsize_addr, &flash_size_in_kb);
+	/* STM32H74x/H75x, the second core (Cortex-M4) cannot read the flash size */
+	retval = ERROR_FAIL;
+	if (device_id == DEVID_STM32H74_H75XX && cortex_m->core_info->partno == CORTEX_M4_PARTNO)
+		LOG_WARNING("%s cannot read the flash size register", target_name(target));
+	else
+		retval = target_read_u16(target, stm32x_info->part_info->fsize_addr, &flash_size_in_kb);
+
 	if (retval != ERROR_OK) {
 		/* read error when device has invalid value, set max flash size */
 		flash_size_in_kb = stm32x_info->part_info->max_flash_size_kb;
+		LOG_INFO("assuming %" PRIu16 "k flash", flash_size_in_kb);
 	} else
-		LOG_INFO("flash size probed value %" PRIu16, flash_size_in_kb);
-
-
-
+		LOG_INFO("flash size probed value %" PRIu16 "k", flash_size_in_kb);
 
 	/* setup bank size */
 	const uint32_t bank1_base = FLASH_BANK0_ADDRESS;
@@ -809,8 +818,8 @@ static int stm32x_probe(struct flash_bank *bank)
 	bool has_dual_bank = stm32x_info->part_info->has_dual_bank;
 
 	switch (device_id) {
-	case 0x450:
-	case 0x480:
+	case DEVID_STM32H74_H75XX:
+	case DEVID_STM32H7A_H7BXX:
 		/* For STM32H74x/75x and STM32H7Ax/Bx
 		 *  - STM32H7xxxI devices contains dual bank, 1 Mbyte each
 		 *  - STM32H7xxxG devices contains dual bank, 512 Kbyte each
@@ -823,7 +832,7 @@ static int stm32x_probe(struct flash_bank *bank)
 			/* flash size is 2M or 1M */
 			flash_size_in_kb /= 2;
 		break;
-	case 0x483:
+	case DEVID_STM32H72_H73XX:
 		break;
 	default:
 		LOG_ERROR("unsupported device");
@@ -879,7 +888,7 @@ static int stm32x_probe(struct flash_bank *bank)
 	bank->sectors = alloc_block_array(0, stm32x_info->part_info->page_size_kb * 1024,
 			bank->num_sectors);
 
-	if (bank->sectors == NULL) {
+	if (!bank->sectors) {
 		LOG_ERROR("failed to allocate bank sectors");
 		return ERROR_FAIL;
 	}
@@ -896,7 +905,7 @@ static int stm32x_probe(struct flash_bank *bank)
 	bank->prot_blocks = alloc_block_array(0, stm32x_info->part_info->page_size_kb * wpsn * 1024,
 			bank->num_prot_blocks);
 
-	if (bank->prot_blocks == NULL) {
+	if (!bank->prot_blocks) {
 		LOG_ERROR("failed to allocate bank prot_block");
 		return ERROR_FAIL;
 	}
@@ -916,7 +925,7 @@ static int stm32x_auto_probe(struct flash_bank *bank)
 }
 
 /* This method must return a string displaying information about the bank */
-static int stm32x_get_info(struct flash_bank *bank, char *buf, int buf_size)
+static int stm32x_get_info(struct flash_bank *bank, struct command_invocation *cmd)
 {
 	struct stm32h7x_flash_bank *stm32x_info = bank->driver_priv;
 	const struct stm32h7x_part_info *info = stm32x_info->part_info;
@@ -924,7 +933,7 @@ static int stm32x_get_info(struct flash_bank *bank, char *buf, int buf_size)
 	if (!stm32x_info->probed) {
 		int retval = stm32x_probe(bank);
 		if (retval != ERROR_OK) {
-			snprintf(buf, buf_size, "Unable to find bank information.");
+			command_print_sameline(cmd, "Unable to find bank information.");
 			return retval;
 		}
 	}
@@ -937,17 +946,17 @@ static int stm32x_get_info(struct flash_bank *bank, char *buf, int buf_size)
 			if (rev_id == info->revs[i].rev)
 				rev_str = info->revs[i].str;
 
-		if (rev_str != NULL) {
-			snprintf(buf, buf_size, "%s - Rev: %s",
+		if (rev_str) {
+			command_print_sameline(cmd, "%s - Rev: %s",
 				stm32x_info->part_info->device_str, rev_str);
 		} else {
-			snprintf(buf, buf_size,
+			command_print_sameline(cmd,
 				 "%s - Rev: unknown (0x%04" PRIx16 ")",
 				stm32x_info->part_info->device_str, rev_id);
 		}
 	} else {
-	  snprintf(buf, buf_size, "Cannot identify target as a STM32H7x");
-	  return ERROR_FAIL;
+		command_print_sameline(cmd, "Cannot identify target as a STM32H7x");
+		return ERROR_FAIL;
 	}
 	return ERROR_OK;
 }
@@ -1003,7 +1012,7 @@ COMMAND_HANDLER(stm32x_handle_lock_command)
 
 	struct flash_bank *bank;
 	int retval = CALL_COMMAND_HANDLER(flash_command_get_bank, 0, &bank);
-	if (ERROR_OK != retval)
+	if (retval != ERROR_OK)
 		return retval;
 
 	retval = stm32x_set_rdp(bank, OPT_RDP_L1);
@@ -1023,7 +1032,7 @@ COMMAND_HANDLER(stm32x_handle_unlock_command)
 
 	struct flash_bank *bank;
 	int retval = CALL_COMMAND_HANDLER(flash_command_get_bank, 0, &bank);
-	if (ERROR_OK != retval)
+	if (retval != ERROR_OK)
 		return retval;
 
 	retval = stm32x_set_rdp(bank, OPT_RDP_L0);
@@ -1083,19 +1092,14 @@ COMMAND_HANDLER(stm32x_handle_mass_erase_command)
 
 	struct flash_bank *bank;
 	int retval = CALL_COMMAND_HANDLER(flash_command_get_bank, 0, &bank);
-	if (ERROR_OK != retval)
+	if (retval != ERROR_OK)
 		return retval;
 
 	retval = stm32x_mass_erase(bank);
-	if (retval == ERROR_OK) {
-		/* set all sectors as erased */
-		for (unsigned int i = 0; i < bank->num_sectors; i++)
-			bank->sectors[i].is_erased = 1;
-
+	if (retval == ERROR_OK)
 		command_print(CMD, "stm32h7x mass erase complete");
-	} else {
+	else
 		command_print(CMD, "stm32h7x mass erase failed");
-	}
 
 	return retval;
 }
@@ -1109,14 +1113,14 @@ COMMAND_HANDLER(stm32x_handle_option_read_command)
 
 	struct flash_bank *bank;
 	int retval = CALL_COMMAND_HANDLER(flash_command_get_bank, 0, &bank);
-	if (ERROR_OK != retval)
+	if (retval != ERROR_OK)
 		return retval;
 
 	uint32_t reg_offset, value;
 
 	COMMAND_PARSE_NUMBER(u32, CMD_ARGV[1], reg_offset);
 	retval = stm32x_read_flash_reg(bank, reg_offset, &value);
-	if (ERROR_OK != retval)
+	if (retval != ERROR_OK)
 		return retval;
 
 	command_print(CMD, "Option Register: <0x%" PRIx32 "> = 0x%" PRIx32,
@@ -1134,7 +1138,7 @@ COMMAND_HANDLER(stm32x_handle_option_write_command)
 
 	struct flash_bank *bank;
 	int retval = CALL_COMMAND_HANDLER(flash_command_get_bank, 0, &bank);
-	if (ERROR_OK != retval)
+	if (retval != ERROR_OK)
 		return retval;
 
 	uint32_t reg_offset, value, mask = 0xffffffff;
@@ -1147,7 +1151,7 @@ COMMAND_HANDLER(stm32x_handle_option_write_command)
 	return stm32x_modify_option(bank, reg_offset, value, mask);
 }
 
-static const struct command_registration stm32x_exec_command_handlers[] = {
+static const struct command_registration stm32h7x_exec_command_handlers[] = {
 	{
 		.name = "lock",
 		.handler = stm32x_handle_lock_command,
@@ -1186,20 +1190,20 @@ static const struct command_registration stm32x_exec_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-static const struct command_registration stm32x_command_handlers[] = {
+static const struct command_registration stm32h7x_command_handlers[] = {
 	{
 		.name = "stm32h7x",
 		.mode = COMMAND_ANY,
 		.help = "stm32h7x flash command group",
 		.usage = "",
-		.chain = stm32x_exec_command_handlers,
+		.chain = stm32h7x_exec_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE
 };
 
 const struct flash_driver stm32h7x_flash = {
 	.name = "stm32h7x",
-	.commands = stm32x_command_handlers,
+	.commands = stm32h7x_command_handlers,
 	.flash_bank_command = stm32x_flash_bank_command,
 	.erase = stm32x_erase,
 	.protect = stm32x_protect,

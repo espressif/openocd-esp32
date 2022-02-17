@@ -24,17 +24,16 @@
 
 /* this callback should return a non NULL value only when the serial could not
  * be retrieved by the standard 'libusb_get_string_descriptor_ascii' */
-typedef char * (*adapter_get_alternate_serial_fn)(libusb_device_handle *device,
+typedef char * (*adapter_get_alternate_serial_fn)(struct libusb_device_handle *device,
 		struct libusb_device_descriptor *dev_desc);
 
 int jtag_libusb_open(const uint16_t vids[], const uint16_t pids[],
-		const char *serial,
 		struct libusb_device_handle **out,
 		adapter_get_alternate_serial_fn adapter_get_alternate_serial);
 void jtag_libusb_close(struct libusb_device_handle *dev);
 int jtag_libusb_control_transfer(struct libusb_device_handle *dev,
-		uint8_t requestType, uint8_t request, uint16_t wValue,
-		uint16_t wIndex, char *bytes,	uint16_t size, unsigned int timeout);
+		uint8_t request_type, uint8_t request, uint16_t value,
+		uint16_t index, char *bytes, uint16_t size, unsigned int timeout);
 int jtag_libusb_bulk_write(struct libusb_device_handle *dev, int ep,
 		char *bytes, int size, int timeout, int *transferred);
 int jtag_libusb_bulk_read(struct libusb_device_handle *dev, int ep,
@@ -60,8 +59,6 @@ int jtag_libusb_choose_interface(struct libusb_device_handle *devh,
 		unsigned int *usb_write_ep,
 		int bclass, int subclass, int protocol, int trans_type);
 int jtag_libusb_get_pid(struct libusb_device *dev, uint16_t *pid);
-
-int jtag_libusb_get_serial(struct libusb_device_handle *devh, const char **serial);
-libusb_device *jtag_libusb_find_device(const uint16_t vids[], const uint16_t pids[], const char *serial);
+int jtag_libusb_handle_events_completed(int *completed);
 
 #endif /* OPENOCD_JTAG_DRIVERS_LIBUSB_HELPER_H */

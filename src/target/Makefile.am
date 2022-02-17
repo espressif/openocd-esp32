@@ -1,9 +1,3 @@
-if OOCD_TRACE
-OOCD_TRACE_FILES = %D%/oocd_trace.c
-else
-OOCD_TRACE_FILES =
-endif
-
 %C%_libtarget_la_LIBADD = %D%/openrisc/libopenrisc.la \
 	%D%/riscv/libriscv.la
 
@@ -113,8 +107,8 @@ ARM_DEBUG_SRC = \
 	%D%/trace.c \
 	%D%/etb.c \
 	%D%/etm.c \
-	$(OOCD_TRACE_FILES) \
 	%D%/etm_dummy.c \
+	%D%/arm_tpiu_swo.c \
 	%D%/arm_cti.c
 
 AVR32_SRC = \
@@ -194,6 +188,7 @@ ARC_SRC = \
 %C%_libtarget_la_SOURCES += \
 	%D%/algorithm.h \
 	%D%/arm.h \
+	%D%/arm_coresight.h \
 	%D%/arm_dpm.h \
 	%D%/arm_jtag.h \
 	%D%/arm_adi_v5.h \
@@ -237,6 +232,7 @@ ARC_SRC = \
 	%D%/etb.h \
 	%D%/etm.h \
 	%D%/etm_dummy.h \
+	%D%/arm_tpiu_swo.h \
 	%D%/image.h \
 	%D%/mips32.h \
 	%D%/mips64.h \
@@ -246,7 +242,6 @@ ARC_SRC = \
 	%D%/mips32_pracc.h \
 	%D%/mips32_dmaacc.h \
 	%D%/mips64_pracc.h \
-	%D%/oocd_trace.h \
 	%D%/register.h \
 	%D%/target.h \
 	%D%/target_type.h \
