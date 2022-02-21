@@ -158,6 +158,23 @@ tests_armhf_esp32c3:
     TEST_RUN_DIR: "build_test_app_esp32c3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single"
 
+tests_armhf_esp32c3_builtin_usb_jtag:
+  extends: .tests_armhf_template
+  tags:
+    - arm
+    - test_jtag_arm_esp32c3_builtin
+  allow_failure: true
+  needs:
+    - job: build_test_app_esp32c3
+    - job: build_linux_armhf
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
+    PLATFORM_NAME: "linux-armhf"
+    TEST_RUN_DIR: "build_test_app_esp32c3"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-builtin -p test_*.*Single"
+
 tests_armhf_esp32c3_flash_encrypted:
   extends: .tests_armhf_template
   tags:
