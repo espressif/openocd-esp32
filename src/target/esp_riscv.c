@@ -23,6 +23,7 @@
 #include "smp.h"
 #include "semihosting_common.h"
 #include "esp_riscv.h"
+#include "target_type.h"
 
 #define ESP_RISCV_APPTRACE_SYSNR    0x64
 #define ESP_RISCV_DEBUG_STUBS_SYSNR 0x65
@@ -43,6 +44,7 @@
 		} \
 	} while (0)
 
+extern struct target_type riscv_target;
 static int esp_riscv_semihosting_post_result(struct target *target);
 static int esp_riscv_debug_stubs_info_init(struct target *target,
 	target_addr_t ctrl_addr);
@@ -420,4 +422,227 @@ int esp_riscv_run_algorithm(struct target *target, int num_mem_params,
 			arch_info);
 
 	return retval;
+}
+
+int esp_riscv_read_memory(struct target *target, target_addr_t address,
+	uint32_t size, uint32_t count, uint8_t *buffer)
+{
+	/* TODO: find out the widest system bus access size. For now we are assuming it is
+	        equal to xlen */
+	uint32_t sba_access_size = target_data_bits(target) / 8;
+
+	if (size < sba_access_size) {
+		LOG_DEBUG("Use %d-bit access: size: %d\tcount:%d\tstart address: 0x%08"
+			TARGET_PRIxADDR, sba_access_size * 8, size, count, address);
+		target_addr_t al_addr = address & ~(sba_access_size - 1);
+		uint32_t al_cnt = 4 * ((size * count) / sba_access_size + 1);
+		uint8_t al_buf[al_cnt];
+		int ret = riscv_target.read_memory(target,
+			al_addr,
+			sba_access_size,
+			al_cnt / sba_access_size,
+			al_buf);
+		if (ret == ERROR_OK)
+			memcpy(buffer, &al_buf[address & (sba_access_size - 1)], size * count);
+		return ret;
+	}
+
+	return riscv_target.read_memory(target, address, size, count, buffer);
+}
+
+int esp_riscv_write_memory(struct target *target, target_addr_t address,
+	uint32_t size, uint32_t count, const uint8_t *buffer)
+{
+	/* TODO: find out the widest system bus access size. For now we are assuming it is
+	        equal to xlen */
+	uint32_t sba_access_size = target_data_bits(target) / 8;
+
+	if (target->state == TARGET_RUNNING || target->state == TARGET_DEBUG_RUNNING) {
+		/* Emulate using 32-bit SBA access if target is running.
+		   Access via prog_buf or abstartct commands does not work in running state and
+		   fails with abstractcs.cmderr == 4 (halt/resume) */
+		if (size < sba_access_size) {
+			LOG_DEBUG("Use %d-bit access: size: %d\tcount:%d\tstart address: 0x%08"
+				TARGET_PRIxADDR, sba_access_size * 8, size, count, address);
+			target_addr_t al_addr = address & ~(sba_access_size - 1);
+			uint32_t al_cnt = 4 * ((size * count) / sba_access_size + 1);
+			uint8_t al_buf[al_cnt];
+			int ret = riscv_target.read_memory(target,
+				al_addr,
+				sba_access_size,
+				al_cnt / sba_access_size,
+				al_buf);
+			if (ret == ERROR_OK) {
+				memcpy(&al_buf[address & (sba_access_size - 1)],
+					buffer,
+					size * count);
+				ret = riscv_target.write_memory(target,
+					address,
+					sba_access_size,
+					al_cnt / sba_access_size,
+					al_buf);
+			}
+			return ret;
+		}
+	}
+	return riscv_target.write_memory(target, address, size, count, buffer);
+}
+
+int esp_riscv_halt(struct target *target)
+{
+	return riscv_target.halt(target);
+}
+
+int esp_riscv_resume(struct target *target, int current, target_addr_t address,
+	int handle_breakpoints, int debug_execution)
+{
+	return riscv_target.resume(target, current, address, handle_breakpoints, debug_execution);
+}
+
+int esp_riscv_step(
+	struct target *target,
+	int current,
+	target_addr_t address,
+	int handle_breakpoints)
+{
+	return riscv_target.step(target, current, address, handle_breakpoints);
+}
+
+int esp_riscv_assert_reset(struct target *target)
+{
+	return riscv_target.assert_reset(target);
+}
+
+int esp_riscv_deassert_reset(struct target *target)
+{
+	return riscv_target.deassert_reset(target);
+}
+
+int esp_riscv_checksum_memory(struct target *target,
+	target_addr_t address, uint32_t count,
+	uint32_t *checksum)
+{
+	return riscv_target.checksum_memory(target, address, count, checksum);
+}
+
+int esp_riscv_get_gdb_reg_list_noread(struct target *target,
+	struct reg **reg_list[], int *reg_list_size,
+	enum target_register_class reg_class)
+{
+	return riscv_target.get_gdb_reg_list_noread(target, reg_list, reg_list_size, reg_class);
+}
+
+int esp_riscv_get_gdb_reg_list(struct target *target,
+	struct reg **reg_list[], int *reg_list_size,
+	enum target_register_class reg_class)
+{
+	return riscv_target.get_gdb_reg_list(target, reg_list, reg_list_size, reg_class);
+}
+
+const char *esp_riscv_get_gdb_arch(struct target *target)
+{
+	return riscv_target.get_gdb_arch(target);
+}
+
+int esp_riscv_arch_state(struct target *target)
+{
+	return riscv_target.arch_state(target);
+}
+
+int esp_riscv_add_watchpoint(struct target *target, struct watchpoint *watchpoint)
+{
+	return riscv_target.add_watchpoint(target, watchpoint);
+}
+
+int esp_riscv_remove_watchpoint(struct target *target,
+	struct watchpoint *watchpoint)
+{
+	return riscv_target.remove_watchpoint(target, watchpoint);
+}
+
+int esp_riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint)
+{
+	return riscv_target.hit_watchpoint(target, hit_watchpoint);
+}
+
+unsigned esp_riscv_address_bits(struct target *target)
+{
+	return riscv_target.address_bits(target);
+}
+
+bool esp_riscv_core_is_halted(struct target *target)
+{
+	uint32_t dmstatus;
+	RISCV_INFO(r);
+	if (r->dmi_read(target, &dmstatus, DM_DMSTATUS) != ERROR_OK)
+		return false;
+	return get_field(dmstatus, DM_DMSTATUS_ALLHALTED);
+}
+
+int esp_riscv_core_halt(struct target *target)
+{
+	RISCV_INFO(r);
+
+	/* Issue the halt command, and then wait for the current hart to halt. */
+	uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE | DM_DMCONTROL_HALTREQ;
+	r->dmi_write(target, DM_DMCONTROL, dmcontrol);
+	for (size_t i = 0; i < 256; ++i)
+		if (esp_riscv_core_is_halted(target))
+			break;
+
+	if (!esp_riscv_core_is_halted(target)) {
+		uint32_t dmstatus;
+		if (r->dmi_read(target, &dmstatus, DM_DMSTATUS) != ERROR_OK)
+			return ERROR_FAIL;
+		if (r->dmi_read(target, &dmcontrol, DM_DMCONTROL) != ERROR_OK)
+			return ERROR_FAIL;
+
+		LOG_ERROR("unable to halt core");
+		LOG_ERROR("  dmcontrol=0x%08x", dmcontrol);
+		LOG_ERROR("  dmstatus =0x%08x", dmstatus);
+		return ERROR_FAIL;
+	}
+
+	dmcontrol = set_field(dmcontrol, DM_DMCONTROL_HALTREQ, 0);
+	r->dmi_write(target, DM_DMCONTROL, dmcontrol);
+	return ERROR_OK;
+}
+
+int esp_riscv_core_resume(struct target *target)
+{
+	RISCV_INFO(r);
+
+	/* Issue the resume command, and then wait for the current hart to resume. */
+	uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE | DM_DMCONTROL_RESUMEREQ;
+	r->dmi_write(target, DM_DMCONTROL, dmcontrol);
+
+	dmcontrol = set_field(dmcontrol, DM_DMCONTROL_HASEL, 0);
+	dmcontrol = set_field(dmcontrol, DM_DMCONTROL_RESUMEREQ, 0);
+
+	uint32_t dmstatus;
+	for (size_t i = 0; i < 256; ++i) {
+		usleep(10);
+		int res = r->dmi_read(target, &dmstatus, DM_DMSTATUS);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to read dmstatus!");
+			return res;
+		}
+		if (get_field(dmstatus, DM_DMSTATUS_ALLRESUMEACK) == 0)
+			continue;
+		res = r->dmi_write(target, DM_DMCONTROL, dmcontrol);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to write dmcontrol!");
+			return res;
+		}
+		return ERROR_OK;
+	}
+
+	r->dmi_write(target, DM_DMCONTROL, dmcontrol);
+
+	LOG_ERROR("unable to resume core");
+	if (r->dmi_read(target, &dmstatus, DM_DMSTATUS) != ERROR_OK)
+		return ERROR_FAIL;
+	LOG_ERROR("  dmstatus =0x%08x", dmstatus);
+
+	return ERROR_FAIL;
 }
