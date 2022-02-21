@@ -307,20 +307,6 @@ static int esp32c3_core_resume(struct target *target)
 	return ERROR_FAIL;
 }
 
-static int esp32c3_core_ebreaks_enable(struct target *target)
-{
-	riscv_reg_t dcsr;
-	RISCV_INFO(r);
-	int result = r->get_register(target, &dcsr, GDB_REGNO_DCSR);
-	if (result != ERROR_OK)
-		return result;
-	LOG_DEBUG("DCSR: %" PRIx64, dcsr);
-	dcsr = set_field(dcsr, CSR_DCSR_EBREAKM, 1);
-	dcsr = set_field(dcsr, CSR_DCSR_EBREAKS, 1);
-	dcsr = set_field(dcsr, CSR_DCSR_EBREAKU, 1);
-	return r->set_register(target, GDB_REGNO_DCSR, dcsr);
-}
-
 static int esp32c3_on_reset(struct target *target)
 {
 	LOG_DEBUG("esp32c3_on_reset!");
@@ -367,10 +353,6 @@ static int esp32c3_poll(struct target *target)
 					LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
 			}
 			if (ESP32C3_IS_FLASH_BOOT(strap_reg)) {
-				/* enable ebreaks */
-				res = esp32c3_core_ebreaks_enable(target);
-				if (res != ERROR_OK)
-					LOG_ERROR("Failed to enable EBREAKS handling (%d)!", res);
 				if (get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
 					LOG_DEBUG("Resume core");
 					res = esp32c3_core_resume(target);
