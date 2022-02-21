@@ -226,87 +226,6 @@ static int esp32c3_examine(struct target *target)
 	return ERROR_OK;
 }
 
-#define get_field(reg, mask) (((reg) & (mask)) / ((mask) & ~((mask) << 1)))
-#define set_field(reg, mask, val) (((reg) & ~(mask)) | (((val) * ((mask) & ~((mask) << 1))) & (mask)))
-
-static bool esp32c3_core_is_halted(struct target *target)
-{
-	uint32_t dmstatus;
-	RISCV_INFO(r);
-
-	if (r->dmi_read(target, &dmstatus, DM_DMSTATUS) != ERROR_OK)
-		return false;
-	return get_field(dmstatus, DM_DMSTATUS_ALLHALTED);
-}
-
-static int esp32c3_core_halt(struct target *target)
-{
-	RISCV_INFO(r);
-
-	/* Issue the halt command, and then wait for the current hart to halt. */
-	uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE | DM_DMCONTROL_HALTREQ;
-	r->dmi_write(target, DM_DMCONTROL, dmcontrol);
-	for (size_t i = 0; i < 256; ++i)
-		if (esp32c3_core_is_halted(target))
-			break;
-
-	if (!esp32c3_core_is_halted(target)) {
-		uint32_t dmstatus;
-		if (r->dmi_read(target, &dmstatus, DM_DMSTATUS) != ERROR_OK)
-			return ERROR_FAIL;
-		if (r->dmi_read(target, &dmcontrol, DM_DMCONTROL) != ERROR_OK)
-			return ERROR_FAIL;
-
-		LOG_ERROR("unable to halt core");
-		LOG_ERROR("  dmcontrol=0x%08x", dmcontrol);
-		LOG_ERROR("  dmstatus =0x%08x", dmstatus);
-		return ERROR_FAIL;
-	}
-
-	dmcontrol = set_field(dmcontrol, DM_DMCONTROL_HALTREQ, 0);
-	r->dmi_write(target, DM_DMCONTROL, dmcontrol);
-	return ERROR_OK;
-}
-
-static int esp32c3_core_resume(struct target *target)
-{
-	RISCV_INFO(r);
-
-	/* Issue the resume command, and then wait for the current hart to resume. */
-	uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE | DM_DMCONTROL_RESUMEREQ;
-	r->dmi_write(target, DM_DMCONTROL, dmcontrol);
-
-	dmcontrol = set_field(dmcontrol, DM_DMCONTROL_HASEL, 0);
-	dmcontrol = set_field(dmcontrol, DM_DMCONTROL_RESUMEREQ, 0);
-
-	uint32_t dmstatus;
-	for (size_t i = 0; i < 256; ++i) {
-		usleep(10);
-		int res = r->dmi_read(target, &dmstatus, DM_DMSTATUS);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to read dmstatus!");
-			return res;
-		}
-		if (get_field(dmstatus, DM_DMSTATUS_ALLRESUMEACK) == 0)
-			continue;
-		res = r->dmi_write(target, DM_DMCONTROL, dmcontrol);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to write dmcontrol!");
-			return res;
-		}
-		return ERROR_OK;
-	}
-
-	r->dmi_write(target, DM_DMCONTROL, dmcontrol);
-
-	LOG_ERROR("unable to resume core");
-	if (r->dmi_read(target, &dmstatus, DM_DMSTATUS) != ERROR_OK)
-		return ERROR_FAIL;
-	LOG_ERROR("  dmstatus =0x%08x", dmstatus);
-
-	return ERROR_FAIL;
-}
-
 static int esp32c3_on_reset(struct target *target)
 {
 	LOG_DEBUG("esp32c3_on_reset!");
@@ -338,7 +257,7 @@ static int esp32c3_poll(struct target *target)
 			if (ESP32C3_IS_FLASH_BOOT(strap_reg) &&
 				get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
 				LOG_DEBUG("Halt core");
-				res = esp32c3_core_halt(target);
+				res = esp_riscv_core_halt(target);
 				if (res == ERROR_OK) {
 					res = esp32c3_wdt_disable(target);
 					if (res != ERROR_OK)
@@ -355,7 +274,7 @@ static int esp32c3_poll(struct target *target)
 			if (ESP32C3_IS_FLASH_BOOT(strap_reg)) {
 				if (get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
 					LOG_DEBUG("Resume core");
-					res = esp32c3_core_resume(target);
+					res = esp_riscv_core_resume(target);
 					if (res != ERROR_OK)
 						LOG_ERROR("Failed to resume core (%d)!", res);
 					LOG_DEBUG("resumed core");
@@ -364,153 +283,6 @@ static int esp32c3_poll(struct target *target)
 		}
 	}
 	return riscv_target.poll(target);
-}
-
-static int esp32c3_halt(struct target *target)
-{
-	return riscv_target.halt(target);
-}
-
-static int esp32c3_resume(struct target *target, int current, target_addr_t address,
-	int handle_breakpoints, int debug_execution)
-{
-	return riscv_target.resume(target, current, address, handle_breakpoints, debug_execution);
-}
-
-static int esp32c3_step(
-	struct target *target,
-	int current,
-	target_addr_t address,
-	int handle_breakpoints)
-{
-	return riscv_target.step(target, current, address, handle_breakpoints);
-}
-
-static int esp32c3_assert_reset(struct target *target)
-{
-	return riscv_target.assert_reset(target);
-}
-
-static int esp32c3_deassert_reset(struct target *target)
-{
-	return riscv_target.deassert_reset(target);
-}
-
-static int esp32c3_read_memory(struct target *target, target_addr_t address,
-	uint32_t size, uint32_t count, uint8_t *buffer)
-{
-	/* TODO: find out the widest system bus access size. For now we are assuming it is
-	        equal to xlen */
-	uint32_t sba_access_size = target_data_bits(target) / 8;
-
-	if (size < sba_access_size) {
-		LOG_DEBUG("Use %d-bit access: size: %d\tcount:%d\tstart address: 0x%08"
-			TARGET_PRIxADDR, sba_access_size * 8, size, count, address);
-		target_addr_t al_addr = address & ~(sba_access_size - 1);
-		uint32_t al_cnt = 4 * ((size * count) / sba_access_size + 1);
-		uint8_t al_buf[al_cnt];
-		int ret = riscv_target.read_memory(target,
-			al_addr,
-			sba_access_size,
-			al_cnt / sba_access_size,
-			al_buf);
-		if (ret == ERROR_OK)
-			memcpy(buffer, &al_buf[address & (sba_access_size - 1)], size * count);
-		return ret;
-	}
-
-	return riscv_target.read_memory(target, address, size, count, buffer);
-}
-
-static int esp32c3_write_memory(struct target *target, target_addr_t address,
-	uint32_t size, uint32_t count, const uint8_t *buffer)
-{
-	/* TODO: find out the widest system bus access size. For now we are assuming it is
-	        equal to xlen */
-	uint32_t sba_access_size = target_data_bits(target) / 8;
-
-	if (target->state == TARGET_RUNNING || target->state == TARGET_DEBUG_RUNNING) {
-		/* Emulate using 32-bit SBA access if target is running.
-		   Access via prog_buf or abstartct commands does not work in running state and
-		   fails with abstractcs.cmderr == 4 (halt/resume) */
-		if (size < sba_access_size) {
-			LOG_DEBUG("Use %d-bit access: size: %d\tcount:%d\tstart address: 0x%08"
-				TARGET_PRIxADDR, sba_access_size * 8, size, count, address);
-			target_addr_t al_addr = address & ~(sba_access_size - 1);
-			uint32_t al_cnt = 4 * ((size * count) / sba_access_size + 1);
-			uint8_t al_buf[al_cnt];
-			int ret = riscv_target.read_memory(target,
-				al_addr,
-				sba_access_size,
-				al_cnt / sba_access_size,
-				al_buf);
-			if (ret == ERROR_OK) {
-				memcpy(&al_buf[address & (sba_access_size - 1)],
-					buffer,
-					size * count);
-				ret = riscv_target.write_memory(target,
-					address,
-					sba_access_size,
-					al_cnt / sba_access_size,
-					al_buf);
-			}
-			return ret;
-		}
-	}
-	return riscv_target.write_memory(target, address, size, count, buffer);
-}
-
-
-static int esp32c3_checksum_memory(struct target *target,
-	target_addr_t address, uint32_t count,
-	uint32_t *checksum)
-{
-	return riscv_target.checksum_memory(target, address, count, checksum);
-}
-
-static int esp32c3_get_gdb_reg_list_noread(struct target *target,
-	struct reg **reg_list[], int *reg_list_size,
-	enum target_register_class reg_class)
-{
-	return riscv_target.get_gdb_reg_list_noread(target, reg_list, reg_list_size, reg_class);
-}
-
-static int esp32c3_get_gdb_reg_list(struct target *target,
-	struct reg **reg_list[], int *reg_list_size,
-	enum target_register_class reg_class)
-{
-	return riscv_target.get_gdb_reg_list(target, reg_list, reg_list_size, reg_class);
-}
-
-static const char *esp32c3_get_gdb_arch(struct target *target)
-{
-	return riscv_target.get_gdb_arch(target);
-}
-
-static int esp32c3_arch_state(struct target *target)
-{
-	return riscv_target.arch_state(target);
-}
-
-static int esp32c3_add_watchpoint(struct target *target, struct watchpoint *watchpoint)
-{
-	return riscv_target.add_watchpoint(target, watchpoint);
-}
-
-static int esp32c3_remove_watchpoint(struct target *target,
-	struct watchpoint *watchpoint)
-{
-	return riscv_target.remove_watchpoint(target, watchpoint);
-}
-
-static int esp32c3_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint)
-{
-	return riscv_target.hit_watchpoint(target, hit_watchpoint);
-}
-
-static unsigned esp32c3_address_bits(struct target *target)
-{
-	return riscv_target.address_bits(target);
 }
 
 static const struct command_registration esp32c3_command_handlers[] = {
@@ -537,30 +309,30 @@ struct target_type esp32c3_target = {
 	/* poll current target status */
 	.poll = esp32c3_poll,
 
-	.halt = esp32c3_halt,
-	.resume = esp32c3_resume,
-	.step = esp32c3_step,
+	.halt = esp_riscv_halt,
+	.resume = esp_riscv_resume,
+	.step = esp_riscv_step,
 
-	.assert_reset = esp32c3_assert_reset,
-	.deassert_reset = esp32c3_deassert_reset,
+	.assert_reset = esp_riscv_assert_reset,
+	.deassert_reset = esp_riscv_deassert_reset,
 
-	.read_memory = esp32c3_read_memory,
-	.write_memory = esp32c3_write_memory,
+	.read_memory = esp_riscv_read_memory,
+	.write_memory = esp_riscv_write_memory,
 
-	.checksum_memory = esp32c3_checksum_memory,
+	.checksum_memory = esp_riscv_checksum_memory,
 
-	.get_gdb_arch = esp32c3_get_gdb_arch,
-	.get_gdb_reg_list = esp32c3_get_gdb_reg_list,
-	.get_gdb_reg_list_noread = esp32c3_get_gdb_reg_list_noread,
+	.get_gdb_arch = esp_riscv_get_gdb_arch,
+	.get_gdb_reg_list = esp_riscv_get_gdb_reg_list,
+	.get_gdb_reg_list_noread = esp_riscv_get_gdb_reg_list_noread,
 
 	.add_breakpoint = esp_riscv_breakpoint_add,
 	.remove_breakpoint = esp_riscv_breakpoint_remove,
 
-	.add_watchpoint = esp32c3_add_watchpoint,
-	.remove_watchpoint = esp32c3_remove_watchpoint,
-	.hit_watchpoint = esp32c3_hit_watchpoint,
+	.add_watchpoint = esp_riscv_add_watchpoint,
+	.remove_watchpoint = esp_riscv_remove_watchpoint,
+	.hit_watchpoint = esp_riscv_hit_watchpoint,
 
-	.arch_state = esp32c3_arch_state,
+	.arch_state = esp_riscv_arch_state,
 
 	.run_algorithm = esp_riscv_run_algorithm,
 	.start_algorithm = esp_riscv_start_algorithm,
@@ -568,5 +340,5 @@ struct target_type esp32c3_target = {
 
 	.commands = esp32c3_command_handlers,
 
-	.address_bits = esp32c3_address_bits,
+	.address_bits = esp_riscv_address_bits,
 };
