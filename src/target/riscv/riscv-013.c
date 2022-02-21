@@ -2882,13 +2882,12 @@ static bool mem_should_skip_progbuf(struct target *target, target_addr_t address
 		*skip_reason = "skipped (insufficient progbuf)";
 		return true;
 	}
-	//TODO-UPS check for state after post-reset.
-	// if (target->state != TARGET_HALTED) {
-	// 	LOG_WARNING("Skipping mem %s via progbuf - target not halted.",
-	// 			read ? "read" : "write");
-	// 	*skip_reason = "skipped (target not halted)";
-	// 	return true;
-	// }
+	if (target->state != TARGET_HALTED) {
+		LOG_DEBUG("Skipping mem %s via progbuf - target not halted.",
+				read ? "read" : "write");
+		*skip_reason = "skipped (target not halted)";
+		return true;
+	}
 	if (riscv_xlen(target) < size * 8) {
 		LOG_DEBUG("Skipping mem %s via progbuf - XLEN (%d) is too short for %d-bit memory access.",
 				read ? "read" : "write", riscv_xlen(target), size * 8);
