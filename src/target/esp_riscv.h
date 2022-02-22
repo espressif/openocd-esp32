@@ -86,6 +86,7 @@ int esp_riscv_read_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer);
 int esp_riscv_write_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, const uint8_t *buffer);
+int esp_riscv_poll(struct target *target);
 int esp_riscv_halt(struct target *target);
 int esp_riscv_resume(struct target *target, int current, target_addr_t address,
 	int handle_breakpoints, int debug_execution);
