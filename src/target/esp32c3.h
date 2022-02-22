@@ -30,7 +30,6 @@
 
 struct esp32c3_common {
 	struct esp_riscv_common esp_riscv;
-	bool was_reset;
 };
 
 static inline struct  esp32c3_common *esp32c3_common(const struct target *target)

@@ -4317,8 +4317,6 @@ static bool riscv013_is_halted(struct target *target)
 {
 	uint32_t dmstatus;
 
-	RISCV_INFO(r);
-
 	if (dmstatus_read(target, &dmstatus, true) != ERROR_OK)
 		return false;
 	if (get_field(dmstatus, DM_DMSTATUS_ANYUNAVAIL))
@@ -4328,8 +4326,8 @@ static bool riscv013_is_halted(struct target *target)
 	if (get_field(dmstatus, DM_DMSTATUS_ANYHAVERESET)) {
 		int hartid = riscv_current_hartid(target);
 		if (target->state != TARGET_RESET) {
-			//warn for "unexpected" reset when it is not requested by user
-			LOG_INFO("Hart %d unexpectedly reset", hartid);
+			/* warn for "unexpected" reset when it is not requested by user */
+			LOG_INFO("Hart %d unexpectedly reset!", hartid);
 		}
 		/* TODO: Can we make this more obvious to eg. a gdb user? */
 		uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE |
@@ -4343,7 +4341,8 @@ static bool riscv013_is_halted(struct target *target)
 		if (target->state == TARGET_HALTED)
 			dmcontrol |= DM_DMCONTROL_HALTREQ;
 		dmi_write(target, DM_DMCONTROL, dmcontrol);
-		
+
+		RISCV_INFO(r);
 		if (r->on_reset)
 			r->on_reset(target);
 	}

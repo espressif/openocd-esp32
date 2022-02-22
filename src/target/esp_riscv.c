@@ -488,6 +488,11 @@ int esp_riscv_write_memory(struct target *target, target_addr_t address,
 	return riscv_target.write_memory(target, address, size, count, buffer);
 }
 
+int esp_riscv_poll(struct target *target)
+{
+	return riscv_target.poll(target);
+}
+
 int esp_riscv_halt(struct target *target)
 {
 	return riscv_target.halt(target);
