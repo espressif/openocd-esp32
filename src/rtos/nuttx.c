@@ -356,9 +356,7 @@ static int nuttx_update_threads(struct rtos *rtos)
 	return 0;
 }
 
-/*
- * thread_id = tcb address;
- */
+
 /*
  * thread_id = tcb address;
  */
