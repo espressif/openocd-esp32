@@ -204,9 +204,8 @@ int esp_riscv_start_algorithm(struct target *target,
 	target_addr_t entry_point, target_addr_t exit_point,
 	void *arch_info)
 {
-	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
-	struct riscv_algorithm *algorithm_info = arch_info;
-	size_t max_saved_reg = algorithm_info ? algorithm_info->max_saved_reg : GDB_REGNO_XPR31;
+	struct esp_riscv_algorithm *algorithm_info = arch_info;
+	size_t max_saved_reg = algorithm_info->max_saved_reg;
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
@@ -218,7 +217,7 @@ int esp_riscv_start_algorithm(struct target *target,
 		number <= max_saved_reg && number < target->reg_cache->num_regs; number++) {
 		struct reg *r = &target->reg_cache->reg_list[number];
 
-		esp_riscv->valid_saved_registers[r->number] = r->exist;
+		algorithm_info->valid_saved_registers[r->number] = r->exist;
 		if (!r->exist)
 			continue;
 
@@ -236,9 +235,7 @@ int esp_riscv_start_algorithm(struct target *target,
 			r->exist = false;
 			return ERROR_FAIL;
 		}
-		esp_riscv->saved_registers[r->number] = buf_get_u64(r->value,
-			0,
-			r->size);
+		algorithm_info->saved_registers[r->number] = buf_get_u64(r->value, 0, r->size);
 	}
 
 	/* write mem params */
@@ -302,9 +299,8 @@ int esp_riscv_wait_algorithm(struct target *target,
 	void *arch_info)
 {
 	RISCV_INFO(info);
-	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
-	struct riscv_algorithm *algorithm_info = arch_info;
-	size_t max_saved_reg = algorithm_info ? algorithm_info->max_saved_reg : GDB_REGNO_XPR31;
+	struct esp_riscv_algorithm *algorithm_info = arch_info;
+	size_t max_saved_reg = algorithm_info->max_saved_reg;
 
 	int64_t start = timeval_ms();
 	while (target->state != TARGET_HALTED) {
@@ -387,12 +383,12 @@ int esp_riscv_wait_algorithm(struct target *target,
 		number <= max_saved_reg && number < target->reg_cache->num_regs; number++) {
 		struct reg *r = &target->reg_cache->reg_list[number];
 
-		if (!esp_riscv->valid_saved_registers[r->number])
+		if (!algorithm_info->valid_saved_registers[r->number])
 			continue;
 
 		LOG_DEBUG("restore %s", r->name);
 		uint8_t buf[8];
-		buf_set_u64(buf, 0, info->xlen, esp_riscv->saved_registers[r->number]);
+		buf_set_u64(buf, 0, info->xlen, algorithm_info->saved_registers[r->number]);
 		if (r->type->set(r, buf) != ERROR_OK) {
 			LOG_ERROR("set(%s) failed", r->name);
 			return ERROR_FAIL;

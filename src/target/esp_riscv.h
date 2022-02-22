@@ -23,9 +23,9 @@
 
 #include "target.h"
 #include "riscv/riscv.h"
-#include "riscv/riscv_algorithm.h"
 #include "riscv/debug_defines.h"
 #include "esp_riscv_apptrace.h"
+#include "esp_riscv_algorithm.h"
 #include "esp.h"
 
 #define get_field(reg, mask) (((reg) & (mask)) / ((mask) & ~((mask) << 1)))
@@ -37,9 +37,6 @@ struct esp_riscv_common {
 	struct esp_common esp;
 	struct esp_riscv_apptrace_info apptrace;
 	struct esp_semihost_ops *semi_ops;
-	/* TODO-UPS can be in struct riscv_algorithm ? */
-	uint64_t saved_registers[RISCV_MAX_REGISTERS];
-	bool valid_saved_registers[RISCV_MAX_REGISTERS];
 };
 
 static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *target)
