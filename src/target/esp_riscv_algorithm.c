@@ -19,33 +19,33 @@
  ***************************************************************************/
 
 #include "target/target.h"
-#include "riscv.h"
-#include "riscv_algorithm.h"
+#include "riscv/riscv.h"
+#include "esp_riscv_algorithm.h"
 
-static int riscv_algo_init(struct target *target, struct algorithm_run_data *run,
+static int esp_riscv_algo_init(struct target *target, struct algorithm_run_data *run,
 	void *arch_info,
 	uint32_t num_args,
 	va_list ap);
-static int riscv_algo_cleanup(struct algorithm_run_data *run);
-static const uint8_t *riscv_stub_tramp_get(struct target *target, size_t *size);
+static int esp_riscv_algo_cleanup(struct algorithm_run_data *run);
+static const uint8_t *esp_riscv_stub_tramp_get(struct target *target, size_t *size);
 
 const struct algorithm_hw riscv_algo_hw = {
-	.algo_init = riscv_algo_init,
-	.algo_cleanup = riscv_algo_cleanup,
-	.stub_tramp_get = riscv_stub_tramp_get,
+	.algo_init = esp_riscv_algo_init,
+	.algo_cleanup = esp_riscv_algo_cleanup,
+	.stub_tramp_get = esp_riscv_stub_tramp_get,
 };
 
-static const uint8_t *riscv_stub_tramp_get(struct target *target, size_t *size)
+static const uint8_t *esp_riscv_stub_tramp_get(struct target *target, size_t *size)
 {
 	static const uint8_t s_riscv_stub_tramp[] = {
-	#include "src/target/riscv/riscv_stub_tramp.inc"
+	#include "src/target/esp_riscv_stub_tramp.inc"
 	};
 
 	*size = sizeof(s_riscv_stub_tramp);
 	return s_riscv_stub_tramp;
 }
 
-static int riscv_algo_regs_init_start(struct target *target, struct algorithm_run_data *run)
+static int esp_riscv_algo_regs_init_start(struct target *target, struct algorithm_run_data *run)
 {
 	uint32_t stack_addr = run->stub.stack_addr;
 	int xlen = riscv_xlen(target);
@@ -63,7 +63,7 @@ static int riscv_algo_regs_init_start(struct target *target, struct algorithm_ru
 	return ERROR_OK;
 }
 
-static int riscv_algo_init(struct target *target, struct algorithm_run_data *run,
+static int esp_riscv_algo_init(struct target *target, struct algorithm_run_data *run,
 	void *arch_info,
 	uint32_t num_args,
 	va_list ap)
@@ -77,12 +77,12 @@ static int riscv_algo_init(struct target *target, struct algorithm_run_data *run
 		return ERROR_FAIL;
 	}
 
-	run->reg_args.first_user_param = RISCV_STUB_ARGS_FUNC_START;
+	run->reg_args.first_user_param = ESP_RISCV_STUB_ARGS_FUNC_START;
 	run->reg_args.count = run->reg_args.first_user_param + num_args;
 	run->reg_args.params = calloc(run->reg_args.count, sizeof(struct reg_param));
 	assert(run->reg_args.params);
 
-	riscv_algo_regs_init_start(target, run);
+	esp_riscv_algo_regs_init_start(target, run);
 
 	init_reg_param(&run->reg_args.params[run->reg_args.first_user_param+0],
 		"a0",
@@ -105,7 +105,7 @@ static int riscv_algo_init(struct target *target, struct algorithm_run_data *run
 		LOG_DEBUG("Set arg[%d] = %d (%s)", i, arg,
 			run->reg_args.params[run->reg_args.first_user_param+i].reg_name);
 	}
-	struct riscv_algorithm *ainfo = calloc(1, sizeof(struct riscv_algorithm));
+	struct esp_riscv_algorithm *ainfo = calloc(1, sizeof(struct esp_riscv_algorithm));
 	assert(ainfo);
 	/* backup all regs */
 	ainfo->max_saved_reg = GDB_REGNO_COUNT-1;
@@ -113,7 +113,7 @@ static int riscv_algo_init(struct target *target, struct algorithm_run_data *run
 	return ERROR_OK;
 }
 
-static int riscv_algo_cleanup(struct algorithm_run_data *run)
+static int esp_riscv_algo_cleanup(struct algorithm_run_data *run)
 {
 	free(run->stub.ainfo);
 	for (uint32_t i = 0; i < run->reg_args.count; i++)

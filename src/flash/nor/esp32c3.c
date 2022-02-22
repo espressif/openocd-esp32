@@ -23,7 +23,7 @@
 #endif
 
 #include <target/esp32c3.h>
-#include <target/riscv/riscv_algorithm.h>
+#include <target/esp_riscv_algorithm.h>
 #include "imp.h"
 #include "esp_riscv.h"
 #include "contrib/loaders/flash/esp/esp32c3/stub_flasher_image.h"
@@ -49,7 +49,7 @@ static const struct esp_flasher_stub_config s_esp32c3_stub_cfg = {
 	.data_sz = sizeof(s_esp32c3_flasher_stub_data),
 	.entry_addr = ESP32C3_STUB_ENTRY_ADDR,
 	.bss_sz = ESP32C3_STUB_BSS_SIZE,
-	.first_user_reg_param = RISCV_STUB_ARGS_FUNC_START,
+	.first_user_reg_param = ESP_RISCV_STUB_ARGS_FUNC_START,
 	.apptrace_ctrl_addr = ESP32C3_STUB_APPTRACE_CTRL_ADDR,
 	.stack_data_pool_sz = CONFIG_STUB_STACK_DATA_POOL_SIZE
 };

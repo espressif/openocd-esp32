@@ -166,8 +166,9 @@ ESP32_SRC= \
 	%D%/esp_riscv.c \
 	%D%/esp_riscv_apptrace.c \
 	%D%/esp32_apptrace.c \
-	%D%/esp32_sysview.c
-
+	%D%/esp32_sysview.c \
+	%D%/esp_riscv_algorithm.c
+	
 INTEL_IA32_SRC = \
 	%D%/quark_x10xx.c \
 	%D%/quark_d20xx.c \
