@@ -380,7 +380,7 @@ static void dump_field(int idle, const struct scan_field *field)
 	static const char * const op_string[] = {"-", "r", "w", "?"};
 	static const char * const status_string[] = {"+", "?", "F", "b"};
 
-	if (debug_level < LOG_LVL_DEBUG)
+	if (debug_level < LOG_LVL_DEBUG_IO)
 		return;
 
 	uint64_t out = buf_get_u64(field->out_value, 0, field->num_bits);
@@ -540,8 +540,7 @@ static dmi_status_t dmi_scan(struct target *target, uint32_t *address_in,
 
 	if (address_in)
 		*address_in = buf_get_u32(in, DTM_DMI_ADDRESS_OFFSET, info->abits);
-	if (LOG_LEVEL_IS(LOG_LVL_DEBUG_IO))
-		dump_field(idle_count, &field);
+	dump_field(idle_count, &field);
 	return buf_get_u32(in, DTM_DMI_OP_OFFSET, DTM_DMI_OP_LENGTH);
 }
 
@@ -2410,22 +2409,10 @@ static int deassert_reset(struct target *target)
 
 	/* Clear the reset, but make sure haltreq is still set */
 	uint32_t control = 0;
-	/* FIXME: should only set haltreq if target->reset_halt is set */
-	control = set_field(control, DM_DMCONTROL_HALTREQ, 1);
-
-	//FIXME: not working for ESP32C3!!! Hart 0 didn't run coming out of reset in 2s
-	//control = set_field(control, DM_DMCONTROL_HALTREQ, target->reset_halt ? 1 : 0); 
-
+	control = set_field(control, DM_DMCONTROL_HALTREQ, target->reset_halt ? 1 : 0);
 	control = set_field(control, DM_DMCONTROL_DMACTIVE, 1);
 	dmi_write(target, DM_DMCONTROL,
 			set_hartsel(control, r->current_hartid));
-
-	if (!target->reset_halt) {
-		control = set_field(0, DM_DMCONTROL_RESUMEREQ, 1);
-		control = set_field(control, DM_DMCONTROL_DMACTIVE, 1);
-		dmi_write(target, DM_DMCONTROL,
-				set_hartsel(control, r->current_hartid));
-	}
 
 	uint32_t dmstatus;
 	int dmi_busy_delay = info->dmi_busy_delay;
@@ -4341,7 +4328,6 @@ static bool riscv013_is_halted(struct target *target)
 		if (target->state == TARGET_HALTED)
 			dmcontrol |= DM_DMCONTROL_HALTREQ;
 		dmi_write(target, DM_DMCONTROL, dmcontrol);
-
 		RISCV_INFO(r);
 		if (r->on_reset)
 			r->on_reset(target);
