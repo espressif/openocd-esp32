@@ -201,6 +201,7 @@ struct freertos_data {
 	uint32_t nr_cpus;
 	uint8_t *curr_threads_handles_buff;
 	uint32_t thread_counter;/* equivalent to uxTaskNumber */
+	uint8_t *esp_symbols;
 };
 
 static bool freertos_detect_rtos(struct target *target);
@@ -289,40 +290,50 @@ static const char *const STATE_RUNNING_STR = "State: Running @CPU%d";
 
 static int freertos_read_esp_symbol_table(struct rtos *rtos, int index, uint8_t *val)
 {
-	int retval = ERROR_FAIL;
+	struct freertos_data *rtos_data = (struct freertos_data *)rtos->rtos_specific_params;
+	static uint8_t table_size = 0;
 
-	if (rtos->symbols[FREERTOS_VAL_ESP_OPENOCD_PARAMS].address != 0) {
+	if (!rtos_data->esp_symbols) {
+		if (!rtos->symbols[FREERTOS_VAL_ESP_OPENOCD_PARAMS].address)
+			return ERROR_FAIL;
+
 		LOG_DEBUG(
 			"Read FREERTOS_VAL_ESP_OPENOCD_PARAMS from address 0x%"
 			PRIx64,
 			rtos->symbols[FREERTOS_VAL_ESP_OPENOCD_PARAMS].address);
 
-		uint8_t table_size = 0;
-		retval = target_read_buffer(
+		int retval = target_read_buffer(
 			rtos->target,
 			rtos->symbols[FREERTOS_VAL_ESP_OPENOCD_PARAMS].address +
 			ESP_FREERTOS_DEBUG_TABLE_SIZE,
-			1,
+			sizeof(table_size),
 			&table_size);
 		if (retval != ERROR_OK)
 			return retval;
 
-		uint8_t symbols[table_size];
+		LOG_DEBUG("esp_symbol_table size: (%d)", table_size);
+
+		rtos_data->esp_symbols = (uint8_t *)calloc(table_size, sizeof(table_size));
+		if (!rtos_data->esp_symbols) {
+			LOG_ERROR("Error allocating memory for esp_symbols");
+			return ERROR_FAIL;
+		}
 		retval = target_read_buffer(rtos->target,
 			rtos->symbols[FREERTOS_VAL_ESP_OPENOCD_PARAMS].address,
 			table_size,
-			symbols);
-		if (retval == ERROR_OK) {
-			if (val) {
-				*val = symbols[index];
-				LOG_DEBUG("requested inx (%d) val (%d)",
-					index,
-					*val);
-			}
+			rtos_data->esp_symbols);
+		if (retval != ERROR_OK) {
+			free(rtos_data->esp_symbols);
+			rtos_data->esp_symbols = NULL;
+			return retval;
 		}
 	}
 
-	return retval;
+	assert(index < table_size && val);
+	*val = rtos_data->esp_symbols[index];
+	LOG_DEBUG("requested inx (%d) val (%d)", index, *val);
+	return ERROR_OK;
+
 }
 
 uint8_t freertos_get_thread_name_offset(struct rtos *rtos)
@@ -1278,6 +1289,8 @@ static int freertos_post_reset_cleanup(struct target *target)
 	}
 	target->rtos->current_threadid = -1;
 	rtos_data->thread_counter = 0;
+	free(rtos_data->esp_symbols);
+	rtos_data->esp_symbols = NULL;
 	return ERROR_OK;
 }
 
