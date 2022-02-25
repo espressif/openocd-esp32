@@ -52,8 +52,6 @@ variables:
   TOOLCHAIN_PREFIX: "xtensa-esp32"
   CHIP_NAME: "esp32"
 
-  TEST_APP_IDF_TAG: $CI_COMMIT_REF_NAME
-
 .add_gh_key_remote: &add_gh_key_remote |
   command -v ssh-agent >/dev/null || exit 1
   eval $(ssh-agent -s)
