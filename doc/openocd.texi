@@ -10455,8 +10455,10 @@ the DM transport TAP's instruction register to enable.  Supply a value of 0 to d
 @end deffn
 
 @deffn {Command} {riscv set_maskisr} [@option{off}|@option{steponly}]
-Selects whether interrupts will be disabled when single stepping. The default configuration is
-@option{off}.
+Selects whether interrupts will be disabled when single stepping. The default configuration is @option{off}.
+This feature is only useful on hardware that always steps into interrupts and doesn't support stepie=0.
+Keep in mind, disabling the option does not guarantee that single stepping will go into interrupt handlers.
+To make that happen, stepie would have to be written to 1 as well.
 @end deffn
 
 @deffn {Command} {riscv set_ebreakm} on|off
