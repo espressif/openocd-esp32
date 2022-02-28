@@ -2015,10 +2015,10 @@ static int gdb_memory_map(struct connection *connection,
 	if (offset + length > pos)
 		length = pos - offset;
 
-	char *t = calloc(length + 2, sizeof(char));
+	char *t = malloc(length + 1);
 	t[0] = 'l';
 	memcpy(t + 1, xml + offset, length);
-	gdb_put_packet(connection, t, strlen(t));
+	gdb_put_packet(connection, t, length + 1);
 
 	free(t);
 	free(xml);
