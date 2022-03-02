@@ -619,6 +619,9 @@ emulation model of target hardware.
 @* Link: @url{https://docs.amd.com/r/en-US/pg437-axi-jtag/Introduction}
 @* Link: @url{https://china.xilinx.com/support/documentation/application_notes/xapp1251-xvc-zynq-petalinux.pdf}
 
+@item @b{xvc}
+@* A JTAG driver using Xilinx Virtual Cable over TCP to OpenOCD as JTAG interface.
+
 @item @b{linuxspidev}
 @* A SPI based SWD driver using Linux SPI devices.
 
@@ -3914,6 +3917,30 @@ protected using other SoC mechanisms.
 @deffn {Config Command} {dmem emu_base_address_range} base_address address_window_size
 Set the emulated address and address window size. Both of these
 parameters must be aligned to page size.
+@end deffn
+
+@deffn {Interface Driver} {xvc}
+This driver implements bitbang mode of JTAG devices
+using Xilinx Virtual Cable messages over TCP/IP.
+This implementation is XVC protocol 1.0/1.1 compatible. However, 'mrd' and 'mwr'
+extensions introduced in version 1.1 are not supported. Refer to:
+@url{https://github.com/Xilinx/XilinxVirtualCable} for protocol specification.
+
+Example configuration:
+
+@example
+xvc host 192.168.3.192
+xvc port 5000
+@end example
+@end deffn
+
+@deffn {Config Command} {xvc host} @var{hostname}
+Specifies the hostname of the remote debugger or UNIX socket to connect to.
+@end deffn
+
+@deffn {Config Command} {xvc port} @var{number}
+Specifies the port of the remote process to connect to.
+'0' is a special case where UNIX sockets are used.
 @end deffn
 
 @end deffn

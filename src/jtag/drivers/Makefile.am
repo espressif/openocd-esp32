@@ -213,6 +213,9 @@ endif
 if CH347
 DRIVERFILES += %D%/ch347.c
 endif
+if XVC
+DRIVERFILES += %D%/xvc.c
+endif
 if BUILD_ESP_REMOTE
 DRIVERFILES += %D%/jtag_esp_remote.c
 endif

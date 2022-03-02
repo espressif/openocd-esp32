@@ -169,5 +169,8 @@ struct adapter_driver *adapter_drivers[] = {
 	&xlnx_axi_xvc_adapter_driver,
 #endif
 
+#if BUILD_XVC == 1
+		&xvc_adapter_driver,
+#endif
 		NULL,
 };
