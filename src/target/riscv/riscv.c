@@ -1043,7 +1043,7 @@ int riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoi
 
 	for (int i = 0; i < length; i++) {
 		LOG_DEBUG("Next byte is %x", buffer[i]);
-		instruction += (buffer[i] << 8 * i);
+		instruction += (uint32_t)buffer[i] << 8 * i;
 	}
 	LOG_DEBUG("Full instruction is %x", instruction);
 
