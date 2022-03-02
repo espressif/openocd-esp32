@@ -117,5 +117,6 @@ unsigned esp_riscv_address_bits(struct target *target);
 bool esp_riscv_core_is_halted(struct target *target);
 int esp_riscv_core_halt(struct target *target);
 int esp_riscv_core_resume(struct target *target);
+int esp_riscv_core_ebreaks_enable(struct target *target);
 
 #endif	/* _ESP_RISCV_H */

@@ -739,3 +739,17 @@ int esp_riscv_core_resume(struct target *target)
 
 	return ERROR_FAIL;
 }
+
+int esp_riscv_core_ebreaks_enable(struct target *target)
+{
+	riscv_reg_t dcsr;
+	RISCV_INFO(r);
+	int result = r->get_register(target, &dcsr, GDB_REGNO_DCSR);
+	if (result != ERROR_OK)
+		return result;
+	LOG_DEBUG("DCSR: %" PRIx64, dcsr);
+	dcsr = set_field(dcsr, CSR_DCSR_EBREAKM, 1);
+	dcsr = set_field(dcsr, CSR_DCSR_EBREAKS, 1);
+	dcsr = set_field(dcsr, CSR_DCSR_EBREAKU, 1);
+	return r->set_register(target, GDB_REGNO_DCSR, dcsr);
+}
