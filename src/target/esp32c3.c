@@ -228,15 +228,65 @@ static int esp32c3_examine(struct target *target)
 
 static int esp32c3_on_reset(struct target *target)
 {
-	/* Clear memory which is used by RTOS layer to get the task count */
-	if (target->rtos && target->rtos->type->post_reset_cleanup) {
-		int res = (*target->rtos->type->post_reset_cleanup)(target);
-		if (res != ERROR_OK) {
-			LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
-			return res;
+	LOG_DEBUG("esp32c3_on_reset!");
+	struct esp32c3_common *esp32c3 = esp32c3_common(target);
+	esp32c3->was_reset = true;
+	return ERROR_OK;
+}
+
+static int esp32c3_poll(struct target *target)
+{
+	struct esp32c3_common *esp32c3 = esp32c3_common(target);
+	int res = ERROR_OK;
+
+	RISCV_INFO(r);
+	if (esp32c3->was_reset && r->dmi_read && r->dmi_write) {
+		uint32_t dmstatus;
+		res = r->dmi_read(target, &dmstatus, DM_DMSTATUS);
+		if (res != ERROR_OK)
+			LOG_ERROR("Failed to read DMSTATUS (%d)!", res);
+		else {
+			uint32_t strap_reg;
+			LOG_DEBUG("Core is out of reset: dmstatus 0x%x", dmstatus);
+			esp32c3->was_reset = false;
+			res = target_read_u32(target, ESP32C3_GPIO_STRAP_REG, &strap_reg);
+			if (res != ERROR_OK) {
+				LOG_WARNING("Failed to read ESP32C3_GPIO_STRAP_REG (%d)!", res);
+				strap_reg = ESP32C3_FLASH_BOOT_MODE;
+			}
+			if (ESP32C3_IS_FLASH_BOOT(strap_reg) &&
+				get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
+				LOG_DEBUG("Halt core");
+				res = esp_riscv_core_halt(target);
+				if (res == ERROR_OK) {
+					res = esp32c3_wdt_disable(target);
+					if (res != ERROR_OK)
+						LOG_ERROR("Failed to disable WDTs (%d)!", res);
+				} else
+					LOG_ERROR("Failed to halt core (%d)!", res);
+			}
+			/* Clear memory which is used by RTOS layer to get the task count */
+			if (target->rtos && target->rtos->type->post_reset_cleanup) {
+				res = (*target->rtos->type->post_reset_cleanup)(target);
+				if (res != ERROR_OK)
+					LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
+			}
+			if (ESP32C3_IS_FLASH_BOOT(strap_reg)) {
+				/* enable ebreaks */
+				res = esp_riscv_core_ebreaks_enable(target);
+				if (res != ERROR_OK)
+					LOG_ERROR("Failed to enable EBREAKS handling (%d)!", res);
+				if (get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
+					LOG_DEBUG("Resume core");
+					res = esp_riscv_core_resume(target);
+					if (res != ERROR_OK)
+						LOG_ERROR("Failed to resume core (%d)!", res);
+					LOG_DEBUG("resumed core");
+				}
+			}
 		}
 	}
-	return ERROR_OK;
+	return esp_riscv_poll(target);
 }
 
 static const struct command_registration esp32c3_command_handlers[] = {
@@ -261,7 +311,7 @@ struct target_type esp32c3_target = {
 	.examine = esp32c3_examine,
 
 	/* poll current target status */
-	.poll = esp_riscv_poll,
+	.poll = esp32c3_poll,
 
 	.halt = esp_riscv_halt,
 	.resume = esp_riscv_resume,
