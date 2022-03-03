@@ -2267,7 +2267,7 @@ static int get_reg_features_list(struct target *target, char const **feature_lis
 
 	return ERROR_OK;
 }
-#if 0 //TODO-UPS test before use it
+
 /* Create a register list that's the union of all the registers of the SMP
  * group this target is in. If the target is not part of an SMP group, this
  * returns the same as target_get_gdb_reg_list_noread().
@@ -2383,7 +2383,7 @@ static int smp_reg_list_noread(struct target *target,
 	*combined_list_size = local_list_size;
 	return ERROR_OK;
 }
-#endif
+
 static int gdb_generate_target_description(struct target *target, char **tdesc_out)
 {
 	int retval = ERROR_OK;
@@ -2396,12 +2396,9 @@ static int gdb_generate_target_description(struct target *target, char **tdesc_o
 	int pos = 0;
 	int size = 0;
 
-	//TODO-UPS check this change is ok!
-	// retval = smp_reg_list_noread(target, &reg_list, &reg_list_size,
-	// 		REG_CLASS_ALL);
 
-	retval = target_get_gdb_reg_list_noread(target, &reg_list,
-			&reg_list_size, REG_CLASS_ALL);
+	retval = smp_reg_list_noread(target, &reg_list, &reg_list_size,
+			REG_CLASS_ALL);
 
 	if (retval != ERROR_OK) {
 		LOG_ERROR("get register list failed");
