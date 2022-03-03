@@ -36,6 +36,15 @@
 #include <netinet/in.h>
 #endif
 
+enum shutdown_reason {
+	CONTINUE_MAIN_LOOP,			/* stay in main event loop */
+	SHUTDOWN_REQUESTED,			/* set by shutdown command; exit the event loop and quit the debugger */
+	SHUTDOWN_WITH_ERROR_CODE,	/* set by shutdown command; quit with non-zero return code */
+	SHUTDOWN_WITH_SIGNAL_CODE	/* set by sig_handler; exec shutdown then exit with signal as return code */
+};
+
+extern enum shutdown_reason shutdown_openocd;
+
 enum connection_type {
 	CONNECTION_TCP,
 	CONNECTION_PIPE,
