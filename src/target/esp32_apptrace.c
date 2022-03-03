@@ -44,6 +44,7 @@
 #include "target.h"
 #include "target_type.h"
 #include "smp.h"
+#include "server/server.h"
 #include "xtensa_algorithm.h"
 #include "esp_xtensa.h"
 #include "esp_xtensa_smp.h"
@@ -120,8 +121,6 @@ struct esp32_gcov_cmd_data {
  * for now this hack works. */
 /* TODO: Currently for periods less then 1ms we loop in command handler until CTRL+C is pressed.
  *       Another trace data polling mechanism is necessary for small periods. */
-/* TODO: this is declared as static in upstream code. Erhan */
-extern int shutdown_openocd;
 
 static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 	int core_id,
@@ -808,7 +807,7 @@ static int esp32_apptrace_wait4halt(struct esp32_apptrace_cmd_ctx *ctx, struct t
 	int halted = 0;
 
 	LOG_USER("Wait for halt...");
-	while (!shutdown_openocd) {
+	while (shutdown_openocd == CONTINUE_MAIN_LOOP) {
 		int res = target_poll(target);
 		if (res != ERROR_OK) {
 			LOG_ERROR("Failed to poll target (%d)!", res);
@@ -1788,7 +1787,7 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 		s_at_cmd_ctx.stop_tmo = 0.01;	/* use small stop tmo */
 		s_at_cmd_ctx.process_data = esp32_apptrace_process_data;
 		/* check for exit signal and comand completion */
-		while (!shutdown_openocd && s_at_cmd_ctx.running) {
+		while (shutdown_openocd == CONTINUE_MAIN_LOOP && s_at_cmd_ctx.running) {
 			res = esp32_apptrace_poll(&s_at_cmd_ctx);
 			if (res != ERROR_OK) {
 				LOG_ERROR("Failed to poll target for trace data (%d)!", res);
@@ -2317,7 +2316,8 @@ int esp_gcov_poll(struct target *target, void *priv)
 	int res = ERROR_OK;
 	struct esp32_apptrace_cmd_ctx *cmd_ctx = (struct esp32_apptrace_cmd_ctx *)priv;
 
-	while (!shutdown_openocd && target->state != TARGET_HALTED && cmd_ctx->running) {
+	while (shutdown_openocd == CONTINUE_MAIN_LOOP && target->state != TARGET_HALTED &&
+		cmd_ctx->running) {
 		res = esp32_apptrace_poll(cmd_ctx);
 		if (res != ERROR_OK) {
 			LOG_ERROR("Failed to poll target for gcov data (%d)!", res);
