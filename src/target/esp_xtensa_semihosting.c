@@ -268,6 +268,187 @@ static inline int esp_xtensa_semihosting_v0(
 	return ERROR_OK;
 }
 
+static const int open_modeflags[12] = {
+	O_RDONLY,
+	O_RDONLY | O_BINARY,
+	O_RDWR,
+	O_RDWR | O_BINARY,
+	O_WRONLY | O_CREAT | O_TRUNC,
+	O_WRONLY | O_CREAT | O_TRUNC | O_BINARY,
+	O_RDWR | O_CREAT | O_TRUNC,
+	O_RDWR | O_CREAT | O_TRUNC | O_BINARY,
+	O_WRONLY | O_CREAT | O_APPEND,
+	O_WRONLY | O_CREAT | O_APPEND | O_BINARY,
+	O_RDWR | O_CREAT | O_APPEND,
+	O_RDWR | O_CREAT | O_APPEND | O_BINARY
+};
+
+static inline int esp_xtensa_semihosting_v1(
+	struct target *target,
+	xtensa_reg_val_t a2,
+	xtensa_reg_val_t a3,
+	xtensa_reg_val_t a4,
+	xtensa_reg_val_t a5,
+	xtensa_reg_val_t a6	)
+{
+	int syscall_ret = 0, syscall_errno = 0, retval;
+	switch (a2) {
+		case SEMIHOSTING_SYS_OPEN:
+		{
+			int mode = a4;
+
+			if (mode > 11) {
+				syscall_ret = -1;
+				syscall_errno = EINVAL;
+				break;
+			}
+
+			if (a5 == 0) {
+				LOG_ERROR("Zero file name length!");
+				syscall_ret = -1;
+				syscall_errno = ENOMEM;
+				break;
+			}
+			if (a5 > PATH_MAX) {
+				LOG_ERROR("File name length if greater then the maximum possible value!");
+				syscall_ret = -1;
+				syscall_errno = ENOMEM;
+				break;
+			}
+			char *file_name = esp_xtensa_semihosting_get_file_name(target, a3, a5, (uint32_t * )&mode);
+			if(!file_name){
+				syscall_ret = -1;
+				syscall_errno = ENOMEM;
+				break;
+			}
+
+			uint32_t flags = open_modeflags[mode];
+
+#ifdef _WIN32
+			/* Windows needs O_BINARY flag for proper handling of EOLs */
+			flags |= O_BINARY;
+#endif
+			/* cygwin requires the permission setting
+			 * otherwise it will fail to reopen a previously
+			 * written file */
+			syscall_ret = open(file_name, flags, 0644);
+			syscall_errno = errno;
+			LOG_DEBUG("Open file '%s' -> %d. Error %d.",
+				file_name,
+				syscall_ret,
+				syscall_errno);
+			free(file_name);
+			break;
+		}
+		case SEMIHOSTING_SYS_CLOSE:
+			if (a3 <= ESP_FD_MIN) {
+				LOG_ERROR("Invalid file desc %d!", a3);
+				syscall_ret = -1;
+				syscall_errno = EINVAL;
+				break;
+			}
+			syscall_ret = close(a3);
+			syscall_errno = errno;
+			LOG_DEBUG("Close file %d. Ret %d. Error %d.", a3, syscall_ret,
+				syscall_errno);
+			break;
+		case SEMIHOSTING_SYS_WRITE: {
+			LOG_DEBUG("Req write file %d. %" PRIu32 " bytes.", a3, a5);
+			if (a3 <= ESP_FD_MIN) {
+				LOG_ERROR("Invalid file desc %d!", a3);
+				syscall_ret = -1;
+				syscall_errno = EINVAL;
+				break;
+			}
+			if (a5 == 0) {
+				syscall_ret = 0;
+				syscall_errno = 0;
+				break;
+			}
+			uint8_t *buf = malloc(a5);
+			if (!buf) {
+				syscall_ret = -1;
+				syscall_errno = ENOMEM;
+				break;
+			}
+			retval = target_read_buffer(target, a4, a5, buf);
+			if (retval != ERROR_OK) {
+				free(buf);
+				syscall_ret = -1;
+				syscall_errno = EIO;
+				break;
+			}
+			syscall_ret = write(a3, buf, a5);
+			syscall_errno = errno;
+			if (syscall_ret >= 0) {
+				/* The number of bytes that are NOT written */
+				syscall_ret = a5 - syscall_ret;
+			}
+			LOG_DEBUG("Wrote file %d. %d bytes.", a3, a5);
+			free(buf);
+			break;
+		}
+		case SEMIHOSTING_SYS_READ: {
+			LOG_DEBUG("Req read file %d. %" PRIu32 " bytes.", a3, a5);
+			if (a3 <= ESP_FD_MIN) {
+				LOG_ERROR("Invalid file desc %d!", a3);
+				syscall_ret = -1;
+				syscall_errno = EINVAL;
+				break;
+			}
+			if (a5 == 0) {
+				syscall_ret = 0;
+				syscall_errno = 0;
+				break;
+			}
+			uint8_t *buf = malloc(a5);
+			if (!buf) {
+				syscall_ret = -1;
+				syscall_errno = ENOMEM;
+				break;
+			}
+			syscall_ret = read(a3, buf, a5);
+			syscall_errno = errno;
+			LOG_DEBUG("Read file %d. %" PRIu32 " bytes.", a3, a5);
+			if (syscall_ret >= 0) {
+				retval = target_write_buffer(target, a4, syscall_ret, buf);
+				if (retval != ERROR_OK) {
+					free(buf);
+					syscall_ret = -1;
+					syscall_errno = EIO;
+					break;
+				}
+				/* the number of bytes NOT filled in */
+				syscall_ret = a5 - syscall_ret;
+			}
+			free(buf);
+			break;
+		}
+		case SEMIHOSTING_SYS_SEEK: {
+			LOG_DEBUG("Req seek file %d. To %x, mode %d.", a3, a4, a5);
+			if (a3 <= ESP_FD_MIN) {
+				LOG_ERROR("Invalid file desc %d!", a3);
+				syscall_ret = -1;
+				syscall_errno = EINVAL;
+				break;
+			}
+			syscall_ret = lseek(a3, a4, a5);
+			syscall_errno = errno;
+			LOG_DEBUG("Seek file %d. To %x, mode %d.", a3, a4, a5);
+			break;
+		}
+		default:
+			LOG_WARNING("Unsupported syscall %x!", a2);
+			syscall_ret = -1;
+			syscall_errno = ENOTSUP;
+	}
+
+	xtensa_reg_set(target, XTENSA_SYSCALL_RETVAL_REG, syscall_ret);
+	xtensa_reg_set(target, XTENSA_SYSCALL_ERRNO_REG, syscall_errno);
+
+	return ERROR_OK;
+}
+
 /**
  * Checks for and processes an ESP Xtensa semihosting request.  This is meant
  * to be called when the target is stopped due to a debug mode entry.
@@ -333,8 +514,14 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 		target->semihosting->is_resumable = true;
 		*retval = esp_xtensa_semihosting_drv_info(target);
 	}
-	else if (esp_xtensa->semihost.version > 0)
+	else if (esp_xtensa->semihost.version > 1)
+		/* TODO-UPS forward v2 calls to common layer.
+			But first implement memory-based approach */
 		*retval = semihosting_common(target);
+	else if (esp_xtensa->semihost.version > 0) {
+		target->semihosting->is_resumable = true;
+		*retval = esp_xtensa_semihosting_v1(target, a2, a3, a4, a5, a6);
+	}
 	else {
 		target->semihosting->is_resumable = true;
 		*retval = esp_xtensa_semihosting_v0(target, a2, a3, a4, a5, a6);
