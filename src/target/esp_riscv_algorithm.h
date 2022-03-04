@@ -21,7 +21,7 @@
 #ifndef ESP_RISCV_ALGO_H
 #define ESP_RISCV_ALGO_H
 
-#include "target/algorithm.h"
+#include "target/esp_algorithm.h"
 #include "riscv/riscv.h"
 
 /** Index of the first user-defined algo arg. @see algorithm_stub */

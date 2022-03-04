@@ -167,6 +167,7 @@ ESP32_SRC= \
 	%D%/esp_riscv_apptrace.c \
 	%D%/esp32_apptrace.c \
 	%D%/esp32_sysview.c \
+	%D%/esp_algorithm.c \
 	%D%/esp_riscv_algorithm.c
 	
 INTEL_IA32_SRC = \

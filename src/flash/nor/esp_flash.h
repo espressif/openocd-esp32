@@ -23,7 +23,7 @@
 
 #include <target/target.h>
 #include <helper/command.h>
-#include <target/algorithm.h>
+#include <target/esp_algorithm.h>
 #include <target/breakpoints.h>
 #include <flash/nor/core.h>
 

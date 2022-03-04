@@ -21,7 +21,7 @@
 #ifndef XTENSA_ALGO_H
 #define XTENSA_ALGO_H
 
-#include "algorithm.h"
+#include "esp_algorithm.h"
 #include "xtensa.h"
 
 /** Index of the first user-defined algo arg. @see algorithm_stub */
