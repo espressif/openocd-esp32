@@ -41,40 +41,12 @@
 #define XTENSA_SYSCALL_RETVAL_REG  XT_REG_IDX_A2
 #define XTENSA_SYSCALL_ERRNO_REG   XT_REG_IDX_A3
 
-static int esp_xtensa_semihosting_read_fields(struct target *target, size_t number, uint8_t *fields)
-{
-	uint32_t reg_id = target->semihosting->param;	/* containts regnumber based on enum
-							 * xtensa_reg_id */
-	uint32_t r;
-	for (size_t i = 0; i < number; i++) {
-		r = xtensa_reg_get(target, reg_id + i);
-		h_u32_to_le(&fields[i*4],r);
-	}
-	return ERROR_OK;
-}
-
-static int esp_xtensa_semihosting_write_fields(struct target *target,
-	size_t number,
-	uint8_t *fields)
-{
-	uint32_t reg_id = target->semihosting->param;	/* containts regnumber based on enum
-							 * xtensa_reg_id */
-	uint32_t r;
-	for (size_t i = 0; i < number; i++) {
-		r = le_to_h_u32(&fields[i*4]);
-		xtensa_reg_set(target, reg_id + i, r);
-	}
-	return ERROR_OK;
-}
-
 static int esp_xtensa_semihosting_setup(struct target *target)
 {
 	target->semihosting->param = XT_REG_IDX_A3;	/* used to specify where
 							 * to read fields. xtensa
 							 * uses registers in contrast
 							 * with general memory-based approach*/
-	target->semihosting->read_fields = esp_xtensa_semihosting_read_fields;
-	target->semihosting->write_fields = esp_xtensa_semihosting_write_fields;
 	return ERROR_OK;
 }
 
@@ -614,8 +586,6 @@ int esp_xtensa_semihosting_init(struct target *target)
 	int retval = xtensa_semihosting_init(target);
 	if (retval != ERROR_OK)
 		return retval;
-	target->semihosting->get_filename = esp_xtensa_semihosting_get_file_name;
-	target->semihosting->lseek = lseek;
 	target->semihosting->word_size_bytes = 4;			/* 32 bits */
 	return retval;
 }

@@ -103,13 +103,6 @@ static int semihosting_common_fileio_info(struct target *target,
 static int semihosting_common_fileio_end(struct target *target, int result,
 	int fileio_errno, bool ctrl_c);
 
-static int semihosting_write_fields(struct target *target, size_t number,
-	uint8_t *fields);
-static void semihosting_set_field(struct target *target, uint64_t value,
-	size_t index,
-	uint8_t *fields);
-static char *semihosting_common_get_file_name(struct target * target, uint64_t addr_fn, size_t len, uint32_t * mode);
-
 /* Attempts to include gdb_server.h failed. */
 extern int gdb_actual_connections;
 
@@ -157,10 +150,6 @@ int semihosting_common_init(struct target *target, void *setup,
 
 	semihosting->setup = setup;
 	semihosting->post_result = post_result;
-	semihosting->read_fields = NULL; // a place for a possible custom fields api
-	semihosting->write_fields = NULL; // a place for a possible custom fields api
-	semihosting->get_filename = NULL; // a place for a possible get filename custom implementation
-	semihosting->lseek = NULL; // a place for a possible lseek custom implementation
 
 	target->semihosting = semihosting;
 
@@ -731,16 +720,17 @@ int semihosting_common(struct target *target)
 					semihosting->sys_errno = EINVAL;
 					break;
 				}
-				char *fn;
-				if (semihosting->get_filename == NULL)
-					fn = semihosting_common_get_file_name(target, addr, len, &mode);
-				else
-					fn = semihosting->get_filename(target, addr, len, &mode);
-				if (fn == NULL) {
+				uint8_t *fn = malloc(len+1);
+				if (!fn) {
 					semihosting->result = -1;
 					semihosting->sys_errno = ENOMEM;
 				} else {
-					len = strlen(fn); // updated len_size based on gotten fn
+					retval = target_read_memory(target, addr, 1, len, fn);
+					if (retval != ERROR_OK) {
+						free(fn);
+						return retval;
+					}
+					fn[len] = 0;
 					/* TODO: implement the :semihosting-features special file.
 					 * */
 					if (semihosting->is_fileio) {
@@ -760,10 +750,7 @@ int semihosting_common(struct target *target)
 							semihosting->hit_fileio = true;
 							fileio_info->identifier = "open";
 							fileio_info->param_1 = addr;
-							/* Per https://sourceware.org/gdb/current/onlinedocs/gdb/Pointer-Values.html#Pointer-Values:
-							 * The length is defined as the full string length in bytes, including the trailing null byte.
-							 */
-							fileio_info->param_2 = len + 1;
+							fileio_info->param_2 = len;
 							fileio_info->param_3 = open_gdb_modeflags[mode];
 							fileio_info->param_4 = 0644;
 						}
@@ -793,16 +780,11 @@ int semihosting_common(struct target *target)
 									(int)semihosting->result);
 							}
 						} else {
-							uint32_t flags = open_host_modeflags[mode];
-#ifdef _WIN32
-							/* Windows needs O_BINARY flag for proper handling of EOLs */
-							flags |= O_BINARY;
-#endif
 							/* cygwin requires the permission setting
 							 * otherwise it will fail to reopen a previously
 							 * written file */
 							semihosting->result = open((char *)fn,
-									flags,
+									open_host_modeflags[mode],
 									0644);
 							semihosting->sys_errno = errno;
 							LOG_DEBUG("open('%s')=%d", fn,
@@ -881,9 +863,7 @@ int semihosting_common(struct target *target)
 									buf);
 							if (retval != ERROR_OK) {
 								free(buf);
-								semihosting->result = -1;
-								semihosting->sys_errno = EIO;
-								break;
+								return retval;
 							}
 							/* the number of bytes NOT filled in */
 							semihosting->result = len -
@@ -1046,61 +1026,39 @@ int semihosting_common(struct target *target)
 			 *
 			 * Entry
 			 * On entry, the PARAMETER REGISTER contains a pointer to a
-			 * two-field data block (old default implementation: lseek(fd, pos,
-			 * SEEK_SET)) or tree-field data block (semihosting->lseek != NULL):
+			 * two-field data block:
 			 * - field 1 A handle for a seekable file object.
 			 * - field 2 The absolute byte position to seek to.
-			 * - field 3 (for custom) The whence parameter: SEEK_SET, SEEK_CUR
-			 * or SEEK_END.
 			 *
 			 * Return
 			 * On exit, the RETURN REGISTER contains:
-			 *
-			 * [Default implementation]
 			 * - 0 if the request is successful.
 			 * - A negative value if the request is not successful.
-			 *
-			 * [Custom implementation]
-			 * - The value returned by `semihosting->lseek()` function
-			 *
 			 * Use SYS_ERRNO to read the value of the host errno variable
 			 * describing the error.
 			 *
 			 * Note: The effect of seeking outside the current extent of
 			 * the file object is undefined.
 			 */
-
-			if (semihosting->lseek != NULL) /* custom: read extra `whence` */
-				retval = semihosting_read_fields(target, 3, fields);
-			else /* default */
-				retval = semihosting_read_fields(target, 2, fields);
+			retval = semihosting_read_fields(target, 2, fields);
 			if (retval != ERROR_OK)
 				return retval;
 			else {
 				int fd = semihosting_get_field(target, 0, fields);
 				off_t pos = semihosting_get_field(target, 1, fields);
-				int whence = SEEK_SET;
-				if (semihosting->lseek != NULL) /* custom lseek implementation */
-					whence = semihosting_get_field(target, 2, fields);
 				if (semihosting->is_fileio) {
 					semihosting->hit_fileio = true;
 					fileio_info->identifier = "lseek";
 					fileio_info->param_1 = fd;
 					fileio_info->param_2 = pos;
-					fileio_info->param_3 = whence;
+					fileio_info->param_3 = SEEK_SET;
 				} else {
-					if (semihosting->lseek != NULL) /* custom lseek */
-						semihosting->result = semihosting->lseek(fd, pos, whence);
-					else{ /* default */
-						semihosting->result = lseek(fd, pos, whence);
-					}
+					semihosting->result = lseek(fd, pos, SEEK_SET);
 					semihosting->sys_errno = errno;
-					if (semihosting->lseek == NULL) { /* default lseek */
-						if ((semihosting->result != -1) && (semihosting->result == pos))
-							semihosting->result = 0;
-					}
 					LOG_DEBUG("lseek(%d, %d)=%d", fd, (int)pos,
 						(int)semihosting->result);
+					if (semihosting->result == pos)
+						semihosting->result = 0;
 				}
 			}
 			break;
@@ -1234,9 +1192,7 @@ int semihosting_common(struct target *target)
 						retval = target_read_buffer(target, addr, len, buf);
 						if (retval != ERROR_OK) {
 							free(buf);
-							semihosting->result = -1;
-							semihosting->sys_errno = EIO;
-							break;
+							return retval;
 						}
 						semihosting->result = write(fd, buf, len);
 						semihosting->sys_errno = errno;
@@ -1555,6 +1511,9 @@ static int semihosting_common_fileio_end(struct target *target, int result,
 	return semihosting->post_result(target);
 }
 
+/* -------------------------------------------------------------------------
+ * Utility functions. */
+
 /**
  * Read all fields of a command from target to buffer.
  */
@@ -1562,33 +1521,21 @@ int semihosting_read_fields(struct target *target, size_t number,
 	uint8_t *fields)
 {
 	struct semihosting *semihosting = target->semihosting;
-
-	if (!semihosting->read_fields) {/* default write_fields implementation */
-		/* Use 4-byte multiples to trigger fast memory access. */
-		return target_read_memory(target, semihosting->param, 4,
-				number * (semihosting->word_size_bytes / 4), fields);
-	} else
-		return semihosting->read_fields(target, number, fields);
+	/* Use 4-byte multiples to trigger fast memory access. */
+	return target_read_memory(target, semihosting->param, 4,
+			number * (semihosting->word_size_bytes / 4), fields);
 }
 
 /**
  * Write all fields of a command from buffer to target.
  */
-static int semihosting_write_fields(struct target *target, size_t number,
+int semihosting_write_fields(struct target *target, size_t number,
 	uint8_t *fields)
 {
 	struct semihosting *semihosting = target->semihosting;
-
-	if(!semihosting->write_fields) // default write_fields implementation
-	{
-		/* Use 4-byte multiples to trigger fast memory access. */
-		return target_write_memory(target, semihosting->param, 4,
-				number * (semihosting->word_size_bytes / 4), fields);
-	}
-	else
-	{
-		return semihosting->write_fields(target, number, fields);
-	}
+	/* Use 4-byte multiples to trigger fast memory access. */
+	return target_write_memory(target, semihosting->param, 4,
+			number * (semihosting->word_size_bytes / 4), fields);
 }
 
 /**
@@ -1607,7 +1554,7 @@ uint64_t semihosting_get_field(struct target *target, size_t index,
 /**
  * Store a field in the buffer, considering register size and endianness.
  */
-static void semihosting_set_field(struct target *target, uint64_t value,
+void semihosting_set_field(struct target *target, uint64_t value,
 	size_t index,
 	uint8_t *fields)
 {
@@ -1618,22 +1565,6 @@ static void semihosting_set_field(struct target *target, uint64_t value,
 		target_buffer_set_u32(target, fields + (index * 4), value);
 }
 
-static char *semihosting_common_get_file_name(struct target * target, target_addr_t  addr_fn, size_t len, uint32_t * mode)
-{
-	int retval;
-
-	uint8_t *fn = malloc(len+1);
-	if (!fn) return NULL; // error!
-
-	retval = target_read_memory(target, addr_fn, 1, len, fn);
-	if (retval != ERROR_OK)
-	{
-		free(fn);
-		return NULL;
-	}
-	fn[len] = 0;
-	return (char*)fn;
-}
 
 /* -------------------------------------------------------------------------
  * Common semihosting commands handlers. */
