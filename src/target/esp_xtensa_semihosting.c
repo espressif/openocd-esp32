@@ -320,7 +320,9 @@ static inline int esp_xtensa_semihosting_v1(
 	switch (a2) {
 		case SEMIHOSTING_SYS_OPEN:
 		{
-			int mode = a4;
+			uint64_t addr = a3;
+			uint32_t mode = a4;
+			size_t len = a5;
 
 			if (mode > 11) {
 				syscall_ret = -1;
@@ -328,30 +330,17 @@ static inline int esp_xtensa_semihosting_v1(
 				break;
 			}
 
-			if (a5 == 0) {
-				LOG_ERROR("Zero file name length!");
-				syscall_ret = -1;
-				syscall_errno = ENOMEM;
-				break;
-			}
-			if (a5 > PATH_MAX) {
-				LOG_ERROR(
-					"File name length if greater then the maximum possible value!");
-				syscall_ret = -1;
-				syscall_errno = ENOMEM;
-				break;
-			}
 			char *file_name =
 				esp_xtensa_semihosting_get_file_name(target,
-				a3,
-				a5,
+				addr,
+				len,
 				(uint32_t * )&mode);
 			if (!file_name) {
 				syscall_ret = -1;
 				syscall_errno = ENOMEM;
 				break;
 			}
-
+			len = strlen(file_name);/* updated len_size based on gotten file name */
 			uint32_t flags = open_modeflags[mode];
 
 #ifdef _WIN32
@@ -371,67 +360,59 @@ static inline int esp_xtensa_semihosting_v1(
 			break;
 		}
 		case SEMIHOSTING_SYS_CLOSE:
-			if (a3 <= ESP_FD_MIN) {
-				LOG_ERROR("Invalid file desc %d!", a3);
-				syscall_ret = -1;
-				syscall_errno = EINVAL;
-				break;
-			}
-			syscall_ret = close(a3);
-			syscall_errno = errno;
-			LOG_DEBUG("Close file %d. Ret %d. Error %d.", a3, syscall_ret,
-			syscall_errno);
-			break;
-		case SEMIHOSTING_SYS_WRITE: {
-			LOG_DEBUG("Req write file %d. %" PRIu32 " bytes.", a3, a5);
-			if (a3 <= ESP_FD_MIN) {
-				LOG_ERROR("Invalid file desc %d!", a3);
-				syscall_ret = -1;
-				syscall_errno = EINVAL;
-				break;
-			}
-			if (a5 == 0) {
+		{
+			int fd = a3;
+			if (fd == 0 || fd == 1 || fd == 2) {
+				LOG_DEBUG("ignoring semihosting attempt to close %s",
+					(fd == 0) ? "stdin" :
+					(fd == 1) ? "stdout" : "stderr");
 				syscall_ret = 0;
 				syscall_errno = 0;
 				break;
 			}
-			uint8_t *buf = malloc(a5);
+			syscall_ret = close(fd);
+			syscall_errno = errno;
+			LOG_DEBUG("close(%d)=%d errno=%d", fd, syscall_ret, syscall_errno);
+			break;
+		}
+		case SEMIHOSTING_SYS_WRITE:
+		{
+			int fd = a3;
+			uint64_t addr = a4;
+			size_t len = a5;
+			uint8_t *buf = malloc(len);
 			if (!buf) {
 				syscall_ret = -1;
 				syscall_errno = ENOMEM;
 				break;
 			}
-			retval = target_read_buffer(target, a4, a5, buf);
+			retval = target_read_buffer(target, addr, len, buf);
 			if (retval != ERROR_OK) {
 				free(buf);
 				syscall_ret = -1;
 				syscall_errno = EIO;
 				break;
 			}
-			syscall_ret = write(a3, buf, a5);
+			syscall_ret = write(fd, buf, len);
 			syscall_errno = errno;
+			LOG_DEBUG("write(%d, 0x%" PRIx64 ", %zu)=%d",
+				fd,
+				addr,
+				len,
+				syscall_ret);
 			if (syscall_ret >= 0) {
 				/* The number of bytes that are NOT written */
-				syscall_ret = a5 - syscall_ret;
+				syscall_ret = len - syscall_ret;
 			}
-			LOG_DEBUG("Wrote file %d. %d bytes.", a3, a5);
 			free(buf);
 			break;
 		}
-		case SEMIHOSTING_SYS_READ: {
-			LOG_DEBUG("Req read file %d. %" PRIu32 " bytes.", a3, a5);
-			if (a3 <= ESP_FD_MIN) {
-				LOG_ERROR("Invalid file desc %d!", a3);
-				syscall_ret = -1;
-				syscall_errno = EINVAL;
-				break;
-			}
-			if (a5 == 0) {
-				syscall_ret = 0;
-				syscall_errno = 0;
-				break;
-			}
-			uint8_t *buf = malloc(a5);
+		case SEMIHOSTING_SYS_READ:
+		{
+			int fd = a3;
+			uint64_t addr = a4;
+			size_t len = a5;
+			uint8_t *buf = malloc(len);
 			if (!buf) {
 				syscall_ret = -1;
 				syscall_errno = ENOMEM;
@@ -439,9 +420,13 @@ static inline int esp_xtensa_semihosting_v1(
 			}
 			syscall_ret = read(a3, buf, a5);
 			syscall_errno = errno;
-			LOG_DEBUG("Read file %d. %" PRIu32 " bytes.", a3, a5);
+			LOG_DEBUG("read(%d, 0x%" PRIx64 ", %zu)=%d",
+				fd,
+				addr,
+				len,
+				syscall_ret);
 			if (syscall_ret >= 0) {
-				retval = target_write_buffer(target, a4, syscall_ret, buf);
+				retval = target_write_buffer(target, addr, syscall_ret, buf);
 				if (retval != ERROR_OK) {
 					free(buf);
 					syscall_ret = -1;
@@ -449,22 +434,19 @@ static inline int esp_xtensa_semihosting_v1(
 					break;
 				}
 				/* the number of bytes NOT filled in */
-				syscall_ret = a5 - syscall_ret;
+				syscall_ret = len - syscall_ret;
 			}
 			free(buf);
 			break;
 		}
-		case SEMIHOSTING_SYS_SEEK: {
-			LOG_DEBUG("Req seek file %d. To %x, mode %d.", a3, a4, a5);
-			if (a3 <= ESP_FD_MIN) {
-				LOG_ERROR("Invalid file desc %d!", a3);
-				syscall_ret = -1;
-				syscall_errno = EINVAL;
-				break;
-			}
-			syscall_ret = lseek(a3, a4, a5);
+		case SEMIHOSTING_SYS_SEEK:
+		{
+			int fd = a3;
+			off_t pos = a4;
+			int whence = a5;
+			syscall_ret = lseek(fd, pos, whence);
 			syscall_errno = errno;
-			LOG_DEBUG("Seek file %d. To %x, mode %d.", a3, a4, a5);
+			LOG_DEBUG("lseek(%d, %d)=%d", fd, (int)pos, syscall_ret);
 			break;
 		}
 		default:
