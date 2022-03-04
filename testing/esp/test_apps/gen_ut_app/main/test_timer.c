@@ -2,8 +2,6 @@
 #include "test_timer.h"
 #include "esp_system.h" 
 
-const static char *TAG = "test_timer";
-
 static void test_timer_isr_func(void)
 {
     s_tmp_ln++;
@@ -22,6 +20,8 @@ static void IRAM_ATTR test_timer_isr_ram_func(void)
 #else  
 #define TIM_CLR(_tg_, _tn_) do{  timer_group_clr_intr_status_in_isr(_tg_, _tn_); }while(0)
 #endif
+
+const static char *TAG = "test_timer";
 
 void test_timer_rearm(int timer_group, int timer_idx)
 {
