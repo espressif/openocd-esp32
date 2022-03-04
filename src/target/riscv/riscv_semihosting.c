@@ -47,9 +47,6 @@
 #include "target/semihosting_common.h"
 #include "riscv.h"
 
-// Temporary hack
-extern int esp_riscv_semihosting(struct target *target);
-
 static int riscv_semihosting_setup(struct target *target, int enable);
 static int riscv_semihosting_post_result(struct target *target);
 
@@ -144,7 +141,8 @@ semihosting_result_t riscv_semihosting(struct target *target, int *retval)
 
 		/* Check for ARM operation numbers. */
 		if ((semihosting->op >= 0 && semihosting->op <= 0x31) ||
-			(semihosting->op >= 0x100 && semihosting->op <= 0x107)) {
+			(semihosting->op >= 0x100 && semihosting->op <= 0x107) ||
+			(semihosting->op >= 0x64 && semihosting->op <= 0x67)) { //TODO-UPS change op codes
 
 			*retval = semihosting_common(target);
 			if (*retval != ERROR_OK) {
@@ -152,13 +150,9 @@ semihosting_result_t riscv_semihosting(struct target *target, int *retval)
 				return SEMI_ERROR;
 			}
 		} else {
-			// Temporary hack //TODO-UPS
-			*retval = esp_riscv_semihosting(target);
-			if (*retval != ERROR_OK) {
-				/* Unknown operation number, not a semihosting call. */
-				LOG_DEBUG("   -> NONE (unknown operation number)");
-				return SEMI_NONE;
-			}
+			/* Unknown operation number, not a semihosting call. */
+			LOG_DEBUG("   -> NONE (unknown operation number)");
+			return SEMI_NONE;
 		}
 	}
 
@@ -168,13 +162,8 @@ semihosting_result_t riscv_semihosting(struct target *target, int *retval)
 	 */
 	if (semihosting->is_resumable && !semihosting->hit_fileio) {
 		/* Resume right after the EBREAK 4 bytes instruction. */
-		//*retval = riscv_set_register(target, GDB_REGNO_PC, pc + 4);
-		
-		//TODO-UPS check if above code is working for espressif
-		/* PC has already been corrected in post_result */
-		*retval = target_resume(target, 1, 0, 0, 0);
+		*retval = riscv_set_register(target, GDB_REGNO_PC, pc + 4);
 		if (*retval != ERROR_OK)
-			LOG_ERROR("Failed to resume target from semihosting call");
 			return SEMI_ERROR;
 
 		LOG_DEBUG("   -> HANDLED");
@@ -212,12 +201,6 @@ static int riscv_semihosting_post_result(struct target *target)
 	}
 
 	LOG_DEBUG("0x%" PRIx64, semihosting->result);
-	riscv_reg_t new_pc;
-	riscv_get_register(target, &new_pc, GDB_REGNO_DPC);
-	new_pc += 4;
-	riscv_set_register(target, GDB_REGNO_DPC, new_pc);
-	riscv_set_register(target, GDB_REGNO_PC, new_pc);
-
 	riscv_set_register(target, GDB_REGNO_A0, semihosting->result);
 	return 0;
 }
