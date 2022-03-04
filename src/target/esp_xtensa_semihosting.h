@@ -19,9 +19,8 @@
 
 #include <unistd.h>
 #include "target.h"
-#include <helper/command.h> 
+#include <helper/command.h>
 #include "xtensa.h"
-#include "xtensa_semihosting.h"
 #include "semihosting_common.h"
 #include "esp_xtensa.h"
 #include "stdbool.h"

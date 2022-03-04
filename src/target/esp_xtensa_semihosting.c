@@ -37,12 +37,60 @@
 
 #define SYSCALL_PARAM2_REG  XT_REG_IDX_A3
 
+#define XTENSA_SYSCALL_OP_REG      XT_REG_IDX_A2
+#define XTENSA_SYSCALL_RETVAL_REG  XT_REG_IDX_A2
+#define XTENSA_SYSCALL_ERRNO_REG   XT_REG_IDX_A3
+
+static int esp_xtensa_semihosting_read_fields(struct target *target, size_t number, uint8_t *fields)
+{
+	uint32_t reg_id = target->semihosting->param;	/* containts regnumber based on enum
+							 * xtensa_reg_id */
+	uint32_t r;
+	for (size_t i = 0; i < number; i++) {
+		r = xtensa_reg_get(target, reg_id + i);
+		h_u32_to_le(&fields[i*4],r);
+	}
+	return ERROR_OK;
+}
+
+static int esp_xtensa_semihosting_write_fields(struct target *target,
+	size_t number,
+	uint8_t *fields)
+{
+	uint32_t reg_id = target->semihosting->param;	/* containts regnumber based on enum
+							 * xtensa_reg_id */
+	uint32_t r;
+	for (size_t i = 0; i < number; i++) {
+		r = le_to_h_u32(&fields[i*4]);
+		xtensa_reg_set(target, reg_id + i, r);
+	}
+	return ERROR_OK;
+}
+
+static int esp_xtensa_semihosting_setup(struct target *target)
+{
+	target->semihosting->param = XT_REG_IDX_A3;	/* used to specify where
+							 * to read fields. xtensa
+							 * uses registers in contrast
+							 * with general memory-based approach*/
+	target->semihosting->read_fields = esp_xtensa_semihosting_read_fields;
+	target->semihosting->write_fields = esp_xtensa_semihosting_write_fields;
+	return ERROR_OK;
+}
+
+static int esp_xtensa_semihosting_post_result(struct target *target)
+{
+	xtensa_reg_set(target, XTENSA_SYSCALL_RETVAL_REG, target->semihosting->result);
+	xtensa_reg_set(target, XTENSA_SYSCALL_ERRNO_REG, target->semihosting->sys_errno);
+	return ERROR_OK;
+}
+
 static char *esp_xtensa_semihosting_get_file_name(struct target *target,
 	target_addr_t addr_fn,
 	size_t len,
 	uint32_t *mode)
 {
-	if (len > PATH_MAX ) {
+	if (len > PATH_MAX) {
 		LOG_ERROR("Wrong length of file name!");
 		return NULL;
 	}
@@ -65,7 +113,7 @@ static char *esp_xtensa_semihosting_get_file_name(struct target *target,
 	}
 	fn[base_len + len] = 0;
 	*mode &= ~(ESP_FILE_FLAGS_MASK);	/* clear xtensa flags after processing -
-					 * at next steps semihosting_common will not use them*/
+						* at next steps semihosting_common will not use them*/
 	return fn;
 }
 
@@ -107,7 +155,7 @@ static inline int esp_xtensa_semihosting_v0(
 	xtensa_reg_val_t a3,
 	xtensa_reg_val_t a4,
 	xtensa_reg_val_t a5,
-	xtensa_reg_val_t a6	)
+	xtensa_reg_val_t a6)
 {
 	int syscall_ret = 0, syscall_errno = 0, retval;
 	switch (a2) {
@@ -122,13 +170,18 @@ static inline int esp_xtensa_semihosting_v0(
 				break;
 			}
 			if (a4 > PATH_MAX) {
-				LOG_ERROR("File name length if greater then the maximum possible value!");
+				LOG_ERROR(
+					"File name length if greater then the maximum possible value!");
 				syscall_ret = -1;
 				syscall_errno = ENOMEM;
 				break;
 			}
-			char *file_name = esp_xtensa_semihosting_get_file_name(target, a3, a4, (uint32_t * )&mode);
-			if(!file_name){
+			char *file_name =
+				esp_xtensa_semihosting_get_file_name(target,
+				a3,
+				a4,
+				(uint32_t * )&mode);
+			if (!file_name) {
 				syscall_ret = -1;
 				syscall_errno = ENOMEM;
 				break;
@@ -175,7 +228,7 @@ static inline int esp_xtensa_semihosting_v0(
 			syscall_ret = close(a3);
 			syscall_errno = errno;
 			LOG_DEBUG("Close file %d. Ret %d. Error %d.", a3, syscall_ret,
-				syscall_errno);
+			syscall_errno);
 			break;
 		case SEMIHOSTING_SYS_WRITE: {
 			LOG_DEBUG("Req write file %d. %" PRIu32 " bytes.", a3, a5);
@@ -289,7 +342,7 @@ static inline int esp_xtensa_semihosting_v1(
 	xtensa_reg_val_t a3,
 	xtensa_reg_val_t a4,
 	xtensa_reg_val_t a5,
-	xtensa_reg_val_t a6	)
+	xtensa_reg_val_t a6)
 {
 	int syscall_ret = 0, syscall_errno = 0, retval;
 	switch (a2) {
@@ -310,13 +363,18 @@ static inline int esp_xtensa_semihosting_v1(
 				break;
 			}
 			if (a5 > PATH_MAX) {
-				LOG_ERROR("File name length if greater then the maximum possible value!");
+				LOG_ERROR(
+					"File name length if greater then the maximum possible value!");
 				syscall_ret = -1;
 				syscall_errno = ENOMEM;
 				break;
 			}
-			char *file_name = esp_xtensa_semihosting_get_file_name(target, a3, a5, (uint32_t * )&mode);
-			if(!file_name){
+			char *file_name =
+				esp_xtensa_semihosting_get_file_name(target,
+				a3,
+				a5,
+				(uint32_t * )&mode);
+			if (!file_name) {
 				syscall_ret = -1;
 				syscall_errno = ENOMEM;
 				break;
@@ -350,7 +408,7 @@ static inline int esp_xtensa_semihosting_v1(
 			syscall_ret = close(a3);
 			syscall_errno = errno;
 			LOG_DEBUG("Close file %d. Ret %d. Error %d.", a3, syscall_ret,
-				syscall_errno);
+			syscall_errno);
 			break;
 		case SEMIHOSTING_SYS_WRITE: {
 			LOG_DEBUG("Req write file %d. %" PRIu32 " bytes.", a3, a5);
@@ -466,9 +524,8 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
 
 	xtensa_reg_val_t dbg_cause = xtensa_reg_get(target, XT_REG_IDX_DEBUGCAUSE);
-	if ((dbg_cause & (DEBUGCAUSE_BI|DEBUGCAUSE_BN)) == 0) {
+	if ((dbg_cause & (DEBUGCAUSE_BI|DEBUGCAUSE_BN)) == 0)
 		return 0;
-	}
 
 	uint8_t brk_insn_buf[sizeof(uint32_t)] = {0};
 	xtensa_reg_val_t pc = xtensa_reg_get(target, XT_REG_IDX_PC);
@@ -482,10 +539,9 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 		return 0;
 	}
 
-	uint32_t syscall_ins = buf_get_u32(brk_insn_buf, 0, 32); 
-	if ((syscall_ins != ESP_XTENSA_SYSCALL) && (syscall_ins != ESP_XTENSA_SYSCALL_LEGACY)) {
+	uint32_t syscall_ins = buf_get_u32(brk_insn_buf, 0, 32);
+	if ((syscall_ins != ESP_XTENSA_SYSCALL) && (syscall_ins != ESP_XTENSA_SYSCALL_LEGACY))
 		return 0;
-	}
 
 	if (esp_xtensa->semihost.ops && esp_xtensa->semihost.ops->prepare)
 		esp_xtensa->semihost.ops->prepare(target);
@@ -513,16 +569,14 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 	if (target->semihosting->op == ESP_SYS_DRV_INFO) {
 		target->semihosting->is_resumable = true;
 		*retval = esp_xtensa_semihosting_drv_info(target);
-	}
-	else if (esp_xtensa->semihost.version > 1)
+	} else if (esp_xtensa->semihost.version > 1)
 		/* TODO-UPS forward v2 calls to common layer.
-			But first implement memory-based approach */
+		        But first implement memory-based approach */
 		*retval = semihosting_common(target);
 	else if (esp_xtensa->semihost.version > 0) {
 		target->semihosting->is_resumable = true;
 		*retval = esp_xtensa_semihosting_v1(target, a2, a3, a4, a5, a6);
-	}
-	else {
+	} else {
 		target->semihosting->is_resumable = true;
 		*retval = esp_xtensa_semihosting_v0(target, a2, a3, a4, a5, a6);
 	}
@@ -540,10 +594,19 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 	/* Resume if target it is resumable and we are not waiting on a fileio
 	 * operation to complete:
 	 */
-	if (target->semihosting->is_resumable && !target->semihosting->hit_fileio) {
+	if (target->semihosting->is_resumable && !target->semihosting->hit_fileio)
 		target_to_esp_xtensa(target)->semihost.need_resume = true;
-	}
 	return 1;
+}
+
+static int xtensa_semihosting_init(struct target *target)
+{
+	int retval = semihosting_common_init(target,
+		esp_xtensa_semihosting_setup,
+		esp_xtensa_semihosting_post_result);
+	if (retval != ERROR_OK)
+		return retval;
+	return esp_xtensa_semihosting_setup(target);
 }
 
 int esp_xtensa_semihosting_init(struct target *target)

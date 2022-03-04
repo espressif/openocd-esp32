@@ -151,7 +151,6 @@ XTENSA_SRC= \
 	%D%/xtensa.c \
 	%D%/xtensa_debug_module.c \
 	%D%/xtensa_algorithm.c \
-	%D%/xtensa_semihosting.c \
 	%D%/esp_xtensa.c \
 	%D%/esp_xtensa_smp.c \
 	%D%/esp_xtensa_apptrace.c \
