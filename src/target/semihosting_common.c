@@ -68,8 +68,7 @@ enum {
 };
 
 /* GDB remote protocol does not differentiate between text and binary open modes. */
-#if 0 //TODO-UPS esp-idf not supported these flags yet.
-static const int open_modeflags_new[12] = {
+static const int open_gdb_modeflags[12] = {
 	TARGET_O_RDONLY,
 	TARGET_O_RDONLY,
 	TARGET_O_RDWR,
@@ -83,9 +82,8 @@ static const int open_modeflags_new[12] = {
 	TARGET_O_RDWR   | TARGET_O_CREAT | TARGET_O_APPEND,
 	TARGET_O_RDWR   | TARGET_O_CREAT | TARGET_O_APPEND
 };
-#endif 
 
-static const int open_modeflags[12] = {
+static const int open_host_modeflags[12] = {
 	O_RDONLY,
 	O_RDONLY | O_BINARY,
 	O_RDWR,
@@ -766,7 +764,7 @@ int semihosting_common(struct target *target)
 							 * The length is defined as the full string length in bytes, including the trailing null byte.
 							 */
 							fileio_info->param_2 = len + 1;
-							fileio_info->param_3 = open_modeflags[mode];
+							fileio_info->param_3 = open_gdb_modeflags[mode];
 							fileio_info->param_4 = 0644;
 						}
 					} else {
@@ -795,7 +793,7 @@ int semihosting_common(struct target *target)
 									(int)semihosting->result);
 							}
 						} else {
-							uint32_t flags = open_modeflags[mode];
+							uint32_t flags = open_host_modeflags[mode];
 #ifdef _WIN32
 							/* Windows needs O_BINARY flag for proper handling of EOLs */
 							flags |= O_BINARY;
