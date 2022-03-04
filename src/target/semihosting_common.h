@@ -24,7 +24,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <sys/types.h>
 #include <time.h>
 #include "helper/replacements.h"
 
@@ -162,19 +161,21 @@ struct semihosting {
 
 	int (*setup)(struct target *target, int enable);
 	int (*post_result)(struct target *target);
-	int (*read_fields)(struct target *target, size_t number, uint8_t *fields);
-	int (*write_fields)(struct target *target, size_t number, uint8_t *fields);
-	char *(*get_filename)(struct target *target, uint64_t addr_fn, size_t len, uint32_t * mode);
-	off_t (*lseek)(int fd, off_t offset, int whence);
 };
 
 int semihosting_common_init(struct target *target, void *setup,
 	void *post_result);
 int semihosting_common(struct target *target);
+
 /* utility functions which may also be used by semihosting extensions (custom vendor-defined syscalls) */
 int semihosting_read_fields(struct target *target, size_t number,
 	uint8_t *fields);
+int semihosting_write_fields(struct target *target, size_t number,
+	uint8_t *fields);
 uint64_t semihosting_get_field(struct target *target, size_t index,
+	uint8_t *fields);
+void semihosting_set_field(struct target *target, uint64_t value,
+	size_t index,
 	uint8_t *fields);
 
 #endif	/* OPENOCD_TARGET_SEMIHOSTING_COMMON_H */
