@@ -32,6 +32,8 @@
 ./tools/uncrustify1.sh src/target/esp32c3.h
 ./tools/uncrustify1.sh src/target/esp32_apptrace.h
 ./tools/uncrustify1.sh src/target/esp32_sysview.h
+./tools/uncrustify1.sh src/target/esp_algorithm.c
+./tools/uncrustify1.sh src/target/esp_algorithm.h
 ./tools/uncrustify1.sh src/target/esp_riscv_algorithm.c
 ./tools/uncrustify1.sh src/target/esp_riscv_algorithm.h
 ./tools/uncrustify1.sh src/flash/nor/esp_flash.h
