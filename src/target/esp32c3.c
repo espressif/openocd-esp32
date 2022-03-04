@@ -27,6 +27,7 @@
 #include <helper/bits.h>
 #include "target_type.h"
 #include "register.h"
+#include "semihosting_common.h"
 #include "riscv/debug_defines.h"
 #include "esp32_apptrace.h"
 #include "rtos/rtos.h"
@@ -138,6 +139,8 @@ static int esp32c3_init_target(struct command_context *cmd_ctx,
 	int ret = riscv_target.init_target(cmd_ctx, target);
 	if (ret != ERROR_OK)
 		return ret;
+
+	target->semihosting->common_handler = esp_riscv_semihosting;
 
 	struct esp32c3_common *esp32c3 = esp32c3_common(target);
 

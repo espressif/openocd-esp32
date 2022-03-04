@@ -150,6 +150,7 @@ int semihosting_common_init(struct target *target, void *setup,
 
 	semihosting->setup = setup;
 	semihosting->post_result = post_result;
+	semihosting->common_handler = semihosting_common;
 
 	target->semihosting = semihosting;
 
@@ -173,10 +174,13 @@ static char *semihosting_user_op_params;
 int semihosting_common(struct target *target)
 {
 	struct semihosting *semihosting = target->semihosting;
-	if (!semihosting) {
+	if (!semihosting || !semihosting->common_handler) {
 		/* Silently ignore if the semihosting field was not set. */
 		return ERROR_OK;
 	}
+
+	if (semihosting->common_handler != semihosting_common)
+		return semihosting->common_handler(target);
 
 	struct gdb_fileio_info *fileio_info = target->fileio_info;
 
