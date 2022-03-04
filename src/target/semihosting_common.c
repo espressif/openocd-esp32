@@ -87,15 +87,15 @@ static const int open_host_modeflags[12] = {
 	O_RDONLY,
 	O_RDONLY | O_BINARY,
 	O_RDWR,
-	O_RDWR | O_BINARY,
+	O_RDWR   | O_BINARY,
 	O_WRONLY | O_CREAT | O_TRUNC,
-	O_WRONLY | O_CREAT | O_TRUNC | O_BINARY,
-	O_RDWR | O_CREAT | O_TRUNC,
-	O_RDWR | O_CREAT | O_TRUNC | O_BINARY,
+	O_WRONLY | O_CREAT | O_TRUNC  | O_BINARY,
+	O_RDWR   | O_CREAT | O_TRUNC,
+	O_RDWR   | O_CREAT | O_TRUNC  | O_BINARY,
 	O_WRONLY | O_CREAT | O_APPEND,
 	O_WRONLY | O_CREAT | O_APPEND | O_BINARY,
-	O_RDWR | O_CREAT | O_APPEND,
-	O_RDWR | O_CREAT | O_APPEND | O_BINARY
+	O_RDWR   | O_CREAT | O_APPEND,
+	O_RDWR   | O_CREAT | O_APPEND | O_BINARY
 };
 
 static int semihosting_common_fileio_info(struct target *target,
