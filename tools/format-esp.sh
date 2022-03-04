@@ -12,6 +12,7 @@
 ./tools/uncrustify1.sh src/target/xtensa_debug_module.h
 ./tools/uncrustify1.sh src/target/esp_xtensa.c
 ./tools/uncrustify1.sh src/target/esp_xtensa_apptrace.c
+./tools/uncrustify1.sh src/target/esp_xtensa_semihosting.c
 ./tools/uncrustify1.sh src/target/esp_riscv_apptrace.c
 ./tools/uncrustify1.sh src/target/esp.c
 ./tools/uncrustify1.sh src/target/esp32.c
@@ -25,6 +26,7 @@
 ./tools/uncrustify1.sh src/target/esp_riscv.c
 ./tools/uncrustify1.sh src/target/esp_riscv.h
 ./tools/uncrustify1.sh src/target/esp_xtensa_apptrace.h
+./tools/uncrustify1.sh src/target/esp_xtensa_semihosting.h
 ./tools/uncrustify1.sh src/target/esp_riscv_apptrace.h
 ./tools/uncrustify1.sh src/target/esp32.h
 ./tools/uncrustify1.sh src/target/esp32s2.h
