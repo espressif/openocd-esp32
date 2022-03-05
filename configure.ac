@@ -358,6 +358,10 @@ AC_ARG_ENABLE([internal-jimtcl],
   AS_HELP_STRING([--disable-internal-jimtcl], [Disable building internal jimtcl]),
   [use_internal_jimtcl=$enableval], [use_internal_jimtcl=yes])
 
+AC_ARG_ENABLE([jimtcl-maintainer],
+  AS_HELP_STRING([--enable-jimtcl-maintainer], [Enable maintainer mode when building internal jimtcl]),
+  [use_internal_jimtcl_maintainer=$enableval], [use_internal_jimtcl_maintainer=no])
+
 AC_ARG_ENABLE([internal-libjaylink],
   AS_HELP_STRING([--disable-internal-libjaylink],
   [Disable building internal libjaylink]),
@@ -564,7 +568,12 @@ AS_IF([test "x$enable_buspirate" != "xno"], [
 
 AS_IF([test "x$use_internal_jimtcl" = "xyes"], [
   AS_IF([test -f "$srcdir/jimtcl/configure.ac"], [
-    AX_CONFIG_SUBDIR_OPTION([jimtcl], [--disable-install-jim --with-ext="json"])
+    AS_IF([test "x$use_internal_jimtcl_maintainer" = "xyes"], [
+      jimtcl_config_options="--disable-install-jim --maintainer"
+    ], [
+      jimtcl_config_options="--disable-install-jim --with-ext=json"
+    ])
+    AX_CONFIG_SUBDIR_OPTION([jimtcl], [$jimtcl_config_options])
   ], [
     AC_MSG_ERROR([jimtcl not found, run git submodule init and git submodule update.])
   ])
