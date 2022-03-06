@@ -753,3 +753,41 @@ int esp_riscv_core_ebreaks_enable(struct target *target)
 	dcsr = set_field(dcsr, CSR_DCSR_EBREAKU, 1);
 	return r->set_register(target, GDB_REGNO_DCSR, dcsr);
 }
+
+COMMAND_HELPER(esp_riscv_cmd_semihost_basedir_do, struct esp_riscv_common *esp_riscv)
+{
+	if (CMD_ARGC != 1) {
+		command_print(CMD,
+			"Current semihosting base dir: %s",
+			esp_riscv->semihost.basedir ? esp_riscv->semihost.basedir : "");
+		return ERROR_OK;
+	}
+
+	char *s = strdup(CMD_ARGV[0]);
+	if (!s) {
+		command_print(CMD, "Failed to allocate memory!");
+		return ERROR_FAIL;
+	}
+	if (esp_riscv->semihost.basedir)
+		free(esp_riscv->semihost.basedir);
+	esp_riscv->semihost.basedir = s;
+
+	return ERROR_OK;
+}
+
+COMMAND_HANDLER(esp_riscv_cmd_semihost_basedir)
+{
+	return CALL_COMMAND_HANDLER(esp_riscv_cmd_semihost_basedir_do,
+		target_to_esp_riscv(get_current_target(CMD_CTX)));
+}
+
+const struct command_registration esp_riscv_command_handlers[] = {
+	{
+		.name = "semihost_basedir",
+		.handler = esp_riscv_cmd_semihost_basedir,
+		.mode = COMMAND_ANY,
+		.help = "Set the base directory for semohosting I/O.",
+		.usage = "dir",
+	},
+	COMMAND_REGISTRATION_DONE
+};
