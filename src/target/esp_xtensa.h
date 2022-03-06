@@ -29,18 +29,10 @@
 #include "esp_xtensa_apptrace.h"
 #include "esp_xtensa_semihosting.h"
 
-
-struct esp_xtensa_semihost_data {
-	char *basedir;
-	uint32_t version;		/* sending with drvinfo syscall */
-	bool need_resume;
-	struct esp_semihost_ops *ops;
-};
-
 struct esp_xtensa_common {
 	struct xtensa xtensa;
 	struct esp_common esp;
-	struct esp_xtensa_semihost_data semihost;
+	struct esp_semihost_data semihost;
 	struct esp_xtensa_apptrace_info apptrace;
 };
 

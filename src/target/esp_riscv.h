@@ -38,6 +38,7 @@ struct esp_riscv_common {
 	riscv_info_t riscv;
 	struct esp_common esp;
 	struct esp_riscv_apptrace_info apptrace;
+	struct esp_semihost_data semihost;
 	struct esp_semihost_ops *semi_ops;
 	target_addr_t target_bp_addr[ESP_RISCV_TARGET_BP_NUM];
 	target_addr_t target_wp_addr[ESP_RISCV_TARGET_WP_NUM];
@@ -119,5 +120,7 @@ bool esp_riscv_core_is_halted(struct target *target);
 int esp_riscv_core_halt(struct target *target);
 int esp_riscv_core_resume(struct target *target);
 int esp_riscv_core_ebreaks_enable(struct target *target);
+
+extern const struct command_registration esp_riscv_command_handlers[];
 
 #endif	/* _ESP_RISCV_H */

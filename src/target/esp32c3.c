@@ -300,6 +300,11 @@ static const struct command_registration esp32c3_command_handlers[] = {
 	{
 		.name = "esp",
 		.usage = "",
+		.chain = esp_riscv_command_handlers,
+	},
+	{
+		.name = "esp",
+		.usage = "",
 		.chain = esp32_apptrace_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE

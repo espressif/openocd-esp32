@@ -475,11 +475,11 @@ ut_result_t semihost_test_do(int test_num)
                 syscall_fptr = (syscall_fptr_t)generic_syscall;
             } else {
                 syscall_fptr = (syscall_fptr_t)generic_syscall_legacy;
-            }                                
+            }
             xTaskCreatePinnedToCore(&semihost_args_task, "semihost_args_task0", 8000, NULL, 5, 
                 NULL, 0);
             break;
-        }    
+        }
 #endif /* #if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0) */
         default:
             return UT_UNSUPPORTED;
