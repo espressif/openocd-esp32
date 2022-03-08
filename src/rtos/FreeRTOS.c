@@ -327,6 +327,11 @@ static int freertos_read_esp_symbol_table(struct rtos *rtos, int index, uint8_t 
 			rtos_data->esp_symbols = NULL;
 			return retval;
 		}
+
+		LOG_INFO("Detected FreeRTOS version: (%d.%d.%d)",
+			rtos_data->esp_symbols[ESP_FREERTOS_DEBUG_KERNEL_VER_MAJOR],
+			rtos_data->esp_symbols[ESP_FREERTOS_DEBUG_KERNEL_VER_MINOR],
+			rtos_data->esp_symbols[ESP_FREERTOS_DEBUG_KERNEL_VER_BUILD]);
 	}
 
 	assert(index < table_size && val);
