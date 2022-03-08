@@ -24,14 +24,9 @@
 #include "semihosting_common.h"
 #include "esp_riscv.h"
 #include "target_type.h"
+#include "esp_semihosting.h"
 
-
-#define ESP_RISCV_APPTRACE_SYSNR        0x64
-#define ESP_RISCV_DEBUG_STUBS_SYSNR     0x65
-#define ESP_RISCV_SET_BREAKPOINT_SYSNR  0x66
-#define ESP_RISCV_SET_WATCHPOINT_SYSNR  0x67
-
-/* Argument indexes for ESP_RISCV_SET_BREAKPOINT_SYSNR */
+/* Argument indexes for ESP_SEMIHOSTING_SYS_BREAKPOINT_SET */
 enum {
 	ESP_RISCV_SET_BREAKPOINT_ARG_SET,
 	ESP_RISCV_SET_BREAKPOINT_ARG_ID,
@@ -39,7 +34,7 @@ enum {
 	ESP_RISCV_SET_BREAKPOINT_ARG_MAX
 };
 
-/* Argument indexes for ESP_RISCV_SET_WATCHPOINT_SYSNR */
+/* Argument indexes for ESP_SEMIHOSTING_SYS_WATCHPOINT_SET */
 enum {
 	ESP_RISCV_SET_WATCHPOINT_ARG_SET,
 	ESP_RISCV_SET_WATCHPOINT_ARG_ID,
@@ -69,7 +64,6 @@ enum {
 	} while (0)
 
 extern struct target_type riscv_target;
-static int esp_riscv_semihosting_post_result(struct target *target);
 static int esp_riscv_debug_stubs_info_init(struct target *target,
 	target_addr_t ctrl_addr);
 
@@ -80,19 +74,20 @@ int esp_riscv_semihosting(struct target *target)
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 	struct semihosting *semihosting = target->semihosting;
 
-	LOG_DEBUG("enter");
+	LOG_DEBUG("op:(%x) param: (%" PRIx64 ")", semihosting->op, semihosting->param);
+
 	if (esp_riscv->semi_ops && esp_riscv->semi_ops->prepare)
 		esp_riscv->semi_ops->prepare(target);
 
-	if (semihosting->op == ESP_RISCV_APPTRACE_SYSNR) {
+	if (semihosting->op == ESP_SEMIHOSTING_SYS_APPTRACE_INIT) {
 		res = esp_riscv_apptrace_info_init(target, semihosting->param, NULL);
 		if (res != ERROR_OK)
 			return res;
-	} else if (semihosting->op == ESP_RISCV_DEBUG_STUBS_SYSNR) {
+	} else if (semihosting->op == ESP_SEMIHOSTING_SYS_DEBUG_STUBS_INIT) {
 		res = esp_riscv_debug_stubs_info_init(target, semihosting->param);
 		if (res != ERROR_OK)
 			return res;
-	} else if (semihosting->op == ESP_RISCV_SET_BREAKPOINT_SYSNR) {
+	} else if (semihosting->op == ESP_SEMIHOSTING_SYS_BREAKPOINT_SET) {
 		/* Enough space to hold 3 long words for both riscv32 and riscv64 archs. */
 		uint8_t fields[ESP_RISCV_SET_BREAKPOINT_ARG_MAX*sizeof(uint64_t)];
 		res = semihosting_read_fields(target, ESP_RISCV_SET_BREAKPOINT_ARG_MAX, fields);
@@ -113,7 +108,7 @@ int esp_riscv_semihosting(struct target *target)
 				return res;
 		} else
 			breakpoint_remove(target, esp_riscv->target_bp_addr[id]);
-	} else if (semihosting->op == ESP_RISCV_SET_WATCHPOINT_SYSNR) {
+	} else if (semihosting->op == ESP_SEMIHOSTING_SYS_WATCHPOINT_SET) {
 		/* Enough space to hold 5 long words for both riscv32 and riscv64 archs. */
 		uint8_t fields[ESP_RISCV_SET_WATCHPOINT_ARG_MAX*sizeof(uint64_t)];
 		res = semihosting_read_fields(target, ESP_RISCV_SET_WATCHPOINT_ARG_MAX, fields);
@@ -162,34 +157,11 @@ int esp_riscv_semihosting(struct target *target)
 			watchpoint_remove(target, esp_riscv->target_wp_addr[id]);
 	} else
 		return ERROR_FAIL;
+
 	semihosting->result = res == ERROR_OK ? 0 : -1;
 	semihosting->is_resumable = true;
-	res = esp_riscv_semihosting_post_result(target);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to post semihosting result (%d)!", res);
-		return res;
-	}
 
 	return res;
-}
-
-static int esp_riscv_semihosting_post_result(struct target *target)
-{
-	struct semihosting *semihosting = target->semihosting;
-	if (!semihosting) {
-		/* If not enabled, silently ignored. */
-		return ERROR_OK;
-	}
-
-	LOG_DEBUG("0x%" PRIx64, semihosting->result);
-	riscv_reg_t new_pc;
-	riscv_get_register(target, &new_pc, GDB_REGNO_DPC);
-	new_pc += 4;
-	riscv_set_register(target, GDB_REGNO_DPC, new_pc);
-	riscv_set_register(target, GDB_REGNO_PC, new_pc);
-
-	riscv_set_register(target, GDB_REGNO_A0, semihosting->result);
-	return ERROR_OK;
 }
 
 static int esp_riscv_debug_stubs_info_init(struct target *target,

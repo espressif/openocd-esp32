@@ -520,7 +520,7 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 	/* Most operations are resumable, except the two exit calls. */
 
 	/* Catching our custom SYSCALL*/
-	if (target->semihosting->op == ESP_SYS_DRV_INFO) {
+	if (target->semihosting->op == ESP_SEMIHOSTING_SYS_DRV_INFO) {
 		target->semihosting->is_resumable = true;
 		*retval = esp_xtensa_semihosting_drv_info(target);
 	} else if (esp_xtensa->semihost.version > 1)
