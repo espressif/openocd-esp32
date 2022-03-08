@@ -5,8 +5,8 @@
 #include "freertos/task.h"
 #include "sdkconfig.h"
 #include "gen_ut_app.h"
-/* TODO: enable semihost tests for ESP32-C3 */
-#if CONFIG_IDF_TARGET_ARCH_XTENSA && UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0)
+
+#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0)
 #include "esp_vfs_semihost.h"
 
 #include "esp_log.h"
@@ -433,7 +433,7 @@ static void semihost_args_task(void *pvParameter)
 ut_result_t semihost_test_do(int test_num)
 {
     switch (test_num) {
-#if CONFIG_IDF_TARGET_ARCH_XTENSA && UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0)
+#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0)
         case 700: {
         /*
         * *** About the test ***
@@ -450,6 +450,7 @@ ut_result_t semihost_test_do(int test_num)
             xTaskCreatePinnedToCore(&semihost_task, "semihost_task0", 4096, NULL, 5, NULL, 0);
             break;
         }
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
         case 701: 
         case 702: {
         /*
@@ -480,6 +481,7 @@ ut_result_t semihost_test_do(int test_num)
                 NULL, 0);
             break;
         }
+#endif /* CONFIG_IDF_TARGET_ARCH_XTENSA  */
 #endif /* #if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0) */
         default:
             return UT_UNSUPPORTED;
