@@ -159,7 +159,7 @@ struct semihosting {
 	/** The current time when 'execution starts' */
 	clock_t setup_time;
 
-	int (*common_handler)(struct target *target);
+	int (*user_command_handler)(struct target *target);
 	int (*setup)(struct target *target, int enable);
 	int (*post_result)(struct target *target);
 };

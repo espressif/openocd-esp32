@@ -29,6 +29,7 @@
 #include "rtos/rtos.h"
 #include "smp.h"
 #include "esp_xtensa_smp.h"
+#include "esp_xtensa_semihosting.h"
 
 /*
 Multiprocessor stuff common:
@@ -203,7 +204,7 @@ int esp_xtensa_smp_poll(struct target *target)
 			target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
 		else {
 			if (esp_xtensa_semihosting(target, &ret) != 0) {
-				if (target->smp && target->semihosting->op == ESP_SYS_DRV_INFO) {
+				if (target->smp && target->semihosting->op == ESP_SEMIHOSTING_SYS_DRV_INFO) {
 					/* semihosting's version syncing with other cores */
 					foreach_smp_target(head, target->smp_targets) {
 						curr = head->target;
