@@ -1,6 +1,8 @@
 #ifndef _ESP_SEMIHOSTING_H_
 #define _ESP_SEMIHOSTING_H_
 
+#define ESP_SYS_DRV_INFO_LEGACY                     0xE0
+
 #define ESP_SEMIHOSTING_SYS_DRV_INFO                0x100
 #define ESP_SEMIHOSTING_SYS_APPTRACE_INIT           0x101
 #define ESP_SEMIHOSTING_SYS_DEBUG_STUBS_INIT        0x102
