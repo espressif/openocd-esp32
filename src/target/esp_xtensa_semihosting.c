@@ -440,6 +440,8 @@ static inline int esp_xtensa_semihosting_v1(
 			break;
 		}
 		case SEMIHOSTING_SYS_SEEK:
+		case ESP_SEMIHOSTING_SYS_SEEK:	/*TODO-UPS: we will not handle the new opcodes here
+						 *in v2 */
 		{
 			int fd = a3;
 			off_t pos = a4;
@@ -516,6 +518,13 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 		esp_xtensa->semihost.basedir ? esp_xtensa->semihost.basedir : "");
 
 	target->semihosting->op = xtensa_reg_get(target, XTENSA_SYSCALL_OP_REG);
+
+	/* IDF 4.4 and older versions will send different opcode for the ESP_SEMIHOSTING_SYS_DRV_INFO
+	        It is safe to update it with the new one.
+	        So that we don't need to check different opcodes in the other modules
+	*/
+	if (target->semihosting->op == ESP_SYS_DRV_INFO_LEGACY)
+		target->semihosting->op = ESP_SEMIHOSTING_SYS_DRV_INFO;
 
 	/* Most operations are resumable, except the two exit calls. */
 
