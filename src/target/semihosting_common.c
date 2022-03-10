@@ -144,6 +144,7 @@ int semihosting_common_init(struct target *target, void *setup,
 	semihosting->result = -1;
 	semihosting->sys_errno = -1;
 	semihosting->cmdline = NULL;
+	semihosting->basedir = NULL;
 
 	/* If possible, update it in setup(). */
 	semihosting->setup_time = clock();
@@ -721,17 +722,19 @@ int semihosting_common(struct target *target)
 					semihosting->sys_errno = EINVAL;
 					break;
 				}
-				uint8_t *fn = malloc(len+1);
+				size_t basedir_len = semihosting->basedir ? strlen(semihosting->basedir) : 0;
+				uint8_t *fn = malloc(basedir_len + len + 1);
 				if (!fn) {
 					semihosting->result = -1;
 					semihosting->sys_errno = ENOMEM;
 				} else {
-					retval = target_read_memory(target, addr, 1, len, fn);
+					strncpy((char *)fn, semihosting->basedir, basedir_len);
+					retval = target_read_memory(target, addr, 1, len, fn + basedir_len);
 					if (retval != ERROR_OK) {
 						free(fn);
 						return retval;
 					}
-					fn[len] = 0;
+					fn[basedir_len + len] = 0;
 					/* TODO: implement the :semihosting-features special file.
 					 * */
 					if (semihosting->is_fileio) {
@@ -784,8 +787,13 @@ int semihosting_common(struct target *target)
 							/* cygwin requires the permission setting
 							 * otherwise it will fail to reopen a previously
 							 * written file */
+							uint32_t flags = open_host_modeflags[mode];
+							#ifdef _WIN32
+								/* Windows needs O_BINARY flag for proper handling of EOLs */
+								flags |= O_BINARY;
+							#endif
 							semihosting->result = open((char *)fn,
-									open_host_modeflags[mode],
+									flags,
 									0644);
 							semihosting->sys_errno = errno;
 							LOG_DEBUG("open('%s')=%d", fn,
@@ -1730,6 +1738,41 @@ COMMAND_HANDLER(handle_common_semihosting_read_user_param_command)
 	return ERROR_OK;
 }
 
+COMMAND_HANDLER(handle_common_semihosting_basedir_command)
+{
+	struct target *target = get_current_target(CMD_CTX);
+
+	if (!target) {
+		LOG_ERROR("No target selected");
+		return ERROR_FAIL;
+	}
+
+	struct semihosting *semihosting = target->semihosting;
+	if (!semihosting) {
+		command_print(CMD, "semihosting not supported for current target");
+		return ERROR_FAIL;
+	}
+
+	if (!semihosting->is_active) {
+		command_print(CMD, "semihosting not yet enabled for current target");
+		return ERROR_FAIL;
+	}
+
+	if (CMD_ARGC > 0) {
+		free(semihosting->basedir);
+		semihosting->basedir = strdup(CMD_ARGV[0]);
+		if (!semihosting->basedir) {
+			command_print(CMD, "semihosting failed to allocate memory for basedir!");
+			return ERROR_FAIL;
+		}
+	}
+
+	command_print(CMD, "semihosting base dir: %s",
+		semihosting->basedir ? semihosting->basedir : "");
+
+	return ERROR_OK;
+}
+
 const struct command_registration semihosting_common_handlers[] = {
 	{
 		"semihosting",
@@ -1765,6 +1808,13 @@ const struct command_registration semihosting_common_handlers[] = {
 		.mode = COMMAND_EXEC,
 		.usage = "",
 		.help = "read parameters in semihosting-user-cmd-0x10X callbacks",
+	},
+	{
+		"semihosting_basedir",
+		.handler = handle_common_semihosting_basedir_command,
+		.mode = COMMAND_EXEC,
+		.usage = "[dir]",
+		.help = "set the base directory for semihosting I/O operations",
 	},
 	COMMAND_REGISTRATION_DONE
 };

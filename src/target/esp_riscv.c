@@ -79,84 +79,112 @@ int esp_riscv_semihosting(struct target *target)
 	if (esp_riscv->semi_ops && esp_riscv->semi_ops->prepare)
 		esp_riscv->semi_ops->prepare(target);
 
-	if (semihosting->op == ESP_SEMIHOSTING_SYS_APPTRACE_INIT) {
-		res = esp_riscv_apptrace_info_init(target, semihosting->param, NULL);
-		if (res != ERROR_OK)
-			return res;
-	} else if (semihosting->op == ESP_SEMIHOSTING_SYS_DEBUG_STUBS_INIT) {
-		res = esp_riscv_debug_stubs_info_init(target, semihosting->param);
-		if (res != ERROR_OK)
-			return res;
-	} else if (semihosting->op == ESP_SEMIHOSTING_SYS_BREAKPOINT_SET) {
-		/* Enough space to hold 3 long words for both riscv32 and riscv64 archs. */
-		uint8_t fields[ESP_RISCV_SET_BREAKPOINT_ARG_MAX*sizeof(uint64_t)];
-		res = semihosting_read_fields(target, ESP_RISCV_SET_BREAKPOINT_ARG_MAX, fields);
-		if (res != ERROR_OK)
-			return res;
-		int id = semihosting_get_field(target, ESP_RISCV_SET_BREAKPOINT_ARG_ID, fields);
-		if (id >= ESP_RISCV_TARGET_BP_NUM) {
-			LOG_ERROR("Unsupported breakpoint ID (%d)!", id);
-			return ERROR_FAIL;
-		}
-		int set = semihosting_get_field(target, ESP_RISCV_SET_WATCHPOINT_ARG_SET, fields);
-		if (set) {
-			esp_riscv->target_bp_addr[id] = semihosting_get_field(target,
-				ESP_RISCV_SET_BREAKPOINT_ARG_ADDR,
-				fields);
-			res = breakpoint_add(target, esp_riscv->target_bp_addr[id], 2, BKPT_HARD);
+	switch (semihosting->op) {
+		case ESP_SEMIHOSTING_SYS_APPTRACE_INIT:
+		case ESP_RISCV_APPTRACE_SYSNR:
+			res = esp_riscv_apptrace_info_init(target, semihosting->param, NULL);
 			if (res != ERROR_OK)
 				return res;
-		} else
-			breakpoint_remove(target, esp_riscv->target_bp_addr[id]);
-	} else if (semihosting->op == ESP_SEMIHOSTING_SYS_WATCHPOINT_SET) {
-		/* Enough space to hold 5 long words for both riscv32 and riscv64 archs. */
-		uint8_t fields[ESP_RISCV_SET_WATCHPOINT_ARG_MAX*sizeof(uint64_t)];
-		res = semihosting_read_fields(target, ESP_RISCV_SET_WATCHPOINT_ARG_MAX, fields);
-		if (res != ERROR_OK)
-			return res;
-		int id = semihosting_get_field(target, ESP_RISCV_SET_WATCHPOINT_ARG_ID, fields);
-		if (id >= ESP_RISCV_TARGET_WP_NUM) {
-			LOG_ERROR("Unsupported watchpoint ID (%d)!", id);
-			return ERROR_FAIL;
-		}
-		int set = semihosting_get_field(target, ESP_RISCV_SET_WATCHPOINT_ARG_SET, fields);
-		if (set) {
-			esp_riscv->target_wp_addr[id] = semihosting_get_field(target,
-				ESP_RISCV_SET_WATCHPOINT_ARG_ADDR,
+			break;
+		case ESP_SEMIHOSTING_SYS_DEBUG_STUBS_INIT:
+			res = esp_riscv_debug_stubs_info_init(target, semihosting->param);
+			if (res != ERROR_OK)
+				return res;
+			break;
+		case ESP_SEMIHOSTING_SYS_BREAKPOINT_SET:
+		{
+			/* Enough space to hold 3 long words for both riscv32 and riscv64 archs. */
+			uint8_t fields[ESP_RISCV_SET_BREAKPOINT_ARG_MAX*sizeof(uint64_t)];
+			res = semihosting_read_fields(target,
+				ESP_RISCV_SET_BREAKPOINT_ARG_MAX,
 				fields);
-			int size = semihosting_get_field(target,
-				ESP_RISCV_SET_WATCHPOINT_ARG_SIZE,
+			if (res != ERROR_OK)
+				return res;
+			int id = semihosting_get_field(target,
+				ESP_RISCV_SET_BREAKPOINT_ARG_ID,
 				fields);
-			int flags = semihosting_get_field(target,
-				ESP_RISCV_SET_WATCHPOINT_ARG_FLAGS,
-				fields);
-			enum watchpoint_rw wp_type;
-			switch (flags & (ESP_SEMIHOSTING_WP_FLG_RD | ESP_SEMIHOSTING_WP_FLG_WR)) {
-				case ESP_SEMIHOSTING_WP_FLG_RD:
-					wp_type = WPT_READ;
-					break;
-				case ESP_SEMIHOSTING_WP_FLG_WR:
-					wp_type = WPT_WRITE;
-					break;
-				case ESP_SEMIHOSTING_WP_FLG_RD | ESP_SEMIHOSTING_WP_FLG_WR:
-					wp_type = WPT_ACCESS;
-					break;
-				default:
-					LOG_ERROR("Unsupported watchpoint type (0x%x)!", flags);
-					return ERROR_FAIL;
+			if (id >= ESP_RISCV_TARGET_BP_NUM) {
+				LOG_ERROR("Unsupported breakpoint ID (%d)!", id);
+				return ERROR_FAIL;
 			}
-			res = watchpoint_add(target,
-				esp_riscv->target_wp_addr[id],
-				size,
-				wp_type,
-				0,
-				0);
+			int set = semihosting_get_field(target,
+				ESP_RISCV_SET_WATCHPOINT_ARG_SET,
+				fields);
+			if (set) {
+				esp_riscv->target_bp_addr[id] = semihosting_get_field(target,
+					ESP_RISCV_SET_BREAKPOINT_ARG_ADDR,
+					fields);
+				res = breakpoint_add(target,
+					esp_riscv->target_bp_addr[id],
+					2,
+					BKPT_HARD);
+				if (res != ERROR_OK)
+					return res;
+			} else
+				breakpoint_remove(target, esp_riscv->target_bp_addr[id]);
+			break;
+		}
+		case ESP_SEMIHOSTING_SYS_WATCHPOINT_SET:
+		{
+			/* Enough space to hold 5 long words for both riscv32 and riscv64 archs. */
+			uint8_t fields[ESP_RISCV_SET_WATCHPOINT_ARG_MAX*sizeof(uint64_t)];
+			res = semihosting_read_fields(target,
+				ESP_RISCV_SET_WATCHPOINT_ARG_MAX,
+				fields);
 			if (res != ERROR_OK)
 				return res;
-		} else
-			watchpoint_remove(target, esp_riscv->target_wp_addr[id]);
-	} else
-		return ERROR_FAIL;
+			int id = semihosting_get_field(target,
+				ESP_RISCV_SET_WATCHPOINT_ARG_ID,
+				fields);
+			if (id >= ESP_RISCV_TARGET_WP_NUM) {
+				LOG_ERROR("Unsupported watchpoint ID (%d)!", id);
+				return ERROR_FAIL;
+			}
+			int set = semihosting_get_field(target,
+				ESP_RISCV_SET_WATCHPOINT_ARG_SET,
+				fields);
+			if (set) {
+				esp_riscv->target_wp_addr[id] = semihosting_get_field(target,
+					ESP_RISCV_SET_WATCHPOINT_ARG_ADDR,
+					fields);
+				int size = semihosting_get_field(target,
+					ESP_RISCV_SET_WATCHPOINT_ARG_SIZE,
+					fields);
+				int flags = semihosting_get_field(target,
+					ESP_RISCV_SET_WATCHPOINT_ARG_FLAGS,
+					fields);
+				enum watchpoint_rw wp_type;
+				switch (flags &
+					(ESP_SEMIHOSTING_WP_FLG_RD | ESP_SEMIHOSTING_WP_FLG_WR)) {
+					case ESP_SEMIHOSTING_WP_FLG_RD:
+						wp_type = WPT_READ;
+						break;
+					case ESP_SEMIHOSTING_WP_FLG_WR:
+						wp_type = WPT_WRITE;
+						break;
+					case ESP_SEMIHOSTING_WP_FLG_RD | ESP_SEMIHOSTING_WP_FLG_WR:
+						wp_type = WPT_ACCESS;
+						break;
+					default:
+						LOG_ERROR("Unsupported watchpoint type (0x%x)!",
+						flags);
+						return ERROR_FAIL;
+				}
+				res = watchpoint_add(target,
+					esp_riscv->target_wp_addr[id],
+					size,
+					wp_type,
+					0,
+					0);
+				if (res != ERROR_OK)
+					return res;
+			} else
+				watchpoint_remove(target, esp_riscv->target_wp_addr[id]);
+			break;
+		}
+		default:
+			return ERROR_FAIL;
+	}
 
 	semihosting->result = res == ERROR_OK ? 0 : -1;
 	semihosting->is_resumable = true;
@@ -484,6 +512,7 @@ int esp_riscv_run_algorithm(struct target *target, int num_mem_params,
 	return retval;
 }
 
+
 int esp_riscv_read_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
@@ -725,41 +754,3 @@ int esp_riscv_core_ebreaks_enable(struct target *target)
 	dcsr = set_field(dcsr, CSR_DCSR_EBREAKU, 1);
 	return r->set_register(target, GDB_REGNO_DCSR, dcsr);
 }
-
-COMMAND_HELPER(esp_riscv_cmd_semihost_basedir_do, struct esp_riscv_common *esp_riscv)
-{
-	if (CMD_ARGC != 1) {
-		command_print(CMD,
-			"Current semihosting base dir: %s",
-			esp_riscv->semihost.basedir ? esp_riscv->semihost.basedir : "");
-		return ERROR_OK;
-	}
-
-	char *s = strdup(CMD_ARGV[0]);
-	if (!s) {
-		command_print(CMD, "Failed to allocate memory!");
-		return ERROR_FAIL;
-	}
-	if (esp_riscv->semihost.basedir)
-		free(esp_riscv->semihost.basedir);
-	esp_riscv->semihost.basedir = s;
-
-	return ERROR_OK;
-}
-
-COMMAND_HANDLER(esp_riscv_cmd_semihost_basedir)
-{
-	return CALL_COMMAND_HANDLER(esp_riscv_cmd_semihost_basedir_do,
-		target_to_esp_riscv(get_current_target(CMD_CTX)));
-}
-
-const struct command_registration esp_riscv_command_handlers[] = {
-	{
-		.name = "semihost_basedir",
-		.handler = esp_riscv_cmd_semihost_basedir,
-		.mode = COMMAND_ANY,
-		.help = "Set the base directory for semohosting I/O.",
-		.usage = "dir",
-	},
-	COMMAND_REGISTRATION_DONE
-};

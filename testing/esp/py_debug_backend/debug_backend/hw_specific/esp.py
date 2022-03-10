@@ -17,6 +17,9 @@ class OocdEspImpl:
     def set_semihost_basedir(self, semi_dir):
         self.cmd_exec('esp semihost_basedir %s' % (fixup_path(semi_dir)))
 
+    def set_arm_semihosting_basedir(self, semi_dir):
+        self.cmd_exec('arm semihosting_basedir %s' % (fixup_path(semi_dir)))
+
     def gcov_dump(self, on_the_fly=True):
         if on_the_fly:
             cmd = 'esp gcov'
