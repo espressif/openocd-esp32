@@ -383,6 +383,7 @@ static void semihost_task(void *pvParameter)
     done();
 }
 
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
 static void semihost_args_task(void *pvParameter)
 {
     int ret;
@@ -427,6 +428,7 @@ static void semihost_args_task(void *pvParameter)
     }
     done();
 }
+#endif /* CONFIG_IDF_TARGET_ARCH_XTENSA */
 #endif /* #if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0) */
 
 

@@ -97,7 +97,7 @@ static inline int esp_xtensa_semihosting_drv_info(struct target *target)
 	int addr = xtensa_reg_get(target, XT_REG_IDX_A3);
 	int sz = xtensa_reg_get(target, XT_REG_IDX_A4);
 	if (sz < 0) {
-		LOG_ERROR("Wrong length of file name!");
+		LOG_ERROR("Wrong length of drv info!");
 		xtensa_reg_set(target, XTENSA_SYSCALL_RETVAL_REG, -1);
 		xtensa_reg_set(target, XTENSA_SYSCALL_ERRNO_REG, EINVAL);
 		return ERROR_OK;

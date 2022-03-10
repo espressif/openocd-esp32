@@ -25,6 +25,8 @@
 ./tools/uncrustify1.sh src/target/esp_xtensa.h
 ./tools/uncrustify1.sh src/target/esp_riscv.c
 ./tools/uncrustify1.sh src/target/esp_riscv.h
+./tools/uncrustify1.sh src/target/esp_semihosting.c
+./tools/uncrustify1.sh src/target/esp_semihosting.h
 ./tools/uncrustify1.sh src/target/esp_xtensa_apptrace.h
 ./tools/uncrustify1.sh src/target/esp_xtensa_semihosting.h
 ./tools/uncrustify1.sh src/target/esp_riscv_apptrace.h

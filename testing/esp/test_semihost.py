@@ -21,6 +21,7 @@ def get_logger():
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
 @idf_ver_min('4.0')
+@idf_ver_min_for_arch('5.0', ['riscv32'])
 class SemihostTestsImpl:
     """
     Test cases which are common for dual and single core modes. The test's scenario:
@@ -42,7 +43,10 @@ class SemihostTestsImpl:
             semi_dir = tempfile.gettempdir()
         else:
             semi_dir = os.getcwd()
-        self.oocd.set_semihost_basedir(semi_dir)
+        if testee_info.arch == "xtensa":
+            self.oocd.set_semihost_basedir(semi_dir)
+        else:
+            self.oocd.set_arm_semihosting_basedir(semi_dir)
         self.fout_names = []
         self.fin_names = []
         for i in range(self.CORES_NUM):

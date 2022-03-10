@@ -139,6 +139,10 @@ semihosting_result_t riscv_semihosting(struct target *target, int *retval)
 		semihosting->param = r1;
 		semihosting->word_size_bytes = riscv_xlen(target) / 8;
 
+		/* workaround for the IDF 4.4 apptrace_init call */
+		if (semihosting->op == 0x64)
+			semihosting->op = 0x101;
+
 		/* Check for ARM operation numbers. */
 		if ((semihosting->op >= 0 && semihosting->op <= 0x31) ||
 			(semihosting->op >= 0x100 && semihosting->op <= 0x107)) {

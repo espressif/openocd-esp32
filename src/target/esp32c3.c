@@ -28,6 +28,7 @@
 #include "target_type.h"
 #include "register.h"
 #include "semihosting_common.h"
+#include "esp_semihosting.h"
 #include "riscv/debug_defines.h"
 #include "esp32_apptrace.h"
 #include "rtos/rtos.h"
@@ -140,7 +141,7 @@ static int esp32c3_init_target(struct command_context *cmd_ctx,
 	if (ret != ERROR_OK)
 		return ret;
 
-	target->semihosting->user_command_handler = esp_riscv_semihosting;
+	target->semihosting->user_command_handler = esp_semihosting_common;
 
 	struct esp32c3_common *esp32c3 = esp32c3_common(target);
 
@@ -296,11 +297,6 @@ static const struct command_registration esp32c3_command_handlers[] = {
 	{
 		.usage = "",
 		.chain = riscv_command_handlers,
-	},
-	{
-		.name = "esp",
-		.usage = "",
-		.chain = esp_riscv_command_handlers,
 	},
 	{
 		.name = "esp",
