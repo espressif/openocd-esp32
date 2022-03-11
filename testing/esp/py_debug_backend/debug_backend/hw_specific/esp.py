@@ -14,11 +14,8 @@ class OocdEspImpl:
     def set_appimage_offset(self, app_flash_off):
         self.cmd_exec('esp appimage_offset 0x%x' % app_flash_off)
 
-    def set_semihost_basedir(self, semi_dir):
-        self.cmd_exec('esp semihost_basedir %s' % (fixup_path(semi_dir)))
-
-    def set_arm_semihosting_basedir(self, semi_dir):
-        self.cmd_exec('arm semihosting_basedir %s' % (fixup_path(semi_dir)))
+    def set_smp_semihosting_basedir(self, semi_dir):
+        self.cmd_exec('esp_semihost_basedir %s' % (fixup_path(semi_dir))) 
 
     def gcov_dump(self, on_the_fly=True):
         if on_the_fly:

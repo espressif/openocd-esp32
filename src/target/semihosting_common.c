@@ -196,7 +196,7 @@ int semihosting_common(struct target *target)
 	/* Enough space to hold 4 long words. */
 	uint8_t fields[4*8];
 
-	LOG_DEBUG("op=0x%x, param=0x%" PRIx64, semihosting->op,
+	LOG_INFO("op=0x%x, param=0x%" PRIx64, semihosting->op,
 		semihosting->param);
 
 	switch (semihosting->op) {

@@ -684,6 +684,8 @@ static int esp32s3_target_create(struct target *target, Jim_Interp *interp)
 	return ERROR_OK;
 }
 
+extern const struct command_registration semihosting_common_handlers[];
+
 static const struct command_registration esp32s3_command_handlers[] = {
 	{
 		.usage = "",
@@ -698,6 +700,13 @@ static const struct command_registration esp32s3_command_handlers[] = {
 		.name = "esp32",
 		.usage = "",
 		.chain = smp_command_handlers,
+	},
+	{
+		.name = "arm",
+		.mode = COMMAND_ANY,
+		.help = "ARM Command Group",
+		.usage = "",
+		.chain = semihosting_common_handlers
 	},
 	COMMAND_REGISTRATION_DONE
 };

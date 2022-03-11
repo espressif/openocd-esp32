@@ -96,7 +96,6 @@ struct esp_semihost_ops {
 };
 
 struct esp_semihost_data {
-	char *basedir;
 	uint32_t version;		/* sending with drvinfo syscall */
 	bool need_resume;
 	struct esp_semihost_ops *ops;

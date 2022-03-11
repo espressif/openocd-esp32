@@ -52,6 +52,7 @@ static int esp_xtensa_semihosting_setup(struct target *target)
 
 static int esp_xtensa_semihosting_post_result(struct target *target)
 {
+	/* Even with the v2 and later, errno will not retrieved from A3 reg, it is safe to set */
 	xtensa_reg_set(target, XTENSA_SYSCALL_RETVAL_REG, target->semihosting->result);
 	xtensa_reg_set(target, XTENSA_SYSCALL_ERRNO_REG, target->semihosting->sys_errno);
 	return ERROR_OK;
@@ -68,15 +69,14 @@ static char *esp_xtensa_semihosting_get_file_name(struct target *target,
 	}
 	int base_len = 0;
 	int retval = 0;
-	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
-	if (esp_xtensa->semihost.basedir && (*mode & ESP_O_SEMIHOST_ABSPATH) == 0)
-		base_len = strlen(esp_xtensa->semihost.basedir);
+	if (target->semihosting->basedir && (*mode & ESP_O_SEMIHOST_ABSPATH) == 0)
+		base_len = strlen(target->semihosting->basedir);
 	char *fn = malloc(base_len + len + 1);
 	if (!fn) {
 		LOG_ERROR("Failed to alloc memory for file name!");
 		return NULL;
 	}
-	strncpy(fn, esp_xtensa->semihost.basedir, base_len);
+	strncpy(fn, target->semihosting->basedir, base_len);
 	retval = target_read_buffer(target, addr_fn, len, (uint8_t *)fn + base_len);
 	if (retval != ERROR_OK) {
 		free(fn);
@@ -89,35 +89,35 @@ static char *esp_xtensa_semihosting_get_file_name(struct target *target,
 	return fn;
 }
 
-static inline int esp_xtensa_semihosting_drv_info(struct target *target)
+static inline int esp_xtensa_semihosting_drv_info_v01(struct target *target)
 {
-	/* setting semihosting*/
-	int ret = 0;
-	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
+	int syscall_ret = -1, syscall_errno = EINVAL;
 	int addr = xtensa_reg_get(target, XT_REG_IDX_A3);
 	int sz = xtensa_reg_get(target, XT_REG_IDX_A4);
 	if (sz < 0) {
 		LOG_ERROR("Wrong length of drv info!");
-		xtensa_reg_set(target, XTENSA_SYSCALL_RETVAL_REG, -1);
-		xtensa_reg_set(target, XTENSA_SYSCALL_ERRNO_REG, EINVAL);
-		return ERROR_OK;
+		goto _exit;
 	}
 	uint8_t *buf = malloc(sz);
-	ret = target_read_buffer(target, addr, sz, buf);
-	if (ret != ERROR_OK) {
-		free(buf);
-		xtensa_reg_set(target, XTENSA_SYSCALL_RETVAL_REG, -1);
-		xtensa_reg_set(target, XTENSA_SYSCALL_ERRNO_REG, EINVAL);
-		return ERROR_OK;
+	if (!buf) {
+		LOG_ERROR("Memory alloc failed drv info!");
+		goto _exit;
 	}
-
+	int retval = target_read_buffer(target, addr, sz, buf);
+	if (retval != ERROR_OK) {
+		free(buf);
+		LOG_ERROR("Read memory failed drv info!");
+		goto _exit;
+	}
 	/* read ver from drv_info_t mapped onto buf */
+	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
 	esp_xtensa->semihost.version = le_to_h_u32(&buf[0]);
-
+	syscall_ret = syscall_errno = 0;
 	LOG_DEBUG("semihost.version: %d", esp_xtensa->semihost.version);
-
-	xtensa_reg_set(target, XTENSA_SYSCALL_RETVAL_REG, 0);
-	xtensa_reg_set(target, XTENSA_SYSCALL_ERRNO_REG, 0);
+	free(buf);
+_exit:
+	xtensa_reg_set(target, XTENSA_SYSCALL_RETVAL_REG, syscall_ret);
+	xtensa_reg_set(target, XTENSA_SYSCALL_ERRNO_REG, syscall_errno);
 	return ERROR_OK;
 }
 
@@ -440,8 +440,6 @@ static inline int esp_xtensa_semihosting_v1(
 			break;
 		}
 		case SEMIHOSTING_SYS_SEEK:
-		case ESP_SEMIHOSTING_SYS_SEEK:	/*TODO-UPS: we will not handle the new opcodes here
-						 *in v2 */
 		{
 			int fd = a3;
 			off_t pos = a4;
@@ -471,7 +469,7 @@ static inline int esp_xtensa_semihosting_v1(
  * or an error was encountered, in which case the caller must return
  * immediately.
  *
- * @param target Pointer to the ESp Xtensa target to process.
+ * @param target Pointer to the ESP Xtensa target to process.
  * @param retval Pointer to a location where the return code will be stored
  * @return non-zero value if a request was processed or an error encountered
  */
@@ -504,51 +502,54 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 
 	xtensa_reg_val_t a2 = xtensa_reg_get(target, XT_REG_IDX_A2);
 	xtensa_reg_val_t a3 = xtensa_reg_get(target, XT_REG_IDX_A3);
-	xtensa_reg_val_t a4 = xtensa_reg_get(target, XT_REG_IDX_A4);
-	xtensa_reg_val_t a5 = xtensa_reg_get(target, XT_REG_IDX_A5);
-	xtensa_reg_val_t a6 = xtensa_reg_get(target, XT_REG_IDX_A6);
-
-	LOG_DEBUG("%s: Semihosting. Call 0x%x 0x%x 0x%x 0x%x 0x%x. Base dir '%s'",
+	LOG_INFO("%s: Semihosting call 0x%x 0x%x Base dir '%s'",
 		target_name(target),
 		a2,
 		a3,
-		a4,
-		a5,
-		a6,
-		esp_xtensa->semihost.basedir ? esp_xtensa->semihost.basedir : "");
+		target->semihosting->basedir ? target->semihosting->basedir : "");
 
-	target->semihosting->op = xtensa_reg_get(target, XTENSA_SYSCALL_OP_REG);
+	target->semihosting->op = a2;
+	target->semihosting->param = a3;
 
-	/* IDF 4.4 and older versions will send different opcode for the ESP_SEMIHOSTING_SYS_DRV_INFO
-	        It is safe to update it with the new one.
-	        So that we don't need to check different opcodes in the other modules
-	*/
-	if (target->semihosting->op == ESP_SYS_DRV_INFO_LEGACY)
-		target->semihosting->op = ESP_SEMIHOSTING_SYS_DRV_INFO;
-
-	/* Most operations are resumable, except the two exit calls. */
-
-	/* Catching our custom SYSCALL*/
-	if (target->semihosting->op == ESP_SEMIHOSTING_SYS_DRV_INFO) {
-		target->semihosting->is_resumable = true;
-		*retval = esp_xtensa_semihosting_drv_info(target);
-	} else if (esp_xtensa->semihost.version > 1)
-		/* TODO-UPS forward v2 calls to common layer.
-		        But first implement memory-based approach */
+	if (target->semihosting->op == ESP_SEMIHOSTING_SYS_DRV_INFO ||
+		esp_xtensa->semihost.version > 1)
 		*retval = semihosting_common(target);
-	else if (esp_xtensa->semihost.version > 0) {
+	else if (target->semihosting->op == ESP_SYS_DRV_INFO_LEGACY) {
 		target->semihosting->is_resumable = true;
-		*retval = esp_xtensa_semihosting_v1(target, a2, a3, a4, a5, a6);
+		*retval = esp_xtensa_semihosting_drv_info_v01(target);
+		/*
+		        It is safe to update opcode with the new one.
+		        So that we don't need to check different opcodes in the other modules
+		*/
+		target->semihosting->op = ESP_SEMIHOSTING_SYS_DRV_INFO;
 	} else {
 		target->semihosting->is_resumable = true;
-		*retval = esp_xtensa_semihosting_v0(target, a2, a3, a4, a5, a6);
+		xtensa_reg_val_t a4 = xtensa_reg_get(target, XT_REG_IDX_A4);
+		xtensa_reg_val_t a5 = xtensa_reg_get(target, XT_REG_IDX_A5);
+		xtensa_reg_val_t a6 = xtensa_reg_get(target, XT_REG_IDX_A6);
+
+		LOG_DEBUG("%s: Semihosting. Call 0x%x 0x%x 0x%x 0x%x 0x%x. Base dir '%s'",
+			target_name(target),
+			a2,
+			a3,
+			a4,
+			a5,
+			a6,
+			target->semihosting->basedir ? target->semihosting->basedir : "");
+
+		if (esp_xtensa->semihost.version == 1)
+			*retval = esp_xtensa_semihosting_v1(target, a2, a3, a4, a5, a6);
+		else
+			*retval = esp_xtensa_semihosting_v0(target, a2, a3, a4, a5, a6);
+
+		LOG_DEBUG("%s: Semihosting. retval: %d, target_ret: %d, target_errno: %d",
+			target_name(target),
+			*retval,
+			xtensa_reg_get(target, XTENSA_SYSCALL_RETVAL_REG),
+			xtensa_reg_get(target, XTENSA_SYSCALL_ERRNO_REG)
+			);
 	}
-	LOG_DEBUG("%s: Semihosting. retval: %d, target_ret: %d, target_errno: %d",
-		target_name(target),
-		*retval,
-		xtensa_reg_get(target, XTENSA_SYSCALL_RETVAL_REG),
-		xtensa_reg_get(target, XTENSA_SYSCALL_ERRNO_REG)
-		);
+	/* Most operations are resumable, except the two exit calls. */
 	if (*retval != ERROR_OK)
 		LOG_ERROR("Semihosting operation (op: 0x%x) error! Code: %d",
 			target->semihosting->op,
@@ -578,5 +579,6 @@ int esp_xtensa_semihosting_init(struct target *target)
 	if (retval != ERROR_OK)
 		return retval;
 	target->semihosting->word_size_bytes = 4;			/* 32 bits */
+	target->semihosting->user_command_handler = esp_semihosting_common;
 	return retval;
 }

@@ -703,6 +703,7 @@ static const struct command_registration esp32_any_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
+extern const struct command_registration semihosting_common_handlers[];
 static const struct command_registration esp32_command_handlers[] = {
 	{
 		.usage = "",
@@ -723,6 +724,13 @@ static const struct command_registration esp32_command_handlers[] = {
 		.usage = "",
 		.chain = esp32_any_command_handlers,
 	},
+	{
+		.name = "arm",
+		.mode = COMMAND_ANY,
+		.help = "ARM Command Group",
+		.usage = "",
+		.chain = semihosting_common_handlers
+	},
 	COMMAND_REGISTRATION_DONE
 };
 
@@ -731,11 +739,6 @@ static const struct command_registration esp32_legacy_command_handlers[] = {
 		.name = "esp32",
 		.usage = "",
 		.chain = esp_xtensa_smp_xtensa_command_handlers,
-	},
-	{
-		.name = "esp32",
-		.usage = "",
-		.chain = esp_xtensa_smp_esp_command_handlers,
 	},
 	{
 		.name = "esp32",
