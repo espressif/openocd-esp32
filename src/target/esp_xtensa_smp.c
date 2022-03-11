@@ -830,25 +830,6 @@ COMMAND_HANDLER(esp_xtensa_smp_cmd_tracedump)
 		target_to_xtensa(target), CMD_ARGV[0]);
 }
 
-COMMAND_HANDLER(esp_xtensa_smp_cmd_semihost_basedir)
-{
-	struct target *target = get_current_target(CMD_CTX);
-	if (target->smp && CMD_ARGC > 0) {
-		struct target_list *head;
-		struct target *curr;
-		foreach_smp_target(head, target->smp_targets) {
-			curr = head->target;
-			int ret = CALL_COMMAND_HANDLER(esp_xtensa_cmd_semihost_basedir_do,
-				target_to_esp_xtensa(curr));
-			if (ret != ERROR_OK)
-				return ret;
-		}
-		return ERROR_OK;
-	}
-	return CALL_COMMAND_HANDLER(esp_xtensa_cmd_semihost_basedir_do,
-		target_to_esp_xtensa(target));
-}
-
 const struct command_registration esp_xtensa_smp_xtensa_command_handlers[] = {
 	{
 		.name = "set_permissive",
@@ -912,27 +893,11 @@ const struct command_registration esp_xtensa_smp_xtensa_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-const struct command_registration esp_xtensa_smp_esp_command_handlers[] = {
-	{
-		.name = "semihost_basedir",
-		.handler = esp_xtensa_smp_cmd_semihost_basedir,
-		.mode = COMMAND_ANY,
-		.help = "Set the base directory for semohosting I/O.",
-		.usage = "dir",
-	},
-	COMMAND_REGISTRATION_DONE
-};
-
 const struct command_registration esp_xtensa_smp_command_handlers[] = {
 	{
 		.name = "xtensa",
 		.usage = "",
 		.chain = esp_xtensa_smp_xtensa_command_handlers,
-	},
-	{
-		.name = "esp",
-		.usage = "",
-		.chain = esp_xtensa_smp_esp_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE
 };

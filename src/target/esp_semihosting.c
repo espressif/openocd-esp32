@@ -48,6 +48,27 @@ int esp_semihosting_sys_seek(struct target *target, uint64_t fd, uint32_t pos, s
 	return ERROR_OK;
 }
 
+static int esp_semihosting_sys_drv_info(struct target *target, int addr, int size)
+{
+	struct semihosting *semihosting = target->semihosting;
+
+	uint8_t *buf = malloc(size);
+	int retval = target_read_buffer(target, addr, size, buf);
+	if (retval == ERROR_OK) {
+		struct esp_semihost_data *semihost_data = target_to_esp_semihost_data(target);
+		semihosting->result = 0;
+		semihosting->sys_errno = 0;
+		semihost_data->version = le_to_h_u32(&buf[0]);
+		LOG_DEBUG("semihost.version: %d", semihost_data->version);
+	} else {
+		semihosting->result = -1;
+		semihosting->sys_errno = EINVAL;
+	}
+	free(buf);
+	LOG_DEBUG("drv_info res=%d errno=%d", (int)semihosting->result, semihosting->sys_errno);
+	return retval;
+}
+
 int esp_semihosting_common(struct target *target)
 {
 	struct semihosting *semihosting = target->semihosting;
@@ -64,9 +85,13 @@ int esp_semihosting_common(struct target *target)
 		semihosting->param);
 
 	switch (semihosting->op) {
-		case ESP_SYS_DRV_INFO_LEGACY:
 		case ESP_SEMIHOSTING_SYS_DRV_INFO:
-			/* TODO */
+			retval = semihosting_read_fields(target, 2, fields);
+			if (retval == ERROR_OK) {
+				int addr = semihosting_get_field(target, 0, fields);
+				int size = semihosting_get_field(target, 1, fields);
+				retval = esp_semihosting_sys_drv_info(target, addr, size);
+			}
 			break;
 		case ESP_SEMIHOSTING_SYS_SEEK:
 			retval = semihosting_read_fields(target, 3, fields);

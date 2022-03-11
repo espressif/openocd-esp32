@@ -43,10 +43,7 @@ class SemihostTestsImpl:
             semi_dir = tempfile.gettempdir()
         else:
             semi_dir = os.getcwd()
-        if testee_info.arch == "xtensa":
-            self.oocd.set_semihost_basedir(semi_dir)
-        else:
-            self.oocd.set_arm_semihosting_basedir(semi_dir)
+        self.oocd.set_smp_semihosting_basedir(semi_dir)
         self.fout_names = []
         self.fin_names = []
         for i in range(self.CORES_NUM):
@@ -83,7 +80,8 @@ class SemihostTestsImpl:
             get_logger().info('Compare files [%s, %s]', self.fout_names[i], self.fin_names[i])
             self.assertTrue(filecmp.cmp(self.fout_names[i], self.fin_names[i]))
 
-    @skip_for_chip(['esp32c3'])
+    # wrong argument tests are not ready for semihosting v2
+    @idf_ver_max('4.4')
     def test_semihost_args(self):
         """
         This test checks that 'break 1,14' syscall working properly with wrong argumented functions
@@ -92,7 +90,8 @@ class SemihostTestsImpl:
         self.add_bp('esp_vfs_semihost_unregister')
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
 
-    @skip_for_chip(['esp32c3'])
+    # wrong argument tests are not ready for semihosting v2
+    @idf_ver_max('4.4')
     def test_semihost_args_legacy(self):
         """
         This test checks that 'break 1,1' syscall working properly with wrong argumented functions
