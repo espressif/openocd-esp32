@@ -276,7 +276,11 @@ static void semihost_task(void *pvParameter)
     /**** Init ****/
     ESP_LOGI(TAG, "CPU[%d]: Initialization", core_id);
     if (core_id == 0) {
+#if UT_IDF_VER >= MAKE_UT_IDF_VER(5,0,0,0)
+        ret = esp_vfs_semihost_register("/host"); //absolute path support dropped
+#else
         ret = esp_vfs_semihost_register("/host", NULL);
+#endif
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "CPU[%d]: Failed to register semihost driver (%s)!", core_id, esp_err_to_name(ret));
             return;
@@ -392,7 +396,11 @@ static void semihost_args_task(void *pvParameter)
     /**** Init ****/
     ESP_LOGI(TAG, "CPU[%d]: Initialization", core_id);
     if (core_id == 0) {
+#if UT_IDF_VER >= MAKE_UT_IDF_VER(5,0,0,0)
+        ret = esp_vfs_semihost_register("/host"); //absolute path support dropped
+#else
         ret = esp_vfs_semihost_register("/host", NULL);
+#endif
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "CPU[%d]: Failed to register semihost driver (%s)!", core_id, esp_err_to_name(ret));
             return;

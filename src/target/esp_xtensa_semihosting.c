@@ -502,7 +502,7 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 
 	xtensa_reg_val_t a2 = xtensa_reg_get(target, XT_REG_IDX_A2);
 	xtensa_reg_val_t a3 = xtensa_reg_get(target, XT_REG_IDX_A3);
-	LOG_INFO("%s: Semihosting call 0x%x 0x%x Base dir '%s'",
+	LOG_DEBUG("%s: Semihosting call 0x%x 0x%x Base dir '%s'",
 		target_name(target),
 		a2,
 		a3,

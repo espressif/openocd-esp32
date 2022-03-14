@@ -81,7 +81,7 @@ class SemihostTestsImpl:
             self.assertTrue(filecmp.cmp(self.fout_names[i], self.fin_names[i]))
 
     # wrong argument tests are not ready for semihosting v2
-    @idf_ver_max('4.4')
+    @skip_for_ver('latest')
     def test_semihost_args(self):
         """
         This test checks that 'break 1,14' syscall working properly with wrong argumented functions
@@ -91,7 +91,7 @@ class SemihostTestsImpl:
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
 
     # wrong argument tests are not ready for semihosting v2
-    @idf_ver_max('4.4')
+    @skip_for_ver('latest')
     def test_semihost_args_legacy(self):
         """
         This test checks that 'break 1,1' syscall working properly with wrong argumented functions
