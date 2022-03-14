@@ -316,13 +316,13 @@ ut_result_t tracing_test_do(int test_num)
             task_args[0].trace_printf = do_trace_printf;
             task_args[0].trace_flush = do_trace_flush;
             task_args[0].trace_is_started = do_trace_is_started;
-            xTaskCreatePinnedToCore(trace_test_task, "trace_task0", 2048, (void *)&task_args[0], 5, &task_args[1].other_task, 0);
+            xTaskCreatePinnedToCore(trace_test_task, "trace_task0", 4096, (void *)&task_args[0], 5, &task_args[1].other_task, 0);
 #if !CONFIG_FREERTOS_UNICORE
             task_args[1].test_func = (do_trace_test_t)trace_test_heap_log_slave;
             task_args[1].trace_printf = do_trace_printf;
             task_args[1].trace_flush = do_trace_flush;
             task_args[1].trace_is_started = do_trace_is_started;
-            xTaskCreatePinnedToCore(trace_test_task, "trace_task1", 2048, (void *)&task_args[1], 5, &task_args[0].other_task, 1);
+            xTaskCreatePinnedToCore(trace_test_task, "trace_task1", 4096, (void *)&task_args[1], 5, &task_args[0].other_task, 1);
 #endif
             break;
         }
@@ -333,13 +333,13 @@ ut_result_t tracing_test_do(int test_num)
             task_args[0].trace_printf = do_trace_printf;
             task_args[0].trace_flush = do_trace_flush;
             task_args[0].trace_is_started = do_trace_is_started;
-            xTaskCreatePinnedToCore(trace_test_task, "trace_task0", 2048, (void *)&task_args[0], 5, &task_args[1].other_task, 0);
+            xTaskCreatePinnedToCore(trace_test_task, "trace_task0", 4096, (void *)&task_args[0], 5, &task_args[1].other_task, 0);
 #if !CONFIG_FREERTOS_UNICORE
             task_args[1].test_func = (do_trace_test_t)trace_test_log_continuous_slave;
             task_args[1].trace_printf = do_trace_printf;
             task_args[1].trace_flush = do_trace_flush;
             task_args[1].trace_is_started = do_trace_is_started;
-            xTaskCreatePinnedToCore(trace_test_task, "trace_task1", 2048, (void *)&task_args[1], 5, &task_args[0].other_task, 1);
+            xTaskCreatePinnedToCore(trace_test_task, "trace_task1", 4096, (void *)&task_args[1], 5, &task_args[0].other_task, 1);
 #endif
             break;
         }
@@ -350,26 +350,26 @@ ut_result_t tracing_test_do(int test_num)
                 { .tim_grp = TEST_TIMER_GROUP_0, .tim_id = TEST_TIMER_0, .tim_period = 300000UL /*us*/, .task_period = 500 /*ms*/},
                 { .tim_grp = TEST_TIMER_GROUP_1, .tim_id = TEST_TIMER_0, .tim_period = 500000UL /*us*/, .task_period = 2000 /*ms*/}
             };
-            xTaskCreatePinnedToCore(os_trace_test_task, "trace_task0", 2048, (void *)&task_args[0], 5, NULL, 0);
+            xTaskCreatePinnedToCore(os_trace_test_task, "trace_task0", 4096, (void *)&task_args[0], 5, NULL, 0);
 #if !CONFIG_FREERTOS_UNICORE
-            xTaskCreatePinnedToCore(os_trace_test_task, "trace_task1", 2048, (void *)&task_args[1], 5, NULL, 1);
+            xTaskCreatePinnedToCore(os_trace_test_task, "trace_task1", 4096, (void *)&task_args[1], 5, NULL, 1);
 #endif
             break;
         }
 #if defined(CONFIG_APPTRACE_ENABLE) || defined(CONFIG_ESP32_APPTRACE_ENABLE)
         case 503:
         {
-            xTaskCreate(raw_trace_log, "raw_trace_log", 2048, (void *)10, 5, NULL);
+            xTaskCreate(raw_trace_log, "raw_trace_log", 4096, (void *)10, 5, NULL);
             break;
         }
         case 504:
         {
-            xTaskCreate(raw_trace_log, "raw_trace_log", 2048, (void *)100, 5, NULL);
+            xTaskCreate(raw_trace_log, "raw_trace_log", 4096, (void *)100, 5, NULL);
             break;
         }
         case 505:
         {
-            xTaskCreate(raw_trace_log_periodic, "raw_trace_log_periodic", 2048, (void *)100, 5, NULL);
+            xTaskCreate(raw_trace_log_periodic, "raw_trace_log_periodic", 4096, (void *)100, 5, NULL);
             break;
         }
 #endif //CONFIG_APPTRACE_ENABLE

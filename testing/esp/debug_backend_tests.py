@@ -103,8 +103,8 @@ testee_info = TesteeInfo()
 def idf_ver_min(ver_str):
     return unittest.skipIf(testee_info.idf_ver < IdfVersion.fromstr(ver_str), "requires min IDF_VER='%s', current IDF_VER='%s'" % (ver_str, testee_info.idf_ver))
 
-def idf_ver_max(ver_str):
-    return unittest.skipIf(testee_info.idf_ver > IdfVersion.fromstr(ver_str), "requires max IDF_VER='%s', current IDF_VER='%s'" % (ver_str, testee_info.idf_ver))
+def skip_for_ver(ver_str):
+    return unittest.skipIf(testee_info.idf_ver == IdfVersion.fromstr(ver_str), "requires IDF_VER='%s', current IDF_VER='%s'" % (ver_str, testee_info.idf_ver))
 
 def run_with_version(ver_str):
     return unittest.skipIf(testee_info.idf_ver != IdfVersion.fromstr(ver_str), "Not Applicable to this version")
