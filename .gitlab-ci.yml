@@ -84,6 +84,16 @@ before_script:
   - set -o errexit; set -o pipefail; set -o nounset
   - test "${DEBUG_SHELL:-''}" = "1" && set -x
 
+.do_osx_code_sign: &do_osx_code_sign |
+  tar -xzf ${DIST_ART_DIR}/$ARCHIVE_NAME -C ${DIST_ART_DIR} && rm ${DIST_ART_DIR}/$ARCHIVE_NAME
+  export TARGET_BINARY="${DIST_ART_DIR}/openocd-esp32/bin/openocd"
+  $PWD/tools/codesign.sh
+  $PWD/tools/notarize.sh
+  pushd ${DIST_ART_DIR}
+  ${ARCHIVE_TOOL} ${ARCHIVE_NAME} openocd-esp32/
+  rm -r openocd-esp32/
+  popd
+
 osx_code_sign:
   stage: pre_release
   <<: *release_tag_filter
@@ -92,18 +102,15 @@ osx_code_sign:
     - macos_shell
   dependencies:
    - build_macos
+   - build_macos_arm64
   artifacts:
     paths:
       - ${DIST_ART_DIR}
   script:
     - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_macos)
-    - tar -xzf ${DIST_ART_DIR}/$ARCHIVE_NAME -C ${DIST_ART_DIR} && rm ${DIST_ART_DIR}/$ARCHIVE_NAME
-    - export TARGET_BINARY="${DIST_ART_DIR}/openocd-esp32/bin/openocd"
-    - $PWD/tools/codesign.sh
-    - $PWD/tools/notarize.sh
-    - cd ${DIST_ART_DIR}
-    - ${ARCHIVE_TOOL} ${ARCHIVE_NAME} openocd-esp32/
-    - rm -r openocd-esp32/
+    - *do_osx_code_sign
+    - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_macos-arm64)
+    - *do_osx_code_sign
 
 push_master_to_github:
   stage: deploy
