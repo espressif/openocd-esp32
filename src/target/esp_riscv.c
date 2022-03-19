@@ -512,7 +512,6 @@ int esp_riscv_run_algorithm(struct target *target, int num_mem_params,
 	return retval;
 }
 
-
 int esp_riscv_read_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
@@ -524,7 +523,8 @@ int esp_riscv_read_memory(struct target *target, target_addr_t address,
 		LOG_DEBUG("Use %d-bit access: size: %d\tcount:%d\tstart address: 0x%08"
 			TARGET_PRIxADDR, sba_access_size * 8, size, count, address);
 		target_addr_t al_addr = address & ~(sba_access_size - 1);
-		uint32_t al_cnt = 4 * ((size * count) / sba_access_size + 1);
+		uint32_t al_len = (size * count) + address - al_addr;
+		uint32_t al_cnt = (al_len + sba_access_size - 1) & ~(sba_access_size - 1);
 		uint8_t al_buf[al_cnt];
 		int ret = riscv_target.read_memory(target,
 			al_addr,
@@ -554,7 +554,8 @@ int esp_riscv_write_memory(struct target *target, target_addr_t address,
 			LOG_DEBUG("Use %d-bit access: size: %d\tcount:%d\tstart address: 0x%08"
 				TARGET_PRIxADDR, sba_access_size * 8, size, count, address);
 			target_addr_t al_addr = address & ~(sba_access_size - 1);
-			uint32_t al_cnt = 4 * ((size * count) / sba_access_size + 1);
+			uint32_t al_len = (size * count) + address - al_addr;
+			uint32_t al_cnt = (al_len + sba_access_size - 1) & ~(sba_access_size - 1);
 			uint8_t al_buf[al_cnt];
 			int ret = riscv_target.read_memory(target,
 				al_addr,
