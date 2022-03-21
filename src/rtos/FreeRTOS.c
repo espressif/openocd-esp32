@@ -293,6 +293,8 @@ static int freertos_read_esp_symbol_table(struct rtos *rtos, int index, uint8_t 
 	struct freertos_data *rtos_data = (struct freertos_data *)rtos->rtos_specific_params;
 	static uint8_t table_size = 0;
 
+	assert(val);
+
 	if (!rtos_data->esp_symbols) {
 		if (!rtos->symbols[FREERTOS_VAL_ESP_OPENOCD_PARAMS].address)
 			return ERROR_FAIL;
@@ -322,7 +324,8 @@ static int freertos_read_esp_symbol_table(struct rtos *rtos, int index, uint8_t 
 			rtos->symbols[FREERTOS_VAL_ESP_OPENOCD_PARAMS].address,
 			table_size,
 			rtos_data->esp_symbols);
-		if (retval != ERROR_OK) {
+		if (retval != ERROR_OK ||
+			rtos_data->esp_symbols[ESP_FREERTOS_DEBUG_TABLE_VERSION] != 1) {
 			free(rtos_data->esp_symbols);
 			rtos_data->esp_symbols = NULL;
 			return retval;
@@ -333,8 +336,8 @@ static int freertos_read_esp_symbol_table(struct rtos *rtos, int index, uint8_t 
 			rtos_data->esp_symbols[ESP_FREERTOS_DEBUG_KERNEL_VER_MINOR],
 			rtos_data->esp_symbols[ESP_FREERTOS_DEBUG_KERNEL_VER_BUILD]);
 	}
-
-	assert(index < table_size && val);
+	if (index >= table_size)
+		return ERROR_FAIL;
 	*val = rtos_data->esp_symbols[index];
 	LOG_DEBUG("requested inx (%d) val (%d)", index, *val);
 	return ERROR_OK;
