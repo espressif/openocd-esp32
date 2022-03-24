@@ -680,15 +680,14 @@ static inline bool xtensa_is_stopped(struct target *target)
 int xtensa_examine(struct target *target)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
-	int res, cmd;
+	int cmd = PWRCTL_DEBUGWAKEUP | PWRCTL_MEMWAKEUP | PWRCTL_COREWAKEUP;
 
 	LOG_DEBUG("%s coreid=%d", __func__, target->coreid);
-	cmd = PWRCTL_DEBUGWAKEUP|PWRCTL_MEMWAKEUP|PWRCTL_COREWAKEUP;
 	xtensa_queue_pwr_reg_write(xtensa, DMREG_PWRCTL, cmd);
 	xtensa_queue_pwr_reg_write(xtensa, DMREG_PWRCTL, cmd | PWRCTL_JTAGDEBUGUSE);
 	xtensa_dm_queue_enable(&xtensa->dbg_mod);
 	xtensa_dm_queue_tdi_idle(&xtensa->dbg_mod);
-	res = jtag_execute_queue();
+	int res = jtag_execute_queue();
 	if (res != ERROR_OK)
 		return res;
 	if (!xtensa_dm_is_online(&xtensa->dbg_mod)) {
@@ -1695,11 +1694,9 @@ int xtensa_write_memory(struct target *target,
 		}
 	}
 
-/*  LOG_INFO("%s: %s: writing %d bytes to addr %08X", target_name(target), __FUNCTION__, size*count,
- * address); */
-/*  LOG_INFO("al start %x al end %x", addrstart_al, addrend_al); */
-
-	if ((size == 0) || (count == 0) || !(buffer))
+	/* LOG_INFO("%s: %s: writing %d bytes to addr %08X", target_name(target), __func__, size*count, address);
+	 * LOG_INFO("al start %x al end %x", addrstart_al, addrend_al); */
+	if (size == 0 || count == 0 || !buffer)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 
 	/*Allocate a temporary buffer to put the aligned bytes in, if needed. */
@@ -1866,9 +1863,9 @@ int xtensa_poll(struct target *target)
 				xtensa_reg_get(target, XT_REG_IDX_PC), target->debug_reason);
 			xtensa_dm_core_status_clear(
 				&xtensa->dbg_mod,
-				OCDDSR_DEBUGPENDBREAK|OCDDSR_DEBUGINTBREAK|OCDDSR_DEBUGPENDTRAX|
-				OCDDSR_DEBUGINTTRAX|
-				OCDDSR_DEBUGPENDHOST|OCDDSR_DEBUGINTHOST);
+				OCDDSR_DEBUGPENDBREAK | OCDDSR_DEBUGINTBREAK | OCDDSR_DEBUGPENDTRAX |
+				OCDDSR_DEBUGINTTRAX |
+				OCDDSR_DEBUGPENDHOST | OCDDSR_DEBUGINTHOST);
 		}
 	} else {
 		target->debug_reason = DBG_REASON_NOTHALTED;
@@ -2731,7 +2728,7 @@ COMMAND_HELPER(xtensa_cmd_smpbreak_do, struct target *target)
 			else if (!strcasecmp(CMD_ARGV[i], "BreakInOut"))
 				val |= OCDDCR_BREAKINEN|OCDDCR_BREAKOUTEN;
 			else if (!strcasecmp(CMD_ARGV[i], "RunStall"))
-				val |= OCDDCR_RUNSTALLINEN|OCDDCR_DEBUGMODEOUTEN;
+				val |= OCDDCR_RUNSTALLINEN | OCDDCR_DEBUGMODEOUTEN;
 			else {
 				command_print(CMD, "Unknown arg %s", CMD_ARGV[i]);
 				command_print(

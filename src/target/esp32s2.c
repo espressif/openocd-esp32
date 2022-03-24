@@ -613,9 +613,7 @@ static int esp32s2_on_halt(struct target *target)
 static int esp32s2_poll(struct target *target)
 {
 	enum target_state old_state = target->state;
-	int ret;
-
-	ret = esp_xtensa_poll(target);
+	int ret = esp_xtensa_poll(target);
 
 	if (old_state != TARGET_HALTED && target->state == TARGET_HALTED) {
 		/*Call any event callbacks that are applicable */

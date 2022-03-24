@@ -63,6 +63,9 @@ static void xtensa_dm_add_dr_scan(struct xtensa_debug_module *dm,
 
 int xtensa_dm_init(struct xtensa_debug_module *dm, const struct xtensa_debug_module_config *cfg)
 {
+	if (!dm || !cfg)
+		return ERROR_FAIL;
+
 	dm->pwr_ops = cfg->pwr_ops;
 	dm->dbg_ops = cfg->dbg_ops;
 	dm->tap = cfg->tap;
@@ -176,11 +179,7 @@ int xtensa_dm_power_status_read(struct xtensa_debug_module *dm, uint32_t clear)
 	dm->pwr_ops->queue_reg_read(dm, DMREG_PWRSTAT, &dm->power_status.stat, clear);
 	dm->pwr_ops->queue_reg_read(dm, DMREG_PWRSTAT, &dm->power_status.stath, clear);
 	xtensa_dm_queue_tdi_idle(dm);
-	int res = jtag_execute_queue();
-	if (res != ERROR_OK)
-		return res;
-	/* dm->device_id = buf_get_u32(id_buf, 0, 32); */
-	return ERROR_OK;
+	return jtag_execute_queue();
 }
 
 int xtensa_dm_core_status_read(struct xtensa_debug_module *dm)
@@ -201,10 +200,7 @@ int xtensa_dm_core_status_clear(struct xtensa_debug_module *dm, xtensa_dsr_t bit
 {
 	dm->dbg_ops->queue_reg_write(dm, NARADR_DSR, bits);
 	xtensa_dm_queue_tdi_idle(dm);
-	int res = jtag_execute_queue();
-	if (res != ERROR_OK)
-		return res;
-	return ERROR_OK;
+	return jtag_execute_queue();
 }
 
 int xtensa_dm_trace_start(struct xtensa_debug_module *dm, struct xtensa_trace_start_config *cfg)
@@ -277,10 +273,9 @@ int xtensa_dm_trace_status_read(struct xtensa_debug_module *dm, struct xtensa_tr
 	dm->dbg_ops->queue_reg_read(dm, NARADR_TRAXSTAT, traxstat_buf);
 	xtensa_dm_queue_tdi_idle(dm);
 	int res = jtag_execute_queue();
-	if (res != ERROR_OK)
-		return res;
-	status->stat = buf_get_u32(traxstat_buf, 0, 32);
-	return ERROR_OK;
+	if (res == ERROR_OK && status)
+		status->stat = buf_get_u32(traxstat_buf, 0, 32);
+	return res;
 }
 
 int xtensa_dm_trace_config_read(struct xtensa_debug_module *dm, struct xtensa_trace_config *config)
@@ -290,37 +285,42 @@ int xtensa_dm_trace_config_read(struct xtensa_debug_module *dm, struct xtensa_tr
 	uint8_t memadrend_buf[sizeof(uint32_t)];
 	uint8_t adr_buf[sizeof(uint32_t)];
 
+	if (!config)
+		return ERROR_FAIL;
+
 	dm->dbg_ops->queue_reg_read(dm, NARADR_TRAXCTRL, traxctl_buf);
 	dm->dbg_ops->queue_reg_read(dm, NARADR_MEMADDRSTART, memadrstart_buf);
 	dm->dbg_ops->queue_reg_read(dm, NARADR_MEMADDREND, memadrend_buf);
 	dm->dbg_ops->queue_reg_read(dm, NARADR_TRAXADDR, adr_buf);
 	xtensa_dm_queue_tdi_idle(dm);
 	int res = jtag_execute_queue();
-	if (res != ERROR_OK)
-		return res;
-	config->ctrl = buf_get_u32(traxctl_buf, 0, 32);
-	config->memaddr_start = buf_get_u32(memadrstart_buf, 0, 32);
-	config->memaddr_end = buf_get_u32(memadrend_buf, 0, 32);
-	config->addr = buf_get_u32(adr_buf, 0, 32);
-	return ERROR_OK;
+	if (res == ERROR_OK) {
+		config->ctrl = buf_get_u32(traxctl_buf, 0, 32);
+		config->memaddr_start = buf_get_u32(memadrstart_buf, 0, 32);
+		config->memaddr_end = buf_get_u32(memadrend_buf, 0, 32);
+		config->addr = buf_get_u32(adr_buf, 0, 32);
+	}
+	return res;
 }
 
 int xtensa_dm_trace_data_read(struct xtensa_debug_module *dm, uint8_t *dest, uint32_t size)
 {
-	for (uint32_t i = 0; i < size/4; i++)
-		dm->dbg_ops->queue_reg_read(dm, NARADR_TRAXDATA, &dest[i*4]);
-	xtensa_dm_queue_tdi_idle(dm);
-	int res = jtag_execute_queue();
-	if (res != ERROR_OK)
-		return res;
+	if (!dest)
+		return ERROR_FAIL;
 
-	return ERROR_OK;
+	for (uint32_t i = 0; i < size / 4; i++)
+		dm->dbg_ops->queue_reg_read(dm, NARADR_TRAXDATA, &dest[i * 4]);
+	xtensa_dm_queue_tdi_idle(dm);
+	return jtag_execute_queue();
 }
 
 int xtensa_dm_perfmon_enable(struct xtensa_debug_module *dm, int counter_id,
 	const struct xtensa_perfmon_config *config)
 {
-	uint8_t pmstat_u8[4];
+	if (!config)
+		return ERROR_FAIL;
+
+	uint8_t pmstat_buf[4];
 	uint32_t pmctrl = ((config->tracelevel) << 4) +
 		(config->select << 8) +
 		(config->mask << 16) +
@@ -331,13 +331,9 @@ int xtensa_dm_perfmon_enable(struct xtensa_debug_module *dm, int counter_id,
 	/* reset counter */
 	dm->dbg_ops->queue_reg_write(dm, NARADR_PM0 + counter_id, 0);
 	dm->dbg_ops->queue_reg_write(dm, NARADR_PMCTRL0 + counter_id, pmctrl);
-	dm->dbg_ops->queue_reg_read(dm, NARADR_PMSTAT0 + counter_id, pmstat_u8);
+	dm->dbg_ops->queue_reg_read(dm, NARADR_PMSTAT0 + counter_id, pmstat_buf);
 	xtensa_dm_queue_tdi_idle(dm);
-	int res = jtag_execute_queue();
-	if (res != ERROR_OK)
-		return res;
-
-	return ERROR_OK;
+	return jtag_execute_queue();
 }
 
 int xtensa_dm_perfmon_dump(struct xtensa_debug_module *dm, int counter_id,
@@ -350,17 +346,17 @@ int xtensa_dm_perfmon_dump(struct xtensa_debug_module *dm, int counter_id,
 	dm->dbg_ops->queue_reg_read(dm, NARADR_PM0 + counter_id, pmcount_buf);
 	xtensa_dm_queue_tdi_idle(dm);
 	int res = jtag_execute_queue();
-	if (res != ERROR_OK)
-		return res;
+	if (res == ERROR_OK) {
+		uint32_t stat = buf_get_u32(pmstat_buf, 0, 32);
+		uint64_t result = buf_get_u32(pmcount_buf, 0, 32);
 
-	uint32_t stat = buf_get_u32(pmstat_buf, 0, 32);
-	uint64_t result = buf_get_u32(pmcount_buf, 0, 32);
+		/* TODO: if counter # counter_id+1 has 'select' set to 1, use its value as the
+		* high 32 bits of the counter. */
+		if (!out_result) {
+			out_result->overflow = ((stat & 1) != 0);
+			out_result->value = result;
+		}
+	}
 
-	/* TODO: if counter # counter_id+1 has 'select' set to 1, use its value as the
-	 * high 32 bits of the counter. */
-
-	out_result->overflow = ((stat & 1) != 0);
-	out_result->value = result;
-
-	return ERROR_OK;
+	return res;
 }
