@@ -742,6 +742,11 @@ static const struct command_registration esp_any_command_handlers[] = {
 	{
 		.mode = COMMAND_ANY,
 		.usage = "",
+		.chain = esp_command_handlers,
+	},
+	{
+		.mode = COMMAND_ANY,
+		.usage = "",
 		.chain = esp32_apptrace_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE

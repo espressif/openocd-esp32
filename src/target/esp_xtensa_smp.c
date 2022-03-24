@@ -830,6 +830,24 @@ COMMAND_HANDLER(esp_xtensa_smp_cmd_tracedump)
 		target_to_xtensa(target), CMD_ARGV[0]);
 }
 
+COMMAND_HANDLER(esp_xtensa_smp_cmd_semihost_basedir)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	if (target->smp && CMD_ARGC > 0) {
+		int ret = ERROR_OK;
+		struct target_list *head;
+		foreach_smp_target(head, target->smp_targets) {
+			CMD_CTX->current_target = head->target;
+			ret = esp_semihosting_basedir_command(CMD);
+			if (ret != ERROR_OK)
+				break;
+		}
+		cmd->ctx->current_target = target;
+		return ret;
+	}
+	return esp_semihosting_basedir_command(CMD);
+}
+
 const struct command_registration esp_xtensa_smp_xtensa_command_handlers[] = {
 	{
 		.name = "set_permissive",
@@ -893,11 +911,28 @@ const struct command_registration esp_xtensa_smp_xtensa_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
+const struct command_registration esp_xtensa_smp_esp_command_handlers[] = {
+	{
+		.name = "semihost_basedir",
+		.handler = esp_xtensa_smp_cmd_semihost_basedir,
+		.mode = COMMAND_ANY,
+		.help = "Set the base directory for semihosting I/O."
+				"DEPRECATED! use arm semihosting_basedir",
+		.usage = "dir",
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
 const struct command_registration esp_xtensa_smp_command_handlers[] = {
 	{
 		.name = "xtensa",
 		.usage = "",
 		.chain = esp_xtensa_smp_xtensa_command_handlers,
+	},
+	{
+		.name = "esp",
+		.usage = "",
+		.chain = esp_xtensa_smp_esp_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE
 };

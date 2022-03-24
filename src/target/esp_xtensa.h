@@ -74,4 +74,6 @@ static inline int esp_xtensa_set_peri_reg_mask(struct target *target,
 	return ERROR_OK;
 }
 
+extern const struct command_registration esp_command_handlers[];
+
 #endif	/* ESP_XTENSA_H */
