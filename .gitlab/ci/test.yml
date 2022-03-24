@@ -350,7 +350,7 @@ test_nuttx_esp32:
     PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "nuttx_test"
     NUTTX_APP_NAME: "nuttx_openocd"
-    OOCD_CMDS: "set ESP_RTOS nuttx,set ESP32_ONLYCPU 1"
+    OOCD_CMDS: "set ESP_RTOS NuttX,set ESP32_ONLYCPU 1"
     TEST_RUN_EXTRA_OPTS: "-i other -b esp32-wrover-kit-3.3v -p test_nuttx -e *.*Encrypted"
   needs:
     - job: build_linux_armhf_test

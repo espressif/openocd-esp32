@@ -73,23 +73,23 @@ static const struct stack_register_offset nuttx_stack_offsets_cortex_m_fpu[] = {
 };
 
 static const struct stack_register_offset nuttx_stack_offsets_esp32[] = {
-	{ XT_REG_IDX_PC, 0x00, 32 },	/* PC */
-	{ XT_REG_IDX_AR0, 0x08, 32 },	/* A0 */
-	{ XT_REG_IDX_AR1, 0x0c, 32 },	/* A1 */
-	{ XT_REG_IDX_AR2, 0x10, 32 },	/* A2 */
-	{ XT_REG_IDX_AR3, 0x14, 32 },	/* A3 */
-	{ XT_REG_IDX_AR4, 0x18, 32 },	/* A4 */
-	{ XT_REG_IDX_AR5, 0x1c, 32 },	/* A5 */
-	{ XT_REG_IDX_AR6, 0x20, 32 },	/* A6 */
-	{ XT_REG_IDX_AR7, 0x24, 32 },	/* A7 */
-	{ XT_REG_IDX_AR8, 0x28, 32 },	/* A8 */
-	{ XT_REG_IDX_AR9, 0x2c, 32 },	/* A9 */
-	{ XT_REG_IDX_AR10, 0x30, 32 },	/* A10 */
-	{ XT_REG_IDX_AR11, 0x34, 32 },	/* A11 */
-	{ XT_REG_IDX_AR12, 0x38, 32 },	/* A12 */
-	{ XT_REG_IDX_AR13, 0x3c, 32 },	/* A13 */
-	{ XT_REG_IDX_AR14, 0x40, 32 },	/* A14 */
-	{ XT_REG_IDX_AR15, 0x44, 32 },	/* A15 */
+	{ XT_REG_IDX_PC, 0x00, 32 },		/* PC */
+	{ XT_REG_IDX_AR0, 0x08, 32 },		/* A0 */
+	{ XT_REG_IDX_AR1, 0x0c, 32 },		/* A1 */
+	{ XT_REG_IDX_AR2, 0x10, 32 },		/* A2 */
+	{ XT_REG_IDX_AR3, 0x14, 32 },		/* A3 */
+	{ XT_REG_IDX_AR4, 0x18, 32 },		/* A4 */
+	{ XT_REG_IDX_AR5, 0x1c, 32 },		/* A5 */
+	{ XT_REG_IDX_AR6, 0x20, 32 },		/* A6 */
+	{ XT_REG_IDX_AR7, 0x24, 32 },		/* A7 */
+	{ XT_REG_IDX_AR8, 0x28, 32 },		/* A8 */
+	{ XT_REG_IDX_AR9, 0x2c, 32 },		/* A9 */
+	{ XT_REG_IDX_AR10, 0x30, 32 },		/* A10 */
+	{ XT_REG_IDX_AR11, 0x34, 32 },		/* A11 */
+	{ XT_REG_IDX_AR12, 0x38, 32 },		/* A12 */
+	{ XT_REG_IDX_AR13, 0x3c, 32 },		/* A13 */
+	{ XT_REG_IDX_AR14, 0x40, 32 },		/* A14 */
+	{ XT_REG_IDX_AR15, 0x44, 32 },		/* A15 */
 
 	/* A16-A63 aren't in the stack frame because they've been flushed to the stack earlier */
 
@@ -147,26 +147,26 @@ static const struct stack_register_offset nuttx_stack_offsets_esp32[] = {
 	{ XT_REG_IDX_LCOUNT, 0x5c, 32 },	/* lcount */
 	{ XT_REG_IDX_SAR, 0x48, 32 },		/* SAR */
 
-	{ XT_REG_IDX_WINDOWBASE, -1, 32 },		/* windowbase */
-	{ XT_REG_IDX_WINDOWSTART, -1, 32 },		/* windowstart */
-	{ XT_REG_IDX_CONFIGID0, -1, 32 },		/* configid0 */
-	{ XT_REG_IDX_CONFIGID1, -1, 32 },		/* configid1 */
+	{ XT_REG_IDX_WINDOWBASE, -1, 32 },	/* windowbase */
+	{ XT_REG_IDX_WINDOWSTART, -1, 32 },	/* windowstart */
+	{ XT_REG_IDX_CONFIGID0, -1, 32 },	/* configid0 */
+	{ XT_REG_IDX_CONFIGID1, -1, 32 },	/* configid1 */
 
 	{ XT_REG_IDX_PS, 0x04, 32 },		/* PS */
 
 	{ XT_REG_IDX_THREADPTR, -1, 32 },	/* threadptr */
-	{ XT_REG_IDX_BR, -1, 32 },			/* br */
+	{ XT_REG_IDX_BR, -1, 32 },		/* br */
 	{ XT_REG_IDX_SCOMPARE1, -1, 32 },	/* scompare1 */
 	{ XT_REG_IDX_ACCLO, -1, 32 },		/* acclo */
 	{ XT_REG_IDX_ACCHI, -1, 32 },		/* acchi */
-	{ XT_REG_IDX_M0, -1, 32 },			/* m0 */
-	{ XT_REG_IDX_M1, -1, 32 },			/* m1 */
-	{ XT_REG_IDX_M2, -1, 32 },			/* m2 */
-	{ XT_REG_IDX_M3, -1, 32 },			/* m3 */
-	{ ESP32_REG_IDX_EXPSTATE, -1, 32 },		/* expstate */
-	{ ESP32_REG_IDX_F64R_LO, -1, 32 },		/* f64r_lo */
-	{ ESP32_REG_IDX_F64R_HI, -1, 32 },		/* f64r_hi */
-	{ ESP32_REG_IDX_F64S, -1, 32 },			/* f64s */
+	{ XT_REG_IDX_M0, -1, 32 },		/* m0 */
+	{ XT_REG_IDX_M1, -1, 32 },		/* m1 */
+	{ XT_REG_IDX_M2, -1, 32 },		/* m2 */
+	{ XT_REG_IDX_M3, -1, 32 },		/* m3 */
+	{ ESP32_REG_IDX_EXPSTATE, -1, 32 },	/* expstate */
+	{ ESP32_REG_IDX_F64R_LO, -1, 32 },	/* f64r_lo */
+	{ ESP32_REG_IDX_F64R_HI, -1, 32 },	/* f64r_hi */
+	{ ESP32_REG_IDX_F64S, -1, 32 },		/* f64s */
 	{ XT_REG_IDX_F0, -1, 32 },		/* f0 */
 	{ XT_REG_IDX_F1, -1, 32 },		/* f1 */
 	{ XT_REG_IDX_F2, -1, 32 },		/* f2 */
@@ -206,8 +206,8 @@ const struct rtos_register_stacking nuttx_stacking_cortex_m_fpu = {
 };
 
 const struct rtos_register_stacking nuttx_esp32_stacking = {
-	26 * 4,							/* stack_registers_size */
-	-1,								/* stack_growth_direction */
+	26*4,					/* stack_registers_size */
+	-1,					/* stack_growth_direction */
 	ESP32_NUM_REGS_G_COMMAND,		/* num_output_registers */
 	rtos_generic_stack_align8,		/* stack_alignment */
 	nuttx_stack_offsets_esp32,		/* register_offsets */
