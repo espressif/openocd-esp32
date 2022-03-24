@@ -246,3 +246,15 @@ int esp_xtensa_breakpoint_remove(struct target *target, struct breakpoint *break
 	}
 	return res;
 }
+
+const struct command_registration esp_command_handlers[] = {
+	{
+		.name = "semihost_basedir",
+		.handler = esp_semihosting_basedir_command,
+		.mode = COMMAND_ANY,
+		.help = "Set the base directory for semihosting I/O."
+			"DEPRECATED! use arm semihosting_basedir",
+		.usage = "dir",
+	},
+	COMMAND_REGISTRATION_DONE
+};

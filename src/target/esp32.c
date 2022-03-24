@@ -743,6 +743,11 @@ static const struct command_registration esp32_legacy_command_handlers[] = {
 	{
 		.name = "esp32",
 		.usage = "",
+		.chain = esp_xtensa_smp_esp_command_handlers,
+	},
+	{
+		.name = "esp32",
+		.usage = "",
 		.chain = esp32_apptrace_command_handlers,
 	},
 	{

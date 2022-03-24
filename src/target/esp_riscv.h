@@ -121,4 +121,6 @@ int esp_riscv_core_halt(struct target *target);
 int esp_riscv_core_resume(struct target *target);
 int esp_riscv_core_ebreaks_enable(struct target *target);
 
+extern const struct command_registration esp_riscv_command_handlers[];
+
 #endif	/* _ESP_RISCV_H */

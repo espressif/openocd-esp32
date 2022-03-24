@@ -755,3 +755,15 @@ int esp_riscv_core_ebreaks_enable(struct target *target)
 	dcsr = set_field(dcsr, CSR_DCSR_EBREAKU, 1);
 	return r->set_register(target, GDB_REGNO_DCSR, dcsr);
 }
+
+const struct command_registration esp_riscv_command_handlers[] = {
+	{
+		.name = "semihost_basedir",
+		.handler = esp_semihosting_basedir_command,
+		.mode = COMMAND_ANY,
+		.help = "Set the base directory for semihosting I/O."
+			"DEPRECATED! use arm semihosting_basedir",
+		.usage = "dir",
+	},
+	COMMAND_REGISTRATION_DONE
+};

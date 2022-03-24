@@ -114,3 +114,41 @@ int esp_semihosting_common(struct target *target)
 
 	return retval;
 }
+
+int esp_semihosting_basedir_command(struct command_invocation *cmd)
+{
+	struct target *target = get_current_target(CMD_CTX);
+
+	if (!target) {
+		LOG_ERROR("No target selected");
+		return ERROR_FAIL;
+	}
+
+	struct semihosting *semihosting = target->semihosting;
+	if (!semihosting) {
+		command_print(CMD, "semihosting not supported for current target");
+		return ERROR_FAIL;
+	}
+
+	if (!semihosting->is_active) {
+		if (semihosting->setup(target, true) != ERROR_OK) {
+			LOG_ERROR("Failed to Configure semihosting");
+			return ERROR_FAIL;
+		}
+		semihosting->is_active = true;
+	}
+
+	if (CMD_ARGC > 0) {
+		free(semihosting->basedir);
+		semihosting->basedir = strdup(CMD_ARGV[0]);
+		if (!semihosting->basedir) {
+			command_print(CMD, "semihosting failed to allocate memory for basedir!");
+			return ERROR_FAIL;
+		}
+	}
+
+	command_print(CMD, "DEPRECATED! semihosting base dir: %s",
+		semihosting->basedir ? semihosting->basedir : "");
+
+	return ERROR_OK;
+}

@@ -41,8 +41,10 @@
 #define XTENSA_SYSCALL_RETVAL_REG  XT_REG_IDX_A2
 #define XTENSA_SYSCALL_ERRNO_REG   XT_REG_IDX_A3
 
-static int esp_xtensa_semihosting_setup(struct target *target)
+static int esp_xtensa_semihosting_setup(struct target *target, int enable)
 {
+	LOG_DEBUG("[%s] semihosting enable=%d", target_name(target), enable);
+
 	target->semihosting->param = XT_REG_IDX_A3;	/* used to specify where
 							 * to read fields. xtensa
 							 * uses registers in contrast
@@ -568,9 +570,7 @@ static int xtensa_semihosting_init(struct target *target)
 	int retval = semihosting_common_init(target,
 		esp_xtensa_semihosting_setup,
 		esp_xtensa_semihosting_post_result);
-	if (retval != ERROR_OK)
-		return retval;
-	return esp_xtensa_semihosting_setup(target);
+	return retval;
 }
 
 int esp_xtensa_semihosting_init(struct target *target)
