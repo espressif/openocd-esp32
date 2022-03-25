@@ -283,6 +283,12 @@ static inline int esp_xtensa_semihosting_v0(
 			LOG_DEBUG("Seek file %d. To %x, mode %d.", a3, a4, a5);
 			break;
 		}
+		case SEMIHOSTING_SYS_ERRNO:
+		{
+			syscall_ret = xtensa_reg_get(target, XTENSA_SYSCALL_ERRNO_REG);
+			LOG_DEBUG("errno()= %d", syscall_ret);
+			break;
+		}
 		default:
 			LOG_WARNING("Unsupported syscall %x!", a2);
 			syscall_ret = -1;
@@ -449,6 +455,12 @@ static inline int esp_xtensa_semihosting_v1(
 			syscall_ret = lseek(fd, pos, whence);
 			syscall_errno = errno;
 			LOG_DEBUG("lseek(%d, %d)=%d", fd, (int)pos, syscall_ret);
+			break;
+		}
+		case SEMIHOSTING_SYS_ERRNO:
+		{
+			syscall_ret = xtensa_reg_get(target, XTENSA_SYSCALL_ERRNO_REG);
+			LOG_DEBUG("errno()= %d", syscall_ret);
 			break;
 		}
 		default:
