@@ -88,19 +88,17 @@ class SemihostTestsImpl:
             self.gdb.target_reset()
             self.gdb.add_bp('app_main')
             self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
-
-    # wrong argument tests are not ready for semihosting v2
-    @skip_for_ver('latest')
+  
+    @only_for_arch(['xtensa'])
     def test_semihost_args(self):
         """
-        This test checks that 'break 1,14' syscall working properly with wrong argumented functions
+        This test checks that semihosting syscalls working properly with wrong argumented functions
         """
         self.oocd.set_smp_semihosting_basedir(self.semi_dir)
         self.select_sub_test(701)
         self.add_bp('esp_vfs_semihost_unregister')
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
 
-    # wrong argument tests are not ready for semihosting v2
     @skip_for_ver('latest')
     def test_semihost_args_legacy(self):
         """
