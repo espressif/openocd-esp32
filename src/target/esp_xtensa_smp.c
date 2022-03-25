@@ -69,7 +69,7 @@ The core that initiate stop condition will be defined as an active core, and
 registers of this core will be transfered.
 */
 
-#define ESP_XTENSA_SMP_EXAMINE_OTHER_CORES	5
+#define ESP_XTENSA_SMP_EXAMINE_OTHER_CORES      5
 
 static int esp_xtensa_smp_update_halt_gdb(struct target *target, bool *need_resume);
 
@@ -86,11 +86,11 @@ int esp_xtensa_smp_assert_reset(struct target *target)
 	if (target->smp && target->coreid != 0)
 		return ERROR_OK;
 	/* Reset the SoC first */
-    if (esp_xtensa_smp->chip_ops->reset) {
-        res = esp_xtensa_smp->chip_ops->reset(target);
-        if (res != ERROR_OK)
-            return res;
-    }
+	if (esp_xtensa_smp->chip_ops->reset) {
+		res = esp_xtensa_smp->chip_ops->reset(target);
+		if (res != ERROR_OK)
+			return res;
+	}
 	if (!target->smp)
 		return xtensa_assert_reset(target);
 
@@ -157,21 +157,23 @@ int esp_xtensa_smp_poll(struct target *target)
 	}
 
 	ret = esp_xtensa_poll(target);
-	if (esp_xtensa->esp.dbg_stubs.base && old_dbg_stubs_base != esp_xtensa->esp.dbg_stubs.base) {
+	if (esp_xtensa->esp.dbg_stubs.base && old_dbg_stubs_base !=
+		esp_xtensa->esp.dbg_stubs.base) {
 		/* debug stubs base is set only in PRO-CPU TRAX register, so sync this info */
 		foreach_smp_target(head, target->smp_targets) {
 			curr = head->target;
 			if (curr == target)
 				continue;
-			target_to_esp_xtensa(curr)->esp.dbg_stubs.base = esp_xtensa->esp.dbg_stubs.base;
+			target_to_esp_xtensa(curr)->esp.dbg_stubs.base =
+				esp_xtensa->esp.dbg_stubs.base;
 		}
 	}
 
 	if (target->smp) {
-		if (target->state == TARGET_RESET) {
+		if (target->state == TARGET_RESET)
 			esp_xtensa_smp->examine_other_cores = ESP_XTENSA_SMP_EXAMINE_OTHER_CORES;
-		} else if (esp_xtensa_smp->examine_other_cores > 0 &&
-					(target->state == TARGET_RUNNING || target->state == TARGET_HALTED)) {
+		else if (esp_xtensa_smp->examine_other_cores > 0 &&
+			(target->state == TARGET_RUNNING || target->state == TARGET_HALTED)) {
 			LOG_DEBUG("%s: Check for unexamined cores after reset", target_name(target));
 			bool all_examined = true;
 			foreach_smp_target(head, target->smp_targets) {
@@ -185,11 +187,10 @@ int esp_xtensa_smp_poll(struct target *target)
 					}
 				}
 			}
-			if (all_examined) {
+			if (all_examined)
 				esp_xtensa_smp->examine_other_cores = 0;
-			} else {
+			else
 				esp_xtensa_smp->examine_other_cores--;
-			}
 		}
 	}
 
@@ -204,7 +205,8 @@ int esp_xtensa_smp_poll(struct target *target)
 			target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
 		else {
 			if (esp_xtensa_semihosting(target, &ret) != 0) {
-				if (target->smp && target->semihosting->op == ESP_SEMIHOSTING_SYS_DRV_INFO) {
+				if (target->smp && target->semihosting->op ==
+					ESP_SEMIHOSTING_SYS_DRV_INFO) {
 					/* semihosting's version syncing with other cores */
 					foreach_smp_target(head, target->smp_targets) {
 						curr = head->target;
@@ -246,7 +248,7 @@ int esp_xtensa_smp_poll(struct target *target)
 
 static int esp_xtensa_smp_update_halt_gdb(struct target *target, bool *need_resume)
 {
-    struct esp_xtensa_smp_common *esp_xtensa_smp;
+	struct esp_xtensa_smp_common *esp_xtensa_smp;
 	struct target *gdb_target = NULL;
 	struct target_list *head;
 	struct target *curr;
@@ -290,10 +292,10 @@ static int esp_xtensa_smp_update_halt_gdb(struct target *target, bool *need_resu
 		esp_xtensa_smp->other_core_does_resume = true;
 		/* avoid recursion in esp_xtensa_smp_poll() */
 		curr->smp = 0;
-        if (esp_xtensa_smp->chip_ops->poll)
-            esp_xtensa_smp->chip_ops->poll(curr);
-        else
-            esp_xtensa_smp_poll(curr);
+		if (esp_xtensa_smp->chip_ops->poll)
+			esp_xtensa_smp->chip_ops->poll(curr);
+		else
+			esp_xtensa_smp_poll(curr);
 		curr->smp = 1;
 		esp_xtensa_smp->other_core_does_resume = false;
 		struct esp_xtensa_common *curr_esp_xtensa = target_to_esp_xtensa(curr);
@@ -306,11 +308,11 @@ static int esp_xtensa_smp_update_halt_gdb(struct target *target, bool *need_resu
 	/* after all targets were updated, poll the gdb serving target */
 	if (gdb_target != NULL && gdb_target != target) {
 		esp_xtensa_smp = target_to_esp_xtensa_smp(gdb_target);
-        if (esp_xtensa_smp->chip_ops->poll)
-            esp_xtensa_smp->chip_ops->poll(gdb_target);
-        else
-            esp_xtensa_smp_poll(gdb_target);
-    }
+		if (esp_xtensa_smp->chip_ops->poll)
+			esp_xtensa_smp->chip_ops->poll(gdb_target);
+		else
+			esp_xtensa_smp_poll(gdb_target);
+	}
 
 	LOG_DEBUG("exit");
 
@@ -333,7 +335,9 @@ static inline int esp_xtensa_smp_smpbreak_restore(struct target *target, uint32_
 	return xtensa_smpbreak_set(target, smp_break);
 }
 
-static int esp_xtensa_smp_resume_cores(struct target *target, int handle_breakpoints, int debug_execution)
+static int esp_xtensa_smp_resume_cores(struct target *target,
+	int handle_breakpoints,
+	int debug_execution)
 {
 	int res = ERROR_OK;
 	struct target_list *head;
@@ -346,7 +350,7 @@ static int esp_xtensa_smp_resume_cores(struct target *target, int handle_breakpo
 		if ((curr != target) && (curr->state != TARGET_RUNNING)
 			/* in single-core mode disabled core cannot be examined, but need to be
 			 *resumed too*/
-			 && target_was_examined(curr)) {
+			&& target_was_examined(curr)) {
 			/*  resume current address, not in SMP mode */
 			curr->smp = 0;
 			res = esp_xtensa_smp_resume(curr, 1, 0, handle_breakpoints, debug_execution);
@@ -520,11 +524,11 @@ int esp_xtensa_smp_run_func_image(struct target *target,
 		}
 
 		/* FIXME: dummy call to prevent esp32s3 to stuck in consecutive algorithm runs
-			Issue can be seen with usb jag only.
-			e.g; first ESP_STUB_CMD_FLASH_MAP_GET stub call ends with success.
-			however during workarea_backup process in consecutive ESP_STUB_CMD_FLASH_SIZE
-			USB timeout occurs. Looks like below dummy call recover the usb jtag hardware/software
-			Same behaviur does not seen with the esp usb bridge
+		        Issue can be seen with usb jag only.
+		        e.g; first ESP_STUB_CMD_FLASH_MAP_GET stub call ends with success.
+		        however during workarea_backup process in consecutive ESP_STUB_CMD_FLASH_SIZE
+		        USB timeout occurs. Looks like below dummy call recover the usb jtag hardware/software
+		        Same behaviur does not seen with the esp usb bridge
 		*/
 		xtensa_core_status_check(run_target);
 
@@ -590,13 +594,18 @@ int esp_xtensa_smp_init_arch_info(struct target *target,
 	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
 	const struct esp_flash_breakpoint_ops *flash_brps_ops,
-    const struct esp_xtensa_smp_chip_ops *chip_ops,
+	const struct esp_xtensa_smp_chip_ops *chip_ops,
 	const struct esp_semihost_ops *semihost_ops)
 {
-	int ret = esp_xtensa_init_arch_info(target, &esp_xtensa_smp->esp_xtensa, xtensa_cfg, dm_cfg, flash_brps_ops, semihost_ops);
+	int ret = esp_xtensa_init_arch_info(target,
+		&esp_xtensa_smp->esp_xtensa,
+		xtensa_cfg,
+		dm_cfg,
+		flash_brps_ops,
+		semihost_ops);
 	if (ret != ERROR_OK)
 		return ret;
-    esp_xtensa_smp->chip_ops = chip_ops;
+	esp_xtensa_smp->chip_ops = chip_ops;
 	esp_xtensa_smp->examine_other_cores = ESP_XTENSA_SMP_EXAMINE_OTHER_CORES;
 	return ERROR_OK;
 }
@@ -782,7 +791,7 @@ COMMAND_HANDLER(esp_xtensa_smp_cmd_tracestart)
 COMMAND_HANDLER(esp_xtensa_smp_cmd_tracestop)
 {
 	struct target *target = get_current_target(CMD_CTX);
-	if (target->smp){
+	if (target->smp) {
 		struct target_list *head;
 		struct target *curr;
 		foreach_smp_target(head, target->smp_targets) {
@@ -917,7 +926,7 @@ const struct command_registration esp_xtensa_smp_esp_command_handlers[] = {
 		.handler = esp_xtensa_smp_cmd_semihost_basedir,
 		.mode = COMMAND_ANY,
 		.help = "Set the base directory for semihosting I/O."
-				"DEPRECATED! use arm semihosting_basedir",
+			"DEPRECATED! use arm semihosting_basedir",
 		.usage = "dir",
 	},
 	COMMAND_REGISTRATION_DONE

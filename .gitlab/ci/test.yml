@@ -43,6 +43,7 @@
       dir_path="";
       file_name="";
       command_arg="";
+      splitter_line="# Stub flasher related files";
       while IFS= read -r line ; do    
         if [[ ${line:0:2} == "./" ]] ; then
           file_full_path=${line##*.sh };
@@ -50,6 +51,9 @@
           dir_path=${file_full_path%$file_name} ;
           command_arg+="--include "${dir_path}"*"${file_name:0:-2}".gcno ";
           command_arg+="--include "${dir_path}"*"${file_name:0:-2}".gcda ";
+        fi
+        if [[ $line == ${splitter_line}* ]] ; then
+          break;
         fi
       done < "$input"
     - mkdir ${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}/esp_cov_files

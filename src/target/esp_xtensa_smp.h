@@ -25,15 +25,16 @@
 #include "esp_xtensa.h"
 
 struct esp_xtensa_smp_chip_ops {
-    int (*poll)(struct target *target);
-    int (*reset)(struct target *target);
+	int (*poll)(struct target *target);
+	int (*reset)(struct target *target);
 };
 
 struct esp_xtensa_smp_common {
 	struct esp_xtensa_common esp_xtensa;
-    const struct esp_xtensa_smp_chip_ops *chip_ops;
+	const struct esp_xtensa_smp_chip_ops *chip_ops;
 	bool other_core_does_resume;
-	/* number of attempts to examine other SMP cores, attempts are made after reset on target poll */
+	/* number of attempts to examine other SMP cores, attempts are made after reset on target
+	 *poll */
 	int examine_other_cores;
 };
 
@@ -63,7 +64,7 @@ int esp_xtensa_smp_init_arch_info(struct target *target,
 	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
 	const struct esp_flash_breakpoint_ops *flash_brps_ops,
-    const struct esp_xtensa_smp_chip_ops *chip_ops,
+	const struct esp_xtensa_smp_chip_ops *chip_ops,
 	const struct esp_semihost_ops *semihost_ops);
 int esp_xtensa_smp_run_func_image(struct target *target,
 	struct algorithm_run_data *run,
