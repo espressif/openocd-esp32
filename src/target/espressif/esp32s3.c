@@ -210,12 +210,17 @@ static const struct xtensa_config esp32s3_xtensa_cfg = {
 	.proc_id = true,
 	.cond_store = true,
 	.mac16 = true,
+	.int_div_32 = true,
+	.proc_intf = true,
 	.user_regs_num = ARRAY_SIZE(esp32s3_user_regs),
 	.user_regs = esp32s3_user_regs,
 	.fetch_user_regs = esp32s3_fetch_user_regs,
 	.queue_write_dirty_user_regs = esp32s3_queue_write_dirty_user_regs,
 	.gdb_general_regs_num = ESP32_S3_NUM_REGS_G_COMMAND,
 	.gdb_regs_mapping = esp32s3_gdb_regs_mapping,
+	.region_protect = {
+		.enabled = true,
+	},
 	.irom = {
 		.count = 2,
 		.regions = {

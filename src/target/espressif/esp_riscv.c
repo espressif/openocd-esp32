@@ -36,6 +36,25 @@ enum {
 	ESP_RISCV_SET_WATCHPOINT_ARG_MAX
 };
 
+enum esp_riscv_exception_cause {
+	INSTR_ADDR_MISALIGNED = 0x0,
+	PMP_INSTRUCTION_ACCESS_FAULT = 0x1,
+	ILLEGAL_INSTRUCTION = 0x2,
+	HARDWARE_BREAKPOINT = 0x3,
+	LOAD_ADDR_MISALIGNED = 0x4,
+	PMP_LOAD_ACCESS_FAULT = 0x5,
+	STORE_ADDR_MISALIGNED = 0x6,
+	PMP_STORE_ACCESS_FAULT = 0x7,
+	ECALL_FROM_U_MODE = 0x8,
+	ECALL_FROM_S_MODE = 0x9,
+	ECALL_FROM_M_MODE = 0xb,
+	INSTR_PAGE_FAULT = 0xc,
+	LOAD_PAGE_FAULT = 0xd,
+	STORE_PAGE_FAULT = 0xf,
+};
+
+#define ESP_RISCV_EXCEPTION_CAUSE(reg_val)  ((reg_val) & 0x1F)
+
 #define ESP_SEMIHOSTING_WP_FLG_RD   (1UL << 0)
 #define ESP_SEMIHOSTING_WP_FLG_WR   (1UL << 1)
 
@@ -58,6 +77,40 @@ enum {
 extern struct target_type riscv_target;
 static int esp_riscv_debug_stubs_info_init(struct target *target,
 	target_addr_t ctrl_addr);
+void esp_riscv_print_exception_reason(struct target *target);
+
+static const char *esp_riscv_get_exception_reason(enum esp_riscv_exception_cause exception_code)
+{
+	switch (ESP_RISCV_EXCEPTION_CAUSE(exception_code)) {
+	case INSTR_ADDR_MISALIGNED:
+		return "Instruction address misaligned";
+	case PMP_INSTRUCTION_ACCESS_FAULT:
+		return "PMP Instruction access fault";
+	case ILLEGAL_INSTRUCTION:
+		return "Illegal Instruction";
+	case HARDWARE_BREAKPOINT:
+		return "Hardware Breakpoint/Watchpoint or EBREAK";
+	case LOAD_ADDR_MISALIGNED:
+		return "Load address misaligned";
+	case PMP_LOAD_ACCESS_FAULT:
+		return "PMP Load access fault";
+	case PMP_STORE_ACCESS_FAULT:
+		return "PMP Store access fault";
+	case ECALL_FROM_U_MODE:
+		return "ECALL from U mode";
+	case ECALL_FROM_S_MODE:
+		return "ECALL from S-mode";
+	case ECALL_FROM_M_MODE:
+		return "ECALL from M mode";
+	case INSTR_PAGE_FAULT:
+		return "Instruction page fault";
+	case LOAD_PAGE_FAULT:
+		return "Load page fault";
+	case STORE_PAGE_FAULT:
+		return "Store page fault";
+	}
+	return "Unknown exception cause";
+}
 
 int esp_riscv_semihosting(struct target *target)
 {
@@ -276,6 +329,11 @@ int esp_riscv_handle_target_event(struct target *target, enum target_event event
 		ret = esp_common_handle_gdb_detach(target, &esp_riscv->esp);
 		if (ret != ERROR_OK)
 			return ret;
+		break;
+	}
+	case TARGET_EVENT_HALTED:
+	{
+		esp_riscv_print_exception_reason(target);
 		break;
 	}
 	default:
@@ -570,6 +628,17 @@ int esp_riscv_write_memory(struct target *target, target_addr_t address,
 int esp_riscv_poll(struct target *target)
 {
 	return riscv_target.poll(target);
+}
+
+void esp_riscv_print_exception_reason(struct target *target)
+{
+	riscv_reg_t mcause;
+	int result = riscv_get_register(target, &mcause, GDB_REGNO_MCAUSE);
+	if (result != ERROR_OK)
+		LOG_ERROR("Failed to read mcause register. Unknown exception reason!");
+	else
+		LOG_TARGET_INFO(target, "Halt cause (%d) - (%s)", (int)ESP_RISCV_EXCEPTION_CAUSE(
+				mcause), esp_riscv_get_exception_reason(mcause));
 }
 
 int esp_riscv_halt(struct target *target)

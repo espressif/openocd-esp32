@@ -165,12 +165,16 @@ static const struct xtensa_config esp32s2_xtensa_cfg = {
 	.reloc_vec = true,
 	.proc_id = true,
 	.threadptr = true,
+	.int_div_32 = true,
 	.user_regs_num = ARRAY_SIZE(esp32s2_user_regs),
 	.user_regs = esp32s2_user_regs,
 	.fetch_user_regs = xtensa_fetch_user_regs_u32,
 	.queue_write_dirty_user_regs = xtensa_queue_write_dirty_user_regs_u32,
 	.gdb_general_regs_num = ESP32_S2_NUM_REGS_G_COMMAND,
 	.gdb_regs_mapping = esp32s2_gdb_regs_mapping,
+	.region_protect = {
+		.enabled = true,
+	},
 	.irom = {
 		.count = 2,
 		.regions = {
