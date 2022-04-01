@@ -93,6 +93,39 @@ class DebuggerSpecialTestsImpl:
         # watchpoint hit on read var in 'target_bp_func2'
         self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_wp_var2_2')
 
+    @only_for_arch(['xtensa'])
+    def test_exception_xtensa(self):
+        """
+        This test checks that expected exception cause string equal to the OpenOCD output.
+        """
+        bps = ["exception_bp_1", "exception_bp_2", "exception_bp_3", "exception_bp_4"]
+        expected_strings = ["Halt cause (0) - (Illegal instruction)",
+                            "Halt cause (28) - (Load prohibited)",
+                            "Halt cause (29) - (Store prohibited)",
+                            "Halt cause (6) - (Integer divide by zero)"]
+        for i in range (len(bps)):
+            self.add_bp(bps[i])
+            self.select_sub_test(804 + i)
+            self.resume_exec()
+            rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
+            self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
+            old_pc = self.gdb.get_reg('pc')
+            faddr = self.gdb.extract_exec_addr(self.gdb.data_eval_expr('&%s' % bps[i]))
+            self.assertEqual(old_pc, faddr)
+            self.clear_bps()
+            target_output = ''
+            def _target_stream_handler(type, stream, payload):
+                nonlocal target_output
+                target_output += payload
+            self.gdb.stream_handler_add('target', _target_stream_handler)
+            try:
+                self.step()
+            finally:
+                self.gdb.stream_handler_remove('target', _target_stream_handler)
+            self.assertTrue(expected_strings[i] in target_output)
+            self.gdb.target_reset()
+            self.gdb.add_bp('app_main')
+            self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
 
 # to be skipped for any board with ESP32-S2 chip
 # TODO: enable these tests when PSRAM is supported for ESP32-S2

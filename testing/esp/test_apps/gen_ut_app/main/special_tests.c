@@ -87,6 +87,63 @@ static void psram_check_task(void *pvParameter)
         vTaskDelay(100 / portTICK_PERIOD_MS);           TEST_BREAK_LOC(vTaskDelay1);
     }
 }
+
+static void illegal_instruction_exc(void *pvParameter)
+{
+    int core_id = xPortGetCoreID();
+    ESP_LOGI(TAG, "CPU[%d]: Illegal instruction exception test started", core_id);
+    __asm__ __volatile__ (
+        ".global exception_bp\n" \
+        ".type   exception_bp,@function\n" \
+        "exception_bp_1:\n" \
+        "ILL\n" \
+    );
+}
+
+static void load_prohibited_exc(void *pvParameter)
+{
+    int core_id = xPortGetCoreID();
+    ESP_LOGI(TAG, "CPU[%d]: Load prohibited exception test started", core_id);
+    register long a2 asm ("a2") = 0;
+    register long a3 asm ("a3") = 0;
+    __asm__ __volatile__ (
+        ".global exception_bp_2\n" \
+        ".type   exception_bp_2,@function\n" \
+        "exception_bp_2:\n" \
+        "L8UI a3, a2, 0xFFFFFFFF\n" \
+        : "+r"(a2) : "r"(a3)
+    );
+}
+
+static void store_prohibited_exc(void *pvParameter)
+{
+    int core_id = xPortGetCoreID();
+    ESP_LOGI(TAG, "CPU[%d]: Store prohibited exception test started", core_id);
+    register long a2 asm ("a2") = 0;
+    register long a3 asm ("a3") = 0;
+    __asm__ __volatile__ (
+        ".global exception_bp_3\n" \
+        ".type   exception_bp_3,@function\n" \
+        "exception_bp_3:\n" \
+        "S8I a3, a2, 0\n" \
+        : "+r"(a2) : "r"(a3)
+    );
+}
+
+static void divide_by_zero_exc(void *pvParameter)
+{
+    int core_id = xPortGetCoreID();
+    ESP_LOGI(TAG, "CPU[%d]: Divide by zero exception test started", core_id);
+    register long a2 asm ("a2") = 0;
+    register long a3 asm ("a3") = 0;
+    __asm__ __volatile__ (
+        ".global exception_bp_4\n" \
+        ".type   exception_bp_4,@function\n" \
+        "exception_bp_4:\n" \
+        "QUOS a2, a2, a3\n" \
+        : "+r"(a2) : "r"(a3)
+    );
+}
 #endif
 
 volatile static int s_var1;
@@ -139,6 +196,26 @@ ut_result_t special_test_do(int test_num)
         case 802:
         {
             xTaskCreatePinnedToCore(&psram_check_task, "psram_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+            break;
+        }
+        case 804:
+        {
+            xTaskCreatePinnedToCore(&illegal_instruction_exc, "illegal_instruction_exc", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+            break;
+        }
+        case 805:
+        {
+            xTaskCreatePinnedToCore(&load_prohibited_exc, "load_prohibited_exc", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+            break;
+        }
+        case 806:
+        {
+            xTaskCreatePinnedToCore(&store_prohibited_exc, "store_prohibited_exc", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+            break;
+        }
+        case 807:
+        {
+            xTaskCreatePinnedToCore(&divide_by_zero_exc, "divide_by_zero_exc", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
             break;
         }
 #endif

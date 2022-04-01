@@ -50,6 +50,39 @@
 #define XT_MEM_ACCESS_READ              0x1
 #define XT_MEM_ACCESS_WRITE             0x2
 
+enum xtensa_exception_cause {
+	ILLEGAL_INSTRUCTION = 0,
+	SYSCALL = 1,
+	INSTRUCTION_FETCH_ERROR = 2,
+	LOAD_STORE_ERROR = 3,
+	LEVEL1_INTERRUPT = 4,
+	ALLOCA = 5,
+	INTEGER_DIVIDE_BY_ZERO = 6,
+	PRIVILEGED = 8,
+	LOAD_STORE_ALIGNMENT = 9,
+	INSTR_PIF_DATA_ERROR = 12,
+	LOAD_STORE_PIF_DATA_ERROR = 13,
+	INSTR_PIF_ADDR_ERROR = 14,
+	LOAD_STORE_PIF_ADDR_ERROR = 15,
+	INST_TLB_MISS = 16,
+	INST_TLB_MULTIHIT = 17,
+	INST_FETCH_PRIVILEGE = 18,
+	INST_FETCH_PROHIBITED = 20,
+	LOAD_STORE_TLB_MISS = 24,
+	LOAD_STORE_TLB_MULTIHIT = 25,
+	LOAD_STORE_PRIVILEGE = 26,
+	LOAD_PROHIBITED = 28,
+	STORE_PROHIBITED = 29,
+	COPROCESSOR_N_DISABLED_0 = 32,
+	COPROCESSOR_N_DISABLED_1 = 33,
+	COPROCESSOR_N_DISABLED_2 = 34,
+	COPROCESSOR_N_DISABLED_3 = 35,
+	COPROCESSOR_N_DISABLED_4 = 36,
+	COPROCESSOR_N_DISABLED_5 = 37,
+	COPROCESSOR_N_DISABLED_6 = 38,
+	COPROCESSOR_N_DISABLED_7 = 39,
+};
+
 enum xtensa_mem_err_detect {
 	XT_MEM_ERR_DETECT_NONE,
 	XT_MEM_ERR_DETECT_PARITY,
@@ -86,6 +119,7 @@ struct xtensa_mmu_config {
 
 struct xtensa_exception_config {
 	bool enabled;
+	bool unaligned;
 	uint8_t depc_num;
 };
 
@@ -119,6 +153,10 @@ struct xtensa_timer_irq_config {
 	uint8_t comp_num;
 };
 
+struct xtensa_region_protection_config {
+	bool enabled;
+};
+
 struct xtensa_config {
 	bool density;
 	uint8_t aregs_num;
@@ -135,6 +173,9 @@ struct xtensa_config {
 	bool reloc_vec;
 	bool proc_id;
 	bool mem_err_check;
+	bool int_div_32;
+	struct xtensa_region_protection_config region_protect;
+	bool proc_intf;
 	uint16_t user_regs_num;
 	const struct xtensa_user_reg_desc *user_regs;
 	int (*fetch_user_regs)(struct target *target);

@@ -19,6 +19,74 @@
 #include "esp_xtensa_semihosting.h"
 #include <target/register.h>
 
+#define XTENSA_EXCCAUSE(reg_val)         ((reg_val) & 0x3F)
+
+static const char *xtensa_get_exception_reason(struct target *target, enum xtensa_exception_cause exccause_code)
+{
+	struct xtensa_config *chip_config = (struct xtensa_config *)target_to_xtensa(target)->core_config;
+
+	switch (exccause_code) {
+	case ILLEGAL_INSTRUCTION:
+		return "Illegal instruction";
+	case SYSCALL:
+		return "System call";
+	case INSTRUCTION_FETCH_ERROR:
+		return "Instruction fetch error";
+	case LOAD_STORE_ERROR:
+		return "Load or store error";
+	case LEVEL1_INTERRUPT:
+		return chip_config->irq.enabled ? "Level-1 interrupt" : "Unknown exception";
+	case ALLOCA:
+		return chip_config->windowed ? "Alloca exception" : "Unknown exception";
+	case INTEGER_DIVIDE_BY_ZERO:
+		return chip_config->int_div_32 ? "Integer divide by zero" : "Unknown exception";
+	case PRIVILEGED:
+		return chip_config->mmu.enabled ? "Privileged instruction" : "Unknown exception";
+	case LOAD_STORE_ALIGNMENT:
+		return chip_config->exc.unaligned ? "Load or store alignment" : "Unknown exception";
+	case INSTR_PIF_DATA_ERROR:
+		return chip_config->proc_intf ? "Instruction PIF data error" : "Unknown exception";
+	case LOAD_STORE_PIF_DATA_ERROR:
+		return chip_config->proc_intf ? "Load or store PIF data error" : "Unknown exception";
+	case INSTR_PIF_ADDR_ERROR:
+		return chip_config->proc_intf ? "Instruction PIF address error" : "Unknown exception";
+	case LOAD_STORE_PIF_ADDR_ERROR:
+		return chip_config->proc_intf ? "Load or store PIF address error" : "Unknown exception";
+	case INST_TLB_MISS:
+		return chip_config->mmu.enabled ? "Instruction TLB miss" : "Unknown exception";
+	case INST_TLB_MULTIHIT:
+		return chip_config->mmu.enabled ? "Instruction TLB multi hit" : "Unknown exception";
+	case INST_FETCH_PRIVILEGE:
+		return chip_config->mmu.enabled ? "Instruction fetch privilege" : "Unknown exception";
+	case INST_FETCH_PROHIBITED:
+		return (chip_config->mmu.enabled ||
+			chip_config->region_protect.enabled) ? "Instruction fetch prohibited" :
+		       "Unknown exception";
+	case LOAD_STORE_TLB_MISS:
+		return chip_config->mmu.enabled ? "Load or store TLB miss" : "Unknown exception";
+	case LOAD_STORE_TLB_MULTIHIT:
+		return chip_config->mmu.enabled ? "Load or store TLB multi hit" : "Unknown exception";
+	case LOAD_STORE_PRIVILEGE:
+		return chip_config->mmu.enabled ? "Load or store privilege" : "Unknown exception";
+	case LOAD_PROHIBITED:
+		return (chip_config->mmu.enabled || chip_config->region_protect.enabled) ? "Load prohibited" :
+		       "Unknown exception";
+	case STORE_PROHIBITED:
+		return (chip_config->mmu.enabled || chip_config->region_protect.enabled) ? "Store prohibited" :
+		       "Unknown exception";
+	case COPROCESSOR_N_DISABLED_0:
+	case COPROCESSOR_N_DISABLED_1:
+	case COPROCESSOR_N_DISABLED_2:
+	case COPROCESSOR_N_DISABLED_3:
+	case COPROCESSOR_N_DISABLED_4:
+	case COPROCESSOR_N_DISABLED_5:
+	case COPROCESSOR_N_DISABLED_6:
+	case COPROCESSOR_N_DISABLED_7:
+		return chip_config->coproc ? "Coprocessor disabled" : "Unknown exception";
+	}
+	return "Unknown exception";
+}
+
 #define ESP_XTENSA_DBGSTUBS_UPDATE_DATA_ENTRY(_e_) \
 	do { \
 		(_e_) = buf_get_u32((uint8_t *)&(_e_), 0, 32); \
@@ -58,6 +126,19 @@ static int esp_xtensa_dbgstubs_restore(struct target *target)
 	return ERROR_OK;
 }
 
+void esp_xtensa_print_exception_reason(struct target *target)
+{
+	int exccause_val;
+
+	if (target_to_xtensa(target)->core_config->exc.enabled) {
+		exccause_val = XTENSA_EXCCAUSE(xtensa_reg_get(target, XT_REG_IDX_EXCCAUSE));
+		LOG_TARGET_INFO(target, "Halt cause (%d) - (%s)", exccause_val,
+			xtensa_get_exception_reason(target, exccause_val));
+	} else {
+		LOG_TARGET_ERROR(target, "Exception option is not enabled!");
+	}
+}
+
 int esp_xtensa_handle_target_event(struct target *target, enum target_event event,
 	void *priv)
 {
@@ -74,6 +155,7 @@ int esp_xtensa_handle_target_event(struct target *target, enum target_event even
 
 	switch (event) {
 	case TARGET_EVENT_HALTED:
+		esp_xtensa_print_exception_reason(target);
 		/* debug stubs can be used in HALTED state only, so it is OK to get info
 		 * about them here */
 		esp_xtensa_dbgstubs_info_update(target);
