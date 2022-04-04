@@ -90,8 +90,8 @@ class ApptraceTestsImpl:
         trace_file.close()
         trace_src = 'file://%s' % trace_file_name
         reader = reader_create(trace_src, 1.0)
-        # 0 ms poll period, stop when 400 bytes are received or due to 5 s timeout
-        self.oocd.apptrace_start("%s 0 400 5" % trace_src)
+        # 0 ms poll period, stop when 800 bytes are received or due to 10 s timeout
+        self.oocd.apptrace_start("%s 0 800 10" % trace_src)
         self.resume_exec()
         sleep(1) #  let it works some time
         self.stop_exec()
