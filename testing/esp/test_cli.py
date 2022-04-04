@@ -30,17 +30,17 @@ class MacTestsImpl:
         """
         if testee_info.arch == "xtensa":
             self.oocd.cmd_exec("xtensa set_permissive 1")
-            self.oocd.cmd_exec("mem2array mac 8 $EFUSE_MAC_ADDR_REG 6")
+            self.oocd.cmd_exec("set mac_list [read_memory $EFUSE_MAC_ADDR_REG 8 6]")
             self.oocd.cmd_exec("xtensa set_permissive 0")
         else: #riscv32
-            self.oocd.cmd_exec("mem2array mac 8 $EFUSE_MAC_ADDR_REG 6")
-        m0 = self.oocd.cmd_exec("format %02x $mac(0)").strip('\n')
-        m1 = self.oocd.cmd_exec("format %02x $mac(1)").strip('\n')
-        m2 = self.oocd.cmd_exec("format %02x $mac(2)").strip('\n')
-        m3 = self.oocd.cmd_exec("format %02x $mac(3)").strip('\n')
-        m4 = self.oocd.cmd_exec("format %02x $mac(4)").strip('\n')
-        m5 = self.oocd.cmd_exec("format %02x $mac(5)").strip('\n')
-        get_logger().debug("Read using mem2array: '%s %s %s %s %s %s'" % (m5, m4, m3, m2, m1, m0))
+            self.oocd.cmd_exec("set mac_list [read_memory $EFUSE_MAC_ADDR_REG 8 6]")
+        m0 = self.oocd.cmd_exec("format %02x [lindex $mac_list 0]").strip('\n')
+        m1 = self.oocd.cmd_exec("format %02x [lindex $mac_list 1]").strip('\n')
+        m2 = self.oocd.cmd_exec("format %02x [lindex $mac_list 2]").strip('\n')
+        m3 = self.oocd.cmd_exec("format %02x [lindex $mac_list 3]").strip('\n')
+        m4 = self.oocd.cmd_exec("format %02x [lindex $mac_list 4]").strip('\n')
+        m5 = self.oocd.cmd_exec("format %02x [lindex $mac_list 5]").strip('\n')
+        get_logger().debug("Read using read_memory: '%s %s %s %s %s %s'" % (m5, m4, m3, m2, m1, m0))
         return (m5, m4, m3, m2, m1, m0)
 
     def test_mac_cmd(self):
