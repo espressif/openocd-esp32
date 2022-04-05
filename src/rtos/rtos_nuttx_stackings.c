@@ -142,9 +142,9 @@ static const struct stack_register_offset nuttx_stack_offsets_esp32[] = {
 	{ XT_REG_IDX_AR62, -1, 32 },		/* A62 */
 	{ XT_REG_IDX_AR63, -1, 32 },		/* A63 */
 
-	{ XT_REG_IDX_LBEG, 0x54, 32 },		/* lbeg */
-	{ XT_REG_IDX_LEND, 0x58, 32 },		/* lend */
-	{ XT_REG_IDX_LCOUNT, 0x5c, 32 },	/* lcount */
+	{ XT_REG_IDX_LBEG, 0x58, 32 },		/* lbeg */
+	{ XT_REG_IDX_LEND, 0x5c, 32 },		/* lend */
+	{ XT_REG_IDX_LCOUNT, 0x60, 32 },	/* lcount */
 	{ XT_REG_IDX_SAR, 0x48, 32 },		/* SAR */
 
 	{ XT_REG_IDX_WINDOWBASE, -1, 32 },	/* windowbase */
@@ -156,7 +156,7 @@ static const struct stack_register_offset nuttx_stack_offsets_esp32[] = {
 
 	{ XT_REG_IDX_THREADPTR, -1, 32 },	/* threadptr */
 	{ XT_REG_IDX_BR, -1, 32 },		/* br */
-	{ XT_REG_IDX_SCOMPARE1, -1, 32 },	/* scompare1 */
+	{ XT_REG_IDX_SCOMPARE1, 0x54, 32 },	/* scompare1 */
 	{ XT_REG_IDX_ACCLO, -1, 32 },		/* acclo */
 	{ XT_REG_IDX_ACCHI, -1, 32 },		/* acchi */
 	{ XT_REG_IDX_M0, -1, 32 },		/* m0 */
