@@ -179,7 +179,13 @@ struct semihosting {
 	/** Base directory for semihosting I/O operations. */
 	char *basedir;
 
-	int (*user_command_handler)(struct target *target);
+	/**
+	 * Target's extension of semihosting user commands.
+	 * @returns ERROR_NOT_IMPLEMENTED when user command is not handled, otherwise
+	 * sets semihosting->result and semihosting->sys_errno and returns ERROR_OK.
+	 */
+	int (*user_command_extension)(struct target *target);
+
 	int (*setup)(struct target *target, int enable);
 	int (*post_result)(struct target *target);
 };

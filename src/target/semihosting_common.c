@@ -156,7 +156,7 @@ int semihosting_common_init(struct target *target, void *setup,
 
 	semihosting->setup = setup;
 	semihosting->post_result = post_result;
-	semihosting->user_command_handler = NULL;
+	semihosting->user_command_extension = NULL;
 
 	target->semihosting = semihosting;
 
@@ -1463,54 +1463,61 @@ int semihosting_common(struct target *target)
 			 * Return
 			 * On exit, the RETURN REGISTER contains the return status.
 			 */
-		{
-			if (semihosting->user_command_handler)
-				retval = semihosting->user_command_handler(target);
-			else {
+			if (semihosting->user_command_extension) {
+				retval = semihosting->user_command_extension(target);
+				if (retval != ERROR_NOT_IMPLEMENTED)
+					break;
+				/* If custom user command not handled, we are looking for the TCL handler */
+			}
 
-				assert(!semihosting_user_op_params);
+			assert(!semihosting_user_op_params);
+			retval = semihosting_read_fields(target, 2, fields);
+			if (retval != ERROR_OK) {
+				LOG_ERROR("Failed to read fields for user defined command"
+						" op=0x%x", semihosting->op);
+				return retval;
+			}
 
-				retval = semihosting_read_fields(target, 2, fields);
-				if (retval != ERROR_OK) {
-					LOG_ERROR("Failed to read fields for user defined command"
-							" op=0x%x", semihosting->op);
-					return retval;
-				}
+			retval = semihosting_read_fields(target, 2, fields);
+			if (retval != ERROR_OK) {
+				LOG_ERROR("Failed to read fields for user defined command"
+						" op=0x%x", semihosting->op);
+				return retval;
+			}
 
-				uint64_t addr = semihosting_get_field(target, 0, fields);
+			uint64_t addr = semihosting_get_field(target, 0, fields);
 
-				size_t len = semihosting_get_field(target, 1, fields);
-				if (len > SEMIHOSTING_MAX_TCL_COMMAND_FIELD_LENGTH) {
-					LOG_ERROR("The maximum length for user defined command "
-							"parameter is %u, received length is %zu (op=0x%x)",
-							SEMIHOSTING_MAX_TCL_COMMAND_FIELD_LENGTH,
-							len,
-							semihosting->op);
-					return ERROR_FAIL;
-				}
+			size_t len = semihosting_get_field(target, 1, fields);
+			if (len > SEMIHOSTING_MAX_TCL_COMMAND_FIELD_LENGTH) {
+				LOG_ERROR("The maximum length for user defined command "
+						"parameter is %u, received length is %zu (op=0x%x)",
+						SEMIHOSTING_MAX_TCL_COMMAND_FIELD_LENGTH,
+						len,
+						semihosting->op);
+				return ERROR_FAIL;
+			}
 
-				semihosting_user_op_params = malloc(len + 1);
-				if (!semihosting_user_op_params)
-					return ERROR_FAIL;
-				semihosting_user_op_params[len] = 0;
+			semihosting_user_op_params = malloc(len + 1);
+			if (!semihosting_user_op_params)
+				return ERROR_FAIL;
+			semihosting_user_op_params[len] = 0;
 
-				retval = target_read_buffer(target, addr, len,
-						(uint8_t *)(semihosting_user_op_params));
-				if (retval != ERROR_OK) {
-					LOG_ERROR("Failed to read from target, semihosting op=0x%x",
-							semihosting->op);
-					free(semihosting_user_op_params);
-					semihosting_user_op_params = NULL;
-					return retval;
-				}
-
-				target_handle_event(target, semihosting->op);
+			retval = target_read_buffer(target, addr, len,
+					(uint8_t *)(semihosting_user_op_params));
+			if (retval != ERROR_OK) {
+				LOG_ERROR("Failed to read from target, semihosting op=0x%x",
+						semihosting->op);
 				free(semihosting_user_op_params);
 				semihosting_user_op_params = NULL;
-				semihosting->result = 0;
+				return retval;
 			}
-		}
+
+			target_handle_event(target, semihosting->op);
+			free(semihosting_user_op_params);
+			semihosting_user_op_params = NULL;
+			semihosting->result = 0;
 			break;
+
 		case SEMIHOSTING_SYS_ELAPSED:	/* 0x30 */
 		/*
 		 * Returns the number of elapsed target ticks since execution
