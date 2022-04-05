@@ -84,7 +84,7 @@ int esp_semihosting_common(struct target *target)
 		return ERROR_OK;
 	}
 
-	int retval = ERROR_FAIL;
+	int retval = ERROR_NOT_IMPLEMENTED;
 	/* Enough space to hold 4 long words. */
 	uint8_t fields[4 * 8];
 

@@ -213,7 +213,7 @@ static int esp32c3_init_target(struct command_context *cmd_ctx,
 	if (ret != ERROR_OK)
 		return ret;
 
-	target->semihosting->user_command_handler = esp_semihosting_common;
+	target->semihosting->user_command_extension = esp_semihosting_common;
 
 	struct esp32c3_common *esp32c3 = esp32c3_common(target);
 
