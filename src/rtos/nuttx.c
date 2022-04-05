@@ -35,8 +35,10 @@
 static bool cortexm_hasfpu(struct target *target);
 static const struct rtos_register_stacking *cortexm_select_stackinfo(struct target *target);
 static const struct rtos_register_stacking *esp32_select_stackinfo(struct target *target);
+static const struct rtos_register_stacking *esp32s2_select_stackinfo(struct target *target);
 static int nuttx_getreg_current_thread(struct rtos *rtos, struct rtos_reg **reg_list, int *num_regs);
 static int nuttx_getregs_fromstack(struct rtos *rtos, int64_t thread_id, struct rtos_reg **reg_list, int *num_regs);
+
 static bool nuttx_detect_rtos(struct target *target);
 static int nuttx_create(struct target *target);
 static int nuttx_smp_init(struct target *target);
@@ -112,6 +114,10 @@ static const struct nuttx_params nuttx_params_list[] = {
 		.target_name = "esp32",
 		.select_stackinfo = esp32_select_stackinfo,
 	},
+	{
+		.target_name = "esp32s2",
+		.select_stackinfo = esp32s2_select_stackinfo,
+	},
 };
 
 struct rtos_type nuttx_rtos = {
@@ -150,6 +156,11 @@ static const struct rtos_register_stacking *cortexm_select_stackinfo(struct targ
 static const struct rtos_register_stacking *esp32_select_stackinfo(struct target *target)
 {
 	return &nuttx_esp32_stacking;
+}
+
+static const struct rtos_register_stacking *esp32s2_select_stackinfo(struct target *target)
+{
+	return &nuttx_esp32s2_stacking;
 }
 
 static bool nuttx_detect_rtos(struct target *target)
