@@ -448,57 +448,52 @@ static const struct stack_register_offset nuttx_stack_offsets_riscv[] = {
 };
 
 const struct rtos_register_stacking nuttx_stacking_cortex_m = {
-	0x48,				/* stack_registers_size */
-	-1,					/* stack_growth_direction */
-	17,					/* num_output_registers */
-	0,					/* stack_alignment */
-	nuttx_stack_offsets_cortex_m,		/* register_offsets */
-	NULL
+	.stack_registers_size = 0x48,
+	.stack_growth_direction = -1,
+	.num_output_registers = 17,
+	.register_offsets = nuttx_stack_offsets_cortex_m,
 };
 
 const struct rtos_register_stacking nuttx_stacking_cortex_m_fpu = {
-	0x8c,				/* stack_registers_size */
-	-1,					/* stack_growth_direction */
-	17,					/* num_output_registers */
-	0,					/* stack_alignment */
-	nuttx_stack_offsets_cortex_m_fpu,	/* register_offsets */
-	NULL
+	.stack_registers_size = 0x8c,
+	.stack_growth_direction = -1,
+	.num_output_registers = 17,
+	.register_offsets = nuttx_stack_offsets_cortex_m_fpu,
 };
 
 const struct rtos_register_stacking nuttx_esp32_stacking = {
-	26*4,					/* stack_registers_size */
-	-1,					/* stack_growth_direction */
-	ESP32_NUM_REGS_G_COMMAND,		/* num_output_registers */
-	rtos_generic_stack_align8,		/* stack_alignment */
-	nuttx_stack_offsets_esp32,		/* register_offsets */
-	nuttx_esp_xtensa_stack_read		/* Custom stack frame read function */
+	.stack_registers_size = 26 * 4,
+	.stack_growth_direction = -1,
+	.num_output_registers = ESP32_NUM_REGS_G_COMMAND,
+	.calculate_process_stack = rtos_generic_stack_align8,
+	.register_offsets = nuttx_stack_offsets_esp32,
+	.custom_stack_read_fn = nuttx_esp_xtensa_stack_read,
 };
 
 const struct rtos_register_stacking nuttx_esp32s2_stacking = {
-	25*4,					/* stack_registers_size */
-	-1,					/* stack_growth_direction */
-	ESP32_S2_NUM_REGS_G_COMMAND,		/* num_output_registers */
-	rtos_generic_stack_align8,		/* stack_alignment */
-	nuttx_stack_offsets_esp32s2,		/* register_offsets */
-	nuttx_esp_xtensa_stack_read		/* Custom stack frame read function */
+	.stack_registers_size = 25 * 4,
+	.stack_growth_direction = -1,
+	.num_output_registers = ESP32_S2_NUM_REGS_G_COMMAND,
+	.calculate_process_stack = rtos_generic_stack_align8,
+	.register_offsets = nuttx_stack_offsets_esp32s2,
+	.custom_stack_read_fn = nuttx_esp_xtensa_stack_read,
 };
 
 const struct rtos_register_stacking nuttx_esp32s3_stacking = {
-	26*4,					/* stack_registers_size */
-	-1,					/* stack_growth_direction */
-	ESP32_S3_NUM_REGS_G_COMMAND,		/* num_output_registers */
-	rtos_generic_stack_align8,		/* stack_alignment */
-	nuttx_stack_offsets_esp32s3,		/* register_offsets */
-	nuttx_esp_xtensa_stack_read		/* Custom stack frame read function */
+	.stack_registers_size = 26 * 4,
+	.stack_growth_direction = -1,
+	.num_output_registers = ESP32_S3_NUM_REGS_G_COMMAND,
+	.calculate_process_stack = rtos_generic_stack_align8,
+	.register_offsets = nuttx_stack_offsets_esp32s3,
+	.custom_stack_read_fn = nuttx_esp_xtensa_stack_read,
 };
 
 const struct rtos_register_stacking nuttx_riscv_stacking = {
-	33*4,					/* stack_registers_size */
-	-1,  					/* stack_growth_direction */
-	33,  					/* num_output_registers */
-	0,					/* stack_alignment */
-	nuttx_stack_offsets_riscv,		/* register_offsets */
-	NULL
+	.stack_registers_size = 33 * 4,
+	.stack_growth_direction = -1,
+	.num_output_registers = 33,
+	.calculate_process_stack = rtos_generic_stack_align8,
+	.register_offsets = nuttx_stack_offsets_riscv,
 };
 
 static int nuttx_esp_xtensa_stack_read(struct target *target,
