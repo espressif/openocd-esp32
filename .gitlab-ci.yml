@@ -52,15 +52,6 @@ variables:
   TOOLCHAIN_PREFIX: "xtensa-esp32"
   CHIP_NAME: "esp32"
 
-.add_gh_key_remote: &add_gh_key_remote |
-  command -v ssh-agent >/dev/null || exit 1
-  eval $(ssh-agent -s)
-  printf '%s\n' "${GH_PUSH_KEY}" | tr -d '\r' | ssh-add - > /dev/null
-  mkdir -p ~/.ssh && chmod 700 ~/.ssh
-  [[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config || ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
-  git remote remove github || true
-  git remote add github ${GH_PUSH_REPO}
-
 # prefix should be like a $CI_PROJECT_NAME, but we cannot use variable here
 .release_tag_filter: &release_tag_filter
   only:
@@ -111,19 +102,6 @@ osx_code_sign:
     - *do_osx_code_sign
     - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_macos-arm64)
     - *do_osx_code_sign
-
-push_master_to_github:
-  stage: deploy
-  image: $CI_DOCKER_REGISTRY/esp32-ci-env
-  only:
-    - master
-  when: on_success
-  dependencies: []
-  variables:
-    GIT_STRATEGY: clone
-  script:
-    - *add_gh_key_remote
-    - git push github HEAD:master
 
 release_tag_draft:
   stage: release_stage1
