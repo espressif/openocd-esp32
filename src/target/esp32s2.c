@@ -35,7 +35,7 @@
 /* Overall memory map
  * TODO: read memory configuration from target registers */
 #define ESP32_S2_IROM_MASK_LOW          0x40000000
-#define ESP32_S2_IROM_MASK_HIGH         0x4001a100
+#define ESP32_S2_IROM_MASK_HIGH         0x40020000
 #define ESP32_S2_IRAM_LOW               0x40020000
 #define ESP32_S2_IRAM_HIGH              0x40070000
 #define ESP32_S2_DRAM_LOW               0x3ffb0000
