@@ -248,6 +248,7 @@ enum freertos_symbol_values {
 	FREERTOS_VAL_PORT_INTERRUPT_NESTING = 11,
 	FREERTOS_VAL_UX_TASK_NUMBER = 12,
 	FREERTOS_VAL_ESP_OPENOCD_PARAMS = 13,
+	FREERTOS_VAL_PX_CURRENT_TCBs = 14,
 };
 
 struct symbols {
@@ -256,7 +257,7 @@ struct symbols {
 };
 
 static const struct symbols freertos_symbol_list[] = {
-	{ "pxCurrentTCB", false },
+	{ "pxCurrentTCB", true },	/* Only before ESP-IDF v5.0 */
 	{ "pxReadyTasksLists", false },
 	{ "xDelayedTaskList1", false },
 	{ "xDelayedTaskList2", false },
@@ -270,6 +271,7 @@ static const struct symbols freertos_symbol_list[] = {
 	{ "port_interruptNesting", true },
 	{ "uxTaskNumber", false },
 	{ "FreeRTOS_openocd_params", true},	/* Only if ESP_PLATFORM defined */
+	{ "pxCurrentTCBs", true },	/* Available since ESP-IDF v5.0 */
 	{ NULL, false }
 };
 
@@ -384,6 +386,13 @@ uint8_t freertos_get_ux_top_used_priority(struct rtos *rtos)
 		&ux_top_used_priority);
 
 	return retval == ERROR_OK ? ux_top_used_priority : 0;
+}
+
+symbol_address_t freertos_current_tcb_address(struct rtos *rtos)
+{
+	if (rtos->symbols[FREERTOS_VAL_PX_CURRENT_TCB].address)
+		return rtos->symbols[FREERTOS_VAL_PX_CURRENT_TCB].address;
+	return rtos->symbols[FREERTOS_VAL_PX_CURRENT_TCBs].address;
 }
 
 static int freertos_smp_init(struct target *target)
@@ -917,7 +926,7 @@ static int freertos_update_threads(struct rtos *rtos)
 
 	/* read the current threads */
 	retval = target_read_buffer(target,
-		rtos->symbols[FREERTOS_VAL_PX_CURRENT_TCB].address,
+		freertos_current_tcb_address(rtos),
 		rtos_data->params->pointer_width * rtos_data->nr_cpus,
 		rtos_data->curr_threads_handles_buff);
 
@@ -929,7 +938,7 @@ static int freertos_update_threads(struct rtos *rtos)
 	rtos->current_thread = freertos_smp_get_current_thread(rtos);
 
 	LOG_DEBUG("FreeRTOS: Read pxCurrentTCB at 0x%" PRIx64 ", value 0x%" PRIx64,
-		rtos->symbols[FREERTOS_VAL_PX_CURRENT_TCB].address,
+		freertos_current_tcb_address(rtos),
 		rtos->current_thread);
 
 	if (rtos->thread_count != 0 && uxTaskNumber == rtos_data->thread_counter) {
@@ -1271,7 +1280,7 @@ static int freertos_post_reset_cleanup(struct target *target)
 					continue;
 				ret = target_buffer_write_uint(
 					target,
-					target->rtos->symbols[FREERTOS_VAL_PX_CURRENT_TCB].address
+					freertos_current_tcb_address(target->rtos)
 					+
 					current_target->coreid*rtos_data->params->pointer_width,
 					rtos_data->params->pointer_width,
@@ -1284,7 +1293,7 @@ static int freertos_post_reset_cleanup(struct target *target)
 			}
 		} else {
 			ret = target_buffer_write_uint(target,
-				target->rtos->symbols[FREERTOS_VAL_PX_CURRENT_TCB].address,
+				freertos_current_tcb_address(target->rtos),
 				rtos_data->params->pointer_width,
 				0);
 			if (ret != ERROR_OK) {
