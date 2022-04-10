@@ -422,6 +422,9 @@ int esp_flash_erase(struct flash_bank *bank, unsigned first, unsigned last)
 		return ERROR_FAIL;
 	}
 
+	struct duration bench;
+	duration_start(&bench);
+
 	int ret = esp_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
 	if (ret != ERROR_OK)
 		return ret;
@@ -443,6 +446,11 @@ int esp_flash_erase(struct flash_bank *bank, unsigned first, unsigned last)
 	if (run.ret_code != ESP_STUB_ERR_OK) {
 		LOG_ERROR("Failed to erase flash (%" PRId64 ")!", run.ret_code);
 		ret = ERROR_FAIL;
+	} else {
+		duration_measure(&bench);
+		LOG_INFO("PROF: Erased %d bytes in %g ms",
+			(last-first+1)*esp_info->sec_sz,
+			duration_elapsed(&bench)*1000);
 	}
 	return ret;
 }
@@ -711,11 +719,11 @@ int esp_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 			return ERROR_FAIL;
 		}
 		duration_measure(&bench);
-		LOG_INFO("Compressed %" PRIu32 " bytes to %" PRIu32 " bytes "
-			"in %fs",
+		LOG_INFO("PROF: Compressed %" PRIu32 " bytes to %" PRIu32 " bytes "
+			"in %fms",
 			count,
 			compressed_len,
-			duration_elapsed(&bench));
+			duration_elapsed(&bench)*1000);
 
 		stack_size += ESP_STUB_IFLATOR_SIZE;
 	}
@@ -739,6 +747,9 @@ int esp_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	wr_state.stub_wargs.down_buf_addr = 0;
 	wr_state.stub_wargs.down_buf_size = 0;
 
+	struct duration wr_time;
+	duration_start(&wr_time);
+
 	ret = esp_info->run_func_image(bank->target,
 		&run,
 		2,
@@ -757,6 +768,11 @@ int esp_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	if (run.ret_code != ESP_STUB_ERR_OK) {
 		LOG_ERROR("Failed to write flash (%" PRId64 ")!", run.ret_code);
 		ret = ERROR_FAIL;
+	} else {
+		duration_measure(&wr_time);
+		LOG_INFO("PROF: Wrote %d bytes in %g ms (data transfer time included)",
+			wr_state.stub_wargs.total_size,
+			duration_elapsed(&wr_time)*1000);
 	}
 	return ret;
 }
@@ -1214,6 +1230,9 @@ static int esp_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 	run.mem_args.params = &mp;
 	run.mem_args.count = 1;
 
+	struct duration bench;
+	duration_start(&bench);
+
 	ret = esp_info->run_func_image(bank->target,
 		&run,
 		4 /*args num*/,
@@ -1229,8 +1248,12 @@ static int esp_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 	if (run.ret_code != ESP_STUB_ERR_OK) {
 		LOG_ERROR("Failed to get hash value (%" PRId64 ")!", run.ret_code);
 		ret = ERROR_FAIL;
-	} else
+	} else {
 		memcpy(hash, mp.value, 32);
+		duration_measure(&bench);
+		LOG_INFO("PROF: Flash verified in %g ms ",
+			duration_elapsed(&bench)*1000);
+	}
 	destroy_mem_param(&mp);
 	return ret;
 }
