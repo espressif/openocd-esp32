@@ -2116,7 +2116,7 @@ static int alloc_working_area_try_do(struct target *target, struct working_area_
 			  size, c->address);
 
 	if (wa_cfg->backup) {
-		if (c->backup == NULL) {
+		if (!c->backup) {
 			c->backup = malloc(c->size);
 			if (!c->backup)
 				return ERROR_FAIL;
@@ -2281,7 +2281,7 @@ static uint32_t get_working_area_avail_do(struct target *target, struct working_
 	struct working_area *c = wa_cfg->areas;
 	uint32_t max_size = 0;
 
-	if (c == NULL)
+	if (!c)
 		return wa_cfg->size;
 
 	while (c) {
