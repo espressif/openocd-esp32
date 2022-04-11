@@ -3172,7 +3172,7 @@ static int read_memory_progbuf_inner(struct target *target, target_addr_t addres
 		 * dm_data0 contains[read_addr-size*2]
 		 */
 
-		struct riscv_batch *batch = riscv_batch_alloc(target, 32,
+		struct riscv_batch *batch = riscv_batch_alloc(target, RISCV_BATCH_ALLOC_SIZE,
 				info->dmi_busy_delay + info->ac_busy_delay);
 		if (!batch)
 			return ERROR_FAIL;
@@ -3681,7 +3681,7 @@ static int write_memory_bus_v1(struct target *target, target_addr_t address,
 
 		struct riscv_batch *batch = riscv_batch_alloc(
 				target,
-				32,
+				RISCV_BATCH_ALLOC_SIZE,
 				info->dmi_busy_delay + info->bus_master_write_delay);
 		if (!batch)
 			return ERROR_FAIL;
@@ -3876,7 +3876,7 @@ static int write_memory_progbuf(struct target *target, target_addr_t address,
 
 		struct riscv_batch *batch = riscv_batch_alloc(
 				target,
-				32,
+				RISCV_BATCH_ALLOC_SIZE,
 				info->dmi_busy_delay + info->ac_busy_delay);
 		if (!batch)
 			goto error;
