@@ -371,20 +371,20 @@ int jtag_libusb_get_serial(struct libusb_device_handle *devh, const char **seria
 {
 	struct libusb_device *dev = libusb_get_device(devh);
 	struct libusb_device_descriptor dev_desc;
-	char desc_string[256+1]; /* Max size of string descriptor */
 
-	if (libusb_get_device_descriptor(dev, &dev_desc) == 0) {
+	if (serial && libusb_get_device_descriptor(dev, &dev_desc) == 0) {
 
 		if (dev_desc.iSerialNumber == 0)
 			return ERROR_FAIL;
 
+		char desc_string[256 + 1]; /* Max size of string descriptor */
 		int ret = libusb_get_string_descriptor_ascii(devh, dev_desc.iSerialNumber,
-				(unsigned char *)desc_string, sizeof(desc_string)-1);
+				(unsigned char *)desc_string, sizeof(desc_string) - 1);
 		if (ret < 0) {
 			LOG_ERROR("libusb_get_string_descriptor_ascii() failed with %d", ret);
 			return ERROR_FAIL;
 		}
-		desc_string[sizeof(desc_string)-1] = '\0';
+		desc_string[sizeof(desc_string) - 1] = '\0';
 		*serial = strdup(desc_string);
 		return *serial ? ERROR_OK : ERROR_FAIL;
 	}
@@ -413,18 +413,17 @@ libusb_device *jtag_libusb_find_device(const uint16_t vids[], const uint16_t pid
 			libusb_get_port_number(devices[idx]),
 			libusb_get_device_address(devices[idx]));
 
-		if (serial != NULL) {
+		if (serial) {
 			int ret = libusb_open(devices[idx], &libusb_handle);
 			if (ret) {
 				LOG_ERROR("libusb_open() failed with %s",
 					libusb_error_name(ret));
 				continue;
 			}
-			if (!string_descriptor_equal(libusb_handle, dev_desc.iSerialNumber, serial)) {
-				libusb_close(libusb_handle);
-				continue;
-			}
+			bool found = string_descriptor_equal(libusb_handle, dev_desc.iSerialNumber, serial);
 			libusb_close(libusb_handle);
+			if (!found)
+				continue;
 		}
 		found_dev = devices[idx];
 		libusb_ref_device(found_dev);
