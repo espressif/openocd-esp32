@@ -48,11 +48,92 @@
 #define ESP32C3_RTCWDT_PROTECT_OFF   0xa8
 #define ESP32C3_RTCWDT_CFG           (ESP32C3_RTCCNTL_BASE + ESP32C3_RTCWDT_CFG_OFF)
 #define ESP32C3_RTCWDT_PROTECT       (ESP32C3_RTCCNTL_BASE + ESP32C3_RTCWDT_PROTECT_OFF)
+#define ESP32C3_RTCCNTL_RESET_STATE_OFF         0x0038
+#define ESP32C3_RTCCNTL_RESET_STATE_REG  (ESP32C3_RTCCNTL_BASE + ESP32C3_RTCCNTL_RESET_STATE_OFF)
 
 #define ESP32C3_GPIO_STRAP_REG      0x60004038UL
 #define IS_1XXX(v)                  (((v)&0x08) == 0x08)
 #define ESP32C3_IS_FLASH_BOOT(_r_)  IS_1XXX(_r_)
 #define ESP32C3_FLASH_BOOT_MODE     0x08
+
+#define ESP32C3_RTCCNTL_RESET_CAUSE_MASK (BIT(6) - 1)
+#define ESP32C3_RESET_CAUSE(reg_val) (reg_val & ESP32C3_RTCCNTL_RESET_CAUSE_MASK)
+
+typedef enum {
+	RESET_REASON_CHIP_POWER_ON   = 0x01,	/* Power on reset */
+	RESET_REASON_CHIP_BROWN_OUT  = 0x01,	/* VDD voltage is not stable and resets the chip */
+	RESET_REASON_CHIP_SUPER_WDT  = 0x01,	/* Super watch dog resets the chip */
+	RESET_REASON_CORE_SW         = 0x03,	/* Software resets the digital core by
+						 *RTC_CNTL_SW_SYS_RST */
+	RESET_REASON_CORE_DEEP_SLEEP = 0x05,	/* Deep sleep reset the digital core */
+	RESET_REASON_CORE_MWDT0      = 0x07,	/* Main watch dog 0 resets digital core */
+	RESET_REASON_CORE_MWDT1      = 0x08,	/* Main watch dog 1 resets digital core */
+	RESET_REASON_CORE_RTC_WDT    = 0x09,	/* RTC watch dog resets digital core */
+	RESET_REASON_CPU0_MWDT0      = 0x0B,	/* Main watch dog 0 resets CPU 0 */
+	RESET_REASON_CPU0_SW         = 0x0C,	/* Software resets CPU 0 by RTC_CNTL_SW_PROCPU_RST
+						 **/
+	RESET_REASON_CPU0_RTC_WDT    = 0x0D,	/* RTC watch dog resets CPU 0 */
+	RESET_REASON_SYS_BROWN_OUT   = 0x0F,	/* VDD voltage is not stable and resets the digital
+						 *core */
+	RESET_REASON_SYS_RTC_WDT     = 0x10,	/* RTC watch dog resets digital core and rtc module
+						 **/
+	RESET_REASON_CPU0_MWDT1      = 0x11,	/* Main watch dog 1 resets CPU 0 */
+	RESET_REASON_SYS_SUPER_WDT   = 0x12,	/* Super watch dog resets the digital core and rtc
+						 *module */
+	RESET_REASON_SYS_CLK_GLITCH  = 0x13,	/* Glitch on clock resets the digital core and rtc
+						 *module */
+	RESET_REASON_CORE_EFUSE_CRC  = 0x14,	/* eFuse CRC error resets the digital core */
+	RESET_REASON_CORE_USB_UART   = 0x15,	/* USB UART resets the digital core */
+	RESET_REASON_CORE_USB_JTAG   = 0x16,	/* USB JTAG resets the digital core */
+	RESET_REASON_CORE_PWR_GLITCH = 0x17,	/* Glitch on power resets the digital core */
+} soc_reset_reason_t;
+
+const char *get_reset_reason(soc_reset_reason_t reset_number)
+{
+	switch (ESP32C3_RESET_CAUSE(reset_number)) {
+		case RESET_REASON_CHIP_POWER_ON:
+/*
+        case RESET_REASON_CHIP_BROWN_OUT:
+        case RESET_REASON_CHIP_SUPER_WDT:
+*/
+			return "Chip reset";
+		case RESET_REASON_CORE_SW:
+			return "Software system reset";
+		case RESET_REASON_CORE_DEEP_SLEEP:
+			return "Deep-sleep reset";
+		case RESET_REASON_CORE_MWDT0:
+			return "MWDT0 core reset";
+		case RESET_REASON_CORE_MWDT1:
+			return "MWDT1 Global Reset";
+		case RESET_REASON_CORE_RTC_WDT:
+			return "RWDT core reset";
+		case RESET_REASON_CPU0_MWDT0:
+			return "MWDT0 CPU Reset";
+		case RESET_REASON_CPU0_SW:
+			return "Software CPU Reset";
+		case RESET_REASON_CPU0_RTC_WDT:
+			return "RWDT CPU Reset";
+		case RESET_REASON_SYS_BROWN_OUT:
+			return "Brown-out system reset";
+		case RESET_REASON_SYS_RTC_WDT:
+			return "RWDT CPU Reset";
+		case RESET_REASON_CPU0_MWDT1:
+			return "MWDT1 CPU reset";
+		case RESET_REASON_SYS_SUPER_WDT:
+			return "Super Watchdog reset";
+		case RESET_REASON_SYS_CLK_GLITCH:
+			return "CLK GLITCH reset";
+		case RESET_REASON_CORE_EFUSE_CRC:
+			return "eFuse reset";
+		case RESET_REASON_CORE_USB_UART:
+			return "USB (UART) reset";
+		case RESET_REASON_CORE_USB_JTAG:
+			return "USB (JTAG) reset";
+		case RESET_REASON_CORE_PWR_GLITCH:
+			return "Power glitch";
+	}
+	return "Unknown reset cause";
+}
 
 extern struct target_type riscv_target;
 extern const struct command_registration riscv_command_handlers[];
@@ -258,6 +339,19 @@ static int esp32c3_poll(struct target *target)
 				LOG_WARNING("Failed to read ESP32C3_GPIO_STRAP_REG (%d)!", res);
 				strap_reg = ESP32C3_FLASH_BOOT_MODE;
 			}
+
+			uint32_t reset_buffer = 0;
+			res = target_read_u32(target,
+				ESP32C3_RTCCNTL_RESET_STATE_REG,
+				&reset_buffer);
+			if (res != ERROR_OK)
+				LOG_WARNING("Failed to read read reset cause register (%d)!", res);
+			else {
+				LOG_INFO("Reset cause (%ld) - (%s)",
+					(ESP32C3_RESET_CAUSE(reset_buffer)),
+					get_reset_reason((reset_buffer)));
+			}
+
 			if (ESP32C3_IS_FLASH_BOOT(strap_reg) &&
 				get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
 				LOG_DEBUG("Halt core");
