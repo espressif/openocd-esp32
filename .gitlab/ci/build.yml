@@ -133,6 +133,13 @@ build_linux_armhf:
     TEST_CFLAGS: ""
     GCOV_BUILD_OPTS: "--enable-build-gcov"
 
+build_linux_armel:
+  <<: *build_linux_arm_template
+  variables:
+    CONF_HOST: "arm-linux-gnueabi"
+    PLATFORM_NAME: "linux-armel"
+    TEST_CFLAGS: ""
+
 build_linux_arm64:
   <<: *build_linux_arm_template
   variables:
