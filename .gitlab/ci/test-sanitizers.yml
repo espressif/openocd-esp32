@@ -1,4 +1,4 @@
-.tests_sanitizers_template: &tests_sanitizers_template
+.tests_sanitizers_template:
   stage: sanitizer_tests
   image: $CI_DOCKER_REGISTRY/rpi-test-env
   artifacts:
@@ -14,6 +14,8 @@
       - schedules
     variables:
       - $SCHEDULE_TYPE == "build_sanitizer_test"
+  variables:
+    PLATFORM_NAME: "linux-armhf-test"
   script:
     - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
@@ -22,126 +24,118 @@
     - !reference [.run_tests_linux, script]
 
 tests_sanitizers_esp32_solo:
-  <<: *tests_sanitizers_template
+  extends: .tests_sanitizers_template
   tags:
     - arm
     - test_jtag_solo
   allow_failure: true
   needs:
     - job: build_test_app_esp32
-    - job: build_linux_armhf_test
+    - job: build_linux_armhf_sanitizer_test
   variables:
-    PLATFORM_NAME: "linux-armhf-test"
     ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
 
 tests_sanitizers_esp32_legacy_idf_rel:
-  <<: *tests_sanitizers_template
+  extends: .tests_sanitizers_template
   tags:
     - test_jtag_arm
   needs:
     - job: build_test_app_esp32_legacy_idf_rel
-    - job: build_linux_armhf_test
+    - job: build_linux_armhf_sanitizer_test
   variables:
-    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_sanitizers_esp32:
-  <<: *tests_sanitizers_template
+  extends: .tests_sanitizers_template
   tags:
     - test_jtag_arm
   allow_failure: true
   needs:
     - job: build_test_app_esp32
-    - job: build_linux_armhf_test
+    - job: build_linux_armhf_sanitizer_test
   variables:
-    PLATFORM_NAME: "linux-armhf-test"
     ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_sanitizers_esp32_premajor_idf_rel:
-  <<: *tests_sanitizers_template
+  extends: .tests_sanitizers_template
   tags:
     - test_jtag_arm
   needs:
     - job: build_test_app_esp32_premajor_idf_rel
-    - job: build_linux_armhf_test
+    - job: build_linux_armhf_sanitizer_test
   variables:
-    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_sanitizers_esp32s2:
-  <<: *tests_sanitizers_template
+  extends: .tests_sanitizers_template
   tags:
     - test_jtag_arm_esp32s2
   allow_failure: true
   needs:
     - job: build_test_app_esp32s2
-    - job: build_linux_armhf_test
+    - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
     ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
 
 tests_sanitizers_esp32s2_premajor_idf_rel:
-  <<: *tests_sanitizers_template
+  extends: .tests_sanitizers_template
   tags:
     - test_jtag_arm_esp32s2
   needs:
     - job: build_test_app_esp32s2_premajor_idf_rel
-    - job: build_linux_armhf_test
+    - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
-    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32s2_premajor_idf_rel"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32s2-devkitj -p test_*.*Single"
 
 tests_sanitizers_esp32s3:
-  <<: *tests_sanitizers_template
+  extends: .tests_sanitizers_template
   tags:
     - test_jtag_arm_esp32s3
   allow_failure: true
   needs:
     - job: build_test_app_esp32s3
-    - job: build_linux_armhf_test
+    - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32s3"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
     ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32s3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
 tests_sanitizers_esp32s3_premajor_idf_rel:
-  <<: *tests_sanitizers_template
+  extends: .tests_sanitizers_template
   tags:
     - test_jtag_arm_esp32s3
   needs:
     - job: build_test_app_esp32s3_premajor_idf_rel
-    - job: build_linux_armhf_test
+    - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32s3"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
-    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32s3_premajor_idf_rel"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
 tests_sanitizers_esp32c2:
-  <<: *tests_sanitizers_template
+  extends: .tests_sanitizers_template
   tags:
     - test_jtag_arm_esp32c2
   allow_failure: true
   needs:
     - job: build_test_app_esp32c2
-    - job: build_linux_armhf_test
+    - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32c2"
     TOOLCHAIN_PREFIX: "riscv32-esp"
@@ -151,33 +145,31 @@ tests_sanitizers_esp32c2:
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c2-ftdi -p test_*.*Single -e test_apptrace test_gcov"
 
 tests_sanitizers_esp32c3:
-  <<: *tests_sanitizers_template
+  extends: .tests_sanitizers_template
   tags:
     - test_jtag_arm_esp32c3
   allow_failure: true
   needs:
     - job: build_test_app_esp32c3
-    - job: build_linux_armhf_test
+    - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_MASTER_RISCV_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32c3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single"
 
 tests_sanitizers_esp32c3_premajor_idf_rel:
-  <<: *tests_sanitizers_template
+  extends: .tests_sanitizers_template
   tags:
     - test_jtag_arm_esp32c3
   needs:
     - job: build_test_app_esp32c3_premajor_idf_rel
-    - job: build_linux_armhf_test
+    - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32c3_premajor_idf_rel"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single -e test_apptrace test_gcov"
 

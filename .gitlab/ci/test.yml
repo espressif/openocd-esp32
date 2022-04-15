@@ -19,7 +19,7 @@
     - !reference [.export_toolchain, script]
     - !reference [.run_tests_linux, script]
   after_script:
-    # Below lines gets esp related file paths from tools/format-esp.sh 
+    # Below lines gets esp related file paths from tools/format-esp.sh
     # and change file extension as .gcno and .gcda
     - >
       input="tools/format-esp.sh";
@@ -28,7 +28,7 @@
       file_name="";
       command_arg="";
       splitter_line="# Stub flasher related files";
-      while IFS= read -r line ; do    
+      while IFS= read -r line ; do
         if [[ ${line:0:2} == "./" ]] ; then
           file_full_path=${line##*.sh };
           file_name=${file_full_path##*/} ;
