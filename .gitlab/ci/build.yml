@@ -21,7 +21,7 @@
   mv ${ARCHIVE_NAME} ${DIST_ART_DIR}
   echo "${ARCHIVE_NAME}" > ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME}
 
-.build_linux_arm_template: &build_linux_arm_template
+.build_linux_arm_template:
   stage: build
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross:3
   tags:
@@ -114,7 +114,18 @@ build_linux:
     - *dist_archive
 
 build_linux_armhf_test:
-  <<: *build_linux_arm_template
+  extends: .build_linux_arm_template
+  except:
+    refs:
+      - schedules
+  variables:
+    CONF_HOST: "arm-linux-gnueabihf"
+    PLATFORM_NAME: "linux-armhf-test"
+    TEST_CFLAGS: ""
+    GCOV_BUILD_OPTS: "--enable-build-gcov"
+
+build_linux_armhf_sanitizer_test:
+  extends: .build_linux_arm_template
   only:
     refs:
       - schedules
@@ -126,22 +137,21 @@ build_linux_armhf_test:
     TEST_CFLAGS: "-Wl,--no-as-needed -ldl -fsanitize=address -fsanitize=undefined -fsanitize-recover=address -ggdb3"
 
 build_linux_armhf:
-  <<: *build_linux_arm_template
+  extends: .build_linux_arm_template
   variables:
     CONF_HOST: "arm-linux-gnueabihf"
     PLATFORM_NAME: "linux-armhf"
     TEST_CFLAGS: ""
-    GCOV_BUILD_OPTS: "--enable-build-gcov"
 
 build_linux_armel:
-  <<: *build_linux_arm_template
+  extends: .build_linux_arm_template
   variables:
     CONF_HOST: "arm-linux-gnueabi"
     PLATFORM_NAME: "linux-armel"
     TEST_CFLAGS: ""
 
 build_linux_arm64:
-  <<: *build_linux_arm_template
+  extends: .build_linux_arm_template
   variables:
     CONF_HOST: "aarch64-linux-gnu"
     PLATFORM_NAME: "linux-arm64"
