@@ -153,10 +153,12 @@ extern struct adapter_driver stlink_dap_adapter_driver;
 #if BUILD_RSHIM == 1
 extern struct adapter_driver rshim_dap_adapter_driver;
 #endif
-
+#if BUILD_AM335XGPIO == 1
+extern struct adapter_driver am335xgpio_adapter_driver;
+#endif
 #if BUILD_ESP_REMOTE
 extern struct adapter_driver esp_remote_adapter_driver;
-#endif //BUILD_ESP_REMOTE
+#endif
 
 /**
  * The list of built-in JTAG interfaces, containing entries for those
@@ -274,8 +276,11 @@ struct adapter_driver *adapter_drivers[] = {
 #if BUILD_RSHIM == 1
 		&rshim_dap_adapter_driver,
 #endif
+#if BUILD_AM335XGPIO == 1
+		&am335xgpio_adapter_driver,
+#endif
 #if BUILD_ESP_REMOTE
 		&esp_remote_adapter_driver,
-#endif /* standard drivers */
+#endif
 		NULL,
 	};

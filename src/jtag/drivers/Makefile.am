@@ -188,6 +188,9 @@ endif
 if XDS110
 DRIVERFILES += %D%/xds110.c
 endif
+if AM335XGPIO
+DRIVERFILES += %D%/am335xgpio.c
+endif
 if BUILD_ESP_REMOTE
 DRIVERFILES += %D%/jtag_esp_remote.c
 endif
