@@ -13,13 +13,11 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef _ESP_H
-#define _ESP_H
+#ifndef OPENOCD_TARGET_ESP_H
+#define OPENOCD_TARGET_ESP_H
 
 #include <stdint.h>
 #include "flash/nor/esp_flash.h"
@@ -134,4 +132,4 @@ int esp_common_handle_gdb_detach(struct target *target, struct esp_common *esp_c
 
 int esp_dbgstubs_table_read(struct target *target, struct esp_dbg_stubs *dbg_stubs);
 
-#endif	/* _ESP_H */
+#endif	/* OPENOCD_TARGET_ESP_H */

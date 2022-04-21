@@ -9,7 +9,7 @@ extern esp_rom_spiflash_chip_t g_rom_spiflash_chip;
 
 static inline bool is_issi_chip(const esp_rom_spiflash_chip_t *chip)
 {
-	return (((chip->device_id >> 16)&0xff) == 0x9D);
+	return (((chip->device_id >> 16) & 0xff) == 0x9D);
 }
 
 esp_rom_spiflash_result_t esp_rom_spiflash_wait_idle(esp_rom_spiflash_chip_t *spi)

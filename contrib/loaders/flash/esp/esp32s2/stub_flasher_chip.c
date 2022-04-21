@@ -111,7 +111,7 @@ void stub_flash_cache_flush(void)
 {
 	/* we do not know breakpoint program address here, so pass wrong addr to invalidate the
 	 * whole ICache */
-	Cache_Invalidate_ICache_Items(0, 4*1024*1024);
+	Cache_Invalidate_ICache_Items(0, 4 * 1024 * 1024);
 }
 
 void stub_cache_init(void)
@@ -184,46 +184,46 @@ int stub_rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t *out_config)
 	uint32_t freq_mhz;
 	uint32_t soc_clk_sel = REG_GET_FIELD(DPORT_SYSCLK_CONF_REG, DPORT_SOC_CLK_SEL);
 	switch (soc_clk_sel) {
-		case DPORT_SOC_CLK_SEL_XTAL: {
-			source = RTC_CPU_FREQ_SRC_XTAL;
-			div = REG_GET_FIELD(DPORT_SYSCLK_CONF_REG, DPORT_PRE_DIV_CNT) + 1;
-			source_freq_mhz = (uint32_t)stub_rtc_clk_xtal_freq_get();
-			freq_mhz = source_freq_mhz / div;
+	case DPORT_SOC_CLK_SEL_XTAL: {
+		source = RTC_CPU_FREQ_SRC_XTAL;
+		div = REG_GET_FIELD(DPORT_SYSCLK_CONF_REG, DPORT_PRE_DIV_CNT) + 1;
+		source_freq_mhz = (uint32_t)stub_rtc_clk_xtal_freq_get();
+		freq_mhz = source_freq_mhz / div;
+	}
+	break;
+	case DPORT_SOC_CLK_SEL_PLL: {
+		source = RTC_CPU_FREQ_SRC_PLL;
+		uint32_t cpuperiod_sel = DPORT_REG_GET_FIELD(DPORT_CPU_PER_CONF_REG,
+				DPORT_CPUPERIOD_SEL);
+		uint32_t pllfreq_sel = DPORT_REG_GET_FIELD(DPORT_CPU_PER_CONF_REG,
+				DPORT_PLL_FREQ_SEL);
+		source_freq_mhz = (pllfreq_sel) ? RTC_PLL_FREQ_480M : RTC_PLL_FREQ_320M;
+		if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_80) {
+			div = (source_freq_mhz == RTC_PLL_FREQ_480M) ? 6 : 4;
+			freq_mhz = 80;
+		} else if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_160) {
+			div = (source_freq_mhz == RTC_PLL_FREQ_480M) ? 3 : 2;
+			div = 3;
+			freq_mhz = 160;
+		} else if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_240) {
+			div = 2;
+			freq_mhz = 240;
+		} else {
+			/* unsupported frequency configuration */
+			return -1;
 		}
 		break;
-		case DPORT_SOC_CLK_SEL_PLL: {
-			source = RTC_CPU_FREQ_SRC_PLL;
-			uint32_t cpuperiod_sel = DPORT_REG_GET_FIELD(DPORT_CPU_PER_CONF_REG,
-				DPORT_CPUPERIOD_SEL);
-			uint32_t pllfreq_sel = DPORT_REG_GET_FIELD(DPORT_CPU_PER_CONF_REG,
-				DPORT_PLL_FREQ_SEL);
-			source_freq_mhz = (pllfreq_sel) ? RTC_PLL_FREQ_480M : RTC_PLL_FREQ_320M;
-			if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_80) {
-				div = (source_freq_mhz == RTC_PLL_FREQ_480M) ? 6 : 4;
-				freq_mhz = 80;
-			} else if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_160) {
-				div = (source_freq_mhz == RTC_PLL_FREQ_480M) ? 3 : 2;
-				div = 3;
-				freq_mhz = 160;
-			} else if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_240) {
-				div = 2;
-				freq_mhz = 240;
-			} else {
-				/* unsupported frequency configuration */
-				return -1;
-			}
-			break;
-		}
-		case DPORT_SOC_CLK_SEL_8M:
-			source = RTC_CPU_FREQ_SRC_8M;
-			source_freq_mhz = 8;
-			div = 1;
-			freq_mhz = source_freq_mhz;
-			break;
-		case DPORT_SOC_CLK_SEL_APLL:
-		default:
-			/* unsupported frequency configuration */
-			return -2;
+	}
+	case DPORT_SOC_CLK_SEL_8M:
+		source = RTC_CPU_FREQ_SRC_8M;
+		source_freq_mhz = 8;
+		div = 1;
+		freq_mhz = source_freq_mhz;
+		break;
+	case DPORT_SOC_CLK_SEL_APLL:
+	default:
+		/* unsupported frequency configuration */
+		return -2;
 	}
 	*out_config = (rtc_cpu_freq_config_t) {
 		.source = source,
@@ -399,8 +399,9 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 					mode = ESP_FLASH_ENC_MODE_RELEASE;
 			}
 
-		} else
+		} else {
 			mode = ESP_FLASH_ENC_MODE_DISABLED;
+		}
 
 		first = false;
 	}

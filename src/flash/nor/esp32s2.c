@@ -66,14 +66,7 @@ static bool esp32s2_is_drom_address(target_addr_t addr)
 
 static const struct esp_flasher_stub_config *esp32s2_get_stub(struct flash_bank *bank)
 {
-	struct esp32s2_common *esp32 = target_to_esp32s2(bank->target);
-
-	if (esp32->chip_rev == ESP32_S2_REV_BETA) {
-		LOG_WARNING("esp32s2-beta support is removed. Using esp32s2 stub instead");
-		return &s_esp32s2_stub_cfg;
-	} else if (esp32->chip_rev == ESP32_S2_REV_0)
-		return &s_esp32s2_stub_cfg;
-	return NULL;
+	return &s_esp32s2_stub_cfg;
 }
 
 /* flash bank <bank_name> esp32 <base> <size> 0 0 <target#>

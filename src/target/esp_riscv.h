@@ -13,13 +13,11 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef _ESP_RISCV_H
-#define _ESP_RISCV_H
+#ifndef OPENOCD_TARGET_ESP_RISCV_H
+#define OPENOCD_TARGET_ESP_RISCV_H
 
 #include "target.h"
 #include "riscv/riscv.h"
@@ -115,7 +113,7 @@ int esp_riscv_add_watchpoint(struct target *target, struct watchpoint *watchpoin
 int esp_riscv_remove_watchpoint(struct target *target,
 	struct watchpoint *watchpoint);
 int esp_riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint);
-unsigned esp_riscv_address_bits(struct target *target);
+unsigned int esp_riscv_address_bits(struct target *target);
 bool esp_riscv_core_is_halted(struct target *target);
 int esp_riscv_core_halt(struct target *target);
 int esp_riscv_core_resume(struct target *target);
@@ -123,4 +121,4 @@ int esp_riscv_core_ebreaks_enable(struct target *target);
 
 extern const struct command_registration esp_riscv_command_handlers[];
 
-#endif	/* _ESP_RISCV_H */
+#endif	/* OPENOCD_TARGET_ESP_RISCV_H */

@@ -34,7 +34,7 @@
 #define XT_INS_BREAK    0x004000
 #define XT_INS_BREAKN   0xF02D
 
-#define CPUTICKS2US(_t_)      ((_t_)/(stub_esp_clk_cpu_freq()/1000000))
+#define CPUTICKS2US(_t_)      ((_t_) / (stub_esp_clk_cpu_freq() / 1000000))
 
 inline int stub_apptrace_prepare(void)
 {

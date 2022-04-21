@@ -13,10 +13,12 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -80,109 +82,111 @@ int esp_riscv_semihosting(struct target *target)
 		esp_riscv->semi_ops->prepare(target);
 
 	switch (semihosting->op) {
-		case ESP_SEMIHOSTING_SYS_APPTRACE_INIT:
-			res = esp_riscv_apptrace_info_init(target, semihosting->param, NULL);
-			if (res != ERROR_OK)
-				return res;
-			break;
-		case ESP_SEMIHOSTING_SYS_DEBUG_STUBS_INIT:
-			res = esp_riscv_debug_stubs_info_init(target, semihosting->param);
-			if (res != ERROR_OK)
-				return res;
-			break;
-		case ESP_SEMIHOSTING_SYS_BREAKPOINT_SET:
-		{
-			/* Enough space to hold 3 long words for both riscv32 and riscv64 archs. */
-			uint8_t fields[ESP_RISCV_SET_BREAKPOINT_ARG_MAX*sizeof(uint64_t)];
-			res = semihosting_read_fields(target,
+	case ESP_SEMIHOSTING_SYS_APPTRACE_INIT:
+		res = esp_riscv_apptrace_info_init(target, semihosting->param, NULL);
+		if (res != ERROR_OK)
+			return res;
+		break;
+	case ESP_SEMIHOSTING_SYS_DEBUG_STUBS_INIT:
+		res = esp_riscv_debug_stubs_info_init(target, semihosting->param);
+		if (res != ERROR_OK)
+			return res;
+		break;
+	case ESP_SEMIHOSTING_SYS_BREAKPOINT_SET:
+	{
+		/* Enough space to hold 3 long words for both riscv32 and riscv64 archs. */
+		uint8_t fields[ESP_RISCV_SET_BREAKPOINT_ARG_MAX * sizeof(uint64_t)];
+		res = semihosting_read_fields(target,
 				ESP_RISCV_SET_BREAKPOINT_ARG_MAX,
 				fields);
-			if (res != ERROR_OK)
-				return res;
-			int id = semihosting_get_field(target,
+		if (res != ERROR_OK)
+			return res;
+		int id = semihosting_get_field(target,
 				ESP_RISCV_SET_BREAKPOINT_ARG_ID,
 				fields);
-			if (id >= ESP_RISCV_TARGET_BP_NUM) {
-				LOG_ERROR("Unsupported breakpoint ID (%d)!", id);
-				return ERROR_FAIL;
-			}
-			int set = semihosting_get_field(target,
+		if (id >= ESP_RISCV_TARGET_BP_NUM) {
+			LOG_ERROR("Unsupported breakpoint ID (%d)!", id);
+			return ERROR_FAIL;
+		}
+		int set = semihosting_get_field(target,
 				ESP_RISCV_SET_WATCHPOINT_ARG_SET,
 				fields);
-			if (set) {
-				esp_riscv->target_bp_addr[id] = semihosting_get_field(target,
+		if (set) {
+			esp_riscv->target_bp_addr[id] = semihosting_get_field(target,
 					ESP_RISCV_SET_BREAKPOINT_ARG_ADDR,
 					fields);
-				res = breakpoint_add(target,
+			res = breakpoint_add(target,
 					esp_riscv->target_bp_addr[id],
 					2,
 					BKPT_HARD);
-				if (res != ERROR_OK)
-					return res;
-			} else
-				breakpoint_remove(target, esp_riscv->target_bp_addr[id]);
-			break;
-		}
-		case ESP_SEMIHOSTING_SYS_WATCHPOINT_SET:
-		{
-			/* Enough space to hold 5 long words for both riscv32 and riscv64 archs. */
-			uint8_t fields[ESP_RISCV_SET_WATCHPOINT_ARG_MAX*sizeof(uint64_t)];
-			res = semihosting_read_fields(target,
-				ESP_RISCV_SET_WATCHPOINT_ARG_MAX,
-				fields);
 			if (res != ERROR_OK)
 				return res;
-			int id = semihosting_get_field(target,
+		} else {
+			breakpoint_remove(target, esp_riscv->target_bp_addr[id]);
+		}
+		break;
+	}
+	case ESP_SEMIHOSTING_SYS_WATCHPOINT_SET:
+	{
+		/* Enough space to hold 5 long words for both riscv32 and riscv64 archs. */
+		uint8_t fields[ESP_RISCV_SET_WATCHPOINT_ARG_MAX * sizeof(uint64_t)];
+		res = semihosting_read_fields(target,
+				ESP_RISCV_SET_WATCHPOINT_ARG_MAX,
+				fields);
+		if (res != ERROR_OK)
+			return res;
+		int id = semihosting_get_field(target,
 				ESP_RISCV_SET_WATCHPOINT_ARG_ID,
 				fields);
-			if (id >= ESP_RISCV_TARGET_WP_NUM) {
-				LOG_ERROR("Unsupported watchpoint ID (%d)!", id);
-				return ERROR_FAIL;
-			}
-			int set = semihosting_get_field(target,
+		if (id >= ESP_RISCV_TARGET_WP_NUM) {
+			LOG_ERROR("Unsupported watchpoint ID (%d)!", id);
+			return ERROR_FAIL;
+		}
+		int set = semihosting_get_field(target,
 				ESP_RISCV_SET_WATCHPOINT_ARG_SET,
 				fields);
-			if (set) {
-				esp_riscv->target_wp_addr[id] = semihosting_get_field(target,
+		if (set) {
+			esp_riscv->target_wp_addr[id] = semihosting_get_field(target,
 					ESP_RISCV_SET_WATCHPOINT_ARG_ADDR,
 					fields);
-				int size = semihosting_get_field(target,
+			int size = semihosting_get_field(target,
 					ESP_RISCV_SET_WATCHPOINT_ARG_SIZE,
 					fields);
-				int flags = semihosting_get_field(target,
+			int flags = semihosting_get_field(target,
 					ESP_RISCV_SET_WATCHPOINT_ARG_FLAGS,
 					fields);
-				enum watchpoint_rw wp_type;
-				switch (flags &
+			enum watchpoint_rw wp_type;
+			switch (flags &
 					(ESP_SEMIHOSTING_WP_FLG_RD | ESP_SEMIHOSTING_WP_FLG_WR)) {
-					case ESP_SEMIHOSTING_WP_FLG_RD:
-						wp_type = WPT_READ;
-						break;
-					case ESP_SEMIHOSTING_WP_FLG_WR:
-						wp_type = WPT_WRITE;
-						break;
-					case ESP_SEMIHOSTING_WP_FLG_RD | ESP_SEMIHOSTING_WP_FLG_WR:
-						wp_type = WPT_ACCESS;
-						break;
-					default:
-						LOG_ERROR("Unsupported watchpoint type (0x%x)!",
+			case ESP_SEMIHOSTING_WP_FLG_RD:
+				wp_type = WPT_READ;
+				break;
+			case ESP_SEMIHOSTING_WP_FLG_WR:
+				wp_type = WPT_WRITE;
+				break;
+			case ESP_SEMIHOSTING_WP_FLG_RD | ESP_SEMIHOSTING_WP_FLG_WR:
+				wp_type = WPT_ACCESS;
+				break;
+			default:
+				LOG_ERROR("Unsupported watchpoint type (0x%x)!",
 						flags);
-						return ERROR_FAIL;
-				}
-				res = watchpoint_add(target,
+				return ERROR_FAIL;
+			}
+			res = watchpoint_add(target,
 					esp_riscv->target_wp_addr[id],
 					size,
 					wp_type,
 					0,
 					0);
-				if (res != ERROR_OK)
-					return res;
-			} else
-				watchpoint_remove(target, esp_riscv->target_wp_addr[id]);
-			break;
+			if (res != ERROR_OK)
+				return res;
+		} else {
+			watchpoint_remove(target, esp_riscv->target_wp_addr[id]);
 		}
-		default:
-			return ERROR_FAIL;
+		break;
+	}
+	default:
+		return ERROR_FAIL;
 	}
 
 	semihosting->result = res == ERROR_OK ? 0 : -1;
@@ -231,8 +235,9 @@ int esp_riscv_breakpoint_add(struct target *target, struct breakpoint *breakpoin
 
 	int res = riscv_add_breakpoint(target, breakpoint);
 	if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && breakpoint->type == BKPT_HARD) {
-		/* For SMP target return OK if SW flash breakpoint is already set using another core;
-		        GDB causes call to esp_flash_breakpoint_add() for every core, since it treats flash breakpoints as HW ones */
+		/* For SMP target return OK if SW flash breakpoint is already set using another
+		 *core; GDB causes call to esp_flash_breakpoint_add() for every core, since it
+		 *treats flash breakpoints as HW ones */
 		if (target->smp) {
 			struct target_list *curr;
 			foreach_smp_target(curr, target->smp_targets) {
@@ -255,8 +260,9 @@ int esp_riscv_breakpoint_remove(struct target *target, struct breakpoint *breakp
 	if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && breakpoint->type == BKPT_HARD) {
 		res = esp_common_flash_breakpoint_remove(target, &esp_riscv->esp, breakpoint);
 		if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && target->smp) {
-			/* For SMP target return OK always, because SW flash breakpoint are set only using one core,
-			but GDB causes call to esp_flash_breakpoint_remove() for every core, since it treats flash breakpoints as HW ones */
+			/* For SMP target return OK always, because SW flash breakpoint are set only
+			 *using one core, but GDB causes call to esp_flash_breakpoint_remove() for
+			 *every core, since it treats flash breakpoints as HW ones */
 			return ERROR_OK;
 		}
 	}
@@ -275,16 +281,16 @@ int esp_riscv_handle_target_event(struct target *target, enum target_event event
 	LOG_DEBUG("%d", event);
 
 	switch (event) {
-		case TARGET_EVENT_GDB_DETACH:
-		{
-			struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
-			ret = esp_common_handle_gdb_detach(target, &esp_riscv->esp);
-			if (ret != ERROR_OK)
-				return ret;
-			break;
-		}
-		default:
-			break;
+	case TARGET_EVENT_GDB_DETACH:
+	{
+		struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+		ret = esp_common_handle_gdb_detach(target, &esp_riscv->esp);
+		if (ret != ERROR_OK)
+			return ret;
+		break;
+	}
+	default:
+		break;
 	}
 	return ERROR_OK;
 }
@@ -304,7 +310,7 @@ int esp_riscv_start_algorithm(struct target *target,
 	}
 
 	/* Save registers */
-	for (uint32_t number = GDB_REGNO_ZERO+1;
+	for (uint32_t number = GDB_REGNO_ZERO + 1;
 		number <= max_saved_reg && number < target->reg_cache->num_regs; number++) {
 		struct reg *r = &target->reg_cache->reg_list[number];
 
@@ -413,7 +419,7 @@ int esp_riscv_wait_algorithm(struct target *target,
 				GDB_REGNO_PC,
 				GDB_REGNO_MSTATUS, GDB_REGNO_MEPC, GDB_REGNO_MCAUSE,
 			};
-			for (unsigned i = 0; i < ARRAY_SIZE(regnums); i++) {
+			for (unsigned int i = 0; i < ARRAY_SIZE(regnums); i++) {
 				enum gdb_regno regno = regnums[i];
 				riscv_reg_t reg_value;
 				if (riscv_get_register(target, &reg_value, regno) != ERROR_OK)
@@ -470,7 +476,7 @@ int esp_riscv_wait_algorithm(struct target *target,
 	}
 
 	/* Restore registers */
-	for (uint32_t number = GDB_REGNO_ZERO+1;
+	for (uint32_t number = GDB_REGNO_ZERO + 1;
 		number <= max_saved_reg && number < target->reg_cache->num_regs; number++) {
 		struct reg *r = &target->reg_cache->reg_list[number];
 
@@ -501,12 +507,13 @@ int esp_riscv_run_algorithm(struct target *target, int num_mem_params,
 		entry_point, exit_point,
 		arch_info);
 
-	if (retval == ERROR_OK)
+	if (retval == ERROR_OK) {
 		retval = esp_riscv_wait_algorithm(target,
 			num_mem_params, mem_params,
 			num_reg_params, reg_params,
 			exit_point, timeout_ms,
 			arch_info);
+	}
 
 	return retval;
 }
@@ -514,8 +521,8 @@ int esp_riscv_run_algorithm(struct target *target, int num_mem_params,
 int esp_riscv_read_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
-	/* TODO: find out the widest system bus access size. For now we are assuming it is
-	        equal to xlen */
+	/* TODO: find out the widest system bus access size. For now we are assuming it is equal to
+	 *xlen */
 	uint32_t sba_access_size = target_data_bits(target) / 8;
 
 	if (size < sba_access_size) {
@@ -541,8 +548,8 @@ int esp_riscv_read_memory(struct target *target, target_addr_t address,
 int esp_riscv_write_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, const uint8_t *buffer)
 {
-	/* TODO: find out the widest system bus access size. For now we are assuming it is
-	        equal to xlen */
+	/* TODO: find out the widest system bus access size. For now we are assuming it is equal to
+	 *xlen */
 	uint32_t sba_access_size = target_data_bits(target) / 8;
 
 	if (target->state == TARGET_RUNNING || target->state == TARGET_DEBUG_RUNNING) {
@@ -659,7 +666,7 @@ int esp_riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watc
 	return riscv_target.hit_watchpoint(target, hit_watchpoint);
 }
 
-unsigned esp_riscv_address_bits(struct target *target)
+unsigned int esp_riscv_address_bits(struct target *target)
 {
 	return riscv_target.address_bits(target);
 }

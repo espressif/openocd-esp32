@@ -15,7 +15,8 @@
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#pragma once
+#ifndef OPENOCD_TARGET_ESP_XTENSA_SEMIHOSTING_H
+#define OPENOCD_TARGET_ESP_XTENSA_SEMIHOSTING_H
 
 #include <unistd.h>
 #include "target.h"
@@ -28,3 +29,5 @@
 
 int esp_xtensa_semihosting_init(struct target *target);
 int esp_xtensa_semihosting(struct target *target, int *retval);
+
+#endif	/* OPENOCD_TARGET_ESP_XTENSA_SEMIHOSTING_H */

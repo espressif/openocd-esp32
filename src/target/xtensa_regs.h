@@ -15,12 +15,12 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
+#ifndef OPENOCD_TARGET_XTENSA_REGS_H
+#define OPENOCD_TARGET_XTENSA_REGS_H
 
-#include <target/register.h>
+struct reg_arch_type;
 
 enum xtensa_reg_id {
 	XT_REG_IDX_PC = 0,
@@ -242,38 +242,37 @@ enum xtensa_reg_id {
 
 typedef uint32_t xtensa_reg_val_t;
 
-enum xtensa_reg_type_t {
-	XT_REG_GENERAL = 0,		/* General-purpose register; part of the windowed register
-					 * set */
+enum xtensa_reg_type {
+	XT_REG_GENERAL = 0,		/* General-purpose register; part of the windowed register set */
 	XT_REG_USER = 1,		/* User register, needs RUR to read */
 	XT_REG_SPECIAL = 2,		/* Special register, needs RSR to read */
-	XT_REG_DEBUG = 3,		/* Register used for the debug interface. Don't mess with
-					 * this. */
-	XT_REG_RELGEN = 4,		/* Relative general address. Points to the absolute
-					 * addresses plus the window index */
+	XT_REG_DEBUG = 3,		/* Register used for the debug interface. Don't mess with this. */
+	XT_REG_RELGEN = 4,		/* Relative general address. Points to the absolute addresses plus the window
+					 *index */
 	XT_REG_FR = 5,			/* Floating-point register */
 };
 
-enum xtensa_reg_flags_t {
+enum xtensa_reg_flags {
 	XT_REGF_NOREAD = 0x01,	/* Register is write-only */
 	XT_REGF_COPROC0 = 0x02	/* Can't be read if coproc0 isn't enabled */
 };
 
 struct xtensa_reg_desc {
 	const char *name;
-	int reg_num;					/* ISA register num (meaning depends on
-							 * register type) */
-	enum xtensa_reg_type_t type;
-	enum xtensa_reg_flags_t flags;
+	unsigned int reg_num;			/* ISA register num (meaning depends on register type) */
+	enum xtensa_reg_type type;
+	enum xtensa_reg_flags flags;
 };
 
 struct xtensa_user_reg_desc {
 	const char *name;
 	/* ISA register num (meaning depends on register type) */
-	int reg_num;
-	enum xtensa_reg_flags_t flags;
+	unsigned int reg_num;
+	enum xtensa_reg_flags flags;
 	uint32_t size;
 	const struct reg_arch_type *type;
 };
 
 extern const struct xtensa_reg_desc xtensa_regs[XT_NUM_REGS];
+
+#endif	/* OPENOCD_TARGET_XTENSA_REGS_H */

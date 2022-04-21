@@ -31,7 +31,7 @@
 
 #define STUB_DEBUG    0
 
-#define STUB_BP_INSN_SECT_BUF_SIZE        (2*STUB_FLASH_SECTOR_SIZE)
+#define STUB_BP_INSN_SECT_BUF_SIZE        (2 * STUB_FLASH_SECTOR_SIZE)
 #define MHZ (1000000)
 
 
@@ -104,7 +104,7 @@ BaseType_t xPortEnterCriticalTimeout(portMUX_TYPE *mux, BaseType_t timeout)
 static int stub_flash_test(void)
 {
 	int ret = ESP_STUB_ERR_OK;
-	uint8_t buf[32] = {9, 1, 2, 3, 4, 5, 6, 8};
+	uint8_t buf[32] = { 9, 1, 2, 3, 4, 5, 6, 8 };
 	uint32_t flash_addr = 0x1d4000;
 
 	esp_rom_spiflash_result_t rc = esp_rom_spiflash_erase_sector(
@@ -678,16 +678,16 @@ static uint32_t stub_flash_get_size(void)
 
 	uint32_t id = stub_flash_get_id();
 	switch (id) {
-		case 0x12: size = 256 * 1024; break;
-		case 0x13: size = 512 * 1024; break;
-		case 0x14: size = 1 * 1024 * 1024; break;
-		case 0x15: size = 2 * 1024 * 1024; break;
-		case 0x16: size = 4 * 1024 * 1024; break;
-		case 0x17: size = 8 * 1024 * 1024; break;
-		case 0x18: size = 16 * 1024 * 1024; break;
-		case 0x39: size = 32 * 1024 * 1024; break;
-		default:
-			size = 0;
+	case 0x12: size = 256 * 1024; break;
+	case 0x13: size = 512 * 1024; break;
+	case 0x14: size = 1 * 1024 * 1024; break;
+	case 0x15: size = 2 * 1024 * 1024; break;
+	case 0x16: size = 4 * 1024 * 1024; break;
+	case 0x17: size = 8 * 1024 * 1024; break;
+	case 0x18: size = 16 * 1024 * 1024; break;
+	case 0x39: size = 32 * 1024 * 1024; break;
+	default:
+		size = 0;
 	}
 	STUB_LOGD("Flash ID %x, size %d KB\n", id, size / 1024);
 	return size;
@@ -742,8 +742,9 @@ static int stub_flash_get_app_mappings(uint32_t off, struct esp_flash_mapping *f
 				flash_map->maps[maps_num].load_addr = seg_hdr.load_addr;
 				flash_map->maps[maps_num].size = seg_hdr.data_len;
 				maps_num++;
-			} else
+			} else {
 				break;
+			}
 		}
 		flash_addr += sizeof(seg_hdr) + seg_hdr.data_len;
 	}
@@ -765,7 +766,7 @@ static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr)
 
 	for (uint32_t i = 0;; i++) {
 		rc = stub_flash_read_buff(
-			ESP_PARTITION_TABLE_OFFSET+i*sizeof(esp_partition_info_t),
+			ESP_PARTITION_TABLE_OFFSET + i * sizeof(esp_partition_info_t),
 			(uint32_t *)&part,
 			sizeof(part));
 		if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
@@ -993,46 +994,46 @@ static int stub_flash_handler(int cmd, va_list ap)
 	}
 
 	switch (cmd) {
-		case ESP_STUB_CMD_FLASH_READ:
-			ret = stub_flash_read(arg1, arg2);
-			break;
-		case ESP_STUB_CMD_FLASH_ERASE:
-			ret = stub_flash_erase(arg1, arg2);
-			break;
-		case ESP_STUB_CMD_FLASH_ERASE_CHECK:
-			ret = stub_flash_erase_check(arg1, arg2, arg3);
-			break;
-		case ESP_STUB_CMD_FLASH_WRITE:
-			ret = stub_flash_write((void *)arg1);
-			break;
-		case ESP_STUB_CMD_FLASH_WRITE_DEFLATED:
-			ret = stub_flash_write_deflated((void *)arg1);
-			break;
-		case ESP_STUB_CMD_FLASH_CALC_HASH:
-			ret = stub_flash_calc_hash(arg1, arg2, arg3);
-			break;
-		case ESP_STUB_CMD_FLASH_MAP_GET:
-			ret = stub_flash_get_map(arg1, arg2);
-			break;
-		case ESP_STUB_CMD_FLASH_BP_SET:
-			ret = stub_flash_set_bp(arg1, arg2, arg3);
-			break;
-		case ESP_STUB_CMD_FLASH_BP_CLEAR:
-			ret = stub_flash_clear_bp(arg1, arg2, arg3);
-			break;
-		case ESP_STUB_CMD_CLOCK_CONFIGURE:
-			ret = stub_cpu_clock_configure(arg1);
+	case ESP_STUB_CMD_FLASH_READ:
+		ret = stub_flash_read(arg1, arg2);
+		break;
+	case ESP_STUB_CMD_FLASH_ERASE:
+		ret = stub_flash_erase(arg1, arg2);
+		break;
+	case ESP_STUB_CMD_FLASH_ERASE_CHECK:
+		ret = stub_flash_erase_check(arg1, arg2, arg3);
+		break;
+	case ESP_STUB_CMD_FLASH_WRITE:
+		ret = stub_flash_write((void *)arg1);
+		break;
+	case ESP_STUB_CMD_FLASH_WRITE_DEFLATED:
+		ret = stub_flash_write_deflated((void *)arg1);
+		break;
+	case ESP_STUB_CMD_FLASH_CALC_HASH:
+		ret = stub_flash_calc_hash(arg1, arg2, arg3);
+		break;
+	case ESP_STUB_CMD_FLASH_MAP_GET:
+		ret = stub_flash_get_map(arg1, arg2);
+		break;
+	case ESP_STUB_CMD_FLASH_BP_SET:
+		ret = stub_flash_set_bp(arg1, arg2, arg3);
+		break;
+	case ESP_STUB_CMD_FLASH_BP_CLEAR:
+		ret = stub_flash_clear_bp(arg1, arg2, arg3);
+		break;
+	case ESP_STUB_CMD_CLOCK_CONFIGURE:
+		ret = stub_cpu_clock_configure(arg1);
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
-			stub_uart_console_configure();
+		stub_uart_console_configure();
 #endif
-			break;
+		break;
 #if STUB_DEBUG
-		case ESP_STUB_CMD_FLASH_TEST:
-			ret = stub_flash_test();
-			break;
+	case ESP_STUB_CMD_FLASH_TEST:
+		ret = stub_flash_test();
+		break;
 #endif
-		default:
-			ret = ESP_STUB_ERR_NOT_SUPPORTED;
+	default:
+		ret = ESP_STUB_ERR_NOT_SUPPORTED;
 	}
 
 _flash_end:
@@ -1079,25 +1080,26 @@ int stub_main(int cmd, ...)
 	/* We need Debug Interrupt Level to allow breakpoints handling by OpenOCD */
 	stub_cpu_clock_configure(-1);
 	stub_uart_console_configure();
-	STUB_LOGD("cpu_freq:%d Mhz\n", stub_esp_clk_cpu_freq()/MHZ);
+	STUB_LOGD("cpu_freq:%d Mhz\n", stub_esp_clk_cpu_freq() / MHZ);
 	stub_print_cache_mmu_registers();
 	STUB_LOGD("DATA 0x%x..0x%x\n", &_data_start, &_data_end);
 	STUB_LOGD("BSS 0x%x..0x%x\n", &_bss_start, &_bss_end);
 	STUB_LOGD("cmd %d\n", cmd);
 
 	va_start(ap, cmd);
-	if (cmd <= ESP_STUB_CMD_FLASH_MAX_ID)
+	if (cmd <= ESP_STUB_CMD_FLASH_MAX_ID) {
 		ret = stub_flash_handler(cmd, ap);
-	else
+	} else {
 		switch (cmd) {
 #if STUB_DEBUG
-			case ESP_STUB_CMD_TEST:
-				STUB_LOGD("TEST %d\n", cmd);
-				break;
+		case ESP_STUB_CMD_TEST:
+			STUB_LOGD("TEST %d\n", cmd);
+			break;
 #endif
-			default:
-				ret = ESP_STUB_ERR_NOT_SUPPORTED;
+		default:
+			ret = ESP_STUB_ERR_NOT_SUPPORTED;
 		}
+	}
 	va_end(ap);
 
 	STUB_LOGD("exit %d\n", ret);

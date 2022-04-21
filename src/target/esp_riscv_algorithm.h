@@ -13,13 +13,11 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef ESP_RISCV_ALGO_H
-#define ESP_RISCV_ALGO_H
+#ifndef OPENOCD_TARGET_ESP_RISCV_ALGO_H
+#define OPENOCD_TARGET_ESP_RISCV_ALGO_H
 
 #include "target/esp_algorithm.h"
 #include "riscv/riscv.h"
@@ -40,4 +38,4 @@ struct esp_riscv_algorithm {
 
 extern const struct algorithm_hw riscv_algo_hw;
 
-#endif	/* RISCV_ALGO_H */
+#endif	/* OPENOCD_TARGET_ESP_RISCV_ALGO_H */

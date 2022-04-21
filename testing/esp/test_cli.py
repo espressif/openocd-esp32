@@ -52,12 +52,22 @@ class MacTestsImpl:
         """
         m5, m4, m3, m2, m1, m0 = self.get_mac_manually()
 
-        mac_hex = self.oocd.cmd_exec("esp_get_mac").strip('\n')
+        mac_hex = ""
+        mac_formatted = ""
+        mac_list = self.oocd.cmd_exec("esp_get_mac").splitlines()
+        for mac_str in mac_list:
+            if mac_str.find("xtensa permissive mode") == -1:
+                mac_hex = mac_str
+                break
         mac_hex_expected = "0x0000%s%s%s%s%s%s" % (m5, m4, m3, m2, m1, m0)
         get_logger().debug("Read using 'esp_get_mac': '%s'" % mac_hex)
         get_logger().debug("Expected using 'esp_get_mac': '%s'" % mac_hex_expected)
 
-        mac_formatted = self.oocd.cmd_exec("esp_get_mac format").strip('\n')
+        mac_list = self.oocd.cmd_exec("esp_get_mac format").splitlines()
+        for mac_str in mac_list:
+            if mac_str.find("xtensa permissive mode") == -1:
+                mac_formatted = mac_str
+                break
         mac_formatted_expected = "%s:%s:%s:%s:%s:%s" % (m5, m4, m3, m2, m1, m0)
         get_logger().debug("Read using 'esp_get_mac format': '%s'" % mac_formatted)
         get_logger().debug("Expected using 'esp_get_mac format': '%s'" % mac_formatted_expected)

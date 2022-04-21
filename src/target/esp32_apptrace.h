@@ -14,13 +14,11 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef ESP32_APPTRACE_H
-#define ESP32_APPTRACE_H
+#ifndef OPENOCD_TARGET_ESP32_APPTRACE_H
+#define OPENOCD_TARGET_ESP32_APPTRACE_H
 
 #include <pthread.h>
 #include <helper/command.h>
@@ -145,4 +143,4 @@ uint8_t *esp_apptrace_usr_block_get(uint8_t *buffer, uint32_t *size);
 
 extern const struct command_registration esp32_apptrace_command_handlers[];
 
-#endif	/* ESP32_APPTRACE_H */
+#endif	/* OPENOCD_TARGET_ESP32_APPTRACE_H */

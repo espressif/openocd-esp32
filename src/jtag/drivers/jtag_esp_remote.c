@@ -87,7 +87,7 @@ struct esp_remote_cmd {
 	const size_t var ## _len = (sizeof(struct esp_remote_cmd) + data_len + 3) / 4; \
 	uint32_t var ## _storage[var ## _len]; \
 	memset(var ## _storage, 0, var ## _len); \
-	struct esp_remote_cmd *var = (struct esp_remote_cmd *) var ## _storage;	\
+	struct esp_remote_cmd *var = (struct esp_remote_cmd *)var ## _storage; \
 	var->ver = ESP_REMOTE_CMD_VER_1; \
 	var->function = func
 
@@ -184,7 +184,7 @@ static int jtag_esp_remote_receive_cmd_usb(struct esp_remote_cmd *cmd)
 				if (internal_buffer_occupied > 0) {
 					const size_t t =
 						MIN(data_len - i, internal_buffer_occupied);
-					memcpy(((char *) cmd->data) + i, internal_buffer, t);
+					memcpy(((char *)cmd->data) + i, internal_buffer, t);
 					memmove(internal_buffer,
 						internal_buffer + t,
 						internal_buffer_occupied - t);
@@ -194,7 +194,7 @@ static int jtag_esp_remote_receive_cmd_usb(struct esp_remote_cmd *cmd)
 					if (i >= data_len)
 						break;
 				}
-				assert (internal_buffer_occupied == 0);
+				assert(internal_buffer_occupied == 0);
 				int tr, ret = jtag_libusb_bulk_read(usb_device,
 					USB_IN_EP,
 					internal_buffer,
@@ -299,7 +299,7 @@ static int jtag_esp_remote_state_move(tap_state_t state)
 	uint8_t tms_scan = tap_get_tms_path(cur_state, state);
 	int tms_len = tap_get_tms_path_len(cur_state, state);
 
-	assert(((unsigned) tms_len) <= sizeof(tms_scan) * 8);
+	assert(((unsigned)tms_len) <= sizeof(tms_scan) * 8);
 
 	int retval = jtag_esp_remote_tms_seq(&tms_scan, tms_len);
 	if (retval != ERROR_OK)
@@ -328,8 +328,9 @@ static int jtag_esp_remote_queue_tdi_xfer(uint8_t *bits, int nb_bits, int tap_sh
 	if (need_read) {
 		cmd->scan.read = 1;
 		s_read_bits_queued += nb_bits;
-	} else
+	} else {
 		cmd->scan.read = 0;
+	}
 
 	if (bits)
 		memcpy(cmd->data, bits, nb_bytes);
@@ -359,7 +360,7 @@ static int jtag_esp_remote_get_tdi_xfer_result(uint8_t *bits, int nb_bits)
 	if (bits)
 		memcpy(bits, cmd->data, nb_bytes);
 
-	assert (s_read_bits_queued >= nb_bits);
+	assert(s_read_bits_queued >= nb_bits);
 	s_read_bits_queued -= nb_bits;
 
 	return ERROR_OK;
@@ -376,7 +377,7 @@ static int jtag_esp_remote_queue_tdi(uint8_t *bits, int nb_bits, int tap_shift, 
 	int retval;
 
 	while (nb_xfer) {
-		if (nb_xfer ==  1) {
+		if (nb_xfer == 1) {
 			retval =
 				jtag_esp_remote_queue_tdi_xfer(bits, nb_bits, tap_shift, need_read);
 			if (retval != ERROR_OK)
@@ -541,38 +542,38 @@ static int jtag_esp_remote_execute_queue(void)
 	for (cmd = jtag_command_queue; retval == ERROR_OK && cmd != NULL;
 		cmd = cmd->next) {
 		switch (cmd->type) {
-			case JTAG_RESET:
-				retval = jtag_esp_remote_reset(cmd->cmd.reset->trst,
+		case JTAG_RESET:
+			retval = jtag_esp_remote_reset(cmd->cmd.reset->trst,
 				cmd->cmd.reset->srst);
-				break;
-			case JTAG_RUNTEST:
-				retval = jtag_esp_remote_runtest(cmd->cmd.runtest->num_cycles,
+			break;
+		case JTAG_RUNTEST:
+			retval = jtag_esp_remote_runtest(cmd->cmd.runtest->num_cycles,
 				cmd->cmd.runtest->end_state);
-				break;
-			case JTAG_STABLECLOCKS:
-				retval = jtag_esp_remote_stableclocks(
+			break;
+		case JTAG_STABLECLOCKS:
+			retval = jtag_esp_remote_stableclocks(
 				cmd->cmd.stableclocks->num_cycles);
-				break;
-			case JTAG_TLR_RESET:
-				retval = jtag_esp_remote_state_move(cmd->cmd.statemove->end_state);
-				break;
-			case JTAG_PATHMOVE:
-				retval = jtag_esp_remote_path_move(cmd->cmd.pathmove);
-				break;
-			case JTAG_TMS:
-				retval = jtag_esp_remote_tms(cmd->cmd.tms);
-				break;
-			case JTAG_SLEEP:
-				jtag_sleep(cmd->cmd.sleep->us);
-				break;
-			case JTAG_SCAN:
-				retval = jtag_esp_remote_scan(cmd->cmd.scan, &cmd_read_size);
-				read_size += cmd_read_size;
-				break;
-			default:
-				LOG_ERROR("Unknown JTAG command type 0x%X", cmd->type);
-				retval = ERROR_FAIL;
-				break;
+			break;
+		case JTAG_TLR_RESET:
+			retval = jtag_esp_remote_state_move(cmd->cmd.statemove->end_state);
+			break;
+		case JTAG_PATHMOVE:
+			retval = jtag_esp_remote_path_move(cmd->cmd.pathmove);
+			break;
+		case JTAG_TMS:
+			retval = jtag_esp_remote_tms(cmd->cmd.tms);
+			break;
+		case JTAG_SLEEP:
+			jtag_sleep(cmd->cmd.sleep->us);
+			break;
+		case JTAG_SCAN:
+			retval = jtag_esp_remote_scan(cmd->cmd.scan, &cmd_read_size);
+			read_size += cmd_read_size;
+			break;
+		default:
+			LOG_ERROR("Unknown JTAG command type 0x%X", cmd->type);
+			retval = ERROR_FAIL;
+			break;
 		}
 	}
 
@@ -629,9 +630,9 @@ static int jtag_esp_remote_init_tcp(void)
 
 static int jtag_esp_remote_init_usb(void)
 {
-	const uint16_t vids[]= {usb_vid, 0};	/* must be null terminated */
-	const uint16_t pids[]= {usb_pid, 0};	/* must be null terminated */
-	int r= jtag_libusb_open(vids, pids, &usb_device, NULL);
+	const uint16_t vids[] = { usb_vid, 0 };		/* must be null terminated */
+	const uint16_t pids[] = { usb_pid, 0 };		/* must be null terminated */
+	int r = jtag_libusb_open(vids, pids, &usb_device, NULL);
 	if (r != ERROR_OK) {
 		if (r == ERROR_FAIL)
 			return ERROR_JTAG_INVALID_INTERFACE;	/*we likely can't find the USB
@@ -650,12 +651,13 @@ static int jtag_esp_remote_init_usb(void)
 static int jtag_esp_remote_init(void)
 {
 	if (esp_remote_protocol == ESP_REMOTE_USB) {
-		int r= jtag_esp_remote_init_usb();
+		int r = jtag_esp_remote_init_usb();
 		/*Note: if we succeed, usb_device is also non-NULL. */
 		if (r != ERROR_JTAG_INVALID_INTERFACE)
 			return r;
-	} else if (esp_remote_protocol == ESP_REMOTE_TCP)
+	} else if (esp_remote_protocol == ESP_REMOTE_TCP) {
 		return jtag_esp_remote_init_tcp();
+	}
 	return ERROR_FAIL;
 }
 

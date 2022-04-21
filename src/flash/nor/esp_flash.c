@@ -237,7 +237,7 @@ static int esp_flasher_algorithm_init(struct algorithm_run_data *algo,
 		return ret;
 	}
 	LOG_DEBUG("base=%08x set=%d",
-		(unsigned) algo->image.image.base_address,
+		(unsigned int)algo->image.image.base_address,
 		algo->image.image.base_address_set);
 	return ret;
 }
@@ -267,7 +267,7 @@ int esp_flash_init(struct esp_flash_bank *esp_info, uint32_t sec_sz,
 	return ERROR_OK;
 }
 
-int esp_flash_protect(struct flash_bank *bank, int set, unsigned first, unsigned last)
+int esp_flash_protect(struct flash_bank *bank, int set, unsigned int first, unsigned int last)
 {
 	return ERROR_FAIL;
 }
@@ -301,7 +301,7 @@ int esp_flash_blank_check(struct flash_bank *bank)
 		&run,
 		4,
 		ESP_STUB_CMD_FLASH_ERASE_CHECK /*cmd*/,
-		esp_info->hw_flash_base/esp_info->sec_sz /*start*/,
+		esp_info->hw_flash_base / esp_info->sec_sz /*start*/,
 		bank->num_sectors /*sectors num*/,
 		0 /*address to store sectors' state*/);
 	if (ret != ERROR_OK) {
@@ -313,7 +313,7 @@ int esp_flash_blank_check(struct flash_bank *bank)
 		LOG_ERROR("Failed to check erase flash (%" PRId64 ")!", run.ret_code);
 		ret = ERROR_FAIL;
 	} else {
-		for (unsigned i = 0; i < bank->num_sectors; i++)
+		for (unsigned int i = 0; i < bank->num_sectors; i++)
 			bank->sectors[i].is_erased = mp.value[i];
 	}
 	destroy_mem_param(&mp);
@@ -391,22 +391,22 @@ static int esp_flash_get_mappings(struct flash_bank *bank,
 				flash_map->maps_num,
 				ESP_FLASH_MAPS_MAX);
 			ret = ERROR_FAIL;
-		} else if (flash_map->maps_num == 0)
+		} else if (flash_map->maps_num == 0) {
 			LOG_WARNING("Empty flash mapping!");
-		else {
+		} else {
 			for (uint32_t i = 0; i < flash_map->maps_num; i++)
 				LOG_INFO("Flash mapping %d: 0x%x -> 0x%x, %d KB",
 					i,
 					flash_map->maps[i].phy_addr,
 					flash_map->maps[i].load_addr,
-					flash_map->maps[i].size/1024);
+					flash_map->maps[i].size / 1024);
 		}
 	}
 	destroy_mem_param(&mp);
 	return ret;
 }
 
-int esp_flash_erase(struct flash_bank *bank, unsigned first, unsigned last)
+int esp_flash_erase(struct flash_bank *bank, unsigned int first, unsigned int last)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	struct algorithm_run_data run;
@@ -416,7 +416,7 @@ int esp_flash_erase(struct flash_bank *bank, unsigned first, unsigned last)
 		return ERROR_TARGET_NOT_HALTED;
 	}
 	assert((first <= last) && (last < bank->num_sectors));
-	if (esp_info->hw_flash_base + first*esp_info->sec_sz <
+	if (esp_info->hw_flash_base + first * esp_info->sec_sz <
 		esp_info->flash_min_offset) {
 		LOG_ERROR("Invalid offset!");
 		return ERROR_FAIL;
@@ -436,9 +436,9 @@ int esp_flash_erase(struct flash_bank *bank, unsigned first, unsigned last)
 		3,
 		ESP_STUB_CMD_FLASH_ERASE,
 		/* cmd */
-		esp_info->hw_flash_base + first*esp_info->sec_sz,
+		esp_info->hw_flash_base + first * esp_info->sec_sz,
 		/* start addr */
-		(last-first+1)*esp_info->sec_sz);		/* size */
+		(last - first + 1) * esp_info->sec_sz);			/* size */
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
 		return ret;
@@ -449,8 +449,8 @@ int esp_flash_erase(struct flash_bank *bank, unsigned first, unsigned last)
 	} else {
 		duration_measure(&bench);
 		LOG_INFO("PROF: Erased %d bytes in %g ms",
-			(last-first+1)*esp_info->sec_sz,
-			duration_elapsed(&bench)*1000);
+			(last - first + 1) * esp_info->sec_sz,
+			duration_elapsed(&bench) * 1000);
 	}
 	return ret;
 }
@@ -489,7 +489,7 @@ static int esp_flash_rw_do(struct target *target, void *priv)
 					LOG_ERROR("Failed to stop algo run measurement!");
 					return ERROR_FAIL;
 				}
-				if (1000*duration_elapsed(&tmo_time) > ESP_FLASH_RW_TMO) {
+				if (1000 * duration_elapsed(&tmo_time) > ESP_FLASH_RW_TMO) {
 					LOG_ERROR("Transfer data tmo!");
 					return ERROR_WAIT;
 				}
@@ -497,8 +497,9 @@ static int esp_flash_rw_do(struct target *target, void *priv)
 		} else if (retval != ERROR_OK) {
 			LOG_ERROR("Failed to transfer flash data block (%d)!", retval);
 			return retval;
-		} else
+		} else {
 			busy_num = 0;
+		}
 		if (rw->total_count < rw->count && target->state != TARGET_DEBUG_RUNNING) {
 			LOG_ERROR(
 				"Algorithm accidentally stopped (%d)! Transferred %" PRIu32 " of %"
@@ -516,7 +517,7 @@ static int esp_flash_rw_do(struct target *target, void *priv)
 		return ERROR_FAIL;
 	}
 	LOG_INFO("PROF: Data transferred in %g ms @ %g KB/s",
-		duration_elapsed(&algo_time)*1000,
+		duration_elapsed(&algo_time) * 1000,
 		duration_kbps(&algo_time, rw->total_count));
 
 	return ERROR_OK;
@@ -599,7 +600,7 @@ static int esp_flash_write_state_init(struct target *target,
 		LOG_ERROR("Failed to start workarea alloc time measurement!");
 		return ERROR_FAIL;
 	}
-	uint32_t buffer_size = 64*1024;
+	uint32_t buffer_size = 64 * 1024;
 	while (target_alloc_alt_working_area_try(target, buffer_size,
 			&state->target_buf) != ERROR_OK) {
 		buffer_size /= 2;
@@ -614,7 +615,7 @@ static int esp_flash_write_state_init(struct target *target,
 	}
 	LOG_DEBUG("PROF: Allocated target buffer %d bytes in %g ms",
 		buffer_size,
-		duration_elapsed(&algo_time)*1000);
+		duration_elapsed(&algo_time) * 1000);
 
 	state->stub_wargs.down_buf_addr = state->target_buf->address;
 	state->stub_wargs.down_buf_size = state->target_buf->size;
@@ -646,7 +647,7 @@ static void esp_flash_write_state_cleanup(struct target *target,
 	target_free_alt_working_area(target, state->stub_wargs_area);
 	if (duration_measure(&algo_time) != 0)
 		LOG_ERROR("Failed to stop data write measurement!");
-	LOG_DEBUG("PROF: Workarea freed in %g ms", duration_elapsed(&algo_time)*1000);
+	LOG_DEBUG("PROF: Workarea freed in %g ms", duration_elapsed(&algo_time) * 1000);
 }
 
 int esp_flash_apptrace_info_init(struct target *target, struct esp_flash_bank *esp_info,
@@ -723,7 +724,7 @@ int esp_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 			"in %fms",
 			count,
 			compressed_len,
-			duration_elapsed(&bench)*1000);
+			duration_elapsed(&bench) * 1000);
 
 		stack_size += ESP_STUB_IFLATOR_SIZE;
 	}
@@ -772,7 +773,7 @@ int esp_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 		duration_measure(&wr_time);
 		LOG_INFO("PROF: Wrote %d bytes in %g ms (data transfer time included)",
 			wr_state.stub_wargs.total_size,
-			duration_elapsed(&wr_time)*1000);
+			duration_elapsed(&wr_time) * 1000);
 	}
 	return ret;
 }
@@ -926,7 +927,7 @@ int esp_flash_read(struct flash_bank *bank, uint8_t *buffer,
 int esp_flash_probe(struct flash_bank *bank)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
-	struct esp_flash_mapping flash_map = {.maps_num = 0};
+	struct esp_flash_mapping flash_map = { .maps_num = 0 };
 	uint32_t irom_base = 0, irom_sz = 0, drom_base = 0, drom_sz = 0, irom_flash_base = 0,
 		drom_flash_base = 0;
 
@@ -938,7 +939,7 @@ int esp_flash_probe(struct flash_bank *bank)
 	}
 
 	LOG_DEBUG("Flash size = %d KB @ "TARGET_ADDR_FMT " '%s' - '%s'",
-		bank->size/1024,
+		bank->size / 1024,
 		bank->base,
 		target_name(bank->target),
 		target_state_name(bank->target));
@@ -961,21 +962,21 @@ int esp_flash_probe(struct flash_bank *bank)
 		for (uint32_t i = 0; i < flash_map.maps_num; i++) {
 			if (esp_info->is_irom_address(flash_map.maps[i].load_addr)) {
 				irom_flash_base = flash_map.maps[i].phy_addr &
-					~(esp_info->sec_sz-1);
+					~(esp_info->sec_sz - 1);
 				irom_base = flash_map.maps[i].load_addr &
-					~(esp_info->sec_sz-1);
+					~(esp_info->sec_sz - 1);
 				irom_sz = flash_map.maps[i].size;
-				if (irom_sz & (esp_info->sec_sz-1))
-					irom_sz = (irom_sz & ~(esp_info->sec_sz-1)) +
+				if (irom_sz & (esp_info->sec_sz - 1))
+					irom_sz = (irom_sz & ~(esp_info->sec_sz - 1)) +
 						esp_info->sec_sz;
 			} else if (esp_info->is_drom_address(flash_map.maps[i].load_addr)) {
 				drom_flash_base = flash_map.maps[i].phy_addr &
-					~(esp_info->sec_sz-1);
+					~(esp_info->sec_sz - 1);
 				drom_base = flash_map.maps[i].load_addr &
-					~(esp_info->sec_sz-1);
+					~(esp_info->sec_sz - 1);
 				drom_sz = flash_map.maps[i].size;
-				if (drom_sz & (esp_info->sec_sz-1))
-					drom_sz = (drom_sz & ~(esp_info->sec_sz-1)) +
+				if (drom_sz & (esp_info->sec_sz - 1))
+					drom_sz = (drom_sz & ~(esp_info->sec_sz - 1)) +
 						esp_info->sec_sz;
 			}
 		}
@@ -993,12 +994,12 @@ int esp_flash_probe(struct flash_bank *bank)
 		esp_info->hw_flash_base = 0;
 		bank->size = esp_flash_get_size(bank);
 		if (bank->size == 0) {
-			LOG_ERROR("Failed to probe flash, size %d KB", bank->size/1024);
+			LOG_ERROR("Failed to probe flash, size %d KB", bank->size / 1024);
 			return ERROR_FAIL;
 		}
-		LOG_INFO("Auto-detected flash bank '%s' size %d KB", bank->name, bank->size/1024);
+		LOG_INFO("Auto-detected flash bank '%s' size %d KB", bank->name, bank->size / 1024);
 	}
-	LOG_INFO("Using flash bank '%s' size %d KB", bank->name, bank->size/1024);
+	LOG_INFO("Using flash bank '%s' size %d KB", bank->name, bank->size / 1024);
 
 	if (bank->size) {
 		/* Bank size can be 0 for IRON/DROM emulated banks when there is no app in flash */
@@ -1008,8 +1009,8 @@ int esp_flash_probe(struct flash_bank *bank)
 			LOG_ERROR("Failed to alloc mem for sectors!");
 			return ERROR_FAIL;
 		}
-		for (unsigned i = 0; i < bank->num_sectors; i++) {
-			bank->sectors[i].offset = i*esp_info->sec_sz;
+		for (unsigned int i = 0; i < bank->num_sectors; i++) {
+			bank->sectors[i].offset = i * esp_info->sec_sz;
 			bank->sectors[i].size = esp_info->sec_sz;
 			bank->sectors[i].is_erased = -1;
 			bank->sectors[i].is_protected = 0;
@@ -1037,7 +1038,7 @@ static int esp_flash_bp_op_state_init(struct target *target,
 	 * instruction */
 	LOG_DEBUG("SEC_SIZE %d", state->esp_info->sec_sz);
 	int ret = target_alloc_alt_working_area(target,
-		2*(state->esp_info->sec_sz),
+		2 * (state->esp_info->sec_sz),
 		&state->target_buf);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to alloc target buffer for insn sectors!");
@@ -1252,7 +1253,7 @@ static int esp_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 		memcpy(hash, mp.value, 32);
 		duration_measure(&bench);
 		LOG_INFO("PROF: Flash verified in %g ms ",
-			duration_elapsed(&bench)*1000);
+			duration_elapsed(&bench) * 1000);
 	}
 	destroy_mem_param(&mp);
 	return ret;
@@ -1309,13 +1310,13 @@ static int esp_target_to_flash_bank(struct target *target,
 	if (probe) {
 		retval = get_flash_bank_by_name(bank_name, bank);
 		if (retval != ERROR_OK || bank == NULL) {
-			LOG_ERROR("Failed to find bank '%s'!",  bank_name);
+			LOG_ERROR("Failed to find bank '%s'!", bank_name);
 			return retval;
 		}
 	} else {/* noprobe */
 		*bank = get_flash_bank_by_name_noprobe(bank_name);
 		if (*bank == NULL) {
-			LOG_ERROR("Failed to find bank '%s'!",  bank_name);
+			LOG_ERROR("Failed to find bank '%s'!", bank_name);
 			return ERROR_FAIL;
 		}
 	}

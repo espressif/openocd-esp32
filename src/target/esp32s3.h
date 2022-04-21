@@ -13,13 +13,11 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef XTENSA_ESP32_S3_H
-#define XTENSA_ESP32_S3_H
+#ifndef OPENOCD_TARGET_ESP32S3_H
+#define OPENOCD_TARGET_ESP32S3_H
 
 #include "esp_xtensa_smp.h"
 
@@ -73,4 +71,4 @@ static inline struct esp32s3_common *target_to_esp32s3(struct target *target)
 	return container_of(target->arch_info, struct esp32s3_common, esp_xtensa_smp);
 }
 
-#endif	/* XTENSA_ESP32_S3_H */
+#endif	/* OPENOCD_TARGET_ESP32S3_H */

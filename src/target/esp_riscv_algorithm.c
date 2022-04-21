@@ -13,10 +13,12 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "target/target.h"
 #include "riscv/riscv.h"
@@ -69,11 +71,11 @@ static int esp_riscv_algo_init(struct target *target, struct algorithm_run_data 
 	va_list ap)
 {
 	int xlen = riscv_xlen(target);
-	char *arg_regs[] = {"a0", "a1", "a2", "a3", "a4", "a5", "a6"};
+	char *arg_regs[] = { "a0", "a1", "a2", "a3", "a4", "a5", "a6" };
 
-	if (num_args > sizeof(arg_regs)/sizeof(arg_regs[0])) {
-		LOG_ERROR("Too many algo user args %u! Max %u args are supported.",
-			num_args, (unsigned int)(sizeof(arg_regs)/sizeof(arg_regs[0])));
+	if (num_args > ARRAY_SIZE(arg_regs)) {
+		LOG_ERROR("Too many algo user args %u! Max %zu args are supported.",
+			num_args, ARRAY_SIZE(arg_regs));
 		return ERROR_FAIL;
 	}
 
@@ -84,7 +86,7 @@ static int esp_riscv_algo_init(struct target *target, struct algorithm_run_data 
 
 	esp_riscv_algo_regs_init_start(target, run);
 
-	init_reg_param(&run->reg_args.params[run->reg_args.first_user_param+0],
+	init_reg_param(&run->reg_args.params[run->reg_args.first_user_param + 0],
 		"a0",
 		xlen,
 		PARAM_IN_OUT);
@@ -93,22 +95,23 @@ static int esp_riscv_algo_init(struct target *target, struct algorithm_run_data 
 		uint32_t arg = va_arg(ap, uint32_t);
 		algorithm_user_arg_set_uint(run, 0, arg);
 		LOG_DEBUG("Set arg[0] = %d (%s)", arg,
-			run->reg_args.params[run->reg_args.first_user_param+0].reg_name);
-	} else
+			run->reg_args.params[run->reg_args.first_user_param + 0].reg_name);
+	} else {
 		algorithm_user_arg_set_uint(run, 0, 0);
+	}
 
 	for (uint32_t i = 1; i < num_args; i++) {
 		uint32_t arg = va_arg(ap, uint32_t);
-		init_reg_param(&run->reg_args.params[run->reg_args.first_user_param+i],
+		init_reg_param(&run->reg_args.params[run->reg_args.first_user_param + i],
 			arg_regs[i], xlen, PARAM_OUT);
 		algorithm_user_arg_set_uint(run, i, arg);
 		LOG_DEBUG("Set arg[%d] = %d (%s)", i, arg,
-			run->reg_args.params[run->reg_args.first_user_param+i].reg_name);
+			run->reg_args.params[run->reg_args.first_user_param + i].reg_name);
 	}
 	struct esp_riscv_algorithm *ainfo = calloc(1, sizeof(struct esp_riscv_algorithm));
 	assert(ainfo);
 	/* backup all regs */
-	ainfo->max_saved_reg = GDB_REGNO_COUNT-1;
+	ainfo->max_saved_reg = GDB_REGNO_COUNT - 1;
 	run->stub.ainfo = ainfo;
 	return ERROR_OK;
 }

@@ -863,12 +863,14 @@ int semihosting_common(struct target *target)
 					break;
 				}
 				size_t basedir_len = semihosting->basedir ? strlen(semihosting->basedir) : 0;
-				uint8_t *fn = malloc(basedir_len + len + 1);
+				uint8_t *fn = malloc(basedir_len + len + 2);
 				if (!fn) {
 					semihosting->result = -1;
 					semihosting->sys_errno = ENOMEM;
 				} else {
 					strncpy((char *)fn, semihosting->basedir, basedir_len);
+					if (fn[basedir_len - 1] != '/')
+						fn[basedir_len++] = '/';
 					retval = target_read_memory(target, addr, 1, len, fn + basedir_len);
 					if (retval != ERROR_OK) {
 						free(fn);
@@ -2033,6 +2035,9 @@ COMMAND_HANDLER(handle_common_semihosting_basedir_command)
 {
 	struct target *target = get_current_target(CMD_CTX);
 
+	if (CMD_ARGC > 1)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
 	if (!target) {
 		LOG_ERROR("No target selected");
 		return ERROR_FAIL;
@@ -2108,7 +2113,7 @@ const struct command_registration semihosting_common_handlers[] = {
 		.help = "read parameters in semihosting-user-cmd-0x10X callbacks",
 	},
 	{
-		"semihosting_basedir",
+		.name = "semihosting_basedir",
 		.handler = handle_common_semihosting_basedir_command,
 		.mode = COMMAND_EXEC,
 		.usage = "[dir]",

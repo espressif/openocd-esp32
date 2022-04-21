@@ -15,31 +15,34 @@
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "esp_xtensa_semihosting.h"
 
-#define ESP_XTENSA_SYSCALL_LEGACY     XT_INS_BREAK(1,1)
-#define ESP_XTENSA_SYSCALL     XT_INS_BREAK(1,14)
+#define ESP_XTENSA_SYSCALL_LEGACY       XT_INS_BREAK(1, 1)
+#define ESP_XTENSA_SYSCALL              XT_INS_BREAK(1, 14)
+#define ESP_XTENSA_SYSCALL_SZ           3
 
-#define ESP_XTENSA_SYSCALL_SZ  3
+#define ESP_FD_MIN                      2
 
-#define ESP_FD_MIN          2
+#define ESP_O_RDONLY                    0
+#define ESP_O_WRONLY                    1
+#define ESP_O_RDWR                      2
+#define ESP_O_APPEND                    0x0008
+#define ESP_O_CREAT                     0x0200
+#define ESP_O_TRUNC                     0x0400
+#define ESP_O_EXCL                      0x0800
+#define ESP_O_SEMIHOST_ABSPATH          0x80000000
 
-#define ESP_O_RDONLY        0
-#define ESP_O_WRONLY        1
-#define ESP_O_RDWR          2
-#define ESP_O_APPEND        0x0008
-#define ESP_O_CREAT         0x0200
-#define ESP_O_TRUNC         0x0400
-#define ESP_O_EXCL          0x0800
-#define ESP_O_SEMIHOST_ABSPATH  0x80000000
+#define ESP_FILE_FLAGS_MASK             0xFFF00000
 
-#define ESP_FILE_FLAGS_MASK 0xFFF00000
+#define SYSCALL_PARAM2_REG              XT_REG_IDX_A3
 
-#define SYSCALL_PARAM2_REG  XT_REG_IDX_A3
-
-#define XTENSA_SYSCALL_OP_REG      XT_REG_IDX_A2
-#define XTENSA_SYSCALL_RETVAL_REG  XT_REG_IDX_A2
-#define XTENSA_SYSCALL_ERRNO_REG   XT_REG_IDX_A3
+#define XTENSA_SYSCALL_OP_REG           XT_REG_IDX_A2
+#define XTENSA_SYSCALL_RETVAL_REG       XT_REG_IDX_A2
+#define XTENSA_SYSCALL_ERRNO_REG        XT_REG_IDX_A3
 
 static int esp_xtensa_semihosting_setup(struct target *target, int enable)
 {
@@ -133,166 +136,160 @@ static inline int esp_xtensa_semihosting_v0(
 {
 	int syscall_ret = 0, syscall_errno = 0, retval;
 	switch (a2) {
-		case SEMIHOSTING_SYS_OPEN:
-		{
-			int mode = 0;
+	case SEMIHOSTING_SYS_OPEN:
+	{
+		int mode = 0;
 
-			if (a4 == 0) {
-				LOG_ERROR("Zero file name length!");
-				syscall_ret = -1;
-				syscall_errno = ENOMEM;
-				break;
-			}
-			if (a4 > PATH_MAX) {
-				LOG_ERROR(
+		if (a4 == 0) {
+			LOG_ERROR("Zero file name length!");
+			syscall_ret = -1;
+			syscall_errno = ENOMEM;
+			break;
+		}
+		if (a4 > PATH_MAX) {
+			LOG_ERROR(
 					"File name length if greater then the maximum possible value!");
-				syscall_ret = -1;
-				syscall_errno = ENOMEM;
-				break;
-			}
-			char *file_name =
+			syscall_ret = -1;
+			syscall_errno = ENOMEM;
+			break;
+		}
+		char *file_name =
 				esp_xtensa_semihosting_get_file_name(target,
 				a3,
 				a4,
 				(uint32_t * )&mode);
-			if (!file_name) {
-				syscall_ret = -1;
-				syscall_errno = ENOMEM;
-				break;
-			}
+		if (!file_name) {
+			syscall_ret = -1;
+			syscall_errno = ENOMEM;
+			break;
+		}
 
-			if (a5 & ESP_O_RDWR)
-				mode = O_RDWR;
-			else if (a5 & ESP_O_WRONLY)
-				mode = O_WRONLY;
-			else
-				mode = O_RDONLY;
-			if (a5 & ESP_O_APPEND)
-				mode |= O_APPEND;
-			if (a5 & ESP_O_CREAT)
-				mode |= O_CREAT;
-			if (a5 & ESP_O_TRUNC)
-				mode |= O_TRUNC;
-			if (a5 & ESP_O_EXCL)
-				mode |= O_EXCL;
+		if (a5 & ESP_O_RDWR)
+			mode = O_RDWR;
+		else if (a5 & ESP_O_WRONLY)
+			mode = O_WRONLY;
+		else
+			mode = O_RDONLY;
+		if (a5 & ESP_O_APPEND)
+			mode |= O_APPEND;
+		if (a5 & ESP_O_CREAT)
+			mode |= O_CREAT;
+		if (a5 & ESP_O_TRUNC)
+			mode |= O_TRUNC;
+		if (a5 & ESP_O_EXCL)
+			mode |= O_EXCL;
 
 #ifdef _WIN32
-			/* Windows needs O_BINARY flag for proper handling of EOLs */
-			mode |= O_BINARY;
+		/* Windows needs O_BINARY flag for proper handling of EOLs */
+		mode |= O_BINARY;
 #endif
-			/* cygwin requires the permission setting
-			 * otherwise it will fail to reopen a previously
-			 * written file */
-			syscall_ret = open(file_name, mode, 0644);
-			syscall_errno = errno;
-			LOG_DEBUG("Open file '%s' -> %d. Error %d.",
+		/* cygwin requires the permission setting
+		 * otherwise it will fail to reopen a previously
+		 * written file */
+		syscall_ret = open(file_name, mode, 0644);
+		syscall_errno = errno;
+		LOG_DEBUG("Open file '%s' -> %d. Error %d.",
 				file_name,
 				syscall_ret,
 				syscall_errno);
-			free(file_name);
+		free(file_name);
+		break;
+	}
+	case SEMIHOSTING_SYS_CLOSE:
+		if (a3 <= ESP_FD_MIN) {
+			LOG_ERROR("Invalid file desc %d!", a3);
+			syscall_ret = -1;
+			syscall_errno = EINVAL;
 			break;
 		}
-		case SEMIHOSTING_SYS_CLOSE:
-			if (a3 <= ESP_FD_MIN) {
-				LOG_ERROR("Invalid file desc %d!", a3);
-				syscall_ret = -1;
-				syscall_errno = EINVAL;
-				break;
-			}
-			syscall_ret = close(a3);
-			syscall_errno = errno;
-			LOG_DEBUG("Close file %d. Ret %d. Error %d.", a3, syscall_ret,
+		syscall_ret = close(a3);
+		syscall_errno = errno;
+		LOG_DEBUG("Close file %d. Ret %d. Error %d.", a3, syscall_ret,
 			syscall_errno);
+		break;
+	case SEMIHOSTING_SYS_WRITE: {
+		LOG_DEBUG("Req write file %d. %" PRIu32 " bytes.", a3, a5);
+		if (a3 <= ESP_FD_MIN) {
+			LOG_ERROR("Invalid file desc %d!", a3);
+			syscall_ret = -1;
+			syscall_errno = EINVAL;
 			break;
-		case SEMIHOSTING_SYS_WRITE: {
-			LOG_DEBUG("Req write file %d. %" PRIu32 " bytes.", a3, a5);
-			if (a3 <= ESP_FD_MIN) {
-				LOG_ERROR("Invalid file desc %d!", a3);
-				syscall_ret = -1;
-				syscall_errno = EINVAL;
-				break;
-			}
-			if (a5 == 0) {
-				syscall_ret = 0;
-				syscall_errno = 0;
-				break;
-			}
-			uint8_t *buf = malloc(a5);
-			if (!buf) {
-				syscall_ret = -1;
-				syscall_errno = ENOMEM;
-				break;
-			}
-			retval = target_read_buffer(target, a4, a5, buf);
+		}
+		if (a5 == 0) {
+			syscall_ret = 0;
+			syscall_errno = 0;
+			break;
+		}
+		uint8_t *buf = malloc(a5);
+		if (!buf) {
+			syscall_ret = -1;
+			syscall_errno = ENOMEM;
+			break;
+		}
+		retval = target_read_buffer(target, a4, a5, buf);
+		if (retval != ERROR_OK) {
+			free(buf);
+			syscall_ret = -1;
+			syscall_errno = EIO;
+			break;
+		}
+		syscall_ret = write(a3, buf, a5);
+		syscall_errno = errno;
+		LOG_DEBUG("Wrote file %d. %d bytes.", a3, a5);
+		free(buf);
+		break;
+	}
+	case SEMIHOSTING_SYS_READ: {
+		LOG_DEBUG("Req read file %d. %" PRIu32 " bytes.", a3, a5);
+		if (a3 <= ESP_FD_MIN) {
+			LOG_ERROR("Invalid file desc %d!", a3);
+			syscall_ret = -1;
+			syscall_errno = EINVAL;
+			break;
+		}
+		if (a5 == 0) {
+			syscall_ret = 0;
+			syscall_errno = 0;
+			break;
+		}
+		uint8_t *buf = malloc(a5);
+		if (!buf) {
+			syscall_ret = -1;
+			syscall_errno = ENOMEM;
+			break;
+		}
+		syscall_ret = read(a3, buf, a5);
+		syscall_errno = errno;
+		LOG_DEBUG("Read file %d. %" PRIu32 " bytes.", a3, a5);
+		if (syscall_ret >= 0) {
+			retval = target_write_buffer(target, a4, syscall_ret, buf);
 			if (retval != ERROR_OK) {
 				free(buf);
 				syscall_ret = -1;
 				syscall_errno = EIO;
 				break;
 			}
-			syscall_ret = write(a3, buf, a5);
-			syscall_errno = errno;
-			LOG_DEBUG("Wrote file %d. %d bytes.", a3, a5);
-			free(buf);
-			break;
 		}
-		case SEMIHOSTING_SYS_READ: {
-			LOG_DEBUG("Req read file %d. %" PRIu32 " bytes.", a3, a5);
-			if (a3 <= ESP_FD_MIN) {
-				LOG_ERROR("Invalid file desc %d!", a3);
-				syscall_ret = -1;
-				syscall_errno = EINVAL;
-				break;
-			}
-			if (a5 == 0) {
-				syscall_ret = 0;
-				syscall_errno = 0;
-				break;
-			}
-			uint8_t *buf = malloc(a5);
-			if (!buf) {
-				syscall_ret = -1;
-				syscall_errno = ENOMEM;
-				break;
-			}
-			syscall_ret = read(a3, buf, a5);
-			syscall_errno = errno;
-			LOG_DEBUG("Read file %d. %" PRIu32 " bytes.", a3, a5);
-			if (syscall_ret >= 0) {
-				retval = target_write_buffer(target, a4, syscall_ret, buf);
-				if (retval != ERROR_OK) {
-					free(buf);
-					syscall_ret = -1;
-					syscall_errno = EIO;
-					break;
-				}
-			}
-			free(buf);
-			break;
-		}
-		case SEMIHOSTING_SYS_SEEK: {
-			LOG_DEBUG("Req seek file %d. To %x, mode %d.", a3, a4, a5);
-			if (a3 <= ESP_FD_MIN) {
-				LOG_ERROR("Invalid file desc %d!", a3);
-				syscall_ret = -1;
-				syscall_errno = EINVAL;
-				break;
-			}
-			syscall_ret = lseek(a3, a4, a5);
-			syscall_errno = errno;
-			LOG_DEBUG("Seek file %d. To %x, mode %d.", a3, a4, a5);
-			break;
-		}
-		case SEMIHOSTING_SYS_ERRNO:
-		{
-			syscall_ret = xtensa_reg_get(target, XTENSA_SYSCALL_ERRNO_REG);
-			LOG_DEBUG("errno()= %d", syscall_ret);
-			break;
-		}
-		default:
-			LOG_WARNING("Unsupported syscall %x!", a2);
+		free(buf);
+		break;
+	}
+	case SEMIHOSTING_SYS_SEEK: {
+		LOG_DEBUG("Req seek file %d. To %x, mode %d.", a3, a4, a5);
+		if (a3 <= ESP_FD_MIN) {
+			LOG_ERROR("Invalid file desc %d!", a3);
 			syscall_ret = -1;
-			syscall_errno = ENOTSUP;
+			syscall_errno = EINVAL;
+			break;
+		}
+		syscall_ret = lseek(a3, a4, a5);
+		syscall_errno = errno;
+		LOG_DEBUG("Seek file %d. To %x, mode %d.", a3, a4, a5);
+		break;
+	}
+	default:
+		LOG_WARNING("Unsupported syscall %x!", a2);
+		syscall_ret = -1;
+		syscall_errno = ENOTSUP;
 	}
 
 	xtensa_reg_set(target, XTENSA_SYSCALL_RETVAL_REG, syscall_ret);
@@ -326,147 +323,141 @@ static inline int esp_xtensa_semihosting_v1(
 {
 	int syscall_ret = 0, syscall_errno = 0, retval;
 	switch (a2) {
-		case SEMIHOSTING_SYS_OPEN:
-		{
-			uint64_t addr = a3;
-			uint32_t mode = a4;
-			size_t len = a5;
+	case SEMIHOSTING_SYS_OPEN:
+	{
+		uint64_t addr = a3;
+		uint32_t mode = a4;
+		size_t len = a5;
 
-			if (mode > 11) {
-				syscall_ret = -1;
-				syscall_errno = EINVAL;
-				break;
-			}
+		if (mode > 11) {
+			syscall_ret = -1;
+			syscall_errno = EINVAL;
+			break;
+		}
 
-			char *file_name =
+		char *file_name =
 				esp_xtensa_semihosting_get_file_name(target,
 				addr,
 				len,
 				(uint32_t * )&mode);
-			if (!file_name) {
-				syscall_ret = -1;
-				syscall_errno = ENOMEM;
-				break;
-			}
-			len = strlen(file_name);/* updated len_size based on gotten file name */
-			uint32_t flags = open_modeflags[mode];
+		if (!file_name) {
+			syscall_ret = -1;
+			syscall_errno = ENOMEM;
+			break;
+		}
+		len = strlen(file_name);	/* updated len_size based on gotten file name */
+		uint32_t flags = open_modeflags[mode];
 
 #ifdef _WIN32
-			/* Windows needs O_BINARY flag for proper handling of EOLs */
-			flags |= O_BINARY;
+		/* Windows needs O_BINARY flag for proper handling of EOLs */
+		flags |= O_BINARY;
 #endif
-			/* cygwin requires the permission setting
-			 * otherwise it will fail to reopen a previously
-			 * written file */
-			syscall_ret = open(file_name, flags, 0644);
-			syscall_errno = errno;
-			LOG_DEBUG("Open file '%s' -> %d. Error %d.",
+		/* cygwin requires the permission setting
+		 * otherwise it will fail to reopen a previously
+		 * written file */
+		syscall_ret = open(file_name, flags, 0644);
+		syscall_errno = errno;
+		LOG_DEBUG("Open file '%s' -> %d. Error %d.",
 				file_name,
 				syscall_ret,
 				syscall_errno);
-			free(file_name);
-			break;
-		}
-		case SEMIHOSTING_SYS_CLOSE:
-		{
-			int fd = a3;
-			if (fd == 0 || fd == 1 || fd == 2) {
-				LOG_DEBUG("ignoring semihosting attempt to close %s",
+		free(file_name);
+		break;
+	}
+	case SEMIHOSTING_SYS_CLOSE:
+	{
+		int fd = a3;
+		if (fd == 0 || fd == 1 || fd == 2) {
+			LOG_DEBUG("ignoring semihosting attempt to close %s",
 					(fd == 0) ? "stdin" :
 					(fd == 1) ? "stdout" : "stderr");
-				syscall_ret = 0;
-				syscall_errno = 0;
-				break;
-			}
-			syscall_ret = close(fd);
-			syscall_errno = errno;
-			LOG_DEBUG("close(%d)=%d errno=%d", fd, syscall_ret, syscall_errno);
+			syscall_ret = 0;
+			syscall_errno = 0;
 			break;
 		}
-		case SEMIHOSTING_SYS_WRITE:
-		{
-			int fd = a3;
-			uint64_t addr = a4;
-			size_t len = a5;
-			uint8_t *buf = malloc(len);
-			if (!buf) {
-				syscall_ret = -1;
-				syscall_errno = ENOMEM;
-				break;
-			}
-			retval = target_read_buffer(target, addr, len, buf);
+		syscall_ret = close(fd);
+		syscall_errno = errno;
+		LOG_DEBUG("close(%d)=%d errno=%d", fd, syscall_ret, syscall_errno);
+		break;
+	}
+	case SEMIHOSTING_SYS_WRITE:
+	{
+		int fd = a3;
+		uint64_t addr = a4;
+		size_t len = a5;
+		uint8_t *buf = malloc(len);
+		if (!buf) {
+			syscall_ret = -1;
+			syscall_errno = ENOMEM;
+			break;
+		}
+		retval = target_read_buffer(target, addr, len, buf);
+		if (retval != ERROR_OK) {
+			free(buf);
+			syscall_ret = -1;
+			syscall_errno = EIO;
+			break;
+		}
+		syscall_ret = write(fd, buf, len);
+		syscall_errno = errno;
+		LOG_DEBUG("write(%d, 0x%" PRIx64 ", %zu)=%d",
+				fd,
+				addr,
+				len,
+				syscall_ret);
+		if (syscall_ret >= 0) {
+			/* The number of bytes that are NOT written */
+			syscall_ret = len - syscall_ret;
+		}
+		free(buf);
+		break;
+	}
+	case SEMIHOSTING_SYS_READ:
+	{
+		int fd = a3;
+		uint64_t addr = a4;
+		size_t len = a5;
+		uint8_t *buf = malloc(len);
+		if (!buf) {
+			syscall_ret = -1;
+			syscall_errno = ENOMEM;
+			break;
+		}
+		syscall_ret = read(a3, buf, a5);
+		syscall_errno = errno;
+		LOG_DEBUG("read(%d, 0x%" PRIx64 ", %zu)=%d",
+				fd,
+				addr,
+				len,
+				syscall_ret);
+		if (syscall_ret >= 0) {
+			retval = target_write_buffer(target, addr, syscall_ret, buf);
 			if (retval != ERROR_OK) {
 				free(buf);
 				syscall_ret = -1;
 				syscall_errno = EIO;
 				break;
 			}
-			syscall_ret = write(fd, buf, len);
-			syscall_errno = errno;
-			LOG_DEBUG("write(%d, 0x%" PRIx64 ", %zu)=%d",
-				fd,
-				addr,
-				len,
-				syscall_ret);
-			if (syscall_ret >= 0) {
-				/* The number of bytes that are NOT written */
-				syscall_ret = len - syscall_ret;
-			}
-			free(buf);
-			break;
+			/* the number of bytes NOT filled in */
+			syscall_ret = len - syscall_ret;
 		}
-		case SEMIHOSTING_SYS_READ:
-		{
-			int fd = a3;
-			uint64_t addr = a4;
-			size_t len = a5;
-			uint8_t *buf = malloc(len);
-			if (!buf) {
-				syscall_ret = -1;
-				syscall_errno = ENOMEM;
-				break;
-			}
-			syscall_ret = read(a3, buf, a5);
-			syscall_errno = errno;
-			LOG_DEBUG("read(%d, 0x%" PRIx64 ", %zu)=%d",
-				fd,
-				addr,
-				len,
-				syscall_ret);
-			if (syscall_ret >= 0) {
-				retval = target_write_buffer(target, addr, syscall_ret, buf);
-				if (retval != ERROR_OK) {
-					free(buf);
-					syscall_ret = -1;
-					syscall_errno = EIO;
-					break;
-				}
-				/* the number of bytes NOT filled in */
-				syscall_ret = len - syscall_ret;
-			}
-			free(buf);
-			break;
-		}
-		case SEMIHOSTING_SYS_SEEK:
-		{
-			int fd = a3;
-			off_t pos = a4;
-			int whence = a5;
-			syscall_ret = lseek(fd, pos, whence);
-			syscall_errno = errno;
-			LOG_DEBUG("lseek(%d, %d)=%d", fd, (int)pos, syscall_ret);
-			break;
-		}
-		case SEMIHOSTING_SYS_ERRNO:
-		{
-			syscall_ret = xtensa_reg_get(target, XTENSA_SYSCALL_ERRNO_REG);
-			LOG_DEBUG("errno()= %d", syscall_ret);
-			break;
-		}
-		default:
-			LOG_WARNING("Unsupported syscall %x!", a2);
-			syscall_ret = -1;
-			syscall_errno = ENOTSUP;
+		free(buf);
+		break;
+	}
+	case SEMIHOSTING_SYS_SEEK:
+	{
+		int fd = a3;
+		off_t pos = a4;
+		int whence = a5;
+		syscall_ret = lseek(fd, pos, whence);
+		syscall_errno = errno;
+		LOG_DEBUG("lseek(%d, %d)=%d", fd, (int)pos, syscall_ret);
+		break;
+	}
+	default:
+		LOG_WARNING("Unsupported syscall %x!", a2);
+		syscall_ret = -1;
+		syscall_errno = ENOTSUP;
 	}
 
 	xtensa_reg_set(target, XTENSA_SYSCALL_RETVAL_REG, syscall_ret);
@@ -492,10 +483,10 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
 
 	xtensa_reg_val_t dbg_cause = xtensa_reg_get(target, XT_REG_IDX_DEBUGCAUSE);
-	if ((dbg_cause & (DEBUGCAUSE_BI|DEBUGCAUSE_BN)) == 0)
+	if ((dbg_cause & (DEBUGCAUSE_BI | DEBUGCAUSE_BN)) == 0)
 		return 0;
 
-	uint8_t brk_insn_buf[sizeof(uint32_t)] = {0};
+	uint8_t brk_insn_buf[sizeof(uint32_t)] = { 0 };
 	xtensa_reg_val_t pc = xtensa_reg_get(target, XT_REG_IDX_PC);
 	*retval = target_read_memory(target,
 		pc,
@@ -526,9 +517,9 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 	target->semihosting->param = a3;
 
 	if (target->semihosting->op == ESP_SEMIHOSTING_SYS_DRV_INFO ||
-		esp_xtensa->semihost.version > 1)
+		esp_xtensa->semihost.version > 1) {
 		*retval = semihosting_common(target);
-	else if (target->semihosting->op == ESP_SYS_DRV_INFO_LEGACY) {
+	} else if (target->semihosting->op == ESP_SYS_DRV_INFO_LEGACY) {
 		target->semihosting->is_resumable = true;
 		*retval = esp_xtensa_semihosting_drv_info_v01(target);
 		/*
@@ -564,10 +555,11 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 			);
 	}
 	/* Most operations are resumable, except the two exit calls. */
-	if (*retval != ERROR_OK)
+	if (*retval != ERROR_OK) {
 		LOG_ERROR("Semihosting operation (op: 0x%x) error! Code: %d",
 			target->semihosting->op,
 			*retval);
+	}
 
 	/* Resume if target it is resumable and we are not waiting on a fileio
 	 * operation to complete:

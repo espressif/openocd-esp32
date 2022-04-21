@@ -1,3 +1,25 @@
+/***************************************************************************
+ *   ESP32 sysview tracing module                                          *
+ *   Copyright (C) 2020 Espressif Systems Ltd.                             *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
+ ***************************************************************************/
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <helper/log.h>
 #include "esp32_apptrace.h"
 #include "esp32_sysview.h"
@@ -112,7 +134,7 @@ int esp32_sysview_cmd_init(struct target *target,
 		esp32_apptrace_cmd_args_parse(cmd_ctx,
 			&cmd_data->apptrace,
 			&argv[dests_num],
-			argc-dests_num);
+			argc - dests_num);
 	}
 	LOG_USER(
 		"App trace params: from %d cores, size %u bytes, stop_tmo %g s, poll period %u ms, wait_rst %d, skip %u bytes",
@@ -205,10 +227,10 @@ static uint32_t esp_sysview_decode_u32(uint8_t **ptr)
 {
 	uint32_t val = 0;
 	for (int k = 0;; k++, (*ptr)++) {
-		if (**ptr & 0x80)
-			val |= (uint32_t)(**ptr & ~0x80) << 7*k;
-		else {
-			val |= (uint32_t)**ptr << 7*k;
+		if (**ptr & 0x80) {
+			val |= (uint32_t)(**ptr & ~0x80) << 7 * k;
+		} else {
+			val |= (uint32_t)**ptr << 7 * k;
 			(*ptr)++;
 			break;
 		}
@@ -240,60 +262,60 @@ static uint16_t esp_sysview_get_predef_payload_len(uint16_t id, uint8_t *pkt)
 	uint8_t *ptr = pkt;
 
 	switch (id) {
-		case SYSVIEW_EVTID_OVERFLOW:
-		case SYSVIEW_EVTID_ISR_ENTER:
-		case SYSVIEW_EVTID_TASK_START_EXEC:
-		case SYSVIEW_EVTID_TASK_START_READY:
-		case SYSVIEW_EVTID_TASK_CREATE:
-		case SYSVIEW_EVTID_SYSTIME_CYCLES:
-		case SYSVIEW_EVTID_USER_START:
-		case SYSVIEW_EVTID_USER_STOP:
-		case SYSVIEW_EVTID_TIMER_ENTER:
-			/*ENCODE_U32 */
-			esp_sysview_decode_u32(&ptr);
-			len = ptr - pkt;
-			break;
-		case SYSVIEW_EVTID_TASK_STOP_READY:
-		case SYSVIEW_EVTID_SYSTIME_US:
-			/*2*ENCODE_U32 */
-			esp_sysview_decode_u32(&ptr);
-			esp_sysview_decode_u32(&ptr);
-			len = ptr - pkt;
-			break;
-		case SYSVIEW_EVTID_SYSDESC:
-			/*str(128 + 1) */
-			len = *ptr + 1;
-			break;
-		case SYSVIEW_EVTID_TASK_INFO:
-		case SYSVIEW_EVTID_MODULEDESC:
-			/*2*ENCODE_U32 + str */
-			esp_sysview_decode_u32(&ptr);
-			esp_sysview_decode_u32(&ptr);
-			/* TODO: add support for strings longer then 255 bytes */
-			len = ptr - pkt + *ptr + 1;
-			break;
-		case SYSVIEW_EVTID_STACK_INFO:
-			/*4*ENCODE_U32 */
-			esp_sysview_decode_u32(&ptr);
-			esp_sysview_decode_u32(&ptr);
-			esp_sysview_decode_u32(&ptr);
-			esp_sysview_decode_u32(&ptr);
-			len = ptr - pkt;
-			break;
-		case SYSVIEW_EVTID_ISR_EXIT:
-		case SYSVIEW_EVTID_TASK_STOP_EXEC:
-		case SYSVIEW_EVTID_TRACE_START:
-		case SYSVIEW_EVTID_TRACE_STOP:
-		case SYSVIEW_EVTID_IDLE:
-		case SYSVIEW_EVTID_ISR_TO_SCHEDULER:
-		case SYSVIEW_EVTID_TIMER_EXIT:
-			len = 0;
-			break;
+	case SYSVIEW_EVTID_OVERFLOW:
+	case SYSVIEW_EVTID_ISR_ENTER:
+	case SYSVIEW_EVTID_TASK_START_EXEC:
+	case SYSVIEW_EVTID_TASK_START_READY:
+	case SYSVIEW_EVTID_TASK_CREATE:
+	case SYSVIEW_EVTID_SYSTIME_CYCLES:
+	case SYSVIEW_EVTID_USER_START:
+	case SYSVIEW_EVTID_USER_STOP:
+	case SYSVIEW_EVTID_TIMER_ENTER:
+		/*ENCODE_U32 */
+		esp_sysview_decode_u32(&ptr);
+		len = ptr - pkt;
+		break;
+	case SYSVIEW_EVTID_TASK_STOP_READY:
+	case SYSVIEW_EVTID_SYSTIME_US:
+		/*2*ENCODE_U32 */
+		esp_sysview_decode_u32(&ptr);
+		esp_sysview_decode_u32(&ptr);
+		len = ptr - pkt;
+		break;
+	case SYSVIEW_EVTID_SYSDESC:
+		/*str(128 + 1) */
+		len = *ptr + 1;
+		break;
+	case SYSVIEW_EVTID_TASK_INFO:
+	case SYSVIEW_EVTID_MODULEDESC:
+		/*2*ENCODE_U32 + str */
+		esp_sysview_decode_u32(&ptr);
+		esp_sysview_decode_u32(&ptr);
+		/* TODO: add support for strings longer then 255 bytes */
+		len = ptr - pkt + *ptr + 1;
+		break;
+	case SYSVIEW_EVTID_STACK_INFO:
+		/*4*ENCODE_U32 */
+		esp_sysview_decode_u32(&ptr);
+		esp_sysview_decode_u32(&ptr);
+		esp_sysview_decode_u32(&ptr);
+		esp_sysview_decode_u32(&ptr);
+		len = ptr - pkt;
+		break;
+	case SYSVIEW_EVTID_ISR_EXIT:
+	case SYSVIEW_EVTID_TASK_STOP_EXEC:
+	case SYSVIEW_EVTID_TRACE_START:
+	case SYSVIEW_EVTID_TRACE_STOP:
+	case SYSVIEW_EVTID_IDLE:
+	case SYSVIEW_EVTID_ISR_TO_SCHEDULER:
+	case SYSVIEW_EVTID_TIMER_EXIT:
+		len = 0;
+		break;
 
-		/*case SYSVIEW_EVTID_NOP: */
-		default:
-			LOG_ERROR("SEGGER: Unsupported predef event %d!", id);
-			len = 0;
+	/*case SYSVIEW_EVTID_NOP: */
+	default:
+		LOG_ERROR("SEGGER: Unsupported predef event %d!", id);
+		len = 0;
 	}
 	return len;
 }
@@ -425,55 +447,55 @@ static int esp32_sysview_process_packet(struct esp32_apptrace_cmd_ctx *ctx,
 		if (pkt_core_id == i)
 			continue;
 		switch (event_id) {
-			/* messages below should be sent to trace destinations for all cores
-			* */
-			case SYSVIEW_EVTID_TRACE_START:
-			case SYSVIEW_EVTID_TRACE_STOP:
-			case SYSVIEW_EVTID_SYSTIME_CYCLES:
-			case SYSVIEW_EVTID_SYSTIME_US:
-			case SYSVIEW_EVTID_SYSDESC:
-			case SYSVIEW_EVTID_TASK_INFO:
-			case SYSVIEW_EVTID_STACK_INFO:
-			case SYSVIEW_EVTID_MODULEDESC:
-			case SYSVIEW_EVTID_INIT:
-			case SYSVIEW_EVTID_NUMMODULES:
-			case SYSVIEW_EVTID_OVERFLOW:
-			case SYSVIEW_EVTID_TASK_START_READY:
-				/* if packet's source core has changed */
-				wr_len = pkt_len;
-				if (pkt_core_changed) {
-					/* clone packet with unmodified delta */
-					new_delta_len = 0;
-				} else {
-					/* clone packet with modified delta */
-					uint8_t *delta_ptr = new_delta_buf;
-					SYSVIEW_ENCODE_U32(delta_ptr,
+		/* messages below should be sent to trace destinations for all cores
+		* */
+		case SYSVIEW_EVTID_TRACE_START:
+		case SYSVIEW_EVTID_TRACE_STOP:
+		case SYSVIEW_EVTID_SYSTIME_CYCLES:
+		case SYSVIEW_EVTID_SYSTIME_US:
+		case SYSVIEW_EVTID_SYSDESC:
+		case SYSVIEW_EVTID_TASK_INFO:
+		case SYSVIEW_EVTID_STACK_INFO:
+		case SYSVIEW_EVTID_MODULEDESC:
+		case SYSVIEW_EVTID_INIT:
+		case SYSVIEW_EVTID_NUMMODULES:
+		case SYSVIEW_EVTID_OVERFLOW:
+		case SYSVIEW_EVTID_TASK_START_READY:
+			/* if packet's source core has changed */
+			wr_len = pkt_len;
+			if (pkt_core_changed) {
+				/* clone packet with unmodified delta */
+				new_delta_len = 0;
+			} else {
+				/* clone packet with modified delta */
+				uint8_t *delta_ptr = new_delta_buf;
+				SYSVIEW_ENCODE_U32(delta_ptr,
 					cmd_data->sv_acc_time_delta /*delta has been
 								                        * accumulated
 								                        * above*/);
-					wr_len -= delta_len;
-					new_delta_len = delta_ptr - new_delta_buf;
-				}
-				LOG_DEBUG(
+				wr_len -= delta_len;
+				new_delta_len = delta_ptr - new_delta_buf;
+			}
+			LOG_DEBUG(
 				"SEGGER: Redirect %d bytes of event %d to dest %d",
 				wr_len,
 				event_id,
 				i);
-				res = esp32_sysview_write_packet(cmd_data,
+			res = esp32_sysview_write_packet(cmd_data,
 				i,
 				wr_len,
 				pkt_buf,
 				new_delta_len,
 				new_delta_buf);
-				if (res != ERROR_OK)
-					return res;
-				/* messages above are cloned to trace files for both cores,
-				* so reset acc time delta, both files have actual delta
-				* info */
-				cmd_data->sv_acc_time_delta = 0;
-				break;
-			default:
-				break;
+			if (res != ERROR_OK)
+				return res;
+			/* messages above are cloned to trace files for both cores,
+			* so reset acc time delta, both files have actual delta
+			* info */
+			cmd_data->sv_acc_time_delta = 0;
+			break;
+		default:
+			break;
 		}
 	}
 	return ERROR_OK;
@@ -508,7 +530,7 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 		}
 		LOG_DEBUG("SEGGER: Process %d sync bytes", SYSVIEW_SYNC_LEN);
 		uint8_t sync_seq[SYSVIEW_SYNC_LEN] =
-		{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+		{ 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 };
 		if (memcmp(data, sync_seq, SYSVIEW_SYNC_LEN) != 0) {
 			LOG_ERROR("SEGGER: Invalid init seq [%x %x %x %x %x %x %x %x %x %x]",
 				data[0], data[1], data[2], data[3], data[4], data[5], data[6],
@@ -558,10 +580,10 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 			pkt_core_id,
 			event_id,
 			pkt_len,
-			data[processed+0],
-			data[processed+1],
-			data[processed+2],
-			data[processed+3]);
+			data[processed + 0],
+			data[processed + 1],
+			data[processed + 2],
+			data[processed + 3]);
 		if (!cmd_data->mcore_format) {
 			res = esp32_sysview_process_packet(ctx,
 				pkt_core_id,

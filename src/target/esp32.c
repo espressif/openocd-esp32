@@ -15,9 +15,7 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
 #ifdef HAVE_CONFIG_H
@@ -58,7 +56,7 @@ implementation.
 #define ESP32_DR_REG_LOW          0x3ff00000
 #define ESP32_DR_REG_HIGH         0x3ff71000
 #define ESP32_SYS_RAM_LOW         0x60000000UL
-#define ESP32_SYS_RAM_HIGH        (ESP32_SYS_RAM_LOW+0x20000000UL)
+#define ESP32_SYS_RAM_HIGH        (ESP32_SYS_RAM_LOW + 0x20000000UL)
 
 /* ESP32 WDT */
 #define ESP32_WDT_WKEY_VALUE       0x50d83aa1
@@ -89,7 +87,7 @@ implementation.
 
 /* this should map local reg IDs to GDB reg mapping as defined in xtensa-config.c 'rmap' in
  *xtensa-overlay */
-static const int esp32_gdb_regs_mapping[ESP32_NUM_REGS] = {
+static const unsigned int esp32_gdb_regs_mapping[ESP32_NUM_REGS] = {
 	XT_REG_IDX_PC,
 	XT_REG_IDX_AR0, XT_REG_IDX_AR1, XT_REG_IDX_AR2, XT_REG_IDX_AR3,
 	XT_REG_IDX_AR4, XT_REG_IDX_AR5, XT_REG_IDX_AR6, XT_REG_IDX_AR7,
@@ -152,132 +150,132 @@ static const int esp32_gdb_regs_mapping[ESP32_NUM_REGS] = {
 	XT_REG_IDX_OCD_ID, XT_REG_IDX_OCD_DCRCLR, XT_REG_IDX_OCD_DCRSET, XT_REG_IDX_OCD_DSR,
 };
 
-static const struct xtensa_user_reg_desc esp32_user_regs[ESP32_NUM_REGS-XT_NUM_REGS] = {
-	{ "expstate",   0xE6, 0, 32, &xtensa_user_reg_u32_type },
-	{ "f64r_lo",    0xEA, 0, 32, &xtensa_user_reg_u32_type },
-	{ "f64r_hi",    0xEB, 0, 32, &xtensa_user_reg_u32_type },
-	{ "f64s",       0xEC, 0, 32, &xtensa_user_reg_u32_type },
+static const struct xtensa_user_reg_desc esp32_user_regs[ESP32_NUM_REGS - XT_NUM_REGS] = {
+	{ "expstate", 0xE6, 0, 32, &xtensa_user_reg_u32_type },
+	{ "f64r_lo", 0xEA, 0, 32, &xtensa_user_reg_u32_type },
+	{ "f64r_hi", 0xEB, 0, 32, &xtensa_user_reg_u32_type },
+	{ "f64s", 0xEC, 0, 32, &xtensa_user_reg_u32_type },
 };
 
 static const struct xtensa_config esp32_xtensa_cfg = {
-	.density        = true,
-	.aregs_num      = XT_AREGS_NUM_MAX,
-	.windowed       = true,
-	.coproc         = true,
-	.fp_coproc      = true,
-	.loop           = true,
-	.miscregs_num   = 4,
-	.threadptr      = true,
-	.boolean        = true,
-	.reloc_vec      = true,
-	.proc_id        = true,
-	.cond_store     = true,
-	.mac16          = true,
-	.user_regs_num  = sizeof(esp32_user_regs)/sizeof(esp32_user_regs[0]),
-	.user_regs      = esp32_user_regs,
-	.fetch_user_regs                = xtensa_fetch_user_regs_u32,
-	.queue_write_dirty_user_regs    = xtensa_queue_write_dirty_user_regs_u32,
-	.gdb_general_regs_num   = ESP32_NUM_REGS_G_COMMAND,
-	.gdb_regs_mapping               = esp32_gdb_regs_mapping,
-	.irom           = {
+	.density = true,
+	.aregs_num = XT_AREGS_NUM_MAX,
+	.windowed = true,
+	.coproc = true,
+	.fp_coproc = true,
+	.loop = true,
+	.miscregs_num = 4,
+	.threadptr = true,
+	.boolean = true,
+	.reloc_vec = true,
+	.proc_id = true,
+	.cond_store = true,
+	.mac16 = true,
+	.user_regs_num = ARRAY_SIZE(esp32_user_regs),
+	.user_regs = esp32_user_regs,
+	.fetch_user_regs = xtensa_fetch_user_regs_u32,
+	.queue_write_dirty_user_regs = xtensa_queue_write_dirty_user_regs_u32,
+	.gdb_general_regs_num = ESP32_NUM_REGS_G_COMMAND,
+	.gdb_regs_mapping = esp32_gdb_regs_mapping,
+	.irom = {
 		.count = 2,
 		.regions = {
 			{
 				.base = ESP32_IROM_LOW,
-				.size = ESP32_IROM_HIGH-ESP32_IROM_LOW,
+				.size = ESP32_IROM_HIGH - ESP32_IROM_LOW,
 				.access = XT_MEM_ACCESS_READ,
 			},
 			{
 				.base = ESP32_IROM_MASK_LOW,
-				.size = ESP32_IROM_MASK_HIGH-ESP32_IROM_MASK_LOW,
+				.size = ESP32_IROM_MASK_HIGH - ESP32_IROM_MASK_LOW,
 				.access = XT_MEM_ACCESS_READ,
 			},
 		}
 	},
-	.iram           = {
+	.iram = {
 		.count = 2,
 		.regions = {
 			{
 				.base = ESP32_IRAM_LOW,
-				.size = ESP32_IRAM_HIGH-ESP32_IRAM_LOW,
-				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+				.size = ESP32_IRAM_HIGH - ESP32_IRAM_LOW,
+				.access = XT_MEM_ACCESS_READ | XT_MEM_ACCESS_WRITE,
 			},
 			{
 				.base = ESP32_RTC_IRAM_LOW,
-				.size = ESP32_RTC_IRAM_HIGH-ESP32_RTC_IRAM_LOW,
-				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+				.size = ESP32_RTC_IRAM_HIGH - ESP32_RTC_IRAM_LOW,
+				.access = XT_MEM_ACCESS_READ | XT_MEM_ACCESS_WRITE,
 			},
 		}
 	},
-	.drom           = {
+	.drom = {
 		.count = 1,
 		.regions = {
 			{
 				.base = ESP32_DROM_LOW,
-				.size = ESP32_DROM_HIGH-ESP32_DROM_LOW,
+				.size = ESP32_DROM_HIGH - ESP32_DROM_LOW,
 				.access = XT_MEM_ACCESS_READ,
 			},
 		}
 	},
-	.dram           = {
+	.dram = {
 		.count = 6,
 		.regions = {
 			{
 				.base = ESP32_DRAM_LOW,
-				.size = ESP32_DRAM_HIGH-ESP32_DRAM_LOW,
-				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+				.size = ESP32_DRAM_HIGH - ESP32_DRAM_LOW,
+				.access = XT_MEM_ACCESS_READ | XT_MEM_ACCESS_WRITE,
 			},
 			{
 				.base = ESP32_RTC_DRAM_LOW,
-				.size = ESP32_RTC_DRAM_HIGH-ESP32_RTC_DRAM_LOW,
-				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+				.size = ESP32_RTC_DRAM_HIGH - ESP32_RTC_DRAM_LOW,
+				.access = XT_MEM_ACCESS_READ | XT_MEM_ACCESS_WRITE,
 			},
 			{
 				.base = ESP32_RTC_DATA_LOW,
-				.size = ESP32_RTC_DATA_HIGH-ESP32_RTC_DATA_LOW,
-				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+				.size = ESP32_RTC_DATA_HIGH - ESP32_RTC_DATA_LOW,
+				.access = XT_MEM_ACCESS_READ | XT_MEM_ACCESS_WRITE,
 			},
 			{
 				.base = ESP32_EXTRAM_DATA_LOW,
-				.size = ESP32_EXTRAM_DATA_HIGH-ESP32_EXTRAM_DATA_LOW,
-				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+				.size = ESP32_EXTRAM_DATA_HIGH - ESP32_EXTRAM_DATA_LOW,
+				.access = XT_MEM_ACCESS_READ | XT_MEM_ACCESS_WRITE,
 			},
 			{
 				.base = ESP32_DR_REG_LOW,
-				.size = ESP32_DR_REG_HIGH-ESP32_DR_REG_LOW,
-				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+				.size = ESP32_DR_REG_HIGH - ESP32_DR_REG_LOW,
+				.access = XT_MEM_ACCESS_READ | XT_MEM_ACCESS_WRITE,
 			},
 			{
 				.base = ESP32_SYS_RAM_LOW,
-				.size = ESP32_SYS_RAM_HIGH-ESP32_SYS_RAM_LOW,
-				.access = XT_MEM_ACCESS_READ|XT_MEM_ACCESS_WRITE,
+				.size = ESP32_SYS_RAM_HIGH - ESP32_SYS_RAM_LOW,
+				.access = XT_MEM_ACCESS_READ | XT_MEM_ACCESS_WRITE,
 			},
 		}
 	},
-	.exc           = {
+	.exc = {
 		.enabled = true,
 	},
-	.irq           = {
+	.irq = {
 		.enabled = true,
 		.irq_num = 32,
 	},
-	.high_irq      = {
+	.high_irq = {
 		.enabled = true,
 		.excm_level = 3,
 		.nmi_num = 1,
 	},
-	.tim_irq      = {
+	.tim_irq = {
 		.enabled = true,
 		.comp_num = 3,
 	},
-	.debug         = {
+	.debug = {
 		.enabled = true,
 		.irq_level = 6,
 		.ibreaks_num = 2,
 		.dbreaks_num = 2,
 		.icount_sz = 32,
 	},
-	.trace         = {
+	.trace = {
 		.enabled = true,
 		.mem_sz = ESP32_TRACEMEM_BLOCK_SZ,
 		.reversed_mem_access = true,
@@ -527,13 +525,13 @@ static int esp32_handle_target_event(struct target *target, enum target_event ev
 		return ret;
 
 	switch (event) {
-		case TARGET_EVENT_HALTED:
-			ret = esp32_disable_wdts(target);
-			if (ret != ERROR_OK)
-				return ret;
-			break;
-		default:
-			break;
+	case TARGET_EVENT_HALTED:
+		ret = esp32_disable_wdts(target);
+		if (ret != ERROR_OK)
+			return ret;
+		break;
+	default:
+		break;
 	}
 	return ERROR_OK;
 }
@@ -556,8 +554,9 @@ static void esp32_queue_tdi_idle(struct target *target)
 	} else if (esp32->flash_bootstrap == FBS_TMSHIGH) {
 		/*Make sure tdi is 1 at the exit of queue execution */
 		value = 1;
-	} else
+	} else {
 		return;
+	}
 
 	/*Scan out 1 bit, do not move from IRPAUSE after we're done. */
 	buf_set_u32(t, 0, 1, value);

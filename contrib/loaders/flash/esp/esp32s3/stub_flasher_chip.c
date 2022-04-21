@@ -96,9 +96,9 @@ uint32_t stub_flash_get_id(void)
 		rom_spiflash_legacy_data->chip.page_size,
 		rom_spiflash_legacy_data->chip.status_mask);
 
-	if (rom_spiflash_legacy_data->dummy_len_plus[1] == 0)
+	if (rom_spiflash_legacy_data->dummy_len_plus[1] == 0) {
 		REG_CLR_BIT(PERIPHS_SPI_FLASH_USRREG, SPI_MEM_USR_DUMMY);
-	else {
+	} else {
 		REG_SET_BIT(PERIPHS_SPI_FLASH_USRREG, SPI_MEM_USR_DUMMY);
 		REG_WRITE(
 			PERIPHS_SPI_FLASH_USRREG1,
@@ -170,7 +170,7 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 			.be_addr_bit_len = 24,
 			.pp_addr_bit_len = 24,
 			.rd_addr_bit_len = 24,
-			.read_sub_len  = SPI_BUFF_BYTE_READ_NUM,
+			.read_sub_len = SPI_BUFF_BYTE_READ_NUM,
 			.write_sub_len = SPI_BUFF_BYTE_WRITE_NUM,
 		};
 		rom_spiflash_legacy_funcs = &rom_default_spiflash_legacy_funcs;
@@ -208,45 +208,45 @@ int stub_rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t *out_config)
 	uint32_t freq_mhz;
 	uint32_t soc_clk_sel = REG_GET_FIELD(SYSTEM_SYSCLK_CONF_REG, SYSTEM_SOC_CLK_SEL);
 	switch (soc_clk_sel) {
-		case DPORT_SOC_CLK_SEL_XTAL: {
-			source = RTC_CPU_FREQ_SRC_XTAL;
-			div = REG_GET_FIELD(SYSTEM_SYSCLK_CONF_REG, SYSTEM_PRE_DIV_CNT) + 1;
-			source_freq_mhz = (uint32_t) stub_rtc_clk_xtal_freq_get();
-			freq_mhz = source_freq_mhz / div;
+	case DPORT_SOC_CLK_SEL_XTAL: {
+		source = RTC_CPU_FREQ_SRC_XTAL;
+		div = REG_GET_FIELD(SYSTEM_SYSCLK_CONF_REG, SYSTEM_PRE_DIV_CNT) + 1;
+		source_freq_mhz = (uint32_t)stub_rtc_clk_xtal_freq_get();
+		freq_mhz = source_freq_mhz / div;
+	}
+	break;
+	case DPORT_SOC_CLK_SEL_PLL: {
+		source = RTC_CPU_FREQ_SRC_PLL;
+		uint32_t cpuperiod_sel = REG_GET_FIELD(SYSTEM_CPU_PER_CONF_REG,
+				SYSTEM_CPUPERIOD_SEL);
+		uint32_t pllfreq_sel = REG_GET_FIELD(SYSTEM_CPU_PER_CONF_REG,
+				SYSTEM_PLL_FREQ_SEL);
+		source_freq_mhz = (pllfreq_sel) ? RTC_PLL_FREQ_480M : RTC_PLL_FREQ_320M;
+		if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_80) {
+			div = (source_freq_mhz == RTC_PLL_FREQ_480M) ? 6 : 4;
+			freq_mhz = 80;
+		} else if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_160) {
+			div = (source_freq_mhz == RTC_PLL_FREQ_480M) ? 3 : 2;
+			div = 3;
+			freq_mhz = 160;
+		} else if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_240) {
+			div = 2;
+			freq_mhz = 240;
+		} else {
+			/* unsupported frequency configuration */
+			return -1;
 		}
 		break;
-		case DPORT_SOC_CLK_SEL_PLL: {
-			source = RTC_CPU_FREQ_SRC_PLL;
-			uint32_t cpuperiod_sel = REG_GET_FIELD(SYSTEM_CPU_PER_CONF_REG,
-				SYSTEM_CPUPERIOD_SEL);
-			uint32_t pllfreq_sel = REG_GET_FIELD(SYSTEM_CPU_PER_CONF_REG,
-				SYSTEM_PLL_FREQ_SEL);
-			source_freq_mhz = (pllfreq_sel) ? RTC_PLL_FREQ_480M : RTC_PLL_FREQ_320M;
-			if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_80) {
-				div = (source_freq_mhz == RTC_PLL_FREQ_480M) ? 6 : 4;
-				freq_mhz = 80;
-			} else if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_160) {
-				div = (source_freq_mhz == RTC_PLL_FREQ_480M) ? 3 : 2;
-				div = 3;
-				freq_mhz = 160;
-			} else if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_240) {
-				div = 2;
-				freq_mhz = 240;
-			} else {
-				/* unsupported frequency configuration */
-				return -1;
-			}
-			break;
-		}
-		case DPORT_SOC_CLK_SEL_8M:
-			source = RTC_CPU_FREQ_SRC_8M;
-			source_freq_mhz = 8;
-			div = 1;
-			freq_mhz = source_freq_mhz;
-			break;
-		default:
-			/* unsupported frequency configuration */
-			return -2;
+	}
+	case DPORT_SOC_CLK_SEL_8M:
+		source = RTC_CPU_FREQ_SRC_8M;
+		source_freq_mhz = 8;
+		div = 1;
+		freq_mhz = source_freq_mhz;
+		break;
+	default:
+		/* unsupported frequency configuration */
+		return -2;
 	}
 	*out_config = (rtc_cpu_freq_config_t) {
 		.source = source,
@@ -301,7 +301,7 @@ void stub_uart_console_configure()
 	uartAttach(NULL);
 	/* first enable uart0 as printf channel */
 	uint32_t clock = ets_get_apb_freq();
-	ets_update_cpu_frequency(clock/1000000);
+	ets_update_cpu_frequency(clock / 1000000);
 
 	Uart_Init(ets_efuse_get_uart_print_channel(), UART_CLK_FREQ_ROM);
 	/* install to print later
@@ -432,8 +432,9 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 					s_mode = ESP_FLASH_ENC_MODE_RELEASE;
 			}
 
-		} else
+		} else {
 			s_mode = ESP_FLASH_ENC_MODE_DISABLED;
+		}
 
 		s_first = false;
 	}

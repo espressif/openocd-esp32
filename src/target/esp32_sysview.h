@@ -1,5 +1,5 @@
 /***************************************************************************
- *   ESP32 sysvuew tracing module                                          *
+ *   ESP32 sysview tracing module                                          *
  *   Copyright (C) 2020 Espressif Systems Ltd.                             *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -13,13 +13,11 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef ESP32_SYSVIEW_H
-#define ESP32_SYSVIEW_H
+#ifndef OPENOCD_TARGET_ESP32_SYSVIEW_H
+#define OPENOCD_TARGET_ESP32_SYSVIEW_H
 
 typedef enum {
 	SEGGER_SYSVIEW_COMMAND_ID_START = 1,
@@ -57,4 +55,4 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 	uint8_t *data,
 	uint32_t data_len);
 
-#endif	/* ESP32_APPTRACE_H */
+#endif	/* OPENOCD_TARGET_ESP32_SYSVIEW_H */

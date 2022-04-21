@@ -9626,7 +9626,7 @@ command.
 
 @deffn {Command} {arm semihosting_basedir} [dir]
 @cindex ARM semihosting
-Set the base I/O directory relative to the OpenOCD working directory.
+Set the base directory for semihosting I/O, either an absolute path or a path relative to OpenOCD working directory.
 Use "." for the current directory.
 @end deffn
 
@@ -10992,11 +10992,11 @@ Selects whether interrupts will be disabled during stepping over single instruct
 @end deffn
 
 @deffn {Command} {xtensa smpbreak} [none|breakinout|runstall] | [BreakIn] [BreakOut] [RunStallIn] [DebugModeOut]
-Configures debug signals connection ("break nework") for currently selected core.
+Configures debug signals connection ("break network") for currently selected core.
 @itemize @bullet
 @item @code{none} - Core's "break/stall network" is disconnected. Core is not affected by any debug
 signal from other cores.
-@item @code{breakinout} - Core's "break network" is fully connected (break inpts and outputs are enabled).
+@item @code{breakinout} - Core's "break network" is fully connected (break inputs and outputs are enabled).
 Core will receive debug break signals from other cores and send such signals to them. For example when another core
 is stopped due to breakpoint hit this core will be stopped too and vice versa.
 @item @code{runstall} - Core's "stall network" is fully connected (stall inputs and outputs are enabled).
@@ -11018,7 +11018,7 @@ This feature is not well implemented and tested yet.
 Enable and start performance counter.
 @itemize @bullet
 @item @code{counter_id} - Counter ID (0-1).
-@item @code{select} - Selects perfomance metric to be counted by the counter,
+@item @code{select} - Selects performance metric to be counted by the counter,
 e.g. 0 - CPU cycles, 2 - retired instructions.
 @item @code{mask} - Selects input subsets to be counted (counter will
 increment only once even if more than one condition corresponding to a mask bit occurs).
