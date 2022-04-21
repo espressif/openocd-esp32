@@ -13,13 +13,11 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef ESP_ALGORITHM_H
-#define ESP_ALGORITHM_H
+#ifndef OPENOCD_TARGET_ESP_ALGORITHM_H
+#define OPENOCD_TARGET_ESP_ALGORITHM_H
 
 #include "helper/log.h"
 #include "helper/binarybuffer.h"
@@ -436,4 +434,4 @@ static inline uint64_t algorithm_user_arg_get_uint(struct algorithm_run_data *ru
 		param->size);
 }
 
-#endif	/* OPENOCD_TARGET_ALGORITHM_H */
+#endif	/* OPENOCD_TARGET_ESP_ALGORITHM_H */

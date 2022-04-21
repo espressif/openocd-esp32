@@ -13,13 +13,11 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef XTENSA_ESP_SMP_H
-#define XTENSA_ESP_SMP_H
+#ifndef OPENOCD_TARGET_XTENSA_ESP_SMP_H
+#define OPENOCD_TARGET_XTENSA_ESP_SMP_H
 
 #include "algorithm.h"
 #include "esp_xtensa.h"
@@ -79,4 +77,5 @@ int esp_xtensa_smp_run_onboard_func(struct target *target,
 extern const struct command_registration esp_xtensa_smp_command_handlers[];
 extern const struct command_registration esp_xtensa_smp_xtensa_command_handlers[];
 extern const struct command_registration esp_xtensa_smp_esp_command_handlers[];
-#endif	/* XTENSA_ESP_SMP_H */
+
+#endif	/* OPENOCD_TARGET_XTENSA_ESP_SMP_H */

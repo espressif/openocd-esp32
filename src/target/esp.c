@@ -13,10 +13,12 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include <helper/log.h>
 #include <helper/binarybuffer.h>
@@ -125,10 +127,10 @@ static int esp_common_flash_breakpoints_clear(struct target *target, struct esp_
 				target,
 				flash_bp);
 			if (ret != ERROR_OK) {
-				LOG_ERROR(
-					"%s: Failed to remove SW flash BP @ "
+				LOG_TARGET_ERROR(
+					target,
+					"Failed to remove SW flash BP @ "
 					TARGET_ADDR_FMT " (%d)!",
-					target_name(target),
 					flash_bp->oocd_bp->address,
 					ret);
 				return ret;
@@ -137,7 +139,7 @@ static int esp_common_flash_breakpoints_clear(struct target *target, struct esp_
 	}
 	memset(esp->flash_brps.brps,
 		0,
-		ESP_FLASH_BREAKPOINTS_MAX_NUM*
+		ESP_FLASH_BREAKPOINTS_MAX_NUM *
 		sizeof(struct esp_flash_breakpoint));
 	return ERROR_OK;
 }
@@ -198,17 +200,17 @@ int esp_common_handle_gdb_detach(struct target *target, struct esp_common *esp_c
 	if (target->state != TARGET_HALTED) {
 		ret = target_halt(target);
 		if (ret != ERROR_OK) {
-			LOG_ERROR(
-				"%s: Failed to halt target to remove flash BPs (%d)!",
-				target_name(target),
+			LOG_TARGET_ERROR(
+				target,
+				"Failed to halt target to remove flash BPs (%d)!",
 				ret);
 			return ret;
 		}
 		ret = target_wait_state(target, TARGET_HALTED, 3000);
 		if (ret != ERROR_OK) {
-			LOG_ERROR(
-				"%s: Failed to wait halted target to remove flash BPs (%d)!",
-				target_name(target),
+			LOG_TARGET_ERROR(
+				target,
+				"Failed to wait halted target to remove flash BPs (%d)!",
 				ret);
 			return ret;
 		}
@@ -219,9 +221,9 @@ int esp_common_handle_gdb_detach(struct target *target, struct esp_common *esp_c
 	if (old_state == TARGET_RUNNING) {
 		ret = target_resume(target, 1, 0, 1, 0);
 		if (ret != ERROR_OK) {
-			LOG_ERROR(
-				"%s: Failed to resume target after flash BPs removal (%d)!",
-				target_name(target),
+			LOG_TARGET_ERROR(
+				target,
+				"Failed to resume target after flash BPs removal (%d)!",
 				ret);
 			return ret;
 		}

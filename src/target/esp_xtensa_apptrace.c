@@ -14,9 +14,7 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
 /* How It Works
@@ -207,6 +205,10 @@
 /* by data processing algorithm. When tracing is stopped OpenOCD waits for all pendded memory blocks
  * to be processed by the thread. */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "xtensa.h"
 #include "xtensa_debug_module.h"
 #include "esp_xtensa_apptrace.h"
@@ -214,20 +216,20 @@
 /* TRAX is disabled, so we use its registers for our own purposes */
 /* | 31..XXXXXX..24 | 23 .(host_connect). 23 | 22 .(host_data). 22| 21..(block_id)..15 |
  * 14..(block_len)..0 | */
-#define XTENSA_APPTRACE_CTRL_REG        NARADR_DELAYCNT
-#define XTENSA_APPTRACE_BLOCK_ID_MSK    0x7FUL
-#define XTENSA_APPTRACE_BLOCK_ID_MAX    XTENSA_APPTRACE_BLOCK_ID_MSK
+#define XTENSA_APPTRACE_CTRL_REG                NARADR_DELAYCNT
+#define XTENSA_APPTRACE_BLOCK_ID_MSK            0x7FUL
+#define XTENSA_APPTRACE_BLOCK_ID_MAX            XTENSA_APPTRACE_BLOCK_ID_MSK
 /* if non-zero then apptrace code entered the critical section and the value is an address of the
  * critical section's exit point */
 #define XTENSA_APPTRACE_STAT_REG                NARADR_TRIGGERPC
 
-#define XTENSA_APPTRACE_BLOCK_LEN_MSK       0x7FFFUL
-#define XTENSA_APPTRACE_BLOCK_LEN(_l_)      ((_l_) & XTENSA_APPTRACE_BLOCK_LEN_MSK)
+#define XTENSA_APPTRACE_BLOCK_LEN_MSK           0x7FFFUL
+#define XTENSA_APPTRACE_BLOCK_LEN(_l_)          ((_l_) & XTENSA_APPTRACE_BLOCK_LEN_MSK)
 #define XTENSA_APPTRACE_BLOCK_LEN_GET(_v_)      ((_v_) & XTENSA_APPTRACE_BLOCK_LEN_MSK)
-#define XTENSA_APPTRACE_BLOCK_ID(_id_)      (((_id_) & XTENSA_APPTRACE_BLOCK_ID_MSK) << 15)
-#define XTENSA_APPTRACE_BLOCK_ID_GET(_v_)   (((_v_) >> 15) & XTENSA_APPTRACE_BLOCK_ID_MSK)
-#define XTENSA_APPTRACE_HOST_DATA           (1 << 22)
-#define XTENSA_APPTRACE_HOST_CONNECT        (1 << 23)
+#define XTENSA_APPTRACE_BLOCK_ID(_id_)          (((_id_) & XTENSA_APPTRACE_BLOCK_ID_MSK) << 15)
+#define XTENSA_APPTRACE_BLOCK_ID_GET(_v_)       (((_v_) >> 15) & XTENSA_APPTRACE_BLOCK_ID_MSK)
+#define XTENSA_APPTRACE_HOST_DATA               BIT(22)
+#define XTENSA_APPTRACE_HOST_CONNECT            BIT(23)
 
 static int esp_xtensa_apptrace_leave_crit_section_start(struct target *target);
 static int esp_xtensa_apptrace_leave_crit_section_stop(struct target *target);
@@ -245,7 +247,7 @@ struct esp32_apptrace_hw esp_xtensa_apptrace_hw = {
 	.status_reg_read = esp_xtensa_apptrace_status_reg_read,
 	.ctrl_reg_write = esp_xtensa_apptrace_ctrl_reg_write,
 	.ctrl_reg_read = esp_xtensa_apptrace_ctrl_reg_read,
-	.data_len_read= esp_xtensa_apptrace_data_len_read,
+	.data_len_read = esp_xtensa_apptrace_data_len_read,
 	.data_read = esp_xtensa_apptrace_data_read,
 	.usr_block_max_size_get = esp_xtensa_apptrace_usr_block_max_size_get,
 	.buffs_write = esp_xtensa_apptrace_buffs_write,
@@ -317,7 +319,7 @@ static int esp_xtensa_apptrace_data_reverse_read(struct xtensa *xtensa,
 		rd_sz = (size + 0x3UL) & ~0x3UL;
 	res =
 		xtensa_queue_dbg_reg_write(xtensa, NARADR_TRAXADDR,
-		(xtensa->core_config->trace.mem_sz-rd_sz)/4);
+		(xtensa->core_config->trace.mem_sz - rd_sz) / 4);
 	if (res != ERROR_OK)
 		return res;
 	if (size & 0x3UL) {
@@ -325,8 +327,8 @@ static int esp_xtensa_apptrace_data_reverse_read(struct xtensa *xtensa,
 		if (res != ERROR_OK)
 			return res;
 	}
-	for (i = size/4; i > 0; i--) {
-		res = xtensa_queue_dbg_reg_read(xtensa, NARADR_TRAXDATA, &buffer[(i-1)*4]);
+	for (i = size / 4; i > 0; i--) {
+		res = xtensa_queue_dbg_reg_read(xtensa, NARADR_TRAXDATA, &buffer[(i - 1) * 4]);
 		if (res != ERROR_OK)
 			return res;
 	}
@@ -341,8 +343,8 @@ static int esp_xtensa_apptrace_data_normal_read(struct xtensa *xtensa,
 	int res = xtensa_queue_dbg_reg_write(xtensa, NARADR_TRAXADDR, 0);
 	if (res != ERROR_OK)
 		return res;
-	for (uint32_t i = 0; i < size/4; i++) {
-		res = xtensa_queue_dbg_reg_read(xtensa, NARADR_TRAXDATA, &buffer[i*4]);
+	for (uint32_t i = 0; i < size / 4; i++) {
+		res = xtensa_queue_dbg_reg_read(xtensa, NARADR_TRAXDATA, &buffer[i * 4]);
 		if (res != ERROR_OK)
 			return res;
 	}
@@ -532,8 +534,8 @@ static int esp_xtensa_apptrace_queue_reverse_write(struct xtensa *xtensa, uint32
 	xtensa_queue_dbg_reg_write(xtensa, NARADR_TRAXADDR,
 		(xtensa->core_config->trace.mem_sz - total_sz) / 4);
 	for (uint32_t i = bufs_num; i > 0; i--) {
-		uint32_t bsz = buf_sz[i-1];
-		const uint8_t *cur_buf = &bufs[i-1][bsz];
+		uint32_t bsz = buf_sz[i - 1];
+		const uint8_t *cur_buf = &bufs[i - 1][bsz];
 		uint32_t bytes_to_cache;
 		/* if there are cached bytes from the previous buffer, combine them with the last
 		 * from the current buffer */
@@ -544,7 +546,7 @@ static int esp_xtensa_apptrace_queue_reverse_write(struct xtensa *xtensa, uint32
 			else
 				bytes_to_cache = sizeof(uint32_t) - cached_bytes;
 			memcpy(&dword_cache.data8[sizeof(uint32_t) - cached_bytes - bytes_to_cache],
-				cur_buf-bytes_to_cache,
+				cur_buf - bytes_to_cache,
 				bytes_to_cache);
 			cached_bytes += bytes_to_cache;
 			if (cached_bytes < sizeof(uint32_t))
@@ -576,7 +578,7 @@ static int esp_xtensa_apptrace_queue_reverse_write(struct xtensa *xtensa, uint32
 			if (bytes_to_cache + cached_bytes >= sizeof(uint32_t)) {
 				/* filling the cache buffer from the end to beginning */
 				uint32_t to_copy = sizeof(uint32_t) - cached_bytes;
-				memcpy(&dword_cache.data8, cur_buf-to_copy, to_copy);
+				memcpy(&dword_cache.data8, cur_buf - to_copy, to_copy);
 				/* write full word of cached bytes */
 				res = xtensa_queue_dbg_reg_write(xtensa,
 					NARADR_TRAXDATA,
@@ -588,14 +590,14 @@ static int esp_xtensa_apptrace_queue_reverse_write(struct xtensa *xtensa, uint32
 				cur_buf -= to_copy;
 				to_copy = bytes_to_cache + cached_bytes - sizeof(uint32_t);
 				memcpy(&dword_cache.data8[sizeof(uint32_t) - to_copy],
-					cur_buf-to_copy,
+					cur_buf - to_copy,
 					to_copy);
 				cached_bytes = to_copy;
 			} else {
 				/* filling the cache buffer from the end to beginning */
 				memcpy(&dword_cache.data8[sizeof(uint32_t) - cached_bytes -
 						bytes_to_cache],
-					cur_buf-bytes_to_cache,
+					cur_buf - bytes_to_cache,
 					bytes_to_cache);
 				cached_bytes += bytes_to_cache;
 			}
@@ -646,7 +648,7 @@ static int esp_xtensa_apptrace_queue_normal_write(struct xtensa *xtensa, uint32_
 			cached_bytes = 0;
 		}
 		/* write full dwords */
-		for (uint32_t k = 0; (k+sizeof(uint32_t)) <= bsz; k += sizeof(uint32_t)) {
+		for (uint32_t k = 0; (k + sizeof(uint32_t)) <= bsz; k += sizeof(uint32_t)) {
 			uint32_t temp = 0;
 			memcpy(&temp, cur_buf, sizeof(uint32_t));
 			res =

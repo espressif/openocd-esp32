@@ -14,10 +14,12 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -83,21 +85,21 @@ int esp_xtensa_handle_target_event(struct target *target, enum target_event even
 		return ret;
 
 	switch (event) {
-		case TARGET_EVENT_HALTED:
-			/* debug stubs can be used in HALTED state only, so it is OK to get info
-			 * about them here */
-			esp_xtensa_dbgstubs_info_update(target);
-			break;
-		case TARGET_EVENT_GDB_DETACH:
-		{
-			struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
-			ret = esp_common_handle_gdb_detach(target, &esp_xtensa->esp);
-			if (ret != ERROR_OK)
-				return ret;
-			break;
-		}
-		default:
-			break;
+	case TARGET_EVENT_HALTED:
+		/* debug stubs can be used in HALTED state only, so it is OK to get info
+		 * about them here */
+		esp_xtensa_dbgstubs_info_update(target);
+		break;
+	case TARGET_EVENT_GDB_DETACH:
+	{
+		struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
+		ret = esp_common_handle_gdb_detach(target, &esp_xtensa->esp);
+		if (ret != ERROR_OK)
+			return ret;
+		break;
+	}
+	default:
+		break;
 	}
 	return ERROR_OK;
 }
@@ -130,10 +132,13 @@ void esp_xtensa_target_deinit(struct target *target)
 {
 	LOG_DEBUG("start");
 
-	int ret = esp_xtensa_dbgstubs_restore(target);
-	if (ret != ERROR_OK)
-		return;
+	if (target_was_examined(target)) {
+		int ret = esp_xtensa_dbgstubs_restore(target);
+		if (ret != ERROR_OK)
+			return;
+	}
 	xtensa_target_deinit(target);
+	free(target_to_esp_xtensa(target));	/* same as free(xtensa) */
 }
 
 int esp_xtensa_arch_state(struct target *target)

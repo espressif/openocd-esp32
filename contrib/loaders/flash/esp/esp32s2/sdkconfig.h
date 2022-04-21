@@ -19,7 +19,7 @@
 /* Debug UART baudrate */
 #define CONFIG_CONSOLE_UART_BAUDRATE            115200
 /* alloc apptrace data buffers on stack */
-#define CONFIG_STUB_STACK_DATA_POOL_SIZE        (2*CONFIG_APPTRACE_BUF_SIZE)
+#define CONFIG_STUB_STACK_DATA_POOL_SIZE        (2 * CONFIG_APPTRACE_BUF_SIZE)
 
 /* needed due to apptrace sources usage */
 #define CONFIG_LOG_MAXIMUM_LEVEL                0

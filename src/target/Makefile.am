@@ -277,8 +277,8 @@ ARC_SRC = \
 	%D%/xtensa_algorithm.h \
 	%D%/xtensa_debug_module.h \
 	%D%/xtensa_regs.h \
-	%D%/xtensa.h \
 	%D%/esp_xtensa.h \
+	%D%/esp.h \
 	%D%/esp_xtensa_smp.h \
 	%D%/esp_xtensa_apptrace.h \
 	%D%/esp32_apptrace.h \

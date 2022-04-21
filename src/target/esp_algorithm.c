@@ -13,9 +13,7 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
 #ifdef HAVE_CONFIG_H
@@ -77,15 +75,15 @@ static int algorithm_stub_check_stack(struct target *target,
 			return retval;
 		}
 		int checked = 0;
-		LOG_DEBUG("STK[%x]: check", stack_addr+i);
+		LOG_DEBUG("STK[%x]: check", stack_addr + i);
 		uint32_t j;
 		for (j = 0; j < rd_sz; j++) {
 			if (buf[j] != ALGO_STUB_STACK_STAMP) {
-				if (i+j > 0)
+				if (i + j > 0) {
 					LOG_WARNING("Stub stack bytes unused %d / %d",
-						i+j,
+						i + j,
 						stack_size);
-				else {
+				} else {
 					LOG_ERROR("Stub stack OVF!!!");
 					retval = ERROR_FAIL;
 				}
@@ -167,11 +165,12 @@ static int algorithm_run(struct target *target, struct algorithm_image *image,
 				mem_handles[i] = (void *)((long)alloc_run.ret_code);
 				run->mem_args.params[i].address = alloc_run.ret_code;
 			}
-			if (usr_param_num != UINT_MAX)	/* if we need update some register param
+			if (usr_param_num != UINT_MAX) {/* if we need update some register param
 							 * with mem param value */
 				algorithm_user_arg_set_uint(run,
 					usr_param_num,
 					run->mem_args.params[i].address);
+			}
 		}
 	}
 
@@ -241,9 +240,9 @@ static int algorithm_run(struct target *target, struct algorithm_image *image,
 	if (run->usr_func_done)
 		run->usr_func_done(target, run, run->usr_func_arg);
 
-	if (retval != ERROR_OK)
+	if (retval != ERROR_OK) {
 		LOG_ERROR("Algorithm run failed (%d)!", retval);
-	else {
+	} else {
 		run->ret_code = (int64_t)algorithm_user_arg_get_uint(run, 0);
 		LOG_DEBUG("Got algorithm RC 0x%" PRIx64, run->ret_code);
 	}
@@ -253,9 +252,9 @@ _cleanup:
 	if (mem_handles) {
 		for (uint32_t i = 0; i < run->mem_args.count; i++) {
 			if (mem_handles[i]) {
-				if (image)
+				if (image) {
 					target_free_alt_working_area(target, mem_handles[i]);
-				else {
+				} else {
 					struct algorithm_run_data free_run;
 					memset(&free_run, 0, sizeof(free_run));
 					free_run.hw = run->hw;
@@ -271,10 +270,11 @@ _cleanup:
 						run->on_board.free_func,
 						1,
 						mem_handles[i]);
-					if (ret != ERROR_OK)
+					if (ret != ERROR_OK) {
 						LOG_ERROR(
 							"Failed to run mem arg free onboard algo (%d)!",
 							ret);
+					}
 				}
 			}
 		}
@@ -308,13 +308,13 @@ int algorithm_load_func_image(struct target *target,
 	        * workspace */
 	LOG_DEBUG(
 		"stub: base 0x%x, start 0x%x, %d sections",
-		run->image.image.base_address_set ? (unsigned)run->image.image.base_address : 0,
+		run->image.image.base_address_set ? (unsigned int)run->image.image.base_address : 0,
 		run->image.image.start_address,
 		run->image.image.num_sections);
 	run->stub.entry = run->image.image.start_address;
-	for (unsigned i = 0; i < run->image.image.num_sections; i++) {
+	for (unsigned int i = 0; i < run->image.image.num_sections; i++) {
 		struct imagesection *section = &run->image.image.sections[i];
-		LOG_DEBUG("addr " TARGET_ADDR_FMT ", sz %d, flags %x",
+		LOG_DEBUG("addr " TARGET_ADDR_FMT ", sz %d, flags %" PRIx64,
 			section->base_address,
 			section->size,
 			section->flags);
@@ -440,7 +440,7 @@ int algorithm_load_func_image(struct target *target,
 		retval = ERROR_FAIL;
 		goto _on_error;
 	}
-	LOG_DEBUG("Stub loaded in %g ms", duration_elapsed(&algo_time)*1000);
+	LOG_DEBUG("Stub loaded in %g ms", duration_elapsed(&algo_time) * 1000);
 	return ERROR_OK;
 
 _on_error:
@@ -535,8 +535,9 @@ int algorithm_load_onboard_func(struct target *target,
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
 		run->stub.stack_addr = alloc_run.ret_code + run->stack_size;
-	} else
+	} else {
 		run->stub.stack_addr = run->on_board.min_stack_addr + run->stack_size;
+	}
 
 	run->stub.tramp_addr = run->on_board.code_buf_addr;
 	run->stub.entry = func_addr;
@@ -554,7 +555,7 @@ int algorithm_load_onboard_func(struct target *target,
 		LOG_ERROR("Failed to stop algo run measurement!");
 		return ERROR_FAIL;
 	}
-	LOG_DEBUG("Stub loaded in %g ms", duration_elapsed(&algo_time)*1000);
+	LOG_DEBUG("Stub loaded in %g ms", duration_elapsed(&algo_time) * 1000);
 
 	return ERROR_OK;
 }

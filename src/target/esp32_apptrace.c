@@ -18,9 +18,7 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
 #ifdef HAVE_CONFIG_H
@@ -179,7 +177,7 @@ static int esp32_apptrace_file_dest_init(struct esp32_apptrace_dest *dest, const
 	memset(dest_data, 0, sizeof(struct esp32_apptrace_dest_file_data));
 
 	LOG_INFO("Open file %s", dest_name);
-	dest_data->fout = open(dest_name, O_WRONLY|O_CREAT|O_TRUNC|O_BINARY, 0666);
+	dest_data->fout = open(dest_name, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0666);
 	if (dest_data->fout <= 0) {
 		LOG_ERROR("Failed to open file %s", dest_name);
 		return ERROR_FAIL;
@@ -252,7 +250,7 @@ static int esp32_apptrace_tcp_dest_init(struct esp32_apptrace_dest *dest, const 
 	assert(port_sep > dest_name);
 	size_t hostname_len = port_sep - dest_name;
 
-	char hostname[64] = {0};
+	char hostname[64] = { 0 };
 	if (hostname_len >= sizeof(hostname)) {
 		LOG_ERROR("apptrace: Hostname too long");
 		return ERROR_COMMAND_ARGUMENT_INVALID;
@@ -281,9 +279,9 @@ static int esp32_apptrace_tcp_dest_init(struct esp32_apptrace_dest *dest, const 
 		sockfd = socket(ai_it->ai_family, ai_it->ai_socktype, ai_it->ai_protocol);
 		if (sockfd < 0) {
 			LOG_DEBUG("apptrace: Failed to create socket (%d, %d, %d) (%s)",
-				(int) ai_it->ai_family,
-				(int) ai_it->ai_socktype,
-				(int) ai_it->ai_protocol,
+				(int)ai_it->ai_family,
+				(int)ai_it->ai_socktype,
+				(int)ai_it->ai_protocol,
 				strerror(errno));
 			continue;
 		}
@@ -675,7 +673,7 @@ void esp32_apptrace_cmd_args_parse(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 		if (argc > 2) {
 			int32_t tmo = strtol(argv[2], &end, 10);
 			ESP32_APPTRACE_CMD_NUM_ARG_CHECK(tmo, argv[2], end);
-			cmd_ctx->stop_tmo = 1.0*tmo;
+			cmd_ctx->stop_tmo = 1.0 * tmo;
 			if (argc > 3) {
 				cmd_data->wait4halt = strtoul(argv[3], &end, 10);
 				ESP32_APPTRACE_CMD_NUM_ARG_CHECK(cmd_data->wait4halt,
@@ -742,7 +740,7 @@ static int esp32_apptrace_cmd_init(struct target *target,
 	cmd_data->poll_period = 0 /*ms*/;
 	if (argc > 1) {
 		/* parse remaining args */
-		esp32_apptrace_cmd_args_parse(cmd_ctx, cmd_data, &argv[1], argc-1);
+		esp32_apptrace_cmd_args_parse(cmd_ctx, cmd_data, &argv[1], argc - 1);
 	}
 	LOG_USER(
 		"App trace params: from %d cores, size %u bytes, stop_tmo %g s, poll period %u ms, wait_rst %d, skip %u bytes",
@@ -794,11 +792,11 @@ static void esp32_apptrace_print_stats(struct esp32_apptrace_cmd_ctx *ctx)
 		ctx->stats.lost_bytes);
 #if ESP_APPTRACE_TIME_STATS_ENABLE
 	LOG_USER("Block read time [%f..%f] ms",
-		1000*ctx->stats.min_blk_read_time,
-		1000*ctx->stats.max_blk_read_time);
+		1000 * ctx->stats.min_blk_read_time,
+		1000 * ctx->stats.max_blk_read_time);
 	LOG_USER("Block proc time [%f..%f] ms",
-		1000*ctx->stats.min_blk_proc_time,
-		1000*ctx->stats.max_blk_proc_time);
+		1000 * ctx->stats.min_blk_proc_time,
+		1000 * ctx->stats.max_blk_proc_time);
 #endif
 }
 
@@ -829,7 +827,7 @@ int esp32_apptrace_safe_halt_targets(struct esp32_apptrace_cmd_ctx *ctx,
 {
 	int res = ERROR_OK;
 
-	memset(targets, 0, ctx->cores_num*sizeof(struct esp32_apptrace_target_state));
+	memset(targets, 0, ctx->cores_num * sizeof(struct esp32_apptrace_target_state));
 	/* halt all CPUs */
 	LOG_DEBUG("Halt all targets!");
 	for (int k = 0; k < ctx->cores_num; k++) {
@@ -1000,9 +998,9 @@ int esp_apptrace_usr_block_write(const struct esp32_apptrace_hw *hw, struct targ
 	const uint8_t *data,
 	uint32_t size)
 {
-	struct esp_apptrace_host2target_hdr hdr = {.block_sz = size};
-	uint32_t buf_sz[2] = {sizeof(hdr), size};
-	const uint8_t *bufs[2] = {(const uint8_t *)&hdr, data};
+	struct esp_apptrace_host2target_hdr hdr = { .block_sz = size };
+	uint32_t buf_sz[2] = { sizeof(hdr), size };
+	const uint8_t *bufs[2] = { (const uint8_t *)&hdr, data };
 
 	if (size > hw->usr_block_max_size_get(target)) {
 		LOG_ERROR("Too large user block %u", size);
@@ -1010,7 +1008,7 @@ int esp_apptrace_usr_block_write(const struct esp32_apptrace_hw *hw, struct targ
 	}
 
 	return hw->buffs_write(target,
-		sizeof(buf_sz)/sizeof(buf_sz[0]),
+		sizeof(buf_sz) / sizeof(buf_sz[0]),
 		buf_sz,
 		bufs,
 		block_id,
@@ -1066,7 +1064,7 @@ static int esp32_apptrace_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 	struct esp32_apptrace_cmd_data *cmd_data = ctx->cmd_priv;
 
 	LOG_DEBUG("Got block %d bytes [%x %x...%x %x]", data_len, data[12], data[13],
-		data[data_len-2], data[data_len-1]);
+		data[data_len - 2], data[data_len - 1]);
 	if (ctx->tot_len + data_len > cmd_data->skip_len) {
 		uint32_t wr_idx = 0, wr_chunk_len = data_len;
 		if (ctx->tot_len < cmd_data->skip_len) {
@@ -1086,8 +1084,9 @@ static int esp32_apptrace_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 			}
 		}
 		ctx->tot_len += wr_chunk_len;
-	} else
+	} else {
 		ctx->tot_len += data_len;
+	}
 
 	if (cmd_data->data_dest.log_progress)
 		LOG_USER("%u ", ctx->tot_len);
@@ -1456,7 +1455,7 @@ static void esp32_apptrace_cmd_stop(struct esp32_apptrace_cmd_ctx *ctx)
 /* this function must be called after connecting to targets */
 static int esp32_sysview_start(struct esp32_apptrace_cmd_ctx *ctx)
 {
-	uint8_t cmds[] = {SEGGER_SYSVIEW_COMMAND_ID_START};
+	uint8_t cmds[] = { SEGGER_SYSVIEW_COMMAND_ID_START };
 	uint32_t fired_target_num = 0;
 	struct esp32_apptrace_target_state target_state[ESP32_APPTRACE_MAX_CORES_NUM];
 	struct esp32_sysview_cmd_data *cmd_data = (struct esp32_sysview_cmd_data *)ctx->cmd_priv;
@@ -1492,7 +1491,7 @@ static int esp32_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx)
 	uint32_t old_block_id, fired_target_num = 0, empty_target_num = 0;
 	struct esp32_apptrace_target_state target_state[ESP32_APPTRACE_MAX_CORES_NUM];
 	struct esp32_sysview_cmd_data *cmd_data = (struct esp32_sysview_cmd_data *)ctx->cmd_priv;
-	uint8_t cmds[] = {SEGGER_SYSVIEW_COMMAND_ID_STOP};
+	uint8_t cmds[] = { SEGGER_SYSVIEW_COMMAND_ID_STOP };
 	struct duration wait_time;
 
 	struct esp32_apptrace_block *block = esp32_apptrace_free_block_get(ctx);
@@ -1612,10 +1611,10 @@ static int esp32_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx)
 					block->data,
 					target_state[fired_target_num].block_id,
 					1 /*ack target data*/);
-				if (res != ERROR_OK)
+				if (res != ERROR_OK) {
 					LOG_ERROR("SEGGER: Failed to read last data on (%s)!",
 						target_name(ctx->cpus[fired_target_num]));
-				else {
+				} else {
 					if (ctx->cores_num > 1) {
 						/* ack target data on another CPU */
 						empty_target_num = fired_target_num ? 0 : 1;
@@ -1696,7 +1695,7 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 				mode,
 				mode == ESP_APPTRACE_CMD_MODE_SYSVIEW_MCORE,
 				&argv[1],
-				argc-1);
+				argc - 1);
 			if (res != ERROR_OK) {
 				LOG_ERROR("Failed to init cmd ctx (%d)!", res);
 				return res;
@@ -1714,7 +1713,7 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 				&s_at_cmd_ctx,
 				mode,
 				&argv[1],
-				argc-1);
+				argc - 1);
 			if (res != ERROR_OK) {
 				LOG_ERROR("Failed to init cmd ctx (%d)!", res);
 				return res;
@@ -1778,7 +1777,7 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 			&s_at_cmd_ctx,
 			mode,
 			&argv[1],
-			argc-1);
+			argc - 1);
 		if (res != ERROR_OK) {
 			LOG_ERROR("Failed to init cmd ctx (%d)!", res);
 			return res;
@@ -1807,8 +1806,9 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 		res = esp32_apptrace_cmd_cleanup(&s_at_cmd_ctx);
 		if (res != ERROR_OK)
 			LOG_ERROR("Failed to cleanup cmd ctx (%d)!", res);
-	} else
+	} else {
 		LOG_ERROR("Invalid action '%s'!", argv[0]);
+	}
 
 	return res;
 
@@ -1913,7 +1913,7 @@ static const char *esp_gcov_filename_alloc(const char *orig_fname)
 	/* Check if the level of dirs to strip off specified. */
 	char *tmp = getenv("OPENOCD_GCOV_PREFIX_STRIP");
 	if (tmp) {
-		strip = atoi (tmp);
+		strip = atoi(tmp);
 		/* Do not consider negative values. */
 		if (strip < 0)
 			strip = 0;
@@ -1921,7 +1921,7 @@ static const char *esp_gcov_filename_alloc(const char *orig_fname)
 
 	/* Get file name relocation prefix. Non-absolute values are ignored. */
 	gcov_prefix = getenv("OPENOCD_GCOV_PREFIX");
-	prefix_length = gcov_prefix ? strlen (gcov_prefix) : 0;
+	prefix_length = gcov_prefix ? strlen(gcov_prefix) : 0;
 
 	/* Remove an unnecessary trailing '/' */
 	if (prefix_length && IS_DIR_SEPARATOR(gcov_prefix[prefix_length - 1]))
@@ -1944,7 +1944,7 @@ static const char *esp_gcov_filename_alloc(const char *orig_fname)
 		 * path can contain mixed Windows and Unix and */
 		/* can look like
 		 * `c:\esp\esp-idf\examples\system\gcov\build/esp-idf/main/CMakeFiles/__idf_main.dir/gcov_example.c.gcda` */
-		tmp = strpbrk(striped_fname+1, DIR_SEPARATORS);
+		tmp = strpbrk(striped_fname + 1, DIR_SEPARATORS);
 		if (tmp == NULL)
 			break;
 		striped_fname = tmp;
@@ -1991,22 +1991,23 @@ static int esp_gcov_fopen(struct esp32_gcov_cmd_data *cmd_data,
 		LOG_ERROR("Failed to alloc memory for file name!");
 		return ERROR_FAIL;
 	}
-	LOG_INFO("Open file 0x%x '%s'", fd+1, fname);
+	LOG_INFO("Open file 0x%x '%s'", fd + 1, fname);
 	cmd_data->files[fd] = fopen(fname, mode);
 	if (!cmd_data->files[fd]) {
 		/* do not report error on reading non-existent file */
 		if (errno != ENOENT || strchr(mode, 'r') == NULL)
 			LOG_ERROR("Failed to open file '%s', mode '%s' (%d)!", fname, mode, errno);
 		fd = 0;
-	} else
+	} else {
 		fd++;	/* 1-based, 0 indicates error */
 
+	}
 	*resp_len = sizeof(fd);
 	*resp = malloc(*resp_len);
 	if (!*resp) {
 		LOG_ERROR("Failed to alloc mem for resp!");
 		if (fd != 0)
-			fclose(cmd_data->files[fd-1]);
+			fclose(cmd_data->files[fd - 1]);
 		free((void *)fname);
 		return ERROR_FAIL;
 	}
@@ -2106,7 +2107,7 @@ static int esp_gcov_fread(struct esp32_gcov_cmd_data *cmd_data,
 	uint32_t fret;
 
 	*resp_len = 0;
-	if (data_len < 2*sizeof(uint32_t)) {
+	if (data_len < 2 * sizeof(uint32_t)) {
 		LOG_ERROR("Missed FREAD args!");
 		return ERROR_FAIL;
 	}
@@ -2146,7 +2147,7 @@ static int esp_gcov_fseek(struct esp32_gcov_cmd_data *cmd_data,
 	uint32_t *resp_len)
 {
 	*resp_len = 0;
-	if (data_len < (sizeof(uint32_t) + 2*sizeof(int32_t))) {
+	if (data_len < (sizeof(uint32_t) + 2 * sizeof(int32_t))) {
 		LOG_ERROR("Missed FSEEK args!");
 		return ERROR_FAIL;
 	}
@@ -2233,30 +2234,30 @@ static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 	}
 
 	switch (*data) {
-		case ESP_APPTRACE_FILE_CMD_FOPEN:
-			ret = esp_gcov_fopen(cmd_data, data+1, data_len-1, &resp, &resp_len);
-			break;
-		case ESP_APPTRACE_FILE_CMD_FCLOSE:
-			ret = esp_gcov_fclose(cmd_data, data+1, data_len-1, &resp, &resp_len);
-			break;
-		case ESP_APPTRACE_FILE_CMD_FWRITE:
-			ret = esp_gcov_fwrite(cmd_data, data+1, data_len-1, &resp, &resp_len);
-			break;
-		case ESP_APPTRACE_FILE_CMD_FREAD:
-			ret = esp_gcov_fread(cmd_data, data+1, data_len-1, &resp, &resp_len);
-			break;
-		case ESP_APPTRACE_FILE_CMD_FSEEK:
-			ret = esp_gcov_fseek(cmd_data, data+1, data_len-1, &resp, &resp_len);
-			break;
-		case ESP_APPTRACE_FILE_CMD_FTELL:
-			ret = esp_gcov_ftell(cmd_data, data+1, data_len-1, &resp, &resp_len);
-			break;
-		case ESP_APPTRACE_FILE_CMD_STOP:
-			ctx->running = 0;
-			break;
-		default:
-			LOG_ERROR("Invalid FCMD 0x%x!", *data);
-			ret = ERROR_FAIL;
+	case ESP_APPTRACE_FILE_CMD_FOPEN:
+		ret = esp_gcov_fopen(cmd_data, data + 1, data_len - 1, &resp, &resp_len);
+		break;
+	case ESP_APPTRACE_FILE_CMD_FCLOSE:
+		ret = esp_gcov_fclose(cmd_data, data + 1, data_len - 1, &resp, &resp_len);
+		break;
+	case ESP_APPTRACE_FILE_CMD_FWRITE:
+		ret = esp_gcov_fwrite(cmd_data, data + 1, data_len - 1, &resp, &resp_len);
+		break;
+	case ESP_APPTRACE_FILE_CMD_FREAD:
+		ret = esp_gcov_fread(cmd_data, data + 1, data_len - 1, &resp, &resp_len);
+		break;
+	case ESP_APPTRACE_FILE_CMD_FSEEK:
+		ret = esp_gcov_fseek(cmd_data, data + 1, data_len - 1, &resp, &resp_len);
+		break;
+	case ESP_APPTRACE_FILE_CMD_FTELL:
+		ret = esp_gcov_ftell(cmd_data, data + 1, data_len - 1, &resp, &resp_len);
+		break;
+	case ESP_APPTRACE_FILE_CMD_STOP:
+		ctx->running = 0;
+		break;
+	default:
+		LOG_ERROR("Invalid FCMD 0x%x!", *data);
+		ret = ERROR_FAIL;
 	}
 	if (ret != ERROR_OK)
 		return ret;
@@ -2336,11 +2337,11 @@ static struct esp_dbg_stubs *get_stubs_from_target(struct target **target)
 
 	const char *arch = target_get_gdb_arch(*target);
 	if (arch != NULL) {
-		if (strncmp(arch, "riscv", 5) == 0)
+		if (strncmp(arch, "riscv", 5) == 0) {
 			xtensa_arch = false;
-		else if (strncmp(arch, "xtensa", 6) == 0)
+		} else if (strncmp(arch, "xtensa", 6) == 0) {
 			xtensa_arch = true;
-		else {
+		} else {
 			LOG_ERROR("Unsupported target arch '%s'!", arch);
 			return NULL;
 		}
@@ -2362,9 +2363,10 @@ static struct esp_dbg_stubs *get_stubs_from_target(struct target **target)
 				break;
 			}
 		}
-	} else
+	} else {
 		dbg_stubs = xtensa_arch ? &(target_to_esp_xtensa(*target)->esp.dbg_stubs) :
 			&(target_to_esp_riscv(*target)->esp.dbg_stubs);
+	}
 	return dbg_stubs;
 }
 
@@ -2381,9 +2383,9 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 	bool gcov_idf_has_thread = false;
 
 	if (CMD_ARGC > 0) {
-		if (strcmp(CMD_ARGV[0], "dump") == 0)
+		if (strcmp(CMD_ARGV[0], "dump") == 0) {
 			dump = true;
-		else {
+		} else {
 			LOG_ERROR("Invalid action!");
 			return ERROR_FAIL;
 		}
@@ -2453,10 +2455,10 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 		LOG_DEBUG("STUB_CAP = 0x%x", stub_capabilites);
 		memset(&run, 0, sizeof(run));
 		run.hw = s_at_cmd_ctx.algo_hw;
-		run.stack_size      = 1024;
+		run.stack_size = 1024;
 		if (!gcov_idf_has_thread) {
-			run.usr_func_arg    = &s_at_cmd_ctx;
-			run.usr_func        = esp_gcov_poll;
+			run.usr_func_arg = &s_at_cmd_ctx;
+			run.usr_func = esp_gcov_poll;
 		}
 		run.on_board.min_stack_addr = dbg_stubs->desc.min_stack_addr;
 		run.on_board.min_stack_size = ESP_DBG_STUBS_STACK_MIN_SIZE;

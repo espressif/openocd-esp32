@@ -13,28 +13,31 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <helper/log.h>
+#include <helper/bits.h>
 #include "esp_riscv.h"
 #include "esp_riscv_apptrace.h"
 
 /* TRAX is disabled, so we use its registers for our own purposes */
 /* | 31..XXXXXX..24 | 23 .(host_connect). 23 | 22 .(host_data). 22| 21..(block_id)..15 |
  * 14..(block_len)..0 | */
-#define RISCV_APPTRACE_BLOCK_ID_MSK    0x7FUL
-#define RISCV_APPTRACE_BLOCK_ID_MAX    RISCV_APPTRACE_BLOCK_ID_MSK
+#define RISCV_APPTRACE_BLOCK_ID_MSK             0x7FUL
+#define RISCV_APPTRACE_BLOCK_ID_MAX             RISCV_APPTRACE_BLOCK_ID_MSK
 
-#define RISCV_APPTRACE_BLOCK_LEN_MSK       0x7FFFUL
-#define RISCV_APPTRACE_BLOCK_LEN(_l_)      ((_l_) & RISCV_APPTRACE_BLOCK_LEN_MSK)
-#define RISCV_APPTRACE_BLOCK_LEN_GET(_v_)       ((_v_) & RISCV_APPTRACE_BLOCK_LEN_MSK)
-#define RISCV_APPTRACE_BLOCK_ID(_id_)      (((_id_) & RISCV_APPTRACE_BLOCK_ID_MSK) << 15)
-#define RISCV_APPTRACE_BLOCK_ID_GET(_v_)   (((_v_) >> 15) & RISCV_APPTRACE_BLOCK_ID_MSK)
-#define RISCV_APPTRACE_HOST_DATA           (1 << 22)
-#define RISCV_APPTRACE_HOST_CONNECT        (1 << 23)
+#define RISCV_APPTRACE_BLOCK_LEN_MSK            0x7FFFUL
+#define RISCV_APPTRACE_BLOCK_LEN(_l_)           ((_l_) & RISCV_APPTRACE_BLOCK_LEN_MSK)
+#define RISCV_APPTRACE_BLOCK_LEN_GET(_v_)  ((_v_) & RISCV_APPTRACE_BLOCK_LEN_MSK)
+#define RISCV_APPTRACE_BLOCK_ID(_id_)    (((_id_) & RISCV_APPTRACE_BLOCK_ID_MSK) << 15)
+#define RISCV_APPTRACE_BLOCK_ID_GET(_v_)        (((_v_) >> 15) & RISCV_APPTRACE_BLOCK_ID_MSK)
+#define RISCV_APPTRACE_HOST_DATA                BIT(22)
+#define RISCV_APPTRACE_HOST_CONNECT             BIT(23)
 
 struct esp_apptrace_riscv_ctrl_regs {
 	uint32_t ctrl;
@@ -64,7 +67,7 @@ struct esp32_apptrace_hw esp_riscv_apptrace_hw = {
 	.status_reg_read = esp_riscv_apptrace_status_reg_read,
 	.ctrl_reg_write = esp_riscv_apptrace_ctrl_reg_write,
 	.ctrl_reg_read = esp_riscv_apptrace_ctrl_reg_read,
-	.data_len_read= esp_riscv_apptrace_data_len_read,
+	.data_len_read = esp_riscv_apptrace_data_len_read,
 	.data_read = esp_riscv_apptrace_data_read,
 	.usr_block_max_size_get = esp_riscv_apptrace_usr_block_max_size_get,
 	.buffs_write = esp_riscv_apptrace_buffs_write,
@@ -159,12 +162,13 @@ int esp_riscv_apptrace_data_read(struct target *target,
 		buffer);
 	if (res != ERROR_OK)
 		return res;
-	if (ack)
+	if (ack) {
 		res = esp_riscv_apptrace_ctrl_reg_write(target,
 			block_id,
 			0 /*all data were read*/,
 			true /*host connected*/,
 			false /*no host data*/);
+	}
 	return res;
 }
 
@@ -208,7 +212,7 @@ int esp_riscv_apptrace_ctrl_reg_write(struct target *target,
 static int esp_riscv_apptrace_status_reg_read(struct target *target, uint32_t *stat)
 {
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
-	int res = target_read_u32(target, esp_riscv->apptrace.ctrl_addr+sizeof(uint32_t), stat);
+	int res = target_read_u32(target, esp_riscv->apptrace.ctrl_addr + sizeof(uint32_t), stat);
 	if (res != ERROR_OK)
 		return res;
 	return ERROR_OK;
@@ -236,11 +240,12 @@ static int esp_riscv_apptrace_buffs_write(struct target *target,
 			return res;
 		curr_addr += buf_sz[i];
 	}
-	if (ack)
+	if (ack) {
 		res = esp_riscv_apptrace_ctrl_reg_write(target,
 			block_id,
 			0 /*all data were read*/,
 			true /*host connected*/,
 			data);
+	}
 	return res;
 }

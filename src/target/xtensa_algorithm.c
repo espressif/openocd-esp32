@@ -13,10 +13,12 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include "xtensa.h"
 #include "xtensa_algorithm.h"
@@ -62,15 +64,15 @@ static int xtensa_algo_regs_init_start(struct target *target, struct algorithm_r
 		LOG_DEBUG("Adjust stack addr to 0x%x", stack_addr);
 	}
 	stack_addr -= 16;
-	init_reg_param(&run->reg_args.params[0], "a0",          32, PARAM_OUT);	/*TODO: move to
+	init_reg_param(&run->reg_args.params[0], "a0", 32, PARAM_OUT);		/*TODO: move to
 										 * tramp */
-	init_reg_param(&run->reg_args.params[1], "a1",          32, PARAM_OUT);
-	init_reg_param(&run->reg_args.params[2], "a8",          32, PARAM_OUT);
-	init_reg_param(&run->reg_args.params[3], "windowbase",  32, PARAM_OUT);	/*TODO: move to
+	init_reg_param(&run->reg_args.params[1], "a1", 32, PARAM_OUT);
+	init_reg_param(&run->reg_args.params[2], "a8", 32, PARAM_OUT);
+	init_reg_param(&run->reg_args.params[3], "windowbase", 32, PARAM_OUT);	/*TODO: move to
 										 * tramp */
 	init_reg_param(&run->reg_args.params[4], "windowstart", 32, PARAM_OUT);	/*TODO: move to
 										 * tramp */
-	init_reg_param(&run->reg_args.params[5], "ps",          32, PARAM_OUT);
+	init_reg_param(&run->reg_args.params[5], "ps", 32, PARAM_OUT);
 	buf_set_u32(run->reg_args.params[0].value, 0, 32, 0);	/* a0 TODO: move to tramp */
 	buf_set_u32(run->reg_args.params[1].value, 0, 32, stack_addr);	/* a1 */
 	buf_set_u32(run->reg_args.params[2].value, 0, 32, run->stub.entry);	/* a8 */
@@ -89,11 +91,11 @@ static int xtensa_algo_init(struct target *target, struct algorithm_run_data *ru
 	va_list ap)
 {
 	enum xtensa_mode core_mode = XT_MODE_ANY;
-	char *arg_regs[] = {"a2", "a3", "a4", "a5", "a6"};
+	char *arg_regs[] = { "a2", "a3", "a4", "a5", "a6" };
 
-	if (num_args > sizeof(arg_regs)/sizeof(arg_regs[0])) {
-		LOG_ERROR("Too many algo user args %u! Max %u args are supported.",
-			num_args, (unsigned int)(sizeof(arg_regs)/sizeof(arg_regs[0])));
+	if (num_args > ARRAY_SIZE(arg_regs)) {
+		LOG_ERROR("Too many algo user args %u! Max %zu args are supported.",
+			num_args, ARRAY_SIZE(arg_regs));
 		return ERROR_FAIL;
 	}
 
@@ -115,7 +117,7 @@ static int xtensa_algo_init(struct target *target, struct algorithm_run_data *ru
 
 	xtensa_algo_regs_init_start(target, run);
 
-	init_reg_param(&run->reg_args.params[run->reg_args.first_user_param+0],
+	init_reg_param(&run->reg_args.params[run->reg_args.first_user_param + 0],
 		"a2",
 		32,
 		PARAM_IN_OUT);
@@ -124,17 +126,18 @@ static int xtensa_algo_init(struct target *target, struct algorithm_run_data *ru
 		uint32_t arg = va_arg(ap, uint32_t);
 		algorithm_user_arg_set_uint(run, 0, arg);
 		LOG_DEBUG("Set arg[0] = %d (%s)", arg,
-			run->reg_args.params[run->reg_args.first_user_param+0].reg_name);
-	} else
+			run->reg_args.params[run->reg_args.first_user_param + 0].reg_name);
+	} else {
 		algorithm_user_arg_set_uint(run, 0, 0);
+	}
 
 	for (uint32_t i = 1; i < num_args; i++) {
 		uint32_t arg = va_arg(ap, uint32_t);
-		init_reg_param(&run->reg_args.params[run->reg_args.first_user_param+i],
+		init_reg_param(&run->reg_args.params[run->reg_args.first_user_param + i],
 			arg_regs[i], 32, PARAM_OUT);
 		algorithm_user_arg_set_uint(run, i, arg);
 		LOG_DEBUG("Set arg[%d] = %d (%s)", i, arg,
-			run->reg_args.params[run->reg_args.first_user_param+i].reg_name);
+			run->reg_args.params[run->reg_args.first_user_param + i].reg_name);
 	}
 	struct xtensa_algorithm *ainfo = calloc(1, sizeof(struct xtensa_algorithm));
 	assert(ainfo);

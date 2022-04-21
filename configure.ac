@@ -126,7 +126,7 @@ m4_define([USB1_ADAPTERS],
 	[[armjtagew], [Olimex ARM-JTAG-EW Programmer], [ARMJTAGEW]],
 	[[rlink], [Raisonance RLink JTAG Programmer], [RLINK]],
 	[[usbprog], [USBProg JTAG Programmer], [USBPROG]],
-  [[esp_usb_jtag], [Espressif JTAG Programmer], [ESP_USB_JTAG]]])
+	[[esp_usb_jtag], [Espressif JTAG Programmer], [ESP_USB_JTAG]]])
 
 m4_define([DEPRECATED_USB1_ADAPTERS],
 	[[[aice], [Andes JTAG Programmer (deprecated)], [AICE]]])
@@ -741,11 +741,10 @@ AS_IF([test "x$enable_presto" != "xno"], [
   build_bitq=yes
 ])
 
- # esp-usb-jtag also needs the bitq module
+# esp-usb-jtag also needs the bitq module
 AS_IF([test "x$enable_esp_usb_jtag" != "xno"], [
   build_bitq=yes
 ])
-
 
 AM_CONDITIONAL([RELEASE], [test "x$build_release" = "xyes"])
 AM_CONDITIONAL([PARPORT], [test "x$build_parport" = "xyes"])

@@ -270,7 +270,7 @@ static const struct symbols freertos_symbol_list[] = {
 	{ "uxTopUsedPriority", true },	/* Unavailable since v7.5.3 */
 	{ "port_interruptNesting", true },
 	{ "uxTaskNumber", false },
-	{ "FreeRTOS_openocd_params", true},	/* Only if ESP_PLATFORM defined */
+	{ "FreeRTOS_openocd_params", true },	/* Only if ESP_PLATFORM defined */
 	{ "pxCurrentTCBs", true },	/* Available since ESP-IDF v5.0 */
 	{ NULL, false }
 };
@@ -315,7 +315,10 @@ static int freertos_read_esp_symbol_table(struct rtos *rtos, int index, uint8_t 
 		if (retval != ERROR_OK)
 			return retval;
 
-		LOG_DEBUG("esp_symbol_table size: (%d)", table_size);
+		if (table_size == 0) {
+			LOG_WARNING("esp_symbols table size (%d) is not valid!", table_size);
+			return ERROR_FAIL;
+		}
 
 		rtos_data->esp_symbols = (uint8_t *)calloc(table_size, sizeof(table_size));
 		if (!rtos_data->esp_symbols) {
@@ -433,21 +436,21 @@ static int target_buffer_get_uint(struct target *target, uint8_t width, uint8_t 
 	uint64_t *val)
 {
 	switch (width) {
-		case 8:
-			*val = target_buffer_get_u64(target, buff);
-			break;
-		case 4:
-			*val = target_buffer_get_u32(target, buff);
-			break;
-		case 2:
-			*val = target_buffer_get_u16(target, buff);
-			break;
-		case 1:
-			*val = *buff;
-			break;
-		default:
-			LOG_ERROR("Unsupported target integer of width %u!", width);
-			return ERROR_FAIL;
+	case 8:
+		*val = target_buffer_get_u64(target, buff);
+		break;
+	case 4:
+		*val = target_buffer_get_u32(target, buff);
+		break;
+	case 2:
+		*val = target_buffer_get_u16(target, buff);
+		break;
+	case 1:
+		*val = *buff;
+		break;
+	default:
+		LOG_ERROR("Unsupported target integer of width %u!", width);
+		return ERROR_FAIL;
 	}
 	return ERROR_OK;
 }
@@ -458,33 +461,33 @@ static int target_buffer_read_uint(struct target *target, target_addr_t address,
 	int retval = ERROR_FAIL;
 
 	switch (width) {
-		case 8:
-			retval = target_read_u64(target, address, val);
-			break;
-		case 4:
-		{
-			uint32_t v32 = 0;
-			retval = target_read_u32(target, address, &v32);
-			*val = v32;
-			break;
-		}
-		case 2:
-		{
-			uint16_t v16 = 0;
-			retval = target_read_u16(target, address, &v16);
-			*val = v16;
-			break;
-		}
-		case 1:
-		{
-			uint8_t v8 = 0;
-			retval = target_read_u8(target, address, &v8);
-			*val = v8;
-			break;
-		}
-		default:
-			LOG_ERROR("Unsupported target integer of width %u!", width);
-			break;
+	case 8:
+		retval = target_read_u64(target, address, val);
+		break;
+	case 4:
+	{
+		uint32_t v32 = 0;
+		retval = target_read_u32(target, address, &v32);
+		*val = v32;
+		break;
+	}
+	case 2:
+	{
+		uint16_t v16 = 0;
+		retval = target_read_u16(target, address, &v16);
+		*val = v16;
+		break;
+	}
+	case 1:
+	{
+		uint8_t v8 = 0;
+		retval = target_read_u8(target, address, &v8);
+		*val = v8;
+		break;
+	}
+	default:
+		LOG_ERROR("Unsupported target integer of width %u!", width);
+		break;
 	}
 
 	return retval;
@@ -496,21 +499,21 @@ static int target_buffer_write_uint(struct target *target, target_addr_t address
 	int retval = ERROR_FAIL;
 
 	switch (width) {
-		case 8:
-			retval = target_write_u64(target, address, val);
-			break;
-		case 4:
-			retval = target_write_u32(target, address, (uint32_t)val);
-			break;
-		case 2:
-			retval = target_write_u16(target, address, (uint16_t)val);
-			break;
-		case 1:
-			retval = target_write_u8(target, address, (uint8_t)val);
-			break;
-		default:
-			LOG_ERROR("Unsupported target integer of width %u!", width);
-			break;
+	case 8:
+		retval = target_write_u64(target, address, val);
+		break;
+	case 4:
+		retval = target_write_u32(target, address, (uint32_t)val);
+		break;
+	case 2:
+		retval = target_write_u16(target, address, (uint16_t)val);
+		break;
+	case 1:
+		retval = target_write_u8(target, address, (uint8_t)val);
+		break;
+	default:
+		LOG_ERROR("Unsupported target integer of width %u!", width);
+		break;
 	}
 
 	return retval;
@@ -734,11 +737,11 @@ static int freertos_get_tasks_details(struct target *target,
 				"FreeRTOS: Read Thread ID at 0x%" PRIx64 ", value 0x%" PRIx64 " %i",
 				list_elem_ptr + rtos_data->params->list_elem_content_offset,
 				rtos->thread_details[index].threadid,
-				(unsigned int) rtos->thread_details[index].threadid);
+				(unsigned int)rtos->thread_details[index].threadid);
 
 			/* get thread name */
 			#define FREERTOS_THREAD_NAME_STR_SIZE (64)
-			char tmp_str[FREERTOS_THREAD_NAME_STR_SIZE] = {0};
+			char tmp_str[FREERTOS_THREAD_NAME_STR_SIZE] = { 0 };
 
 			int thread_name_offset = freertos_get_thread_name_offset(rtos);
 
@@ -749,10 +752,10 @@ static int freertos_get_tasks_details(struct target *target,
 				FREERTOS_THREAD_NAME_STR_SIZE,
 				(uint8_t *)&tmp_str);
 
-			if (retval != ERROR_OK)
+			if (retval != ERROR_OK) {
 				LOG_WARNING("Error reading FreeRTOS thread 0x%" PRIx64 " name!",
 					rtos->thread_details[index].threadid);
-			else {
+			} else {
 				LOG_DEBUG(
 					"FreeRTOS: Read Thread Name at 0x%" PRIx64 ", value \"%s\"",
 					rtos->thread_details[index].threadid +
@@ -878,8 +881,9 @@ static int freertos_update_threads(struct rtos *rtos)
 			LOG_ERROR("Failed to find HALTED core!");
 			return ERROR_FAIL;
 		}
-	} else
+	} else {
 		target = rtos->target;
+	}
 
 	if (target->state != TARGET_HALTED)
 		LOG_WARNING("Target [%s] not HALTED!", target->cmd_name);
@@ -1142,24 +1146,26 @@ static int freertos_get_thread_registers_from_stack(struct rtos *rtos, int64_t t
 			LOG_OUTPUT("Error reading stack frame from FreeRTOS thread");
 			return retval;
 		}
-		if ((lr_svc & 0x10) == 0)
+		if ((lr_svc & 0x10) == 0) {
 			return rtos_generic_stack_read(rtos->target,
 				rtos_data->params->stacking_info_cm4f_fpu,
 				stack_ptr,
 				reg_list,
 				num_regs);
-		else
+		} else {
 			return rtos_generic_stack_read(rtos->target,
 				rtos_data->params->stacking_info_cm4f,
 				stack_ptr,
 				reg_list,
 				num_regs);
-	} else
+		}
+	} else {
 		return rtos_generic_stack_read(rtos->target,
 			rtos_data->params->stacking_info_cm3,
 			stack_ptr,
 			reg_list,
 			num_regs);
+	}
 
 	return -1;
 }
@@ -1282,7 +1288,7 @@ static int freertos_post_reset_cleanup(struct target *target)
 					target,
 					freertos_current_tcb_address(target->rtos)
 					+
-					current_target->coreid*rtos_data->params->pointer_width,
+					current_target->coreid * rtos_data->params->pointer_width,
 					rtos_data->params->pointer_width,
 					0);
 				if (ret != ERROR_OK) {

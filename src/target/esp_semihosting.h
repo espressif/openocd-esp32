@@ -13,12 +13,11 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
-#ifndef _ESP_SEMIHOSTING_H_
-#define _ESP_SEMIHOSTING_H_
+
+#ifndef OPENOCD_TARGET_ESP_SEMIHOSTING_H
+#define OPENOCD_TARGET_ESP_SEMIHOSTING_H
 
 /* Legacy syscalls */
 #define ESP_SYS_DRV_INFO_LEGACY                     0xE0
@@ -51,4 +50,4 @@
 int esp_semihosting_common(struct target *target);
 int esp_semihosting_basedir_command(struct command_invocation *cmd);
 
-#endif
+#endif	/* OPENOCD_TARGET_ESP_SEMIHOSTING_H */

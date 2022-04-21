@@ -13,13 +13,11 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef XTENSA_ALGO_H
-#define XTENSA_ALGO_H
+#ifndef OPENOCD_TARGET_XTENSA_ALGO_H
+#define OPENOCD_TARGET_XTENSA_ALGO_H
 
 #include "esp_algorithm.h"
 #include "xtensa.h"
@@ -39,4 +37,4 @@ struct xtensa_algorithm {
 
 extern const struct algorithm_hw xtensa_algo_hw;
 
-#endif	/* XTENSA_ESP32_H */
+#endif	/* OPENOCD_TARGET_XTENSA_ALGO_H */

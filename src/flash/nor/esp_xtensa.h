@@ -19,8 +19,8 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-#ifndef FLASH_ESP_XTENSA_H
-#define FLASH_ESP_XTENSA_H
+#ifndef OPENOCD_FLASH_NOR_ESP_XTENSA_H
+#define OPENOCD_FLASH_NOR_ESP_XTENSA_H
 
 #include "esp_flash.h"
 
@@ -38,4 +38,4 @@ int esp_xtensa_flash_init(struct esp_xtensa_flash_bank *esp_info, uint32_t sec_s
 	bool (*is_drom_address)(target_addr_t addr),
 	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank));
 
-#endif	/*FLASH_ESP_XTENSA_H*/
+#endif	/* OPENOCD_FLASH_NOR_ESP_XTENSA_H */

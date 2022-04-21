@@ -17,8 +17,8 @@
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef ESP_XTENSA_H
-#define ESP_XTENSA_H
+#ifndef OPENOCD_TARGET_ESP_XTENSA_H
+#define OPENOCD_TARGET_ESP_XTENSA_H
 
 #include "target.h"
 #include <helper/command.h>
@@ -28,7 +28,7 @@
 #include "esp_xtensa_semihosting.h"
 
 struct esp_xtensa_common {
-	struct xtensa xtensa;
+	struct xtensa xtensa;	/* must be the first element */
 	struct esp_common esp;
 	struct esp_semihost_data semihost;
 	struct esp_xtensa_apptrace_info apptrace;
@@ -55,23 +55,6 @@ int esp_xtensa_poll(struct target *target);
 int esp_xtensa_handle_target_event(struct target *target, enum target_event event,
 	void *priv);
 
-static inline int esp_xtensa_set_peri_reg_mask(struct target *target,
-	target_addr_t addr,
-	uint32_t mask,
-	uint32_t val)
-{
-	uint32_t reg_val;
-	int res = target_read_u32(target, addr, &reg_val);
-	if (res != ERROR_OK)
-		return res;
-	reg_val = (reg_val & (~mask)) | val;
-	res = target_write_u32(target, addr, reg_val);
-	if (res != ERROR_OK)
-		return res;
-
-	return ERROR_OK;
-}
-
 extern const struct command_registration esp_command_handlers[];
 
-#endif	/* ESP_XTENSA_H */
+#endif	/* OPENOCD_TARGET_ESP_XTENSA_H */

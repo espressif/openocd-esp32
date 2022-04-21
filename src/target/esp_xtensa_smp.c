@@ -14,9 +14,7 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
 #ifdef HAVE_CONFIG_H
@@ -170,9 +168,9 @@ int esp_xtensa_smp_poll(struct target *target)
 	}
 
 	if (target->smp) {
-		if (target->state == TARGET_RESET)
+		if (target->state == TARGET_RESET) {
 			esp_xtensa_smp->examine_other_cores = ESP_XTENSA_SMP_EXAMINE_OTHER_CORES;
-		else if (esp_xtensa_smp->examine_other_cores > 0 &&
+		} else if (esp_xtensa_smp->examine_other_cores > 0 &&
 			(target->state == TARGET_RUNNING || target->state == TARGET_HALTED)) {
 			LOG_DEBUG("%s: Check for unexamined cores after reset", target_name(target));
 			bool all_examined = true;
@@ -201,9 +199,9 @@ int esp_xtensa_smp_poll(struct target *target)
 				return ret;
 		}
 		/*Call any event callbacks that are applicable */
-		if (old_state == TARGET_DEBUG_RUNNING)
+		if (old_state == TARGET_DEBUG_RUNNING) {
 			target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
-		else {
+		} else {
 			if (esp_xtensa_semihosting(target, &ret) != 0) {
 				if (target->smp && target->semihosting->op ==
 					ESP_SEMIHOSTING_SYS_DRV_INFO) {
@@ -820,10 +818,10 @@ COMMAND_HANDLER(esp_xtensa_smp_cmd_tracedump)
 			if (cores_max_id < (uint32_t)curr->coreid)
 				cores_max_id = curr->coreid;
 		}
-		if (CMD_ARGC < (cores_max_id+1)) {
+		if (CMD_ARGC < (cores_max_id + 1)) {
 			command_print(CMD,
 				"Need %d filenames to dump to as output!",
-				cores_max_id+1);
+				cores_max_id + 1);
 			return ERROR_FAIL;
 		}
 		foreach_smp_target(head, target->smp_targets) {

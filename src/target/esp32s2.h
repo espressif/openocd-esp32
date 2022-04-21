@@ -14,24 +14,21 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef XTENSA_ESP32_S2_H
-#define XTENSA_ESP32_S2_H
+#ifndef OPENOCD_TARGET_ESP32S2_H
+#define OPENOCD_TARGET_ESP32S2_H
 
-#include "esp_xtensa.h"
+#include "xtensa_regs.h"
 
 #define ESP32_S2_DROM_LOW   0x3f000000
 #define ESP32_S2_DROM_HIGH  0x3ff80000
 #define ESP32_S2_IROM_LOW   0x40080000
 #define ESP32_S2_IROM_HIGH  0x40800000
 
-
-/*Number of registers returned directly by the G command
- *Corresponds to the amount of regs listed in regformats/reg-xtensa.dat in the gdb source */
+/* Number of registers returned directly by the G command
+ * Corresponds to the amount of regs listed in regformats/reg-xtensa.dat in the gdb source */
 #define ESP32_S2_NUM_REGS_G_COMMAND   72
 
 enum esp32s2_reg_id {
@@ -40,21 +37,4 @@ enum esp32s2_reg_id {
 	ESP32_S2_NUM_REGS,
 };
 
-enum esp32s2_rev {
-	ESP32_S2_REV_UNKNOWN = -1,
-	ESP32_S2_REV_BETA,
-	ESP32_S2_REV_0,
-	ESP32_S2_REV_LATEST = ESP32_S2_REV_0
-};
-
-struct esp32s2_common {
-	struct esp_xtensa_common esp_xtensa;
-	enum esp32s2_rev chip_rev;
-};
-
-static inline struct esp32s2_common *target_to_esp32s2(struct target *target)
-{
-	return container_of(target->arch_info, struct esp32s2_common, esp_xtensa);
-}
-
-#endif	/* XTENSA_ESP32_S2_H */
+#endif	/* OPENOCD_TARGET_ESP32S2_H */

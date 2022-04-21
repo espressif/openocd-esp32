@@ -13,10 +13,12 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include "xtensa_debug_module.h"
 
@@ -37,9 +39,9 @@
 static void xtensa_dm_add_set_ir(struct xtensa_debug_module *dm, uint8_t value)
 {
 	struct scan_field field;
-	uint8_t t[4];
+	uint8_t t[4] = { 0 };
 
-	memset(&field, 0, sizeof field);
+	memset(&field, 0, sizeof(field));
 	field.num_bits = dm->tap->ir_length;
 	field.out_value = t;
 	buf_set_u32(t, 0, field.num_bits, value);
@@ -54,7 +56,7 @@ static void xtensa_dm_add_dr_scan(struct xtensa_debug_module *dm,
 {
 	struct scan_field field;
 
-	memset(&field, 0, sizeof field);
+	memset(&field, 0, sizeof(field));
 	field.num_bits = len;
 	field.out_value = src;
 	field.in_value = dest;
@@ -79,7 +81,7 @@ int xtensa_dm_queue_enable(struct xtensa_debug_module *dm)
 	return dm->dbg_ops->queue_reg_write(dm, NARADR_DCRSET, OCDDCR_ENABLEOCD);
 }
 
-int xtensa_dm_queue_reg_read(struct xtensa_debug_module *dm, unsigned reg, uint8_t *value)
+int xtensa_dm_queue_reg_read(struct xtensa_debug_module *dm, unsigned int reg, uint8_t *value)
 {
 	uint8_t regdata = (reg << 1) | 0;
 	uint8_t dummy[4] = { 0, 0, 0, 0 };
@@ -94,7 +96,7 @@ int xtensa_dm_queue_reg_read(struct xtensa_debug_module *dm, unsigned reg, uint8
 	return ERROR_OK;
 }
 
-int xtensa_dm_queue_reg_write(struct xtensa_debug_module *dm, unsigned reg, uint32_t value)
+int xtensa_dm_queue_reg_write(struct xtensa_debug_module *dm, unsigned int reg, uint32_t value)
 {
 	uint8_t regdata = (reg << 1) | 1;
 	uint8_t valdata[] = { value, value >> 8, value >> 16, value >> 24 };
@@ -109,10 +111,7 @@ int xtensa_dm_queue_reg_write(struct xtensa_debug_module *dm, unsigned reg, uint
 	return ERROR_OK;
 }
 
-int xtensa_dm_queue_pwr_reg_read(struct xtensa_debug_module *dm,
-	unsigned reg,
-	uint8_t *data,
-	uint8_t clear)
+int xtensa_dm_queue_pwr_reg_read(struct xtensa_debug_module *dm, unsigned int reg, uint8_t *data, uint8_t clear)
 {
 	uint8_t value_clr = clear;
 	uint8_t tap_insn;
@@ -133,7 +132,7 @@ int xtensa_dm_queue_pwr_reg_read(struct xtensa_debug_module *dm,
 	return ERROR_OK;
 }
 
-int xtensa_dm_queue_pwr_reg_write(struct xtensa_debug_module *dm, unsigned reg, uint8_t data)
+int xtensa_dm_queue_pwr_reg_write(struct xtensa_debug_module *dm, unsigned int reg, uint8_t data)
 {
 	uint8_t value = data;
 	uint8_t tap_insn;
@@ -171,9 +170,8 @@ int xtensa_dm_power_status_read(struct xtensa_debug_module *dm, uint32_t clear)
 {
 	/* uint8_t id_buf[sizeof(uint32_t)]; */
 
-	/* TODO: JTAG does not work when PWRCTL_JTAGDEBUGUSE is not set. */
-	/*       It is set in xtensa_examine(), need to move reading of NARADR_OCDID out of this
-	 * function */
+	/* TODO: JTAG does not work when PWRCTL_JTAGDEBUGUSE is not set.
+	 * It is set in xtensa_examine(), need to move reading of NARADR_OCDID out of this function */
 	/* dm->dbg_ops->queue_reg_read(dm, NARADR_OCDID, id_buf);
 	 *Read reset state */
 	dm->pwr_ops->queue_reg_read(dm, DMREG_PWRSTAT, &dm->power_status.stat, clear);
@@ -214,7 +212,7 @@ int xtensa_dm_trace_start(struct xtensa_debug_module *dm, struct xtensa_trace_st
 
 	/*Set up parameters */
 	dm->dbg_ops->queue_reg_write(dm, NARADR_TRAXADDR, 0);
-	if (cfg->stopmask != (uint32_t)-1) {
+	if (cfg->stopmask != XTENSA_STOPMASK_DISABLED) {
 		dm->dbg_ops->queue_reg_write(dm, NARADR_PCMATCHCTRL,
 			(cfg->stopmask << PCMATCHCTRL_PCML_SHIFT));
 		dm->dbg_ops->queue_reg_write(dm, NARADR_TRIGGERPC, cfg->stoppc);
@@ -225,9 +223,8 @@ int xtensa_dm_trace_start(struct xtensa_debug_module *dm, struct xtensa_trace_st
 		dm,
 		NARADR_TRAXCTRL,
 		TRAXCTRL_TREN |
-		((cfg->stopmask != (uint32_t)-1) ? TRAXCTRL_PCMEN : 0) | TRAXCTRL_TMEN |
-		(cfg->after_is_words ? 0 : TRAXCTRL_CNTU) | (0 << TRAXCTRL_SMPER_SHIFT) |
-		TRAXCTRL_PTOWS);
+		((cfg->stopmask != XTENSA_STOPMASK_DISABLED) ? TRAXCTRL_PCMEN : 0) | TRAXCTRL_TMEN |
+		(cfg->after_is_words ? 0 : TRAXCTRL_CNTU) | (0 << TRAXCTRL_SMPER_SHIFT) | TRAXCTRL_PTOWS);
 	xtensa_dm_queue_tdi_idle(dm);
 	return jtag_execute_queue();
 }
@@ -246,7 +243,7 @@ int xtensa_dm_trace_stop(struct xtensa_debug_module *dm, bool pto_enable)
 	traxctl = buf_get_u32(traxctl_buf, 0, 32);
 
 	if (!pto_enable)
-		traxctl &= ~(TRAXCTRL_PTOWS|TRAXCTRL_PTOWT);
+		traxctl &= ~(TRAXCTRL_PTOWS | TRAXCTRL_PTOWT);
 
 	dm->dbg_ops->queue_reg_write(dm, NARADR_TRAXCTRL, traxctl | TRAXCTRL_TRSTP);
 	xtensa_dm_queue_tdi_idle(dm);
@@ -308,7 +305,7 @@ int xtensa_dm_trace_data_read(struct xtensa_debug_module *dm, uint8_t *dest, uin
 	if (!dest)
 		return ERROR_FAIL;
 
-	for (uint32_t i = 0; i < size / 4; i++)
+	for (unsigned int i = 0; i < size / 4; i++)
 		dm->dbg_ops->queue_reg_read(dm, NARADR_TRAXDATA, &dest[i * 4]);
 	xtensa_dm_queue_tdi_idle(dm);
 	return jtag_execute_queue();
@@ -352,7 +349,7 @@ int xtensa_dm_perfmon_dump(struct xtensa_debug_module *dm, int counter_id,
 
 		/* TODO: if counter # counter_id+1 has 'select' set to 1, use its value as the
 		* high 32 bits of the counter. */
-		if (!out_result) {
+		if (out_result) {
 			out_result->overflow = ((stat & 1) != 0);
 			out_result->value = result;
 		}

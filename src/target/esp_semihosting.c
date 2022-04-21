@@ -13,10 +13,13 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <helper/log.h>
 #include "target.h"
 #include "semihosting_common.h"
@@ -52,7 +55,14 @@ static int esp_semihosting_sys_drv_info(struct target *target, int addr, int siz
 {
 	struct semihosting *semihosting = target->semihosting;
 
+	semihosting->result = -1;
+	semihosting->sys_errno = EINVAL;
+
 	uint8_t *buf = malloc(size);
+	if (!buf) {
+		LOG_ERROR("Memory alloc failed drv info!");
+		return ERROR_FAIL;
+	}
 	int retval = target_read_buffer(target, addr, size, buf);
 	if (retval == ERROR_OK) {
 		struct esp_semihost_data *semihost_data = target_to_esp_semihost_data(target);
@@ -60,9 +70,6 @@ static int esp_semihosting_sys_drv_info(struct target *target, int addr, int siz
 		semihosting->sys_errno = 0;
 		semihost_data->version = le_to_h_u32(&buf[0]);
 		LOG_DEBUG("semihost.version: %d", semihost_data->version);
-	} else {
-		semihosting->result = -1;
-		semihosting->sys_errno = EINVAL;
 	}
 	free(buf);
 	LOG_DEBUG("drv_info res=%d errno=%d", (int)semihosting->result, semihosting->sys_errno);
@@ -79,7 +86,7 @@ int esp_semihosting_common(struct target *target)
 
 	int retval = ERROR_FAIL;
 	/* Enough space to hold 4 long words. */
-	uint8_t fields[4*8];
+	uint8_t fields[4 * 8];
 
 	LOG_DEBUG("op=0x%x, param=0x%" PRIx64, semihosting->op,
 		semihosting->param);
