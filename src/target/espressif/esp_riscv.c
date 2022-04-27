@@ -145,7 +145,7 @@ static bool esp_riscv_is_wp_set_by_program(struct target *target)
 	RISCV_INFO(r);
 
 	for (struct watchpoint *wp = target->watchpoints; wp; wp = wp->next) {
-		if (wp->unique_id == (int)r->trigger_hit) {
+		if (wp->unique_id == r->trigger_hit) {
 			struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 			/* check if wp set via semihosting call by target application */
 			for (unsigned int id = 0; id < esp_riscv->max_wp_num; ++id) {
