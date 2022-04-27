@@ -1387,7 +1387,7 @@ int riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoi
 	/* If we identified which trigger caused the halt earlier, then just use
 	 * that. */
 	for (struct watchpoint *wp = target->watchpoints; wp; wp = wp->next) {
-		if (wp->unique_id == (int)r->trigger_hit) {
+		if (wp->unique_id == r->trigger_hit) {
 			*hit_watchpoint = wp;
 			return ERROR_OK;
 		}
