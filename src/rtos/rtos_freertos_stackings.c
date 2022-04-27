@@ -112,19 +112,19 @@ static const struct stack_register_offset rtos_freertos_esp32_stack_offsets[] = 
 	{ XT_REG_IDX_CONFIGID0, -1, 32 },		/* configid0 */
 	{ XT_REG_IDX_CONFIGID1, -1, 32 },		/* configid1 */
 	{ XT_REG_IDX_PS, 0x08, 32 },		/* ps */
-	{ XT_REG_IDX_THREADPTR, -1, 32 },		/* threadptr */
-	{ XT_REG_IDX_BR, -1, 32 },		/* br */
-	{ XT_REG_IDX_SCOMPARE1, -1, 32 },		/* scompare1 */
-	{ XT_REG_IDX_ACCLO, -1, 32 },		/* acclo */
-	{ XT_REG_IDX_ACCHI, -1, 32 },		/* acchi */
-	{ XT_REG_IDX_M0, -1, 32 },		/* m0 */
-	{ XT_REG_IDX_M1, -1, 32 },		/* m1 */
-	{ XT_REG_IDX_M2, -1, 32 },		/* m2 */
-	{ XT_REG_IDX_M3, -1, 32 },		/* m3 */
+	{ XT_REG_IDX_THREADPTR, 0x70, 32 },		/* threadptr */
+	{ XT_REG_IDX_BR, 0x7c, 32 },		/* br */
+	{ XT_REG_IDX_SCOMPARE1, 0x80, 32 },		/* scompare1 */
+	{ XT_REG_IDX_ACCLO, 0x74, 32 },		/* acclo */
+	{ XT_REG_IDX_ACCHI, 0x78, 32 },		/* acchi */
+	{ XT_REG_IDX_M0, 0x84, 32 },		/* m0 */
+	{ XT_REG_IDX_M1, 0x88, 32 },		/* m1 */
+	{ XT_REG_IDX_M2, 0x8c, 32 },		/* m2 */
+	{ XT_REG_IDX_M3, 0x90, 32 },		/* m3 */
 	{ ESP32_REG_IDX_EXPSTATE, -1, 32 },		/* expstate */
-	{ ESP32_REG_IDX_F64R_LO, -1, 32 },		/* f64r_lo */
-	{ ESP32_REG_IDX_F64R_HI, -1, 32 },		/* f64r_hi */
-	{ ESP32_REG_IDX_F64S, -1, 32 },		/* f64s */
+	{ ESP32_REG_IDX_F64R_LO, 0x94, 32 },		/* f64r_lo */
+	{ ESP32_REG_IDX_F64R_HI, 0x98, 32 },		/* f64r_hi */
+	{ ESP32_REG_IDX_F64S, 0x9c, 32 },		/* f64s */
 	{ XT_REG_IDX_F0, -1, 32 },		/* f0 */
 	{ XT_REG_IDX_F1, -1, 32 },		/* f1 */
 	{ XT_REG_IDX_F2, -1, 32 },		/* f2 */
@@ -217,7 +217,7 @@ static const struct stack_register_offset rtos_freertos_esp32_s2_stack_offsets[]
 	{ XT_REG_IDX_CONFIGID0, -1, 32 },		/* configid0 */
 	{ XT_REG_IDX_CONFIGID1, -1, 32 },		/* configid1 */
 	{ XT_REG_IDX_PS, 0x08, 32 },		/* ps */
-	{ XT_REG_IDX_THREADPTR, -1, 32 },		/* threadptr */
+	{ XT_REG_IDX_THREADPTR, 0x64, 32 },		/* threadptr */
 	{ ESP32_S2_REG_IDX_GPIOOUT, -1, 32 },		/* gpio_out */
 };
 
@@ -296,15 +296,15 @@ static const struct stack_register_offset rtos_freertos_esp32_s3_stack_offsets[]
 	{ XT_REG_IDX_CONFIGID0, -1, 32 },		/* configid0 */
 	{ XT_REG_IDX_CONFIGID1, -1, 32 },		/* configid1 */
 	{ XT_REG_IDX_PS, 0x08, 32 },		/* ps */
-	{ XT_REG_IDX_THREADPTR, -1, 32 },		/* threadptr */
-	{ XT_REG_IDX_BR, -1, 32 },		/* br */
-	{ XT_REG_IDX_SCOMPARE1, -1, 32 },		/* scompare1 */
-	{ XT_REG_IDX_ACCLO, -1, 32 },		/* acclo */
-	{ XT_REG_IDX_ACCHI, -1, 32 },		/* acchi */
-	{ XT_REG_IDX_M0, -1, 32 },		/* m0 */
-	{ XT_REG_IDX_M1, -1, 32 },		/* m1 */
-	{ XT_REG_IDX_M2, -1, 32 },		/* m2 */
-	{ XT_REG_IDX_M3, -1, 32 },		/* m3 */
+	{ XT_REG_IDX_THREADPTR, 0x70, 32 },		/* threadptr */
+	{ XT_REG_IDX_BR, 0x7c, 32 },		/* br */
+	{ XT_REG_IDX_SCOMPARE1, 0x80, 32 },		/* scompare1 */
+	{ XT_REG_IDX_ACCLO, 0x74, 32 },		/* acclo */
+	{ XT_REG_IDX_ACCHI, 0x78, 32 },		/* acchi */
+	{ XT_REG_IDX_M0, 0x84, 32 },		/* m0 */
+	{ XT_REG_IDX_M1, 0x88, 32 },		/* m1 */
+	{ XT_REG_IDX_M2, 0x8c, 32 },		/* m2 */
+	{ XT_REG_IDX_M3, 0x90, 32 },		/* m3 */
 	{ ESP32_S3_REG_IDX_GPIOOUT, -1, 32 },		/* gpio_out */
 	{ XT_REG_IDX_F0, -1, 32 },		/* f0 */
 	{ XT_REG_IDX_F1, -1, 32 },		/* f1 */
@@ -353,7 +353,7 @@ static const struct stack_register_offset rtos_freertos_esp32_s3_stack_offsets[]
 };
 
 //WARNING: There's some deeper magic going on when reading this. Please
-//refer to rtos_freertos_esp32_stack_read_voluntary for more info.
+//refer to rtos_freertos_esp_xtensa_stack_read_voluntary for more info.
 
 static const struct stack_register_offset rtos_freertos_esp32_voluntary_stack_offsets[] = {
 	{ XT_REG_IDX_PC, 0x14, 32 },		/* PC */
