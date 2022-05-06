@@ -106,8 +106,6 @@ int esp_semihosting_common(struct target *target)
 		case ESP_SEMIHOSTING_SYS_DEBUG_STUBS_INIT:
 		case ESP_SEMIHOSTING_SYS_BREAKPOINT_SET:
 		case ESP_SEMIHOSTING_SYS_WATCHPOINT_SET:
-		/* TODO remove old codes when the new ones backported to IDF 4.4 */
-		case ESP_RISCV_APPTRACE_SYSNR:
 			/* For the time being only riscv chips support these commands */
 			return esp_riscv_semihosting(target);
 	}

@@ -22,7 +22,6 @@
 
 /* Legacy syscalls */
 #define ESP_SYS_DRV_INFO_LEGACY                     0xE0
-#define ESP_RISCV_APPTRACE_SYSNR                    0x64
 
 /* syscalls compatible to ARM standard */
 #define ESP_SEMIHOSTING_SYS_DRV_INFO                0x100

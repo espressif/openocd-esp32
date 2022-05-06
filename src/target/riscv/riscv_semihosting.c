@@ -142,6 +142,8 @@ semihosting_result_t riscv_semihosting(struct target *target, int *retval)
 		/* workaround for the IDF 4.4 apptrace_init call */
 		if (semihosting->op == 0x64)
 			semihosting->op = 0x101;
+		else if (semihosting->op == 0x65)
+			semihosting->op = 0x102;
 
 		/* Check for ARM operation numbers. */
 		if ((semihosting->op >= 0 && semihosting->op <= 0x31) ||
