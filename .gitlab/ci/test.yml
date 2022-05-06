@@ -287,7 +287,7 @@ tests_armhf_esp32c3_premajor_idf_rel:
     ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
     PLATFORM_NAME: "linux-armhf"
     TEST_RUN_DIR: "build_test_app_esp32c3_premajor_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single -e test_apptrace test_gcov"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c3_premajor_idf_rel_flash_encrypted:
   extends: .tests_armhf_template
