@@ -81,7 +81,6 @@ int esp_riscv_semihosting(struct target *target)
 
 	switch (semihosting->op) {
 		case ESP_SEMIHOSTING_SYS_APPTRACE_INIT:
-		case ESP_RISCV_APPTRACE_SYSNR:
 			res = esp_riscv_apptrace_info_init(target, semihosting->param, NULL);
 			if (res != ERROR_OK)
 				return res;
