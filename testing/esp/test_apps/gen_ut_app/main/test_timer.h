@@ -12,10 +12,10 @@ typedef void (*isr_fptr_t)(void*);
 typedef bool (*isr_fptr_t)(gptimer_handle_t , const gptimer_alarm_event_data_t *, void *);
 #endif
 
-#define TEST_TIMER_GROUP_0 0
-#define TEST_TIMER_GROUP_1 1
-#define TEST_TIMER_0 0
-#define TEST_TIMER_1 1
+#define TEST_TIMER_GROUP_0      0
+#define TEST_TIMER_GROUP_1      1
+#define TEST_TIMER_0            0
+#define TEST_TIMER_1            1
 
 struct os_trace_task_arg {
     int tim_grp;

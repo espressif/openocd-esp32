@@ -1,19 +1,3 @@
-.tests_linux_template: &tests_linux_template
-  stage: test
-  image: $CI_DOCKER_REGISTRY/esp32-ci-env
-  artifacts:
-    paths:
-      - $TEST_RUN_DIR/debug_backend_tests.log
-    reports:
-      junit:
-        - $TEST_RUN_DIR/results/*
-    when: always
-    expire_in: 1 week
-  script:
-    - !reference [.add_gitlab_key, script]
-    - !reference [.submodules_mirror_update, script]
-    - !reference [.run_tests_linux, script]
-
 .tests_armhf_template: &tests_armhf_template
   stage: test
   image: $CI_DOCKER_REGISTRY/rpi-test-env
