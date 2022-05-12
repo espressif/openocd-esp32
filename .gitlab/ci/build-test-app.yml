@@ -1,8 +1,3 @@
-.get_esptool: &get_esptool |
-  IDF_ESPTOOL_PATH=$IDF_PATH/components/esptool_py/esptool/esptool.py
-  mkdir -p $BUILD_TEST_APP_DIR/esptool
-  cp -v $IDF_ESPTOOL_PATH $BUILD_TEST_APP_DIR/esptool/
-
 .prepare_espytrace_package: &prepare_espytrace_package |
   IDF_ESPYTRACE_DIR=$IDF_PATH/tools/esp_app_trace/espytrace
   if [ -d "$IDF_ESPYTRACE_DIR" ]; then
@@ -99,7 +94,6 @@
       - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/apptrace_gcov_single
       - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_env.sh
       - $BUILD_TEST_APP_DIR/espytrace
-      - $BUILD_TEST_APP_DIR/esptool
     expire_in: 2 weeks
   script:
     - !reference [.add_gitlab_key, script]
@@ -107,7 +101,6 @@
     - *do_build_test_app
     - *finish_test_app_build
     - *prepare_espytrace_package
-    - *get_esptool
 
 build_test_app_esp32:
   allow_failure: true

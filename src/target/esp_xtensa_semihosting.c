@@ -444,6 +444,7 @@ static inline int esp_xtensa_semihosting_v1(
 		free(buf);
 		break;
 	}
+	case ESP_SEMIHOSTING_SYS_SEEK:
 	case SEMIHOSTING_SYS_SEEK:
 	{
 		int fd = a3;
