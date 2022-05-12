@@ -296,13 +296,7 @@ static int esp32s2_disable_wdts(struct target *target);
 
 static int esp32s2_assert_reset(struct target *target)
 {
-	LOG_TARGET_DEBUG(target, "begin");
-
-	/* Reset the SoC first */
-	int res = esp32s2_soc_reset(target);
-	if (res != ERROR_OK)
-		return res;
-	return xtensa_assert_reset(target);
+	return ERROR_OK;
 }
 
 static int esp32s2_deassert_reset(struct target *target)
@@ -325,6 +319,16 @@ static int esp32s2_deassert_reset(struct target *target)
 	return ERROR_OK;
 }
 
+int esp32s2_soft_reset_halt(struct target *target)
+{
+	LOG_TARGET_DEBUG(target, "begin");
+
+	/* Reset the SoC first */
+	int res = esp32s2_soc_reset(target);
+	if (res != ERROR_OK)
+		return res;
+	return xtensa_assert_reset(target);
+}
 
 static int esp32s2_set_peri_reg_mask(struct target *target,
 	target_addr_t addr,
@@ -764,6 +768,7 @@ struct target_type esp32s2_target = {
 
 	.assert_reset = esp32s2_assert_reset,
 	.deassert_reset = esp32s2_deassert_reset,
+	.soft_reset_halt = esp32s2_soft_reset_halt,
 
 	.virt2phys = esp32s2_virt2phys,
 	.mmu = xtensa_mmu_is_enabled,

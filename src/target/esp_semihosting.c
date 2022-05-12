@@ -92,29 +92,29 @@ int esp_semihosting_common(struct target *target)
 		semihosting->param);
 
 	switch (semihosting->op) {
-		case ESP_SEMIHOSTING_SYS_DRV_INFO:
-			retval = semihosting_read_fields(target, 2, fields);
-			if (retval == ERROR_OK) {
-				int addr = semihosting_get_field(target, 0, fields);
-				int size = semihosting_get_field(target, 1, fields);
-				retval = esp_semihosting_sys_drv_info(target, addr, size);
-			}
-			break;
-		case ESP_SEMIHOSTING_SYS_SEEK:
-			retval = semihosting_read_fields(target, 3, fields);
-			if (retval == ERROR_OK) {
-				uint64_t fd = semihosting_get_field(target, 0, fields);
-				uint32_t pos = semihosting_get_field(target, 1, fields);
-				size_t whence = semihosting_get_field(target, 2, fields);
-				retval = esp_semihosting_sys_seek(target, fd, pos, whence);
-			}
-			break;
-		case ESP_SEMIHOSTING_SYS_APPTRACE_INIT:
-		case ESP_SEMIHOSTING_SYS_DEBUG_STUBS_INIT:
-		case ESP_SEMIHOSTING_SYS_BREAKPOINT_SET:
-		case ESP_SEMIHOSTING_SYS_WATCHPOINT_SET:
-			/* For the time being only riscv chips support these commands */
-			return esp_riscv_semihosting(target);
+	case ESP_SEMIHOSTING_SYS_DRV_INFO:
+		retval = semihosting_read_fields(target, 2, fields);
+		if (retval == ERROR_OK) {
+			int addr = semihosting_get_field(target, 0, fields);
+			int size = semihosting_get_field(target, 1, fields);
+			retval = esp_semihosting_sys_drv_info(target, addr, size);
+		}
+		break;
+	case ESP_SEMIHOSTING_SYS_SEEK:
+		retval = semihosting_read_fields(target, 3, fields);
+		if (retval == ERROR_OK) {
+			uint64_t fd = semihosting_get_field(target, 0, fields);
+			uint32_t pos = semihosting_get_field(target, 1, fields);
+			size_t whence = semihosting_get_field(target, 2, fields);
+			retval = esp_semihosting_sys_seek(target, fd, pos, whence);
+		}
+		break;
+	case ESP_SEMIHOSTING_SYS_APPTRACE_INIT:
+	case ESP_SEMIHOSTING_SYS_DEBUG_STUBS_INIT:
+	case ESP_SEMIHOSTING_SYS_BREAKPOINT_SET:
+	case ESP_SEMIHOSTING_SYS_WATCHPOINT_SET:
+		/* For the time being only riscv chips support these commands */
+		return esp_riscv_semihosting(target);
 	}
 
 	return retval;
