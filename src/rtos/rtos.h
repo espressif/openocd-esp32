@@ -42,6 +42,7 @@ struct thread_detail {
 	bool exists;
 	char *thread_name_str;
 	char *extra_info_str;
+	target_addr_t tls_addr;
 };
 
 struct rtos {

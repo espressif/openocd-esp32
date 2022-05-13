@@ -27,10 +27,17 @@
 
 #include "rtos.h"
 
+struct freertos_tls_info {
+	uint32_t tls_reg;			/* thread local storage register index */
+	uint32_t tls_align;			/* thread local storage align */
+};
+
 const struct rtos_register_stacking *rtos_freertos_esp32_pick_stacking_info(struct rtos *rtos, int64_t thread_id, int64_t stack_addr);
 const struct rtos_register_stacking *rtos_freertos_esp32_s2_pick_stacking_info(struct rtos *rtos, int64_t thread_id, int64_t stack_addr);
 const struct rtos_register_stacking *rtos_freertos_esp32_s3_pick_stacking_info(struct rtos *rtos, int64_t thread_id, int64_t stack_addr);
 
 const struct rtos_register_stacking *rtos_freertos_riscv_pick_stacking_info(struct rtos *rtos, int64_t thread_id, int64_t stack_addr);
+
+const struct freertos_tls_info *rtos_freertos_get_tls_info(struct target *target);
 
 #endif	/* ifndef INCLUDED_RTOS_STANDARD_STACKINGS_H_ */

@@ -325,6 +325,17 @@ done:
 	return rtos_detected;
 }
 
+int get_thread_number_by_id(struct target *target, threadid_t threadid) {
+	if ((target->rtos) && (target->rtos->thread_details)) {
+		for (int thread_num = 0; thread_num < target->rtos->thread_count; thread_num++) {
+			if (target->rtos->thread_details[thread_num].threadid == threadid &&
+				target->rtos->thread_details[thread_num].exists)
+					return thread_num;
+		}
+	}
+	return -1;
+}
+
 int rtos_thread_packet(struct connection *connection, char const *packet, int packet_size)
 {
 	struct target *target = get_target_from_connection(connection);
@@ -333,18 +344,9 @@ int rtos_thread_packet(struct connection *connection, char const *packet, int pa
 		if ((target->rtos) && (target->rtos->thread_details) &&
 				(target->rtos->thread_count != 0)) {
 			threadid_t threadid = 0;
-			int found = -1;
 			sscanf(packet, "qThreadExtraInfo,%" SCNx64, &threadid);
 
-			if ((target->rtos) && (target->rtos->thread_details)) {
-				int thread_num;
-				for (thread_num = 0; thread_num < target->rtos->thread_count; thread_num++) {
-					if (target->rtos->thread_details[thread_num].threadid == threadid) {
-						if (target->rtos->thread_details[thread_num].exists)
-							found = thread_num;
-					}
-				}
-			}
+			int found = get_thread_number_by_id(target, threadid);
 			if (found == -1) {
 				gdb_put_packet(connection, "E01", 3);	/* thread not found */
 				return ERROR_OK;
@@ -416,6 +418,19 @@ int rtos_thread_packet(struct connection *connection, char const *packet, int pa
 	} else if (strncmp(packet, "qsThreadInfo", 12) == 0) {
 		gdb_put_packet(connection, "l", 1);
 		return ERROR_OK;
+	} else if (strncmp(packet, "qGetTLSAddr", 11) == 0) {
+	        threadid_t threadid;
+	        target_addr_t offset;
+	        target_addr_t lm;
+	        sscanf(packet, "qGetTLSAddr:%" SCNx64 ",%" SCNx64 ",%" SCNx64, &threadid, &offset, &lm);
+		int found = get_thread_number_by_id(target, threadid);
+		if (found == -1 || target->rtos->thread_details[found].tls_addr == 0)
+			return GDB_THREAD_PACKET_NOT_CONSUMED;
+		target_addr_t tlv_addr = target->rtos->thread_details[found].tls_addr + offset;
+		char answer[sizeof(tlv_addr) * 2 + 1] = {0}; // hex addr + '\0'
+		sprintf(answer, "%" PRIx64, tlv_addr);
+		gdb_put_packet(connection, answer, strlen(answer));
+		return ERROR_OK;
 	} else if (strncmp(packet, "qAttached", 9) == 0) {
 		gdb_put_packet(connection, "1", 1);
 		return ERROR_OK;
@@ -438,17 +453,8 @@ int rtos_thread_packet(struct connection *connection, char const *packet, int pa
 		return ERROR_OK;
 	} else if (packet[0] == 'T') {	/* Is thread alive? */
 		threadid_t threadid;
-		int found = -1;
 		sscanf(packet, "T%" SCNx64, &threadid);
-		if ((target->rtos) && (target->rtos->thread_details)) {
-			int thread_num;
-			for (thread_num = 0; thread_num < target->rtos->thread_count; thread_num++) {
-				if (target->rtos->thread_details[thread_num].threadid == threadid) {
-					if (target->rtos->thread_details[thread_num].exists)
-						found = thread_num;
-				}
-			}
-		}
+		int found = get_thread_number_by_id(target, threadid);
 		if (found != -1)
 			gdb_put_packet(connection, "OK", 2);	/* thread alive */
 		else
