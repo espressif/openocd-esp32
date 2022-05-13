@@ -20,7 +20,7 @@
 #include "config.h"
 #endif
 
-#include "rtos.h"
+#include "rtos_freertos_stackings.h"
 #include "rtos_standard_stackings.h"
 #include "target/target.h"
 #include "helper/log.h"
@@ -908,4 +908,26 @@ static int rtos_freertos_esp_xtensa_stack_read_voluntary(struct target *target, 
 const struct rtos_register_stacking *rtos_freertos_riscv_pick_stacking_info(struct rtos *rtos, int64_t thread_id, int64_t stack_addr)
 {
 	return &rtos_freertos_riscv_stacking;
+}
+
+// Chip-specific data for calculating Thread Local Storage (tls) address
+
+static const struct freertos_tls_info s_xtensa_tls = {
+	XT_REG_IDX_THREADPTR,	/* tls_reg */
+	16,			/* tls_align */
+};
+
+static const struct freertos_tls_info s_riscv_tls = {
+	GDB_REGNO_TP,	/* tls_reg */
+	0,		/* tls_align */
+};
+
+const struct freertos_tls_info *rtos_freertos_get_tls_info(struct target *target)
+{
+	if (strncmp(target_get_gdb_arch(target), "riscv", 5) == 0) {
+		return &s_riscv_tls;
+	} else if (strncmp(target_get_gdb_arch(target), "xtensa", 6) == 0) {
+		return &s_xtensa_tls;
+	}
+	return NULL;
 }

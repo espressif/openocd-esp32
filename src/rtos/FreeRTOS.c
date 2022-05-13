@@ -772,6 +772,28 @@ static int freertos_get_tasks_details(struct target *target,
 					return ERROR_FAIL;
 				}
 				rtos->thread_details[index].exists = true;
+				const struct freertos_tls_info *tls_info =
+					rtos_freertos_get_tls_info(target);
+				if (tls_info &&
+					!rtos->thread_details[index].tls_addr) {
+					struct rtos_reg reg;
+					retval = freertos_get_thread_reg(rtos,
+						rtos->thread_details[index].threadid,
+						tls_info->tls_reg,
+						&reg);
+					if (retval == ERROR_OK &&
+						(reg.size / 8) <=
+						sizeof(rtos->thread_details[index].
+							tls_addr)) {
+						memcpy(
+							&rtos->thread_details[index].
+							tls_addr,
+							reg.value,
+							reg.size / 8);
+						rtos->thread_details[index].
+						tls_addr += tls_info->tls_align;
+					}
+				}
 
 				if (target->smp) {
 					struct target *current_target;
