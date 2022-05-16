@@ -13,9 +13,7 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
 /*
@@ -304,6 +302,7 @@ int esp_flash_blank_check(struct flash_bank *bank)
 		esp_info->hw_flash_base / esp_info->sec_sz /*start*/,
 		bank->num_sectors /*sectors num*/,
 		0 /*address to store sectors' state*/);
+	image_close(&run.image.image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
 		destroy_mem_param(&mp);
@@ -335,6 +334,7 @@ static uint32_t esp_flash_get_size(struct flash_bank *bank)
 		&run,
 		1,
 		ESP_STUB_CMD_FLASH_SIZE);
+	image_close(&run.image.image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
 		return 0;
@@ -373,6 +373,7 @@ static int esp_flash_get_mappings(struct flash_bank *bank,
 		ESP_STUB_CMD_FLASH_MAP_GET /*cmd*/,
 		appimage_flash_base,
 		0 /*address to store mappings*/);
+	image_close(&run.image.image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
 		destroy_mem_param(&mp);
@@ -439,6 +440,7 @@ int esp_flash_erase(struct flash_bank *bank, unsigned int first, unsigned int la
 		esp_info->hw_flash_base + first * esp_info->sec_sz,
 		/* start addr */
 		(last - first + 1) * esp_info->sec_sz);			/* size */
+	image_close(&run.image.image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
 		return ret;
@@ -717,6 +719,7 @@ int esp_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 		if (esp_flash_compress(buffer, count, &compressed_buff,
 				&compressed_len) != ERROR_OK) {
 			LOG_ERROR("Compression failed!");
+			image_close(&run.image.image);
 			return ERROR_FAIL;
 		}
 		duration_measure(&bench);
@@ -759,6 +762,7 @@ int esp_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 		/* cmd */
 		0
 		/* esp_stub_flash_write_args */);
+	image_close(&run.image.image);
 	if (compressed_buff)
 		free(compressed_buff);
 	esp_flash_apptrace_info_restore(bank->target, esp_info, old_addr);
@@ -908,7 +912,7 @@ int esp_flash_read(struct flash_bank *bank, uint8_t *buffer,
 		esp_info->hw_flash_base + offset,
 		/* size */
 		count);
-
+	image_close(&run.image.image);
 	free(rd_state.rd_buf);
 	esp_flash_apptrace_info_restore(bank->target, esp_info, old_addr);
 	if (ret != ERROR_OK) {
@@ -1113,6 +1117,7 @@ int esp_flash_breakpoint_add(struct target *target,
 		bp_flash_addr /*bp_addr*/,
 		0 /*address to store insn*/,
 		0 /*address to store insn sectors*/);
+	image_close(&run.image.image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("%s: Failed to run flasher stub (%d)!", target_name(target), ret);
 		destroy_mem_param(&mp);
@@ -1187,6 +1192,7 @@ int esp_flash_breakpoint_remove(struct target *target,
 		bp_flash_addr /*bp_addr*/,
 		0 /*address with insn*/,
 		0 /*address to store insn sectors*/);
+	image_close(&run.image.image);
 	destroy_mem_param(&mp);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
@@ -1241,6 +1247,7 @@ static int esp_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 		esp_info->hw_flash_base + offset,
 		count,
 		0 /*address to store hash value*/);
+	image_close(&run.image.image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
 		destroy_mem_param(&mp);
@@ -1279,6 +1286,7 @@ static int esp_flash_boost_clock_freq(struct flash_bank *bank, int boost)
 		2,
 		ESP_STUB_CMD_CLOCK_CONFIGURE,
 		new_cpu_freq);
+	image_close(&run.image.image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
 		return ERROR_FAIL;

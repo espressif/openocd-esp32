@@ -34,10 +34,8 @@ int esp_common_init(struct esp_common *esp,
 {
 	esp->algo_hw = algo_hw;
 	esp->flash_brps.ops = flash_brps_ops;
-	esp->flash_brps.brps =
-		calloc(ESP_FLASH_BREAKPOINTS_MAX_NUM,
-		sizeof(struct esp_flash_breakpoint));
-	if (esp->flash_brps.brps == NULL)
+	esp->flash_brps.brps = calloc(ESP_FLASH_BREAKPOINTS_MAX_NUM, sizeof(struct esp_flash_breakpoint));
+	if (!esp->flash_brps.brps)
 		return ERROR_FAIL;
 
 	return ERROR_OK;

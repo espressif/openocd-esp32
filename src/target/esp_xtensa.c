@@ -138,7 +138,9 @@ void esp_xtensa_target_deinit(struct target *target)
 			return;
 	}
 	xtensa_target_deinit(target);
-	free(target_to_esp_xtensa(target));	/* same as free(xtensa) */
+	struct esp_xtensa_common *esp_xtensa_common = target_to_esp_xtensa(target);
+	free(esp_xtensa_common->esp.flash_brps.brps);
+	free(esp_xtensa_common);	/* same as free(xtensa) */
 }
 
 int esp_xtensa_arch_state(struct target *target)
