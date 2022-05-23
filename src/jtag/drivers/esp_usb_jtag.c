@@ -124,6 +124,14 @@ struct jtag_proto_caps_hdr {
 	uint8_t length;	/* of this plus any following descriptors */
 } __packed;
 
+/* start of the descriptor headers */
+#define JTAG_BUILTIN_DESCR_START_OFF            0	/* Devices with builtin usb jtag */
+/*
+* ESP USB Bridge https://github.com/espressif/esp-usb-bridge uses string descriptor.
+* Skip 1 byte length and 1 byte descriptor type
+*/
+#define JTAG_EUB_DESCR_START_OFF                2	/* ESP USB Bridge */
+
 /*
 Note: At the moment, there is only a speed_caps version indicating the base speed of the JTAG
 hardware is derived from the APB bus speed of the SoC. If later on, there are standalone
@@ -134,22 +142,23 @@ Note: If the JTAG device has larger buffers than endpoint-size-plus-a-bit, we sh
 of caps header to assume this. If no such caps exist, assume a minimum (in) buffer of endpoint size + 4.
 */
 
-#define JTAG_PROTO_CAPS_SPEED_APB_TYPE 1
 struct jtag_gen_hdr {
 	uint8_t type;
 	uint8_t length;
 } __packed;
 
 struct jtag_proto_caps_speed_apb {
-	uint8_t type;	/* Type, always JTAG_PROTO_CAPS_SPEED_APB_TYPE */
-	uint8_t length;	/* Length of this */
-	uint16_t apb_speed_10khz;	/* ABP bus speed, in 10KHz increments. Base speed is half
-					 * this. */
-	uint16_t div_min;	/* minimum divisor (to base speed), inclusive */
-	uint16_t div_max;	/* maximum divisor (to base speed), inclusive */
+	uint8_t type;					/* Type, always JTAG_PROTO_CAPS_SPEED_APB_TYPE */
+	uint8_t length;					/* Length of this */
+	uint8_t apb_speed_10khz[2];		/* ABP bus speed, in 10KHz increments. Base speed is half this. */
+	uint8_t div_min[2];				/* minimum divisor (to base speed), inclusive */
+	uint8_t div_max[2];				/* maximum divisor (to base speed), inclusive */
 } __packed;
 
-#define VEND_DESCRIPTOR_BUILTIN_JTAG_CAPS 0x2000
+#define JTAG_PROTO_CAPS_DATA_LEN                255
+#define JTAG_PROTO_CAPS_SPEED_APB_TYPE          1
+
+#define VEND_DESCR_BUILTIN_JTAG_CAPS            0x2000
 
 #define VEND_JTAG_SETDIV        0
 #define VEND_JTAG_SETIO         1
@@ -199,28 +208,28 @@ struct jtag_proto_caps_speed_apb {
 /* Private data */
 struct esp_usb_jtag {
 	struct libusb_device_handle *usb_device;
-	int base_speed_khz;
-	int div_min;
-	int div_max;
+	uint32_t base_speed_khz;
+	uint16_t div_min;
+	uint16_t div_max;
 	uint8_t out_buf[OUT_BUF_SZ];
-	int out_buf_pos_nibbles;			/* write position in out_buf */
+	unsigned int out_buf_pos_nibbles;			/* write position in out_buf */
 
 	uint8_t in_buf[IN_BUF_CT][IN_BUF_SZ];
-	int in_buf_size_bits[IN_BUF_CT];	/* size in bits of the data stored in an in_buf */
-	int cur_in_buf_rd, cur_in_buf_wr;	/* read/write index */
-	int in_buf_pos_bits;				/* which bit in the in buf needs to be returned to bitq next */
+	unsigned int in_buf_size_bits[IN_BUF_CT];	/* size in bits of the data stored in an in_buf */
+	unsigned int cur_in_buf_rd, cur_in_buf_wr;	/* read/write index */
+	unsigned int in_buf_pos_bits;	/* which bit in the in buf needs to be returned to bitq next */
 
 	unsigned int read_ep;
 	unsigned int write_ep;
 
-	int prev_cmd;			/* previous command, stored here for RLEing. */
-	int prev_cmd_repct;		/* Amount of repetitions of that command we have seen until now */
+	unsigned int prev_cmd;		/* previous command, stored here for RLEing. */
+	int prev_cmd_repct;			/* Amount of repetitions of that command we have seen until now */
 
 	/* This is the total number of in bits we need to read, including in unsent commands */
-	int pending_in_bits;
+	unsigned int pending_in_bits;
 	FILE *logfile;			/* If non-NULL, we log communication traces here. */
 
-	int hw_in_fifo_len;
+	unsigned int hw_in_fifo_len;
 	char *serial[256 + 1];	/* device serial */
 
 	struct bitq_interface bitq_interface;
@@ -257,7 +266,7 @@ static void log_cmds(uint8_t *buf, int ct, int wr)
 	fprintf(priv->logfile, "\n");
 #endif
 	for (int n = 0; n < ct * 2; n++) {
-		int c = (n & 1) ? (buf[n / 2] & 0xf) : (buf[n / 2] >> 4);
+		unsigned int c = (n & 1) ? (buf[n / 2] & 0xf) : (buf[n / 2] >> 4);
 		fprintf(priv->logfile, "%s ", cmds_string[c]);
 	}
 	fprintf(priv->logfile, "\n");
@@ -376,7 +385,7 @@ static int esp_usb_jtag_recv_buf(void)
 			priv->in_buf_size_bits[priv->cur_in_buf_wr]);
 	}
 
-	int recvd = 0, ct = (priv->pending_in_bits + 7) / 8;
+	unsigned int recvd = 0, ct = (priv->pending_in_bits + 7) / 8;
 	if (ct > IN_BUF_SZ)
 		ct = IN_BUF_SZ;
 	if (ct == 0) {
@@ -388,13 +397,13 @@ static int esp_usb_jtag_recv_buf(void)
 
 	priv->in_buf_size_bits[priv->cur_in_buf_wr] = 0;
 	while (recvd < ct) {
-		int ret, tr;
-		ret = jtag_libusb_bulk_read(priv->usb_device,
+		unsigned int tr;
+		int ret = jtag_libusb_bulk_read(priv->usb_device,
 			priv->read_ep,
 			(char *)priv->in_buf[priv->cur_in_buf_wr] + recvd,
 			ct,
 			LIBUSB_TIMEOUT_MS,	/*ms*/
-			&tr);
+			(int *)&tr);
 		if (priv->logfile)
 			log_resp(priv->in_buf[priv->cur_in_buf_wr], ct, tr);
 		if (ret != ERROR_OK || tr == 0) {
@@ -407,8 +416,8 @@ static int esp_usb_jtag_recv_buf(void)
 			LOG_DEBUG("esp_usb_jtag: usb received only %d out of %d bytes.", tr, ct);
 		}
 		/* Adjust the amount of bits we still expect to read from the USB device after this. */
-		int bits_in_buf = priv->pending_in_bits;			/* initially assume we read
-										* everything that was pending */
+		unsigned int bits_in_buf = priv->pending_in_bits;	/* initially assume we read
+									* everything that was pending */
 		if (bits_in_buf > tr * 8)
 			bits_in_buf = tr * 8;	/* ...but correct that if that was not the case. */
 		priv->pending_in_bits -= bits_in_buf;
@@ -427,8 +436,8 @@ static int esp_usb_jtag_recv_buf(void)
 /* Sends priv->out_buf to the USB device. */
 static int esp_usb_jtag_send_buf(void)
 {
-	int ct = priv->out_buf_pos_nibbles / 2;
-	int written = 0;
+	unsigned int ct = priv->out_buf_pos_nibbles / 2;
+	unsigned int written = 0;
 
 	while (written < ct) {
 		int tr = 0, ret = jtag_libusb_bulk_write(priv->usb_device,
@@ -465,9 +474,9 @@ static int esp_usb_jtag_send_buf(void)
 
 /* Simply adds a command to the buffer. Is called by the RLE encoding mechanism.
  *Also sends the intermediate buffer if there's enough to go into one USB packet. */
-static int esp_usb_jtag_command_add_raw(int cmd)
+static int esp_usb_jtag_command_add_raw(unsigned int cmd)
 {
-	int ret;
+	int ret = ERROR_OK;
 
 	if ((priv->out_buf_pos_nibbles & 1) == 0)
 		priv->out_buf[priv->out_buf_pos_nibbles / 2] = (cmd << 4);
@@ -475,26 +484,19 @@ static int esp_usb_jtag_command_add_raw(int cmd)
 		priv->out_buf[priv->out_buf_pos_nibbles / 2] |= cmd;
 	priv->out_buf_pos_nibbles++;
 
-	if (priv->out_buf_pos_nibbles == OUT_BUF_SZ * 2) {
+	if (priv->out_buf_pos_nibbles == OUT_BUF_SZ * 2)
 		ret = esp_usb_jtag_send_buf();
-		if (ret != ERROR_OK)
-			return ret;
-	}
-	if (priv->out_buf_pos_nibbles % (OUT_EP_SZ * 2) == 0) {
-		if (priv->pending_in_bits > (IN_BUF_SZ + priv->hw_in_fifo_len - 1) * 8) {
+	if (ret == ERROR_OK && priv->out_buf_pos_nibbles % (OUT_EP_SZ * 2) == 0) {
+		if (priv->pending_in_bits > (IN_BUF_SZ + priv->hw_in_fifo_len - 1) * 8)
 			ret = esp_usb_jtag_send_buf();
-			if (ret != ERROR_OK)
-				return ret;
-		}
 	}
-	return ERROR_OK;
+	return ret;
 }
 
 /* Writes a command stream equivalent to writing `cmd` `ct` times. */
-static int esp_usb_jtag_write_rlestream(int cmd, int ct)
+static int esp_usb_jtag_write_rlestream(unsigned int cmd, int ct)
 {
-	/* Special case: stacking flush commands does not make sense (and may not make the hardware
-	 * very happy) */
+	/* Special case: stacking flush commands does not make sense (and may not make the hardware very happy) */
 	if (cmd == CMD_FLUSH)
 		ct = 1;
 	/* Output previous command and repeat commands */
@@ -511,10 +513,9 @@ static int esp_usb_jtag_write_rlestream(int cmd, int ct)
 	return ERROR_OK;
 }
 
-
 /* Adds a command to the buffer of things to be sent. Transparently handles RLE compression using
  * the CMD_REP_x commands */
-static int esp_usb_jtag_command_add(int cmd)
+static int esp_usb_jtag_command_add(unsigned int cmd)
 {
 	if (cmd == priv->prev_cmd && priv->prev_cmd_repct < CMD_REP_MAX_REPS) {
 		priv->prev_cmd_repct++;
@@ -592,7 +593,7 @@ static int esp_usb_jtag_sleep(unsigned long us)
 static int esp_usb_jtag_reset(int trst, int srst)
 {
 	/* TODO: handle trst using setup commands. Kind-of superfluous, however, as we can also do
-	 * a tap reser using tms, and it's also not implemented on other ESP32 chips with external JTAG. */
+	 * a tap reset using tms, and it's also not implemented on other ESP32 chips with external JTAG. */
 	return esp_usb_jtag_command_add(CMD_RST(srst));
 }
 
@@ -673,24 +674,31 @@ static int esp_usb_jtag_init(void)
 		goto out;
 	}
 
-	char jtag_caps_desc[256];
-	r = jtag_libusb_control_transfer(priv->usb_device,
+	/* TODO: This is not proper way to get caps data. Two requests can be done.
+	 * 1- With the minimum size required to get to know the total length of that struct,
+	 * 2- Then exactly the length of that struct. */
+	uint8_t jtag_caps_desc[JTAG_PROTO_CAPS_DATA_LEN];
+	int jtag_caps_read_len = jtag_libusb_control_transfer(priv->usb_device,
 		LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_STANDARD | LIBUSB_RECIPIENT_DEVICE,
 		LIBUSB_REQUEST_GET_DESCRIPTOR, esp_usb_jtag_caps, 0,
-		jtag_caps_desc, 255, LIBUSB_TIMEOUT_MS);
-	if (r <= 0) {
+		(char *)jtag_caps_desc, JTAG_PROTO_CAPS_DATA_LEN, LIBUSB_TIMEOUT_MS);
+	if (jtag_caps_read_len <= 0) {
 		LOG_ERROR("esp_usb_jtag: could not retrieve jtag_caps descriptor!");
 		goto out;
 	}
 
 	/* defaults for values we normally get from the jtag caps descriptor */
-	priv->base_speed_khz = -1;
+	priv->base_speed_khz = UINT32_MAX;
 	priv->div_min = 1;
 	priv->div_max = 1;
 
-	/* start of the descriptor header *
-	 * eub uses string descriptor. Skip 1 byte length and 1 byte descriptor type */
-	int p = esp_usb_jtag_caps == VEND_DESCRIPTOR_BUILTIN_JTAG_CAPS ? 0 : 2;
+	int p = esp_usb_jtag_caps ==
+		VEND_DESCR_BUILTIN_JTAG_CAPS ? JTAG_BUILTIN_DESCR_START_OFF : JTAG_EUB_DESCR_START_OFF;
+
+	if (p + sizeof(struct jtag_proto_caps_hdr) > (unsigned int)jtag_caps_read_len) {
+		LOG_ERROR("esp_usb_jtag: not enough data to get header");
+		goto out;
+	}
 
 	struct jtag_proto_caps_hdr *hdr = (struct jtag_proto_caps_hdr *)&jtag_caps_desc[p];
 	if (hdr->proto_ver != JTAG_PROTO_CAPS_VER) {
@@ -698,18 +706,26 @@ static int esp_usb_jtag_init(void)
 			hdr->proto_ver);
 		goto out;
 	}
+	if (hdr->length > jtag_caps_read_len) {
+		LOG_ERROR("esp_usb_jtag: header length (%d) bigger then max read bytes (%d)",
+			hdr->length, jtag_caps_read_len);
+		goto out;
+	}
 
 	p += sizeof(struct jtag_proto_caps_hdr);
 
-	while (p < hdr->length) {
+	while (p + sizeof(struct jtag_gen_hdr) < hdr->length) {
 		struct jtag_gen_hdr *dhdr = (struct jtag_gen_hdr *)&jtag_caps_desc[p];
 		if (dhdr->type == JTAG_PROTO_CAPS_SPEED_APB_TYPE) {
-			struct jtag_proto_caps_speed_apb *spcap =
-				(struct jtag_proto_caps_speed_apb *)dhdr;
+			if (p + sizeof(struct jtag_proto_caps_speed_apb) < hdr->length) {
+				LOG_ERROR("esp_usb_jtag: not enough data to get caps speed");
+				goto out;
+			}
+			struct jtag_proto_caps_speed_apb *spcap = (struct jtag_proto_caps_speed_apb *)dhdr;
 			/* base speed always is half APB speed */
-			priv->base_speed_khz = (spcap->apb_speed_10khz * 10) / 2;
-			priv->div_min = spcap->div_min;
-			priv->div_max = spcap->div_max;
+			priv->base_speed_khz = le_to_h_u16(spcap->apb_speed_10khz) * 10 / 2;
+			priv->div_min = le_to_h_u16(spcap->div_min);
+			priv->div_max = le_to_h_u16(spcap->div_max);
 			/* TODO: mark in priv that this is apb-derived and as such may change if apb
 			 * ever changes? */
 		} else {
@@ -717,8 +733,7 @@ static int esp_usb_jtag_init(void)
 		}
 		p += dhdr->length;
 	}
-
-	if (priv->base_speed_khz == -1) {
+	if (priv->base_speed_khz == UINT32_MAX) {
 		LOG_WARNING("esp_usb_jtag: No speed caps found... using sane-ish defaults.");
 		priv->base_speed_khz = 1000;
 	}
@@ -876,10 +891,8 @@ COMMAND_HANDLER(esp_usb_jtag_log_cmd)
 
 COMMAND_HANDLER(esp_usb_jtag_vid_pid)
 {
-	if (CMD_ARGC != 2) {
-		LOG_ERROR("Command takes exactly 2 parameters.You need to supply the vendor and product IDs");
+	if (CMD_ARGC != 2)
 		return ERROR_COMMAND_SYNTAX_ERROR;
-	}
 
 	COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], esp_usb_vid);
 	COMMAND_PARSE_NUMBER(int, CMD_ARGV[1], esp_usb_pid);
@@ -890,10 +903,8 @@ COMMAND_HANDLER(esp_usb_jtag_vid_pid)
 
 COMMAND_HANDLER(esp_usb_jtag_caps_descriptor)
 {
-	if (CMD_ARGC != 1) {
-		LOG_ERROR("Command takes exactly 1 parameter.You need to supply the jtag capabilities descriptor");
+	if (CMD_ARGC != 1)
 		return ERROR_COMMAND_SYNTAX_ERROR;
-	}
 
 	COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], esp_usb_jtag_caps);
 	LOG_INFO("esp_usb_jtag: capabilities descriptor set to 0x%x", esp_usb_jtag_caps);
@@ -903,10 +914,8 @@ COMMAND_HANDLER(esp_usb_jtag_caps_descriptor)
 
 COMMAND_HANDLER(esp_usb_jtag_chip_id)
 {
-	if (CMD_ARGC != 1) {
-		LOG_ERROR("Command takes exactly 1 parameter.You need to supply the chip id");
+	if (CMD_ARGC != 1)
 		return ERROR_COMMAND_SYNTAX_ERROR;
-	}
 
 	COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], esp_usb_target_chip_id);
 	LOG_INFO("esp_usb_jtag: target chip id set to %d", esp_usb_target_chip_id);
