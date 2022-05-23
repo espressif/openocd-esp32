@@ -209,8 +209,8 @@
 #include "config.h"
 #endif
 
-#include "xtensa.h"
-#include "xtensa_debug_module.h"
+#include <target/xtensa/xtensa.h>
+#include <target/xtensa/xtensa_debug_module.h>
 #include "esp_xtensa_apptrace.h"
 
 /* TRAX is disabled, so we use its registers for our own purposes */

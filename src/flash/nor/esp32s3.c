@@ -13,9 +13,7 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
 #ifdef HAVE_CONFIG_H
@@ -24,9 +22,9 @@
 
 #include "imp.h"
 #include <target/smp.h>
-#include <target/xtensa_algorithm.h>
-#include <target/esp_xtensa_apptrace.h>
-#include <target/esp32s3.h>
+#include <target/xtensa/xtensa_algorithm.h>
+#include <target/espressif/esp_xtensa_apptrace.h>
+#include <target/espressif/esp32s3.h>
 #include "esp_xtensa.h"
 #include "contrib/loaders/flash/esp/esp32s3/stub_flasher_image.h"
 

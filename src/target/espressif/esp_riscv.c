@@ -22,10 +22,11 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "smp.h"
-#include "semihosting_common.h"
 #include "esp_riscv.h"
-#include "target_type.h"
+#include <target/target_type.h>
+#include <target/smp.h>
+#include <target/semihosting_common.h>
+
 #include "esp_semihosting.h"
 
 /* Argument indexes for ESP_SEMIHOSTING_SYS_BREAKPOINT_SET */

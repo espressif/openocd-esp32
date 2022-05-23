@@ -1,6 +1,5 @@
 /***************************************************************************
- *   Module to run arbitrary code on RISCV using OpenOCD                   *
- *   Copyright (C) 2021 Espressif Systems Ltd.                             *
+ *   Copyright (c) 2020 Espressif Systems (Shanghai) Co. Ltd.                                *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -16,26 +15,19 @@
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef OPENOCD_TARGET_ESP_RISCV_ALGO_H
-#define OPENOCD_TARGET_ESP_RISCV_ALGO_H
+#ifndef OPENOCD_TARGET_ESP_XTENSA_SEMIHOSTING_H
+#define OPENOCD_TARGET_ESP_XTENSA_SEMIHOSTING_H
 
-#include "target/esp_algorithm.h"
-#include "riscv/riscv.h"
+#include <unistd.h>
+#include <target/target.h>
+#include <helper/command.h>
+#include <target/xtensa/xtensa.h>
+#include <target/semihosting_common.h>
+#include "esp_xtensa.h"
+#include "esp_semihosting.h"
+#include "stdbool.h"
 
-/** Index of the first user-defined algo arg. @see algorithm_stub */
-#define ESP_RISCV_STUB_ARGS_FUNC_START  2
+int esp_xtensa_semihosting_init(struct target *target);
+int esp_xtensa_semihosting(struct target *target, int *retval);
 
-/**
- * RISCV algorithm data.
- */
-struct esp_riscv_algorithm {
-	/** Registers with numbers below and including this number will be backuped before algo start.
-	 * Set to GDB_REGNO_COUNT-1 to save all existing registers. @see enum gdb_regno. */
-	size_t max_saved_reg;
-	uint64_t saved_registers[RISCV_MAX_REGISTERS];
-	bool valid_saved_registers[RISCV_MAX_REGISTERS];
-};
-
-extern const struct algorithm_hw riscv_algo_hw;
-
-#endif	/* OPENOCD_TARGET_ESP_RISCV_ALGO_H */
+#endif	/* OPENOCD_TARGET_ESP_XTENSA_SEMIHOSTING_H */

@@ -41,7 +41,7 @@ static const uint8_t *xtensa_stub_tramp_get(struct target *target, size_t *size)
 	struct xtensa *xtensa = target_to_xtensa(target);
 
 	static const uint8_t xtensa_stub_tramp_win[] = {
-	#include "src/target/xtensa_stub_tramp_win.inc"
+	#include "src/target/xtensa/xtensa_stub_tramp_win.inc"
 	};
 
 	if (!xtensa->core_config->windowed) {

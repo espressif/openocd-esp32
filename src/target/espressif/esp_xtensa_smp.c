@@ -21,11 +21,11 @@
 #include "config.h"
 #endif
 
-#include "target.h"
-#include "target_type.h"
+#include <target/target.h>
+#include <target/target_type.h>
 #include "assert.h"
 #include "rtos/rtos.h"
-#include "smp.h"
+#include <target/smp.h>
 #include "esp_xtensa_smp.h"
 #include "esp_xtensa_semihosting.h"
 

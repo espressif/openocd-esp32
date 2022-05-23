@@ -1,6 +1,6 @@
 /***************************************************************************
- *   Module to run arbitrary code on Xtensa using OpenOCD                  *
- *   Copyright (C) 2019 Espressif Systems Ltd.                             *
+ *   Module to run arbitrary code on RISCV using OpenOCD                   *
+ *   Copyright (C) 2021 Espressif Systems Ltd.                             *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -16,25 +16,26 @@
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef OPENOCD_TARGET_XTENSA_ALGO_H
-#define OPENOCD_TARGET_XTENSA_ALGO_H
+#ifndef OPENOCD_TARGET_ESP_RISCV_ALGO_H
+#define OPENOCD_TARGET_ESP_RISCV_ALGO_H
 
-#include "esp_algorithm.h"
-#include "xtensa.h"
+#include <target/espressif/esp_algorithm.h>
+#include <target/riscv/riscv.h>
 
 /** Index of the first user-defined algo arg. @see algorithm_stub */
-#define XTENSA_STUB_ARGS_FUNC_START             6
+#define ESP_RISCV_STUB_ARGS_FUNC_START  2
 
 /**
- * Xtensa algorithm data.
+ * RISCV algorithm data.
  */
-struct xtensa_algorithm {
-	/** User can set this to specify which core mode algorithm should be run in. */
-	enum xtensa_mode core_mode;
-	/** Used internally to backup and restore debug_reason. */
-	enum target_debug_reason ctx_debug_reason;
+struct esp_riscv_algorithm {
+	/** Registers with numbers below and including this number will be backuped before algo start.
+	 * Set to GDB_REGNO_COUNT-1 to save all existing registers. @see enum gdb_regno. */
+	size_t max_saved_reg;
+	uint64_t saved_registers[RISCV_MAX_REGISTERS];
+	bool valid_saved_registers[RISCV_MAX_REGISTERS];
 };
 
-extern const struct algorithm_hw xtensa_algo_hw;
+extern const struct algorithm_hw riscv_algo_hw;
 
-#endif	/* OPENOCD_TARGET_XTENSA_ALGO_H */
+#endif	/* OPENOCD_TARGET_ESP_RISCV_ALGO_H */

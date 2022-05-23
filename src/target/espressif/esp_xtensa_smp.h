@@ -19,7 +19,7 @@
 #ifndef OPENOCD_TARGET_XTENSA_ESP_SMP_H
 #define OPENOCD_TARGET_XTENSA_ESP_SMP_H
 
-#include "algorithm.h"
+#include <target/algorithm.h>
 #include "esp_xtensa.h"
 
 struct esp_xtensa_smp_chip_ops {

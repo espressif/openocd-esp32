@@ -25,10 +25,10 @@
 #include "target/target.h"
 #include "helper/log.h"
 #include "helper/binarybuffer.h"
-#include "target/esp32.h"
-#include "target/esp32s2.h"
-#include "target/esp32s3.h"
-#include "target/riscv/riscv.h"
+#include <target/espressif/esp32.h>
+#include <target/espressif/esp32s2.h>
+#include <target/espressif/esp32s3.h>
+#include <target/riscv/riscv.h>
 
 static int rtos_freertos_esp_xtensa_stack_read_involuntary(struct target *target, int64_t stack_ptr, const struct rtos_register_stacking *stacking, uint8_t *stack_data);
 static int rtos_freertos_esp_xtensa_stack_read_voluntary(struct target *target, int64_t stack_ptr, const struct rtos_register_stacking *stacking, uint8_t *stack_data);

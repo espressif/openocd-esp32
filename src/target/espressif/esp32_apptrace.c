@@ -39,11 +39,11 @@
 #endif
 
 #include <helper/list.h>
-#include "target.h"
-#include "target_type.h"
-#include "smp.h"
-#include "server/server.h"
-#include "xtensa_algorithm.h"
+#include <target/target.h>
+#include <target/target_type.h>
+#include <target/smp.h>
+#include <server/server.h>
+#include <target/xtensa/xtensa_algorithm.h>
 #include "esp_xtensa.h"
 #include "esp_xtensa_smp.h"
 #include "esp_xtensa_apptrace.h"

@@ -13,17 +13,16 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+
 #include "esp_riscv.h"
-#include <target/esp_riscv_apptrace.h>
-#include <target/esp_riscv_algorithm.h>
+#include <target/espressif/esp_riscv_apptrace.h>
+#include <target/espressif/esp_riscv_algorithm.h>
 
 static const struct esp_flash_apptrace_hw s_esp_riscv_flash_apptrace_hw = {
 	.info_init = esp_riscv_apptrace_info_init,

@@ -20,10 +20,10 @@
 #ifndef OPENOCD_TARGET_ESP_XTENSA_H
 #define OPENOCD_TARGET_ESP_XTENSA_H
 
-#include "target.h"
+#include <target/target.h>
 #include <helper/command.h>
+#include <target/xtensa/xtensa.h>
 #include "esp.h"
-#include "xtensa.h"
 #include "esp_xtensa_apptrace.h"
 #include "esp_xtensa_semihosting.h"
 

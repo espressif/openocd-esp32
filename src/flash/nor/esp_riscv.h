@@ -13,13 +13,11 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
-#ifndef FLASH_ESP_RISCV_H
-#define FLASH_ESP_RISCV_H
+#ifndef OPENOCD_FLASH_NOR_ESP_RISCV_H
+#define OPENOCD_FLASH_NOR_ESP_RISCV_H
 
 #include "esp_flash.h"
 
@@ -38,4 +36,4 @@ int esp_riscv_flash_init(struct esp_riscv_flash_bank *esp_info, uint32_t sec_sz,
 	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank));
 
 
-#endif	/*FLASH_ESP_RISCV_H*/
+#endif	/* OPENOCD_FLASH_NOR_ESP_RISCV_H */

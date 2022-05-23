@@ -23,12 +23,12 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "smp.h"
-#include "xtensa_algorithm.h"
+#include <target/smp.h>
+#include <target/xtensa/xtensa_algorithm.h>
 #include "esp_xtensa.h"
 #include "esp_xtensa_apptrace.h"
 #include "esp_xtensa_semihosting.h"
-#include "register.h"
+#include <target/register.h>
 
 #define ESP_XTENSA_DBGSTUBS_UPDATE_DATA_ENTRY(_e_) \
 	do { \

@@ -22,11 +22,10 @@
 
 #include <helper/log.h>
 #include <helper/binarybuffer.h>
-#include "target.h"
+#include "target/target.h"
 #include "esp.h"
 
 #define ESP_FLASH_BREAKPOINTS_MAX_NUM  32
-
 
 int esp_common_init(struct esp_common *esp,
 	const struct esp_flash_breakpoint_ops *flash_brps_ops,

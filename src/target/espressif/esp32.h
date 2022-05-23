@@ -19,7 +19,7 @@
 #ifndef OPENOCD_TARGET_ESP32_H
 #define OPENOCD_TARGET_ESP32_H
 
-#include "xtensa_algorithm.h"
+#include <target/xtensa/xtensa_algorithm.h>
 #include "esp_xtensa_smp.h"
 
 #define ESP32_DROM_LOW             0x3F400000

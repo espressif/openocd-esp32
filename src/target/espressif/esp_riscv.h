@@ -19,9 +19,9 @@
 #ifndef OPENOCD_TARGET_ESP_RISCV_H
 #define OPENOCD_TARGET_ESP_RISCV_H
 
-#include "target.h"
-#include "riscv/riscv.h"
-#include "riscv/debug_defines.h"
+#include <target/target.h>
+#include <target/riscv/riscv.h>
+#include <target/riscv/debug_defines.h>
 #include "esp_riscv_apptrace.h"
 #include "esp_riscv_algorithm.h"
 #include "esp.h"

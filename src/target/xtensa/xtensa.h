@@ -20,9 +20,9 @@
 #ifndef OPENOCD_TARGET_XTENSA_H
 #define OPENOCD_TARGET_XTENSA_H
 
-#include "target.h"
 #include "assert.h"
-#include "breakpoints.h"
+#include <target/target.h>
+#include <target/breakpoints.h>
 #include "xtensa_regs.h"
 #include "xtensa_debug_module.h"
 
