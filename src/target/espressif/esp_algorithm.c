@@ -20,10 +20,9 @@
 #include "config.h"
 #endif
 
+#include <target/algorithm.h>
+#include <target/target.h>
 #include "esp_algorithm.h"
-#include "algorithm.h"
-#include "target.h"
-
 
 #define ALGO_STUB_DEBUG            0
 #define ALGO_ALGORITHM_EXIT_TMO    40000	/* ms */

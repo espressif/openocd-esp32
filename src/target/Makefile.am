@@ -1,5 +1,7 @@
 %C%_libtarget_la_LIBADD = %D%/openrisc/libopenrisc.la \
-	%D%/riscv/libriscv.la
+	%D%/riscv/libriscv.la \
+	%D%/xtensa/libxtensa.la \
+	%D%/espressif/libespressif.la
 
 %C%_libtarget_la_CPPFLAGS = $(AM_CPPFLAGS)
 
@@ -17,8 +19,6 @@ noinst_LTLIBRARIES += %D%/libtarget.la
 	$(MIPS32_SRC) \
 	$(NDS32_SRC) \
 	$(STM8_SRC) \
-	$(XTENSA_SRC) \
-	$(ESP32_SRC) \
 	$(INTEL_IA32_SRC) \
 	$(ESIRISC_SRC) \
         $(ARC_SRC) \
@@ -147,29 +147,6 @@ NDS32_SRC = \
 STM8_SRC = \
 	%D%/stm8.c
 
-XTENSA_SRC= \
-	%D%/xtensa.c \
-	%D%/xtensa_debug_module.c \
-	%D%/xtensa_algorithm.c \
-	%D%/esp_xtensa.c \
-	%D%/esp_xtensa_smp.c \
-	%D%/esp_xtensa_apptrace.c \
-	%D%/esp_xtensa_semihosting.c
-
-ESP32_SRC= \
-	%D%/esp32.c \
-	%D%/esp32s2.c \
-	%D%/esp32s3.c \
-	%D%/esp32c3.c \
-	%D%/esp.c \
-	%D%/esp_riscv.c \
-	%D%/esp_riscv_apptrace.c \
-	%D%/esp32_apptrace.c \
-	%D%/esp32_sysview.c \
-	%D%/esp_algorithm.c \
-	%D%/esp_riscv_algorithm.c \
-	%D%/esp_semihosting.c
-	
 INTEL_IA32_SRC = \
 	%D%/quark_x10xx.c \
 	%D%/quark_d20xx.c \
@@ -273,18 +250,6 @@ ARC_SRC = \
 	%D%/lakemont.h \
 	%D%/x86_32_common.h \
 	%D%/arm_cti.h \
-	%D%/xtensa.h \
-	%D%/xtensa_algorithm.h \
-	%D%/xtensa_debug_module.h \
-	%D%/xtensa_regs.h \
-	%D%/esp_xtensa.h \
-	%D%/esp.h \
-	%D%/esp_xtensa_smp.h \
-	%D%/esp_xtensa_apptrace.h \
-	%D%/esp32_apptrace.h \
-	%D%/esp32.h \
-	%D%/esp32s2.h \
-	%D%/esp32s3.h \
 	%D%/esirisc.h \
 	%D%/esirisc_jtag.h \
 	%D%/esirisc_regs.h \
@@ -297,3 +262,5 @@ ARC_SRC = \
 
 include %D%/openrisc/Makefile.am
 include %D%/riscv/Makefile.am
+include %D%/xtensa/Makefile.am
+include %D%/espressif/Makefile.am

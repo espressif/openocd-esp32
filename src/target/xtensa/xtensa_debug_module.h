@@ -26,7 +26,7 @@
 
 #include <jtag/jtag.h>
 #include <helper/bits.h>
-#include "target.h"
+#include <target/target.h>
 
 
 /* Virtual IDs for using with xtensa_power_ops API */

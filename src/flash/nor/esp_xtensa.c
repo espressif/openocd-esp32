@@ -13,9 +13,7 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
+ *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
  ***************************************************************************/
 
 #ifdef HAVE_CONFIG_H
@@ -23,11 +21,10 @@
 #endif
 
 #include "esp_xtensa.h"
-#include <target/esp_xtensa_apptrace.h>
-#include <target/xtensa_algorithm.h>
+#include <target/espressif/esp_xtensa_apptrace.h>
+#include <target/xtensa/xtensa_algorithm.h>
 
-#define ESP_XTENSA_FLASH_MIN_OFFSET                     0x1000	/* protect secure boot digest data
-								 **/
+#define ESP_XTENSA_FLASH_MIN_OFFSET  0x1000	/* protect secure boot digest data */
 
 static const struct esp_flash_apptrace_hw s_esp_xtensa_flash_apptrace_hw = {
 	.data_len_read = esp_xtensa_apptrace_data_len_read,

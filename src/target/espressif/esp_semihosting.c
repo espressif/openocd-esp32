@@ -21,8 +21,8 @@
 #endif
 
 #include <helper/log.h>
-#include "target.h"
-#include "semihosting_common.h"
+#include <target/target.h>
+#include <target/semihosting_common.h>
 #include "esp_semihosting.h"
 #include "esp_riscv.h"
 #include "esp_xtensa.h"

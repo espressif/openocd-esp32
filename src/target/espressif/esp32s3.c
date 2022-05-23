@@ -20,15 +20,15 @@
 #include "config.h"
 #endif
 
-#include "target.h"
-#include "target_type.h"
 #include "assert.h"
-#include "rtos/rtos.h"
-#include "flash/nor/esp_xtensa.h"
+#include <target/target.h>
+#include <target/target_type.h>
+#include <target/smp.h>
+#include <rtos/rtos.h>
+#include <flash/nor/esp_xtensa.h>
 #include "esp32s3.h"
 #include "esp32_apptrace.h"
 #include "esp_xtensa_smp.h"
-#include "smp.h"
 
 /*
 This is a JTAG driver for the ESP32_S3, the are two Tensilica cores inside

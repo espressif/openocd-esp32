@@ -23,11 +23,11 @@
 #include "esp32c3.h"
 #include <helper/command.h>
 #include <helper/bits.h>
-#include "target_type.h"
-#include "register.h"
-#include "semihosting_common.h"
+#include <target/target_type.h>
+#include <target/register.h>
+#include <target/semihosting_common.h>
 #include "esp_semihosting.h"
-#include "riscv/debug_defines.h"
+#include <target/riscv/debug_defines.h>
 #include "esp32_apptrace.h"
 #include "rtos/rtos.h"
 

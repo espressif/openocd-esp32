@@ -28,10 +28,11 @@
 #include <stdlib.h>
 #include <helper/time_support.h>
 #include <helper/align.h>
+#include <target/register.h>
+#include <target/algorithm.h>
 
 #include "xtensa.h"
 #include "xtensa_algorithm.h"
-#include "register.h"
 
 #define _XT_INS_FORMAT_RSR(OPCODE, SR, T) ((OPCODE)	    \
 		| (((SR) & 0xFF) << 8) \

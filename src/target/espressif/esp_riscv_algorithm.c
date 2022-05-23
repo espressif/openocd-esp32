@@ -20,8 +20,8 @@
 #include "config.h"
 #endif
 
-#include "target/target.h"
-#include "riscv/riscv.h"
+#include <target/target.h>
+#include <target/riscv/riscv.h>
 #include "esp_riscv_algorithm.h"
 
 static int esp_riscv_algo_init(struct target *target, struct algorithm_run_data *run,
@@ -40,7 +40,7 @@ const struct algorithm_hw riscv_algo_hw = {
 static const uint8_t *esp_riscv_stub_tramp_get(struct target *target, size_t *size)
 {
 	static const uint8_t s_riscv_stub_tramp[] = {
-	#include "src/target/esp_riscv_stub_tramp.inc"
+	#include "src/target/espressif/esp_riscv_stub_tramp.inc"
 	};
 
 	*size = sizeof(s_riscv_stub_tramp);

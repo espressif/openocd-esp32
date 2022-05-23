@@ -22,8 +22,8 @@
 #include "helper/log.h"
 #include "helper/binarybuffer.h"
 #include <helper/time_support.h>
-#include "algorithm.h"
-#include "image.h"
+#include <target/algorithm.h>
+#include <target/image.h>
 
 /**
  * API defined below allows to execute pieces of code on target without breaking execution of running program.
