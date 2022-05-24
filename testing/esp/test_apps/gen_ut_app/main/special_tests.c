@@ -44,7 +44,7 @@ static void cache_check_task(void *pvParameter)
 
 static void psram_check_task(void *pvParameter)
 {
-#if CONFIG_IDF_TARGET_ESP32S3
+#if CONFIG_IDF_TARGET_ESP32S3 && UT_IDF_VER < MAKE_UT_IDF_VER(5,0,0,0)
     /* In ESP32S3, PSRAM is mapped from high to low. Check s_mapped_vaddr_start at esp32s3/spiram.c
         There is a plan to change from low to high same as ESP32
         Follow up jira https://jira.espressif.com:8443/browse/IDF-4318
