@@ -3388,7 +3388,7 @@ COMMAND_HANDLER(handle_soft_reset_halt_command)
 {
 	struct target *target = get_current_target(CMD_CTX);
 
-	LOG_USER("requesting target halt and executing a soft reset");
+	LOG_TARGET_INFO(target, "requesting target halt and executing a soft reset");
 
 	target_soft_reset_halt(target);
 

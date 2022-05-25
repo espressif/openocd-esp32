@@ -22,6 +22,7 @@
 #include "config.h"
 #endif
 
+#include <helper/time_support.h>
 #include <target/target.h>
 #include <target/target_type.h>
 #include <target/smp.h>
@@ -30,7 +31,7 @@
 #include "flash/nor/esp_xtensa.h"
 #include "esp32.h"
 #include "esp32_apptrace.h"
-#include "esp_xtensa.h"
+#include "esp_xtensa_smp.h"
 
 /*
 This is a JTAG driver for the ESP32, the are two Tensilica cores inside
@@ -57,6 +58,7 @@ implementation.
 #define ESP32_DR_REG_HIGH         0x3ff71000
 #define ESP32_SYS_RAM_LOW         0x60000000UL
 #define ESP32_SYS_RAM_HIGH        (ESP32_SYS_RAM_LOW + 0x20000000UL)
+#define ESP32_RTC_SLOW_MEM_BASE   ESP32_RTC_DATA_LOW
 
 /* ESP32 WDT */
 #define ESP32_WDT_WKEY_VALUE       0x50d83aa1
@@ -79,7 +81,7 @@ implementation.
 /* ESP32 dport regs */
 #define ESP32_DR_REG_DPORT_BASE         ESP32_DR_REG_LOW
 #define ESP32_DPORT_APPCPU_CTRL_B_REG   (ESP32_DR_REG_DPORT_BASE + 0x030)
-#define ESP32_DPORT_APPCPU_CLKGATE_EN   (1 << 0)
+#define ESP32_DPORT_APPCPU_CLKGATE_EN   BIT(0)
 /* ESP32 RTC regs */
 #define ESP32_RTC_CNTL_SW_CPU_STALL_REG (ESP32_RTCCNTL_BASE + 0xac)
 #define ESP32_RTC_CNTL_SW_CPU_STALL_DEF 0x0
@@ -282,18 +284,41 @@ static const struct xtensa_config esp32_xtensa_cfg = {
 	},
 };
 
+/* 0 - don't care, 1 - TMS low, 2 - TMS high */
+enum esp32_flash_bootstrap {
+	FBS_DONTCARE = 0,
+	FBS_TMSLOW,
+	FBS_TMSHIGH,
+};
+
+struct esp32_common {
+	struct esp_xtensa_smp_common esp_xtensa_smp;
+	enum esp32_flash_bootstrap flash_bootstrap;
+};
+
+static inline struct esp32_common *target_to_esp32(struct target *target)
+{
+	return container_of(target->arch_info, struct esp32_common, esp_xtensa_smp);
+}
+
 /* Reset ESP32 peripherals.
-Postconditions: all peripherals except RTC_CNTL are reset, CPU's PC is undefined, PRO CPU is halted, APP CPU is in reset
-How this works:
-0. make sure target is halted; if not, try to halt it; if that fails, try to reset it (via OCD) and then halt
-1. set CPU initial PC to 0x50000000 (ESP32_SMP_RTC_DATA_LOW) by clearing RTC_CNTL_{PRO,APP}CPU_STAT_VECTOR_SEL
-2. load stub code into ESP32_SMP_RTC_DATA_LOW; once executed, stub code will disable watchdogs and make CPU spin in an idle loop.
-3. trigger SoC reset using RTC_CNTL_SW_SYS_RST bit
-4. wait for the OCD to be reset
-5. halt the target and wait for it to be halted (at this point CPU is in the idle loop)
-6. restore initial PC and the contents of ESP32_SMP_RTC_DATA_LOW
-TODO: some state of RTC_CNTL is not reset during SW_SYS_RST. Need to reset that manually.
-*/
+ * Postconditions: all peripherals except RTC_CNTL are reset, CPU's PC is undefined, PRO CPU is halted,
+ * APP CPU is in reset
+ * How this works:
+ * 0. make sure target is halted; if not, try to halt it; if that fails, try to reset it (via OCD) and then halt
+ * 1. set CPU initial PC to 0x50000000 (ESP32_SMP_RTC_DATA_LOW) by clearing RTC_CNTL_{PRO,APP}CPU_STAT_VECTOR_SEL
+ * 2. load stub code into ESP32_SMP_RTC_DATA_LOW; once executed, stub code will disable watchdogs and
+ * make CPU spin in an idle loop.
+ * 3. trigger SoC reset using RTC_CNTL_SW_SYS_RST bit
+ * 4. wait for the OCD to be reset
+ * 5. halt the target and wait for it to be halted (at this point CPU is in the idle loop)
+ * 6. restore initial PC and the contents of ESP32_SMP_RTC_DATA_LOW
+ * TODO: some state of RTC_CNTL is not reset during SW_SYS_RST. Need to reset that manually. */
+
+const uint8_t esp32_reset_stub_code[] = {
+#include "../../../contrib/loaders/reset/espressif/esp32/cpu_reset_handler_code.inc"
+};
+
 static int esp32_soc_reset(struct target *target)
 {
 	int res;
@@ -317,8 +342,8 @@ static int esp32_soc_reset(struct target *target)
 			}
 			alive_sleep(10);
 			xtensa_poll(target);
-			int reset_halt_save = target->reset_halt;
-			target->reset_halt = 1;
+			bool reset_halt_save = target->reset_halt;
+			target->reset_halt = true;
 			res = xtensa_deassert_reset(target);
 			target->reset_halt = reset_halt_save;
 			if (res != ERROR_OK) {
@@ -337,23 +362,18 @@ static int esp32_soc_reset(struct target *target)
 			}
 		}
 	}
-	assert(target->state == TARGET_HALTED);
 
 	if (target->smp) {
 		foreach_smp_target(head, target->smp_targets) {
 			xtensa = target_to_xtensa(head->target);
 			/* if any of the cores is stalled unstall them */
 			if (xtensa_dm_core_is_stalled(&xtensa->dbg_mod)) {
-				uint32_t word = ESP32_RTC_CNTL_SW_CPU_STALL_DEF;
-				LOG_DEBUG("%s: Unstall CPUs before SW reset!",
-					target_name(head->target));
-				res = xtensa_write_buffer(target,
+				LOG_TARGET_DEBUG(head->target, "Unstall CPUs before SW reset!");
+				res = target_write_u32(target,
 					ESP32_RTC_CNTL_SW_CPU_STALL_REG,
-					sizeof(word),
-					(uint8_t *)&word);
+					ESP32_RTC_CNTL_SW_CPU_STALL_DEF);
 				if (res != ERROR_OK) {
-					LOG_ERROR("%s: Failed to unstall CPUs before SW reset!",
-						target_name(head->target));
+					LOG_TARGET_ERROR(head->target, "Failed to unstall CPUs before SW reset!");
 					return res;
 				}
 				break;	/* both cores are unstalled now, so exit the loop */
@@ -361,50 +381,18 @@ static int esp32_soc_reset(struct target *target)
 		}
 	}
 
-	/* This this the stub code compiled from esp32_cpu_reset_handler.S.
-	   To compile it, run:
-	       xtensa-esp32-elf-gcc -c -mtext-section-literals -o stub.o esp32_cpu_reset_handler.S
-	       xtensa-esp32-elf-objcopy -j .text -O binary stub.o stub.bin
-	   These steps are not included into OpenOCD build process so that a
-	   dependency on xtensa-esp32-elf toolchain is not introduced.
-	*/
-	const uint32_t esp32_reset_stub_code[] = {
-		0x00001e06, 0x00001406, 0x3ff48034, 0x3ff480b0,
-		0x3ff480b4, 0x3ff48070, 0x00002210, 0x9c492000,
-		0x3ff48000, 0x50d83aa1, 0x3ff480a4, 0x3ff5f064,
-		0x3ff60064, 0x3ff4808c, 0x3ff5f048, 0x3ff60048,
-		0x3ff5a1fc, 0x3ff00038, 0x3ff00030, 0x3ff0002c,
-		0x3ff48034, 0x00003000, 0x41305550, 0x0459ffeb,
-		0x59ffeb41, 0xffea4104, 0xea410459, 0xffea31ff,
-		0xea310439, 0xffea41ff, 0x00000439, 0x6003eb60,
-		0x66560461, 0x30555004, 0x41ffe731, 0x0439ffe7,
-		0x39ffe741, 0xffe64104, 0xe6410439, 0x410459ff,
-		0x0459ffe6, 0x59ffe641, 0xffe54104, 0xe5410459,
-		0x410459ff, 0x130cffe5, 0xe4410439, 0x39130cff,
-		0x41045904, 0xe331ffe3, 0x006432ff, 0x46007000,
-		0x0000fffe,
-	};
-
 	LOG_DEBUG("Loading stub code into RTC RAM");
-	uint32_t slow_mem_save[sizeof(esp32_reset_stub_code) / sizeof(uint32_t)];
+	uint8_t slow_mem_save[sizeof(esp32_reset_stub_code)];
 
-	const int RTC_SLOW_MEM_BASE = 0x50000000;
 	/* Save contents of RTC_SLOW_MEM which we are about to overwrite */
-	res =
-		target_read_buffer(target,
-		RTC_SLOW_MEM_BASE,
-		sizeof(slow_mem_save),
-		(uint8_t *)slow_mem_save);
+	res = target_read_buffer(target, ESP32_RTC_SLOW_MEM_BASE, sizeof(slow_mem_save), slow_mem_save);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to save contents of RTC_SLOW_MEM (%d)!", res);
 		return res;
 	}
 
 	/* Write stub code into RTC_SLOW_MEM */
-	res =
-		target_write_buffer(target, RTC_SLOW_MEM_BASE,
-		sizeof(esp32_reset_stub_code),
-		(const uint8_t *)esp32_reset_stub_code);
+	res = target_write_buffer(target, ESP32_RTC_SLOW_MEM_BASE, sizeof(esp32_reset_stub_code), esp32_reset_stub_code);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to write stub (%d)!", res);
 		return res;
@@ -413,44 +401,41 @@ static int esp32_soc_reset(struct target *target)
 	LOG_DEBUG("Resuming the target");
 	xtensa = target_to_xtensa(target);
 	xtensa->suppress_dsr_errors = true;
-	res = xtensa_resume(target, 0, RTC_SLOW_MEM_BASE + 4, 0, 0);
+	res = xtensa_resume(target, 0, ESP32_RTC_SLOW_MEM_BASE + 4, 0, 0);
+	xtensa->suppress_dsr_errors = false;
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to run stub (%d)!", res);
 		return res;
 	}
-	xtensa->suppress_dsr_errors = false;
 	LOG_DEBUG("resume done, waiting for the target to come alive");
 
 	/* Wait for SoC to reset */
 	alive_sleep(100);
-	int timeout = 100;
-	while (target->state != TARGET_RESET && target->state !=
-		TARGET_RUNNING && --timeout > 0) {
+	int64_t timeout = timeval_ms() + 100;
+	bool get_timeout = false;
+	while (target->state != TARGET_RESET && target->state != TARGET_RUNNING) {
 		alive_sleep(10);
 		xtensa_poll(target);
-	}
-	if (timeout == 0) {
-		LOG_ERROR("Timed out waiting for CPU to be reset, target state=%d", target->state);
-		return ERROR_TARGET_TIMEOUT;
+		if (timeval_ms() >= timeout) {
+			LOG_TARGET_ERROR(target,
+				"Timed out waiting for CPU to be reset, target state=%d",
+				target->state);
+			get_timeout = true;
+			break;
+		}
 	}
 
 	/* Halt the CPU again */
 	LOG_DEBUG("halting the target");
 	xtensa_halt(target);
 	res = target_wait_state(target, TARGET_HALTED, 1000);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Timed out waiting for CPU to be halted after SoC reset");
-		return res;
-	}
-
-	/* Restore the original contents of RTC_SLOW_MEM */
-	LOG_DEBUG("restoring RTC_SLOW_MEM");
-	res =
-		target_write_buffer(target, RTC_SLOW_MEM_BASE, sizeof(slow_mem_save),
-		(const uint8_t *)slow_mem_save);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to restore contents of RTC_SLOW_MEM (%d)!", res);
-		return res;
+	if (res == ERROR_OK) {
+		LOG_DEBUG("restoring RTC_SLOW_MEM");
+		res = target_write_buffer(target, ESP32_RTC_SLOW_MEM_BASE, sizeof(slow_mem_save), slow_mem_save);
+		if (res != ERROR_OK)
+			LOG_TARGET_ERROR(target, "Failed to restore contents of RTC_SLOW_MEM (%d)!", res);
+	} else {
+		LOG_TARGET_ERROR(target, "Timed out waiting for CPU to be halted after SoC reset");
 	}
 
 	/* Clear memory which is used by RTOS layer to get the task count */
@@ -460,7 +445,7 @@ static int esp32_soc_reset(struct target *target)
 			LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
 	}
 
-	return ERROR_OK;
+	return get_timeout ? ERROR_TARGET_TIMEOUT : res;
 }
 
 static int esp32_disable_wdts(struct target *target)
@@ -509,8 +494,11 @@ static int esp32_arch_state(struct target *target)
 static int esp32_virt2phys(struct target *target,
 	target_addr_t virtual, target_addr_t *physical)
 {
-	*physical = virtual;
-	return ERROR_OK;
+	if (physical) {
+		*physical = virtual;
+		return ERROR_OK;
+	}
+	return ERROR_FAIL;
 }
 
 static int esp32_handle_target_event(struct target *target, enum target_event event, void *priv)
@@ -536,29 +524,29 @@ static int esp32_handle_target_event(struct target *target, enum target_event ev
 	return ERROR_OK;
 }
 
-/*
-        The TDI pin is also used as a flash Vcc bootstrap pin. If we reset the CPU externally, the last state of the TDI pin can
-        allow the power to an 1.8V flash chip to be raised to 3.3V, or the other way around. Users can use the
-        esp32 flashbootstrap command to set a level, and this routine will make sure the tdi line will return to
-        that when the jtag port is idle.
-*/
+
+/* The TDI pin is also used as a flash Vcc bootstrap pin. If we reset the CPU externally, the last state of the TDI pin
+ * can allow the power to an 1.8V flash chip to be raised to 3.3V, or the other way around. Users can use the
+ * esp32 flashbootstrap command to set a level, and this routine will make sure the tdi line will return to
+ * that when the jtag port is idle. */
+
 static void esp32_queue_tdi_idle(struct target *target)
 {
 	struct esp32_common *esp32 = target_to_esp32(target);
-	static uint8_t value;
+	static uint32_t value;
 	uint8_t t[4] = { 0, 0, 0, 0 };
 
 	if (esp32->flash_bootstrap == FBS_TMSLOW) {
-		/*Make sure tdi is 0 at the exit of queue execution */
+		/* Make sure tdi is 0 at the exit of queue execution */
 		value = 0;
 	} else if (esp32->flash_bootstrap == FBS_TMSHIGH) {
-		/*Make sure tdi is 1 at the exit of queue execution */
+		/* Make sure tdi is 1 at the exit of queue execution */
 		value = 1;
 	} else {
 		return;
 	}
 
-	/*Scan out 1 bit, do not move from IRPAUSE after we're done. */
+	/* Scan out 1 bit, do not move from IRPAUSE after we're done. */
 	buf_set_u32(t, 0, 1, value);
 	jtag_add_plain_ir_scan(1, t, NULL, TAP_IRPAUSE);
 }
@@ -611,7 +599,7 @@ static int esp32_target_create(struct target *target, Jim_Interp *interp)
 	};
 
 	struct esp32_common *esp32 = calloc(1, sizeof(struct esp32_common));
-	if (esp32 == NULL) {
+	if (!esp32) {
 		LOG_ERROR("Failed to alloc memory for arch info!");
 		return ERROR_FAIL;
 	}
@@ -625,7 +613,7 @@ static int esp32_target_create(struct target *target, Jim_Interp *interp)
 	}
 	esp32->flash_bootstrap = FBS_DONTCARE;
 
-	/*Assume running target. If different, the first poll will fix this. */
+	/* Assume running target. If different, the first poll will fix this. */
 	target->state = TARGET_RUNNING;
 	target->debug_reason = DBG_REASON_NOTHALTED;
 	return ERROR_OK;
@@ -705,7 +693,6 @@ static const struct command_registration esp32_any_command_handlers[] = {
 extern const struct command_registration semihosting_common_handlers[];
 static const struct command_registration esp32_command_handlers[] = {
 	{
-		.usage = "",
 		.chain = esp_xtensa_smp_command_handlers,
 	},
 	{
@@ -782,6 +769,7 @@ struct target_type esp32_target = {
 
 	.assert_reset = esp_xtensa_smp_assert_reset,
 	.deassert_reset = esp_xtensa_smp_deassert_reset,
+	.soft_reset_halt = esp_xtensa_smp_soft_reset_halt,
 
 	.virt2phys = esp32_virt2phys,
 	.mmu = xtensa_mmu_is_enabled,

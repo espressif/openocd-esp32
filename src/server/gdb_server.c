@@ -3531,7 +3531,6 @@ static int gdb_input_inner(struct connection *connection)
 		gdb_packet_buffer[packet_size] = '\0';
 
 		if (packet_size > 0) {
-
 			gdb_log_incoming_packet(connection, gdb_packet_buffer);
 
 			retval = ERROR_OK;

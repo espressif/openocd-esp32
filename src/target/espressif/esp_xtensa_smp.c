@@ -21,9 +21,9 @@
 #include "config.h"
 #endif
 
+#include "assert.h"
 #include <target/target.h>
 #include <target/target_type.h>
-#include "assert.h"
 #include "rtos/rtos.h"
 #include <target/smp.h>
 #include "esp_xtensa_smp.h"
@@ -34,7 +34,7 @@ Multiprocessor stuff common:
 
 The ESP Xtensa chip can have several cores in it, which can run in SMP-mode if an
 SMP-capable OS is running. The hardware has a few features which make
-debugging this much easier.
+SMP debugging much easier.
 
 First of all, there's something called a 'break network', consisting of a
 BreakIn input  and a BreakOut output on each CPU. The idea is that as soon
@@ -62,23 +62,47 @@ Multiprocessor stuff:
 The ESP Xtensa chip has several Xtensa cores inside, but represent themself to the OCD
 as one chip that works in multithreading mode under FreeRTOS OS.
 The core that initiate the stop condition will be defined as an active cpu.
-When one core stops, then other core will be stoped automativally by smpbreak.
-The core that initiate stop condition will be defined as an active core, and
-registers of this core will be transfered.
+When one core stops, then other core will be stopped automatically by smpbreak.
+The core that initiates stop condition will be defined as an active core, and
+registers of this core will be transferred.
 */
 
 #define ESP_XTENSA_SMP_EXAMINE_OTHER_CORES      5
 
 static int esp_xtensa_smp_update_halt_gdb(struct target *target, bool *need_resume);
 
+static inline struct esp_xtensa_smp_common *target_to_esp_xtensa_smp(struct target *target)
+{
+	return container_of(target->arch_info, struct esp_xtensa_smp_common, esp_xtensa);
+}
 
 int esp_xtensa_smp_assert_reset(struct target *target)
 {
-	int res = ERROR_OK;
+	return ERROR_OK;
+}
+
+int esp_xtensa_smp_deassert_reset(struct target *target)
+{
+	LOG_TARGET_DEBUG(target, "begin");
+
+	int ret = xtensa_deassert_reset(target);
+	if (ret != ERROR_OK)
+		return ret;
+	/* in SMP mode when chip was running single-core app the other core can be left un-examined,
+	   because examination is done before SOC reset. But after SOC reset it is functional and should be handled.
+	   So try to examine un-examined core just after SOC reset */
+	if (target->smp && !target_was_examined(target))
+		ret = xtensa_examine(target);
+	return ret;
+}
+
+int esp_xtensa_smp_soft_reset_halt(struct target *target)
+{
+	int res;
 	struct target_list *head;
 	struct esp_xtensa_smp_common *esp_xtensa_smp = target_to_esp_xtensa_smp(target);
 
-	LOG_DEBUG("%s: begin", target_name(target));
+	LOG_TARGET_DEBUG(target, "begin");
 	/* in SMP mode we need to ensure that at first we reset SOC on PRO-CPU
 	   and then call xtensa_assert_reset() for all cores */
 	if (target->smp && target->coreid != 0)
@@ -97,22 +121,7 @@ int esp_xtensa_smp_assert_reset(struct target *target)
 		if (res != ERROR_OK)
 			return res;
 	}
-	return res;
-}
-
-int esp_xtensa_smp_deassert_reset(struct target *target)
-{
-	LOG_DEBUG("%s: begin", target_name(target));
-
-	int ret = xtensa_deassert_reset(target);
-	if (ret != ERROR_OK)
-		return ret;
-	/* in SMP mode when chip was running single-core app the other core can be left un-examined,
-	   becasue examination is done before SOC reset. But after SOC reset it is functional and should be handled.
-	   So try to examine un-examined core just after SOC reset */
-	if (target->smp && !target_was_examined(target))
-		ret = xtensa_examine(target);
-	return ret;
+	return ERROR_OK;
 }
 
 static struct target *get_halted_esp_xtensa_smp(struct target *target, int32_t coreid)
@@ -140,15 +149,8 @@ int esp_xtensa_smp_poll(struct target *target)
 	bool other_core_resume_req = false;
 	int ret;
 
-	/*  toggle to another core is done by gdb as follow
-	 *  maint packet J core_id
-	 *  continue
-	 *  the next polling trigger an halt event sent to gdb */
-	if ((target->state == TARGET_HALTED) && (target->smp) &&
-		(target->gdb_service) &&
-		(target->gdb_service->target == NULL)) {
-		target->gdb_service->target =
-			get_halted_esp_xtensa_smp(target, target->gdb_service->core[1]);
+	if (target->state == TARGET_HALTED && target->smp && target->gdb_service && !target->gdb_service->target) {
+		target->gdb_service->target = get_halted_esp_xtensa_smp(target, target->gdb_service->core[1]);
 		LOG_INFO("Switch GDB target to '%s'", target_name(target->gdb_service->target));
 		target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 		return ERROR_OK;
@@ -172,7 +174,7 @@ int esp_xtensa_smp_poll(struct target *target)
 			esp_xtensa_smp->examine_other_cores = ESP_XTENSA_SMP_EXAMINE_OTHER_CORES;
 		} else if (esp_xtensa_smp->examine_other_cores > 0 &&
 			(target->state == TARGET_RUNNING || target->state == TARGET_HALTED)) {
-			LOG_DEBUG("%s: Check for unexamined cores after reset", target_name(target));
+			LOG_TARGET_DEBUG(target, "Check for unexamined cores after reset");
 			bool all_examined = true;
 			foreach_smp_target(head, target->smp_targets) {
 				curr = head->target;
@@ -198,7 +200,7 @@ int esp_xtensa_smp_poll(struct target *target)
 			if (ret != ERROR_OK)
 				return ret;
 		}
-		/*Call any event callbacks that are applicable */
+		/* Call any event callbacks that are applicable */
 		if (old_state == TARGET_DEBUG_RUNNING) {
 			target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
 		} else {
@@ -226,8 +228,7 @@ int esp_xtensa_smp_poll(struct target *target)
 				}
 				return ret;
 			}
-			/* check whether any core polled by esp_xtensa_smp_update_halt_gdb() requested
-			 *resume */
+			/* check whether any core polled by esp_xtensa_smp_update_halt_gdb() requested resume */
 			if (target->smp && other_core_resume_req) {
 				/* Resume xtensa_resume will handle BREAK instruction. */
 				ret = target_resume(target, 1, 0, 1, 0);
@@ -235,7 +236,7 @@ int esp_xtensa_smp_poll(struct target *target)
 					LOG_ERROR("Failed to resume target");
 					return ret;
 				}
-				return ret;
+				return ERROR_OK;
 			}
 			target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 		}
@@ -250,7 +251,7 @@ static int esp_xtensa_smp_update_halt_gdb(struct target *target, bool *need_resu
 	struct target *gdb_target = NULL;
 	struct target_list *head;
 	struct target *curr;
-	int retval = 0;
+	int ret = ERROR_OK;
 
 	*need_resume = false;
 
@@ -291,10 +292,12 @@ static int esp_xtensa_smp_update_halt_gdb(struct target *target, bool *need_resu
 		/* avoid recursion in esp_xtensa_smp_poll() */
 		curr->smp = 0;
 		if (esp_xtensa_smp->chip_ops->poll)
-			esp_xtensa_smp->chip_ops->poll(curr);
+			ret = esp_xtensa_smp->chip_ops->poll(curr);
 		else
-			esp_xtensa_smp_poll(curr);
+			ret = esp_xtensa_smp_poll(curr);
 		curr->smp = 1;
+		if (ret != ERROR_OK)
+			return ret;
 		esp_xtensa_smp->other_core_does_resume = false;
 		struct esp_xtensa_common *curr_esp_xtensa = target_to_esp_xtensa(curr);
 		if (curr_esp_xtensa->semihost.need_resume) {
@@ -304,17 +307,17 @@ static int esp_xtensa_smp_update_halt_gdb(struct target *target, bool *need_resu
 	}
 
 	/* after all targets were updated, poll the gdb serving target */
-	if (gdb_target != NULL && gdb_target != target) {
+	if (gdb_target && gdb_target != target) {
 		esp_xtensa_smp = target_to_esp_xtensa_smp(gdb_target);
 		if (esp_xtensa_smp->chip_ops->poll)
-			esp_xtensa_smp->chip_ops->poll(gdb_target);
+			ret = esp_xtensa_smp->chip_ops->poll(gdb_target);
 		else
-			esp_xtensa_smp_poll(gdb_target);
+			ret = esp_xtensa_smp_poll(gdb_target);
 	}
 
 	LOG_DEBUG("exit");
 
-	return retval;
+	return ret;
 }
 
 static inline int esp_xtensa_smp_smpbreak_disable(struct target *target, uint32_t *smp_break)
@@ -322,10 +325,7 @@ static inline int esp_xtensa_smp_smpbreak_disable(struct target *target, uint32_
 	int res = xtensa_smpbreak_get(target, smp_break);
 	if (res != ERROR_OK)
 		return res;
-	res = xtensa_smpbreak_set(target, 0);
-	if (res != ERROR_OK)
-		return res;
-	return ERROR_OK;
+	return xtensa_smpbreak_set(target, 0);
 }
 
 static inline int esp_xtensa_smp_smpbreak_restore(struct target *target, uint32_t smp_break)
@@ -337,27 +337,24 @@ static int esp_xtensa_smp_resume_cores(struct target *target,
 	int handle_breakpoints,
 	int debug_execution)
 {
-	int res = ERROR_OK;
 	struct target_list *head;
 	struct target *curr;
 
-	LOG_DEBUG("%s", target_name(target));
+	LOG_TARGET_DEBUG(target, "begin");
 
 	foreach_smp_target(head, target->smp_targets) {
 		curr = head->target;
-		if ((curr != target) && (curr->state != TARGET_RUNNING)
-			/* in single-core mode disabled core cannot be examined, but need to be
-			 *resumed too*/
-			&& target_was_examined(curr)) {
+		/* in single-core mode disabled core cannot be examined, but need to be resumed too*/
+		if ((curr != target) && (curr->state != TARGET_RUNNING) && target_was_examined(curr)) {
 			/*  resume current address, not in SMP mode */
 			curr->smp = 0;
-			res = esp_xtensa_smp_resume(curr, 1, 0, handle_breakpoints, debug_execution);
+			int res = esp_xtensa_smp_resume(curr, 1, 0, handle_breakpoints, debug_execution);
 			curr->smp = 1;
 			if (res != ERROR_OK)
 				return res;
 		}
 	}
-	return res;
+	return ERROR_OK;
 }
 
 int esp_xtensa_smp_resume(struct target *target,
@@ -370,37 +367,31 @@ int esp_xtensa_smp_resume(struct target *target,
 	uint32_t smp_break;
 
 	xtensa_smpbreak_get(target, &smp_break);
-	LOG_DEBUG("%s: smp_break=0x%x", target_name(target), smp_break);
+	LOG_TARGET_DEBUG(target, "smp_break=0x%" PRIx32, smp_break);
 
 	/* dummy resume for smp toggle in order to reduce gdb impact  */
 	if ((target->smp) && (target->gdb_service) && (target->gdb_service->core[1] != -1)) {
-		/*   simulate a start and halt of target */
+		/* simulate a start and halt of target */
 		target->gdb_service->target = NULL;
 		target->gdb_service->core[0] = target->gdb_service->core[1];
-		/*  fake resume at next poll we play the  target core[1], see poll*/
-		LOG_DEBUG("%s: Fake resume", target_name(target));
+		/* fake resume at next poll we play the  target core[1], see poll*/
+		LOG_TARGET_DEBUG(target, "Fake resume");
 		target_call_event_callbacks(target, TARGET_EVENT_RESUMED);
 		return ERROR_OK;
 	}
 
-	/* xtensa_prepare_resume() can step over breakpoint/watchpoint and
-	        generate signals on BreakInOut circuit for other cores.
-	        So disconnect this core from BreakInOut circuit and do xtensa_prepare_resume().
-	*/
+	/* xtensa_prepare_resume() can step over breakpoint/watchpoint and generate signals on BreakInOut circuit for
+	 * other cores. So disconnect this core from BreakInOut circuit and do xtensa_prepare_resume(). */
 	res = esp_xtensa_smp_smpbreak_disable(target, &smp_break);
 	if (res != ERROR_OK)
 		return res;
-	res = xtensa_prepare_resume(target,
-		current,
-		address,
-		handle_breakpoints,
-		debug_execution);
+	res = xtensa_prepare_resume(target, current, address, handle_breakpoints, debug_execution);
 	/* restore configured BreakInOut signals config */
 	int ret = esp_xtensa_smp_smpbreak_restore(target, smp_break);
 	if (ret != ERROR_OK)
 		return ret;
 	if (res != ERROR_OK) {
-		LOG_ERROR("%s: Failed to prepare for resume!", target_name(target));
+		LOG_TARGET_ERROR(target, "Failed to prepare for resume!");
 		return res;
 	}
 
@@ -414,7 +405,7 @@ int esp_xtensa_smp_resume(struct target *target,
 
 	res = xtensa_do_resume(target);
 	if (res != ERROR_OK) {
-		LOG_ERROR("%s: Failed to resume!", target_name(target));
+		LOG_TARGET_ERROR(target, "Failed to resume!");
 		return res;
 	}
 
@@ -425,7 +416,7 @@ int esp_xtensa_smp_resume(struct target *target,
 		target->state = TARGET_DEBUG_RUNNING;
 
 	target_call_event_callbacks(target, TARGET_EVENT_RESUMED);
-	return res;
+	return ERROR_OK;
 }
 
 int esp_xtensa_smp_step(struct target *target,
@@ -433,7 +424,7 @@ int esp_xtensa_smp_step(struct target *target,
 	target_addr_t address,
 	int handle_breakpoints)
 {
-	int res = ERROR_OK;
+	int res;
 	uint32_t smp_break;
 
 	if (target->smp) {
@@ -441,61 +432,63 @@ int esp_xtensa_smp_step(struct target *target,
 		if (res != ERROR_OK)
 			return res;
 	}
-	res = xtensa_step(target,
-		current,
-		address,
-		handle_breakpoints);
+	res = xtensa_step(target, current, address, handle_breakpoints);
 	if (target->smp) {
 		int ret = esp_xtensa_smp_smpbreak_restore(target, smp_break);
 		if (ret != ERROR_OK)
 			return ret;
 	}
+
 	return res;
 }
 
 int esp_xtensa_smp_watchpoint_add(struct target *target, struct watchpoint *watchpoint)
 {
-	int res = ERROR_OK;
+	int res = xtensa_watchpoint_add(target, watchpoint);
+	if (res != ERROR_OK)
+		return res;
 
-	res = xtensa_watchpoint_add(target, watchpoint);
-	if (target->smp && res == ERROR_OK) {
-		struct target_list *head;
-		foreach_smp_target(head, target->smp_targets) {
-			struct target *curr = head->target;
-			if (curr == target || !target_was_examined(curr))
-				continue;
-			/* Need to use high level API here because every target for core contains list of watchpoints.
-			   GDB works with active core only, so we need to duplicate every watchpoint on other cores,
-			   otherwise watchpoint_free() on active core can fail if WP has been initially added on another core. */
-			curr->smp = 0;
-			res = watchpoint_add(curr, watchpoint->address, watchpoint->length,
-				watchpoint->rw, watchpoint->value, watchpoint->mask);
-			curr->smp = 1;
-			if (res != ERROR_OK)
-				break;
-		}
+	if (!target->smp)
+		return ERROR_OK;
+
+	struct target_list *head;
+	foreach_smp_target(head, target->smp_targets) {
+		struct target *curr = head->target;
+		if (curr == target || !target_was_examined(curr))
+			continue;
+		/* Need to use high level API here because every target for core contains list of watchpoints.
+		 * GDB works with active core only, so we need to duplicate every watchpoint on other cores,
+		 * otherwise watchpoint_free() on active core can fail if WP has been initially added on another core. */
+		curr->smp = 0;
+		res = watchpoint_add(curr, watchpoint->address, watchpoint->length,
+			watchpoint->rw, watchpoint->value, watchpoint->mask);
+		curr->smp = 1;
+		if (res != ERROR_OK)
+			return res;
 	}
-	return res;
+	return ERROR_OK;
 }
 
 int esp_xtensa_smp_watchpoint_remove(struct target *target, struct watchpoint *watchpoint)
 {
-	int res = ERROR_OK;
+	int res = xtensa_watchpoint_remove(target, watchpoint);
+	if (res != ERROR_OK)
+		return res;
 
-	res = xtensa_watchpoint_remove(target, watchpoint);
-	if (target->smp && res == ERROR_OK) {
-		struct target_list *head;
-		foreach_smp_target(head, target->smp_targets) {
-			struct target *curr = head->target;
-			if (curr == target)
-				continue;
-			/* see big comment in esp_xtensa_smp_watchpoint_add() */
-			curr->smp = 0;
-			watchpoint_remove(curr, watchpoint->address);
-			curr->smp = 1;
-		}
+	if (!target->smp)
+		return ERROR_OK;
+
+	struct target_list *head;
+	foreach_smp_target(head, target->smp_targets) {
+		struct target *curr = head->target;
+		if (curr == target)
+			continue;
+		/* see big comment in esp_xtensa_smp_watchpoint_add() */
+		curr->smp = 0;
+		watchpoint_remove(curr, watchpoint->address);
+		curr->smp = 1;
 	}
-	return res;
+	return ERROR_OK;
 }
 
 int esp_xtensa_smp_run_func_image(struct target *target,
@@ -811,14 +804,14 @@ COMMAND_HANDLER(esp_xtensa_smp_cmd_tracedump)
 	if (target->smp) {
 		struct target_list *head;
 		struct target *curr;
-		uint32_t cores_max_id = 0;
+		int32_t cores_max_id = 0;
 		/* assume that core IDs are assigned to SMP targets sequentially: 0,1,2... */
 		foreach_smp_target(head, target->smp_targets) {
 			curr = head->target;
-			if (cores_max_id < (uint32_t)curr->coreid)
+			if (cores_max_id < curr->coreid)
 				cores_max_id = curr->coreid;
 		}
-		if (CMD_ARGC < (cores_max_id + 1)) {
+		if (CMD_ARGC < ((uint32_t)cores_max_id + 1)) {
 			command_print(CMD,
 				"Need %d filenames to dump to as output!",
 				cores_max_id + 1);
