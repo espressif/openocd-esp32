@@ -22,6 +22,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include "esp_app_trace.h"
+#include "esp_app_trace_port.h"
 #include "esp_flash_partitions.h"
 #include "esp_image_format.h"
 #include "stub_flasher.h"
@@ -134,6 +135,11 @@ static int stub_flash_test(void)
 	return ret;
 }
 #endif
+
+esp_apptrace_hw_t *esp_apptrace_uart_hw_get(int num, void **data)
+{
+	return NULL;
+}
 
 static int stub_apptrace_init()
 {

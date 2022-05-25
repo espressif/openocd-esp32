@@ -522,8 +522,7 @@ int esp_riscv_run_algorithm(struct target *target, int num_mem_params,
 int esp_riscv_read_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
-	/* TODO: find out the widest system bus access size. For now we are assuming it is equal to
-	 *xlen */
+	/* TODO: find out the widest system bus access size. For now we are assuming it is equal to xlen */
 	uint32_t sba_access_size = target_data_bits(target) / 8;
 
 	if (size < sba_access_size) {
@@ -549,38 +548,33 @@ int esp_riscv_read_memory(struct target *target, target_addr_t address,
 int esp_riscv_write_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, const uint8_t *buffer)
 {
-	/* TODO: find out the widest system bus access size. For now we are assuming it is equal to
-	 *xlen */
+	/* TODO: find out the widest system bus access size. For now we are assuming it is equal to xlen */
 	uint32_t sba_access_size = target_data_bits(target) / 8;
 
-	if (target->state == TARGET_RUNNING || target->state == TARGET_DEBUG_RUNNING) {
-		/* Emulate using 32-bit SBA access if target is running.
-		   Access via prog_buf or abstartct commands does not work in running state and
-		   fails with abstractcs.cmderr == 4 (halt/resume) */
-		if (size < sba_access_size) {
-			LOG_DEBUG("Use %d-bit access: size: %d\tcount:%d\tstart address: 0x%08"
-				TARGET_PRIxADDR, sba_access_size * 8, size, count, address);
-			target_addr_t al_addr = address & ~(sba_access_size - 1);
-			uint32_t al_len = (size * count) + address - al_addr;
-			uint32_t al_cnt = (al_len + sba_access_size - 1) & ~(sba_access_size - 1);
-			uint8_t al_buf[al_cnt];
-			int ret = riscv_target.read_memory(target,
-				al_addr,
+	/* Emulate using 32-bit SBA access */
+	if (size < sba_access_size) {
+		LOG_DEBUG("Use %d-bit access: size: %d\tcount:%d\tstart address: 0x%08"
+			TARGET_PRIxADDR, sba_access_size * 8, size, count, address);
+		target_addr_t al_addr = address & ~(sba_access_size - 1);
+		uint32_t al_len = (size * count) + address - al_addr;
+		uint32_t al_cnt = (al_len + sba_access_size - 1) & ~(sba_access_size - 1);
+		uint8_t al_buf[al_cnt];
+		int ret = riscv_target.read_memory(target,
+			al_addr,
+			sba_access_size,
+			al_cnt / sba_access_size,
+			al_buf);
+		if (ret == ERROR_OK) {
+			memcpy(&al_buf[address & (sba_access_size - 1)],
+				buffer,
+				size * count);
+			ret = riscv_target.write_memory(target,
+				address,
 				sba_access_size,
 				al_cnt / sba_access_size,
 				al_buf);
-			if (ret == ERROR_OK) {
-				memcpy(&al_buf[address & (sba_access_size - 1)],
-					buffer,
-					size * count);
-				ret = riscv_target.write_memory(target,
-					address,
-					sba_access_size,
-					al_cnt / sba_access_size,
-					al_buf);
-			}
-			return ret;
 		}
+		return ret;
 	}
 	return riscv_target.write_memory(target, address, size, count, buffer);
 }

@@ -129,6 +129,23 @@ tests_armhf_esp32s3:
     TEST_RUN_DIR: "build_test_app_esp32s3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
+tests_armhf_esp32c2:
+  extends: .tests_armhf_template
+  tags:
+    - arm
+    - test_jtag_arm_esp32c2
+  allow_failure: true
+  needs:
+    - job: build_test_app_esp32c2
+    - job: build_linux_armhf
+  variables:
+    CHIP_NAME: "esp32c2"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
+    PLATFORM_NAME: "linux-armhf"
+    TEST_RUN_DIR: "build_test_app_esp32c2"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c2-ftdi -p test_*.*Single -e test_apptrace test_gcov"
+
 tests_armhf_esp32c3:
   extends: .tests_armhf_template
   tags:

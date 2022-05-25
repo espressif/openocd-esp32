@@ -31,6 +31,7 @@ NOR_DRIVERS = \
 	%D%/esp_riscv.c \
 	%D%/esp32.c \
 	%D%/esp32s2.c \
+	%D%/esp32c2.c \
 	%D%/esp32c3.c \
 	%D%/esp32s3.c \
 	%D%/esirisc_flash.c \

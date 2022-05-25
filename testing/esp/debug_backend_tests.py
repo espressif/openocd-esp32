@@ -91,7 +91,7 @@ class TesteeInfo:
     @chip.setter
     def chip(self, val):
         self.__chip = val
-        self.__arch = "riscv32" if val == "esp32c3" else "xtensa"
+        self.__arch = "riscv32" if val == "esp32c3" or  val == "esp32c2" else "xtensa"
 
     @property
     def arch(self):
