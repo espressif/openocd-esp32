@@ -402,19 +402,16 @@ static int esp32s2_soc_reset(struct target *target)
 
 	/* In order to write to peripheral registers, target must be halted first */
 	if (target->state != TARGET_HALTED) {
-		LOG_DEBUG("%s: Target not halted before SoC reset, trying to halt it first",
-			__func__);
+		LOG_TARGET_DEBUG(target, "Target not halted before SoC reset, trying to halt it first");
 		xtensa_halt(target);
 		res = target_wait_state(target, TARGET_HALTED, 1000);
 		if (res != ERROR_OK) {
-			LOG_DEBUG(
-				"%s: Couldn't halt target before SoC reset, trying to do reset-halt",
-				__func__);
+			LOG_TARGET_DEBUG(target, "Couldn't halt target before SoC reset, trying to do reset-halt");
 			res = xtensa_assert_reset(target);
 			if (res != ERROR_OK) {
-				LOG_ERROR(
-					"%s: Couldn't halt target before SoC reset! (xtensa_assert_reset returned %d)",
-					__func__,
+				LOG_TARGET_ERROR(
+					target,
+					"Couldn't halt target before SoC reset! (xtensa_assert_reset returned %d)",
 					res);
 				return res;
 			}
@@ -425,9 +422,9 @@ static int esp32s2_soc_reset(struct target *target)
 			res = xtensa_deassert_reset(target);
 			target->reset_halt = reset_halt_save;
 			if (res != ERROR_OK) {
-				LOG_ERROR(
-					"%s: Couldn't halt target before SoC reset! (xtensa_deassert_reset returned %d)",
-					__func__,
+				LOG_TARGET_ERROR(
+					target,
+					"Couldn't halt target before SoC reset! (xtensa_deassert_reset returned %d)",
 					res);
 				return res;
 			}
@@ -436,7 +433,7 @@ static int esp32s2_soc_reset(struct target *target)
 			xtensa_halt(target);
 			res = target_wait_state(target, TARGET_HALTED, 1000);
 			if (res != ERROR_OK) {
-				LOG_ERROR("%s: Couldn't halt target before SoC reset", __func__);
+				LOG_TARGET_ERROR(target, "Couldn't halt target before SoC reset");
 				return res;
 			}
 		}
@@ -480,7 +477,7 @@ static int esp32s2_soc_reset(struct target *target)
 	res = esp32s2_set_peri_reg_mask(target,
 		ESP32_S2_OPTIONS0,
 		ESP32_S2_SW_SYS_RST_M,
-		1U << ESP32_S2_SW_SYS_RST_S);
+		BIT(ESP32_S2_SW_SYS_RST_S));
 	xtensa->suppress_dsr_errors = false;
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to write ESP32_S2_OPTIONS0 (%d)!", res);
@@ -500,7 +497,7 @@ static int esp32s2_soc_reset(struct target *target)
 	xtensa_halt(target);
 	res = target_wait_state(target, TARGET_HALTED, 1000);
 	if (res != ERROR_OK) {
-		LOG_ERROR("%s: Couldn't halt target before SoC reset", __func__);
+		LOG_TARGET_ERROR(target, "Couldn't halt target before SoC reset");
 		return res;
 	}
 	/* Unstall CPU */

@@ -722,6 +722,7 @@ struct target_type esp32s3_target = {
 
 	.assert_reset = esp_xtensa_smp_assert_reset,
 	.deassert_reset = esp_xtensa_smp_deassert_reset,
+	.soft_reset_halt = esp_xtensa_smp_soft_reset_halt,
 
 	.virt2phys = esp32s3_virt2phys,
 	.mmu = xtensa_mmu_is_enabled,

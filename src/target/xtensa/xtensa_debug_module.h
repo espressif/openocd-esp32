@@ -28,7 +28,6 @@
 #include <helper/bits.h>
 #include <target/target.h>
 
-
 /* Virtual IDs for using with xtensa_power_ops API */
 #define DMREG_PWRCTL       0x00
 #define DMREG_PWRSTAT      0x01

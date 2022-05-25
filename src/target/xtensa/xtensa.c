@@ -735,7 +735,7 @@ int xtensa_examine(struct target *target)
 	struct xtensa *xtensa = target_to_xtensa(target);
 	unsigned int cmd = PWRCTL_DEBUGWAKEUP | PWRCTL_MEMWAKEUP | PWRCTL_COREWAKEUP;
 
-	LOG_DEBUG("%s coreid = %d", __func__, target->coreid);
+	LOG_DEBUG("coreid = %d", target->coreid);
 	xtensa_queue_pwr_reg_write(xtensa, DMREG_PWRCTL, cmd);
 	xtensa_queue_pwr_reg_write(xtensa, DMREG_PWRCTL, cmd | PWRCTL_JTAGDEBUGUSE);
 	xtensa_dm_queue_enable(&xtensa->dbg_mod);
@@ -1571,8 +1571,6 @@ int xtensa_read_memory(struct target *target, target_addr_t address, uint32_t si
 	target_addr_t adr = addrstart_al;
 	uint8_t *albuff;
 
-	/* LOG_INFO("%s: %s: reading %d bytes from addr %08X", target_name(target), __func__, size*count, address);
-	 * LOG_INFO("Converted to aligned addresses: read from %08X to %08X", addrstart_al, addrend_al); */
 	if (target->state != TARGET_HALTED) {
 		LOG_TARGET_WARNING(target, "target not halted");
 		return ERROR_TARGET_NOT_HALTED;
@@ -1591,8 +1589,7 @@ int xtensa_read_memory(struct target *target, target_addr_t address, uint32_t si
 	} else {
 		albuff = malloc(addrend_al - addrstart_al);
 		if (!albuff) {
-			LOG_ERROR("%s: Out of memory allocating %" TARGET_PRIdADDR " bytes!",
-				__func__,
+			LOG_TARGET_ERROR(target, "Out of memory allocating %" TARGET_PRIdADDR " bytes!",
 				addrend_al - addrstart_al);
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
@@ -1658,8 +1655,6 @@ int xtensa_write_memory(struct target *target,
 		}
 	}
 
-	/* LOG_INFO("%s: %s: writing %d bytes to addr %08X", target_name(target), __func__, size*count, address);
-	 * LOG_INFO("al start %x al end %x", addrstart_al, addrend_al); */
 	if (size == 0 || count == 0 || !buffer)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 
@@ -1670,8 +1665,7 @@ int xtensa_write_memory(struct target *target,
 	} else {
 		albuff = malloc(addrend_al - addrstart_al);
 		if (!albuff) {
-			LOG_ERROR("%s: Out of memory allocating %" TARGET_PRIdADDR " bytes!",
-				__func__,
+			LOG_TARGET_ERROR(target, "Out of memory allocating %" TARGET_PRIdADDR " bytes!",
 				addrend_al - addrstart_al);
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
@@ -1953,7 +1947,7 @@ int xtensa_breakpoint_remove(struct target *target, struct breakpoint *breakpoin
 			break;
 	}
 	if (slot == xtensa->core_config->debug.ibreaks_num) {
-		LOG_TARGET_ERROR(target, "HW breakpoint not found!");
+		LOG_TARGET_DEBUG(target, "HW breakpoint not found!");
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 	xtensa->hw_brps[slot] = NULL;

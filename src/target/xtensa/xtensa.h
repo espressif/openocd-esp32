@@ -194,7 +194,7 @@ struct xtensa_sw_breakpoint {
 	uint8_t insn_sz;	/* 2 or 3 bytes */
 };
 
-#define XTENSA_COMMON_MAGIC 0x54E4E555
+#define XTENSA_COMMON_MAGIC 0x54E4E555U
 
 /**
  * Represents a generic Xtensa core.
@@ -358,8 +358,6 @@ int xtensa_fetch_user_regs_u32(struct target *target);
 int xtensa_queue_write_dirty_user_regs_u32(struct target *target);
 const char *xtensa_get_gdb_arch(struct target *target);
 
-extern const struct reg_arch_type xtensa_user_reg_u32_type;
-extern const struct reg_arch_type xtensa_user_reg_u128_type;
 
 COMMAND_HELPER(xtensa_cmd_permissive_mode_do, struct xtensa *xtensa);
 COMMAND_HELPER(xtensa_cmd_mask_interrupts_do, struct xtensa *xtensa);
@@ -370,6 +368,8 @@ COMMAND_HELPER(xtensa_cmd_tracestart_do, struct xtensa *xtensa);
 COMMAND_HELPER(xtensa_cmd_tracestop_do, struct xtensa *xtensa);
 COMMAND_HELPER(xtensa_cmd_tracedump_do, struct xtensa *xtensa, const char *fname);
 
+extern const struct reg_arch_type xtensa_user_reg_u32_type;
+extern const struct reg_arch_type xtensa_user_reg_u128_type;
 extern const struct command_registration xtensa_command_handlers[];
 
 #endif	/* OPENOCD_TARGET_XTENSA_H */

@@ -31,15 +31,9 @@ struct esp_xtensa_smp_common {
 	struct esp_xtensa_common esp_xtensa;
 	const struct esp_xtensa_smp_chip_ops *chip_ops;
 	bool other_core_does_resume;
-	/* number of attempts to examine other SMP cores, attempts are made after reset on target
-	 *poll */
+	/* number of attempts to examine other SMP cores, attempts are made after reset on target poll */
 	int examine_other_cores;
 };
-
-static inline struct esp_xtensa_smp_common *target_to_esp_xtensa_smp(struct target *target)
-{
-	return container_of(target->arch_info, struct esp_xtensa_smp_common, esp_xtensa);
-}
 
 int esp_xtensa_smp_poll(struct target *target);
 int esp_xtensa_smp_resume(struct target *target,
@@ -53,6 +47,7 @@ int esp_xtensa_smp_step(struct target *target,
 	int handle_breakpoints);
 int esp_xtensa_smp_assert_reset(struct target *target);
 int esp_xtensa_smp_deassert_reset(struct target *target);
+int esp_xtensa_smp_soft_reset_halt(struct target *target);
 int esp_xtensa_smp_watchpoint_add(struct target *target, struct watchpoint *watchpoint);
 int esp_xtensa_smp_watchpoint_remove(struct target *target, struct watchpoint *watchpoint);
 int esp_xtensa_smp_handle_target_event(struct target *target, enum target_event event, void *priv);
