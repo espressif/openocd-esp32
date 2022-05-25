@@ -20,10 +20,11 @@
 #include "config.h"
 #endif
 
-#include "assert.h"
+#include <helper/time_support.h>
 #include <target/target.h>
 #include <target/target_type.h>
 #include <target/smp.h>
+#include "assert.h"
 #include <rtos/rtos.h>
 #include <flash/nor/esp_xtensa.h>
 #include "esp32s3.h"
@@ -53,6 +54,7 @@ implementation.
 #define ESP32_S3_EXTRAM_DATA_HIGH       0x3E000000
 #define ESP32_S3_SYS_RAM_LOW            0x60000000UL
 #define ESP32_S3_SYS_RAM_HIGH           (ESP32_S3_SYS_RAM_LOW + 0x10000000UL)
+#define ESP32_S3_RTC_SLOW_MEM_BASE      ESP32_S3_RTC_DATA_LOW
 
 /* ESP32_S3 WDT */
 #define ESP32_S3_WDT_WKEY_VALUE       0x50D83AA1
@@ -73,7 +75,7 @@ implementation.
 #define ESP32_S3_RTCWDT_PROTECT       (ESP32_S3_RTCCNTL_BASE + ESP32_S3_RTCWDT_PROTECT_OFF)
 #define ESP32_S3_SWD_CONF_REG         (ESP32_S3_RTCCNTL_BASE + ESP32_S3_SWD_CONF_OFF)
 #define ESP32_S3_SWD_WPROTECT_REG     (ESP32_S3_RTCCNTL_BASE + ESP32_S3_SWD_WPROTECT_OFF)
-#define ESP32_S3_SWD_AUTO_FEED_EN_M   (1U << 31)
+#define ESP32_S3_SWD_AUTO_FEED_EN_M   BIT(31)
 #define ESP32_S3_SWD_WKEY_VALUE       0x8F1D312AU
 
 #define ESP32_S3_TRACEMEM_BLOCK_SZ    0x4000
@@ -81,7 +83,7 @@ implementation.
 /* ESP32_S3 dport regs */
 #define ESP32_S3_DR_REG_SYSTEM_BASE                0x600c0000
 #define ESP32_S3_SYSTEM_CORE_1_CONTROL_0_REG       (ESP32_S3_DR_REG_SYSTEM_BASE + 0x014)
-#define ESP32_S3_SYSTEM_CONTROL_CORE_1_CLKGATE_EN  (1 << 1)
+#define ESP32_S3_SYSTEM_CONTROL_CORE_1_CLKGATE_EN  BIT(1)
 
 /* ESP32_S3 RTC regs */
 #define ESP32_S3_RTC_CNTL_SW_CPU_STALL_REG (ESP32_S3_RTCCNTL_BASE + 0xBC)
@@ -89,7 +91,7 @@ implementation.
 
 /* this should map local reg IDs to GDB reg mapping as defined in xtensa-config.c 'rmap' in
  *xtensa-overlay */
-static unsigned int esp32s3_gdb_regs_mapping[ESP32_S3_NUM_REGS] = {
+static const unsigned int esp32s3_gdb_regs_mapping[ESP32_S3_NUM_REGS] = {
 	XT_REG_IDX_PC,
 	XT_REG_IDX_AR0, XT_REG_IDX_AR1, XT_REG_IDX_AR2, XT_REG_IDX_AR3,
 	XT_REG_IDX_AR4, XT_REG_IDX_AR5, XT_REG_IDX_AR6, XT_REG_IDX_AR7,
@@ -194,6 +196,10 @@ static const struct xtensa_user_reg_desc esp32s3_user_regs[ESP32_S3_NUM_REGS - X
 	{ "q7", 0x20, 0, 128, &xtensa_user_reg_u128_type },
 };
 
+struct esp32s3_common {
+	struct esp_xtensa_smp_common esp_xtensa_smp;
+};
+
 static int esp32s3_fetch_user_regs(struct target *target);
 static int esp32s3_queue_write_dirty_user_regs(struct target *target);
 
@@ -266,8 +272,8 @@ static const struct xtensa_config esp32s3_xtensa_cfg = {
 				.access = XT_MEM_ACCESS_READ | XT_MEM_ACCESS_WRITE,
 			},
 			{
-				.base = ESP32_S3_RTC_DATA_LOW,
-				.size = ESP32_S3_RTC_DATA_HIGH - ESP32_S3_RTC_DATA_LOW,
+				.base = ESP32_S3_RTC_DRAM_LOW,
+				.size = ESP32_S3_RTC_DRAM_HIGH - ESP32_S3_RTC_DRAM_LOW,
 				.access = XT_MEM_ACCESS_READ | XT_MEM_ACCESS_WRITE,
 			},
 			{
@@ -339,6 +345,11 @@ static int esp32s3_queue_write_dirty_user_regs(struct target *target)
  * End result: all the peripherals except RTC_CNTL are reset, CPU's PC is undefined,
  * PRO CPU is halted, APP CPU is in reset.
  */
+
+const uint8_t esp32s3_reset_stub_code[] = {
+#include "../../../contrib/loaders/reset/espressif/esp32s3/cpu_reset_handler_code.inc"
+};
+
 static int esp32s3_soc_reset(struct target *target)
 {
 	int res;
@@ -362,8 +373,8 @@ static int esp32s3_soc_reset(struct target *target)
 			}
 			alive_sleep(10);
 			xtensa_poll(target);
-			int reset_halt_save = target->reset_halt;
-			target->reset_halt = 1;
+			bool reset_halt_save = target->reset_halt;
+			target->reset_halt = true;
 			res = xtensa_deassert_reset(target);
 			target->reset_halt = reset_halt_save;
 			if (res != ERROR_OK) {
@@ -382,23 +393,18 @@ static int esp32s3_soc_reset(struct target *target)
 			}
 		}
 	}
-	assert(target->state == TARGET_HALTED);
 
 	if (target->smp) {
 		foreach_smp_target(head, target->smp_targets) {
 			xtensa = target_to_xtensa(head->target);
 			/* if any of the cores is stalled unstall them */
 			if (xtensa_dm_core_is_stalled(&xtensa->dbg_mod)) {
-				uint32_t word = ESP32_S3_RTC_CNTL_SW_CPU_STALL_DEF;
-				LOG_DEBUG("%s: Unstall CPUs before SW reset!",
-					target_name(head->target));
-				res = xtensa_write_buffer(target,
+				LOG_TARGET_DEBUG(head->target, "Unstall CPUs before SW reset!");
+				res = target_write_u32(target,
 					ESP32_S3_RTC_CNTL_SW_CPU_STALL_REG,
-					sizeof(word),
-					(uint8_t *)&word);
+					ESP32_S3_RTC_CNTL_SW_CPU_STALL_DEF);
 				if (res != ERROR_OK) {
-					LOG_ERROR("%s: Failed to unstall CPUs before SW reset!",
-						target_name(head->target));
+					LOG_TARGET_ERROR(head->target, "Failed to unstall CPUs before SW reset!");
 					return res;
 				}
 				break;	/* both cores are unstalled now, so exit the loop */
@@ -406,57 +412,21 @@ static int esp32s3_soc_reset(struct target *target)
 		}
 	}
 
-	/* This this the stub code compiled from esp32s3_cpu_reset_handler.S.
-	   To compile it, run:
-	       xtensa-esp32s3-elf-gcc -c -mtext-section-literals -o stub.o esp32s3_cpu_reset_handler.S
-	       xtensa-esp32s3-elf-objcopy -j .text -O binary stub.o stub.bin
-	   These steps are not included into OpenOCD build process so that a
-	   dependency on xtensa-esp32s3-elf toolchain is not introduced.
-	*/
-	const uint8_t esp32s3_reset_stub_code[] = {
-		0x06, 0x23, 0x00, 0x00, 0x06, 0x18, 0x00, 0x00, 0x38, 0x80, 0x00, 0x60,
-		0xc0, 0x80, 0x00, 0x60, 0xc4, 0x80, 0x00, 0x60, 0x90, 0x80, 0x00, 0x60,
-		0x74, 0x80, 0x00, 0x60, 0x18, 0x32, 0x58, 0x01, 0x00, 0xa0, 0x00, 0x9c,
-		0x00, 0x80, 0x00, 0x60, 0xa1, 0x3a, 0xd8, 0x50, 0xac, 0x80, 0x00, 0x60,
-		0x64, 0xf0, 0x01, 0x60, 0x64, 0x00, 0x02, 0x60, 0x94, 0x80, 0x00, 0x60,
-		0x48, 0xf0, 0x01, 0x60, 0x48, 0x00, 0x02, 0x60, 0xb4, 0x80, 0x00, 0x60,
-		0x2a, 0x31, 0x1d, 0x8f, 0xb0, 0x80, 0x00, 0x60, 0x00, 0x00, 0xb0, 0x84,
-		0x04, 0x00, 0x0c, 0x60, 0x00, 0x00, 0x0c, 0x60, 0x00, 0x00, 0x0c, 0x60,
-		0x38, 0x80, 0x00, 0x60, 0x00, 0x30, 0x00, 0x00, 0x50, 0x55, 0x30, 0x41,
-		0xe7, 0xff, 0x59, 0x04, 0x41, 0xe7, 0xff, 0x59, 0x04, 0x41, 0xe6, 0xff,
-		0x59, 0x04, 0x41, 0xe6, 0xff, 0x59, 0x04, 0x41, 0xe6, 0xff, 0x31, 0xe6,
-		0xff, 0x39, 0x04, 0x31, 0xe6, 0xff, 0x41, 0xe6, 0xff, 0x39, 0x04, 0x00,
-		0x60, 0xeb, 0x03, 0x60, 0x61, 0x04, 0x56, 0x26, 0x05, 0x50, 0x55, 0x30,
-		0x31, 0xe3, 0xff, 0x41, 0xe3, 0xff, 0x39, 0x04, 0x41, 0xe3, 0xff, 0x39,
-		0x04, 0x41, 0xe2, 0xff, 0x39, 0x04, 0x41, 0xe2, 0xff, 0x59, 0x04, 0x41,
-		0xe2, 0xff, 0x59, 0x04, 0x41, 0xe2, 0xff, 0x59, 0x04, 0x41, 0xe1, 0xff,
-		0x31, 0xe2, 0xff, 0x39, 0x04, 0x41, 0xe1, 0xff, 0x31, 0xe2, 0xff, 0x39,
-		0x04, 0x41, 0xe1, 0xff, 0x59, 0x04, 0x41, 0xe1, 0xff, 0x0c, 0x23, 0x39,
-		0x04, 0x41, 0xe0, 0xff, 0x0c, 0x43, 0x39, 0x04, 0x52, 0x64, 0x00, 0x41,
-		0xdf, 0xff, 0x31, 0xdf, 0xff, 0x32, 0x64, 0x00, 0x00, 0x70, 0x00, 0x46,
-		0xfe, 0xff
-	};
-
 	LOG_DEBUG("Loading stub code into RTC RAM");
-	uint32_t slow_mem_save[sizeof(esp32s3_reset_stub_code) / sizeof(uint32_t)];
+	uint8_t slow_mem_save[sizeof(esp32s3_reset_stub_code)];
 
-	const int RTC_SLOW_MEM_BASE = 0x50000000;
 	/* Save contents of RTC_SLOW_MEM which we are about to overwrite */
-	res =
-		target_read_buffer(target,
-		RTC_SLOW_MEM_BASE,
-		sizeof(slow_mem_save),
-		(uint8_t *)slow_mem_save);
+	res = target_read_buffer(target, ESP32_S3_RTC_SLOW_MEM_BASE, sizeof(slow_mem_save), slow_mem_save);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to save contents of RTC_SLOW_MEM (%d)!", res);
 		return res;
 	}
 
 	/* Write stub code into RTC_SLOW_MEM */
-	res =
-		target_write_buffer(target, RTC_SLOW_MEM_BASE,
+	res = target_write_buffer(target,
+		ESP32_S3_RTC_SLOW_MEM_BASE,
 		sizeof(esp32s3_reset_stub_code),
-		(const uint8_t *)esp32s3_reset_stub_code);
+		esp32s3_reset_stub_code);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to write stub (%d)!", res);
 		return res;
@@ -465,44 +435,41 @@ static int esp32s3_soc_reset(struct target *target)
 	LOG_DEBUG("Resuming the target");
 	xtensa = target_to_xtensa(target);
 	xtensa->suppress_dsr_errors = true;
-	res = xtensa_resume(target, 0, RTC_SLOW_MEM_BASE + 4, 0, 0);
+	res = xtensa_resume(target, 0, ESP32_S3_RTC_SLOW_MEM_BASE + 4, 0, 0);
+	xtensa->suppress_dsr_errors = false;
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to run stub (%d)!", res);
 		return res;
 	}
-	xtensa->suppress_dsr_errors = false;
 	LOG_DEBUG("resume done, waiting for the target to come alive");
 
 	/* Wait for SoC to reset */
 	alive_sleep(100);
-	int timeout = 100;
-	while (target->state != TARGET_RESET && target->state !=
-		TARGET_RUNNING && --timeout > 0) {
+	int64_t timeout = timeval_ms() + 100;
+	bool get_timeout = false;
+	while (target->state != TARGET_RESET && target->state != TARGET_RUNNING) {
 		alive_sleep(10);
 		xtensa_poll(target);
-	}
-	if (timeout == 0) {
-		LOG_ERROR("Timed out waiting for CPU to be reset, target state=%d", target->state);
-		return ERROR_TARGET_TIMEOUT;
+		if (timeval_ms() >= timeout) {
+			LOG_TARGET_ERROR(target,
+				"Timed out waiting for CPU to be reset, target state=%d",
+				target->state);
+			get_timeout = true;
+			break;
+		}
 	}
 
 	/* Halt the CPU again */
 	LOG_DEBUG("halting the target");
 	xtensa_halt(target);
 	res = target_wait_state(target, TARGET_HALTED, 1000);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Timed out waiting for CPU to be halted after SoC reset");
-		return res;
-	}
-
-	/* Restore the original contents of RTC_SLOW_MEM */
-	LOG_DEBUG("restoring RTC_SLOW_MEM");
-	res =
-		target_write_buffer(target, RTC_SLOW_MEM_BASE, sizeof(slow_mem_save),
-		(const uint8_t *)slow_mem_save);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to restore contents of RTC_SLOW_MEM (%d)!", res);
-		return res;
+	if (res == ERROR_OK) {
+		LOG_DEBUG("restoring RTC_SLOW_MEM");
+		res = target_write_buffer(target, ESP32_S3_RTC_SLOW_MEM_BASE, sizeof(slow_mem_save), slow_mem_save);
+		if (res != ERROR_OK)
+			LOG_TARGET_ERROR(target, "Failed to restore contents of RTC_SLOW_MEM (%d)!", res);
+	} else {
+		LOG_TARGET_ERROR(target, "Timed out waiting for CPU to be halted after SoC reset");
 	}
 
 	/* Clear memory which is used by RTOS layer to get the task count */
@@ -512,7 +479,7 @@ static int esp32s3_soc_reset(struct target *target)
 			LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
 	}
 
-	return ERROR_OK;
+	return get_timeout ? ERROR_TARGET_TIMEOUT : res;
 }
 
 static int esp32s3_disable_wdts(struct target *target)
@@ -579,8 +546,11 @@ static int esp32s3_arch_state(struct target *target)
 static int esp32s3_virt2phys(struct target *target,
 	target_addr_t virtual, target_addr_t *physical)
 {
-	*physical = virtual;
-	return ERROR_OK;
+	if (physical) {
+		*physical = virtual;
+		return ERROR_OK;
+	}
+	return ERROR_FAIL;
 }
 
 static int esp32s3_handle_target_event(struct target *target, enum target_event event, void *priv)
@@ -658,7 +628,7 @@ static int esp32s3_target_create(struct target *target, Jim_Interp *interp)
 	};
 
 	struct esp32s3_common *esp32s3 = calloc(1, sizeof(struct esp32s3_common));
-	if (esp32s3 == NULL) {
+	if (!esp32s3) {
 		LOG_ERROR("Failed to alloc memory for arch info!");
 		return ERROR_FAIL;
 	}
@@ -676,7 +646,7 @@ static int esp32s3_target_create(struct target *target, Jim_Interp *interp)
 		return ret;
 	}
 
-	/*Assume running target. If different, the first poll will fix this. */
+	/* Assume running target. If different, the first poll will fix this. */
 	target->state = TARGET_RUNNING;
 	target->debug_reason = DBG_REASON_NOTHALTED;
 	return ERROR_OK;

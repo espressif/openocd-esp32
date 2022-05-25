@@ -19,7 +19,7 @@
 #ifndef OPENOCD_TARGET_ESP32S3_H
 #define OPENOCD_TARGET_ESP32S3_H
 
-#include "esp_xtensa_smp.h"
+#include <target/xtensa/xtensa_regs.h>
 
 #define ESP32_S3_DROM_LOW             0x3C000000
 #define ESP32_S3_DROM_HIGH            0x3D000000
@@ -61,14 +61,5 @@ enum esp32s3_reg_id {
 	ESP32_S3_REG_IDX_Q7,
 	ESP32_S3_NUM_REGS,
 };
-
-struct esp32s3_common {
-	struct esp_xtensa_smp_common esp_xtensa_smp;
-};
-
-static inline struct esp32s3_common *target_to_esp32s3(struct target *target)
-{
-	return container_of(target->arch_info, struct esp32s3_common, esp_xtensa_smp);
-}
 
 #endif	/* OPENOCD_TARGET_ESP32S3_H */

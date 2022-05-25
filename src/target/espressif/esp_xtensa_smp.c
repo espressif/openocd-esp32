@@ -147,7 +147,6 @@ int esp_xtensa_smp_poll(struct target *target)
 	struct target_list *head;
 	struct target *curr;
 	bool other_core_resume_req = false;
-	int ret;
 
 	if (target->state == TARGET_HALTED && target->smp && target->gdb_service && !target->gdb_service->target) {
 		target->gdb_service->target = get_halted_esp_xtensa_smp(target, target->gdb_service->core[1]);
@@ -156,7 +155,7 @@ int esp_xtensa_smp_poll(struct target *target)
 		return ERROR_OK;
 	}
 
-	ret = esp_xtensa_poll(target);
+	int ret = esp_xtensa_poll(target);
 	if (esp_xtensa->esp.dbg_stubs.base && old_dbg_stubs_base !=
 		esp_xtensa->esp.dbg_stubs.base) {
 		/* debug stubs base is set only in PRO-CPU TRAX register, so sync this info */
