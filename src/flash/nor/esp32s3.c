@@ -24,6 +24,7 @@
 #include <target/smp.h>
 #include <target/xtensa/xtensa_algorithm.h>
 #include <target/espressif/esp_xtensa_apptrace.h>
+#include <target/espressif/esp_xtensa_smp.h>
 #include <target/espressif/esp32s3.h>
 #include "esp_xtensa.h"
 #include "contrib/loaders/flash/esp/esp32s3/stub_flasher_image.h"
