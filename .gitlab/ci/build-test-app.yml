@@ -135,6 +135,17 @@ build_test_app_esp32s3:
     UT_GET_IDF_VER: "0"
   extends: .build_test_app_template
 
+build_test_app_esp32c2:
+  allow_failure: true
+  variables:
+    CHIP_NAME: "esp32c2"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32c2"
+    TEST_APP_CONFIGS: "single_core"
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF_RELEASE_DOCKER_IMAGE}"
+    UT_GET_IDF_VER: "0"
+  extends: .build_test_app_template
+
 build_test_app_esp32c3:
   allow_failure: true
   variables:

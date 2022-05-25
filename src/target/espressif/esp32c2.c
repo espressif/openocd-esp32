@@ -1,5 +1,5 @@
 /***************************************************************************
- *   ESP32-C3 target for OpenOCD                                           *
+ *   ESP32-C2 target for OpenOCD                                           *
  *   Copyright (C) 2020 Espressif Systems Ltd.                             *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -20,7 +20,7 @@
 #include "config.h"
 #endif
 
-#include "esp32c3.h"
+#include "esp32c2.h"
 #include <helper/command.h>
 #include <helper/bits.h>
 #include <target/target_type.h>
@@ -29,100 +29,81 @@
 #include "esp_semihosting.h"
 #include <target/riscv/debug_defines.h>
 #include "esp32_apptrace.h"
-#include "rtos/rtos.h"
+#include <rtos/rtos.h>
 
-/* ESP32-C3 WDT */
-#define ESP32C3_WDT_WKEY_VALUE                  0x50d83aa1
-#define ESP32C3_TIMG0_BASE                      0x6001F000
-#define ESP32C3_TIMG1_BASE                      0x60020000
-#define ESP32C3_TIMGWDT_CFG0_OFF                0x48
-#define ESP32C3_TIMGWDT_PROTECT_OFF             0x64
-#define ESP32C3_TIMG0WDT_CFG0                   (ESP32C3_TIMG0_BASE + ESP32C3_TIMGWDT_CFG0_OFF)
-#define ESP32C3_TIMG1WDT_CFG0                   (ESP32C3_TIMG1_BASE + ESP32C3_TIMGWDT_CFG0_OFF)
-#define ESP32C3_TIMG0WDT_PROTECT                (ESP32C3_TIMG0_BASE + ESP32C3_TIMGWDT_PROTECT_OFF)
-#define ESP32C3_TIMG1WDT_PROTECT                (ESP32C3_TIMG1_BASE + ESP32C3_TIMGWDT_PROTECT_OFF)
-#define ESP32C3_RTCCNTL_BASE                    0x60008000
-#define ESP32C3_RTCWDT_CFG_OFF                  0x90
-#define ESP32C3_RTCWDT_PROTECT_OFF              0xa8
-#define ESP32C3_RTCWDT_CFG                      (ESP32C3_RTCCNTL_BASE + ESP32C3_RTCWDT_CFG_OFF)
-#define ESP32C3_RTCWDT_PROTECT                  (ESP32C3_RTCCNTL_BASE + ESP32C3_RTCWDT_PROTECT_OFF)
-#define ESP32C3_RTCCNTL_RESET_STATE_OFF         0x0038
-#define ESP32C3_RTCCNTL_RESET_STATE_REG         (ESP32C3_RTCCNTL_BASE + ESP32C3_RTCCNTL_RESET_STATE_OFF)
+/* ESP32-C2 WDT */
+#define ESP32C2_WDT_WKEY_VALUE                  0x50d83aa1
+#define ESP32C2_TIMG0_BASE                      0x6001F000
+#define ESP32C2_TIMGWDT_CFG0_OFF                0x48
+#define ESP32C2_TIMGWDT_PROTECT_OFF             0x64
+#define ESP32C2_TIMG0WDT_CFG0                   (ESP32C2_TIMG0_BASE + ESP32C2_TIMGWDT_CFG0_OFF)
+#define ESP32C2_TIMG0WDT_PROTECT                (ESP32C2_TIMG0_BASE + ESP32C2_TIMGWDT_PROTECT_OFF)
+#define ESP32C2_RTCCNTL_BASE                    0x60008000
+#define ESP32C2_RTCWDT_CFG_OFF                  0x84
+#define ESP32C2_RTCWDT_PROTECT_OFF              0x9C
+#define ESP32C2_RTCWDT_CFG                      (ESP32C2_RTCCNTL_BASE + ESP32C2_RTCWDT_CFG_OFF)
+#define ESP32C2_RTCWDT_PROTECT                  (ESP32C2_RTCCNTL_BASE + ESP32C2_RTCWDT_PROTECT_OFF)
+#define ESP32C2_RTCCNTL_RESET_STATE_OFF         0x0030
+#define ESP32C2_RTCCNTL_RESET_STATE_REG         (ESP32C2_RTCCNTL_BASE + ESP32C2_RTCCNTL_RESET_STATE_OFF)
 
-#define ESP32C3_GPIO_BASE                       0x60004000
-#define ESP32C3_GPIO_STRAP_REG_OFF              0x0038
-#define ESP32C3_GPIO_STRAP_REG                  (ESP32C3_GPIO_BASE + ESP32C3_GPIO_STRAP_REG_OFF)
+#define ESP32C2_GPIO_BASE                       0x60004000
+#define ESP32C2_GPIO_STRAP_REG_OFF              0x0038
+#define ESP32C2_GPIO_STRAP_REG                  (ESP32C2_GPIO_BASE + ESP32C2_GPIO_STRAP_REG_OFF)
 #define IS_1XXX(v)                              (((v) & 0x08) == 0x08)
-#define ESP32C3_IS_FLASH_BOOT(_r_)              IS_1XXX(_r_)
-#define ESP32C3_FLASH_BOOT_MODE                 0x08
+#define ESP32C2_IS_FLASH_BOOT(_r_)              IS_1XXX(_r_)
+#define ESP32C2_FLASH_BOOT_MODE                 0x08
 
-#define ESP32C3_RTCCNTL_RESET_CAUSE_MASK        (BIT(6) - 1)
-#define ESP32C3_RESET_CAUSE(reg_val)            ((reg_val) & ESP32C3_RTCCNTL_RESET_CAUSE_MASK)
+#define ESP32C2_RTCCNTL_RESET_CAUSE_MASK        (BIT(6) - 1)
+#define ESP32C2_RESET_CAUSE(reg_val)            ((reg_val) & ESP32C2_RTCCNTL_RESET_CAUSE_MASK)
 
 typedef enum {
-	RESET_REASON_CHIP_POWER_ON = 0x01,		/* Power on reset */
-	RESET_REASON_CHIP_BROWN_OUT = 0x01,		/* VDD voltage is not stable and resets the chip */
-	RESET_REASON_CHIP_SUPER_WDT = 0x01,		/* Super watch dog resets the chip */
-	RESET_REASON_CORE_SW = 0x03,			/* Software resets the digital core by RTC_CNTL_SW_SYS_RST */
+	RESET_REASON_CHIP_POWER_ON = 0x01,	/* Power on reset */
+	RESET_REASON_CORE_SW = 0x03,	/* Software resets the digital core by RTC_CNTL_SW_SYS_RST */
 	RESET_REASON_CORE_DEEP_SLEEP = 0x05,	/* Deep sleep reset the digital core */
-	RESET_REASON_CORE_MWDT0 = 0x07,			/* Main watch dog 0 resets digital core */
-	RESET_REASON_CORE_MWDT1 = 0x08,			/* Main watch dog 1 resets digital core */
-	RESET_REASON_CORE_RTC_WDT = 0x09,		/* RTC watch dog resets digital core */
-	RESET_REASON_CPU0_MWDT0 = 0x0B,			/* Main watch dog 0 resets CPU 0 */
-	RESET_REASON_CPU0_SW = 0x0C,			/* Software resets CPU 0 by RTC_CNTL_SW_PROCPU_RST */
-	RESET_REASON_CPU0_RTC_WDT = 0x0D,		/* RTC watch dog resets CPU 0 */
-	RESET_REASON_SYS_BROWN_OUT = 0x0F,		/* VDD voltage is not stable and resets the digital core */
-	RESET_REASON_SYS_RTC_WDT = 0x10,		/* RTC watch dog resets digital core and rtc module */
-	RESET_REASON_CPU0_MWDT1 = 0x11,			/* Main watch dog 1 resets CPU 0 */
-	RESET_REASON_SYS_SUPER_WDT = 0x12,		/* Super watch dog resets the digital core and rtc module */
-	RESET_REASON_SYS_CLK_GLITCH = 0x13,		/* Glitch on clock resets the digital core and rtc module */
-	RESET_REASON_CORE_EFUSE_CRC = 0x14,		/* eFuse CRC error resets the digital core */
-	RESET_REASON_CORE_USB_UART = 0x15,		/* USB UART resets the digital core */
-	RESET_REASON_CORE_USB_JTAG = 0x16,		/* USB JTAG resets the digital core */
-	RESET_REASON_CORE_PWR_GLITCH = 0x17,	/* Glitch on power resets the digital core */
+	RESET_REASON_CORE_MWDT0 = 0x07,	/* Main watch dog 0 resets digital core */
+	RESET_REASON_CORE_RTC_WDT = 0x09,	/* RTC watch dog resets digital core */
+	RESET_REASON_CPU0_MWDT0 = 0x0B,	/* Main watch dog 0 resets CPU 0 */
+	RESET_REASON_CPU0_SW = 0x0C,	/* Software resets CPU 0 by RTC_CNTL_SW_PROCPU_RST */
+	RESET_REASON_CPU0_RTC_WDT = 0x0D,	/* RTC watch dog resets CPU 0 */
+	RESET_REASON_SYS_BROWN_OUT = 0x0F,	/* VDD voltage is not stable and resets the digital core */
+	RESET_REASON_SYS_RTC_WDT = 0x10,/* RTC watch dog resets digital core and rtc module */
+	RESET_REASON_SYS_SUPER_WDT = 0x12,	/* Super watch dog resets the digital core and rtc module */
+	RESET_REASON_SYS_CLK_GLITCH = 0x13,	/* Glitch on clock resets the digital core and rtc module */
+	RESET_REASON_CORE_EFUSE_CRC = 0x14,	/* eFuse CRC error resets the digital core */
+	RESET_REASON_CPU0_JTAG = 0x18,	/* JTAG resets the CPU 0 */
 } soc_reset_reason_t;
 
-static const char *esp32c3_get_reset_reason(soc_reset_reason_t reset_number)
+static const char *esp32c2_get_reset_reason(soc_reset_reason_t reset_number)
 {
-	switch (ESP32C3_RESET_CAUSE(reset_number)) {
+	switch (ESP32C2_RESET_CAUSE(reset_number)) {
 	case RESET_REASON_CHIP_POWER_ON:
-		/* case RESET_REASON_CHIP_BROWN_OUT:
-		 * case RESET_REASON_CHIP_SUPER_WDT: */
-		return "Chip reset";
+		return "Power on reset";
 	case RESET_REASON_CORE_SW:
 		return "Software core reset";
 	case RESET_REASON_CORE_DEEP_SLEEP:
 		return "Deep-sleep core reset";
 	case RESET_REASON_CORE_MWDT0:
 		return "Main WDT0 core reset";
-	case RESET_REASON_CORE_MWDT1:
-		return "Main WDT1 core reset";
 	case RESET_REASON_CORE_RTC_WDT:
 		return "RTC WDT core reset";
 	case RESET_REASON_CPU0_MWDT0:
-		return "Main WDT0 CPU reset";
+		return "Main WDT0 CPU Reset";
 	case RESET_REASON_CPU0_SW:
-		return "Software CPU reset";
+		return "Software CPU Reset";
 	case RESET_REASON_CPU0_RTC_WDT:
-		return "RTC WDT CPU reset";
+		return "RTC WDT CPU Reset";
 	case RESET_REASON_SYS_BROWN_OUT:
 		return "Brown-out core reset";
 	case RESET_REASON_SYS_RTC_WDT:
 		return "RTC WDT core and rtc reset";
-	case RESET_REASON_CPU0_MWDT1:
-		return "Main WDT1 CPU reset";
 	case RESET_REASON_SYS_SUPER_WDT:
-		return "Super Watchdog core and rtc";
+		return "Super WDT core and rtc reset";
 	case RESET_REASON_SYS_CLK_GLITCH:
 		return "CLK GLITCH core and rtc reset";
 	case RESET_REASON_CORE_EFUSE_CRC:
 		return "eFuse CRC error core reset";
-	case RESET_REASON_CORE_USB_UART:
-		return "USB (UART) core reset";
-	case RESET_REASON_CORE_USB_JTAG:
-		return "USB (JTAG) core reset";
-	case RESET_REASON_CORE_PWR_GLITCH:
-		return "Power glitch core reset";
+	case RESET_REASON_CPU0_JTAG:
+		return "JTAG CPU reset";
 	}
 	return "Unknown reset cause";
 }
@@ -130,56 +111,45 @@ static const char *esp32c3_get_reset_reason(soc_reset_reason_t reset_number)
 extern struct target_type riscv_target;
 extern const struct command_registration riscv_command_handlers[];
 
-static int esp32c3_on_reset(struct target *target);
+static int esp32c2_on_reset(struct target *target);
 
-static int esp32c3_wdt_disable(struct target *target)
+static int esp32c2_wdt_disable(struct target *target)
 {
 	/* TIMG1 WDT */
-	int res = target_write_u32(target, ESP32C3_TIMG0WDT_PROTECT, ESP32C3_WDT_WKEY_VALUE);
+	int res = target_write_u32(target, ESP32C2_TIMG0WDT_PROTECT, ESP32C2_WDT_WKEY_VALUE);
 	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write ESP32C3_TIMG0WDT_PROTECT (%d)!", res);
+		LOG_ERROR("Failed to write ESP32C2_TIMG0WDT_PROTECT (%d)!", res);
 		return res;
 	}
-	res = target_write_u32(target, ESP32C3_TIMG0WDT_CFG0, 0);
+	res = target_write_u32(target, ESP32C2_TIMG0WDT_CFG0, 0);
 	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write ESP32C3_TIMG0WDT_CFG0 (%d)!", res);
-		return res;
-	}
-	/* TIMG2 WDT */
-	res = target_write_u32(target, ESP32C3_TIMG1WDT_PROTECT, ESP32C3_WDT_WKEY_VALUE);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write ESP32C3_TIMG1WDT_PROTECT (%d)!", res);
-		return res;
-	}
-	res = target_write_u32(target, ESP32C3_TIMG1WDT_CFG0, 0);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write ESP32C3_TIMG1WDT_CFG0 (%d)!", res);
+		LOG_ERROR("Failed to write ESP32C2_TIMG0WDT_CFG0 (%d)!", res);
 		return res;
 	}
 	/* RTC WDT */
-	res = target_write_u32(target, ESP32C3_RTCWDT_PROTECT, ESP32C3_WDT_WKEY_VALUE);
+	res = target_write_u32(target, ESP32C2_RTCWDT_PROTECT, ESP32C2_WDT_WKEY_VALUE);
 	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write ESP32C3_RTCWDT_PROTECT (%d)!", res);
+		LOG_ERROR("Failed to write ESP32C2_RTCWDT_PROTECT (%d)!", res);
 		return res;
 	}
-	res = target_write_u32(target, ESP32C3_RTCWDT_CFG, 0);
+	res = target_write_u32(target, ESP32C2_RTCWDT_CFG, 0);
 	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write ESP32C3_RTCWDT_CFG (%d)!", res);
+		LOG_ERROR("Failed to write ESP32C2_RTCWDT_CFG (%d)!", res);
 		return res;
 	}
 	return ERROR_OK;
 }
 
-static const struct esp_semihost_ops esp32c3_semihost_ops = {
-	.prepare = esp32c3_wdt_disable
+static const struct esp_semihost_ops esp32c2_semihost_ops = {
+	.prepare = esp32c2_wdt_disable
 };
 
-static const struct esp_flash_breakpoint_ops esp32c3_flash_brp_ops = {
+static const struct esp_flash_breakpoint_ops esp32c2_flash_brp_ops = {
 	.breakpoint_add = esp_flash_breakpoint_add,
 	.breakpoint_remove = esp_flash_breakpoint_remove
 };
 
-static int esp32c3_handle_target_event(struct target *target, enum target_event event, void *priv)
+static int esp32c2_handle_target_event(struct target *target, enum target_event event, void *priv)
 {
 	if (target != priv)
 		return ERROR_OK;
@@ -193,20 +163,20 @@ static int esp32c3_handle_target_event(struct target *target, enum target_event 
 	return ERROR_OK;
 }
 
-static int esp32c3_target_create(struct target *target, Jim_Interp *interp)
+static int esp32c2_target_create(struct target *target, Jim_Interp *interp)
 {
-	struct esp32c3_common *esp32c3 = calloc(1, sizeof(*esp32c3));
-	if (!esp32c3)
+	struct esp32c2_common *esp32c2 = calloc(1, sizeof(*esp32c2));
+	if (!esp32c2)
 		return ERROR_FAIL;
 
-	target->arch_info = esp32c3;
+	target->arch_info = esp32c2;
 
-	riscv_info_init(target, &esp32c3->esp_riscv.riscv);
+	riscv_info_init(target, &esp32c2->esp_riscv.riscv);
 
 	return ERROR_OK;
 }
 
-static int esp32c3_init_target(struct command_context *cmd_ctx,
+static int esp32c2_init_target(struct command_context *cmd_ctx,
 	struct target *target)
 {
 	int ret = riscv_target.init_target(cmd_ctx, target);
@@ -215,25 +185,25 @@ static int esp32c3_init_target(struct command_context *cmd_ctx,
 
 	target->semihosting->user_command_handler = esp_semihosting_common;
 
-	struct esp32c3_common *esp32c3 = esp32c3_common(target);
+	struct esp32c2_common *esp32c2 = esp32c2_common(target);
 
 	ret = esp_riscv_init_arch_info(cmd_ctx,
 		target,
-		&esp32c3->esp_riscv,
-		esp32c3_on_reset,
-		&esp32c3_flash_brp_ops,
-		&esp32c3_semihost_ops);
+		&esp32c2->esp_riscv,
+		esp32c2_on_reset,
+		&esp32c2_flash_brp_ops,
+		&esp32c2_semihost_ops);
 	if (ret != ERROR_OK)
 		return ret;
 
-	ret = target_register_event_callback(esp32c3_handle_target_event, target);
+	ret = target_register_event_callback(esp32c2_handle_target_event, target);
 	if (ret != ERROR_OK)
 		return ret;
 
 	return ERROR_OK;
 }
 
-static void esp32c3_deinit_target(struct target *target)
+static void esp32c2_deinit_target(struct target *target)
 {
 	riscv_target.deinit_target(target);
 }
@@ -287,11 +257,12 @@ static const char *const s_nonexistent_regs[] = {
 	"hpmcounter16h", "mhpmevent4"
 };
 
-static int esp32c3_examine(struct target *target)
+static int esp32c2_examine(struct target *target)
 {
 	int ret = riscv_target.examine(target);
 	if (ret != ERROR_OK)
 		return ret;
+
 	/* RISCV code initializes registers upon target examination.
 	   disable some registers because their reading or writing causes exception. Not supported in ESP32-C3??? */
 	for (size_t i = 0; i < ARRAY_SIZE(s_nonexistent_regs); i++) {
@@ -302,21 +273,21 @@ static int esp32c3_examine(struct target *target)
 	return ERROR_OK;
 }
 
-static int esp32c3_on_reset(struct target *target)
+static int esp32c2_on_reset(struct target *target)
 {
 	LOG_DEBUG("esp32c3_on_reset!");
-	struct esp32c3_common *esp32c3 = esp32c3_common(target);
-	esp32c3->was_reset = true;
+	struct esp32c2_common *esp32c2 = esp32c2_common(target);
+	esp32c2->was_reset = true;
 	return ERROR_OK;
 }
 
-static int esp32c3_poll(struct target *target)
+static int esp32c2_poll(struct target *target)
 {
-	struct esp32c3_common *esp32c3 = esp32c3_common(target);
+	struct esp32c2_common *esp32c2 = esp32c2_common(target);
 	int res = ERROR_OK;
 
 	RISCV_INFO(r);
-	if (esp32c3->was_reset && r->dmi_read && r->dmi_write) {
+	if (esp32c2->was_reset && r->dmi_read && r->dmi_write) {
 		uint32_t dmstatus;
 		res = r->dmi_read(target, &dmstatus, DM_DMSTATUS);
 		if (res != ERROR_OK) {
@@ -324,31 +295,31 @@ static int esp32c3_poll(struct target *target)
 		} else {
 			uint32_t strap_reg;
 			LOG_DEBUG("Core is out of reset: dmstatus 0x%x", dmstatus);
-			esp32c3->was_reset = false;
-			res = target_read_u32(target, ESP32C3_GPIO_STRAP_REG, &strap_reg);
+			esp32c2->was_reset = false;
+			res = target_read_u32(target, ESP32C2_GPIO_STRAP_REG, &strap_reg);
 			if (res != ERROR_OK) {
 				LOG_WARNING("Failed to read ESP32C3_GPIO_STRAP_REG (%d)!", res);
-				strap_reg = ESP32C3_FLASH_BOOT_MODE;
+				strap_reg = ESP32C2_FLASH_BOOT_MODE;
 			}
 
 			uint32_t reset_buffer = 0;
 			res = target_read_u32(target,
-				ESP32C3_RTCCNTL_RESET_STATE_REG,
+				ESP32C2_RTCCNTL_RESET_STATE_REG,
 				&reset_buffer);
 			if (res != ERROR_OK) {
 				LOG_WARNING("Failed to read read reset cause register (%d)!", res);
 			} else {
 				LOG_INFO("Reset cause (%ld) - (%s)",
-					(ESP32C3_RESET_CAUSE(reset_buffer)),
-					esp32c3_get_reset_reason((reset_buffer)));
+					(ESP32C2_RESET_CAUSE(reset_buffer)),
+					esp32c2_get_reset_reason((reset_buffer)));
 			}
 
-			if (ESP32C3_IS_FLASH_BOOT(strap_reg) &&
+			if (ESP32C2_IS_FLASH_BOOT(strap_reg) &&
 				get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
-				LOG_DEBUG("Halt core");
+				LOG_TARGET_DEBUG(target, "Halt core");
 				res = esp_riscv_core_halt(target);
 				if (res == ERROR_OK) {
-					res = esp32c3_wdt_disable(target);
+					res = esp32c2_wdt_disable(target);
 					if (res != ERROR_OK)
 						LOG_ERROR("Failed to disable WDTs (%d)!", res);
 				} else {
@@ -361,7 +332,7 @@ static int esp32c3_poll(struct target *target)
 				if (res != ERROR_OK)
 					LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
 			}
-			if (ESP32C3_IS_FLASH_BOOT(strap_reg)) {
+			if (ESP32C2_IS_FLASH_BOOT(strap_reg)) {
 				/* enable ebreaks */
 				res = esp_riscv_core_ebreaks_enable(target);
 				if (res != ERROR_OK)
@@ -379,7 +350,7 @@ static int esp32c3_poll(struct target *target)
 	return esp_riscv_poll(target);
 }
 
-static const struct command_registration esp32c3_command_handlers[] = {
+static const struct command_registration esp32c2_command_handlers[] = {
 	{
 		.usage = "",
 		.chain = riscv_command_handlers,
@@ -397,16 +368,16 @@ static const struct command_registration esp32c3_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-struct target_type esp32c3_target = {
-	.name = "esp32c3",
+struct target_type esp32c2_target = {
+	.name = "esp32c2",
 
-	.target_create = esp32c3_target_create,
-	.init_target = esp32c3_init_target,
-	.deinit_target = esp32c3_deinit_target,
-	.examine = esp32c3_examine,
+	.target_create = esp32c2_target_create,
+	.init_target = esp32c2_init_target,
+	.deinit_target = esp32c2_deinit_target,
+	.examine = esp32c2_examine,
 
 	/* poll current target status */
-	.poll = esp32c3_poll,
+	.poll = esp32c2_poll,
 
 	.halt = esp_riscv_halt,
 	.resume = esp_riscv_resume,
@@ -437,7 +408,7 @@ struct target_type esp32c3_target = {
 	.start_algorithm = esp_riscv_start_algorithm,
 	.wait_algorithm = esp_riscv_wait_algorithm,
 
-	.commands = esp32c3_command_handlers,
+	.commands = esp32c2_command_handlers,
 
 	.address_bits = esp_riscv_address_bits,
 };

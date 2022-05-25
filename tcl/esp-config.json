@@ -4,6 +4,7 @@
         { "id": "esp32", "name": "ESP32" },
         { "id": "esp32s2", "name": "ESP32-S2" },
         { "id": "esp32s3", "name": "ESP32-S3" },
+        { "id": "esp32c2", "name": "ESP32-C2" },
         { "id": "esp32c3", "name": "ESP32-C3" }
     ],
     "boards" : [
@@ -89,6 +90,22 @@
             "target": "esp32s3",
             "config_files": [
                 "board/esp32s3-bridge.cfg"
+            ]
+        },
+        {
+            "name": "ESP32-C2 chip (via ESP-PROG)",
+            "description": "ESP32-C2 used with ESP-PROG board",
+            "target": "esp32c2",
+            "config_files": [
+                "board/esp32c2-ftdi.cfg"
+            ]
+        },
+        {
+            "name": "ESP32-C2 chip (via ESP USB Bridge)",
+            "description": "ESP32-C2 debugging via ESP USB Bridge board",
+            "target": "esp32c2",
+            "config_files": [
+                "board/esp32c2-bridge.cfg"
             ]
         },
         {

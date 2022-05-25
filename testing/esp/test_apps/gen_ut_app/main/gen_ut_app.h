@@ -59,7 +59,11 @@ typedef ut_result_t (*test_func_t)(int test_num);
 /* Can run 'make menuconfig' to choose the GPIO to blink,
    or you can edit the following line and set a number here.
 */
+#if CONFIG_IDF_TARGET_ESP32C2
+#define BLINK_GPIO 8
+#else
 #define BLINK_GPIO CONFIG_BLINK_GPIO
+#endif
 
 #endif
 

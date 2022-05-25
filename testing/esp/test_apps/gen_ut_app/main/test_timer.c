@@ -30,7 +30,7 @@ void test_timer_rearm(int timer_group, int timer_idx)
             TIM_CLR(0, 0);
             timer_set_alarm(0, 0, TIMER_ALARM_EN);
         } else {
-#if !CONFIG_IDF_TARGET_ESP32C3
+#if !CONFIG_IDF_TARGET_ARCH_RISCV
             TIM_CLR(0, 1);
             timer_set_alarm(0, 1, TIMER_ALARM_EN);
 #endif
@@ -40,7 +40,7 @@ void test_timer_rearm(int timer_group, int timer_idx)
             TIM_CLR(1, 0);
             timer_set_alarm(1, 0, TIMER_ALARM_EN);
         } else {
-#if !CONFIG_IDF_TARGET_ESP32C3
+#if !CONFIG_IDF_TARGET_ARCH_RISCV
             TIM_CLR(1, 1);
             timer_set_alarm(1, 1, TIMER_ALARM_EN);
 #endif
@@ -130,7 +130,13 @@ int test_timer_init(struct timer_task_arg* arg)
 
     gptimer_handle_t gptimer = NULL;
     gptimer_config_t config = {
+#if CONFIG_SOC_TIMER_GROUP_SUPPORT_APB
         .clk_src = GPTIMER_CLK_SRC_APB,
+#elif CONFIG_SOC_TIMER_GROUP_SUPPORT_PLL_F40M
+        .clk_src = GPTIMER_CLK_SRC_PLL_F40M,
+#else
+        .clk_src = GPTIMER_CLK_SRC_XTAL,
+#endif
         .direction = GPTIMER_COUNT_UP,
         .resolution_hz = 2.5 * 1000 * 1000,
     };

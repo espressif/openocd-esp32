@@ -38,7 +38,7 @@ def _create_file_reader():
 ########################################################################
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
-@skip_for_chip(['esp32s3'])
+@skip_for_chip(['esp32s3', 'esp32c2'])
 class BaseTracingTestsImpl:
     """ Test cases which are common for dual and single core modes
     """
@@ -222,7 +222,7 @@ class BaseTracingTestsImpl:
     @idf_ver_min('4.4')
     def test_heap_log_from_file(self):
         self._test_trace_from_file(self._do_test_heap_log)
-@skip_for_chip(['esp32s3'])
+@skip_for_chip(['esp32s3', 'esp32c2'])
 class SysViewTracingTestsImpl(BaseTracingTestsImpl):
     """ Test cases which are common for dual and single core modes
     """
@@ -410,7 +410,7 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
                 print_run_data('IRQ "%s"' % name, irq_run_data[name], iv)
                 freq_dev = 100*(irq_ref_data[name]['freq'] - irq_run_data[name]['run_count']/iv)/irq_ref_data[name]['freq']
                 self.assertTrue(freq_dev <= 10) # max event's freq deviation (due to measurement error) is 10%
-@skip_for_chip(['esp32s3'])
+@skip_for_chip(['esp32s3', 'esp32c2'])
 class SysViewMcoreTracingTestsImpl(BaseTracingTestsImpl):
     """ Test cases which are common for dual and single core modes
     """

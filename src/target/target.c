@@ -108,6 +108,7 @@ extern struct target_type nds32_v3m_target;
 extern struct target_type esp32_target;
 extern struct target_type esp32s2_target;
 extern struct target_type esp32s3_target;
+extern struct target_type esp32c2_target;
 extern struct target_type esp32c3_target;
 extern struct target_type or1k_target;
 extern struct target_type quark_x10xx_target;
@@ -148,6 +149,7 @@ static struct target_type *target_types[] = {
 	&esp32_target,
 	&esp32s2_target,
 	&esp32s3_target,
+	&esp32c2_target,
 	&esp32c3_target,
 	&or1k_target,
 	&quark_x10xx_target,
