@@ -22,7 +22,7 @@
 
 struct esp_riscv_common {
 	/* should be first, will be accessed by riscv generic code */
-	riscv_info_t riscv;
+	struct riscv_info riscv;
 	struct esp_common esp;
 	struct esp_riscv_apptrace_info apptrace;
 	struct esp_semihost_data semihost;
