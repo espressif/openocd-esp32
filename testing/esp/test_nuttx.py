@@ -19,38 +19,24 @@ class DebuggerNuttxTestsImpl:
         """
 
         NAME_START = 6
-        NAME_LEN = 13
+        NAME_LEN = 15
         tasks_level = [3, 4, 5]
-        self.add_bp('tasksbt')
-        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'tasksbt', tmo=120)
+        self.add_bp('threadsbt')
+        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'threadsbt', tmo=120)
         _,threads_info = self.gdb.get_thread_info()
-        i = 1
         for ti in threads_info:
-            if ti['details'].startswith("Name: openocd_task"):
+            if ti['details'].startswith("Name: openocd_thread"):
                 name = ti['details'][NAME_START:NAME_START+NAME_LEN]
-                expectedlvl = tasks_level[int(name[-1:]) - 1]
+                expectedlvl = tasks_level[int(name[-1:])]
                 self.gdb.set_thread(int(ti['id']))
                 frames = self.gdb.get_backtrace()
-
-                # The frame should be like the following:
-                #   nxtask_start
-                #   nxtask_startup
-                #   taskX_daemon
-                #   taskX_lvl
-                #    ...
-                #   taskx_lvl
-                #   Rest of the frame
-                # We extract here from the end (the daemon) up to the last
-                # taskX_lvl.  This should be the expected level + 1 for the
-                # daemon.
-                lvlsframe = frames[-(expectedlvl + 3):]
                 extractedlvl = 0
-                lvlname = 'task%s_lvls' % i
-                for f in lvlsframe:
-                    if f['func'] == lvlname:
+
+                for f in frames:
+                    if f['func'] == "thread_frames":
                         extractedlvl += 1
+
                 self.assertEqual(expectedlvl, extractedlvl)
-                i += 1
 
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
@@ -73,7 +59,6 @@ class NuttxAppTests(DebuggerTestAppTests):
         self.test_app_cfg.entry_point = 'nx_start'
         self.test_app_cfg.bld_path = 'bootloader.bin'
         self.test_app_cfg.pt_path = 'partition-table.bin'
-        self.test_app_cfg.startup_script = 'gdbstartup'
 
 @run_with_version('other')
 class NuttxAppTestsSingle(NuttxAppTests, DebuggerNuttxTestsImpl):

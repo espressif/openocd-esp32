@@ -8,17 +8,17 @@
         "flash_freq": "80m"
     },
     "flash_files" : {
-        "0x1000" : "bootloader.bin",
-        "0x10000" : "nuttx.bin",
+        "__BT_OFFSET__" : "bootloader.bin",
+        "0x10000" : "__APP_BIN__",
         "0x8000" : "partition-table.bin"
     },
-    "bootloader" : { "offset" : "0x1000", "file" : "bootloader", "encrypted" : "false" },
-    "app" : { "offset" : "0x10000", "file" : "nuttx.bin", "encrypted" : "false" },
+    "bootloader" : { "offset" : "__BT_OFFSET__", "file" : "bootloader", "encrypted" : "false" },
+    "app" : { "offset" : "0x10000", "file" : "__APP_BIN__", "encrypted" : "false" },
     "partition_table" : { "offset" : "0x8000", "file" : "partition-table.bin", "encrypted" : "false" },
     "extra_esptool_args" : {
         "after"  : "hard_reset",
         "before" : "default_reset",
         "stub"   : true,
-        "chip"   : "esp32"
+        "chip"   : "__CHIP__"
     }
 }
