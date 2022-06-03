@@ -69,9 +69,7 @@
     - *run_tests_linux_snippet
 
 .copy_nuttx_files_snippet: &copy_nuttx_files_snippet |
-  cp testing/esp/test_apps/nuttx/gdbstartup $TEST_RUN_DIR/$NUTTX_APP_NAME
-  cp testing/esp/test_apps/nuttx/flasher_args.json $TEST_RUN_DIR/$NUTTX_APP_NAME
-  sed -i "s/nuttx.bin/$NUTTX_APP_NAME.bin/g" $TEST_RUN_DIR/$NUTTX_APP_NAME/flasher_args.json
+  ./testing/esp/test_apps/nuttx/mkjson.sh $TEST_RUN_DIR $NUTTX_APP_NAME $CHIP
   mv nuttx.bin $TEST_RUN_DIR/$NUTTX_APP_NAME/$NUTTX_APP_NAME.bin
   mv nuttx $TEST_RUN_DIR/$NUTTX_APP_NAME/$NUTTX_APP_NAME.elf
   mv bootloader.bin partition-table.bin $TEST_RUN_DIR/$NUTTX_APP_NAME/

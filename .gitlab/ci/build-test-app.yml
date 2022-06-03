@@ -189,10 +189,11 @@ build_test_app_esp32c3_idf4.x:
 
 build_nuttx_app:
   stage: build_nuttx
-  variables:
-    TRIGGER_JOB: "OPENOCD"
   trigger:
     project: idf/apache/esp-nuttx-apps
     strategy: depend
   needs:
     - job: style_check
+  parallel:
+    matrix:
+      - TRIGGER_JOB: [openocd-esp32, openocd-esp32s2, openocd-esp32s3, openocd-esp32c3]

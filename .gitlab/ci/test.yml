@@ -332,11 +332,11 @@ tests_win_simple_esp32:
     - echo $OPENOCD_SCRIPTS
     - .\openocd-esp32\bin\openocd.exe -f board\esp32-ethernet-kit-3.3v.cfg -c "init; reset halt; sleep 5; exit"
 
-test_nuttx_esp32:
+.test_nuttx_template:
   image: $CI_DOCKER_REGISTRY/rpi-openocd-env:1
   stage: test_nuttx
   tags:
-    - test_jtag_arm
+    - $CHIP_RUNNER
   allow_failure: true
   artifacts:
     paths:
@@ -351,17 +351,57 @@ test_nuttx_esp32:
     TEST_RUN_DIR: "nuttx_test"
     NUTTX_APP_NAME: "nuttx_openocd"
     OOCD_CMDS: "set ESP_RTOS NuttX,set ESP32_ONLYCPU 1"
-    TEST_RUN_EXTRA_OPTS: "-i other -b esp32-wrover-kit-3.3v -p test_nuttx -e *.*Encrypted"
+    TEST_RUN_EXTRA_OPTS: "-i other -b ${TEST_BOARD} -p test_nuttx -e *.*Encrypted"
   needs:
     - job: build_linux_armhf_test
     - job: build_nuttx_app
       artifacts: false
     - project: idf/apache/esp-nuttx-apps
-      job: build_esp32_openocd
+      job: build_openocd_${CHIP}
       ref: master
   script:
     - !reference [.export_toolchain, script]
     - mkdir -p $TEST_RUN_DIR/$NUTTX_APP_NAME
     - !reference [.copy_nuttx_files, script]
     - !reference [.run_tests_nuttx, script]
+
+test_nuttx_esp32:
+  extends:
+    - .test_nuttx_template
+  variables:
+    CHIP: esp32
+    CHIP_RUNNER: test_jtag_arm
+    TEST_BOARD: "esp32-wrover-kit-3.3v"
+    TOOLCHAIN_PREFIX: "xtensa-esp32"
+    ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
+
+test_nuttx_esp32s2:
+  extends:
+    - .test_nuttx_template
+  variables:
+    CHIP: esp32s2
+    CHIP_RUNNER: test_jtag_arm_esp32s2
+    TEST_BOARD: "esp32s2-devkitj"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
+
+test_nuttx_esp32s3:
+  extends:
+    - .test_nuttx_template
+  variables:
+    CHIP: esp32s3
+    CHIP_RUNNER: test_jtag_arm_esp32s3
+    TEST_BOARD: "esp32s3-ftdi"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s3"
+    ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
+
+test_nuttx_esp32c3:
+  extends:
+    - .test_nuttx_template
+  variables:
+    CHIP: esp32c3
+    CHIP_RUNNER: test_jtag_arm_esp32c3
+    TEST_BOARD: "esp32c3-ftdi"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_TOOLCHAIN: "${ESP_MASTER_RISCV_TOOLCHAIN_VER}"
 
