@@ -32,6 +32,7 @@ tests_sanitizers_esp32_solo:
     - job: build_linux_armhf_test
   variables:
     PLATFORM_NAME: "linux-armhf-test"
+    ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
 
@@ -57,6 +58,7 @@ tests_sanitizers_esp32:
     - job: build_linux_armhf_test
   variables:
     PLATFORM_NAME: "linux-armhf-test"
+    ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
@@ -83,6 +85,7 @@ tests_sanitizers_esp32s2:
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
     PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
@@ -112,6 +115,7 @@ tests_sanitizers_esp32s3:
   variables:
     CHIP_NAME: "esp32s3"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
+    ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
     PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32s3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
@@ -141,7 +145,7 @@ tests_sanitizers_esp32c2:
   variables:
     CHIP_NAME: "esp32c2"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
+    ESP_TOOLCHAIN: "${ESP_MASTER_RISCV_TOOLCHAIN_VER}"
     PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32c2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c2-ftdi -p test_*.*Single -e test_apptrace test_gcov"
@@ -157,7 +161,7 @@ tests_sanitizers_esp32c3:
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
+    ESP_TOOLCHAIN: "${ESP_MASTER_RISCV_TOOLCHAIN_VER}"
     PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "build_test_app_esp32c3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single"
