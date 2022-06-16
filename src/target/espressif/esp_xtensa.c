@@ -193,24 +193,29 @@ int esp_xtensa_init_arch_info(struct target *target,
 	struct esp_xtensa_common *esp_xtensa,
 	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
-	const struct esp_flash_breakpoint_ops *flash_brps_ops,
-	const struct esp_semihost_ops *semihost_ops)
+	struct esp_ops *esp_ops)
 {
 	int ret = xtensa_init_arch_info(target, &esp_xtensa->xtensa, xtensa_cfg, dm_cfg);
 	if (ret != ERROR_OK)
 		return ret;
-	ret = esp_common_init(&esp_xtensa->esp, flash_brps_ops, &xtensa_algo_hw);
+	ret = esp_common_init(&esp_xtensa->esp, esp_ops->flash_brps_ops, &xtensa_algo_hw);
 	if (ret != ERROR_OK)
 		return ret;
 
 	INIT_LIST_HEAD(&esp_xtensa->semihost.dir_map_list);
-	esp_xtensa->semihost.ops = (struct esp_semihost_ops *)semihost_ops;
+	esp_xtensa->semihost.ops = (struct esp_semihost_ops *)esp_ops->semihost_ops;
 	esp_xtensa->apptrace.hw = &esp_xtensa_apptrace_hw;
+	esp_xtensa->reset_reason_fetch = esp_ops->reset_reason_fetch;
+
 	return ERROR_OK;
 }
 
 int esp_xtensa_target_init(struct command_context *cmd_ctx, struct target *target)
 {
+	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
+
+	esp_xtensa->reset_reason = ESP_XTENSA_RESET_RSN_UNKNOWN;
+
 	return xtensa_target_init(cmd_ctx, target);
 }
 
@@ -236,6 +241,64 @@ int esp_xtensa_arch_state(struct target *target)
 	return ERROR_OK;
 }
 
+int esp_xtensa_reset_reason_read(struct target *target)
+{
+	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
+	enum target_state orig_state = target->state;
+	const char *rsn_str;
+	int ret;
+
+	if (!esp_xtensa->reset_reason_fetch)
+		return ERROR_OK;
+
+	if (orig_state != TARGET_HALTED) {
+		/* call `xtensa_halt` instead of `target_halt` to avoid timedout HALT warnings */
+		ret = xtensa_halt(target);
+		if (ret != ERROR_OK) {
+			LOG_TARGET_ERROR(target, "Failed to halt target to read reset cause (%d)!", ret);
+			return ret;
+		}
+		/* Can not call `target_wait_state` here because it will re-enter `esp_xtensa_poll` in waiting loop. So
+		 * implement our own waiting cycle. `xtensa_poll` does not call target state event handlers, so GDB will
+		 * not notice target state change. */
+		int64_t timeout = timeval_ms() + 100;
+		while (target->state != TARGET_HALTED) {
+			alive_sleep(10);
+			ret = xtensa_poll(target);
+			if (ret != ERROR_OK) {
+				LOG_TARGET_ERROR(target, "Failed to wait for target halt to read reset cause (%d)!",
+					ret);
+				/* FIXME: not sure that it makes sense to try to restore target state (resume) if smth
+				 * went wrong with polling, looks like fatal error, so just return */
+				return ret;
+			}
+			if (timeval_ms() >= timeout) {
+				LOG_TARGET_ERROR(target,
+					"Timed out waiting for CPU to be reset, target state=%d",
+					target->state);
+				break;
+			}
+		}
+		if (target->state != TARGET_HALTED) {
+			LOG_TARGET_ERROR(target, "Failed to wait for target halt to read reset cause (%d)!", ret);
+			return ERROR_FAIL;
+		}
+	}
+	/* we got here only if target is in halt state, so can read memory safely */
+	ret = esp_xtensa->reset_reason_fetch(target, &esp_xtensa->reset_reason, &rsn_str);
+	if (ret == ERROR_OK)
+		LOG_TARGET_INFO(target, "Reset cause (%d) - (%s)", esp_xtensa->reset_reason, rsn_str);
+	if (orig_state == TARGET_RUNNING) {
+		LOG_TARGET_DEBUG(target, "Resume after reset cause read");
+		ret = xtensa_resume(target, 1, 0, 1, 0);
+		if (ret != ERROR_OK) {
+			LOG_TARGET_ERROR(target, "Failed to resume target after reset cause read (%d)!", ret);
+			return ret;
+		}
+	}
+	return ERROR_OK;
+}
+
 int esp_xtensa_poll(struct target *target)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
@@ -244,13 +307,20 @@ int esp_xtensa_poll(struct target *target)
 	int ret = xtensa_poll(target);
 
 	if (xtensa_dm_power_status_get(&xtensa->dbg_mod) & PWRSTAT_COREWASRESET) {
-		LOG_DEBUG("%s: Clear debug stubs info", target_name(target));
+		esp_xtensa_common->reset_reason = ESP_XTENSA_RESET_RSN_UNKNOWN;
+		LOG_TARGET_DEBUG(target, "Clear debug stubs info");
 		memset(&esp_xtensa_common->esp.dbg_stubs, 0, sizeof(esp_xtensa_common->esp.dbg_stubs));
 		if (esp_xtensa_common->semihost.ops->post_reset)
 			esp_xtensa_common->semihost.ops->post_reset(target);
 	}
 	if (target->state != TARGET_DEBUG_RUNNING)
 		esp_xtensa_dbgstubs_addr_check(target);
+
+	if (!target->smp && esp_xtensa_common->reset_reason == ESP_XTENSA_RESET_RSN_UNKNOWN &&
+		(target->state == TARGET_RUNNING || target->state == TARGET_HALTED)) {
+		/* chip was reset and now seems to be in operational state (reset finished) */
+		ret = esp_xtensa_reset_reason_read(target);
+	}
 
 	return ret;
 }

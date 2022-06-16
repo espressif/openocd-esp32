@@ -60,6 +60,8 @@ registers of this core will be transferred.
 #define ESP_XTENSA_SMP_EXAMINE_OTHER_CORES      5
 
 static int esp_xtensa_smp_update_halt_gdb(struct target *target, bool *need_resume);
+static int esp_xtensa_smp_smpbreak_disable(struct target *target, uint32_t *smp_break);
+static int esp_xtensa_smp_smpbreak_restore(struct target *target, uint32_t smp_break);
 
 static inline struct esp_xtensa_smp_common *target_to_esp_xtensa_smp(struct target *target)
 {
@@ -162,27 +164,57 @@ int esp_xtensa_smp_poll(struct target *target)
 	}
 
 	if (target->smp) {
-		if (target->state == TARGET_RESET) {
+		if (xtensa_dm_power_status_get(&esp_xtensa_smp->esp_xtensa.xtensa.dbg_mod) & PWRSTAT_COREWASRESET) {
 			esp_xtensa_smp->examine_other_cores = ESP_XTENSA_SMP_EXAMINE_OTHER_CORES;
-		} else if (esp_xtensa_smp->examine_other_cores > 0 &&
-			(target->state == TARGET_RUNNING || target->state == TARGET_HALTED)) {
-			LOG_TARGET_DEBUG(target, "Check for unexamined cores after reset");
-			bool all_examined = true;
-			foreach_smp_target(head, target->smp_targets) {
-				curr = head->target;
-				if (curr == target)
-					continue;
-				if (!target_was_examined(curr)) {
-					if (target_examine_one(curr) != ERROR_OK) {
-						LOG_DEBUG("Failed to examine!");
-						all_examined = false;
-					}
+		} else if (target->state == TARGET_RUNNING || target->state == TARGET_HALTED) {
+			if (esp_xtensa->reset_reason == ESP_XTENSA_RESET_RSN_UNKNOWN) {
+				/* chip was reset and now seems to be in operational state (reset finished) */
+				uint32_t smp_break;
+				/* Other SMP cores could be unpolled yet, so their states can be inconsistent.
+				   We need to avoid errors when halting and resuming with inconsistent cores states,
+				   So disable BreakInOut signals to avoid other cores state change
+				   when this core will be halted before reset cause read and resume after that.
+				   In other words isolate core and halt, read cause and resume it separately. */
+				ret = esp_xtensa_smp_smpbreak_disable(target, &smp_break);
+				if (ret != ERROR_OK) {
+					LOG_TARGET_ERROR(
+						target,
+						"Failed to disable BreakInOut signals before reset cause read (%d)!",
+						ret);
+					return ret;
+				}
+				ret = esp_xtensa_reset_reason_read(target);
+				if (ret != ERROR_OK)
+					return ret;
+				/* restore configured BreakInOut signals config */
+				ret = esp_xtensa_smp_smpbreak_restore(target, smp_break);
+				if (ret != ERROR_OK) {
+					LOG_TARGET_ERROR(
+						target,
+						"Failed to restore BreakInOut signals after reset cause read (%d)!",
+						ret);
+					return ret;
 				}
 			}
-			if (all_examined)
-				esp_xtensa_smp->examine_other_cores = 0;
-			else
-				esp_xtensa_smp->examine_other_cores--;
+			if (esp_xtensa_smp->examine_other_cores > 0) {
+				LOG_TARGET_DEBUG(target, "Check for unexamined cores after reset");
+				bool all_examined = true;
+				foreach_smp_target(head, target->smp_targets) {
+					curr = head->target;
+					if (curr == target)
+						continue;
+					if (!target_was_examined(curr)) {
+						if (target_examine_one(curr) != ERROR_OK) {
+							LOG_TARGET_DEBUG(target, "Failed to examine!");
+							all_examined = false;
+						}
+					}
+				}
+				if (all_examined)
+					esp_xtensa_smp->examine_other_cores = 0;
+				else
+					esp_xtensa_smp->examine_other_cores--;
+			}
 		}
 	}
 
@@ -575,19 +607,16 @@ int esp_xtensa_smp_init_arch_info(struct target *target,
 	struct esp_xtensa_smp_common *esp_xtensa_smp,
 	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
-	const struct esp_flash_breakpoint_ops *flash_brps_ops,
-	const struct esp_xtensa_smp_chip_ops *chip_ops,
-	const struct esp_semihost_ops *semihost_ops)
+	struct esp_ops *esp_ops)
 {
 	int ret = esp_xtensa_init_arch_info(target,
 		&esp_xtensa_smp->esp_xtensa,
 		xtensa_cfg,
 		dm_cfg,
-		flash_brps_ops,
-		semihost_ops);
+		esp_ops);
 	if (ret != ERROR_OK)
 		return ret;
-	esp_xtensa_smp->chip_ops = chip_ops;
+	esp_xtensa_smp->chip_ops = esp_ops->chip_ops;
 	esp_xtensa_smp->examine_other_cores = ESP_XTENSA_SMP_EXAMINE_OTHER_CORES;
 	return ERROR_OK;
 }

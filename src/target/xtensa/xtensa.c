@@ -720,7 +720,7 @@ int xtensa_examine(struct target *target)
 	struct xtensa *xtensa = target_to_xtensa(target);
 	unsigned int cmd = PWRCTL_DEBUGWAKEUP | PWRCTL_MEMWAKEUP | PWRCTL_COREWAKEUP;
 
-	LOG_DEBUG("coreid = %d", target->coreid);
+	LOG_TARGET_DEBUG(target, "examine");
 	xtensa_queue_pwr_reg_write(xtensa, DMREG_PWRCTL, cmd);
 	xtensa_queue_pwr_reg_write(xtensa, DMREG_PWRCTL, cmd | PWRCTL_JTAGDEBUGUSE);
 	xtensa_dm_queue_enable(&xtensa->dbg_mod);
@@ -729,10 +729,10 @@ int xtensa_examine(struct target *target)
 	if (res != ERROR_OK)
 		return res;
 	if (!xtensa_dm_is_online(&xtensa->dbg_mod)) {
-		LOG_ERROR("Unexpected OCD_ID = %08" PRIx32, xtensa->dbg_mod.device_id);
+		LOG_TARGET_ERROR(target, "Unexpected OCD_ID = %08" PRIx32, xtensa->dbg_mod.device_id);
 		return ERROR_TARGET_FAILURE;
 	}
-	LOG_DEBUG("OCD_ID = %08" PRIx32, xtensa->dbg_mod.device_id);
+	LOG_TARGET_DEBUG(target, "OCD_ID = %08" PRIx32, xtensa->dbg_mod.device_id);
 	if (!target_was_examined(target))
 		target_set_examined(target);
 	return ERROR_OK;
@@ -1186,7 +1186,7 @@ int xtensa_prepare_resume(struct target *target,
 		debug_execution);
 
 	if (target->state != TARGET_HALTED) {
-		LOG_TARGET_WARNING(target, "target not halted");
+		LOG_TARGET_WARNING(target, "target not halted (%s)!", target_state_name(target));
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
@@ -1305,7 +1305,7 @@ int xtensa_do_step(struct target *target, int current, target_addr_t address, in
 		current, address, handle_breakpoints);
 
 	if (target->state != TARGET_HALTED) {
-		LOG_TARGET_WARNING(target, "target not halted");
+		LOG_TARGET_WARNING(target, "target not halted (%s)!", target_state_name(target));
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
@@ -1565,7 +1565,7 @@ int xtensa_read_memory(struct target *target, target_addr_t address, uint32_t si
 	uint8_t *albuff;
 
 	if (target->state != TARGET_HALTED) {
-		LOG_TARGET_WARNING(target, "target not halted");
+		LOG_TARGET_WARNING(target, "target not halted (%s)!", target_state_name(target));
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
@@ -1637,7 +1637,7 @@ int xtensa_write_memory(struct target *target,
 	uint8_t *albuff;
 
 	if (target->state != TARGET_HALTED) {
-		LOG_TARGET_WARNING(target, "target not halted");
+		LOG_TARGET_WARNING(target, "target not halted (%s)!", target_state_name(target));
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
@@ -1955,7 +1955,7 @@ int xtensa_watchpoint_add(struct target *target, struct watchpoint *watchpoint)
 	xtensa_reg_val_t dbreakcval;
 
 	if (target->state != TARGET_HALTED) {
-		LOG_TARGET_WARNING(target, "target not halted");
+		LOG_TARGET_WARNING(target, "target not halted (%s)!", target_state_name(target));
 		return ERROR_TARGET_NOT_HALTED;
 	}
 

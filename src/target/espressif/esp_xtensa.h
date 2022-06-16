@@ -15,11 +15,15 @@
 #include "esp_xtensa_apptrace.h"
 #include "esp_xtensa_semihosting.h"
 
+#define ESP_XTENSA_RESET_RSN_UNKNOWN    (-1)
+
 struct esp_xtensa_common {
 	struct xtensa xtensa;	/* must be the first element */
 	struct esp_common esp;
 	struct esp_semihost_data semihost;
 	struct esp_xtensa_apptrace_info apptrace;
+	int reset_reason;
+	int (*reset_reason_fetch)(struct target *target, int *rsn_id, const char **rsn_str);
 };
 
 static inline struct esp_xtensa_common *target_to_esp_xtensa(struct target *target)
@@ -31,8 +35,7 @@ int esp_xtensa_init_arch_info(struct target *target,
 	struct esp_xtensa_common *esp_xtensa,
 	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
-	const struct esp_flash_breakpoint_ops *spec_brps_ops,
-	const struct esp_semihost_ops *semihost_ops);
+	struct esp_ops *esp_ops);
 int esp_xtensa_target_init(struct command_context *cmd_ctx, struct target *target);
 void esp_xtensa_target_deinit(struct target *target);
 int esp_xtensa_arch_state(struct target *target);
@@ -42,6 +45,7 @@ int esp_xtensa_breakpoint_remove(struct target *target, struct breakpoint *break
 int esp_xtensa_poll(struct target *target);
 int esp_xtensa_handle_target_event(struct target *target, enum target_event event,
 	void *priv);
+int esp_xtensa_reset_reason_read(struct target *target);
 
 extern const struct command_registration esp_command_handlers[];
 

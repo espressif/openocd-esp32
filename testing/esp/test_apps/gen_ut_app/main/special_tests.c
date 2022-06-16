@@ -233,4 +233,3 @@ ut_result_t special_test_do(int test_num)
     }
     return UT_OK;
 }
-
