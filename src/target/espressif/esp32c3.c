@@ -48,30 +48,30 @@
 #define ESP32C3_RTCCNTL_RESET_CAUSE_MASK        (BIT(6) - 1)
 #define ESP32C3_RESET_CAUSE(reg_val)            ((reg_val) & ESP32C3_RTCCNTL_RESET_CAUSE_MASK)
 
-typedef enum {
-	RESET_REASON_CHIP_POWER_ON = 0x01,		/* Power on reset */
-	RESET_REASON_CHIP_BROWN_OUT = 0x01,		/* VDD voltage is not stable and resets the chip */
-	RESET_REASON_CHIP_SUPER_WDT = 0x01,		/* Super watch dog resets the chip */
-	RESET_REASON_CORE_SW = 0x03,			/* Software resets the digital core by RTC_CNTL_SW_SYS_RST */
-	RESET_REASON_CORE_DEEP_SLEEP = 0x05,	/* Deep sleep reset the digital core */
-	RESET_REASON_CORE_MWDT0 = 0x07,			/* Main watch dog 0 resets digital core */
-	RESET_REASON_CORE_MWDT1 = 0x08,			/* Main watch dog 1 resets digital core */
-	RESET_REASON_CORE_RTC_WDT = 0x09,		/* RTC watch dog resets digital core */
-	RESET_REASON_CPU0_MWDT0 = 0x0B,			/* Main watch dog 0 resets CPU 0 */
-	RESET_REASON_CPU0_SW = 0x0C,			/* Software resets CPU 0 by RTC_CNTL_SW_PROCPU_RST */
-	RESET_REASON_CPU0_RTC_WDT = 0x0D,		/* RTC watch dog resets CPU 0 */
-	RESET_REASON_SYS_BROWN_OUT = 0x0F,		/* VDD voltage is not stable and resets the digital core */
-	RESET_REASON_SYS_RTC_WDT = 0x10,		/* RTC watch dog resets digital core and rtc module */
-	RESET_REASON_CPU0_MWDT1 = 0x11,			/* Main watch dog 1 resets CPU 0 */
-	RESET_REASON_SYS_SUPER_WDT = 0x12,		/* Super watch dog resets the digital core and rtc module */
-	RESET_REASON_SYS_CLK_GLITCH = 0x13,		/* Glitch on clock resets the digital core and rtc module */
-	RESET_REASON_CORE_EFUSE_CRC = 0x14,		/* eFuse CRC error resets the digital core */
-	RESET_REASON_CORE_USB_UART = 0x15,		/* USB UART resets the digital core */
-	RESET_REASON_CORE_USB_JTAG = 0x16,		/* USB JTAG resets the digital core */
-	RESET_REASON_CORE_PWR_GLITCH = 0x17,	/* Glitch on power resets the digital core */
-} soc_reset_reason_t;
+enum esp32c3_reset_reason {
+	RESET_REASON_CHIP_POWER_ON      = 0x01,		/* Power on reset */
+	RESET_REASON_CHIP_BROWN_OUT     = 0x01,		/* VDD voltage is not stable and resets the chip */
+	RESET_REASON_CHIP_SUPER_WDT     = 0x01,		/* Super watch dog resets the chip */
+	RESET_REASON_CORE_SW            = 0x03,		/* Software resets the digital core by RTC_CNTL_SW_SYS_RST */
+	RESET_REASON_CORE_DEEP_SLEEP    = 0x05,		/* Deep sleep reset the digital core */
+	RESET_REASON_CORE_MWDT0         = 0x07,		/* Main watch dog 0 resets digital core */
+	RESET_REASON_CORE_MWDT1         = 0x08,		/* Main watch dog 1 resets digital core */
+	RESET_REASON_CORE_RTC_WDT       = 0x09,		/* RTC watch dog resets digital core */
+	RESET_REASON_CPU0_MWDT0         = 0x0B,		/* Main watch dog 0 resets CPU 0 */
+	RESET_REASON_CPU0_SW            = 0x0C,		/* Software resets CPU 0 by RTC_CNTL_SW_PROCPU_RST */
+	RESET_REASON_CPU0_RTC_WDT       = 0x0D,		/* RTC watch dog resets CPU 0 */
+	RESET_REASON_SYS_BROWN_OUT      = 0x0F,		/* VDD voltage is not stable and resets the digital core */
+	RESET_REASON_SYS_RTC_WDT        = 0x10,		/* RTC watch dog resets digital core and rtc module */
+	RESET_REASON_CPU0_MWDT1         = 0x11,		/* Main watch dog 1 resets CPU 0 */
+	RESET_REASON_SYS_SUPER_WDT      = 0x12,		/* Super watch dog resets the digital core and rtc module */
+	RESET_REASON_SYS_CLK_GLITCH     = 0x13,		/* Glitch on clock resets the digital core and rtc module */
+	RESET_REASON_CORE_EFUSE_CRC     = 0x14,		/* eFuse CRC error resets the digital core */
+	RESET_REASON_CORE_USB_UART      = 0x15,		/* USB UART resets the digital core */
+	RESET_REASON_CORE_USB_JTAG      = 0x16,		/* USB JTAG resets the digital core */
+	RESET_REASON_CORE_PWR_GLITCH    = 0x17,		/* Glitch on power resets the digital core */
+};
 
-static const char *esp32c3_get_reset_reason(soc_reset_reason_t reset_number)
+static const char *esp32c3_get_reset_reason(enum esp32c3_reset_reason reset_number)
 {
 	switch (ESP32C3_RESET_CAUSE(reset_number)) {
 	case RESET_REASON_CHIP_POWER_ON:

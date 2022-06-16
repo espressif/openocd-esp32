@@ -109,6 +109,13 @@ struct esp_common {
 	struct esp_dbg_stubs dbg_stubs;
 };
 
+struct esp_ops {
+	const struct esp_flash_breakpoint_ops *flash_brps_ops;
+	const struct esp_xtensa_smp_chip_ops *chip_ops;
+	const struct esp_semihost_ops *semihost_ops;
+	int (*reset_reason_fetch)(struct target *target, int *rsn_id, const char **rsn_str);
+};
+
 int esp_common_init(struct esp_common *esp,
 	const struct esp_flash_breakpoint_ops *flash_brps_ops,
 	const struct algorithm_hw *algo_hw);

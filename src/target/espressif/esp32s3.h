@@ -51,4 +51,6 @@ enum esp32s3_reg_id {
 	ESP32_S3_NUM_REGS,
 };
 
+int esp32s3_reset_reason_fetch(struct target *target, int *rsn_id, const char **rsn_str);
+
 #endif	/* OPENOCD_TARGET_ESP32S3_H */

@@ -79,8 +79,51 @@ implementation.
 #define ESP32_S3_SYSTEM_CONTROL_CORE_1_CLKGATE_EN  BIT(1)
 
 /* ESP32_S3 RTC regs */
-#define ESP32_S3_RTC_CNTL_SW_CPU_STALL_REG (ESP32_S3_RTCCNTL_BASE + 0xBC)
-#define ESP32_S3_RTC_CNTL_SW_CPU_STALL_DEF 0x0
+#define ESP32_S3_RTC_CNTL_SW_CPU_STALL_REG      (ESP32_S3_RTCCNTL_BASE + 0xBC)
+#define ESP32_S3_RTC_CNTL_SW_CPU_STALL_DEF      0x0
+#define ESP32S3_RTC_CNTL_RESET_STATE_REG        (ESP32_S3_RTCCNTL_BASE + 0x38)
+
+/* RTC_CNTL_RESET_CAUSE_APPCPU : RO ;bitpos:[11:6] ;default: 0 ;
+ *description: reset cause of APP CPU.*/
+#define ESP32S3_RTC_CNTL_RESET_CAUSE_APPCPU    0x0000003F
+#define ESP32S3_RTC_CNTL_RESET_CAUSE_APPCPU_M  ((ESP32S3_RTC_CNTL_RESET_CAUSE_APPCPU_V) << \
+		(ESP32S3_RTC_CNTL_RESET_CAUSE_APPCPU_S))
+#define ESP32S3_RTC_CNTL_RESET_CAUSE_APPCPU_V  0x3F
+#define ESP32S3_RTC_CNTL_RESET_CAUSE_APPCPU_S  6
+/* RTC_CNTL_RESET_CAUSE_PROCPU : RO ;bitpos:[5:0] ;default: 0 ;
+ *description: reset cause of PRO CPU.*/
+#define ESP32S3_RTC_CNTL_RESET_CAUSE_PROCPU    0x0000003F
+#define ESP32S3_RTC_CNTL_RESET_CAUSE_PROCPU_M  ((ESP32S3_RTC_CNTL_RESET_CAUSE_PROCPU_V) << \
+		(ESP32S3_RTC_CNTL_RESET_CAUSE_PROCPU_S))
+#define ESP32S3_RTC_CNTL_RESET_CAUSE_PROCPU_V  0x3F
+#define ESP32S3_RTC_CNTL_RESET_CAUSE_PROCPU_S  0
+
+enum esp32s3_reset_reason {
+	RESET_REASON_CHIP_POWER_ON   = 0x01,	/* Power on reset */
+	RESET_REASON_CHIP_BROWN_OUT  = 0x01,	/* VDD voltage is not stable and resets the chip */
+	RESET_REASON_CHIP_SUPER_WDT  = 0x01,	/* Super watch dog resets the chip */
+	RESET_REASON_CORE_SW         = 0x03,	/* Software resets the digital core by RTC_CNTL_SW_SYS_RST */
+	RESET_REASON_CORE_DEEP_SLEEP = 0x05,	/* Deep sleep reset the digital core */
+	RESET_REASON_CORE_MWDT0      = 0x07,	/* Main watch dog 0 resets digital core */
+	RESET_REASON_CORE_MWDT1      = 0x08,	/* Main watch dog 1 resets digital core */
+	RESET_REASON_CORE_RTC_WDT    = 0x09,	/* RTC watch dog resets digital core */
+	RESET_REASON_CPU0_MWDT0      = 0x0B,	/* Main watch dog 0 resets CPU 0 */
+	RESET_REASON_CPU1_MWDT0      = 0x0B,	/* Main watch dog 0 resets CPU 1 */
+	RESET_REASON_CPU0_SW         = 0x0C,	/* Software resets CPU 0 by RTC_CNTL_SW_PROCPU_RST */
+	RESET_REASON_CPU1_SW         = 0x0C,	/* Software resets CPU 1 by RTC_CNTL_SW_APPCPU_RST */
+	RESET_REASON_CPU0_RTC_WDT    = 0x0D,	/* RTC watch dog resets CPU 0 */
+	RESET_REASON_CPU1_RTC_WDT    = 0x0D,	/* RTC watch dog resets CPU 1 */
+	RESET_REASON_SYS_BROWN_OUT   = 0x0F,	/* VDD voltage is not stable and resets the digital core */
+	RESET_REASON_SYS_RTC_WDT     = 0x10,	/* RTC watch dog resets digital core and rtc module */
+	RESET_REASON_CPU0_MWDT1      = 0x11,	/* Main watch dog 1 resets CPU 0 */
+	RESET_REASON_CPU1_MWDT1      = 0x11,	/* Main watch dog 1 resets CPU 1 */
+	RESET_REASON_SYS_SUPER_WDT   = 0x12,	/* Super watch dog resets the digital core and rtc module */
+	RESET_REASON_SYS_CLK_GLITCH  = 0x13,	/* Glitch on clock resets the digital core and rtc module */
+	RESET_REASON_CORE_EFUSE_CRC  = 0x14,	/* eFuse CRC error resets the digital core */
+	RESET_REASON_CORE_USB_UART   = 0x15,	/* USB UART resets the digital core */
+	RESET_REASON_CORE_USB_JTAG   = 0x16,	/* USB JTAG resets the digital core */
+	RESET_REASON_CORE_PWR_GLITCH = 0x17,	/* Glitch on power resets the digital core */
+};
 
 /* this should map local reg IDs to GDB reg mapping as defined in xtensa-config.c 'rmap' in
  *xtensa-overlay */
@@ -475,6 +518,12 @@ static int esp32s3_soc_reset(struct target *target)
 		LOG_TARGET_ERROR(target, "Timed out waiting for CPU to be halted after SoC reset");
 	}
 
+	foreach_smp_target(head, target->smp_targets) {
+		struct target *curr = head->target;
+		if (target_was_examined(curr))
+			esp_xtensa_reset_reason_read(curr);
+	}
+
 	/* Clear memory which is used by RTOS layer to get the task count */
 	if (target->rtos && target->rtos->type->post_reset_cleanup) {
 		res = (*target->rtos->type->post_reset_cleanup)(target);
@@ -556,6 +605,83 @@ static int esp32s3_virt2phys(struct target *target,
 	return ERROR_FAIL;
 }
 
+static const char *esp32s3_reset_reason_str(int coreid, enum esp32s3_reset_reason reset_number)
+{
+	switch (reset_number) {
+	case RESET_REASON_CHIP_POWER_ON:
+		return "Power on reset";
+	case RESET_REASON_CORE_SW:
+		return "Software core reset";
+	case RESET_REASON_CORE_DEEP_SLEEP:
+		return "Deep-sleep core reset";
+	case RESET_REASON_CORE_MWDT0:
+		return "Main WDT0 core reset";
+	case RESET_REASON_CORE_MWDT1:
+		return "Main WDT1 core reset";
+	case RESET_REASON_CORE_RTC_WDT:
+		return "RTC WDT core reset";
+	case RESET_REASON_CPU0_MWDT0:
+		/* has the same value as RESET_REASON_CPU0_MWDT0
+		case RESET_REASON_CPU1_MWDT0:*/
+		return coreid ? "Main WDT0 CPU1 reset" : "Main WDT0 CPU0 reset";
+	case RESET_REASON_CPU0_SW:
+		/* has the same value as RESET_REASON_CPU0_SW
+		case RESET_REASON_CPU1_SW:*/
+		return coreid ? "Software CPU1 reset" : "Software CPU0 reset";
+	case RESET_REASON_CPU0_RTC_WDT:
+		/* has the same value as RESET_REASON_CPU0_RTC_WDT
+		case RESET_REASON_CPU1_RTC_WDT:*/
+		return coreid ? "RTC WDT CPU1 reset" : "RTC WDT CPU0 reset";
+	case RESET_REASON_SYS_BROWN_OUT:
+		return "Brown-out core reset";
+	case RESET_REASON_SYS_RTC_WDT:
+		return "RTC WDT core and rtc reset";
+	case RESET_REASON_CPU0_MWDT1:
+		/* has the same value as RESET_REASON_CPU1_MWDT1
+		case RESET_REASON_CPU1_MWDT1:*/
+		return coreid ? "Main WDT1 resets CPU1" : "Main WDT1 resets CPU0";
+	case RESET_REASON_SYS_SUPER_WDT:
+		return "Super WDT reset";
+	case RESET_REASON_SYS_CLK_GLITCH:
+		return "Glitch on clock reset";
+	case RESET_REASON_CORE_EFUSE_CRC:
+		return "eFuse CRC error reset";
+	case RESET_REASON_CORE_USB_UART:
+		return "USB UART reset";
+	case RESET_REASON_CORE_USB_JTAG:
+		return "USB JTAG reset";
+	case RESET_REASON_CORE_PWR_GLITCH:
+		return "Core power glitch reset";
+	}
+	return "Unknown reset cause";
+}
+
+int esp32s3_reset_reason_fetch(struct target *target, int *rsn_id, const char **rsn_str)
+{
+	uint32_t rsn_val;
+
+	int ret = target_read_u32(target, ESP32S3_RTC_CNTL_RESET_STATE_REG, &rsn_val);
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Error on read reset reason register (%d)!", ret);
+		return ret;
+	}
+	if (target->coreid == 0) {
+		rsn_val &= ESP32S3_RTC_CNTL_RESET_CAUSE_PROCPU_M;
+		rsn_val >>= ESP32S3_RTC_CNTL_RESET_CAUSE_PROCPU_S;
+	} else {
+		rsn_val &= ESP32S3_RTC_CNTL_RESET_CAUSE_APPCPU_M;
+		rsn_val >>= ESP32S3_RTC_CNTL_RESET_CAUSE_APPCPU_S;
+	}
+
+	/* sanity check for valid value */
+	if (rsn_val == 0)
+		return ERROR_FAIL;
+
+	*rsn_id = rsn_val;
+	*rsn_str = esp32s3_reset_reason_str(target->coreid, rsn_val);
+	return ERROR_OK;
+}
+
 static int esp32s3_handle_target_event(struct target *target, enum target_event event, void *priv)
 {
 	if (target != priv)
@@ -629,13 +755,18 @@ static int esp32s3_target_create(struct target *target, Jim_Interp *interp)
 		return ERROR_FAIL;
 	}
 
+	struct esp_ops esp32s3_ops = {
+		.flash_brps_ops = &esp32s3_flash_brp_ops,
+		.chip_ops = &esp32s3_chip_ops,
+		.semihost_ops = &esp32s3_semihost_ops,
+		.reset_reason_fetch = esp32s3_reset_reason_fetch
+	};
+
 	int ret = esp_xtensa_smp_init_arch_info(target,
 		&esp32s3->esp_xtensa_smp,
 		&esp32s3_xtensa_cfg,
 		&esp32s3_dm_cfg,
-		&esp32s3_flash_brp_ops,
-		&esp32s3_chip_ops,
-		&esp32s3_semihost_ops);
+		&esp32s3_ops);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to init arch info!");
 		free(esp32s3);
