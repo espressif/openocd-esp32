@@ -33,7 +33,6 @@ class DebuggerSpecialTestsImpl:
         self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_SIGTRAP, 'crash_task', ['crash'], outmost_func_name='crash_task')
         self.prepare_app_for_debugging(self.test_app_cfg.app_off)
 
-    @skip_for_chip(['esp32s3', 'esp32s2'])
     def test_gdb_regs_mapping(self):
         """
             This test checks that GDB and OpenOCD has identical registers mapping.
