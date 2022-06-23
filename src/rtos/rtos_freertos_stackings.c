@@ -35,8 +35,14 @@ static int rtos_freertos_esp_xtensa_stack_read_voluntary(struct target *target, 
 
 /*
  The XTensa FreeRTOS implementation has *two* types of stack frames; one for
- involuntatrily swapped out tasks and another one for tasks which voluntarily yielded.
+ involuntarily swapped out tasks and another one for tasks which voluntarily yielded.
 */
+
+/*
+Important Note: If you modify one of the stack_register_offset array, also check corresponding
+	stack_registers_size in rtos_register_stacking
+*/
+
 static const struct stack_register_offset rtos_freertos_esp32_stack_offsets[] = {
 	{ XT_REG_IDX_PC, 0x04, 32 },		/* PC */
 	{ XT_REG_IDX_AR0, 0x0c, 32 },		/* A0 */
@@ -672,7 +678,7 @@ static const struct stack_register_offset rtos_freertos_esp32_s3_voluntary_stack
 };
 
 const struct rtos_register_stacking rtos_freertos_esp32_stacking = {
-	30*4,				/* stack_registers_size */
+	40*4,				/* stack_registers_size */
 	-1,					/* stack_growth_direction */
 	ESP32_NUM_REGS_G_COMMAND,					/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
@@ -690,7 +696,7 @@ const struct rtos_register_stacking rtos_freertos_esp32_s2_stacking = {
 };
 
 const struct rtos_register_stacking rtos_freertos_esp32_s3_stacking = {
-	30*4,				/* stack_registers_size */
+	40*4,				/* stack_registers_size */
 	-1,					/* stack_growth_direction */
 	ESP32_S3_NUM_REGS_G_COMMAND,					/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
