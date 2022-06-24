@@ -1,6 +1,6 @@
 .tests_sanitizers_template:
   stage: sanitizer_tests
-  image: $CI_DOCKER_REGISTRY/rpi-test-env
+  image: $CI_DOCKER_REGISTRY/rpi-openocd-env:1
   artifacts:
     paths:
       - $TEST_RUN_DIR/debug_backend_tests.log
