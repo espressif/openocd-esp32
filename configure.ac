@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 AC_PREREQ(2.64)
 AC_INIT([openocd], [ ],
   [OpenOCD Mailing List <openocd-devel@lists.sourceforge.net>])
