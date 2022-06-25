@@ -424,7 +424,7 @@ int esp_xtensa_smp_step(struct target *target,
 	int handle_breakpoints)
 {
 	int res;
-	uint32_t smp_break;
+	uint32_t smp_break = 0;
 
 	if (target->smp) {
 		res = esp_xtensa_smp_smpbreak_disable(target, &smp_break);
