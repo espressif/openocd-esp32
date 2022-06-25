@@ -352,7 +352,7 @@ static inline bool xtensa_dm_is_online(struct xtensa_debug_module *dm)
 	int res = xtensa_dm_device_id_read(dm);
 	if (res != ERROR_OK)
 		return false;
-	return (dm->device_id != 0xffffffff && dm->device_id != 0);
+	return dm->device_id != 0xffffffff && dm->device_id != 0;
 }
 
 static inline bool xtensa_dm_tap_was_reset(struct xtensa_debug_module *dm)

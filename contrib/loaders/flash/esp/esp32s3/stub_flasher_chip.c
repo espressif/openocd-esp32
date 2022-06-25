@@ -104,7 +104,6 @@ uint32_t stub_flash_get_id(void)
 			PERIPHS_SPI_FLASH_USRREG1,
 			(rom_spiflash_legacy_data->dummy_len_plus[1] -
 				1) << SPI_MEM_USR_DUMMY_CYCLELEN_S);
-
 	}
 	WRITE_PERI_REG(PERIPHS_SPI_FLASH_C0, 0);/* clear register */
 	WRITE_PERI_REG(PERIPHS_SPI_FLASH_CMD, SPI_MEM_FLASH_RDID);
@@ -431,7 +430,6 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 				if (dis_dl_enc && dis_dl_icache)
 					s_mode = ESP_FLASH_ENC_MODE_RELEASE;
 			}
-
 		} else {
 			s_mode = ESP_FLASH_ENC_MODE_DISABLED;
 		}

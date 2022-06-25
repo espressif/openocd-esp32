@@ -35,5 +35,4 @@ int esp_riscv_flash_init(struct esp_riscv_flash_bank *esp_info, uint32_t sec_sz,
 	bool (*is_drom_address)(target_addr_t addr),
 	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank));
 
-
 #endif	/* OPENOCD_FLASH_NOR_ESP_RISCV_H */

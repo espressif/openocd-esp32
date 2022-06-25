@@ -70,7 +70,6 @@ extern struct target_type riscv_target;
 static int esp_riscv_debug_stubs_info_init(struct target *target,
 	target_addr_t ctrl_addr);
 
-
 int esp_riscv_semihosting(struct target *target)
 {
 	int res = ERROR_OK;

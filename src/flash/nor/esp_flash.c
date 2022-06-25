@@ -249,7 +249,6 @@ int esp_flash_init(struct esp_flash_bank *esp_info, uint32_t sec_sz,
 	const struct esp_flash_apptrace_hw *apptrace_hw,
 	const struct algorithm_hw *stub_hw)
 {
-
 	esp_info->probed = 0;
 	esp_info->sec_sz = sec_sz;
 	esp_info->get_stub = get_stub;

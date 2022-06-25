@@ -53,15 +53,14 @@ static const struct esp_flasher_stub_config s_stub_cfg = {
 	.first_user_reg_param = XTENSA_STUB_ARGS_FUNC_START
 };
 
-
 static bool esp32_is_irom_address(target_addr_t addr)
 {
-	return (addr >= ESP32_IROM_LOW && addr < ESP32_IROM_HIGH);
+	return addr >= ESP32_IROM_LOW && addr < ESP32_IROM_HIGH;
 }
 
 static bool esp32_is_drom_address(target_addr_t addr)
 {
-	return (addr >= ESP32_DROM_LOW && addr < ESP32_DROM_HIGH);
+	return addr >= ESP32_DROM_LOW && addr < ESP32_DROM_HIGH;
 }
 
 static const struct esp_flasher_stub_config *esp32_get_stub(struct flash_bank *bank)

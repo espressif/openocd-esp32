@@ -62,7 +62,6 @@ struct spiflash_map_req {
 
 extern esp_rom_spiflash_chip_t g_rom_spiflash_chip;
 
-
 void vPortEnterCritical(void *mux)
 {
 }
@@ -398,7 +397,6 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 				if (dis_dl_enc && dis_dl_icache && dis_dl_dcache)
 					mode = ESP_FLASH_ENC_MODE_RELEASE;
 			}
-
 		} else {
 			mode = ESP_FLASH_ENC_MODE_DISABLED;
 		}

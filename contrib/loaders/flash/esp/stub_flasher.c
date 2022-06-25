@@ -35,7 +35,6 @@
 #define STUB_BP_INSN_SECT_BUF_SIZE        (2 * STUB_FLASH_SECTOR_SIZE)
 #define MHZ (1000000)
 
-
 extern void stub_flash_state_prepare(struct stub_flash_state *state);
 extern void stub_flash_state_restore(struct stub_flash_state *state);
 
@@ -80,7 +79,7 @@ uint32_t esp_log_early_timestamp()
 /* used in app trace module */
 uint32_t esp_clk_cpu_freq(void)
 {
-	return (g_ticks_per_us_pro * MHZ);
+	return g_ticks_per_us_pro * MHZ;
 }
 
 void __assert_func(const char *path, int line, const char *func, const char *msg)
@@ -339,7 +338,6 @@ static int stub_write_aligned_buffer(void *data_buf, uint32_t length)
 
 		if (s_fs.remaining_uncompressed - bytes_in_out_buf == 0 ||
 			bytes_in_out_buf == ESP_STUB_UNZIP_BUFF_SIZE) {
-
 			uint32_t wr_sz = bytes_in_out_buf;
 
 			/* add padding if this is the last package */

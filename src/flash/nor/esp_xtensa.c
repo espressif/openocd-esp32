@@ -37,7 +37,6 @@ static const struct esp_flash_apptrace_hw s_esp_xtensa_flash_apptrace_hw = {
 	.usr_block_max_size_get = esp_xtensa_apptrace_usr_block_max_size_get,
 };
 
-
 int esp_xtensa_flash_init(struct esp_xtensa_flash_bank *esp_info, uint32_t sec_sz,
 	int (*run_func_image)(struct target *target, struct algorithm_run_data *run,
 		uint32_t num_args, ...),

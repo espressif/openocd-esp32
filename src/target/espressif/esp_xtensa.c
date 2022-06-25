@@ -51,7 +51,6 @@
 static void esp_xtensa_dbgstubs_info_update(struct target *target);
 static void esp_xtensa_dbgstubs_addr_check(struct target *target);
 
-
 static int esp_xtensa_dbgstubs_restore(struct target *target)
 {
 	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
@@ -121,7 +120,6 @@ int esp_xtensa_init_arch_info(struct target *target,
 	esp_xtensa->apptrace.hw = &esp_xtensa_apptrace_hw;
 	return ERROR_OK;
 }
-
 
 int esp_xtensa_target_init(struct command_context *cmd_ctx, struct target *target)
 {

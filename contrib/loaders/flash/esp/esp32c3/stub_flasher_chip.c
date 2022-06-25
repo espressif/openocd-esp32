@@ -302,7 +302,7 @@ void stub_uart_console_configure()
 
 uint32_t stub_esp_clk_cpu_freq(void)
 {
-	return (CONFIG_ESP32C3_DEFAULT_CPU_FREQ_MHZ * 1000000);
+	return CONFIG_ESP32C3_DEFAULT_CPU_FREQ_MHZ * 1000000;
 }
 
 /* override apptrace control block advertising func, IDF's implementation issues syscall */
@@ -471,7 +471,6 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 				if (dis_dl_enc && dis_dl_icache)
 					s_mode = ESP_FLASH_ENC_MODE_RELEASE;
 			}
-
 		} else {
 			s_mode = ESP_FLASH_ENC_MODE_DISABLED;
 		}

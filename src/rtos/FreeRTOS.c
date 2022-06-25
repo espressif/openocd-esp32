@@ -363,7 +363,6 @@ static int freertos_read_esp_symbol_table(struct rtos *rtos, int index, uint8_t 
 	*val = rtos_data->esp_symbols[index];
 	LOG_DEBUG("requested inx (%d) val (%d)", index, *val);
 	return ERROR_OK;
-
 }
 
 uint8_t freertos_get_thread_name_offset(struct rtos *rtos)
@@ -688,7 +687,6 @@ static int freertos_get_tasks_details(struct target *target,
 	uint32_t index = *tasks_found;
 
 	for (int i = 0; i < num_lists; i++) {
-
 		if (task_lists[i] == 0)
 			continue;
 
@@ -737,7 +735,6 @@ static int freertos_get_tasks_details(struct target *target,
 		while ((list_task_count > 0) && (list_elem_ptr != 0) &&
 			(list_elem_ptr != list_end_ptr) &&
 			(index < current_num_of_tasks)) {
-
 			/* Get the location of the thread structure. */
 			retval = target_buffer_read_uint(target,
 				list_elem_ptr + rtos_data->params->list_elem_content_offset,
@@ -1019,7 +1016,6 @@ static int freertos_update_threads(struct rtos *rtos)
 			return ERROR_OK;
 		}
 	} else {
-
 		/* create space for new thread details */
 		rtos->thread_details = calloc(thread_list_size, sizeof(struct thread_detail));
 		if (!rtos->thread_details) {

@@ -491,7 +491,8 @@ static int esp32s2_soc_reset(struct target *target)
 		alive_sleep(10);
 		xtensa_poll(target);
 		if (timeval_ms() >= timeout) {
-			LOG_TARGET_ERROR(target, "Timed out waiting for CPU to be reset, target state=%d", target->state);
+			LOG_TARGET_ERROR(target, "Timed out waiting for CPU to be reset, target state=%d",
+				target->state);
 			return ERROR_TARGET_TIMEOUT;
 		}
 	}

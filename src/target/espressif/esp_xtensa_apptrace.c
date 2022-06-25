@@ -255,7 +255,6 @@ struct esp32_apptrace_hw esp_xtensa_apptrace_hw = {
 	.leave_trace_crit_section_stop = esp_xtensa_apptrace_leave_crit_section_stop,
 };
 
-
 uint32_t esp_xtensa_apptrace_block_max_size_get(struct target *target)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
@@ -287,8 +286,8 @@ uint32_t esp_xtensa_apptrace_block_max_size_get(struct target *target)
 
 uint32_t esp_xtensa_apptrace_usr_block_max_size_get(struct target *target)
 {
-	return (esp_xtensa_apptrace_block_max_size_get(target) -
-		sizeof(struct esp_apptrace_host2target_hdr));
+	return esp_xtensa_apptrace_block_max_size_get(target) -
+	       sizeof(struct esp_apptrace_host2target_hdr);
 }
 
 int esp_xtensa_apptrace_data_len_read(struct target *target,

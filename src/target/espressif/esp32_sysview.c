@@ -85,7 +85,6 @@ static int esp_sysview_trace_header_write(struct esp32_apptrace_cmd_ctx *ctx, bo
 static int esp32_sysview_core_id_get(uint8_t *hdr_buf);
 static uint32_t esp32_sysview_usr_block_len_get(uint8_t *hdr_buf, uint32_t *wr_len);
 
-
 int esp32_sysview_cmd_init(struct target *target,
 	struct esp32_apptrace_cmd_ctx *cmd_ctx,
 	int mode,
