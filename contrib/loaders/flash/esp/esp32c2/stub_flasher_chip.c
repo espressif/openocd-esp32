@@ -32,6 +32,7 @@
 #include "stub_flasher_int.h"
 #include "stub_flasher_chip.h"
 #include "stub_flasher.h"
+#include "esp_app_trace_port.h"
 
 #define EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT          (1 << 4)
 
@@ -95,6 +96,11 @@ void vPortExitCritical(void)
 int xPortInIsrContext(void)
 {
 	return 0;
+}
+
+esp_apptrace_hw_t *esp_apptrace_uart_hw_get(int num, void **data)
+{
+	return NULL;
 }
 
 #if STUB_LOG_LOCAL_LEVEL > STUB_LOG_INFO
