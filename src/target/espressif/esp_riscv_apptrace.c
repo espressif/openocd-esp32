@@ -75,7 +75,6 @@ struct esp32_apptrace_hw esp_riscv_apptrace_hw = {
 	.leave_trace_crit_section_stop = NULL
 };
 
-
 int esp_riscv_apptrace_info_init(struct target *target,
 	target_addr_t ctrl_addr,
 	target_addr_t *old_ctrl_addr)
@@ -127,8 +126,8 @@ uint32_t esp_riscv_apptrace_block_max_size_get(struct target *target)
 
 uint32_t esp_riscv_apptrace_usr_block_max_size_get(struct target *target)
 {
-	return (esp_riscv_apptrace_block_max_size_get(target) -
-		sizeof(struct esp_apptrace_host2target_hdr));
+	return esp_riscv_apptrace_block_max_size_get(target) -
+	       sizeof(struct esp_apptrace_host2target_hdr);
 }
 
 int esp_riscv_apptrace_usr_block_write(struct target *target,

@@ -538,7 +538,6 @@ static int jtag_esp_remote_execute_queue(void)
 	size_t read_size = 0;
 	size_t cmd_read_size;
 
-
 	for (cmd = jtag_command_queue; retval == ERROR_OK && cmd != NULL;
 		cmd = cmd->next) {
 		switch (cmd->type) {

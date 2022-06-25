@@ -80,7 +80,6 @@ static volatile uint32_t *mmu_table_s[2] = { STUB_PRO_MMU_TABLE, STUB_APP_MMU_TA
 extern esp_rom_spiflash_chip_t g_rom_spiflash_chip;
 extern uint8_t g_rom_spiflash_dummy_len_plus[];
 
-
 void vPortEnterCritical(void *mux)
 {
 }
@@ -418,7 +417,6 @@ int stub_cpu_clock_configure(int cpu_freq_mhz)
 
 	/* Set CPU to configured value. Keep other clocks unmodified. */
 	if (cpu_freq_mhz > 0) {
-
 		/* On ESP32 rev 0, switching to 80MHz if clock was previously set to
 		 * 240 MHz may cause the chip to lock up (see section 3.5 of the errata
 		 * document). For rev. 0, switch to 240 instead if it was chosen in
@@ -504,7 +502,6 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 				if (dis_dl_cache && dis_dl_enc && dis_dl_dec)
 					mode = ESP_FLASH_ENC_MODE_RELEASE;
 			}
-
 		} else {
 			mode = ESP_FLASH_ENC_MODE_DISABLED;
 		}

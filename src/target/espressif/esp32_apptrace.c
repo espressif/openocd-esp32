@@ -52,7 +52,6 @@
 #include "esp32_apptrace.h"
 #include "esp32_sysview.h"
 
-
 #define ESP32_APPTRACE_USER_BLOCK_CORE(_v_) ((_v_) >> 15)
 #define ESP32_APPTRACE_USER_BLOCK_LEN(_v_)  ((_v_) & ~(1 << 15))
 
@@ -80,7 +79,6 @@
 #define ESP_APPTRACE_FILE_CMD_STOP      0x6	/* indicates that there is no files to transfer */
 
 #define ESP_GCOV_FILES_MAX_NUM          512
-
 
 struct esp32_apptrace_dest_file_data {
 	int fout;
@@ -212,7 +210,6 @@ static int esp32_apptrace_console_dest_init(struct esp32_apptrace_dest *dest, co
 	return ERROR_OK;
 }
 
-
 static int esp32_apptrace_tcp_dest_write(void *priv, uint8_t *data, uint32_t size)
 {
 	struct esp32_apptrace_dest_tcp_data *dest_data =
@@ -311,7 +308,6 @@ static int esp32_apptrace_tcp_dest_init(struct esp32_apptrace_dest *dest, const 
 		return ERROR_FAIL;
 	}
 	LOG_INFO("apptrace: Connected!");
-
 
 	struct esp32_apptrace_dest_tcp_data *dest_data =
 		calloc(1, sizeof(struct esp32_apptrace_dest_tcp_data));
@@ -1957,7 +1953,6 @@ static const char *esp_gcov_filename_alloc(const char *orig_fname)
 	return filename;
 }
 
-
 static int esp_gcov_fopen(struct esp32_gcov_cmd_data *cmd_data,
 	uint8_t *data,
 	uint32_t data_len,
@@ -2000,7 +1995,6 @@ static int esp_gcov_fopen(struct esp32_gcov_cmd_data *cmd_data,
 		fd = 0;
 	} else {
 		fd++;	/* 1-based, 0 indicates error */
-
 	}
 	*resp_len = sizeof(fd);
 	*resp = malloc(*resp_len);

@@ -86,7 +86,6 @@ implementation.
 #define ESP32_RTC_CNTL_SW_CPU_STALL_REG (ESP32_RTCCNTL_BASE + 0xac)
 #define ESP32_RTC_CNTL_SW_CPU_STALL_DEF 0x0
 
-
 /* this should map local reg IDs to GDB reg mapping as defined in xtensa-config.c 'rmap' in
  *xtensa-overlay */
 static const unsigned int esp32_gdb_regs_mapping[ESP32_NUM_REGS] = {
@@ -523,7 +522,6 @@ static int esp32_handle_target_event(struct target *target, enum target_event ev
 	}
 	return ERROR_OK;
 }
-
 
 /* The TDI pin is also used as a flash Vcc bootstrap pin. If we reset the CPU externally, the last state of the TDI pin
  * can allow the power to an 1.8V flash chip to be raised to 3.3V, or the other way around. Users can use the

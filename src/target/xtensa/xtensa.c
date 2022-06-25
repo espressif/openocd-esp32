@@ -334,7 +334,6 @@ const struct xtensa_reg_desc xtensa_regs[XT_NUM_REGS] = {
 	{ "ddr", 0x68, XT_REG_DEBUG, XT_REGF_NOREAD },
 };
 
-
 /**
  * Types of memory used at xtensa target
  */

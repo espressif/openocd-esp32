@@ -35,7 +35,6 @@
 #define TAPINS_IDCODE_LEN       32
 #define TAPINS_BYPASS_LEN       1
 
-
 static void xtensa_dm_add_set_ir(struct xtensa_debug_module *dm, uint8_t value)
 {
 	struct scan_field field;

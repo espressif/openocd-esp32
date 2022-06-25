@@ -271,7 +271,7 @@ void stub_uart_console_configure()
 
 uint32_t stub_esp_clk_cpu_freq(void)
 {
-	return (CONFIG_ESP32C2_DEFAULT_CPU_FREQ_MHZ * 1000000);
+	return CONFIG_ESP32C2_DEFAULT_CPU_FREQ_MHZ * 1000000;
 }
 
 /* override apptrace control block advertising func, IDF's implementation issues syscall */
