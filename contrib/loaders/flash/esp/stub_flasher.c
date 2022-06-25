@@ -135,11 +135,6 @@ static int stub_flash_test(void)
 }
 #endif
 
-esp_apptrace_hw_t *esp_apptrace_uart_hw_get(int num, void **data)
-{
-	return NULL;
-}
-
 static int stub_apptrace_init()
 {
 	STUB_LOGI("Init apptrace module\n");
@@ -1082,7 +1077,6 @@ int stub_main(int cmd, ...)
 	/* interrupts level in PS is set to 5 to allow high prio IRQs only (including Debug
 	 * Interrupt) */
 	/* We need Debug Interrupt Level to allow breakpoints handling by OpenOCD */
-	stub_cpu_clock_configure(-1);
 	stub_uart_console_configure();
 	STUB_LOGD("cpu_freq:%d Mhz\n", stub_esp_clk_cpu_freq() / MHZ);
 	stub_print_cache_mmu_registers();
