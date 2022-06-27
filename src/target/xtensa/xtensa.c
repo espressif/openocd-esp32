@@ -895,6 +895,8 @@ int xtensa_assert_reset(struct target *target)
 	if (res != ERROR_OK)
 		return res;
 	xtensa->reset_asserted = true;
+	/* registers are now invalid */
+	register_cache_invalidate(xtensa->core_cache);
 	return res;
 }
 
@@ -1049,6 +1051,12 @@ int xtensa_fetch_all_regs(struct target *target)
 		} else {
 			reg_list[i].valid = false;
 		}
+		/* We've just fetched actual register value. It is no longer dirty.
+		   For other archs it is done in 'core_reg_get' API when reg value is actually read,
+		   we read all registers in this function which is called when target is halted, so clear it here.*/
+		/* TODO: Try not to read all registers as batch operation. Maybe we can read reg in 'core_reg_get'
+		         when it is actually necessary. This will make stepping and halt/resume much faster.  */
+		reg_list[i].dirty = false;
 	}
 	/* We have used A3 as a scratch register and we will need to write that back. */
 	xtensa_mark_register_dirty(xtensa, XT_REG_IDX_A3);
