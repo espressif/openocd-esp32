@@ -61,16 +61,16 @@ tests_sanitizers_esp32:
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
-tests_sanitizers_esp32_premajor_idf_rel:
+tests_sanitizers_esp32_idf4.x:
   extends: .tests_sanitizers_template
   tags:
     - test_jtag_arm
   needs:
-    - job: build_test_app_esp32_premajor_idf_rel
+    - job: build_test_app_esp32_idf4.x
     - job: build_linux_armhf_sanitizer_test
   variables:
-    TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
+    TEST_RUN_DIR: "build_test_app_esp32_idf4.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_sanitizers_esp32s2:
   extends: .tests_sanitizers_template
@@ -87,18 +87,18 @@ tests_sanitizers_esp32s2:
     TEST_RUN_DIR: "build_test_app_esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
 
-tests_sanitizers_esp32s2_premajor_idf_rel:
+tests_sanitizers_esp32s2_idf4.x:
   extends: .tests_sanitizers_template
   tags:
     - test_jtag_arm_esp32s2
   needs:
-    - job: build_test_app_esp32s2_premajor_idf_rel
+    - job: build_test_app_esp32s2_idf4.x
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
-    TEST_RUN_DIR: "build_test_app_esp32s2_premajor_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32s2-devkitj -p test_*.*Single"
+    TEST_RUN_DIR: "build_test_app_esp32s2_idf4.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s2-devkitj -p test_*.*Single"
 
 tests_sanitizers_esp32s3:
   extends: .tests_sanitizers_template
@@ -115,18 +115,18 @@ tests_sanitizers_esp32s3:
     TEST_RUN_DIR: "build_test_app_esp32s3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
-tests_sanitizers_esp32s3_premajor_idf_rel:
+tests_sanitizers_esp32s3_idf4.x:
   extends: .tests_sanitizers_template
   tags:
     - test_jtag_arm_esp32s3
   needs:
-    - job: build_test_app_esp32s3_premajor_idf_rel
+    - job: build_test_app_esp32s3_idf4.x
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32s3"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3_premajor_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
+    TEST_RUN_DIR: "build_test_app_esp32s3_idf4.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
 tests_sanitizers_esp32c2:
   extends: .tests_sanitizers_template
@@ -159,19 +159,19 @@ tests_sanitizers_esp32c3:
     TEST_RUN_DIR: "build_test_app_esp32c3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single"
 
-tests_sanitizers_esp32c3_premajor_idf_rel:
+tests_sanitizers_esp32c3_idf4.x:
   extends: .tests_sanitizers_template
   tags:
     - test_jtag_arm_esp32c3
   needs:
-    - job: build_test_app_esp32c3_premajor_idf_rel
+    - job: build_test_app_esp32c3_idf4.x
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
-    TEST_RUN_DIR: "build_test_app_esp32c3_premajor_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single -e test_apptrace test_gcov"
+    TEST_RUN_DIR: "build_test_app_esp32c3_idf4.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single -e test_apptrace test_gcov"
 
 test_sanitizers_nuttx_esp32:
   image: $CI_DOCKER_REGISTRY/rpi-test-env
@@ -246,12 +246,12 @@ sanitizer_check_armhf_esp32:
   variables:
     TEST_RUN_DIR: "build_test_app_esp32"
 
-sanitizer_check_armhf_esp32_premajor_idf_rel:
+sanitizer_check_armhf_esp32_idf4.x:
   <<: *sanitizer_check_armhf
   needs:
-    - job: tests_sanitizers_esp32_premajor_idf_rel
+    - job: tests_sanitizers_esp32_idf4.x
   variables:
-    TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
+    TEST_RUN_DIR: "build_test_app_esp32_idf4.x"
 
 sanitizer_check_armhf_esp32s2:
   <<: *sanitizer_check_armhf
@@ -260,12 +260,12 @@ sanitizer_check_armhf_esp32s2:
   variables:
     TEST_RUN_DIR: "build_test_app_esp32s2"
 
-sanitizer_check_armhf_esp32s2_premajor_idf_rel:
+sanitizer_check_armhf_esp32s2_idf4.x:
   <<: *sanitizer_check_armhf
   needs:
-    - job: tests_sanitizers_esp32s2_premajor_idf_rel
+    - job: tests_sanitizers_esp32s2_idf4.x
   variables:
-    TEST_RUN_DIR: "build_test_app_esp32s2_premajor_idf_rel"
+    TEST_RUN_DIR: "build_test_app_esp32s2_idf4.x"
 
 sanitizer_check_armhf_esp32c2:
   <<: *sanitizer_check_armhf
@@ -281,12 +281,12 @@ sanitizer_check_armhf_esp32c3:
   variables:
     TEST_RUN_DIR: "build_test_app_esp32c3"
 
-sanitizer_check_armhf_esp32c3_premajor_idf_rel:
+sanitizer_check_armhf_esp32c3_idf4.x:
   <<: *sanitizer_check_armhf
   needs:
-    - job: tests_sanitizers_esp32c3_premajor_idf_rel
+    - job: tests_sanitizers_esp32c3_idf4.x
   variables:
-    TEST_RUN_DIR: "build_test_app_esp32c3_premajor_idf_rel"
+    TEST_RUN_DIR: "build_test_app_esp32c3_idf4.x"
 
 sanitizer_check_armhf_nuttx_esp32:
   <<: *sanitizer_check_armhf

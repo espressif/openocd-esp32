@@ -1,7 +1,12 @@
 stages:
   - pre_check
   - build
-  - test
+  - test_idf_legacy_release
+  - test_idf4.x
+  - test_idf5.x
+  - test_idf_master
+  - test_windows
+  - test_nuttx
   - coverage
   - sanitizer_tests
   - sanitizer_checks
@@ -184,7 +189,7 @@ upload_to_http:
     - echo "Archive was published there '${OOCD_DISTRO_URL}'"
     - echo "NEW_OOCD_DISTRO_URL=${OOCD_DISTRO_URL}" >> build.env
 
-test_idf_examples:
+test_idf_master_examples:
   stage: pre_release
   when: manual
   only:
@@ -199,7 +204,7 @@ test_idf_examples:
     project: espressif/esp-idf
     strategy: depend
 
-test_premajor_idf_rel_examples:
+test_idf4.x_examples:
   stage: pre_release
   when: manual
   only:
@@ -212,7 +217,7 @@ test_premajor_idf_rel_examples:
       artifacts: true
   trigger:
     project: espressif/esp-idf
-    branch: ${TEST_APP_PREMAJOR_IDF_RELEASE_BRANCH}
+    branch: ${TEST_APP_IDF4_X_RELEASE_BRANCH}
     strategy: depend
 
 create_coverage_reports:
