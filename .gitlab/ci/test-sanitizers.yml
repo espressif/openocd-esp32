@@ -37,17 +37,6 @@ tests_sanitizers_esp32_solo:
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
 
-tests_sanitizers_esp32_legacy_idf_rel:
-  extends: .tests_sanitizers_template
-  tags:
-    - test_jtag_arm
-  needs:
-    - job: build_test_app_esp32_legacy_idf_rel
-    - job: build_linux_armhf_sanitizer_test
-  variables:
-    TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
-
 tests_sanitizers_esp32:
   extends: .tests_sanitizers_template
   tags:
@@ -231,13 +220,6 @@ sanitizer_check_armhf_esp32_solo:
     - job: tests_sanitizers_esp32_solo
   variables:
     TEST_RUN_DIR: "build_test_app_esp32"
-
-sanitizer_check_armhf_esp32_legacy_idf_rel:
-  <<: *sanitizer_check_armhf
-  needs:
-    - job: tests_sanitizers_esp32_legacy_idf_rel
-  variables:
-    TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
 
 sanitizer_check_armhf_esp32:
   <<: *sanitizer_check_armhf

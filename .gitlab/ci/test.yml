@@ -328,19 +328,6 @@ tests_armhf_esp32c3_idf4.x_flash_encrypted:
     TEST_RUN_DIR: "build_test_app_esp32c3_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
-tests_armhf_esp32_legacy_idf_rel:
-  extends: .tests_armhf_template
-  stage: test_idf_legacy_release
-  tags:
-    - test_jtag_arm
-  needs:
-    - job: build_test_app_esp32_legacy_idf_rel
-    - job: build_linux_armhf
-  variables:
-    PLATFORM_NAME: "linux-armhf"
-    TEST_RUN_DIR: "build_test_app_esp32_legacy_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
-
 tests_win_simple_esp32:
   stage: test_windows
   tags:
