@@ -1,7 +1,6 @@
 stages:
   - pre_check
   - build
-  - test_idf_legacy_release
   - test_idf4.x
   - test_idf5.x
   - test_idf_master

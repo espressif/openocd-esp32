@@ -17,8 +17,6 @@
     TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF_BRANCH"
   elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF4_X_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF4_X_BRANCH:-}" ]; then
     TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF4_X_BRANCH"
-  elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_LEGACY_IDF_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_LEGACY_IDF_BRANCH:-}" ]; then
-    TEST_APP_CUSTOM_BRANCH="$TEST_APP_LEGACY_IDF_BRANCH"
   fi
 
   # Use custom idf in case custom branch is present
@@ -194,16 +192,6 @@ build_test_app_esp32c3_idf4.x:
     BUILD_TEST_APP_DIR: "build_test_app_esp32c3_idf4.x"
     TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single"
     TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF4_X_RELEASE_DOCKER_IMAGE}"
-    UT_GET_IDF_VER: "1"
-  extends: .build_test_app_template
-
-build_test_app_esp32_legacy_idf_rel:
-  variables:
-    CHIP_NAME: "esp32"
-    TOOLCHAIN_PREFIX: "xtensa-esp32"
-    BUILD_TEST_APP_DIR: "build_test_app_esp32_legacy_idf_rel"
-    TEST_APP_CONFIGS: ""
-    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_LEGACY_IDF_RELEASE_DOCKER_IMAGE}"
     UT_GET_IDF_VER: "1"
   extends: .build_test_app_template
 
