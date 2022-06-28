@@ -1,5 +1,4 @@
-.tests_armhf_template: &tests_armhf_template
-  stage: test
+.tests_armhf_template:
   image: $CI_DOCKER_REGISTRY/rpi-openocd-env:1
   artifacts:
     paths:
@@ -45,7 +44,8 @@
     - lcov --capture --directory ${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}/esp_cov_files --output-file ${TEST_RUN_DIR}/${CI_JOB_NAME}.info
 
 tests_armhf_esp32:
-  <<: *tests_armhf_template
+  extends: .tests_armhf_template
+  stage: test_idf_master
   tags:
     - test_jtag_arm
   allow_failure: true
@@ -59,7 +59,8 @@ tests_armhf_esp32:
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_armhf_esp32_flash_encrypted:
-  <<: *tests_armhf_template
+  extends: .tests_armhf_template
+  stage: test_idf_master
   tags:
     - test_jtag_arm_flash_encryption
   allow_failure: true
@@ -73,7 +74,8 @@ tests_armhf_esp32_flash_encrypted:
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
 
 tests_armhf_esp32_solo:
-  <<: *tests_armhf_template
+  extends: .tests_armhf_template
+  stage: test_idf_master
   tags:
     - arm
     - test_jtag_solo
@@ -88,7 +90,8 @@ tests_armhf_esp32_solo:
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
 
 tests_armhf_esp32s2:
-  <<: *tests_armhf_template
+  extends: .tests_armhf_template
+  stage: test_idf_master
   tags:
     - test_jtag_arm_esp32s2
   allow_failure: true
@@ -104,7 +107,8 @@ tests_armhf_esp32s2:
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
 
 tests_armhf_esp32s2_flash_encrypted:
-  <<: *tests_armhf_template
+  extends: .tests_armhf_template
+  stage: test_idf_master
   tags:
     - test_jtag_arm_flash_encryption_esp32s2
   allow_failure: true
@@ -120,7 +124,8 @@ tests_armhf_esp32s2_flash_encrypted:
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*SingleEncrypted"
 
 tests_armhf_esp32s3:
-  <<: *tests_armhf_template
+  extends: .tests_armhf_template
+  stage: test_idf_master
   tags:
     - test_jtag_arm_esp32s3
   allow_failure: true
@@ -137,6 +142,7 @@ tests_armhf_esp32s3:
 
 tests_armhf_esp32c2:
   extends: .tests_armhf_template
+  stage: test_idf_master
   tags:
     - arm
     - test_jtag_arm_esp32c2
@@ -154,6 +160,7 @@ tests_armhf_esp32c2:
 
 tests_armhf_esp32c3:
   extends: .tests_armhf_template
+  stage: test_idf_master
   tags:
     - arm
     - test_jtag_arm_esp32c3
@@ -171,6 +178,7 @@ tests_armhf_esp32c3:
 
 tests_armhf_esp32c3_builtin_usb_jtag:
   extends: .tests_armhf_template
+  stage: test_idf_master
   tags:
     - arm
     - test_jtag_arm_esp32c3_builtin
@@ -188,6 +196,7 @@ tests_armhf_esp32c3_builtin_usb_jtag:
 
 tests_armhf_esp32c3_flash_encrypted:
   extends: .tests_armhf_template
+  stage: test_idf_master
   tags:
     - test_jtag_arm_flash_encryption_esp32c3
   allow_failure: true
@@ -202,117 +211,126 @@ tests_armhf_esp32c3_flash_encrypted:
     TEST_RUN_DIR: "build_test_app_esp32c3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
-tests_armhf_esp32_solo_premajor_idf_rel:
-  <<: *tests_armhf_template
+tests_armhf_esp32_solo_idf4.x:
+  extends: .tests_armhf_template
+  stage: test_idf4.x
   tags:
     - arm
     - test_jtag_solo
   needs:
-    - job: build_test_app_esp32_premajor_idf_rel
+    - job: build_test_app_esp32_idf4.x
     - job: build_linux_armhf
   variables:
     PLATFORM_NAME: "linux-armhf"
-    TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32-solo-devkitj -p test_*.*Single"
+    TEST_RUN_DIR: "build_test_app_esp32_idf4.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32-solo-devkitj -p test_*.*Single"
 
-tests_armhf_esp32_premajor_idf_rel:
-  <<: *tests_armhf_template
+tests_armhf_esp32_idf4.x:
+  extends: .tests_armhf_template
+  stage: test_idf4.x
   tags:
     - test_jtag_arm
   needs:
-    - job: build_test_app_esp32_premajor_idf_rel
+    - job: build_test_app_esp32_idf4.x
     - job: build_linux_armhf
   variables:
     PLATFORM_NAME: "linux-armhf"
-    TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
+    TEST_RUN_DIR: "build_test_app_esp32_idf4.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
-tests_armhf_esp32_premajor_idf_rel_flash_encrypted:
-  <<: *tests_armhf_template
+tests_armhf_esp32_idf4.x_flash_encrypted:
+  extends: .tests_armhf_template
+  stage: test_idf4.x
   tags:
     - test_jtag_arm_flash_encryption
   needs:
-    - job: build_test_app_esp32_premajor_idf_rel
+    - job: build_test_app_esp32_idf4.x
     - job: build_linux_armhf
   variables:
     PLATFORM_NAME: "linux-armhf"
-    TEST_RUN_DIR: "build_test_app_esp32_premajor_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
+    TEST_RUN_DIR: "build_test_app_esp32_idf4.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
 
-tests_armhf_esp32s2_premajor_idf_rel:
-  <<: *tests_armhf_template
+tests_armhf_esp32s2_idf4.x:
+  extends: .tests_armhf_template
+  stage: test_idf4.x
   tags:
     - test_jtag_arm_esp32s2
   needs:
-    - job: build_test_app_esp32s2_premajor_idf_rel
+    - job: build_test_app_esp32s2_idf4.x
     - job: build_linux_armhf
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
     PLATFORM_NAME: "linux-armhf"
-    TEST_RUN_DIR: "build_test_app_esp32s2_premajor_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32s2-devkitj -p test_*.*Single"
+    TEST_RUN_DIR: "build_test_app_esp32s2_idf4.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s2-devkitj -p test_*.*Single"
 
-tests_armhf_esp32s2_premajor_idf_rel_flash_encrypted:
-  <<: *tests_armhf_template
+tests_armhf_esp32s2_idf4.x_flash_encrypted:
+  extends: .tests_armhf_template
+  stage: test_idf4.x
   tags:
     - test_jtag_arm_flash_encryption_esp32s2
   needs:
-    - job: build_test_app_esp32s2_premajor_idf_rel
+    - job: build_test_app_esp32s2_idf4.x
     - job: build_linux_armhf
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
     PLATFORM_NAME: "linux-armhf"
-    TEST_RUN_DIR: "build_test_app_esp32s2_premajor_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32s2-devkitj -p test_*.*SingleEncrypted"
+    TEST_RUN_DIR: "build_test_app_esp32s2_idf4.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s2-devkitj -p test_*.*SingleEncrypted"
 
-tests_armhf_esp32s3_premajor_idf_rel:
-  <<: *tests_armhf_template
+tests_armhf_esp32s3_idf4.x:
+  extends: .tests_armhf_template
+  stage: test_idf4.x
   tags:
     - test_jtag_arm_esp32s3
   needs:
-    - job: build_test_app_esp32s3_premajor_idf_rel
+    - job: build_test_app_esp32s3_idf4.x
     - job: build_linux_armhf
   variables:
     CHIP_NAME: "esp32s3"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
     PLATFORM_NAME: "linux-armhf"
-    TEST_RUN_DIR: "build_test_app_esp32s3_premajor_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
+    TEST_RUN_DIR: "build_test_app_esp32s3_idf4.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
-tests_armhf_esp32c3_premajor_idf_rel:
+tests_armhf_esp32c3_idf4.x:
   extends: .tests_armhf_template
+  stage: test_idf4.x
   tags:
     - test_jtag_arm_esp32c3
   needs:
-    - job: build_test_app_esp32c3_premajor_idf_rel
+    - job: build_test_app_esp32c3_idf4.x
     - job: build_linux_armhf
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
     PLATFORM_NAME: "linux-armhf"
-    TEST_RUN_DIR: "build_test_app_esp32c3_premajor_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single"
+    TEST_RUN_DIR: "build_test_app_esp32c3_idf4.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single"
 
-tests_armhf_esp32c3_premajor_idf_rel_flash_encrypted:
+tests_armhf_esp32c3_idf4.x_flash_encrypted:
   extends: .tests_armhf_template
+  stage: test_idf4.x
   tags:
     - test_jtag_arm_flash_encryption_esp32c3
   needs:
-    - job: build_test_app_esp32c3_premajor_idf_rel
+    - job: build_test_app_esp32c3_idf4.x
     - job: build_linux_armhf
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
     PLATFORM_NAME: "linux-armhf"
-    TEST_RUN_DIR: "build_test_app_esp32c3_premajor_idf_rel"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_PREMAJOR_IDF_RELEASE_TAG -b esp32c3-ftdi -p test_*.*SingleEncrypted"
+    TEST_RUN_DIR: "build_test_app_esp32c3_idf4.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
 tests_armhf_esp32_legacy_idf_rel:
-  <<: *tests_armhf_template
+  extends: .tests_armhf_template
+  stage: test_idf_legacy_release
   tags:
     - test_jtag_arm
   needs:
@@ -324,7 +342,7 @@ tests_armhf_esp32_legacy_idf_rel:
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_LEGACY_IDF_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_win_simple_esp32:
-  stage: test
+  stage: test_windows
   tags:
     - test_jtag_win
   needs:
@@ -345,7 +363,7 @@ tests_win_simple_esp32:
 
 test_nuttx_esp32:
   image: $CI_DOCKER_REGISTRY/rpi-test-env
-  stage: test
+  stage: test_nuttx
   tags:
     - test_jtag_arm
   allow_failure: true
