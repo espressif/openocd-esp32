@@ -578,19 +578,11 @@ static int esp32s3_handle_target_event(struct target *target, enum target_event 
 
 static int esp32s3_target_init(struct command_context *cmd_ctx, struct target *target)
 {
-	int ret = esp_xtensa_target_init(cmd_ctx, target);
+	int ret = esp_xtensa_smp_target_init(cmd_ctx, target);
 	if (ret != ERROR_OK)
 		return ret;
 
-	ret = target_register_event_callback(esp32s3_handle_target_event, target);
-	if (ret != ERROR_OK)
-		return ret;
-
-	ret = esp_xtensa_semihosting_init(target);
-	if (ret != ERROR_OK)
-		return ret;
-
-	return ERROR_OK;
+	return target_register_event_callback(esp32s3_handle_target_event, target);
 }
 
 static const struct xtensa_debug_ops esp32s3_dbg_ops = {
