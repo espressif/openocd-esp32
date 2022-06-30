@@ -536,7 +536,7 @@ class Gdb(object):
             self._logger.debug('Skipped connection to remote target')
             return
         self._logger.debug('Connecting to %s', self._remote_target)
-        remote_mode = 'extended_remote' if self._extended_remote_mode else 'remote'
+        remote_mode = 'extended-remote' if self._extended_remote_mode else 'remote'
         self.target_select(remote_mode, self._remote_target, tmo=tmo)
 
     def disconnect(self):
