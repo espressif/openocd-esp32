@@ -197,4 +197,6 @@ uint64_t semihosting_get_field(struct target *target, size_t index, uint8_t *fie
 void semihosting_set_field(struct target *target, uint64_t value, size_t index, uint8_t *fields);
 int semihosting_get_file_name(struct target *target, uint64_t addr, size_t len, char **fname);
 
+extern const struct command_registration semihosting_common_handlers[];
+
 #endif	/* OPENOCD_TARGET_SEMIHOSTING_COMMON_H */

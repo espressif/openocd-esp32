@@ -718,8 +718,6 @@ static const struct command_registration esp_any_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-extern const struct command_registration semihosting_common_handlers[];
-
 static const struct command_registration esp32s2_command_handlers[] = {
 	{
 		.name = "xtensa",
