@@ -58,6 +58,7 @@
 ./tools/uncrustify1.sh src/flash/nor/esp32s3.c
 ./tools/uncrustify1.sh src/rtos/FreeRTOS.c
 ./tools/uncrustify1.sh src/rtos/rtos_nuttx_stackings.c
+./tools/uncrustify1.sh src/rtos/nuttx.c
 
 # Stub flasher related files
 ./tools/uncrustify1.sh contrib/loaders/flash/esp/esp32/sdkconfig.h
