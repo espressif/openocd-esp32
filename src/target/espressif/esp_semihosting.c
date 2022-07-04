@@ -136,6 +136,10 @@ static int remove_from_dir_map_list(struct dir_map *dir_map, struct target *targ
 static int clean_dir_map_list(struct target *target)
 {
 	struct esp_semihost_data *semihost_data = target_to_esp_semihost_data(target);
+
+	if (!semihost_data)
+		return ERROR_OK;
+
 	int ret = list_empty(&semihost_data->dir_map_list);
 	if (!ret) {
 		struct dir_map *dir_map;
