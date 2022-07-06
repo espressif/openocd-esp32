@@ -164,16 +164,6 @@ class SemihostTestsImpl:
         self.add_bp('esp_vfs_semihost_unregister')
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
 
-    @skip_for_ver('latest')
-    def test_semihost_args_legacy(self):
-        """
-        This test checks that 'break 1,1' syscall working properly with wrong argumented functions
-        """
-        self.oocd.set_smp_semihosting_basedir(self.semi_dir)
-        self.select_sub_test(702)
-        self.add_bp('esp_vfs_semihost_unregister')
-        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
-
     @idf_ver_min('5.0')
     @unittest.skip  # until idf branch merged to master
     def test_semihost_custom(self):
@@ -182,9 +172,9 @@ class SemihostTestsImpl:
         """
         self.oocd.set_smp_semihosting_basedir(self.semi_dir)
         if platform.system() == "Windows":
-            self.select_sub_test(704)
-        else:
             self.select_sub_test(703)
+        else:
+            self.select_sub_test(702)
         self.add_bp('esp_vfs_semihost_unregister')
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
         for i in range(self.CORES_NUM):

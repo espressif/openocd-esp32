@@ -853,8 +853,7 @@ ut_result_t semihost_test_do(int test_num)
             break;
         }
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
-        case 701:
-        case 702: {
+        case 701: {
         /*
         * *** About the test ***
         *
@@ -880,8 +879,8 @@ ut_result_t semihost_test_do(int test_num)
         }
 #endif /* CONFIG_IDF_TARGET_ARCH_XTENSA  */
 #if UT_IDF_VER >= MAKE_UT_IDF_VER(5,1,0,0)
-        case 703:
-        case 704: {
+        case 702:
+        case 703: {
         /*
         * *** About the test ***
         *
@@ -890,7 +889,7 @@ ut_result_t semihost_test_do(int test_num)
         * Its sequence:
         * - Test checks new syscall numbers from 0x106 to 0x115
         */
-            if (test_num == 704) {
+            if (test_num == 703) {
                 s_win_flag = 1;
             }
             xTaskCreatePinnedToCore(&semihost_custom_call_task, "semihost_custom_call_task0", 4096, NULL, 5, NULL, 0);

@@ -214,8 +214,7 @@ int esp_semihosting_sys_seek(struct target *target, uint64_t fd, uint32_t pos, s
 
 	semihosting->result = lseek(fd, pos, whence);
 	semihosting->sys_errno = errno;
-	LOG_DEBUG("lseek(%" PRIx64 ", %d %d)=%d", fd, (int)pos,
-		(int)semihosting->result, errno);
+	LOG_TARGET_DEBUG(target, "lseek(%" PRIx64 ", %" PRIu32 " %" PRId64 ")=%d", fd, pos, semihosting->result, errno);
 	return ERROR_OK;
 }
 
@@ -228,7 +227,7 @@ static int esp_semihosting_sys_drv_info(struct target *target, int addr, int siz
 
 	uint8_t *buf = malloc(size);
 	if (!buf) {
-		LOG_ERROR("Memory alloc failed drv info!");
+		LOG_ERROR("Memory alloc failed drv info! size:(%d)", size);
 		return ERROR_FAIL;
 	}
 	int retval = target_read_buffer(target, addr, size, buf);
@@ -237,10 +236,10 @@ static int esp_semihosting_sys_drv_info(struct target *target, int addr, int siz
 		semihosting->result = 0;
 		semihosting->sys_errno = 0;
 		semihost_data->version = le_to_h_u32(&buf[0]);
-		LOG_DEBUG("semihost.version: %d", semihost_data->version);
+		LOG_TARGET_DEBUG(target, "semihost.version: %d", semihost_data->version);
 	}
 	free(buf);
-	LOG_DEBUG("drv_info res=%d errno=%d", (int)semihosting->result, semihosting->sys_errno);
+	LOG_TARGET_DEBUG(target, "drv_info res=%" PRId64 " errno=%d", semihosting->result, semihosting->sys_errno);
 	return retval;
 }
 
@@ -264,8 +263,7 @@ int esp_semihosting_common(struct target *target)
 	semihosting->result = -1;
 	semihosting->sys_errno = EIO;
 
-	LOG_DEBUG("op=0x%x, param=0x%" PRIx64, semihosting->op,
-		semihosting->param);
+	LOG_TARGET_DEBUG(target, "op=0x%x, param=0x%" PRIx64, semihosting->op, semihosting->param);
 
 	switch (semihosting->op) {
 	case ESP_SEMIHOSTING_SYS_DRV_INFO:
@@ -309,7 +307,7 @@ int esp_semihosting_common(struct target *target)
 			if (fn) {
 				semihosting->result = mkdir(fn, mode);
 				semihosting->sys_errno = errno;
-				LOG_DEBUG("mkdir('%s, %3o')=%d", fn, mode, (int)semihosting->result);
+				LOG_DEBUG("mkdir('%s, %3o')=%" PRId64, fn, mode, semihosting->result);
 				free(fn);
 			}
 		}
@@ -402,7 +400,7 @@ int esp_semihosting_common(struct target *target)
 				seekdir(dir_map->dirptr, pos);
 				semihosting->result = 0;
 				semihosting->sys_errno = errno;
-				LOG_DEBUG("seekdir(%d)=%d", id, (int)semihosting->result);
+				LOG_DEBUG("seekdir(%d)=%" PRId64, id, semihosting->result);
 			}
 		}
 		break;
@@ -420,7 +418,7 @@ int esp_semihosting_common(struct target *target)
 			} else {
 				semihosting->result = telldir(dir_map->dirptr);
 				semihosting->sys_errno = errno;
-				LOG_DEBUG("telldir(%d)= %d", id, (int)semihosting->result);
+				LOG_DEBUG("telldir(%d)= %" PRId64, id, semihosting->result);
 			}
 		}
 		break;
@@ -438,7 +436,7 @@ int esp_semihosting_common(struct target *target)
 				semihosting->result = closedir(dir_map->dirptr);
 				semihosting->sys_errno = errno;
 				remove_from_dir_map_list(dir_map, target);
-				LOG_DEBUG("closedir(%d)=%d", id, (int)semihosting->result);
+				LOG_DEBUG("closedir(%d)=%" PRId64, id, semihosting->result);
 			}
 		}
 		break;
@@ -457,7 +455,7 @@ int esp_semihosting_common(struct target *target)
 			if (fn) {
 				semihosting->result = rmdir(fn);
 				semihosting->sys_errno = errno;
-				LOG_DEBUG("rmdir('%s')=%d", fn, (int)semihosting->result);
+				LOG_DEBUG("rmdir('%s')=%" PRId64, fn, semihosting->result);
 				free(fn);
 			}
 		}
@@ -478,7 +476,7 @@ int esp_semihosting_common(struct target *target)
 			if (fn) {
 				semihosting->result = access(fn, flag_values);
 				semihosting->sys_errno = errno;
-				LOG_DEBUG("access('%s')=%d", fn, (int)semihosting->result);
+				LOG_DEBUG("access('%s')=%" PRId64, fn, semihosting->result);
 				free(fn);
 			}
 		}
@@ -499,7 +497,7 @@ int esp_semihosting_common(struct target *target)
 			if (fn) {
 				semihosting->result = truncate(fn, trunc_len);
 				semihosting->sys_errno = errno;
-				LOG_DEBUG("truncate('%s', '%d')=%d", fn, trunc_len, (int)semihosting->result);
+				LOG_DEBUG("truncate('%s', '%d')=%" PRId64, fn, trunc_len, semihosting->result);
 				free(fn);
 			}
 		}
@@ -523,7 +521,7 @@ int esp_semihosting_common(struct target *target)
 
 				semihosting->result = utime(fn, &times);
 				semihosting->sys_errno = errno;
-				LOG_DEBUG("utime('%s')=%d", fn, (int)semihosting->result);
+				LOG_DEBUG("utime('%s')=%" PRId64, fn, semihosting->result);
 				free(fn);
 			}
 		}
@@ -551,7 +549,7 @@ int esp_semihosting_common(struct target *target)
 					return retval;
 				}
 			}
-			LOG_DEBUG("fstat('%ld')=%d", (long)addr, (int)semihosting->result);
+			LOG_DEBUG("fstat('%d')=%" PRId64, addr, semihosting->result);
 		}
 		break;
 
@@ -576,6 +574,7 @@ int esp_semihosting_common(struct target *target)
 
 				if (semihosting->result >= 0) {
 					fill_stat_struct(&stat_ret, &statbuf);
+					/* FIXME: endiannes issue */
 					uint8_t *buff = (uint8_t *)(&stat_ret);
 					retval = target_write_buffer(target, ret_addr, sizeof(struct stat_ret), buff);
 					if (retval != ERROR_OK) {
@@ -585,7 +584,7 @@ int esp_semihosting_common(struct target *target)
 						return retval;
 					}
 				}
-				LOG_DEBUG("stat('%s')=%d", fn, (int)semihosting->result);
+				LOG_DEBUG("stat('%s')=%" PRId64, fn, semihosting->result);
 				free(fn);
 			}
 		}
@@ -598,7 +597,7 @@ int esp_semihosting_common(struct target *target)
 			int fd = semihosting_get_field(target, 0, fields);
 			semihosting->result = fsync(fd);
 			semihosting->sys_errno = errno;
-			LOG_DEBUG("fsync('%d')=%d", fd, (int)semihosting->result);
+			LOG_DEBUG("fsync('%d')=%" PRId64, fd, semihosting->result);
 		}
 		break;
 
@@ -623,7 +622,7 @@ int esp_semihosting_common(struct target *target)
 			if (source_fn && dest_fn) {
 				semihosting->result = link(source_fn, dest_fn);
 				semihosting->sys_errno = errno;
-				LOG_DEBUG("link('%s %s')=%d", source_fn, dest_fn, (int)semihosting->result);
+				LOG_DEBUG("link('%s %s')=%" PRId64, source_fn, dest_fn, semihosting->result);
 				free(source_fn);
 				free(dest_fn);
 			}
@@ -644,7 +643,7 @@ int esp_semihosting_common(struct target *target)
 			if (fn) {
 				semihosting->result = unlink(fn);
 				semihosting->sys_errno = errno;
-				LOG_DEBUG("unlink('%s')=%d", fn, (int)semihosting->result);
+				LOG_DEBUG("unlink('%s')=%" PRId64, fn, semihosting->result);
 				free(fn);
 			}
 		}

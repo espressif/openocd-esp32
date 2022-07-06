@@ -13,11 +13,13 @@
 #include "assert.h"
 #include <target/target.h>
 #include <target/target_type.h>
+#include <target/semihosting_common.h>
 #include <rtos/rtos.h>
 #include <flash/nor/esp_xtensa.h>
 #include "esp32s2.h"
 #include "esp32_apptrace.h"
 #include "esp_xtensa.h"
+#include "esp_semihosting.h"
 
 /* Overall memory map
  * TODO: read memory configuration from target registers */
@@ -590,7 +592,7 @@ static int esp32s2_poll(struct target *target)
 		if (old_state == TARGET_DEBUG_RUNNING) {
 			target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
 		} else {
-			if (esp_xtensa_semihosting(target, &ret) != 0) {
+			if (esp_xtensa_semihosting(target, &ret) == SEMIHOSTING_HANDLED) {
 				struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
 				if (ret == ERROR_OK && esp_xtensa->semihost.need_resume) {
 					esp_xtensa->semihost.need_resume = false;
