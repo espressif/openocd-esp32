@@ -1,11 +1,16 @@
 #include "driver/gpio.h"
-#include "esp_spi_flash.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
 #include "gen_ut_app.h"
-
 #include "esp_log.h"
+#if UT_IDF_VER < MAKE_UT_IDF_VER(5,0,0,0)
+#include "esp_spi_flash.h"
+#else
+#include "spi_flash_mmap.h"
+#include "esp_private/cache_utils.h"
+#endif
+
 const static char *TAG = "special_test";
 
 static void crash_task(void *pvParameter)
