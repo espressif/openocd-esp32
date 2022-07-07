@@ -25,8 +25,10 @@
 #include "soc/extmem_reg.h"
 #include "soc/gpio_reg.h"
 #include "soc/mmu.h"
-#include "esp_spi_flash.h"
-#include "rtc_clk_common.h"
+#include "soc/system_reg.h"
+#include "spi_flash_mmap.h"
+#include "soc/clk_tree_defs.h"
+#include "hal/clk_tree_ll.h"
 #include "esp_app_trace_membufs_proto.h"
 #include "stub_rom_chip.h"
 #include "stub_flasher_int.h"
@@ -41,8 +43,9 @@
 #define STUB_MMU_DROM_VADDR             0x3c020000
 #define STUB_MMU_DROM_PAGES_START       2
 #define STUB_MMU_DROM_PAGES_END         128
-#define STUB_MMU_TABLE                  SOC_MMU_DPORT_PRO_FLASH_MMU_TABLE	/* 0x600c5000 */
-#define STUB_MMU_INVALID_ENTRY_VAL      SOC_MMU_INVALID_ENTRY_VAL	/* 0x100 */
+#define STUB_MMU_TABLE                  FLASH_MMU_TABLE	/* 0x600c5000 */
+#define STUB_MMU_INVALID_ENTRY_VAL      0x40	/* BIT(6) */
+#define STUB_MMU_PAGE_SIZE              0x10000	/* 64KB */
 
 #define ESP_APPTRACE_RISCV_BLOCK_LEN_MSK         0x7FFFUL
 #define ESP_APPTRACE_RISCV_BLOCK_LEN(_l_)        ((_l_) & ESP_APPTRACE_RISCV_BLOCK_LEN_MSK)
@@ -193,10 +196,11 @@ void stub_flash_state_restore(struct stub_flash_state *state)
 
 rtc_xtal_freq_t stub_rtc_clk_xtal_freq_get(void)
 {
-	uint32_t xtal_freq_reg = READ_PERI_REG(RTC_XTAL_FREQ_REG);
-	if (!clk_val_is_valid(xtal_freq_reg))
+	uint32_t xtal_freq_mhz = clk_ll_xtal_load_freq_mhz();
+	if (xtal_freq_mhz == 0)
+		/* invalid RTC_XTAL_FREQ_REG value, assume 40MHz */
 		return RTC_XTAL_FREQ_40M;
-	return reg_val_to_clk_val(xtal_freq_reg);
+	return xtal_freq_mhz;
 }
 
 /* Obviously we can call rtc_clk_cpu_freq_get_config() from esp-idf
@@ -204,39 +208,32 @@ But this call may cause undesired locks due to ets_printf or abort
 */
 int stub_rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t *out_config)
 {
-	rtc_cpu_freq_src_t source;
+	soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
 	uint32_t source_freq_mhz;
 	uint32_t div;
 	uint32_t freq_mhz;
-	uint32_t soc_clk_sel = REG_GET_FIELD(SYSTEM_SYSCLK_CONF_REG, SYSTEM_SOC_CLK_SEL);
-	switch (soc_clk_sel) {
-	case DPORT_SOC_CLK_SEL_XTAL: {
-		source = RTC_CPU_FREQ_SRC_XTAL;
-		div = REG_GET_FIELD(SYSTEM_SYSCLK_CONF_REG, SYSTEM_PRE_DIV_CNT) + 1;
-		source_freq_mhz = (uint32_t)stub_rtc_clk_xtal_freq_get();
+	switch (source) {
+	case SOC_CPU_CLK_SRC_XTAL: {
+		div = clk_ll_cpu_get_divider();
+		source_freq_mhz = (uint32_t)rtc_clk_xtal_freq_get();
 		freq_mhz = source_freq_mhz / div;
 	}
 	break;
-	case DPORT_SOC_CLK_SEL_PLL: {
-		source = RTC_CPU_FREQ_SRC_PLL;
-		uint32_t cpuperiod_sel = REG_GET_FIELD(SYSTEM_CPU_PER_CONF_REG,
-				SYSTEM_CPUPERIOD_SEL);
-		source_freq_mhz = RTC_PLL_FREQ_480M;	/* PLL clock on ESP32-C2 was fixed to 480MHz */
-		if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_80) {
+	case SOC_CPU_CLK_SRC_PLL: {
+		freq_mhz = clk_ll_cpu_get_freq_mhz_from_pll();
+		source_freq_mhz = CLK_LL_PLL_480M_FREQ_MHZ;	/* PLL clock on ESP32-C2 was fixed to 480MHz */
+		if (freq_mhz == CLK_LL_PLL_80M_FREQ_MHZ) {
 			div = 6;
-			freq_mhz = 80;
-		} else if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_120) {
+		} else if (freq_mhz == CLK_LL_PLL_120M_FREQ_MHZ) {
 			div = 4;
-			freq_mhz = 120;
 		} else {
 			/* unsupported frequency configuration */
 			return -1;
 		}
 		break;
 	}
-	case DPORT_SOC_CLK_SEL_8M:
-		source = RTC_CPU_FREQ_SRC_8M;
-		source_freq_mhz = 8;
+	case SOC_CPU_CLK_SRC_RC_FAST:
+		source_freq_mhz = 20;
 		div = 1;
 		freq_mhz = source_freq_mhz;
 		break;
@@ -250,7 +247,6 @@ int stub_rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t *out_config)
 		.div = div,
 		.freq_mhz = freq_mhz
 	};
-
 	return 0;
 }
 
@@ -400,11 +396,6 @@ esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint3
 	return ESP_ROM_SPIFLASH_RESULT_OK;
 }
 
-bool esp_cpu_in_ocd_debug_mode(void)
-{
-	return true;
-}
-
 static inline bool esp_flash_encryption_enabled(void)
 {
 	return false;
@@ -432,10 +423,10 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 
 static int stub_flash_mmap(struct spiflash_map_req *req)
 {
-	uint32_t map_src = req->src_addr & (~(SPI_FLASH_MMU_PAGE_SIZE - 1));
+	uint32_t map_src = req->src_addr & (~(STUB_MMU_PAGE_SIZE - 1));
 	uint32_t map_size = req->size + (req->src_addr - map_src);
-	uint32_t flash_page = map_src / SPI_FLASH_MMU_PAGE_SIZE;
-	uint32_t page_cnt = (map_size + SPI_FLASH_MMU_PAGE_SIZE - 1) / SPI_FLASH_MMU_PAGE_SIZE;
+	uint32_t flash_page = map_src / STUB_MMU_PAGE_SIZE;
+	uint32_t page_cnt = (map_size + STUB_MMU_PAGE_SIZE - 1) / STUB_MMU_PAGE_SIZE;
 	int start_page, ret = ESP_ROM_SPIFLASH_RESULT_ERR;
 	uint32_t saved_state = Cache_Suspend_ICache() << 16;
 
@@ -456,11 +447,11 @@ static int stub_flash_mmap(struct spiflash_map_req *req)
 		req->start_page = start_page;
 		req->page_cnt = page_cnt;
 		req->ptr = (void *)(STUB_MMU_DROM_VADDR +
-			(start_page - STUB_MMU_DROM_PAGES_START) * SPI_FLASH_MMU_PAGE_SIZE +
+			(start_page - STUB_MMU_DROM_PAGES_START) * STUB_MMU_PAGE_SIZE +
 			(req->src_addr - map_src));
 		Cache_Invalidate_Addr((uint32_t)(STUB_MMU_DROM_VADDR +
-				(start_page - STUB_MMU_DROM_PAGES_START) * SPI_FLASH_MMU_PAGE_SIZE),
-			page_cnt * SPI_FLASH_MMU_PAGE_SIZE);
+				(start_page - STUB_MMU_DROM_PAGES_START) * STUB_MMU_PAGE_SIZE),
+			page_cnt * STUB_MMU_PAGE_SIZE);
 		ret = ESP_ROM_SPIFLASH_RESULT_OK;
 	}
 
