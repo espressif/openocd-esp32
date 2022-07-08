@@ -433,17 +433,45 @@ esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint3
 
 static inline bool esp_flash_encryption_enabled(void)
 {
-	return false;
+	uint32_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
+		EFUSE_SPI_BOOT_ENCRYPT_DECRYPT_CNT);
+
+	/* __builtin_parity is in flash, so we calculate parity inline */
+	bool enabled = false;
+	while (flash_crypt_cnt) {
+		if (flash_crypt_cnt & 1)
+			enabled = !enabled;
+		flash_crypt_cnt >>= 1;
+	}
+	return enabled;
 }
 
 esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 {
-	static esp_flash_enc_mode_t s_mode = ESP_FLASH_ENC_MODE_DISABLED;
+	static esp_flash_enc_mode_t s_mode = ESP_FLASH_ENC_MODE_DEVELOPMENT;
 	static bool s_first = true;
 
 	if (s_first) {
 		if (esp_flash_encryption_enabled()) {
-			/* TODO */
+			/* Check if SPI_BOOT_CRYPT_CNT is write protected */
+			bool flash_crypt_cnt_wr_dis = REG_READ(EFUSE_RD_WR_DIS_REG) &
+				EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT;
+			if (!flash_crypt_cnt_wr_dis) {
+				uint8_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
+					EFUSE_SPI_BOOT_ENCRYPT_DECRYPT_CNT);
+				/* Check if SPI_BOOT_CRYPT_CNT set for permanent encryption */
+				if (flash_crypt_cnt == EFUSE_SPI_BOOT_ENCRYPT_DECRYPT_CNT_V)
+					flash_crypt_cnt_wr_dis = true;
+			}
+
+			if (flash_crypt_cnt_wr_dis) {
+				uint8_t dis_dl_enc = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
+					EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT);
+				uint8_t dis_dl_icache = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
+					EFUSE_DIS_DOWNLOAD_ICACHE);
+				if (dis_dl_enc && dis_dl_icache)
+					s_mode = ESP_FLASH_ENC_MODE_RELEASE;
+			}
 		} else {
 			s_mode = ESP_FLASH_ENC_MODE_DISABLED;
 		}
