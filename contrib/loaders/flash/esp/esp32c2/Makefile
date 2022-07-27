@@ -38,6 +38,7 @@ STUB_CHIP := ESP32C2
 SRCS := $(IDF_PATH)/components/esp_hw_support/port/esp32c2/rtc_clk_init.c \
 		$(IDF_PATH)/components/esp_hw_support/port/esp32c2/rtc_clk.c \
 		$(IDF_PATH)/components/esp_hw_support/port/esp32c2/rtc_time.c \
+		$(IDF_PATH)/components/esp_hw_support/port/esp32c2/systimer.c \
 		$(IDF_PATH)/components/app_trace/port/$(STUB_ARCH)/port.c
 
 CFLAGS :=
@@ -52,6 +53,6 @@ INCLUDES := -I$(IDF_PATH)/components/soc/esp32c2/include -I$(IDF_PATH)/component
 DEFINES :=
 
 LDFLAGS += -T$(IDF_PATH)/components/esp_rom/esp32c2/ld/esp32c2.rom.ld -T$(IDF_PATH)/components/esp_rom/esp32c2/ld/esp32c2.rom.newlib.ld \
-		-T$(IDF_PATH)/components/esp_rom/esp32c2/ld/esp32c2.rom.api.ld
+		-T$(IDF_PATH)/components/esp_rom/esp32c2/ld/esp32c2.rom.api.ld -T$(IDF_PATH)/components/soc/esp32c2/ld/esp32c2.peripherals.ld
 
 include ../stub_common.mk

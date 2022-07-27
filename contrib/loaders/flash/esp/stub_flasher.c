@@ -220,7 +220,7 @@ static int stub_flash_read(uint32_t addr, uint32_t size)
 		STUB_LOGD("Read flash @ 0x%x sz %d in %d ms\n",
 			addr + total_cnt,
 			rd_sz,
-			end - start);
+			(end - start) / 1000);
 
 		/* regardless of the read result, first free the buffer */
 		esp_err_t err = esp_apptrace_buffer_put(ESP_APPTRACE_DEST_TRAX,
@@ -307,7 +307,7 @@ static esp_rom_spiflash_result_t stub_spiflash_write(uint32_t spi_flash_addr,
 		rc = esp_rom_spiflash_write(spi_flash_addr, data, len);
 	uint64_t end = stub_get_time();
 
-	STUB_LOGD("Write flash @ 0x%x sz %d in %d us\n",
+	STUB_LOGD("Write flash @ 0x%x sz %d in %lld us\n",
 		spi_flash_addr,
 		len,
 		end - start);
@@ -394,12 +394,11 @@ static int stub_flash_write(void *args)
 
 	while (total_cnt < wargs->size) {
 		uint32_t wr_sz = wargs->size - total_cnt;
-		STUB_LOGD("Req trace down buf %d bytes %d-%d [%d]\n",
+		STUB_LOGD("Req trace down buf %d bytes %d-%d\n",
 			wr_sz,
 			wargs->size,
-			total_cnt,
-			stub_get_time());
-		uint32_t start = stub_get_time();
+			total_cnt);
+		uint64_t start = stub_get_time();
 		buf = esp_apptrace_down_buffer_get(ESP_APPTRACE_DEST_TRAX,
 			&wr_sz,
 			ESP_APPTRACE_TMO_INFINITE);
@@ -408,8 +407,8 @@ static int stub_flash_write(void *args)
 			return ESP_STUB_ERR_FAIL;
 		}
 
-		uint32_t end = stub_get_time();
-		STUB_LOGD("Got trace down buf %d bytes @ 0x%x in %d us\n", wr_sz, buf,
+		uint64_t end = stub_get_time();
+		STUB_LOGD("Got trace down buf %d bytes @ 0x%x in %lld us\n", wr_sz, buf,
 			end - start);
 
 		ret = stub_write_aligned_buffer(buf, wr_sz);
@@ -569,11 +568,10 @@ static int stub_flash_write_deflated(void *args)
 
 	while (total_cnt < wargs->size) {
 		uint32_t wr_sz = wargs->size - total_cnt;
-		STUB_LOGD("Req trace down buf %d bytes %d-%d [%d]\n",
+		STUB_LOGD("Req trace down buf %d bytes %d-%d\n",
 			wr_sz,
 			wargs->size,
-			total_cnt,
-			stub_get_time());
+			total_cnt);
 		uint64_t start = stub_get_time();
 		buf = esp_apptrace_down_buffer_get(ESP_APPTRACE_DEST_TRAX,
 			&wr_sz,
@@ -584,7 +582,7 @@ static int stub_flash_write_deflated(void *args)
 		}
 
 		uint64_t end = stub_get_time();
-		STUB_LOGD("Got trace down buf %d bytes @ 0x%x in %d us\n", wr_sz, buf,
+		STUB_LOGD("Got trace down buf %d bytes @ 0x%x in %lld us\n", wr_sz, buf,
 			end - start);
 
 		if (stub_run_inflator(buf, wr_sz) != ESP_STUB_ERR_OK)
@@ -630,7 +628,7 @@ static int stub_flash_erase(uint32_t flash_addr, uint32_t size)
 	}
 	uint64_t end = stub_get_time();
 	STUB_LOGD("Erased %d bytes @ 0x%x in %lld ms\n", size, flash_addr,
-		end - start / 1000);
+		(end - start) / 1000);
 	return ret;
 }
 

@@ -28,6 +28,7 @@
 /* TODO: use current clk, get it from PLL settings */
 #define CONFIG_ESP32C2_DEFAULT_CPU_FREQ_MHZ     120
 #define CONFIG_ESP32C2_XTAL_FREQ                40
+#define CONFIG_ESP32C2_XTAL_FREQ_40             1
 /* Unused by stub, just for compilation of IDF */
 #define CONFIG_PARTITION_TABLE_OFFSET           0x8000
 #define CONFIG_MMU_PAGE_SIZE                    0x10000	/* 64KB */
