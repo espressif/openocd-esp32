@@ -30,5 +30,6 @@
 #define CONFIG_ESP32C2_XTAL_FREQ                40
 /* Unused by stub, just for compilation of IDF */
 #define CONFIG_PARTITION_TABLE_OFFSET           0x8000
+#define CONFIG_MMU_PAGE_SIZE                    0x10000	/* 64KB */
 
 #endif	/*_STUB_SDKCONFIG_H_ */
