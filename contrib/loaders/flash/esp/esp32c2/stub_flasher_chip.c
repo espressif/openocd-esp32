@@ -30,6 +30,8 @@
 #include "soc/clk_tree_defs.h"
 #include "hal/clk_tree_ll.h"
 #include "hal/mmu_ll.h"
+#include "hal/systimer_ll.h"
+#include "systimer.h"
 #include "esp_app_trace_membufs_proto.h"
 #include "stub_rom_chip.h"
 #include "stub_flasher_int.h"
@@ -91,6 +93,9 @@ struct spiflash_map_req {
 	/* Mapped MMU page count */
 	uint32_t page_cnt;
 };
+
+static systimer_dev_t *s_sys_timer_dev = &SYSTIMER;
+static uint32_t s_sys_timer_conf;
 
 uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32C2_DEFAULT_CPU_FREQ_MHZ * MHZ;
 
@@ -207,6 +212,23 @@ void stub_cache_configure(void)
 		s_cache_mmu_config.vaddr0_start_addr);
 }
 
+void stub_systimer_init(void)
+{
+	/* Enable APB_CLK signal if not enabled yet */
+	if (!GET_PERI_REG_MASK(SYSTEM_PERIP_CLK_EN0_REG, SYSTEM_SYSTIMER_CLK_EN)) {
+		SET_PERI_REG_MASK(SYSTEM_PERIP_CLK_EN0_REG, SYSTEM_SYSTIMER_CLK_EN);
+		CLEAR_PERI_REG_MASK(SYSTEM_PERIP_RST_EN0_REG, SYSTEM_SYSTIMER_RST);
+		STUB_LOGI("Systimer clock enabled\n");
+	}
+
+	s_sys_timer_conf = s_sys_timer_dev->conf.val;
+
+	/* enable SYSTIMER_LL_COUNTER_CLOCK */
+	s_sys_timer_dev->conf.clk_en = 1;
+	s_sys_timer_dev->conf.timer_unit0_work_en = 1;
+	s_sys_timer_dev->conf.timer_unit0_core0_stall_en = 0;
+}
+
 void stub_flash_state_prepare(struct stub_flash_state *state)
 {
 	const uint32_t spiconfig = 0;	/* ESP32C2 doesn't support ets_efuse_get_spiconfig(); */
@@ -217,6 +239,7 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 		stub_cache_init();
 	}
 	stub_cache_configure();
+	stub_systimer_init();
 
 	esp_rom_spiflash_attach(spiconfig, false);
 }
@@ -224,6 +247,9 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 void stub_flash_state_restore(struct stub_flash_state *state)
 {
 	/* we do not disable or store the cache settings. So, nothing to restore*/
+
+	/* restore timer settings */
+	s_sys_timer_dev->conf.val = s_sys_timer_conf;
 }
 
 #define RTC_PLL_FREQ_320M   320
@@ -295,7 +321,7 @@ void stub_uart_console_configure()
 	uint32_t clock = ets_get_apb_freq();
 	ets_update_cpu_frequency(clock / 1000000);
 
-	Uart_Init(0, UART_CLK_FREQ_ROM);
+	Uart_Init(0, APB_CLK_FREQ_ROM);
 	/* install to print later
 	 * Non-Flash Boot can print
 	 * Flash Boot can print when RTC_CNTL_STORE4_REG bit0 is 0 (can be 1 after deep sleep, software reset) and printf boot.
@@ -343,21 +369,34 @@ int stub_apptrace_prepare()
 	return ESP_STUB_ERR_OK;
 }
 
-int64_t esp_timer_get_time(void)
-{
-	/* this function is used by apptrace code to implement timeouts.
-	   unfortunately esp32c3 does not support CPU cycle counter, so we have two options:
-	   1) Use some HW timer. It can be hard, because we need to ensure that it is initialized and possibly restore its state.
-	   2) Emulate timer by incrementing some var on every call.
-	          Stub flasher uses ESP_APPTRACE_TMO_INFINITE only, so this function won't be called by apptrace at all. */
-	return 0;
-}
-
+/* this function is used for perf measurements only.*/
 uint64_t stub_get_time(void)
 {
-	/* this function is used for perf measurements only.
-	   unfortunately esp32c3 does not support CPU cycle counter and usage of HW timer is problematic */
-	return 0;
+	uint32_t lo, lo_start, hi;
+
+	/* Set the "update" bit and wait for acknowledgment */
+	systimer_ll_counter_snapshot(s_sys_timer_dev, SYSTIMER_LL_COUNTER_CLOCK);
+	while (!systimer_ll_is_counter_value_valid(s_sys_timer_dev, SYSTIMER_LL_COUNTER_CLOCK)) ;
+
+	/* Read LO, HI, then LO again, check that LO returns the same value.
+	* This accounts for the case when an interrupt may happen between reading
+	* HI and LO values, and this function may get called from the ISR.
+	* In this case, the repeated read will return consistent values.
+	*/
+	lo_start = systimer_ll_get_counter_value_low(s_sys_timer_dev, SYSTIMER_LL_COUNTER_CLOCK);
+	do {
+		lo = lo_start;
+		hi = systimer_ll_get_counter_value_high(s_sys_timer_dev, SYSTIMER_LL_COUNTER_CLOCK);
+		lo_start = systimer_ll_get_counter_value_low(s_sys_timer_dev, SYSTIMER_LL_COUNTER_CLOCK);
+	} while (lo_start != lo);
+
+	return systimer_ticks_to_us(((uint64_t)hi << 32) | lo);
+}
+
+/* this function is used by apptrace code to implement timeouts */
+int64_t esp_timer_get_time(void)
+{
+	return (int64_t)stub_get_time();
 }
 
 esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint32_t area_len)
