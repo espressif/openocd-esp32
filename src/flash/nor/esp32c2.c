@@ -54,12 +54,12 @@ static const struct esp_flasher_stub_config s_esp32c2_stub_cfg = {
 
 static bool esp32c2_is_irom_address(target_addr_t addr)
 {
-	return (addr >= ESP32C2_IROM_LOW && addr < ESP32C2_IROM_HIGH);
+	return addr >= ESP32C2_IROM_LOW && addr < ESP32C2_IROM_HIGH;
 }
 
 static bool esp32c2_is_drom_address(target_addr_t addr)
 {
-	return (addr >= ESP32C2_DROM_LOW && addr < ESP32C2_DROM_HIGH);
+	return addr >= ESP32C2_DROM_LOW && addr < ESP32C2_DROM_HIGH;
 }
 
 static const struct esp_flasher_stub_config *esp32c2_get_stub(struct flash_bank *bank)
