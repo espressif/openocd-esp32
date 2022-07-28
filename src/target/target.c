@@ -95,6 +95,7 @@ extern struct target_type esp32_target;
 extern struct target_type esp32s2_target;
 extern struct target_type esp32s3_target;
 extern struct target_type esp32c2_target;
+extern struct target_type esp32h2_target;
 extern struct target_type esp32c3_target;
 extern struct target_type esp32c6_target;
 extern struct target_type or1k_target;
@@ -134,6 +135,7 @@ static struct target_type *target_types[] = {
 	&esp32s2_target,
 	&esp32s3_target,
 	&esp32c2_target,
+	&esp32h2_target,
 	&esp32c3_target,
 	&esp32c6_target,
 	&or1k_target,
