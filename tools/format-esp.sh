@@ -24,6 +24,7 @@
 ./tools/uncrustify1.sh src/target/espressif/esp32c3.c
 ./tools/uncrustify1.sh src/target/espressif/esp32c2.c
 ./tools/uncrustify1.sh src/target/espressif/esp32c6.c
+./tools/uncrustify1.sh src/target/espressif/esp32h2.c
 ./tools/uncrustify1.sh src/target/espressif/esp32_apptrace.c
 ./tools/uncrustify1.sh src/target/espressif/esp32_sysview.c
 ./tools/uncrustify1.sh src/target/espressif/esp.h
@@ -37,6 +38,7 @@
 ./tools/uncrustify1.sh src/target/espressif/esp_xtensa_smp.h
 ./tools/uncrustify1.sh src/target/espressif/esp_riscv_apptrace.h
 ./tools/uncrustify1.sh src/target/espressif/esp32c2.h
+./tools/uncrustify1.sh src/target/espressif/esp32h2.h
 ./tools/uncrustify1.sh src/target/espressif/esp32c3.h
 ./tools/uncrustify1.sh src/target/espressif/esp32c6.h
 ./tools/uncrustify1.sh src/target/espressif/esp32_apptrace.h
@@ -54,6 +56,7 @@
 ./tools/uncrustify1.sh src/flash/nor/esp32s2.c
 ./tools/uncrustify1.sh src/flash/nor/esp32.c
 ./tools/uncrustify1.sh src/flash/nor/esp32c2.c
+./tools/uncrustify1.sh src/flash/nor/esp32h2.c
 ./tools/uncrustify1.sh src/flash/nor/esp32c3.c
 ./tools/uncrustify1.sh src/flash/nor/esp32s3.c
 ./tools/uncrustify1.sh src/flash/nor/esp32c6.c

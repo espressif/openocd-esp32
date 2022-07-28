@@ -1,5 +1,5 @@
 /***************************************************************************
- *   ESP32-C6 specific flasher stub functions                              *
+ *   ESP32-H2 specific flasher stub functions                              *
  *   Copyright (C) 2022 Espressif Systems Ltd.                             *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -90,7 +90,7 @@ struct spiflash_map_req {
 
 extern void spi_flash_attach(uint32_t, bool);
 
-uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32C6_DEFAULT_CPU_FREQ_MHZ * MHZ;
+uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32H2_DEFAULT_CPU_FREQ_MHZ * MHZ;
 
 void vPortEnterCritical(void)
 {
@@ -278,7 +278,7 @@ void stub_uart_console_configure(int dest)
 
 uint32_t stub_esp_clk_cpu_freq(void)
 {
-	return CONFIG_ESP32C6_DEFAULT_CPU_FREQ_MHZ * 1000000;
+	return CONFIG_ESP32H2_DEFAULT_CPU_FREQ_MHZ * 1000000;
 }
 
 /* override apptrace control block advertising func, IDF's implementation issues syscall */
@@ -316,7 +316,7 @@ int stub_apptrace_prepare()
 int64_t esp_timer_get_time(void)
 {
 	/* this function is used by apptrace code to implement timeouts.
-	   unfortunately esp32c6 does not support CPU cycle counter, so we have two options:
+	   unfortunately esp32h2 does not support CPU cycle counter, so we have two options:
 	   1) Use some HW timer. It can be hard, because we need to ensure that it is initialized and possibly restore its state.
 	   2) Emulate timer by incrementing some var on every call.
 	          Stub flasher uses ESP_APPTRACE_TMO_INFINITE only, so this function won't be called by apptrace at all. */
@@ -326,7 +326,7 @@ int64_t esp_timer_get_time(void)
 uint64_t stub_get_time(void)
 {
 	/* this function is used for perf measurements only.
-	   unfortunately esp32c6 does not support CPU cycle counter and usage of HW timer is problematic */
+	   unfortunately esp32h2 does not support CPU cycle counter and usage of HW timer is problematic */
 	return 0;
 }
 
@@ -417,6 +417,7 @@ static inline bool esp_flash_encryption_enabled(void)
 
 esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 {
+#if 0 /* flash encryption is not supported yet. IDF-6282 */
 	static esp_flash_enc_mode_t s_mode = ESP_FLASH_ENC_MODE_DEVELOPMENT;
 	static bool s_first = true;
 
@@ -449,6 +450,8 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 	}
 
 	return s_mode;
+#endif
+	return ESP_FLASH_ENC_MODE_DISABLED;
 }
 
 static int __attribute__((unused)) stub_flash_mmap(struct spiflash_map_req *req)
@@ -513,7 +516,7 @@ int stub_flash_read_buff(uint32_t addr, void *buffer, uint32_t size)
 {
 	return esp_rom_spiflash_read(addr, buffer, size);
 
-#if 0	/* cache is not supported yet. IDF-5342 */
+#if 0	/* cache is not supported yet. IDF-6255 */
 	struct spiflash_map_req req = {
 		.src_addr = addr,
 		.size = size,

@@ -33,6 +33,7 @@ target_sources(nor PRIVATE
 	esp32c3.c
 	esp32s3.c
 	esp32c6.c
+	esp32h2.c
 	esirisc_flash.c
 	faux.c
 	fespi.c
