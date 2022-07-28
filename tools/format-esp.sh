@@ -53,6 +53,7 @@
 ./tools/uncrustify1.sh src/flash/nor/esp_xtensa.c
 ./tools/uncrustify1.sh src/flash/nor/esp32s2.c
 ./tools/uncrustify1.sh src/flash/nor/esp32.c
+./tools/uncrustify1.sh src/flash/nor/esp32c2.c
 ./tools/uncrustify1.sh src/flash/nor/esp32c3.c
 ./tools/uncrustify1.sh src/flash/nor/esp32s3.c
 ./tools/uncrustify1.sh src/rtos/FreeRTOS.c

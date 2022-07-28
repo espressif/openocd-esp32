@@ -288,7 +288,7 @@ static int esp32c2_examine(struct target *target)
 
 static int esp32c2_on_reset(struct target *target)
 {
-	LOG_DEBUG("esp32c3_on_reset!");
+	LOG_DEBUG("esp32c2_on_reset!");
 	struct esp32c2_common *esp32c2 = esp32c2_common(target);
 	esp32c2->was_reset = true;
 	return ERROR_OK;
@@ -311,7 +311,7 @@ static int esp32c2_poll(struct target *target)
 			esp32c2->was_reset = false;
 			res = target_read_u32(target, ESP32C2_GPIO_STRAP_REG, &strap_reg);
 			if (res != ERROR_OK) {
-				LOG_WARNING("Failed to read ESP32C3_GPIO_STRAP_REG (%d)!", res);
+				LOG_WARNING("Failed to read ESP32C2_GPIO_STRAP_REG (%d)!", res);
 				strap_reg = ESP32C2_FLASH_BOOT_MODE;
 			}
 			uint32_t reset_buffer = 0;
