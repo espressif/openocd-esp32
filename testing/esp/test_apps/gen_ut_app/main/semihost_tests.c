@@ -67,6 +67,12 @@ static inline void done(void)
 typedef int (*syscall_fptr_t)(int, int, int, int, int, int *);
 
 #if UT_IDF_VER >= MAKE_UT_IDF_VER(5,0,0,0)
+
+static inline bool esp_cpu_in_ocd_debug_mode(void)
+{
+    return esp_cpu_dbgr_is_attached();
+}
+
 static inline long semihosting_call_noerrno_generic(long id, long *data)
 {
     register long a2 asm ("a2") = id;
