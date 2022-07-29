@@ -22,7 +22,7 @@
   echo "${ARCHIVE_NAME}" > ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME}
 
 .build_linux_arm_template:
-  stage: build
+  stage: build_openocd
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross:3
   tags:
     - build
@@ -53,7 +53,7 @@
     - *dist_archive
 
 .build_macos_template: &build_macos_template
-  stage: build
+  stage: build_openocd
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-macos-cross:4
   tags:
     - build
@@ -89,7 +89,7 @@
     - *dist_archive
 
 build_linux:
-  stage: build
+  stage: build_openocd
   image: $CI_DOCKER_REGISTRY/esp32-toolchain
   tags:
     - build
@@ -158,7 +158,7 @@ build_linux_arm64:
     TEST_CFLAGS: ""
 
 build_windows:
-  stage: build
+  stage: build_openocd
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-win-cross
   tags:
     - build
