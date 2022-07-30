@@ -2075,7 +2075,7 @@ static int alloc_working_area_try_do(struct target *target, struct working_area_
 		struct working_area *new_wa = malloc(sizeof(*new_wa));
 		if (new_wa) {
 			new_wa->next = NULL;
-			new_wa->size = wa_cfg->size & ~3UL; /* 4-byte align */
+			new_wa->size = ALIGN_DOWN(wa_cfg->size, 4); /* 4-byte align */
 			new_wa->address = wa_cfg->area;
 			new_wa->backup = NULL;
 			new_wa->user = NULL;
@@ -2086,8 +2086,7 @@ static int alloc_working_area_try_do(struct target *target, struct working_area_
 	}
 
 	/* only allocate multiples of 4 byte */
-	if (size % 4)
-		size = (size + 3) & (~3UL);
+	size = ALIGN_UP(size, 4);
 
 	struct working_area *c = wa_cfg->areas;
 
@@ -2274,7 +2273,7 @@ static uint32_t get_working_area_avail_do(struct target *target, struct working_
 	uint32_t max_size = 0;
 
 	if (!c)
-		return wa_cfg->size;
+		return ALIGN_DOWN(wa_cfg->size, 4);
 
 	while (c) {
 		if (c->free && max_size < c->size)
