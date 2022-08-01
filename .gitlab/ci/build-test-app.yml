@@ -105,6 +105,7 @@
     TEST_APP_CONFIGS: ""
     TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF4_X_RELEASE_DOCKER_IMAGE}"
     UT_GET_IDF_VER: "1"
+  dependencies: []
   extends: .build_test_app_template
 
 .build_idf5x_test_app_template: &build_idf5x_test_app_template
@@ -114,6 +115,7 @@
     TEST_APP_CONFIGS: ""
     TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF_RELEASE_DOCKER_IMAGE}"
     UT_GET_IDF_VER: "0"
+  dependencies: []
   extends: .build_test_app_template
 
 build_test_app_esp32:
