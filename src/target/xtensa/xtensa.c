@@ -4,6 +4,7 @@
  *   Generic Xtensa target API for OpenOCD                                 *
  *   Copyright (C) 2016-2019 Espressif Systems Ltd.                        *
  *   Derived from esp108.c                                                 *
+ *   Author: Angus Gratton gus@projectgus.com                              *
  ***************************************************************************/
 
 #ifdef HAVE_CONFIG_H
