@@ -6,7 +6,6 @@
 #include "sdkconfig.h"
 #include "gen_ut_app.h"
 
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0)
 #include "esp_vfs_semihost.h"
 
 #include "esp_log.h"
@@ -177,20 +176,12 @@ static inline int semihosting_wrong_args_legacy(int wrong_arg)
     ESP_LOGI(TAG, "CPU[%d]:------ SYS_OPEN test -------", core_id);
 
     ESP_LOGI(TAG, "CPU[%d]: wrong fname_addr", core_id);
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,2,0,0)
     syscall_ret = syscall_fptr(SYS_OPEN, wrong_arg, O_RDWR | O_BINARY, strlen(fname) + 1, 0, &test_errno);
-#else
-    syscall_ret = syscall_fptr(SYS_OPEN, wrong_arg, strlen(fname) + 1, O_RDWR | O_BINARY, 0, &test_errno);
-#endif
     assert(syscall_ret == -1);
     assert(test_errno == ENOMEM);
 
     ESP_LOGI(TAG, "CPU[%d]: wrong fname_len", core_id);
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,2,0,0)
     syscall_ret = syscall_fptr(SYS_OPEN, (int)fname, O_RDWR | O_BINARY, wrong_arg, 0, &test_errno);
-#else
-    syscall_ret = syscall_fptr(SYS_OPEN, (int)fname, wrong_arg, O_RDWR | O_BINARY, 0, &test_errno);
-#endif
     assert(syscall_ret == -1);
     assert(test_errno == ENOMEM);
 
@@ -198,11 +189,7 @@ static inline int semihosting_wrong_args_legacy(int wrong_arg)
     /* Note: we are not using here `open` because VFS has system of global and local file descriptors, and open will
     return the global one (inside the target scope). For interacting via `generic_syscall` we need the local one -
     a file descriptor assigned to the file by the host */
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,2,0,0)
     int fd = syscall_fptr(SYS_OPEN, (int)fname, O_RDWR | O_BINARY, strlen(fname) + 1, 0, &test_errno);
-#else
-    int fd = syscall_fptr(SYS_OPEN, (int)fname, strlen(fname) + 1, O_RDWR | O_BINARY, 0, &test_errno);
-#endif
     if (fd == -1) {
         ESP_LOGE(TAG, "CPU[%d]: Failed to open file `%s` (%d)!", core_id, fname, errno);
         assert(false);
@@ -284,26 +271,15 @@ static inline int semihosting_wrong_args(int wrong_arg)
     ESP_LOGI(TAG, "CPU[%d]:------ SYS_OPEN test -------", core_id);
 
     ESP_LOGI(TAG, "CPU[%d]: wrong flags", core_id);
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,2,0,0)
     syscall_ret = syscall_fptr(SYS_OPEN, (int)fname, wrong_arg, strlen(fname) + 1, 0, &test_errno);
     assert(syscall_ret == -1);
     assert(test_errno == EINVAL);
-#else
-    syscall_ret = syscall_fptr(SYS_OPEN, (int)fname, strlen(fname) + 1, wrong_arg, 0, &test_errno);
-    assert(syscall_ret == -1);
-    /* For the semihosting v0 we have no a flags checking so the returning error is solely depends on the platform's
-    open-syscall implementation which is different from platform to platform */
-#endif
 
     /**** Open the file correctly ****/
     /* Note: we are not using here `open` because VFS has system of global and local file descriptors, and open will
     return the global one (inside the target scope). For interacting via `generic_syscall` we need the local one -
     a file descriptor assigned to the file by the host */
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,2,0,0)
     int fd = syscall_fptr(SYS_OPEN, (int)fname, O_RDWR | O_BINARY, strlen(fname) + 1, 0, &test_errno);
-#else
-    int fd = syscall_fptr(SYS_OPEN, (int)fname, strlen(fname) + 1, O_RDWR | O_BINARY, 0, &test_errno);
-#endif
     if (fd == -1) {
         ESP_LOGE(TAG, "CPU[%d]: Failed to open file `%s` (%d)!", core_id, fname, errno);
         assert(false);
@@ -1006,13 +982,10 @@ static void semihost_args_task(void *pvParameter)
     done();
 }
 #endif /* CONFIG_IDF_TARGET_ARCH_XTENSA */
-#endif /* #if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0) */
-
 
 ut_result_t semihost_test_do(int test_num)
 {
     switch (test_num) {
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0)
         case 700: {
         /*
         * *** About the test ***
@@ -1080,7 +1053,6 @@ ut_result_t semihost_test_do(int test_num)
             break;
         }
 #endif /* UT_IDF_VER < MAKE_UT_IDF_VER(5,0,0,0) */
-#endif /* #if UT_IDF_VER >= MAKE_UT_IDF_VER(4,0,0,0) */
         default:
             return UT_UNSUPPORTED;
     }

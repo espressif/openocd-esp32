@@ -215,11 +215,9 @@ class BaseTracingTestsImpl:
                         break
                 self.assertTrue(alloc_valid)
 
-    @idf_ver_min('4.4')
     def test_log_from_file(self):
         self._test_trace_from_file(self._do_test_log_continuous)
 
-    @idf_ver_min('4.4')
     def test_heap_log_from_file(self):
         self._test_trace_from_file(self._do_test_heap_log)
 
@@ -312,21 +310,18 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
             if self.trace_ctrl[i]['reader']:
                 self.trace_ctrl[i]['reader'].cleanup()
 
-    @idf_ver_min('4.4')
     def test_log_from_file(self):
         trace_src = [self.trace_ctrl[0]['src']]
         if self.cores_num > 1:
             trace_src.append(self.trace_ctrl[1]['src'])
         self._do_test_log_continuous(trace_src)
 
-    @idf_ver_min('4.4')
     def test_heap_log_from_file(self):
         trace_src = [self.trace_ctrl[0]['src']]
         if self.cores_num > 1:
             trace_src.append(self.trace_ctrl[1]['src'])
         self._do_test_heap_log(trace_src)
 
-    @idf_ver_min('4.4')
     def test_os_tracing(self):
         """
             This test checks that OS level SystemView tracing works.
@@ -491,12 +486,10 @@ class SysViewMcoreTracingTestsImpl(BaseTracingTestsImpl):
         if self.trace_ctrl['reader']:
             self.trace_ctrl['reader'].cleanup()
 
-    @idf_ver_min('4.4')
     def test_log_from_file(self):
         trace_src = [self.trace_ctrl['src']]
         self._do_test_log_continuous(trace_src)
 
-    @idf_ver_min('4.4')
     def test_heap_log_from_file(self):
         trace_src = [self.trace_ctrl['src']]
         self._do_test_heap_log(trace_src)

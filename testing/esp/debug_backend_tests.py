@@ -336,18 +336,8 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
         if state != dbg.TARGET_STATE_STOPPED:
             self.gdb.exec_interrupt()
             self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
-        if testee_info.idf_ver < IdfVersion.fromstr('4.0'):
-            # write bootloader
-            self.gdb.target_program(app_cfg.build_bld_bin_path(), app_cfg.bld_off)
-            # write partition table
-            self.gdb.target_program(app_cfg.build_pt_bin_path(), app_cfg.pt_off)
-            # write application
-            # Currently we can not use GDB ELF loading facility for ESP32, so write binary image instead
-            # _gdb.target_download()
-            self.gdb.target_program(app_cfg.build_app_bin_path(), app_cfg.app_off)
-        else:
-            # flash using 'flasher_args.json'
-            self.gdb.target_program_bins(app_cfg.build_bins_dir())
+        # flash using 'flasher_args.json'
+        self.gdb.target_program_bins(app_cfg.build_bins_dir())
         self.gdb.target_reset()
 
 
@@ -524,11 +514,8 @@ class DebuggerTestAppTests(DebuggerTestsBase):
 
     def run_to_bp_and_check(self, exp_rsn, func_name, lineno_var_prefs, outmost_func_name='blink_task'):
         frames = self.run_to_bp_and_check_basic(exp_rsn, func_name)
-        if testee_info.idf_ver < IdfVersion.fromstr('3.3'):
-            outmost_frame = len(frames) - 1
-        else:
-            # -2 because our task function is called by FreeRTOS task wrapper for Xtensa or 'prvTaskExitError' for RISCV
-            outmost_frame = len(frames) - 2
+        # -2 because our task function is called by FreeRTOS task wrapper for Xtensa or 'prvTaskExitError' for RISCV
+        outmost_frame = len(frames) - 2
         get_logger().debug('outmost_frame = %d', outmost_frame)
         self.assertGreaterEqual(outmost_frame, 0)
         # Sometimes GDB does not provide full backtrace. so check this
@@ -565,11 +552,7 @@ class DebuggerGenericTestAppTests(DebuggerTestAppTests):
         super(DebuggerGenericTestAppTests, self).__init__(methodName)
         self.test_app_cfg.app_name = 'gen_ut_app'
         self.test_app_cfg.bld_path = os.path.join('bootloader', 'bootloader.bin')
-        if testee_info.idf_ver < IdfVersion.fromstr('3.3'):
-            self.test_app_cfg.pt_path = 'partitions_singleapp.bin'
-        else:
-            # starting from IDF 3.3 test app supports cmake build system which uses another build dir structure
-            self.test_app_cfg.pt_path = os.path.join('partition_table', 'partition-table.bin')
+        self.test_app_cfg.pt_path = os.path.join('partition_table', 'partition-table.bin')
         self.test_app_cfg.test_select_var = 's_run_test'
 
 

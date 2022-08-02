@@ -35,10 +35,7 @@ class DebuggerThreadsTestsImpl:
                     return 0
                 self.gdb.set_thread(int(ti['id'],0))
                 frames = self.gdb.get_backtrace()
-                if testee_info.idf_ver < IdfVersion.fromstr('3.3'):
-                    self.assertEqual(len(frames), num+1) # task entry
-                else:
-                    self.assertEqual(len(frames), num+2) # task entry + vPortTaskWrapper
+                self.assertEqual(len(frames), num+2) # task entry + vPortTaskWrapper
                 line_num = int(self.gdb.data_eval_expr('go_to_level_task%s_break_ln' % suf), 0)
                 # should be at the loop start or loop body
                 self.assertTrue((frames[0]['line'] == '%d' % (line_num+1)) or (frames[0]['line'] == '%d' % (line_num+2)))

@@ -71,7 +71,6 @@ class DebuggerSpecialTestsImpl:
         self.prepare_app_for_debugging(self.test_app_cfg.app_off)
         self._debug_image()
 
-    @idf_ver_min('4.3')
     @idf_ver_min_for_arch('latest', ['riscv32'])
     @skip_for_chip(['esp32c2'])
     def test_bp_and_wp_set_by_program(self):

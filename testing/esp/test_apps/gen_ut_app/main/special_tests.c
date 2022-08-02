@@ -89,7 +89,6 @@ static void psram_check_task(void *pvParameter)
 }
 #endif
 
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,3,0,0)
 volatile static int s_var1;
 volatile static int s_var2;
 
@@ -122,7 +121,6 @@ static void target_bp_task(void *pvParameter)
 
     target_bp_func1();
 }
-#endif /* UT_IDF_VER >= MAKE_UT_IDF_VER(4,3,0,0) */
 
 ut_result_t special_test_do(int test_num)
 {
@@ -144,13 +142,11 @@ ut_result_t special_test_do(int test_num)
             break;
         }
 #endif
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(4,3,0,0)
         case 803:
         {
             xTaskCreatePinnedToCore(&target_bp_task, "target_bp_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
             break;
         }
-#endif /* UT_IDF_VER >= MAKE_UT_IDF_VER(4,3,0,0) */
         default:
             return UT_UNSUPPORTED;
     }
