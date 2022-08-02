@@ -28,11 +28,6 @@
 
 #define UT_IDF_VER_LATEST           0xFFFFFFFF
 
-#if UT_IDF_VER < MAKE_UT_IDF_VER(4,3,0,0)
-/* multi-arch support appeared in 4.3, so assume Xtensa arch for earlier releases */
-#define CONFIG_IDF_TARGET_ARCH_XTENSA 1
-#endif
-
 #ifndef __ASSEMBLER__
 
 #define TEST_BREAK_LOC(_nm_)  \

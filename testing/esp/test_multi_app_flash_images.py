@@ -16,10 +16,7 @@ class MultiAppImagesTests(DebuggerGenericTestAppTests):
 
     def __init__(self, methodName):
         DebuggerGenericTestAppTests.__init__(self, methodName)
-        if testee_info.idf_ver < IdfVersion.fromstr('3.3'):
-            self.test_app_cfg.pt_path = 'partitions_multi_apps.bin'
-        else:
-            self.test_app_cfg.pt_path = os.path.join('partition_table', 'partition-table.bin')
+        self.test_app_cfg.pt_path = os.path.join('partition_table', 'partition-table.bin')
         self.test_app_cfg.bin_dir = os.path.join('output', 'multi_app_images')
         self.test_app_cfg.build_dir = os.path.join('builds', 'multi_app_images')
         # this is very specific and unusual test scenario, the offsets must be in sync with OTA ones from 'partitions_multi_apps.csv'
