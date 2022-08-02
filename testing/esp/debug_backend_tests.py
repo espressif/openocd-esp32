@@ -153,6 +153,13 @@ def idf_ver_min_for_arch(ver_str, archs_to_run):
     # do not skip if arch is not found
     return unittest.skipIf(False, "")
 
+def idf_ver_min_for_chip(ver_str, chips_to_skip):
+    for chip in chips_to_skip:
+        if chip == testee_info.chip:
+            return idf_ver_min(ver_str)
+    # do not skip if chip is not found
+    return unittest.skipIf(False, "")
+
 class DebuggerTestError(RuntimeError):
     """ Base class for debugger's test errors
     """
