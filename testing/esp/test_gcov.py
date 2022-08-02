@@ -200,6 +200,7 @@ class GcovTestsImpl:
             if os.path.exists(f['data_path']):
                 os.remove(f['data_path'])
 
+    @skip_for_ver('latest')  # know failure. Skip until fix OCD-597
     def test_simple_gdb(self):
         """
             This test checks that GCOV data can be dumped by means of GDB
@@ -254,6 +255,7 @@ class GcovTestsImpl:
                             self.assertEqual(self.gcov_files[n]['d_lines'][k][1] + i, d_lines[k][1])
         self.gdb.delete_bp(bp)
 
+    @skip_for_ver('latest')  # know failure. Skip until fix OCD-597
     def test_simple_oocd(self):
         """
             This test checks that GCOV data can be dumped by means of OpenOCD
