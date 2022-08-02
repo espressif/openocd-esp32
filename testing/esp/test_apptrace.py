@@ -97,15 +97,12 @@ class ApptraceTestsImpl:
         self.stop_exec()
         self.gdb.target_reset()
 
-        print("lines before reset")
-
         lines_before_reset = []
         while True:
             try:
                 line = reader.readline()
                 if (len(line)):
                     lines_before_reset.append(line)
-                    print(line)
             except ReaderTimeoutError:
                 break
 
@@ -115,15 +112,12 @@ class ApptraceTestsImpl:
         self.resume_exec()
         self.oocd.apptrace_wait_stop(tmo=30)
 
-        print("lines after reset")
-
         lines_after_reset = []
         while True:
             try:
                 line = reader.readline()
                 if (len(line)):
                     lines_after_reset.append(line)
-                    print(line)
             except ReaderTimeoutError:
                 break
         reader.cleanup()
