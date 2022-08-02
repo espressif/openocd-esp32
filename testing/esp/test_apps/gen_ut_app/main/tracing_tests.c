@@ -72,7 +72,7 @@ static bool do_trace_is_started(void)
 #endif
 
 #if CONFIG_HEAP_TRACING
-static void do_trace_test_heap_log(uint32_t num, trace_printf_t trace_printf)
+static void __attribute__((optimize("O0"))) do_trace_test_heap_log(uint32_t num, trace_printf_t trace_printf)
 {
     volatile TaskHandle_t curr_task = xTaskGetCurrentTaskHandle();
 
