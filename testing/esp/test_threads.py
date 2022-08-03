@@ -48,7 +48,6 @@ class DebuggerThreadsTestsImpl:
         for suf in test_tasks:
             self.assertEqual(test_tasks[suf][1], 1)
 
-    @skip_for_chip(['esp32c2'])
     def test_thread_switch(self):
         """
             This test switch a threads and check that expected thread id and current thread id are the same.
