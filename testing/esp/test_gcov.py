@@ -131,7 +131,7 @@ class GcovDataFile:
 ########################################################################
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
-@skip_for_chip(['esp32s3'])
+@idf_ver_min_for_chip('5.0', ['esp32s3'])
 class GcovTestsImpl:
     """ Test cases which are common for dual and single core modes
 
