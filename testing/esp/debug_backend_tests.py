@@ -504,9 +504,9 @@ class DebuggerTestAppTests(DebuggerTestsBase):
             raise e
         return cur_frame
 
-    def run_to_bp_and_check_basic(self, exp_rsn, func_name):
+    def run_to_bp_and_check_basic(self, exp_rsn, func_name, run_bt=False):
         cur_frame = self.run_to_bp(exp_rsn, func_name)
-        frames = self.gdb.get_backtrace()
+        frames = self.gdb.get_backtrace(run_bt)
         self.assertTrue(len(frames) > 0)
         self.assertEqual(frames[0]['func'], cur_frame['func'])
         self.assertEqual(frames[0]['line'], cur_frame['line'])

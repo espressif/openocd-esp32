@@ -424,8 +424,15 @@ class Gdb(object):
             raise DebuggerError('Failed to get variables @ frame')
         return res_body['locals']
 
-    def get_backtrace(self):
+    def get_backtrace(self, run_bt=False):
         # -stack-list-frames [ --no-frame-filters low-frame high-frame ]
+        if run_bt:
+            # running 'bt' command helps to get -stack-list-frames working. It basically clears the below gdb error msg
+            # another command also might help to clear it.
+            # this is a workaround until get a proper fix in the gdb
+
+            # we do not check the response, In some cases we may get an error RESULT: error {'msg': 'PC not saved'}
+            self._mi_cmd_run('bt')
         res, res_body = self._mi_cmd_run('-stack-list-frames')
         if res != 'done' or not res_body or 'stack' not in res_body:
             raise DebuggerError('Failed to get backtrace! (%s / %s)' % (res, res_body))
