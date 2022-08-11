@@ -478,6 +478,9 @@ static int esp_usb_jtag_command_add_raw(unsigned int cmd)
 {
 	int ret = ERROR_OK;
 
+	if ((priv->out_buf_pos_nibbles / 2) >= OUT_BUF_SZ)
+		return ERROR_FAIL;
+
 	if ((priv->out_buf_pos_nibbles & 1) == 0)
 		priv->out_buf[priv->out_buf_pos_nibbles / 2] = (cmd << 4);
 	else
