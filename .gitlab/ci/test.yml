@@ -1,5 +1,7 @@
 .tests_armhf_template:
   image: $CI_DOCKER_REGISTRY/rpi-openocd-env:1
+  variables:
+    PLATFORM_NAME: "linux-armhf-test"
   artifacts:
     paths:
       - $TEST_RUN_DIR/debug_backend_tests.log
@@ -51,9 +53,8 @@ tests_armhf_esp32:
   allow_failure: true
   needs:
     - job: build_test_app_esp32
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
-    PLATFORM_NAME: "linux-armhf"
     ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
@@ -66,9 +67,8 @@ tests_armhf_esp32_flash_encrypted:
   allow_failure: true
   needs:
     - job: build_test_app_esp32
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
-    PLATFORM_NAME: "linux-armhf"
     ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
@@ -82,9 +82,8 @@ tests_armhf_esp32_solo:
   allow_failure: true
   needs:
     - job: build_test_app_esp32
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
-    PLATFORM_NAME: "linux-armhf"
     ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
@@ -97,12 +96,11 @@ tests_armhf_esp32s2:
   allow_failure: true
   needs:
     - job: build_test_app_esp32s2
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
     ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "linux-armhf"
     TEST_RUN_DIR: "build_test_app_esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
 
@@ -114,12 +112,11 @@ tests_armhf_esp32s2_flash_encrypted:
   allow_failure: true
   needs:
     - job: build_test_app_esp32s2
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
     ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "linux-armhf"
     TEST_RUN_DIR: "build_test_app_esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*SingleEncrypted"
 
@@ -131,12 +128,11 @@ tests_armhf_esp32s3:
   allow_failure: true
   needs:
     - job: build_test_app_esp32s3
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
     ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "linux-armhf"
     TEST_RUN_DIR: "build_test_app_esp32s3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
@@ -149,12 +145,11 @@ tests_armhf_esp32c2:
   allow_failure: true
   needs:
     - job: build_test_app_esp32c2
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c2"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_MASTER_RISCV_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "linux-armhf"
     TEST_RUN_DIR: "build_test_app_esp32c2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c2-ftdi -p test_*.*Single -e test_apptrace test_gcov"
 
@@ -167,12 +162,11 @@ tests_armhf_esp32c3:
   allow_failure: true
   needs:
     - job: build_test_app_esp32c3
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_MASTER_RISCV_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "linux-armhf"
     TEST_RUN_DIR: "build_test_app_esp32c3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single"
 
@@ -185,12 +179,11 @@ tests_armhf_esp32c3_builtin_usb_jtag:
   allow_failure: true
   needs:
     - job: build_test_app_esp32c3
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_MASTER_RISCV_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "linux-armhf"
     TEST_RUN_DIR: "build_test_app_esp32c3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-builtin -p test_*.*Single"
 
@@ -202,12 +195,11 @@ tests_armhf_esp32c3_flash_encrypted:
   allow_failure: true
   needs:
     - job: build_test_app_esp32c3
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_MASTER_RISCV_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "linux-armhf"
     TEST_RUN_DIR: "build_test_app_esp32c3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
@@ -219,9 +211,8 @@ tests_armhf_esp32_solo_idf4.x:
     - test_jtag_solo
   needs:
     - job: build_test_app_esp32_idf4.x
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
-    PLATFORM_NAME: "linux-armhf"
     TEST_RUN_DIR: "build_test_app_esp32_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32-solo-devkitj -p test_*.*Single"
 
@@ -232,9 +223,8 @@ tests_armhf_esp32_idf4.x:
     - test_jtag_arm
   needs:
     - job: build_test_app_esp32_idf4.x
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
-    PLATFORM_NAME: "linux-armhf"
     TEST_RUN_DIR: "build_test_app_esp32_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
@@ -245,9 +235,8 @@ tests_armhf_esp32_idf4.x_flash_encrypted:
     - test_jtag_arm_flash_encryption
   needs:
     - job: build_test_app_esp32_idf4.x
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
-    PLATFORM_NAME: "linux-armhf"
     TEST_RUN_DIR: "build_test_app_esp32_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
 
@@ -258,11 +247,10 @@ tests_armhf_esp32s2_idf4.x:
     - test_jtag_arm_esp32s2
   needs:
     - job: build_test_app_esp32s2_idf4.x
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
-    PLATFORM_NAME: "linux-armhf"
     TEST_RUN_DIR: "build_test_app_esp32s2_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s2-devkitj -p test_*.*Single"
 
@@ -273,11 +261,10 @@ tests_armhf_esp32s2_idf4.x_flash_encrypted:
     - test_jtag_arm_flash_encryption_esp32s2
   needs:
     - job: build_test_app_esp32s2_idf4.x
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
-    PLATFORM_NAME: "linux-armhf"
     TEST_RUN_DIR: "build_test_app_esp32s2_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s2-devkitj -p test_*.*SingleEncrypted"
 
@@ -288,11 +275,10 @@ tests_armhf_esp32s3_idf4.x:
     - test_jtag_arm_esp32s3
   needs:
     - job: build_test_app_esp32s3_idf4.x
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
-    PLATFORM_NAME: "linux-armhf"
     TEST_RUN_DIR: "build_test_app_esp32s3_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
@@ -303,12 +289,11 @@ tests_armhf_esp32c3_idf4.x:
     - test_jtag_arm_esp32c3
   needs:
     - job: build_test_app_esp32c3_idf4.x
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "linux-armhf"
     TEST_RUN_DIR: "build_test_app_esp32c3_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single"
 
@@ -319,12 +304,11 @@ tests_armhf_esp32c3_idf4.x_flash_encrypted:
     - test_jtag_arm_flash_encryption_esp32c3
   needs:
     - job: build_test_app_esp32c3_idf4.x
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "linux-armhf"
     TEST_RUN_DIR: "build_test_app_esp32c3_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
@@ -363,13 +347,13 @@ test_nuttx_esp32:
     when: always
     expire_in: 1 week
   variables:
-    PLATFORM_NAME: "linux-armhf"
+    PLATFORM_NAME: "linux-armhf-test"
     TEST_RUN_DIR: "nuttx_test"
     NUTTX_APP_NAME: "nuttx_openocd"
     OOCD_CMDS: "set ESP_RTOS nuttx,set ESP32_ONLYCPU 1"
     TEST_RUN_EXTRA_OPTS: "-i other -b esp32-wrover-kit-3.3v -p test_nuttx -e *.*Encrypted"
   needs:
-    - job: build_linux_armhf
+    - job: build_linux_armhf_test
     - job: build_nuttx_app
       artifacts: false
     - project: idf/apache/esp-nuttx-apps
