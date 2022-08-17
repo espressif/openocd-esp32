@@ -27,11 +27,12 @@ class GcovDataFile:
     GCOV_BRANCH_TAG = 'branch:'
     GCOV_VERSION_TAG = 'version:'
 
-    def __init__(self, toolchain, path, src_dirs, build_path='', proj_path=''):
+    def __init__(self, toolchain, path, src_dirs, proj_path, build_path=''):
         self._path = path
         self.data = {}
         self.src_dirs = src_dirs
         self._cur_file = ''
+        self.proj_path = proj_path
         get_logger().debug('Process gcov file "%s"', path)
         dir_name,file_name = os.path.split(path)
         get_logger().debug('Gcov file dir "%s" filename "%s"', dir_name, file_name)
@@ -56,7 +57,7 @@ class GcovDataFile:
                     get_logger().debug('SRC FILE "%s"', fname)
                     prefix = os.path.commonprefix([idf_path, fname])
                     get_logger().debug('IDF_PREF "%s" "%s"', idf_path, prefix)
-                    if prefix == idf_path:
+                    if prefix and prefix == idf_path:
                         fname = '$IDF_PATH' + fname[len(prefix):]
                     else:
                         prefix = os.path.commonprefix([proj_path, fname])
@@ -120,6 +121,8 @@ class GcovDataFile:
 
     def get_lines_coverage(self, fname, start, end):
         lines_cov = []
+        if not (fname.startswith('$PROJECT_PATH')):
+            fname = fname.replace(self.proj_path, '$PROJECT_PATH')
         if fname in self.data:
             for i in range(len(self.data[fname]['lc'])):
                 ln = int(self.data[fname]['lc'][i][0])
@@ -146,10 +149,10 @@ class GcovTestsImpl:
     """
     # lines numbers range which execution count does not change during test: for 'main/gcov_tests.c' and 'main/helper_funcs.gcda'
     CONST_LINES_START = [15, None]
-    CONST_LINES_END = [26, None]
+    CONST_LINES_END = [24, None]
     # lines numbers range which execution count changes during test: for 'main/gcov_tests.c' and 'main/helper_funcs.gcda'
     DYN_LINES_START = [28, 6]
-    DYN_LINES_END = [39, 10]
+    DYN_LINES_END = [37, 10]
 
     # This function expcets normalized path
     def strip_gcov_path(self, path):
@@ -173,7 +176,7 @@ class GcovTestsImpl:
         self.src_dirs = [self.test_app_cfg.build_src_dir(),]
         src_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.c')
         data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', MAIN_COMP_BUILD_DIR_NAME, 'gcov_tests.c.gcda')
-        ref_data = GcovDataFile(self.toolchain, os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.gcda.gcov'), self.src_dirs)
+        ref_data = GcovDataFile(self.toolchain, os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.gcda.gcov'), self.src_dirs, self.proj_path)
         self.gcov_files.append({
             'src_path' : src_path,
             'data_path' : os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path)),
@@ -185,7 +188,7 @@ class GcovTestsImpl:
             })
         src_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.c')
         data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', MAIN_COMP_BUILD_DIR_NAME, 'helper_funcs.c.gcda')
-        ref_data = GcovDataFile(self.toolchain, os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.gcda.gcov'), self.src_dirs)
+        ref_data = GcovDataFile(self.toolchain, os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.gcda.gcov'), self.src_dirs, self.proj_path)
         self.gcov_files.append({
             'src_path' : src_path,
             'data_path' : os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path)),
@@ -230,7 +233,7 @@ class GcovTestsImpl:
             gcov_data_files = []
             for f in self.gcov_files:
                 gcov_data_files.append(GcovDataFile(self.toolchain, f['data_path'], self.src_dirs,
-                                        self.test_app_cfg.build_obj_dir(), self.proj_path))
+                                        self.proj_path, self.test_app_cfg.build_obj_dir()))
             if i == 0:
                 # after first test iteration gcov data should be equal to reference ones
                 for k in range(len(gcov_data_files)):
@@ -276,13 +279,13 @@ class GcovTestsImpl:
         # parse and check gcov data
         data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', MAIN_COMP_BUILD_DIR_NAME, 'gcov_tests.c.gcda')
         f = GcovDataFile(self.toolchain, os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path)), self.src_dirs,
-                        self.test_app_cfg.build_obj_dir(), self.proj_path)
-        f2 = GcovDataFile(self.toolchain, os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.gcda.gcov'), self.src_dirs)
+                        self.proj_path, self.test_app_cfg.build_obj_dir())
+        f2 = GcovDataFile(self.toolchain, os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.gcda.gcov'), self.src_dirs, self.proj_path)
         self.assertEqual(f, f2)
         data_path = os.path.join('esp-idf', 'main', 'CMakeFiles', MAIN_COMP_BUILD_DIR_NAME, 'helper_funcs.c.gcda')
         f = GcovDataFile(self.toolchain, os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path)), self.src_dirs,
-                        self.test_app_cfg.build_obj_dir(), self.proj_path)
-        f2 = GcovDataFile(self.toolchain, os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.gcda.gcov'), self.src_dirs)
+                        self.proj_path, self.test_app_cfg.build_obj_dir())
+        f2 = GcovDataFile(self.toolchain, os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.gcda.gcov'), self.src_dirs, self.proj_path)
         self.assertEqual(f, f2)
 
     def test_on_the_fly_gdb(self):
