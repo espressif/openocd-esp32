@@ -189,7 +189,7 @@ class BreakpointTestsImpl:
             self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, 'test_timer_isr_func', run_bt)
             self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, 'test_timer_isr_ram_func', run_bt)
 
-
+@skip_for_chip(['esp32c2'])
 class WatchpointTestsImpl:
     """ Watchpoints test cases which are common for dual and single core modes
     """
