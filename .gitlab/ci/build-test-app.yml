@@ -48,11 +48,13 @@
   if [ -d "$UT_APP_DIR/builds/apptrace_gcov_dual" ]; then
     pushd $UT_APP_DIR/builds/apptrace_gcov_dual
     find . -type d -exec mkdir -p $UT_APP_DIR/gcov_data/apptrace_gcov_dual/\{\} \;
+    find . -name "*.gcno" -exec cp "{}" $UT_APP_DIR/gcov_data/apptrace_gcov_dual/esp-idf/main/CMakeFiles/__idf_main.dir \;
     popd
   fi
   if [ -d "$UT_APP_DIR/builds/apptrace_gcov_single" ]; then
     pushd $UT_APP_DIR/builds/apptrace_gcov_single
     find . -type d -exec mkdir -p $UT_APP_DIR/gcov_data/apptrace_gcov_single/\{\} \;
+    find . -name "*.gcno" -exec cp "{}" $UT_APP_DIR/gcov_data/apptrace_gcov_single/esp-idf/main/CMakeFiles/__idf_main.dir \;
     popd
   fi
   echo "export OPENOCD_GCOV_PREFIX=$UT_APP_DIR/gcov_data" > $UT_APP_DIR/gcov_data/gcov_env.sh
