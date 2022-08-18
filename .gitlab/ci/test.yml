@@ -333,7 +333,7 @@ tests_win_simple_esp32:
     - .\openocd-esp32\bin\openocd.exe -f board\esp32-ethernet-kit-3.3v.cfg -c "init; reset halt; sleep 5; exit"
 
 test_nuttx_esp32:
-  image: $CI_DOCKER_REGISTRY/rpi-test-env
+  image: $CI_DOCKER_REGISTRY/rpi-openocd-env:1
   stage: test_nuttx
   tags:
     - test_jtag_arm

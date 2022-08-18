@@ -163,7 +163,7 @@ tests_sanitizers_esp32c3_idf4.x:
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single -e test_apptrace test_gcov"
 
 test_sanitizers_nuttx_esp32:
-  image: $CI_DOCKER_REGISTRY/rpi-test-env
+  image: $CI_DOCKER_REGISTRY/rpi-openocd-env:1
   stage: sanitizer_tests
   tags:
     - test_jtag_arm
@@ -195,7 +195,7 @@ test_sanitizers_nuttx_esp32:
 
 .sanitizer_check_armhf: &sanitizer_check_armhf
   stage: sanitizer_checks
-  image: $CI_DOCKER_REGISTRY/rpi-test-env
+  image: $CI_DOCKER_REGISTRY/rpi-openocd-env:1
   tags:
     - arm
   allow_failure: true
