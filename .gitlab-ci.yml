@@ -224,9 +224,9 @@ test_idf4.x_examples:
 
 create_coverage_reports:
   stage: coverage
-  image: $CI_DOCKER_REGISTRY/rpi-test-env
+  image: $CI_DOCKER_REGISTRY/esp32-toolchain:3
   tags:
-    - arm
+    - build
   allow_failure: true
   artifacts:
     paths:
