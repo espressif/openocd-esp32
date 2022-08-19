@@ -192,6 +192,7 @@ build_nuttx_app:
   trigger:
     project: idf/apache/esp-nuttx-apps
     strategy: depend
+  allow_failure: true
   needs:
     - job: style_check
   parallel:
