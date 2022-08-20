@@ -131,8 +131,8 @@ static int clean_dir_map_list(struct target *target)
 
 	int ret = list_empty(&semihost_data->dir_map_list);
 	if (!ret) {
-		struct dir_map *dir_map;
-		list_for_each_entry(dir_map, &semihost_data->dir_map_list, lh) {
+		struct dir_map *dir_map, *tmp;
+		list_for_each_entry_safe(dir_map, tmp, &semihost_data->dir_map_list, lh) {
 			if (dir_map) {
 				ret = closedir(dir_map->dirptr);
 				if (ret != ERROR_OK)
