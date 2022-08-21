@@ -34,6 +34,8 @@
         - _build/*.log
     when: always
     expire_in: 2 weeks
+  needs:
+    - job: style_check
   script:
     - *get_release_name
     - !reference [.add_gitlab_key, script]
@@ -61,6 +63,8 @@
     paths:
       - ${DIST_ART_DIR}
     expire_in: 2 weeks
+  needs:
+    - job: style_check
   script:
     - *get_release_name
     - !reference [.add_gitlab_key, script]
@@ -99,6 +103,8 @@ build_linux:
     expire_in: 2 weeks
   variables:
     PLATFORM_NAME: "linux-amd64"
+  needs:
+    - job: style_check
   script:
     - *get_release_name
     - !reference [.add_gitlab_key, script]
@@ -171,6 +177,8 @@ build_windows:
     PLATFORM_NAME: "win32"
     ARCHIVE_TOOL: "zip -r"
     ARCHIVE_EXT: "zip"
+  needs:
+    - job: style_check
   script:
     - *get_release_name
     - !reference [.add_gitlab_key, script]
@@ -224,3 +232,27 @@ build_macos_arm64:
     PLATFORM_NAME: "macos-arm64"
     CONF_HOST: "aarch64-apple-darwin21.1"
     INSTALL_TARGET: "install"
+
+scan-build:
+  stage: scan_build
+  image: $CI_DOCKER_REGISTRY/openocd-ci-env:1
+  tags:
+    - build
+  allow_failure: true
+  variables:
+    SCAN_BUILD_OUTPUT: "report"
+  artifacts:
+    paths:
+      - ${SCAN_BUILD_OUTPUT}
+  script:
+    - !reference [.add_gitlab_key, script]
+    - !reference [.submodules_mirror_update, script]
+    - ./bootstrap
+    - mkdir build-scanbuild
+    - pushd build-scanbuild
+    - scan-build ../configure
+    - scan-build -o out make -j8 CFLAGS="-std=gnu99 -I. -I../../jimtcl"
+    - popd
+    - ${ARCHIVE_TOOL} scan_build.${ARCHIVE_EXT} build-scanbuild/out
+    - mkdir -p ${SCAN_BUILD_OUTPUT}
+    - mv scan_build.${ARCHIVE_EXT} ${SCAN_BUILD_OUTPUT}
