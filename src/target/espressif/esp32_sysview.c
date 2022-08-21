@@ -363,10 +363,11 @@ static uint16_t esp_sysview_parse_packet(uint8_t *pkt_buf,
 static int esp32_sysview_write_packet(struct esp32_sysview_cmd_data *cmd_data,
 	int pkt_core_id, uint32_t pkt_len, uint8_t *pkt_buf, uint32_t delta_len, uint8_t *delta_buf)
 {
-	int res = cmd_data->data_dests[pkt_core_id].write(
-		cmd_data->data_dests[pkt_core_id].priv,
-		pkt_buf,
-		pkt_len);
+	if (!cmd_data->data_dests[pkt_core_id].write)
+		return ERROR_FAIL;
+
+	int res = cmd_data->data_dests[pkt_core_id].write(cmd_data->data_dests[pkt_core_id].priv, pkt_buf, pkt_len);
+
 	if (res != ERROR_OK) {
 		LOG_ERROR("SEGGER: Failed to write %u bytes to dest %d!", pkt_len, pkt_core_id);
 		return res;

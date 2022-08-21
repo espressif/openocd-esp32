@@ -527,7 +527,6 @@ static int esp_xtensa_apptrace_queue_reverse_write(struct xtensa *xtensa, uint32
 		/* if there are cached bytes from the previous buffer, combine them with the last
 		 * from the current buffer */
 		if (cached_bytes) {
-			bytes_to_cache = 0;
 			if ((cached_bytes + bsz) < sizeof(uint32_t))
 				bytes_to_cache = bsz;
 			else
@@ -615,7 +614,6 @@ static int esp_xtensa_apptrace_queue_normal_write(struct xtensa *xtensa, uint32_
 		/* if there are cached bytes from the previous buffer, combine them with the last
 		 * from the current buffer */
 		if (cached_bytes) {
-			bytes_to_cache = 0;
 			if ((cached_bytes + bsz) < sizeof(uint32_t))
 				bytes_to_cache = bsz;
 			else
@@ -661,10 +659,8 @@ static int esp_xtensa_apptrace_queue_normal_write(struct xtensa *xtensa, uint32_
 				/* cache remaining bytes */
 				dword_cache.data32 = 0;
 				cur_buf += sizeof(uint32_t) - cached_bytes;
-				memcpy(dword_cache.data8,
-					cur_buf,
-					bytes_to_cache + cached_bytes - sizeof(uint32_t));
 				cached_bytes = bytes_to_cache + cached_bytes - sizeof(uint32_t);
+				memcpy(&dword_cache.data8[0], cur_buf, cached_bytes);
 			} else {
 				memcpy(&dword_cache.data8[cached_bytes], cur_buf, bytes_to_cache);
 				cached_bytes += bytes_to_cache;

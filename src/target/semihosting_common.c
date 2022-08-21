@@ -848,7 +848,7 @@ int semihosting_common(struct target *target)
 					semihosting->sys_errno = EINVAL;
 					break;
 				}
-				char *fn;
+				char *fn = NULL;
 				retval = semihosting_get_file_name(target, addr, len, &fn);
 				if (retval != ERROR_OK)
 					return retval;
@@ -1103,12 +1103,12 @@ int semihosting_common(struct target *target)
 					fileio_info->param_3 = addr2;
 					fileio_info->param_4 = len2;
 				} else {
-					char *fn1;
+					char *fn1 = NULL;
 					retval = semihosting_get_file_name(target, addr1, len1, &fn1);
 					if (retval != ERROR_OK)
 						return retval;
 
-					char *fn2;
+					char *fn2 = NULL;
 					retval = semihosting_get_file_name(target, addr2, len2, &fn2);
 					if (retval != ERROR_OK) {
 						free(fn1);

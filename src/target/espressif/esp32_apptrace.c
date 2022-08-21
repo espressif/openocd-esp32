@@ -162,6 +162,7 @@ static int esp32_apptrace_file_dest_init(struct esp32_apptrace_dest *dest, const
 	dest_data->fout = open(dest_name, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0666);
 	if (dest_data->fout <= 0) {
 		LOG_ERROR("Failed to open file %s", dest_name);
+		free(dest_data);
 		return ERROR_FAIL;
 	}
 
@@ -317,7 +318,6 @@ int esp32_apptrace_dest_init(struct esp32_apptrace_dest dest[],
 	int res, i;
 
 	for (i = 0; i < max_dests; i++) {
-		res = ERROR_OK;
 		if (strncmp(dest_paths[i], "file://", 7) == 0)
 			res = esp32_apptrace_file_dest_init(&dest[i], &dest_paths[i][7]);
 		else if (strncmp(dest_paths[i], "con:", 4) == 0)
@@ -422,7 +422,6 @@ static int esp32_apptrace_ready_block_put(struct esp32_apptrace_cmd_ctx *ctx,
 			LOG_ERROR("Failed to unlock blocks pool (%d)!", res);
 			res = ERROR_FAIL;
 		}
-		res = ERROR_OK;
 	} else {
 		LOG_ERROR("Failed to lock blocks pool (%d)!", res);
 		res = ERROR_FAIL;
@@ -468,7 +467,6 @@ static int esp32_apptrace_block_free(struct esp32_apptrace_cmd_ctx *ctx,
 			LOG_ERROR("Failed to unlock blocks pool (%d)!", res);
 			res = ERROR_FAIL;
 		}
-		res = ERROR_OK;
 	} else {
 		LOG_ERROR("Failed to lock blocks pool (%d)!", res);
 		res = ERROR_FAIL;
@@ -1762,7 +1760,6 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 			LOG_ERROR("Failed to init cmd ctx (%d)!", res);
 			return res;
 		}
-		cmd_data = s_at_cmd_ctx.cmd_priv;
 		s_at_cmd_ctx.stop_tmo = 0.01;	/* use small stop tmo */
 		s_at_cmd_ctx.process_data = esp32_apptrace_process_data;
 		/* check for exit signal and comand completion */
@@ -2353,11 +2350,11 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 	static struct esp32_apptrace_cmd_ctx s_at_cmd_ctx;
 	int res = ERROR_OK;
 	struct target *target = get_current_target(CMD_CTX);
-	enum target_state old_state = target->state;
+	enum target_state old_state;
 	struct algorithm_run_data run;
 	uint32_t func_addr;
 	bool dump = false;
-	uint32_t stub_capabilites = 0;
+	uint32_t stub_capabilites;
 	bool gcov_idf_has_thread = false;
 
 	if (CMD_ARGC > 0) {
