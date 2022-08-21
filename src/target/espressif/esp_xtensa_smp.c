@@ -490,7 +490,7 @@ int esp_xtensa_smp_run_func_image(struct target *target,
 	struct target *run_target = target;
 	struct target_list *head;
 	va_list ap;
-	uint32_t smp_break;
+	uint32_t smp_break = 0;
 	int res;
 
 	if (target->smp) {
@@ -520,7 +520,7 @@ int esp_xtensa_smp_run_func_image(struct target *target,
 	}
 
 	va_start(ap, num_args);
-	res = algorithm_run_func_image_va(run_target, run, num_args, ap);
+	int algo_res = algorithm_run_func_image_va(run_target, run, num_args, ap);
 	va_end(ap);
 
 	if (target->smp) {
@@ -528,7 +528,7 @@ int esp_xtensa_smp_run_func_image(struct target *target,
 		if (res != ERROR_OK)
 			return res;
 	}
-	return ERROR_OK;
+	return algo_res;
 }
 
 int esp_xtensa_smp_run_onboard_func(struct target *target,
@@ -540,7 +540,7 @@ int esp_xtensa_smp_run_onboard_func(struct target *target,
 	struct target *run_target = target;
 	struct target_list *head;
 	va_list ap;
-	uint32_t smp_break;
+	uint32_t smp_break = 0;
 	int res;
 
 	if (target->smp) {
@@ -560,7 +560,7 @@ int esp_xtensa_smp_run_onboard_func(struct target *target,
 	}
 
 	va_start(ap, num_args);
-	res = algorithm_run_onboard_func_va(run_target, run, func_addr, num_args, ap);
+	int algo_res = algorithm_run_onboard_func_va(run_target, run, func_addr, num_args, ap);
 	va_end(ap);
 
 	if (target->smp) {
@@ -568,7 +568,7 @@ int esp_xtensa_smp_run_onboard_func(struct target *target,
 		if (res != ERROR_OK)
 			return res;
 	}
-	return ERROR_OK;
+	return algo_res;
 }
 
 int esp_xtensa_smp_init_arch_info(struct target *target,

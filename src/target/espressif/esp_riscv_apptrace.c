@@ -214,7 +214,7 @@ static int esp_riscv_apptrace_buffs_write(struct target *target,
 	bool ack,
 	bool data)
 {
-	int res;
+	int res = ERROR_OK;
 	int blk_idx = block_id % 2 ? 0 : 1;
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 
