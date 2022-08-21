@@ -1,5 +1,6 @@
 stages:
   - pre_check
+  - scan_build
   - build_openocd
   - build_idf4.x
   - build_idf5.x
@@ -305,3 +306,4 @@ include:
   - '.gitlab/ci/test.yml'
   - '.gitlab/ci/test-sanitizers.yml'
   - '.gitlab/ci/pre-check.yml'
+
