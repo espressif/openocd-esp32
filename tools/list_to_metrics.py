@@ -15,6 +15,8 @@ def get_values(file):
             break
         else:
             info = line.replace(" ", "").replace("%", "%|").split("|")
+            if (len(info) < 2):
+                continue
             file_name, coverage_percentage = info[0], info[1]
             file_name = file_name.replace(ROOT_PATH, ".")
             values.append("{}".format(file_name + " " + coverage_percentage))
