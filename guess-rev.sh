@@ -17,7 +17,8 @@ cd "${1:-.}" || usage
 # Check for git and a git repo, use 'git describe' output as version.
 desc=`git describe --always --tags --dirty --abbrev=8 2>/dev/null`
 if [ -n "$desc" ]; then
-	printf '%s' $desc
+	desc=${desc#*-};
+	printf '%s%s' "-"$desc
 	exit
 fi
 
