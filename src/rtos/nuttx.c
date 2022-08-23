@@ -18,54 +18,48 @@
 #include "rtos.h"
 #include "helper/log.h"
 #include "helper/types.h"
-#include "server/gdb_server.h"
 #include "target/register.h"
-
 #include "rtos_nuttx_stackings.h"
 
-#define NAME_SIZE 32
-#define EXTRAINFO_SIZE 256
+#define NAME_SIZE       32
+#define EXTRAINFO_SIZE  256
 
 /* Only 32-bit CPUs are supported by the current implementation.  Supporting
  * other CPUs will require reading this information from the target and
- * adapting the code accordignly.
+ * adapting the code accordingly.
  */
 #define PTR_WIDTH 4
 
-static bool cortexm_hasfpu(struct target *target);
-static const struct rtos_register_stacking *cortexm_select_stackinfo(struct target *target);
-static const struct rtos_register_stacking *esp32_select_stackinfo(struct target *target);
-static const struct rtos_register_stacking *esp32s2_select_stackinfo(struct target *target);
-static const struct rtos_register_stacking *esp32s3_select_stackinfo(struct target *target);
-static const struct rtos_register_stacking *riscv_select_stackinfo(struct target *target);
-static int nuttx_getreg_current_thread(struct rtos *rtos, struct rtos_reg **reg_list, int *num_regs);
-static int nuttx_getregs_fromstack(struct rtos *rtos, int64_t thread_id, struct rtos_reg **reg_list, int *num_regs);
-
-static bool nuttx_detect_rtos(struct target *target);
-static int nuttx_create(struct target *target);
-static int nuttx_smp_init(struct target *target);
-static int nuttx_update_threads(struct rtos *rtos);
-static int nuttx_get_thread_reg_list(struct rtos *rtos, int64_t thread_id, struct rtos_reg **reg_list, int *num_regs);
-static int nuttx_get_symbol_list_to_lookup(struct symbol_table_elem *symbol_list[]);
-
 struct nuttx_params {
 	const char *target_name;
+	const struct rtos_register_stacking *stacking;
 	const struct rtos_register_stacking *(*select_stackinfo)(struct target *target);
 };
 
+/*
+ * struct tcbinfo_s is located in the sched.h
+ * https://github.com/apache/nuttx/blob/master/include/nuttx/sched.h
+ */
+#define TCB_PID_OFFSET                  0
+#define TCB_STATE_OFFSET                2
+#define TCB_PRI_OFFSET                  4
+#define TCB_NAME_OFFSET                 6
+#define TCB_REGS_OFFSET                 8
+#define TCB_BASIC_NUM_OFFSET            10
+#define TCB_TOTAL_NUM_OFFSET            12
+#define TCB_XPCREG_OFFSET               14
+#define TCBINFO_TARGET_SIZE             22
+
 struct tcbinfo {
-	uint8_t pid_off[2];
-	uint8_t state_off[2];
-	uint8_t pri_off[2];
-	uint8_t name_off[2];
-	uint8_t regs_off[2];
-	uint8_t basic_num[2];
-	uint8_t total_num[2];
-	union {
-		uint8_t u[8];
-		uint16_t *p;
-	}  __attribute__ ((packed)) reg_off;
-} __attribute__ ((packed));
+	uint16_t pid_off;			/* Offset of tcb.pid                */
+	uint16_t state_off;			/* Offset of tcb.task_state         */
+	uint16_t pri_off;			/* Offset of tcb.sched_priority     */
+	uint16_t name_off;			/* Offset of tcb.name               */
+	uint16_t regs_off;			/* Offset of tcb.regs               */
+	uint16_t basic_num;			/* Num of genernal regs             */
+	uint16_t total_num;			/* Num of regs in tcbinfo.reg_offs  */
+	target_addr_t xcpreg_off;	/* Offset pointer of xcp.regs       */
+};
 
 struct symbols {
 	const char *name;
@@ -80,7 +74,6 @@ enum nuttx_symbol_vals {
 	NX_SYM_TCB_INFO,
 };
 
-/* See nuttx/sched/nx_start.c */
 static const struct symbols nuttx_symbol_list[] = {
 	{ "g_readytorun", false },
 	{ "g_pidhash", false },
@@ -103,53 +96,46 @@ static char *task_state_str[] = {
 	"STOPPED",
 };
 
+static const struct rtos_register_stacking *cortexm_select_stackinfo(struct target *target);
+
 static const struct nuttx_params nuttx_params_list[] = {
 	{
 		.target_name = "cortex_m",
+		.stacking = NULL,
 		.select_stackinfo = cortexm_select_stackinfo,
 	},
 	{
 		.target_name = "hla_target",
+		.stacking = NULL,
 		.select_stackinfo = cortexm_select_stackinfo,
 	},
 	{
 		.target_name = "esp32",
-		.select_stackinfo = esp32_select_stackinfo,
+		.stacking = &nuttx_esp32_stacking,
 	},
 	{
 		.target_name = "esp32s2",
-		.select_stackinfo = esp32s2_select_stackinfo,
+		.stacking = &nuttx_esp32s2_stacking,
 	},
 	{
 		.target_name = "esp32s3",
-		.select_stackinfo = esp32s3_select_stackinfo,
+		.stacking = &nuttx_esp32s3_stacking,
 	},
 	{
 		.target_name = "esp32c3",
-		.select_stackinfo = riscv_select_stackinfo,
+		.stacking = &nuttx_riscv_stacking,
 	},
-};
-
-const struct rtos_type nuttx_rtos = {
-	.name = "NuttX",
-	.detect_rtos = nuttx_detect_rtos,
-	.create = nuttx_create,
-	.smp_init = nuttx_smp_init,
-	.update_threads = nuttx_update_threads,
-	.get_thread_reg_list = nuttx_get_thread_reg_list,
-	.get_symbol_list_to_lookup = nuttx_get_symbol_list_to_lookup,
 };
 
 static bool cortexm_hasfpu(struct target *target)
 {
 	uint32_t cpacr;
-	int retval;
 	struct armv7m_common *armv7m_target = target_to_armv7m(target);
 
-	if (!is_armv7m(armv7m_target) || armv7m_target->fp_feature != FPV4_SP)
+	if (!is_armv7m(armv7m_target) || armv7m_target->fp_feature == FP_NONE)
 		return false;
 
-	retval = target_read_u32(target, FPU_CPACR, &cpacr);
+	int retval = target_read_u32(target, FPU_CPACR, &cpacr);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Could not read CPACR register to check FPU state");
 		return false;
@@ -163,31 +149,11 @@ static const struct rtos_register_stacking *cortexm_select_stackinfo(struct targ
 	return cortexm_hasfpu(target) ? &nuttx_stacking_cortex_m_fpu : &nuttx_stacking_cortex_m;
 }
 
-static const struct rtos_register_stacking *esp32_select_stackinfo(struct target *target)
-{
-	return &nuttx_esp32_stacking;
-}
-
-static const struct rtos_register_stacking *esp32s2_select_stackinfo(struct target *target)
-{
-	return &nuttx_esp32s2_stacking;
-}
-
-static const struct rtos_register_stacking *esp32s3_select_stackinfo(struct target *target)
-{
-	return &nuttx_esp32s3_stacking;
-}
-
-static const struct rtos_register_stacking *riscv_select_stackinfo(struct target *target)
-{
-	return &nuttx_riscv_stacking;
-}
-
 static bool nuttx_detect_rtos(struct target *target)
 {
-	if ((target->rtos->symbols) &&
-		(target->rtos->symbols[NX_SYM_READYTORUN].address != 0) &&
-		(target->rtos->symbols[NX_SYM_PIDHASH].address != 0))
+	if (target->rtos->symbols &&
+		target->rtos->symbols[NX_SYM_READYTORUN].address != 0 &&
+		target->rtos->symbols[NX_SYM_PIDHASH].address != 0)
 		return true;
 	return false;
 }
@@ -195,7 +161,7 @@ static bool nuttx_detect_rtos(struct target *target)
 static int nuttx_create(struct target *target)
 {
 	const struct nuttx_params *param;
-	size_t i;
+	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(nuttx_params_list); i++) {
 		param = &nuttx_params_list[i];
@@ -206,8 +172,7 @@ static int nuttx_create(struct target *target)
 	}
 
 	if (i >= ARRAY_SIZE(nuttx_params_list)) {
-		LOG_ERROR("Could not find \"%s\" target in NuttX compatibility list",
-			target_type_name(target));
+		LOG_ERROR("Could not find \"%s\" target in NuttX compatibility list", target_type_name(target));
 		return JIM_ERR;
 	}
 
@@ -224,17 +189,24 @@ static int nuttx_smp_init(struct target *target)
 	return ERROR_OK;
 }
 
+static target_addr_t target_buffer_get_addr(struct target *target, const uint8_t *buffer)
+{
+#if PTR_WIDTH == 8
+	return target_buffer_get_u64(target, buffer);
+#else
+	return target_buffer_get_u32(target, buffer);
+#endif
+}
+
 static int nuttx_update_threads(struct rtos *rtos)
 {
-	uint32_t thread_count;
 	struct tcbinfo tcbinfo;
-	int ret = ERROR_FAIL;
 	uint32_t pidhashaddr, npidhash, tcbaddr;
 	uint16_t pid;
 	uint8_t state;
 
 	if (!rtos->symbols) {
-		LOG_ERROR("No symbols for NuttX");
+		LOG_ERROR("No symbols for nuttx");
 		return ERROR_FAIL;
 	}
 
@@ -245,8 +217,8 @@ static int nuttx_update_threads(struct rtos *rtos)
 	 * We first read its size from g_npidhash and its address from g_pidhash.
 	 * Its content is then read from these values.
 	 */
-	ret = target_read_u32(rtos->target, rtos->symbols[NX_SYM_NPIDHASH].address, &npidhash);
-	if (ret) {
+	int ret = target_read_u32(rtos->target, rtos->symbols[NX_SYM_NPIDHASH].address, &npidhash);
+	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to read g_npidhash: ret = %d", ret);
 		return ERROR_FAIL;
 	}
@@ -254,7 +226,7 @@ static int nuttx_update_threads(struct rtos *rtos)
 	LOG_DEBUG("Hash table size (g_npidhash) = %" PRId32, npidhash);
 
 	ret = target_read_u32(rtos->target, rtos->symbols[NX_SYM_PIDHASH].address, &pidhashaddr);
-	if (ret) {
+	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to read g_pidhash address: ret = %d", ret);
 		return ERROR_FAIL;
 	}
@@ -268,7 +240,7 @@ static int nuttx_update_threads(struct rtos *rtos)
 	}
 
 	ret = target_read_buffer(rtos->target, pidhashaddr, PTR_WIDTH * npidhash, pidhash);
-	if (ret) {
+	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to read tcbhash: ret = %d", ret);
 		goto errout;
 	}
@@ -276,87 +248,95 @@ static int nuttx_update_threads(struct rtos *rtos)
 	/* NuttX provides a struct that contains TCB offsets for required members.
 	 * Read its content from g_tcbinfo.
 	 */
-	ret = target_read_buffer(rtos->target, rtos->symbols[NX_SYM_TCB_INFO].address,
-		sizeof(tcbinfo), (uint8_t *)&tcbinfo);
-	if (ret) {
+	uint8_t buff[TCBINFO_TARGET_SIZE];
+	ret = target_read_buffer(rtos->target, rtos->symbols[NX_SYM_TCB_INFO].address, sizeof(buff), buff);
+	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to read tcbinfo: ret = %d", ret);
 		goto errout;
 	}
 
+	tcbinfo.pid_off = target_buffer_get_u16(rtos->target, buff + TCB_PID_OFFSET);
+	tcbinfo.state_off = target_buffer_get_u16(rtos->target, buff + TCB_STATE_OFFSET);
+	tcbinfo.pri_off = target_buffer_get_u16(rtos->target, buff + TCB_PRI_OFFSET);
+	tcbinfo.name_off = target_buffer_get_u16(rtos->target, buff + TCB_NAME_OFFSET);
+	tcbinfo.regs_off = target_buffer_get_u16(rtos->target, buff + TCB_REGS_OFFSET);
+	tcbinfo.basic_num = target_buffer_get_u16(rtos->target, buff + TCB_BASIC_NUM_OFFSET);
+	tcbinfo.total_num = target_buffer_get_u16(rtos->target, buff + TCB_TOTAL_NUM_OFFSET);
+	tcbinfo.xcpreg_off = target_buffer_get_addr(rtos->target, buff + TCB_XPCREG_OFFSET);
+
 	/* The head of the g_readytorun list is the currently running task.
-	 * Reading in a temporary variable first to avoid endianess issues,
+	 * Reading in a temporary variable first to avoid endianness issues,
 	 * rtos->current_thread is int64_t. */
 	uint32_t current_thread;
-	ret = target_read_u32(rtos->target, rtos->symbols[NX_SYM_READYTORUN].address,
-		&current_thread);
-	rtos->current_thread = current_thread;
-	if (ret) {
+	ret = target_read_u32(rtos->target, rtos->symbols[NX_SYM_READYTORUN].address, &current_thread);
+	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to read g_readytorun: ret = %d", ret);
 		goto errout;
 	}
+	rtos->current_thread = current_thread;
 
-	thread_count = 0;
+	uint32_t thread_count = 0;
 
-	for (uint32_t i = 0; i < npidhash; i++) {
-		tcbaddr = le_to_h_u32(&pidhash[i * sizeof(uint32_t)]);
+	for (unsigned int i = 0; i < npidhash; i++) {
+		tcbaddr = target_buffer_get_u32(rtos->target, &pidhash[i * PTR_WIDTH]);
 
-		if (tcbaddr) {
-			struct thread_detail *thread;
+		if (!tcbaddr)
+			continue;
 
-			ret = target_read_u16(rtos->target, tcbaddr + le_to_h_u16(tcbinfo.pid_off), &pid);
-			if (ret) {
-				LOG_ERROR("Failed to read PID of TCB@0x%x from pidhash[%d]: ret = %d",
-					tcbaddr, i, ret);
-				goto errout;
-			}
+		ret = target_read_u16(rtos->target, tcbaddr + tcbinfo.pid_off, &pid);
+		if (ret != ERROR_OK) {
+			LOG_ERROR("Failed to read PID of TCB@0x%x from pidhash[%d]: ret = %d",
+				tcbaddr, i, ret);
+			goto errout;
+		}
 
-			ret = target_read_u8(rtos->target, tcbaddr + le_to_h_u16(tcbinfo.state_off), &state);
-			if (ret) {
-				LOG_ERROR("Failed to read state of TCB@0x%x from pidhash[%d]: ret = %d",
-					tcbaddr, i, ret);
-				goto errout;
-			}
+		ret = target_read_u8(rtos->target, tcbaddr + tcbinfo.state_off, &state);
+		if (ret != ERROR_OK) {
+			LOG_ERROR("Failed to read state of TCB@0x%x from pidhash[%d]: ret = %d",
+				tcbaddr, i, ret);
+			goto errout;
+		}
 
-			thread_count++;
+		struct thread_detail *new_thread_details = realloc(rtos->thread_details,
+			sizeof(struct thread_detail) * (thread_count + 1));
+		if (!new_thread_details) {
+			ret = ERROR_FAIL;
+			goto errout;
+		}
 
-			rtos->thread_details = realloc(rtos->thread_details,
-				sizeof(struct thread_detail) * thread_count);
-			if (!rtos->thread_details) {
+		struct thread_detail *thread = &new_thread_details[thread_count];
+		thread->threadid = tcbaddr;
+		thread->exists = true;
+		thread->extra_info_str = NULL;
+
+		rtos->thread_details = new_thread_details;
+		thread_count++;
+
+		if (state < ARRAY_SIZE(task_state_str)) {
+			thread->extra_info_str = malloc(EXTRAINFO_SIZE);
+			if (!thread->extra_info_str) {
 				ret = ERROR_FAIL;
 				goto errout;
 			}
+			snprintf(thread->extra_info_str, EXTRAINFO_SIZE, "pid:%d, %s",
+				pid,
+				task_state_str[state]);
+		}
 
-			thread = &rtos->thread_details[thread_count - 1];
-			thread->threadid = tcbaddr;
-			thread->exists = true;
-
-			thread->extra_info_str = NULL;
-			if (state < ARRAY_SIZE(task_state_str)) {
-				thread->extra_info_str = malloc(EXTRAINFO_SIZE);
-				if (!thread->extra_info_str) {
-					ret = ERROR_FAIL;
-					goto errout;
-				}
-				snprintf(thread->extra_info_str, EXTRAINFO_SIZE, "pid:%d, %s",
-					pid,
-					task_state_str[state]);
+		if (tcbinfo.name_off) {
+			thread->thread_name_str = calloc(NAME_SIZE + 1, sizeof(char));
+			if (!thread->thread_name_str) {
+				ret = ERROR_FAIL;
+				goto errout;
 			}
-
-			if (le_to_h_u16(tcbinfo.name_off)) {
-				thread->thread_name_str = calloc(NAME_SIZE + 1, sizeof(char));
-				if (!thread->thread_name_str) {
-					ret = ERROR_FAIL;
-					goto errout;
-				}
-				ret = target_read_buffer(rtos->target, tcbaddr + le_to_h_u16(tcbinfo.name_off),
-					sizeof(char) * NAME_SIZE, (uint8_t *)thread->thread_name_str);
-				if (ret) {
-					LOG_ERROR("Failed to read thread's name: ret = %d", ret);
-					goto errout;
-				}
-			} else {
-				thread->thread_name_str = strdup("None");
+			ret = target_read_buffer(rtos->target, tcbaddr + tcbinfo.name_off,
+				sizeof(char) * NAME_SIZE, (uint8_t *)thread->thread_name_str);
+			if (ret != ERROR_OK) {
+				LOG_ERROR("Failed to read thread's name: ret = %d", ret);
+				goto errout;
 			}
+		} else {
+			thread->thread_name_str = strdup("None");
 		}
 	}
 
@@ -364,7 +344,6 @@ static int nuttx_update_threads(struct rtos *rtos)
 	rtos->thread_count = thread_count;
 errout:
 	free(pidhash);
-
 	return ret;
 }
 
@@ -403,32 +382,31 @@ static int nuttx_getreg_current_thread(struct rtos *rtos,
 static int nuttx_getregs_fromstack(struct rtos *rtos, int64_t thread_id,
 	struct rtos_reg **reg_list, int *num_regs)
 {
-	const struct nuttx_params *priv;
-	const struct rtos_register_stacking *stacking;
 	uint16_t xcpreg_off;
 	uint32_t regsaddr;
-	int ret;
+	const struct nuttx_params *priv = rtos->rtos_specific_params;
+	const struct rtos_register_stacking *stacking = priv->stacking;
 
-	priv = (const struct nuttx_params *)rtos->rtos_specific_params;
-
-	if (priv->select_stackinfo) {
-		stacking = priv->select_stackinfo(rtos->target);
-	} else {
-		LOG_ERROR("Can't find a way to select stacking info");
-		return ERROR_FAIL;
+	if (!stacking) {
+		if (priv->select_stackinfo) {
+			stacking = priv->select_stackinfo(rtos->target);
+		} else {
+			LOG_ERROR("Can't find a way to get stacking info");
+			return ERROR_FAIL;
+		}
 	}
 
-	ret = target_read_u16(rtos->target,
+	int ret = target_read_u16(rtos->target,
 		rtos->symbols[NX_SYM_TCB_INFO].address + offsetof(struct tcbinfo, regs_off),
 		&xcpreg_off);
-	if (ret) {
+	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to read registers' offset: ret = %d", ret);
 		return ERROR_FAIL;
 	}
 
 	ret = target_read_u32(rtos->target, thread_id + xcpreg_off, &regsaddr);
-	if (ret) {
-		LOG_ERROR("Failed to read registers' offset: ret = %d", ret);
+	if (ret != ERROR_OK) {
+		LOG_ERROR("Failed to read registers' address: ret = %d", ret);
 		return ERROR_FAIL;
 	}
 
@@ -438,26 +416,38 @@ static int nuttx_getregs_fromstack(struct rtos *rtos, int64_t thread_id,
 static int nuttx_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 	struct rtos_reg **reg_list, int *num_regs)
 {
-	if (!rtos)
+	if (!rtos) {
+		LOG_ERROR("NUTTX: out of memory");
 		return ERROR_FAIL;
+	}
 
 	if (thread_id == rtos->current_thread)
 		return nuttx_getreg_current_thread(rtos, reg_list, num_regs);
-	else
-		return nuttx_getregs_fromstack(rtos, thread_id, reg_list, num_regs);
+	return nuttx_getregs_fromstack(rtos, thread_id, reg_list, num_regs);
 }
 
 static int nuttx_get_symbol_list_to_lookup(struct symbol_table_elem *symbol_list[])
 {
-	unsigned int i;
+	*symbol_list = calloc(ARRAY_SIZE(nuttx_symbol_list), sizeof(**symbol_list));
+	if (!*symbol_list) {
+		LOG_ERROR("NUTTX: out of memory");
+		return ERROR_FAIL;
+	}
 
-	*symbol_list = (struct symbol_table_elem *)calloc(1,
-		sizeof(struct symbol_table_elem) * ARRAY_SIZE(nuttx_symbol_list));
-
-	for (i = 0; i < ARRAY_SIZE(nuttx_symbol_list); i++) {
+	for (unsigned int i = 0; i < ARRAY_SIZE(nuttx_symbol_list); i++) {
 		(*symbol_list)[i].symbol_name = nuttx_symbol_list[i].name;
 		(*symbol_list)[i].optional = nuttx_symbol_list[i].optional;
 	}
 
 	return ERROR_OK;
 }
+
+const struct rtos_type nuttx_rtos = {
+	.name = "nuttx",
+	.detect_rtos = nuttx_detect_rtos,
+	.create = nuttx_create,
+	.smp_init = nuttx_smp_init,
+	.update_threads = nuttx_update_threads,
+	.get_thread_reg_list = nuttx_get_thread_reg_list,
+	.get_symbol_list_to_lookup = nuttx_get_symbol_list_to_lookup,
+};
