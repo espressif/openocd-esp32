@@ -89,6 +89,8 @@
       # Needed to run tests
       - $BUILD_TEST_APP_DIR/gen_ut_app/main/gcov_tests.gcda.gcov
       - $BUILD_TEST_APP_DIR/gen_ut_app/main/helper_funcs.gcda.gcov
+      - $BUILD_TEST_APP_DIR/gen_ut_app/main/gcov_tests.c.gcda.gcov.json
+      - $BUILD_TEST_APP_DIR/gen_ut_app/main/helper_funcs.c.gcda.gcov.json
       - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/apptrace_gcov_dual
       - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/apptrace_gcov_single
       - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_env.sh
