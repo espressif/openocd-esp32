@@ -119,6 +119,22 @@ build_linux:
     - popd
     - *dist_archive
 
+# do not distribute! Just for build error check with the latest gcc
+build_linux_gcc_latest:
+  stage: build_openocd
+  image: $CI_DOCKER_REGISTRY/openocd-ci-env:1
+  tags:
+    - build
+  allow_failure: true
+  needs:
+    - job: style_check
+  script:
+    - !reference [.add_gitlab_key, script]
+    - !reference [.submodules_mirror_update, script]
+    - ./bootstrap
+    - ./configure ${OPENOCD_CONFIGURE_OPTS}
+    - make -j8
+
 build_linux_armhf_test:
   extends: .build_linux_arm_template
   except:
