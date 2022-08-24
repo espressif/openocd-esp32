@@ -251,19 +251,23 @@ static int nuttx_update_threads(struct rtos *rtos)
 		return ERROR_FAIL;
 	}
 
+	LOG_DEBUG("Hash table size (g_npidhash) = %" PRId32, npidhash);
+
 	ret = target_read_u32(rtos->target, rtos->symbols[NX_SYM_PIDHASH].address, &pidhashaddr);
 	if (ret) {
 		LOG_ERROR("Failed to read g_pidhash address: ret = %d", ret);
 		return ERROR_FAIL;
 	}
 
-	uint8_t *pidhash = malloc(npidhash * sizeof(PTR_WIDTH));
+	LOG_DEBUG("Hash table address (g_pidhash) = %" PRIx32, pidhashaddr);
+
+	uint8_t *pidhash = malloc(npidhash * PTR_WIDTH);
 	if (!pidhash) {
 		LOG_ERROR("Failed to allocate pidhash");
 		return ERROR_FAIL;
 	}
 
-	ret = target_read_buffer(rtos->target, pidhashaddr, sizeof(PTR_WIDTH) * npidhash, pidhash);
+	ret = target_read_buffer(rtos->target, pidhashaddr, PTR_WIDTH * npidhash, pidhash);
 	if (ret) {
 		LOG_ERROR("Failed to read tcbhash: ret = %d", ret);
 		goto errout;
