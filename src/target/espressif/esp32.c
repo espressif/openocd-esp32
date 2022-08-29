@@ -33,6 +33,8 @@ implementation.
 #define ESP32_DRAM_HIGH           0x40000000
 #define ESP32_IROM_MASK_LOW       0x40000000
 #define ESP32_IROM_MASK_HIGH      0x40064f00
+#define ESP32_INTERNAL_DROM_LOW   0x3FF90000
+#define ESP32_INTERNAL_DROM_HIGH  0x3FFA0000
 #define ESP32_IRAM_LOW            0x40070000
 #define ESP32_IRAM_HIGH           0x400a0000
 #define ESP32_RTC_IRAM_LOW        0x400c0000
@@ -198,11 +200,16 @@ static const struct xtensa_config esp32_xtensa_cfg = {
 		}
 	},
 	.drom = {
-		.count = 1,
+		.count = 2,
 		.regions = {
 			{
 				.base = ESP32_DROM_LOW,
 				.size = ESP32_DROM_HIGH - ESP32_DROM_LOW,
+				.access = XT_MEM_ACCESS_READ,
+			},
+			{
+				.base = ESP32_INTERNAL_DROM_LOW,
+				.size = ESP32_INTERNAL_DROM_HIGH - ESP32_INTERNAL_DROM_LOW,
 				.access = XT_MEM_ACCESS_READ,
 			},
 		}
