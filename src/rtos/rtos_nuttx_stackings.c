@@ -52,7 +52,7 @@ static const struct stack_register_offset nuttx_stack_offsets_cortex_m[] = {
 	{ ARMV7M_R13, 0, 32 },			/* sp   */
 	{ ARMV7M_R14, 0x3c, 32 },		/* lr   */
 	{ ARMV7M_PC, 0x40, 32 },		/* pc   */
-	{ ARMV7M_xPSR, 0x44, 32 },		/* xPSR */
+	{ ARMV7M_XPSR, 0x44, 32 },		/* xPSR */
 };
 
 static const struct stack_register_offset nuttx_stack_offsets_cortex_m_fpu[] = {
@@ -72,7 +72,7 @@ static const struct stack_register_offset nuttx_stack_offsets_cortex_m_fpu[] = {
 	{ ARMV7M_R13, 0, 32 },			/* sp   */
 	{ ARMV7M_R14, 0x80, 32 },		/* lr   */
 	{ ARMV7M_PC, 0x84, 32 },		/* pc   */
-	{ ARMV7M_xPSR, 0x88, 32 },		/* xPSR */
+	{ ARMV7M_XPSR, 0x88, 32 },		/* xPSR */
 };
 
 static const struct stack_register_offset nuttx_stack_offsets_esp32[] = {
