@@ -210,53 +210,15 @@ static int esp32c2_init_target(struct command_context *cmd_ctx,
 	return ERROR_OK;
 }
 
-static const char *const s_nonexistent_regs[] = {
-	"mie", "mip", "tdata3", "uie", "utvt", "utvec", "vcsr", "uscratch", "utval",
-	"uip", "unxti", "uintstatus", "uscratchcsw", "uscratchcswl", "sedeleg",
-	"sideleg", "stvt", "snxti", "sintstatus", "sscratchcsw", "sscratchcswl",
-	"vsstatus", "vsie", "vstvec", "vsscratch", "vsepc", "vscause", "vstval",
-	"vsip", "vsatp", "mtvt", "mstatush", "mcountinhibit", "mnxti", "mintstatus",
-	"mscratchcsw", "mscratchcswl", "mtinst", "mtval2", "hstatus", "hedeleg",
-	"hideleg", "hie", "htimedelta", "hcounteren", "hgeie", "htimedeltah",
-	"htval", "hip", "hvip", "htinst", "hgatp", "hgeip", "mvendorid", "marchid",
-	"mimpid", "mhartid", "seed", "mcounteren", "mhpmevent3", "mhpmevent4", "mhpmevent5",
-	"mhpmevent6", "mhpmevent7", "mhpmevent8", "mhpmevent9", "mhpmevent10", "mhpmevent11",
-	"mhpmevent12", "mhpmevent13", "mhpmevent14", "mhpmevent15", "mhpmevent16", "mhpmevent17",
-	"mhpmevent18", "mhpmevent19", "mhpmevent20", "mhpmevent21", "mhpmevent22", "mhpmevent23",
-	"mhpmevent24", "mhpmevent25", "mhpmevent26", "mhpmevent27", "mhpmevent28", "mhpmevent29",
-	"mhpmevent30", "mhpmevent31",
-	"scontext", "hcontext", "tinfo", "mcontext", "mscontext", "mcycle", "minstret",
-	"mhpmcounter3", "mhpmcounter4", "mhpmcounter5", "mhpmcounter6", "mhpmcounter7",
-	"mhpmcounter8", "mhpmcounter9", "mhpmcounter10", "mhpmcounter11", "mhpmcounter12",
-	"mhpmcounter13", "mhpmcounter14", "mhpmcounter15", "mhpmcounter16", "mhpmcounter17",
-	"mhpmcounter18", "mhpmcounter19", "mhpmcounter20", "mhpmcounter21", "mhpmcounter22",
-	"mhpmcounter23", "mhpmcounter24", "mhpmcounter25", "mhpmcounter26", "mhpmcounter27",
-	"mhpmcounter28", "mhpmcounter29", "mhpmcounter30", "mhpmcounter31", "mcycleh",
-	"minstreth", "mhpmcounter3h", "mhpmcounter4h", "mhpmcounter5h", "mhpmcounter6h",
-	"mhpmcounter7h", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter10h", "mhpmcounter11h",
-	"mhpmcounter12h", "mhpmcounter13h", "mhpmcounter14h", "mhpmcounter15h", "mhpmcounter16h",
-	"mhpmcounter17h", "mhpmcounter18h", "mhpmcounter19h", "mhpmcounter20h", "mhpmcounter21h",
-	"mhpmcounter22h", "mhpmcounter23h", "mhpmcounter24h", "mhpmcounter25h", "mhpmcounter26h",
-	"mhpmcounter27h", "mhpmcounter28h", "mhpmcounter29h", "mhpmcounter30h", "mhpmcounter31h",
-	"cycle", "time", "instret", "hpmcounter3", "hpmcounter4", "hpmcounter5", "hpmcounter6",
-	"hpmcounter7", "hpmcounter8", "hpmcounter9", "hpmcounter10", "hpmcounter11", "hpmcounter12",
-	"hpmcounter13", "hpmcounter14", "hpmcounter15", "hpmcounter17", "hpmcounter18",
-	"hpmcounter19",
-	"hpmcounter20", "hpmcounter21", "hpmcounter22", "hpmcounter23", "hpmcounter24",
-	"hpmcounter25",
-	"hpmcounter26", "hpmcounter27", "hpmcounter28", "hpmcounter29", "hpmcounter30",
-	"hpmcounter31",
-	"cycleh", "timeh", "instreth", "hpmcounter3h", "hpmcounter4h", "hpmcounter5h",
-	"hpmcounter6h",
-	"hpmcounter7h", "hpmcounter8h", "hpmcounter9h", "hpmcounter10h", "hpmcounter11h",
-	"hpmcounter12h",
-	"hpmcounter13h", "hpmcounter14h", "hpmcounter15h", "hpmcounter17h", "hpmcounter18h",
-	"hpmcounter19h",
-	"hpmcounter20h", "hpmcounter21h", "hpmcounter22h", "hpmcounter23h", "hpmcounter24h",
-	"hpmcounter25h",
-	"hpmcounter26h", "hpmcounter27h", "hpmcounter28h", "hpmcounter29h", "hpmcounter30h",
-	"hpmcounter31h",
-	"hpmcounter16h", "mhpmevent4"
+static const char *const s_existent_regs[] = {
+	"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "t3", "t4", "t5", "t6",
+	"fp", "pc", "mstatus", "misa", "mtvec", "mscratch", "mepc", "mcause", "mtval", "priv",
+	"s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11",
+	"a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7",
+	"pmpcfg0", "pmpcfg1", "pmpcfg2", "pmpcfg3",
+	"pmpaddr0", "pmpaddr1", "pmpaddr2", "pmpaddr3", "pmpaddr4", "pmpaddr5", "pmpaddr6", "pmpaddr7",
+	"pmpaddr8", "pmpaddr9", "pmpaddr10", "pmpaddr11", "pmpaddr12", "pmpaddr13", "pmpaddr14", "pmpaddr15",
+	"tselect", "tdata1", "tdata2", "tcontrol", "dcsr", "dpc", "dscratch0", "dscratch1", "hpmcounter16",
 };
 
 static int esp32c2_examine(struct target *target)
@@ -266,11 +228,16 @@ static int esp32c2_examine(struct target *target)
 		return ret;
 
 	/* RISCV code initializes registers upon target examination.
-	   disable some registers because their reading or writing causes exception. Not supported in ESP32-C3??? */
-	for (size_t i = 0; i < ARRAY_SIZE(s_nonexistent_regs); i++) {
-		struct reg *r = register_get_by_name(target->reg_cache, s_nonexistent_regs[i], 1);
-		if (r)
-			r->exist = false;
+	   disable some registers because their reading or writing causes exception. Not supported in ESP32-C2??? */
+	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
+		if (target->reg_cache->reg_list[i].exist) {
+			target->reg_cache->reg_list[i].exist = false;
+			for (unsigned int j = 0; j < ARRAY_SIZE(s_existent_regs); j++)
+				if (!strcmp(target->reg_cache->reg_list[i].name, s_existent_regs[j])) {
+					target->reg_cache->reg_list[i].exist = true;
+					break;
+				}
+		}
 	}
 	return ERROR_OK;
 }
