@@ -169,7 +169,6 @@ class GcovDataFile:
 ########################################################################
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
-@idf_ver_min_for_chip('5.0', ['esp32s3'])
 class GcovTestsImpl:
     """ Test cases which are common for dual and single core modes
 
@@ -211,6 +210,13 @@ class GcovTestsImpl:
         self.src_dirs = [self.test_app_cfg.build_src_dir(),]
         src_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.c')
         data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', MAIN_COMP_BUILD_DIR_NAME, 'gcov_tests.c.gcda')
+        # remove old data files to avoid "Data file mismatch" error. 
+        # this kind of errors/warnings causes stack overflow issue for the "gcov_dump_task" 
+        stripped_data_dir = os.path.dirname(os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path)))
+        files = os.listdir(stripped_data_dir)
+        for file in files:
+            if file.endswith(".gcda"):
+                os.remove(os.path.join(stripped_data_dir, file))
         if testee_info.idf_ver < IdfVersion.fromstr('5.0'):
             ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.gcda.gcov')
         else:
