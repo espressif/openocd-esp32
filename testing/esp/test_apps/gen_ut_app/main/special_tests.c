@@ -6,7 +6,11 @@
 #include "esp_log.h"
 #if UT_IDF_VER < MAKE_UT_IDF_VER(5,0,0,0)
 #include "esp_spi_flash.h"
+#define SET_BP(id, addr)                cpu_hal_set_breakpoint(id, addr)
+#define SET_WP(id, addr, size, trigger) cpu_hal_set_watchpoint(id, addr, size, trigger)
 #else
+#define SET_BP(id, addr)                esp_cpu_set_breakpoint(id, addr)
+#define SET_WP(id, addr, size, trigger) esp_cpu_set_watchpoint(id, addr, size, trigger)
 #include "spi_flash_mmap.h"
 #include "esp_private/cache_utils.h"
 #include "hal/cpu_hal.h"
@@ -164,7 +168,7 @@ static void target_bp_func1()
     ESP_LOGI(TAG, "Target BP func '%s' on core %d.", __func__,  xPortGetCoreID());
     volatile int tmp = s_var1; (void)tmp; TEST_BREAK_LOC(target_wp_var1_2);
     /* we've just resumed from WP on previous line, deugger could modify breakpoints config, so set next BP here */
-    cpu_hal_set_breakpoint(1, target_bp_func2);
+    SET_BP(1, target_bp_func2);
     target_bp_func2();
 }
 
@@ -172,9 +176,9 @@ static void target_bp_task(void *pvParameter)
 {
     ESP_LOGI(TAG, "Start target BP task on core %d", xPortGetCoreID());
 
-    cpu_hal_set_breakpoint(0, target_bp_func1);
-    cpu_hal_set_watchpoint(0,(void *)&s_var1, sizeof(s_var1), WATCHPOINT_TRIGGER_ON_RW);
-    cpu_hal_set_watchpoint(1, (void *)&s_var2, sizeof(s_var2), WATCHPOINT_TRIGGER_ON_RW);
+    SET_BP(0, target_bp_func1);
+    SET_WP(0, (void *)&s_var1, sizeof(s_var1), WATCHPOINT_TRIGGER_ON_RW);
+    SET_WP(1, (void *)&s_var2, sizeof(s_var2), WATCHPOINT_TRIGGER_ON_RW);
 
     target_bp_func1();
 }
