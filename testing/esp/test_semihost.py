@@ -165,7 +165,6 @@ class SemihostTestsImpl:
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
 
     @idf_ver_min('5.0')
-    @unittest.skip  # until idf branch merged to master
     def test_semihost_custom(self):
         """
         This test checks that custom syscalls working properly
