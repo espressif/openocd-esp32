@@ -83,6 +83,7 @@ int esp32_sysview_cmd_init(struct target *target,
 {
 	int res;
 	struct esp32_sysview_cmd_data *cmd_data;
+	int core_num = cmd_ctx->cores_num;
 
 	if (argc < 1) {
 		LOG_ERROR("Not enough args! Need trace data destination!");
@@ -93,8 +94,8 @@ int esp32_sysview_cmd_init(struct target *target,
 	if (res)
 		return res;
 
-	if (!mcore_format && argc < cmd_ctx->cores_num) {
-		LOG_ERROR("Not enough args! Need %d trace data destinations!", cmd_ctx->cores_num);
+	if (!mcore_format && argc < core_num) {
+		LOG_ERROR("Not enough args! Need %d trace data destinations!", core_num);
 		res = ERROR_FAIL;
 		goto on_error;
 	}
@@ -105,16 +106,14 @@ int esp32_sysview_cmd_init(struct target *target,
 	cmd_data->mcore_format = mcore_format;
 
 	/*outfile1 [outfile2] [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]] */
-	int dests_num = esp32_apptrace_dest_init(cmd_data->data_dests,
-		argv,
-		!mcore_format ? cmd_ctx->cores_num : 1);
-	if (!mcore_format && dests_num < cmd_ctx->cores_num) {
-		LOG_ERROR("Not enough args! Need %d trace data destinations!", cmd_ctx->cores_num);
+	int dests_num = esp32_apptrace_dest_init(cmd_data->data_dests, argv, !mcore_format ? core_num : 1);
+	if (!mcore_format && dests_num < core_num) {
+		LOG_ERROR("Not enough args! Need %d trace data destinations!", core_num);
 		free(cmd_data);
 		res = ERROR_FAIL;
 		goto on_error;
 	}
-	cmd_data->apptrace.max_len = (uint32_t)-1;
+	cmd_data->apptrace.max_len = UINT32_MAX;
 	cmd_data->apptrace.poll_period = 0 /*ms*/;
 	cmd_ctx->stop_tmo = -1.0;	/* infinite */
 	if (argc > dests_num) {
@@ -140,7 +139,7 @@ int esp32_sysview_cmd_init(struct target *target,
 	res = esp_sysview_trace_header_write(cmd_ctx, mcore_format);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to write trace header (%d)!", res);
-		esp32_apptrace_dest_cleanup(cmd_data->data_dests, cmd_ctx->cores_num);
+		esp32_apptrace_dest_cleanup(cmd_data->data_dests, core_num);
 		free(cmd_data);
 		return res;
 	}
@@ -310,7 +309,7 @@ static uint16_t esp_sysview_get_predef_payload_len(uint16_t id, uint8_t *pkt)
 
 static uint16_t esp_sysview_parse_packet(uint8_t *pkt_buf,
 	uint32_t *pkt_len,
-	int *pkt_core_id,
+	unsigned int *pkt_core_id,
 	uint32_t *delta,
 	uint32_t *delta_len,
 	bool clear_core_bit)
@@ -390,7 +389,7 @@ static int esp32_sysview_write_packet(struct esp32_sysview_cmd_data *cmd_data,
 }
 
 static int esp32_sysview_process_packet(struct esp32_apptrace_cmd_ctx *ctx,
-	int pkt_core_id, uint16_t event_id, uint32_t delta, uint32_t delta_len,
+	unsigned int pkt_core_id, uint16_t event_id, uint32_t delta, uint32_t delta_len,
 	uint32_t pkt_len, uint8_t *pkt_buf)
 {
 	struct esp32_sysview_cmd_data *cmd_data = ctx->cmd_priv;
@@ -432,7 +431,7 @@ static int esp32_sysview_process_packet(struct esp32_apptrace_cmd_ctx *ctx,
 		new_delta_buf);
 	if (res != ERROR_OK)
 		return res;
-	for (int i = 0; i < ctx->cores_num; i++) {
+	for (unsigned int i = 0; i < ctx->cores_num; i++) {
 		if (pkt_core_id == i)
 			continue;
 		switch (event_id) {
@@ -491,7 +490,7 @@ static int esp32_sysview_process_packet(struct esp32_apptrace_cmd_ctx *ctx,
 }
 
 int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
-	int core_id,
+	unsigned int core_id,
 	uint8_t *data,
 	uint32_t data_len)
 {
@@ -536,7 +535,7 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 			return res;
 		}
 		if (!cmd_data->mcore_format) {
-			for (int i = 0; i < ctx->cores_num; i++) {
+			for (unsigned int i = 0; i < ctx->cores_num; i++) {
 				if (core_id == i)
 					continue;
 				res =
@@ -556,7 +555,7 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 		processed += SYSVIEW_SYNC_LEN;
 	}
 	while (processed < data_len) {
-		int pkt_core_id;
+		unsigned int pkt_core_id;
 		uint32_t delta_len = 0;
 		uint32_t pkt_len = 0, delta = 0;
 		uint16_t event_id = esp_sysview_parse_packet(data + processed,

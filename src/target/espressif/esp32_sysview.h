@@ -26,7 +26,7 @@ struct esp32_sysview_cmd_data {
 	struct esp32_apptrace_dest data_dests[ESP32_APPTRACE_MAX_CORES_NUM];
 	bool mcore_format;
 	uint32_t sv_acc_time_delta;
-	int sv_last_core_id;
+	unsigned int sv_last_core_id;
 	int sv_trace_running;
 };
 
@@ -40,7 +40,7 @@ int esp32_sysview_cmd_init(struct target *target,
 	int argc);
 int esp32_sysview_cmd_cleanup(struct esp32_apptrace_cmd_ctx *cmd_ctx);
 int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
-	int core_id,
+	unsigned int core_id,
 	uint8_t *data,
 	uint32_t data_len);
 
