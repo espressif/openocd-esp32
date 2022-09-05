@@ -55,7 +55,7 @@ struct dir_map {
 	struct list_head lh;
 };
 
-struct esp_semihost_data *target_to_esp_semihost_data(struct target *target)
+static struct esp_semihost_data *target_to_esp_semihost_data(struct target *target)
 {
 	const char *arch = target_get_gdb_arch(target);
 	if (arch) {
@@ -208,7 +208,7 @@ int esp_semihosting_post_reset(struct target *target)
 	return clean_dir_map_list(target);
 }
 
-int esp_semihosting_sys_seek(struct target *target, uint64_t fd, uint32_t pos, size_t whence)
+static int esp_semihosting_sys_seek(struct target *target, uint64_t fd, uint32_t pos, size_t whence)
 {
 	struct semihosting *semihosting = target->semihosting;
 
