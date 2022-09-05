@@ -109,30 +109,30 @@ typedef enum slot {
 #define MAX_HWBPS			16
 #define DRAM_CACHE_SIZE		16
 
-uint8_t ir_dtmcontrol[4] = {DTMCONTROL};
+static uint8_t ir_dtmcontrol[4] = {DTMCONTROL};
 struct scan_field select_dtmcontrol = {
 	.in_value = NULL,
 	.out_value = ir_dtmcontrol
 };
-uint8_t ir_dbus[4] = {DBUS};
+static uint8_t ir_dbus[4] = {DBUS};
 struct scan_field select_dbus = {
 	.in_value = NULL,
 	.out_value = ir_dbus
 };
-uint8_t ir_idcode[4] = {0x1};
+static uint8_t ir_idcode[4] = {0x1};
 struct scan_field select_idcode = {
 	.in_value = NULL,
 	.out_value = ir_idcode
 };
 
-bscan_tunnel_type_t bscan_tunnel_type;
+static bscan_tunnel_type_t bscan_tunnel_type;
 int bscan_tunnel_ir_width; /* if zero, then tunneling is not present/active */
 
 static const uint8_t bscan_zero[4] = {0};
 static const uint8_t bscan_one[4] = {1};
 
 static uint8_t ir_user4[4];
-struct scan_field select_user4 = {
+static struct scan_field select_user4 = {
 	.in_value = NULL,
 	.out_value = ir_user4
 };
@@ -255,6 +255,10 @@ static const virt2phys_info_t sv48 = {
 	.pa_ppn_shift = {12, 21, 30, 39},
 	.pa_ppn_mask = {0x1ff, 0x1ff, 0x1ff, 0x1ffff},
 };
+
+static enum riscv_halt_reason riscv_halt_reason(struct target *target, int hartid);
+static void riscv_invalidate_register_cache(struct target *target);
+static int riscv_step_rtos_hart(struct target *target);
 
 static void riscv_sample_buf_maybe_add_timestamp(struct target *target, bool before)
 {
@@ -1019,7 +1023,7 @@ int riscv_remove_watchpoint(struct target *target,
  * The GDB server uses this information to tell GDB what data address has
  * been hit, which enables GDB to print the hit variable along with its old
  * and new value. */
-int riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint)
+static int riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint)
 {
 	struct watchpoint *wp = target->watchpoints;
 
@@ -3245,6 +3249,7 @@ struct target_type riscv_target = {
 
 /*** RISC-V Interface ***/
 
+/* Initializes the shared RISC-V structure. */
 void riscv_info_init(struct target *target, struct riscv_info *r)
 {
 	memset(r, 0, sizeof(*r));
@@ -3396,7 +3401,8 @@ int riscv_set_current_hartid(struct target *target, int hartid)
 	return ERROR_OK;
 }
 
-void riscv_invalidate_register_cache(struct target *target)
+/* Invalidates the register cache. */
+static void riscv_invalidate_register_cache(struct target *target)
 {
 	LOG_DEBUG("[%d]", target->coreid);
 	register_cache_invalidate(target->reg_cache);
@@ -3546,7 +3552,7 @@ bool riscv_is_halted(struct target *target)
 	return r->is_halted(target);
 }
 
-enum riscv_halt_reason riscv_halt_reason(struct target *target, int hartid)
+static enum riscv_halt_reason riscv_halt_reason(struct target *target, int hartid)
 {
 	RISCV_INFO(r);
 	if (riscv_set_current_hartid(target, hartid) != ERROR_OK)
