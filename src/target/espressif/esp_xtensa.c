@@ -128,10 +128,25 @@ static int esp_xtensa_dbgstubs_restore(struct target *target)
 
 void esp_xtensa_print_exception_reason(struct target *target)
 {
-	int exccause_val;
+	if (target->state != TARGET_HALTED)
+		return;
+
+	if (target->halt_issued)
+		/* halted upon `halt` request. This is not an exception */
+		return;
+
+	xtensa_reg_val_t ps = xtensa_reg_get(target, XT_REG_IDX_PS);
+	int ps_excm = (ps & BIT(4)) == BIT(4);
+
+	LOG_TARGET_DEBUG(target, "PS=0x%" PRIX32 " EXCM=%d", ps, ps_excm);
+
+	/* PS.EXCM reset value is 1. So reading exccause immediately after reset may give wrong result.
+	 * When one of the exceptional conditions is raised, PS.EXCM will be set */
+	if (ps == 0x10 || ps == 0x1F || ps_excm == 0)
+		return;
 
 	if (target_to_xtensa(target)->core_config->exc.enabled) {
-		exccause_val = XTENSA_EXCCAUSE(xtensa_reg_get(target, XT_REG_IDX_EXCCAUSE));
+		int exccause_val = XTENSA_EXCCAUSE(xtensa_reg_get(target, XT_REG_IDX_EXCCAUSE));
 		LOG_TARGET_INFO(target, "Halt cause (%d) - (%s)", exccause_val,
 			xtensa_get_exception_reason(target, exccause_val));
 	} else {
