@@ -67,12 +67,16 @@ def action_extensions(base_actions, project_path=os.getcwd()):
             config = parse_config(config_path)
 
             with tempfile.NamedTemporaryFile() as sdkconfig_temp:
-                # Use values from the combined defaults and the values from
+                # Use values from the combined defaults, chip config defaults and the values from
                 # config folder to build config
                 sdkconfig_default = os.path.join(project_path, "sdkconfig.defaults")
-
                 with open(sdkconfig_default, "rb") as sdkconfig_default_file:
                     sdkconfig_temp.write(sdkconfig_default_file.read())
+
+                sdkconfig_chip_default = os.path.join(project_path, "sdkconfig.defaults." + os.getenv('IDF_TARGET'))
+                if os.path.exists(sdkconfig_chip_default):
+                    with open(sdkconfig_chip_default, "rb") as sdkconfig_chip_default_file:
+                        sdkconfig_temp.write(sdkconfig_chip_default_file.read())
 
                 sdkconfig_config = os.path.join(project_path, "configs", config_name)
                 with open(sdkconfig_config, "rb") as sdkconfig_config_file:
