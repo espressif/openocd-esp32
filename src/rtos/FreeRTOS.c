@@ -912,6 +912,12 @@ static int freertos_update_threads(struct rtos *rtos)
 		target = rtos->target;
 	}
 
+	/* sanity check to make scan-build happy */
+	if (!target) {
+		LOG_ERROR("target is NULL!");
+		return ERROR_FAIL;
+	}
+
 	if (target->state != TARGET_HALTED)
 		LOG_WARNING("Target [%s] not HALTED!", target->cmd_name);
 
@@ -1408,16 +1414,16 @@ static int freertos_create(struct target *target)
 	}
 
 	struct freertos_data *rtos_data = calloc(1, sizeof(struct freertos_data));
-	if (rtos_data == NULL) {
+	if (!rtos_data) {
 		LOG_ERROR("Failed to allocate OS data!");
 		return JIM_ERR;
 	}
 	rtos_data->nr_cpus = 1;
 	rtos_data->thread_counter = 0;
 	rtos_data->params = &freertos_params_list[i];
-	rtos_data->curr_threads_handles_buff = calloc(rtos_data->nr_cpus,
-		rtos_data->params->pointer_width);
-	if (rtos_data->curr_threads_handles_buff == NULL) {
+	rtos_data->curr_threads_handles_buff = calloc(rtos_data->nr_cpus, rtos_data->params->pointer_width);
+	if (!rtos_data->curr_threads_handles_buff) {
+		free(rtos_data);
 		LOG_ERROR("Failed to allocate current threads handles buffer!");
 		return JIM_ERR;
 	}
