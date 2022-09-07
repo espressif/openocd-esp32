@@ -9,6 +9,7 @@
 #include "config.h"
 #endif
 
+#include <helper/bits.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include "esp_riscv.h"
@@ -77,7 +78,6 @@ enum esp_riscv_exception_cause {
 extern struct target_type riscv_target;
 static int esp_riscv_debug_stubs_info_init(struct target *target,
 	target_addr_t ctrl_addr);
-void esp_riscv_print_exception_reason(struct target *target);
 
 static const char *esp_riscv_get_exception_reason(enum esp_riscv_exception_cause exception_code)
 {
@@ -110,6 +110,31 @@ static const char *esp_riscv_get_exception_reason(enum esp_riscv_exception_cause
 		return "Store page fault";
 	}
 	return "Unknown exception cause";
+}
+
+static void esp_riscv_print_exception_reason(struct target *target)
+{
+	if (target->state != TARGET_HALTED)
+		return;
+
+	if (target->halt_issued)
+		/* halted upon `halt` request. This is not an exception */
+		return;
+
+	riscv_reg_t mcause;
+	int result = riscv_get_register(target, &mcause, GDB_REGNO_MCAUSE);
+	if (result != ERROR_OK) {
+		LOG_ERROR("Failed to read mcause register. Unknown exception reason!");
+	} else {
+		/* Exception ID 0x0 (instruction access misaligned) is not present because CPU always masks the lowest
+		 * bit of the address during instruction fetch.
+		 * And (mcause(31) is 1 for interrupts and 0 for exceptions). We will print only exception reasons */
+		LOG_TARGET_DEBUG(target, "mcause=%" PRIx64, mcause);
+		if (mcause & BIT(31) || mcause == 0)
+			return;
+		LOG_TARGET_INFO(target, "Halt cause (%d) - (%s)", (int)ESP_RISCV_EXCEPTION_CAUSE(mcause),
+			esp_riscv_get_exception_reason(mcause));
+	}
 }
 
 int esp_riscv_semihosting(struct target *target)
@@ -628,17 +653,6 @@ int esp_riscv_write_memory(struct target *target, target_addr_t address,
 int esp_riscv_poll(struct target *target)
 {
 	return riscv_target.poll(target);
-}
-
-void esp_riscv_print_exception_reason(struct target *target)
-{
-	riscv_reg_t mcause;
-	int result = riscv_get_register(target, &mcause, GDB_REGNO_MCAUSE);
-	if (result != ERROR_OK)
-		LOG_ERROR("Failed to read mcause register. Unknown exception reason!");
-	else
-		LOG_TARGET_INFO(target, "Halt cause (%d) - (%s)", (int)ESP_RISCV_EXCEPTION_CAUSE(
-				mcause), esp_riscv_get_exception_reason(mcause));
 }
 
 int esp_riscv_halt(struct target *target)
