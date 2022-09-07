@@ -271,14 +271,11 @@ static int esp32c2_poll(struct target *target)
 				strap_reg = ESP32C2_FLASH_BOOT_MODE;
 			}
 			uint32_t reset_buffer = 0;
-			res = target_read_u32(target,
-				ESP32C2_RTCCNTL_RESET_STATE_REG,
-				&reset_buffer);
+			res = target_read_u32(target, ESP32C2_RTCCNTL_RESET_STATE_REG, &reset_buffer);
 			if (res != ERROR_OK) {
 				LOG_WARNING("Failed to read read reset cause register (%d)!", res);
 			} else {
-				LOG_INFO("Reset cause (%ld) - (%s)",
-					(ESP32C2_RESET_CAUSE(reset_buffer)),
+				LOG_INFO("Reset cause (%ld) - (%s)", (ESP32C2_RESET_CAUSE(reset_buffer)),
 					esp32c2_get_reset_reason((reset_buffer)));
 			}
 
@@ -294,6 +291,7 @@ static int esp32c2_poll(struct target *target)
 					LOG_ERROR("Failed to halt core (%d)!", res);
 				}
 			}
+
 			if (esp32c2->esp_riscv.semi_ops->post_reset)
 				esp32c2->esp_riscv.semi_ops->post_reset(target);
 			/* Clear memory which is used by RTOS layer to get the task count */
