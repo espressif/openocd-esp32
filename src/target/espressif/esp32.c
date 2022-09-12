@@ -186,7 +186,8 @@ static const struct xtensa_user_reg_desc esp32_user_regs[ESP32_NUM_REGS - XT_NUM
 	{ "f64s", 0xEC, 0, 32, &xtensa_user_reg_u32_type },
 };
 
-static const struct xtensa_config esp32_xtensa_cfg = {
+static struct xtensa_config esp32_xtensa_cfg = {
+	.core_type = XT_LX,
 	.density = true,
 	.aregs_num = XT_AREGS_NUM_MAX,
 	.windowed = true,
