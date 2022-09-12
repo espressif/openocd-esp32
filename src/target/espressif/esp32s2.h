@@ -19,11 +19,13 @@
  * Corresponds to the amount of regs listed in regformats/reg-xtensa.dat in the gdb source */
 #define ESP32_S2_NUM_REGS_G_COMMAND   72
 
+#if 0
 enum esp32s2_reg_id {
 	/* chip specific registers that extend ISA go after ISA-defined ones */
 	ESP32_S2_REG_IDX_GPIOOUT = XT_USR_REG_START,
 	ESP32_S2_NUM_REGS,
 };
+#endif
 
 int esp32s2_reset_reason_fetch(struct target *target, int *rsn_id, const char **rsn_str);
 

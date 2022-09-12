@@ -44,7 +44,6 @@ int esp_xtensa_smp_watchpoint_remove(struct target *target, struct watchpoint *w
 int esp_xtensa_smp_target_init(struct command_context *cmd_ctx, struct target *target);
 int esp_xtensa_smp_init_arch_info(struct target *target,
 	struct esp_xtensa_smp_common *esp_xtensa_smp,
-	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
 	struct esp_ops *esp_ops);
 int esp_xtensa_smp_run_func_image(struct target *target,

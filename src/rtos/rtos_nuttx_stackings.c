@@ -95,7 +95,7 @@ static const struct stack_register_offset nuttx_stack_offsets_esp32[] = {
 	{ XT_REG_IDX_AR15, 0x44, 32 },		/* A15 */
 
 	/* A16-A63 aren't in the stack frame because they've been flushed to the stack earlier */
-
+#if 0
 	{ XT_REG_IDX_AR16, -1, 32 },		/* A16 */
 	{ XT_REG_IDX_AR17, -1, 32 },		/* A17 */
 	{ XT_REG_IDX_AR18, -1, 32 },		/* A18 */
@@ -188,6 +188,7 @@ static const struct stack_register_offset nuttx_stack_offsets_esp32[] = {
 	{ XT_REG_IDX_F15, -1, 32 },		/* f15 */
 	{ XT_REG_IDX_FCR, -1, 32 },		/* fcr */
 	{ XT_REG_IDX_FSR, -1, 32 },		/* fsr */
+#endif
 };
 
 static const struct stack_register_offset nuttx_stack_offsets_esp32s2[] = {
@@ -210,7 +211,7 @@ static const struct stack_register_offset nuttx_stack_offsets_esp32s2[] = {
 	{ XT_REG_IDX_AR15, 0x44, 32 },		/* A15 */
 
 	/* A16-A63 aren't in the stack frame because they've been flushed to the stack earlier */
-
+#if 0
 	{ XT_REG_IDX_AR16, -1, 32 },		/* A16 */
 	{ XT_REG_IDX_AR17, -1, 32 },		/* A17 */
 	{ XT_REG_IDX_AR18, -1, 32 },		/* A18 */
@@ -271,6 +272,7 @@ static const struct stack_register_offset nuttx_stack_offsets_esp32s2[] = {
 
 	{ XT_REG_IDX_THREADPTR, -1, 32 },	/* threadptr */
 	{ ESP32_S2_REG_IDX_GPIOOUT, -1, 32 },	/* gpio_out */
+#endif
 };
 
 static const struct stack_register_offset nuttx_stack_offsets_esp32s3[] = {
@@ -293,7 +295,7 @@ static const struct stack_register_offset nuttx_stack_offsets_esp32s3[] = {
 	{ XT_REG_IDX_AR15, 0x44, 32 },		/* A15 */
 
 	/* A16-A63 aren't in the stack frame because they've been flushed to the stack earlier */
-
+#if 0
 	{ XT_REG_IDX_AR16, -1, 32 },		/* A16 */
 	{ XT_REG_IDX_AR17, -1, 32 },		/* A17 */
 	{ XT_REG_IDX_AR18, -1, 32 },		/* A18 */
@@ -409,6 +411,7 @@ static const struct stack_register_offset nuttx_stack_offsets_esp32s3[] = {
 	{ ESP32_S3_REG_IDX_Q5, -1, 128 },		/* q5 */
 	{ ESP32_S3_REG_IDX_Q6, -1, 128 },		/* q6 */
 	{ ESP32_S3_REG_IDX_Q7, -1, 128 },		/* q7 */
+#endif
 };
 
 static const struct stack_register_offset nuttx_stack_offsets_riscv[] = {

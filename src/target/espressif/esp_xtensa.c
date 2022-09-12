@@ -21,10 +21,8 @@
 
 #define XTENSA_EXCCAUSE(reg_val)         ((reg_val) & 0x3F)
 
-static const char *xtensa_get_exception_reason(struct target *target, enum xtensa_exception_cause exccause_code)
+static const char *xtensa_get_exception_reason(struct target *target, enum esp_xtensa_exception_cause exccause_code)
 {
-	struct xtensa_config *chip_config = (struct xtensa_config *)target_to_xtensa(target)->core_config;
-
 	switch (exccause_code) {
 	case ILLEGAL_INSTRUCTION:
 		return "Illegal instruction";
@@ -35,45 +33,41 @@ static const char *xtensa_get_exception_reason(struct target *target, enum xtens
 	case LOAD_STORE_ERROR:
 		return "Load or store error";
 	case LEVEL1_INTERRUPT:
-		return chip_config->irq.enabled ? "Level-1 interrupt" : "Unknown exception";
+		return "Level-1 interrupt";
 	case ALLOCA:
-		return chip_config->windowed ? "Alloca exception" : "Unknown exception";
+		return "Alloca exception";
 	case INTEGER_DIVIDE_BY_ZERO:
-		return chip_config->int_div_32 ? "Integer divide by zero" : "Unknown exception";
+		return "Integer divide by zero";
 	case PRIVILEGED:
-		return chip_config->mmu.enabled ? "Privileged instruction" : "Unknown exception";
+		return "Privileged instruction";
 	case LOAD_STORE_ALIGNMENT:
-		return chip_config->exc.unaligned ? "Load or store alignment" : "Unknown exception";
+		return "Load or store alignment";
 	case INSTR_PIF_DATA_ERROR:
-		return chip_config->proc_intf ? "Instruction PIF data error" : "Unknown exception";
+		return "Instruction PIF data error";
 	case LOAD_STORE_PIF_DATA_ERROR:
-		return chip_config->proc_intf ? "Load or store PIF data error" : "Unknown exception";
+		return "Load or store PIF data error";
 	case INSTR_PIF_ADDR_ERROR:
-		return chip_config->proc_intf ? "Instruction PIF address error" : "Unknown exception";
+		return "Instruction PIF address error";
 	case LOAD_STORE_PIF_ADDR_ERROR:
-		return chip_config->proc_intf ? "Load or store PIF address error" : "Unknown exception";
+		return "Load or store PIF address error";
 	case INST_TLB_MISS:
-		return chip_config->mmu.enabled ? "Instruction TLB miss" : "Unknown exception";
+		return "Instruction TLB miss";
 	case INST_TLB_MULTIHIT:
-		return chip_config->mmu.enabled ? "Instruction TLB multi hit" : "Unknown exception";
+		return "Instruction TLB multi hit";
 	case INST_FETCH_PRIVILEGE:
-		return chip_config->mmu.enabled ? "Instruction fetch privilege" : "Unknown exception";
+		return "Instruction fetch privilege";
 	case INST_FETCH_PROHIBITED:
-		return (chip_config->mmu.enabled ||
-			chip_config->region_protect.enabled) ? "Instruction fetch prohibited" :
-		       "Unknown exception";
+		return "Instruction fetch prohibited";
 	case LOAD_STORE_TLB_MISS:
-		return chip_config->mmu.enabled ? "Load or store TLB miss" : "Unknown exception";
+		return "Load or store TLB miss";
 	case LOAD_STORE_TLB_MULTIHIT:
-		return chip_config->mmu.enabled ? "Load or store TLB multi hit" : "Unknown exception";
+		return "Load or store TLB multi hit";
 	case LOAD_STORE_PRIVILEGE:
-		return chip_config->mmu.enabled ? "Load or store privilege" : "Unknown exception";
+		return "Load or store privilege";
 	case LOAD_PROHIBITED:
-		return (chip_config->mmu.enabled || chip_config->region_protect.enabled) ? "Load prohibited" :
-		       "Unknown exception";
+		return "Load prohibited";
 	case STORE_PROHIBITED:
-		return (chip_config->mmu.enabled || chip_config->region_protect.enabled) ? "Store prohibited" :
-		       "Unknown exception";
+		return "Store prohibited";
 	case COPROCESSOR_N_DISABLED_0:
 	case COPROCESSOR_N_DISABLED_1:
 	case COPROCESSOR_N_DISABLED_2:
@@ -82,7 +76,7 @@ static const char *xtensa_get_exception_reason(struct target *target, enum xtens
 	case COPROCESSOR_N_DISABLED_5:
 	case COPROCESSOR_N_DISABLED_6:
 	case COPROCESSOR_N_DISABLED_7:
-		return chip_config->coproc ? "Coprocessor disabled" : "Unknown exception";
+		return "Coprocessor disabled";
 	}
 	return "Unknown exception";
 }
@@ -136,8 +130,7 @@ void esp_xtensa_print_exception_reason(struct target *target)
 		return;
 
 	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
-	unsigned int eps_reg_idx = esp_xtensa->xtensa.core_config->debug.eps_dbglevel_reg_idx;
-	xtensa_reg_val_t eps = xtensa_reg_get(target, eps_reg_idx);
+	xtensa_reg_val_t eps = xtensa_reg_get(target, esp_xtensa->xtensa.eps_dbglevel_idx);
 	int eps_excm = (eps & BIT(4)) == BIT(4);
 
 	LOG_TARGET_DEBUG(target, "EPS=0x%" PRIX32 " EXCM=%d", eps, eps_excm);
@@ -147,7 +140,7 @@ void esp_xtensa_print_exception_reason(struct target *target)
 	if (eps == 0x10 || eps == 0x1F || eps_excm == 0)
 		return;
 
-	if (target_to_xtensa(target)->core_config->exc.enabled) {
+	if (target_to_xtensa(target)->core_config->exceptions) {
 		int exccause_val = XTENSA_EXCCAUSE(xtensa_reg_get(target, XT_REG_IDX_EXCCAUSE));
 		LOG_TARGET_INFO(target, "Halt cause (%d) - (%s)", exccause_val,
 			xtensa_get_exception_reason(target, exccause_val));
@@ -166,11 +159,10 @@ int esp_xtensa_on_halt(struct target *target)
 
 int esp_xtensa_init_arch_info(struct target *target,
 	struct esp_xtensa_common *esp_xtensa,
-	const struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
 	struct esp_ops *esp_ops)
 {
-	int ret = xtensa_init_arch_info(target, &esp_xtensa->xtensa, xtensa_cfg, dm_cfg);
+	int ret = xtensa_init_arch_info(target, &esp_xtensa->xtensa, dm_cfg);
 	if (ret != ERROR_OK)
 		return ret;
 	ret = esp_common_init(&esp_xtensa->esp, esp_ops->flash_brps_ops, &xtensa_algo_hw);
@@ -281,7 +273,7 @@ int esp_xtensa_poll(struct target *target)
 
 	int ret = xtensa_poll(target);
 
-	if (xtensa_dm_power_status_get(&xtensa->dbg_mod) & PWRSTAT_COREWASRESET) {
+	if (xtensa_dm_power_status_get(&xtensa->dbg_mod) & PWRSTAT_COREWASRESET(xtensa)) {
 		esp_xtensa_common->reset_reason = ESP_XTENSA_RESET_RSN_UNKNOWN;
 		LOG_TARGET_DEBUG(target, "Clear debug stubs info");
 		memset(&esp_xtensa_common->esp.dbg_stubs, 0, sizeof(esp_xtensa_common->esp.dbg_stubs));

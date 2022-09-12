@@ -15,7 +15,6 @@
 #include "esp_xtensa.h"
 #include "esp_xtensa_semihosting.h"
 
-#define ESP_XTENSA_SYSCALL              XT_INS_BREAK(1, 14)
 #define ESP_XTENSA_SYSCALL_SZ           3
 
 #define XTENSA_SYSCALL_OP_REG           XT_REG_IDX_A2
@@ -50,6 +49,7 @@ static int esp_xtensa_semihosting_post_result(struct target *target)
  */
 int esp_xtensa_semihosting(struct target *target, int *retval)
 {
+	struct xtensa *xtensa = target_to_xtensa(target);
 	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
 
 	xtensa_reg_val_t dbg_cause = xtensa_reg_get(target, XT_REG_IDX_DEBUGCAUSE);
@@ -65,7 +65,7 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 	}
 
 	uint32_t syscall_ins = buf_get_u32(brk_insn_buf, 0, 32);
-	if (syscall_ins != ESP_XTENSA_SYSCALL) {
+	if (syscall_ins != XT_INS_BREAK(xtensa, 1, 14)) {
 		*retval = ERROR_OK;
 		return SEMIHOSTING_NONE;
 	}
@@ -111,5 +111,5 @@ int esp_xtensa_semihosting_init(struct target *target)
 		return retval;
 	target->semihosting->word_size_bytes = 4;			/* 32 bits */
 	target->semihosting->user_command_extension = esp_semihosting_common;
-	return retval;
+	return ERROR_OK;
 }
