@@ -77,6 +77,7 @@ enum xtensa_reg_id {
 	XT_REG_IDX_AR61,
 	XT_REG_IDX_AR62,
 	XT_REG_IDX_AR63,
+	XT_REG_IDX_ARLAST = XT_REG_IDX_AR63,
 	XT_REG_IDX_LBEG,
 	XT_REG_IDX_LEND,
 	XT_REG_IDX_LCOUNT,
@@ -239,6 +240,9 @@ enum xtensa_reg_type {
 	XT_REG_RELGEN = 4,		/* Relative general address. Points to the absolute addresses plus the window
 					 *index */
 	XT_REG_FR = 5,			/* Floating-point register */
+	XT_REG_TIE = 6,			/* TIE (custom) register */
+	XT_REG_OTHER = 7,		/* Other (typically legacy) register */
+	XT_REG_TYPE_NUM,
 };
 
 enum xtensa_reg_flags {

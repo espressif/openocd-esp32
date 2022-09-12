@@ -106,10 +106,10 @@ int esp_xtensa_smp_soft_reset_halt(struct target *target)
 			return res;
 	}
 	if (!target->smp)
-		return xtensa_assert_reset(target);
+		return xtensa_soft_reset_halt(target);
 
 	foreach_smp_target(head, target->smp_targets) {
-		res = xtensa_assert_reset(head->target);
+		res = xtensa_soft_reset_halt(head->target);
 		if (res != ERROR_OK)
 			return res;
 	}
@@ -632,7 +632,7 @@ int esp_xtensa_smp_run_onboard_func(struct target *target,
 
 int esp_xtensa_smp_init_arch_info(struct target *target,
 	struct esp_xtensa_smp_common *esp_xtensa_smp,
-	const struct xtensa_config *xtensa_cfg,
+	struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
 	struct esp_ops *esp_ops)
 {

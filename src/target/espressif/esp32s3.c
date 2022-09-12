@@ -239,7 +239,8 @@ struct esp32s3_common {
 static int esp32s3_fetch_user_regs(struct target *target);
 static int esp32s3_queue_write_dirty_user_regs(struct target *target);
 
-static const struct xtensa_config esp32s3_xtensa_cfg = {
+static struct xtensa_config esp32s3_xtensa_cfg = {
+	.core_type = XT_LX,
 	.density = true,
 	.aregs_num = XT_AREGS_NUM_MAX,
 	.windowed = true,
