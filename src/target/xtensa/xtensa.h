@@ -148,6 +148,14 @@ struct xtensa_mmu_config {
 	bool dvarway56;
 };
 
+struct xtensa_mpu_config {
+	bool enabled;
+	uint8_t nfgseg;
+	uint32_t minsegsize;
+	bool lockable;
+	bool execonly;
+};
+
 struct xtensa_exception_config {
 	bool enabled;
 	bool unaligned;
@@ -161,6 +169,7 @@ struct xtensa_irq_config {
 
 struct xtensa_high_prio_irq_config {
 	bool enabled;
+	uint8_t level_num;
 	uint8_t excm_level;
 	uint8_t nmi_num;
 };
@@ -171,6 +180,7 @@ struct xtensa_debug_config {
 	uint8_t ibreaks_num;
 	uint8_t dbreaks_num;
 	uint8_t icount_sz;
+	uint8_t perfcount_num;
 	unsigned int eps_dbglevel_reg_idx;
 };
 
@@ -195,6 +205,14 @@ struct xtensa_config {
 	uint8_t aregs_num;
 	bool windowed;
 	bool coproc;
+	bool exceptions;
+	struct xtensa_irq_config irq;
+	struct xtensa_high_prio_irq_config high_irq;
+	struct xtensa_mmu_config mmu;
+	struct xtensa_mpu_config mpu;
+	struct xtensa_debug_config debug;
+	struct xtensa_tracing_config trace;
+
 	bool fp_coproc;
 	bool loop;
 	uint8_t miscregs_num;
@@ -221,13 +239,8 @@ struct xtensa_config {
 	struct xtensa_local_mem_config dram;
 	struct xtensa_local_mem_config sram;
 	struct xtensa_local_mem_config srom;
-	struct xtensa_mmu_config mmu;
 	struct xtensa_exception_config exc;
-	struct xtensa_irq_config irq;
-	struct xtensa_high_prio_irq_config high_irq;
 	struct xtensa_timer_irq_config tim_irq;
-	struct xtensa_debug_config debug;
-	struct xtensa_tracing_config trace;
 	unsigned int gdb_general_regs_num;
 	const unsigned int *gdb_regs_mapping;
 };
@@ -266,12 +279,23 @@ struct xtensa {
 	struct xtensa_config *core_config;
 	struct xtensa_debug_module dbg_mod;
 	struct reg_cache *core_cache;
+	unsigned int total_regs_num;
+	unsigned int core_regs_num;
+	bool regmap_contiguous;
+	unsigned int genpkt_regs_num;
+	struct xtensa_reg_desc **contiguous_regs_desc;
+	struct reg **contiguous_regs_list;
+	/* Per-config Xtensa registers as specified via "xtreg" in xtensa-core*.cfg */
+	struct xtensa_reg_desc *optregs;
 	unsigned int regs_num;
+	unsigned int num_optregs;
+	struct reg *empty_regs;
 	char qpkt_resp[XT_QUERYPKT_RESP_MAX];
 	/* An array of pointers to buffers to backup registers' values while algo is run on target.
 	 * Size is 'regs_num'. */
 	void **algo_context_backup;
 	unsigned int eps_dbglevel_idx;
+	unsigned int dbregs_num;
 	struct target *target;
 	bool reset_asserted;
 	enum xtensa_stepping_isr_mode stepping_isr_mode;
@@ -291,6 +315,8 @@ struct xtensa {
 	 * off (marked as unexamined) if the bit retains to be cleared (e.g. if core is disabled by
 	 * SW running on target).*/
 	uint8_t come_online_probes_num;
+	bool proc_syscall;
+	bool halt_request;
 	struct xtensa_keyval_info_s scratch_ars[XT_AR_SCRATCH_NUM];
 	bool regs_fetched;	/* true after first register fetch completed successfully */
 };
@@ -333,24 +359,24 @@ static inline bool xtensa_data_addr_valid(struct target *target, uint32_t addr)
 	return false;
 }
 
-static inline int xtensa_queue_dbg_reg_read(struct xtensa *xtensa, unsigned int reg, uint8_t *data)
+static inline int xtensa_queue_dbg_reg_read(struct xtensa *xtensa, enum xtensa_dm_reg reg, uint8_t *data)
 {
 	struct xtensa_debug_module *dm = &xtensa->dbg_mod;
 
 	if (!xtensa->core_config->trace.enabled &&
-		(reg <= NARADR_MEMADDREND || (reg >= NARADR_PMG && reg <= NARADR_PMSTAT7))) {
+		(reg <= XDMREG_MEMADDREND || (reg >= XDMREG_PMG && reg <= XDMREG_PMSTAT7))) {
 		LOG_ERROR("Can not access %u reg when Trace Port option disabled!", reg);
 		return ERROR_FAIL;
 	}
 	return dm->dbg_ops->queue_reg_read(dm, reg, data);
 }
 
-static inline int xtensa_queue_dbg_reg_write(struct xtensa *xtensa, unsigned int reg, uint32_t data)
+static inline int xtensa_queue_dbg_reg_write(struct xtensa *xtensa, enum xtensa_dm_reg reg, uint32_t data)
 {
 	struct xtensa_debug_module *dm = &xtensa->dbg_mod;
 
 	if (!xtensa->core_config->trace.enabled &&
-		(reg <= NARADR_MEMADDREND || (reg >= NARADR_PMG && reg <= NARADR_PMSTAT7))) {
+		(reg <= XDMREG_MEMADDREND || (reg >= XDMREG_PMG && reg <= XDMREG_PMSTAT7))) {
 		LOG_ERROR("Can not access %u reg when Trace Port option disabled!", reg);
 		return ERROR_FAIL;
 	}
@@ -435,6 +461,13 @@ int xtensa_fetch_user_regs_u32(struct target *target);
 int xtensa_queue_write_dirty_user_regs_u32(struct target *target);
 const char *xtensa_get_gdb_arch(struct target *target);
 
+COMMAND_HELPER(xtensa_cmd_xtdef_do, struct xtensa *xtensa);
+COMMAND_HELPER(xtensa_cmd_xtopt_do, struct xtensa *xtensa);
+COMMAND_HELPER(xtensa_cmd_xtmem_do, struct xtensa *xtensa);
+COMMAND_HELPER(xtensa_cmd_xtmpu_do, struct xtensa *xtensa);
+COMMAND_HELPER(xtensa_cmd_xtmmu_do, struct xtensa *xtensa);
+COMMAND_HELPER(xtensa_cmd_xtreg_do, struct xtensa *xtensa);
+COMMAND_HELPER(xtensa_cmd_xtregfmt_do, struct xtensa *xtensa);
 COMMAND_HELPER(xtensa_cmd_permissive_mode_do, struct xtensa *xtensa);
 COMMAND_HELPER(xtensa_cmd_mask_interrupts_do, struct xtensa *xtensa);
 COMMAND_HELPER(xtensa_cmd_smpbreak_do, struct target *target);

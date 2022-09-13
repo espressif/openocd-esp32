@@ -204,12 +204,12 @@
 /* TRAX is disabled, so we use its registers for our own purposes */
 /* | 31..XXXXXX..24 | 23 .(host_connect). 23 | 22 .(host_data). 22| 21..(block_id)..15 |
  * 14..(block_len)..0 | */
-#define XTENSA_APPTRACE_CTRL_REG                NARADR_DELAYCNT
+#define XTENSA_APPTRACE_CTRL_REG                XDMREG_DELAYCNT
 #define XTENSA_APPTRACE_BLOCK_ID_MSK            0x7FUL
 #define XTENSA_APPTRACE_BLOCK_ID_MAX            XTENSA_APPTRACE_BLOCK_ID_MSK
 /* if non-zero then apptrace code entered the critical section and the value is an address of the
  * critical section's exit point */
-#define XTENSA_APPTRACE_STAT_REG                NARADR_TRIGGERPC
+#define XTENSA_APPTRACE_STAT_REG                XDMREG_TRIGGERPC
 
 #define XTENSA_APPTRACE_BLOCK_LEN_MSK           0x7FFFUL
 #define XTENSA_APPTRACE_BLOCK_LEN(_l_)          ((_l_) & XTENSA_APPTRACE_BLOCK_LEN_MSK)
@@ -305,17 +305,17 @@ static int esp_xtensa_apptrace_data_reverse_read(struct xtensa *xtensa,
 	if (size & 0x3UL)
 		rd_sz = (size + 0x3UL) & ~0x3UL;
 	res =
-		xtensa_queue_dbg_reg_write(xtensa, NARADR_TRAXADDR,
+		xtensa_queue_dbg_reg_write(xtensa, XDMREG_TRAXADDR,
 		(xtensa->core_config->trace.mem_sz - rd_sz) / 4);
 	if (res != ERROR_OK)
 		return res;
 	if (size & 0x3UL) {
-		res = xtensa_queue_dbg_reg_read(xtensa, NARADR_TRAXDATA, unal_bytes);
+		res = xtensa_queue_dbg_reg_read(xtensa, XDMREG_TRAXDATA, unal_bytes);
 		if (res != ERROR_OK)
 			return res;
 	}
 	for (i = size / 4; i > 0; i--) {
-		res = xtensa_queue_dbg_reg_read(xtensa, NARADR_TRAXDATA, &buffer[(i - 1) * 4]);
+		res = xtensa_queue_dbg_reg_read(xtensa, XDMREG_TRAXDATA, &buffer[(i - 1) * 4]);
 		if (res != ERROR_OK)
 			return res;
 	}
@@ -327,16 +327,16 @@ static int esp_xtensa_apptrace_data_normal_read(struct xtensa *xtensa,
 	uint8_t *buffer,
 	uint8_t *unal_bytes)
 {
-	int res = xtensa_queue_dbg_reg_write(xtensa, NARADR_TRAXADDR, 0);
+	int res = xtensa_queue_dbg_reg_write(xtensa, XDMREG_TRAXADDR, 0);
 	if (res != ERROR_OK)
 		return res;
 	for (uint32_t i = 0; i < size / 4; i++) {
-		res = xtensa_queue_dbg_reg_read(xtensa, NARADR_TRAXDATA, &buffer[i * 4]);
+		res = xtensa_queue_dbg_reg_read(xtensa, XDMREG_TRAXDATA, &buffer[i * 4]);
 		if (res != ERROR_OK)
 			return res;
 	}
 	if (size & 0x3UL) {
-		res = xtensa_queue_dbg_reg_read(xtensa, NARADR_TRAXDATA, unal_bytes);
+		res = xtensa_queue_dbg_reg_read(xtensa, XDMREG_TRAXDATA, unal_bytes);
 		if (res != ERROR_OK)
 			return res;
 	}
@@ -369,7 +369,7 @@ int esp_xtensa_apptrace_data_read(struct target *target,
 			return res;
 	}
 	xtensa_dm_queue_tdi_idle(&xtensa->dbg_mod);
-	res = jtag_execute_queue();
+	res = xtensa_dm_queue_execute(&xtensa->dbg_mod);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to exec JTAG queue!");
 		return res;
@@ -395,7 +395,7 @@ int esp_xtensa_apptrace_ctrl_reg_write(struct target *target,
 
 	xtensa_queue_dbg_reg_write(xtensa, XTENSA_APPTRACE_CTRL_REG, tmp);
 	xtensa_dm_queue_tdi_idle(&xtensa->dbg_mod);
-	res = jtag_execute_queue();
+	res = xtensa_dm_queue_execute(&xtensa->dbg_mod);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to exec JTAG queue!");
 		return res;
@@ -415,7 +415,7 @@ int esp_xtensa_apptrace_ctrl_reg_read(struct target *target,
 
 	xtensa_queue_dbg_reg_read(xtensa, XTENSA_APPTRACE_CTRL_REG, tmp);
 	xtensa_dm_queue_tdi_idle(&xtensa->dbg_mod);
-	res = jtag_execute_queue();
+	res = xtensa_dm_queue_execute(&xtensa->dbg_mod);
 	if (res != ERROR_OK)
 		return res;
 	uint32_t val = buf_get_u32(tmp, 0, 32);
@@ -436,7 +436,7 @@ int esp_xtensa_apptrace_status_reg_read(struct target *target, uint32_t *stat)
 
 	xtensa_queue_dbg_reg_read(xtensa, XTENSA_APPTRACE_STAT_REG, tmp);
 	xtensa_dm_queue_tdi_idle(&xtensa->dbg_mod);
-	res = jtag_execute_queue();
+	res = xtensa_dm_queue_execute(&xtensa->dbg_mod);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to exec JTAG queue!");
 		return res;
@@ -452,7 +452,7 @@ int esp_xtensa_apptrace_status_reg_write(struct target *target, uint32_t stat)
 
 	xtensa_queue_dbg_reg_write(xtensa, XTENSA_APPTRACE_STAT_REG, stat);
 	xtensa_dm_queue_tdi_idle(&xtensa->dbg_mod);
-	res = jtag_execute_queue();
+	res = xtensa_dm_queue_execute(&xtensa->dbg_mod);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to exec JTAG queue!");
 		return res;
@@ -466,10 +466,10 @@ static int esp_xtensa_swdbg_activate(struct target *target, int enab)
 	int res;
 
 	xtensa_queue_dbg_reg_write(xtensa,
-		enab ? NARADR_DCRSET : NARADR_DCRCLR,
+		enab ? XDMREG_DCRSET : XDMREG_DCRCLR,
 		OCDDCR_DEBUGSWACTIVE);
 	xtensa_dm_queue_tdi_idle(&xtensa->dbg_mod);
-	res = jtag_execute_queue();
+	res = xtensa_dm_queue_execute(&xtensa->dbg_mod);
 	if (res != ERROR_OK) {
 		LOG_ERROR("%s: writing DCR failed!", target->cmd_name);
 		return ERROR_FAIL;
@@ -518,7 +518,7 @@ static int esp_xtensa_apptrace_queue_reverse_write(struct xtensa *xtensa, uint32
 		total_sz = (total_sz + 0x3UL) & ~0x3UL;
 	}
 	dword_cache.data32 = 0;
-	xtensa_queue_dbg_reg_write(xtensa, NARADR_TRAXADDR,
+	xtensa_queue_dbg_reg_write(xtensa, XDMREG_TRAXADDR,
 		(xtensa->core_config->trace.mem_sz - total_sz) / 4);
 	for (uint32_t i = bufs_num; i > 0; i--) {
 		uint32_t bsz = buf_sz[i - 1];
@@ -538,7 +538,7 @@ static int esp_xtensa_apptrace_queue_reverse_write(struct xtensa *xtensa, uint32
 			if (cached_bytes < sizeof(uint32_t))
 				continue;
 			res =
-				xtensa_queue_dbg_reg_write(xtensa, NARADR_TRAXDATA,
+				xtensa_queue_dbg_reg_write(xtensa, XDMREG_TRAXDATA,
 				dword_cache.data32);
 			if (res != ERROR_OK)
 				return res;
@@ -552,7 +552,7 @@ static int esp_xtensa_apptrace_queue_reverse_write(struct xtensa *xtensa, uint32
 			uint32_t temp = 0;
 			memcpy(&temp, cur_buf - sizeof(uint32_t), sizeof(uint32_t));
 			res =
-				xtensa_queue_dbg_reg_write(xtensa, NARADR_TRAXDATA,
+				xtensa_queue_dbg_reg_write(xtensa, XDMREG_TRAXDATA,
 				temp);
 			if (res != ERROR_OK)
 				return res;
@@ -567,7 +567,7 @@ static int esp_xtensa_apptrace_queue_reverse_write(struct xtensa *xtensa, uint32
 				memcpy(&dword_cache.data8, cur_buf - to_copy, to_copy);
 				/* write full word of cached bytes */
 				res = xtensa_queue_dbg_reg_write(xtensa,
-					NARADR_TRAXDATA,
+					XDMREG_TRAXDATA,
 					dword_cache.data32);
 				if (res != ERROR_OK)
 					return res;
@@ -606,7 +606,7 @@ static int esp_xtensa_apptrace_queue_normal_write(struct xtensa *xtensa, uint32_
 	/* | 1 |   2   | 1 | 2     |       4       |.......|
 	 * |       4       |       4       |       4       | */
 	dword_cache.data32 = 0;
-	xtensa_queue_dbg_reg_write(xtensa, NARADR_TRAXADDR, 0);
+	xtensa_queue_dbg_reg_write(xtensa, XDMREG_TRAXADDR, 0);
 	for (uint32_t i = 0; i < bufs_num; i++) {
 		uint32_t bsz = buf_sz[i];
 		const uint8_t *cur_buf = bufs[i];
@@ -623,7 +623,7 @@ static int esp_xtensa_apptrace_queue_normal_write(struct xtensa *xtensa, uint32_
 			if (cached_bytes < sizeof(uint32_t))
 				continue;
 			res =
-				xtensa_queue_dbg_reg_write(xtensa, NARADR_TRAXDATA,
+				xtensa_queue_dbg_reg_write(xtensa, XDMREG_TRAXDATA,
 				dword_cache.data32);
 			if (res != ERROR_OK)
 				return res;
@@ -637,7 +637,7 @@ static int esp_xtensa_apptrace_queue_normal_write(struct xtensa *xtensa, uint32_
 			uint32_t temp = 0;
 			memcpy(&temp, cur_buf, sizeof(uint32_t));
 			res =
-				xtensa_queue_dbg_reg_write(xtensa, NARADR_TRAXDATA,
+				xtensa_queue_dbg_reg_write(xtensa, XDMREG_TRAXDATA,
 				temp);
 			if (res != ERROR_OK)
 				return res;
@@ -652,7 +652,7 @@ static int esp_xtensa_apptrace_queue_normal_write(struct xtensa *xtensa, uint32_
 					sizeof(uint32_t) - cached_bytes);
 				/* write full word of cached bytes */
 				res = xtensa_queue_dbg_reg_write(xtensa,
-					NARADR_TRAXDATA,
+					XDMREG_TRAXDATA,
 					dword_cache.data32);
 				if (res != ERROR_OK)
 					return res;
@@ -669,7 +669,7 @@ static int esp_xtensa_apptrace_queue_normal_write(struct xtensa *xtensa, uint32_
 	}
 	if (cached_bytes) {
 		/* write remaining cached bytes */
-		res = xtensa_queue_dbg_reg_write(xtensa, NARADR_TRAXDATA, dword_cache.data32);
+		res = xtensa_queue_dbg_reg_write(xtensa, XDMREG_TRAXDATA, dword_cache.data32);
 		if (res != ERROR_OK)
 			return res;
 	}
@@ -703,7 +703,7 @@ static int esp_xtensa_apptrace_buffs_write(struct target *target,
 			return res;
 	}
 	xtensa_dm_queue_tdi_idle(&xtensa->dbg_mod);
-	res = jtag_execute_queue();
+	res = xtensa_dm_queue_execute(&xtensa->dbg_mod);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Failed to exec JTAG queue!");
 		return res;

@@ -730,7 +730,11 @@ static int esp32s3_target_create(struct target *target, Jim_Interp *interp)
 		.pwr_ops = &esp32s3_pwr_ops,
 		.tap = target->tap,
 		.queue_tdi_idle = NULL,
-		.queue_tdi_idle_arg = NULL
+		.queue_tdi_idle_arg = NULL,
+		.dap = NULL,
+		.debug_ap = NULL,
+		.debug_apsel = DP_APSEL_INVALID,
+		.ap_offset = 0,
 	};
 
 	struct esp32s3_common *esp32s3 = calloc(1, sizeof(struct esp32s3_common));

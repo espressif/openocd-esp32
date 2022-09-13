@@ -281,7 +281,7 @@ int esp_xtensa_poll(struct target *target)
 
 	int ret = xtensa_poll(target);
 
-	if (xtensa_dm_power_status_get(&xtensa->dbg_mod) & PWRSTAT_COREWASRESET) {
+	if (xtensa_dm_power_status_get(&xtensa->dbg_mod) & PWRSTAT_COREWASRESET(xtensa)) {
 		esp_xtensa_common->reset_reason = ESP_XTENSA_RESET_RSN_UNKNOWN;
 		LOG_TARGET_DEBUG(target, "Clear debug stubs info");
 		memset(&esp_xtensa_common->esp.dbg_stubs, 0, sizeof(esp_xtensa_common->esp.dbg_stubs));
