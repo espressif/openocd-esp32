@@ -622,7 +622,20 @@ static int esp32s2_arch_state(struct target *target)
 
 static int esp32s2_on_halt(struct target *target)
 {
-	return esp32s2_disable_wdts(target);
+	int ret = esp32s2_disable_wdts(target);
+	if (ret == ERROR_OK)
+		ret = esp_xtensa_on_halt(target);
+	return ret;
+}
+
+static int esp32s2_step(struct target *target, int current, target_addr_t address, int handle_breakpoints)
+{
+	int ret = xtensa_step(target, current, address, handle_breakpoints);
+	if (ret == ERROR_OK) {
+		esp32s2_on_halt(target);
+		target_call_event_callbacks(target, TARGET_EVENT_HALTED);
+	}
+	return ret;
 }
 
 static int esp32s2_poll(struct target *target)
@@ -648,6 +661,7 @@ static int esp32s2_poll(struct target *target)
 				}
 				return ret;
 			}
+			esp32s2_on_halt(target);
 			target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 		}
 	}
@@ -720,34 +734,9 @@ int esp32s2_reset_reason_fetch(struct target *target, int *rsn_id, const char **
 	return ERROR_OK;
 }
 
-static int esp32s2_handle_target_event(struct target *target, enum target_event event, void *priv)
-{
-	if (target != priv)
-		return ERROR_OK;
-
-	LOG_DEBUG("%d", event);
-
-	int ret = esp_xtensa_handle_target_event(target, event, priv);
-	if (ret != ERROR_OK)
-		return ret;
-
-	switch (event) {
-	case TARGET_EVENT_HALTED:
-		esp32s2_on_halt(target);
-		break;
-	default:
-		break;
-	}
-	return ERROR_OK;
-}
-
 static int esp32s2_target_init(struct command_context *cmd_ctx, struct target *target)
 {
 	int ret = esp_xtensa_target_init(cmd_ctx, target);
-	if (ret != ERROR_OK)
-		return ret;
-
-	ret = target_register_event_callback(esp32s2_handle_target_event, target);
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -861,7 +850,7 @@ struct target_type esp32s2_target = {
 
 	.halt = xtensa_halt,
 	.resume = xtensa_resume,
-	.step = xtensa_step,
+	.step = esp32s2_step,
 
 	.assert_reset = esp32s2_assert_reset,
 	.deassert_reset = esp32s2_deassert_reset,

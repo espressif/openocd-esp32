@@ -43,9 +43,8 @@ void esp_xtensa_queue_tdi_idle(struct target *target);
 int esp_xtensa_breakpoint_add(struct target *target, struct breakpoint *breakpoint);
 int esp_xtensa_breakpoint_remove(struct target *target, struct breakpoint *breakpoint);
 int esp_xtensa_poll(struct target *target);
-int esp_xtensa_handle_target_event(struct target *target, enum target_event event,
-	void *priv);
 int esp_xtensa_reset_reason_read(struct target *target);
+int esp_xtensa_on_halt(struct target *target);
 
 extern const struct command_registration esp_command_handlers[];
 

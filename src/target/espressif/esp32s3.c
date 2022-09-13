@@ -590,6 +590,14 @@ static int esp32s3_disable_wdts(struct target *target)
 	return ERROR_OK;
 }
 
+static int esp32s3_on_halt(struct target *target)
+{
+	int ret = esp32s3_disable_wdts(target);
+	if (ret == ERROR_OK)
+		ret = esp_xtensa_on_halt(target);
+	return ret;
+}
+
 static int esp32s3_arch_state(struct target *target)
 {
 	return ERROR_OK;
@@ -682,36 +690,9 @@ int esp32s3_reset_reason_fetch(struct target *target, int *rsn_id, const char **
 	return ERROR_OK;
 }
 
-static int esp32s3_handle_target_event(struct target *target, enum target_event event, void *priv)
-{
-	if (target != priv)
-		return ERROR_OK;
-
-	LOG_DEBUG("%d", event);
-
-	int ret = esp_xtensa_smp_handle_target_event(target, event, priv);
-	if (ret != ERROR_OK)
-		return ret;
-
-	switch (event) {
-	case TARGET_EVENT_HALTED:
-		ret = esp32s3_disable_wdts(target);
-		if (ret != ERROR_OK)
-			return ret;
-		break;
-	default:
-		break;
-	}
-	return ERROR_OK;
-}
-
 static int esp32s3_target_init(struct command_context *cmd_ctx, struct target *target)
 {
-	int ret = esp_xtensa_smp_target_init(cmd_ctx, target);
-	if (ret != ERROR_OK)
-		return ret;
-
-	return target_register_event_callback(esp32s3_handle_target_event, target);
+	return esp_xtensa_smp_target_init(cmd_ctx, target);
 }
 
 static const struct xtensa_debug_ops esp32s3_dbg_ops = {
@@ -731,7 +712,8 @@ static const struct esp_flash_breakpoint_ops esp32s3_flash_brp_ops = {
 };
 
 static const struct esp_xtensa_smp_chip_ops esp32s3_chip_ops = {
-	.reset = esp32s3_soc_reset
+	.reset = esp32s3_soc_reset,
+	.on_halt = esp32s3_on_halt
 };
 
 static const struct esp_semihost_ops esp32s3_semihost_ops = {
