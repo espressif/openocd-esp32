@@ -178,6 +178,10 @@ int esp_common_flash_breakpoint_remove(struct target *target,
 	return esp->flash_brps.ops->breakpoint_remove(target, &esp->flash_brps.brps[slot]);
 }
 
+/* TODO: Prefer keeping OpenOCD default and not change it in the C code.
+ * If for any reason a user wants a different behavior, he/she can use a TCL event handler
+ * Currently just in use from RISC-V
+ */
 int esp_common_handle_gdb_detach(struct target *target, struct esp_common *esp_common)
 {
 	int ret;
