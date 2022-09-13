@@ -181,7 +181,8 @@ int esp_xtensa_smp_poll(struct target *target)
 	}
 
 	if (target->smp) {
-		if (xtensa_dm_power_status_get(&esp_xtensa_smp->esp_xtensa.xtensa.dbg_mod) & PWRSTAT_COREWASRESET) {
+		struct xtensa *xtensa = &esp_xtensa_smp->esp_xtensa.xtensa;
+		if (xtensa_dm_power_status_get(&xtensa->dbg_mod) & PWRSTAT_COREWASRESET(xtensa)) {
 			esp_xtensa_smp->examine_other_cores = ESP_XTENSA_SMP_EXAMINE_OTHER_CORES;
 		} else if (target->state == TARGET_RUNNING || target->state == TARGET_HALTED) {
 			if (esp_xtensa->reset_reason == ESP_XTENSA_RESET_RSN_UNKNOWN) {
@@ -699,6 +700,139 @@ int esp_xtensa_smp_target_init(struct command_context *cmd_ctx, struct target *t
 	return ERROR_OK;
 }
 
+COMMAND_HANDLER(esp_xtensa_smp_cmd_xtdef)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	if (target->smp && CMD_ARGC > 0) {
+		struct target_list *head;
+		struct target *curr;
+		foreach_smp_target(head, target->smp_targets) {
+			curr = head->target;
+			int ret = CALL_COMMAND_HANDLER(xtensa_cmd_xtdef_do,
+				target_to_xtensa(curr));
+			if (ret != ERROR_OK)
+				return ret;
+		}
+		return ERROR_OK;
+	}
+	return CALL_COMMAND_HANDLER(xtensa_cmd_xtdef_do,
+		target_to_xtensa(target));
+}
+
+COMMAND_HANDLER(esp_xtensa_smp_cmd_xtopt)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	if (target->smp && CMD_ARGC > 0) {
+		struct target_list *head;
+		struct target *curr;
+		foreach_smp_target(head, target->smp_targets) {
+			curr = head->target;
+			int ret = CALL_COMMAND_HANDLER(xtensa_cmd_xtopt_do,
+				target_to_xtensa(curr));
+			if (ret != ERROR_OK)
+				return ret;
+		}
+		return ERROR_OK;
+	}
+	return CALL_COMMAND_HANDLER(xtensa_cmd_xtopt_do,
+		target_to_xtensa(target));
+}
+
+COMMAND_HANDLER(esp_xtensa_smp_cmd_xtmem)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	if (target->smp && CMD_ARGC > 0) {
+		struct target_list *head;
+		struct target *curr;
+		foreach_smp_target(head, target->smp_targets) {
+			curr = head->target;
+			int ret = CALL_COMMAND_HANDLER(xtensa_cmd_xtmem_do,
+				target_to_xtensa(curr));
+			if (ret != ERROR_OK)
+				return ret;
+		}
+		return ERROR_OK;
+	}
+	return CALL_COMMAND_HANDLER(xtensa_cmd_xtmem_do,
+		target_to_xtensa(target));
+}
+
+COMMAND_HANDLER(esp_xtensa_smp_cmd_xtmpu)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	if (target->smp && CMD_ARGC > 0) {
+		struct target_list *head;
+		struct target *curr;
+		foreach_smp_target(head, target->smp_targets) {
+			curr = head->target;
+			int ret = CALL_COMMAND_HANDLER(xtensa_cmd_xtmpu_do,
+				target_to_xtensa(curr));
+			if (ret != ERROR_OK)
+				return ret;
+		}
+		return ERROR_OK;
+	}
+	return CALL_COMMAND_HANDLER(xtensa_cmd_xtmpu_do,
+		target_to_xtensa(target));
+}
+
+COMMAND_HANDLER(esp_xtensa_smp_cmd_xtmmu)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	if (target->smp && CMD_ARGC > 0) {
+		struct target_list *head;
+		struct target *curr;
+		foreach_smp_target(head, target->smp_targets) {
+			curr = head->target;
+			int ret = CALL_COMMAND_HANDLER(xtensa_cmd_xtmmu_do,
+				target_to_xtensa(curr));
+			if (ret != ERROR_OK)
+				return ret;
+		}
+		return ERROR_OK;
+	}
+	return CALL_COMMAND_HANDLER(xtensa_cmd_xtmmu_do,
+		target_to_xtensa(target));
+}
+
+COMMAND_HANDLER(esp_xtensa_smp_cmd_xtreg)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	if (target->smp && CMD_ARGC > 0) {
+		struct target_list *head;
+		struct target *curr;
+		foreach_smp_target(head, target->smp_targets) {
+			curr = head->target;
+			int ret = CALL_COMMAND_HANDLER(xtensa_cmd_xtreg_do,
+				target_to_xtensa(curr));
+			if (ret != ERROR_OK)
+				return ret;
+		}
+		return ERROR_OK;
+	}
+	return CALL_COMMAND_HANDLER(xtensa_cmd_xtreg_do,
+		target_to_xtensa(target));
+}
+
+COMMAND_HANDLER(esp_xtensa_smp_cmd_xtregfmt)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	if (target->smp && CMD_ARGC > 0) {
+		struct target_list *head;
+		struct target *curr;
+		foreach_smp_target(head, target->smp_targets) {
+			curr = head->target;
+			int ret = CALL_COMMAND_HANDLER(xtensa_cmd_xtregfmt_do,
+				target_to_xtensa(curr));
+			if (ret != ERROR_OK)
+				return ret;
+		}
+		return ERROR_OK;
+	}
+	return CALL_COMMAND_HANDLER(xtensa_cmd_xtregfmt_do,
+		target_to_xtensa(target));
+}
+
 COMMAND_HANDLER(esp_xtensa_smp_cmd_permissive_mode)
 {
 	struct target *target = get_current_target(CMD_CTX);
@@ -882,6 +1016,62 @@ COMMAND_HANDLER(esp_xtensa_smp_cmd_semihost_basedir)
 }
 
 const struct command_registration esp_xtensa_smp_xtensa_command_handlers[] = {
+	{
+		.name = "xtdef",
+		.handler = esp_xtensa_smp_cmd_xtdef,
+		.mode = COMMAND_CONFIG,
+		.help = "Configure Xtensa core type",
+		.usage = "<type>",
+	},
+	{
+		.name = "xtopt",
+		.handler = esp_xtensa_smp_cmd_xtopt,
+		.mode = COMMAND_CONFIG,
+		.help = "Configure Xtensa core option",
+		.usage = "<name> <value>",
+	},
+	{
+		.name = "xtmem",
+		.handler = esp_xtensa_smp_cmd_xtmem,
+		.mode = COMMAND_CONFIG,
+		.help = "Configure Xtensa memory/cache option",
+		.usage = "<type> [parameters]",
+	},
+	{
+		.name = "xtmmu",
+		.handler = esp_xtensa_smp_cmd_xtmmu,
+		.mode = COMMAND_CONFIG,
+		.help = "Configure Xtensa MMU option",
+		.usage = "<NIREFILLENTRIES> <NDREFILLENTRIES> <IVARWAY56> <DVARWAY56>",
+	},
+	{
+		.name = "xtmpu",
+		.handler = esp_xtensa_smp_cmd_xtmpu,
+		.mode = COMMAND_CONFIG,
+		.help = "Configure Xtensa MPU option",
+		.usage = "<num FG seg> <min seg size> <lockable> <executeonly>",
+	},
+	{
+		.name = "xtreg",
+		.handler = esp_xtensa_smp_cmd_xtreg,
+		.mode = COMMAND_CONFIG,
+		.help = "Configure Xtensa register",
+		.usage = "<regname> <regnum>",
+	},
+	{
+		.name = "xtregs",
+		.handler = esp_xtensa_smp_cmd_xtreg,
+		.mode = COMMAND_CONFIG,
+		.help = "Configure number of Xtensa registers",
+		.usage = "<numregs>",
+	},
+	{
+		.name = "xtregfmt",
+		.handler = esp_xtensa_smp_cmd_xtregfmt,
+		.mode = COMMAND_CONFIG,
+		.help = "Configure format of Xtensa register map",
+		.usage = "<numgregs>",
+	},
 	{
 		.name = "set_permissive",
 		.handler = esp_xtensa_smp_cmd_permissive_mode,
