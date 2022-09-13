@@ -157,16 +157,10 @@ void esp_xtensa_print_exception_reason(struct target *target)
 int esp_xtensa_handle_target_event(struct target *target, enum target_event event,
 	void *priv)
 {
-	int ret;
-
 	if (target != priv)
 		return ERROR_OK;
 
-	LOG_DEBUG("%d", event);
-
-	ret = xtensa_handle_target_event(target, event, priv);
-	if (ret != ERROR_OK)
-		return ret;
+	LOG_TARGET_DEBUG(target, "%d", event);
 
 	switch (event) {
 	case TARGET_EVENT_HALTED:
@@ -178,7 +172,7 @@ int esp_xtensa_handle_target_event(struct target *target, enum target_event even
 	case TARGET_EVENT_GDB_DETACH:
 	{
 		struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
-		ret = esp_common_handle_gdb_detach(target, &esp_xtensa->esp);
+		int ret = esp_common_handle_gdb_detach(target, &esp_xtensa->esp);
 		if (ret != ERROR_OK)
 			return ret;
 		break;
