@@ -85,6 +85,14 @@
             ]
         },
         {
+            "name": "ESP32-S3 chip (via builtin USB-JTAG)",
+            "description": "ESP32-S3 debugging via builtin USB-JTAG",
+            "target": "esp32s3",
+            "config_files": [
+                "board/esp32s3-builtin.cfg"
+            ]
+        },
+        {
             "name": "ESP32-S3 chip (via ESP USB Bridge)",
             "description": "ESP32-S3 used with ESP USB Bridge board",
             "target": "esp32s3",
