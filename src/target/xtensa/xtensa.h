@@ -379,9 +379,6 @@ int xtensa_run_algorithm(struct target *target,
 	int num_reg_params, struct reg_param *reg_params,
 	target_addr_t entry_point, target_addr_t exit_point,
 	int timeout_ms, void *arch_info);
-int xtensa_handle_target_event(struct target *target,
-	enum target_event event,
-	void *priv);
 void xtensa_set_permissive_mode(struct target *target, bool state);
 int xtensa_fetch_user_regs_u32(struct target *target);
 int xtensa_queue_write_dirty_user_regs_u32(struct target *target);

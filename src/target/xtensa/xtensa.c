@@ -733,8 +733,8 @@ int xtensa_examine(struct target *target)
 		return ERROR_TARGET_FAILURE;
 	}
 	LOG_TARGET_DEBUG(target, "OCD_ID = %08" PRIx32, xtensa->dbg_mod.device_id);
-	if (!target_was_examined(target))
-		target_set_examined(target);
+	target_set_examined(target);
+	xtensa_smpbreak_write(xtensa, xtensa->smp_break);
 	return ERROR_OK;
 }
 
@@ -2364,26 +2364,6 @@ fail:
 	free(reg_cache);
 
 	return ERROR_FAIL;
-}
-
-int xtensa_handle_target_event(struct target *target, enum target_event event,
-	void *priv)
-{
-	int res = ERROR_OK;
-	struct xtensa *xtensa = target_to_xtensa(target);
-
-	if (target != priv)
-		return ERROR_OK;
-
-	LOG_DEBUG("%d", event);
-	switch (event) {
-	case TARGET_EVENT_EXAMINE_END:
-		res = xtensa_smpbreak_write(xtensa, xtensa->smp_break);
-		break;
-	default:
-		break;
-	}
-	return res;
 }
 
 int xtensa_init_arch_info(struct target *target, struct xtensa *xtensa,
