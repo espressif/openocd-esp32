@@ -232,6 +232,7 @@ create_coverage_reports:
   artifacts:
     paths:
       - dist/lcov_all_report.tar.gz
+      - cov_infos/metrics.txt
     reports:
       metrics: cov_infos/metrics.txt
     when: always
