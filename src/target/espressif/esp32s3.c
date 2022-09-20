@@ -594,7 +594,7 @@ static int esp32s3_on_halt(struct target *target)
 {
 	int ret = esp32s3_disable_wdts(target);
 	if (ret == ERROR_OK)
-		ret = esp_xtensa_on_halt(target);
+		ret = esp_xtensa_smp_on_halt(target);
 	return ret;
 }
 
