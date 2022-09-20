@@ -135,14 +135,16 @@ void esp_xtensa_print_exception_reason(struct target *target)
 		/* halted upon `halt` request. This is not an exception */
 		return;
 
-	xtensa_reg_val_t ps = xtensa_reg_get(target, XT_REG_IDX_PS);
-	int ps_excm = (ps & BIT(4)) == BIT(4);
+	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
+	unsigned int eps_reg_idx = esp_xtensa->xtensa.core_config->debug.eps_dbglevel_reg_idx;
+	xtensa_reg_val_t eps = xtensa_reg_get(target, eps_reg_idx);
+	int eps_excm = (eps & BIT(4)) == BIT(4);
 
-	LOG_TARGET_DEBUG(target, "PS=0x%" PRIX32 " EXCM=%d", ps, ps_excm);
+	LOG_TARGET_DEBUG(target, "EPS=0x%" PRIX32 " EXCM=%d", eps, eps_excm);
 
 	/* PS.EXCM reset value is 1. So reading exccause immediately after reset may give wrong result.
 	 * When one of the exceptional conditions is raised, PS.EXCM will be set */
-	if (ps == 0x10 || ps == 0x1F || ps_excm == 0)
+	if (eps == 0x10 || eps == 0x1F || eps_excm == 0)
 		return;
 
 	if (target_to_xtensa(target)->core_config->exc.enabled) {
