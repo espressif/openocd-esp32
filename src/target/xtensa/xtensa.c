@@ -102,6 +102,8 @@
 #define XT_REG_A4         (xtensa_regs[XT_REG_IDX_AR4].reg_num)
 
 #define XT_PC_REG_NUM_BASE          (176)
+#define XT_PS_REG_NUM               (0xE6)
+#define XT_EPS_REG_NUM_BASE         (0xC0)
 #define XT_SW_BREAKPOINTS_MAX_NUM   32
 
 const struct xtensa_reg_desc xtensa_regs[XT_NUM_REGS] = {
@@ -178,7 +180,7 @@ const struct xtensa_reg_desc xtensa_regs[XT_NUM_REGS] = {
 	{ "windowstart", 0x49, XT_REG_SPECIAL, 0 },
 	{ "configid0", 0xB0, XT_REG_SPECIAL, 0 },
 	{ "configid1", 0xD0, XT_REG_SPECIAL, 0 },
-	{ "ps", 0xC6, XT_REG_SPECIAL, 0 },			/* actually EPS[debuglevel] */
+	{ "ps", XT_PS_REG_NUM, XT_REG_SPECIAL, 0 },		/* PS (not mapped through EPS[]) */
 	{ "threadptr", 0xE7, XT_REG_USER, 0 },
 	{ "br", 0x04, XT_REG_SPECIAL, 0 },
 	{ "scompare1", 0x0C, XT_REG_SPECIAL, 0 },
@@ -962,19 +964,20 @@ int xtensa_fetch_all_regs(struct target *target)
 	/* We're now free to use any of A0-A15 as scratch registers
 	 * Grab the SFRs and user registers first. We use A3 as a scratch register. */
 	for (unsigned int i = 0; i < XT_NUM_REGS; i++) {
+		unsigned int reg_num = xtensa_regs[i].reg_num;
 		if (xtensa_reg_is_readable(xtensa_regs[i].flags, cpenable) && reg_list[i].exist &&
 			(xtensa_regs[i].type == XT_REG_SPECIAL ||
 				xtensa_regs[i].type == XT_REG_USER || xtensa_regs[i].type == XT_REG_FR)) {
 			if (xtensa_regs[i].type == XT_REG_USER) {
-				xtensa_queue_exec_ins(xtensa, XT_INS_RUR(xtensa_regs[i].reg_num, XT_REG_A3));
+				xtensa_queue_exec_ins(xtensa, XT_INS_RUR(reg_num, XT_REG_A3));
 			} else if (xtensa_regs[i].type == XT_REG_FR) {
-				xtensa_queue_exec_ins(xtensa, XT_INS_RFR(xtensa_regs[i].reg_num, XT_REG_A3));
+				xtensa_queue_exec_ins(xtensa, XT_INS_RFR(reg_num, XT_REG_A3));
 			} else {	/*SFR */
-				unsigned int reg_num = xtensa_regs[i].reg_num;
-				if (reg_num == XT_PC_REG_NUM_BASE) {
+				if (reg_num == XT_PC_REG_NUM_BASE)
 					/* reg number of PC for debug interrupt depends on NDEBUGLEVEL */
 					reg_num += xtensa->core_config->debug.irq_level;
-				}
+				else if (reg_num == XT_PS_REG_NUM)
+					reg_num = XT_EPS_REG_NUM_BASE + xtensa->core_config->debug.irq_level;
 				xtensa_queue_exec_ins(xtensa, XT_INS_RSR(reg_num, XT_REG_A3));
 			}
 			xtensa_queue_exec_ins(xtensa, XT_INS_WSR(XT_SR_DDR, XT_REG_A3));
@@ -1315,7 +1318,8 @@ int xtensa_do_step(struct target *target, int current, target_addr_t address, in
 	}
 
 	/* Save old ps/pc */
-	oldps = xtensa_reg_get(target, XT_REG_IDX_PS);
+	unsigned int eps_reg_idx = xtensa->core_config->debug.eps_dbglevel_reg_idx;
+	oldps = xtensa_reg_get(target, eps_reg_idx);
 	oldpc = xtensa_reg_get(target, XT_REG_IDX_PC);
 
 	cause = xtensa_reg_get(target, XT_REG_IDX_DEBUGCAUSE);
@@ -1354,7 +1358,7 @@ int xtensa_do_step(struct target *target, int current, target_addr_t address, in
 		}
 		/* Mask all interrupts below Debug, i.e. PS.INTLEVEL = DEBUGLEVEL - 1 */
 		xtensa_reg_val_t temp_ps = (oldps & ~0xF) | (xtensa->core_config->debug.irq_level - 1);
-		xtensa_reg_set(target, XT_REG_IDX_PS, temp_ps);
+		xtensa_reg_set(target, eps_reg_idx, temp_ps);
 	}
 	/* Regardless of ISRs masking mode we need to count instructions at any CINTLEVEL during step.
 	    So set `icountlvl` to DEBUGLEVEL.
@@ -1477,9 +1481,9 @@ int xtensa_do_step(struct target *target, int current, target_addr_t address, in
 	/* TODO: Theoretically, this can mess up stepping over an instruction that modifies
 	 * ps.intlevel by itself. TODO: Look into this. */
 	if (xtensa->stepping_isr_mode == XT_STEPPING_ISR_OFF) {
-		newps = xtensa_reg_get(target, XT_REG_IDX_PS);
+		newps = xtensa_reg_get(target, eps_reg_idx);
 		newps = (newps & ~0xF) | (oldps & 0xf);
-		xtensa_reg_set(target, XT_REG_IDX_PS, newps);
+		xtensa_reg_set(target, eps_reg_idx, newps);
 	}
 
 	/* write ICOUNTLEVEL back to zero */
@@ -2073,14 +2077,20 @@ int xtensa_start_algorithm(struct target *target,
 				reg_params[i].reg_name);
 			return ERROR_COMMAND_SYNTAX_ERROR;
 		}
-		if (memcmp(reg_params[i].reg_name, "ps", 3))
+		if (memcmp(reg_params[i].reg_name, "ps", 3)) {
 			usr_ps = true;
+		} else {
+			unsigned int reg_id = xtensa->core_config->debug.eps_dbglevel_reg_idx;
+			assert(reg_id < xtensa->core_cache->num_regs && "Attempt to access non-existing reg!");
+			reg = &xtensa->core_cache->reg_list[reg_id];
+		}
 		xtensa_reg_set_value(reg, buf_get_u32(reg_params[i].value, 0, reg->size));
 		reg->valid = 1;
 	}
 	/* ignore custom core mode if custom PS value is specified */
 	if (!usr_ps) {
-		xtensa_reg_val_t ps = xtensa_reg_get(target, XT_REG_IDX_PS);
+		unsigned int eps_reg_idx = xtensa->core_config->debug.eps_dbglevel_reg_idx;
+		xtensa_reg_val_t ps = xtensa_reg_get(target, eps_reg_idx);
 		enum xtensa_mode core_mode = XT_PS_RING_GET(ps);
 		if (algorithm_info->core_mode != XT_MODE_ANY &&
 			algorithm_info->core_mode != core_mode) {
@@ -2089,8 +2099,8 @@ int xtensa_start_algorithm(struct target *target,
 				algorithm_info->core_mode);
 			/* save previous core mode */
 			algorithm_info->core_mode = core_mode;
-			xtensa_reg_set(target, XT_REG_IDX_PS, new_ps);
-			xtensa->core_cache->reg_list[XT_REG_IDX_PS].valid = 1;
+			xtensa_reg_set(target, eps_reg_idx, new_ps);
+			xtensa->core_cache->reg_list[eps_reg_idx].valid = 1;
 		}
 	}
 
@@ -2123,7 +2133,7 @@ int xtensa_wait_algorithm(struct target *target,
 			return retval;
 		LOG_ERROR("xtensa_wait_algorithm: not halted %d, pc 0x%x, ps 0x%x", retval,
 			xtensa_reg_get(target, XT_REG_IDX_PC),
-			xtensa_reg_get(target, XT_REG_IDX_PS));
+			xtensa_reg_get(target, xtensa->core_config->debug.eps_dbglevel_reg_idx));
 		return ERROR_TARGET_TIMEOUT;
 	}
 	pc = xtensa_reg_get(target, XT_REG_IDX_PC);
@@ -2171,7 +2181,9 @@ int xtensa_wait_algorithm(struct target *target,
 
 	for (int i = xtensa->core_cache->num_regs - 1; i >= 0; i--) {
 		struct reg *reg = &xtensa->core_cache->reg_list[i];
-		if (i == XT_REG_IDX_DEBUGCAUSE) {
+		if (i == XT_REG_IDX_PS) {
+			continue;	/* restore mapped reg number of PS depends on NDEBUGLEVEL */
+		} else if (i == XT_REG_IDX_DEBUGCAUSE) {
 			/*FIXME: restoring DEBUGCAUSE causes exception when executing corresponding
 			* instruction in DIR */
 			LOG_DEBUG("Skip restoring register %s: 0x%8.8" PRIx32 " -> 0x%8.8" PRIx32,

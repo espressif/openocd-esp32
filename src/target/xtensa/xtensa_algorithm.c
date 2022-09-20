@@ -64,24 +64,19 @@ static int xtensa_algo_regs_init_start(struct target *target, struct algorithm_r
 		LOG_DEBUG("Adjust stack addr to 0x%x", stack_addr);
 	}
 	stack_addr -= 16;
-	init_reg_param(&run->reg_args.params[0], "a0", 32, PARAM_OUT);		/*TODO: move to
-										 * tramp */
-	init_reg_param(&run->reg_args.params[1], "a1", 32, PARAM_OUT);
-	init_reg_param(&run->reg_args.params[2], "a8", 32, PARAM_OUT);
-	init_reg_param(&run->reg_args.params[3], "windowbase", 32, PARAM_OUT);	/*TODO: move to
-										 * tramp */
-	init_reg_param(&run->reg_args.params[4], "windowstart", 32, PARAM_OUT);	/*TODO: move to
-										 * tramp */
-	init_reg_param(&run->reg_args.params[5], "ps", 32, PARAM_OUT);
-	buf_set_u32(run->reg_args.params[0].value, 0, 32, 0);	/* a0 TODO: move to tramp */
-	buf_set_u32(run->reg_args.params[1].value, 0, 32, stack_addr);	/* a1 */
-	buf_set_u32(run->reg_args.params[2].value, 0, 32, run->stub.entry);	/* a8 */
-	buf_set_u32(run->reg_args.params[3].value, 0, 32, 0x0);	/* initial window base TODO: move to
-								 * tramp */
-	buf_set_u32(run->reg_args.params[4].value, 0, 32, 0x1);	/* initial window start TODO: move
-								 * to tramp */
-	buf_set_u32(run->reg_args.params[5].value, 0, 32, 0x60025);	/* enable WOE, UM and debug
-									* interrupts level (6) */
+	struct reg_param *params = run->reg_args.params;
+	init_reg_param(&params[0], "a0", 32, PARAM_OUT);		/*TODO: move to tramp */
+	init_reg_param(&params[1], "a1", 32, PARAM_OUT);
+	init_reg_param(&params[2], "a8", 32, PARAM_OUT);
+	init_reg_param(&params[3], "windowbase", 32, PARAM_OUT);	/*TODO: move to tramp */
+	init_reg_param(&params[4], "windowstart", 32, PARAM_OUT);	/*TODO: move to tramp */
+	init_reg_param(&params[5], "ps", 32, PARAM_OUT);
+	buf_set_u32(params[0].value, 0, 32, 0);	/* a0 TODO: move to tramp */
+	buf_set_u32(params[1].value, 0, 32, stack_addr);	/* a1 */
+	buf_set_u32(params[2].value, 0, 32, run->stub.entry);	/* a8 */
+	buf_set_u32(params[3].value, 0, 32, 0x0);	/* initial window base TODO: move to tramp */
+	buf_set_u32(params[4].value, 0, 32, 0x1);	/* initial window start TODO: move to tramp */
+	buf_set_u32(params[5].value, 0, 32, 0x60025);	/* enable WOE, UM and debug interrupts level (6) */
 	return ERROR_OK;
 }
 

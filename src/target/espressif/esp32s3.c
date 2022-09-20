@@ -356,6 +356,7 @@ static const struct xtensa_config esp32s3_xtensa_cfg = {
 		.ibreaks_num = 2,
 		.dbreaks_num = 2,
 		.icount_sz = 32,
+		.eps_dbglevel_reg_idx = XT_REG_IDX_EPS6,
 	},
 	.trace = {
 		.enabled = true,

@@ -140,6 +140,7 @@ struct xtensa_debug_config {
 	uint8_t ibreaks_num;
 	uint8_t dbreaks_num;
 	uint8_t icount_sz;
+	unsigned int eps_dbglevel_reg_idx;
 };
 
 struct xtensa_tracing_config {
