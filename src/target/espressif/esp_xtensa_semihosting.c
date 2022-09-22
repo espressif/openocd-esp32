@@ -111,5 +111,5 @@ int esp_xtensa_semihosting_init(struct target *target)
 		return retval;
 	target->semihosting->word_size_bytes = 4;			/* 32 bits */
 	target->semihosting->user_command_extension = esp_semihosting_common;
-	return retval;
+	return ERROR_OK;
 }

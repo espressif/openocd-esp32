@@ -633,13 +633,11 @@ int esp_xtensa_smp_run_onboard_func(struct target *target,
 
 int esp_xtensa_smp_init_arch_info(struct target *target,
 	struct esp_xtensa_smp_common *esp_xtensa_smp,
-	struct xtensa_config *xtensa_cfg,
 	struct xtensa_debug_module_config *dm_cfg,
 	struct esp_ops *esp_ops)
 {
 	int ret = esp_xtensa_init_arch_info(target,
 		&esp_xtensa_smp->esp_xtensa,
-		xtensa_cfg,
 		dm_cfg,
 		esp_ops);
 	if (ret != ERROR_OK)

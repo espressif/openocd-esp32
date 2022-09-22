@@ -13,9 +13,13 @@
 #include <target/xtensa/xtensa_algorithm.h>
 #include <target/espressif/esp_xtensa_apptrace.h>
 #include <target/espressif/esp_xtensa.h>
-#include <target/espressif/esp32s2.h>
 #include "esp_xtensa.h"
 #include "contrib/loaders/flash/esp/esp32s2/stub_flasher_image.h"
+
+#define ESP32_S2_DROM_LOW   0x3f000000
+#define ESP32_S2_DROM_HIGH  0x3ff80000
+#define ESP32_S2_IROM_LOW   0x40080000
+#define ESP32_S2_IROM_HIGH  0x40800000
 
 #define ESP32_S2_FLASH_SECTOR_SIZE 4096
 

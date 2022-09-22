@@ -249,7 +249,7 @@ ut_result_t special_test_do(int test_num)
 #endif
         case 803:
         {
-            xTaskCreatePinnedToCore(&target_bp_task, "target_bp_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
+            xTaskCreatePinnedToCore(&target_bp_task, "target_bp_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
             break;
         }
 #if CONFIG_IDF_TARGET_ARCH_RISCV

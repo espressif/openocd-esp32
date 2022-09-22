@@ -14,11 +14,15 @@
 #include <target/xtensa/xtensa_algorithm.h>
 #include <target/espressif/esp_xtensa_apptrace.h>
 #include <target/espressif/esp_xtensa_smp.h>
-#include <target/espressif/esp32s3.h>
 #include "esp_xtensa.h"
 #include "contrib/loaders/flash/esp/esp32s3/stub_flasher_image.h"
 
-#define ESP32_S3_FLASH_SECTOR_SIZE 4096
+#define ESP32_S3_DROM_LOW             0x3C000000
+#define ESP32_S3_DROM_HIGH            0x3D000000
+#define ESP32_S3_IROM_LOW             0x42000000
+#define ESP32_S3_IROM_HIGH            0x44000000
+
+#define ESP32_S3_FLASH_SECTOR_SIZE      4096
 
 struct esp32s3_flash_bank {
 	struct esp_xtensa_flash_bank esp_xtensa;

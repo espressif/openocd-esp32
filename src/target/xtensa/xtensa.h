@@ -81,57 +81,16 @@ enum xtensa_type {
 	XT_LX,
 };
 
-enum xtensa_exception_cause {
-	ILLEGAL_INSTRUCTION = 0,
-	SYSCALL = 1,
-	INSTRUCTION_FETCH_ERROR = 2,
-	LOAD_STORE_ERROR = 3,
-	LEVEL1_INTERRUPT = 4,
-	ALLOCA = 5,
-	INTEGER_DIVIDE_BY_ZERO = 6,
-	PRIVILEGED = 8,
-	LOAD_STORE_ALIGNMENT = 9,
-	INSTR_PIF_DATA_ERROR = 12,
-	LOAD_STORE_PIF_DATA_ERROR = 13,
-	INSTR_PIF_ADDR_ERROR = 14,
-	LOAD_STORE_PIF_ADDR_ERROR = 15,
-	INST_TLB_MISS = 16,
-	INST_TLB_MULTIHIT = 17,
-	INST_FETCH_PRIVILEGE = 18,
-	INST_FETCH_PROHIBITED = 20,
-	LOAD_STORE_TLB_MISS = 24,
-	LOAD_STORE_TLB_MULTIHIT = 25,
-	LOAD_STORE_PRIVILEGE = 26,
-	LOAD_PROHIBITED = 28,
-	STORE_PROHIBITED = 29,
-	COPROCESSOR_N_DISABLED_0 = 32,
-	COPROCESSOR_N_DISABLED_1 = 33,
-	COPROCESSOR_N_DISABLED_2 = 34,
-	COPROCESSOR_N_DISABLED_3 = 35,
-	COPROCESSOR_N_DISABLED_4 = 36,
-	COPROCESSOR_N_DISABLED_5 = 37,
-	COPROCESSOR_N_DISABLED_6 = 38,
-	COPROCESSOR_N_DISABLED_7 = 39,
-};
-
-enum xtensa_mem_err_detect {
-	XT_MEM_ERR_DETECT_NONE,
-	XT_MEM_ERR_DETECT_PARITY,
-	XT_MEM_ERR_DETECT_ECC,
-};
-
 struct xtensa_cache_config {
 	uint8_t way_count;
-	uint8_t line_size;
-	uint16_t size;
-	bool writeback;
-	enum xtensa_mem_err_detect mem_err_check;
+	uint32_t line_size;
+	uint32_t size;
+	int writeback;
 };
 
 struct xtensa_local_mem_region_config {
 	target_addr_t base;
 	uint32_t size;
-	enum xtensa_mem_err_detect mem_err_check;
 	int access;
 };
 
@@ -144,8 +103,6 @@ struct xtensa_mmu_config {
 	bool enabled;
 	uint8_t itlb_entries_count;
 	uint8_t dtlb_entries_count;
-	bool ivarway56;
-	bool dvarway56;
 };
 
 struct xtensa_mpu_config {
@@ -154,12 +111,6 @@ struct xtensa_mpu_config {
 	uint32_t minsegsize;
 	bool lockable;
 	bool execonly;
-};
-
-struct xtensa_exception_config {
-	bool enabled;
-	bool unaligned;
-	uint8_t depc_num;
 };
 
 struct xtensa_irq_config {
@@ -171,7 +122,6 @@ struct xtensa_high_prio_irq_config {
 	bool enabled;
 	uint8_t level_num;
 	uint8_t excm_level;
-	uint8_t nmi_num;
 };
 
 struct xtensa_debug_config {
@@ -179,9 +129,7 @@ struct xtensa_debug_config {
 	uint8_t irq_level;
 	uint8_t ibreaks_num;
 	uint8_t dbreaks_num;
-	uint8_t icount_sz;
 	uint8_t perfcount_num;
-	unsigned int eps_dbglevel_reg_idx;
 };
 
 struct xtensa_tracing_config {
@@ -190,18 +138,8 @@ struct xtensa_tracing_config {
 	bool reversed_mem_access;
 };
 
-struct xtensa_timer_irq_config {
-	bool enabled;
-	uint8_t comp_num;
-};
-
-struct xtensa_region_protection_config {
-	bool enabled;
-};
-
 struct xtensa_config {
 	enum xtensa_type core_type;
-	bool density;
 	uint8_t aregs_num;
 	bool windowed;
 	bool coproc;
@@ -212,25 +150,6 @@ struct xtensa_config {
 	struct xtensa_mpu_config mpu;
 	struct xtensa_debug_config debug;
 	struct xtensa_tracing_config trace;
-
-	bool fp_coproc;
-	bool loop;
-	uint8_t miscregs_num;
-	bool threadptr;
-	bool boolean;
-	bool cond_store;
-	bool ext_l32r;
-	bool mac16;
-	bool reloc_vec;
-	bool proc_id;
-	bool mem_err_check;
-	bool int_div_32;
-	struct xtensa_region_protection_config region_protect;
-	bool proc_intf;
-	uint16_t user_regs_num;
-	const struct xtensa_user_reg_desc *user_regs;
-	int (*fetch_user_regs)(struct target *target);
-	int (*queue_write_dirty_user_regs)(struct target *target);
 	struct xtensa_cache_config icache;
 	struct xtensa_cache_config dcache;
 	struct xtensa_local_mem_config irom;
@@ -239,10 +158,6 @@ struct xtensa_config {
 	struct xtensa_local_mem_config dram;
 	struct xtensa_local_mem_config sram;
 	struct xtensa_local_mem_config srom;
-	struct xtensa_exception_config exc;
-	struct xtensa_timer_irq_config tim_irq;
-	unsigned int gdb_general_regs_num;
-	const unsigned int *gdb_regs_mapping;
 };
 
 typedef uint32_t xtensa_insn_t;
@@ -276,6 +191,7 @@ struct xtensa_sw_breakpoint {
  */
 struct xtensa {
 	unsigned int common_magic;
+	struct xtensa_chip_common *xtensa_chip;
 	struct xtensa_config *core_config;
 	struct xtensa_debug_module dbg_mod;
 	struct reg_cache *core_cache;
@@ -287,7 +203,6 @@ struct xtensa {
 	struct reg **contiguous_regs_list;
 	/* Per-config Xtensa registers as specified via "xtreg" in xtensa-core*.cfg */
 	struct xtensa_reg_desc *optregs;
-	unsigned int regs_num;
 	unsigned int num_optregs;
 	struct reg *empty_regs;
 	char qpkt_resp[XT_QUERYPKT_RESP_MAX];
@@ -331,7 +246,6 @@ static inline struct xtensa *target_to_xtensa(struct target *target)
 
 int xtensa_init_arch_info(struct target *target,
 	struct xtensa *xtensa,
-	struct xtensa_config *cfg,
 	const struct xtensa_debug_module_config *dm_cfg);
 int xtensa_target_init(struct command_context *cmd_ctx, struct target *target);
 void xtensa_target_deinit(struct target *target);
@@ -457,9 +371,8 @@ int xtensa_run_algorithm(struct target *target,
 	target_addr_t entry_point, target_addr_t exit_point,
 	int timeout_ms, void *arch_info);
 void xtensa_set_permissive_mode(struct target *target, bool state);
-int xtensa_fetch_user_regs_u32(struct target *target);
-int xtensa_queue_write_dirty_user_regs_u32(struct target *target);
 const char *xtensa_get_gdb_arch(struct target *target);
+int xtensa_gdb_query_custom(struct target *target, const char *packet, char **response_p);
 
 COMMAND_HELPER(xtensa_cmd_xtdef_do, struct xtensa *xtensa);
 COMMAND_HELPER(xtensa_cmd_xtopt_do, struct xtensa *xtensa);
@@ -477,8 +390,6 @@ COMMAND_HELPER(xtensa_cmd_tracestart_do, struct xtensa *xtensa);
 COMMAND_HELPER(xtensa_cmd_tracestop_do, struct xtensa *xtensa);
 COMMAND_HELPER(xtensa_cmd_tracedump_do, struct xtensa *xtensa, const char *fname);
 
-extern const struct reg_arch_type xtensa_user_reg_u32_type;
-extern const struct reg_arch_type xtensa_user_reg_u128_type;
 extern const struct command_registration xtensa_command_handlers[];
 
 #endif	/* OPENOCD_TARGET_XTENSA_H */
