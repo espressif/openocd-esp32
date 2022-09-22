@@ -25,9 +25,6 @@
 #include "helper/log.h"
 #include "helper/binarybuffer.h"
 #include "target/armv7m.h"
-#include <target/espressif/esp32.h>
-#include <target/espressif/esp32s2.h>
-#include <target/espressif/esp32s3.h>
 #include <target/riscv/riscv.h>
 
 static int nuttx_esp_xtensa_stack_read(struct target *target,
@@ -76,339 +73,321 @@ static const struct stack_register_offset nuttx_stack_offsets_cortex_m_fpu[] = {
 };
 
 static const struct stack_register_offset nuttx_stack_offsets_esp32[] = {
-	{ XT_REG_IDX_PC, 0x00, 32 },		/* PC */
-	{ XT_REG_IDX_AR0, 0x08, 32 },		/* A0 */
-	{ XT_REG_IDX_AR1, 0x0c, 32 },		/* A1 */
-	{ XT_REG_IDX_AR2, 0x10, 32 },		/* A2 */
-	{ XT_REG_IDX_AR3, 0x14, 32 },		/* A3 */
-	{ XT_REG_IDX_AR4, 0x18, 32 },		/* A4 */
-	{ XT_REG_IDX_AR5, 0x1c, 32 },		/* A5 */
-	{ XT_REG_IDX_AR6, 0x20, 32 },		/* A6 */
-	{ XT_REG_IDX_AR7, 0x24, 32 },		/* A7 */
-	{ XT_REG_IDX_AR8, 0x28, 32 },		/* A8 */
-	{ XT_REG_IDX_AR9, 0x2c, 32 },		/* A9 */
-	{ XT_REG_IDX_AR10, 0x30, 32 },		/* A10 */
-	{ XT_REG_IDX_AR11, 0x34, 32 },		/* A11 */
-	{ XT_REG_IDX_AR12, 0x38, 32 },		/* A12 */
-	{ XT_REG_IDX_AR13, 0x3c, 32 },		/* A13 */
-	{ XT_REG_IDX_AR14, 0x40, 32 },		/* A14 */
-	{ XT_REG_IDX_AR15, 0x44, 32 },		/* A15 */
-
+	{ 0, 0x00, 32 },		/* PC */
+	{ 1, 0x08, 32 },		/* A0 */
+	{ 2, 0x0c, 32 },		/* A1 */
+	{ 3, 0x10, 32 },		/* A2 */
+	{ 4, 0x14, 32 },		/* A3 */
+	{ 5, 0x18, 32 },		/* A4 */
+	{ 6, 0x1c, 32 },		/* A5 */
+	{ 7, 0x20, 32 },		/* A6 */
+	{ 8, 0x24, 32 },		/* A7 */
+	{ 9, 0x28, 32 },		/* A8 */
+	{ 10, 0x2c, 32 },		/* A9 */
+	{ 11, 0x30, 32 },		/* A10 */
+	{ 12, 0x34, 32 },		/* A11 */
+	{ 13, 0x38, 32 },		/* A12 */
+	{ 14, 0x3c, 32 },		/* A13 */
+	{ 15, 0x40, 32 },		/* A14 */
+	{ 16, 0x44, 32 },		/* A15 */
 	/* A16-A63 aren't in the stack frame because they've been flushed to the stack earlier */
-
-	{ XT_REG_IDX_AR16, -1, 32 },		/* A16 */
-	{ XT_REG_IDX_AR17, -1, 32 },		/* A17 */
-	{ XT_REG_IDX_AR18, -1, 32 },		/* A18 */
-	{ XT_REG_IDX_AR19, -1, 32 },		/* A19 */
-	{ XT_REG_IDX_AR20, -1, 32 },		/* A20 */
-	{ XT_REG_IDX_AR21, -1, 32 },		/* A21 */
-	{ XT_REG_IDX_AR22, -1, 32 },		/* A22 */
-	{ XT_REG_IDX_AR23, -1, 32 },		/* A23 */
-	{ XT_REG_IDX_AR24, -1, 32 },		/* A24 */
-	{ XT_REG_IDX_AR25, -1, 32 },		/* A25 */
-	{ XT_REG_IDX_AR26, -1, 32 },		/* A26 */
-	{ XT_REG_IDX_AR27, -1, 32 },		/* A27 */
-	{ XT_REG_IDX_AR28, -1, 32 },		/* A28 */
-	{ XT_REG_IDX_AR29, -1, 32 },		/* A29 */
-	{ XT_REG_IDX_AR30, -1, 32 },		/* A30 */
-	{ XT_REG_IDX_AR31, -1, 32 },		/* A31 */
-	{ XT_REG_IDX_AR32, -1, 32 },		/* A32 */
-	{ XT_REG_IDX_AR33, -1, 32 },		/* A33 */
-	{ XT_REG_IDX_AR34, -1, 32 },		/* A34 */
-	{ XT_REG_IDX_AR35, -1, 32 },		/* A35 */
-	{ XT_REG_IDX_AR36, -1, 32 },		/* A36 */
-	{ XT_REG_IDX_AR37, -1, 32 },		/* A37 */
-	{ XT_REG_IDX_AR38, -1, 32 },		/* A38 */
-	{ XT_REG_IDX_AR39, -1, 32 },		/* A39 */
-	{ XT_REG_IDX_AR40, -1, 32 },		/* A40 */
-	{ XT_REG_IDX_AR41, -1, 32 },		/* A41 */
-	{ XT_REG_IDX_AR42, -1, 32 },		/* A42 */
-	{ XT_REG_IDX_AR43, -1, 32 },		/* A43 */
-	{ XT_REG_IDX_AR44, -1, 32 },		/* A44 */
-	{ XT_REG_IDX_AR45, -1, 32 },		/* A45 */
-	{ XT_REG_IDX_AR46, -1, 32 },		/* A46 */
-	{ XT_REG_IDX_AR47, -1, 32 },		/* A47 */
-	{ XT_REG_IDX_AR48, -1, 32 },		/* A48 */
-	{ XT_REG_IDX_AR49, -1, 32 },		/* A49 */
-	{ XT_REG_IDX_AR50, -1, 32 },		/* A50 */
-	{ XT_REG_IDX_AR51, -1, 32 },		/* A51 */
-	{ XT_REG_IDX_AR52, -1, 32 },		/* A52 */
-	{ XT_REG_IDX_AR53, -1, 32 },		/* A53 */
-	{ XT_REG_IDX_AR54, -1, 32 },		/* A54 */
-	{ XT_REG_IDX_AR55, -1, 32 },		/* A55 */
-	{ XT_REG_IDX_AR56, -1, 32 },		/* A56 */
-	{ XT_REG_IDX_AR57, -1, 32 },		/* A57 */
-	{ XT_REG_IDX_AR58, -1, 32 },		/* A58 */
-	{ XT_REG_IDX_AR59, -1, 32 },		/* A59 */
-	{ XT_REG_IDX_AR60, -1, 32 },		/* A60 */
-	{ XT_REG_IDX_AR61, -1, 32 },		/* A61 */
-	{ XT_REG_IDX_AR62, -1, 32 },		/* A62 */
-	{ XT_REG_IDX_AR63, -1, 32 },		/* A63 */
-
-	{ XT_REG_IDX_LBEG, 0x58, 32 },		/* lbeg */
-	{ XT_REG_IDX_LEND, 0x5c, 32 },		/* lend */
-	{ XT_REG_IDX_LCOUNT, 0x60, 32 },	/* lcount */
-	{ XT_REG_IDX_SAR, 0x48, 32 },		/* SAR */
-
-	{ XT_REG_IDX_WINDOWBASE, -1, 32 },	/* windowbase */
-	{ XT_REG_IDX_WINDOWSTART, -1, 32 },	/* windowstart */
-	{ XT_REG_IDX_CONFIGID0, -1, 32 },	/* configid0 */
-	{ XT_REG_IDX_CONFIGID1, -1, 32 },	/* configid1 */
-
-	{ XT_REG_IDX_PS, 0x04, 32 },		/* PS */
-
-	{ XT_REG_IDX_THREADPTR, -1, 32 },	/* threadptr */
-	{ XT_REG_IDX_BR, -1, 32 },		/* br */
-	{ XT_REG_IDX_SCOMPARE1, 0x54, 32 },	/* scompare1 */
-	{ XT_REG_IDX_ACCLO, -1, 32 },		/* acclo */
-	{ XT_REG_IDX_ACCHI, -1, 32 },		/* acchi */
-	{ XT_REG_IDX_M0, -1, 32 },		/* m0 */
-	{ XT_REG_IDX_M1, -1, 32 },		/* m1 */
-	{ XT_REG_IDX_M2, -1, 32 },		/* m2 */
-	{ XT_REG_IDX_M3, -1, 32 },		/* m3 */
-	{ ESP32_REG_IDX_EXPSTATE, -1, 32 },	/* expstate */
-	{ ESP32_REG_IDX_F64R_LO, -1, 32 },	/* f64r_lo */
-	{ ESP32_REG_IDX_F64R_HI, -1, 32 },	/* f64r_hi */
-	{ ESP32_REG_IDX_F64S, -1, 32 },		/* f64s */
-	{ XT_REG_IDX_F0, -1, 32 },		/* f0 */
-	{ XT_REG_IDX_F1, -1, 32 },		/* f1 */
-	{ XT_REG_IDX_F2, -1, 32 },		/* f2 */
-	{ XT_REG_IDX_F3, -1, 32 },		/* f3 */
-	{ XT_REG_IDX_F4, -1, 32 },		/* f4 */
-	{ XT_REG_IDX_F5, -1, 32 },		/* f5 */
-	{ XT_REG_IDX_F6, -1, 32 },		/* f6 */
-	{ XT_REG_IDX_F7, -1, 32 },		/* f7 */
-	{ XT_REG_IDX_F8, -1, 32 },		/* f8 */
-	{ XT_REG_IDX_F9, -1, 32 },		/* f9 */
-	{ XT_REG_IDX_F10, -1, 32 },		/* f10 */
-	{ XT_REG_IDX_F11, -1, 32 },		/* f11 */
-	{ XT_REG_IDX_F12, -1, 32 },		/* f12 */
-	{ XT_REG_IDX_F13, -1, 32 },		/* f13 */
-	{ XT_REG_IDX_F14, -1, 32 },		/* f14 */
-	{ XT_REG_IDX_F15, -1, 32 },		/* f15 */
-	{ XT_REG_IDX_FCR, -1, 32 },		/* fcr */
-	{ XT_REG_IDX_FSR, -1, 32 },		/* fsr */
+	{ 17, -1, 32 },			/* A16 */
+	{ 18, -1, 32 },			/* A17 */
+	{ 19, -1, 32 },			/* A18 */
+	{ 20, -1, 32 },			/* A19 */
+	{ 21, -1, 32 },			/* A20 */
+	{ 22, -1, 32 },			/* A21 */
+	{ 23, -1, 32 },			/* A22 */
+	{ 24, -1, 32 },			/* A23 */
+	{ 25, -1, 32 },			/* A24 */
+	{ 26, -1, 32 },			/* A25 */
+	{ 27, -1, 32 },			/* A26 */
+	{ 28, -1, 32 },			/* A27 */
+	{ 29, -1, 32 },			/* A28 */
+	{ 30, -1, 32 },			/* A29 */
+	{ 31, -1, 32 },			/* A30 */
+	{ 32, -1, 32 },			/* A31 */
+	{ 33, -1, 32 },			/* A32 */
+	{ 34, -1, 32 },			/* A33 */
+	{ 35, -1, 32 },			/* A34 */
+	{ 36, -1, 32 },			/* A35 */
+	{ 37, -1, 32 },			/* A36 */
+	{ 38, -1, 32 },			/* A37 */
+	{ 39, -1, 32 },			/* A38 */
+	{ 40, -1, 32 },			/* A39 */
+	{ 41, -1, 32 },			/* A40 */
+	{ 42, -1, 32 },			/* A41 */
+	{ 43, -1, 32 },			/* A42 */
+	{ 44, -1, 32 },			/* A43 */
+	{ 45, -1, 32 },			/* A44 */
+	{ 46, -1, 32 },			/* A45 */
+	{ 47, -1, 32 },			/* A46 */
+	{ 48, -1, 32 },			/* A47 */
+	{ 49, -1, 32 },			/* A48 */
+	{ 50, -1, 32 },			/* A49 */
+	{ 51, -1, 32 },			/* A50 */
+	{ 52, -1, 32 },			/* A51 */
+	{ 53, -1, 32 },			/* A52 */
+	{ 54, -1, 32 },			/* A53 */
+	{ 55, -1, 32 },			/* A54 */
+	{ 56, -1, 32 },			/* A55 */
+	{ 57, -1, 32 },			/* A56 */
+	{ 58, -1, 32 },			/* A57 */
+	{ 59, -1, 32 },			/* A58 */
+	{ 60, -1, 32 },			/* A59 */
+	{ 61, -1, 32 },			/* A60 */
+	{ 62, -1, 32 },			/* A61 */
+	{ 63, -1, 32 },			/* A62 */
+	{ 64, -1, 32 },			/* A63 */
+	{ 65, 0x58, 32 },		/* lbeg */
+	{ 66, 0x5c, 32 },		/* lend */
+	{ 67, 0x60, 32 },		/* lcount */
+	{ 68, 0x48, 32 },		/* SAR */
+	{ 69, -1, 32 },			/* windowbase */
+	{ 70, -1, 32 },			/* windowstart */
+	{ 71, -1, 32 },			/* configid0 */
+	{ 72, -1, 32 },			/* configid1 */
+	{ 73, 0x04, 32 },		/* PS */
+	{ 74, -1, 32 },			/* threadptr */
+	{ 75, -1, 32 },			/* br */
+	{ 76, 0x54, 32 },		/* scompare1 */
+	{ 77, -1, 32 },			/* acclo */
+	{ 78, -1, 32 },			/* acchi */
+	{ 79, -1, 32 },			/* m0 */
+	{ 80, -1, 32 },			/* m1 */
+	{ 81, -1, 32 },			/* m2 */
+	{ 82, -1, 32 },			/* m3 */
+	{ 83, -1, 32 },			/* expstate */
+	{ 84, -1, 32 },			/* f64r_lo */
+	{ 85, -1, 32 },			/* f64r_hi */
+	{ 86, -1, 32 },			/* f64s */
+	{ 87, -1, 32 },			/* f0 */
+	{ 88, -1, 32 },			/* f1 */
+	{ 89, -1, 32 },			/* f2 */
+	{ 90, -1, 32 },			/* f3 */
+	{ 91, -1, 32 },			/* f4 */
+	{ 92, -1, 32 },			/* f5 */
+	{ 93, -1, 32 },			/* f6 */
+	{ 94, -1, 32 },			/* f7 */
+	{ 95, -1, 32 },			/* f8 */
+	{ 96, -1, 32 },			/* f9 */
+	{ 97, -1, 32 },			/* f10 */
+	{ 98, -1, 32 },			/* f11 */
+	{ 99, -1, 32 },			/* f12 */
+	{ 100, -1, 32 },		/* f13 */
+	{ 101, -1, 32 },		/* f14 */
+	{ 102, -1, 32 },		/* f15 */
+	{ 103, -1, 32 },		/* fcr */
+	{ 104, -1, 32 },		/* fsr */
 };
 
 static const struct stack_register_offset nuttx_stack_offsets_esp32s2[] = {
-	{ XT_REG_IDX_PC, 0x00, 32 },		/* PC */
-	{ XT_REG_IDX_AR0, 0x08, 32 },		/* A0 */
-	{ XT_REG_IDX_AR1, 0x0c, 32 },		/* A1 */
-	{ XT_REG_IDX_AR2, 0x10, 32 },		/* A2 */
-	{ XT_REG_IDX_AR3, 0x14, 32 },		/* A3 */
-	{ XT_REG_IDX_AR4, 0x18, 32 },		/* A4 */
-	{ XT_REG_IDX_AR5, 0x1c, 32 },		/* A5 */
-	{ XT_REG_IDX_AR6, 0x20, 32 },		/* A6 */
-	{ XT_REG_IDX_AR7, 0x24, 32 },		/* A7 */
-	{ XT_REG_IDX_AR8, 0x28, 32 },		/* A8 */
-	{ XT_REG_IDX_AR9, 0x2c, 32 },		/* A9 */
-	{ XT_REG_IDX_AR10, 0x30, 32 },		/* A10 */
-	{ XT_REG_IDX_AR11, 0x34, 32 },		/* A11 */
-	{ XT_REG_IDX_AR12, 0x38, 32 },		/* A12 */
-	{ XT_REG_IDX_AR13, 0x3c, 32 },		/* A13 */
-	{ XT_REG_IDX_AR14, 0x40, 32 },		/* A14 */
-	{ XT_REG_IDX_AR15, 0x44, 32 },		/* A15 */
-
+	{ 0, 0x00, 32 },		/* PC */
+	{ 1, 0x08, 32 },		/* A0 */
+	{ 2, 0x0c, 32 },		/* A1 */
+	{ 3, 0x10, 32 },		/* A2 */
+	{ 4, 0x14, 32 },		/* A3 */
+	{ 5, 0x18, 32 },		/* A4 */
+	{ 6, 0x1c, 32 },		/* A5 */
+	{ 7, 0x20, 32 },		/* A6 */
+	{ 8, 0x24, 32 },		/* A7 */
+	{ 9, 0x28, 32 },		/* A8 */
+	{ 10, 0x2c, 32 },		/* A9 */
+	{ 11, 0x30, 32 },		/* A10 */
+	{ 12, 0x34, 32 },		/* A11 */
+	{ 13, 0x38, 32 },		/* A12 */
+	{ 14, 0x3c, 32 },		/* A13 */
+	{ 15, 0x40, 32 },		/* A14 */
+	{ 16, 0x44, 32 },		/* A15 */
 	/* A16-A63 aren't in the stack frame because they've been flushed to the stack earlier */
-
-	{ XT_REG_IDX_AR16, -1, 32 },		/* A16 */
-	{ XT_REG_IDX_AR17, -1, 32 },		/* A17 */
-	{ XT_REG_IDX_AR18, -1, 32 },		/* A18 */
-	{ XT_REG_IDX_AR19, -1, 32 },		/* A19 */
-	{ XT_REG_IDX_AR20, -1, 32 },		/* A20 */
-	{ XT_REG_IDX_AR21, -1, 32 },		/* A21 */
-	{ XT_REG_IDX_AR22, -1, 32 },		/* A22 */
-	{ XT_REG_IDX_AR23, -1, 32 },		/* A23 */
-	{ XT_REG_IDX_AR24, -1, 32 },		/* A24 */
-	{ XT_REG_IDX_AR25, -1, 32 },		/* A25 */
-	{ XT_REG_IDX_AR26, -1, 32 },		/* A26 */
-	{ XT_REG_IDX_AR27, -1, 32 },		/* A27 */
-	{ XT_REG_IDX_AR28, -1, 32 },		/* A28 */
-	{ XT_REG_IDX_AR29, -1, 32 },		/* A29 */
-	{ XT_REG_IDX_AR30, -1, 32 },		/* A30 */
-	{ XT_REG_IDX_AR31, -1, 32 },		/* A31 */
-	{ XT_REG_IDX_AR32, -1, 32 },		/* A32 */
-	{ XT_REG_IDX_AR33, -1, 32 },		/* A33 */
-	{ XT_REG_IDX_AR34, -1, 32 },		/* A34 */
-	{ XT_REG_IDX_AR35, -1, 32 },		/* A35 */
-	{ XT_REG_IDX_AR36, -1, 32 },		/* A36 */
-	{ XT_REG_IDX_AR37, -1, 32 },		/* A37 */
-	{ XT_REG_IDX_AR38, -1, 32 },		/* A38 */
-	{ XT_REG_IDX_AR39, -1, 32 },		/* A39 */
-	{ XT_REG_IDX_AR40, -1, 32 },		/* A40 */
-	{ XT_REG_IDX_AR41, -1, 32 },		/* A41 */
-	{ XT_REG_IDX_AR42, -1, 32 },		/* A42 */
-	{ XT_REG_IDX_AR43, -1, 32 },		/* A43 */
-	{ XT_REG_IDX_AR44, -1, 32 },		/* A44 */
-	{ XT_REG_IDX_AR45, -1, 32 },		/* A45 */
-	{ XT_REG_IDX_AR46, -1, 32 },		/* A46 */
-	{ XT_REG_IDX_AR47, -1, 32 },		/* A47 */
-	{ XT_REG_IDX_AR48, -1, 32 },		/* A48 */
-	{ XT_REG_IDX_AR49, -1, 32 },		/* A49 */
-	{ XT_REG_IDX_AR50, -1, 32 },		/* A50 */
-	{ XT_REG_IDX_AR51, -1, 32 },		/* A51 */
-	{ XT_REG_IDX_AR52, -1, 32 },		/* A52 */
-	{ XT_REG_IDX_AR53, -1, 32 },		/* A53 */
-	{ XT_REG_IDX_AR54, -1, 32 },		/* A54 */
-	{ XT_REG_IDX_AR55, -1, 32 },		/* A55 */
-	{ XT_REG_IDX_AR56, -1, 32 },		/* A56 */
-	{ XT_REG_IDX_AR57, -1, 32 },		/* A57 */
-	{ XT_REG_IDX_AR58, -1, 32 },		/* A58 */
-	{ XT_REG_IDX_AR59, -1, 32 },		/* A59 */
-	{ XT_REG_IDX_AR60, -1, 32 },		/* A60 */
-	{ XT_REG_IDX_AR61, -1, 32 },		/* A61 */
-	{ XT_REG_IDX_AR62, -1, 32 },		/* A62 */
-	{ XT_REG_IDX_AR63, -1, 32 },		/* A63 */
-
-	{ XT_REG_IDX_SAR, 0x48, 32 },		/* SAR */
-
-	{ XT_REG_IDX_WINDOWBASE, -1, 32 },	/* windowbase */
-	{ XT_REG_IDX_WINDOWSTART, -1, 32 },	/* windowstart */
-	{ XT_REG_IDX_CONFIGID0, -1, 32 },	/* configid0 */
-	{ XT_REG_IDX_CONFIGID1, -1, 32 },	/* configid1 */
-
-	{ XT_REG_IDX_PS, 0x04, 32 },		/* PS */
-
-	{ XT_REG_IDX_THREADPTR, -1, 32 },	/* threadptr */
-	{ ESP32_S2_REG_IDX_GPIOOUT, -1, 32 },	/* gpio_out */
+	{ 17, -1, 32 },			/* A16 */
+	{ 18, -1, 32 },			/* A17 */
+	{ 19, -1, 32 },			/* A18 */
+	{ 20, -1, 32 },			/* A19 */
+	{ 21, -1, 32 },			/* A20 */
+	{ 22, -1, 32 },			/* A21 */
+	{ 23, -1, 32 },			/* A22 */
+	{ 24, -1, 32 },			/* A23 */
+	{ 25, -1, 32 },			/* A24 */
+	{ 26, -1, 32 },			/* A25 */
+	{ 27, -1, 32 },			/* A26 */
+	{ 28, -1, 32 },			/* A27 */
+	{ 29, -1, 32 },			/* A28 */
+	{ 30, -1, 32 },			/* A29 */
+	{ 31, -1, 32 },			/* A30 */
+	{ 32, -1, 32 },			/* A31 */
+	{ 33, -1, 32 },			/* A32 */
+	{ 34, -1, 32 },			/* A33 */
+	{ 35, -1, 32 },			/* A34 */
+	{ 36, -1, 32 },			/* A35 */
+	{ 37, -1, 32 },			/* A36 */
+	{ 38, -1, 32 },			/* A37 */
+	{ 39, -1, 32 },			/* A38 */
+	{ 40, -1, 32 },			/* A39 */
+	{ 41, -1, 32 },			/* A40 */
+	{ 42, -1, 32 },			/* A41 */
+	{ 43, -1, 32 },			/* A42 */
+	{ 44, -1, 32 },			/* A43 */
+	{ 45, -1, 32 },			/* A44 */
+	{ 46, -1, 32 },			/* A45 */
+	{ 47, -1, 32 },			/* A46 */
+	{ 48, -1, 32 },			/* A47 */
+	{ 49, -1, 32 },			/* A48 */
+	{ 50, -1, 32 },			/* A49 */
+	{ 51, -1, 32 },			/* A50 */
+	{ 52, -1, 32 },			/* A51 */
+	{ 53, -1, 32 },			/* A52 */
+	{ 54, -1, 32 },			/* A53 */
+	{ 55, -1, 32 },			/* A54 */
+	{ 56, -1, 32 },			/* A55 */
+	{ 57, -1, 32 },			/* A56 */
+	{ 58, -1, 32 },			/* A57 */
+	{ 59, -1, 32 },			/* A58 */
+	{ 60, -1, 32 },			/* A59 */
+	{ 61, -1, 32 },			/* A60 */
+	{ 62, -1, 32 },			/* A61 */
+	{ 63, -1, 32 },			/* A62 */
+	{ 64, -1, 32 },			/* A63 */
+	{ 65, 0x48, 32 },		/* SAR */
+	{ 66, -1, 32 },			/* windowbase */
+	{ 67, -1, 32 },			/* windowstart */
+	{ 68, -1, 32 },			/* configid0 */
+	{ 69, -1, 32 },			/* configid1 */
+	{ 70, 0x04, 32 },		/* PS */
+	{ 71, -1, 32 },			/* threadptr */
+	{ 72, -1, 32 },			/* gpio_out */
 };
 
 static const struct stack_register_offset nuttx_stack_offsets_esp32s3[] = {
-	{ XT_REG_IDX_PC, 0x00, 32 },		/* PC */
-	{ XT_REG_IDX_AR0, 0x08, 32 },		/* A0 */
-	{ XT_REG_IDX_AR1, 0x0c, 32 },		/* A1 */
-	{ XT_REG_IDX_AR2, 0x10, 32 },		/* A2 */
-	{ XT_REG_IDX_AR3, 0x14, 32 },		/* A3 */
-	{ XT_REG_IDX_AR4, 0x18, 32 },		/* A4 */
-	{ XT_REG_IDX_AR5, 0x1c, 32 },		/* A5 */
-	{ XT_REG_IDX_AR6, 0x20, 32 },		/* A6 */
-	{ XT_REG_IDX_AR7, 0x24, 32 },		/* A7 */
-	{ XT_REG_IDX_AR8, 0x28, 32 },		/* A8 */
-	{ XT_REG_IDX_AR9, 0x2c, 32 },		/* A9 */
-	{ XT_REG_IDX_AR10, 0x30, 32 },		/* A10 */
-	{ XT_REG_IDX_AR11, 0x34, 32 },		/* A11 */
-	{ XT_REG_IDX_AR12, 0x38, 32 },		/* A12 */
-	{ XT_REG_IDX_AR13, 0x3c, 32 },		/* A13 */
-	{ XT_REG_IDX_AR14, 0x40, 32 },		/* A14 */
-	{ XT_REG_IDX_AR15, 0x44, 32 },		/* A15 */
-
+	{ 0, 0x00, 32 },		/* PC */
+	{ 1, 0x08, 32 },		/* A0 */
+	{ 2, 0x0c, 32 },		/* A1 */
+	{ 3, 0x10, 32 },		/* A2 */
+	{ 4, 0x14, 32 },		/* A3 */
+	{ 5, 0x18, 32 },		/* A4 */
+	{ 6, 0x1c, 32 },		/* A5 */
+	{ 7, 0x20, 32 },		/* A6 */
+	{ 8, 0x24, 32 },		/* A7 */
+	{ 9, 0x28, 32 },		/* A8 */
+	{ 10, 0x2c, 32 },		/* A9 */
+	{ 11, 0x30, 32 },		/* A10 */
+	{ 12, 0x34, 32 },		/* A11 */
+	{ 13, 0x38, 32 },		/* A12 */
+	{ 14, 0x3c, 32 },		/* A13 */
+	{ 15, 0x40, 32 },		/* A14 */
+	{ 16, 0x44, 32 },		/* A15 */
 	/* A16-A63 aren't in the stack frame because they've been flushed to the stack earlier */
-
-	{ XT_REG_IDX_AR16, -1, 32 },		/* A16 */
-	{ XT_REG_IDX_AR17, -1, 32 },		/* A17 */
-	{ XT_REG_IDX_AR18, -1, 32 },		/* A18 */
-	{ XT_REG_IDX_AR19, -1, 32 },		/* A19 */
-	{ XT_REG_IDX_AR20, -1, 32 },		/* A20 */
-	{ XT_REG_IDX_AR21, -1, 32 },		/* A21 */
-	{ XT_REG_IDX_AR22, -1, 32 },		/* A22 */
-	{ XT_REG_IDX_AR23, -1, 32 },		/* A23 */
-	{ XT_REG_IDX_AR24, -1, 32 },		/* A24 */
-	{ XT_REG_IDX_AR25, -1, 32 },		/* A25 */
-	{ XT_REG_IDX_AR26, -1, 32 },		/* A26 */
-	{ XT_REG_IDX_AR27, -1, 32 },		/* A27 */
-	{ XT_REG_IDX_AR28, -1, 32 },		/* A28 */
-	{ XT_REG_IDX_AR29, -1, 32 },		/* A29 */
-	{ XT_REG_IDX_AR30, -1, 32 },		/* A30 */
-	{ XT_REG_IDX_AR31, -1, 32 },		/* A31 */
-	{ XT_REG_IDX_AR32, -1, 32 },		/* A32 */
-	{ XT_REG_IDX_AR33, -1, 32 },		/* A33 */
-	{ XT_REG_IDX_AR34, -1, 32 },		/* A34 */
-	{ XT_REG_IDX_AR35, -1, 32 },		/* A35 */
-	{ XT_REG_IDX_AR36, -1, 32 },		/* A36 */
-	{ XT_REG_IDX_AR37, -1, 32 },		/* A37 */
-	{ XT_REG_IDX_AR38, -1, 32 },		/* A38 */
-	{ XT_REG_IDX_AR39, -1, 32 },		/* A39 */
-	{ XT_REG_IDX_AR40, -1, 32 },		/* A40 */
-	{ XT_REG_IDX_AR41, -1, 32 },		/* A41 */
-	{ XT_REG_IDX_AR42, -1, 32 },		/* A42 */
-	{ XT_REG_IDX_AR43, -1, 32 },		/* A43 */
-	{ XT_REG_IDX_AR44, -1, 32 },		/* A44 */
-	{ XT_REG_IDX_AR45, -1, 32 },		/* A45 */
-	{ XT_REG_IDX_AR46, -1, 32 },		/* A46 */
-	{ XT_REG_IDX_AR47, -1, 32 },		/* A47 */
-	{ XT_REG_IDX_AR48, -1, 32 },		/* A48 */
-	{ XT_REG_IDX_AR49, -1, 32 },		/* A49 */
-	{ XT_REG_IDX_AR50, -1, 32 },		/* A50 */
-	{ XT_REG_IDX_AR51, -1, 32 },		/* A51 */
-	{ XT_REG_IDX_AR52, -1, 32 },		/* A52 */
-	{ XT_REG_IDX_AR53, -1, 32 },		/* A53 */
-	{ XT_REG_IDX_AR54, -1, 32 },		/* A54 */
-	{ XT_REG_IDX_AR55, -1, 32 },		/* A55 */
-	{ XT_REG_IDX_AR56, -1, 32 },		/* A56 */
-	{ XT_REG_IDX_AR57, -1, 32 },		/* A57 */
-	{ XT_REG_IDX_AR58, -1, 32 },		/* A58 */
-	{ XT_REG_IDX_AR59, -1, 32 },		/* A59 */
-	{ XT_REG_IDX_AR60, -1, 32 },		/* A60 */
-	{ XT_REG_IDX_AR61, -1, 32 },		/* A61 */
-	{ XT_REG_IDX_AR62, -1, 32 },		/* A62 */
-	{ XT_REG_IDX_AR63, -1, 32 },		/* A63 */
-
-	{ XT_REG_IDX_LBEG, 0x58, 32 },		/* lbeg */
-	{ XT_REG_IDX_LEND, 0x5c, 32 },		/* lend */
-	{ XT_REG_IDX_LCOUNT, 0x60, 32 },	/* lcount */
-	{ XT_REG_IDX_SAR, 0x48, 32 },		/* SAR */
-
-	{ XT_REG_IDX_WINDOWBASE, -1, 32 },	/* windowbase */
-	{ XT_REG_IDX_WINDOWSTART, -1, 32 },	/* windowstart */
-	{ XT_REG_IDX_CONFIGID0, -1, 32 },	/* configid0 */
-	{ XT_REG_IDX_CONFIGID1, -1, 32 },	/* configid1 */
-
-	{ XT_REG_IDX_PS, 0x04, 32 },		/* PS */
-
-	{ XT_REG_IDX_THREADPTR, -1, 32 },	/* threadptr */
-	{ XT_REG_IDX_BR, -1, 32 },		/* br */
-	{ XT_REG_IDX_SCOMPARE1, 0x54, 32 },	/* scompare1 */
-	{ XT_REG_IDX_ACCLO, -1, 32 },		/* acclo */
-	{ XT_REG_IDX_ACCHI, -1, 32 },		/* acchi */
-	{ XT_REG_IDX_M0, -1, 32 },		/* m0 */
-	{ XT_REG_IDX_M1, -1, 32 },		/* m1 */
-	{ XT_REG_IDX_M2, -1, 32 },		/* m2 */
-	{ XT_REG_IDX_M3, -1, 32 },		/* m3 */
-	{ ESP32_S3_REG_IDX_GPIOOUT, -1, 32 },	/* gpio_out */
-	{ XT_REG_IDX_F0, -1, 32 },		/* f0 */
-	{ XT_REG_IDX_F1, -1, 32 },		/* f1 */
-	{ XT_REG_IDX_F2, -1, 32 },		/* f2 */
-	{ XT_REG_IDX_F3, -1, 32 },		/* f3 */
-	{ XT_REG_IDX_F4, -1, 32 },		/* f4 */
-	{ XT_REG_IDX_F5, -1, 32 },		/* f5 */
-	{ XT_REG_IDX_F6, -1, 32 },		/* f6 */
-	{ XT_REG_IDX_F7, -1, 32 },		/* f7 */
-	{ XT_REG_IDX_F8, -1, 32 },		/* f8 */
-	{ XT_REG_IDX_F9, -1, 32 },		/* f9 */
-	{ XT_REG_IDX_F10, -1, 32 },		/* f10 */
-	{ XT_REG_IDX_F11, -1, 32 },		/* f11 */
-	{ XT_REG_IDX_F12, -1, 32 },		/* f12 */
-	{ XT_REG_IDX_F13, -1, 32 },		/* f13 */
-	{ XT_REG_IDX_F14, -1, 32 },		/* f14 */
-	{ XT_REG_IDX_F15, -1, 32 },		/* f15 */
-	{ XT_REG_IDX_FCR, -1, 32 },		/* fcr */
-	{ XT_REG_IDX_FSR, -1, 32 },		/* fsr */
-	{ ESP32_S3_REG_IDX_ACCX_0, -1, 32 },		/* accx_0 */
-	{ ESP32_S3_REG_IDX_ACCX_1, -1, 32 },		/* accx_1 */
-	{ ESP32_S3_REG_IDX_QACC_H_0, -1, 32 },		/* qacc_h_0 */
-	{ ESP32_S3_REG_IDX_QACC_H_1, -1, 32 },		/* qacc_h_1 */
-	{ ESP32_S3_REG_IDX_QACC_H_2, -1, 32 },		/* qacc_h_2 */
-	{ ESP32_S3_REG_IDX_QACC_H_3, -1, 32 },		/* qacc_h_3 */
-	{ ESP32_S3_REG_IDX_QACC_H_4, -1, 32 },		/* qacc_h_4 */
-	{ ESP32_S3_REG_IDX_QACC_L_0, -1, 32 },		/* qacc_l_0 */
-	{ ESP32_S3_REG_IDX_QACC_L_1, -1, 32 },		/* qacc_l_1 */
-	{ ESP32_S3_REG_IDX_QACC_L_2, -1, 32 },		/* qacc_l_2 */
-	{ ESP32_S3_REG_IDX_QACC_L_3, -1, 32 },		/* qacc_l_3 */
-	{ ESP32_S3_REG_IDX_QACC_L_4, -1, 32 },		/* qacc_l_4 */
-	{ ESP32_S3_REG_IDX_SAR_BYTE, -1, 32 },		/* sar_byte */
-	{ ESP32_S3_REG_IDX_FFT_BIT_WIDTH, -1, 32 },	/* fft_bit_width */
-	{ ESP32_S3_REG_IDX_UA_STATE_0, -1, 32 },	/* ua_state_0 */
-	{ ESP32_S3_REG_IDX_UA_STATE_1, -1, 32 },	/* ua_state_1 */
-	{ ESP32_S3_REG_IDX_UA_STATE_2, -1, 32 },	/* ua_state_2 */
-	{ ESP32_S3_REG_IDX_UA_STATE_3, -1, 32 },	/* ua_state_3 */
-	{ ESP32_S3_REG_IDX_Q0, -1, 128 },		/* q0 */
-	{ ESP32_S3_REG_IDX_Q1, -1, 128 },		/* q1 */
-	{ ESP32_S3_REG_IDX_Q2, -1, 128 },		/* q2 */
-	{ ESP32_S3_REG_IDX_Q3, -1, 128 },		/* q3 */
-	{ ESP32_S3_REG_IDX_Q4, -1, 128 },		/* q4 */
-	{ ESP32_S3_REG_IDX_Q5, -1, 128 },		/* q5 */
-	{ ESP32_S3_REG_IDX_Q6, -1, 128 },		/* q6 */
-	{ ESP32_S3_REG_IDX_Q7, -1, 128 },		/* q7 */
+	{ 17, -1, 32 },			/* A16 */
+	{ 18, -1, 32 },			/* A17 */
+	{ 19, -1, 32 },			/* A18 */
+	{ 20, -1, 32 },			/* A19 */
+	{ 21, -1, 32 },			/* A20 */
+	{ 22, -1, 32 },			/* A21 */
+	{ 23, -1, 32 },			/* A22 */
+	{ 24, -1, 32 },			/* A23 */
+	{ 25, -1, 32 },			/* A24 */
+	{ 26, -1, 32 },			/* A25 */
+	{ 27, -1, 32 },			/* A26 */
+	{ 28, -1, 32 },			/* A27 */
+	{ 29, -1, 32 },			/* A28 */
+	{ 30, -1, 32 },			/* A29 */
+	{ 31, -1, 32 },			/* A30 */
+	{ 32, -1, 32 },			/* A31 */
+	{ 33, -1, 32 },			/* A32 */
+	{ 34, -1, 32 },			/* A33 */
+	{ 35, -1, 32 },			/* A34 */
+	{ 36, -1, 32 },			/* A35 */
+	{ 37, -1, 32 },			/* A36 */
+	{ 38, -1, 32 },			/* A37 */
+	{ 39, -1, 32 },			/* A38 */
+	{ 40, -1, 32 },			/* A39 */
+	{ 41, -1, 32 },			/* A40 */
+	{ 42, -1, 32 },			/* A41 */
+	{ 43, -1, 32 },			/* A42 */
+	{ 44, -1, 32 },			/* A43 */
+	{ 45, -1, 32 },			/* A44 */
+	{ 46, -1, 32 },			/* A45 */
+	{ 47, -1, 32 },			/* A46 */
+	{ 48, -1, 32 },			/* A47 */
+	{ 49, -1, 32 },			/* A48 */
+	{ 50, -1, 32 },			/* A49 */
+	{ 51, -1, 32 },			/* A50 */
+	{ 52, -1, 32 },			/* A51 */
+	{ 53, -1, 32 },			/* A52 */
+	{ 54, -1, 32 },			/* A53 */
+	{ 55, -1, 32 },			/* A54 */
+	{ 56, -1, 32 },			/* A55 */
+	{ 57, -1, 32 },			/* A56 */
+	{ 58, -1, 32 },			/* A57 */
+	{ 59, -1, 32 },			/* A58 */
+	{ 60, -1, 32 },			/* A59 */
+	{ 61, -1, 32 },			/* A60 */
+	{ 62, -1, 32 },			/* A61 */
+	{ 63, -1, 32 },			/* A62 */
+	{ 64, -1, 32 },			/* A63 */
+	{ 65, 0x58, 32 },		/* lbeg */
+	{ 66, 0x5c, 32 },		/* lend */
+	{ 67, 0x60, 32 },		/* lcount */
+	{ 68, 0x48, 32 },		/* SAR */
+	{ 69, -1, 32 },			/* windowbase */
+	{ 70, -1, 32 },			/* windowstart */
+	{ 71, -1, 32 },			/* configid0 */
+	{ 72, -1, 32 },			/* configid1 */
+	{ 73, 0x04, 32 },		/* PS */
+	{ 74, -1, 32 },			/* threadptr */
+	{ 75, -1, 32 },			/* br */
+	{ 76, 0x54, 32 },		/* scompare1 */
+	{ 77, -1, 32 },			/* acclo */
+	{ 78, -1, 32 },			/* acchi */
+	{ 79, -1, 32 },			/* m0 */
+	{ 80, -1, 32 },			/* m1 */
+	{ 81, -1, 32 },			/* m2 */
+	{ 82, -1, 32 },			/* m3 */
+	{ 83, -1, 32 },			/* gpio_out */
+	{ 84, -1, 32 },			/* f0 */
+	{ 85, -1, 32 },			/* f1 */
+	{ 86, -1, 32 },			/* f2 */
+	{ 87, -1, 32 },			/* f3 */
+	{ 88, -1, 32 },			/* f4 */
+	{ 89, -1, 32 },			/* f5 */
+	{ 90, -1, 32 },			/* f6 */
+	{ 91, -1, 32 },			/* f7 */
+	{ 92, -1, 32 },			/* f8 */
+	{ 93, -1, 32 },			/* f9 */
+	{ 94, -1, 32 },			/* f10 */
+	{ 95, -1, 32 },			/* f11 */
+	{ 96, -1, 32 },			/* f12 */
+	{ 97, -1, 32 },			/* f13 */
+	{ 98, -1, 32 },			/* f14 */
+	{ 99, -1, 32 },			/* f15 */
+	{ 100, -1, 32 },		/* fcr */
+	{ 101, -1, 32 },		/* fsr */
+	{ 102, -1, 32 },		/* accx_0 */
+	{ 103, -1, 32 },		/* accx_1 */
+	{ 104, -1, 32 },		/* qacc_h_0 */
+	{ 105, -1, 32 },		/* qacc_h_1 */
+	{ 106, -1, 32 },		/* qacc_h_2 */
+	{ 107, -1, 32 },		/* qacc_h_3 */
+	{ 108, -1, 32 },		/* qacc_h_4 */
+	{ 109, -1, 32 },		/* qacc_l_0 */
+	{ 110, -1, 32 },		/* qacc_l_1 */
+	{ 111, -1, 32 },		/* qacc_l_2 */
+	{ 112, -1, 32 },		/* qacc_l_3 */
+	{ 113, -1, 32 },		/* qacc_l_4 */
+	{ 114, -1, 32 },		/* sar_byte */
+	{ 115, -1, 32 },		/* fft_bit_width */
+	{ 116, -1, 32 },		/* ua_state_0 */
+	{ 117, -1, 32 },		/* ua_state_1 */
+	{ 118, -1, 32 },		/* ua_state_2 */
+	{ 119, -1, 32 },		/* ua_state_3 */
+	{ 120, -1, 128 },		/* q0 */
+	{ 121, -1, 128 },		/* q1 */
+	{ 122, -1, 128 },		/* q2 */
+	{ 123, -1, 128 },		/* q3 */
+	{ 124, -1, 128 },		/* q4 */
+	{ 125, -1, 128 },		/* q5 */
+	{ 126, -1, 128 },		/* q6 */
+	{ 127, -1, 128 },		/* q7 */
 };
 
 static const struct stack_register_offset nuttx_stack_offsets_riscv[] = {
@@ -464,7 +443,7 @@ const struct rtos_register_stacking nuttx_stacking_cortex_m_fpu = {
 const struct rtos_register_stacking nuttx_esp32_stacking = {
 	.stack_registers_size = 26 * 4,
 	.stack_growth_direction = -1,
-	.num_output_registers = ESP32_NUM_REGS_G_COMMAND,
+	.num_output_registers = ARRAY_SIZE(nuttx_stack_offsets_esp32),
 	.calculate_process_stack = rtos_generic_stack_align8,
 	.register_offsets = nuttx_stack_offsets_esp32,
 	.custom_stack_read_fn = nuttx_esp_xtensa_stack_read,
@@ -473,7 +452,7 @@ const struct rtos_register_stacking nuttx_esp32_stacking = {
 const struct rtos_register_stacking nuttx_esp32s2_stacking = {
 	.stack_registers_size = 25 * 4,
 	.stack_growth_direction = -1,
-	.num_output_registers = ESP32_S2_NUM_REGS_G_COMMAND,
+	.num_output_registers = ARRAY_SIZE(nuttx_stack_offsets_esp32s2),
 	.calculate_process_stack = rtos_generic_stack_align8,
 	.register_offsets = nuttx_stack_offsets_esp32s2,
 	.custom_stack_read_fn = nuttx_esp_xtensa_stack_read,
@@ -482,7 +461,7 @@ const struct rtos_register_stacking nuttx_esp32s2_stacking = {
 const struct rtos_register_stacking nuttx_esp32s3_stacking = {
 	.stack_registers_size = 26 * 4,
 	.stack_growth_direction = -1,
-	.num_output_registers = ESP32_S3_NUM_REGS_G_COMMAND,
+	.num_output_registers = ARRAY_SIZE(nuttx_stack_offsets_esp32s3),
 	.calculate_process_stack = rtos_generic_stack_align8,
 	.register_offsets = nuttx_stack_offsets_esp32s3,
 	.custom_stack_read_fn = nuttx_esp_xtensa_stack_read,

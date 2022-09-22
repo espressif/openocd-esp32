@@ -34,9 +34,6 @@
 ./tools/uncrustify1.sh src/target/espressif/esp_xtensa_semihosting.h
 ./tools/uncrustify1.sh src/target/espressif/esp_xtensa_smp.h
 ./tools/uncrustify1.sh src/target/espressif/esp_riscv_apptrace.h
-./tools/uncrustify1.sh src/target/espressif/esp32.h
-./tools/uncrustify1.sh src/target/espressif/esp32s2.h
-./tools/uncrustify1.sh src/target/espressif/esp32s3.h
 ./tools/uncrustify1.sh src/target/espressif/esp32c2.h
 ./tools/uncrustify1.sh src/target/espressif/esp32c3.h
 ./tools/uncrustify1.sh src/target/espressif/esp32_apptrace.h

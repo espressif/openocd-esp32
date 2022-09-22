@@ -777,8 +777,7 @@ static int freertos_get_tasks_details(struct target *target,
 					return ERROR_FAIL;
 				}
 				rtos->thread_details[index].exists = true;
-				const struct freertos_tls_info *tls_info =
-					rtos_freertos_get_tls_info(target);
+				const struct freertos_tls_info *tls_info = rtos_freertos_get_tls_info(target);
 				if (tls_info &&
 					!rtos->thread_details[index].tls_addr) {
 					struct rtos_reg reg;
@@ -1117,8 +1116,7 @@ static int freertos_get_current_thread_registers(struct rtos *rtos, int64_t thre
 	for (int i = 0; i < *num_regs; i++) {
 		(*reg_list)[i].number = gdb_reg_list[i]->number;
 		(*reg_list)[i].size = gdb_reg_list[i]->size;
-		memcpy((*reg_list)[i].value, gdb_reg_list[i]->value,
-			((*reg_list)[i].size + 7) / 8);
+		memcpy((*reg_list)[i].value, gdb_reg_list[i]->value, ((*reg_list)[i].size + 7) / 8);
 	}
 	free(gdb_reg_list);
 	return ERROR_OK;

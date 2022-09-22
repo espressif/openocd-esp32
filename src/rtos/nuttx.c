@@ -392,8 +392,7 @@ static int nuttx_getreg_current_thread(struct rtos *rtos,
 	for (int i = 0; i < *num_regs; i++) {
 		(*reg_list)[i].number = gdb_reg_list[i]->number;
 		(*reg_list)[i].size = gdb_reg_list[i]->size;
-		memcpy((*reg_list)[i].value, gdb_reg_list[i]->value,
-			((*reg_list)[i].size + 7) / 8);
+		memcpy((*reg_list)[i].value, gdb_reg_list[i]->value, ((*reg_list)[i].size + 7) / 8);
 	}
 
 	free(gdb_reg_list);
