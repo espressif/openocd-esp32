@@ -358,7 +358,7 @@ int esp_xtensa_breakpoint_add(struct target *target, struct breakpoint *breakpoi
 	int res = xtensa_breakpoint_add(target, breakpoint);
 	if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && breakpoint->type == BKPT_HARD) {
 		/* For SMP target return OK if SW flash breakpoint is already set using another core;
-		        GDB causes call to esp_flash_breakpoint_add() for every core, since it treats flash breakpoints as HW ones */
+		        GDB causes call to esp_algo_flash_breakpoint_add() for every core, since it treats flash breakpoints as HW ones */
 		if (target->smp) {
 			struct target_list *curr;
 			foreach_smp_target(curr, target->smp_targets) {
@@ -382,7 +382,7 @@ int esp_xtensa_breakpoint_remove(struct target *target, struct breakpoint *break
 		res = esp_common_flash_breakpoint_remove(target, &esp_xtensa->esp, breakpoint);
 		if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && target->smp) {
 			/* For SMP target return OK always, because SW flash breakpoint are set only using one core,
-			but GDB causes call to esp_flash_breakpoint_remove() for every core, since it treats flash breakpoints as HW ones */
+			but GDB causes call to esp_algo_flash_breakpoint_remove() for every core, since it treats flash breakpoints as HW ones */
 			return ERROR_OK;
 		}
 	}

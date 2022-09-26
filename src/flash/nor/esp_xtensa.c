@@ -34,7 +34,7 @@ int esp_xtensa_flash_init(struct esp_xtensa_flash_bank *esp_info, uint32_t sec_s
 	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank))
 {
 	memset(esp_info, 0, sizeof(*esp_info));
-	int ret = esp_flash_init(&esp_info->esp, sec_sz, run_func_image, is_irom_address,
+	int ret = esp_algo_flash_init(&esp_info->esp, sec_sz, run_func_image, is_irom_address,
 		is_drom_address, get_stub, &s_esp_xtensa_flash_apptrace_hw,
 		&xtensa_algo_hw);
 	esp_info->esp.flash_min_offset = ESP_XTENSA_FLASH_MIN_OFFSET;
