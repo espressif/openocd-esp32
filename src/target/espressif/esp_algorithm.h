@@ -90,7 +90,7 @@
  * | <stub trampoline with exit breakpoint>    |
  * |___________________________________________|
  *
- * For example on how to execute external code with memory arguments @see esp_flash_blank_check in ESP flash driver.
+ * For example on how to execute external code with memory arguments @see esp_algo_flash_blank_check in ESP flash driver.
  *
  * On-Board Code Execution
  * -----------------------

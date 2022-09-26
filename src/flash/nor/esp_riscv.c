@@ -33,7 +33,7 @@ int esp_riscv_flash_init(struct esp_riscv_flash_bank *esp_info, uint32_t sec_sz,
 	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank))
 {
 	memset(esp_info, 0, sizeof(*esp_info));
-	return esp_flash_init(&esp_info->esp, sec_sz, run_func_image, is_irom_address,
+	return esp_algo_flash_init(&esp_info->esp, sec_sz, run_func_image, is_irom_address,
 		is_drom_address, get_stub, &s_esp_riscv_flash_apptrace_hw,
 		&riscv_algo_hw);
 }

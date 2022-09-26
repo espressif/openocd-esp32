@@ -101,7 +101,7 @@ struct esp_flash_bp_op_state {
 	struct esp_flash_bank *esp_info;
 };
 
-static int esp_flash_compress(const uint8_t *in, uint32_t in_len, uint8_t **out, uint32_t *out_len)
+static int esp_algo_flash_compress(const uint8_t *in, uint32_t in_len, uint8_t **out, uint32_t *out_len)
 {
 	z_stream strm;
 	int wbits = -MAX_WBITS;		/*deflate */
@@ -161,7 +161,7 @@ static int esp_flash_compress(const uint8_t *in, uint32_t in_len, uint8_t **out,
 	return ERROR_OK;
 }
 
-static int esp_calc_hash(const uint8_t *data, size_t datalen, uint8_t *hash)
+static int esp_algo_calc_hash(const uint8_t *data, size_t datalen, uint8_t *hash)
 {
 	if (data == NULL || hash == NULL || datalen == 0)
 		return ERROR_FAIL;
@@ -186,7 +186,7 @@ static int esp_calc_hash(const uint8_t *data, size_t datalen, uint8_t *hash)
 	return ERROR_OK;
 }
 
-static int esp_flasher_algorithm_init(struct algorithm_run_data *algo,
+static int esp_algo_flasher_algorithm_init(struct algorithm_run_data *algo,
 	const struct algorithm_hw *stub_hw,
 	const struct esp_flasher_stub_config *stub_cfg)
 {
@@ -229,7 +229,7 @@ static int esp_flasher_algorithm_init(struct algorithm_run_data *algo,
 	return ret;
 }
 
-int esp_flash_init(struct esp_flash_bank *esp_info, uint32_t sec_sz,
+int esp_algo_flash_init(struct esp_flash_bank *esp_info, uint32_t sec_sz,
 	int (*run_func_image)(struct target *target, struct algorithm_run_data *run,
 		uint32_t num_args, ...),
 	bool (*is_irom_address)(target_addr_t addr),
@@ -253,17 +253,17 @@ int esp_flash_init(struct esp_flash_bank *esp_info, uint32_t sec_sz,
 	return ERROR_OK;
 }
 
-int esp_flash_protect(struct flash_bank *bank, int set, unsigned int first, unsigned int last)
+int esp_algo_flash_protect(struct flash_bank *bank, int set, unsigned int first, unsigned int last)
 {
 	return ERROR_FAIL;
 }
 
-int esp_flash_protect_check(struct flash_bank *bank)
+int esp_algo_flash_protect_check(struct flash_bank *bank)
 {
 	return ERROR_OK;
 }
 
-int esp_flash_blank_check(struct flash_bank *bank)
+int esp_algo_flash_blank_check(struct flash_bank *bank)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	struct algorithm_run_data run;
@@ -273,7 +273,7 @@ int esp_flash_blank_check(struct flash_bank *bank)
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	int ret = esp_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -307,13 +307,13 @@ int esp_flash_blank_check(struct flash_bank *bank)
 	return ret;
 }
 
-static uint32_t esp_flash_get_size(struct flash_bank *bank)
+static uint32_t esp_algo_flash_get_size(struct flash_bank *bank)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	uint32_t size = 0;
 	struct algorithm_run_data run;
 
-	int ret = esp_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -334,14 +334,14 @@ static uint32_t esp_flash_get_size(struct flash_bank *bank)
 	return size;
 }
 
-static int esp_flash_get_mappings(struct flash_bank *bank,
+static int esp_algo_flash_get_mappings(struct flash_bank *bank,
 	struct esp_flash_bank *esp_info,
 	struct esp_flash_mapping *flash_map,
 	uint32_t appimage_flash_base)
 {
 	struct algorithm_run_data run;
 
-	int ret = esp_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -395,7 +395,7 @@ static int esp_flash_get_mappings(struct flash_bank *bank,
 	return ret;
 }
 
-int esp_flash_erase(struct flash_bank *bank, unsigned int first, unsigned int last)
+int esp_algo_flash_erase(struct flash_bank *bank, unsigned int first, unsigned int last)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	struct algorithm_run_data run;
@@ -414,7 +414,7 @@ int esp_flash_erase(struct flash_bank *bank, unsigned int first, unsigned int la
 	struct duration bench;
 	duration_start(&bench);
 
-	int ret = esp_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -445,7 +445,7 @@ int esp_flash_erase(struct flash_bank *bank, unsigned int first, unsigned int la
 	return ret;
 }
 
-static int esp_flash_rw_do(struct target *target, void *priv)
+static int esp_algo_flash_rw_do(struct target *target, void *priv)
 {
 	struct duration algo_time, tmo_time;
 	struct esp_flash_rw_args *rw = (struct esp_flash_rw_args *)priv;
@@ -513,7 +513,7 @@ static int esp_flash_rw_do(struct target *target, void *priv)
 	return ERROR_OK;
 }
 
-static int esp_flash_write_xfer(struct target *target, uint32_t block_id, uint32_t len, void *priv)
+static int esp_algo_flash_write_xfer(struct target *target, uint32_t block_id, uint32_t len, void *priv)
 {
 	struct esp_flash_write_state *state = (struct esp_flash_write_state *)priv;
 	int retval;
@@ -560,7 +560,7 @@ static int esp_flash_write_xfer(struct target *target, uint32_t block_id, uint32
 	return ERROR_OK;
 }
 
-static int esp_flash_write_state_init(struct target *target,
+static int esp_algo_flash_write_state_init(struct target *target,
 	struct algorithm_run_data *run,
 	struct esp_flash_write_state *state)
 {
@@ -623,7 +623,7 @@ static int esp_flash_write_state_init(struct target *target,
 	return ERROR_OK;
 }
 
-static void esp_flash_write_state_cleanup(struct target *target,
+static void esp_algo_flash_write_state_cleanup(struct target *target,
 	struct algorithm_run_data *run,
 	struct esp_flash_write_state *state)
 {
@@ -640,7 +640,7 @@ static void esp_flash_write_state_cleanup(struct target *target,
 	LOG_DEBUG("PROF: Workarea freed in %g ms", duration_elapsed(&algo_time) * 1000);
 }
 
-int esp_flash_apptrace_info_init(struct target *target, struct esp_flash_bank *esp_info,
+int esp_algo_flash_apptrace_info_init(struct target *target, struct esp_flash_bank *esp_info,
 	target_addr_t new_addr, target_addr_t *old_addr)
 {
 	if (esp_info->apptrace_hw->info_init)
@@ -649,7 +649,7 @@ int esp_flash_apptrace_info_init(struct target *target, struct esp_flash_bank *e
 	return ERROR_OK;
 }
 
-int esp_flash_apptrace_info_restore(struct target *target,
+int esp_algo_flash_apptrace_info_restore(struct target *target,
 	struct esp_flash_bank *esp_info,
 	target_addr_t old_addr)
 {
@@ -658,7 +658,7 @@ int esp_flash_apptrace_info_restore(struct target *target,
 	return ERROR_OK;
 }
 
-int esp_flash_write(struct flash_bank *bank, const uint8_t *buffer,
+int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	uint32_t offset, uint32_t count)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
@@ -688,23 +688,23 @@ int esp_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	 * inited */
 	/* TODO: for m-core chip stub_cfg->apptrace_ctrl_addr is array address of control structs
 	 * for all cores */
-	int ret = esp_flash_apptrace_info_init(bank->target,
+	int ret = esp_algo_flash_apptrace_info_init(bank->target,
 		esp_info,
 		stub_cfg->apptrace_ctrl_addr,
 		&old_addr);
 	if (ret != ERROR_OK)
 		return ret;
 
-	ret = esp_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
+	ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
 	if (ret != ERROR_OK) {
-		esp_flash_apptrace_info_restore(bank->target, esp_info, old_addr);
+		esp_algo_flash_apptrace_info_restore(bank->target, esp_info, old_addr);
 		return ret;
 	}
 
 	if (esp_info->compression) {
 		struct duration bench;
 		duration_start(&bench);
-		if (esp_flash_compress(buffer, count, &compressed_buff,
+		if (esp_algo_flash_compress(buffer, count, &compressed_buff,
 				&compressed_len) != ERROR_OK) {
 			LOG_ERROR("Compression failed!");
 			image_close(&run.image.image);
@@ -721,14 +721,14 @@ int esp_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	}
 
 	run.stack_size = stack_size + stub_cfg->stack_data_pool_sz;
-	run.usr_func = esp_flash_rw_do;
+	run.usr_func = esp_algo_flash_rw_do;
 	run.usr_func_arg = &wr_state;
-	run.usr_func_init = (algorithm_usr_func_init_t)esp_flash_write_state_init;
-	run.usr_func_done = (algorithm_usr_func_done_t)esp_flash_write_state_cleanup;
+	run.usr_func_init = (algorithm_usr_func_init_t)esp_algo_flash_write_state_init;
+	run.usr_func_done = (algorithm_usr_func_done_t)esp_algo_flash_write_state_cleanup;
 	memset(&wr_state, 0, sizeof(struct esp_flash_write_state));
 	wr_state.rw.buffer = esp_info->compression ? compressed_buff : (uint8_t *)buffer;
 	wr_state.rw.count = esp_info->compression ? compressed_len : count;
-	wr_state.rw.xfer = esp_flash_write_xfer;
+	wr_state.rw.xfer = esp_algo_flash_write_xfer;
 	wr_state.rw.apptrace = esp_info->apptrace_hw;
 	wr_state.prev_block_id = (uint32_t)-1;
 	wr_state.rw.apptrace_ctrl_addr = stub_cfg->apptrace_ctrl_addr;
@@ -753,7 +753,7 @@ int esp_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	image_close(&run.image.image);
 	if (compressed_buff)
 		free(compressed_buff);
-	esp_flash_apptrace_info_restore(bank->target, esp_info, old_addr);
+	esp_algo_flash_apptrace_info_restore(bank->target, esp_info, old_addr);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
 		return ret;
@@ -770,7 +770,7 @@ int esp_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	return ret;
 }
 
-static int esp_flash_read_xfer(struct target *target, uint32_t block_id, uint32_t len, void *priv)
+static int esp_algo_flash_read_xfer(struct target *target, uint32_t block_id, uint32_t len, void *priv)
 {
 	struct esp_flash_read_state *state = (struct esp_flash_read_state *)priv;
 	int retval;
@@ -826,7 +826,7 @@ static int esp_flash_read_xfer(struct target *target, uint32_t block_id, uint32_
 	return ERROR_OK;
 }
 
-static int esp_flash_read_state_init(struct target *target,
+static int esp_algo_flash_read_state_init(struct target *target,
 	struct algorithm_run_data *run,
 	struct esp_flash_read_state *state)
 {
@@ -844,7 +844,7 @@ static int esp_flash_read_state_init(struct target *target,
 	return ERROR_OK;
 }
 
-int esp_flash_read(struct flash_bank *bank, uint8_t *buffer,
+int esp_algo_flash_read(struct flash_bank *bank, uint8_t *buffer,
 	uint32_t offset, uint32_t count)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
@@ -867,27 +867,27 @@ int esp_flash_read(struct flash_bank *bank, uint8_t *buffer,
 	 * inited */
 	/* TODO: for m-core chip stub_cfg->apptrace_ctrl_addr is array address of control structs
 	 * for all cores */
-	int ret = esp_flash_apptrace_info_init(bank->target,
+	int ret = esp_algo_flash_apptrace_info_init(bank->target,
 		esp_info,
 		stub_cfg->apptrace_ctrl_addr,
 		&old_addr);
 	if (ret != ERROR_OK)
 		return ret;
 
-	ret = esp_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
+	ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
 	if (ret != ERROR_OK) {
-		esp_flash_apptrace_info_restore(bank->target, esp_info, old_addr);
+		esp_algo_flash_apptrace_info_restore(bank->target, esp_info, old_addr);
 		return ret;
 	}
 
 	run.stack_size = 1024 + stub_cfg->stack_data_pool_sz;
-	run.usr_func_init = (algorithm_usr_func_init_t)esp_flash_read_state_init;
-	run.usr_func = esp_flash_rw_do;
+	run.usr_func_init = (algorithm_usr_func_init_t)esp_algo_flash_read_state_init;
+	run.usr_func = esp_algo_flash_rw_do;
 	run.usr_func_arg = &rd_state;
 	memset(&rd_state, 0, sizeof(struct esp_flash_read_state));
 	rd_state.rw.buffer = buffer;
 	rd_state.rw.count = count;
-	rd_state.rw.xfer = esp_flash_read_xfer;
+	rd_state.rw.xfer = esp_algo_flash_read_xfer;
 	rd_state.rw.apptrace = esp_info->apptrace_hw;
 	rd_state.rw.apptrace_ctrl_addr = stub_cfg->apptrace_ctrl_addr;
 
@@ -902,7 +902,7 @@ int esp_flash_read(struct flash_bank *bank, uint8_t *buffer,
 		count);
 	image_close(&run.image.image);
 	free(rd_state.rd_buf);
-	esp_flash_apptrace_info_restore(bank->target, esp_info, old_addr);
+	esp_algo_flash_apptrace_info_restore(bank->target, esp_info, old_addr);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
 		return ret;
@@ -916,7 +916,7 @@ int esp_flash_read(struct flash_bank *bank, uint8_t *buffer,
 
 #define BANK_SUBNAME(_b_, _n_)  (strcmp((_b_)->name + strlen((_b_)->name) - strlen(_n_), _n_) == 0)
 
-int esp_flash_probe(struct flash_bank *bank)
+int esp_algo_flash_probe(struct flash_bank *bank)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	struct esp_flash_mapping flash_map = { .maps_num = 0 };
@@ -941,7 +941,7 @@ int esp_flash_probe(struct flash_bank *bank)
 		bank->sectors = NULL;
 	}
 
-	int ret = esp_flash_get_mappings(bank,
+	int ret = esp_algo_flash_get_mappings(bank,
 		esp_info,
 		&flash_map,
 		esp_info->appimage_flash_base);
@@ -949,7 +949,7 @@ int esp_flash_probe(struct flash_bank *bank)
 		LOG_WARNING("Failed to get flash mappings (%d)!", ret);
 		/* if no DROM/IROM mappings so pretend they are at the end of the HW flash bank and
 		 * have zero size to allow correct memory map with non zero RAM region */
-		irom_base = drom_base = esp_flash_get_size(bank);
+		irom_base = drom_base = esp_algo_flash_get_size(bank);
 	} else {
 		for (uint32_t i = 0; i < flash_map.maps_num; i++) {
 			if (esp_info->is_irom_address(flash_map.maps[i].load_addr)) {
@@ -984,7 +984,7 @@ int esp_flash_probe(struct flash_bank *bank)
 		bank->size = drom_sz;
 	} else {
 		esp_info->hw_flash_base = 0;
-		bank->size = esp_flash_get_size(bank);
+		bank->size = esp_algo_flash_get_size(bank);
 		if (bank->size == 0) {
 			LOG_ERROR("Failed to probe flash, size %d KB", bank->size / 1024);
 			return ERROR_FAIL;
@@ -1014,15 +1014,15 @@ int esp_flash_probe(struct flash_bank *bank)
 	return ERROR_OK;
 }
 
-int esp_flash_auto_probe(struct flash_bank *bank)
+int esp_algo_flash_auto_probe(struct flash_bank *bank)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	if (esp_info->probed)
 		return ERROR_OK;
-	return esp_flash_probe(bank);
+	return esp_algo_flash_probe(bank);
 }
 
-static int esp_flash_bp_op_state_init(struct target *target,
+static int esp_algo_flash_bp_op_state_init(struct target *target,
 	struct algorithm_run_data *run,
 	struct esp_flash_bp_op_state *state)
 {
@@ -1042,7 +1042,7 @@ static int esp_flash_bp_op_state_init(struct target *target,
 	return ERROR_OK;
 }
 
-static void esp_flash_bp_op_state_cleanup(struct target *target,
+static void esp_algo_flash_bp_op_state_cleanup(struct target *target,
 	struct algorithm_run_data *run,
 	struct esp_flash_bp_op_state *state)
 {
@@ -1051,7 +1051,7 @@ static void esp_flash_bp_op_state_cleanup(struct target *target,
 	target_free_alt_working_area(target, state->target_buf);
 }
 
-int esp_flash_breakpoint_add(struct target *target,
+int esp_algo_flash_breakpoint_add(struct target *target,
 	struct breakpoint *breakpoint,
 	struct esp_flash_breakpoint *sw_bp)
 {
@@ -1082,13 +1082,13 @@ int esp_flash_breakpoint_add(struct target *target,
 	op_state.esp_info = esp_info;
 	LOG_DEBUG("SEC_SIZE %d", esp_info->sec_sz);
 
-	ret = esp_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
+	ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
 	if (ret != ERROR_OK)
 		return ret;
 	run.stack_size = 1300;
 	run.usr_func_arg = &op_state;
-	run.usr_func_init = (algorithm_usr_func_init_t)esp_flash_bp_op_state_init;
-	run.usr_func_done = (algorithm_usr_func_done_t)esp_flash_bp_op_state_cleanup;
+	run.usr_func_init = (algorithm_usr_func_init_t)esp_algo_flash_bp_op_state_init;
+	run.usr_func_done = (algorithm_usr_func_done_t)esp_algo_flash_bp_op_state_cleanup;
 
 	sw_bp->oocd_bp = breakpoint;
 	sw_bp->bank = bank;
@@ -1137,7 +1137,7 @@ int esp_flash_breakpoint_add(struct target *target,
 	return ERROR_OK;
 }
 
-int esp_flash_breakpoint_remove(struct target *target,
+int esp_algo_flash_breakpoint_remove(struct target *target,
 	struct esp_flash_breakpoint *sw_bp)
 {
 	struct flash_bank *bank = (struct flash_bank *)(sw_bp->bank);
@@ -1146,15 +1146,15 @@ int esp_flash_breakpoint_remove(struct target *target,
 	struct esp_flash_bp_op_state op_state;
 	struct mem_param mp;
 
-	int ret = esp_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
 	if (ret != ERROR_OK)
 		return ret;
 
 	op_state.esp_info = esp_info;
 	run.stack_size = 1300;
 	run.usr_func_arg = &op_state;
-	run.usr_func_init = (algorithm_usr_func_init_t)esp_flash_bp_op_state_init;
-	run.usr_func_done = (algorithm_usr_func_done_t)esp_flash_bp_op_state_cleanup;
+	run.usr_func_init = (algorithm_usr_func_init_t)esp_algo_flash_bp_op_state_init;
+	run.usr_func_done = (algorithm_usr_func_done_t)esp_algo_flash_bp_op_state_cleanup;
 
 	init_mem_param(&mp, 2 /*2nd usr arg*/, sw_bp->insn_sz /*size in bytes*/, PARAM_OUT);
 	memcpy(mp.value, sw_bp->insn, sw_bp->insn_sz);
@@ -1195,7 +1195,7 @@ int esp_flash_breakpoint_remove(struct target *target,
 	return ret;
 }
 
-static int esp_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
+static int esp_algo_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 	uint32_t offset, uint32_t count)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
@@ -1211,7 +1211,7 @@ static int esp_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	int ret = esp_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -1254,13 +1254,13 @@ static int esp_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 	return ret;
 }
 
-static int esp_flash_boost_clock_freq(struct flash_bank *bank, int boost)
+static int esp_algo_flash_boost_clock_freq(struct flash_bank *bank, int boost)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	struct algorithm_run_data run;
 	int new_cpu_freq = -1;	/* set to max level */
 
-	int ret = esp_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -1287,7 +1287,7 @@ static int esp_flash_boost_clock_freq(struct flash_bank *bank, int boost)
 	return ERROR_OK;
 }
 
-static int esp_target_to_flash_bank(struct target *target,
+static int esp_algo_target_to_flash_bank(struct target *target,
 	struct flash_bank **bank, char *bank_name_suffix, bool probe)
 {
 	if (target == NULL || bank == NULL)
@@ -1320,14 +1320,14 @@ static int esp_target_to_flash_bank(struct target *target,
 	return ERROR_OK;
 }
 
-static int esp_flash_appimage_base_update(struct target *target,
+static int esp_algo_flash_appimage_base_update(struct target *target,
 	char *bank_name_suffix,
 	uint32_t appimage_flash_base)
 {
 	struct flash_bank *bank;
 	struct esp_flash_bank *esp_info;
 
-	int retval = esp_target_to_flash_bank(target, &bank, bank_name_suffix, false);
+	int retval = esp_algo_target_to_flash_bank(target, &bank, bank_name_suffix, false);
 	if (retval != ERROR_OK)
 		return ERROR_FAIL;
 
@@ -1338,7 +1338,7 @@ static int esp_flash_appimage_base_update(struct target *target,
 	return retval;
 }
 
-COMMAND_HELPER(esp_flash_cmd_appimage_flashoff_do, struct target *target)
+COMMAND_HELPER(esp_algo_flash_cmd_appimage_flashoff_do, struct target *target)
 {
 	if (CMD_ARGC != 1) {
 		command_print(CMD, "Flash offset not specified!");
@@ -1348,30 +1348,30 @@ COMMAND_HELPER(esp_flash_cmd_appimage_flashoff_do, struct target *target)
 	/* update app image base */
 	uint32_t appimage_flash_base = strtoul(CMD_ARGV[0], NULL, 16);
 
-	int ret = esp_flash_appimage_base_update(target, "irom", appimage_flash_base);
+	int ret = esp_algo_flash_appimage_base_update(target, "irom", appimage_flash_base);
 	if (ret != ERROR_OK)
 		return ret;
-	ret = esp_flash_appimage_base_update(target, "drom", appimage_flash_base);
+	ret = esp_algo_flash_appimage_base_update(target, "drom", appimage_flash_base);
 	if (ret != ERROR_OK)
 		return ret;
 
 	return ERROR_OK;
 }
 
-COMMAND_HANDLER(esp_flash_cmd_appimage_flashoff)
+COMMAND_HANDLER(esp_algo_flash_cmd_appimage_flashoff)
 {
-	return CALL_COMMAND_HANDLER(esp_flash_cmd_appimage_flashoff_do,
+	return CALL_COMMAND_HANDLER(esp_algo_flash_cmd_appimage_flashoff_do,
 		get_current_target(CMD_CTX));
 }
 
-static int esp_flash_set_compression(struct target *target,
+static int esp_algo_flash_set_compression(struct target *target,
 	char *bank_name_suffix,
 	int compression)
 {
 	struct flash_bank *bank;
 	struct esp_flash_bank *esp_info;
 
-	int retval = esp_target_to_flash_bank(target, &bank, bank_name_suffix, true);
+	int retval = esp_algo_target_to_flash_bank(target, &bank, bank_name_suffix, true);
 	if (retval != ERROR_OK)
 		return ERROR_FAIL;
 
@@ -1380,7 +1380,7 @@ static int esp_flash_set_compression(struct target *target,
 	return ERROR_OK;
 }
 
-COMMAND_HELPER(esp_flash_cmd_set_compression, struct target *target)
+COMMAND_HELPER(esp_algo_flash_cmd_set_compression, struct target *target)
 {
 	if (CMD_ARGC != 1) {
 		command_print(CMD, "Compression not specified!");
@@ -1400,12 +1400,12 @@ COMMAND_HELPER(esp_flash_cmd_set_compression, struct target *target)
 		return ERROR_FAIL;
 	}
 
-	return esp_flash_set_compression(target, "flash", compression);
+	return esp_algo_flash_set_compression(target, "flash", compression);
 }
 
-COMMAND_HANDLER(esp_flash_cmd_compression)
+COMMAND_HANDLER(esp_algo_flash_cmd_compression)
 {
-	return CALL_COMMAND_HANDLER(esp_flash_cmd_set_compression,
+	return CALL_COMMAND_HANDLER(esp_algo_flash_cmd_set_compression,
 		get_current_target(CMD_CTX));
 }
 
@@ -1420,7 +1420,7 @@ static int esp_flash_verify_bank_hash(struct target *target,
 	int differ, retval;
 	struct flash_bank *bank;
 
-	retval = esp_target_to_flash_bank(target, &bank, "flash", true);
+	retval = esp_algo_target_to_flash_bank(target, &bank, "flash", true);
 	if (retval != ERROR_OK)
 		return ERROR_FAIL;
 
@@ -1472,14 +1472,14 @@ static int esp_flash_verify_bank_hash(struct target *target,
 		return retval;
 	}
 
-	retval = esp_calc_hash(buffer_file, length, file_hash);
+	retval = esp_algo_calc_hash(buffer_file, length, file_hash);
 	free(buffer_file);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("File sha256 calculation failure");
 		return retval;
 	}
 
-	retval = esp_flash_calc_hash(bank, target_hash, offset, length);
+	retval = esp_algo_flash_calc_hash(bank, target_hash, offset, length);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Flash sha256 calculation failure");
 		return retval;
@@ -1500,7 +1500,7 @@ static int esp_flash_verify_bank_hash(struct target *target,
 	return differ ? ERROR_FAIL : ERROR_OK;
 }
 
-COMMAND_HELPER(esp_flash_parse_cmd_verify_bank_hash, struct target *target)
+COMMAND_HELPER(esp_algo_flash_parse_cmd_verify_bank_hash, struct target *target)
 {
 	if (CMD_ARGC < 2 || CMD_ARGC > 3)
 		return ERROR_COMMAND_SYNTAX_ERROR;
@@ -1513,13 +1513,13 @@ COMMAND_HELPER(esp_flash_parse_cmd_verify_bank_hash, struct target *target)
 	return esp_flash_verify_bank_hash(target, offset, CMD_ARGV[1]);
 }
 
-COMMAND_HANDLER(esp_flash_cmd_verify_bank_hash)
+COMMAND_HANDLER(esp_algo_flash_cmd_verify_bank_hash)
 {
-	return CALL_COMMAND_HANDLER(esp_flash_parse_cmd_verify_bank_hash,
+	return CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_verify_bank_hash,
 		get_current_target(CMD_CTX));
 }
 
-COMMAND_HELPER(esp_flash_parse_cmd_clock_boost, struct target *target)
+COMMAND_HELPER(esp_algo_flash_parse_cmd_clock_boost, struct target *target)
 {
 	if (CMD_ARGC != 1) {
 		command_print(CMD, "Clock boost flag not specified!");
@@ -1540,23 +1540,23 @@ COMMAND_HELPER(esp_flash_parse_cmd_clock_boost, struct target *target)
 	}
 
 	struct flash_bank *bank;
-	int retval = esp_target_to_flash_bank(target, &bank, "flash", true);
+	int retval = esp_algo_target_to_flash_bank(target, &bank, "flash", true);
 	if (retval != ERROR_OK)
 		return ERROR_FAIL;
 
-	return esp_flash_boost_clock_freq(bank, boost);
+	return esp_algo_flash_boost_clock_freq(bank, boost);
 }
 
-COMMAND_HANDLER(esp_flash_cmd_clock_boost)
+COMMAND_HANDLER(esp_algo_flash_cmd_clock_boost)
 {
-	return CALL_COMMAND_HANDLER(esp_flash_parse_cmd_clock_boost,
+	return CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_clock_boost,
 		get_current_target(CMD_CTX));
 }
 
 const struct command_registration esp_flash_exec_flash_command_handlers[] = {
 	{
 		.name = "appimage_offset",
-		.handler = esp_flash_cmd_appimage_flashoff,
+		.handler = esp_algo_flash_cmd_appimage_flashoff,
 		.mode = COMMAND_ANY,
 		.help =
 			"Set offset of application image in flash. Use -1 to debug the first application image from partition table.",
@@ -1564,7 +1564,7 @@ const struct command_registration esp_flash_exec_flash_command_handlers[] = {
 	},
 	{
 		.name = "compression",
-		.handler = esp_flash_cmd_compression,
+		.handler = esp_algo_flash_cmd_compression,
 		.mode = COMMAND_ANY,
 		.help =
 			"Set compression flag",
@@ -1572,7 +1572,7 @@ const struct command_registration esp_flash_exec_flash_command_handlers[] = {
 	},
 	{
 		.name = "verify_bank_hash",
-		.handler = esp_flash_cmd_verify_bank_hash,
+		.handler = esp_algo_flash_cmd_verify_bank_hash,
 		.mode = COMMAND_ANY,
 		.help = "Perform a comparison between the file and the contents of the "
 			"flash bank using SHA256 hash values. Allow optional offset from beginning of the bank "
@@ -1581,7 +1581,7 @@ const struct command_registration esp_flash_exec_flash_command_handlers[] = {
 	},
 	{
 		.name = "flash_stub_clock_boost",
-		.handler = esp_flash_cmd_clock_boost,
+		.handler = esp_algo_flash_cmd_clock_boost,
 		.mode = COMMAND_ANY,
 		.help =
 			"Set cpu clock freq to the max level. Use 'off' to restore the clock speed",

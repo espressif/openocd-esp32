@@ -99,13 +99,13 @@ COMMAND_HANDLER(esp32_cmd_appimage_flashoff)
 		struct target *curr;
 		foreach_smp_target(head, target->smp_targets) {
 			curr = head->target;
-			int ret = CALL_COMMAND_HANDLER(esp_flash_cmd_appimage_flashoff_do, curr);
+			int ret = CALL_COMMAND_HANDLER(esp_algo_flash_cmd_appimage_flashoff_do, curr);
 			if (ret != ERROR_OK)
 				return ret;
 		}
 		return ERROR_OK;
 	}
-	return CALL_COMMAND_HANDLER(esp_flash_cmd_appimage_flashoff_do, target);
+	return CALL_COMMAND_HANDLER(esp_algo_flash_cmd_appimage_flashoff_do, target);
 }
 
 COMMAND_HANDLER(esp32_cmd_compression)
@@ -117,24 +117,24 @@ COMMAND_HANDLER(esp32_cmd_compression)
 		struct target *curr;
 		foreach_smp_target(head, target->smp_targets) {
 			curr = head->target;
-			int ret = CALL_COMMAND_HANDLER(esp_flash_cmd_set_compression, curr);
+			int ret = CALL_COMMAND_HANDLER(esp_algo_flash_cmd_set_compression, curr);
 			if (ret != ERROR_OK)
 				return ret;
 		}
 		return ERROR_OK;
 	}
-	return CALL_COMMAND_HANDLER(esp_flash_cmd_set_compression, target);
+	return CALL_COMMAND_HANDLER(esp_algo_flash_cmd_set_compression, target);
 }
 
 COMMAND_HANDLER(esp32_cmd_verify_bank_hash)
 {
-	return CALL_COMMAND_HANDLER(esp_flash_parse_cmd_verify_bank_hash,
+	return CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_verify_bank_hash,
 		get_current_target(CMD_CTX));
 }
 
 COMMAND_HANDLER(esp32_cmd_set_clock)
 {
-	return CALL_COMMAND_HANDLER(esp_flash_parse_cmd_clock_boost,
+	return CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_clock_boost,
 		get_current_target(CMD_CTX));
 }
 
@@ -213,14 +213,14 @@ struct flash_driver esp32_flash = {
 	.name = "esp32",
 	.commands = esp32_all_command_handlers,
 	.flash_bank_command = esp32_flash_bank_command,
-	.erase = esp_flash_erase,
-	.protect = esp_flash_protect,
-	.write = esp_flash_write,
-	.read = esp_flash_read,
-	.probe = esp_flash_probe,
-	.auto_probe = esp_flash_auto_probe,
-	.erase_check = esp_flash_blank_check,
-	.protect_check = esp_flash_protect_check,
+	.erase = esp_algo_flash_erase,
+	.protect = esp_algo_flash_protect,
+	.write = esp_algo_flash_write,
+	.read = esp_algo_flash_read,
+	.probe = esp_algo_flash_probe,
+	.auto_probe = esp_algo_flash_auto_probe,
+	.erase_check = esp_algo_flash_blank_check,
+	.protect_check = esp_algo_flash_protect_check,
 	.info = esp32_get_info,
 	.free_driver_priv = default_flash_free_driver_priv,
 };

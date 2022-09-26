@@ -152,8 +152,8 @@ static const struct esp_semihost_ops esp32c2_semihost_ops = {
 };
 
 static const struct esp_flash_breakpoint_ops esp32c2_flash_brp_ops = {
-	.breakpoint_add = esp_flash_breakpoint_add,
-	.breakpoint_remove = esp_flash_breakpoint_remove
+	.breakpoint_add = esp_algo_flash_breakpoint_add,
+	.breakpoint_remove = esp_algo_flash_breakpoint_remove
 };
 
 static int esp32c2_handle_target_event(struct target *target, enum target_event event, void *priv)
