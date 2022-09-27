@@ -49,8 +49,6 @@ AC_TYPE_LONG_LONG_INT
 AC_SEARCH_LIBS([ioperm], [ioperm])
 AC_SEARCH_LIBS([dlopen], [dl])
 AC_SEARCH_LIBS([openpty], [util])
-AC_SEARCH_LIBS([deflate], [z], [], [
-  AC_MSG_ERROR([libz library was not found])])
 
 AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([elf.h])
@@ -63,7 +61,6 @@ AC_CHECK_HEADERS([malloc.h])
 AC_CHECK_HEADERS([netdb.h])
 AC_CHECK_HEADERS([poll.h])
 AC_CHECK_HEADERS([pthread.h])
-AC_CHECK_HEADERS([zlib.h])
 AC_CHECK_HEADERS([strings.h])
 AC_CHECK_HEADERS([sys/ioctl.h])
 AC_CHECK_HEADERS([sys/param.h])
@@ -387,6 +384,11 @@ AC_ARG_ENABLE([esp-remote],
   [Disable building support for the ESP remote protocol over TCP or USB]),
   [build_esp_remote=$enableval], [build_esp_remote=yes])
 
+AC_ARG_ENABLE([esp-compression],
+  AS_HELP_STRING([--disable-esp-compression],
+  [Disable compression support for the ESP devices]),
+  [build_esp_compression=$enableval], [build_esp_compression=yes])
+
 AC_ARG_ENABLE([build-gcov],
   AS_HELP_STRING([--enable-build-gcov],
   [Enable building support with coverage]),
@@ -628,6 +630,15 @@ AS_IF([test "x$build_esp_remote" = "xyes"], [
   AC_DEFINE([BUILD_ESP_REMOTE], [0], [0 if you don't want ESP remote protocol support.])
 ])
 
+AS_IF([test "x$build_esp_compression" = "xyes"], [
+  AC_DEFINE([BUILD_ESP_COMPRESSION], [1], [1 if you want ESP compression support.])
+  AC_SEARCH_LIBS([deflate], [z], [], [
+    AC_MSG_ERROR([libz library was not found])])
+  AC_CHECK_HEADERS([zlib.h])
+], [
+  AC_DEFINE([BUILD_ESP_COMPRESSION], [0], [0 if you don't want ESP compression support.])
+])
+
 AS_IF([test "x$build_gcov" = "xyes"], [
   AC_DEFINE([BUILD_GCOV], [1], [1 if you want OpenOCD source code coverage support.])
   CFLAGS+=" -fprofile-arcs -ftest-coverage"
@@ -790,6 +801,7 @@ AM_CONDITIONAL([INTERNAL_JIMTCL], [test "x$use_internal_jimtcl" = "xyes"])
 AM_CONDITIONAL([INTERNAL_LIBJAYLINK], [test "x$use_internal_libjaylink" = "xyes"])
 
 AM_CONDITIONAL([BUILD_ESP_REMOTE], [test "x$build_esp_remote" = "xyes"])
+AM_CONDITIONAL([BUILD_ESP_COMPRESSION], [test "x$build_esp_compression" = "xyes"])
 
 AM_CONDITIONAL([BUILD_GCOV], [test "x$build_gcov" = "xyes"])
 

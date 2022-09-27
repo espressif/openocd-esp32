@@ -62,8 +62,6 @@
 #include "contrib/loaders/flash/esp/stub_flasher.h"
 #include "esp_flash.h"
 
-#include <zlib.h>
-
 #define ESP_FLASH_RW_TMO                20000	/* ms */
 #define ESP_FLASH_ERASE_TMO             60000	/* ms */
 #define ESP_FLASH_MAPS_MAX              2
@@ -101,7 +99,9 @@ struct esp_flash_bp_op_state {
 	struct esp_flash_bank *esp_info;
 };
 
-static int esp_algo_flash_compress(const uint8_t *in, uint32_t in_len, uint8_t **out, uint32_t *out_len)
+#if BUILD_ESP_COMPRESSION
+#include <zlib.h>
+int esp_algo_flash_compress(const uint8_t *in, uint32_t in_len, uint8_t **out, uint32_t *out_len)
 {
 	z_stream strm;
 	int wbits = -MAX_WBITS;		/*deflate */
@@ -160,6 +160,12 @@ static int esp_algo_flash_compress(const uint8_t *in, uint32_t in_len, uint8_t *
 
 	return ERROR_OK;
 }
+#else
+int esp_algo_flash_compress(const uint8_t *in, uint32_t in_len, uint8_t **out, uint32_t *out_len)
+{
+	return ERROR_FAIL;
+}
+#endif
 
 static int esp_algo_calc_hash(const uint8_t *data, size_t datalen, uint8_t *hash)
 {
@@ -246,7 +252,7 @@ int esp_algo_flash_init(struct esp_flash_bank *esp_info, uint32_t sec_sz,
 	esp_info->is_drom_address = is_drom_address;
 	esp_info->hw_flash_base = 0;
 	esp_info->appimage_flash_base = (uint32_t)-1;
-	esp_info->compression = 1;	/* enables compression by default */
+	esp_info->compression = BUILD_ESP_COMPRESSION;
 	esp_info->apptrace_hw = apptrace_hw;
 	esp_info->stub_hw = stub_hw;
 
@@ -1377,6 +1383,13 @@ static int esp_algo_flash_set_compression(struct target *target,
 
 	esp_info = (struct esp_flash_bank *)bank->driver_priv;
 	esp_info->compression = compression;
+
+#if !BUILD_ESP_COMPRESSION
+	if (esp_info->compression) {
+		LOG_ERROR("ESP compression option disabled in the configuration");
+		return ERROR_FAIL;
+	}
+#endif
 	return ERROR_OK;
 }
 
