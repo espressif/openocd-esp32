@@ -21,7 +21,9 @@ else
 endif
 
 %C%_openocd_LDADD += -lpthread
+if BUILD_ESP_COMPRESSION
 %C%_openocd_LDADD += -lz
+endif
 
 %C%_libopenocd_la_CPPFLAGS =
 
