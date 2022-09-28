@@ -183,6 +183,30 @@ static void target_bp_task(void *pvParameter)
     target_bp_func1();
 }
 
+#if CONFIG_IDF_TARGET_ARCH_RISCV
+static void target_wp_reconf_task(void *pvParameter)
+{
+    ESP_LOGI(TAG, "Start target WP reconfigure task on core %d", xPortGetCoreID());
+
+    /* we need to set BP with the same ID the number of times that exceeds HW BP slots number for chip.
+       But only one HW slot should be used by OpenOCD.
+       So finally the behaviour should be equal to 'target_bp_task' above. */
+    for (int i = 0; i < SOC_CPU_BREAKPOINTS_NUM+1; i++) {
+        SET_BP(0, target_bp_func1);
+    }
+
+    /* we need to set WP with the same ID the number of times that exceeds HW WP slots number for chip.
+       But only one HW slot should be used by OpenOCD.
+       So finally the behaviour should be equal to 'target_bp_task' above. */
+    for (int i = 0; i < SOC_CPU_WATCHPOINTS_NUM+1; i++) {
+        SET_WP(0, (void *)&s_var1, sizeof(s_var1), WATCHPOINT_TRIGGER_ON_RW);
+    }
+    SET_WP(1, (void *)&s_var2, sizeof(s_var2), WATCHPOINT_TRIGGER_ON_RW);
+
+    target_bp_func1();
+}
+#endif
+
 ut_result_t special_test_do(int test_num)
 {
     switch (test_num) {
@@ -228,6 +252,13 @@ ut_result_t special_test_do(int test_num)
             xTaskCreatePinnedToCore(&target_bp_task, "target_bp_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
             break;
         }
+#if CONFIG_IDF_TARGET_ARCH_RISCV
+        case 804:
+        {
+            xTaskCreatePinnedToCore(&target_wp_reconf_task, "target_wp_reconf_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
+            break;
+        }
+#endif
         default:
             return UT_UNSUPPORTED;
     }
