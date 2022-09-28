@@ -179,6 +179,9 @@ int esp_riscv_semihosting(struct target *target)
 				ESP_RISCV_SET_WATCHPOINT_ARG_SET,
 				fields);
 		if (set) {
+			if (esp_riscv->target_bp_addr[id]) {
+				breakpoint_remove(target, esp_riscv->target_bp_addr[id]);
+			}
 			esp_riscv->target_bp_addr[id] = semihosting_get_field(target,
 					ESP_RISCV_SET_BREAKPOINT_ARG_ADDR,
 					fields);
@@ -190,6 +193,7 @@ int esp_riscv_semihosting(struct target *target)
 				return res;
 		} else {
 			breakpoint_remove(target, esp_riscv->target_bp_addr[id]);
+			esp_riscv->target_bp_addr[id] = 0;
 		}
 		break;
 	}
@@ -213,6 +217,9 @@ int esp_riscv_semihosting(struct target *target)
 				ESP_RISCV_SET_WATCHPOINT_ARG_SET,
 				fields);
 		if (set) {
+			if (esp_riscv->target_wp_addr[id]) {
+				watchpoint_remove(target, esp_riscv->target_wp_addr[id]);
+			}
 			esp_riscv->target_wp_addr[id] = semihosting_get_field(target,
 					ESP_RISCV_SET_WATCHPOINT_ARG_ADDR,
 					fields);
@@ -249,6 +256,7 @@ int esp_riscv_semihosting(struct target *target)
 				return res;
 		} else {
 			watchpoint_remove(target, esp_riscv->target_wp_addr[id]);
+			esp_riscv->target_wp_addr[id] = 0;
 		}
 		break;
 	}

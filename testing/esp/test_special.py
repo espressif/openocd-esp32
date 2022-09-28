@@ -72,15 +72,7 @@ class DebuggerSpecialTestsImpl:
         self.prepare_app_for_debugging(self.test_app_cfg.app_off)
         self._debug_image()
 
-    @idf_ver_min_for_arch('latest', ['riscv32'])
-    @skip_for_chip(['esp32c2'])
-    def test_bp_and_wp_set_by_program(self):
-        """
-            This test checks that breakpoints and watchpoints set by program on target work.
-            1) Select appropriate sub-test number on target.
-            2) Resume target, wait for the program to hit breakpoints.
-        """
-        self.select_sub_test(803)
+    def _do_test_bp_and_wp_set_by_program(self):
         # breakpoint at 'target_bp_func1' entry
         self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func1', 'target_bp_func1')
         # watchpoint hit on write var in 'target_bp_func1'
@@ -93,6 +85,27 @@ class DebuggerSpecialTestsImpl:
         self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_wp_var2_1')
         # watchpoint hit on read var in 'target_bp_func2'
         self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_wp_var2_2')
+
+    @skip_for_chip(['esp32c2'])
+    def test_bp_and_wp_set_by_program(self):
+        """
+            This test checks that breakpoints and watchpoints set by program on target work.
+            1) Select appropriate sub-test number on target.
+            2) Resume target, wait for the program to hit breakpoints.
+        """
+        self.select_sub_test(803)
+        self._do_test_bp_and_wp_set_by_program()
+
+    @only_for_arch(['riscv32'])
+    @skip_for_chip(['esp32c2'])
+    def test_wp_reconfigure_by_program(self):
+        """
+            This test checks that watchpoints can be reconfigured by target w/o removing them.
+            1) Select appropriate sub-test number on target.
+            2) Resume target, wait for the program to hit breakpoints.
+        """
+        self.select_sub_test(804)
+        self._do_test_bp_and_wp_set_by_program()
 
     @only_for_arch(['xtensa'])
     def test_exception_xtensa(self):
