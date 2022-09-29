@@ -96,22 +96,22 @@ implementation.
 
 /* copy-pasted from IDF's reset_reason.h for ESP32 */
 enum esp32_reset_reason {
-	RESET_REASON_CHIP_POWER_ON      = 0x01,		/* Power on reset */
-	RESET_REASON_CORE_SW            = 0x03,		/* Software resets the digital core */
-	RESET_REASON_CORE_DEEP_SLEEP    = 0x05,		/* Deep sleep reset the digital core */
-	RESET_REASON_CORE_SDIO          = 0x06,		/* SDIO module resets the digital core */
-	RESET_REASON_CORE_MWDT0         = 0x07,		/* Main watch dog 0 resets digital core */
-	RESET_REASON_CORE_MWDT1         = 0x08,		/* Main watch dog 1 resets digital core */
-	RESET_REASON_CORE_RTC_WDT       = 0x09,		/* RTC watch dog resets digital core */
-	RESET_REASON_CPU0_MWDT0         = 0x0B,		/* Main watch dog 0 resets CPU 0 */
-	RESET_REASON_CPU1_MWDT1         = 0x0B,		/* Main watch dog 1 resets CPU 1 */
-	RESET_REASON_CPU0_SW            = 0x0C,		/* Software resets CPU 0 */
-	RESET_REASON_CPU1_SW            = 0x0C,		/* Software resets CPU 1 */
-	RESET_REASON_CPU0_RTC_WDT       = 0x0D,		/* RTC watch dog resets CPU 0 */
-	RESET_REASON_CPU1_RTC_WDT       = 0x0D,		/* RTC watch dog resets CPU 1 */
-	RESET_REASON_CPU1_CPU0          = 0x0E,		/* CPU0 resets CPU1 by DPORT_APPCPU_RESETTING */
-	RESET_REASON_SYS_BROWN_OUT      = 0x0F,		/* Reset when the VDD voltage is not stable */
-	RESET_REASON_SYS_RTC_WDT        = 0x10,		/* RTC watch dog resets digital core and rtc module */
+	ESP32_CHIP_POWER_ON_RESET      = 0x01,	/* Power on reset */
+	ESP32_CORE_SW_RESET            = 0x03,	/* Software resets the digital core */
+	ESP32_CORE_DEEP_SLEEP_RESET    = 0x05,	/* Deep sleep reset the digital core */
+	ESP32_CORE_SDIO_RESET          = 0x06,	/* SDIO module resets the digital core */
+	ESP32_CORE_MWDT0_RESET         = 0x07,	/* Main watch dog 0 resets digital core */
+	ESP32_CORE_MWDT1_RESET         = 0x08,	/* Main watch dog 1 resets digital core */
+	ESP32_CORE_RTC_WDT_RESET       = 0x09,	/* RTC watch dog resets digital core */
+	ESP32_CPU0_MWDT0_RESET         = 0x0B,	/* Main watch dog 0 resets CPU 0 */
+	ESP32_CPU1_MWDT1_RESET         = 0x0B,	/* Main watch dog 1 resets CPU 1 */
+	ESP32_CPU0_SW_RESET            = 0x0C,	/* Software resets CPU 0 */
+	ESP32_CPU1_SW_RESET            = 0x0C,	/* Software resets CPU 1 */
+	ESP32_CPU0_RTC_WDT_RESET       = 0x0D,	/* RTC watch dog resets CPU 0 */
+	ESP32_CPU1_RTC_WDT_RESET       = 0x0D,	/* RTC watch dog resets CPU 1 */
+	ESP32_CPU1_CPU0_RESET          = 0x0E,	/* CPU0 resets CPU1 by DPORT_APPCPU_RESETTING */
+	ESP32_SYS_BROWN_OUT_RESET      = 0x0F,	/* Reset when the VDD voltage is not stable */
+	ESP32_SYS_RTC_WDT_RESET        = 0x10,	/* RTC watch dog resets digital core and rtc module */
 };
 
 /* this should map local reg IDs to GDB reg mapping as defined in xtensa-config.c 'rmap' in
@@ -583,37 +583,37 @@ static void esp32_queue_tdi_idle(struct target *target)
 static const char *esp32_reset_reason_str(int coreid, enum esp32_reset_reason reset_number)
 {
 	switch (reset_number) {
-	case RESET_REASON_CHIP_POWER_ON:
+	case ESP32_CHIP_POWER_ON_RESET:
 		return "Power on reset";
-	case RESET_REASON_CORE_SW:
+	case ESP32_CORE_SW_RESET:
 		return "Software core reset";
-	case RESET_REASON_CORE_DEEP_SLEEP:
+	case ESP32_CORE_DEEP_SLEEP_RESET:
 		return "Deep-sleep core reset";
-	case RESET_REASON_CORE_SDIO:
+	case ESP32_CORE_SDIO_RESET:
 		return "SDIO module core reset";
-	case RESET_REASON_CORE_MWDT0:
+	case ESP32_CORE_MWDT0_RESET:
 		return "Main WDT0 core reset";
-	case RESET_REASON_CORE_MWDT1:
+	case ESP32_CORE_MWDT1_RESET:
 		return "Main WDT1 core reset";
-	case RESET_REASON_CORE_RTC_WDT:
+	case ESP32_CORE_RTC_WDT_RESET:
 		return "RTC WDT core reset";
-	case RESET_REASON_CPU0_MWDT0:
-		/* has the same value as RESET_REASON_CPU0_MWDT0
-		case RESET_REASON_CPU1_MWDT1:*/
+	case ESP32_CPU0_MWDT0_RESET:
+		/* has the same value as ESP32_CPU0_MWDT0_RESET
+		case ESP32_CPU1_MWDT1_RESET:*/
 		return coreid ? "Main WDT1 CPU1 reset" : "Main WDT0 CPU0 reset";
-	case RESET_REASON_CPU0_SW:
-		/* has the same value as RESET_REASON_CPU0_SW
-		case RESET_REASON_CPU1_SW:*/
+	case ESP32_CPU0_SW_RESET:
+		/* has the same value as ESP32_CPU0_SW_RESET
+		case ESP32_CPU1_SW_RESET:*/
 		return coreid ? "Software CPU1 reset" : "Software CPU0 reset";
-	case RESET_REASON_CPU0_RTC_WDT:
-		/* has the same value as RESET_REASON_CPU0_RTC_WDT
-		case RESET_REASON_CPU1_RTC_WDT:*/
+	case ESP32_CPU0_RTC_WDT_RESET:
+		/* has the same value as ESP32_CPU0_RTC_WDT_RESET
+		case ESP32_CPU1_RTC_WDT_RESET:*/
 		return coreid ? "RTC WDT CPU1 reset" : "RTC WDT CPU0 reset";
-	case RESET_REASON_CPU1_CPU0:
+	case ESP32_CPU1_CPU0_RESET:
 		return coreid ? "CPU1 reset by CPU0" : "Unknown reset cause";
-	case RESET_REASON_SYS_BROWN_OUT:
+	case ESP32_SYS_BROWN_OUT_RESET:
 		return "Brown-out core reset";
-	case RESET_REASON_SYS_RTC_WDT:
+	case ESP32_SYS_RTC_WDT_RESET:
 		return "RTC WDT core and rtc reset";
 	}
 	return "Unknown reset cause";

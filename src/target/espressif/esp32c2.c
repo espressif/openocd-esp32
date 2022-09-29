@@ -63,52 +63,52 @@
 #define ESP32C2_PMP_LOCKED_BIT                 BIT(7)
 
 enum esp32c2_reset_reason {
-	RESET_REASON_CHIP_POWER_ON      = 0x01,	/* Power on reset */
-	RESET_REASON_CORE_SW            = 0x03,	/* Software resets the digital core by RTC_CNTL_SW_SYS_RST */
-	RESET_REASON_CORE_DEEP_SLEEP    = 0x05,	/* Deep sleep reset the digital core */
-	RESET_REASON_CORE_MWDT0         = 0x07,	/* Main watch dog 0 resets digital core */
-	RESET_REASON_CORE_RTC_WDT       = 0x09,	/* RTC watch dog resets digital core */
-	RESET_REASON_CPU0_MWDT0         = 0x0B,	/* Main watch dog 0 resets CPU 0 */
-	RESET_REASON_CPU0_SW            = 0x0C,	/* Software resets CPU 0 by RTC_CNTL_SW_PROCPU_RST */
-	RESET_REASON_CPU0_RTC_WDT       = 0x0D,	/* RTC watch dog resets CPU 0 */
-	RESET_REASON_SYS_BROWN_OUT      = 0x0F,	/* VDD voltage is not stable and resets the digital core */
-	RESET_REASON_SYS_RTC_WDT        = 0x10,	/* RTC watch dog resets digital core and rtc module */
-	RESET_REASON_SYS_SUPER_WDT      = 0x12,	/* Super watch dog resets the digital core and rtc module */
-	RESET_REASON_SYS_CLK_GLITCH     = 0x13,	/* Glitch on clock resets the digital core and rtc module */
-	RESET_REASON_CORE_EFUSE_CRC     = 0x14,	/* eFuse CRC error resets the digital core */
-	RESET_REASON_CPU0_JTAG          = 0x18,	/* JTAG resets the CPU 0 */
+	ESP32C2_CHIP_POWER_ON_RESET      = 0x01,	/* Power on reset */
+	ESP32C2_CORE_SW_RESET            = 0x03,	/* Software resets the digital core by RTC_CNTL_SW_SYS_RST */
+	ESP32C2_CORE_DEEP_SLEEP_RESET    = 0x05,	/* Deep sleep reset the digital core */
+	ESP32C2_CORE_MWDT0_RESET         = 0x07,	/* Main watch dog 0 resets digital core */
+	ESP32C2_CORE_RTC_WDT_RESET       = 0x09,	/* RTC watch dog resets digital core */
+	ESP32C2_CPU0_MWDT0_RESET         = 0x0B,	/* Main watch dog 0 resets CPU 0 */
+	ESP32C2_CPU0_SW_RESET            = 0x0C,	/* Software resets CPU 0 by RTC_CNTL_SW_PROCPU_RST */
+	ESP32C2_CPU0_RTC_WDT_RESET       = 0x0D,	/* RTC watch dog resets CPU 0 */
+	ESP32C2_SYS_BROWN_OUT_RESET      = 0x0F,	/* VDD voltage is not stable and resets the digital core */
+	ESP32C2_SYS_RTC_WDT_RESET        = 0x10,	/* RTC watch dog resets digital core and rtc module */
+	ESP32C2_SYS_SUPER_WDT_RESET      = 0x12,	/* Super watch dog resets the digital core and rtc module */
+	ESP32C2_SYS_CLK_GLITCH_RESET     = 0x13,	/* Glitch on clock resets the digital core and rtc module */
+	ESP32C2_CORE_EFUSE_CRC_RESET     = 0x14,	/* eFuse CRC error resets the digital core */
+	ESP32C2_CPU0_JTAG_RESET          = 0x18,	/* JTAG resets the CPU 0 */
 };
 
 static const char *esp32c2_get_reset_reason(enum esp32c2_reset_reason reset_number)
 {
 	switch (ESP32C2_RESET_CAUSE(reset_number)) {
-	case RESET_REASON_CHIP_POWER_ON:
+	case ESP32C2_CHIP_POWER_ON_RESET:
 		return "Power on reset";
-	case RESET_REASON_CORE_SW:
+	case ESP32C2_CORE_SW_RESET:
 		return "Software core reset";
-	case RESET_REASON_CORE_DEEP_SLEEP:
+	case ESP32C2_CORE_DEEP_SLEEP_RESET:
 		return "Deep-sleep core reset";
-	case RESET_REASON_CORE_MWDT0:
+	case ESP32C2_CORE_MWDT0_RESET:
 		return "Main WDT0 core reset";
-	case RESET_REASON_CORE_RTC_WDT:
+	case ESP32C2_CORE_RTC_WDT_RESET:
 		return "RTC WDT core reset";
-	case RESET_REASON_CPU0_MWDT0:
+	case ESP32C2_CPU0_MWDT0_RESET:
 		return "Main WDT0 CPU Reset";
-	case RESET_REASON_CPU0_SW:
+	case ESP32C2_CPU0_SW_RESET:
 		return "Software CPU Reset";
-	case RESET_REASON_CPU0_RTC_WDT:
+	case ESP32C2_CPU0_RTC_WDT_RESET:
 		return "RTC WDT CPU Reset";
-	case RESET_REASON_SYS_BROWN_OUT:
+	case ESP32C2_SYS_BROWN_OUT_RESET:
 		return "Brown-out core reset";
-	case RESET_REASON_SYS_RTC_WDT:
+	case ESP32C2_SYS_RTC_WDT_RESET:
 		return "RTC WDT core and rtc reset";
-	case RESET_REASON_SYS_SUPER_WDT:
+	case ESP32C2_SYS_SUPER_WDT_RESET:
 		return "Super WDT core and rtc reset";
-	case RESET_REASON_SYS_CLK_GLITCH:
+	case ESP32C2_SYS_CLK_GLITCH_RESET:
 		return "CLK GLITCH core and rtc reset";
-	case RESET_REASON_CORE_EFUSE_CRC:
+	case ESP32C2_CORE_EFUSE_CRC_RESET:
 		return "eFuse CRC error core reset";
-	case RESET_REASON_CPU0_JTAG:
+	case ESP32C2_CPU0_JTAG_RESET:
 		return "JTAG CPU reset";
 	}
 	return "Unknown reset cause";

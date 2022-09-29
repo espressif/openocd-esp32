@@ -99,30 +99,30 @@ implementation.
 #define ESP32S3_RTC_CNTL_RESET_CAUSE_PROCPU_S  0
 
 enum esp32s3_reset_reason {
-	RESET_REASON_CHIP_POWER_ON   = 0x01,	/* Power on reset */
-	RESET_REASON_CHIP_BROWN_OUT  = 0x01,	/* VDD voltage is not stable and resets the chip */
-	RESET_REASON_CHIP_SUPER_WDT  = 0x01,	/* Super watch dog resets the chip */
-	RESET_REASON_CORE_SW         = 0x03,	/* Software resets the digital core by RTC_CNTL_SW_SYS_RST */
-	RESET_REASON_CORE_DEEP_SLEEP = 0x05,	/* Deep sleep reset the digital core */
-	RESET_REASON_CORE_MWDT0      = 0x07,	/* Main watch dog 0 resets digital core */
-	RESET_REASON_CORE_MWDT1      = 0x08,	/* Main watch dog 1 resets digital core */
-	RESET_REASON_CORE_RTC_WDT    = 0x09,	/* RTC watch dog resets digital core */
-	RESET_REASON_CPU0_MWDT0      = 0x0B,	/* Main watch dog 0 resets CPU 0 */
-	RESET_REASON_CPU1_MWDT0      = 0x0B,	/* Main watch dog 0 resets CPU 1 */
-	RESET_REASON_CPU0_SW         = 0x0C,	/* Software resets CPU 0 by RTC_CNTL_SW_PROCPU_RST */
-	RESET_REASON_CPU1_SW         = 0x0C,	/* Software resets CPU 1 by RTC_CNTL_SW_APPCPU_RST */
-	RESET_REASON_CPU0_RTC_WDT    = 0x0D,	/* RTC watch dog resets CPU 0 */
-	RESET_REASON_CPU1_RTC_WDT    = 0x0D,	/* RTC watch dog resets CPU 1 */
-	RESET_REASON_SYS_BROWN_OUT   = 0x0F,	/* VDD voltage is not stable and resets the digital core */
-	RESET_REASON_SYS_RTC_WDT     = 0x10,	/* RTC watch dog resets digital core and rtc module */
-	RESET_REASON_CPU0_MWDT1      = 0x11,	/* Main watch dog 1 resets CPU 0 */
-	RESET_REASON_CPU1_MWDT1      = 0x11,	/* Main watch dog 1 resets CPU 1 */
-	RESET_REASON_SYS_SUPER_WDT   = 0x12,	/* Super watch dog resets the digital core and rtc module */
-	RESET_REASON_SYS_CLK_GLITCH  = 0x13,	/* Glitch on clock resets the digital core and rtc module */
-	RESET_REASON_CORE_EFUSE_CRC  = 0x14,	/* eFuse CRC error resets the digital core */
-	RESET_REASON_CORE_USB_UART   = 0x15,	/* USB UART resets the digital core */
-	RESET_REASON_CORE_USB_JTAG   = 0x16,	/* USB JTAG resets the digital core */
-	RESET_REASON_CORE_PWR_GLITCH = 0x17,	/* Glitch on power resets the digital core */
+	ESP32S3_CHIP_POWER_ON_RESET   = 0x01,	/* Power on reset */
+	ESP32S3_CHIP_BROWN_OUT_RESET  = 0x01,	/* VDD voltage is not stable and resets the chip */
+	ESP32S3_CHIP_SUPER_WDT_RESET  = 0x01,	/* Super watch dog resets the chip */
+	ESP32S3_CORE_SW_RESET         = 0x03,	/* Software resets the digital core by RTC_CNTL_SW_SYS_RST */
+	ESP32S3_CORE_DEEP_SLEEP_RESET = 0x05,	/* Deep sleep reset the digital core */
+	ESP32S3_CORE_MWDT0_RESET      = 0x07,	/* Main watch dog 0 resets digital core */
+	ESP32S3_CORE_MWDT1_RESET      = 0x08,	/* Main watch dog 1 resets digital core */
+	ESP32S3_CORE_RTC_WDT_RESET    = 0x09,	/* RTC watch dog resets digital core */
+	ESP32S3_CPU0_MWDT0_RESET      = 0x0B,	/* Main watch dog 0 resets CPU 0 */
+	ESP32S3_CPU1_MWDT0_RESET      = 0x0B,	/* Main watch dog 0 resets CPU 1 */
+	ESP32S3_CPU0_SW_RESET         = 0x0C,	/* Software resets CPU 0 by RTC_CNTL_SW_PROCPU_RST */
+	ESP32S3_CPU1_SW_RESET         = 0x0C,	/* Software resets CPU 1 by RTC_CNTL_SW_APPCPU_RST */
+	ESP32S3_CPU0_RTC_WDT_RESET    = 0x0D,	/* RTC watch dog resets CPU 0 */
+	ESP32S3_CPU1_RTC_WDT_RESET    = 0x0D,	/* RTC watch dog resets CPU 1 */
+	ESP32S3_SYS_BROWN_OUT_RESET   = 0x0F,	/* VDD voltage is not stable and resets the digital core */
+	ESP32S3_SYS_RTC_WDT_RESET     = 0x10,	/* RTC watch dog resets digital core and rtc module */
+	ESP32S3_CPU0_MWDT1_RESET      = 0x11,	/* Main watch dog 1 resets CPU 0 */
+	ESP32S3_CPU1_MWDT1_RESET      = 0x11,	/* Main watch dog 1 resets CPU 1 */
+	ESP32S3_SYS_SUPER_WDT_RESET   = 0x12,	/* Super watch dog resets the digital core and rtc module */
+	ESP32S3_SYS_CLK_GLITCH_RESET  = 0x13,	/* Glitch on clock resets the digital core and rtc module */
+	ESP32S3_CORE_EFUSE_CRC_RESET  = 0x14,	/* eFuse CRC error resets the digital core */
+	ESP32S3_CORE_USB_UART_RESET   = 0x15,	/* USB UART resets the digital core */
+	ESP32S3_CORE_USB_JTAG_RESET   = 0x16,	/* USB JTAG resets the digital core */
+	ESP32S3_CORE_PWR_GLITCH_RESET = 0x17,	/* Glitch on power resets the digital core */
 };
 
 /* this should map local reg IDs to GDB reg mapping as defined in xtensa-config.c 'rmap' in
@@ -618,49 +618,49 @@ static int esp32s3_virt2phys(struct target *target,
 static const char *esp32s3_reset_reason_str(int coreid, enum esp32s3_reset_reason reset_number)
 {
 	switch (reset_number) {
-	case RESET_REASON_CHIP_POWER_ON:
+	case ESP32S3_CHIP_POWER_ON_RESET:
 		return "Power on reset";
-	case RESET_REASON_CORE_SW:
+	case ESP32S3_CORE_SW_RESET:
 		return "Software core reset";
-	case RESET_REASON_CORE_DEEP_SLEEP:
+	case ESP32S3_CORE_DEEP_SLEEP_RESET:
 		return "Deep-sleep core reset";
-	case RESET_REASON_CORE_MWDT0:
+	case ESP32S3_CORE_MWDT0_RESET:
 		return "Main WDT0 core reset";
-	case RESET_REASON_CORE_MWDT1:
+	case ESP32S3_CORE_MWDT1_RESET:
 		return "Main WDT1 core reset";
-	case RESET_REASON_CORE_RTC_WDT:
+	case ESP32S3_CORE_RTC_WDT_RESET:
 		return "RTC WDT core reset";
-	case RESET_REASON_CPU0_MWDT0:
-		/* has the same value as RESET_REASON_CPU0_MWDT0
-		case RESET_REASON_CPU1_MWDT0:*/
+	case ESP32S3_CPU0_MWDT0_RESET:
+		/* has the same value as ESP32S3_CPU0_MWDT0_RESET
+		case ESP32S3_CPU1_MWDT0_RESET:*/
 		return coreid ? "Main WDT0 CPU1 reset" : "Main WDT0 CPU0 reset";
-	case RESET_REASON_CPU0_SW:
-		/* has the same value as RESET_REASON_CPU0_SW
-		case RESET_REASON_CPU1_SW:*/
+	case ESP32S3_CPU0_SW_RESET:
+		/* has the same value as ESP32S3_CPU0_SW_RESET
+		case RESET_REASON_CPU1_SW_RESET:*/
 		return coreid ? "Software CPU1 reset" : "Software CPU0 reset";
-	case RESET_REASON_CPU0_RTC_WDT:
-		/* has the same value as RESET_REASON_CPU0_RTC_WDT
-		case RESET_REASON_CPU1_RTC_WDT:*/
+	case ESP32S3_CPU0_RTC_WDT_RESET:
+		/* has the same value as ESP32S3_CPU0_RTC_WDT_RESET
+		case ESP32S3_CPU1_RTC_WDT_RESET:*/
 		return coreid ? "RTC WDT CPU1 reset" : "RTC WDT CPU0 reset";
-	case RESET_REASON_SYS_BROWN_OUT:
+	case ESP32S3_SYS_BROWN_OUT_RESET:
 		return "Brown-out core reset";
-	case RESET_REASON_SYS_RTC_WDT:
+	case ESP32S3_SYS_RTC_WDT_RESET:
 		return "RTC WDT core and rtc reset";
-	case RESET_REASON_CPU0_MWDT1:
-		/* has the same value as RESET_REASON_CPU1_MWDT1
-		case RESET_REASON_CPU1_MWDT1:*/
+	case ESP32S3_CPU0_MWDT1_RESET:
+		/* has the same value as ESP32S3_CPU1_MWDT1_RESET
+		case ESP32S3_CPU1_MWDT1_RESET:*/
 		return coreid ? "Main WDT1 resets CPU1" : "Main WDT1 resets CPU0";
-	case RESET_REASON_SYS_SUPER_WDT:
+	case ESP32S3_SYS_SUPER_WDT_RESET:
 		return "Super WDT reset";
-	case RESET_REASON_SYS_CLK_GLITCH:
+	case ESP32S3_SYS_CLK_GLITCH_RESET:
 		return "Glitch on clock reset";
-	case RESET_REASON_CORE_EFUSE_CRC:
+	case ESP32S3_CORE_EFUSE_CRC_RESET:
 		return "eFuse CRC error reset";
-	case RESET_REASON_CORE_USB_UART:
+	case ESP32S3_CORE_USB_UART_RESET:
 		return "USB UART reset";
-	case RESET_REASON_CORE_USB_JTAG:
+	case ESP32S3_CORE_USB_JTAG_RESET:
 		return "USB JTAG reset";
-	case RESET_REASON_CORE_PWR_GLITCH:
+	case ESP32S3_CORE_PWR_GLITCH_RESET:
 		return "Core power glitch reset";
 	}
 	return "Unknown reset cause";
