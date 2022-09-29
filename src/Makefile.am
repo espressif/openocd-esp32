@@ -51,9 +51,6 @@ MINGWLDADD =
 endif
 
 %C%_libopenocd_la_LIBADD = \
-	%D%/xsvf/libxsvf.la \
-	%D%/svf/libsvf.la \
-	%D%/pld/libpld.la \
 	%D%/jtag/libjtag.la \
 	%D%/transport/libtransport.la \
 	%D%/flash/libflash.la \
@@ -62,6 +59,16 @@ endif
 	%D%/rtos/librtos.la \
 	%D%/helper/libhelper.la \
 	%D%/rtt/librtt.la
+
+if BUILD_XSVF
+%C%_libopenocd_la_LIBADD +=	%D%/xsvf/libxsvf.la
+endif
+if BUILD_SVF
+%C%_libopenocd_la_LIBADD +=	%D%/svf/libsvf.la
+endif
+if BUILD_PLD
+%C%_libopenocd_la_LIBADD +=	%D%/pld/libpld.la
+endif
 
 BIN2C = $(srcdir)/%D%/helper/bin2char.sh
 
@@ -85,11 +92,17 @@ CLEANFILES += %D%/startup_tcl.inc
 include %D%/helper/Makefile.am
 include %D%/jtag/Makefile.am
 include %D%/transport/Makefile.am
-include %D%/xsvf/Makefile.am
-include %D%/svf/Makefile.am
 include %D%/target/Makefile.am
 include %D%/rtos/Makefile.am
 include %D%/server/Makefile.am
 include %D%/flash/Makefile.am
-include %D%/pld/Makefile.am
 include %D%/rtt/Makefile.am
+if BUILD_XSVF
+include %D%/xsvf/Makefile.am
+endif
+if BUILD_SVF
+include %D%/svf/Makefile.am
+endif
+if BUILD_PLD
+include %D%/pld/Makefile.am
+endif
