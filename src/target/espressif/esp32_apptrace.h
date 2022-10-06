@@ -114,7 +114,7 @@ void esp32_apptrace_cmd_args_parse(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 	const char **argv,
 	int argc);
 int esp32_apptrace_dest_init(struct esp32_apptrace_dest dest[], const char *dest_paths[], unsigned int max_dests);
-int esp32_apptrace_dest_cleanup(struct esp32_apptrace_dest dest[], int max_dests);
+int esp32_apptrace_dest_cleanup(struct esp32_apptrace_dest dest[], unsigned int max_dests);
 int esp_apptrace_usr_block_write(const struct esp32_apptrace_hw *hw, struct target *target,
 	uint32_t block_id,
 	const uint8_t *data,

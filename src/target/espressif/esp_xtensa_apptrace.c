@@ -125,7 +125,7 @@ static int esp_xtensa_apptrace_data_reverse_read(struct xtensa *xtensa,
 		if (res != ERROR_OK)
 			return res;
 	}
-	for (unsigned int i = size / 4; i > 0; i--) {
+	for (unsigned int i = size / 4; i != 0; i--) {
 		res = xtensa_queue_dbg_reg_read(xtensa, XDMREG_TRAXDATA, &buffer[(i - 1) * 4]);
 		if (res != ERROR_OK)
 			return res;
