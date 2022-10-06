@@ -99,7 +99,7 @@ static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 	unsigned int core_id,
 	uint8_t *data,
 	uint32_t data_len);
-static void *esp32_apptrace_data_processor(void *arg);
+static int esp32_apptrace_data_processor(void *priv);
 static int esp32_apptrace_get_data_info(struct esp32_apptrace_cmd_ctx *ctx,
 	struct esp32_apptrace_target_state *target_state,
 	uint32_t *fired_target_num);
@@ -367,16 +367,10 @@ struct esp32_apptrace_block *esp32_apptrace_free_block_get(struct esp32_apptrace
 {
 	struct esp32_apptrace_block *block = NULL;
 
-	int res = pthread_mutex_lock(&ctx->trax_blocks_mux);
-	if (res == 0) {
-		if (!hlist_empty(&ctx->free_trace_blocks)) {
-			/*get first */
-			block = hlist_entry(ctx->free_trace_blocks.first, struct esp32_apptrace_block, node);
-			hlist_del(&block->node);
-		}
-		res = pthread_mutex_unlock(&ctx->trax_blocks_mux);
-		if (res)
-			LOG_ERROR("Failed to unlock blocks pool (%d)!", res);
+	if (!hlist_empty(&ctx->free_trace_blocks)) {
+		/*get first */
+		block = hlist_entry(ctx->free_trace_blocks.first, struct esp32_apptrace_block, node);
+		hlist_del(&block->node);
 	}
 
 	return block;
@@ -384,59 +378,39 @@ struct esp32_apptrace_block *esp32_apptrace_free_block_get(struct esp32_apptrace
 
 static int esp32_apptrace_ready_block_put(struct esp32_apptrace_cmd_ctx *ctx, struct esp32_apptrace_block *block)
 {
-	int res = pthread_mutex_lock(&ctx->trax_blocks_mux);
-	if (res == 0) {
-		LOG_DEBUG("esp32_apptrace_ready_block_put");
-		/* add to ready blocks list */
-		INIT_HLIST_NODE(&block->node);
-		hlist_add_head(&block->node, &ctx->ready_trace_blocks);
-		res = pthread_mutex_unlock(&ctx->trax_blocks_mux);
-		if (res)
-			LOG_ERROR("Failed to unlock blocks pool (%d)!", res);
-	} else {
-		LOG_ERROR("Failed to lock blocks pool (%d)!", res);
-	}
+	LOG_DEBUG("esp32_apptrace_ready_block_put");
+	/* add to ready blocks list */
+	INIT_HLIST_NODE(&block->node);
+	hlist_add_head(&block->node, &ctx->ready_trace_blocks);
 
-	return res == 0 ? ERROR_OK : ERROR_FAIL;
+	return ERROR_OK;
 }
 
 static struct esp32_apptrace_block *esp32_apptrace_ready_block_get(struct esp32_apptrace_cmd_ctx *ctx)
 {
 	struct esp32_apptrace_block *block = NULL;
-	if (pthread_mutex_trylock(&ctx->trax_blocks_mux) == 0) {
-		if (!hlist_empty(&ctx->ready_trace_blocks)) {
-			struct hlist_head *head = &ctx->ready_trace_blocks;
-			struct hlist_node *pos = head->first;
-			while (pos) {
-				block = hlist_entry(pos, struct esp32_apptrace_block, node);
-				pos = pos->next;
-			}
-			/* remove it from ready list */
-			hlist_del(&block->node);
+
+	if (!hlist_empty(&ctx->ready_trace_blocks)) {
+		struct hlist_head *head = &ctx->ready_trace_blocks;
+		struct hlist_node *pos = head->first;
+		while (pos) {
+			block = hlist_entry(pos, struct esp32_apptrace_block, node);
+			pos = pos->next;
 		}
-		int res = pthread_mutex_unlock(&ctx->trax_blocks_mux);
-		if (res)
-			LOG_ERROR("Failed to unlock blocks pool (%d)!", res);
-		/* TODO; return NULL and free block?? */
+		/* remove it from ready list */
+		hlist_del(&block->node);
 	}
+
 	return block;
 }
 
 static int esp32_apptrace_block_free(struct esp32_apptrace_cmd_ctx *ctx, struct esp32_apptrace_block *block)
 {
-	int res = pthread_mutex_lock(&ctx->trax_blocks_mux);
-	if (res == 0) {
-		/* add to free blocks list */
-		INIT_HLIST_NODE(&block->node);
-		hlist_add_head(&block->node, &ctx->free_trace_blocks);
-		res = pthread_mutex_unlock(&ctx->trax_blocks_mux);
-		if (res)
-			LOG_ERROR("Failed to unlock blocks pool (%d)!", res);
-	} else {
-		LOG_ERROR("Failed to lock blocks pool (%d)!", res);
-	}
+	/* add to free blocks list */
+	INIT_HLIST_NODE(&block->node);
+	hlist_add_head(&block->node, &ctx->free_trace_blocks);
 
-	return res == 0 ? ERROR_OK : ERROR_FAIL;
+	return ERROR_OK;
 }
 
 static int esp32_apptrace_wait_tracing_finished(struct esp32_apptrace_cmd_ctx *ctx)
@@ -449,19 +423,9 @@ static int esp32_apptrace_wait_tracing_finished(struct esp32_apptrace_cmd_ctx *c
 			return ERROR_FAIL;
 		}
 	}
-	/* signal thread to stop */
+	/* signal timer callback to stop */
 	ctx->running = 0;
-	/* wait for the processor thread to finish */
-	if (ctx->data_processor != (pthread_t)-1) {
-		int *thr_res = NULL;
-		int res = pthread_join(ctx->data_processor, (void **)&thr_res);
-		if (res)
-			LOG_ERROR("Failed to join trace data processor thread (%d)!", res);
-		else
-			LOG_INFO("Trace data processor thread exited with %d", *thr_res);
-		free(thr_res);
-	}
-
+	target_unregister_timer_callback(esp32_apptrace_data_processor, ctx);
 	return ERROR_OK;
 }
 
@@ -473,7 +437,6 @@ int esp32_apptrace_cmd_ctx_init(struct target *target, struct esp32_apptrace_cmd
 {
 	memset(cmd_ctx, 0, sizeof(struct esp32_apptrace_cmd_ctx));
 
-	cmd_ctx->data_processor = (pthread_t)-1;
 	cmd_ctx->mode = mode;
 	cmd_ctx->target_state = target->state;
 
@@ -547,19 +510,11 @@ int esp32_apptrace_cmd_ctx_init(struct target *target, struct esp32_apptrace_cmd
 	}
 
 	cmd_ctx->running = 1;
-
-	int res = pthread_mutex_init(&cmd_ctx->trax_blocks_mux, NULL);
-	if (res) {
-		LOG_ERROR("Failed to blocks pool mux (%d)!", res);
-		esp32_apptrace_blocks_pool_cleanup(cmd_ctx);
-		return ERROR_FAIL;
-	}
 	if (cmd_ctx->mode != ESP_APPTRACE_CMD_MODE_SYNC) {
-		res = pthread_create(&cmd_ctx->data_processor, NULL, esp32_apptrace_data_processor, cmd_ctx);
-		if (res) {
-			LOG_ERROR("Failed to start trace data processor thread (%d)!", res);
-			cmd_ctx->data_processor = (pthread_t)-1;
-			pthread_mutex_destroy(&cmd_ctx->trax_blocks_mux);
+		int res = target_register_timer_callback(esp32_apptrace_data_processor, 0, TARGET_TIMER_TYPE_PERIODIC,
+			cmd_ctx);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to start trace data timer callback (%d)!", res);
 			esp32_apptrace_blocks_pool_cleanup(cmd_ctx);
 			return ERROR_FAIL;
 		}
@@ -580,7 +535,6 @@ int esp32_apptrace_cmd_ctx_init(struct target *target, struct esp32_apptrace_cmd
 
 int esp32_apptrace_cmd_ctx_cleanup(struct esp32_apptrace_cmd_ctx *cmd_ctx)
 {
-	pthread_mutex_destroy(&cmd_ctx->trax_blocks_mux);
 	esp32_apptrace_blocks_pool_cleanup(cmd_ctx);
 	return ERROR_OK;
 }
@@ -1036,34 +990,31 @@ static int esp32_apptrace_handle_trace_block(struct esp32_apptrace_cmd_ctx *ctx,
 	return ERROR_OK;
 }
 
-static void *esp32_apptrace_data_processor(void *arg)
+static int esp32_apptrace_data_processor(void *priv)
 {
-	int *res = malloc(sizeof(int));
-	assert(res);
+	struct esp32_apptrace_cmd_ctx *ctx = (struct esp32_apptrace_cmd_ctx *)priv;
 
-	struct esp32_apptrace_cmd_ctx *ctx = (struct esp32_apptrace_cmd_ctx *)arg;
+	if (!ctx->running)
+		return ERROR_OK;
 
-	*res = ERROR_OK;
+	struct esp32_apptrace_block *block = esp32_apptrace_ready_block_get(ctx);
+	if (!block)
+		return ERROR_OK;
 
-	while (ctx->running) {
-		struct esp32_apptrace_block *block = esp32_apptrace_ready_block_get(ctx);
-		if (!block)
-			continue;
-		*res = esp32_apptrace_handle_trace_block(ctx, block);
-		if (*res != ERROR_OK) {
-			ctx->running = 0;
-			LOG_ERROR("Failed to process trace block %" PRId32 " bytes!", block->data_len);
-			break;
-		}
-		*res = esp32_apptrace_block_free(ctx, block);
-		if (*res != ERROR_OK) {
-			ctx->running = 0;
-			LOG_ERROR("Failed to free ready block!");
-			break;
-		}
+	int res = esp32_apptrace_handle_trace_block(ctx, block);
+	if (res != ERROR_OK) {
+		ctx->running = 0;
+		LOG_ERROR("Failed to process trace block %" PRId32 " bytes!", block->data_len);
+		return res;
+	}
+	res = esp32_apptrace_block_free(ctx, block);
+	if (res != ERROR_OK) {
+		ctx->running = 0;
+		LOG_ERROR("Failed to free ready block!");
+		return res;
 	}
 
-	return (void *)res;
+	return ERROR_OK;
 }
 
 static int esp32_apptrace_check_connection(struct esp32_apptrace_cmd_ctx *ctx)

@@ -8,7 +8,6 @@
 #ifndef OPENOCD_TARGET_ESP32_APPTRACE_H
 #define OPENOCD_TARGET_ESP32_APPTRACE_H
 
-#include <pthread.h>
 #include <helper/command.h>
 #include <helper/time_support.h>
 #include <target/target.h>
@@ -85,11 +84,9 @@ struct esp32_apptrace_cmd_ctx {
 	const struct algorithm_hw *algo_hw;
 	enum target_state target_state;
 	uint32_t last_blk_id;
-	pthread_mutex_t trax_blocks_mux;
 	struct hlist_head free_trace_blocks;
 	struct hlist_head ready_trace_blocks;
 	uint32_t max_trace_block_sz;
-	pthread_t data_processor;
 	struct esp32_apptrace_format trace_format;
 	int (*process_data)(struct esp32_apptrace_cmd_ctx *ctx, unsigned int core_id, uint8_t *data, uint32_t data_len);
 	void (*auto_clean)(struct esp32_apptrace_cmd_ctx *ctx);
