@@ -237,7 +237,6 @@ build_windows:
     - make
     - MAKEFLAGS= make install-strip
     - popd
-    - cp /usr/${CONF_HOST}/lib/libwinpthread-1.dll $DIST_INSTALLED_DIR/bin/
     - cp ${ZLIB_DIR}/zlib1.dll $DIST_INSTALLED_DIR/bin/
     - *dist_archive
 

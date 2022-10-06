@@ -20,7 +20,6 @@ else
 %C%_openocd_LDADD += -ljim
 endif
 
-%C%_openocd_LDADD += -lpthread
 if BUILD_ESP_COMPRESSION
 %C%_openocd_LDADD += -lz
 endif
