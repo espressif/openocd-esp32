@@ -318,9 +318,9 @@ int esp32_apptrace_dest_init(struct esp32_apptrace_dest dest[], const char *dest
 	return i;
 }
 
-int esp32_apptrace_dest_cleanup(struct esp32_apptrace_dest dest[], int max_dests)
+int esp32_apptrace_dest_cleanup(struct esp32_apptrace_dest dest[], unsigned int max_dests)
 {
-	for (int i = 0; i < max_dests; i++) {
+	for (unsigned int i = 0; i < max_dests; i++) {
 		if (dest[i].clean && dest[i].priv) {
 			int res = dest[i].clean(dest[i].priv);
 			dest[i].priv = NULL;
@@ -511,7 +511,9 @@ int esp32_apptrace_cmd_ctx_init(struct target *target, struct esp32_apptrace_cmd
 
 	cmd_ctx->running = 1;
 	if (cmd_ctx->mode != ESP_APPTRACE_CMD_MODE_SYNC) {
-		int res = target_register_timer_callback(esp32_apptrace_data_processor, 0, TARGET_TIMER_TYPE_PERIODIC,
+		int res = target_register_timer_callback(esp32_apptrace_data_processor,
+			0,
+			TARGET_TIMER_TYPE_PERIODIC,
 			cmd_ctx);
 		if (res != ERROR_OK) {
 			LOG_ERROR("Failed to start trace data timer callback (%d)!", res);
@@ -621,12 +623,11 @@ static int esp32_apptrace_cmd_init(struct target *target,
 	cmd_ctx->stop_tmo = -1.0;	/* infinite */
 	cmd_data->max_len = UINT32_MAX;
 	cmd_data->poll_period = 0 /*ms*/;
-	if (argc > 1) {
+	if (argc > 1)
 		/* parse remaining args */
 		esp32_apptrace_cmd_args_parse(cmd_ctx, cmd_data, &argv[1], argc - 1);
-	}
-	LOG_USER(
-		"App trace params: from %d cores, size %" PRId32 " bytes, stop_tmo %g s, poll period %" PRId32
+
+	LOG_USER("App trace params: from %d cores, size %" PRId32 " bytes, stop_tmo %g s, poll period %" PRId32
 		" ms, wait_rst %d, skip %" PRId32 " bytes", cmd_ctx->cores_num,
 		cmd_data->max_len,
 		cmd_ctx->stop_tmo,
@@ -880,7 +881,7 @@ int esp_apptrace_usr_block_write(const struct esp32_apptrace_hw *hw, struct targ
 	}
 
 	return hw->buffs_write(target,
-		sizeof(buf_sz) / sizeof(buf_sz[0]),
+		ARRAY_SIZE(buf_sz),
 		buf_sz,
 		bufs,
 		block_id,
@@ -956,7 +957,7 @@ static int esp32_apptrace_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 	if (cmd_data->data_dest.log_progress)
 		LOG_USER("%" PRId32 " ", ctx->tot_len);
 	/* check for stop condition */
-	if ((ctx->tot_len > cmd_data->skip_len) && (ctx->tot_len - cmd_data->skip_len >= cmd_data->max_len)) {
+	if (ctx->tot_len > cmd_data->skip_len && (ctx->tot_len - cmd_data->skip_len >= cmd_data->max_len)) {
 		ctx->running = 0;
 		if (duration_measure(&ctx->read_time) != 0) {
 			LOG_ERROR("Failed to stop trace read time measure!");
@@ -1102,7 +1103,7 @@ static int esp32_apptrace_poll(void *priv)
 	/* LOG_DEBUG("Block %d (%d bytes) on target (%s)!", target_state[0].block_id,
 	 * target_state[0].data_len, target_name(ctx->cpus[0])); */
 	if (fired_target_num == UINT32_MAX) {
-		/* no data has been received, but block could be switched due to the data transfered
+		/* no data has been received, but block could be switched due to the data transferred
 		 * from host to target */
 		if (ctx->cores_num > 1) {
 			uint32_t max_block_id = 0, min_block_id = ctx->hw->max_block_id;
@@ -1621,7 +1622,7 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 		}
 		s_at_cmd_ctx.stop_tmo = 0.01;	/* use small stop tmo */
 		s_at_cmd_ctx.process_data = esp32_apptrace_process_data;
-		/* check for exit signal and comand completion */
+		/* check for exit signal and command completion */
 		while (!openocd_is_shutdown_pending() && s_at_cmd_ctx.running) {
 			res = esp32_apptrace_poll(&s_at_cmd_ctx);
 			if (res != ERROR_OK) {

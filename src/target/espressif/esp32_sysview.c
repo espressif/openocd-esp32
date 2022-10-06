@@ -83,7 +83,6 @@ int esp32_sysview_cmd_init(struct target *target,
 {
 	int res;
 	struct esp32_sysview_cmd_data *cmd_data;
-	int core_num = cmd_ctx->cores_num;
 
 	if (argc < 1) {
 		LOG_ERROR("Not enough args! Need trace data destination!");
@@ -93,6 +92,8 @@ int esp32_sysview_cmd_init(struct target *target,
 	res = esp32_apptrace_cmd_ctx_init(target, cmd_ctx, mode);
 	if (res)
 		return res;
+
+	int core_num = cmd_ctx->cores_num;
 
 	if (!mcore_format && argc < core_num) {
 		LOG_ERROR("Not enough args! Need %d trace data destinations!", core_num);
