@@ -11216,6 +11216,10 @@ which uses TDI pin for selecting SPI flash voltage.
 @end itemize
 @end deffn
 
+@deffn {Command} {esp gdb_detach_handler}
+Handles @code{gdb-detach} event and makes necessary cleanups. Currently, this is required to remove flash breakpoints when gdb disconnects unexpectedly.
+@end deffn
+
 @anchor{softwaredebugmessagesandtracing}
 @section Software Debug Messages and Tracing
 @cindex Linux-ARM DCC support

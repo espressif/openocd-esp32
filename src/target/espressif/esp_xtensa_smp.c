@@ -1013,6 +1013,29 @@ COMMAND_HANDLER(esp_xtensa_smp_cmd_semihost_basedir)
 	return esp_semihosting_basedir_command(CMD);
 }
 
+COMMAND_HANDLER(esp_gdb_detach_command)
+{
+	if (CMD_ARGC != 0)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	struct target *target = get_current_target(CMD_CTX);
+	struct esp_xtensa_common *esp_xtensa;
+	if (target->smp) {
+		struct target_list *head;
+		foreach_smp_target(head, target->smp_targets) {
+			CMD_CTX->current_target = head->target;
+			esp_xtensa = target_to_esp_xtensa(CMD_CTX->current_target);
+			int ret = esp_common_handle_gdb_detach(CMD_CTX->current_target, &esp_xtensa->esp);
+			if (ret != ERROR_OK)
+				return ret;
+		}
+		cmd->ctx->current_target = target;
+		return ERROR_OK;
+	}
+	esp_xtensa = target_to_esp_xtensa(target);
+	return esp_common_handle_gdb_detach(target, &esp_xtensa->esp);
+}
+
 const struct command_registration esp_xtensa_smp_xtensa_command_handlers[] = {
 	{
 		.name = "xtdef",
@@ -1140,6 +1163,13 @@ const struct command_registration esp_xtensa_smp_esp_command_handlers[] = {
 		.help = "Set the base directory for semihosting I/O."
 			"DEPRECATED! use arm semihosting_basedir",
 		.usage = "dir",
+	},
+	{
+		.name = "gdb_detach_handler",
+		.handler = esp_gdb_detach_command,
+		.mode = COMMAND_ANY,
+		.help = "Handles gdb-detach events and makes necessary cleanups such as removing flash breakpoints",
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };

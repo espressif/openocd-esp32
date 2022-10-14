@@ -381,6 +381,21 @@ int esp_xtensa_breakpoint_remove(struct target *target, struct breakpoint *break
 	return res;
 }
 
+COMMAND_HANDLER(esp_gdb_detach_command)
+{
+	if (CMD_ARGC != 0)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	struct target *target = get_current_target(CMD_CTX);
+	if (!target) {
+		LOG_ERROR("No target selected");
+		return ERROR_FAIL;
+	}
+
+	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
+	return esp_common_handle_gdb_detach(target, &esp_xtensa->esp);
+}
+
 const struct command_registration esp_command_handlers[] = {
 	{
 		.name = "semihost_basedir",
@@ -389,6 +404,13 @@ const struct command_registration esp_command_handlers[] = {
 		.help = "Set the base directory for semihosting I/O."
 			"DEPRECATED! use arm semihosting_basedir",
 		.usage = "dir",
+	},
+	{
+		.name = "gdb_detach_handler",
+		.handler = esp_gdb_detach_command,
+		.mode = COMMAND_ANY,
+		.help = "Handles gdb-detach events and makes necessary cleanups such as removing flash breakpoints",
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };
