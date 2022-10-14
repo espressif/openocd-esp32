@@ -3760,6 +3760,9 @@ static void gdb_keep_client_alive(struct connection *connection)
 {
 	struct gdb_connection *gdb_con = connection->priv;
 
+	if (!gdb_con)
+		return;
+
 	if (gdb_con->busy) {
 		/* do not send packets, retry asap */
 		return;
