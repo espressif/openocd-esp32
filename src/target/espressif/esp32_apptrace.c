@@ -2150,7 +2150,7 @@ int esp_gcov_poll(struct target *target, void *priv)
 	int res = ERROR_OK;
 	struct esp32_apptrace_cmd_ctx *cmd_ctx = (struct esp32_apptrace_cmd_ctx *)priv;
 
-	while (shutdown_openocd == CONTINUE_MAIN_LOOP && target->state != TARGET_HALTED &&
+	while (!openocd_is_shutdown_pending() && target->state != TARGET_HALTED &&
 		cmd_ctx->running) {
 		res = esp32_apptrace_poll(cmd_ctx);
 		if (res != ERROR_OK) {
