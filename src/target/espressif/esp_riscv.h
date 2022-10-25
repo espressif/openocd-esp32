@@ -58,8 +58,6 @@ static inline int esp_riscv_init_arch_info(struct command_context *cmd_ctx, stru
 int esp_riscv_semihosting(struct target *target);
 int esp_riscv_breakpoint_add(struct target *target, struct breakpoint *breakpoint);
 int esp_riscv_breakpoint_remove(struct target *target, struct breakpoint *breakpoint);
-int esp_riscv_handle_target_event(struct target *target, enum target_event event,
-	void *priv);
 int esp_riscv_start_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,

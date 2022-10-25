@@ -345,33 +345,9 @@ int esp_riscv_breakpoint_remove(struct target *target, struct breakpoint *breakp
 	return res;
 }
 
-int esp_riscv_handle_target_event(struct target *target, enum target_event event,
-	void *priv)
+int esp_riscv_on_halt(struct target *target)
 {
-	int ret;
-
-	if (target != priv)
-		return ERROR_OK;
-
-	LOG_DEBUG("%d", event);
-
-	switch (event) {
-	case TARGET_EVENT_GDB_DETACH:
-	{
-		struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
-		ret = esp_common_handle_gdb_detach(target, &esp_riscv->esp);
-		if (ret != ERROR_OK)
-			return ret;
-		break;
-	}
-	case TARGET_EVENT_HALTED:
-	{
-		esp_riscv_print_exception_reason(target);
-		break;
-	}
-	default:
-		break;
-	}
+	esp_riscv_print_exception_reason(target);
 	return ERROR_OK;
 }
 
@@ -845,6 +821,35 @@ void esp_riscv_deinit_target(struct target *target)
 	riscv_target.deinit_target(target);
 }
 
+COMMAND_HANDLER(esp_riscv_gdb_detach_command)
+{
+	if (CMD_ARGC != 0)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	struct target *target = get_current_target(CMD_CTX);
+	if (!target) {
+		LOG_ERROR("No target selected");
+		return ERROR_FAIL;
+	}
+
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	return esp_common_handle_gdb_detach(target, &esp_riscv->esp);
+}
+
+COMMAND_HANDLER(esp_riscv_halted_command)
+{
+	if (CMD_ARGC != 0)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	struct target *target = get_current_target(CMD_CTX);
+	if (!target) {
+		LOG_ERROR("No target selected");
+		return ERROR_FAIL;
+	}
+
+	return esp_riscv_on_halt(target);
+}
+
 const struct command_registration esp_riscv_command_handlers[] = {
 	{
 		.name = "semihost_basedir",
@@ -853,6 +858,20 @@ const struct command_registration esp_riscv_command_handlers[] = {
 		.help = "Set the base directory for semihosting I/O."
 			"DEPRECATED! use arm semihosting_basedir",
 		.usage = "dir",
+	},
+	{
+		.name = "gdb_detach_handler",
+		.handler = esp_riscv_gdb_detach_command,
+		.mode = COMMAND_ANY,
+		.help = "Handles gdb-detach events and makes necessary cleanups such as removing flash breakpoints",
+		.usage = "",
+	},
+	{
+		.name = "halted_event_handler",
+		.handler = esp_riscv_halted_command,
+		.mode = COMMAND_ANY,
+		.help = "Handles halted event and prints exception reason",
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };

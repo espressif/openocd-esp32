@@ -169,20 +169,6 @@ static const struct esp_flash_breakpoint_ops esp32c3_flash_brp_ops = {
 	.breakpoint_remove = esp_algo_flash_breakpoint_remove
 };
 
-static int esp32c3_handle_target_event(struct target *target, enum target_event event, void *priv)
-{
-	if (target != priv)
-		return ERROR_OK;
-
-	LOG_DEBUG("%d", event);
-
-	int ret = esp_riscv_handle_target_event(target, event, priv);
-	if (ret != ERROR_OK)
-		return ret;
-
-	return ERROR_OK;
-}
-
 static int esp32c3_target_create(struct target *target, Jim_Interp *interp)
 {
 	struct esp32c3_common *esp32c3 = calloc(1, sizeof(*esp32c3));
@@ -213,10 +199,6 @@ static int esp32c3_init_target(struct command_context *cmd_ctx,
 		esp32c3_on_reset,
 		&esp32c3_flash_brp_ops,
 		&esp32c3_semihost_ops);
-	if (ret != ERROR_OK)
-		return ret;
-
-	ret = target_register_event_callback(esp32c3_handle_target_event, target);
 	if (ret != ERROR_OK)
 		return ret;
 
