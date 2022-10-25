@@ -119,9 +119,9 @@ release_tag_draft:
   <<: *release_tag_filter
   <<: *release_submit_action
   script:
-    - hub release delete ${GH_REL_TAG} || true
-    # release draft
-    - hub release create --draft -m "${RELEASE_DESC}" ${GH_REL_TAG}
+    - git remote remove github || true
+    - git remote add github ${GH_REPO_HTTPS}
+    - hub release show ${GH_REL_TAG} || { echo "Please create a release on GitHub with ${GH_REL_TAG} tag at first"; exit 1; }
     # List of archives
     - DIST_DIR=dist
     - FILES=$(find ${DIST_DIR} -name dist_name_\* -exec cat {} \+)
