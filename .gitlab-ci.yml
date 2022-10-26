@@ -233,8 +233,12 @@ create_coverage_reports:
     paths:
       - dist/lcov_all_report.tar.gz
       - cov_infos/metrics.txt
+      - cov_infos/cobertura.xml
     reports:
       metrics: cov_infos/metrics.txt
+      coverage_report:
+        coverage_format: cobertura
+        path: cov_infos/cobertura.xml
     when: always
     expire_in: 1 week
   needs:
@@ -285,6 +289,7 @@ create_coverage_reports:
     # Line in below creates a txt file from merged coverage file which includes coverage percentages.
     - lcov --rc lcov_list_width=150 --list cov_infos/merged.info > cov_infos/metrics_input.txt
     - python3 tools/list_to_metrics.py --file cov_infos/metrics_input.txt
+    - lcov_cobertura cov_infos/merged.info -o cov_infos/cobertura.xml
 
 update_idf_tools:
   stage: update_idf_tools
