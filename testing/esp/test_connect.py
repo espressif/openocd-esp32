@@ -34,6 +34,53 @@ class GDBConnectTestsImpl:
         self.gdb.exec_file_set(self.test_app_cfg.build_app_elf_path())
         self.resume_exec()
 
+    def test_gdb_detach(self):
+        """
+            Check that gdb detach command is working properly.
+            1) Add flash SW breakpoints in the appropriate sub-test.
+            2) Run to SW breakpoints and expect to hit.
+            3) Drop gdb connection with pkill command.
+            4) Create a new gdb sesion and connect to OpenOCD.
+            5) Reset the target, run to the app_main and set the sub-test again.
+            6) Add a breakpoints into latter line of SW breakpoints tagged as gdb_detach3.
+            7) Run the test and check that will chip hit to the SW breakpoints. If it will, detach command is not working properly.
+        """
+        # Filling HW breakpoints to test SW breakpoints
+        bps = ['unused_func0', 'unused_func1']
+        if testee_info.chip == "esp32c3":
+            # esp32c3 has 8 HW breakpoint slots
+            # 6 dummy HW breaks to fill in HW breaks slots and make OpenOCD using SW breakpoints in flash (seen as HW ones by GDB)
+            bps += ['unused_func2', 'unused_func3', 'unused_func4', 'unused_func5', 'unused_func6', 'unused_func7']
+        # flash SW breakpoints
+        bps += ['gdb_detach0', 'gdb_detach1', 'gdb_detach2']
+
+        self.select_sub_test(105)
+        for each_bp in bps:
+            self.add_bp(each_bp)
+
+        # Check if all flash breakpoints hit before dropping GDB connection
+        self.run_to_bp_label("gdb_detach0")
+        self.run_to_bp_label("gdb_detach1")
+        self.run_to_bp_label("gdb_detach2")
+
+        self.gdb_kill()
+        sleep(1)
+        self.create_gdb_and_reconnect()
+        state,_ = self.gdb.get_target_state()
+        if state != dbg.TARGET_STATE_STOPPED:
+            self.gdb.exec_interrupt()
+            self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
+
+        self.gdb.target_reset()
+        self.gdb.add_bp('app_main')
+        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
+        self.select_sub_test(105)
+
+        # Add a breakpoint to the last line of the test function.
+        self.add_bp('gdb_detach3')
+        # Run to hit breakpoint tagged as gdb_detach3 without hitting gdb_detach0 and gdb_detach1 or gdb_detach2 tags
+        self.run_to_bp_label("gdb_detach3")
+
 
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
