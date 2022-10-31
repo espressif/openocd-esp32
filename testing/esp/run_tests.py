@@ -182,21 +182,9 @@ def dbg_start(toolchain, oocd, oocd_tcl, oocd_cfg_files, oocd_cfg_cmds, debug_oo
         # Enable GDB fix
         # TODO: Remove
         os.environ["ESP_XTENSA_GDB_PRIV_REGS_FIX"] = "1"
-        # Start GDB
-        _gdb_inst = dbg.create_gdb(chip_name=chip_name,
-                            target_triple=target_triple,
-                            gdb_path='%sgdb' % toolchain,
-                            extended_remote_mode='127.0.0.1:%d' % dbg.Oocd.GDB_PORT,
-                            log_level=log_level,
-                            log_stream_handler=log_stream,
-                            log_file_handler=log_file)
-        if len(gdb_log):
-            _gdb_inst.gdb_set('remotelogfile', gdb_log)
-        if debug_oocd > 2:
-            _gdb_inst.tmo_scale_factor = 5
-        else:
-            _gdb_inst.tmo_scale_factor = 3
-        _gdb_inst.gdb_set('remotetimeout', '%d' % remote_tmo)
+        gdb_utils = debug_backend_tests.GDBUtils()
+        _gdb_inst = gdb_utils.create_gdb(chip_name, target_triple, toolchain, log_level,
+                                            log_stream, log_file, gdb_log, debug_oocd)
         _gdb_inst.connect(tmo=connect_tmo)
     except Exception as e:
         _oocd_inst.stop()
@@ -357,7 +345,8 @@ def main():
             setup_logger(suite.modules[m].get_logger(), ch, fh, log_lev)
         suite.load_app_bins = not args.no_load
         global _oocd_inst, _gdb_inst
-        suite.config_tests(_oocd_inst, _gdb_inst, args.toolchain, board_uart_reader, args.serial_port)
+        arg_list = [args.debug_oocd, log_lev, args.gdb_log_file, ch, fh]
+        suite.config_tests(_oocd_inst, _gdb_inst, args.toolchain, board_uart_reader, args.serial_port, arg_list)
         # RUN TESTS
         res = test_runner.run(suite)
         if not res.wasSuccessful() and args.retry:

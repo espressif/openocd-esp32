@@ -79,6 +79,23 @@ static void blink_task(void *pvParameter)
     }
 }
 
+static void gdb_detach_task(void *pvParameter)
+{
+    ESP_LOGI(TAG, "Detach test started");
+    while(1) {
+        gpio_reset_pin(BLINK_GPIO);
+        LABEL_SYMBOL(gdb_detach0);
+        gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
+        LABEL_SYMBOL(gdb_detach1);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+        gpio_set_level(BLINK_GPIO, 0);
+        LABEL_SYMBOL(gdb_detach2);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        gpio_set_level(BLINK_GPIO, 1);
+        LABEL_SYMBOL(gdb_detach3);
+    }
+}
+
 void unused_func0(void)
 {
     s_tmp_ln++;
@@ -103,6 +120,15 @@ void unused_func5(void)
 {
     s_tmp_ln++;
 }
+void unused_func6(void)
+{
+    s_tmp_ln++;
+}
+void unused_func7(void)
+{
+    s_tmp_ln++;
+}
+
 
 /* This test calls functions recursively many times, exhausting the
  * register space and triggering window overflow exceptions.
@@ -338,6 +364,8 @@ void app_main()
         xTaskCreate(&step_over_bp_task, "step_over_bp_task", 2048, NULL, 5, NULL);
     } else if (s_run_test == 104){
         xTaskCreate(&fibonacci_calc, "fibonacci_calc", 2048, NULL, 5, NULL);
+    } else if (s_run_test == 105){
+        xTaskCreate(&gdb_detach_task, "gdb_detach_task", 4096, NULL, 5, NULL);
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
     } else if (s_run_test == 120){
         xTaskCreate(&step_over_inst_changing_intlevel, "step_over_inst_changing_intlevel", 2048, NULL, 5, NULL);

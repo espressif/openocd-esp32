@@ -1,7 +1,7 @@
 # GDB + OpenOCD tests
 
 import time
-import os.path
+import os
 import logging
 import unittest
 import importlib
@@ -96,6 +96,52 @@ class TesteeInfo:
     @property
     def arch(self):
         return self.__arch
+
+class GDBUtils:
+
+    def get_pkill_arg(self):
+        if "xtensa" in testee_info.arch:
+            return "xtensa-esp*"
+        elif "riscv" in testee_info.arch:
+            return "riscv32-esp-elf"
+        return "Unknown target"
+
+    def gdb_kill(self):
+        pkill_arg = self.get_pkill_arg()
+        os.system('pkill %s' % pkill_arg)
+
+    def create_gdb(self, chip_name, target_triple, toolchain, log_level, log_stream, log_file, gdb_log, debug_oocd):
+        remote_tmo = 10
+        _gdb_inst = dbg.create_gdb(chip_name=chip_name,
+                            target_triple=target_triple,
+                            gdb_path='%sgdb' % toolchain,
+                            extended_remote_mode='127.0.0.1:%d' % dbg.Oocd.GDB_PORT,
+                            log_level=log_level,
+                            log_stream_handler=log_stream,
+                            log_file_handler=log_file)
+        if len(gdb_log):
+            _gdb_inst.gdb_set('remotelogfile', gdb_log)
+        if debug_oocd > 2:
+            _gdb_inst.tmo_scale_factor = 5
+        else:
+            _gdb_inst.tmo_scale_factor = 3
+        _gdb_inst.gdb_set('remotetimeout', '%d' % remote_tmo)
+
+        return _gdb_inst
+
+    def create_gdb_and_reconnect(self):
+        debug_oocd = self.args[0]
+        log_lev = self.args[1]
+        gdb_log_file = self.args[2]
+        ch = self.args[3]
+        fh = self.args[4]
+        connect_tmo = 15
+
+        _gdb_inst = self.create_gdb(testee_info.chip, self.toolchain[:-1], self.toolchain, log_lev,
+                                        ch, fh, gdb_log_file, debug_oocd)
+        _gdb_inst.connect(tmo=connect_tmo)
+        _gdb_inst.exec_file_set(self.test_app_cfg.build_app_elf_path())
+        self.gdb = _gdb_inst
 
 testee_info = TesteeInfo()
 
@@ -255,7 +301,7 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
             self.modules[test.__module__] = importlib.import_module(test.__module__)
             # get_logger().debug('Modules: %s', self.modules)
 
-    def config_tests(self, oocd, gdb, toolchain, uart_reader, port_name):
+    def config_tests(self, oocd, gdb, toolchain, uart_reader, port_name, arg_list):
         self.oocd = oocd
         self.gdb = gdb
         for test in self:
@@ -266,6 +312,11 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
             test.toolchain = toolchain
             test.uart_reader = uart_reader
             test.port_name = port_name
+            test.args = arg_list
+
+    def change_gdb_in_tests(self, gdb):
+        for each_test in self:
+            each_test.gdb = gdb
 
     def run(self, result, debug=False):
         """ Runs tests
@@ -296,22 +347,33 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
                 if self._groupped_suites[app_cfg_id][0].startup_script != '':
                     self.gdb.set_prog_startup_script(self._groupped_suites[app_cfg_id][0].startup_script_path())
                     self.gdb.exec_run(only_startup=self._groupped_suites[app_cfg_id][0].only_startup)
-
-            self._groupped_suites[app_cfg_id][1]._run_tests(result, debug)
+            ret = self._groupped_suites[app_cfg_id][1]._run_tests(result, debug)
+            if ret is not None:
+                self.gdb = ret
+                for tmp_app_cfg_id in self._groupped_suites:
+                    self._groupped_suites[tmp_app_cfg_id][0].gdb = ret
+                    self._groupped_suites[tmp_app_cfg_id][1].gdb = ret
+                    self._groupped_suites[tmp_app_cfg_id][1].change_gdb_in_tests(ret)
         return result
 
     def _run_tests(self, result, debug=False):
         """ Runs groups of tests
         """
+        tmp_gdb = None
         for test in self:
             if result.shouldStop:
                 break
             get_logger().debug('<<<<<<<<< START %s >>>>>>>', test.id())
             if not debug:
                 test(result)
+                if "test_gdb_detach" in test.id() and test.gdb != self.gdb:
+                    tmp_gdb = test.gdb
+                    self.gdb = tmp_gdb
+                    self.change_gdb_in_tests(tmp_gdb)
             else:
                 test.debug()
             get_logger().debug('======= END %s =======', test.id())
+        return tmp_gdb
 
     def _group_tests(self, tests):
         """ Groups tests by target app
@@ -341,7 +403,7 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
         self.gdb.target_reset()
 
 
-class DebuggerTestsBase(unittest.TestCase):
+class DebuggerTestsBase(unittest.TestCase, GDBUtils):
     """ Base class for all tests
     """
     def __init__(self, methodName):
@@ -416,6 +478,8 @@ class DebuggerTestsBase(unittest.TestCase):
         self.gdb.wait_target_state(dbg.TARGET_STATE_RUNNING, 5)
         rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5 if tmo is None else tmo)
         self.assertEqual(rsn, dbg.TARGET_STOP_REASON_FN_FINISHED)
+
+
 
 class DebuggerTestAppTests(DebuggerTestsBase):
     """ Base class for tests which need special app running on target
@@ -544,6 +608,14 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         line = self.gdb.data_eval_expr('%s_break_ln' % lineno_var_pref)
         self.assertEqual(line, frames[0]['line'])
 
+    def run_to_bp_label(self, label):
+        self.resume_exec()
+        rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
+        self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
+        pc = self.gdb.get_reg('pc')
+        faddr = self.gdb.extract_exec_addr(self.gdb.data_eval_expr('&%s' % label))
+        self.assertEqual(pc, faddr)
+
 class DebuggerGenericTestAppTests(DebuggerTestAppTests):
     """ Base class to run tests which use generic test app
     """
@@ -566,6 +638,7 @@ class DebuggerGenericTestAppTestsDual(DebuggerGenericTestAppTests):
         # use default config with modified path to binaries
         self.test_app_cfg.bin_dir = os.path.join('output', 'default')
         self.test_app_cfg.build_dir = os.path.join('builds', 'default')
+        self.args = []
 
 
 class DebuggerGenericTestAppTestsSingle(DebuggerGenericTestAppTests):
@@ -578,6 +651,7 @@ class DebuggerGenericTestAppTestsSingle(DebuggerGenericTestAppTests):
         # use default config with modified path to binaries
         self.test_app_cfg.bin_dir = os.path.join('output', 'single_core')
         self.test_app_cfg.build_dir = os.path.join('builds', 'single_core')
+        self.args = []
 
 class DebuggerGenericTestAppTestsDualEncrypted(DebuggerGenericTestAppTests):
     """ Base class to run tests which use generic test app in dual core encrypted mode
@@ -591,6 +665,7 @@ class DebuggerGenericTestAppTestsDualEncrypted(DebuggerGenericTestAppTests):
         self.test_app_cfg.build_dir = os.path.join('builds', 'default_encrypted')
         self.test_app_cfg.pt_off = 0x10000
         self.test_app_cfg.app_off = 0x20000
+        self.args = []
 
 class DebuggerGenericTestAppTestsSingleEncrypted(DebuggerGenericTestAppTests):
     """ Base class to run tests which use generic test app in single core encrypted mode
@@ -604,3 +679,5 @@ class DebuggerGenericTestAppTestsSingleEncrypted(DebuggerGenericTestAppTests):
         self.test_app_cfg.build_dir = os.path.join('builds', 'single_core_encrypted')
         self.test_app_cfg.pt_off = 0x10000
         self.test_app_cfg.app_off = 0x20000
+        self.args = []
+
