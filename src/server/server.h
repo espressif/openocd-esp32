@@ -37,6 +37,9 @@ struct connection {
 	int fd;
 	int fd_out;	/* When using pipes we're writing to a different fd */
 	struct sockaddr_in sin;
+#if IS_ESPIDF
+	uint8_t padding[16];
+#endif
 	struct command_context *cmd_ctx;
 	struct service *service;
 	bool input_pending;
@@ -71,6 +74,9 @@ struct service {
 	unsigned short portnumber;
 	int fd;
 	struct sockaddr_in sin;
+#if IS_ESPIDF
+	uint8_t padding[16];
+#endif
 	int max_connections;
 	struct connection *connections;
 	int (*new_connection_during_keep_alive)(struct connection *connection);

@@ -1,0 +1,351 @@
+/* 0 if not building for Cygwin. */
+#cmakedefine01 IS_CYGWIN
+
+/* 0 if not building for Darwin. */
+#cmakedefine01 IS_DARWIN
+
+/* 1 if building for MinGW. */
+#cmakedefine01 IS_MINGW
+
+/* 0 if not building for Win32. */
+#cmakedefine01 IS_WIN32
+
+/* 0 if not building for ESP-IDF. */
+#cmakedefine01 IS_ESPIDF
+
+/* Include malloc free space in logging */
+#cmakedefine _DEBUG_FREE_SPACE_ 1
+
+/* Print verbose USB communication messages */
+#cmakedefine _DEBUG_USB_COMMS_ 1
+
+/* Print verbose USB I/O messages */
+#cmakedefine _DEBUG_USB_IO_ 1
+
+/* 0 if you don't want parport */
+#cmakedefine01 BUILD_PARPORT
+
+/* 0 if you don't want to debug BlueField SoC via rshim */
+#cmakedefine01 BUILD_RSHIM
+
+/* 0 if you don't want dummy driver */
+#cmakedefine01 BUILD_DUMMY
+
+/* 0 if you don't want ep93xx */
+#cmakedefine01 BUILD_EP93XX
+
+/* 0 if you don't want at91rm9200 */
+#cmakedefine01 BUILD_AT91RM9200
+
+/* 0 if you don't want bcm2835gpio */
+#cmakedefine01 BUILD_BCM2835GPIO
+
+/* 0 if you don't want imx_gpio */
+#cmakedefine01 BUILD_IMX_GPIO
+
+/* 0 if you don't want am335xgpio */
+#cmakedefine01 BUILD_AM335XGPIO
+
+/* 0 if you don't want parport to use giveio */
+#cmakedefine01 PARPORT_USE_PPDEV
+
+/* 0 if you don't want parport to use giveio */
+#cmakedefine01 PARPORT_USE_GIVEIO
+
+/* 0 if you don't want JTAG VPI */
+#cmakedefine01 BUILD_JTAG_VPI
+
+/* 0 if you don't want Cadence vdebug interface */
+#cmakedefine01 BUILD_VDEBUG
+
+/* 0 if you don't want JTAG DPI */
+#cmakedefine01 BUILD_JTAG_DPI
+
+/* 0 if you don't want the Amontec JTAG-Accelerator driver */
+#cmakedefine01 BUILD_AMTJTAGACCEL
+
+/* 0 if you don't want the Gateworks GW16012 driver */
+#cmakedefine01 BUILD_GW16012
+
+/* 0 if you don't want the Buspirate JTAG driver */
+#cmakedefine01 BUILD_BUSPIRATE
+
+/* 0 if you don't want the Remote Bitbang JTAG driver */
+#cmakedefine01 BUILD_REMOTE_BITBANG
+
+/* 0 if you don't want SysfsGPIO driver */
+#cmakedefine01 BUILD_SYSFSGPIO
+
+/* 0 if you don't want Xilinx XVC/PCIe driver */
+#cmakedefine01 BUILD_XLNX_PCIE_XVC
+
+/* 0 if you don't want ESP remote protocol driver */
+#cmakedefine01 BUILD_ESP_REMOTE
+
+/* 0 if you don't want ESP compression support */
+#cmakedefine01 BUILD_ESP_COMPRESSION
+
+/* 0 if you don't want ESP32 gpio driver support */
+#cmakedefine01 BUILD_ESP32_GPIO
+
+/* 0 if you don't want xsvf support */
+#cmakedefine01 BUILD_XSVF
+
+/* 0 if you don't want svf support */
+#cmakedefine01 BUILD_SVF
+
+/* 0 if you don't want pld support */
+#cmakedefine01 BUILD_PLD
+
+/* 0 if you don't want OpenOCD source code coverage support */
+#cmakedefine01 BUILD_GCOV
+
+/* 0 if you don't want MPSSE mode of FTDI based devices */
+#cmakedefine01 BUILD_FTDI
+
+/* 0 if you don't want ST-Link Programmer */
+#cmakedefine01 BUILD_HLADAPTER_STLINK
+
+/* 0 if you don't want TI ICDI JTAG Programmer */
+#cmakedefine01 BUILD_HLADAPTER_ICDI
+
+/* 0 if you want the High Level JTAG driver */
+#cmakedefine01 BUILD_HLADAPTER
+
+/* 0 if you don't want Keil ULINK JTAG Programmer */
+#cmakedefine01 BUILD_ULINK
+
+/* 0 if you don't want Altera USB-Blaster II Compatible */
+#cmakedefine01 BUILD_USB_BLASTER_2
+
+/* 0 if you don't want Bitbang mode of FT232R based devices */
+#cmakedefine01 BUILD_FT232R
+
+/* 0 if you don't want Versaloon-Link JTAG Programmer */
+#cmakedefine01 BUILD_VSLLINK
+
+/* 0 if you don't want TI XDS110 Debug Probe */
+#cmakedefine01 BUILD_XDS110
+
+/* 0 if you don't want CMSIS-DAP v2 Compliant Debugger */
+#cmakedefine01 BUILD_CMSIS_DAP_USB
+
+/* 0 if you don't want OSBDM (JTAG only) Programmer */
+#cmakedefine01 BUILD_OSBDM
+
+/* 0 if you don't want eStick/opendous JTAG Programmer */
+#cmakedefine01 BUILD_OPENDOUS
+
+/* 0 if you don't want Olimex ARM-JTAG-EW Programmer */
+#cmakedefine01 BUILD_ARMJTAGEW
+
+/* 0 if you don't want Raisonance RLink JTAG Programmer */
+#cmakedefine01 BUILD_RLINK
+
+/* 0 if you don't want USBProg JTAG Programmer */
+#cmakedefine01 BUILD_USBPROG
+
+/* 0 if you don't want Espressif JTAG Programmer */
+#cmakedefine01 BUILD_ESP_USB_JTAG
+
+/* 0 if you don't want Andes JTAG Programmer */
+#cmakedefine01 BUILD_AICE
+
+/* 0 if you don't want CMSIS-DAP Compliant Debugger */
+#cmakedefine01 BUILD_CMSIS_DAP_HID
+
+/* 0 if you don't want Nu-Link Programmer */
+#cmakedefine01 BUILD_HLADAPTER_NULINK
+
+/* 0 if you don't want Cypress KitProg Programmer */
+#cmakedefine01 BUILD_KITPROG
+
+/* 0 if you don't want Altera USB-Blaster Compatible */
+#cmakedefine01 BUILD_USB_BLASTER
+
+/* 0 if you don't want ASIX Presto Adapter */
+#cmakedefine01 BUILD_PRESTO
+
+/* 0 if you don't want OpenJTAG Adapter */
+#cmakedefine01 BUILD_OPENJTAG
+
+/* 0 if you don't want Linux GPIO bitbang through libgpiod */
+#cmakedefine01 BUILD_LINUXGPIOD
+
+/* 0 if you don't want SEGGER J-Link Programmer */
+#cmakedefine01 BUILD_JLINK
+
+/* 0 if you don't want Xilinx XVC/PCIe */
+#cmakedefine01 BUILD_XLNX_PCIE_XVC
+
+/* 0 if you don't want Bus Pirate */
+#cmakedefine01 BUILD_BUS_PIRATE
+
+/* 0 if you don't want to use Capstone disassembly framework */
+#cmakedefine01 HAVE_CAPSTONE
+
+/* Define if you have the <stdint.h> header file */
+#cmakedefine HAVE_STDINT_H
+
+/* Define if you have the <stdlib.h> header file */
+#cmakedefine HAVE_STDLIB_H
+
+/* Define if you have the <strings.h> header file */
+#cmakedefine HAVE_STRINGS_H
+
+/* Define if you have the <string.h> header file */
+#cmakedefine HAVE_STRING_H
+
+/* Define to 1 if you have the `strndup' function. */
+#cmakedefine HAVE_STRNDUP
+
+/* Define to 1 if you have the `strnlen' function. */
+#cmakedefine HAVE_STRNLEN
+
+/* Define if you have the <memory.h> header file */
+#cmakedefine HAVE_MEMORY_H
+
+/* Define if you have the <inttypes.h> header file */
+#cmakedefine HAVE_INTTYPES_H
+
+/* Define if you have the <sys/socket.h> header file */
+#cmakedefine HAVE_SYS_SOCKET_H
+
+/* Define if you have the <elf.h> header file */
+#cmakedefine HAVE_ELF_H
+
+/* Define if you have struct Elf64_Ehdr in the <elf.h> header file */
+#cmakedefine HAVE_ELF64
+
+/* Define if you have the <dirent.h> header file */
+#cmakedefine HAVE_DIRENT_H
+
+/* Define if you have the <dlfcn.h> header file */
+#cmakedefine HAVE_DLFCN_H
+
+/* Define if you have the <fcntl.h> header file */
+#cmakedefine HAVE_FCNTL_H
+
+/* Define if you have the <malloc.h> header file */
+#cmakedefine HAVE_MALLOC_H
+
+/* Define if you have the <netdb.h> header file */
+#cmakedefine HAVE_NETDB_H
+
+/* Define if you have the <poll.h> header file */
+#cmakedefine HAVE_POLL_H
+
+/* Define if you have the <pthread.h> header file */
+#cmakedefine HAVE_PTHREAD_H
+
+/* Define if you have the <pthread.h> header file */
+#cmakedefine HAVE_PTHREAD_H
+
+/* Define if you have the <sys/ioctl.h> header file */
+#cmakedefine HAVE_SYS_IOCTL_H
+
+/* Define if you have the <sys/param.h> header file */
+#cmakedefine HAVE_SYS_PARAM_H
+
+/* Define if you have the <sys/select.h> header file */
+#cmakedefine HAVE_SYS_SELECT_H
+
+/* Define if you have the <sys/stat.h> header file */
+#cmakedefine HAVE_SYS_STAT_H
+
+/* Define if you have the <sys/sysctl.h> header file */
+#cmakedefine HAVE_SYS_SYSCTL_H
+
+/* Define if you have the <sys/time.h> header file */
+#cmakedefine HAVE_SYS_TIME_H
+
+/* Define if you have the <sys/types.h> header file */
+#cmakedefine HAVE_SYS_TYPES_H
+
+/* Define if you have the <sys/unistd.h> header file */
+#cmakedefine HAVE_UNISTD_H
+
+/* Define if you have the <arpa/inet.h> header file */
+#cmakedefine HAVE_ARPA_INET_H
+
+/* Define if you have the <ifaddrs.h> header file */
+#cmakedefine HAVE_IFADDRS_H
+
+/* Define if you have the <netinet/in.h> header file */
+#cmakedefine HAVE_NETINET_IN_H
+
+/* Define if you have the <netinet/tcp.h> header file */
+#cmakedefine HAVE_NETINET_TCP_H
+
+/* Define if you have the <net/if.h> header file */
+#cmakedefine HAVE_NET_IF_H
+
+/* Define if you have the `gettimeofday' function. */
+#cmakedefine HAVE_GETTIMEOFDAY
+
+/* Define if you have the `usleep' function. */
+#cmakedefine HAVE_USLEEP
+
+/* Define if you have libusb-1.x */
+#cmakedefine HAVE_LIBUSB1
+
+/* Define if your libusb has libusb_get_port_numbers() */
+#cmakedefine HAVE_LIBUSB_GET_PORT_NUMBERS
+
+/* Define if your libftdi has 'ftdi_tcioflush' function */
+#cmakedefine HAVE_LIBFTDI_TCIOFLUSH
+
+/* Define if dynamic libraries supported */
+#cmakedefine HAVE_DLOPEN
+
+/* Define if the system has the type 'long long int'. */
+#cmakedefine HAVE_LONG_LONG_INT
+
+/* Define if the system has the type 'unsigned long long int'. */
+#cmakedefine HAVE_UNSIGNED_LONG_LONG_INT
+
+/* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
+   significant byte first (like Motorola and SPARC, unlike Intel). */
+#cmakedefine WORDS_BIGENDIAN
+
+/* Define if you have the ANSI C header files. */
+#cmakedefine STDC_HEADERS
+
+/* Define to 1 if the system has the type `_Bool'. */
+#cmakedefine HAVE__BOOL
+
+/* Define to 1 if stdbool.h conforms to C99. */
+#cmakedefine HAVE_STDBOOL_H
+
+/* Define if assertions should be disabled. */
+#cmakedefine NDEBUG
+
+/* Must declare 'environ' to use it. */
+#cmakedefine01 NEED_ENVIRON_EXTERN
+
+/* Name of package */
+#define PACKAGE "openocd"
+
+/* Define to the address where bug reports for this package should be sent. */
+#define PACKAGE_BUGREPORT "@OPENOCD_BUGREPORT@"
+
+/* Define to the full name of this package. */
+#define PACKAGE_NAME "openocd"
+
+/* Define to the full name and version of this package. */
+#define PACKAGE_STRING "openocd @OPENOCD_VERSION@"
+
+/* Define to the one symbol short name of this package. */
+#define PACKAGE_TARNAME "openocd"
+
+/* Define to the home page for this package. */
+#define PACKAGE_URL ""
+
+/* Define to the version of this package. */
+#define PACKAGE_VERSION "@OPENOCD_VERSION@"
+
+/* Version number of package */
+#define VERSION "@OPENOCD_VERSION@"
+
+/* Use GNU C library extensions (e.g. stdndup). */
+#define _GNU_SOURCE 1

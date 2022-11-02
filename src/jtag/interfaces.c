@@ -148,6 +148,9 @@ extern struct adapter_driver am335xgpio_adapter_driver;
 #if BUILD_ESP_REMOTE
 extern struct adapter_driver esp_remote_adapter_driver;
 #endif
+#if BUILD_ESP32_GPIO
+extern struct adapter_driver esp32_gpio_interface;
+#endif
 
 /**
  * The list of built-in JTAG interfaces, containing entries for those
@@ -270,6 +273,9 @@ struct adapter_driver *adapter_drivers[] = {
 #endif
 #if BUILD_ESP_REMOTE
 		&esp_remote_adapter_driver,
+#endif
+#if BUILD_ESP32_GPIO
+		&esp32_gpio_interface,
 #endif
 		NULL,
 	};

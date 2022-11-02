@@ -1797,15 +1797,19 @@ static int jtag_select(struct command_context *ctx)
 	if (retval != ERROR_OK)
 		return retval;
 
+#if BUILD_SVF
 	retval = svf_register_commands(ctx);
 
 	if (retval != ERROR_OK)
 		return retval;
+#endif
 
+#if BUILD_XSVF
 	retval = xsvf_register_commands(ctx);
 
 	if (retval != ERROR_OK)
 		return retval;
+#endif
 
 	return ipdbg_register_commands(ctx);
 }
