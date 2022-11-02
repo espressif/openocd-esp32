@@ -10,6 +10,10 @@
 
 #include "esp32_apptrace.h"
 
+/* should be same with `CONFIG_APPTRACE_BUF_SIZE` value in the stub sdkconfig.h */
+#define ESP_RISCV_APPTRACE_BUF_SIZE     16384
+#define ESP_RISCV_STACK_DATA_POOL_SIZE  (ESP_RISCV_APPTRACE_BUF_SIZE * 2)
+
 struct esp_riscv_apptrace_mem_block {
 	uint32_t start;	/* start address */
 	uint32_t sz;	/* size */

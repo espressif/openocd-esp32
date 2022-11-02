@@ -14,7 +14,6 @@
 #include "imp.h"
 #include "esp_riscv.h"
 #include "contrib/loaders/flash/esp/esp32c3/stub_flasher_image.h"
-#include "contrib/loaders/flash/esp/esp32c3/sdkconfig.h"
 
 #define ESP32C3_FLASH_SECTOR_SIZE 4096
 
@@ -38,7 +37,7 @@ static const struct esp_flasher_stub_config s_esp32c3_stub_cfg = {
 	.bss_sz = ESP32C3_STUB_BSS_SIZE,
 	.first_user_reg_param = ESP_RISCV_STUB_ARGS_FUNC_START,
 	.apptrace_ctrl_addr = ESP32C3_STUB_APPTRACE_CTRL_ADDR,
-	.stack_data_pool_sz = CONFIG_STUB_STACK_DATA_POOL_SIZE
+	.stack_data_pool_sz = ESP_RISCV_STACK_DATA_POOL_SIZE
 };
 
 static bool esp32c3_is_irom_address(target_addr_t addr)
