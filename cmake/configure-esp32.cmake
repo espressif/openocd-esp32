@@ -7,7 +7,7 @@ include("${CMAKE_CURRENT_LIST_DIR}/CheckTypeExists.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/CheckStruct.cmake")
 
 set(host "esp-idf")
-set(IS_ESPIDF 1) #TODO use same variable name in the configure.ac
+set(IS_ESPIDF 1)
 
 set(pkgdatadir "\"/usr/local/share/openocd\"")
 set(bindir "\"/usr/local/bin\"")

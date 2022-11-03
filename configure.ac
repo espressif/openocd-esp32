@@ -393,11 +393,6 @@ AC_ARG_ENABLE([build-gcov],
   [Enable building support with coverage]),
   [build_gcov=$enableval], [build_gcov=no])
 
-AC_ARG_ENABLE([build-on-esp32],
-  AS_HELP_STRING([--enable-build-on-esp32],
-  [Enable OpenOCD on esp support for the ESP devices]),
-  [build_on_esp32=$enableval], [build_on_esp32=no])
-
 AC_ARG_ENABLE([build-xsvf],
   AS_HELP_STRING([--disable-build-xsvf],
   [Disable xsvf support]),
@@ -505,6 +500,9 @@ AS_IF([test "x$is_darwin" = "xyes"], [
     AC_DEFINE([IS_DARWIN], [0], [0 if not building for Darwin.])
 ])
 
+AC_DEFINE([IS_ESPIDF], [0], [ESP-IDF platform only supported with CMake build system])
+AC_DEFINE([BUILD_ESP32_GPIO], [0], [ESP-IDF platform only supported with CMake build system])
+
 AS_IF([test "x$build_parport" = "xyes"], [
   build_bitbang=yes
   AC_DEFINE([BUILD_PARPORT], [1], [1 if you want parport.])
@@ -589,7 +587,6 @@ AS_IF([test "x$build_jtag_dpi" = "xyes"], [
 ], [
   AC_DEFINE([BUILD_JTAG_DPI], [0], [0 if you don't want JTAG DPI.])
 ])
-
 
 AS_IF([test "x$build_amtjtagaccel" = "xyes"], [
   AC_DEFINE([BUILD_AMTJTAGACCEL], [1], [1 if you want the Amontec JTAG-Accelerator driver.])
@@ -693,13 +690,6 @@ PKG_CHECK_MODULES([LIBUSB1], [libusb-1.0], [
   ], [
 	use_libusb1=no
 	AC_MSG_WARN([libusb-1.x not found, trying legacy libusb-0.1 as a fallback; consider installing libusb-1.x instead])
-])
-
-AS_IF([test "x$build_on_esp32" = "xyes"], [
-  AC_DEFINE([BUILD_ON_ESP32], [1], [1 if you want OpenOCD on esp support.])
-	use_libusb1=no
-], [
-  AC_DEFINE([BUILD_ON_ESP32], [0], [0 if you don't want OpenOCD on esp support.])
 ])
 
 AC_ARG_WITH([capstone],
@@ -854,7 +844,6 @@ AM_CONDITIONAL([BUILD_SVF], [test "x$build_svf" = "xyes"])
 AM_CONDITIONAL([BUILD_PLD], [test "x$build_pld" = "xyes"])
 
 AM_CONDITIONAL([BUILD_GCOV], [test "x$build_gcov" = "xyes"])
-AM_CONDITIONAL([BUILD_ON_ESP32], [test "x$build_on_esp32" = "xyes"])
 
 # Look for environ alternatives.  Possibility #1: is environ in unistd.h or stdlib.h?
 AC_MSG_CHECKING([for environ in unistd.h and stdlib.h])
