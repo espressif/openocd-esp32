@@ -135,7 +135,7 @@ COMMAND_HANDLER(esp32_gpio_handle_jtag_gpionums)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
-	command_print(CMD_CTX,
+	command_print(CMD,
 		"esp32_gpio GPIO config: tck = %d, tms = %d, tdi = %d, tdo = %d",
 		tck_gpio, tms_gpio, tdi_gpio, tdo_gpio);
 
@@ -147,7 +147,7 @@ COMMAND_HANDLER(esp32_gpio_handle_jtag_gpionum_tck)
 	if (CMD_ARGC == 1)
 		COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], tck_gpio);
 
-	command_print(CMD_CTX, "esp32_gpio GPIO config: tck = %d", tck_gpio);
+	command_print(CMD, "esp32_gpio GPIO config: tck = %d", tck_gpio);
 	return ERROR_OK;
 }
 
@@ -156,7 +156,7 @@ COMMAND_HANDLER(esp32_gpio_handle_jtag_gpionum_tms)
 	if (CMD_ARGC == 1)
 		COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], tms_gpio);
 
-	command_print(CMD_CTX, "esp32_gpio GPIO config: tms = %d", tms_gpio);
+	command_print(CMD, "esp32_gpio GPIO config: tms = %d", tms_gpio);
 	return ERROR_OK;
 }
 
@@ -165,7 +165,7 @@ COMMAND_HANDLER(esp32_gpio_handle_jtag_gpionum_tdo)
 	if (CMD_ARGC == 1)
 		COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], tdo_gpio);
 
-	command_print(CMD_CTX, "esp32_gpio GPIO config: tdo = %d", tdo_gpio);
+	command_print(CMD, "esp32_gpio GPIO config: tdo = %d", tdo_gpio);
 	return ERROR_OK;
 }
 
@@ -174,7 +174,7 @@ COMMAND_HANDLER(esp32_gpio_handle_jtag_gpionum_tdi)
 	if (CMD_ARGC == 1)
 		COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], tdi_gpio);
 
-	command_print(CMD_CTX, "esp32_gpio GPIO config: tdi = %d", tdi_gpio);
+	command_print(CMD, "esp32_gpio GPIO config: tdi = %d", tdi_gpio);
 	return ERROR_OK;
 }
 
@@ -183,7 +183,7 @@ COMMAND_HANDLER(esp32_gpio_handle_jtag_gpionum_srst)
 	if (CMD_ARGC == 1)
 		COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], srst_gpio);
 
-	command_print(CMD_CTX, "esp32_gpio GPIO config: srst = %d", srst_gpio);
+	command_print(CMD, "esp32_gpio GPIO config: srst = %d", srst_gpio);
 	return ERROR_OK;
 }
 
@@ -192,7 +192,7 @@ COMMAND_HANDLER(esp32_gpio_handle_jtag_gpionum_trst)
 	if (CMD_ARGC == 1)
 		COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], trst_gpio);
 
-	command_print(CMD_CTX, "esp32_gpio GPIO config: trst = %d", trst_gpio);
+	command_print(CMD, "esp32_gpio GPIO config: trst = %d", trst_gpio);
 	return ERROR_OK;
 }
 
