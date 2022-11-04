@@ -38,6 +38,7 @@ add_subdirectory(transport)
 add_subdirectory(target)
 add_subdirectory(jtag)
 add_subdirectory(flash)
+add_subdirectory(pld)
 
 # directory and library names can be different
 list(APPEND openocd_targets
@@ -49,6 +50,7 @@ list(APPEND openocd_targets
 	target
 	jtag
 	openocdflash
+	pld
 )
 
 if(BUILD_SVF)
@@ -58,10 +60,6 @@ endif()
 if(BUILD_XSVF)
 	list(APPEND openocd_targets xsvf)
 	add_subdirectory(xsvf)
-endif()
-if(BUILD_PLD)
-	list(APPEND openocd_targets pld)
-	add_subdirectory(pld)
 endif()
 
 foreach(target ${openocd_targets})

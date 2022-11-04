@@ -403,11 +403,6 @@ AC_ARG_ENABLE([build-svf],
   [Disable svf support]),
   [build_svf=$enableval], [build_svf=yes])
 
-AC_ARG_ENABLE([build-pld],
-  AS_HELP_STRING([--disable-build-pld],
-  [Disable pld support]),
-  [build_pld=$enableval], [build_pld=yes])
-
 AC_ARG_ENABLE([remote-bitbang],
   AS_HELP_STRING([--enable-remote-bitbang], [Enable building support for the Remote Bitbang jtag driver]),
   [build_remote_bitbang=$enableval], [build_remote_bitbang=no])
@@ -667,12 +662,6 @@ AS_IF([test "x$build_svf" = "xyes"], [
   AC_DEFINE([BUILD_SVF], [0], [0 if you don't want svf support.])
 ])
 
-AS_IF([test "x$build_pld" = "xyes"], [
-  AC_DEFINE([BUILD_PLD], [1], [1 if you want pld support.])
-], [
-  AC_DEFINE([BUILD_PLD], [0], [0 if you don't want pld support.])
-])
-
 AS_IF([test "x$build_gcov" = "xyes"], [
   AC_DEFINE([BUILD_GCOV], [1], [1 if you want OpenOCD source code coverage support.])
   CFLAGS+=" -fprofile-arcs -ftest-coverage"
@@ -841,7 +830,6 @@ AM_CONDITIONAL([BUILD_ESP_REMOTE], [test "x$build_esp_remote" = "xyes"])
 AM_CONDITIONAL([BUILD_ESP_COMPRESSION], [test "x$build_esp_compression" = "xyes"])
 AM_CONDITIONAL([BUILD_XSVF], [test "x$build_xsvf" = "xyes"])
 AM_CONDITIONAL([BUILD_SVF], [test "x$build_svf" = "xyes"])
-AM_CONDITIONAL([BUILD_PLD], [test "x$build_pld" = "xyes"])
 
 AM_CONDITIONAL([BUILD_GCOV], [test "x$build_gcov" = "xyes"])
 

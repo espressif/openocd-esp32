@@ -312,9 +312,7 @@ static struct command_context *setup_command_handler(Jim_Interp *interp)
 		&target_register_commands,
 		&flash_register_commands,
 		&nand_register_commands,
-#if BUILD_PLD
 		&pld_register_commands,
-#endif
 		&cti_register_commands,
 		&dap_register_commands,
 		&arm_tpiu_swo_register_commands,
