@@ -38,7 +38,6 @@ option(BUILD_GCOV "Build support for the coverage" OFF)
 option(BUILD_SANITIZERS "Build support with the sanitizer flags" OFF)
 option(BUILD_XSVF "Build support for the Xilinx Serial Vector Format" ON)
 option(BUILD_SVF "Build support for the Serial Vector Format" ON)
-option(BUILD_PLD "Build support for the Programmable Logic Devices" ON)
 
 # USB1 Adapters #TODO check default values
 option(BUILD_FTDI "MPSSE mode of FTDI based devices" ON)

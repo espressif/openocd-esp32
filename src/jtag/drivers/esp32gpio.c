@@ -49,7 +49,6 @@ static int esp32_gpio_quit(void);
 static struct bitbang_interface esp32_gpio_bitbang = {
 	.read = esp32_gpio_read,
 	.write = esp32_gpio_write,
-	/* .reset = esp32_gpio_reset, */
 	.swdio_read = NULL,
 	.swdio_drive = NULL,
 	.blink = NULL
@@ -202,49 +201,49 @@ static const struct command_registration esp32_gpio_command_handlers[] = {
 		.handler = &esp32_gpio_handle_jtag_gpionums,
 		.mode = COMMAND_CONFIG,
 		.help = "gpio numbers for tck, tms, tdi, tdo. (in that order)",
-		.usage = "(tck tms tdi tdo)* ",
+		.usage = "[tck tms tdi tdo]",
 	},
 	{
 		.name = "esp32_gpio_tck_num",
 		.handler = &esp32_gpio_handle_jtag_gpionum_tck,
 		.mode = COMMAND_CONFIG,
 		.help = "gpio number for tck.",
-		.usage = "(tck tms tdi tdo)* ",
+		.usage = "[tck]",
 	},
 	{
 		.name = "esp32_gpio_tms_num",
 		.handler = &esp32_gpio_handle_jtag_gpionum_tms,
 		.mode = COMMAND_CONFIG,
 		.help = "gpio number for tms.",
-		.usage = "(tck tms tdi tdo)* ",
+		.usage = "[tms]",
 	},
 	{
 		.name = "esp32_gpio_tdo_num",
 		.handler = &esp32_gpio_handle_jtag_gpionum_tdo,
 		.mode = COMMAND_CONFIG,
 		.help = "gpio number for tdo.",
-		.usage = "(tck tms tdi tdo)* ",
+		.usage = "[tdo]",
 	},
 	{
 		.name = "esp32_gpio_tdi_num",
 		.handler = &esp32_gpio_handle_jtag_gpionum_tdi,
 		.mode = COMMAND_CONFIG,
 		.help = "gpio number for tdi.",
-		.usage = "(tck tms tdi tdo)* ",
+		.usage = "[tdi]",
 	},
 	{
 		.name = "esp32_gpio_srst_num",
 		.handler = &esp32_gpio_handle_jtag_gpionum_srst,
 		.mode = COMMAND_CONFIG,
 		.help = "gpio number for srst.",
-		.usage = "(tck tms tdi tdo)* ",
+		.usage = "[srst]",
 	},
 	{
 		.name = "esp32_gpio_trst_num",
 		.handler = &esp32_gpio_handle_jtag_gpionum_trst,
 		.mode = COMMAND_CONFIG,
 		.help = "gpio number for trst.",
-		.usage = "(tck tms tdi tdo)* ",
+		.usage = "[trst]",
 	},
 
 	COMMAND_REGISTRATION_DONE
@@ -267,6 +266,7 @@ struct adapter_driver esp32_gpio_interface = {
 	.commands = esp32_gpio_command_handlers,
 	.init = esp32_gpio_init,
 	.quit = esp32_gpio_quit,
+	.reset = esp32_gpio_reset,
 	.jtag_ops = &esp32_gpio_jtag_interface,
 };
 

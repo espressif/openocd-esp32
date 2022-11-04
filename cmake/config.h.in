@@ -94,9 +94,6 @@
 /* 0 if you don't want svf support */
 #cmakedefine01 BUILD_SVF
 
-/* 0 if you don't want pld support */
-#cmakedefine01 BUILD_PLD
-
 /* 0 if you don't want OpenOCD source code coverage support */
 #cmakedefine01 BUILD_GCOV
 

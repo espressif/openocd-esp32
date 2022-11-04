@@ -50,6 +50,7 @@ MINGWLDADD =
 endif
 
 %C%_libopenocd_la_LIBADD = \
+	%D%/pld/libpld.la \
 	%D%/jtag/libjtag.la \
 	%D%/transport/libtransport.la \
 	%D%/flash/libflash.la \
@@ -64,9 +65,6 @@ if BUILD_XSVF
 endif
 if BUILD_SVF
 %C%_libopenocd_la_LIBADD +=	%D%/svf/libsvf.la
-endif
-if BUILD_PLD
-%C%_libopenocd_la_LIBADD +=	%D%/pld/libpld.la
 endif
 
 BIN2C = $(srcdir)/%D%/helper/bin2char.sh
@@ -95,13 +93,11 @@ include %D%/target/Makefile.am
 include %D%/rtos/Makefile.am
 include %D%/server/Makefile.am
 include %D%/flash/Makefile.am
+include %D%/pld/Makefile.am
 include %D%/rtt/Makefile.am
 if BUILD_XSVF
 include %D%/xsvf/Makefile.am
 endif
 if BUILD_SVF
 include %D%/svf/Makefile.am
-endif
-if BUILD_PLD
-include %D%/pld/Makefile.am
 endif
