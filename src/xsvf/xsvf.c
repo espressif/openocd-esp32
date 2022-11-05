@@ -78,6 +78,13 @@ LSDR 1  TDI  (0)
 TDO  (1);
 */
 
+#if IS_ESPIDF
+/* conflict with esp-idf/components/xtensa/esp32s3/include/xtensa/config/specreg.h */
+#ifdef LCOUNT
+#undef LCOUNT
+#endif
+#endif
+
 #define LCOUNT				0x19
 #define LDELAY				0x1A
 #define LSDR				0x1B

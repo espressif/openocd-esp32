@@ -88,12 +88,6 @@
 /* 0 if you don't want ESP32 gpio driver support */
 #cmakedefine01 BUILD_ESP32_GPIO
 
-/* 0 if you don't want xsvf support */
-#cmakedefine01 BUILD_XSVF
-
-/* 0 if you don't want svf support */
-#cmakedefine01 BUILD_SVF
-
 /* 0 if you don't want OpenOCD source code coverage support */
 #cmakedefine01 BUILD_GCOV
 

@@ -36,8 +36,6 @@ option(BUILD_ESP_REMOTE "Build support for the ESP remote protocol over TCP or U
 option(BUILD_ESP_COMPRESSION "Build support for the ESP flasher image compression" ON)
 option(BUILD_GCOV "Build support for the coverage" OFF)
 option(BUILD_SANITIZERS "Build support with the sanitizer flags" OFF)
-option(BUILD_XSVF "Build support for the Xilinx Serial Vector Format" ON)
-option(BUILD_SVF "Build support for the Serial Vector Format" ON)
 
 # USB1 Adapters #TODO check default values
 option(BUILD_FTDI "MPSSE mode of FTDI based devices" ON)
