@@ -39,6 +39,8 @@ add_subdirectory(target)
 add_subdirectory(jtag)
 add_subdirectory(flash)
 add_subdirectory(pld)
+add_subdirectory(svf)
+add_subdirectory(xsvf)
 
 # directory and library names can be different
 list(APPEND openocd_targets
@@ -51,16 +53,9 @@ list(APPEND openocd_targets
 	jtag
 	openocdflash
 	pld
+	svf
+	xsvf
 )
-
-if(BUILD_SVF)
-	list(APPEND openocd_targets svf)
-	add_subdirectory(svf)
-endif()
-if(BUILD_XSVF)
-	list(APPEND openocd_targets xsvf)
-	add_subdirectory(xsvf)
-endif()
 
 foreach(target ${openocd_targets})
 	target_compile_options(${target} PUBLIC ${OPENOCD_COMMON_COMPILER_FLAGS})
