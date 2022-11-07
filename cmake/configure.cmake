@@ -19,8 +19,8 @@ elseif(${host} MATCHES "darwin*")
 endif()
 
 if(NOT ${host_os} MATCHES "Windows")
-    set(pkgdatadir "\"/usr/local/share/openocd\"")
-    set(bindir "\"/usr/local/bin\"")
+    set(pkgdatadir "/usr/local/share/openocd")
+    set(bindir "/usr/local/bin")
 else()
     # TODO
 endif()
@@ -355,7 +355,7 @@ set(CONFIG_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/config.h)
 set(OPENOCD_COMMON_COMPILER_FLAGS
     -DHAVE_CONFIG_H
     ${gcc_warnings}
-    -DPKGDATADIR=${pkgdatadir} -DBINDIR=${bindir}
+    -DPKGDATADIR="${pkgdatadir}" -DBINDIR="${bindir}"
     -std=gnu99 -g -O2
 )
 
