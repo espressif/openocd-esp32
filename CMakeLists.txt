@@ -15,11 +15,14 @@ add_subdirectory(src)
 target_include_directories(openocd PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(openocd PRIVATE openocd_main libjimtcl)
 
-#TODO test if distro package works well.
-install(TARGETS openocd DESTINATION bin)
-install(DIRECTORY tcl/ DESTINATION share/openocd/scripts)
-install(DIRECTORY contrib DESTINATION share/openocd)
-install(FILES jtag/drivers/OpenULINK/ulink_firmware.hex DESTINATION share/openocd/OpenULINK)
+install(TARGETS openocd DESTINATION ${bindir})
+install(DIRECTORY tcl/ DESTINATION ${pkgdatadir}/scripts)
+install(FILES contrib/60-openocd.rules DESTINATION ${pkgdatadir}/contrib)
+install(DIRECTORY contrib/libdcc DESTINATION ${pkgdatadir}/contrib)
+get_property(ulink_firmware TARGET ocdjtagdrivers PROPERTY ULINK_FIRMWARE)
+if(BUILD_JLINK)
+	install(FILES ${ulink_firmware} DESTINATION ${pkgdatadir}/OpenULINK)
+endif()
 
 #TODO can be added to the ADDITIONAL_CLEAN_FILES properties
 if(BUILD_GCOV)

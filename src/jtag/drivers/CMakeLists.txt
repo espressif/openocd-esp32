@@ -130,8 +130,8 @@ endif()
 if(BUILD_ULINK)
     target_sources(ocdjtagdrivers PRIVATE ulink.c)
     target_link_libraries(ocdjtagdrivers PRIVATE m)
-    #ulinkdir = $(pkgdatadir)/OpenULINK
-    #dist_ulink_DATA = $(ULINK_FIRMWARE)/ulink_firmware.hex
+    set_property(TARGET ocdjtagdrivers PROPERTY ULINK_FIRMWARE ${CMAKE_CURRENT_LIST_DIR}/OpenULINK/ulink_firmware.hex)
+    #set(ULINK_FIRMWARE ${CMAKE_CURRENT_LIST_DIR}/OpenULINK/ulink_firmware.hex PARENT_SCOPE)
 endif()
 
 if(BUILD_VSLLINK)
