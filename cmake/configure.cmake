@@ -6,14 +6,14 @@ include(CheckTypeSize)
 include("${CMAKE_CURRENT_LIST_DIR}/CheckTypeExists.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/CheckStruct.cmake")
 
+set(IS_ESPIDF 0)
 if(${host} MATCHES "(-cygwin*)")
     set(IS_WIN32 1)
     set(IS_CYGWIN 1)
-    # TODO more settings..
-elseif(${host} MATCHES "(-mingw* | -msys*)")
+elseif(${host} MATCHES "(-mingw*)")
     set(IS_WIN32 1)
     set(IS_MINGW 1)
-    # TODO more settings..
+    set(HOST_CPPFLAGS -D__USE_MINGW_ANSI_STDIO)
 elseif(${host} MATCHES "darwin*")
     set(IS_DARWIN 1)
 endif()
@@ -33,9 +33,17 @@ endif()
 set(NEED_ENVIRON_EXTERN 1)
 
 # Search Libs #
+# TODO Does cmake linking the libraries to check the function?
 check_library_exists(ioperm ioperm "" HAVE_IOPERM)
 check_library_exists(dl dlopen "" HAVE_DLOPEN)
 check_library_exists(util openpty "" HAVE_UTIL)
+
+# TODO check_library_exists() seems not working as expected
+if(IS_MINGW)
+    set(HAVE_IOPERM 0)
+    set(HAVE_UTIL 0)
+    set(HAVE_DLOPEN 0)
+endif()
 
 # Check Headers #
 check_include_files(limits.h STDC_HEADERS)
@@ -197,7 +205,7 @@ if(IS_MINGW)
         set(PARPORT_USE_GIVEIO ON CACHE BOOL "" FORCE)
     endif()
     if(BUILD_BUS_PIRATE)
-        message(SEND_ERROR "buspirate currently not supported by MinGW32 hosts")
+        message(WARNING "buspirate currently not supported by MinGW32 hosts")
         set(BUILD_BUS_PIRATE OFF CACHE BOOL "" FORCE)
     endif()
 elseif(IS_CYGWIN)
@@ -265,11 +273,12 @@ if(BUILD_SYSFSGPIO)
 endif()
 
 if(use_internal_jimtcl)
-
+#TODO test if jimtcl submodule is downloaded.
+#TODO add config options "--disable-install-jim --with-ext=json"
 endif()
 
 if(use_internal_jimtcl_maintainer)
-
+#TODO add config option "--maintainer"
 endif()
 
 if(NOT ${host_os} MATCHES "(linux*)")
@@ -349,10 +358,15 @@ if(BUILD_ESP_USB_JTAG)
     set(BUILD_BITQ ON CACHE BOOL "" FORCE)
 endif()
 
+# jim-config.h is needed from openocd targets.
+# This is a workaround to generate jim-config.h before any openocd target builds.
+# FIXME: configure or build jimtcl before openocd build
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/jim-config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/jimtcl/jim-config.h)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/config.h)
 set(CONFIG_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/config.h)
 
 set(OPENOCD_COMMON_COMPILER_FLAGS
+    ${HOST_CPPFLAGS}
     -DHAVE_CONFIG_H
     ${gcc_warnings}
     -DPKGDATADIR="${pkgdatadir}" -DBINDIR="${bindir}"

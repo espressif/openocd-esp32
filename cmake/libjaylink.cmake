@@ -7,15 +7,22 @@ set(LIBJLINK_INCLUDES ${LIBJLINK_BIN}/include)
 
 file(MAKE_DIRECTORY ${LIBJLINK_INCLUDES})
 
+if(${CMAKE_CROSSCOMPILING})
+set(CONF_HOST --host=${host})
+endif()
+
 ExternalProject_Add(
     libjaylink_project
     PREFIX ${LIBJLINK_BIN}
     SOURCE_DIR ${LIBJLINK_DIR}
-    CONFIGURE_COMMAND ${LIBJLINK_DIR}/autogen.sh && ${LIBJLINK_DIR}/configure --prefix=${LIBJLINK_BIN} --disable-shared
+    CONFIGURE_COMMAND ${LIBJLINK_DIR}/autogen.sh && ${LIBJLINK_DIR}/configure ${CONF_HOST} --prefix=${LIBJLINK_BIN} --disable-shared
     BUILD_COMMAND make
     BUILD_IN_SOURCE 1
-    USES_TERMINAL_BUILD 1
-    INSTALL_COMMAND make install
+    # These two options are set so that Ninja immediately outputs
+    # the subproject build to the terminal. Otherwise it looks like the
+    # build process "hangs" for too long until jimtcl build is complete.
+    USES_TERMINAL_CONFIGURE TRUE
+    USES_TERMINAL_BUILD TRUE
     BUILD_BYPRODUCTS ${LIBJLINK_STATIC_LIB}
 )
 

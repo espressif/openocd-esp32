@@ -101,6 +101,10 @@ list(APPEND gcc_warnings
     "-Wno-format"
 )
 
+# jim-config.h is needed from openocd targets.
+# This is a workaround to generate jim-config.h before any openocd target builds.
+# FIXME: configure or build jimtcl before openocd build
+configure_file(${OPENOCD_DIR}/cmake/jim-config.h.in ${JIMTCL_DIR}/jim-config.h)
 configure_file(${OPENOCD_DIR}/cmake/config.h.in ${OPENOCD_DIR}/config.h)
 set(CONFIG_HEADER ${OPENOCD_DIR}/config.h)
 
