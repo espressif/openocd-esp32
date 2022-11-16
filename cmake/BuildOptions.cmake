@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-option(doxygen_as_html "Build Doxygen manual as HTML" ON)
+option(doxygen_as_html "Build Doxygen manual as HTML" OFF)
 option(doxygen_as_pdf "Build Doxygen manual as PDF" OFF)
 option(GCC_WARNINGS "Default compiler warnings" ON)
 option(GCC_WEXTRA "Some extra warning flags that are not enabled by -Wall" ON)
