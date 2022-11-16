@@ -279,3 +279,56 @@ scan-build:
     - ${ARCHIVE_TOOL} scan_build.${ARCHIVE_EXT} build-scanbuild/out
     - mkdir -p ${SCAN_BUILD_OUTPUT}
     - mv scan_build.${ARCHIVE_EXT} ${SCAN_BUILD_OUTPUT}
+
+build_linux_cmake:
+  stage: build_openocd
+  image: $CI_DOCKER_REGISTRY/openocd-ci-env:1
+  tags:
+    - build
+  allow_failure: true
+  needs:
+    - job: style_check
+  variables:
+    OPENOCD_CMAKE_CONFIGURE_OPTS: ""
+  script:
+    - !reference [.add_gitlab_key, script]
+    - !reference [.submodules_mirror_update, script]
+    - mkdir build && cd build
+    - cmake .. -G Ninja
+    - ninja
+
+# TODO: enable after updating CMake version in the docker image
+.build_linux_armhf_cmake:
+  stage: build_openocd
+  image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross:3
+  tags:
+    - build
+  allow_failure: true
+  needs:
+    - job: style_check
+  variables:
+    OPENOCD_CMAKE_CONFIGURE_OPTS: ""
+  script:
+    - !reference [.add_gitlab_key, script]
+    - !reference [.submodules_mirror_update, script]
+    - mkdir build && cd build
+    - cmake .. -DCMAKE_TOOLCHAIN_FILE=cmake/cross/linux-armhf.cmake
+    - make
+
+# TODO: enable after updating CMake version in the docker image
+.build_windows_cmake:
+  stage: build_openocd
+  image: $CI_DOCKER_REGISTRY/esp32-toolchain-win-cross
+  tags:
+    - build
+  allow_failure: true
+  needs:
+    - job: style_check
+  variables:
+    OPENOCD_CMAKE_CONFIGURE_OPTS: ""
+  script:
+    - !reference [.add_gitlab_key, script]
+    - !reference [.submodules_mirror_update, script]
+    - mkdir build && cd build
+    - cmake .. -DCMAKE_TOOLCHAIN_FILE=cmake/cross/mingw32.cmake
+    - make
