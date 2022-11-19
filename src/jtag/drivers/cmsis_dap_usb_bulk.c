@@ -599,53 +599,39 @@ static int cmsis_dap_usb_alloc(struct cmsis_dap *dap, unsigned int pkt_sz)
 	dap->command = dap->packet_buffer;
 	dap->response = dap->packet_buffer;
 
-	struct cmsis_dap_backend_data *bdata = dap->bdata;
 	for (unsigned int i = 0; i < MAX_PENDING_REQUESTS; i++) {
-		bdata->command_transfers[i].buffer =
-			oocd_libusb_dev_mem_alloc(bdata->dev_handle, pkt_sz);
-
-		bdata->response_transfers[i].buffer =
-			oocd_libusb_dev_mem_alloc(bdata->dev_handle, pkt_sz);
-
-		if (!bdata->command_transfers[i].buffer
-			|| !bdata->response_transfers[i].buffer) {
-			LOG_ERROR("unable to allocate CMSIS-DAP pending packet buffer");
+		dap->bdata->command_transfers[i].buffer =
+			libusb_dev_mem_alloc(dap->bdata->dev_handle, pkt_sz);
+		if (!dap->bdata->command_transfers[i].buffer) {
+			LOG_ERROR("unable to allocate CMSIS-DAP packet buffer");
+			return ERROR_FAIL;
+		}
+		dap->bdata->response_transfers[i].buffer =
+			libusb_dev_mem_alloc(dap->bdata->dev_handle, pkt_sz);
+		if (!dap->bdata->response_transfers[i].buffer) {
+			LOG_ERROR("unable to allocate CMSIS-DAP packet buffer");
 			return ERROR_FAIL;
 		}
 	}
+
 	return ERROR_OK;
 }
 
 static void cmsis_dap_usb_free(struct cmsis_dap *dap)
 {
-	struct cmsis_dap_backend_data *bdata = dap->bdata;
-
 	for (unsigned int i = 0; i < MAX_PENDING_REQUESTS; i++) {
-		oocd_libusb_dev_mem_free(bdata->dev_handle,
-			bdata->command_transfers[i].buffer, dap->packet_size);
-		oocd_libusb_dev_mem_free(bdata->dev_handle,
-			bdata->response_transfers[i].buffer, dap->packet_size);
-		bdata->command_transfers[i].buffer = NULL;
-		bdata->response_transfers[i].buffer = NULL;
+		libusb_dev_mem_free(dap->bdata->dev_handle,
+			dap->bdata->command_transfers[i].buffer, dap->packet_size);
+		dap->bdata->command_transfers[i].buffer = NULL;
+		libusb_dev_mem_free(dap->bdata->dev_handle,
+			dap->bdata->response_transfers[i].buffer, dap->packet_size);
+		dap->bdata->response_transfers[i].buffer = NULL;
 	}
 
 	free(dap->packet_buffer);
 	dap->packet_buffer = NULL;
 	dap->command = NULL;
 	dap->response = NULL;
-}
-
-static void cmsis_dap_usb_cancel_all(struct cmsis_dap *dap)
-{
-	for (unsigned int i = 0; i < MAX_PENDING_REQUESTS; i++) {
-		if (dap->bdata->command_transfers[i].status == CMSIS_DAP_TRANSFER_PENDING)
-			libusb_cancel_transfer(dap->bdata->command_transfers[i].transfer);
-		if (dap->bdata->response_transfers[i].status == CMSIS_DAP_TRANSFER_PENDING)
-			libusb_cancel_transfer(dap->bdata->response_transfers[i].transfer);
-
-		dap->bdata->command_transfers[i].status = CMSIS_DAP_TRANSFER_IDLE;
-		dap->bdata->response_transfers[i].status = CMSIS_DAP_TRANSFER_IDLE;
-	}
 }
 
 COMMAND_HANDLER(cmsis_dap_handle_usb_interface_command)
@@ -677,5 +663,4 @@ const struct cmsis_dap_backend cmsis_dap_usb_backend = {
 	.write = cmsis_dap_usb_write,
 	.packet_buffer_alloc = cmsis_dap_usb_alloc,
 	.packet_buffer_free = cmsis_dap_usb_free,
-	.cancel_all = cmsis_dap_usb_cancel_all,
 };
