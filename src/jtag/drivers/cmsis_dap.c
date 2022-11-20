@@ -776,16 +776,6 @@ static void cmsis_dap_swd_cancel_transfers(struct cmsis_dap *dap)
 	cmsis_dap_swd_discard_all_pending(dap);
 }
 
-static void cmsis_dap_swd_discard_all_pending(struct cmsis_dap *dap)
-{
-	for (unsigned int i = 0; i < MAX_PENDING_REQUESTS; i++)
-		dap->pending_fifo[i].transfer_count = 0;
-
-	dap->pending_fifo_put_idx = 0;
-	dap->pending_fifo_get_idx = 0;
-	dap->pending_fifo_block_count = 0;
-}
-
 static void cmsis_dap_swd_write_from_queue(struct cmsis_dap *dap)
 {
 	uint8_t *command = dap->command;
