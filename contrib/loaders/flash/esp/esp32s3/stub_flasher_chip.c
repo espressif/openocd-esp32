@@ -33,8 +33,8 @@
 #include "stub_flasher_int.h"
 #include "stub_flasher_chip.h"
 
-#define ESP_FLASH_CHIP_MXIC_OCT     0xC2/*Supported Octal Flash chip vendor id*/
-#define SPI_BUFF_BYTE_WRITE_NUM         32
+#define ESP_FLASH_CHIP_MXIC_OCT     0xC2	/* Supported Octal Flash chip vendor id */
+#define SPI_BUFF_BYTE_WRITE_NUM     32
 #define SPI_BUFF_BYTE_READ_NUM      16
 
 #define EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT          (1 << 4)
@@ -46,7 +46,7 @@
 #define STUB_MMU_DROM_PAGES_START       SOC_MMU_DROM0_PAGES_START
 #define STUB_MMU_DROM_PAGES_END         SOC_MMU_DROM0_PAGES_END
 #define STUB_MMU_TABLE                  SOC_MMU_DPORT_PRO_FLASH_MMU_TABLE	/* 0x600c5000 */
-#define STUB_MMU_INVALID_ENTRY_VAL      SOC_MMU_INVALID_ENTRY_VAL	/* 0x100 */
+#define STUB_MMU_INVALID_ENTRY_VAL      SOC_MMU_INVALID_ENTRY_VAL	/* 0x4000 */
 
 /* SPI Flash map request data */
 struct spiflash_map_req {
@@ -302,7 +302,7 @@ void stub_uart_console_configure()
 	uint32_t clock = ets_get_apb_freq();
 	ets_update_cpu_frequency(clock / 1000000);
 
-	Uart_Init(ets_efuse_get_uart_print_channel(), UART_CLK_FREQ_ROM);
+	Uart_Init(0, UART_CLK_FREQ_ROM);
 	/* install to print later
 	 * Non-Flash Boot can print
 	 * Flash Boot can print when RTC_CNTL_STORE4_REG bit0 is 0 (can be 1 after deep sleep, software reset) and printf boot.

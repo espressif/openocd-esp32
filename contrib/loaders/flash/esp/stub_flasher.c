@@ -682,6 +682,10 @@ static uint32_t stub_flash_get_size(void)
 	case 0x16: size = 4 * 1024 * 1024; break;
 	case 0x17: size = 8 * 1024 * 1024; break;
 	case 0x18: size = 16 * 1024 * 1024; break;
+	case 0x19: size = 32 * 1024 * 1024; break;
+	case 0x20: size = 64 * 1024 * 1024; break;
+	case 0x21: size = 128 * 1024 * 1024; break;
+	case 0x22: size = 256 * 1024 * 1024; break;
 	case 0x39: size = 32 * 1024 * 1024; break;
 	default:
 		size = 0;
