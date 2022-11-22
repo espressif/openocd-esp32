@@ -289,7 +289,7 @@ void stub_uart_console_configure()
 	uint32_t clock = ets_get_apb_freq();
 	ets_update_cpu_frequency(clock / 1000000);
 
-	Uart_Init(ets_efuse_get_uart_print_channel(), UART_CLK_FREQ_ROM);
+	Uart_Init(0, UART_CLK_FREQ_ROM);
 	/* install to print later
 	 * Non-Flash Boot can print
 	 * Flash Boot can print when RTC_CNTL_STORE4_REG bit0 is 0 (can be 1 after deep sleep, software reset) and printf boot.
