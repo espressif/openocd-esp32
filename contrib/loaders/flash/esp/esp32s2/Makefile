@@ -40,13 +40,13 @@ SRCS := $(IDF_PATH)/components/app_trace/port/$(STUB_ARCH)/port.c \
 	$(IDF_PATH)/components/esp_hw_support/port/esp32s2/rtc_clk.c \
 	$(IDF_PATH)/components/esp_hw_support/port/esp32s2/rtc_clk_init.c \
 	$(IDF_PATH)/components/esp_hw_support/port/esp32s2/rtc_time.c \
-	$(IDF_PATH)/components/esp_hw_support/port/esp32s2/regi2c_ctrl.c
+	$(IDF_PATH)/components/esp_rom/patches/esp_rom_regi2c.c
 
 CFLAGS := -mlongcalls -mtext-section-literals
 
 INCLUDES := -I$(IDF_PATH)/components/esp32s2/include -I$(IDF_PATH)/components/soc/esp32s2/include \
 	-I$(IDF_PATH)/components/esp_rom/include/esp32s2 -I$(IDF_PATH)/components/xtensa/esp32s2/include \
-	-I$(IDF_PATH)/components/hal/esp32s2/include \
+	-I$(IDF_PATH)/components/hal/esp32s2/include -I$(IDF_PATH)/components/esp_rom/esp32s2 \
 	-I$(IDF_PATH)/components/esp_hw_support/port/esp32s2/private_include \
 	-I$(IDF_PATH)/components/esp_hw_support/port/esp32s2 \
 
