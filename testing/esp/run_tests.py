@@ -419,7 +419,7 @@ if __name__ == '__main__':
                         help='Do not load test app binaries',
                         action='store_true', default=False)
     parser.add_argument('--retry', '-r',
-                        help='Try to re0run failed tests',
+                        help='Try to rerun failed tests',
                         action='store_true', default=False)
     parser.add_argument('--stats-file', '-k',
                         help='Path to log file to store profiler stats. Use "stdout" to print.',

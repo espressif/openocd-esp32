@@ -744,6 +744,9 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	wr_state.stub_wargs.start_addr = esp_info->hw_flash_base + offset;
 	wr_state.stub_wargs.down_buf_addr = 0;
 	wr_state.stub_wargs.down_buf_size = 0;
+	wr_state.stub_wargs.options = ESP_STUB_FLASH_WR_RAW;
+	if (esp_info->encryption)
+		wr_state.stub_wargs.options |= ESP_STUB_FLASH_WR_ENCRYPTED;
 
 	struct duration wr_time;
 	duration_start(&wr_time);
@@ -1422,6 +1425,39 @@ COMMAND_HANDLER(esp_algo_flash_cmd_compression)
 		get_current_target(CMD_CTX));
 }
 
+static int esp_algo_flash_set_encryption(struct target *target,
+	char *bank_name_suffix,
+	int encryption)
+{
+	struct flash_bank *bank;
+	int retval = esp_algo_target_to_flash_bank(target, &bank, bank_name_suffix, true);
+	if (retval != ERROR_OK)
+		return ERROR_FAIL;
+
+	struct esp_flash_bank *esp_info = (struct esp_flash_bank *)bank->driver_priv;
+	esp_info->encryption = encryption;
+	return ERROR_OK;
+}
+
+COMMAND_HELPER(esp_algo_flash_cmd_set_encryption, struct target *target)
+{
+	if (CMD_ARGC != 1) {
+		command_print(CMD, "Encryption not specified!");
+		return ERROR_FAIL;
+	}
+
+	bool encryption = false;
+	COMMAND_PARSE_ON_OFF(CMD_ARGV[0], encryption);
+
+	return esp_algo_flash_set_encryption(target, "flash", encryption);
+}
+
+COMMAND_HANDLER(esp_algo_flash_cmd_encryption)
+{
+	return CALL_COMMAND_HANDLER(esp_algo_flash_cmd_set_encryption,
+		get_current_target(CMD_CTX));
+}
+
 static int esp_flash_verify_bank_hash(struct target *target,
 	uint32_t offset,
 	const char *file_name)
@@ -1599,6 +1635,14 @@ const struct command_registration esp_flash_exec_flash_command_handlers[] = {
 		.help =
 			"Set cpu clock freq to the max level. Use 'off' to restore the clock speed",
 		.usage = "['on'|'off']",
+	},
+	{
+		.name = "encryption",
+		.handler = esp_algo_flash_cmd_encryption,
+		.mode = COMMAND_ANY,
+		.help =
+			"Set if binary encryption needs to be done before writing to flash",
+		.usage = "['yes'|'no']",
 	},
 	COMMAND_REGISTRATION_DONE
 };

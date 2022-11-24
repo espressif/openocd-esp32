@@ -600,4 +600,3 @@ class DebuggerGenericTestAppTestsSingleEncrypted(DebuggerGenericTestAppTests):
         self.test_app_cfg.build_dir = os.path.join('builds', 'single_core_encrypted')
         self.test_app_cfg.pt_off = 0x10000
         self.test_app_cfg.app_off = 0x20000
-

@@ -65,11 +65,16 @@ struct esp_flash_stub_flash_write_args {
 	uint32_t down_buf_size;
 	uint32_t total_size;		/* uncompressed file size */
 	uint32_t extra_stack_addr;	/* extra stack for compression */
+	uint32_t options;	/* Write options. e.g. encrypted */
 };
 
 /* exported to let openocd know for stack allocation */
 #define ESP_STUB_UNZIP_BUFF_SIZE         32768
 #define ESP_STUB_IFLATOR_SIZE            11000
 #define ESP_STUB_RDWR_BUFF_SIZE          32768
+
+/* stub runtime options */
+#define ESP_STUB_FLASH_WR_RAW            0x0
+#define ESP_STUB_FLASH_WR_ENCRYPTED      0x1
 
 #endif	/* ESP_FLASHER_STUB_H */

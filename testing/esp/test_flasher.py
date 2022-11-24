@@ -46,7 +46,7 @@ class FlasherTestsImpl:
             4) Read written data to another file.
             5) Compare files.
         """
-        self.program_big_binary('')
+        self.program_big_binary('encrypt' if self.ENCRYPTED else '')
     
     def test_big_binary_compressed(self):
         """
@@ -57,7 +57,7 @@ class FlasherTestsImpl:
             4) Read written data to another file.
             5) Compare files.
         """
-        self.program_big_binary('compress')
+        self.program_big_binary('encrypt compress' if self.ENCRYPTED else '')
     
     def test_cache_handling(self):
         """

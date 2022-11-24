@@ -84,6 +84,8 @@ struct esp_flash_bank {
 	int compression;
 	/* Stub cpu frequency before boost */
 	int old_cpu_freq;
+	/* Upload encrypted or clear image */
+	int encryption;
 };
 
 struct esp_flash_breakpoint {
@@ -123,6 +125,7 @@ extern const struct command_registration esp_flash_exec_flash_command_handlers[]
 
 COMMAND_HELPER(esp_algo_flash_cmd_appimage_flashoff_do, struct target *target);
 COMMAND_HELPER(esp_algo_flash_cmd_set_compression, struct target *target);
+COMMAND_HELPER(esp_algo_flash_cmd_set_encryption, struct target *target);
 COMMAND_HELPER(esp_algo_flash_parse_cmd_verify_bank_hash, struct target *target);
 COMMAND_HELPER(esp_algo_flash_parse_cmd_clock_boost, struct target *target);
 

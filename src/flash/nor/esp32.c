@@ -130,6 +130,24 @@ COMMAND_HANDLER(esp32_cmd_compression)
 	return CALL_COMMAND_HANDLER(esp_algo_flash_cmd_set_compression, target);
 }
 
+COMMAND_HANDLER(esp32_cmd_encryption)
+{
+	struct target *target = get_current_target(CMD_CTX);
+
+	if (target->smp) {
+		struct target_list *head;
+		struct target *curr;
+		foreach_smp_target(head, target->smp_targets) {
+			curr = head->target;
+			int ret = CALL_COMMAND_HANDLER(esp_algo_flash_cmd_set_encryption, curr);
+			if (ret != ERROR_OK)
+				return ret;
+		}
+		return ERROR_OK;
+	}
+	return CALL_COMMAND_HANDLER(esp_algo_flash_cmd_set_encryption, target);
+}
+
 COMMAND_HANDLER(esp32_cmd_verify_bank_hash)
 {
 	return CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_verify_bank_hash,
@@ -175,6 +193,14 @@ const struct command_registration esp32_flash_command_handlers[] = {
 		.help =
 			"Set cpu clock freq to the max level. Use 'off' to restore the clock speed",
 		.usage = "['on'|'off']",
+	},
+	{
+		.name = "encryption",
+		.handler = esp32_cmd_encryption,
+		.mode = COMMAND_ANY,
+		.help =
+			"Set if binary encryption needs to be handled on chip before writing to flash",
+		.usage = "['yes'|'no']",
 	},
 	COMMAND_REGISTRATION_DONE
 };
