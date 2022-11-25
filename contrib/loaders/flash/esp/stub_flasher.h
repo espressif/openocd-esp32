@@ -75,6 +75,6 @@ struct esp_flash_stub_flash_write_args {
 
 /* stub runtime options */
 #define ESP_STUB_FLASH_WR_RAW            0x0
-#define ESP_STUB_FLASH_WR_ENCRYPTED      0x1
+#define ESP_STUB_FLASH_ENCRYPT_BINARY    0x1
 
 #endif	/* ESP_FLASHER_STUB_H */

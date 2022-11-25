@@ -57,7 +57,7 @@ class FlasherTestsImpl:
             4) Read written data to another file.
             5) Compare files.
         """
-        self.program_big_binary('encrypt compress' if self.ENCRYPTED else '')
+        self.program_big_binary('encrypt compress' if self.ENCRYPTED else 'compress')
     
     def test_cache_handling(self):
         """
@@ -94,6 +94,11 @@ class FlasherTestsImpl:
             fbin.write(os.urandom(1024))
             fbin.close()
         
+        encrypted = "true" if self.ENCRYPTED else "false"
+        obj["partition_table"]["encrypted"] = encrypted
+        obj["bootloader"]["encrypted"] = encrypted
+        obj["app"]["encrypted"] = encrypted
+
         # Write the flasher_args file
         json_fname = "flasher_args.json"
         json_fpath = os.path.join(tmp, json_fname)
@@ -159,9 +164,9 @@ def generate_flasher_args_json():
             "0x110000" : "",
             "0x210000" : ""
         },
-        "partition_table" : { "offset" : "0x118000", "file" : "" },
-        "bootloader" : { "offset" : "0x110000", "file" : "" },
-        "app" : { "offset" : "0x210000", "file" : "" },
+        "partition_table" : { "offset" : "0x118000", "file" : "", "encrypted" : "" },
+        "bootloader" : { "offset" : "0x110000", "file" : "", "encrypted" : "" },
+        "app" : { "offset" : "0x210000", "file" : "", "encrypted" : "" },
         "extra_esptool_args" : {
             "after"  : "hard_reset",
             "before" : "default_reset",

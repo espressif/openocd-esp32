@@ -70,7 +70,7 @@ static struct {
 	uint8_t *next_out;
 } s_fs;
 
-static uint32_t s_encrypted_binary = 0;
+static uint32_t s_encrypt_binary = 0;
 
 /* used in app trace module */
 uint32_t esp_log_early_timestamp()
@@ -297,16 +297,18 @@ static int stub_flash_read(uint32_t addr, uint32_t size)
 }
 
 static esp_rom_spiflash_result_t stub_spiflash_write(uint32_t spi_flash_addr, uint32_t *data, uint32_t len,
-	uint32_t encrypt)
+	bool encrypt)
 {
 	esp_rom_spiflash_result_t rc;
 
 	/*
 	We can ask hardware to encrypt binary as long as flash encryption is enabled and encrypt option is set.
-	During breakpoint set and clear, we will force 'encrypt' flag to true. So that hardware will handle
-	the encryption. During flash programming, 'encrypt' flag will reflect the user specified
-	'encrypt_binary' programming option. If this is not set, we assume binary is encrypted by the user.
-	If this is set but flash encryption is not enabled returning error will warn the user to do right operation.
+	During breakpoint set and clear, we will set 'encrypt' flag according to efuse flash encryption settings.
+	So that hardware will handle the encryption if necessary.
+	During flash programming, 'encrypt' flag will reflect the user specified 'encrypt_binary' programming option.
+	If this is not set, we assume the binary is encrypted by the user.
+	If this is set but flash encryption is not enabled, by returning an error,
+	we will warn the user to do the right operation.
 	*/
 	if (encrypt && stub_get_flash_encryption_mode() == ESP_FLASH_ENC_MODE_DISABLED)
 		return ESP_STUB_ERR_FAIL;
@@ -320,7 +322,8 @@ static esp_rom_spiflash_result_t stub_spiflash_write(uint32_t spi_flash_addr, ui
 		rc = esp_rom_spiflash_write(spi_flash_addr, data, len);
 	uint64_t end = stub_get_time();
 
-	STUB_LOGD("Write flash @ 0x%x sz %d in %lld us\n",
+	STUB_LOGD("Write %sflash @ 0x%x sz %d in %lld us\n",
+		write_encrypted ? "encrypted-" : "",
 		spi_flash_addr,
 		len,
 		end - start);
@@ -358,7 +361,7 @@ static int stub_write_aligned_buffer(void *data_buf, uint32_t length)
 
 			/* write buffer with aligned size */
 			esp_rom_spiflash_result_t rc = stub_spiflash_write(s_fs.next_write, (uint32_t *)s_fs.out_buf,
-				wr_sz, s_encrypted_binary);
+				wr_sz, s_encrypt_binary);
 
 			if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 				STUB_LOGE("Failed to write flash (%d)\n", rc);
@@ -383,7 +386,7 @@ static int stub_flash_write(void *args)
 
 	STUB_LOGD("Start writing %d bytes @ 0x%x opt %x\n", wargs->size, wargs->start_addr, wargs->options);
 
-	s_encrypted_binary = wargs->options & ESP_STUB_FLASH_WR_ENCRYPTED ? 1 : 0;
+	s_encrypt_binary = wargs->options & ESP_STUB_FLASH_ENCRYPT_BINARY ? 1 : 0;
 
 #if CONFIG_STUB_STACK_DATA_POOL_SIZE > 0
 	/* for non-xtensa chips stub_apptrace_init alloc up buffers on stack, xtensa chips uses TRAX
@@ -472,7 +475,7 @@ static int stub_write_inflated_data(void *data_buf, uint32_t length)
 
 	/* write buffer with aligned size */
 	esp_rom_spiflash_result_t rc = stub_spiflash_write(s_fs.next_write, (uint32_t *)data_buf, length,
-		s_encrypted_binary);
+		s_encrypt_binary);
 	if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 		STUB_LOGE("Failed to write flash (%d)\n", rc);
 		return ESP_STUB_ERR_FAIL;
@@ -547,7 +550,7 @@ static int stub_flash_write_deflated(void *args)
 
 	STUB_LOGD("Start writing %d bytes @ 0x%x opt %x\n", wargs->size, wargs->start_addr, wargs->options);
 
-	s_encrypted_binary = wargs->options & ESP_STUB_FLASH_WR_ENCRYPTED ? 1 : 0;
+	s_encrypt_binary = wargs->options & ESP_STUB_FLASH_ENCRYPT_BINARY ? 1 : 0;
 
 #if CONFIG_STUB_STACK_DATA_POOL_SIZE > 0
 	/* for non-xtensa chips stub_apptrace_init alloc up buffers on stack, xtensa chips uses TRAX
@@ -874,7 +877,7 @@ static uint8_t stub_flash_set_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr,
 	rc = stub_spiflash_write(bp_flash_addr & ~(STUB_FLASH_SECTOR_SIZE - 1),
 		(uint32_t *)insn_sect,
 		STUB_BP_INSN_SECT_BUF_SIZE,
-		0);
+		stub_get_flash_encryption_mode() != ESP_FLASH_ENC_MODE_DISABLED);
 	if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 		STUB_LOGE("Failed to write break insn (%d)!\n", rc);
 		return 0;
@@ -943,7 +946,7 @@ static int stub_flash_clear_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr, u
 	rc = stub_spiflash_write(bp_flash_addr & ~(STUB_FLASH_SECTOR_SIZE - 1),
 		(uint32_t *)insn_sect,
 		STUB_BP_INSN_SECT_BUF_SIZE,
-		0);
+		stub_get_flash_encryption_mode() != ESP_FLASH_ENC_MODE_DISABLED);
 	if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 		STUB_LOGE("Failed to restore insn (%d)!\n", rc);
 		return ESP_STUB_ERR_FAIL;
