@@ -84,8 +84,8 @@ struct esp_flash_bank {
 	int compression;
 	/* Stub cpu frequency before boost */
 	int old_cpu_freq;
-	/* Upload encrypted or clear image */
-	int encryption;
+	/* Inform stub flasher if encryption requires before writing to flash.  */
+	int encryption_needed_on_chip;
 };
 
 struct esp_flash_breakpoint {

@@ -745,8 +745,8 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	wr_state.stub_wargs.down_buf_addr = 0;
 	wr_state.stub_wargs.down_buf_size = 0;
 	wr_state.stub_wargs.options = ESP_STUB_FLASH_WR_RAW;
-	if (esp_info->encryption)
-		wr_state.stub_wargs.options |= ESP_STUB_FLASH_WR_ENCRYPTED;
+	if (esp_info->encryption_needed_on_chip)
+		wr_state.stub_wargs.options |= ESP_STUB_FLASH_ENCRYPT_BINARY;
 
 	struct duration wr_time;
 	duration_start(&wr_time);
@@ -1435,7 +1435,7 @@ static int esp_algo_flash_set_encryption(struct target *target,
 		return ERROR_FAIL;
 
 	struct esp_flash_bank *esp_info = (struct esp_flash_bank *)bank->driver_priv;
-	esp_info->encryption = encryption;
+	esp_info->encryption_needed_on_chip = encryption;
 	return ERROR_OK;
 }
 
@@ -1637,11 +1637,11 @@ const struct command_registration esp_flash_exec_flash_command_handlers[] = {
 		.usage = "['on'|'off']",
 	},
 	{
-		.name = "encryption",
+		.name = "encrypt_binary",
 		.handler = esp_algo_flash_cmd_encryption,
 		.mode = COMMAND_ANY,
 		.help =
-			"Set if binary encryption needs to be done before writing to flash",
+			"Set if binary encryption needs to be handled on chip before writing to flash",
 		.usage = "['yes'|'no']",
 	},
 	COMMAND_REGISTRATION_DONE

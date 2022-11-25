@@ -560,6 +560,7 @@ class DebuggerGenericTestAppTestsDual(DebuggerGenericTestAppTests):
     """ Base class to run tests which use generic test app in dual core mode
     """
     CORES_NUM = 2
+    ENCRYPTED = 0
     def __init__(self, methodName='runTest'):
         super(DebuggerGenericTestAppTestsDual, self).__init__(methodName)
         # use default config with modified path to binaries
@@ -571,6 +572,7 @@ class DebuggerGenericTestAppTestsSingle(DebuggerGenericTestAppTests):
     """ Base class to run tests which use generic test app in single core mode
     """
     CORES_NUM = 1
+    ENCRYPTED = 0
     def __init__(self, methodName='runTest'):
         super(DebuggerGenericTestAppTestsSingle, self).__init__(methodName)
         # use default config with modified path to binaries
@@ -581,6 +583,7 @@ class DebuggerGenericTestAppTestsDualEncrypted(DebuggerGenericTestAppTests):
     """ Base class to run tests which use generic test app in dual core encrypted mode
     """
     CORES_NUM = 2
+    ENCRYPTED = 1
     def __init__(self, methodName='runTest'):
         super(DebuggerGenericTestAppTestsDualEncrypted, self).__init__(methodName)
         # use default_encrypted config with modified path to binaries
@@ -593,6 +596,7 @@ class DebuggerGenericTestAppTestsSingleEncrypted(DebuggerGenericTestAppTests):
     """ Base class to run tests which use generic test app in single core encrypted mode
     """
     CORES_NUM = 1
+    ENCRYPTED = 1
     def __init__(self, methodName='runTest'):
         super(DebuggerGenericTestAppTestsSingleEncrypted, self).__init__(methodName)
         # use single_core_encrypted config with modified path to binaries

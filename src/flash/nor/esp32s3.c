@@ -196,7 +196,7 @@ const struct command_registration esp32s3_flash_command_handlers[] = {
 		.usage = "['on'|'off']",
 	},
 	{
-		.name = "encryption",
+		.name = "encrypt_binary",
 		.handler = esp32s3_cmd_encryption,
 		.mode = COMMAND_ANY,
 		.help =
