@@ -10,15 +10,17 @@ import tempfile
 import sys
 import traceback
 
+freertos_events_map_file = os.path.join(test_apps_dir, 'SYSVIEW_FreeRTOS.txt')
+
 idf_path = os.getenv('IDF_PATH')
 if idf_path:
-    sys.path.append(os.path.join(idf_path, 'tools', 'esp_app_trace'))
+    esp_app_trace_dir = os.path.join(idf_path, 'tools', 'esp_app_trace')
+    sys.path.append(esp_app_trace_dir)
+    freertos_events_map_file = os.path.join(esp_app_trace_dir, 'SYSVIEW_FreeRTOS.txt')
 
 import espytrace.apptrace as apptrace
 import espytrace.sysview as sysview
 
-
-FREERTOS_EVENTS_MAP_FILE = os.path.join(os.path.dirname(__file__), 'SYSVIEW_FreeRTOS.txt')
 
 def get_logger():
     return logging.getLogger(__name__)
@@ -258,7 +260,7 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
         for i in range(self.cores_num):
             try:
                 get_logger().info("Parse trace from '%s'..." % self.trace_ctrl[i]['src'])
-                sysview.parse_trace(self.trace_ctrl[i]['reader'], self.trace_ctrl[i]['parser'], FREERTOS_EVENTS_MAP_FILE)
+                sysview.parse_trace(self.trace_ctrl[i]['reader'], self.trace_ctrl[i]['parser'], freertos_events_map_file)
                 get_logger().info("Parsing completed.")
             except (apptrace.ReaderTimeoutError) as e:
                 get_logger().info("Stop parsing trace. (%s)" % e)
@@ -438,7 +440,7 @@ class SysViewMcoreTracingTestsImpl(BaseTracingTestsImpl):
     def _process_trace(self):
         try:
             get_logger().info("Parse trace from '%s'..." % self.trace_ctrl['src'])
-            sysview.parse_trace(self.trace_ctrl['reader'], self.trace_ctrl['parser'], FREERTOS_EVENTS_MAP_FILE)
+            sysview.parse_trace(self.trace_ctrl['reader'], self.trace_ctrl['parser'], freertos_events_map_file)
             get_logger().info("Parsing completed.")
         except (apptrace.ReaderTimeoutError) as e:
             get_logger().info("Stop parsing trace. (%s)" % e)
