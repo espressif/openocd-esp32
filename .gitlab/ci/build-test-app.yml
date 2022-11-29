@@ -6,6 +6,15 @@
     cp -rv testing/esp/extra/espytrace $BUILD_TEST_APP_DIR/
   fi
 
+.prepare_sysview_config: &prepare_sysview_config |
+  SYSVIEW_CONFIG=$IDF_PATH/tools/esp_app_trace/SYSVIEW_FreeRTOS.txt
+  if [ -f "$SYSVIEW_CONFIG" ]; then
+    cp -v $SYSVIEW_CONFIG $BUILD_TEST_APP_DIR/
+  else
+    echo "ERROR: SytemView config not found" >&2
+    exit 1
+  fi
+
 .prepare_test_app_build: &prepare_test_app_build |
   mkdir -p $BUILD_TEST_APP_DIR
   cp -rv testing/esp/test_apps/gen_ut_app $BUILD_TEST_APP_DIR/
@@ -95,6 +104,7 @@
       - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/apptrace_gcov_single
       - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_env.sh
       - $BUILD_TEST_APP_DIR/espytrace
+      - $BUILD_TEST_APP_DIR/SYSVIEW_FreeRTOS.txt
     expire_in: 2 weeks
   script:
     - !reference [.add_gitlab_key, script]
@@ -102,6 +112,7 @@
     - *do_build_test_app
     - *finish_test_app_build
     - *prepare_espytrace_package
+    - *prepare_sysview_config
   dependencies: []
   needs:
     - job: style_check
