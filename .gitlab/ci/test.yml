@@ -1,5 +1,8 @@
 .tests_armhf_template:
   image: $CI_DOCKER_REGISTRY/rpi-openocd-env:1
+  tags:
+    - $CHIP_NAME
+    - jtag
   variables:
     PLATFORM_NAME: "linux-armhf-test"
   artifacts:
@@ -48,8 +51,6 @@
 tests_armhf_esp32:
   extends: .tests_armhf_template
   stage: test_idf_master
-  tags:
-    - test_jtag_arm
   allow_failure: true
   needs:
     - job: build_test_app_esp32
@@ -91,8 +92,6 @@ tests_armhf_esp32_solo:
 tests_armhf_esp32s2:
   extends: .tests_armhf_template
   stage: test_idf_master
-  tags:
-    - test_jtag_arm_esp32s2
   allow_failure: true
   needs:
     - job: build_test_app_esp32s2
@@ -123,8 +122,6 @@ tests_armhf_esp32s2_flash_encrypted:
 tests_armhf_esp32s3:
   extends: .tests_armhf_template
   stage: test_idf_master
-  tags:
-    - test_jtag_arm_esp32s3
   allow_failure: true
   needs:
     - job: build_test_app_esp32s3
@@ -139,9 +136,6 @@ tests_armhf_esp32s3:
 tests_armhf_esp32c2:
   extends: .tests_armhf_template
   stage: test_idf_master
-  tags:
-    - arm
-    - test_jtag_arm_esp32c2
   allow_failure: true
   needs:
     - job: build_test_app_esp32c2
@@ -156,9 +150,6 @@ tests_armhf_esp32c2:
 tests_armhf_esp32c3:
   extends: .tests_armhf_template
   stage: test_idf_master
-  tags:
-    - arm
-    - test_jtag_arm_esp32c3
   allow_failure: true
   needs:
     - job: build_test_app_esp32c3
@@ -219,8 +210,6 @@ tests_armhf_esp32_solo_idf4.x:
 tests_armhf_esp32_idf4.x:
   extends: .tests_armhf_template
   stage: test_idf4.x
-  tags:
-    - test_jtag_arm
   needs:
     - job: build_test_app_esp32_idf4.x
     - job: build_linux_armhf_test
@@ -243,8 +232,6 @@ tests_armhf_esp32_idf4.x_flash_encrypted:
 tests_armhf_esp32s2_idf4.x:
   extends: .tests_armhf_template
   stage: test_idf4.x
-  tags:
-    - test_jtag_arm_esp32s2
   needs:
     - job: build_test_app_esp32s2_idf4.x
     - job: build_linux_armhf_test
@@ -271,8 +258,6 @@ tests_armhf_esp32s2_idf4.x_flash_encrypted:
 tests_armhf_esp32s3_idf4.x:
   extends: .tests_armhf_template
   stage: test_idf4.x
-  tags:
-    - test_jtag_arm_esp32s3
   needs:
     - job: build_test_app_esp32s3_idf4.x
     - job: build_linux_armhf_test
@@ -285,8 +270,6 @@ tests_armhf_esp32s3_idf4.x:
 tests_armhf_esp32c3_idf4.x:
   extends: .tests_armhf_template
   stage: test_idf4.x
-  tags:
-    - test_jtag_arm_esp32c3
   needs:
     - job: build_test_app_esp32c3_idf4.x
     - job: build_linux_armhf_test
@@ -336,7 +319,8 @@ tests_win_simple_esp32:
   image: $CI_DOCKER_REGISTRY/rpi-openocd-env:1
   stage: test_nuttx
   tags:
-    - $CHIP_RUNNER
+    - $CHIP
+    - jtag
   allow_failure: true
   artifacts:
     paths:
@@ -370,7 +354,6 @@ test_nuttx_esp32:
     - .test_nuttx_template
   variables:
     CHIP: esp32
-    CHIP_RUNNER: test_jtag_arm
     TEST_BOARD: "esp32-wrover-kit-3.3v"
     TOOLCHAIN_PREFIX: "xtensa-esp32"
     ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
@@ -380,7 +363,6 @@ test_nuttx_esp32s2:
     - .test_nuttx_template
   variables:
     CHIP: esp32s2
-    CHIP_RUNNER: test_jtag_arm_esp32s2
     TEST_BOARD: "esp32s2-devkitj"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
     ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
@@ -390,7 +372,6 @@ test_nuttx_esp32s3:
     - .test_nuttx_template
   variables:
     CHIP: esp32s3
-    CHIP_RUNNER: test_jtag_arm_esp32s3
     TEST_BOARD: "esp32s3-ftdi"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
     ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
@@ -400,7 +381,6 @@ test_nuttx_esp32c3:
     - .test_nuttx_template
   variables:
     CHIP: esp32c3
-    CHIP_RUNNER: test_jtag_arm_esp32c3
     TEST_BOARD: "esp32c3-ftdi"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_MASTER_RISCV_TOOLCHAIN_VER}"
