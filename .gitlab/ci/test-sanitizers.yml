@@ -1,6 +1,9 @@
 .tests_sanitizers_template:
   stage: sanitizer_tests
   image: $CI_DOCKER_REGISTRY/rpi-openocd-env:1
+  tags:
+    - $CHIP_NAME
+    - jtag
   artifacts:
     paths:
       - $TEST_RUN_DIR/debug_backend_tests.log
@@ -39,8 +42,6 @@ tests_sanitizers_esp32_solo:
 
 tests_sanitizers_esp32:
   extends: .tests_sanitizers_template
-  tags:
-    - test_jtag_arm
   allow_failure: true
   needs:
     - job: build_test_app_esp32
@@ -52,8 +53,6 @@ tests_sanitizers_esp32:
 
 tests_sanitizers_esp32_idf4.x:
   extends: .tests_sanitizers_template
-  tags:
-    - test_jtag_arm
   needs:
     - job: build_test_app_esp32_idf4.x
     - job: build_linux_armhf_sanitizer_test
@@ -63,8 +62,6 @@ tests_sanitizers_esp32_idf4.x:
 
 tests_sanitizers_esp32s2:
   extends: .tests_sanitizers_template
-  tags:
-    - test_jtag_arm_esp32s2
   allow_failure: true
   needs:
     - job: build_test_app_esp32s2
@@ -78,8 +75,6 @@ tests_sanitizers_esp32s2:
 
 tests_sanitizers_esp32s2_idf4.x:
   extends: .tests_sanitizers_template
-  tags:
-    - test_jtag_arm_esp32s2
   needs:
     - job: build_test_app_esp32s2_idf4.x
     - job: build_linux_armhf_sanitizer_test
@@ -91,8 +86,6 @@ tests_sanitizers_esp32s2_idf4.x:
 
 tests_sanitizers_esp32s3:
   extends: .tests_sanitizers_template
-  tags:
-    - test_jtag_arm_esp32s3
   allow_failure: true
   needs:
     - job: build_test_app_esp32s3
@@ -106,8 +99,6 @@ tests_sanitizers_esp32s3:
 
 tests_sanitizers_esp32s3_idf4.x:
   extends: .tests_sanitizers_template
-  tags:
-    - test_jtag_arm_esp32s3
   needs:
     - job: build_test_app_esp32s3_idf4.x
     - job: build_linux_armhf_sanitizer_test
@@ -119,8 +110,6 @@ tests_sanitizers_esp32s3_idf4.x:
 
 tests_sanitizers_esp32c2:
   extends: .tests_sanitizers_template
-  tags:
-    - test_jtag_arm_esp32c2
   allow_failure: true
   needs:
     - job: build_test_app_esp32c2
@@ -135,8 +124,6 @@ tests_sanitizers_esp32c2:
 
 tests_sanitizers_esp32c3:
   extends: .tests_sanitizers_template
-  tags:
-    - test_jtag_arm_esp32c3
   allow_failure: true
   needs:
     - job: build_test_app_esp32c3
@@ -150,8 +137,6 @@ tests_sanitizers_esp32c3:
 
 tests_sanitizers_esp32c3_idf4.x:
   extends: .tests_sanitizers_template
-  tags:
-    - test_jtag_arm_esp32c3
   needs:
     - job: build_test_app_esp32c3_idf4.x
     - job: build_linux_armhf_sanitizer_test
@@ -165,8 +150,6 @@ tests_sanitizers_esp32c3_idf4.x:
 test_sanitizers_nuttx_esp32:
   image: $CI_DOCKER_REGISTRY/rpi-openocd-env:1
   stage: sanitizer_tests
-  tags:
-    - test_jtag_arm
   allow_failure: true
   variables:
     PLATFORM_NAME: "linux-armhf-test"
