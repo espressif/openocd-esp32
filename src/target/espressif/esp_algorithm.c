@@ -231,8 +231,8 @@ static int algorithm_run(struct target *target, struct algorithm_image *image,
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Algorithm run failed (%d)!", retval);
 	} else {
-		run->ret_code = (int64_t)algorithm_user_arg_get_uint(run, 0);
-		LOG_DEBUG("Got algorithm RC 0x%" PRIx64, run->ret_code);
+		run->ret_code = algorithm_user_arg_get_uint(run, 0);
+		LOG_DEBUG("Got algorithm RC 0x%" PRIx32, run->ret_code);
 	}
 
 _cleanup:
@@ -517,7 +517,7 @@ int algorithm_load_onboard_func(struct target *target,
 			LOG_ERROR("Failed to run stack alloc onboard algo (%d)!", res);
 			return res;
 		}
-		LOG_DEBUG("RETCODE: 0x%" PRIx64 "!", alloc_run.ret_code);
+		LOG_DEBUG("RETCODE: 0x%" PRIx32 "!", alloc_run.ret_code);
 		if (alloc_run.ret_code == 0) {
 			LOG_ERROR("Failed to alloc onboard stack (%d)!", res);
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;

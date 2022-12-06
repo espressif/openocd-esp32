@@ -244,7 +244,7 @@ struct algorithm_run_data {
 	 **/
 	void *arch_info;
 	/** Algorithm return code. */
-	int64_t ret_code;
+	int32_t ret_code;
 	/** Stub. */
 	struct algorithm_stub stub;
 	union {

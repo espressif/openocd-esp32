@@ -303,7 +303,7 @@ int esp_algo_flash_blank_check(struct flash_bank *bank)
 		return ret;
 	}
 	if (run.ret_code != ESP_STUB_ERR_OK) {
-		LOG_ERROR("Failed to check erase flash (%" PRId64 ")!", run.ret_code);
+		LOG_ERROR("Failed to check erase flash (%" PRId32 ")!", run.ret_code);
 		ret = ERROR_FAIL;
 	} else {
 		for (unsigned int i = 0; i < bank->num_sectors; i++)
@@ -374,10 +374,14 @@ static int esp_algo_flash_get_mappings(struct flash_bank *bank,
 		return ret;
 	}
 	if (run.ret_code != ESP_STUB_ERR_OK) {
-		LOG_ERROR("Failed to get flash maps (%" PRId64 ")!", run.ret_code);
+		LOG_ERROR("Failed to get flash maps (%" PRId32 ")!", run.ret_code);
 		if (run.ret_code == ESP_STUB_ERR_INVALID_IMAGE)
 			LOG_WARNING(
 				"Application image is invalid! Check configured binary flash offset 'appimage_offset'.");
+		else if (run.ret_code == ESP_STUB_ERR_INVALID_PARTITION)
+			LOG_WARNING("Invalid partition! One of the partition size exceeds the flash chip size!");
+		else if (run.ret_code == ESP_STUB_ERR_INVALID_APP_MAGIC)
+			LOG_WARNING("Invalid magic number in app image!");
 		ret = ERROR_FAIL;
 	} else {
 		memcpy(flash_map, mp.value, sizeof(struct esp_flash_mapping));
@@ -440,7 +444,7 @@ int esp_algo_flash_erase(struct flash_bank *bank, unsigned int first, unsigned i
 		return ret;
 	}
 	if (run.ret_code != ESP_STUB_ERR_OK) {
-		LOG_ERROR("Failed to erase flash (%" PRId64 ")!", run.ret_code);
+		LOG_ERROR("Failed to erase flash (%" PRId32 ")!", run.ret_code);
 		ret = ERROR_FAIL;
 	} else {
 		duration_measure(&bench);
@@ -768,7 +772,7 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 		return ret;
 	}
 	if (run.ret_code != ESP_STUB_ERR_OK) {
-		LOG_ERROR("Failed to write flash (%" PRId64 ")!", run.ret_code);
+		LOG_ERROR("Failed to write flash (%" PRId32 ")!", run.ret_code);
 		ret = ERROR_FAIL;
 	} else {
 		duration_measure(&wr_time);
@@ -917,7 +921,7 @@ int esp_algo_flash_read(struct flash_bank *bank, uint8_t *buffer,
 		return ret;
 	}
 	if (run.ret_code != ESP_STUB_ERR_OK) {
-		LOG_ERROR("Failed to read flash (%" PRId64 ")!", run.ret_code);
+		LOG_ERROR("Failed to read flash (%" PRId32 ")!", run.ret_code);
 		ret = ERROR_FAIL;
 	}
 	return ret;
@@ -1122,7 +1126,7 @@ int esp_algo_flash_breakpoint_add(struct target *target,
 		return ret;
 	}
 	if (run.ret_code == 0) {
-		LOG_ERROR("%s: Failed to set bp (%" PRId64 ")!", target_name(target), run.ret_code);
+		LOG_ERROR("%s: Failed to set bp (%" PRId32 ")!", target_name(target), run.ret_code);
 		destroy_mem_param(&mp);
 		sw_bp->oocd_bp = NULL;
 		return ERROR_FAIL;
@@ -1196,7 +1200,7 @@ int esp_algo_flash_breakpoint_remove(struct target *target,
 		return ret;
 	}
 	if (run.ret_code != ESP_STUB_ERR_OK) {
-		LOG_ERROR("Failed to clear bp (%" PRId64 ")!", run.ret_code);
+		LOG_ERROR("Failed to clear bp (%" PRId32 ")!", run.ret_code);
 		return ERROR_FAIL;
 	}
 
@@ -1251,7 +1255,7 @@ static int esp_algo_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 		return ret;
 	}
 	if (run.ret_code != ESP_STUB_ERR_OK) {
-		LOG_ERROR("Failed to get hash value (%" PRId64 ")!", run.ret_code);
+		LOG_ERROR("Failed to get hash value (%" PRId32 ")!", run.ret_code);
 		ret = ERROR_FAIL;
 	} else {
 		memcpy(hash, mp.value, 32);
