@@ -29,9 +29,9 @@ source export.sh
 cd ../openocd-esp32/contrib/loaders/flash/esp/esp32s3
 ```
 
-5. Build the stub
+5. Build the stub for all makefile targets. Currently, one target with disabled logs, and the other with `-DSTUB_LOG_ENABLE=1` macro. This will help to transfer the stub logs to the OpenOCD screen.
 ```bash
-make
+make all
 ```
 
-6. Now you can go through the normal OpenOCD build process, and the stub will be included in the final binary.
+1. Now you can go through the normal OpenOCD build process, and the stub images will be included in the final binary.

@@ -54,6 +54,8 @@ struct esp_flasher_stub_config {
 	uint32_t first_user_reg_param;
 	target_addr_t apptrace_ctrl_addr;
 	uint32_t stack_data_pool_sz;
+	target_addr_t log_buff_addr;
+	uint32_t log_buff_size;	/* current_log_len + len(buff) */
 };
 
 /* ESP flash data.
