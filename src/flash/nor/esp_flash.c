@@ -1443,6 +1443,18 @@ static int esp_algo_flash_set_encryption(struct target *target,
 	return ERROR_OK;
 }
 
+static int esp_algo_flash_set_stub_log(struct target *target, char *bank_name_suffix, bool log_stat)
+{
+	struct flash_bank *bank;
+	int retval = esp_algo_target_to_flash_bank(target, &bank, bank_name_suffix, true);
+	if (retval != ERROR_OK)
+		return ERROR_FAIL;
+
+	struct esp_flash_bank *esp_info = (struct esp_flash_bank *)bank->driver_priv;
+	esp_info->stub_log_enabled = log_stat;
+	return ERROR_OK;
+}
+
 COMMAND_HELPER(esp_algo_flash_cmd_set_encryption, struct target *target)
 {
 	if (CMD_ARGC != 1) {
@@ -1606,6 +1618,41 @@ COMMAND_HANDLER(esp_algo_flash_cmd_clock_boost)
 		get_current_target(CMD_CTX));
 }
 
+COMMAND_HELPER(esp_algo_flash_parse_cmd_stub_log, struct target *target)
+{
+	if (CMD_ARGC != 1) {
+		LOG_TARGET_ERROR(target, "Stub log flag not specified!");
+		return ERROR_FAIL;
+	}
+
+	bool log_stat = false;
+
+	if (0 == strcmp("on", CMD_ARGV[0])) {
+		LOG_TARGET_INFO(target, "Stub logs enabled!");
+		log_stat = true;
+	} else if (0 == strcmp("off", CMD_ARGV[0])) {
+		LOG_TARGET_INFO(target, "Stub logs disabled");
+		log_stat = false;
+	} else {
+		LOG_TARGET_ERROR(target, "unknown flag");
+		return ERROR_FAIL;
+	}
+
+	int ret = esp_algo_flash_set_stub_log(target, "irom", log_stat);
+	if (ret != ERROR_OK)
+		return ret;
+	ret = esp_algo_flash_set_stub_log(target, "drom", log_stat);
+	if (ret != ERROR_OK)
+		return ret;
+	return esp_algo_flash_set_stub_log(target, "flash", log_stat);
+}
+
+COMMAND_HANDLER(esp_algo_flash_cmd_stub_log)
+{
+	return CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_stub_log,
+		get_current_target(CMD_CTX));
+}
+
 const struct command_registration esp_flash_exec_flash_command_handlers[] = {
 	{
 		.name = "appimage_offset",
@@ -1647,6 +1694,13 @@ const struct command_registration esp_flash_exec_flash_command_handlers[] = {
 		.help =
 			"Set if binary encryption needs to be handled on chip before writing to flash",
 		.usage = "['yes'|'no']",
+	},
+	{
+		.name = "stub_log",
+		.handler = esp_algo_flash_cmd_stub_log,
+		.mode = COMMAND_ANY,
+		.help = "Enable stub flasher logs",
+		.usage = "['on'|'off']",
 	},
 	COMMAND_REGISTRATION_DONE
 };
