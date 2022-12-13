@@ -4,6 +4,7 @@
 # Gcov related files
 ./tools/uncrustify1.sh src/jtag/drivers/jtag_esp_remote.c
 ./tools/uncrustify1.sh src/jtag/drivers/esp_usb_jtag.c
+./tools/uncrustify1.sh src/jtag/drivers/esp32gpio.c
 ./tools/uncrustify1.sh src/target/xtensa/xtensa.c
 ./tools/uncrustify1.sh src/target/xtensa/xtensa.h
 ./tools/uncrustify1.sh src/target/xtensa/xtensa_regs.h

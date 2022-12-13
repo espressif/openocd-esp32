@@ -10,8 +10,23 @@
 #endif
 
 #include <jtag/interface.h>
-#include "driver/gpio.h"
 #include "bitbang.h"
+
+/* esp-idf includes */
+#include <driver/gpio.h>
+#include <driver/dedic_gpio.h>
+#include <hal/dedic_gpio_cpu_ll.h>
+
+static dedic_gpio_bundle_handle_t gpio_in_bundle;
+static dedic_gpio_bundle_handle_t gpio_out_bundle;
+
+/* mask values depends on the location in the gpio bundle array */
+#define GPIO_TCK_MASK       0x01
+#define GPIO_TDO_MASK       0x01
+#define GPIO_TDI_MASK       0x02
+#define GPIO_TMS_MASK       0x04
+#define GPIO_TRST_MASK      0x08
+#define GPIO_SRST_MASK      0x10
 
 /* GPIO setup functions */
 static inline void gpio_mode_input_set(int g)
@@ -32,11 +47,6 @@ static inline void gpio_set(int g)
 static inline void gpio_clear(int g)
 {
 	gpio_set_level(g, 0);
-}
-
-static inline bool gpio_level(int g)
-{
-	return gpio_get_level(g);
 }
 
 static bb_value_t esp32_gpio_read(void);
@@ -71,14 +81,14 @@ static unsigned int jtag_delay = 0;
 
 static bb_value_t esp32_gpio_read(void)
 {
-	return gpio_level(tdo_gpio) ? BB_HIGH : BB_LOW;
+	return dedic_gpio_cpu_ll_read_in() & GPIO_TDO_MASK ? BB_HIGH : BB_LOW;
 }
 
 static int esp32_gpio_write(int tck, int tms, int tdi)
 {
-	tms ? gpio_set(tms_gpio) : gpio_clear(tms_gpio);
-	tdi ? gpio_set(tdi_gpio) : gpio_clear(tdi_gpio);
-	tck ? gpio_set(tck_gpio) : gpio_clear(tck_gpio);
+	dedic_gpio_cpu_ll_write_mask(GPIO_TMS_MASK, tms ? GPIO_TMS_MASK : 0);
+	dedic_gpio_cpu_ll_write_mask(GPIO_TDI_MASK, tdi ? GPIO_TDI_MASK : 0);
+	dedic_gpio_cpu_ll_write_mask(GPIO_TCK_MASK, tck ? GPIO_TCK_MASK : 0);
 
 	for (unsigned int i = 0; i < jtag_delay; i++)
 		asm volatile ("");
@@ -90,10 +100,10 @@ static int esp32_gpio_write(int tck, int tms, int tdi)
 static int esp32_gpio_reset(int trst, int srst)
 {
 	if (trst_gpio != -1)
-		trst ? gpio_set(trst_gpio) : gpio_clear(trst_gpio);
+		dedic_gpio_cpu_ll_write_mask(GPIO_TRST_MASK, trst ? GPIO_TRST_MASK : 0);
 
 	if (srst_gpio != -1)
-		srst ? gpio_set(srst_gpio) : gpio_clear(srst_gpio);
+		dedic_gpio_cpu_ll_write_mask(GPIO_SRST_MASK, srst ? GPIO_SRST_MASK : 0);
 
 	return ERROR_OK;
 }
@@ -311,14 +321,38 @@ static int esp32_gpio_init(void)
 		return ERROR_FAIL;
 	}
 
+	int bundle_out_gpios[] = { tck_gpio, tdi_gpio, tms_gpio, 0, 0 };
+	int bundle_in_gpios[] = { tdo_gpio };
+
 	if (trst_gpio != -1) {
 		gpio_set(trst_gpio);
 		gpio_mode_output_set(trst_gpio);
+		bundle_out_gpios[3] = trst_gpio;
 	}
 	if (srst_gpio != -1) {
 		gpio_set(srst_gpio);
 		gpio_mode_output_set(srst_gpio);
+		bundle_out_gpios[4] = srst_gpio;
 	}
+
+	dedic_gpio_bundle_config_t out_bundle_config = {
+		.gpio_array = bundle_out_gpios,
+		.array_size = ARRAY_SIZE(bundle_out_gpios),
+		.flags = {
+			.out_en = 1,
+		},
+	};
+
+	dedic_gpio_bundle_config_t in_bundle_config = {
+		.gpio_array = bundle_in_gpios,
+		.array_size = ARRAY_SIZE(bundle_in_gpios),
+		.flags = {
+			.in_en = 1,
+		},
+	};
+
+	dedic_gpio_new_bundle(&out_bundle_config, &gpio_out_bundle);
+	dedic_gpio_new_bundle(&in_bundle_config, &gpio_in_bundle);
 
 	return ERROR_OK;
 }
