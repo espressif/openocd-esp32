@@ -14,6 +14,7 @@
 #include "imp.h"
 #include "esp_riscv.h"
 #include "contrib/loaders/flash/esp/esp32c3/stub_flasher_image.h"
+#include "contrib/loaders/flash/esp/esp32c3/stub_flasher_image_wlog.h"
 
 #define ESP32C3_FLASH_SECTOR_SIZE 4096
 
@@ -26,6 +27,12 @@ static const uint8_t s_esp32c3_flasher_stub_code[] = {
 };
 static const uint8_t s_esp32c3_flasher_stub_data[] = {
 #include "contrib/loaders/flash/esp/esp32c3/stub_flasher_data.inc"
+};
+static const uint8_t s_esp32c3_flasher_stub_code_wlog[] = {
+#include "contrib/loaders/flash/esp/esp32c3/stub_flasher_code_wlog.inc"
+};
+static const uint8_t s_esp32c3_flasher_stub_data_wlog[] = {
+#include "contrib/loaders/flash/esp/esp32c3/stub_flasher_data_wlog.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp32c3_stub_cfg = {
@@ -40,6 +47,20 @@ static const struct esp_flasher_stub_config s_esp32c3_stub_cfg = {
 	.stack_data_pool_sz = ESP_RISCV_STACK_DATA_POOL_SIZE
 };
 
+static const struct esp_flasher_stub_config s_esp32c3_stub_cfg_wlog = {
+	.code = s_esp32c3_flasher_stub_code_wlog,
+	.code_sz = sizeof(s_esp32c3_flasher_stub_code_wlog),
+	.data = s_esp32c3_flasher_stub_data_wlog,
+	.data_sz = sizeof(s_esp32c3_flasher_stub_data_wlog),
+	.entry_addr = ESP32C3_STUB_WLOG_ENTRY_ADDR,
+	.bss_sz = ESP32C3_STUB_WLOG_BSS_SIZE,
+	.first_user_reg_param = ESP_RISCV_STUB_ARGS_FUNC_START,
+	.apptrace_ctrl_addr = ESP32C3_STUB_WLOG_APPTRACE_CTRL_ADDR,
+	.stack_data_pool_sz = ESP_RISCV_STACK_DATA_POOL_SIZE,
+	.log_buff_addr = ESP32C3_STUB_WLOG_LOG_ADDR,
+	.log_buff_size = ESP32C3_STUB_WLOG_LOG_SIZE
+};
+
 static bool esp32c3_is_irom_address(target_addr_t addr)
 {
 	return addr >= ESP32C3_IROM_LOW && addr < ESP32C3_IROM_HIGH;
@@ -52,6 +73,9 @@ static bool esp32c3_is_drom_address(target_addr_t addr)
 
 static const struct esp_flasher_stub_config *esp32c3_get_stub(struct flash_bank *bank)
 {
+	struct esp_flash_bank *esp_info = bank->driver_priv;
+	if (esp_info->stub_log_enabled)
+		return &s_esp32c3_stub_cfg_wlog;
 	return &s_esp32c3_stub_cfg;
 }
 

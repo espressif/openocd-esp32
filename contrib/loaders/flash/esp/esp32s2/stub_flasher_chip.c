@@ -32,6 +32,7 @@
 #include "rtc_clk_common.h"
 #include "soc/dport_access.h"
 #include "stub_rom_chip.h"
+#include "stub_logger.h"
 #include "stub_flasher_int.h"
 #include "stub_flasher_chip.h"
 #include "stub_xtensa_chips.h"
@@ -70,7 +71,7 @@ void vPortExitCritical(void *mux)
 {
 }
 
-#if STUB_LOG_LOCAL_LEVEL > STUB_LOG_INFO
+#if STUB_LOG_ENABLE == 1
 void stub_print_cache_mmu_registers(void)
 {
 	uint32_t icache_ctrl_reg = REG_READ(EXTMEM_PRO_ICACHE_CTRL_REG);
@@ -244,8 +245,9 @@ int stub_cpu_clock_configure(int cpu_freq_mhz)
 		old_config.freq_mhz = 0;
 	}
 
-#if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
-	uart_tx_wait_idle(CONFIG_CONSOLE_UART_NUM);
+#if STUB_LOG_ENABLE == 1
+	if (stub_get_log_dest() == STUB_LOG_DEST_UART)
+		uart_tx_wait_idle(CONFIG_CONSOLE_UART_NUM);
 #endif
 
 	/* set to maximum possible value */
@@ -268,8 +270,8 @@ int stub_cpu_clock_configure(int cpu_freq_mhz)
 	return old_config.freq_mhz;
 }
 
-#if STUB_LOG_LOCAL_LEVEL > STUB_LOG_NONE
-void stub_uart_console_configure(void)
+#if STUB_LOG_ENABLE == 1
+void stub_uart_console_configure(int dest)
 {
 	uartAttach(NULL);
 	ets_install_uart_printf();
@@ -400,11 +402,9 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 		} else {
 			mode = ESP_FLASH_ENC_MODE_DISABLED;
 		}
-
 		first = false;
+		STUB_LOGD("flash_encryption_mode: %d\n", mode);
 	}
-
-	STUB_LOGD("flash_encryption_mode: %d\n", mode);
 
 	return mode;
 }
