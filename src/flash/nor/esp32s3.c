@@ -149,6 +149,24 @@ COMMAND_HANDLER(esp32s3_cmd_encryption)
 	return CALL_COMMAND_HANDLER(esp_algo_flash_cmd_set_encryption, target);
 }
 
+COMMAND_HANDLER(esp32s3_cmd_stub_log)
+{
+	struct target *target = get_current_target(CMD_CTX);
+
+	if (target->smp) {
+		struct target_list *head;
+		struct target *curr;
+		foreach_smp_target(head, target->smp_targets) {
+			curr = head->target;
+			int ret = CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_stub_log, curr);
+			if (ret != ERROR_OK)
+				return ret;
+		}
+		return ERROR_OK;
+	}
+	return CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_stub_log, target);
+}
+
 COMMAND_HANDLER(esp32s3_cmd_verify_bank_hash)
 {
 	return CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_verify_bank_hash,
@@ -202,6 +220,13 @@ const struct command_registration esp32s3_flash_command_handlers[] = {
 		.help =
 			"Set if binary encryption needs to be handled on chip before writing to flash",
 		.usage = "['yes'|'no']",
+	},
+	{
+		.name = "stub_log",
+		.handler = esp32s3_cmd_stub_log,
+		.mode = COMMAND_ANY,
+		.help = "Enable stub flasher logs",
+		.usage = "['on'|'off']",
 	},
 	COMMAND_REGISTRATION_DONE
 };
