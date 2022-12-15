@@ -107,10 +107,8 @@ static int algorithm_read_stub_logs(struct target *target, struct algorithm_stub
 		return retval;
 	}
 	retval = target_read_memory(target, stub->log_buff_addr + 4, 1, len, log_buff);
-	if (retval == ERROR_OK) {
-		for (size_t i = 0; i < len; i++)
-			LOG_OUTPUT("%c", log_buff[i]);
-	}
+	if (retval == ERROR_OK)
+		LOG_OUTPUT("%*.*s", len, len, log_buff);
 	free(log_buff);
 	return retval;
 }
