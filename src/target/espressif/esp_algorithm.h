@@ -137,6 +137,10 @@ struct algorithm_stub {
 	struct working_area *stack;
 	/** Address of the target buffer for stack. If zero tramp->address will be used. */
 	target_addr_t stack_addr;
+	/** Address of the log buffer */
+	target_addr_t log_buff_addr;
+	/** Size of the log buffer */
+	uint32_t log_buff_size;
 	/** Algorithm's arch-specific info. */
 	void *ainfo;
 };
