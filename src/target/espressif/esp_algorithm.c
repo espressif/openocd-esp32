@@ -87,6 +87,34 @@ static int algorithm_stub_check_stack(struct target *target,
 }
 #endif
 
+static int algorithm_read_stub_logs(struct target *target, struct algorithm_stub *stub)
+{
+	if (stub->log_buff_addr == 0 || stub->log_buff_size == 0)
+		return ERROR_FAIL;
+
+	uint32_t len = 0;
+	int retval = target_read_u32(target, stub->log_buff_addr, &len);
+	if (retval != ERROR_OK)
+		return retval;
+
+	/* sanity check. log_buff_size = sizeof(len) + sizeof(log_buff) */
+	if (len == 0 || len > stub->log_buff_size - 4)
+		return ERROR_FAIL;
+
+	uint8_t *log_buff = calloc(1, len);
+	if (!log_buff) {
+		LOG_ERROR("Failed to allocate memory for the stub log (%d)!", retval);
+		return retval;
+	}
+	retval = target_read_memory(target, stub->log_buff_addr + 4, 1, len, log_buff);
+	if (retval == ERROR_OK) {
+		for (size_t i = 0; i < len; i++)
+			LOG_OUTPUT("%c", log_buff[i]);
+	}
+	free(log_buff);
+	return retval;
+}
+
 static int algorithm_run(struct target *target, struct algorithm_image *image,
 	struct algorithm_run_data *run,
 	uint32_t num_args,
@@ -214,6 +242,7 @@ static int algorithm_run(struct target *target, struct algorithm_image *image,
 		LOG_ERROR("Failed to wait algorithm (%d)!", retval);
 		/* target has been forced to stop in target_wait_algorithm() */
 	}
+	algorithm_read_stub_logs(target, &run->stub);
 #if ALGO_STUB_STACK_DEBUG
 	ret = algorithm_stub_check_stack(target,
 		run->stub.stack_addr - run->stack_size,

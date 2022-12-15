@@ -205,6 +205,8 @@ static int esp_algo_flasher_algorithm_init(struct algorithm_run_data *algo,
 	algo->hw = stub_hw;
 	algo->reg_args.first_user_param = stub_cfg->first_user_reg_param;
 	algo->image.bss_size = stub_cfg->bss_sz;
+	algo->stub.log_buff_addr = stub_cfg->log_buff_addr;
+	algo->stub.log_buff_size = stub_cfg->log_buff_size;
 	memset(&algo->image.image, 0, sizeof(algo->image.image));
 	int ret = image_open(&algo->image.image, NULL, "build");
 	if (ret != ERROR_OK) {
