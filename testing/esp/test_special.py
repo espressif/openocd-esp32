@@ -141,6 +141,27 @@ class DebuggerSpecialTestsImpl:
             self.gdb.add_bp('app_main')
             self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
 
+    def test_stub_logs(self):
+        """
+            This test checks if stub logs are enabled successfully.
+        """
+        expected_strings = ["STUB_D: cmd 5:FLASH_MAP_GET",
+                            "STUB_D: cmd 4:FLASH_SIZE"]
+
+        self.gdb.monitor_run("esp stub_log on", 5)
+        self.gdb.monitor_run("flash probe 0", 5)
+        self.gdb.monitor_run("esp stub_log off", 5)
+
+        log_path = get_logger().handlers[1].baseFilename # 0:StreamHandler 1:FileHandler
+        found_line_count = 0
+        with open(log_path) as file:
+            for line in file:
+                for s in expected_strings:
+                    if s in line:
+                        found_line_count += 1
+        # We expect at least len(expected_strings) for one core.
+        self.assertTrue(found_line_count >= len(expected_strings))
+
 # to be skipped for any board with ESP32-S2 chip
 # TODO: enable these tests when PSRAM is supported for ESP32-S2
 @skip_for_chip(['esp32s2', 'esp32c3', 'esp32c2'])
