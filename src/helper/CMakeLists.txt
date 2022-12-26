@@ -15,6 +15,7 @@ target_sources(helper PRIVATE
 	util.c
 	jep106.c
 	jim-nvp.c
+	nvp.c
 	align.h
 	binarybuffer.h
 	bits.h
@@ -31,6 +32,7 @@ target_sources(helper PRIVATE
 	jep106.h
 	jep106.inc
 	jim-nvp.h
+	nvp.h
 	sha256.c
 	sha256.h
 PUBLIC
