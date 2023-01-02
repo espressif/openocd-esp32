@@ -6569,9 +6569,11 @@ create_target_list_node(Jim_Obj *const name) {
 	return new;
 }
 
+/* TODO: If we return the last smp target, single core ESP32 test_thread fails. */
 static int get_target_with_common_rtos_type(struct list_head *lh, struct target **result)
 {
 	struct target *target = NULL;
+	struct target *first_target = NULL;
 	struct target_list *curr;
 	foreach_smp_target(curr, lh) {
 		struct rtos *curr_rtos = curr->target->rtos;
@@ -6581,9 +6583,11 @@ static int get_target_with_common_rtos_type(struct list_head *lh, struct target 
 				return JIM_ERR;
 			}
 			target = curr->target;
+			if (!first_target)
+				first_target = target;
 		}
 	}
-	*result = target;
+	*result = first_target;
 	return JIM_OK;
 }
 
