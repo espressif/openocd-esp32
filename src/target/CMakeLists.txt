@@ -107,20 +107,6 @@ target_sources(target PRIVATE
 	mips_ejtag.c
 )
 
-# NDS32_SRC
-target_sources(target PRIVATE
-	nds32.c
-	nds32_reg.c
-	nds32_cmd.c
-	nds32_disassembler.c
-	nds32_tlb.c
-	nds32_v2.c
-	nds32_v3_common.c
-	nds32_v3.c
-	nds32_v3m.c
-	nds32_aice.c
-)
-
 # STM8_SRC
 target_sources(target PRIVATE
 	stm8.c
@@ -236,18 +222,6 @@ target_sources(target PRIVATE
 	avr32_jtag.h
 	avr32_mem.h
 	avr32_regs.h
-	nds32.h
-	nds32_cmd.h
-	nds32_disassembler.h
-	nds32_edm.h
-	nds32_insn.h
-	nds32_reg.h
-	nds32_tlb.h
-	nds32_v2.h
-	nds32_v3_common.h
-	nds32_v3.h
-	nds32_v3m.h
-	nds32_aice.h
 	semihosting_common.h
 	stm8.h
 	lakemont.h

@@ -7,6 +7,7 @@ target_sources(helper PRIVATE
 	options.c
 	time_support_common.c
 	configuration.c
+	crc32.c
 	log.c
 	time_support.c
 	replacements.c

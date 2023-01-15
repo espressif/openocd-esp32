@@ -28,7 +28,7 @@ option(BUILD_SYSFSGPIO "Build support for programming driven via sysfs gpios" OF
 option(BUILD_XLNX_PCIE_XVC "Build support for Xilinx XVC/PCIe" OFF)
 option(use_internal_jimtcl "Build internal jimtcl" ON)
 option(use_internal_jimtcl_maintainer "Maintainer mode when building internal jimtcl" OFF)
-option(use_internal_libjaylink "Build internal libjaylink" ON)
+option(use_internal_libjaylink "Build internal libjaylink" OFF)
 option(BUILD_REMOTE_BITBANG "Build support for the Remote Bitbang jtag driver" ON)
 
 # Espressif additions
