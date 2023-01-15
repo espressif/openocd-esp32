@@ -3,7 +3,7 @@ cmake_minimum_required (VERSION 3.16)
 project(OpenOCD LANGUAGES C)
 
 #TODO extract from configure.ac
-set(OPENOCD_VERSION 0.11.0)
+set(OPENOCD_VERSION 0.12.0)
 set(OPENOCD_BUGREPORT "OpenOCD Mailing List <openocd-devel@lists.sourceforge.net>")
 
 set(host_cpu ${CMAKE_SYSTEM_PROCESSOR})
