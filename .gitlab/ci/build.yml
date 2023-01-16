@@ -206,7 +206,7 @@ build_windows:
     - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
     # Build libusb-1.0
-    - export LIBUSB_VER=libusb-1.0.21
+    - export LIBUSB_VER=libusb-1.0.26
     - wget https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
     - tar xzf $LIBUSB_VER.tar.gz && rm $LIBUSB_VER.tar.gz
     - pushd $LIBUSB_VER
