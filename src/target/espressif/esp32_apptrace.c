@@ -187,7 +187,7 @@ static int esp32_apptrace_console_dest_init(struct esp32_apptrace_dest *dest, co
 static int esp32_apptrace_tcp_dest_write(void *priv, uint8_t *data, int size)
 {
 	struct esp32_apptrace_dest_tcp_data *dest_data = (struct esp32_apptrace_dest_tcp_data *)priv;
-	int wr_sz = write(dest_data->sockfd, data, size);
+	int wr_sz = write_socket(dest_data->sockfd, data, size);
 	if (wr_sz != size) {
 		LOG_ERROR("Failed to write %u bytes to out socket (%d)! Written %d.", size, errno, wr_sz);
 		return ERROR_FAIL;
@@ -200,7 +200,7 @@ static int esp32_apptrace_tcp_dest_cleanup(void *priv)
 	struct esp32_apptrace_dest_tcp_data *dest_data = (struct esp32_apptrace_dest_tcp_data *)priv;
 
 	if (dest_data->sockfd > 0)
-		close(dest_data->sockfd);
+		close_socket(dest_data->sockfd);
 	free(dest_data);
 	return ERROR_OK;
 }
@@ -213,7 +213,6 @@ static int esp32_apptrace_tcp_dest_init(struct esp32_apptrace_dest *dest, const 
 		LOG_ERROR("apptrace: Invalid connection URI, format should be tcp://host:port");
 		return ERROR_COMMAND_ARGUMENT_INVALID;
 	}
-	assert(port_sep > dest_name);
 	size_t hostname_len = port_sep - dest_name;
 
 	char hostname[64] = { 0 };
@@ -245,9 +244,9 @@ static int esp32_apptrace_tcp_dest_init(struct esp32_apptrace_dest *dest, const 
 		sockfd = socket(ai_it->ai_family, ai_it->ai_socktype, ai_it->ai_protocol);
 		if (sockfd < 0) {
 			LOG_DEBUG("apptrace: Failed to create socket (%d, %d, %d) (%s)",
-				(int)ai_it->ai_family,
-				(int)ai_it->ai_socktype,
-				(int)ai_it->ai_protocol,
+				ai_it->ai_family,
+				ai_it->ai_socktype,
+				ai_it->ai_protocol,
 				strerror(errno));
 			continue;
 		}
@@ -264,7 +263,7 @@ static int esp32_apptrace_tcp_dest_init(struct esp32_apptrace_dest *dest, const 
 
 		LOG_INFO("apptrace: Trying to connect to %s:%s", cur_hostname, cur_portname);
 		if (connect(sockfd, ai_it->ai_addr, ai_it->ai_addrlen) < 0) {
-			close(sockfd);
+			close_socket(sockfd);
 			sockfd = -1;
 			LOG_WARNING("apptrace: Connection failed (%s)", strerror(errno));
 			continue;
@@ -281,7 +280,7 @@ static int esp32_apptrace_tcp_dest_init(struct esp32_apptrace_dest *dest, const 
 	struct esp32_apptrace_dest_tcp_data *dest_data = calloc(1, sizeof(struct esp32_apptrace_dest_tcp_data));
 	if (!dest_data) {
 		LOG_ERROR("apptrace: Failed to alloc mem for tcp dest!");
-		close(sockfd);
+		close_socket(sockfd);
 		return ERROR_FAIL;
 	}
 
@@ -487,7 +486,7 @@ int esp32_apptrace_cmd_ctx_init(struct target *target, struct esp32_apptrace_cmd
 		LOG_ERROR("Failed to get max trace block size!");
 		return ERROR_FAIL;
 	}
-	LOG_INFO("Total trace memory: %d bytes", cmd_ctx->max_trace_block_sz);
+	LOG_INFO("Total trace memory: %" PRIu32 " bytes", cmd_ctx->max_trace_block_sz);
 
 	INIT_HLIST_HEAD(&cmd_ctx->ready_trace_blocks);
 	INIT_HLIST_HEAD(&cmd_ctx->free_trace_blocks);
@@ -501,7 +500,7 @@ int esp32_apptrace_cmd_ctx_init(struct target *target, struct esp32_apptrace_cmd
 		block->data = malloc(cmd_ctx->max_trace_block_sz);
 		if (!block->data) {
 			free(block);
-			LOG_ERROR("Failed to alloc trace buffer %" PRId32 " bytes!", cmd_ctx->max_trace_block_sz);
+			LOG_ERROR("Failed to alloc trace buffer %" PRIu32 " bytes!", cmd_ctx->max_trace_block_sz);
 			esp32_apptrace_blocks_pool_cleanup(cmd_ctx);
 			return ERROR_FAIL;
 		}
@@ -1501,17 +1500,16 @@ static int esp32_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx)
 	return res;
 }
 
-int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **argv, int argc)
+int esp32_cmd_apptrace_generic(struct command_invocation *cmd, int mode, const char **argv, int argc)
 {
 	static struct esp32_apptrace_cmd_ctx s_at_cmd_ctx;
 	struct esp32_apptrace_cmd_data *cmd_data;
-	int res = ERROR_OK;
+	int res = ERROR_FAIL;
 	enum target_state old_state;
+	struct target *target = get_current_target(CMD_CTX);
 
-	if (argc < 1) {
-		LOG_ERROR("Action missed!");
+	if (argc < 1)
 		return ERROR_COMMAND_SYNTAX_ERROR;
-	}
 
 	/* command can be invoked on unexamined core, if so find examined one */
 	if (target->smp && !target_was_examined(target)) {
@@ -1539,14 +1537,14 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 				&argv[1],
 				argc - 1);
 			if (res != ERROR_OK) {
-				LOG_ERROR("Failed to init cmd ctx (%d)!", res);
+				command_print(cmd, "Failed to init cmd ctx (%d)!", res);
 				return res;
 			}
 			cmd_data = s_at_cmd_ctx.cmd_priv;
 			if (cmd_data->skip_len != 0) {
-				LOG_ERROR("Data skipping not supported!");
 				s_at_cmd_ctx.running = 0;
 				esp32_sysview_cmd_cleanup(&s_at_cmd_ctx);
+				command_print(cmd, "Data skipping not supported!");
 				return ERROR_FAIL;
 			}
 			s_at_cmd_ctx.process_data = esp32_sysview_process_data;
@@ -1557,7 +1555,7 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 				&argv[1],
 				argc - 1);
 			if (res != ERROR_OK) {
-				LOG_ERROR("Failed to init cmd ctx (%d)!", res);
+				command_print(cmd, "Failed to init cmd ctx (%d)!", res);
 				return res;
 			}
 			cmd_data = s_at_cmd_ctx.cmd_priv;
@@ -1567,23 +1565,23 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 		if (cmd_data->wait4halt) {
 			res = esp32_apptrace_wait4halt(&s_at_cmd_ctx, target);
 			if (res != ERROR_OK) {
-				LOG_ERROR("Failed to wait for halt target (%d)!", res);
+				command_print(cmd, "Failed to wait for halt target (%d)!", res);
 				goto _on_start_error;
 			}
 		}
 		res = esp32_apptrace_connect_targets(&s_at_cmd_ctx, true, old_state == TARGET_RUNNING);
 		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to connect to targets (%d)!", res);
+			command_print(cmd, "Failed to connect to targets (%d)!", res);
 			goto _on_start_error;
 		}
 		if (IN_SYSVIEW_MODE(mode)) {
 			/* start tracing */
 			res = esp32_sysview_start(&s_at_cmd_ctx);
 			if (res != ERROR_OK) {
-				LOG_ERROR("SEGGER: Failed to start tracing!");
 				esp32_apptrace_connect_targets(&s_at_cmd_ctx, false, old_state == TARGET_RUNNING);
 				s_at_cmd_ctx.running = 0;
 				esp32_apptrace_cmd_cleanup(&s_at_cmd_ctx);
+				command_print(cmd, "SEGGER: Failed to start tracing!");
 				return res;
 			}
 		}
@@ -1592,12 +1590,12 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 			TARGET_TIMER_TYPE_PERIODIC,
 			&s_at_cmd_ctx);
 		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to register target timer handler (%d)!", res);
-			return res;
+			command_print(cmd, "Failed to register target timer handler (%d)!", res);
+			goto _on_start_error;
 		}
 	} else if (strcmp(argv[0], "stop") == 0) {
 		if (!s_at_cmd_ctx.running) {
-			LOG_WARNING("Tracing is not running!");
+			command_print(cmd, "Tracing is not running!");
 			return ERROR_FAIL;
 		}
 		esp32_apptrace_cmd_stop(&s_at_cmd_ctx);
@@ -1605,9 +1603,10 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 		if (s_at_cmd_ctx.running && duration_measure(&s_at_cmd_ctx.read_time) != 0)
 			LOG_ERROR("Failed to measure trace read time!");
 		esp32_apptrace_print_stats(&s_at_cmd_ctx);
+		return ERROR_OK;
 	} else if (strcmp(argv[0], "dump") == 0) {
 		if (IN_SYSVIEW_MODE(mode)) {
-			LOG_ERROR("Not supported!");
+			command_print(cmd, "Not supported!");
 			return ERROR_FAIL;
 		}
 		/* [dump outfile] - post-mortem dump without connection to targets */
@@ -1617,7 +1616,7 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 			&argv[1],
 			argc - 1);
 		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to init cmd ctx (%d)!", res);
+			command_print(cmd, "Failed to init cmd ctx (%d)!", res);
 			return res;
 		}
 		s_at_cmd_ctx.stop_tmo = 0.01;	/* use small stop tmo */
@@ -1633,8 +1632,7 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 			target_call_timer_callbacks();
 		}
 		if (s_at_cmd_ctx.running) {
-			/* data processor is alive, so wait for all received blocks to be processed
-			 * */
+			/* data processor is alive, so wait for all received blocks to be processed */
 			res = esp32_apptrace_wait_tracing_finished(&s_at_cmd_ctx);
 			if (res != ERROR_OK)
 				LOG_ERROR("Failed to wait for pended blocks (%d)!", res);
@@ -1642,9 +1640,9 @@ int esp32_cmd_apptrace_generic(struct target *target, int mode, const char **arg
 		esp32_apptrace_print_stats(&s_at_cmd_ctx);
 		res = esp32_apptrace_cmd_cleanup(&s_at_cmd_ctx);
 		if (res != ERROR_OK)
-			LOG_ERROR("Failed to cleanup cmd ctx (%d)!", res);
+			command_print(cmd, "Failed to cleanup cmd ctx (%d)!", res);
 	} else {
-		LOG_ERROR("Invalid action '%s'!", argv[0]);
+		command_print(cmd, "Invalid action '%s'!", argv[0]);
 	}
 
 	return res;
@@ -1660,26 +1658,17 @@ _on_start_error:
 
 COMMAND_HANDLER(esp32_cmd_apptrace)
 {
-	return esp32_cmd_apptrace_generic(get_current_target(CMD_CTX),
-		ESP_APPTRACE_CMD_MODE_GEN,
-		CMD_ARGV,
-		CMD_ARGC);
+	return esp32_cmd_apptrace_generic(CMD, ESP_APPTRACE_CMD_MODE_GEN, CMD_ARGV, CMD_ARGC);
 }
 
 COMMAND_HANDLER(esp32_cmd_sysview)
 {
-	return esp32_cmd_apptrace_generic(get_current_target(CMD_CTX),
-		ESP_APPTRACE_CMD_MODE_SYSVIEW,
-		CMD_ARGV,
-		CMD_ARGC);
+	return esp32_cmd_apptrace_generic(CMD, ESP_APPTRACE_CMD_MODE_SYSVIEW, CMD_ARGV, CMD_ARGC);
 }
 
 COMMAND_HANDLER(esp32_cmd_sysview_mcore)
 {
-	return esp32_cmd_apptrace_generic(get_current_target(CMD_CTX),
-		ESP_APPTRACE_CMD_MODE_SYSVIEW_MCORE,
-		CMD_ARGV,
-		CMD_ARGC);
+	return esp32_cmd_apptrace_generic(CMD, ESP_APPTRACE_CMD_MODE_SYSVIEW_MCORE, CMD_ARGV, CMD_ARGC);
 }
 
 static int esp_gcov_cmd_init(struct target *target,
