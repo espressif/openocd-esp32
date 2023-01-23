@@ -792,7 +792,7 @@ int xtensa_examine(struct target *target)
 	if (res != ERROR_OK)
 		return res;
 	if (!xtensa_dm_is_online(&xtensa->dbg_mod)) {
-		LOG_TARGET_ERROR(target, "Unexpected OCD_ID = %08" PRIx32, xtensa->dbg_mod.device_id);
+		LOG_TARGET_WARNING(target, "Unexpected OCD_ID = %08" PRIx32, xtensa->dbg_mod.device_id);
 		return ERROR_TARGET_FAILURE;
 	}
 	LOG_TARGET_DEBUG(target, "OCD_ID = %08" PRIx32, xtensa->dbg_mod.device_id);
