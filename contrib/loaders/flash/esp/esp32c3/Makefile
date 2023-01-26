@@ -40,7 +40,7 @@ SRCS := $(IDF_PATH)/components/esp_hw_support/port/esp32c3/rtc_clk_init.c \
 		$(IDF_PATH)/components/esp_hw_support/port/esp32c3/rtc_time.c \
 		$(IDF_PATH)/components/app_trace/port/$(STUB_ARCH)/port.c
 
-CFLAGS :=
+CFLAGS := -std=gnu99
 
 INCLUDES := -I$(IDF_PATH)/components/soc/esp32c3/include -I$(IDF_PATH)/components/riscv/include \
 	-I$(IDF_PATH)/components/hal/esp32c3/include -I$(IDF_PATH)/components/esp32c3/include \
