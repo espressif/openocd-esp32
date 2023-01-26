@@ -36,13 +36,16 @@
 #define ESP32C6_LP_WDT_BASE                     0x600B1C00
 #define ESP32C6_LP_WDT_CONFIG0_REG              (ESP32C6_LP_WDT_BASE + 0x0)
 #define ESP32C6_LP_WDT_WPROTECT_REG             (ESP32C6_LP_WDT_BASE + 0x18)
+#define ESP32C6_LP_WDT_SWD_PROTECT_REG          (ESP32C6_LP_WDT_BASE + 0x20)
+#define ESP32C6_LP_WDT_SWD_CFG_REG              (ESP32C6_LP_WDT_BASE + 0x1C)
 #define ESP32C6_RTCCNTL_RESET_STATE_REG         (ESP32C6_LP_CLKRST_RESET_CAUSE_REG)
 
 #define ESP32C6_GPIO_BASE                       0x60091000
 #define ESP32C6_GPIO_STRAP_REG_OFF              0x0038
 #define ESP32C6_GPIO_STRAP_REG                  (ESP32C6_GPIO_BASE + ESP32C6_GPIO_STRAP_REG_OFF)
 #define IS_1XXX(v)                              (((v) & 0x08) == 0x08)
-#define ESP32C6_IS_FLASH_BOOT(_r_)              IS_1XXX(_r_)
+#define IS_0100(v)                              (((v) & 0x0f) == 0x04)
+#define ESP32C6_IS_FLASH_BOOT(_r_)              (IS_1XXX(_r_) || IS_0100(_r_))
 #define ESP32C6_FLASH_BOOT_MODE                 0x08
 
 #define ESP32C6_RTCCNTL_RESET_CAUSE_MASK        (BIT(5) - 1)
@@ -155,6 +158,18 @@ static int esp32c6_wdt_disable(struct target *target)
 		LOG_ERROR("Failed to write ESP32C6_LP_WDT_CONFIG0_REG (%d)!", res);
 		return res;
 	}
+	/* LP SWD WDT */
+	res = target_write_u32(target, ESP32C6_LP_WDT_SWD_PROTECT_REG, ESP32C6_WDT_WKEY_VALUE);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32C6_LP_WDT_SWD_PROTECT_REG (%d)!", res);
+		return res;
+	}
+	res = target_write_u32(target, ESP32C6_LP_WDT_SWD_CFG_REG, 0x40000000);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32C6_LP_WDT_SWD_CFG_REG (%d)!", res);
+		return res;
+	}
+
 	return ERROR_OK;
 }
 
