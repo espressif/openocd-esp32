@@ -3,9 +3,10 @@ menu "Unit test application configuration"
 config BLINK_GPIO
     int "Blink GPIO number"
 	range 0 34
-    default 8 if IDF_TARGET_ESP32C3
+    default 5 if IDF_TARGET_ESP32
     default 18 if IDF_TARGET_ESP32S2
-    default 5
+    default 48 if IDF_TARGET_ESP32S3
+    default 8
 	help
 		GPIO number (IOxx) to blink on and off.
 
