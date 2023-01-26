@@ -23,12 +23,12 @@
 
 #include "esp32c6/rom/ets_sys.h"
 #include "esp32c6/rom/spi_flash.h"
-#include "esp32c6/rom/miniz.h"
 #include "esp32c6/rom/spi_flash.h"
 #include "esp32c6/rom/cache.h"
 #include "esp32c6/rom/efuse.h"
 #include "esp32c6/rom/uart.h"
 #include "esp32c6/rom/rtc.h"
 #include "esp32c6/rom/sha.h"
+#include "miniz.h"
 
 #endif
