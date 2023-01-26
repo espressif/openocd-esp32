@@ -40,15 +40,16 @@ SRCS := $(IDF_PATH)/components/esp_hw_support/port/esp32c6/rtc_clk_init.c \
 		$(IDF_PATH)/components/esp_hw_support/port/esp32c6/rtc_time.c \
 		$(IDF_PATH)/components/app_trace/port/$(STUB_ARCH)/port.c
 
-CFLAGS :=
+CFLAGS := -std=gnu17
 
-INCLUDES := -I$(IDF_PATH)/components/soc/esp32c6/include/rev2 -I$(IDF_PATH)/components/riscv/include \
-	-I$(IDF_PATH)/components/hal/esp32c6/include -I$(IDF_PATH)/components/esp32c6/include \
-	-I$(IDF_PATH)/components/esp_hw_support/port/esp32c6/private_include -I$(IDF_PATH)/components/esp_rom/include/esp32c6 \
+INCLUDES := -I$(IDF_PATH)/components/soc/esp32c6/include -I$(IDF_PATH)/components/riscv/include \
+	-I$(IDF_PATH)/components/hal/esp32c6/include \
+	-I$(IDF_PATH)/components/esp32c6/include \
+	-I$(IDF_PATH)/components/esp_hw_support/port/esp32c6/private_include \
+	-I$(IDF_PATH)/components/esp_rom/include/esp32c6 \
 	-I$(IDF_PATH)/components/esp_hw_support/port/esp32c6 \
 	-I$(IDF_PATH)/components/spi_flash/include \
-	-I$(IDF_PATH)/components/hal/esp32c6/include  -I$(IDF_PATH)/components/hal/esp32c6/include/rev2 \
-	-I$(IDF_PATH)/components/soc/esp32c6/include
+	-I$(IDF_PATH)/components/esp_rom/esp32c6
 
 DEFINES :=
 

@@ -59,7 +59,7 @@ all: $(STUB_ELF) $(STUB_IMAGE_HDR) $(STUB_CODE_SECT) $(STUB_DATA_SECT) \
 $(BUILD_DIR):
 	$(Q) mkdir $@
 
-CFLAGS += -std=gnu99 -Wall -Werror -Os \
+CFLAGS += -Wall -Werror -Os \
          -nostdlib -fno-builtin -flto \
          -Wl,-static -g -ffunction-sections -Wl,--gc-sections
 
