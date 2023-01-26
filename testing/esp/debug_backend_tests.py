@@ -10,8 +10,8 @@ import re
 import debug_backend as dbg
 
 # TODO: fixed???
-ESP32C3_BLD_FLASH_OFF = 0x0
-ESP32_BLD_FLASH_OFF = 0x1000
+ESP_RISCV_BLD_FLASH_OFF = 0x0
+ESP_XTENSA_BLD_FLASH_OFF = 0x1000
 ESP32_PT_FLASH_OFF = 0x8000
 # TODO: get from partition table
 ESP32_APP_FLASH_OFF = 0x10000
@@ -21,6 +21,7 @@ ESP32_FLASH_SZ =  4*(1024*1024) # 4M
 
 test_apps_dir = ''
 
+xtensa_chips = ["esp32", "esp32s2", "esp32s3"]
 
 def get_logger():
     """ Returns logger for this module
@@ -91,7 +92,7 @@ class TesteeInfo:
     @chip.setter
     def chip(self, val):
         self.__chip = val
-        self.__arch = "riscv32" if val == "esp32c3" or  val == "esp32c2" else "xtensa"
+        self.__arch = "xtensa" if val in xtensa_chips else "riscv32"
 
     @property
     def arch(self):
@@ -231,9 +232,9 @@ class DebuggerTestAppConfig:
         self.bld_path = None
         # App binary offeset in flash
         if testee_info.arch == "xtensa":
-            self.bld_off = ESP32_BLD_FLASH_OFF
+            self.bld_off = ESP_XTENSA_BLD_FLASH_OFF
         else: #riscv32
-            self.bld_off = ESP32C3_BLD_FLASH_OFF
+            self.bld_off = ESP_RISCV_BLD_FLASH_OFF
         # Path for partitions table binary, relative $test_apps_dir/$app_name/$bin_dir
         self.pt_path = None
         # App binary offeset in flash
