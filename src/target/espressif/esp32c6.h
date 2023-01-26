@@ -10,10 +10,10 @@
 
 #include "esp_riscv.h"
 
-#define ESP32C6_DROM_LOW    0x3C000000
-#define ESP32C6_DROM_HIGH   0x3C800000
+#define ESP32C6_DROM_LOW    0x42000000
+#define ESP32C6_DROM_HIGH   0x43000000
 #define ESP32C6_IROM_LOW    0x42000000
-#define ESP32C6_IROM_HIGH   0x42800000
+#define ESP32C6_IROM_HIGH   0x43000000
 
 struct esp32c6_common {
 	struct esp_riscv_common esp_riscv;
