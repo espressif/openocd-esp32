@@ -42,7 +42,7 @@ SRCS := $(IDF_PATH)/components/app_trace/port/$(STUB_ARCH)/port.c \
 	$(IDF_PATH)/components/esp_hw_support/port/esp32s2/rtc_time.c \
 	$(IDF_PATH)/components/esp_rom/patches/esp_rom_regi2c.c
 
-CFLAGS := -mlongcalls -mtext-section-literals
+CFLAGS := -std=gnu99 -mlongcalls -mtext-section-literals
 
 INCLUDES := -I$(IDF_PATH)/components/esp32s2/include -I$(IDF_PATH)/components/soc/esp32s2/include \
 	-I$(IDF_PATH)/components/esp_rom/include/esp32s2 -I$(IDF_PATH)/components/xtensa/esp32s2/include \

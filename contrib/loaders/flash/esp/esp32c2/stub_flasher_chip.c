@@ -375,19 +375,19 @@ uint64_t stub_get_time(void)
 	uint32_t lo, lo_start, hi;
 
 	/* Set the "update" bit and wait for acknowledgment */
-	systimer_ll_counter_snapshot(s_sys_timer_dev, SYSTIMER_LL_COUNTER_CLOCK);
-	while (!systimer_ll_is_counter_value_valid(s_sys_timer_dev, SYSTIMER_LL_COUNTER_CLOCK)) ;
+	systimer_ll_counter_snapshot(s_sys_timer_dev, SYSTIMER_COUNTER_OS_TICK);
+	while (!systimer_ll_is_counter_value_valid(s_sys_timer_dev, SYSTIMER_COUNTER_OS_TICK)) ;
 
 	/* Read LO, HI, then LO again, check that LO returns the same value.
 	* This accounts for the case when an interrupt may happen between reading
 	* HI and LO values, and this function may get called from the ISR.
 	* In this case, the repeated read will return consistent values.
 	*/
-	lo_start = systimer_ll_get_counter_value_low(s_sys_timer_dev, SYSTIMER_LL_COUNTER_CLOCK);
+	lo_start = systimer_ll_get_counter_value_low(s_sys_timer_dev, SYSTIMER_COUNTER_OS_TICK);
 	do {
 		lo = lo_start;
-		hi = systimer_ll_get_counter_value_high(s_sys_timer_dev, SYSTIMER_LL_COUNTER_CLOCK);
-		lo_start = systimer_ll_get_counter_value_low(s_sys_timer_dev, SYSTIMER_LL_COUNTER_CLOCK);
+		hi = systimer_ll_get_counter_value_high(s_sys_timer_dev, SYSTIMER_COUNTER_OS_TICK);
+		lo_start = systimer_ll_get_counter_value_low(s_sys_timer_dev, SYSTIMER_COUNTER_OS_TICK);
 	} while (lo_start != lo);
 
 	return systimer_ticks_to_us(((uint64_t)hi << 32) | lo);

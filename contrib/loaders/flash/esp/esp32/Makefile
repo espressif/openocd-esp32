@@ -42,7 +42,7 @@ SRCS := $(IDF_PATH)/components/app_trace/port/$(STUB_ARCH)/port.c \
 	$(IDF_PATH)/components/xtensa/eri.c \
 	$(STUB_CHIP_PATH)/stub_spiflash_rom_patch.c
 
-CFLAGS := -mlongcalls -mtext-section-literals
+CFLAGS := -std=gnu99 -mlongcalls -mtext-section-literals
 
 INCLUDES := -I$(IDF_PATH)/components/esp32/include \
 	-I$(IDF_PATH)/components/soc/esp32/include \
