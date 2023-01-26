@@ -451,7 +451,7 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 	return s_mode;
 }
 
-static int stub_flash_mmap(struct spiflash_map_req *req)
+static int __attribute__((unused)) stub_flash_mmap(struct spiflash_map_req *req)
 {
 	uint32_t map_src = req->src_addr & (~(SPI_FLASH_MMU_PAGE_SIZE - 1));
 	uint32_t map_size = req->size + (req->src_addr - map_src);
@@ -499,7 +499,7 @@ static int stub_flash_mmap(struct spiflash_map_req *req)
 	return ret;
 }
 
-static void stub_flash_ummap(const struct spiflash_map_req *req)
+static void __attribute__((unused)) stub_flash_ummap(const struct spiflash_map_req *req)
 {
 	uint32_t saved_state = Cache_Suspend_ICache() << 16;
 
@@ -511,6 +511,9 @@ static void stub_flash_ummap(const struct spiflash_map_req *req)
 
 int stub_flash_read_buff(uint32_t addr, void *buffer, uint32_t size)
 {
+	return esp_rom_spiflash_read(addr, buffer, size);
+
+#if 0	/* cache is not supported yet. IDF-5342 */
 	struct spiflash_map_req req = {
 		.src_addr = addr,
 		.size = size,
@@ -526,4 +529,5 @@ int stub_flash_read_buff(uint32_t addr, void *buffer, uint32_t size)
 	stub_flash_ummap(&req);
 
 	return ESP_ROM_SPIFLASH_RESULT_OK;
+#endif
 }
