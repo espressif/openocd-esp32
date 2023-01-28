@@ -51,6 +51,10 @@
 #define ESP32C6_RTCCNTL_RESET_CAUSE_MASK        (BIT(5) - 1)
 #define ESP32C6_RESET_CAUSE(reg_val)            ((reg_val) & ESP32C6_RTCCNTL_RESET_CAUSE_MASK)
 
+/* max supported hw breakpoint and watchpoint count */
+#define ESP32C6_BP_NUM          4
+#define ESP32C6_WP_NUM          4
+
 enum esp32c6_reset_reason {
 	ESP32C6_CHIP_POWER_ON_RESET   = 0x01,	/* Power on reset */
 	ESP32C6_CHIP_BROWN_OUT_RESET  = 0x01,	/* VDD voltage is not stable and resets the chip */
@@ -190,6 +194,12 @@ static int esp32c6_target_create(struct target *target, Jim_Interp *interp)
 		return ERROR_FAIL;
 
 	target->arch_info = esp32c6;
+
+	esp32c6->esp_riscv.max_bp_num = ESP32C6_BP_NUM;
+	esp32c6->esp_riscv.max_wp_num = ESP32C6_WP_NUM;
+
+	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
+		return ERROR_FAIL;
 
 	riscv_info_init(target, &esp32c6->esp_riscv.riscv);
 

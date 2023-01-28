@@ -62,6 +62,10 @@
 #define ESP32C2_PMP_ADDR_DRAM_END              (CSR_PMPADDR0 + ESP32C2_PMP_CFG_DRAM_END)
 #define ESP32C2_PMP_LOCKED_BIT                 BIT(7)
 
+/* max supported hw breakpoint and watchpoint count */
+#define ESP32C2_BP_NUM          2
+#define ESP32C2_WP_NUM          2
+
 enum esp32c2_reset_reason {
 	ESP32C2_CHIP_POWER_ON_RESET      = 0x01,	/* Power on reset */
 	ESP32C2_CORE_SW_RESET            = 0x03,	/* Software resets the digital core by RTC_CNTL_SW_SYS_RST */
@@ -163,6 +167,12 @@ static int esp32c2_target_create(struct target *target, Jim_Interp *interp)
 		return ERROR_FAIL;
 
 	target->arch_info = esp32c2;
+
+	esp32c2->esp_riscv.max_bp_num = ESP32C2_BP_NUM;
+	esp32c2->esp_riscv.max_wp_num = ESP32C2_WP_NUM;
+
+	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
+		return ERROR_FAIL;
 
 	riscv_info_init(target, &esp32c2->esp_riscv.riscv);
 
