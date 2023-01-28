@@ -23,6 +23,7 @@ target_sources(rtos PRIVATE
 	mqx.c
 	uCOS-III.c
 	nuttx.c
+	rtkernel.c
 	hwthread.c
 	zephyr.c
 	riot.c
