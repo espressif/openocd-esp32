@@ -1,35 +1,14 @@
-/***************************************************************************
- *   Copyright (C) 2020 Espressif Systems Ltd.                             *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
- ***************************************************************************/
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
 #include "rtos.h"
-#include "rtos_standard_stackings.h"
-#include "target/target.h"
-#include "helper/log.h"
-#include "helper/binarybuffer.h"
 #include "target/armv7m.h"
+#include "rtos_nuttx_stackings.h"
+#include "rtos_standard_stackings.h"
 #include <target/riscv/riscv.h>
-
-static int nuttx_esp_xtensa_stack_read(struct target *target,
-	int64_t stack_ptr, const struct rtos_register_stacking *stacking,
-	uint8_t *stack_data);
 
 /* see arch/arm/include/armv7-m/irq_cmnvector.h */
 static const struct stack_register_offset nuttx_stack_offsets_cortex_m[] = {
@@ -52,6 +31,13 @@ static const struct stack_register_offset nuttx_stack_offsets_cortex_m[] = {
 	{ ARMV7M_XPSR, 0x44, 32 },		/* xPSR */
 };
 
+const struct rtos_register_stacking nuttx_stacking_cortex_m = {
+	.stack_registers_size = 0x48,
+	.stack_growth_direction = -1,
+	.num_output_registers = 17,
+	.register_offsets = nuttx_stack_offsets_cortex_m,
+};
+
 static const struct stack_register_offset nuttx_stack_offsets_cortex_m_fpu[] = {
 	{ ARMV7M_R0, 0x6c, 32 },		/* r0   */
 	{ ARMV7M_R1, 0x70, 32 },		/* r1   */
@@ -71,6 +57,70 @@ static const struct stack_register_offset nuttx_stack_offsets_cortex_m_fpu[] = {
 	{ ARMV7M_PC, 0x84, 32 },		/* pc   */
 	{ ARMV7M_XPSR, 0x88, 32 },		/* xPSR */
 };
+
+const struct rtos_register_stacking nuttx_stacking_cortex_m_fpu = {
+	.stack_registers_size = 0x8c,
+	.stack_growth_direction = -1,
+	.num_output_registers = 17,
+	.register_offsets = nuttx_stack_offsets_cortex_m_fpu,
+};
+
+static const struct stack_register_offset nuttx_stack_offsets_riscv[] = {
+	{ GDB_REGNO_ZERO, -1, 32 },
+	{ GDB_REGNO_RA, 0x04, 32 },
+	{ GDB_REGNO_SP, 0x08, 32 },
+	{ GDB_REGNO_GP, 0x0c, 32 },
+	{ GDB_REGNO_TP, 0x10, 32 },
+	{ GDB_REGNO_T0, 0x14, 32 },
+	{ GDB_REGNO_T1, 0x18, 32 },
+	{ GDB_REGNO_T2, 0x1c, 32 },
+	{ GDB_REGNO_FP, 0x20, 32 },
+	{ GDB_REGNO_S1, 0x24, 32 },
+	{ GDB_REGNO_A0, 0x28, 32 },
+	{ GDB_REGNO_A1, 0x2c, 32 },
+	{ GDB_REGNO_A2, 0x30, 32 },
+	{ GDB_REGNO_A3, 0x34, 32 },
+	{ GDB_REGNO_A4, 0x38, 32 },
+	{ GDB_REGNO_A5, 0x3c, 32 },
+	{ GDB_REGNO_A6, 0x40, 32 },
+	{ GDB_REGNO_A7, 0x44, 32 },
+	{ GDB_REGNO_S2, 0x48, 32 },
+	{ GDB_REGNO_S3, 0x4c, 32 },
+	{ GDB_REGNO_S4, 0x50, 32 },
+	{ GDB_REGNO_S5, 0x54, 32 },
+	{ GDB_REGNO_S6, 0x58, 32 },
+	{ GDB_REGNO_S7, 0x5c, 32 },
+	{ GDB_REGNO_S8, 0x60, 32 },
+	{ GDB_REGNO_S9, 0x64, 32 },
+	{ GDB_REGNO_S10, 0x68, 32 },
+	{ GDB_REGNO_S11, 0x6c, 32 },
+	{ GDB_REGNO_T3, 0x70, 32 },
+	{ GDB_REGNO_T4, 0x74, 32 },
+	{ GDB_REGNO_T5, 0x78, 32 },
+	{ GDB_REGNO_T6, 0x7c, 32 },
+	{ GDB_REGNO_PC, 0x00, 32 },
+};
+
+const struct rtos_register_stacking nuttx_riscv_stacking = {
+	.stack_registers_size = 33 * 4,
+	.stack_growth_direction = -1,
+	.num_output_registers = 33,
+	.calculate_process_stack = rtos_generic_stack_align8,
+	.register_offsets = nuttx_stack_offsets_riscv,
+};
+
+static int nuttx_esp_xtensa_stack_read(struct target *target,
+	int64_t stack_ptr, const struct rtos_register_stacking *stacking,
+	uint8_t *stack_data)
+{
+	int retval = target_read_buffer(target, stack_ptr, stacking->stack_registers_size, stack_data);
+	if (retval != ERROR_OK)
+		return retval;
+
+	stack_data[4] &= ~0x10;	/* Clear exception bit in PS */
+
+	return ERROR_OK;
+}
 
 static const struct stack_register_offset nuttx_stack_offsets_esp32[] = {
 	{ 0, 0x00, 32 },		/* PC */
@@ -181,6 +231,15 @@ static const struct stack_register_offset nuttx_stack_offsets_esp32[] = {
 	{ 104, -1, 32 },		/* fsr */
 };
 
+const struct rtos_register_stacking nuttx_esp32_stacking = {
+	.stack_registers_size = 26 * 4,
+	.stack_growth_direction = -1,
+	.num_output_registers = ARRAY_SIZE(nuttx_stack_offsets_esp32),
+	.calculate_process_stack = rtos_generic_stack_align8,
+	.register_offsets = nuttx_stack_offsets_esp32,
+	.read_stack = nuttx_esp_xtensa_stack_read,
+};
+
 static const struct stack_register_offset nuttx_stack_offsets_esp32s2[] = {
 	{ 0, 0x00, 32 },		/* PC */
 	{ 1, 0x08, 32 },		/* A0 */
@@ -256,6 +315,15 @@ static const struct stack_register_offset nuttx_stack_offsets_esp32s2[] = {
 	{ 70, 0x04, 32 },		/* PS */
 	{ 71, -1, 32 },			/* threadptr */
 	{ 72, -1, 32 },			/* gpio_out */
+};
+
+const struct rtos_register_stacking nuttx_esp32s2_stacking = {
+	.stack_registers_size = 25 * 4,
+	.stack_growth_direction = -1,
+	.num_output_registers = ARRAY_SIZE(nuttx_stack_offsets_esp32s2),
+	.calculate_process_stack = rtos_generic_stack_align8,
+	.register_offsets = nuttx_stack_offsets_esp32s2,
+	.read_stack = nuttx_esp_xtensa_stack_read,
 };
 
 static const struct stack_register_offset nuttx_stack_offsets_esp32s3[] = {
@@ -390,103 +458,11 @@ static const struct stack_register_offset nuttx_stack_offsets_esp32s3[] = {
 	{ 127, -1, 128 },		/* q7 */
 };
 
-static const struct stack_register_offset nuttx_stack_offsets_riscv[] = {
-	{ GDB_REGNO_ZERO, -1, 32 },
-	{ GDB_REGNO_RA, 0x04, 32 },
-	{ GDB_REGNO_SP, 0x08, 32 },
-	{ GDB_REGNO_GP, 0x0c, 32 },
-	{ GDB_REGNO_TP, 0x10, 32 },
-	{ GDB_REGNO_T0, 0x14, 32 },
-	{ GDB_REGNO_T1, 0x18, 32 },
-	{ GDB_REGNO_T2, 0x1c, 32 },
-	{ GDB_REGNO_FP, 0x20, 32 },
-	{ GDB_REGNO_S1, 0x24, 32 },
-	{ GDB_REGNO_A0, 0x28, 32 },
-	{ GDB_REGNO_A1, 0x2c, 32 },
-	{ GDB_REGNO_A2, 0x30, 32 },
-	{ GDB_REGNO_A3, 0x34, 32 },
-	{ GDB_REGNO_A4, 0x38, 32 },
-	{ GDB_REGNO_A5, 0x3c, 32 },
-	{ GDB_REGNO_A6, 0x40, 32 },
-	{ GDB_REGNO_A7, 0x44, 32 },
-	{ GDB_REGNO_S2, 0x48, 32 },
-	{ GDB_REGNO_S3, 0x4c, 32 },
-	{ GDB_REGNO_S4, 0x50, 32 },
-	{ GDB_REGNO_S5, 0x54, 32 },
-	{ GDB_REGNO_S6, 0x58, 32 },
-	{ GDB_REGNO_S7, 0x5c, 32 },
-	{ GDB_REGNO_S8, 0x60, 32 },
-	{ GDB_REGNO_S9, 0x64, 32 },
-	{ GDB_REGNO_S10, 0x68, 32 },
-	{ GDB_REGNO_S11, 0x6c, 32 },
-	{ GDB_REGNO_T3, 0x70, 32 },
-	{ GDB_REGNO_T4, 0x74, 32 },
-	{ GDB_REGNO_T5, 0x78, 32 },
-	{ GDB_REGNO_T6, 0x7c, 32 },
-	{ GDB_REGNO_PC, 0x00, 32 },
-};
-
-const struct rtos_register_stacking nuttx_stacking_cortex_m = {
-	.stack_registers_size = 0x48,
-	.stack_growth_direction = -1,
-	.num_output_registers = 17,
-	.register_offsets = nuttx_stack_offsets_cortex_m,
-};
-
-const struct rtos_register_stacking nuttx_stacking_cortex_m_fpu = {
-	.stack_registers_size = 0x8c,
-	.stack_growth_direction = -1,
-	.num_output_registers = 17,
-	.register_offsets = nuttx_stack_offsets_cortex_m_fpu,
-};
-
-const struct rtos_register_stacking nuttx_esp32_stacking = {
-	.stack_registers_size = 26 * 4,
-	.stack_growth_direction = -1,
-	.num_output_registers = ARRAY_SIZE(nuttx_stack_offsets_esp32),
-	.calculate_process_stack = rtos_generic_stack_align8,
-	.register_offsets = nuttx_stack_offsets_esp32,
-	.custom_stack_read_fn = nuttx_esp_xtensa_stack_read,
-};
-
-const struct rtos_register_stacking nuttx_esp32s2_stacking = {
-	.stack_registers_size = 25 * 4,
-	.stack_growth_direction = -1,
-	.num_output_registers = ARRAY_SIZE(nuttx_stack_offsets_esp32s2),
-	.calculate_process_stack = rtos_generic_stack_align8,
-	.register_offsets = nuttx_stack_offsets_esp32s2,
-	.custom_stack_read_fn = nuttx_esp_xtensa_stack_read,
-};
-
 const struct rtos_register_stacking nuttx_esp32s3_stacking = {
 	.stack_registers_size = 26 * 4,
 	.stack_growth_direction = -1,
 	.num_output_registers = ARRAY_SIZE(nuttx_stack_offsets_esp32s3),
 	.calculate_process_stack = rtos_generic_stack_align8,
 	.register_offsets = nuttx_stack_offsets_esp32s3,
-	.custom_stack_read_fn = nuttx_esp_xtensa_stack_read,
+	.read_stack = nuttx_esp_xtensa_stack_read,
 };
-
-const struct rtos_register_stacking nuttx_riscv_stacking = {
-	.stack_registers_size = 33 * 4,
-	.stack_growth_direction = -1,
-	.num_output_registers = 33,
-	.calculate_process_stack = rtos_generic_stack_align8,
-	.register_offsets = nuttx_stack_offsets_riscv,
-};
-
-static int nuttx_esp_xtensa_stack_read(struct target *target,
-	int64_t stack_ptr, const struct rtos_register_stacking *stacking,
-	uint8_t *stack_data)
-{
-	int retval;
-
-	retval = target_read_buffer(target, stack_ptr, stacking->stack_registers_size,
-		stack_data);
-	if (retval != ERROR_OK)
-		return retval;
-
-	stack_data[4] &= ~0x10;	/* Clear exception bit in PS */
-
-	return retval;
-}
