@@ -137,6 +137,21 @@ static void esp_riscv_print_exception_reason(struct target *target)
 	}
 }
 
+int esp_riscv_alloc_trigger_addr(struct target *target)
+{
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+
+	esp_riscv->target_bp_addr = calloc(esp_riscv->max_bp_num, sizeof(*esp_riscv->target_bp_addr));
+	if (!esp_riscv->target_bp_addr)
+		return ERROR_FAIL;
+
+	esp_riscv->target_wp_addr = calloc(esp_riscv->max_wp_num, sizeof(*esp_riscv->target_wp_addr));
+	if (!esp_riscv->target_wp_addr)
+		return ERROR_FAIL;
+
+	return ERROR_OK;
+}
+
 int esp_riscv_semihosting(struct target *target)
 {
 	int res = ERROR_OK;
@@ -171,7 +186,7 @@ int esp_riscv_semihosting(struct target *target)
 		int id = semihosting_get_field(target,
 				ESP_RISCV_SET_BREAKPOINT_ARG_ID,
 				fields);
-		if (id >= ESP_RISCV_TARGET_BP_NUM) {
+		if (id >= esp_riscv->max_bp_num) {
 			LOG_ERROR("Unsupported breakpoint ID (%d)!", id);
 			return ERROR_FAIL;
 		}
@@ -209,7 +224,7 @@ int esp_riscv_semihosting(struct target *target)
 		int id = semihosting_get_field(target,
 				ESP_RISCV_SET_WATCHPOINT_ARG_ID,
 				fields);
-		if (id >= ESP_RISCV_TARGET_WP_NUM) {
+		if (id >= esp_riscv->max_wp_num) {
 			LOG_ERROR("Unsupported watchpoint ID (%d)!", id);
 			return ERROR_FAIL;
 		}
@@ -817,6 +832,9 @@ void esp_riscv_deinit_target(struct target *target)
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 	if (esp_riscv->semi_ops->post_reset)
 		esp_riscv->semi_ops->post_reset(target);
+
+	free(esp_riscv->target_bp_addr);
+	free(esp_riscv->target_wp_addr);
 
 	riscv_target.deinit_target(target);
 }

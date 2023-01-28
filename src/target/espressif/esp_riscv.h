@@ -17,8 +17,6 @@
 
 #define get_field(reg, mask) (((reg) & (mask)) / ((mask) & ~((mask) << 1)))
 #define set_field(reg, mask, val) (((reg) & ~(mask)) | (((val) * ((mask) & ~((mask) << 1))) & (mask)))
-#define ESP_RISCV_TARGET_BP_NUM         8
-#define ESP_RISCV_TARGET_WP_NUM         8
 
 struct esp_riscv_common {
 	/* should be first, will be accessed by riscv generic code */
@@ -27,8 +25,10 @@ struct esp_riscv_common {
 	struct esp_riscv_apptrace_info apptrace;
 	struct esp_semihost_data semihost;
 	struct esp_semihost_ops *semi_ops;
-	target_addr_t target_bp_addr[ESP_RISCV_TARGET_BP_NUM];
-	target_addr_t target_wp_addr[ESP_RISCV_TARGET_WP_NUM];
+	target_addr_t *target_bp_addr;
+	target_addr_t *target_wp_addr;
+	uint8_t max_bp_num;
+	uint8_t max_wp_num;
 };
 
 static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *target)
@@ -55,6 +55,7 @@ static inline int esp_riscv_init_arch_info(struct command_context *cmd_ctx, stru
 	return ERROR_OK;
 }
 
+int esp_riscv_alloc_trigger_addr(struct target *target);
 int esp_riscv_semihosting(struct target *target);
 int esp_riscv_breakpoint_add(struct target *target, struct breakpoint *breakpoint);
 int esp_riscv_breakpoint_remove(struct target *target, struct breakpoint *breakpoint);
