@@ -651,15 +651,12 @@ int rtos_generic_stack_read(struct target *target,
 	uint8_t *stack_data = malloc(stacking->stack_registers_size);
 	uint32_t address = stack_ptr;
 
-	if (stacking->custom_stack_read_fn) {
-		retval = stacking->custom_stack_read_fn(target, stack_ptr, stacking, stack_data);
-	} else {
-		if (stacking->stack_growth_direction == 1)
-			address -= stacking->stack_registers_size;
+	if (stacking->stack_growth_direction == 1)
+		address -= stacking->stack_registers_size;
+	if (stacking->read_stack)
+		retval = stacking->read_stack(target, address, stacking, stack_data);
+	else
 		retval = target_read_buffer(target, address, stacking->stack_registers_size, stack_data);
-	}
-
-
 	if (retval != ERROR_OK) {
 		free(stack_data);
 		LOG_ERROR("Error reading stack frame from thread");
