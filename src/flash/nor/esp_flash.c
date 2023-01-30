@@ -966,26 +966,21 @@ int esp_algo_flash_probe(struct flash_bank *bank)
 		 * have zero size to allow correct memory map with non zero RAM region */
 		irom_base = drom_base = esp_algo_flash_get_size(bank);
 	} else {
-		for (uint32_t i = 0; i < flash_map.maps_num; i++) {
-			if (esp_info->is_irom_address(flash_map.maps[i].load_addr)) {
-				irom_flash_base = flash_map.maps[i].phy_addr &
-					~(esp_info->sec_sz - 1);
-				irom_base = flash_map.maps[i].load_addr &
-					~(esp_info->sec_sz - 1);
-				irom_sz = flash_map.maps[i].size;
-				if (irom_sz & (esp_info->sec_sz - 1))
-					irom_sz = (irom_sz & ~(esp_info->sec_sz - 1)) +
-						esp_info->sec_sz;
-			} else if (esp_info->is_drom_address(flash_map.maps[i].load_addr)) {
-				drom_flash_base = flash_map.maps[i].phy_addr &
-					~(esp_info->sec_sz - 1);
-				drom_base = flash_map.maps[i].load_addr &
-					~(esp_info->sec_sz - 1);
-				drom_sz = flash_map.maps[i].size;
-				if (drom_sz & (esp_info->sec_sz - 1))
-					drom_sz = (drom_sz & ~(esp_info->sec_sz - 1)) +
-						esp_info->sec_sz;
-			}
+		/* flash map index 0 belongs to drom */
+		if (esp_info->is_drom_address(flash_map.maps[0].load_addr)) {
+			drom_flash_base = flash_map.maps[0].load_addr & ~(esp_info->sec_sz - 1);
+			drom_base = flash_map.maps[0].load_addr & ~(esp_info->sec_sz - 1);
+			drom_sz = flash_map.maps[0].size;
+			if (drom_sz & (esp_info->sec_sz - 1))
+				drom_sz = (drom_sz & ~(esp_info->sec_sz - 1)) + esp_info->sec_sz;
+		}
+		/* flash map index 1 belongs to irom */
+		if (flash_map.maps_num > 1 && esp_info->is_irom_address(flash_map.maps[1].load_addr)) {
+			irom_flash_base = flash_map.maps[1].phy_addr & ~(esp_info->sec_sz - 1);
+			irom_base = flash_map.maps[1].load_addr & ~(esp_info->sec_sz - 1);
+			irom_sz = flash_map.maps[1].size;
+			if (irom_sz & (esp_info->sec_sz - 1))
+				irom_sz = (irom_sz & ~(esp_info->sec_sz - 1)) + esp_info->sec_sz;
 		}
 	}
 
@@ -1009,7 +1004,7 @@ int esp_algo_flash_probe(struct flash_bank *bank)
 	LOG_INFO("Using flash bank '%s' size %d KB", bank->name, bank->size / 1024);
 
 	if (bank->size) {
-		/* Bank size can be 0 for IRON/DROM emulated banks when there is no app in flash */
+		/* Bank size can be 0 for IROM/DROM emulated banks when there is no app in flash */
 		bank->num_sectors = bank->size / esp_info->sec_sz;
 		bank->sectors = malloc(sizeof(struct flash_sector) * bank->num_sectors);
 		if (bank->sectors == NULL) {
