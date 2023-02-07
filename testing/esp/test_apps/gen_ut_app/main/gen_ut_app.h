@@ -21,6 +21,7 @@
 #ifndef GEN_UT_APP_H
 #define GEN_UT_APP_H
 
+#include <stdbool.h>
 #include "ut_idf_ver.h"
 #include "sdkconfig.h"
 
@@ -55,6 +56,15 @@ typedef ut_result_t (*test_func_t)(int test_num);
    or you can edit the following line and set a number here.
 */
 #define BLINK_GPIO CONFIG_BLINK_GPIO
+
+#define TEST_ID_PATTERN(_name_)     _name_##_id_pattern
+#define TEST_ID_MATCH(_exp_, _id_)  test_id_match(_exp_, (const char *)_id_)
+#define TEST_ENTRY(_name_)    _name_##_task
+#define TEST_DECL(_name_, _exp_) \
+static const char _name_##_id_pattern[] = _exp_; \
+static void _name_##_task(void *pvParameter)
+
+bool test_id_match(const char *exp, const char *id);
 
 #endif
 

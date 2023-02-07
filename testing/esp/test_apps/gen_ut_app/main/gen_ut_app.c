@@ -8,6 +8,7 @@
 */
 #include <stdio.h>
 #include <string.h>
+#include <fnmatch.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "gen_ut_app.h"
@@ -25,6 +26,7 @@ const static char *TAG = "ut_app";
 
 // test app algorithm selector
 volatile static int s_run_test = CONFIG_GEN_UT_APP_RUNTEST;
+volatile static char s_run_test_str[256];
 // vars for WP tests
 volatile static int s_count1 = 0;
 volatile static int s_count2 = 100;
@@ -346,10 +348,23 @@ static void step_over_inst_changing_intlevel(void* arg)
 }
 #endif
 
+// match test string ID with pattern. See fnmatch for wildcard format description.
+bool test_id_match(const char *pattern, const char *id)
+{
+    if (esp_ptr_internal(id) && esp_ptr_byte_accessible(id)) {
+        return fnmatch(pattern, id, 0) == 0;
+    }
+    return false;
+}
 
 void app_main()
 {
-    ESP_LOGI(TAG, "Run test %d\n", s_run_test);
+    if (s_run_test == -1) {
+        ESP_LOGI(TAG, "Run test '%s'\n", s_run_test_str);
+        s_run_test = (int)s_run_test_str;
+    } else {
+        ESP_LOGI(TAG, "Run test %d\n", s_run_test);
+    }
     if (s_run_test == 100){
         static struct timer_task_arg task_arg = { .tim_grp = TEST_TIMER_GROUP_1, .tim_id = TEST_TIMER_0, .tim_period = 500000UL, .isr_func = test_timer_isr};
         xTaskCreate(&blink_task, "blink_task", 4096, &task_arg, 5, NULL);
@@ -386,12 +401,22 @@ void app_main()
                 break;
             }
         }
-        if (res == UT_UNSUPPORTED) {
-            ESP_LOGE(TAG, "Invalid test id (%d)!", s_run_test);
-        } else if (res != UT_OK) {
-            ESP_LOGE(TAG, "Test %d failed (%d)!", s_run_test, res);
+        if (s_run_test != -1) {
+            if (res == UT_UNSUPPORTED) {
+                ESP_LOGE(TAG, "Invalid test id (%d)!", s_run_test);
+            } else if (res != UT_OK) {
+                ESP_LOGE(TAG, "Test %d failed (%d)!", s_run_test, res);
+            } else {
+                ESP_LOGI(TAG, "Test %d completed!", s_run_test);
+            }
         } else {
-            ESP_LOGI(TAG, "Test %d completed!", s_run_test);
+            if (res == UT_UNSUPPORTED) {
+                ESP_LOGE(TAG, "Invalid test id (%s)!", s_run_test_str);
+            } else if (res != UT_OK) {
+                ESP_LOGE(TAG, "Test '%s' failed (%d)!", s_run_test_str, res);
+            } else {
+                ESP_LOGI(TAG, "Test '%s' completed!", s_run_test_str);
+            }
         }
         // wait forever
         ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
