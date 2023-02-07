@@ -1,3 +1,4 @@
+#include <string.h>
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -54,16 +55,7 @@ static void cache_check_task(void *pvParameter)
 
 static void psram_check_task(void *pvParameter)
 {
-#if !CONFIG_IDF_TARGET_ESP32 && UT_IDF_VER < MAKE_UT_IDF_VER(5,0,0,0)
-    /* In ESP32S3/S2, PSRAM is mapped from high to low. Check s_mapped_vaddr_start at esp32s3/spiram.c
-        There is a plan to change from low to high same as ESP32
-        Follow up jira https://jira.espressif.com:8443/browse/IDF-4318
-    */
-    uint32_t *mem = (uint32_t *)SOC_EXTRAM_DATA_HIGH - (SPIRAM_TEST_ARRAY_SZ * (xPortGetCoreID() + 1));
-#else
-    uint32_t *mem = (uint32_t *)SOC_EXTRAM_DATA_LOW;
-#endif
-    mem += xPortGetCoreID() * SPIRAM_TEST_ARRAY_SZ;
+    uint32_t *mem = (uint32_t *)heap_caps_malloc(sizeof(uint32_t)*SPIRAM_TEST_ARRAY_SZ, MALLOC_CAP_DEFAULT|MALLOC_CAP_SPIRAM);
     for (int i = 0, k = 0x20; i < SPIRAM_TEST_ARRAY_SZ; i++, k++) {
         mem[i] = k;
     }
@@ -147,6 +139,52 @@ static void divide_by_zero_exc(void *pvParameter)
         "QUOS a2, a2, a3\n" \
         : "+r"(a2) : "r"(a3)
     );
+}
+
+static bool mem_check(uint8_t *mem, uint32_t mem_sz)
+{
+    const uint8_t buf[256] = {0};
+
+    for (uint32_t i = 0; i < mem_sz;) {
+        uint32_t cmp_sz = mem_sz > sizeof(buf) ? sizeof(buf) : mem_sz;
+        if (memcmp(&mem[i], buf, cmp_sz)) {
+            return false;
+        }
+        i += cmp_sz;
+        mem_sz -= cmp_sz;
+    }
+    return true;
+}
+
+// GH issue reported for ESP32-S3. See https://github.com/espressif/openocd-esp32/issues/264
+TEST_DECL(gh264_psram_check, "test_special.PsramTests*.test_psram_with_flash_breakpoints_gh264")
+{
+    uint32_t alloc_sz = 100000;
+
+    while (1) {
+        // CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL == 16384, so any block larger than this
+        // will be forced into PSRAM.  The following shows an overwrite.
+        // 24540 works; 24541 begins to show overwrite; 1000000 is massive overwrite
+        uint8_t *obj = calloc(alloc_sz,sizeof(uint8_t));
+        assert(obj);
+        printf("Allocated %u bytes @ %p\n", (unsigned int)alloc_sz, obj);
+
+        // Test breakpoints, to be set when you are stopped at app_main.
+        // - if you only set "b 15" then "c", when it breaks do an "x/128xb obj" you'll see 0's as you should
+        // - but if you set "b 15" AND "b 16" AND "b 17" then "c", when it breaks you'll see bad values
+        assert(mem_check(obj, alloc_sz));
+        TEST_BREAK_LBL(gh264_psram_check_bp_1);
+        printf("breakpoint 1\n"); TEST_BREAK_LOC(gh264_psram_check_1);
+        assert(mem_check(obj, alloc_sz));
+        TEST_BREAK_LBL(gh264_psram_check_bp_2);
+        printf("breakpoint 2\n"); TEST_BREAK_LOC(gh264_psram_check_2);
+        assert(mem_check(obj, alloc_sz));
+        TEST_BREAK_LBL(gh264_psram_check_bp_3);
+        printf("breakpoint 3\n"); TEST_BREAK_LOC(gh264_psram_check_3);
+
+        free(obj);
+        alloc_sz /= 2;
+    }
 }
 #endif
 
@@ -262,6 +300,13 @@ ut_result_t special_test_do(int test_num)
         }
 #endif
         default:
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
+            if (TEST_ID_MATCH(TEST_ID_PATTERN(gh264_psram_check), test_num))
+            {
+                xTaskCreatePinnedToCore(TEST_ENTRY(gh264_psram_check), "gh264_psram_check_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+                break;
+            }
+#endif
             return UT_UNSUPPORTED;
     }
     return UT_OK;

@@ -39,6 +39,13 @@
     volatile static const int _nm_ ## _break_ln = __LINE__ + _shft_; \
     s_tmp_ln = _nm_ ## _break_ln;
 
+#define TEST_BREAK_LBL(_nm_)  \
+    __asm__ __volatile__ ( \
+        ".global "#_nm_"\n" \
+        ".type   "#_nm_",@function\n" \
+        #_nm_":\n" \
+        ::)
+
 // used to prevent linker from optimizing out the variables holding BP line numbers
 volatile static int s_tmp_ln = 0;
 

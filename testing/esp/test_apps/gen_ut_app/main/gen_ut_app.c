@@ -16,6 +16,9 @@
 #include "freertos/xtensa_api.h"
 #include "xtensa/core-macros.h"
 #endif
+#if UT_IDF_VER >= MAKE_UT_IDF_VER(5,0,0,0)
+#include "esp_memory_utils.h"
+#endif
 #include "driver/gpio.h"
 #include "test_timer.h"
 #define LOG_LOCAL_LEVEL CONFIG_LOG_DEFAULT_LEVEL

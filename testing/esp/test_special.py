@@ -162,9 +162,9 @@ class DebuggerSpecialTestsImpl:
         # We expect at least len(expected_strings) for one core.
         self.assertTrue(found_line_count >= len(expected_strings))
 
-# to be skipped for any board with ESP32-S2 chip
-# TODO: enable these tests when PSRAM is supported for ESP32-S2
-@skip_for_chip(['esp32s2', 'esp32c3', 'esp32c2'])
+
+# PSRAM is supported for Xtensa chips only
+@only_for_arch(['xtensa'])
 class PsramTestsImpl:
     """ PSRAM specific test cases generic for dual and single core modes
     """
@@ -190,6 +190,25 @@ class PsramTestsImpl:
             self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_level', ['gpio_set_level%d' % (i % 2)], outmost_func_name='psram_check_task')
             # break at vTaskDelay
             self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay%d' % (i % 2)], outmost_func_name='psram_check_task')
+
+    def test_psram_with_flash_breakpoints_gh264(self):
+        """
+            GH issue reported for ESP32-S3. See https://github.com/espressif/openocd-esp32/issues/264
+            This test checks that PSRAM memory contents ard not corrupted when using flash SW breakpoints.
+            1) Select appropriate sub-test number on target.
+            2) Resume target, wait for the program to stop at the places where we set breakpoints.
+            3) Target program checks PSRAM memory contents and calls 'assert()' in case of error,
+            so test expects propgram to be stopped on breakpoints only. Stop at the call to 'assert()' is a failure.
+        """
+        # 2 HW breaks + 1 flash SW break + RAM SW break
+        bps = ['gh264_psram_check_bp_1', 'gh264_psram_check_bp_2', 'gh264_psram_check_bp_3']
+        for f in bps:
+            self.add_bp(f)
+        for i in range(3):
+            self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_BP, 'gh264_psram_check_task', 'gh264_psram_check_1')
+            self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_BP, 'gh264_psram_check_task', 'gh264_psram_check_2')
+            self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_BP, 'gh264_psram_check_task', 'gh264_psram_check_3')
+
 
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
