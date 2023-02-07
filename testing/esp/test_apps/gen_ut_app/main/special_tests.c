@@ -253,6 +253,8 @@ ut_result_t special_test_do(int test_num)
             break;
         }
 #if CONFIG_IDF_TARGET_ARCH_RISCV
+        /* we have two different tests for Xtensa and RISCV with the same ID. See above.
+           TODO: switch to string test IDs like 'test_bp.DebuggerBreakpointTestsDual.test_bp_add_remove_run', 'test_bp.DebuggerBreakpointTests*.test_bp_add_remove_run' */
         case 804:
         {
             xTaskCreatePinnedToCore(&target_wp_reconf_task, "target_wp_reconf_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
