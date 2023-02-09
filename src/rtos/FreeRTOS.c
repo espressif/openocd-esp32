@@ -881,8 +881,9 @@ static int freertos_update_threads(struct rtos *rtos)
 
 	uint8_t top_used_priority = freertos_get_ux_top_used_priority(rtos);
 	if (top_used_priority == 0) {
-		LOG_ERROR(
-			"FreeRTOS: uxTopUsedPriority is not defined, consult the OpenOCD manual for a work-around!");
+		LOG_DEBUG(
+			"FreeRTOS: uxTopUsedPriority may not defined or not loaded into memory yet."
+			"Try to read in the next update request");
 		return ERROR_FAIL;
 	}
 
