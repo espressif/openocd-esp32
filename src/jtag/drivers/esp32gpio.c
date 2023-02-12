@@ -21,12 +21,15 @@ static dedic_gpio_bundle_handle_t gpio_in_bundle;
 static dedic_gpio_bundle_handle_t gpio_out_bundle;
 
 /* mask values depends on the location in the gpio bundle array */
+#define GPIO_TDO_MASK       0x01	/* input */
+
+/* outputs */
 #define GPIO_TCK_MASK       0x01
-#define GPIO_TDO_MASK       0x01
 #define GPIO_TDI_MASK       0x02
 #define GPIO_TMS_MASK       0x04
 #define GPIO_TRST_MASK      0x08
 #define GPIO_SRST_MASK      0x10
+#define GPIO_BLINK_MASK     0x20
 
 /* GPIO setup functions */
 static inline void gpio_mode_input_set(int g)
@@ -52,6 +55,7 @@ static inline void gpio_clear(int g)
 static bb_value_t esp32_gpio_read(void);
 static int esp32_gpio_write(int tck, int tms, int tdi);
 static int esp32_gpio_reset(int trst, int srst);
+static int esp32_gpio_blink(int on);
 
 static int esp32_gpio_init(void);
 static int esp32_gpio_quit(void);
@@ -64,24 +68,21 @@ static struct bitbang_interface esp32_gpio_bitbang = {
 	.blink = NULL
 };
 
-/* GPIO numbers for each signal. Negative values are invalid */
-static int tck_gpio = -1;
-static int tms_gpio = -1;
-static int tdi_gpio = -1;
-static int tdo_gpio = -1;
-static int trst_gpio = -1;
-static int srst_gpio = -1;
+/* GPIO default values for each pin */
+static int tck_gpio = GPIO_NUM_NC;
+static int tms_gpio = GPIO_NUM_NC;
+static int tdi_gpio = GPIO_NUM_NC;
+static int tdo_gpio = GPIO_NUM_NC;
+static int trst_gpio = GPIO_NUM_NC;
+static int srst_gpio = GPIO_NUM_NC;
+static int blink_gpio = GPIO_NUM_NC;
 
-/* Transition delay coefficients. Tuned for IMX6UL 528MHz. Adjusted
- * experimentally for:10kHz, 100Khz, 500KHz. Speeds above 800Khz are impossible
- * to reach via memory mapped method (at least for IMX6UL@528MHz).
- * Measured mmap raw GPIO toggling speed on IMX6UL@528MHz: 1.3MHz.
- */
 static unsigned int jtag_delay = 0;
 
 static bb_value_t esp32_gpio_read(void)
 {
-	return dedic_gpio_cpu_ll_read_in() & GPIO_TDO_MASK ? BB_HIGH : BB_LOW;
+	/* we have only one input and it's mask value is 0x01. So we don't need to check the mask value. */
+	return dedic_gpio_cpu_ll_read_in();
 }
 
 static int esp32_gpio_write(int tck, int tms, int tdi)
@@ -96,13 +97,19 @@ static int esp32_gpio_write(int tck, int tms, int tdi)
 	return ERROR_OK;
 }
 
+static int esp32_gpio_blink(int on)
+{
+	dedic_gpio_cpu_ll_write_mask(GPIO_BLINK_MASK, on ? GPIO_BLINK_MASK : 0);
+	return ERROR_OK;
+}
+
 /* (1) assert or (0) deassert reset lines */
 static int esp32_gpio_reset(int trst, int srst)
 {
-	if (trst_gpio != -1)
+	if (trst_gpio != GPIO_NUM_NC)
 		dedic_gpio_cpu_ll_write_mask(GPIO_TRST_MASK, trst ? GPIO_TRST_MASK : 0);
 
-	if (srst_gpio != -1)
+	if (srst_gpio != GPIO_NUM_NC)
 		dedic_gpio_cpu_ll_write_mask(GPIO_SRST_MASK, srst ? GPIO_SRST_MASK : 0);
 
 	return ERROR_OK;
@@ -205,6 +212,15 @@ COMMAND_HANDLER(esp32_gpio_handle_jtag_gpionum_trst)
 	return ERROR_OK;
 }
 
+COMMAND_HANDLER(esp32_gpio_handle_jtag_gpionum_blink)
+{
+	if (CMD_ARGC == 1)
+		COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], blink_gpio);
+
+	command_print(CMD, "esp32_gpio GPIO config: blink = %d", blink_gpio);
+	return ERROR_OK;
+}
+
 static const struct command_registration esp32_gpio_command_handlers[] = {
 	{
 		.name = "esp32_gpio_jtag_nums",
@@ -255,6 +271,13 @@ static const struct command_registration esp32_gpio_command_handlers[] = {
 		.help = "gpio number for trst.",
 		.usage = "[trst]",
 	},
+	{
+		.name = "esp32_gpio_blink_num",
+		.handler = &esp32_gpio_handle_jtag_gpionum_blink,
+		.mode = COMMAND_CONFIG,
+		.help = "gpio number for blink.",
+		.usage = "[blink]",
+	},
 
 	COMMAND_REGISTRATION_DONE
 };
@@ -295,12 +318,11 @@ static bool esp32_gpio_jtag_mode_possible(void)
 
 static int esp32_gpio_init(void)
 {
-	bitbang_interface = &esp32_gpio_bitbang;
-
 	LOG_INFO("esp32_gpio GPIO JTAG bitbang driver");
 
 	int khz = 5000;
 	int jtag_speed = 0;
+
 	esp32_gpio_khz(khz, &jtag_speed);
 
 	/*
@@ -311,7 +333,6 @@ static int esp32_gpio_init(void)
 		gpio_clear(tdi_gpio);
 		gpio_clear(tck_gpio);
 		gpio_set(tms_gpio);
-
 		gpio_mode_input_set(tdo_gpio);
 		gpio_mode_output_set(tdi_gpio);
 		gpio_mode_output_set(tck_gpio);
@@ -321,18 +342,24 @@ static int esp32_gpio_init(void)
 		return ERROR_FAIL;
 	}
 
-	int bundle_out_gpios[] = { tck_gpio, tdi_gpio, tms_gpio, 0, 0 };
+	int bundle_out_gpios[] = { tck_gpio, tdi_gpio, tms_gpio, 0, 0, 0 };
 	int bundle_in_gpios[] = { tdo_gpio };
 
-	if (trst_gpio != -1) {
+	if (trst_gpio != GPIO_NUM_NC) {
 		gpio_set(trst_gpio);
 		gpio_mode_output_set(trst_gpio);
 		bundle_out_gpios[3] = trst_gpio;
 	}
-	if (srst_gpio != -1) {
+	if (srst_gpio != GPIO_NUM_NC) {
 		gpio_set(srst_gpio);
 		gpio_mode_output_set(srst_gpio);
 		bundle_out_gpios[4] = srst_gpio;
+	}
+	if (blink_gpio != GPIO_NUM_NC) {
+		gpio_clear(blink_gpio);
+		gpio_mode_output_set(blink_gpio);
+		bundle_out_gpios[5] = blink_gpio;
+		esp32_gpio_bitbang.blink = esp32_gpio_blink;
 	}
 
 	dedic_gpio_bundle_config_t out_bundle_config = {
@@ -353,6 +380,8 @@ static int esp32_gpio_init(void)
 
 	dedic_gpio_new_bundle(&out_bundle_config, &gpio_out_bundle);
 	dedic_gpio_new_bundle(&in_bundle_config, &gpio_in_bundle);
+
+	bitbang_interface = &esp32_gpio_bitbang;
 
 	return ERROR_OK;
 }
