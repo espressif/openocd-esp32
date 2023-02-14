@@ -268,7 +268,6 @@ class OocdEsp32s3(OocdEspXtensa):
                                         log_stream_handler=log_stream_handler,
                                         log_file_handler=log_file_handler)
 
-
 class GdbEspRiscv(GdbEspImpl, GdbRiscv):
     """
         Class to communicate to GDB supporting ESP RISCV-specific features
@@ -282,46 +281,11 @@ class GdbEspRiscv(GdbEspImpl, GdbRiscv):
                                            log_file_handler=log_file_handler)
         GdbEspImpl.__init__(self)
 
-
-class GdbEsp32c2(GdbEspRiscv):
-    """
-        Class to communicate to GDB supporting ESP32-C2 specific features
-    """
-    chip_name = 'esp32c2'
+class GdbEspRiscv32(GdbEspRiscv):
 
     def __init__(self, gdb_path='riscv32-esp-elf-gdb', remote_target='127.0.0.1:3333', extended_remote_mode=False,
                  gdb_log_file=None, log_level=None, log_stream_handler=None, log_file_handler=None):
-        super(GdbEsp32c2, self).__init__(gdb_path=gdb_path, remote_target=remote_target,
-                                         extended_remote_mode=extended_remote_mode,
-                                         gdb_log_file=gdb_log_file, log_level=log_level,
-                                         log_stream_handler=log_stream_handler,
-                                         log_file_handler=log_file_handler)
-        self.gdb_set('arch', 'riscv:rv32')
-
-class GdbEsp32c3(GdbEspRiscv):
-    """
-        Class to communicate to GDB supporting ESP32-C3 specific features
-    """
-    chip_name = 'esp32c3'
-
-    def __init__(self, gdb_path='riscv32-esp-elf-gdb', remote_target='127.0.0.1:3333', extended_remote_mode=False,
-                 gdb_log_file=None, log_level=None, log_stream_handler=None, log_file_handler=None):
-        super(GdbEsp32c3, self).__init__(gdb_path=gdb_path, remote_target=remote_target,
-                                         extended_remote_mode=extended_remote_mode,
-                                         gdb_log_file=gdb_log_file, log_level=log_level,
-                                         log_stream_handler=log_stream_handler,
-                                         log_file_handler=log_file_handler)
-        self.gdb_set('arch', 'riscv:rv32')
-
-class GdbEsp32c6(GdbEspRiscv):
-    """
-        Class to communicate to GDB supporting ESP32-C6 specific features
-    """
-    chip_name = 'esp32c6'
-
-    def __init__(self, gdb_path='riscv32-esp-elf-gdb', remote_target='127.0.0.1:3333', extended_remote_mode=False,
-                 gdb_log_file=None, log_level=None, log_stream_handler=None, log_file_handler=None):
-        super(GdbEsp32c6, self).__init__(gdb_path=gdb_path, remote_target=remote_target,
+        GdbEspRiscv.__init__(self, gdb_path=gdb_path, remote_target=remote_target,
                                          extended_remote_mode=extended_remote_mode,
                                          gdb_log_file=gdb_log_file, log_level=log_level,
                                          log_stream_handler=log_stream_handler,
