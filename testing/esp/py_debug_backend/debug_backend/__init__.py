@@ -82,11 +82,17 @@ def create_gdb(chip_name=None,
                     obj = GdbEspXtensa(**gdb_init_args)
                     obj.chip_name = chip_name
                     return obj
+            elif arch.startswith('riscv32'):
+                if vendor.startswith('esp'):
+                    obj = GdbEspRiscv32(**gdb_init_args)
+                    obj.chip_name = chip_name
+                    return obj
             elif arch.startswith('riscv'):
                 if vendor.startswith('esp'):
                     obj = GdbEspRiscv(**gdb_init_args)
                     obj.chip_name = chip_name
                     return obj
+
     raise NoMatchingClassError("GDB class was not found for chip '%s' and target tripple '%s'" % (chip_name, target_triple))
 
 
