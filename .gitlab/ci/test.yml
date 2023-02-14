@@ -295,6 +295,23 @@ tests_armhf_esp32c3_idf4.x_flash_encrypted:
     TEST_RUN_DIR: "build_test_app_esp32c3_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
+tests_armhf_esp32c6_builtin_usb_jtag:
+  extends: .tests_armhf_template
+  stage: test_idf_master
+  tags:
+    - esp32c6
+    - usb_serial_jtag
+  allow_failure: true
+  needs:
+    - job: build_test_app_esp32c6
+    - job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32c6"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_TOOLCHAIN: "${ESP_MASTER_RISCV_TOOLCHAIN_VER}"
+    TEST_RUN_DIR: "build_test_app_esp32c6"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c6-builtin -p test_bp*.*Single test_step*.*Single test_thread*.*Single test_flasher*.*Single"
+
 tests_win_simple_esp32:
   stage: test_windows
   tags:
