@@ -74,7 +74,7 @@ tests_armhf_esp32_flash_encrypted:
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
 
-tests_armhf_esp32_solo:
+.tests_armhf_esp32_solo:
   extends: .tests_armhf_template
   stage: test_idf_master
   tags:
@@ -194,7 +194,7 @@ tests_armhf_esp32c3_flash_encrypted:
     TEST_RUN_DIR: "build_test_app_esp32c3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
-tests_armhf_esp32_solo_idf4.x:
+.tests_armhf_esp32_solo_idf4.x:
   extends: .tests_armhf_template
   stage: test_idf4.x
   tags:

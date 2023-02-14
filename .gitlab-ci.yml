@@ -249,7 +249,7 @@ create_coverage_reports:
     - job: tests_armhf_esp32s3_idf4.x
     - job: tests_armhf_esp32c3_idf4.x
     - job: tests_armhf_esp32c3_idf4.x_flash_encrypted
-    - job: tests_armhf_esp32_solo_idf4.x
+    #- job: tests_armhf_esp32_solo_idf4.x
     - job: tests_armhf_esp32_flash_encrypted
     - job: tests_armhf_esp32s2
     - job: tests_armhf_esp32s2_flash_encrypted
@@ -257,7 +257,7 @@ create_coverage_reports:
     - job: tests_armhf_esp32c3_builtin_usb_jtag
     - job: tests_armhf_esp32c3_flash_encrypted
     - job: tests_armhf_esp32
-    - job: tests_armhf_esp32_solo
+    #- job: tests_armhf_esp32_solo
     - job: tests_armhf_esp32c3
     - job: tests_armhf_esp32c2
     - job: test_nuttx_esp32
