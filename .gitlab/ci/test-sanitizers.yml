@@ -1,6 +1,6 @@
 .tests_sanitizers_template:
   stage: sanitizer_tests
-  image: $CI_DOCKER_REGISTRY/rpi-openocd-env:1
+  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-v4.4:1
   tags:
     - $CHIP_NAME
     - jtag
@@ -19,6 +19,7 @@
       - $SCHEDULE_TYPE == "build_sanitizer_test"
   variables:
     PLATFORM_NAME: "linux-armhf-test"
+    ESP_TOOLCHAIN: "${ESP_V4x_TOOLCHAIN_VER}"
   script:
     - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
@@ -26,8 +27,27 @@
     - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
     - !reference [.run_tests_linux, script]
 
-tests_sanitizers_esp32_solo:
+.tests_sanitizers_master_xtensa_template:
   extends: .tests_sanitizers_template
+  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-master:1
+  variables:
+    ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
+    ESP_GDB_TOOLCHAIN: "${ESP_XTENSA_GDB_TOOLCHAIN}"
+
+.tests_sanitizers_master_riscv_template:
+  extends: .tests_sanitizers_template
+  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-master:1
+  variables:
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
+    ESP_GDB_TOOLCHAIN: "${ESP_RISCV_GDB_TOOLCHAIN}"
+
+##############
+# IDF master #
+##############
+
+tests_sanitizers_esp32_solo:
+  extends: .tests_sanitizers_master_xtensa_template
   tags:
     - arm
     - test_jtag_solo
@@ -36,20 +56,82 @@ tests_sanitizers_esp32_solo:
     - job: build_test_app_esp32
     - job: build_linux_armhf_sanitizer_test
   variables:
-    ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
 
 tests_sanitizers_esp32:
-  extends: .tests_sanitizers_template
+  extends: .tests_sanitizers_master_xtensa_template
   allow_failure: true
   needs:
     - job: build_test_app_esp32
     - job: build_linux_armhf_sanitizer_test
   variables:
-    ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
+
+tests_sanitizers_esp32s2:
+  extends: .tests_sanitizers_master_xtensa_template
+  allow_failure: true
+  needs:
+    - job: build_test_app_esp32s2
+    - job: build_linux_armhf_sanitizer_test
+  variables:
+    CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    TEST_RUN_DIR: "build_test_app_esp32s2"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
+
+tests_sanitizers_esp32s3:
+  extends: .tests_sanitizers_master_xtensa_template
+  allow_failure: true
+  needs:
+    - job: build_test_app_esp32s3
+    - job: build_linux_armhf_sanitizer_test
+  variables:
+    CHIP_NAME: "esp32s3"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s3"
+    TEST_RUN_DIR: "build_test_app_esp32s3"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
+
+tests_sanitizers_esp32c2:
+  extends: .tests_sanitizers_master_riscv_template
+  allow_failure: true
+  needs:
+    - job: build_test_app_esp32c2
+    - job: build_linux_armhf_sanitizer_test
+  variables:
+    CHIP_NAME: "esp32c2"
+    TEST_RUN_DIR: "build_test_app_esp32c2"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c2-ftdi -p test_*.*Single -e test_apptrace test_gcov"
+
+tests_sanitizers_esp32c3:
+  extends: .tests_sanitizers_master_riscv_template
+  allow_failure: true
+  needs:
+    - job: build_test_app_esp32c3
+    - job: build_linux_armhf_sanitizer_test
+  variables:
+    CHIP_NAME: "esp32c3"
+    TEST_RUN_DIR: "build_test_app_esp32c3"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single"
+
+tests_sanitizers_esp32c6:
+  extends: .tests_sanitizers_master_riscv_template
+  allow_failure: true
+  tags:
+    - esp32c6
+    - usb_serial_jtag
+  needs:
+    - job: build_test_app_esp32c6
+    - job: build_linux_armhf_sanitizer_test
+  variables:
+    CHIP_NAME: "esp32c6"
+    TEST_RUN_DIR: "build_test_app_esp32c6"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c6-builtin -p test_*.*Single -u /dev/ttyACM0"
+
+###########
+# IDF 4.X #
+###########
 
 tests_sanitizers_esp32_idf4.x:
   extends: .tests_sanitizers_template
@@ -59,19 +141,6 @@ tests_sanitizers_esp32_idf4.x:
   variables:
     TEST_RUN_DIR: "build_test_app_esp32_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
-
-tests_sanitizers_esp32s2:
-  extends: .tests_sanitizers_template
-  allow_failure: true
-  needs:
-    - job: build_test_app_esp32s2
-    - job: build_linux_armhf_sanitizer_test
-  variables:
-    CHIP_NAME: "esp32s2"
-    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
-    ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
-    TEST_RUN_DIR: "build_test_app_esp32s2"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
 
 tests_sanitizers_esp32s2_idf4.x:
   extends: .tests_sanitizers_template
@@ -84,19 +153,6 @@ tests_sanitizers_esp32s2_idf4.x:
     TEST_RUN_DIR: "build_test_app_esp32s2_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s2-devkitj -p test_*.*Single"
 
-tests_sanitizers_esp32s3:
-  extends: .tests_sanitizers_template
-  allow_failure: true
-  needs:
-    - job: build_test_app_esp32s3
-    - job: build_linux_armhf_sanitizer_test
-  variables:
-    CHIP_NAME: "esp32s3"
-    TOOLCHAIN_PREFIX: "xtensa-esp32s3"
-    ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
-    TEST_RUN_DIR: "build_test_app_esp32s3"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
-
 tests_sanitizers_esp32s3_idf4.x:
   extends: .tests_sanitizers_template
   needs:
@@ -108,49 +164,6 @@ tests_sanitizers_esp32s3_idf4.x:
     TEST_RUN_DIR: "build_test_app_esp32s3_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
-tests_sanitizers_esp32c2:
-  extends: .tests_sanitizers_template
-  allow_failure: true
-  needs:
-    - job: build_test_app_esp32c2
-    - job: build_linux_armhf_sanitizer_test
-  variables:
-    CHIP_NAME: "esp32c2"
-    TOOLCHAIN_PREFIX: "riscv32-esp"
-    ESP_TOOLCHAIN: "${ESP_MASTER_RISCV_TOOLCHAIN_VER}"
-    PLATFORM_NAME: "linux-armhf-test"
-    TEST_RUN_DIR: "build_test_app_esp32c2"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c2-ftdi -p test_*.*Single -e test_apptrace test_gcov"
-
-tests_sanitizers_esp32c3:
-  extends: .tests_sanitizers_template
-  allow_failure: true
-  needs:
-    - job: build_test_app_esp32c3
-    - job: build_linux_armhf_sanitizer_test
-  variables:
-    CHIP_NAME: "esp32c3"
-    TOOLCHAIN_PREFIX: "riscv32-esp"
-    ESP_TOOLCHAIN: "${ESP_MASTER_RISCV_TOOLCHAIN_VER}"
-    TEST_RUN_DIR: "build_test_app_esp32c3"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single"
-
-tests_sanitizers_esp32c6:
-  extends: .tests_sanitizers_template
-  allow_failure: true
-  tags:
-    - esp32c6
-    - usb_serial_jtag
-  needs:
-    - job: build_test_app_esp32c6
-    - job: build_linux_armhf_sanitizer_test
-  variables:
-    CHIP_NAME: "esp32c6"
-    TOOLCHAIN_PREFIX: "riscv32-esp"
-    ESP_TOOLCHAIN: "${ESP_MASTER_RISCV_TOOLCHAIN_VER}"
-    TEST_RUN_DIR: "build_test_app_esp32c6"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c6-builtin -p test_apptrace*.*Single test_bp*.*Single test_step*.*Single test_thread*.*Single test_flasher*.*Single"
-
 tests_sanitizers_esp32c3_idf4.x:
   extends: .tests_sanitizers_template
   needs:
@@ -159,12 +172,15 @@ tests_sanitizers_esp32c3_idf4.x:
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    ESP_TOOLCHAIN: "${ESP_RISCV_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_esp32c3_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single -e test_apptrace test_gcov"
 
+###########
+#  NUTTX  #
+###########
+
 test_sanitizers_nuttx_esp32:
-  image: $CI_DOCKER_REGISTRY/rpi-openocd-env:1
+  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-master:1
   stage: sanitizer_tests
   allow_failure: true
   variables:
@@ -192,9 +208,13 @@ test_sanitizers_nuttx_esp32:
     - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
     - !reference [.run_tests_nuttx, script]
 
+###########
+#  MISC   #
+###########
+
 .sanitizer_check_armhf: &sanitizer_check_armhf
   stage: sanitizer_checks
-  image: $CI_DOCKER_REGISTRY/rpi-openocd-env:1
+  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-master:1
   tags:
     - arm
   allow_failure: true

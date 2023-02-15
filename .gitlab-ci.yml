@@ -4,6 +4,7 @@ stages:
   - build_openocd
   - build_idf4.x
   - build_idf5.x
+  - build_idf_master
   - build_nuttx
   - test_idf4.x
   - test_idf5.x
@@ -57,7 +58,7 @@ variables:
 
   #
   # default variables
-  ESP_TOOLCHAIN: "${ESP_TOOLCHAIN_VER}"
+  ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
   TOOLCHAIN_PREFIX: "xtensa-esp32"
   CHIP_NAME: "esp32"
 
