@@ -149,7 +149,7 @@ tests_sanitizers_esp32c6:
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_MASTER_RISCV_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_esp32c6"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c6-builtin -p test_bp*.*Single test_step*.*Single test_thread*.*Single test_flasher*.*Single"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c6-builtin -p test_apptrace*.*Single test_bp*.*Single test_step*.*Single test_thread*.*Single test_flasher*.*Single"
 
 tests_sanitizers_esp32c3_idf4.x:
   extends: .tests_sanitizers_template
