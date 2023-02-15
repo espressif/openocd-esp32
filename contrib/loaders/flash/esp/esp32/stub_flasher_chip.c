@@ -369,6 +369,7 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 	WRITE_PERI_REG(SPI_SLAVE_REG(1), ESP32_STUB_FLASH_STATE_SPI_SLAVE_REG_VAL);
 
 	if ((READ_PERI_REG(SPI_CACHE_FCTRL_REG(0)) & SPI_CACHE_FLASH_USR_CMD) == 0) {
+		STUB_LOGI("Attach spi flash...\n");
 		esp_rom_spiflash_attach(spiconfig, 0);
 	} else {
 		WRITE_PERI_REG(SPI_CTRL_REG(1), 0x208000);

@@ -99,6 +99,14 @@ uint32_t stub_flash_get_id(void)
 		g_rom_spiflash_chip.sector_size,
 		g_rom_spiflash_chip.page_size,
 		g_rom_spiflash_chip.status_mask);
+
+	if (g_rom_spiflash_dummy_len_plus[1] == 0) {
+		REG_CLR_BIT(PERIPHS_SPI_FLASH_USRREG, SPI_MEM_USR_DUMMY);
+	} else {
+		REG_SET_BIT(PERIPHS_SPI_FLASH_USRREG, SPI_MEM_USR_DUMMY);
+		REG_WRITE(PERIPHS_SPI_FLASH_USRREG1,
+			(g_rom_spiflash_dummy_len_plus[1] - 1) << SPI_MEM_USR_DUMMY_CYCLELEN_S);
+	}
 	WRITE_PERI_REG(PERIPHS_SPI_FLASH_C0, 0);/* clear regisrter */
 	WRITE_PERI_REG(PERIPHS_SPI_FLASH_CMD, SPI_MEM_FLASH_RDID);
 	while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0) ;
@@ -152,7 +160,11 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 		stub_cache_init();
 	}
 
-	esp_rom_spiflash_attach(spiconfig, 0);
+	/* Attach flash only if it has not been attached yet. Re-attaching it breaks PSRAM operation. */
+	if ((READ_PERI_REG(SPI_MEM_CACHE_FCTRL_REG(0)) & SPI_MEM_CACHE_FLASH_USR_CMD) == 0) {
+		STUB_LOGI("Attach spi flash...\n");
+		esp_rom_spiflash_attach(spiconfig, 0);
+	}
 }
 
 void stub_flash_state_restore(struct stub_flash_state *state)

@@ -176,7 +176,11 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 		rom_spiflash_legacy_funcs = &rom_default_spiflash_legacy_funcs;
 	}
 
-	esp_rom_spiflash_attach(spiconfig, 0);
+	/* Attach flash only if it has not been attached yet. Re-attaching it breaks PSRAM operation. */
+	if ((READ_PERI_REG(SPI_MEM_CACHE_FCTRL_REG(0)) & SPI_MEM_CACHE_FLASH_USR_CMD) == 0) {
+		STUB_LOGI("Attach spi flash...\n");
+		esp_rom_spiflash_attach(spiconfig, 0);
+	}
 
 	STUB_LOGI("Flash state prepared...\n");
 }
