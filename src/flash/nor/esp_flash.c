@@ -1122,14 +1122,14 @@ int esp_algo_flash_breakpoint_add(struct target *target,
 		sw_bp->oocd_bp = NULL;
 		return ret;
 	}
-	if (run.ret_code == 0) {
+	if (run.ret_code <= 0) {
 		LOG_ERROR("%s: Failed to set bp (%" PRId32 ")!", target_name(target), run.ret_code);
 		destroy_mem_param(&mp);
 		sw_bp->oocd_bp = NULL;
 		return ERROR_FAIL;
 	}
 	sw_bp->insn_sz = (uint8_t)run.ret_code;
-	/* sanity check for instructionb buffer overflow */
+	/* sanity check for instruction buffer overflow */
 	assert(sw_bp->insn_sz <= sizeof(sw_bp->insn));
 	memcpy(sw_bp->insn, mp.value, sw_bp->insn_sz);
 	destroy_mem_param(&mp);
