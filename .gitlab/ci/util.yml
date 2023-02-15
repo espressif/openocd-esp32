@@ -26,8 +26,10 @@
 
 .export_toolchain_snippet: &export_toolchain_snippet |
   export PATH=${HOME}/.espressif/tools/${TOOLCHAIN_PREFIX}-elf/${ESP_TOOLCHAIN}/${TOOLCHAIN_PREFIX}-elf/bin:${PATH}
+  if [ ! -z "$ESP_GDB_TOOLCHAIN" ]; then
+    export PATH=${HOME}/.espressif/tools/${ESP_GDB_TOOLCHAIN}/bin:${PATH}
+  fi
   source /opt/pyenv/activate && pyenv global ${TEST_IMAGE_PYTHON_VER}
-  pip install esptool==4.5
   if [ "${GDB_ARMHF_DISTRO_URL:-test}" != "test" ]; then
     case $CI_JOB_NAME in "tests_armhf_"*)
       echo "Replacing GDBs from $GDB_ARMHF_DISTRO_URL"
@@ -43,18 +45,6 @@
 .export_toolchain:
   script:
     - *export_toolchain_snippet
-
-
-.get_fixed_riscv32_esp_elf_gdb_snippet: &get_fixed_riscv32_esp_elf_gdb_snippet
-    - pushd $TEST_RUN_DIR
-    - git clone https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/alexey/temp_binary_storage.git
-    - export PATH=$PWD/temp_binary_storage/riscv32-esp-elf:$PATH
-    - popd
-
-.get_fixed_riscv32_esp_elf_gdb:
-  script:
-    - *get_fixed_riscv32_esp_elf_gdb_snippet
-
 
 .run_tests_linux_snippet: &run_tests_linux_snippet |
   ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
