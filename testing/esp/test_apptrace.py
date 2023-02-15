@@ -91,7 +91,10 @@ class ApptraceTestsImpl:
         trace_src = 'file://%s' % trace_file_name
         reader = reader_create(trace_src, 1.0)
         # 10 ms poll period, stop when 800 bytes are received or due to 10 s timeout
-        self.oocd.apptrace_start("%s 10 800 10" % trace_src)
+        poll_period_ms = 0 # 10ms period doesn't work for ESP32. Why?
+        if testee_info.chip == "esp32c6":
+            poll_period_ms = 10 # Check why we need a delay during poll.OCD-717
+        self.oocd.apptrace_start("%s %d 800 10" % (trace_src, poll_period_ms))
         self.resume_exec()
         sleep(1) #  let it works some time
         self.stop_exec()
