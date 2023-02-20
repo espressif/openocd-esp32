@@ -86,7 +86,7 @@ class DebuggerSpecialTestsImpl:
         # watchpoint hit on read var in 'target_bp_func2'
         self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_wp_var2_2')
 
-    @skip_for_chip(['esp32c2'])
+    @skip_for_chip(['esp32c2', 'esp32c6', 'esp32h2'])
     def test_bp_and_wp_set_by_program(self):
         """
             This test checks that breakpoints and watchpoints set by program on target work.
@@ -97,7 +97,7 @@ class DebuggerSpecialTestsImpl:
         self._do_test_bp_and_wp_set_by_program()
 
     @only_for_arch(['riscv32'])
-    @skip_for_chip(['esp32c2'])
+    @skip_for_chip(['esp32c2', 'esp32c6', 'esp32h2'])
     def test_wp_reconfigure_by_program(self):
         """
             This test checks that watchpoints can be reconfigured by target w/o removing them.
@@ -259,7 +259,7 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
         """
         # should fail for any new chip.
         # just to be sure that this test is revised when new chip support is added
-        self.fail_if_not_hw_id([r'esp32-[.]*', r'esp32s2-[.]*', r'esp32c2-[.]*', r'esp32c3-[.]*', r'esp32s3-[.]*'])
+        self.fail_if_not_hw_id([r'esp32-[.]*', r'esp32s2-[.]*', r'esp32c2-[.]*', r'esp32c3-[.]*', r'esp32s3-[.]*', r'esp32c6-[.]*'])
         regs = self.gdb.get_reg_names()
         i = 10
 
