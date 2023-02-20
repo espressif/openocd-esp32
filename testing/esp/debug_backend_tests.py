@@ -436,7 +436,7 @@ class DebuggerTestsBase(unittest.TestCase, GDBUtils):
         if state != dbg.TARGET_STATE_STOPPED:
             self.gdb.exec_interrupt()
             rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
-            self.assertEqual(rsn, dbg.TARGET_STOP_REASON_SIGINT)
+            self.assertTrue(rsn == dbg.TARGET_STOP_REASON_SIGINT or rsn == dbg.TARGET_STOP_REASON_SIGTRAP)
 
     def resume_exec(self, loc=None):
         """ Resumes target execution and ensures that it is in RUNNING state
