@@ -68,6 +68,15 @@ variables:
     - /^v[0-9].*$/
     - /^openocd-esp32-.*$/
 
+.release_binaries: &release_binaries
+  needs:
+    - job: build_linux
+    - job: build_linux_armhf
+    - job: build_linux_armel
+    - job: build_linux_arm64
+    - job: build_windows
+    - job: osx_code_sign
+
 .release_submit_action: &release_submit_action
   image: espressif/github-hub:2
   when: manual
@@ -119,6 +128,7 @@ release_tag_draft:
   tags: [ "amd64", "internet" ]
   <<: *release_tag_filter
   <<: *release_submit_action
+  <<: *release_binaries
   script:
     - git remote remove github || true
     - git remote add github ${GH_REPO_HTTPS}
