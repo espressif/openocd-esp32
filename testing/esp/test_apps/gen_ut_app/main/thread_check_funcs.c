@@ -39,7 +39,7 @@ void thread_check_task(void *pvParameter)
     }
 }
 
-static void __attribute__((noinline)) go_to_level_task1(int frame_level)
+static void __attribute__((noinline, noreturn)) go_to_level_task1(int frame_level)
 {
     if (--frame_level > 0) {
         go_to_level_task1(frame_level);
@@ -50,7 +50,7 @@ static void __attribute__((noinline)) go_to_level_task1(int frame_level)
     }
 }
 
-static void __attribute__((noinline)) go_to_level_task2(int frame_level)
+static void __attribute__((noinline, noreturn)) go_to_level_task2(int frame_level)
 {
     if (--frame_level > 0) {
         go_to_level_task2(frame_level);
@@ -61,7 +61,7 @@ static void __attribute__((noinline)) go_to_level_task2(int frame_level)
     }
 }
 
-static void __attribute__((noinline)) go_to_level_task3(int frame_level)
+static void __attribute__((noinline, noreturn)) go_to_level_task3(int frame_level)
 {
     if (--frame_level > 0) {
         go_to_level_task3(frame_level);
