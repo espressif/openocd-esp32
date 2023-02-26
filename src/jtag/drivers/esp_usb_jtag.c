@@ -392,7 +392,13 @@ static int esp_usb_jtag_recv_buf(void)
 			(int *)&tr);
 		if (priv->logfile)
 			log_resp(priv->in_buf[priv->cur_in_buf_wr], ct, tr);
-		if (ret != ERROR_OK || tr == 0) {
+		if (ret != ERROR_OK) {
+			int reset_ret = esp_usb_jtag_revive_device(priv->usb_device);
+			if (reset_ret != ERROR_OK)
+				LOG_ERROR("esp_usb_jtag: failed to revive USB device!");
+			return ret;
+		}
+		if (tr == 0) {
 			/* Sometimes the hardware returns 0 bytes instead of NAKking the transaction. Ignore this. */
 			return ERROR_FAIL;
 		}
