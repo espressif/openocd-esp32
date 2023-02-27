@@ -16,7 +16,6 @@ const static char *TAG = "semihost_test";
 #define ESP_ENOTSUP_UNIX        95
 #define ESP_ENOTSUP_DARWIN      45
 
-#define SYSCALL_INSTR_LEGACY    "break 1,1\n"
 #define SYSCALL_INSTR           "break 1,14\n"
 
 #define SYS_OPEN                0x01
@@ -270,7 +269,7 @@ static inline int semihosting_wrong_args(int wrong_arg)
     return 0;
 }
 
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(5,1,0,0)
+#if UT_IDF_VER >= MAKE_UT_IDF_VER(5,0,0,0)
 
 static int s_win_flag = 0;
 
@@ -878,7 +877,7 @@ ut_result_t semihost_test_do(int test_num)
             break;
         }
 #endif /* CONFIG_IDF_TARGET_ARCH_XTENSA  */
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(5,1,0,0)
+#if UT_IDF_VER >= MAKE_UT_IDF_VER(5,0,0,0)
         case 702:
         case 703: {
         /*

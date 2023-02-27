@@ -72,6 +72,9 @@ class IdfVersion:
     def __lt__(self, other):
         return self._idf_ver < other._idf_ver
 
+    def __ge__(self, other):
+        return self._idf_ver >= other._idf_ver
+
     def __eq__(self, other):
         return self._idf_ver == other._idf_ver
 

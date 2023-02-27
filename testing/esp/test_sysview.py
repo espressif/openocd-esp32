@@ -56,7 +56,7 @@ class BaseTracingTestsImpl:
         trace_src,self.reader = _create_file_reader()
         if not self.reader:
             self.fail("Failed to create trace reader!")
-        if testee_info.idf_ver != IdfVersion.fromstr('latest'):
+        if testee_info.idf_ver < IdfVersion.fromstr('5.0'):
             # old style trace source URL
             trace_src = trace_src[len('file://'):]
         test_func(trace_src)

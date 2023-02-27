@@ -76,6 +76,8 @@ class SemihostTestsImpl:
             """
             fname = os.path.join(self.semi_dir, 'test_read.%d' % i)
             link_name = os.path.join(self.semi_dir, 'test_link.%d' % i)
+            if os.path.exists(link_name):
+                os.remove(link_name)
             os.link(fname, link_name)
             self.fio_names_tmp.append(link_name)
             """
@@ -97,6 +99,8 @@ class SemihostTestsImpl:
             """
             dir_name = os.path.join(self.semi_dir, 'opendir_test.%d' % i)
             get_logger().info('IO Folder %d %s', i, dir_name)
+            if os.path.exists(dir_name):
+                shutil.rmtree(dir_name)
             os.mkdir(dir_name)
             self.fio_names_tmp.append(dir_name)
             """
@@ -105,6 +109,8 @@ class SemihostTestsImpl:
             """
             dir_name = os.path.join(self.semi_dir, 'readdir_test.%d' % i)
             get_logger().info('IO Folder %d %s', i, dir_name)
+            if os.path.exists(dir_name):
+                shutil.rmtree(dir_name)
             os.mkdir(dir_name)
             self.fio_names_tmp.append(dir_name)
             fname = os.path.join(dir_name, 'old_file.%d' % i)
