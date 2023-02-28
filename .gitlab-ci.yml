@@ -211,6 +211,7 @@ test_idf_master_examples:
   allow_failure: true
   variables:
     OOCD_DISTRO_URL: ${NEW_OOCD_DISTRO_URL}
+    BOT_LABEL_EXAMPLE_TEST: "1"
   needs:
     - job: upload_to_http
       artifacts: true
