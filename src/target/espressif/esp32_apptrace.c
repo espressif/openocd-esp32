@@ -1599,6 +1599,7 @@ int esp32_cmd_apptrace_generic(struct command_invocation *cmd, int mode, const c
 			return ERROR_FAIL;
 		}
 		esp32_apptrace_cmd_stop(&s_at_cmd_ctx);
+		return ERROR_OK;
 	} else if (strcmp(argv[0], "status") == 0) {
 		if (s_at_cmd_ctx.running && duration_measure(&s_at_cmd_ctx.read_time) != 0)
 			LOG_ERROR("Failed to measure trace read time!");
