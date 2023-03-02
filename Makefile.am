@@ -117,7 +117,11 @@ dist-hook:
 		$(INSTALL_DATA) $(srcdir)/$(TCL_PATH)/$$i $$j; \
 	done
 
+ESP_VERSION_CFG = $(srcdir)/$(TCL_PATH)/target/esp_version.cfg
+VER:=$(VERSION)$(shell $(srcdir)/guess-rev.sh | grep -o "^[^-]*-\?[^-]*-\?[^-]*")
 install-data-hook:
+	@printf "# SPDX-License-Identifier: GPL-2.0-or-later\n\n" > $(ESP_VERSION_CFG)
+	@echo "set EXPECTED_VER \"$(VER)\"" >> $(ESP_VERSION_CFG)
 	for i in $$($(TCL_FILES)); do \
 		j="$(DESTDIR)$(pkgdatadir)/scripts/$$i" && \
 		mkdir -p "$$(dirname $$j)" && \
