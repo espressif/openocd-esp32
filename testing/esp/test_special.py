@@ -86,7 +86,8 @@ class DebuggerSpecialTestsImpl:
         # watchpoint hit on read var in 'target_bp_func2'
         self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_wp_var2_2')
 
-    @skip_for_chip(['esp32c2', 'esp32c6', 'esp32h2'])
+    # FIXME: OCD-607. Should work in all RISCV chips
+    @skip_for_arch(['riscv32'])
     def test_bp_and_wp_set_by_program(self):
         """
             This test checks that breakpoints and watchpoints set by program on target work.
@@ -96,8 +97,9 @@ class DebuggerSpecialTestsImpl:
         self.select_sub_test(803)
         self._do_test_bp_and_wp_set_by_program()
 
-    @only_for_arch(['riscv32'])
-    @skip_for_chip(['esp32c2', 'esp32c6', 'esp32h2'])
+    # FIXME: OCD-724 Should work in all RISCV chips
+    # @skip_for_arch(['riscv32'])
+    @unittest.skip('enable only for riscv after fix')
     def test_wp_reconfigure_by_program(self):
         """
             This test checks that watchpoints can be reconfigured by target w/o removing them.

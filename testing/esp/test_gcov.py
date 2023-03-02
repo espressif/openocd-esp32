@@ -314,7 +314,7 @@ class GcovTestsImpl:
                             if testee_info.idf_ver < IdfVersion.fromstr('latest'):
                                 self.assertEqual(self.gcov_files[n]['d_lines'][k][1] + i, d_lines[k][1])
                             else:
-                                # In the Gcc12 line execution count is not cumulative. Why?
+                                # With idf master, line execution count is not cumulative. OCD-720
                                 self.assertEqual(self.gcov_files[n]['d_lines'][k][1] + i, d_lines[k][1] + i)
         self.gdb.delete_bp(bp)
 
