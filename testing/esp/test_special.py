@@ -259,7 +259,7 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
         """
         # should fail for any new chip.
         # just to be sure that this test is revised when new chip support is added
-        self.fail_if_not_hw_id([r'esp32-[.]*', r'esp32s2-[.]*', r'esp32c2-[.]*', r'esp32c3-[.]*', r'esp32s3-[.]*', r'esp32c6-[.]*'])
+        self.fail_if_not_hw_id([r'esp32-[.]*', r'esp32s2-[.]*', r'esp32c2-[.]*', r'esp32c3-[.]*', r'esp32s3-[.]*', r'esp32c6-[.]*', r'esp32h2-[.]*'])
         regs = self.gdb.get_reg_names()
         i = 10
 

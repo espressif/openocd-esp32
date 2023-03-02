@@ -129,6 +129,20 @@ tests_sanitizers_esp32c6:
     TEST_RUN_DIR: "build_test_app_esp32c6"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c6-builtin -p test_*.*Single -u /dev/ttyACM0"
 
+tests_sanitizers_esp32h2:
+  extends: .tests_sanitizers_master_riscv_template
+  allow_failure: true
+  tags:
+    - esp32h2
+    - usb_serial_jtag
+  needs:
+    - job: build_test_app_esp32h2
+    - job: build_linux_armhf_sanitizer_test
+  variables:
+    CHIP_NAME: "esp32h2"
+    TEST_RUN_DIR: "build_test_app_esp32h2"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32h2-builtin -p test_*.*Single -u /dev/ttyACM0"
+
 ###########
 # IDF 4.X #
 ###########

@@ -25,7 +25,7 @@ class BreakpointTestsImpl:
             # esp32c3 has 8 HW breakpoint slots
             # 6 dummy HW breaks to fill in HW breaks slots and make OpenOCD using SW breakpoints in flash (seen as HW ones by GDB)
             self.bps = ['unused_func0', 'unused_func1', 'unused_func2', 'unused_func3', 'unused_func4', 'unused_func5']
-        elif testee_info.chip == "esp32c6":
+        elif testee_info.chip == "esp32c6" or testee_info.chip == "esp32h2":
             # esp32c6 has 4 HW breakpoint slots
             # 2 dummy HW breaks to fill in HW breaks slots and make OpenOCD using SW breakpoints in flash (seen as HW ones by GDB)
             self.bps = ['unused_func0', 'unused_func1']
