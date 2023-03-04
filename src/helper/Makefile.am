@@ -36,7 +36,8 @@ noinst_LTLIBRARIES += %D%/libhelper.la
 	%D%/jim-nvp.h \
 	%D%/nvp.h \
 	%D%/sha256.c \
-	%D%/sha256.h
+	%D%/sha256.h \
+	%D%/compiler.h
 
 STARTUP_TCL_SRCS += %D%/startup.tcl
 EXTRA_DIST += \
