@@ -14,7 +14,7 @@ ExternalProject_Add(
     jimtcl_project
     PREFIX ${JIMTCL_BIN}
     SOURCE_DIR ${JIMTCL_DIR}
-    CONFIGURE_COMMAND ${JIMTCL_DIR}/configure ${CONF_HOST} --disable-shared --disable-install-jim --with-ext=json
+    CONFIGURE_COMMAND ${JIMTCL_DIR}/configure ${CONF_HOST} --disable-shared --disable-install-jim --with-ext=json --minimal --disable-ssl
     BUILD_COMMAND make
     BUILD_IN_SOURCE 1
     # These two options are set so that Ninja immediately outputs
