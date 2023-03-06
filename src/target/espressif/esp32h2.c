@@ -322,6 +322,10 @@ static int esp32h2_poll(struct target *target)
 				if (res != ERROR_OK)
 					LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
 			}
+			/* clear previous apptrace ctrl_addr to avoid invalid tracing control block usage in the long
+			 * run */
+			esp32h2->esp_riscv.apptrace.ctrl_addr = 0;
+
 			if (ESP32H2_IS_FLASH_BOOT(strap_reg)) {
 				/* enable ebreaks */
 				res = esp_riscv_core_ebreaks_enable(target);
