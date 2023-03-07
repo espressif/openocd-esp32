@@ -113,8 +113,8 @@ class ApptraceTestsImpl:
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
         self.select_sub_test(505)
         self.resume_exec()
-        self.oocd.apptrace_wait_stop(tmo=30)
-
+        sleep(2) #  let it works some time
+        self.oocd.apptrace_stop();
         lines_after_reset = []
         while True:
             try:
