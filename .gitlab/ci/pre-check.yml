@@ -1,11 +1,11 @@
 style_check:
   stage: pre_check
-  image: $CI_DOCKER_REGISTRY/esp32-ci-env
   tags:
     - build
   script:
     - tools/check-line-endings.sh $PWD
-    - tools/format-esp.sh && git diff --exit-code
+    - apt-get update && apt-get install patchutils python3-ply python3-git -y
+    - tools/checkpatch-esp.sh
 
 esp_config_check:
   stage: pre_check
