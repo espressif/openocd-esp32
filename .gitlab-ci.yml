@@ -219,6 +219,22 @@ test_idf_master_examples:
     project: espressif/esp-idf
     strategy: depend
 
+test_idf5.x_examples:
+  stage: pre_release
+  when: manual
+  only:
+    - master
+  allow_failure: true
+  variables:
+    OOCD_DISTRO_URL: ${NEW_OOCD_DISTRO_URL}
+  needs:
+    - job: upload_to_http
+      artifacts: true
+  trigger:
+    project: espressif/esp-idf
+    branch: ${TEST_APP_IDF5_X_RELEASE_BRANCH}
+    strategy: depend
+
 test_idf4.x_examples:
   stage: pre_release
   when: manual
