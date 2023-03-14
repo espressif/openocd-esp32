@@ -120,7 +120,7 @@ static int esp_xtensa_apptrace_data_reverse_read(struct xtensa *xtensa,
 	res = xtensa_queue_dbg_reg_write(xtensa, XDMREG_TRAXADDR, (xtensa->core_config->trace.mem_sz - rd_sz) / 4);
 	if (res != ERROR_OK)
 		return res;
-	if (size & 0x3UL) {
+	if (!IS_ALIGNED(size, 4)) {
 		res = xtensa_queue_dbg_reg_read(xtensa, XDMREG_TRAXDATA, unal_bytes);
 		if (res != ERROR_OK)
 			return res;
@@ -146,7 +146,7 @@ static int esp_xtensa_apptrace_data_normal_read(struct xtensa *xtensa,
 		if (res != ERROR_OK)
 			return res;
 	}
-	if (size & 0x3UL) {
+	if (!IS_ALIGNED(size, 4)) {
 		res = xtensa_queue_dbg_reg_read(xtensa, XDMREG_TRAXDATA, unal_bytes);
 		if (res != ERROR_OK)
 			return res;
@@ -174,7 +174,7 @@ int esp_xtensa_apptrace_data_read(struct target *target,
 	if (res != ERROR_OK)
 		return res;
 	if (ack) {
-		LOG_DEBUG("Ack block %d target (%s)!", block_id, target_name(target));
+		LOG_DEBUG("Ack block %" PRIu32 " target (%s)!", block_id, target_name(target));
 		res = xtensa_queue_dbg_reg_write(xtensa, XTENSA_APPTRACE_CTRL_REG, tmp);
 		if (res != ERROR_OK)
 			return res;
@@ -185,9 +185,9 @@ int esp_xtensa_apptrace_data_read(struct target *target,
 		LOG_ERROR("Failed to exec JTAG queue!");
 		return res;
 	}
-	if (size & 0x3UL) {
+	if (!IS_ALIGNED(size, 4)) {
 		/* copy the last unaligned bytes */
-		memcpy(buffer + size - (size & 0x3UL), unal_bytes, size & 0x3UL);
+		memcpy(buffer + ALIGN_DOWN(size, 4), unal_bytes, size & 0x3UL);
 	}
 	return ERROR_OK;
 }
@@ -227,7 +227,7 @@ int esp_xtensa_apptrace_ctrl_reg_read(struct target *target,
 	int res = xtensa_dm_queue_execute(&xtensa->dbg_mod);
 	if (res != ERROR_OK)
 		return res;
-	uint32_t val = buf_get_u32(tmp, 0, 32);
+	uint32_t val = target_buffer_get_u32(target, tmp);
 	if (block_id)
 		*block_id = XTENSA_APPTRACE_BLOCK_ID_GET(val);
 	if (len)
@@ -276,7 +276,7 @@ static int esp_xtensa_swdbg_activate(struct target *target, int enab)
 	int res = xtensa_dm_queue_execute(&xtensa->dbg_mod);
 	if (res != ERROR_OK) {
 		LOG_ERROR("%s: writing DCR failed!", target->cmd_name);
-		return ERROR_FAIL;
+		return res;
 	}
 
 	return ERROR_OK;
@@ -309,15 +309,15 @@ static int esp_xtensa_apptrace_queue_reverse_write(struct target *target, uint32
 {
 	int res = ERROR_OK;
 	uint32_t cached_bytes = 0, total_sz = 0;
-	uint8_t cached_data8[4] = { 0 };
+	uint8_t cached_data8[sizeof(uint32_t)] = { 0 };
 	uint32_t cached_data32 = 0;
 
 	struct xtensa *xtensa = target_to_xtensa(target);
 
 	for (uint32_t i = 0; i < bufs_num; i++)
 		total_sz += buf_sz[i];
-	if (total_sz & 0x3UL) {
-		cached_bytes = 4 - (total_sz & 0x3UL);
+	if (!IS_ALIGNED(total_sz, 4)) {
+		cached_bytes = sizeof(uint32_t) - (total_sz & 0x3UL);
 		total_sz = ALIGN_UP(total_sz, 4);
 	}
 	xtensa_queue_dbg_reg_write(xtensa, XDMREG_TRAXADDR, (xtensa->core_config->trace.mem_sz - total_sz) / 4);
@@ -349,8 +349,7 @@ static int esp_xtensa_apptrace_queue_reverse_write(struct target *target, uint32
 		}
 		/* write full dwords */
 		for (unsigned int k = bsz; k >= sizeof(uint32_t); k -= sizeof(uint32_t)) {
-			uint32_t temp = 0;
-			memcpy(&temp, cur_buf - sizeof(uint32_t), sizeof(uint32_t));
+			uint32_t temp = target_buffer_get_u32(target, cur_buf - sizeof(uint32_t));
 			res = xtensa_queue_dbg_reg_write(xtensa, XDMREG_TRAXDATA, temp);
 			if (res != ERROR_OK)
 				return res;

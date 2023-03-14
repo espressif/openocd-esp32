@@ -69,13 +69,15 @@ struct esp_sysview_target2host_hdr {
 	uint8_t block_sz;
 	uint8_t wr_sz;
 };
+#define SYSVIEW_BLOCK_SIZE_OFFSET       0
+#define SYSVIEW_WR_SIZE_OFFSET          1
 
 static int esp_sysview_trace_header_write(struct esp32_apptrace_cmd_ctx *ctx, bool mcore_format);
-static int esp32_sysview_core_id_get(uint8_t *hdr_buf);
-static uint32_t esp32_sysview_usr_block_len_get(uint8_t *hdr_buf, uint32_t *wr_len);
+static int esp32_sysview_core_id_get(struct target *target, uint8_t *hdr_buf);
+static uint32_t esp32_sysview_usr_block_len_get(struct target *target, uint8_t *hdr_buf, uint32_t *wr_len);
 
-int esp32_sysview_cmd_init(struct target *target,
-	struct esp32_apptrace_cmd_ctx *cmd_ctx,
+int esp32_sysview_cmd_init(struct esp32_apptrace_cmd_ctx *cmd_ctx,
+	struct command_invocation *cmd,
 	int mode,
 	bool mcore_format,
 	const char **argv,
@@ -89,7 +91,7 @@ int esp32_sysview_cmd_init(struct target *target,
 		return ERROR_FAIL;
 	}
 
-	res = esp32_apptrace_cmd_ctx_init(target, cmd_ctx, mode);
+	res = esp32_apptrace_cmd_ctx_init(cmd_ctx, cmd, mode);
 	if (res)
 		return res;
 
@@ -162,19 +164,17 @@ int esp32_sysview_cmd_cleanup(struct esp32_apptrace_cmd_ctx *cmd_ctx)
 	return ERROR_OK;
 }
 
-static int esp32_sysview_core_id_get(uint8_t *hdr_buf)
+static int esp32_sysview_core_id_get(struct target *target, uint8_t *hdr_buf)
 {
 	/* for sysview compressed apptrace header is used, so core id is encoded in sysview packet
 	 **/
 	return 0;
 }
 
-static uint32_t esp32_sysview_usr_block_len_get(uint8_t *hdr_buf, uint32_t *wr_len)
+static uint32_t esp32_sysview_usr_block_len_get(struct target *target, uint8_t *hdr_buf, uint32_t *wr_len)
 {
-	struct esp_sysview_target2host_hdr tmp_hdr;
-	memcpy(&tmp_hdr, hdr_buf, sizeof(tmp_hdr));
-	*wr_len = ESP32_SYSVIEW_USER_BLOCK_LEN(tmp_hdr.wr_sz);
-	return ESP32_SYSVIEW_USER_BLOCK_LEN(tmp_hdr.block_sz);
+	*wr_len = ESP32_SYSVIEW_USER_BLOCK_LEN(hdr_buf[SYSVIEW_WR_SIZE_OFFSET]);
+	return ESP32_SYSVIEW_USER_BLOCK_LEN(hdr_buf[SYSVIEW_BLOCK_SIZE_OFFSET]);
 }
 
 static int esp_sysview_trace_header_write(struct esp32_apptrace_cmd_ctx *ctx, bool mcore_format)

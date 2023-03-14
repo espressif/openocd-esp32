@@ -831,7 +831,7 @@ static int esp_algo_flash_read_xfer(struct target *target, uint32_t block_id, ui
 	uint8_t *ptr = state->rd_buf;
 	while (ptr < state->rd_buf + len) {
 		uint32_t data_sz = 0;
-		ptr = state->rw.apptrace->usr_block_get(ptr, &data_sz);
+		ptr = state->rw.apptrace->usr_block_get(target, ptr, &data_sz);
 		if (data_sz > 0)
 			memcpy(state->rw.buffer + state->rw.total_count, ptr, data_sz);
 		ptr += data_sz;
