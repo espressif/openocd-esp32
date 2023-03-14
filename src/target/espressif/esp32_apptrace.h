@@ -60,8 +60,8 @@ struct esp32_apptrace_dest {
 
 struct esp32_apptrace_format {
 	uint32_t hdr_sz;
-	int (*core_id_get)(uint8_t *hdr_buf);
-	uint32_t (*usr_block_len_get)(uint8_t *hdr_buf, uint32_t *wr_len);
+	int (*core_id_get)(struct target *target, uint8_t *hdr_buf);
+	uint32_t (*usr_block_len_get)(struct target *target, uint8_t *hdr_buf, uint32_t *wr_len);
 };
 
 struct esp32_apptrace_cmd_stats {
@@ -84,8 +84,8 @@ struct esp32_apptrace_cmd_ctx {
 	const struct algorithm_hw *algo_hw;
 	enum target_state target_state;
 	uint32_t last_blk_id;
-	struct hlist_head free_trace_blocks;
-	struct hlist_head ready_trace_blocks;
+	struct list_head free_trace_blocks;
+	struct list_head ready_trace_blocks;
 	uint32_t max_trace_block_sz;
 	struct esp32_apptrace_format trace_format;
 	int (*process_data)(struct esp32_apptrace_cmd_ctx *ctx, unsigned int core_id, uint8_t *data, uint32_t data_len);
@@ -97,6 +97,8 @@ struct esp32_apptrace_cmd_ctx {
 	struct duration read_time;
 	struct duration idle_time;
 	void *cmd_priv;
+	struct target *target;
+	struct command_invocation *cmd;
 };
 
 struct esp32_apptrace_cmd_data {
@@ -107,7 +109,7 @@ struct esp32_apptrace_cmd_data {
 	bool wait4halt;
 };
 
-int esp32_apptrace_cmd_ctx_init(struct target *target, struct esp32_apptrace_cmd_ctx *cmd_ctx, int mode);
+int esp32_apptrace_cmd_ctx_init(struct esp32_apptrace_cmd_ctx *cmd_ctx, struct command_invocation *cmd, int mode);
 int esp32_apptrace_cmd_ctx_cleanup(struct esp32_apptrace_cmd_ctx *cmd_ctx);
 void esp32_apptrace_cmd_args_parse(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 	struct esp32_apptrace_cmd_data *cmd_data,
@@ -119,7 +121,7 @@ int esp_apptrace_usr_block_write(const struct esp32_apptrace_hw *hw, struct targ
 	uint32_t block_id,
 	const uint8_t *data,
 	uint32_t size);
-uint8_t *esp_apptrace_usr_block_get(uint8_t *buffer, uint32_t *size);
+uint8_t *esp_apptrace_usr_block_get(struct target *target, uint8_t *buffer, uint32_t *size);
 
 extern const struct command_registration esp32_apptrace_command_handlers[];
 

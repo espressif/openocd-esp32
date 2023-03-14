@@ -11147,10 +11147,16 @@ Dump trace memory to a file.
 
 @section Espressif Specific Commands
 
-@deffn {Command} {esp apptrace} (start file://<outfile> [<poll_period> [<trace_size> [<stop_tmo> [<wait4halt> [<skip_size>]]]]])
+@deffn {Command} {esp apptrace} (start <destination> [<poll_period> [<trace_size> [<stop_tmo> [<wait4halt> [<skip_size>]]]]])
 Starts
 @uref{https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/app_trace.html#application-level-tracing-library, application level tracing}.
-Data will be stored to specified destination.
+Data will be stored to specified destination. Available destinations are:
+@itemize @bullet
+@item @code{file://<outfile>} - Save trace logs into file.
+@item @code{tcp://<host>:<port>} - Send trace logs to tcp port on specified host. OpenOCD will act as a tcp client.
+@item @code{con:} - Print trace logs to the stdout.
+@end itemize
+Other parameters will be same for each destination.
 @itemize @bullet
 @item @code{poll_period} - trace data polling period in ms.
 @item @code{trace_size} - maximum trace data size.

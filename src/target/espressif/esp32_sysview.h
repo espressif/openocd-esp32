@@ -32,8 +32,8 @@ struct esp32_sysview_cmd_data {
 
 struct esp32_apptrace_cmd_ctx;
 
-int esp32_sysview_cmd_init(struct target *target,
-	struct esp32_apptrace_cmd_ctx *cmd_ctx,
+int esp32_sysview_cmd_init(struct esp32_apptrace_cmd_ctx *cmd_ctx,
+	struct command_invocation *cmd,
 	int mode,
 	bool mcore_format,
 	const char **argv,

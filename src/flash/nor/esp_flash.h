@@ -39,7 +39,7 @@ struct esp_flash_apptrace_hw {
 		uint32_t block_id,
 		const uint8_t *data,
 		uint32_t size);
-	uint8_t *(*usr_block_get)(uint8_t * buffer, uint32_t * size);
+	uint8_t *(*usr_block_get)(struct target *target, uint8_t *buffer, uint32_t *size);
 	uint32_t (*block_max_size_get)(struct target *target);
 	uint32_t (*usr_block_max_size_get)(struct target *target);
 };

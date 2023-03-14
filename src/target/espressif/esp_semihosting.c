@@ -57,13 +57,11 @@ struct dir_map {
 
 static struct esp_semihost_data *target_to_esp_semihost_data(struct target *target)
 {
-	const char *arch = target_get_gdb_arch(target);
-	if (arch) {
-		if (strncmp(arch, "riscv", 5) == 0)
-			return &target_to_esp_riscv(target)->semihost;
-		else if (strncmp(arch, "xtensa", 6) == 0)
-			return &target_to_esp_xtensa(target)->semihost;
-	}
+	struct xtensa *xtensa = target->arch_info;
+	if (xtensa->common_magic == XTENSA_COMMON_MAGIC)
+		return &target_to_esp_xtensa(target)->semihost;
+	else if (xtensa->common_magic == RISCV_COMMON_MAGIC)
+		return &target_to_esp_riscv(target)->semihost;
 	LOG_ERROR("Unknown target arch!");
 	return NULL;
 }
