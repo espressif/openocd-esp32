@@ -49,6 +49,8 @@ static bool do_sync;
 
 static struct adiv5_dap *swd_multidrop_selected_dap;
 
+static bool swd_multidrop_in_swd_state;
+
 
 static int swd_queue_dp_write_inner(struct adiv5_dap *dap, unsigned int reg,
 		uint32_t data);
@@ -188,7 +190,15 @@ static int swd_multidrop_select_inner(struct adiv5_dap *dap, uint32_t *dpidr_ptr
 
 	assert(dap_is_multidrop(dap));
 
-	swd_send_sequence(dap, LINE_RESET);
+	/* Send JTAG_TO_DORMANT and DORMANT_TO_SWD just once
+	 * and then use shorter LINE_RESET until communication fails */
+	if (!swd_multidrop_in_swd_state) {
+		swd_send_sequence(dap, JTAG_TO_DORMANT);
+		swd_send_sequence(dap, DORMANT_TO_SWD);
+	} else {
+		swd_send_sequence(dap, LINE_RESET);
+	}
+
 	/*
 	 * Zero dap->select and set dap->select_dpbanksel_valid
 	 * to skip the write to DP_SELECT before DPIDR read, avoiding
@@ -246,6 +256,7 @@ static int swd_multidrop_select_inner(struct adiv5_dap *dap, uint32_t *dpidr_ptr
 
 	LOG_DEBUG_IO("Selected DP_TARGETSEL 0x%08" PRIx32, dap->multidrop_targetsel);
 	swd_multidrop_selected_dap = dap;
+	swd_multidrop_in_swd_state = true;
 
 	if (dpidr_ptr)
 		*dpidr_ptr = dpidr;
@@ -295,8 +306,9 @@ static int swd_connect_multidrop(struct adiv5_dap *dap)
 	int64_t timeout = timeval_ms() + 500;
 
 	do {
-		swd_send_sequence(dap, JTAG_TO_DORMANT);
-		swd_send_sequence(dap, DORMANT_TO_SWD);
+		/* Do not make any assumptions about SWD state in case of reconnect */
+		if (dap->do_reconnect)
+			swd_multidrop_in_swd_state = false;
 
 		/* Clear link state, including the SELECT cache. */
 		dap->do_reconnect = false;
@@ -307,6 +319,7 @@ static int swd_connect_multidrop(struct adiv5_dap *dap)
 		if (retval == ERROR_OK)
 			break;
 
+		swd_multidrop_in_swd_state = false;
 		alive_sleep(1);
 
 	} while (timeval_ms() < timeout);
@@ -317,6 +330,7 @@ static int swd_connect_multidrop(struct adiv5_dap *dap)
 		return retval;
 	}
 
+	swd_multidrop_in_swd_state = true;
 	LOG_INFO("SWD DPIDR 0x%08" PRIx32 ", DLPIDR 0x%08" PRIx32,
 			  dpidr, dlpidr);
 
@@ -391,6 +405,13 @@ static int swd_connect_single(struct adiv5_dap *dap)
 	} while (timeval_ms() < timeout);
 
 	return retval;
+}
+
+static int swd_pre_connect(struct adiv5_dap *dap)
+{
+	swd_multidrop_in_swd_state = false;
+
+	return ERROR_OK;
 }
 
 static int swd_connect(struct adiv5_dap *dap)
@@ -628,7 +649,12 @@ static void swd_quit(struct adiv5_dap *dap)
 
 	done = true;
 	if (dap_is_multidrop(dap)) {
+		/* Emit the switch seq to dormant state regardless the state mirrored
+		 * in swd_multidrop_in_swd_state. Doing so ensures robust operation
+		 * in the case the variable is out of sync.
+		 * Sending SWD_TO_DORMANT makes no change if the DP is already dormant. */
 		swd->switch_seq(SWD_TO_DORMANT);
+		swd_multidrop_in_swd_state = false;
 		/* Revisit!
 		 * Leaving DPs in dormant state was tested and offers some safety
 		 * against DPs mismatch in case of unintentional use of non-multidrop SWD.
@@ -649,6 +675,7 @@ static void swd_quit(struct adiv5_dap *dap)
 }
 
 const struct dap_ops swd_dap_ops = {
+	.pre_connect_init = swd_pre_connect,
 	.connect = swd_connect,
 	.send_sequence = swd_send_sequence,
 	.queue_dp_read = swd_queue_dp_read,
