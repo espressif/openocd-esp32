@@ -311,11 +311,8 @@ class GcovTestsImpl:
                         self.assertEqual(len(d_lines), len(self.gcov_files[n]['d_lines']))
                         for k in range(len(d_lines)):
                             self.assertEqual(self.gcov_files[n]['d_lines'][k][0], d_lines[k][0])
-                            if testee_info.idf_ver < IdfVersion.fromstr('latest'):
-                                self.assertEqual(self.gcov_files[n]['d_lines'][k][1] + i, d_lines[k][1])
-                            else:
-                                # With idf master, line execution count is not cumulative. OCD-720
-                                self.assertEqual(self.gcov_files[n]['d_lines'][k][1] + i, d_lines[k][1] + i)
+                            self.assertEqual(self.gcov_files[n]['d_lines'][k][1] + i, d_lines[k][1])
+
         self.gdb.delete_bp(bp)
 
     def test_simple_oocd(self):
