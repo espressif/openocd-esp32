@@ -9,5 +9,7 @@ target_sources(xtensa PRIVATE
     xtensa_algorithm.h
     xtensa_debug_module.c
     xtensa_debug_module.h
+    xtensa_fileio.c
+    xtensa_fileio.h
     xtensa_regs.h
 )
