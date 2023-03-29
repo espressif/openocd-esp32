@@ -34,7 +34,7 @@ variables:
   GCOV_BUILD_OPTS: ""
 
   # OpenOCD configuration options
-  OPENOCD_CONFIGURE_OPTS: "--disable-doxygen-html --disable-doxygen-pdf --enable-ftdi --enable-jlink --enable-ulink"
+  OPENOCD_CONFIGURE_OPTS: "--disable-doxygen-html --enable-remote-bitbang"
 
   # GitHub Tool options
   GITHUB_USER: "${GH_USER}"
