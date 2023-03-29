@@ -69,6 +69,16 @@
   export ZLIB_LDFLAGS="-L$PWD/dist/lib"
   popd
 
+.buildx_libjaylink: &buildx_libjaylink |
+  export LIBJAYLINK_VER=libjaylink-0.3.1
+  wget https://dl.espressif.com/dl/$LIBJAYLINK_VER.tar.gz -O $LIBJAYLINK_VER.tar.gz
+  tar xzf $LIBJAYLINK_VER.tar.gz && rm $LIBJAYLINK_VER.tar.gz
+  pushd $LIBJAYLINK_VER
+  ./autogen.sh
+  ./configure --prefix=$PWD/dist --host=${CONF_HOST} --disable-shared CC=${HOST_CC}
+  make
+  make install
+  popd
 
 .buildx_openocd: &buildx_openocd |
   ./bootstrap
@@ -128,7 +138,8 @@
     - *buildx_libusb
     - export OSXCROSS_PKG_CONFIG_PATH=$PWD/$LIBUSB_VER/dist/lib/pkgconfig
     - *buildx_hidapi
-    - export OSXCROSS_PKG_CONFIG_PATH=$PWD/hidapi-$HIDAPI_VER/dist/lib/pkgconfig/:$OSXCROSS_PKG_CONFIG_PATH
+    - *buildx_libjaylink
+    - export OSXCROSS_PKG_CONFIG_PATH=$PWD/hidapi-$HIDAPI_VER/dist/lib/pkgconfig/:$PWD/$LIBJAYLINK_VER/dist/lib/pkgconfig:$OSXCROSS_PKG_CONFIG_PATH
     - export LDFLAGS="-Wl,-framework,CoreFoundation -Wl,-framework,IOKit -Wl,-framework,Security"
     - *buildx_openocd
     - *dist_archive
@@ -247,8 +258,9 @@ build_windows:
     - *buildx_libusb
     - export PKG_CONFIG_PATH=$PWD/$LIBUSB_VER/dist/lib/pkgconfig
     - *buildx_hidapi
+    - *buildx_libjaylink
     - *buildx_zlib
-    - export PKG_CONFIG_PATH=$PWD/hidapi-$HIDAPI_VER/dist/lib/pkgconfig/:$PKG_CONFIG_PATH
+    - export PKG_CONFIG_PATH=$PWD/hidapi-$HIDAPI_VER/dist/lib/pkgconfig/:$PWD/$LIBJAYLINK_VER/dist/lib/pkgconfig:$PKG_CONFIG_PATH
     - export LDFLAGS=$ZLIB_LDFLAGS
     - *buildx_openocd
     - cp $PWD/${ZLIB_VER}/dist/bin/zlib1.dll $DIST_INSTALLED_DIR/bin/
