@@ -34,6 +34,30 @@
   export LIBUSB_LIBRARIES=$PWD/dist/lib/libusb-1.0.a
   popd
 
+.buildx_hidapi: &buildx_hidapi |
+  export HIDAPI_VER=hidapi-0.13.1
+  wget https://dl.espressif.com/dl/hidapi-$HIDAPI_VER.tar.gz -O $HIDAPI_VER.tar.gz
+  tar xzf $HIDAPI_VER.tar.gz && rm $HIDAPI_VER.tar.gz
+  pushd hidapi-$HIDAPI_VER
+  ./bootstrap
+  ./configure --prefix=$PWD/dist --host=${CONF_HOST} --enable-shared=no --enable-static=yes --disable-testgui CC=${HOST_CC}
+  make
+  MAKEFLAGS= make install
+  popd
+
+# TODO: just for boilerplate. Not tested on windows and macos yet.
+.buildx_libftdi: &buildx_libftdi |
+  export LIBFTDI_VER=libftdi1-1.5
+  wget https://dl.espressif.com/dl/${LIBFTDI_VER}.tar.bz2
+  tar -xjf ${LIBFTDI_VER}.tar.bz2 && rm ${LIBFTDI_VER}.tar.bz2
+  pushd $LIBFTDI_VER
+  DIST_PATH=$(printf '%s\n' "$PWD/dist" | sed -e 's/[\/&]/\\&/g')
+  sed -i -E "s/(SET\(CMAKE_FIND_ROOT_PATH\s+).+\)/\1${DIST_PATH})/" cmake/Toolchain-${CONF_HOST}.cmake
+  export LIBFTDI_CONFIG="-DSTATICLIBS=OFF -DEXAMPLES=OFF -DFTDI_EEPROM=OFF"
+  cmake $LIBFTDI_CONFIG -DLIBUSB_INCLUDE_DIR=$LIBUSB_INCLUDE_DIR -DLIBUSB_LIBRARIES=$LIBUSB_LIBRARIES -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchain-${CONF_HOST}.cmake -DCMAKE_INSTALL_PREFIX=${PWD}/dist
+  make
+  make install
+  popd
 
 .buildx_zlib: &buildx_zlib |
   export ZLIB_VER=zlib-1.2.11
@@ -103,13 +127,15 @@
     - !reference [.submodules_mirror_update, script]
     - *buildx_libusb
     - export OSXCROSS_PKG_CONFIG_PATH=$PWD/$LIBUSB_VER/dist/lib/pkgconfig
+    - *buildx_hidapi
+    - export OSXCROSS_PKG_CONFIG_PATH=$PWD/hidapi-$HIDAPI_VER/dist/lib/pkgconfig/:$OSXCROSS_PKG_CONFIG_PATH
     - export LDFLAGS="-Wl,-framework,CoreFoundation -Wl,-framework,IOKit -Wl,-framework,Security"
     - *buildx_openocd
     - *dist_archive
 
 build_linux:
   stage: build_openocd
-  image: $CI_DOCKER_REGISTRY/esp32-toolchain
+  image: $CI_DOCKER_REGISTRY/openocd-ci-env:1
   tags:
     - build
   artifacts:
@@ -124,6 +150,8 @@ build_linux:
     - *get_release_name
     - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
+    - apt-get update
+    - apt-get install libhidapi-dev -y
     - ./bootstrap
     - mkdir _build
     - pushd _build/
@@ -218,7 +246,9 @@ build_windows:
     - !reference [.submodules_mirror_update, script]
     - *buildx_libusb
     - export PKG_CONFIG_PATH=$PWD/$LIBUSB_VER/dist/lib/pkgconfig
+    - *buildx_hidapi
     - *buildx_zlib
+    - export PKG_CONFIG_PATH=$PWD/hidapi-$HIDAPI_VER/dist/lib/pkgconfig/:$PKG_CONFIG_PATH
     - export LDFLAGS=$ZLIB_LDFLAGS
     - *buildx_openocd
     - cp $PWD/${ZLIB_VER}/dist/bin/zlib1.dll $DIST_INSTALLED_DIR/bin/
