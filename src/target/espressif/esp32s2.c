@@ -663,6 +663,7 @@ struct target_type esp32s2_target = {
 
 	.add_watchpoint = xtensa_watchpoint_add,
 	.remove_watchpoint = xtensa_watchpoint_remove,
+	.hit_watchpoint = xtensa_watchpoint_hit,
 
 	.target_create = esp32s2_target_create,
 	.init_target = esp32s2_target_init,

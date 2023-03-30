@@ -226,8 +226,7 @@ class WatchpointTestsImpl:
             # 'count' write
             self.run_to_bp_and_check(wp_stop_reason, 'blink_task', ['s_count11'])
             var_val = int(self.gdb.data_eval_expr('s_count1'))
-            # FIXME: GCC-307
-            if testee_info.arch == "riscv32" and testee_info.idf_ver > IdfVersion.fromstr('5.0'):
+            if testee_info.arch == "xtensa" or testee_info.idf_ver > IdfVersion.fromstr('5.0'):
                 self.assertEqual(var_val, cnt+1)
             else:
                 self.assertEqual(var_val, cnt)
@@ -252,13 +251,14 @@ class WatchpointTestsImpl:
         cnt2 = 100
         for e in self.wps:
             self.add_wp(e, 'w')
-        wp_stop_reason = [dbg.TARGET_STOP_REASON_SIGTRAP, dbg.TARGET_STOP_REASON_WP]
+        wp_stop_reason = [dbg.TARGET_STOP_REASON_SIGTRAP]
+        if testee_info.idf_ver >= IdfVersion.fromstr('5.1'):
+            wp_stop_reason.append(dbg.TARGET_STOP_REASON_WP)
         for i in range(5):
             if (i % 2) == 0:
                 self.run_to_bp_and_check(wp_stop_reason, 'blink_task', ['s_count11'])
                 var_val = int(self.gdb.data_eval_expr('s_count1'))
-                # FIXME: GCC-307
-                if testee_info.arch == "riscv32" and testee_info.idf_ver > IdfVersion.fromstr('5.0'):
+                if testee_info.arch == "xtensa" or testee_info.idf_ver > IdfVersion.fromstr('5.0'):
                     self.assertEqual(var_val, cnt+1)
                 else:
                     self.assertEqual(var_val, cnt)
@@ -266,8 +266,7 @@ class WatchpointTestsImpl:
             else:
                 self.run_to_bp_and_check(wp_stop_reason, 'blink_task', ['s_count2'])
                 var_val = int(self.gdb.data_eval_expr('s_count2'))
-                # FIXME: GCC-307
-                if testee_info.arch == "riscv32" and testee_info.idf_ver > IdfVersion.fromstr('5.0'):
+                if testee_info.arch == "xtensa" or testee_info.idf_ver > IdfVersion.fromstr('5.0'):
                     self.assertEqual(var_val, cnt2-1)
                 else:
                     self.assertEqual(var_val, cnt2)
@@ -322,12 +321,13 @@ def two_cores_concurrently_hit_wps(self):
     """
     self.select_sub_test(101)
     self.wps = {'s_count1': None, 's_count2': None}
-    cnt = 0
-    cnt2 = 100
     for e in self.wps:
         self.add_wp(e, 'w')
+    wp_stop_reason = [dbg.TARGET_STOP_REASON_SIGTRAP]
+    if testee_info.idf_ver >= IdfVersion.fromstr('5.1'):
+        wp_stop_reason.append(dbg.TARGET_STOP_REASON_WP)
     for i in range(10):
-        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_SIGTRAP, 'blink_task', ['s_count11', 's_count2'])
+        self.run_to_bp_and_check(wp_stop_reason, 'blink_task', ['s_count11', 's_count2'])
 
 class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTestsImpl):
     """ Test cases for breakpoints in dual core mode

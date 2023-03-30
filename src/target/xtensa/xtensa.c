@@ -2595,8 +2595,7 @@ int xtensa_watchpoint_add(struct target *target, struct watchpoint *watchpoint)
 	xtensa_reg_set(target, XT_REG_IDX_DBREAKA0 + slot, watchpoint->address);
 	xtensa_reg_set(target, XT_REG_IDX_DBREAKC0 + slot, dbreakcval);
 	xtensa->hw_wps[slot] = watchpoint;
-	LOG_TARGET_DEBUG(target, "placed HW watchpoint @ " TARGET_ADDR_FMT,
-		watchpoint->address);
+	LOG_TARGET_DEBUG(target, "placed HW watchpoint @ " TARGET_ADDR_FMT, watchpoint->address);
 	return ERROR_OK;
 }
 
@@ -2615,9 +2614,33 @@ int xtensa_watchpoint_remove(struct target *target, struct watchpoint *watchpoin
 	}
 	xtensa_reg_set(target, XT_REG_IDX_DBREAKC0 + slot, 0);
 	xtensa->hw_wps[slot] = NULL;
-	LOG_TARGET_DEBUG(target, "cleared HW watchpoint @ " TARGET_ADDR_FMT,
-		watchpoint->address);
+	LOG_TARGET_DEBUG(target, "cleared HW watchpoint @ " TARGET_ADDR_FMT, watchpoint->address);
 	return ERROR_OK;
+}
+
+int xtensa_watchpoint_hit(struct target *target, struct watchpoint **hit_watchpoint)
+{
+	struct xtensa *xtensa = target_to_xtensa(target);
+
+	/* NX not supported yet. */
+	if (xtensa->core_config->core_type == XT_NX)
+		return ERROR_FAIL;
+
+	if (target->debug_reason != DBG_REASON_WATCHPOINT)
+		return ERROR_FAIL;
+
+	uint32_t debugcause = xtensa_cause_get(target);
+	unsigned int dbnum = (debugcause >> DEBUGCAUSE_DBNUM_SHIFT) & DEBUGCAUSE_DBNUM_MASK;
+
+	if (dbnum >= xtensa->core_config->debug.dbreaks_num)
+		return ERROR_FAIL;
+
+	if (xtensa->hw_wps[dbnum]) {
+		*hit_watchpoint = xtensa->hw_wps[dbnum];
+		LOG_TARGET_DEBUG(target, "Hit address=%" TARGET_PRIxADDR, xtensa->hw_wps[dbnum]->address);
+		return ERROR_OK;
+	}
+	return ERROR_FAIL;
 }
 
 int xtensa_start_algorithm(struct target *target,
@@ -2942,11 +2965,10 @@ static int xtensa_build_reg_cache(struct target *target)
 			unsigned int j;
 			for (j = 0; j < reg_cache->num_regs; j++) {
 				if (!strcmp(reg_cache->reg_list[j].name, xtensa->contiguous_regs_desc[i]->name)) {
-					/*	Register number field is not filled above.
-						Here we are assigning the corresponding index from the contiguous reg list.
-						These indexes are in the same order with gdb g-packet request/response.
-						Some more changes may be required for sparse reg lists.
-					*/
+					/* Register number field is not filled above. Here we are assigning the
+					 * corresponding index from the contiguous reg list. These indexes are in the
+					 * same order with gdb g-packet request/response Some more changes may be
+					 * required for sparse reg lists. */
 					reg_cache->reg_list[j].number = i;
 					xtensa->contiguous_regs_list[i] = &(reg_cache->reg_list[j]);
 					LOG_TARGET_DEBUG(target,

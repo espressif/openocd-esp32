@@ -295,6 +295,8 @@ struct xtensa_dm_reg_offsets {
 #define DEBUGCAUSE_BI               BIT(3)	/* BREAK instruction encountered */
 #define DEBUGCAUSE_BN               BIT(4)	/* BREAK.N instruction encountered */
 #define DEBUGCAUSE_DI               BIT(5)	/* Debug Interrupt */
+#define DEBUGCAUSE_DBNUM_SHIFT      8		/* Which of the DBREAK registers matched */
+#define DEBUGCAUSE_DBNUM_MASK       0x0F
 #define DEBUGCAUSE_VALID            BIT(31)	/* Pseudo-value to trigger reread (NX only) */
 
 #define TRAXCTRL_TREN               BIT(0)	/* Trace enable. Tracing starts on 0->1 */
