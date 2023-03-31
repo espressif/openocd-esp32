@@ -197,6 +197,11 @@ class WatchpointTestsImpl:
     """ Watchpoints test cases which are common for dual and single core modes
     """
 
+    wp_stop_reason = [dbg.TARGET_STOP_REASON_SIGTRAP, dbg.TARGET_STOP_REASON_WP]
+    compare_offset = 0
+    if testee_info.arch == "xtensa" or testee_info.idf_ver == IdfVersion.fromstr('latest'):
+        compare_offset = 1
+
     def test_wp_simple(self):
         """
             This simple test checks general watchpoints usage scenario.
@@ -213,23 +218,19 @@ class WatchpointTestsImpl:
         for e in self.wps:
             self.add_wp(e, 'rw')
         cnt = 0
-        wp_stop_reason = [dbg.TARGET_STOP_REASON_SIGTRAP, dbg.TARGET_STOP_REASON_WP]
         for i in range(3):
             # 'count' read
-            self.run_to_bp_and_check(wp_stop_reason, 'blink_task', ['s_count10'])
+            self.run_to_bp_and_check(self.wp_stop_reason, 'blink_task', ['s_count10'])
             var_val = int(self.gdb.data_eval_expr('s_count1'))
             self.assertEqual(var_val, cnt)
             # 'count' read
-            self.run_to_bp_and_check(wp_stop_reason, 'blink_task', ['s_count11'])
+            self.run_to_bp_and_check(self.wp_stop_reason, 'blink_task', ['s_count11'])
             var_val = int(self.gdb.data_eval_expr('s_count1'))
             self.assertEqual(var_val, cnt)
             # 'count' write
-            self.run_to_bp_and_check(wp_stop_reason, 'blink_task', ['s_count11'])
+            self.run_to_bp_and_check(self.wp_stop_reason, 'blink_task', ['s_count11'])
             var_val = int(self.gdb.data_eval_expr('s_count1'))
-            if testee_info.arch == "xtensa" or testee_info.idf_ver > IdfVersion.fromstr('5.0'):
-                self.assertEqual(var_val, cnt+1)
-            else:
-                self.assertEqual(var_val, cnt)
+            self.assertEqual(var_val, cnt+self.compare_offset)
             cnt += 1
 
     def test_wp_and_reconnect(self):
@@ -251,25 +252,16 @@ class WatchpointTestsImpl:
         cnt2 = 100
         for e in self.wps:
             self.add_wp(e, 'w')
-        wp_stop_reason = [dbg.TARGET_STOP_REASON_SIGTRAP]
-        if testee_info.idf_ver >= IdfVersion.fromstr('5.1'):
-            wp_stop_reason.append(dbg.TARGET_STOP_REASON_WP)
         for i in range(5):
             if (i % 2) == 0:
-                self.run_to_bp_and_check(wp_stop_reason, 'blink_task', ['s_count11'])
+                self.run_to_bp_and_check(self.wp_stop_reason, 'blink_task', ['s_count11'])
                 var_val = int(self.gdb.data_eval_expr('s_count1'))
-                if testee_info.arch == "xtensa" or testee_info.idf_ver > IdfVersion.fromstr('5.0'):
-                    self.assertEqual(var_val, cnt+1)
-                else:
-                    self.assertEqual(var_val, cnt)
+                self.assertEqual(var_val, cnt+self.compare_offset)
                 cnt += 1
             else:
-                self.run_to_bp_and_check(wp_stop_reason, 'blink_task', ['s_count2'])
+                self.run_to_bp_and_check(self.wp_stop_reason, 'blink_task', ['s_count2'])
                 var_val = int(self.gdb.data_eval_expr('s_count2'))
-                if testee_info.arch == "xtensa" or testee_info.idf_ver > IdfVersion.fromstr('5.0'):
-                    self.assertEqual(var_val, cnt2-1)
-                else:
-                    self.assertEqual(var_val, cnt2)
+                self.assertEqual(var_val, cnt2-self.compare_offset)
                 cnt2 -= 1
             self.gdb.disconnect()
             sleep(0.1) #sleep 100ms
@@ -324,7 +316,7 @@ def two_cores_concurrently_hit_wps(self):
     for e in self.wps:
         self.add_wp(e, 'w')
     wp_stop_reason = [dbg.TARGET_STOP_REASON_SIGTRAP]
-    if testee_info.idf_ver >= IdfVersion.fromstr('5.1'):
+    if testee_info.arch == "xtensa" or testee_info.idf_ver == IdfVersion.fromstr('latest'):
         wp_stop_reason.append(dbg.TARGET_STOP_REASON_WP)
     for i in range(10):
         self.run_to_bp_and_check(wp_stop_reason, 'blink_task', ['s_count11', 's_count2'])
