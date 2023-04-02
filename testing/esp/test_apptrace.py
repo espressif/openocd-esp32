@@ -101,9 +101,11 @@ class ApptraceTestsImpl:
         self.gdb.target_reset()
 
         lines_before_reset = []
+        get_logger().debug('lines_before_reset:')
         while True:
             try:
                 line = reader.readline()
+                get_logger().debug('%s', line)
                 if (len(line)):
                     lines_before_reset.append(line)
             except ReaderTimeoutError:
@@ -116,9 +118,11 @@ class ApptraceTestsImpl:
         sleep(2) #  let it works some time
         self.oocd.apptrace_stop();
         lines_after_reset = []
+        get_logger().debug('lines_after_reset:')
         while True:
             try:
                 line = reader.readline()
+                get_logger().debug('%s', line)
                 if (len(line)):
                     lines_after_reset.append(line)
             except ReaderTimeoutError:
