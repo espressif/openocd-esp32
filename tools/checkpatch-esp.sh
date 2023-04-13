@@ -10,4 +10,5 @@ git diff HEAD~${cnt} \
                 -x "a/HACKING" \
                 -x "a/testing/esp/*" \
                 -x "a/contrib/loaders/flash/esp/*" \
-            | ./tools/scripts/checkpatch.pl --no-signoff -
+            | ./tools/scripts/checkpatch.pl --no-signoff --ignore MACRO_ARG_REUSE --ignore UNNECESSARY_PARENTHESES \
+                --ignore MACRO_ARG_PRECEDENCE -
