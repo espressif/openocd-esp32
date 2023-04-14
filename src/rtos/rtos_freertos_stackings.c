@@ -805,6 +805,9 @@ static const struct rtos_register_stacking *rtos_freertos_esp_xtensa_pick_stacki
 		return stacking;
 	}
 	retval = target_read_buffer(rtos->target, stack_ptr, 4, (uint8_t *)&stk_exit);
+	if (retval != ERROR_OK) {
+		return stacking;
+	}
 
 	if (stk_exit) {
 		return stacking;
