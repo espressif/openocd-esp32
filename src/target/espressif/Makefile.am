@@ -29,6 +29,7 @@ noinst_LTLIBRARIES += %D%/libespressif.la
 		%D%/esp32_apptrace.h \
 		%D%/esp32_sysview.c \
 		%D%/esp32_sysview.h \
+		%D%/segger_sysview.h \
 		%D%/esp_algorithm.c \
 		%D%/esp_algorithm.h \
 		%D%/esp_riscv_algorithm.c \
