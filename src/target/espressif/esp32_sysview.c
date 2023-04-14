@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 /***************************************************************************
  *   ESP32 sysview tracing module                                          *
@@ -12,58 +12,12 @@
 #include <helper/log.h>
 #include "esp32_apptrace.h"
 #include "esp32_sysview.h"
+#include "segger_sysview.h"
 
 /* in SystemView mode core ID is passed in event ID field */
 #define ESP32_SYSVIEW_USER_BLOCK_CORE(_v_)  (0)	/* not used */
-#define ESP32_SYSVIEW_USER_BLOCK_LEN(_v_)       (_v_)
+#define ESP32_SYSVIEW_USER_BLOCK_LEN(_v_)   (_v_)
 #define ESP32_SYSVIEW_USER_BLOCK_HDR_SZ     2
-
-/* grabbed from SystemView target sources */
-#define   SYSVIEW_EVTID_NOP                 0	/* Dummy packet. */
-#define   SYSVIEW_EVTID_OVERFLOW            1
-#define   SYSVIEW_EVTID_ISR_ENTER           2
-#define   SYSVIEW_EVTID_ISR_EXIT            3
-#define   SYSVIEW_EVTID_TASK_START_EXEC     4
-#define   SYSVIEW_EVTID_TASK_STOP_EXEC      5
-#define   SYSVIEW_EVTID_TASK_START_READY    6
-#define   SYSVIEW_EVTID_TASK_STOP_READY     7
-#define   SYSVIEW_EVTID_TASK_CREATE         8
-#define   SYSVIEW_EVTID_TASK_INFO           9
-#define   SYSVIEW_EVTID_TRACE_START         10
-#define   SYSVIEW_EVTID_TRACE_STOP          11
-#define   SYSVIEW_EVTID_SYSTIME_CYCLES      12
-#define   SYSVIEW_EVTID_SYSTIME_US          13
-#define   SYSVIEW_EVTID_SYSDESC             14
-#define   SYSVIEW_EVTID_USER_START          15
-#define   SYSVIEW_EVTID_USER_STOP           16
-#define   SYSVIEW_EVTID_IDLE                17
-#define   SYSVIEW_EVTID_ISR_TO_SCHEDULER    18
-#define   SYSVIEW_EVTID_TIMER_ENTER         19
-#define   SYSVIEW_EVTID_TIMER_EXIT          20
-#define   SYSVIEW_EVTID_STACK_INFO          21
-#define   SYSVIEW_EVTID_MODULEDESC          22
-
-#define   SYSVIEW_EVTID_INIT                24
-#define   SYSVIEW_EVTID_NAME_RESOURCE       25
-#define   SYSVIEW_EVTID_PRINT_FORMATTED     26
-#define   SYSVIEW_EVTID_NUMMODULES          27
-
-#define   SYSVIEW_SYNC_LEN                  10
-
-#define   SYSVIEW_EVENT_ID_MAX             (200)
-
-#define SYSVIEW_ENCODE_U32(dest, val) {					    \
-		uint8_t *sv_ptr;			 \
-		uint32_t sv_data;			 \
-		sv_ptr = dest;				 \
-		sv_data = val;				 \
-		while (sv_data > 0x7F) {		  \
-			*sv_ptr++ = (uint8_t)(sv_data | 0x80); \
-			sv_data >>= 7;			       \
-		};					 \
-		*sv_ptr++ = (uint8_t)sv_data;		 \
-		dest = sv_ptr;				 \
-}
 
 struct esp_sysview_target2host_hdr {
 	uint8_t block_sz;
@@ -83,35 +37,38 @@ int esp32_sysview_cmd_init(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 	const char **argv,
 	int argc)
 {
-	int res;
 	struct esp32_sysview_cmd_data *cmd_data;
 
 	if (argc < 1) {
-		LOG_ERROR("Not enough args! Need trace data destination!");
+		command_print(cmd, "Not enough args! Need trace data destination!");
 		return ERROR_FAIL;
 	}
 
-	res = esp32_apptrace_cmd_ctx_init(cmd_ctx, cmd, mode);
-	if (res)
+	int res = esp32_apptrace_cmd_ctx_init(cmd_ctx, cmd, mode);
+	if (res != ERROR_OK)
 		return res;
 
 	int core_num = cmd_ctx->cores_num;
 
 	if (!mcore_format && argc < core_num) {
-		LOG_ERROR("Not enough args! Need %d trace data destinations!", core_num);
+		command_print(cmd, "Not enough args! Need %d trace data destinations!", core_num);
 		res = ERROR_FAIL;
 		goto on_error;
 	}
 
 	cmd_data = calloc(1, sizeof(*cmd_data));
-	assert(cmd_data && "No memory for command data!");
+	if (!cmd_data) {
+		command_print(cmd, "No memory for command data!");
+		res = ERROR_FAIL;
+		goto on_error;
+	}
 	cmd_ctx->cmd_priv = cmd_data;
 	cmd_data->mcore_format = mcore_format;
 
 	/*outfile1 [outfile2] [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]] */
 	int dests_num = esp32_apptrace_dest_init(cmd_data->data_dests, argv, !mcore_format ? core_num : 1);
 	if (!mcore_format && dests_num < core_num) {
-		LOG_ERROR("Not enough args! Need %d trace data destinations!", core_num);
+		command_print(cmd, "Not enough args! Need %d trace data destinations!", core_num);
 		free(cmd_data);
 		res = ERROR_FAIL;
 		goto on_error;
@@ -126,8 +83,8 @@ int esp32_sysview_cmd_init(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 			&argv[dests_num],
 			argc - dests_num);
 	}
-	LOG_USER(
-		"App trace params: from %d cores, size %u bytes, stop_tmo %g s, poll period %u ms, wait_rst %d, skip %u bytes",
+	LOG_USER("App trace params: from %d cores, size %u bytes, stop_tmo %g s, "
+		"poll period %u ms, wait_rst %d, skip %u bytes",
 		cmd_ctx->cores_num,
 		cmd_data->apptrace.max_len,
 		cmd_ctx->stop_tmo,
@@ -141,7 +98,7 @@ int esp32_sysview_cmd_init(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 
 	res = esp_sysview_trace_header_write(cmd_ctx, mcore_format);
 	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write trace header (%d)!", res);
+		command_print(cmd, "Failed to write trace header (%d)!", res);
 		esp32_apptrace_dest_cleanup(cmd_data->data_dests, core_num);
 		free(cmd_data);
 		return res;
@@ -166,8 +123,7 @@ int esp32_sysview_cmd_cleanup(struct esp32_apptrace_cmd_ctx *cmd_ctx)
 
 static int esp32_sysview_core_id_get(struct target *target, uint8_t *hdr_buf)
 {
-	/* for sysview compressed apptrace header is used, so core id is encoded in sysview packet
-	 **/
+	/* for sysview compressed apptrace header is used, so core id is encoded in sysview packet */
 	return 0;
 }
 
@@ -185,13 +141,13 @@ static int esp_sysview_trace_header_write(struct esp32_apptrace_cmd_ctx *ctx, bo
 
 	if (!mcore_format) {
 		hdr_str = ";\n"
-			"; Version     SEGGER SystemViewer V2.42\n"
+			"; Version     " SYSVIEW_MIN_VER_STRING "\n"
 			"; Author      Espressif Inc\n"
 			";\n";
 		dests_num = ctx->cores_num;
 	} else {
 		hdr_str = ";\n"
-			"; Version     SEGGER SystemViewer V2.42\n"
+			"; Version     " SYSVIEW_MIN_VER_STRING "\n"
 			"; Author      Espressif Inc\n"
 			"; ESP_Extension\n"
 			";\n";
@@ -204,11 +160,22 @@ static int esp_sysview_trace_header_write(struct esp32_apptrace_cmd_ctx *ctx, bo
 			(uint8_t *)hdr_str,
 			hdr_len);
 		if (res != ERROR_OK) {
-			LOG_ERROR("SEGGER: Failed to write %u bytes to dest %d!", hdr_len, i);
+			LOG_ERROR("sysview: Failed to write %u bytes to dest %d!", hdr_len, i);
 			return ERROR_FAIL;
 		}
 	}
 	return ERROR_OK;
+}
+
+static void sysview_encode_u32(uint8_t **dest, uint32_t val)
+{
+	uint8_t *sv_ptr = *dest;
+	while (val > 0x7F) {
+		*sv_ptr++ = (uint8_t)(val | 0x80);
+		val >>= 7;
+	}
+	*sv_ptr++ = (uint8_t)val;
+	*dest = sv_ptr;
 }
 
 static uint32_t esp_sysview_decode_u32(uint8_t **ptr)
@@ -302,7 +269,7 @@ static uint16_t esp_sysview_get_predef_payload_len(uint16_t id, uint8_t *pkt)
 
 	/*case SYSVIEW_EVTID_NOP: */
 	default:
-		LOG_ERROR("SEGGER: Unsupported predef event %d!", id);
+		LOG_ERROR("sysview: Unsupported predef event %d!", id);
 		len = 0;
 	}
 	return len;
@@ -320,8 +287,7 @@ static uint16_t esp_sysview_parse_packet(uint8_t *pkt_buf,
 
 	*pkt_core_id = 0;
 	*pkt_len = 0;
-	/* 1-2 byte of message type, 0-2  byte of payload length, payload, 1-5 bytes of timestamp.
-	 * */
+	/* 1-2 byte of message type, 0-2  byte of payload length, payload, 1-5 bytes of timestamp. */
 	if (*pkt & 0x80) {
 		if (*(pkt + 1) & (1 << 6)) {
 			if (clear_core_bit)
@@ -352,7 +318,7 @@ static uint16_t esp_sysview_parse_packet(uint8_t *pkt_buf,
 	*delta = esp_sysview_decode_u32(&pkt);
 	*delta_len = pkt - delta_start;
 	*pkt_len = pkt - pkt_buf;
-	LOG_DEBUG("SEGGER: evt %d len %d plen %d dlen %d",
+	LOG_DEBUG("sysview: evt %d len %d plen %d dlen %d",
 		event_id,
 		*pkt_len,
 		payload_len,
@@ -369,20 +335,14 @@ static int esp32_sysview_write_packet(struct esp32_sysview_cmd_data *cmd_data,
 	int res = cmd_data->data_dests[pkt_core_id].write(cmd_data->data_dests[pkt_core_id].priv, pkt_buf, pkt_len);
 
 	if (res != ERROR_OK) {
-		LOG_ERROR("SEGGER: Failed to write %u bytes to dest %d!", pkt_len, pkt_core_id);
+		LOG_ERROR("sysview: Failed to write %u bytes to dest %d!", pkt_len, pkt_core_id);
 		return res;
 	}
 	if (delta_len) {
 		/* write packet with modified delta */
-		res =
-			cmd_data->data_dests[pkt_core_id].write(
-			cmd_data->data_dests[pkt_core_id].priv,
-			delta_buf,
-			delta_len);
+		res = cmd_data->data_dests[pkt_core_id].write(cmd_data->data_dests[pkt_core_id].priv, delta_buf, delta_len);
 		if (res != ERROR_OK) {
-			LOG_ERROR("SEGGER: Failed to write %u bytes of delta to dest %d!",
-				delta_len,
-				pkt_core_id);
+			LOG_ERROR("sysview: Failed to write %u bytes of delta to dest %d!", delta_len, pkt_core_id);
 			return res;
 		}
 	}
@@ -401,14 +361,12 @@ static int esp32_sysview_process_packet(struct esp32_apptrace_cmd_ctx *ctx,
 
 	if (ctx->cores_num > 1) {
 		if (cmd_data->sv_last_core_id == pkt_core_id) {
-			/* if this packet is for the same core as the prev one acc delta and
-			* write packet unmodified */
+			/* if this packet is for the same core as the prev one acc delta and write packet unmodified */
 			cmd_data->sv_acc_time_delta += delta;
 		} else {
-			/* if this packet is for another core then prev one set acc delta to
-			* the packet's delta */
+			/* if this packet is for another core then prev one set acc delta to the packet's delta */
 			uint8_t *delta_ptr = new_delta_buf;
-			SYSVIEW_ENCODE_U32(delta_ptr, delta + cmd_data->sv_acc_time_delta);
+			sysview_encode_u32(&delta_ptr, delta + cmd_data->sv_acc_time_delta);
 			cmd_data->sv_acc_time_delta = delta;
 			wr_len -= delta_len;
 			new_delta_len = delta_ptr - new_delta_buf;
@@ -417,8 +375,7 @@ static int esp32_sysview_process_packet(struct esp32_apptrace_cmd_ctx *ctx,
 		cmd_data->sv_last_core_id = pkt_core_id;
 	}
 	if (pkt_core_id >= ctx->cores_num) {
-		LOG_WARNING(
-			"SEGGER: invalid core ID in packet %d, must be less then %d! Event id %d",
+		LOG_WARNING("sysview: invalid core ID in packet %d, must be less then %d! Event id %d",
 			pkt_core_id,
 			ctx->cores_num,
 			event_id);
@@ -436,8 +393,7 @@ static int esp32_sysview_process_packet(struct esp32_apptrace_cmd_ctx *ctx,
 		if (pkt_core_id == i)
 			continue;
 		switch (event_id) {
-		/* messages below should be sent to trace destinations for all cores
-		* */
+		/* messages below should be sent to trace destinations for all cores */
 		case SYSVIEW_EVTID_TRACE_START:
 		case SYSVIEW_EVTID_TRACE_STOP:
 		case SYSVIEW_EVTID_SYSTIME_CYCLES:
@@ -458,18 +414,11 @@ static int esp32_sysview_process_packet(struct esp32_apptrace_cmd_ctx *ctx,
 			} else {
 				/* clone packet with modified delta */
 				uint8_t *delta_ptr = new_delta_buf;
-				SYSVIEW_ENCODE_U32(delta_ptr,
-					cmd_data->sv_acc_time_delta /*delta has been
-								                        * accumulated
-								                        * above*/);
+				sysview_encode_u32(&delta_ptr, cmd_data->sv_acc_time_delta /*delta has been accumulated above*/);
 				wr_len -= delta_len;
 				new_delta_len = delta_ptr - new_delta_buf;
 			}
-			LOG_DEBUG(
-				"SEGGER: Redirect %d bytes of event %d to dest %d",
-				wr_len,
-				event_id,
-				i);
+			LOG_DEBUG("sysview: Redirect %d bytes of event %d to dest %d", wr_len, event_id, i);
 			res = esp32_sysview_write_packet(cmd_data,
 				i,
 				wr_len,
@@ -497,7 +446,7 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 {
 	struct esp32_sysview_cmd_data *cmd_data = ctx->cmd_priv;
 
-	LOG_DEBUG("SEGGER: Read from target %d bytes [%x %x %x %x]",
+	LOG_DEBUG("sysview: Read from target %d bytes [%x %x %x %x]",
 		data_len,
 		data[0],
 		data[1],
@@ -506,7 +455,7 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 	int res;
 	uint32_t processed = 0;
 	if (core_id >= ctx->cores_num) {
-		LOG_ERROR("SEGGER: Invalid core id %d in user block!", core_id);
+		LOG_ERROR("sysview: Invalid core id %d in user block!", core_id);
 		return ERROR_FAIL;
 	}
 	if (cmd_data->mcore_format)
@@ -514,14 +463,13 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 	if (ctx->tot_len == 0) {
 		/* handle sync seq */
 		if (data_len < SYSVIEW_SYNC_LEN) {
-			LOG_ERROR("SEGGER: Invalid init seq len %d!", data_len);
+			LOG_ERROR("sysview: Invalid init seq len %d!", data_len);
 			return ERROR_FAIL;
 		}
-		LOG_DEBUG("SEGGER: Process %d sync bytes", SYSVIEW_SYNC_LEN);
-		uint8_t sync_seq[SYSVIEW_SYNC_LEN] =
-		{ 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 };
+		LOG_DEBUG("sysview: Process %d sync bytes", SYSVIEW_SYNC_LEN);
+		uint8_t sync_seq[SYSVIEW_SYNC_LEN] = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 };
 		if (memcmp(data, sync_seq, SYSVIEW_SYNC_LEN) != 0) {
-			LOG_ERROR("SEGGER: Invalid init seq [%x %x %x %x %x %x %x %x %x %x]",
+			LOG_ERROR("sysview: Invalid init seq [%x %x %x %x %x %x %x %x %x %x]",
 				data[0], data[1], data[2], data[3], data[4], data[5], data[6],
 				data[7], data[8], data[9]);
 			return ERROR_FAIL;
@@ -530,7 +478,7 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 			data,
 			SYSVIEW_SYNC_LEN);
 		if (res != ERROR_OK) {
-			LOG_ERROR("SEGGER: Failed to write %u sync bytes to dest %d!",
+			LOG_ERROR("sysview: Failed to write %u sync bytes to dest %d!",
 				SYSVIEW_SYNC_LEN,
 				core_id);
 			return res;
@@ -544,10 +492,7 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 					data,
 					SYSVIEW_SYNC_LEN);
 				if (res != ERROR_OK) {
-					LOG_ERROR(
-						"SEGGER: Failed to write %u sync bytes to dest %d!",
-						SYSVIEW_SYNC_LEN,
-						core_id ? 0 : 1);
+					LOG_ERROR("sysview: Failed to write %u sync bytes to dest %d!", SYSVIEW_SYNC_LEN, core_id ? 0 : 1);
 					return res;
 				}
 			}
@@ -565,7 +510,7 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 			&delta,
 			&delta_len,
 			!cmd_data->mcore_format);
-		LOG_DEBUG("SEGGER: Process packet: core %d, %d id, %d bytes [%x %x %x %x]",
+		LOG_DEBUG("sysview: Process packet: core %d, %d id, %d bytes [%x %x %x %x]",
 			pkt_core_id,
 			event_id,
 			pkt_len,
@@ -584,14 +529,9 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 			if (res != ERROR_OK)
 				return res;
 		} else {
-			res = cmd_data->data_dests[0].write(
-				cmd_data->data_dests[0].priv,
-				data + processed,
-				pkt_len);
+			res = cmd_data->data_dests[0].write(cmd_data->data_dests[0].priv, data + processed, pkt_len);
 			if (res != ERROR_OK) {
-				LOG_ERROR("SEGGER: Failed to write %u bytes to dest %d!",
-					pkt_len,
-					0);
+				LOG_ERROR("sysview: Failed to write %u bytes to dest %d!", pkt_len, 0);
 				return res;
 			}
 		}
@@ -602,7 +542,7 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 	}
 	LOG_USER("%u ", ctx->tot_len);
 	/* check for stop condition */
-	if ((ctx->tot_len > cmd_data->apptrace.skip_len) &&
+	if (ctx->tot_len > cmd_data->apptrace.skip_len &&
 		(ctx->tot_len - cmd_data->apptrace.skip_len >= cmd_data->apptrace.max_len)) {
 		ctx->running = 0;
 		if (duration_measure(&ctx->read_time) != 0) {

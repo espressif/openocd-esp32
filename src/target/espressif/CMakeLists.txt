@@ -30,6 +30,7 @@ target_sources(espressif PRIVATE
 	esp32_apptrace.h
 	esp32_sysview.c
 	esp32_sysview.h
+	segger_sysview.h
 	esp_algorithm.c
 	esp_algorithm.h
 	esp_riscv_algorithm.c
