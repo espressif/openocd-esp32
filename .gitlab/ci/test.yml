@@ -488,7 +488,25 @@ tests_macos_simple_esp32:
     - echo $ARCHIVE_NAME
     - tar xzf $DIST_ART_DIR/$ARCHIVE_NAME openocd-esp32
     - ./openocd-esp32/bin/openocd --version
-    #- ./openocd-esp32/bin/openocd -f board\esp32-ethernet-kit-3.3v.cfg -c "init; reset halt; sleep 5; exit"
+
+tests_linux_simple_esp32:
+  stage: test_host
+  image: $CI_DOCKER_REGISTRY/esp-env-v5.1:1
+  tags:
+    - build
+  needs:
+    - job: build_linux
+  variables:
+    # actually we don't need the project sources, but we need the `git clean` gitlab-runner's stage.
+    # It's possible only for `fetch` or `clone`.
+    GIT_STRATEGY: fetch
+    PLATFORM_NAME: "linux-amd64"
+  before_script: []
+  script:
+    - ARCHIVE_NAME=$(cat "$DIST_ART_DIR/dist_name_$PLATFORM_NAME")
+    - echo $ARCHIVE_NAME
+    - tar xzf $DIST_ART_DIR/$ARCHIVE_NAME openocd-esp32
+    - ./openocd-esp32/bin/openocd --version
 
 ###########
 #  NUTTX  #
