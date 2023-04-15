@@ -40,7 +40,7 @@
   tar xzf $HIDAPI_VER.tar.gz && rm $HIDAPI_VER.tar.gz
   pushd hidapi-$HIDAPI_VER
   ./bootstrap
-  ./configure --prefix=$PWD/dist --host=${CONF_HOST} --enable-shared=no --enable-static=yes --disable-testgui CC=${HOST_CC}
+  ./configure --prefix=$PWD/dist --host=${CONF_HOST} --enable-shared=no --enable-static=yes --disable-testgui CC=${HOST_CC} CFLAGS=-std=gnu99
   make
   MAKEFLAGS= make install
   popd
@@ -146,7 +146,7 @@
 
 build_linux:
   stage: build_openocd
-  image: $CI_DOCKER_REGISTRY/openocd-ci-env:1
+  image: $CI_DOCKER_REGISTRY/esp32-toolchain
   tags:
     - build
   artifacts:
@@ -155,14 +155,19 @@ build_linux:
     expire_in: 2 weeks
   variables:
     PLATFORM_NAME: "linux-amd64"
+    CONF_HOST: "x86_64-linux-gnu"
+    HOST_CC: ${CONF_HOST}-gcc
   needs:
     - job: style_check
   script:
     - *get_release_name
     - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
-    - apt-get update
-    - apt-get install libhidapi-dev -y
+    - apt-get update || true
+    - apt-get install systemd libudev-dev --force-yes -y # needed for hidapi build
+    - *buildx_hidapi
+    - *buildx_libjaylink
+    - export PKG_CONFIG_PATH=$PWD/hidapi-$HIDAPI_VER/dist/lib/pkgconfig/:$PWD/$LIBJAYLINK_VER/dist/lib/pkgconfig
     - ./bootstrap
     - mkdir _build
     - pushd _build/
@@ -174,7 +179,7 @@ build_linux:
     - *dist_archive
 
 # Just to test build with latest gcc.
-.build_linux_gcc_latest:
+build_linux_gcc_latest:
   stage: build_openocd
   image: $CI_DOCKER_REGISTRY/openocd-ci-env:1
   tags:
@@ -187,7 +192,7 @@ build_linux:
     - !reference [.submodules_mirror_update, script]
     - ./bootstrap
     - ./configure ${OPENOCD_CONFIGURE_OPTS}
-    - make -j8
+    - make -j`nproc`
 
 build_linux_armhf_test:
   extends: .build_linux_arm_template
