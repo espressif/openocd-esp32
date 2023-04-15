@@ -181,7 +181,6 @@ build_linux:
 # Just to test build with latest gcc.
 build_linux_gcc_latest:
   stage: build_openocd
-  image: $CI_DOCKER_REGISTRY/openocd-ci-env:1
   tags:
     - build
   allow_failure: true
@@ -289,7 +288,6 @@ build_macos_arm64:
 
 scan-build:
   stage: scan_build
-  image: $CI_DOCKER_REGISTRY/openocd-ci-env:1
   tags:
     - build
   allow_failure: true
@@ -313,7 +311,6 @@ scan-build:
 
 build_linux_cmake:
   stage: build_openocd
-  image: $CI_DOCKER_REGISTRY/openocd-ci-env:1
   tags:
     - build
   allow_failure: true
