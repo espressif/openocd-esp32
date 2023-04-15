@@ -9,7 +9,7 @@ stages:
   - test_idf4.x
   - test_idf5.x
   - test_idf_master
-  - test_windows
+  - test_host
   - test_nuttx
   - coverage
   - sanitizer_tests

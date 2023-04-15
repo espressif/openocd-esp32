@@ -447,12 +447,12 @@ tests_armhf_esp32c3_idf4.x_flash_encrypted:
     TEST_RUN_DIR: "build_test_app_esp32c3_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
-###########
-# WINDOWS #
-###########
+#############
+# HOST TEST #
+#############
 
 tests_win_simple_esp32:
-  stage: test_windows
+  stage: test_host
   tags:
     - test_jtag_win
   needs:
@@ -470,6 +470,25 @@ tests_win_simple_esp32:
     - .\openocd-esp32\bin\openocd --version
     - echo $OPENOCD_SCRIPTS
     - .\openocd-esp32\bin\openocd.exe -f board\esp32-ethernet-kit-3.3v.cfg -c "init; reset halt; sleep 5; exit"
+
+tests_macos_simple_esp32:
+  stage: test_host
+  tags:
+    - macos_shell
+  needs:
+    - job: build_macos
+  variables:
+    # actually we don't need the project sources, but we need the `git clean` gitlab-runner's stage.
+    # It's possible only for `fetch` or `clone`.
+    GIT_STRATEGY: fetch
+    PLATFORM_NAME: "macos"
+  before_script: []
+  script:
+    - ARCHIVE_NAME=$(cat "$DIST_ART_DIR/dist_name_$PLATFORM_NAME")
+    - echo $ARCHIVE_NAME
+    - tar xzf $DIST_ART_DIR/$ARCHIVE_NAME openocd-esp32
+    - ./openocd-esp32/bin/openocd --version
+    #- ./openocd-esp32/bin/openocd -f board\esp32-ethernet-kit-3.3v.cfg -c "init; reset halt; sleep 5; exit"
 
 ###########
 #  NUTTX  #
