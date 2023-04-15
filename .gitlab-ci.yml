@@ -253,7 +253,6 @@ test_idf4.x_examples:
 
 create_coverage_reports:
   stage: coverage
-  image: $CI_DOCKER_REGISTRY/openocd-ci-env:1
   tags:
     - build
   allow_failure: true
