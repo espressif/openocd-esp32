@@ -27,6 +27,7 @@ void stub_log_init(enum stub_log_levels level, enum stub_log_destination dest)
 			stub_uart_console_configure(dest);
 		} else if (dest == STUB_LOG_DEST_SRAM) {
 			ets_install_putc1(stub_log_buffer_write);
+			ets_install_putc2(NULL);
 			s_stub_log_buff.write = 0;
 		} else {
 			level = STUB_LOG_LEVEL_NONE;

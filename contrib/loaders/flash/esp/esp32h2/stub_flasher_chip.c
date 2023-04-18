@@ -11,12 +11,9 @@
 #include "soc/spi_mem_reg.h"
 #include "soc/extmem_reg.h"
 #include "soc/gpio_reg.h"
-#include "soc/mmu.h"
 #include "soc/system_reg.h"
-#include "spi_flash_mmap.h"
-#include "soc/clk_tree_defs.h"
-#include "hal/clk_tree_ll.h"
 #include "hal/mmu_ll.h"
+#include "soc/pcr_reg.h"
 #include "esp_app_trace_membufs_proto.h"
 #include "esp_rom_efuse.h"
 #include "stub_rom_chip.h"
@@ -25,16 +22,13 @@
 #include "stub_flasher_chip.h"
 #include "stub_flasher.h"
 
-#define EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT                     (1 << 4)
+#define EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT                  BIT(4)
 
 /* Cache MMU related definitions */
-#define STUB_CACHE_BUS                                  EXTMEM_ICACHE_SHUT_DBUS
-#define STUB_MMU_DROM_VADDR                             0x3C010000
-#define STUB_MMU_DROM_PAGES_START                       1
-#define STUB_MMU_DROM_PAGES_END                         128
-#define STUB_MMU_TABLE                                  ((volatile uint32_t *)0x600c5000)	/* TODO check this */
-#define STUB_MMU_INVALID_ENTRY_VAL                      0x100
-#define STUB_MMU_PAGE_SIZE                              0x10000	/* On esp32h2, MMU page size is always 64KB */
+#define STUB_CACHE_CTRL_REG								CACHE_L1_CACHE_CTRL_REG
+#define STUB_CACHE_BUS                                  (CACHE_L1_CACHE_SHUT_BUS0 | CACHE_L1_CACHE_SHUT_BUS1)
+#define STUB_MMU_DROM_PAGES_END                         MMU_ENTRY_NUM
+#define STUB_MMU_DROM_PAGES_START                       (STUB_MMU_DROM_PAGES_END - 8) /* 8 pages will be more than enough */
 
 #define ESP_APPTRACE_RISCV_BLOCK_LEN_MSK                0x7FFFUL
 #define ESP_APPTRACE_RISCV_BLOCK_LEN(_l_)               ((_l_) & ESP_APPTRACE_RISCV_BLOCK_LEN_MSK)
@@ -42,8 +36,8 @@
 #define ESP_APPTRACE_RISCV_BLOCK_ID_MSK                 0x7FUL
 #define ESP_APPTRACE_RISCV_BLOCK_ID(_id_)               (((_id_) & ESP_APPTRACE_RISCV_BLOCK_ID_MSK) << 15)
 #define ESP_APPTRACE_RISCV_BLOCK_ID_GET(_v_)            (((_v_) >> 15) & ESP_APPTRACE_RISCV_BLOCK_ID_MSK)
-#define ESP_APPTRACE_RISCV_HOST_DATA                    (1 << 22)
-#define ESP_APPTRACE_RISCV_HOST_CONNECT                 (1 << 23)
+#define ESP_APPTRACE_RISCV_HOST_DATA                    (BIT(22))
+#define ESP_APPTRACE_RISCV_HOST_CONNECT                 (BIT(23))
 
 /** RISCV memory host iface control block */
 typedef struct {
@@ -73,7 +67,19 @@ struct spiflash_map_req {
 	uint32_t start_page;
 	/* Mapped MMU page count */
 	uint32_t page_cnt;
+	/* Virtual addr */
+	uint32_t vaddr_start;
 };
+
+typedef struct {
+	mmu_page_size_t page_size;
+	uint32_t vaddr0_start_addr;
+	uint32_t drom_page_start;
+	uint32_t drom_page_end;
+	int shift_count;
+} cache_mmu_config_t;
+
+static cache_mmu_config_t s_cache_mmu_config;
 
 extern void spi_flash_attach(uint32_t, bool);
 
@@ -103,6 +109,48 @@ void stub_print_cache_mmu_registers(void)
 }
 #endif
 
+static inline uint32_t __attribute__((always_inline)) stub_mmu_hal_pages_to_bytes(uint32_t page_num)
+{
+	return page_num << s_cache_mmu_config.shift_count;
+}
+
+static inline uint32_t __attribute__((always_inline)) stub_mmu_ll_format_paddr(uint32_t paddr)
+{
+	return paddr >> s_cache_mmu_config.shift_count;
+}
+
+#define STUB_MMU_VADDR_MASK (s_cache_mmu_config.page_size * MMU_ENTRY_NUM - 1)
+static inline uint32_t __attribute__((always_inline)) stub_mmu_ll_get_entry_id(uint32_t vaddr)
+{
+	return (vaddr & STUB_MMU_VADDR_MASK) >> s_cache_mmu_config.shift_count;
+}
+
+static inline void __attribute__((always_inline)) stub_mmu_ll_write_entry(uint32_t entry_id, uint32_t mmu_val)
+{
+	uint32_t mmu_raw_value;
+
+	/* Note: for ESP32-H2, invert invalid bit for compatible with upper-layer software */
+    mmu_raw_value = mmu_val ^ MMU_INVALID_MASK;
+    REG_WRITE(SPI_MEM_MMU_ITEM_INDEX_REG(0), entry_id);
+    REG_WRITE(SPI_MEM_MMU_ITEM_CONTENT_REG(0), mmu_raw_value);
+}
+
+static inline void __attribute__((always_inline)) stub_mmu_ll_set_entry_invalid(uint32_t entry_id)
+{
+	REG_WRITE(SPI_MEM_MMU_ITEM_INDEX_REG(0), entry_id);
+	REG_WRITE(SPI_MEM_MMU_ITEM_CONTENT_REG(0), MMU_INVALID);
+}
+
+static inline int __attribute__((always_inline)) stub_mmu_ll_read_entry(uint32_t entry_id)
+{
+	uint32_t mmu_raw_value;
+    REG_WRITE(SPI_MEM_MMU_ITEM_INDEX_REG(0), entry_id);
+    mmu_raw_value = REG_READ(SPI_MEM_MMU_ITEM_CONTENT_REG(0));
+
+    /* Note: for ESP32-H2, invert invalid bit for compatible with upper-layer software */
+    return mmu_raw_value ^ MMU_INVALID_MASK;
+}
+
 uint32_t stub_flash_get_id(void)
 {
 	uint32_t ret;
@@ -129,32 +177,65 @@ void stub_flash_cache_flush(void)
 	Cache_Invalidate_ICache_All();
 }
 
+void stub_cache_configure(void)
+{
+	s_cache_mmu_config.page_size = mmu_ll_get_page_size(0);
+	s_cache_mmu_config.drom_page_start = STUB_MMU_DROM_PAGES_START;
+	s_cache_mmu_config.drom_page_end = STUB_MMU_DROM_PAGES_END;	/* 256 */
+
+	switch (s_cache_mmu_config.page_size) {
+	case MMU_PAGE_64KB:
+		s_cache_mmu_config.shift_count = 16;
+		break;
+	case MMU_PAGE_32KB:
+		s_cache_mmu_config.shift_count = 15;
+		break;
+	case MMU_PAGE_16KB:
+		s_cache_mmu_config.shift_count = 14;
+		break;
+	case MMU_PAGE_8KB:
+		s_cache_mmu_config.shift_count = 13;
+		break;
+	default:
+		STUB_LOGE("Unknown page size!");
+		return;
+	}
+
+	s_cache_mmu_config.vaddr0_start_addr = SOC_DROM_LOW +
+		(s_cache_mmu_config.drom_page_start * s_cache_mmu_config.page_size);
+
+	STUB_LOGI("MMU page size:%X drom_page_start:%d drom_page_end:%d vaddr0_start_addr:%X\n",
+		s_cache_mmu_config.page_size,
+		s_cache_mmu_config.drom_page_start,
+		s_cache_mmu_config.drom_page_end,
+		s_cache_mmu_config.vaddr0_start_addr);
+}
+
 void stub_cache_init(void)
 {
 	STUB_LOGD("stub_cache_init\n");
-	/* init cache mmu, set cache mode, invalidate cache tags, enable cache*/
-#if 0	/* TODO */
-	REG_SET_BIT(SYSTEM_CACHE_CONTROL_REG, SYSTEM_ICACHE_CLK_ON);
-	REG_SET_BIT(SYSTEM_CACHE_CONTROL_REG, SYSTEM_ICACHE_RESET);
-	REG_CLR_BIT(SYSTEM_CACHE_CONTROL_REG, SYSTEM_ICACHE_RESET);
-	/* init cache owner bit */
-	Cache_Owner_Init();
-	/* clear mmu entry */
+
+	SET_PERI_REG_MASK(PCR_CACHE_CONF_REG, PCR_CACHE_CLK_EN_M);
+	SET_PERI_REG_MASK(PCR_CACHE_CONF_REG, PCR_CACHE_RST_EN_M);
+	CLEAR_PERI_REG_MASK(PCR_CACHE_CONF_REG, PCR_CACHE_RST_EN_M);
+
+	REG_CLR_BIT(STUB_CACHE_CTRL_REG, STUB_CACHE_BUS);
+	mmu_ll_set_page_size(0, CONFIG_MMU_PAGE_SIZE);
 	Cache_MMU_Init();
-	/* config cache mode */
-	Cache_Set_Default_Mode();
 	Cache_Enable_ICache(0);
-	REG_CLR_BIT(EXTMEM_ICACHE_CTRL1_REG, STUB_CACHE_BUS);
-#endif
 }
 
-bool stub_is_cache_enabled(void)
+static bool stub_is_cache_enabled(void)
 {
-#if 0	/* TODO */
-	bool is_enabled = REG_GET_BIT(EXTMEM_ICACHE_CTRL_REG, EXTMEM_ICACHE_ENABLE) != 0;
-	int cache_bus = REG_READ(EXTMEM_ICACHE_CTRL1_REG);
-	return is_enabled && !(cache_bus & STUB_CACHE_BUS);
-#endif
+	int cache_ctrl_reg = REG_READ(STUB_CACHE_CTRL_REG);
+	STUB_LOGD("cache_ctrl_reg:%X\n", cache_ctrl_reg);
+
+	/* if any of the entry is valid and busses are enabled  we can consider that cache is enabled */
+	for (int i = 0; i < MMU_ENTRY_NUM; ++i) {
+		uint32_t mmu_raw_value = stub_mmu_ll_read_entry(i);
+		if ((mmu_raw_value & MMU_VALID) == MMU_VALID)
+			return !(cache_ctrl_reg & STUB_CACHE_BUS);
+	}
 	return false;
 }
 
@@ -167,8 +248,8 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 		STUB_LOGI("Cache needs to be enabled\n");
 		stub_cache_init();
 	}
-
 	spi_flash_attach(spiconfig, false);
+	stub_cache_configure();
 }
 
 void stub_flash_state_restore(struct stub_flash_state *state)
@@ -206,7 +287,7 @@ int stub_rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t *out_config)
 	switch (source) {
 	case SOC_CPU_CLK_SRC_XTAL: {
 		div = clk_ll_cpu_get_divider();
-		source_freq_mhz = (uint32_t)rtc_clk_xtal_freq_get();
+		source_freq_mhz = (uint32_t)stub_rtc_clk_xtal_freq_get();
 		freq_mhz = source_freq_mhz / div;
 		break;
 	}
@@ -224,7 +305,7 @@ int stub_rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t *out_config)
 	}
 	case SOC_CPU_CLK_SRC_XTAL_D2: {
 		div = clk_ll_cpu_get_divider();
-		source_freq_mhz = (uint32_t)rtc_clk_xtal_freq_get();
+		source_freq_mhz = (uint32_t)stub_rtc_clk_xtal_freq_get();
 		freq_mhz = source_freq_mhz / div / 2;
 		break;
 	}
@@ -441,69 +522,74 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 	return ESP_FLASH_ENC_MODE_DISABLED;
 }
 
-static int __attribute__((unused)) stub_flash_mmap(struct spiflash_map_req *req)
+static void stub_mmu_hal_map_region(uint32_t vaddr, uint32_t paddr, uint32_t len)
 {
-	uint32_t map_src = req->src_addr & (~(SPI_FLASH_MMU_PAGE_SIZE - 1));
-	uint32_t map_size = req->size + (req->src_addr - map_src);
-	uint32_t flash_page = map_src / SPI_FLASH_MMU_PAGE_SIZE;
-	uint32_t page_cnt = (map_size + SPI_FLASH_MMU_PAGE_SIZE - 1) / SPI_FLASH_MMU_PAGE_SIZE;
-	int start_page, ret = ESP_ROM_SPIFLASH_RESULT_ERR;
-	uint32_t saved_state = Cache_Suspend_ICache() << 16;
+	uint32_t page_size_in_bytes = stub_mmu_hal_pages_to_bytes(1);
+	uint32_t page_num = (len + page_size_in_bytes - 1) / page_size_in_bytes;
+	uint32_t entry_id = 0;
+	uint32_t mmu_val = stub_mmu_ll_format_paddr(paddr);	/* This is the physical address in the format that MMU
+								 * supported */
 
-	for (start_page = STUB_MMU_DROM_PAGES_START; start_page < STUB_MMU_DROM_PAGES_END;
-		++start_page) {
-		if (STUB_MMU_TABLE[start_page] == STUB_MMU_INVALID_ENTRY_VAL)
-			break;
+	while (page_num) {
+		entry_id = stub_mmu_ll_get_entry_id(vaddr);
+		stub_mmu_ll_write_entry(entry_id, mmu_val);
+		Cache_Invalidate_Addr(vaddr, page_size_in_bytes);
+		STUB_LOGD("mmap page_num:%d entry_id:%d vaddr:%x mmu_val:%x size:%d page_size_in_bytes:%x\n",
+			page_num, entry_id, vaddr, mmu_val, len, page_size_in_bytes);
+		vaddr += page_size_in_bytes;
+		mmu_val++;
+		page_num--;
 	}
-
-	if (start_page == STUB_MMU_DROM_PAGES_END)
-		start_page = STUB_MMU_DROM_PAGES_START;
-
-	if (start_page + page_cnt < STUB_MMU_DROM_PAGES_END) {
-		for (int i = 0; i < page_cnt; i++)
-			STUB_MMU_TABLE[start_page + i] = SOC_MMU_PAGE_IN_FLASH(
-				flash_page + i);
-
-		req->start_page = start_page;
-		req->page_cnt = page_cnt;
-		req->ptr = (void *)(STUB_MMU_DROM_VADDR +
-			(start_page - STUB_MMU_DROM_PAGES_START) * SPI_FLASH_MMU_PAGE_SIZE +
-			(req->src_addr - map_src));
-		Cache_Invalidate_Addr((uint32_t)(STUB_MMU_DROM_VADDR +
-				(start_page - STUB_MMU_DROM_PAGES_START) * SPI_FLASH_MMU_PAGE_SIZE),
-			page_cnt * SPI_FLASH_MMU_PAGE_SIZE);
-		ret = ESP_ROM_SPIFLASH_RESULT_OK;
-	}
-
-	STUB_LOGD(
-		"start_page: %d map_src: %x map_size: %x page_cnt: %d flash_page: %d map_ptr: %x\n",
-		start_page,
-		map_src,
-		map_size,
-		page_cnt,
-		flash_page,
-		req->ptr);
-
-	Cache_Resume_ICache(saved_state >> 16);
-
-	return ret;
 }
 
-static void __attribute__((unused)) stub_flash_ummap(const struct spiflash_map_req *req)
+static void stub_mmu_hal_unmap_region(uint32_t vaddr, uint32_t len)
 {
-	uint32_t saved_state = Cache_Suspend_ICache() << 16;
+	uint32_t page_size_in_bytes = stub_mmu_hal_pages_to_bytes(1);
+	uint32_t page_num = (len + page_size_in_bytes - 1) / page_size_in_bytes;
+	uint32_t entry_id = 0;
 
-	for (int i = req->start_page; i < req->start_page + req->page_cnt; ++i)
-		STUB_MMU_TABLE[i] = STUB_MMU_INVALID_ENTRY_VAL;
+	while (page_num) {
+		entry_id = stub_mmu_ll_get_entry_id(vaddr);
+		stub_mmu_ll_set_entry_invalid(entry_id);
+		STUB_LOGD("unmap page_num:%d entry_id:%d vaddr:%x page_size_in_bytes:%x\n",
+			page_num, entry_id, vaddr, page_size_in_bytes);
+		vaddr += page_size_in_bytes;
+		page_num--;
+	}
+}
 
-	Cache_Resume_ICache(saved_state >> 16);
+static int stub_flash_mmap(struct spiflash_map_req *req)
+{
+	uint32_t map_src = req->src_addr & (~(s_cache_mmu_config.page_size - 1));	/* start of the page */
+	uint32_t map_size = req->src_addr - map_src + req->size;
+	uint32_t saved_state = Cache_Suspend_ICache();
+	
+	req->vaddr_start = s_cache_mmu_config.vaddr0_start_addr;
+	req->ptr = (void *)req->vaddr_start + req->src_addr - map_src;
+
+	STUB_LOGD("map_ptr: %x size:%d req->src_addr:%x map_src:%x map_size:%x\n", 
+		req->ptr, req->size, req->src_addr, map_src, map_size);
+
+	stub_mmu_hal_map_region(req->vaddr_start, req->src_addr, map_size);
+
+	REG_CLR_BIT(STUB_CACHE_CTRL_REG, STUB_CACHE_BUS);
+
+	Cache_Resume_ICache(saved_state);
+
+	return 0;
+}
+
+static void stub_flash_ummap(const struct spiflash_map_req *req)
+{
+	uint32_t map_src = req->src_addr & (~(s_cache_mmu_config.page_size - 1));	/* start of the page */
+	uint32_t map_size = req->src_addr - map_src + req->size;
+	uint32_t saved_state = Cache_Suspend_ICache();
+	stub_mmu_hal_unmap_region(req->vaddr_start, map_size);
+	Cache_Resume_ICache(saved_state);
 }
 
 int stub_flash_read_buff(uint32_t addr, void *buffer, uint32_t size)
 {
-	return esp_rom_spiflash_read(addr, buffer, size);
-
-#if 0	/* cache is not supported yet. IDF-6255 */
 	struct spiflash_map_req req = {
 		.src_addr = addr,
 		.size = size,
@@ -519,5 +605,4 @@ int stub_flash_read_buff(uint32_t addr, void *buffer, uint32_t size)
 	stub_flash_ummap(&req);
 
 	return ESP_ROM_SPIFLASH_RESULT_OK;
-#endif
 }

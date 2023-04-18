@@ -15,7 +15,6 @@
 #include "hal/mmu_ll.h"
 #include "soc/pcr_reg.h"
 #include "esp_app_trace_membufs_proto.h"
-#include "esp_flash.h"
 #include "esp_rom_efuse.h"
 #include "stub_rom_chip.h"
 #include "stub_logger.h"
@@ -26,9 +25,10 @@
 #define EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT                  BIT(4)
 
 /* Cache MMU related definitions */
-#define STUB_MMU_DROM_PAGES_END                         MMU_ENTRY_NUM
-#define STUB_MMU_DROM_PAGES_START                       (STUB_MMU_DROM_PAGES_END - 8) /* 8 pages will be enough */
+#define STUB_CACHE_CTRL_REG                             EXTMEM_L1_CACHE_CTRL_REG
 #define STUB_CACHE_BUS                                  (EXTMEM_L1_CACHE_SHUT_DBUS | EXTMEM_L1_CACHE_SHUT_IBUS)
+#define STUB_MMU_DROM_PAGES_END                         MMU_ENTRY_NUM
+#define STUB_MMU_DROM_PAGES_START                       (STUB_MMU_DROM_PAGES_END - 8) /* 8 pages will be more than enough */
 
 #define ESP_APPTRACE_RISCV_BLOCK_LEN_MSK                0x7FFFUL
 #define ESP_APPTRACE_RISCV_BLOCK_LEN(_l_)               ((_l_) & ESP_APPTRACE_RISCV_BLOCK_LEN_MSK)
@@ -188,13 +188,16 @@ void stub_cache_configure(void)
 	case MMU_PAGE_16KB:
 		s_cache_mmu_config.shift_count = 14;
 		break;
+	case MMU_PAGE_8KB:
+		s_cache_mmu_config.shift_count = 13;
+		break;
 	default:
 		STUB_LOGE("Unknown page size!");
 		return;
 	}
 
-	s_cache_mmu_config.vaddr0_start_addr =
-		SOC_DROM_LOW + (s_cache_mmu_config.drom_page_start * s_cache_mmu_config.page_size);
+	s_cache_mmu_config.vaddr0_start_addr = SOC_DROM_LOW +
+		(s_cache_mmu_config.drom_page_start * s_cache_mmu_config.page_size);
 
 	STUB_LOGI("MMU page size:%X drom_page_start:%d drom_page_end:%d vaddr0_start_addr:%X\n",
 		s_cache_mmu_config.page_size,
@@ -211,7 +214,7 @@ void stub_cache_init(void)
 	SET_PERI_REG_MASK(PCR_CACHE_CONF_REG, PCR_CACHE_RST_EN_M);
 	CLEAR_PERI_REG_MASK(PCR_CACHE_CONF_REG, PCR_CACHE_RST_EN_M);
 
-	REG_CLR_BIT(EXTMEM_L1_CACHE_CTRL_REG, STUB_CACHE_BUS);
+	REG_CLR_BIT(STUB_CACHE_CTRL_REG, STUB_CACHE_BUS);
 	mmu_ll_set_page_size(0, CONFIG_MMU_PAGE_SIZE);
 	Cache_MMU_Init();
 	Cache_Enable_ICache(0);
@@ -219,12 +222,13 @@ void stub_cache_init(void)
 
 static bool stub_is_cache_enabled(void)
 {
-	int cache_ctrl_reg = REG_READ(EXTMEM_L1_CACHE_CTRL_REG);
+	int cache_ctrl_reg = REG_READ(STUB_CACHE_CTRL_REG);
 	STUB_LOGD("cache_ctrl_reg:%X\n", cache_ctrl_reg);
 
 	/* if any of the entry is valid and busses are enabled  we can consider that cache is enabled */
 	for (int i = 0; i < MMU_ENTRY_NUM; ++i) {
-		if (stub_mmu_ll_read_entry(i) != MMU_INVALID)
+		uint32_t mmu_raw_value = stub_mmu_ll_read_entry(i);
+		if ((mmu_raw_value & MMU_VALID) == MMU_VALID)
 			return !(cache_ctrl_reg & STUB_CACHE_BUS);
 	}
 	return false;
@@ -510,7 +514,7 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 	return s_mode;
 }
 
-void stub_mmu_hal_map_region(uint32_t vaddr, uint32_t paddr, uint32_t len)
+static void stub_mmu_hal_map_region(uint32_t vaddr, uint32_t paddr, uint32_t len)
 {
 	uint32_t page_size_in_bytes = stub_mmu_hal_pages_to_bytes(1);
 	uint32_t page_num = (len + page_size_in_bytes - 1) / page_size_in_bytes;
@@ -521,15 +525,16 @@ void stub_mmu_hal_map_region(uint32_t vaddr, uint32_t paddr, uint32_t len)
 	while (page_num) {
 		entry_id = stub_mmu_ll_get_entry_id(vaddr);
 		stub_mmu_ll_write_entry(entry_id, mmu_val);
-		STUB_LOGD("page_num:%d entry_id:%d vaddr:%x paddr:%x size:%d page_size_in_bytes:%x\n",
-			page_num, entry_id, vaddr, paddr, len, page_size_in_bytes);
+		Cache_Invalidate_Addr(vaddr, page_size_in_bytes);
+		STUB_LOGD("mmap page_num:%d entry_id:%d vaddr:%x mmu_val:%x size:%d page_size_in_bytes:%x\n",
+			page_num, entry_id, vaddr, mmu_val, len, page_size_in_bytes);
 		vaddr += page_size_in_bytes;
 		mmu_val++;
 		page_num--;
 	}
 }
 
-void stub_mmu_hal_unmap_region(uint32_t vaddr, uint32_t len)
+static void stub_mmu_hal_unmap_region(uint32_t vaddr, uint32_t len)
 {
 	uint32_t page_size_in_bytes = stub_mmu_hal_pages_to_bytes(1);
 	uint32_t page_num = (len + page_size_in_bytes - 1) / page_size_in_bytes;
@@ -538,6 +543,8 @@ void stub_mmu_hal_unmap_region(uint32_t vaddr, uint32_t len)
 	while (page_num) {
 		entry_id = stub_mmu_ll_get_entry_id(vaddr);
 		stub_mmu_ll_set_entry_invalid(entry_id);
+		STUB_LOGD("unmap page_num:%d entry_id:%d vaddr:%x page_size_in_bytes:%x\n",
+			page_num, entry_id, vaddr, page_size_in_bytes);
 		vaddr += page_size_in_bytes;
 		page_num--;
 	}
@@ -545,30 +552,31 @@ void stub_mmu_hal_unmap_region(uint32_t vaddr, uint32_t len)
 
 static int stub_flash_mmap(struct spiflash_map_req *req)
 {
-	size_t aligned_size = ALIGN_UP_BY(req->size, s_cache_mmu_config.page_size);
 	uint32_t map_src = req->src_addr & (~(s_cache_mmu_config.page_size - 1));	/* start of the page */
+	uint32_t map_size = req->src_addr - map_src + req->size;
 	uint32_t saved_state = Cache_Suspend_ICache();
-
+	
 	req->vaddr_start = s_cache_mmu_config.vaddr0_start_addr;
 	req->ptr = (void *)req->vaddr_start + req->src_addr - map_src;
 
-	stub_mmu_hal_map_region(req->vaddr_start, req->src_addr, aligned_size);
+	STUB_LOGD("map_ptr: %x size:%d req->src_addr:%x map_src:%x map_size:%x\n", 
+		req->ptr, req->size, req->src_addr, map_src, map_size);
 
-	REG_CLR_BIT(EXTMEM_L1_CACHE_CTRL_REG, STUB_CACHE_BUS);
+	stub_mmu_hal_map_region(req->vaddr_start, req->src_addr, map_size);
 
-	Cache_Invalidate_Addr(req->vaddr_start, aligned_size);
+	REG_CLR_BIT(STUB_CACHE_CTRL_REG, STUB_CACHE_BUS);
 
 	Cache_Resume_ICache(saved_state);
-
-	STUB_LOGD("map_ptr: %x\n", req->ptr);
 
 	return 0;
 }
 
-static void __attribute__((unused)) stub_flash_ummap(const struct spiflash_map_req *req)
+static void stub_flash_ummap(const struct spiflash_map_req *req)
 {
+	uint32_t map_src = req->src_addr & (~(s_cache_mmu_config.page_size - 1));	/* start of the page */
+	uint32_t map_size = req->src_addr - map_src + req->size;
 	uint32_t saved_state = Cache_Suspend_ICache();
-	stub_mmu_hal_unmap_region(req->vaddr_start, req->size);
+	stub_mmu_hal_unmap_region(req->vaddr_start, map_size);
 	Cache_Resume_ICache(saved_state);
 }
 
