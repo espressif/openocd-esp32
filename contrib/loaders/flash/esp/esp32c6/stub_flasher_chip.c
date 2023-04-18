@@ -11,16 +11,8 @@
 #include "soc/spi_mem_reg.h"
 #include "soc/extmem_reg.h"
 #include "soc/gpio_reg.h"
-#include "soc/mmu.h"
-#include "soc/reg_base.h"
 #include "soc/system_reg.h"
-#include "spi_flash_mmap.h"
-#include "soc/clk_tree_defs.h"
-#include "hal/clk_tree_ll.h"
-#include "hal/cache_hal.h"
 #include "hal/mmu_ll.h"
-#include "hal/mmu_hal.h"
-#include "hal/mmu_types.h"
 #include "soc/pcr_reg.h"
 #include "esp_app_trace_membufs_proto.h"
 #include "esp_flash.h"
@@ -34,9 +26,6 @@
 #define EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT                  BIT(4)
 
 /* Cache MMU related definitions */
-#define EXTMEM_L1_CACHE_CTRL_REG                        (DR_REG_EXTMEM_BASE + 0x4)
-#define EXTMEM_L1_CACHE_SHUT_DBUS                       (BIT(1))
-#define EXTMEM_L1_CACHE_SHUT_IBUS                       (BIT(0))
 #define STUB_MMU_DROM_PAGES_END                         MMU_ENTRY_NUM
 #define STUB_MMU_DROM_PAGES_START                       (STUB_MMU_DROM_PAGES_END - 8) /* 8 pages will be enough */
 #define STUB_CACHE_BUS                                  (EXTMEM_L1_CACHE_SHUT_DBUS | EXTMEM_L1_CACHE_SHUT_IBUS)
@@ -88,7 +77,6 @@ typedef struct {
 	uint32_t drom_page_start;
 	uint32_t drom_page_end;
 	int shift_count;
-	uint32_t mmu_val[MMU_ENTRY_NUM];
 } cache_mmu_config_t;
 
 static cache_mmu_config_t s_cache_mmu_config;

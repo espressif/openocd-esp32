@@ -1,27 +1,17 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
 /***************************************************************************
  *   ESP32-C2 flasher stub definitions                                     *
  *   Copyright (C) 2022 Espressif Systems Ltd.                             *
- *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 #ifndef ESP32C6_FLASHER_STUB_H
 #define ESP32C6_FLASHER_STUB_H
 
 #include "sdkconfig.h"
+
+#ifndef SOC_MMU_PAGE_SIZE
+#define SOC_MMU_PAGE_SIZE CONFIG_MMU_PAGE_SIZE
+#endif
 
 #define STUB_FLASH_SECTOR_SIZE  0x1000
 /* Flash geometry constants */
