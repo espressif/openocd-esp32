@@ -54,6 +54,6 @@ INCLUDES := -I$(IDF_PATH)/components/soc/esp32h2/include -I$(IDF_PATH)/component
 DEFINES :=
 
 LDFLAGS += -T$(IDF_PATH)/components/esp_rom/esp32h2/ld/esp32h2.rom.ld -T$(IDF_PATH)/components/esp_rom/esp32h2/ld/esp32h2.rom.newlib.ld \
-		-T$(IDF_PATH)/components/esp_rom/esp32h2/ld/esp32h2.rom.api.ld -T$(IDF_PATH)/components/esp_rom/esp32h2/ld/esp32h2.rom.phy.ld
+		-T$(IDF_PATH)/components/esp_rom/esp32h2/ld/esp32h2.rom.api.ld
 
 include ../stub_common.mk
