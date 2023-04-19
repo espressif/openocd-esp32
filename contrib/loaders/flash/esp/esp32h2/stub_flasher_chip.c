@@ -129,6 +129,9 @@ static inline void __attribute__((always_inline)) stub_mmu_ll_write_entry(uint32
 {
 	uint32_t mmu_raw_value;
 
+	if (stub_get_flash_encryption_mode() != ESP_FLASH_ENC_MODE_DISABLED)
+		mmu_val |= MMU_SENSITIVE;
+
 	/* Note: for ESP32-H2, invert invalid bit for compatible with upper-layer software */
     mmu_raw_value = mmu_val ^ MMU_INVALID_MASK;
     REG_WRITE(SPI_MEM_MMU_ITEM_INDEX_REG(0), entry_id);
@@ -146,6 +149,9 @@ static inline int __attribute__((always_inline)) stub_mmu_ll_read_entry(uint32_t
 	uint32_t mmu_raw_value;
     REG_WRITE(SPI_MEM_MMU_ITEM_INDEX_REG(0), entry_id);
     mmu_raw_value = REG_READ(SPI_MEM_MMU_ITEM_CONTENT_REG(0));
+
+	if (stub_get_flash_encryption_mode() != ESP_FLASH_ENC_MODE_DISABLED)
+		mmu_raw_value &= ~MMU_SENSITIVE;
 
     /* Note: for ESP32-H2, invert invalid bit for compatible with upper-layer software */
     return mmu_raw_value ^ MMU_INVALID_MASK;
@@ -485,41 +491,16 @@ static inline bool esp_flash_encryption_enabled(void)
 
 esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 {
-#if 0 /* flash encryption is not supported yet. IDF-6282 */
 	static esp_flash_enc_mode_t s_mode = ESP_FLASH_ENC_MODE_DEVELOPMENT;
 	static bool s_first = true;
 
 	if (s_first) {
-		if (esp_flash_encryption_enabled()) {
-			/* Check if SPI_BOOT_CRYPT_CNT is write protected */
-			bool flash_crypt_cnt_wr_dis = REG_READ(EFUSE_RD_WR_DIS_REG) &
-				EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT;
-			if (!flash_crypt_cnt_wr_dis) {
-				uint8_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA1_REG,
-					EFUSE_SPI_BOOT_CRYPT_CNT);
-				/* Check if SPI_BOOT_CRYPT_CNT set for permanent encryption */
-				if (flash_crypt_cnt == EFUSE_SPI_BOOT_CRYPT_CNT_V)
-					flash_crypt_cnt_wr_dis = true;
-			}
-
-			if (flash_crypt_cnt_wr_dis) {
-				uint8_t dis_dl_enc = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
-					EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT);
-				uint8_t dis_dl_icache = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
-					EFUSE_DIS_DOWNLOAD_ICACHE);
-				if (dis_dl_enc && dis_dl_icache)
-					s_mode = ESP_FLASH_ENC_MODE_RELEASE;
-			}
-		} else {
+		if (!esp_flash_encryption_enabled())
 			s_mode = ESP_FLASH_ENC_MODE_DISABLED;
-		}
 		s_first = false;
 		STUB_LOGD("flash_encryption_mode: %d\n", s_mode);
 	}
-
 	return s_mode;
-#endif
-	return ESP_FLASH_ENC_MODE_DISABLED;
 }
 
 static void stub_mmu_hal_map_region(uint32_t vaddr, uint32_t paddr, uint32_t len)
