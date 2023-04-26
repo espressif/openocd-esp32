@@ -198,9 +198,6 @@ class WatchpointTestsImpl:
     """
 
     wp_stop_reason = [dbg.TARGET_STOP_REASON_SIGTRAP, dbg.TARGET_STOP_REASON_WP]
-    compare_offset = 0
-    if testee_info.arch == "xtensa" or testee_info.idf_ver == IdfVersion.fromstr('latest'):
-        compare_offset = 1
 
     def test_wp_simple(self):
         """
@@ -230,7 +227,7 @@ class WatchpointTestsImpl:
             # 'count' write
             self.run_to_bp_and_check(self.wp_stop_reason, 'blink_task', ['s_count11'])
             var_val = int(self.gdb.data_eval_expr('s_count1'))
-            self.assertEqual(var_val, cnt+self.compare_offset)
+            self.assertEqual(var_val, cnt+1)
             cnt += 1
 
     def test_wp_and_reconnect(self):
@@ -256,12 +253,12 @@ class WatchpointTestsImpl:
             if (i % 2) == 0:
                 self.run_to_bp_and_check(self.wp_stop_reason, 'blink_task', ['s_count11'])
                 var_val = int(self.gdb.data_eval_expr('s_count1'))
-                self.assertEqual(var_val, cnt+self.compare_offset)
+                self.assertEqual(var_val, cnt+1)
                 cnt += 1
             else:
                 self.run_to_bp_and_check(self.wp_stop_reason, 'blink_task', ['s_count2'])
                 var_val = int(self.gdb.data_eval_expr('s_count2'))
-                self.assertEqual(var_val, cnt2-self.compare_offset)
+                self.assertEqual(var_val, cnt2-1)
                 cnt2 -= 1
             self.gdb.disconnect()
             sleep(0.1) #sleep 100ms

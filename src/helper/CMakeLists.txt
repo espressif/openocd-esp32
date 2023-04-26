@@ -36,6 +36,8 @@ target_sources(helper PRIVATE
 	sha256.c
 	sha256.h
 	compiler.h
+	base64.c
+	base64.h
 PUBLIC
 	command.c
 )

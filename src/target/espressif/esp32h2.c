@@ -127,7 +127,6 @@ static const char *esp32h2_get_reset_reason(enum esp32h2_reset_reason reset_numb
 }
 
 extern struct target_type riscv_target;
-extern const struct command_registration riscv_command_handlers[];
 
 static int esp32h2_on_reset(struct target *target);
 
