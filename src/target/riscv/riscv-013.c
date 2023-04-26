@@ -31,14 +31,14 @@
 
 static int riscv013_on_step_or_resume(struct target *target, bool step);
 static int riscv013_step_or_resume_current_hart(struct target *target,
-		bool step, bool use_hasel);
+		bool step);
 static void riscv013_clear_abstract_error(struct target *target);
 
 /* Implementations of the functions in struct riscv_info. */
 static int riscv013_get_register(struct target *target,
 		riscv_reg_t *value, int rid);
 static int riscv013_set_register(struct target *target, int regid, uint64_t value);
-static int riscv013_select_current_hart(struct target *target);
+static int dm013_select_hart(struct target *target, int hart_index);
 static int riscv013_halt_prep(struct target *target);
 static int riscv013_halt_go(struct target *target);
 static int riscv013_resume_go(struct target *target);
@@ -46,18 +46,17 @@ static int riscv013_step_current_hart(struct target *target);
 static int riscv013_on_halt(struct target *target);
 static int riscv013_on_step(struct target *target);
 static int riscv013_resume_prep(struct target *target);
-static bool riscv013_is_halted(struct target *target);
 static enum riscv_halt_reason riscv013_halt_reason(struct target *target);
 static int riscv013_write_debug_buffer(struct target *target, unsigned index,
 		riscv_insn_t d);
 static riscv_insn_t riscv013_read_debug_buffer(struct target *target, unsigned
 		index);
+static int riscv013_invalidate_cached_debug_buffer(struct target *target);
 static int riscv013_execute_debug_buffer(struct target *target);
 static void riscv013_fill_dmi_write_u64(struct target *target, char *buf, int a, uint64_t d);
 static void riscv013_fill_dmi_read_u64(struct target *target, char *buf, int a);
 static int riscv013_dmi_write_u64_bits(struct target *target);
 static void riscv013_fill_dmi_nop_u64(struct target *target, char *buf);
-static int register_read(struct target *target, uint64_t *value, uint32_t number);
 static int register_read_direct(struct target *target, uint64_t *value, uint32_t number);
 static int register_write_direct(struct target *target, unsigned number,
 		uint64_t value);
@@ -75,13 +74,6 @@ static int write_memory(struct target *target, target_addr_t address,
 
 #define get_field(reg, mask) (((reg) & (mask)) / ((mask) & ~((mask) << 1)))
 #define set_field(reg, mask, val) (((reg) & ~(mask)) | (((val) * ((mask) & ~((mask) << 1))) & (mask)))
-
-#define CSR_DCSR_CAUSE_SWBP		1
-#define CSR_DCSR_CAUSE_TRIGGER	2
-#define CSR_DCSR_CAUSE_DEBUGINT	3
-#define CSR_DCSR_CAUSE_STEP		4
-#define CSR_DCSR_CAUSE_HALT		5
-#define CSR_DCSR_CAUSE_GROUP	6
 
 #define RISCV013_INFO(r) riscv013_info_t *r = get_info(target)
 
@@ -113,22 +105,8 @@ typedef enum slot {
 #define CMDERR_HALT_RESUME		4
 #define CMDERR_OTHER			7
 
-/*** Info about the core being debugged. ***/
-
-struct trigger {
-	uint64_t address;
-	uint32_t length;
-	uint64_t mask;
-	uint64_t value;
-	bool read, write, execute;
-	int unique_id;
-};
-
-typedef enum {
-	YNM_MAYBE,
-	YNM_YES,
-	YNM_NO
-} yes_no_maybe_t;
+#define HART_INDEX_MULTIPLE	-1
+#define HART_INDEX_UNKNOWN	-2
 
 typedef struct {
 	struct list_head list;
@@ -140,8 +118,10 @@ typedef struct {
 	bool was_reset;
 	/* Targets that are connected to this DM. */
 	struct list_head target_list;
-	/* The currently selected hartid on this DM. */
+	/* Contains the ID of the hart that is currently selected by this DM.
+	 * If multiple harts are selected this is HART_INDEX_MULTIPLE. */
 	int current_hartid;
+
 	bool hasel_supported;
 
 	/* The program buffer stores executable code. 0 is an illegal instruction,
@@ -213,6 +193,9 @@ typedef struct {
 
 	/* DM that provides access to this target. */
 	dm013_info_t *dm;
+
+	/* This target was selected using hasel. */
+	bool selected;
 } riscv013_info_t;
 
 static LIST_HEAD(dm_list);
@@ -253,7 +236,7 @@ static dm013_info_t *get_dm(struct target *target)
 		if (!dm)
 			return NULL;
 		dm->abs_chain_position = abs_chain_position;
-		dm->current_hartid = -1;
+		dm->current_hartid = 0;
 		dm->hart_count = -1;
 		INIT_LIST_HEAD(&dm->target_list);
 		list_add(&dm->list, &dm_list);
@@ -276,16 +259,23 @@ static dm013_info_t *get_dm(struct target *target)
 	return dm;
 }
 
-static uint32_t set_hartsel(uint32_t initial, uint32_t index)
+static uint32_t set_dmcontrol_hartsel(uint32_t initial, int hart_index)
 {
-	initial &= ~DM_DMCONTROL_HARTSELLO;
-	initial &= ~DM_DMCONTROL_HARTSELHI;
+	assert(hart_index != HART_INDEX_UNKNOWN);
 
-	uint32_t index_lo = index & ((1 << DM_DMCONTROL_HARTSELLO_LENGTH) - 1);
-	initial |= index_lo << DM_DMCONTROL_HARTSELLO_OFFSET;
-	uint32_t index_hi = index >> DM_DMCONTROL_HARTSELLO_LENGTH;
-	assert(index_hi < 1 << DM_DMCONTROL_HARTSELHI_LENGTH);
-	initial |= index_hi << DM_DMCONTROL_HARTSELHI_OFFSET;
+	if (hart_index >= 0) {
+		initial = set_field(initial, DM_DMCONTROL_HASEL, DM_DMCONTROL_HASEL_SINGLE);
+		uint32_t index_lo = hart_index & ((1 << DM_DMCONTROL_HARTSELLO_LENGTH) - 1);
+		initial = set_field(initial, DM_DMCONTROL_HARTSELLO, index_lo);
+		uint32_t index_hi = hart_index >> DM_DMCONTROL_HARTSELLO_LENGTH;
+		assert(index_hi < (1 << DM_DMCONTROL_HARTSELHI_LENGTH));
+		initial = set_field(initial, DM_DMCONTROL_HARTSELHI, index_hi);
+	} else if (hart_index == HART_INDEX_MULTIPLE) {
+		initial = set_field(initial, DM_DMCONTROL_HASEL, DM_DMCONTROL_HASEL_MULTIPLE);
+		/* TODO: https://github.com/riscv/riscv-openocd/issues/748 */
+		initial = set_field(initial, DM_DMCONTROL_HARTSELLO, 0);
+		initial = set_field(initial, DM_DMCONTROL_HARTSELHI, 0);
+	}
 
 	return initial;
 }
@@ -658,10 +648,10 @@ static int dmi_op(struct target *target, uint32_t *data_in,
 	int result = dmi_op_timeout(target, data_in, dmi_busy_encountered, dmi_op,
 			address, data_out, riscv_command_timeout_sec, exec, ensure_success);
 	if (result == ERROR_TIMEOUT_REACHED) {
-		LOG_ERROR("DMI operation didn't complete in %d seconds. The target is "
+		LOG_ERROR("[%s] DMI operation didn't complete in %d seconds. The target is "
 				"either really slow or broken. You could increase the "
 				"timeout with riscv set_command_timeout_sec.",
-				riscv_command_timeout_sec);
+				target_name(target), riscv_command_timeout_sec);
 		return ERROR_FAIL;
 	}
 	return result;
@@ -713,8 +703,14 @@ static int dmstatus_read_timeout(struct target *target, uint32_t *dmstatus,
 static int dmstatus_read(struct target *target, uint32_t *dmstatus,
 		bool authenticated)
 {
-	return dmstatus_read_timeout(target, dmstatus, authenticated,
+	int result = dmstatus_read_timeout(target, dmstatus, authenticated,
 			riscv_command_timeout_sec);
+	if (result == ERROR_TIMEOUT_REACHED)
+		LOG_TARGET_ERROR(target, "DMSTATUS read didn't complete in %d seconds. The target is "
+					 "either really slow or broken. You could increase the "
+					 "timeout with `riscv set_command_timeout_sec`.",
+				 riscv_command_timeout_sec);
+	return result;
 }
 
 static void increase_ac_busy_delay(struct target *target)
@@ -754,20 +750,6 @@ static int wait_for_idle(struct target *target, uint32_t *abstractcs)
 
 		if (time(NULL) - start > riscv_command_timeout_sec) {
 			info->cmderr = get_field(*abstractcs, DM_ABSTRACTCS_CMDERR);
-			if (info->cmderr != CMDERR_NONE) {
-				const char *errors[8] = {
-					"none",
-					"busy",
-					"not supported",
-					"exception",
-					"halt/resume",
-					"reserved",
-					"reserved",
-					"other" };
-
-				LOG_ERROR("Abstract command ended in error '%s' (abstractcs=0x%x)",
-						errors[info->cmderr], *abstractcs);
-			}
 
 			LOG_ERROR("Timed out after %ds waiting for busy to go low (abstractcs=0x%x). "
 					"Increase the timeout with riscv set_command_timeout_sec.",
@@ -776,6 +758,12 @@ static int wait_for_idle(struct target *target, uint32_t *abstractcs)
 			return ERROR_FAIL;
 		}
 	}
+}
+
+static int dm013_select_target(struct target *target)
+{
+	riscv013_info_t *info = get_info(target);
+	return dm013_select_hart(target, info->index);
 }
 
 static int execute_abstract_command(struct target *target, uint32_t command)
@@ -869,8 +857,8 @@ static uint32_t access_register_command(struct target *target, uint32_t number,
 			command = set_field(command, AC_ACCESS_REGISTER_AARSIZE, 3);
 			break;
 		default:
-			LOG_ERROR("%d-bit register %s not supported.", size,
-					gdb_regno_name(number));
+			LOG_ERROR("[%s] %d-bit register %s not supported.",
+					target_name(target), size, gdb_regno_name(number));
 			assert(0);
 	}
 
@@ -1000,14 +988,14 @@ static uint32_t abstract_memory_size(unsigned width)
  * Creates a memory access abstract command.
  */
 static uint32_t access_memory_command(struct target *target, bool virtual,
-		unsigned width, bool postincrement, bool write)
+		unsigned width, bool postincrement, bool is_write)
 {
 	uint32_t command = set_field(0, AC_ACCESS_MEMORY_CMDTYPE, 2);
 	command = set_field(command, AC_ACCESS_MEMORY_AAMVIRTUAL, virtual);
 	command |= abstract_memory_size(width);
 	command = set_field(command, AC_ACCESS_MEMORY_AAMPOSTINCREMENT,
 						postincrement);
-	command = set_field(command, AC_ACCESS_MEMORY_WRITE, write);
+	command = set_field(command, AC_ACCESS_MEMORY_WRITE, is_write);
 
 	return command;
 }
@@ -1027,8 +1015,7 @@ static int examine_progbuf(struct target *target)
 		return ERROR_OK;
 	}
 
-	uint64_t s0;
-	if (register_read(target, &s0, GDB_REGNO_S0) != ERROR_OK)
+	if (riscv_save_register(target, GDB_REGNO_S0) != ERROR_OK)
 		return ERROR_FAIL;
 
 	struct riscv_program program;
@@ -1043,9 +1030,6 @@ static int examine_progbuf(struct target *target)
 	riscv_program_init(&program, target);
 	riscv_program_insert(&program, sw(S0, S0, 0));
 	int result = riscv_program_exec(&program, target);
-
-	if (register_write_direct(target, GDB_REGNO_S0, s0) != ERROR_OK)
-		return ERROR_FAIL;
 
 	if (result != ERROR_OK) {
 		/* This program might have failed if the program buffer is not
@@ -1085,6 +1069,7 @@ static int is_vector_reg(uint32_t gdb_regno)
 		gdb_regno == GDB_REGNO_VSTART ||
 		gdb_regno == GDB_REGNO_VXSAT ||
 		gdb_regno == GDB_REGNO_VXRM ||
+		gdb_regno == GDB_REGNO_VCSR ||
 		gdb_regno == GDB_REGNO_VL ||
 		gdb_regno == GDB_REGNO_VTYPE ||
 		gdb_regno == GDB_REGNO_VLENB;
@@ -1094,7 +1079,7 @@ static int prep_for_register_access(struct target *target, uint64_t *mstatus,
 		int regno)
 {
 	if (is_fpu_reg(regno) || is_vector_reg(regno)) {
-		if (register_read(target, mstatus, GDB_REGNO_MSTATUS) != ERROR_OK)
+		if (register_read_direct(target, mstatus, GDB_REGNO_MSTATUS) != ERROR_OK)
 			return ERROR_FAIL;
 		if (is_fpu_reg(regno) && (*mstatus & MSTATUS_FS) == 0) {
 			if (register_write_direct(target, GDB_REGNO_MSTATUS,
@@ -1258,6 +1243,7 @@ static int scratch_write64(struct target *target, scratch_mem_t *scratch,
 		case SPACE_DMI_PROGBUF:
 			dmi_write(target, DM_PROGBUF0 + scratch->debug_address, value);
 			dmi_write(target, DM_PROGBUF1 + scratch->debug_address, value >> 32);
+			riscv013_invalidate_cached_debug_buffer(target);
 			break;
 		case SPACE_DMI_RAM:
 			{
@@ -1305,24 +1291,21 @@ static bool has_sufficient_progbuf(struct target *target, unsigned size)
 static int register_write_direct(struct target *target, unsigned number,
 		uint64_t value)
 {
-	LOG_DEBUG("{%d} %s <- 0x%" PRIx64, riscv_current_hartid(target),
-			gdb_regno_name(number), value);
+	LOG_TARGET_DEBUG(target, "%s <- 0x%" PRIx64, gdb_regno_name(number), value);
+
+	uint64_t mstatus;
+	if (prep_for_register_access(target, &mstatus, number) != ERROR_OK)
+		return ERROR_FAIL;
 
 	int result = register_write_abstract(target, number, value,
 			register_size(target, number));
-	if (result == ERROR_OK || !has_sufficient_progbuf(target, 2) ||
-			!riscv_is_halted(target))
+	if (result == ERROR_OK || !has_sufficient_progbuf(target, 2))
 		return result;
 
 	struct riscv_program program;
 	riscv_program_init(&program, target);
 
-	uint64_t s0;
-	if (register_read(target, &s0, GDB_REGNO_S0) != ERROR_OK)
-		return ERROR_FAIL;
-
-	uint64_t mstatus;
-	if (prep_for_register_access(target, &mstatus, number) != ERROR_OK)
+	if (riscv_save_register(target, GDB_REGNO_S0) != ERROR_OK)
 		return ERROR_FAIL;
 
 	scratch_mem_t scratch;
@@ -1333,7 +1316,9 @@ static int register_write_direct(struct target *target, unsigned number,
 		/* There are no instructions to move all the bits from a register, so
 		 * we need to use some scratch RAM. */
 		use_scratch = true;
-		riscv_program_insert(&program, fld(number - GDB_REGNO_FPR0, S0, 0));
+		if (riscv_program_insert(&program, fld(number - GDB_REGNO_FPR0, S0, 0))
+				!= ERROR_OK)
+			return ERROR_FAIL;
 
 		if (scratch_reserve(target, &scratch, &program, 8) != ERROR_OK)
 			return ERROR_FAIL;
@@ -1349,34 +1334,43 @@ static int register_write_direct(struct target *target, unsigned number,
 			return ERROR_FAIL;
 		}
 
-	} else if (number == GDB_REGNO_VTYPE) {
-		riscv_program_insert(&program, csrr(S0, CSR_VL));
-		riscv_program_insert(&program, vsetvli(ZERO, S0, value));
-
 	} else {
-		if (register_write_direct(target, GDB_REGNO_S0, value) != ERROR_OK)
-			return ERROR_FAIL;
-
 		if (number >= GDB_REGNO_FPR0 && number <= GDB_REGNO_FPR31) {
-			if (riscv_supports_extension(target, 'D'))
-				riscv_program_insert(&program, fmv_d_x(number - GDB_REGNO_FPR0, S0));
-			else
-				riscv_program_insert(&program, fmv_w_x(number - GDB_REGNO_FPR0, S0));
+			if (riscv_supports_extension(target, 'D')) {
+				if (riscv_program_insert(&program,
+							fmv_d_x(number - GDB_REGNO_FPR0, S0)) != ERROR_OK)
+					return ERROR_FAIL;
+			} else {
+				if (riscv_program_insert(&program,
+							fmv_w_x(number - GDB_REGNO_FPR0, S0)) != ERROR_OK)
+					return ERROR_FAIL;
+			}
+		} else if (number == GDB_REGNO_VTYPE) {
+			if (riscv_save_register(target, GDB_REGNO_S1) != ERROR_OK)
+				return ERROR_FAIL;
+			if (riscv_program_insert(&program, csrr(S1, CSR_VL)) != ERROR_OK)
+				return ERROR_FAIL;
+			if (riscv_program_insert(&program, vsetvl(ZERO, S1, S0)) != ERROR_OK)
+				return ERROR_FAIL;
 		} else if (number == GDB_REGNO_VL) {
 			/* "The XLEN-bit-wide read-only vl CSR can only be updated by the
 			 * vsetvli and vsetvl instructions, and the fault-only-rst vector
 			 * load instruction variants." */
-			riscv_reg_t vtype;
-			if (register_read(target, &vtype, GDB_REGNO_VTYPE) != ERROR_OK)
+			if (riscv_save_register(target, GDB_REGNO_S1) != ERROR_OK)
 				return ERROR_FAIL;
-			if (riscv_program_insert(&program, vsetvli(ZERO, S0, vtype)) != ERROR_OK)
+			if (riscv_program_insert(&program, csrr(S1, CSR_VTYPE)) != ERROR_OK)
+				return ERROR_FAIL;
+			if (riscv_program_insert(&program, vsetvl(ZERO, S0, S1)) != ERROR_OK)
 				return ERROR_FAIL;
 		} else if (number >= GDB_REGNO_CSR0 && number <= GDB_REGNO_CSR4095) {
-			riscv_program_csrw(&program, S0, number);
+			if (riscv_program_csrw(&program, S0, number) != ERROR_OK)
+				return ERROR_FAIL;
 		} else {
 			LOG_ERROR("Unsupported register (enum gdb_regno)(%d)", number);
 			return ERROR_FAIL;
 		}
+		if (register_write_direct(target, GDB_REGNO_S0, value) != ERROR_OK)
+			return ERROR_FAIL;
 	}
 
 	int exec_out = riscv_program_exec(&program, target);
@@ -1392,33 +1386,19 @@ static int register_write_direct(struct target *target, unsigned number,
 	if (cleanup_after_register_access(target, mstatus, number) != ERROR_OK)
 		return ERROR_FAIL;
 
-	/* Restore S0. */
-	if (register_write_direct(target, GDB_REGNO_S0, s0) != ERROR_OK)
-		return ERROR_FAIL;
-
 	return exec_out;
-}
-
-/** Read register value from the target. Also update the cached value. */
-static int register_read(struct target *target, uint64_t *value, uint32_t number)
-{
-	if (number == GDB_REGNO_ZERO) {
-		*value = 0;
-		return ERROR_OK;
-	}
-	int result = register_read_direct(target, value, number);
-	if (result != ERROR_OK)
-		return ERROR_FAIL;
-	if (target->reg_cache) {
-		struct reg *reg = &target->reg_cache->reg_list[number];
-		buf_set_u64(reg->value, 0, reg->size, *value);
-	}
-	return ERROR_OK;
 }
 
 /** Actually read registers from the target right now. */
 static int register_read_direct(struct target *target, uint64_t *value, uint32_t number)
 {
+	if (dm013_select_target(target) != ERROR_OK)
+		return ERROR_FAIL;
+
+	uint64_t mstatus;
+	if (prep_for_register_access(target, &mstatus, number) != ERROR_OK)
+		return ERROR_FAIL;
+
 	int result = register_read_abstract(target, value, number,
 			register_size(target, number));
 
@@ -1431,24 +1411,19 @@ static int register_read_direct(struct target *target, uint64_t *value, uint32_t
 		scratch_mem_t scratch;
 		bool use_scratch = false;
 
-		riscv_reg_t s0;
-		if (register_read(target, &s0, GDB_REGNO_S0) != ERROR_OK)
+		if (riscv_save_register(target, GDB_REGNO_S0) != ERROR_OK)
 			return ERROR_FAIL;
 
 		/* Write program to move data into s0. */
-
-		uint64_t mstatus;
-		if (prep_for_register_access(target, &mstatus, number) != ERROR_OK)
-			return ERROR_FAIL;
 
 		if (number >= GDB_REGNO_FPR0 && number <= GDB_REGNO_FPR31) {
 			if (riscv_supports_extension(target, 'D')
 					&& riscv_xlen(target) < 64) {
 				/* There are no instructions to move all the bits from a
 				 * register, so we need to use some scratch RAM. */
-				riscv_program_insert(&program, fsd(number - GDB_REGNO_FPR0, S0,
-							0));
-
+				if (riscv_program_insert(&program,
+							fsd(number - GDB_REGNO_FPR0, S0, 0)) != ERROR_OK)
+					return ERROR_FAIL;
 				if (scratch_reserve(target, &scratch, &program, 8) != ERROR_OK)
 					return ERROR_FAIL;
 				use_scratch = true;
@@ -1459,12 +1434,17 @@ static int register_read_direct(struct target *target, uint64_t *value, uint32_t
 					return ERROR_FAIL;
 				}
 			} else if (riscv_supports_extension(target, 'D')) {
-				riscv_program_insert(&program, fmv_x_d(S0, number - GDB_REGNO_FPR0));
+				if (riscv_program_insert(&program, fmv_x_d(S0, number - GDB_REGNO_FPR0)) !=
+						ERROR_OK)
+					return ERROR_FAIL;
 			} else {
-				riscv_program_insert(&program, fmv_x_w(S0, number - GDB_REGNO_FPR0));
+				if (riscv_program_insert(&program, fmv_x_w(S0, number - GDB_REGNO_FPR0)) !=
+						ERROR_OK)
+					return ERROR_FAIL;
 			}
 		} else if (number >= GDB_REGNO_CSR0 && number <= GDB_REGNO_CSR4095) {
-			riscv_program_csrr(&program, S0, number);
+			if (riscv_program_csrr(&program, S0, number) != ERROR_OK)
+				return ERROR_FAIL;
 		} else {
 			LOG_ERROR("Unsupported register: %s", gdb_regno_name(number));
 			return ERROR_FAIL;
@@ -1484,19 +1464,13 @@ static int register_read_direct(struct target *target, uint64_t *value, uint32_t
 			if (register_read_direct(target, value, GDB_REGNO_S0) != ERROR_OK)
 				return ERROR_FAIL;
 		}
-
-		if (cleanup_after_register_access(target, mstatus, number) != ERROR_OK)
-			return ERROR_FAIL;
-
-		/* Restore S0. */
-		if (register_write_direct(target, GDB_REGNO_S0, s0) != ERROR_OK)
-			return ERROR_FAIL;
 	}
 
-	if (result == ERROR_OK) {
-		LOG_DEBUG("{%d} %s = 0x%" PRIx64, riscv_current_hartid(target),
-				gdb_regno_name(number), *value);
-	}
+	if (cleanup_after_register_access(target, mstatus, number) != ERROR_OK)
+		return ERROR_FAIL;
+
+	if (result == ERROR_OK)
+		LOG_TARGET_DEBUG(target, "%s = 0x%" PRIx64, gdb_regno_name(number), *value);
 
 	return result;
 }
@@ -1538,33 +1512,22 @@ static void deinit_target(struct target *target)
 	info->version_specific = NULL;
 }
 
-static int set_haltgroup(struct target *target, bool *supported)
+typedef enum {
+	HALTGROUP,
+	RESUMEGROUP
+} grouptype_t;
+static int set_group(struct target *target, bool *supported, unsigned group, grouptype_t grouptype)
 {
-	uint32_t write = set_field(DM_DMCS2_HGWRITE, DM_DMCS2_GROUP, target->smp);
-	if (dmi_write(target, DM_DMCS2, write) != ERROR_OK)
+	uint32_t write_val = DM_DMCS2_HGWRITE;
+	assert(group <= 31);
+	write_val = set_field(write_val, DM_DMCS2_GROUP, group);
+	write_val = set_field(write_val, DM_DMCS2_GROUPTYPE, (grouptype == HALTGROUP) ? 0 : 1);
+	if (dmi_write(target, DM_DMCS2, write_val) != ERROR_OK)
 		return ERROR_FAIL;
-	uint32_t read;
-	if (dmi_read(target, &read, DM_DMCS2) != ERROR_OK)
+	uint32_t read_val;
+	if (dmi_read(target, &read_val, DM_DMCS2) != ERROR_OK)
 		return ERROR_FAIL;
-	*supported = get_field(read, DM_DMCS2_GROUP) == (unsigned)target->smp;
-	return ERROR_OK;
-}
-
-static int discover_vlenb(struct target *target)
-{
-	RISCV_INFO(r);
-	riscv_reg_t vlenb;
-
-	if (register_read(target, &vlenb, GDB_REGNO_VLENB) != ERROR_OK) {
-		LOG_WARNING("Couldn't read vlenb for %s; vector register access won't work.",
-				target_name(target));
-		r->vlenb = 0;
-		return ERROR_OK;
-	}
-	r->vlenb = vlenb;
-
-	LOG_INFO("Vector support with vlenb=%d", r->vlenb);
-
+	*supported = get_field(read_val, DM_DMCS2_GROUP) == group;
 	return ERROR_OK;
 }
 
@@ -1584,8 +1547,8 @@ static int examine(struct target *target)
 		return ERROR_FAIL;
 	}
 	if (get_field(dtmcontrol, DTM_DTMCS_VERSION) != 1) {
-		LOG_ERROR("Unsupported DTM version %d. (dtmcontrol=0x%x)",
-				get_field(dtmcontrol, DTM_DTMCS_VERSION), dtmcontrol);
+		LOG_ERROR("[%s] Unsupported DTM version %d. (dtmcontrol=0x%x)",
+				target_name(target), get_field(dtmcontrol, DTM_DTMCS_VERSION), dtmcontrol);
 		return ERROR_FAIL;
 	}
 
@@ -1603,14 +1566,22 @@ static int examine(struct target *target)
 		dmi_write(target, DM_DMCONTROL, 0);
 		dmi_write(target, DM_DMCONTROL, DM_DMCONTROL_DMACTIVE);
 		dm->was_reset = true;
+
+		/* The DM gets reset, so forget any cached progbuf entries. */
+		riscv013_invalidate_cached_debug_buffer(target);
 	}
 
 	dmi_write(target, DM_DMCONTROL, DM_DMCONTROL_HARTSELLO |
 			DM_DMCONTROL_HARTSELHI | DM_DMCONTROL_DMACTIVE |
 			DM_DMCONTROL_HASEL);
+	dm->current_hartid = HART_INDEX_UNKNOWN;
 	uint32_t dmcontrol;
 	if (dmi_read(target, &dmcontrol, DM_DMCONTROL) != ERROR_OK)
 		return ERROR_FAIL;
+	/* Ensure the HART_INDEX_UNKNOWN is flushed out */
+	if (dm013_select_hart(target, 0) != ERROR_OK)
+		return ERROR_FAIL;
+
 
 	if (!get_field(dmcontrol, DM_DMCONTROL_DMACTIVE)) {
 		LOG_ERROR("Debug Module did not become active. dmcontrol=0x%x",
@@ -1653,11 +1624,7 @@ static int examine(struct target *target)
 		LOG_ERROR("Debugger is not authenticated to target Debug Module. "
 				"(dmstatus=0x%x). Use `riscv authdata_read` and "
 				"`riscv authdata_write` commands to authenticate.", dmstatus);
-		/* If we return ERROR_FAIL here, then in a multicore setup the next
-		 * core won't be examined, which means we won't set up the
-		 * authentication commands for them, which means the config script
-		 * needs to be a lot more complex. */
-		return ERROR_OK;
+		return ERROR_FAIL;
 	}
 
 	if (dmi_read(target, &info->sbcs, DM_SBCS) != ERROR_OK)
@@ -1670,7 +1637,8 @@ static int examine(struct target *target)
 	info->datacount = get_field(abstractcs, DM_ABSTRACTCS_DATACOUNT);
 	info->progbufsize = get_field(abstractcs, DM_ABSTRACTCS_PROGBUFSIZE);
 
-	LOG_INFO("datacount=%d progbufsize=%d", info->datacount, info->progbufsize);
+	LOG_INFO("[%s] datacount=%d progbufsize=%d", target_name(target),
+			info->datacount, info->progbufsize);
 
 	RISCV_INFO(r);
 	r->impebreak = get_field(dmstatus, DM_DMSTATUS_IMPEBREAK);
@@ -1692,8 +1660,7 @@ static int examine(struct target *target)
 	/* Before doing anything else we must first enumerate the harts. */
 	if (dm->hart_count < 0) {
 		for (int i = 0; i < MIN(RISCV_MAX_HARTS, 1 << info->hartsellen); ++i) {
-			r->current_hartid = i;
-			if (riscv013_select_current_hart(target) != ERROR_OK)
+			if (dm013_select_hart(target, i) != ERROR_OK)
 				return ERROR_FAIL;
 
 			uint32_t s;
@@ -1705,13 +1672,11 @@ static int examine(struct target *target)
 
 			if (get_field(s, DM_DMSTATUS_ANYHAVERESET))
 				dmi_write(target, DM_DMCONTROL,
-						set_hartsel(DM_DMCONTROL_DMACTIVE | DM_DMCONTROL_ACKHAVERESET, i));
+						set_dmcontrol_hartsel(DM_DMCONTROL_DMACTIVE | DM_DMCONTROL_ACKHAVERESET, i));
 		}
 
 		LOG_DEBUG("Detected %d harts.", dm->hart_count);
 	}
-
-	r->current_hartid = target->coreid;
 
 	if (dm->hart_count == 0) {
 		LOG_ERROR("No harts found!");
@@ -1721,19 +1686,24 @@ static int examine(struct target *target)
 	/* Don't call any riscv_* functions until after we've counted the number of
 	 * cores and initialized registers. */
 
-	if (riscv013_select_current_hart(target) != ERROR_OK)
+	if (dm013_select_hart(target, info->index) != ERROR_OK)
 		return ERROR_FAIL;
 
-	bool halted = riscv_is_halted(target);
+	enum riscv_hart_state state;
+	if (riscv_get_hart_state(target, &state) != ERROR_OK)
+		return ERROR_FAIL;
+	bool halted = (state == RISCV_STATE_HALTED);
 	if (!halted) {
+		r->prepped = true;
 		if (riscv013_halt_go(target) != ERROR_OK) {
-			LOG_ERROR("Fatal: Hart %d failed to halt during examine()", r->current_hartid);
+			LOG_TARGET_ERROR(target, "Fatal: Hart %d failed to halt during examine()",
+					info->index);
 			return ERROR_FAIL;
 		}
 	}
 
 	/* Without knowing anything else we can at least mess with the
-		* program buffer. */
+	 * program buffer. */
 	r->debug_buffer_size = info->progbufsize;
 
 	int result = register_read_abstract(target, NULL, GDB_REGNO_S0, 64);
@@ -1742,14 +1712,45 @@ static int examine(struct target *target)
 	else
 		r->xlen = 32;
 
-	if (register_read(target, &r->misa, GDB_REGNO_MISA)) {
-		LOG_ERROR("Fatal: Failed to read MISA from hart %d.", r->current_hartid);
+	/* Save s0 and s1. The register cache hasn't be initialized yet so we
+	 * need to take care of this manually. */
+	uint64_t s0, s1;
+	if (register_read_direct(target, &s0, GDB_REGNO_S0) != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Fatal: Failed to read s0.");
+		return ERROR_FAIL;
+	}
+	if (register_read_direct(target, &s1, GDB_REGNO_S1) != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Fatal: Failed to read s1.");
 		return ERROR_FAIL;
 	}
 
-	if (riscv_supports_extension(target, 'V')) {
-		if (discover_vlenb(target) != ERROR_OK)
-			return ERROR_FAIL;
+	if (register_read_direct(target, &r->misa, GDB_REGNO_MISA)) {
+		LOG_TARGET_ERROR(target, "Fatal: Failed to read MISA.");
+		return ERROR_FAIL;
+	}
+
+	uint64_t value;
+	if (register_read_direct(target, &value, GDB_REGNO_VLENB) != ERROR_OK) {
+		if (riscv_supports_extension(target, 'V'))
+			LOG_TARGET_WARNING(target, "Couldn't read vlenb; vector register access won't work.");
+		r->vlenb = 0;
+	} else {
+		r->vlenb = value;
+		LOG_TARGET_INFO(target, "Vector support with vlenb=%d", r->vlenb);
+	}
+
+	if (register_read_direct(target, &value, GDB_REGNO_MTOPI) == ERROR_OK) {
+		r->mtopi_readable = true;
+
+		if (register_read_direct(target, &value, GDB_REGNO_MTOPEI) == ERROR_OK) {
+			LOG_TARGET_INFO(target, "S?aia detected with IMSIC");
+			r->mtopei_readable = true;
+		} else {
+			r->mtopei_readable = false;
+			LOG_TARGET_INFO(target, "S?aia detected without IMSIC");
+		}
+	} else {
+		r->mtopi_readable = false;
 	}
 
 	/* Now init registers based on what we discovered. */
@@ -1757,18 +1758,28 @@ static int examine(struct target *target)
 		return ERROR_FAIL;
 
 	/* Display this as early as possible to help people who are using
-		* really slow simulators. */
-	LOG_DEBUG(" hart %d: XLEN=%d, misa=0x%" PRIx64, r->current_hartid, r->xlen,
-			r->misa);
+	 * really slow simulators. */
+	LOG_TARGET_DEBUG(target, " XLEN=%d, misa=0x%" PRIx64, r->xlen, r->misa);
 
-	if (!halted)
-		riscv013_step_or_resume_current_hart(target, false, false);
+	/* Restore s0 and s1. */
+	if (register_write_direct(target, GDB_REGNO_S0, s0) != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Fatal: Failed to write back s0.");
+		return ERROR_FAIL;
+	}
+	if (register_write_direct(target, GDB_REGNO_S1, s1) != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Fatal: Failed to write back s1.");
+		return ERROR_FAIL;
+	}
 
-	target_set_examined(target);
+	if (!halted) {
+		riscv013_step_or_resume_current_hart(target, false);
+		target->state = TARGET_RUNNING;
+		target->debug_reason = DBG_REASON_NOTHALTED;
+	}
 
 	if (target->smp) {
 		bool haltgroup_supported;
-		if (set_haltgroup(target, &haltgroup_supported) != ERROR_OK)
+		if (set_group(target, &haltgroup_supported, target->smp, HALTGROUP) != ERROR_OK)
 			return ERROR_FAIL;
 		if (haltgroup_supported)
 			LOG_INFO("Core %d made part of halt group %d.", target->coreid,
@@ -1781,10 +1792,9 @@ static int examine(struct target *target)
 	/* Some regression suites rely on seeing 'Examined RISC-V core' to know
 	 * when they can connect with gdb/telnet.
 	 * We will need to update those suites if we want to change that text. */
-	LOG_INFO("Examined RISC-V core; found %d harts",
+	LOG_TARGET_INFO(target, "Examined RISC-V core; found %d harts",
 			riscv_count_harts(target));
-	LOG_INFO(" hart %d: XLEN=%d, misa=0x%" PRIx64, r->current_hartid, r->xlen,
-			r->misa);
+	LOG_TARGET_INFO(target, " XLEN=%d, misa=0x%" PRIx64, r->xlen, r->misa);
 	return ERROR_OK;
 }
 
@@ -1826,7 +1836,7 @@ static int riscv013_authdata_write(struct target *target, uint32_t value, unsign
 			return ERROR_FAIL;
 		target_list_t *entry;
 		list_for_each_entry(entry, &dm->target_list, list) {
-			if (examine(entry->target) != ERROR_OK)
+			if (target_examine_one(entry->target) != ERROR_OK)
 				result = ERROR_FAIL;
 		}
 		return result;
@@ -1912,34 +1922,54 @@ static COMMAND_HELPER(riscv013_print_info, struct target *target)
 	return 0;
 }
 
-static int prep_for_vector_access(struct target *target, uint64_t *vtype,
-		uint64_t *vl, unsigned *debug_vl)
+static int prep_for_vector_access(struct target *target, uint64_t *saved_vtype,
+		uint64_t *saved_vl, unsigned *debug_vl, unsigned *debug_vsew)
 {
 	RISCV_INFO(r);
 	/* TODO: this continuous save/restore is terrible for performance. */
 	/* Write vtype and vl. */
-	unsigned encoded_vsew;
-	switch (riscv_xlen(target)) {
-		case 32:
-			encoded_vsew = 2;
-			break;
-		case 64:
-			encoded_vsew = 3;
-			break;
-		default:
-			LOG_ERROR("Unsupported xlen: %d", riscv_xlen(target));
-			return ERROR_FAIL;
-	}
 
 	/* Save vtype and vl. */
-	if (register_read(target, vtype, GDB_REGNO_VTYPE) != ERROR_OK)
+	if (register_read_direct(target, saved_vtype, GDB_REGNO_VTYPE) != ERROR_OK)
 		return ERROR_FAIL;
-	if (register_read(target, vl, GDB_REGNO_VL) != ERROR_OK)
+	if (register_read_direct(target, saved_vl, GDB_REGNO_VL) != ERROR_OK)
 		return ERROR_FAIL;
 
-	if (register_write_direct(target, GDB_REGNO_VTYPE, encoded_vsew << 3) != ERROR_OK)
-		return ERROR_FAIL;
-	*debug_vl = DIV_ROUND_UP(r->vlenb * 8, riscv_xlen(target));
+	while (true) {
+		unsigned int encoded_vsew;
+		if (riscv_xlen(target) == 64 && r->vsew64_supported != YNM_NO) {
+			encoded_vsew = 3;
+			*debug_vsew = 64;
+		} else {
+			encoded_vsew = 2;
+			*debug_vsew = 32;
+		}
+
+		/* Set standard element width to match XLEN, for vmv instruction to move
+		 * the least significant bits into a GPR. */
+		if (register_write_direct(target, GDB_REGNO_VTYPE, encoded_vsew << 3) != ERROR_OK)
+			return ERROR_FAIL;
+
+		if (*debug_vsew == 64 && r->vsew64_supported == YNM_MAYBE) {
+			/* Check that it's supported. */
+			uint64_t vtype;
+			if (register_read_direct(target, &vtype, GDB_REGNO_VTYPE) != ERROR_OK)
+				return ERROR_FAIL;
+			if (vtype >> (riscv_xlen(target) - 1)) {
+				r->vsew64_supported = YNM_NO;
+				/* Try again. */
+				continue;
+			} else {
+				r->vsew64_supported = YNM_YES;
+			}
+		}
+		break;
+	}
+
+	/* Set the number of elements to be updated with results from a vector
+	 * instruction, for the vslide1down instruction.
+	 * Set it so the entire V register is updated. */
+	*debug_vl = DIV_ROUND_UP(r->vlenb * 8, *debug_vsew);
 	if (register_write_direct(target, GDB_REGNO_VL, *debug_vl) != ERROR_OK)
 		return ERROR_FAIL;
 
@@ -1962,11 +1992,10 @@ static int riscv013_get_register_buf(struct target *target,
 {
 	assert(regno >= GDB_REGNO_V0 && regno <= GDB_REGNO_V31);
 
-	if (riscv_select_current_hart(target) != ERROR_OK)
+	if (dm013_select_target(target) != ERROR_OK)
 		return ERROR_FAIL;
 
-	riscv_reg_t s0;
-	if (register_read(target, &s0, GDB_REGNO_S0) != ERROR_OK)
+	if (riscv_save_register(target, GDB_REGNO_S0) != ERROR_OK)
 		return ERROR_FAIL;
 
 	uint64_t mstatus;
@@ -1974,20 +2003,21 @@ static int riscv013_get_register_buf(struct target *target,
 		return ERROR_FAIL;
 
 	uint64_t vtype, vl;
-	unsigned debug_vl;
-	if (prep_for_vector_access(target, &vtype, &vl, &debug_vl) != ERROR_OK)
+	unsigned int debug_vl, debug_vsew;
+	if (prep_for_vector_access(target, &vtype, &vl, &debug_vl, &debug_vsew) != ERROR_OK)
 		return ERROR_FAIL;
 
 	unsigned vnum = regno - GDB_REGNO_V0;
-	unsigned xlen = riscv_xlen(target);
-
-	struct riscv_program program;
-	riscv_program_init(&program, target);
-	riscv_program_insert(&program, vmv_x_s(S0, vnum));
-	riscv_program_insert(&program, vslide1down_vx(vnum, vnum, S0, true));
 
 	int result = ERROR_OK;
 	for (unsigned i = 0; i < debug_vl; i++) {
+		/* Can't reuse the same program because riscv_program_exec() adds
+		 * ebreak to the end every time. */
+		struct riscv_program program;
+		riscv_program_init(&program, target);
+		riscv_program_insert(&program, vmv_x_s(S0, vnum));
+		riscv_program_insert(&program, vslide1down_vx(vnum, vnum, S0, true));
+
 		/* Executing the program might result in an exception if there is some
 		 * issue with the vector implementation/instructions we're using. If that
 		 * happens, attempt to restore as usual. We may have clobbered the
@@ -1999,8 +2029,10 @@ static int riscv013_get_register_buf(struct target *target,
 			uint64_t v;
 			if (register_read_direct(target, &v, GDB_REGNO_S0) != ERROR_OK)
 				return ERROR_FAIL;
-			buf_set_u64(value, xlen * i, xlen, v);
+			buf_set_u64(value, debug_vsew * i, debug_vsew, v);
 		} else {
+			LOG_TARGET_ERROR(target, "Failed to execute vmv/vslide1down while reading %s",
+					 gdb_regno_name(regno));
 			break;
 		}
 	}
@@ -2009,8 +2041,6 @@ static int riscv013_get_register_buf(struct target *target,
 		return ERROR_FAIL;
 
 	if (cleanup_after_register_access(target, mstatus, regno) != ERROR_OK)
-		return ERROR_FAIL;
-	if (register_write_direct(target, GDB_REGNO_S0, s0) != ERROR_OK)
 		return ERROR_FAIL;
 
 	return result;
@@ -2021,11 +2051,10 @@ static int riscv013_set_register_buf(struct target *target,
 {
 	assert(regno >= GDB_REGNO_V0 && regno <= GDB_REGNO_V31);
 
-	if (riscv_select_current_hart(target) != ERROR_OK)
+	if (dm013_select_target(target) != ERROR_OK)
 		return ERROR_FAIL;
 
-	riscv_reg_t s0;
-	if (register_read(target, &s0, GDB_REGNO_S0) != ERROR_OK)
+	if (riscv_save_register(target, GDB_REGNO_S0) != ERROR_OK)
 		return ERROR_FAIL;
 
 	uint64_t mstatus;
@@ -2033,12 +2062,11 @@ static int riscv013_set_register_buf(struct target *target,
 		return ERROR_FAIL;
 
 	uint64_t vtype, vl;
-	unsigned debug_vl;
-	if (prep_for_vector_access(target, &vtype, &vl, &debug_vl) != ERROR_OK)
+	unsigned int debug_vl, debug_vsew;
+	if (prep_for_vector_access(target, &vtype, &vl, &debug_vl, &debug_vsew) != ERROR_OK)
 		return ERROR_FAIL;
 
 	unsigned vnum = regno - GDB_REGNO_V0;
-	unsigned xlen = riscv_xlen(target);
 
 	struct riscv_program program;
 	riscv_program_init(&program, target);
@@ -2046,7 +2074,7 @@ static int riscv013_set_register_buf(struct target *target,
 	int result = ERROR_OK;
 	for (unsigned i = 0; i < debug_vl; i++) {
 		if (register_write_direct(target, GDB_REGNO_S0,
-					buf_get_u64(value, xlen * i, xlen)) != ERROR_OK)
+					buf_get_u64(value, debug_vsew * i, debug_vsew)) != ERROR_OK)
 			return ERROR_FAIL;
 		result = riscv_program_exec(&program, target);
 		if (result != ERROR_OK)
@@ -2057,8 +2085,6 @@ static int riscv013_set_register_buf(struct target *target,
 		return ERROR_FAIL;
 
 	if (cleanup_after_register_access(target, mstatus, regno) != ERROR_OK)
-		return ERROR_FAIL;
-	if (register_write_direct(target, GDB_REGNO_S0, s0) != ERROR_OK)
 		return ERROR_FAIL;
 
 	return result;
@@ -2193,7 +2219,7 @@ static int sample_memory_bus_v1(struct target *target,
 						sbcs_write |= DM_SBCS_SBREADONDATA;
 					sbcs_write |= sb_sbaccess(config->bucket[i].size_bytes);
 					if (!sbcs_valid || sbcs_write != sbcs) {
-						riscv_batch_add_dmi_write(batch, DM_SBCS, sbcs_write);
+						riscv_batch_add_dmi_write(batch, DM_SBCS, sbcs_write, true);
 						sbcs = sbcs_write;
 						sbcs_valid = true;
 					}
@@ -2202,13 +2228,13 @@ static int sample_memory_bus_v1(struct target *target,
 							(!sbaddress1_valid ||
 							sbaddress1 != config->bucket[i].address >> 32)) {
 						sbaddress1 = config->bucket[i].address >> 32;
-						riscv_batch_add_dmi_write(batch, DM_SBADDRESS1, sbaddress1);
+						riscv_batch_add_dmi_write(batch, DM_SBADDRESS1, sbaddress1, true);
 						sbaddress1_valid = true;
 					}
 					if (!sbaddress0_valid ||
 							sbaddress0 != (config->bucket[i].address & 0xffffffff)) {
 						sbaddress0 = config->bucket[i].address;
-						riscv_batch_add_dmi_write(batch, DM_SBADDRESS0, sbaddress0);
+						riscv_batch_add_dmi_write(batch, DM_SBADDRESS0, sbaddress0, true);
 						sbaddress0_valid = true;
 					}
 					if (config->bucket[i].size_bytes > 4)
@@ -2224,16 +2250,27 @@ static int sample_memory_bus_v1(struct target *target,
 			break;
 		}
 
-		size_t sbcs_key = riscv_batch_add_dmi_read(batch, DM_SBCS);
+		size_t sbcs_read_index = riscv_batch_add_dmi_read(batch, DM_SBCS);
 
 		int result = batch_run(target, batch);
-		if (result != ERROR_OK)
+		if (result != ERROR_OK) {
+			riscv_batch_free(batch);
 			return result;
+		}
 
-		uint32_t sbcs_read = riscv_batch_get_dmi_read_data(batch, sbcs_key);
+		/* Discard the batch when we encounter a busy state on the DMI level.
+		 * It's too much hassle to try to recover partial data. We'll try again
+		 * with a larger DMI delay. */
+		unsigned int sbcs_read_op = riscv_batch_get_dmi_read_op(batch, sbcs_read_index);
+		if (sbcs_read_op == DTM_DMI_OP_BUSY) {
+			increase_dmi_busy_delay(target);
+			continue;
+		}
+
+		uint32_t sbcs_read = riscv_batch_get_dmi_read_data(batch, sbcs_read_index);
 		if (get_field(sbcs_read, DM_SBCS_SBBUSYERROR)) {
-			/* Discard this batch (too much hassle to try to recover partial
-			 * data) and try again with a larger delay. */
+			/* Discard this batch when we encounter "busy error" state on the System Bus level.
+			 * We'll try next time with a larger System Bus read delay. */
 			info->bus_master_read_delay += info->bus_master_read_delay / 10 + 1;
 			dmi_write(target, DM_SBCS, sbcs_read | DM_SBCS_SBBUSYERROR | DM_SBCS_SBERROR);
 			riscv_batch_free(batch);
@@ -2246,15 +2283,15 @@ static int sample_memory_bus_v1(struct target *target,
 			return ERROR_FAIL;
 		}
 
-		unsigned int read = 0;
+		unsigned int read_count = 0;
 		for (unsigned int n = 0; n < repeat; n++) {
 			for (unsigned int i = 0; i < ARRAY_SIZE(config->bucket); i++) {
 				if (config->bucket[i].enabled) {
 					assert(i < RISCV_SAMPLE_BUF_TIMESTAMP_BEFORE);
 					uint64_t value = 0;
 					if (config->bucket[i].size_bytes > 4)
-						value = ((uint64_t)riscv_batch_get_dmi_read_data(batch, read++)) << 32;
-					value |= riscv_batch_get_dmi_read_data(batch, read++);
+						value = ((uint64_t)riscv_batch_get_dmi_read_data(batch, read_count++)) << 32;
+					value |= riscv_batch_get_dmi_read_data(batch, read_count++);
 
 					buf->buf[buf->used] = i;
 					buf_set_u64(buf->buf + buf->used + 1, 0, config->bucket[i].size_bytes * 8, value);
@@ -2280,6 +2317,55 @@ static int sample_memory(struct target *target,
 	return sample_memory_bus_v1(target, buf, config, until_ms);
 }
 
+static int riscv013_get_hart_state(struct target *target, enum riscv_hart_state *state)
+{
+	RISCV013_INFO(info);
+	if (dm013_select_target(target) != ERROR_OK)
+		return ERROR_FAIL;
+
+	uint32_t dmstatus;
+	if (dmstatus_read(target, &dmstatus, true) != ERROR_OK)
+		return ERROR_FAIL;
+	if (get_field(dmstatus, DM_DMSTATUS_ANYHAVERESET)) {
+		if (target->state != TARGET_RESET)
+			/* warn for "unexpected" reset when it is not requested by user */
+			LOG_TARGET_INFO(target, "Hart unexpectedly reset!");
+		/* TODO: Can we make this more obvious to eg. a gdb user? */
+		uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE |
+			DM_DMCONTROL_ACKHAVERESET;
+		dmcontrol = set_dmcontrol_hartsel(dmcontrol, info->index);
+		/* If we had been halted when we reset, request another halt. If we
+		 * ended up running out of reset, then the user will (hopefully) get a
+		 * message that a reset happened, that the target is running, and then
+		 * that it is halted again once the request goes through.
+		 */
+		if (target->state == TARGET_HALTED)
+			dmcontrol |= DM_DMCONTROL_HALTREQ;
+		dmi_write(target, DM_DMCONTROL, dmcontrol);
+		RISCV_INFO(r);
+		if (r->on_reset)
+			r->on_reset(target);
+	}
+	if (get_field(dmstatus, DM_DMSTATUS_ALLNONEXISTENT)) {
+		*state = RISCV_STATE_NON_EXISTENT;
+		return ERROR_OK;
+	}
+	if (get_field(dmstatus, DM_DMSTATUS_ALLUNAVAIL)) {
+		*state = RISCV_STATE_UNAVAILABLE;
+		return ERROR_OK;
+	}
+	if (get_field(dmstatus, DM_DMSTATUS_ALLHALTED)) {
+		*state = RISCV_STATE_HALTED;
+		return ERROR_OK;
+	}
+	if (get_field(dmstatus, DM_DMSTATUS_ALLRUNNING)) {
+		*state = RISCV_STATE_RUNNING;
+		return ERROR_OK;
+	}
+	LOG_TARGET_ERROR(target, "Couldn't determine state. dmstatus=0x%x", dmstatus);
+	return ERROR_FAIL;
+}
+
 static int init_target(struct command_context *cmd_ctx,
 		struct target *target)
 {
@@ -2290,8 +2376,8 @@ static int init_target(struct command_context *cmd_ctx,
 	generic_info->set_register = &riscv013_set_register;
 	generic_info->get_register_buf = &riscv013_get_register_buf;
 	generic_info->set_register_buf = &riscv013_set_register_buf;
-	generic_info->select_current_hart = &riscv013_select_current_hart;
-	generic_info->is_halted = &riscv013_is_halted;
+	generic_info->select_target = &dm013_select_target;
+	generic_info->get_hart_state = &riscv013_get_hart_state;
 	generic_info->resume_go = &riscv013_resume_go;
 	generic_info->step_current_hart = &riscv013_step_current_hart;
 	generic_info->on_halt = &riscv013_on_halt;
@@ -2303,6 +2389,7 @@ static int init_target(struct command_context *cmd_ctx,
 	generic_info->read_debug_buffer = &riscv013_read_debug_buffer;
 	generic_info->write_debug_buffer = &riscv013_write_debug_buffer;
 	generic_info->execute_debug_buffer = &riscv013_execute_debug_buffer;
+	generic_info->invalidate_cached_debug_buffer = &riscv013_invalidate_cached_debug_buffer;
 	generic_info->fill_dmi_write_u64 = &riscv013_fill_dmi_write_u64;
 	generic_info->fill_dmi_read_u64 = &riscv013_fill_dmi_read_u64;
 	generic_info->fill_dmi_nop_u64 = &riscv013_fill_dmi_nop_u64;
@@ -2347,152 +2434,139 @@ static int init_target(struct command_context *cmd_ctx,
 
 static int assert_reset(struct target *target)
 {
-	RISCV_INFO(r);
+	RISCV013_INFO(info);
+	int result;
 
 	select_dmi(target);
-
-	uint32_t control_base = set_field(0, DM_DMCONTROL_DMACTIVE, 1);
 
 	if (target_has_event_action(target, TARGET_EVENT_RESET_ASSERT)) {
 		/* Run the user-supplied script if there is one. */
 		target_handle_event(target, TARGET_EVENT_RESET_ASSERT);
-	} else if (target->rtos) {
-		/* There's only one target, and OpenOCD thinks each hart is a thread.
-		 * We must reset them all. */
-
-		/* TODO: Try to use hasel in dmcontrol */
-
-		/* Set haltreq for each hart. */
-		uint32_t control = set_hartsel(control_base, target->coreid);
-		control = set_field(control, DM_DMCONTROL_HALTREQ,
-				target->reset_halt ? 1 : 0);
-		dmi_write(target, DM_DMCONTROL, control);
-
-		/* Assert ndmreset */
-		control = set_field(control, DM_DMCONTROL_NDMRESET, 1);
-		dmi_write(target, DM_DMCONTROL, control);
-
 	} else {
-		/* Reset just this hart. */
-		uint32_t control = set_hartsel(control_base, r->current_hartid);
+		uint32_t control = set_field(0, DM_DMCONTROL_DMACTIVE, 1);
+		control = set_dmcontrol_hartsel(control, info->index);
 		control = set_field(control, DM_DMCONTROL_HALTREQ,
 				target->reset_halt ? 1 : 0);
 		control = set_field(control, DM_DMCONTROL_NDMRESET, 1);
-		dmi_write(target, DM_DMCONTROL, control);
+		result = dmi_write(target, DM_DMCONTROL, control);
+		if (result != ERROR_OK)
+			return result;
 	}
 
 	target->state = TARGET_RESET;
 
-	dm013_info_t *dm = get_dm(target);
-	if (!dm)
-		return ERROR_FAIL;
-
 	/* The DM might have gotten reset if OpenOCD called us in some reset that
 	 * involves SRST being toggled. So clear our cache which may be out of
 	 * date. */
-	memset(dm->progbuf_cache, 0, sizeof(dm->progbuf_cache));
-
-	return ERROR_OK;
+	return riscv013_invalidate_cached_debug_buffer(target);
 }
 
 static int deassert_reset(struct target *target)
 {
-	RISCV_INFO(r);
 	RISCV013_INFO(info);
-	select_dmi(target);
+	int result;
 
+	select_dmi(target);
 	/* Clear the reset, but make sure haltreq is still set */
-	uint32_t control = 0, control_haltreq;
+	uint32_t control = 0;
 	control = set_field(control, DM_DMCONTROL_DMACTIVE, 1);
-	control_haltreq = set_field(control, DM_DMCONTROL_HALTREQ, target->reset_halt ? 1 : 0);
-	dmi_write(target, DM_DMCONTROL,
-			set_hartsel(control_haltreq, r->current_hartid));
+	control = set_field(control, DM_DMCONTROL_HALTREQ, target->reset_halt ? 1 : 0);
+	control = set_dmcontrol_hartsel(control, info->index);
+	result = dmi_write(target, DM_DMCONTROL, control);
+	if (result != ERROR_OK)
+		return result;
 
 	uint32_t dmstatus;
-	int dmi_busy_delay = info->dmi_busy_delay;
+	const int orig_dmi_busy_delay = info->dmi_busy_delay;
 	time_t start = time(NULL);
-
-	for (int i = 0; i < riscv_count_harts(target); ++i) {
-		int index = i;
-		if (target->rtos) {
-			if (index != target->coreid)
-				continue;
-			dmi_write(target, DM_DMCONTROL,
-					set_hartsel(control_haltreq, index));
-		} else {
-			index = r->current_hartid;
-		}
-
-		LOG_DEBUG("Waiting for hart %d to come out of reset.", index);
-		while (1) {
-			int result = dmstatus_read_timeout(target, &dmstatus, true,
+	LOG_TARGET_DEBUG(target, "Waiting for hart to come out of reset.");
+	do {
+		result = dmstatus_read_timeout(target, &dmstatus, true,
+				riscv_reset_timeout_sec);
+		if (result == ERROR_TIMEOUT_REACHED)
+			LOG_TARGET_ERROR(target, "Hart didn't complete a DMI read coming "
+					"out of reset in %ds; Increase the timeout with riscv "
+					"set_reset_timeout_sec.",
 					riscv_reset_timeout_sec);
-			if (result == ERROR_TIMEOUT_REACHED)
-				LOG_ERROR("Hart %d didn't complete a DMI read coming out of "
-						"reset in %ds; Increase the timeout with riscv "
-						"set_reset_timeout_sec.",
-						index, riscv_reset_timeout_sec);
-			if (result != ERROR_OK)
-				return result;
-			/* Certain debug modules, like the one in GD32VF103
-			 * MCUs, violate the specification's requirement that
-			 * each hart is in "exactly one of four states" and,
-			 * during reset, report harts as both unavailable and
-			 * halted/running. To work around this, we check for
-			 * the absence of the unavailable state rather than
-			 * the presence of any other state. */
-			if (!get_field(dmstatus, DM_DMSTATUS_ALLUNAVAIL))
-				break;
-			if (time(NULL) - start > riscv_reset_timeout_sec) {
-				LOG_ERROR("Hart %d didn't leave reset in %ds; "
-						"dmstatus=0x%x; "
-						"Increase the timeout with riscv set_reset_timeout_sec.",
-						index, riscv_reset_timeout_sec, dmstatus);
-				return ERROR_FAIL;
-			}
+		if (result != ERROR_OK)
+			return result;
+
+		if (time(NULL) - start > riscv_reset_timeout_sec) {
+			LOG_TARGET_ERROR(target, "Hart didn't leave reset in %ds; "
+					"dmstatus=0x%x (allunavail=%s, allhavereset=%s); "
+					"Increase the timeout with riscv set_reset_timeout_sec.",
+					riscv_reset_timeout_sec, dmstatus,
+					get_field(dmstatus, DM_DMSTATUS_ALLUNAVAIL) ? "true" : "false",
+					get_field(dmstatus, DM_DMSTATUS_ALLHAVERESET) ? "true" : "false");
+			return ERROR_TIMEOUT_REACHED;
 		}
+		/* Certain debug modules, like the one in GD32VF103
+		 * MCUs, violate the specification's requirement that
+		 * each hart is in "exactly one of four states" and,
+		 * during reset, report harts as both unavailable and
+		 * halted/running. To work around this, we check for
+		 * the absence of the unavailable state rather than
+		 * the presence of any other state. */
+	} while (get_field(dmstatus, DM_DMSTATUS_ALLUNAVAIL) &&
+			!get_field(dmstatus, DM_DMSTATUS_ALLHAVERESET));
+
+	info->dmi_busy_delay = orig_dmi_busy_delay;
+
+	if (target->reset_halt) {
 		target->state = TARGET_HALTED;
-
-		if (get_field(dmstatus, DM_DMSTATUS_ALLHAVERESET)) {
-			/* Ack reset and clear DM_DMCONTROL_HALTREQ if previously set */
-			dmi_write(target, DM_DMCONTROL,
-					set_hartsel(control, index) |
-					DM_DMCONTROL_ACKHAVERESET);
-		}
-
-		if (!target->rtos)
-			break;
+		target->debug_reason = DBG_REASON_DBGRQ;
+	} else {
+		target->state = TARGET_RUNNING;
+		target->debug_reason = DBG_REASON_NOTHALTED;
 	}
-	info->dmi_busy_delay = dmi_busy_delay;
-	return ERROR_OK;
+
+	/* Ack reset and clear DM_DMCONTROL_HALTREQ if previously set */
+	control = 0;
+	control = set_field(control, DM_DMCONTROL_DMACTIVE, 1);
+	control = set_field(control, DM_DMCONTROL_ACKHAVERESET, 1);
+	control = set_dmcontrol_hartsel(control, info->index);
+	return dmi_write(target, DM_DMCONTROL, control);
 }
 
 static int execute_fence(struct target *target)
 {
+	if (dm013_select_target(target) != ERROR_OK)
+		return ERROR_FAIL;
+
 	/* FIXME: For non-coherent systems we need to flush the caches right
 	 * here, but there's no ISA-defined way of doing that. */
-	{
-		struct riscv_program program;
-		riscv_program_init(&program, target);
-		riscv_program_fence_i(&program);
-		riscv_program_fence(&program);
-		int result = riscv_program_exec(&program, target);
-		if (result != ERROR_OK)
-			LOG_DEBUG("Unable to execute pre-fence");
-	}
+	struct riscv_program program;
+	riscv_program_init(&program, target);
+	riscv_program_fence_i(&program);
+	riscv_program_fence_rw_rw(&program);
+	int result = riscv_program_exec(&program, target);
+	if (result != ERROR_OK)
+		LOG_TARGET_DEBUG(target, "Unable to execute pre-fence");
 
 	return ERROR_OK;
 }
 
-static void log_memory_access(target_addr_t address, uint64_t value,
-		unsigned size_bytes, bool read)
+static void log_memory_access128(target_addr_t address, uint64_t value_h,
+		uint64_t value_l, bool is_read)
+{
+	if (debug_level < LOG_LVL_DEBUG)
+		return;
+
+	char fmt[80];
+	sprintf(fmt, "M[0x%" TARGET_PRIxADDR "] %ss 0x%%016" PRIx64 "%%016" PRIx64,
+			address, is_read ? "read" : "write");
+	LOG_DEBUG(fmt, value_h, value_l);
+}
+
+static void log_memory_access64(target_addr_t address, uint64_t value,
+		unsigned int size_bytes, bool is_read)
 {
 	if (debug_level < LOG_LVL_DEBUG_IO)
 		return;
 
 	char fmt[80];
 	sprintf(fmt, "M[0x%" TARGET_PRIxADDR "] %ss 0x%%0%d" PRIx64,
-			address, read ? "read" : "write", size_bytes * 2);
+			address, is_read ? "read" : "write", size_bytes * 2);
 	switch (size_bytes) {
 		case 1:
 			value &= 0xff;
@@ -2510,23 +2584,35 @@ static void log_memory_access(target_addr_t address, uint64_t value,
 	}
 	LOG_DEBUG(fmt, value);
 }
+static void log_memory_access(target_addr_t address, uint32_t *sbvalue,
+		unsigned int size_bytes, bool is_read)
+{
+	if (size_bytes == 16) {
+		uint64_t value_h = ((uint64_t)sbvalue[3] << 32) | sbvalue[2];
+		uint64_t value_l = ((uint64_t)sbvalue[1] << 32) | sbvalue[0];
+		log_memory_access128(address, value_h, value_l, is_read);
+	} else {
+		uint64_t value = ((uint64_t)sbvalue[1] << 32) | sbvalue[0];
+		log_memory_access64(address, value, size_bytes, is_read);
+	}
+}
 
 /* Read the relevant sbdata regs depending on size, and put the results into
  * buffer. */
 static int read_memory_bus_word(struct target *target, target_addr_t address,
 		uint32_t size, uint8_t *buffer)
 {
-	uint32_t value;
 	int result;
+	uint32_t sbvalue[4] = { 0 };
 	static int sbdata[4] = { DM_SBDATA0, DM_SBDATA1, DM_SBDATA2, DM_SBDATA3 };
 	assert(size <= 16);
 	for (int i = (size - 1) / 4; i >= 0; i--) {
-		result = dmi_op(target, &value, NULL, DMI_OP_READ, sbdata[i], 0, false, true);
+		result = dmi_op(target, &sbvalue[i], NULL, DMI_OP_READ, sbdata[i], 0, false, true);
 		if (result != ERROR_OK)
 			return result;
-		buf_set_u32(buffer + i * 4, 0, 8 * MIN(size, 4), value);
-		log_memory_access(address + i * 4, value, MIN(size, 4), true);
+		buf_set_u32(buffer + i * 4, 0, 8 * MIN(size, 4), sbvalue[i]);
 	}
+	log_memory_access(address, sbvalue, size, true);
 	return ERROR_OK;
 }
 
@@ -2568,18 +2654,18 @@ static int modify_privilege(struct target *target, uint64_t *mstatus, uint64_t *
 	if (riscv_enable_virtual && has_sufficient_progbuf(target, 5)) {
 		/* Read DCSR */
 		uint64_t dcsr;
-		if (register_read(target, &dcsr, GDB_REGNO_DCSR) != ERROR_OK)
+		if (register_read_direct(target, &dcsr, GDB_REGNO_DCSR) != ERROR_OK)
 			return ERROR_FAIL;
 
 		/* Read and save MSTATUS */
-		if (register_read(target, mstatus, GDB_REGNO_MSTATUS) != ERROR_OK)
+		if (register_read_direct(target, mstatus, GDB_REGNO_MSTATUS) != ERROR_OK)
 			return ERROR_FAIL;
 		*mstatus_old = *mstatus;
 
 		/* If we come from m-mode with mprv set, we want to keep mpp */
-		if (get_field(dcsr, DCSR_PRV) < 3) {
+		if (get_field(dcsr, CSR_DCSR_PRV) < 3) {
 			/* MPP = PRIV */
-			*mstatus = set_field(*mstatus, MSTATUS_MPP, get_field(dcsr, DCSR_PRV));
+			*mstatus = set_field(*mstatus, MSTATUS_MPP, get_field(dcsr, CSR_DCSR_PRV));
 
 			/* MPRV = 1 */
 			*mstatus = set_field(*mstatus, MSTATUS_MPRV, 1);
@@ -2721,11 +2807,12 @@ static int read_memory_bus_v1(struct target *target, target_addr_t address,
 		 * to get it. */
 
 		static int sbdata[4] = {DM_SBDATA0, DM_SBDATA1, DM_SBDATA2, DM_SBDATA3};
+		uint32_t sbvalue[4] = {0};
 		assert(size <= 16);
 		target_addr_t next_read = address - 1;
+		int next_read_j = 0;
 		for (uint32_t i = (next_address - address) / size; i < count - 1; i++) {
 			for (int j = (size - 1) / 4; j >= 0; j--) {
-				uint32_t value;
 				unsigned attempt = 0;
 				while (1) {
 					if (attempt++ > 100) {
@@ -2734,7 +2821,7 @@ static int read_memory_bus_v1(struct target *target, target_addr_t address,
 						return ERROR_FAIL;
 					}
 					keep_alive();
-					dmi_status_t status = dmi_scan(target, NULL, &value,
+					dmi_status_t status = dmi_scan(target, NULL, &sbvalue[next_read_j],
 												   DMI_OP_READ, sbdata[j], 0, false);
 					if (status == DMI_STATUS_BUSY)
 						increase_dmi_busy_delay(target);
@@ -2744,16 +2831,19 @@ static int read_memory_bus_v1(struct target *target, target_addr_t address,
 						return ERROR_FAIL;
 				}
 				if (next_read != address - 1) {
-					buf_set_u32(buffer + next_read - address, 0, 8 * MIN(size, 4), value);
-					log_memory_access(next_read, value, MIN(size, 4), true);
+					buf_set_u32(buffer + next_read - address, 0, 8 * MIN(size, 4), sbvalue[next_read_j]);
+					if (next_read_j == 0) {
+						log_memory_access(next_read, sbvalue, size, true);
+						memset(sbvalue, 0, size);
+					}
 				}
-				next_read = address + i * size + j * 4;
+				next_read_j = j;
+				next_read = address + i * size + next_read_j * 4;
 			}
 		}
 
 		uint32_t sbcs_read = 0;
 		if (count > 1) {
-			uint32_t value;
 			unsigned attempt = 0;
 			while (1) {
 				if (attempt++ > 100) {
@@ -2761,7 +2851,7 @@ static int read_memory_bus_v1(struct target *target, target_addr_t address,
 								next_read);
 					return ERROR_FAIL;
 				}
-				dmi_status_t status = dmi_scan(target, NULL, &value, DMI_OP_NOP, 0, 0, false);
+				dmi_status_t status = dmi_scan(target, NULL, &sbvalue[0], DMI_OP_NOP, 0, 0, false);
 				if (status == DMI_STATUS_BUSY)
 					increase_dmi_busy_delay(target);
 				else if (status == DMI_STATUS_SUCCESS)
@@ -2769,8 +2859,8 @@ static int read_memory_bus_v1(struct target *target, target_addr_t address,
 				else
 					return ERROR_FAIL;
 			}
-			buf_set_u32(buffer + next_read - address, 0, 8 * MIN(size, 4), value);
-			log_memory_access(next_read, value, MIN(size, 4), true);
+			buf_set_u32(buffer + next_read - address, 0, 8 * MIN(size, 4), sbvalue[0]);
+			log_memory_access(next_read, sbvalue, size, true);
 
 			/* "Writes to sbcs while sbbusy is high result in undefined behavior.
 			 * A debugger must not write to sbcs until it reads sbbusy as 0." */
@@ -2817,7 +2907,7 @@ static int read_memory_bus_v1(struct target *target, target_addr_t address,
 	return ERROR_OK;
 }
 
-static void log_mem_access_result(struct target *target, bool success, int method, bool read)
+static void log_mem_access_result(struct target *target, bool success, int method, bool is_read)
 {
 	RISCV_INFO(r);
 	bool warn = false;
@@ -2826,7 +2916,7 @@ static void log_mem_access_result(struct target *target, bool success, int metho
 	/* Compose the message */
 	snprintf(msg, 60, "%s to %s memory via %s.",
 			success ? "Succeeded" : "Failed",
-			read ? "read" : "write",
+			is_read ? "read" : "write",
 			(method == RISCV_MEM_ACCESS_PROGBUF) ? "program buffer" :
 			(method == RISCV_MEM_ACCESS_SYSBUS) ? "system bus" : "abstract access");
 
@@ -2853,37 +2943,37 @@ static void log_mem_access_result(struct target *target, bool success, int metho
 }
 
 static bool mem_should_skip_progbuf(struct target *target, target_addr_t address,
-		uint32_t size, bool read, char **skip_reason)
+		uint32_t size, bool is_read, char **skip_reason)
 {
 	assert(skip_reason);
 
 	if (!has_sufficient_progbuf(target, 3)) {
 		LOG_DEBUG("Skipping mem %s via progbuf - insufficient progbuf size.",
-				read ? "read" : "write");
+				is_read ? "read" : "write");
 		*skip_reason = "skipped (insufficient progbuf)";
 		return true;
 	}
 	if (target->state != TARGET_HALTED) {
 		LOG_DEBUG("Skipping mem %s via progbuf - target not halted.",
-				read ? "read" : "write");
+				is_read ? "read" : "write");
 		*skip_reason = "skipped (target not halted)";
 		return true;
 	}
 	if (riscv_xlen(target) < size * 8) {
 		LOG_DEBUG("Skipping mem %s via progbuf - XLEN (%d) is too short for %d-bit memory access.",
-				read ? "read" : "write", riscv_xlen(target), size * 8);
+				is_read ? "read" : "write", riscv_xlen(target), size * 8);
 		*skip_reason = "skipped (XLEN too short)";
 		return true;
 	}
 	if (size > 8) {
 		LOG_DEBUG("Skipping mem %s via progbuf - unsupported size.",
-				read ? "read" : "write");
+				is_read ? "read" : "write");
 		*skip_reason = "skipped (unsupported size)";
 		return true;
 	}
 	if ((sizeof(address) * 8 > riscv_xlen(target)) && (address >> riscv_xlen(target))) {
 		LOG_DEBUG("Skipping mem %s via progbuf - progbuf only supports %u-bit address.",
-				read ? "read" : "write", riscv_xlen(target));
+				is_read ? "read" : "write", riscv_xlen(target));
 		*skip_reason = "skipped (too large address)";
 		return true;
 	}
@@ -2892,25 +2982,25 @@ static bool mem_should_skip_progbuf(struct target *target, target_addr_t address
 }
 
 static bool mem_should_skip_sysbus(struct target *target, target_addr_t address,
-		uint32_t size, uint32_t increment, bool read, char **skip_reason)
+		uint32_t size, uint32_t increment, bool is_read, char **skip_reason)
 {
 	assert(skip_reason);
 
 	RISCV013_INFO(info);
 	if (!sba_supports_access(target, size)) {
 		LOG_DEBUG("Skipping mem %s via system bus - unsupported size.",
-				read ? "read" : "write");
+				is_read ? "read" : "write");
 		*skip_reason = "skipped (unsupported size)";
 		return true;
 	}
 	unsigned int sbasize = get_field(info->sbcs, DM_SBCS_SBASIZE);
 	if ((sizeof(address) * 8 > sbasize) && (address >> sbasize)) {
 		LOG_DEBUG("Skipping mem %s via system bus - sba only supports %u-bit address.",
-				read ? "read" : "write", sbasize);
+				is_read ? "read" : "write", sbasize);
 		*skip_reason = "skipped (too large address)";
 		return true;
 	}
-	if (read && increment != size && (get_field(info->sbcs, DM_SBCS_SBVERSION) == 0 || increment != 0)) {
+	if (is_read && increment != size && (get_field(info->sbcs, DM_SBCS_SBVERSION) == 0 || increment != 0)) {
 		LOG_DEBUG("Skipping mem read via system bus - "
 				"sba reads only support size==increment or also size==0 for sba v1.");
 		*skip_reason = "skipped (unsupported increment)";
@@ -2921,7 +3011,7 @@ static bool mem_should_skip_sysbus(struct target *target, target_addr_t address,
 }
 
 static bool mem_should_skip_abstract(struct target *target, target_addr_t address,
-		uint32_t size, uint32_t increment, bool read, char **skip_reason)
+		uint32_t size, uint32_t increment, bool is_read, char **skip_reason)
 {
 	assert(skip_reason);
 
@@ -2929,17 +3019,17 @@ static bool mem_should_skip_abstract(struct target *target, target_addr_t addres
 		/* TODO: Add 128b support if it's ever used. Involves modifying
 				 read/write_abstract_arg() to work on two 64b values. */
 		LOG_DEBUG("Skipping mem %s via abstract access - unsupported size: %d bits",
-				read ? "read" : "write", size * 8);
+				is_read ? "read" : "write", size * 8);
 		*skip_reason = "skipped (unsupported size)";
 		return true;
 	}
 	if ((sizeof(address) * 8 > riscv_xlen(target)) && (address >> riscv_xlen(target))) {
 		LOG_DEBUG("Skipping mem %s via abstract access - abstract access only supports %u-bit address.",
-				read ? "read" : "write", riscv_xlen(target));
+				is_read ? "read" : "write", riscv_xlen(target));
 		*skip_reason = "skipped (too large address)";
 		return true;
 	}
-	if (read && size != increment) {
+	if (is_read && size != increment) {
 		LOG_ERROR("Skipping mem read via abstract access - "
 				"abstract command reads only support size==increment.");
 		*skip_reason = "skipped (unsupported increment)";
@@ -3124,7 +3214,7 @@ static int read_memory_progbuf_inner(struct target *target, target_addr_t addres
 		return result;
 
 	if (increment == 0 &&
-			register_write_direct(target, GDB_REGNO_S2, 0) != ERROR_OK)
+			register_write_direct(target, GDB_REGNO_A0, 0) != ERROR_OK)
 		return ERROR_FAIL;
 
 	uint32_t command = access_register_command(target, GDB_REGNO_S1,
@@ -3139,7 +3229,7 @@ static int read_memory_progbuf_inner(struct target *target, target_addr_t addres
 		if (register_read_direct(target, &value, GDB_REGNO_S1) != ERROR_OK)
 			return ERROR_FAIL;
 		buf_set_u64(buffer, 0, 8 * size, value);
-		log_memory_access(address, value, size, true);
+		log_memory_access64(address, value, size, true);
 		return ERROR_OK;
 	}
 
@@ -3226,7 +3316,7 @@ static int read_memory_progbuf_inner(struct target *target, target_addr_t addres
 				/* See how far we got, clobbering dmi_data0. */
 				if (increment == 0) {
 					uint64_t counter;
-					result = register_read_direct(target, &counter, GDB_REGNO_S2);
+					result = register_read_direct(target, &counter, GDB_REGNO_A0);
 					next_index = counter;
 				} else {
 					uint64_t next_read_addr;
@@ -3241,7 +3331,7 @@ static int read_memory_progbuf_inner(struct target *target, target_addr_t addres
 
 				uint64_t value64 = (((uint64_t)dmi_data1) << 32) | dmi_data0;
 				buf_set_u64(buffer + (next_index - 2) * size, 0, 8 * size, value64);
-				log_memory_access(address + (next_index - 2) * size, value64, size, true);
+				log_memory_access64(address + (next_index - 2) * size, value64, size, true);
 
 				/* Restore the command, and execute it.
 				 * Now DM_DATA0 contains the next value just as it would if no
@@ -3265,7 +3355,7 @@ static int read_memory_progbuf_inner(struct target *target, target_addr_t addres
 
 		/* Now read whatever we got out of the batch. */
 		dmi_status_t status = DMI_STATUS_SUCCESS;
-		unsigned read = 0;
+		unsigned read_count = 0;
 		assert(index >= 2);
 		for (unsigned j = index - 2; j < index + reads; j++) {
 			assert(j < count);
@@ -3274,9 +3364,9 @@ static int read_memory_progbuf_inner(struct target *target, target_addr_t addres
 			if (j + 3 + ignore_last > next_index)
 				break;
 
-			status = riscv_batch_get_dmi_read_op(batch, read);
-			uint64_t value = riscv_batch_get_dmi_read_data(batch, read);
-			read++;
+			status = riscv_batch_get_dmi_read_op(batch, read_count);
+			uint64_t value = riscv_batch_get_dmi_read_data(batch, read_count);
+			read_count++;
 			if (status != DMI_STATUS_SUCCESS) {
 				/* If we're here because of busy count, dmi_busy_delay will
 				 * already have been increased and busy state will have been
@@ -3293,7 +3383,7 @@ static int read_memory_progbuf_inner(struct target *target, target_addr_t addres
 				goto error;
 			}
 			if (size > 4) {
-				status = riscv_batch_get_dmi_read_op(batch, read);
+				status = riscv_batch_get_dmi_read_op(batch, read_count);
 				if (status != DMI_STATUS_SUCCESS) {
 					LOG_WARNING("Batch memory read encountered DMI error %d. "
 							"Falling back on slower reads.", status);
@@ -3302,12 +3392,12 @@ static int read_memory_progbuf_inner(struct target *target, target_addr_t addres
 					goto error;
 				}
 				value <<= 32;
-				value |= riscv_batch_get_dmi_read_data(batch, read);
-				read++;
+				value |= riscv_batch_get_dmi_read_data(batch, read_count);
+				read_count++;
 			}
 			riscv_addr_t offset = j * size;
 			buf_set_u64(buffer + offset, 0, 8 * size, value);
-			log_memory_access(address + j * increment, value, size, true);
+			log_memory_access64(address + j * increment, value, size, true);
 		}
 
 		index = next_index;
@@ -3326,7 +3416,7 @@ static int read_memory_progbuf_inner(struct target *target, target_addr_t addres
 			return ERROR_FAIL;
 		uint64_t value64 = (((uint64_t)dmi_data1) << 32) | dmi_data0;
 		buf_set_u64(buffer + size * (count - 2), 0, 8 * size, value64);
-		log_memory_access(address + size * (count - 2), value64, size, true);
+		log_memory_access64(address + size * (count - 2), value64, size, true);
 	}
 
 	/* Read the last word. */
@@ -3334,8 +3424,8 @@ static int read_memory_progbuf_inner(struct target *target, target_addr_t addres
 	result = register_read_direct(target, &value, GDB_REGNO_S1);
 	if (result != ERROR_OK)
 		goto error;
-	buf_set_u64(buffer + size * (count-1), 0, 8 * size, value);
-	log_memory_access(address + size * (count-1), value, size, true);
+	buf_set_u64(buffer + size * (count - 1), 0, 8 * size, value);
+	log_memory_access64(address + size * (count - 1), value, size, true);
 
 	return ERROR_OK;
 
@@ -3355,10 +3445,9 @@ static int read_memory_progbuf_one(struct target *target, target_addr_t address,
 	if (modify_privilege(target, &mstatus, &mstatus_old) != ERROR_OK)
 		return ERROR_FAIL;
 
-	uint64_t s0;
 	int result = ERROR_FAIL;
 
-	if (register_read(target, &s0, GDB_REGNO_S0) != ERROR_OK)
+	if (riscv_save_register(target, GDB_REGNO_S0) != ERROR_OK)
 		goto restore_mstatus;
 
 	/* Write the program (load, increment) */
@@ -3398,18 +3487,14 @@ static int read_memory_progbuf_one(struct target *target, target_addr_t address,
 			riscv_xlen(target), AC_ACCESS_REGISTER_WRITE |
 			AC_ACCESS_REGISTER_TRANSFER | AC_ACCESS_REGISTER_POSTEXEC);
 	if (execute_abstract_command(target, command) != ERROR_OK)
-		goto restore_s0;
+		goto restore_mstatus;
 
 	uint64_t value;
-	if (register_read(target, &value, GDB_REGNO_S0) != ERROR_OK)
-		goto restore_s0;
+	if (register_read_direct(target, &value, GDB_REGNO_S0) != ERROR_OK)
+		goto restore_mstatus;
 	buf_set_u64(buffer, 0, 8 * size, value);
-	log_memory_access(address, value, size, true);
+	log_memory_access64(address, value, size, true);
 	result = ERROR_OK;
-
-restore_s0:
-	if (riscv_set_register(target, GDB_REGNO_S0, s0) != ERROR_OK)
-		result = ERROR_FAIL;
 
 restore_mstatus:
 	if (mstatus != mstatus_old)
@@ -3436,6 +3521,9 @@ static int read_memory_progbuf(struct target *target, target_addr_t address,
 	LOG_DEBUG("reading %d words of %d bytes from 0x%" TARGET_PRIxADDR, count,
 			size, address);
 
+	if (dm013_select_target(target) != ERROR_OK)
+		return ERROR_FAIL;
+
 	select_dmi(target);
 
 	memset(buffer, 0, count*size);
@@ -3453,14 +3541,13 @@ static int read_memory_progbuf(struct target *target, target_addr_t address,
 
 	/* s0 holds the next address to read from
 	 * s1 holds the next data value read
-	 * s2 is a counter in case increment is 0
+	 * a0 is a counter in case increment is 0
 	 */
-	uint64_t s0, s1, s2;
-	if (register_read(target, &s0, GDB_REGNO_S0) != ERROR_OK)
+	if (riscv_save_register(target, GDB_REGNO_S0) != ERROR_OK)
 		return ERROR_FAIL;
-	if (register_read(target, &s1, GDB_REGNO_S1) != ERROR_OK)
+	if (riscv_save_register(target, GDB_REGNO_S1) != ERROR_OK)
 		return ERROR_FAIL;
-	if (increment == 0 && register_read(target, &s2, GDB_REGNO_S2) != ERROR_OK)
+	if (increment == 0 && riscv_save_register(target, GDB_REGNO_A0) != ERROR_OK)
 		return ERROR_FAIL;
 
 	/* Write the program (load, increment) */
@@ -3490,7 +3577,7 @@ static int read_memory_progbuf(struct target *target, target_addr_t address,
 	if (riscv_enable_virtual && has_sufficient_progbuf(target, 5) && get_field(mstatus, MSTATUS_MPRV))
 		riscv_program_csrrci(&program, GDB_REGNO_ZERO,  CSR_DCSR_MPRVEN, GDB_REGNO_DCSR);
 	if (increment == 0)
-		riscv_program_addi(&program, GDB_REGNO_S2, GDB_REGNO_S2, 1);
+		riscv_program_addi(&program, GDB_REGNO_A0, GDB_REGNO_A0, 1);
 	else
 		riscv_program_addi(&program, GDB_REGNO_S0, GDB_REGNO_S0, increment);
 
@@ -3524,11 +3611,6 @@ static int read_memory_progbuf(struct target *target, target_addr_t address,
 		}
 		result = ERROR_OK;
 	}
-
-	riscv_set_register(target, GDB_REGNO_S0, s0);
-	riscv_set_register(target, GDB_REGNO_S1, s1);
-	if (increment == 0)
-		riscv_set_register(target, GDB_REGNO_S2, s2);
 
 	/* Restore MSTATUS */
 	if (mstatus != mstatus_old)
@@ -3686,35 +3768,42 @@ static int write_memory_bus_v1(struct target *target, target_addr_t address,
 			if (riscv_batch_available_scans(batch) < (size + 3) / 4)
 				break;
 
-			if (size > 12)
-				riscv_batch_add_dmi_write(batch, DM_SBDATA3,
-						((uint32_t) p[12]) |
+			uint32_t sbvalue[4] = { 0 };
+			if (size > 12) {
+				sbvalue[3] = ((uint32_t) p[12]) |
 						(((uint32_t) p[13]) << 8) |
 						(((uint32_t) p[14]) << 16) |
-						(((uint32_t) p[15]) << 24));
+						(((uint32_t) p[15]) << 24);
+				riscv_batch_add_dmi_write(batch, DM_SBDATA3, sbvalue[3], false);
+			}
 
-			if (size > 8)
-				riscv_batch_add_dmi_write(batch, DM_SBDATA2,
-						((uint32_t) p[8]) |
+			if (size > 8) {
+				sbvalue[2] = ((uint32_t) p[8]) |
 						(((uint32_t) p[9]) << 8) |
 						(((uint32_t) p[10]) << 16) |
-						(((uint32_t) p[11]) << 24));
-			if (size > 4)
-				riscv_batch_add_dmi_write(batch, DM_SBDATA1,
-						((uint32_t) p[4]) |
+						(((uint32_t) p[11]) << 24);
+				riscv_batch_add_dmi_write(batch, DM_SBDATA2, sbvalue[2], false);
+			}
+			if (size > 4) {
+				sbvalue[1] = ((uint32_t) p[4]) |
 						(((uint32_t) p[5]) << 8) |
 						(((uint32_t) p[6]) << 16) |
-						(((uint32_t) p[7]) << 24));
-			uint32_t value = p[0];
+						(((uint32_t) p[7]) << 24);
+				riscv_batch_add_dmi_write(batch, DM_SBDATA1, sbvalue[1], false);
+			}
+
+			sbvalue[0] = p[0];
 			if (size > 2) {
-				value |= ((uint32_t) p[2]) << 16;
-				value |= ((uint32_t) p[3]) << 24;
+				sbvalue[0] |= ((uint32_t) p[2]) << 16;
+				sbvalue[0] |= ((uint32_t) p[3]) << 24;
 			}
 			if (size > 1)
-				value |= ((uint32_t) p[1]) << 8;
-			riscv_batch_add_dmi_write(batch, DM_SBDATA0, value);
+				sbvalue[0] |= ((uint32_t) p[1]) << 8;
 
-			log_memory_access(address + i * size, value, size, false);
+			riscv_batch_add_dmi_write(batch, DM_SBDATA0, sbvalue[0], false);
+
+			log_memory_access(address + i * size, sbvalue, size, false);
+
 			next_address += size;
 		}
 
@@ -3820,10 +3909,9 @@ static int write_memory_progbuf(struct target *target, target_addr_t address,
 	 */
 
 	int result = ERROR_OK;
-	uint64_t s0, s1;
-	if (register_read(target, &s0, GDB_REGNO_S0) != ERROR_OK)
+	if (riscv_save_register(target, GDB_REGNO_S0) != ERROR_OK)
 		return ERROR_FAIL;
-	if (register_read(target, &s1, GDB_REGNO_S1) != ERROR_OK)
+	if (riscv_save_register(target, GDB_REGNO_S1) != ERROR_OK)
 		return ERROR_FAIL;
 
 	/* Write the program (store, increment) */
@@ -3861,10 +3949,10 @@ static int write_memory_progbuf(struct target *target, target_addr_t address,
 	riscv_program_write(&program);
 
 	riscv_addr_t cur_addr = address;
-	riscv_addr_t fin_addr = address + (count * size);
+	riscv_addr_t distance = (riscv_addr_t)count * size;
 	bool setup_needed = true;
-	LOG_DEBUG("writing until final address 0x%016" PRIx64, fin_addr);
-	while (cur_addr < fin_addr) {
+	LOG_DEBUG("writing until final address 0x%016" PRIx64, cur_addr + distance);
+	while (cur_addr - address < distance) {
 		LOG_DEBUG("transferring burst starting at address 0x%016" PRIx64,
 				cur_addr);
 
@@ -3876,14 +3964,12 @@ static int write_memory_progbuf(struct target *target, target_addr_t address,
 			goto error;
 
 		/* To write another word, we put it in S1 and execute the program. */
-		unsigned start = (cur_addr - address) / size;
-		for (unsigned i = start; i < count; ++i) {
-			unsigned offset = size*i;
+		for (riscv_addr_t offset = cur_addr - address; offset < distance; offset += size) {
 			const uint8_t *t_buffer = buffer + offset;
 
 			uint64_t value = buf_get_u64(t_buffer, 0, 8 * size);
 
-			log_memory_access(address + offset, value, size, false);
+			log_memory_access64(cur_addr, value, size, false);
 			cur_addr += size;
 
 			if (setup_needed) {
@@ -3919,8 +4005,8 @@ static int write_memory_progbuf(struct target *target, target_addr_t address,
 				setup_needed = false;
 			} else {
 				if (size > 4)
-					riscv_batch_add_dmi_write(batch, DM_DATA1, value >> 32);
-				riscv_batch_add_dmi_write(batch, DM_DATA0, value);
+					riscv_batch_add_dmi_write(batch, DM_DATA1, value >> 32, false);
+				riscv_batch_add_dmi_write(batch, DM_DATA0, value, false);
 				if (riscv_batch_full(batch))
 					break;
 			}
@@ -3970,11 +4056,6 @@ static int write_memory_progbuf(struct target *target, target_addr_t address,
 
 error:
 	dmi_write(target, DM_ABSTRACTAUTO, 0);
-
-	if (register_write_direct(target, GDB_REGNO_S1, s1) != ERROR_OK)
-		return ERROR_FAIL;
-	if (register_write_direct(target, GDB_REGNO_S0, s0) != ERROR_OK)
-		return ERROR_FAIL;
 
 	/* Restore MSTATUS */
 	if (mstatus != mstatus_old)
@@ -4079,22 +4160,22 @@ static int riscv013_get_register(struct target *target,
 	LOG_DEBUG("[%s] reading register %s", target_name(target),
 			gdb_regno_name(rid));
 
-	if (riscv_select_current_hart(target) != ERROR_OK)
+	if (dm013_select_target(target) != ERROR_OK)
 		return ERROR_FAIL;
 
 	int result = ERROR_OK;
 	if (rid == GDB_REGNO_PC) {
 		/* TODO: move this into riscv.c. */
-		result = register_read(target, value, GDB_REGNO_DPC);
-		LOG_DEBUG("[%d] read PC from DPC: 0x%" PRIx64, target->coreid, *value);
+		result = register_read_direct(target, value, GDB_REGNO_DPC);
+		LOG_TARGET_DEBUG(target, "read PC from DPC: 0x%" PRIx64, *value);
 	} else if (rid == GDB_REGNO_PRIV) {
 		uint64_t dcsr;
 		/* TODO: move this into riscv.c. */
-		result = register_read(target, &dcsr, GDB_REGNO_DCSR);
+		result = register_read_direct(target, &dcsr, GDB_REGNO_DCSR);
 		*value = set_field(0, VIRT_PRIV_V, get_field(dcsr, CSR_DCSR_V));
 		*value = set_field(*value, VIRT_PRIV_PRV, get_field(dcsr, CSR_DCSR_PRV));
 	} else {
-		result = register_read(target, value, rid);
+		result = register_read_direct(target, value, rid);
 		if (result != ERROR_OK)
 			*value = -1;
 	}
@@ -4104,18 +4185,19 @@ static int riscv013_get_register(struct target *target,
 
 static int riscv013_set_register(struct target *target, int rid, uint64_t value)
 {
-	riscv013_select_current_hart(target);
-	LOG_DEBUG("[%d] writing 0x%" PRIx64 " to register %s",
-			target->coreid, value, gdb_regno_name(rid));
+	if (dm013_select_target(target) != ERROR_OK)
+		return ERROR_FAIL;
+	LOG_TARGET_DEBUG(target, "writing 0x%" PRIx64 " to register %s",
+			value, gdb_regno_name(rid));
 
 	if (rid <= GDB_REGNO_XPR31) {
 		return register_write_direct(target, rid, value);
 	} else if (rid == GDB_REGNO_PC) {
-		LOG_DEBUG("[%d] writing PC to DPC: 0x%" PRIx64, target->coreid, value);
+		LOG_TARGET_DEBUG(target, "writing PC to DPC: 0x%" PRIx64, value);
 		register_write_direct(target, GDB_REGNO_DPC, value);
 		uint64_t actual_value;
 		register_read_direct(target, &actual_value, GDB_REGNO_DPC);
-		LOG_DEBUG("[%d]   actual DPC written: 0x%016" PRIx64, target->coreid, actual_value);
+		LOG_TARGET_DEBUG(target, "  actual DPC written: 0x%016" PRIx64, actual_value);
 		if (value != actual_value) {
 			LOG_ERROR("Written PC (0x%" PRIx64 ") does not match read back "
 					"value (0x%" PRIx64 ")", value, actual_value);
@@ -4123,7 +4205,7 @@ static int riscv013_set_register(struct target *target, int rid, uint64_t value)
 		}
 	} else if (rid == GDB_REGNO_PRIV) {
 		uint64_t dcsr;
-		register_read(target, &dcsr, GDB_REGNO_DCSR);
+		register_read_direct(target, &dcsr, GDB_REGNO_DCSR);
 		dcsr = set_field(dcsr, CSR_DCSR_PRV, get_field(value, VIRT_PRIV_PRV));
 		dcsr = set_field(dcsr, CSR_DCSR_V, get_field(value, VIRT_PRIV_V));
 		return register_write_direct(target, GDB_REGNO_DCSR, dcsr);
@@ -4134,37 +4216,36 @@ static int riscv013_set_register(struct target *target, int rid, uint64_t value)
 	return ERROR_OK;
 }
 
-static int riscv013_select_current_hart(struct target *target)
+static int dm013_select_hart(struct target *target, int hart_index)
 {
-	RISCV_INFO(r);
-
 	dm013_info_t *dm = get_dm(target);
 	if (!dm)
 		return ERROR_FAIL;
-	if (r->current_hartid == dm->current_hartid)
+	if (hart_index == dm->current_hartid)
 		return ERROR_OK;
 
-	uint32_t dmcontrol;
-	/* TODO: can't we just "dmcontrol = DMI_DMACTIVE"? */
-	if (dmi_read(target, &dmcontrol, DM_DMCONTROL) != ERROR_OK)
+	uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE;
+	dmcontrol = set_dmcontrol_hartsel(dmcontrol, hart_index);
+	if (dmi_write(target, DM_DMCONTROL, dmcontrol) != ERROR_OK) {
+		/* Who knows what the state is? */
+		dm->current_hartid = HART_INDEX_UNKNOWN;
 		return ERROR_FAIL;
-	dmcontrol = set_hartsel(dmcontrol, r->current_hartid);
-	int result = dmi_write(target, DM_DMCONTROL, dmcontrol);
-	dm->current_hartid = r->current_hartid;
-	return result;
+	}
+	dm->current_hartid = hart_index;
+	return ERROR_OK;
 }
 
 /* Select all harts that were prepped and that are selectable, clearing the
  * prepped flag on the harts that actually were selected. */
-static int select_prepped_harts(struct target *target, bool *use_hasel)
+static int select_prepped_harts(struct target *target)
 {
+	RISCV_INFO(r);
 	dm013_info_t *dm = get_dm(target);
 	if (!dm)
 		return ERROR_FAIL;
 	if (!dm->hasel_supported) {
-		RISCV_INFO(r);
 		r->prepped = false;
-		*use_hasel = false;
+		dm013_select_target(target);
 		return ERROR_OK;
 	}
 
@@ -4176,26 +4257,32 @@ static int select_prepped_harts(struct target *target, bool *use_hasel)
 
 	target_list_t *entry;
 	unsigned total_selected = 0;
+	unsigned int selected_index = 0;
 	list_for_each_entry(entry, &dm->target_list, list) {
 		struct target *t = entry->target;
-		struct riscv_info *r = riscv_info(t);
-		riscv013_info_t *info = get_info(t);
-		unsigned index = info->index;
-		LOG_DEBUG("index=%d, coreid=%d, prepped=%d", index, t->coreid, r->prepped);
-		r->selected = r->prepped;
-		if (r->prepped) {
+		struct riscv_info *info = riscv_info(t);
+		riscv013_info_t *info_013 = get_info(t);
+		unsigned index = info_013->index;
+		LOG_DEBUG("index=%d, coreid=%d, prepped=%d", index, t->coreid, info->prepped);
+		if (info->prepped) {
+			info_013->selected = true;
 			hawindow[index / 32] |= 1 << (index % 32);
-			r->prepped = false;
+			info->prepped = false;
 			total_selected++;
+			selected_index = index;
 		}
-		index++;
 	}
 
-	/* Don't use hasel if we only need to talk to one hart. */
-	if (total_selected <= 1) {
-		*use_hasel = false;
-		return ERROR_OK;
+	if (total_selected == 0) {
+		LOG_TARGET_ERROR(target, "No harts were prepped!");
+		return ERROR_FAIL;
+	} else if (total_selected == 1) {
+		/* Don't use hasel if we only need to talk to one hart. */
+		return dm013_select_hart(target, selected_index);
 	}
+
+	if (dm013_select_hart(target, HART_INDEX_MULTIPLE) != ERROR_OK)
+		return ERROR_FAIL;
 
 	for (unsigned i = 0; i < hawindow_count; i++) {
 		if (dmi_write(target, DM_HAWINDOWSEL, i) != ERROR_OK)
@@ -4204,7 +4291,6 @@ static int select_prepped_harts(struct target *target, bool *use_hasel)
 			return ERROR_FAIL;
 	}
 
-	*use_hasel = true;
 	return ERROR_OK;
 }
 
@@ -4215,68 +4301,100 @@ static int riscv013_halt_prep(struct target *target)
 
 static int riscv013_halt_go(struct target *target)
 {
-	bool use_hasel = false;
-	if (select_prepped_harts(target, &use_hasel) != ERROR_OK)
+	dm013_info_t *dm = get_dm(target);
+	if (!dm)
 		return ERROR_FAIL;
 
-	RISCV_INFO(r);
-	LOG_DEBUG("halting hart %d", r->current_hartid);
+	if (select_prepped_harts(target) != ERROR_OK)
+		return ERROR_FAIL;
+
+	LOG_TARGET_DEBUG(target, "halting hart");
 
 	/* Issue the halt command, and then wait for the current hart to halt. */
 	uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE | DM_DMCONTROL_HALTREQ;
-	if (use_hasel)
-		dmcontrol |= DM_DMCONTROL_HASEL;
-	dmcontrol = set_hartsel(dmcontrol, r->current_hartid);
+	dmcontrol = set_dmcontrol_hartsel(dmcontrol, dm->current_hartid);
 	dmi_write(target, DM_DMCONTROL, dmcontrol);
-	for (size_t i = 0; i < 256; ++i)
-		if (riscv_is_halted(target))
-			break;
-
-	if (!riscv_is_halted(target)) {
-		uint32_t dmstatus;
+	uint32_t dmstatus;
+	for (size_t i = 0; i < 256; ++i) {
 		if (dmstatus_read(target, &dmstatus, true) != ERROR_OK)
 			return ERROR_FAIL;
+		/* When no harts are running, there's no point in continuing this loop. */
+		if (!get_field(dmstatus, DM_DMSTATUS_ANYRUNNING))
+			break;
+	}
+
+	/* We declare success if no harts are running. One or more of them may be
+	 * unavailable, though. */
+
+	if ((get_field(dmstatus, DM_DMSTATUS_ANYRUNNING))) {
 		if (dmi_read(target, &dmcontrol, DM_DMCONTROL) != ERROR_OK)
 			return ERROR_FAIL;
 
-		LOG_ERROR("unable to halt hart %d", r->current_hartid);
-		LOG_ERROR("  dmcontrol=0x%08x", dmcontrol);
-		LOG_ERROR("  dmstatus =0x%08x", dmstatus);
+		LOG_TARGET_ERROR(target, "Unable to halt. dmcontrol=0x%08x, dmstatus=0x%08x",
+				  dmcontrol, dmstatus);
 		return ERROR_FAIL;
 	}
 
 	dmcontrol = set_field(dmcontrol, DM_DMCONTROL_HALTREQ, 0);
 	dmi_write(target, DM_DMCONTROL, dmcontrol);
 
-	if (use_hasel) {
+	if (dm->current_hartid == HART_INDEX_MULTIPLE) {
 		target_list_t *entry;
-		dm013_info_t *dm = get_dm(target);
-		if (!dm)
-			return ERROR_FAIL;
 		list_for_each_entry(entry, &dm->target_list, list) {
 			struct target *t = entry->target;
-			t->state = TARGET_HALTED;
-			if (t->debug_reason == DBG_REASON_NOTHALTED)
-				t->debug_reason = DBG_REASON_DBGRQ;
+			uint32_t t_dmstatus;
+			if (get_field(dmstatus, DM_DMSTATUS_ALLHALTED) ||
+					get_field(dmstatus, DM_DMSTATUS_ALLUNAVAIL)) {
+				/* All harts are either halted or unavailable. No
+				 * need to read dmstatus for each hart. */
+				t_dmstatus = dmstatus;
+			} else {
+				/* Only some harts were halted/unavailable. Read
+				 * dmstatus for this one to see what its status
+				 * is. */
+				riscv013_info_t *info = get_info(t);
+				dmcontrol = set_dmcontrol_hartsel(dmcontrol, info->index);
+				if (dmi_write(target, DM_DMCONTROL, dmcontrol) != ERROR_OK)
+					return ERROR_FAIL;
+				dm->current_hartid = info->index;
+				if (dmi_read(target, &t_dmstatus, DM_DMSTATUS) != ERROR_OK)
+					return ERROR_FAIL;
+			}
+			/* Set state for the current target based on its dmstatus. */
+			if (get_field(t_dmstatus, DM_DMSTATUS_ALLHALTED)) {
+				t->state = TARGET_HALTED;
+				if (t->debug_reason == DBG_REASON_NOTHALTED)
+					t->debug_reason = DBG_REASON_DBGRQ;
+			} else if (get_field(t_dmstatus, DM_DMSTATUS_ALLUNAVAIL)) {
+				t->state = TARGET_UNAVAILABLE;
+			}
+		}
+
+	} else {
+		/* Set state for the current target based on its dmstatus. */
+		if (get_field(dmstatus, DM_DMSTATUS_ALLHALTED)) {
+			target->state = TARGET_HALTED;
+			if (target->debug_reason == DBG_REASON_NOTHALTED)
+				target->debug_reason = DBG_REASON_DBGRQ;
+		} else if (get_field(dmstatus, DM_DMSTATUS_ALLUNAVAIL)) {
+			target->state = TARGET_UNAVAILABLE;
 		}
 	}
-	/* The "else" case is handled in halt_go(). */
 
 	return ERROR_OK;
 }
 
 static int riscv013_resume_go(struct target *target)
 {
-	bool use_hasel = false;
-	if (select_prepped_harts(target, &use_hasel) != ERROR_OK)
+	if (select_prepped_harts(target) != ERROR_OK)
 		return ERROR_FAIL;
 
-	return riscv013_step_or_resume_current_hart(target, false, use_hasel);
+	return riscv013_step_or_resume_current_hart(target, false);
 }
 
 static int riscv013_step_current_hart(struct target *target)
 {
-	return riscv013_step_or_resume_current_hart(target, true, false);
+	return riscv013_step_or_resume_current_hart(target, true);
 }
 
 static int riscv013_resume_prep(struct target *target)
@@ -4294,53 +4412,18 @@ static int riscv013_on_halt(struct target *target)
 	return ERROR_OK;
 }
 
-static bool riscv013_is_halted(struct target *target)
-{
-	uint32_t dmstatus;
-
-	if (dmstatus_read(target, &dmstatus, true) != ERROR_OK)
-		return false;
-	if (get_field(dmstatus, DM_DMSTATUS_ANYUNAVAIL))
-		LOG_ERROR("Hart %d is unavailable.", riscv_current_hartid(target));
-	if (get_field(dmstatus, DM_DMSTATUS_ANYNONEXISTENT))
-		LOG_ERROR("Hart %d doesn't exist.", riscv_current_hartid(target));
-	if (get_field(dmstatus, DM_DMSTATUS_ANYHAVERESET)) {
-		int hartid = riscv_current_hartid(target);
-		if (target->state != TARGET_RESET) {
-			/* warn for "unexpected" reset when it is not requested by user */
-			LOG_INFO("Hart %d unexpectedly reset!", hartid);
-		}
-		/* TODO: Can we make this more obvious to eg. a gdb user? */
-		uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE |
-			DM_DMCONTROL_ACKHAVERESET;
-		dmcontrol = set_hartsel(dmcontrol, hartid);
-		/* If we had been halted when we reset, request another halt. If we
-		 * ended up running out of reset, then the user will (hopefully) get a
-		 * message that a reset happened, that the target is running, and then
-		 * that it is halted again once the request goes through.
-		 */
-		if (target->state == TARGET_HALTED)
-			dmcontrol |= DM_DMCONTROL_HALTREQ;
-		dmi_write(target, DM_DMCONTROL, dmcontrol);
-		RISCV_INFO(r);
-		if (r->on_reset)
-			r->on_reset(target);
-	}
-	return get_field(dmstatus, DM_DMSTATUS_ALLHALTED);
-}
-
 static enum riscv_halt_reason riscv013_halt_reason(struct target *target)
 {
 	riscv_reg_t dcsr;
-	int result = register_read(target, &dcsr, GDB_REGNO_DCSR);
+	int result = register_read_direct(target, &dcsr, GDB_REGNO_DCSR);
 	if (result != ERROR_OK)
 		return RISCV_HALT_UNKNOWN;
 
-	LOG_DEBUG("dcsr.cause: 0x%" PRIx64, get_field(dcsr, CSR_DCSR_CAUSE));
+	LOG_TARGET_DEBUG(target, "dcsr.cause: 0x%" PRIx64, get_field(dcsr, CSR_DCSR_CAUSE));
 
 	switch (get_field(dcsr, CSR_DCSR_CAUSE)) {
-	case CSR_DCSR_CAUSE_SWBP:
-		return RISCV_HALT_BREAKPOINT;
+	case CSR_DCSR_CAUSE_EBREAK:
+		return RISCV_HALT_EBREAK;
 	case CSR_DCSR_CAUSE_TRIGGER:
 		/* We could get here before triggers are enumerated if a trigger was
 		 * already set when we connected. Force enumeration now, which has the
@@ -4350,15 +4433,15 @@ static enum riscv_halt_reason riscv013_halt_reason(struct target *target)
 		return RISCV_HALT_TRIGGER;
 	case CSR_DCSR_CAUSE_STEP:
 		return RISCV_HALT_SINGLESTEP;
-	case CSR_DCSR_CAUSE_DEBUGINT:
-	case CSR_DCSR_CAUSE_HALT:
+	case CSR_DCSR_CAUSE_HALTREQ:
+	case CSR_DCSR_CAUSE_RESETHALTREQ:
 		return RISCV_HALT_INTERRUPT;
 	case CSR_DCSR_CAUSE_GROUP:
 		return RISCV_HALT_GROUP;
 	}
 
 	LOG_ERROR("Unknown DCSR cause field: 0x%" PRIx64, get_field(dcsr, CSR_DCSR_CAUSE));
-	LOG_ERROR("  dcsr=0x%016lx", (long)dcsr);
+	LOG_ERROR("  dcsr=0x%" PRIx32, (uint32_t) dcsr);
 	return RISCV_HALT_UNKNOWN;
 }
 
@@ -4382,6 +4465,20 @@ riscv_insn_t riscv013_read_debug_buffer(struct target *target, unsigned index)
 	uint32_t value;
 	dmi_read(target, &value, DM_PROGBUF0 + index);
 	return value;
+}
+
+int riscv013_invalidate_cached_debug_buffer(struct target *target)
+{
+	dm013_info_t *dm = get_dm(target);
+	if (!dm) {
+		LOG_TARGET_DEBUG(target, "No DM is specified for the target");
+		return ERROR_FAIL;
+	}
+
+	LOG_TARGET_DEBUG(target, "Invalidating progbuf cache");
+	for (unsigned int i = 0; i < 15; i++)
+		dm->progbuf_cache[i] = 0;
+	return ERROR_OK;
 }
 
 int riscv013_execute_debug_buffer(struct target *target)
@@ -4440,40 +4537,48 @@ static int riscv013_on_step_or_resume(struct target *target, bool step)
 
 	/* We want to twiddle some bits in the debug CSR so debugging works. */
 	riscv_reg_t dcsr;
-	int result = register_read(target, &dcsr, GDB_REGNO_DCSR);
+	int result = register_read_direct(target, &dcsr, GDB_REGNO_DCSR);
 	if (result != ERROR_OK)
 		return result;
 	dcsr = set_field(dcsr, CSR_DCSR_STEP, step);
 	dcsr = set_field(dcsr, CSR_DCSR_EBREAKM, riscv_ebreakm);
 	dcsr = set_field(dcsr, CSR_DCSR_EBREAKS, riscv_ebreaks);
 	dcsr = set_field(dcsr, CSR_DCSR_EBREAKU, riscv_ebreaku);
-	return riscv_set_register(target, GDB_REGNO_DCSR, dcsr);
+	dcsr = set_field(dcsr, CSR_DCSR_EBREAKVS, riscv_ebreaku);
+	dcsr = set_field(dcsr, CSR_DCSR_EBREAKVU, riscv_ebreaku);
+	if (riscv_set_register(target, GDB_REGNO_DCSR, dcsr) != ERROR_OK)
+		return ERROR_FAIL;
+	if (riscv_flush_registers(target) != ERROR_OK)
+		return ERROR_FAIL;
+	return ERROR_OK;
 }
 
 static int riscv013_step_or_resume_current_hart(struct target *target,
-		bool step, bool use_hasel)
+		bool step)
 {
-	RISCV_INFO(r);
-	LOG_DEBUG("resuming hart %d (for step?=%d)", r->current_hartid, step);
-	if (!riscv_is_halted(target)) {
-		LOG_ERROR("Hart %d is not halted!", r->current_hartid);
+	if (target->state != TARGET_HALTED) {
+		LOG_TARGET_ERROR(target, "Hart is not halted!");
 		return ERROR_FAIL;
 	}
+	LOG_TARGET_DEBUG(target, "resuming (for step?=%d)", step);
 
+	if (riscv_flush_registers(target) != ERROR_OK)
+		return ERROR_FAIL;
+
+	dm013_info_t *dm = get_dm(target);
 	/* Issue the resume command, and then wait for the current hart to resume. */
 	uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE | DM_DMCONTROL_RESUMEREQ;
-	if (use_hasel)
-		dmcontrol |= DM_DMCONTROL_HASEL;
-	dmcontrol = set_hartsel(dmcontrol, r->current_hartid);
+	dmcontrol = set_dmcontrol_hartsel(dmcontrol, dm->current_hartid);
 	dmi_write(target, DM_DMCONTROL, dmcontrol);
 
-	dmcontrol = set_field(dmcontrol, DM_DMCONTROL_HASEL, 0);
 	dmcontrol = set_field(dmcontrol, DM_DMCONTROL_RESUMEREQ, 0);
 
 	uint32_t dmstatus;
 	for (size_t i = 0; i < 256; ++i) {
 		usleep(10);
 		if (dmstatus_read(target, &dmstatus, true) != ERROR_OK)
+			return ERROR_FAIL;
+		if (get_field(dmstatus, DM_DMSTATUS_ALLUNAVAIL))
 			return ERROR_FAIL;
 		if (get_field(dmstatus, DM_DMSTATUS_ALLRESUMEACK) == 0)
 			continue;
@@ -4486,10 +4591,10 @@ static int riscv013_step_or_resume_current_hart(struct target *target,
 
 	dmi_write(target, DM_DMCONTROL, dmcontrol);
 
-	LOG_ERROR("unable to resume hart %d", r->current_hartid);
+	LOG_TARGET_ERROR(target, "unable to resume");
 	if (dmstatus_read(target, &dmstatus, true) != ERROR_OK)
 		return ERROR_FAIL;
-	LOG_ERROR("  dmstatus =0x%08x", dmstatus);
+	LOG_TARGET_ERROR(target, "  dmstatus=0x%08x", dmstatus);
 
 	if (step) {
 		LOG_ERROR("  was stepping, halting");

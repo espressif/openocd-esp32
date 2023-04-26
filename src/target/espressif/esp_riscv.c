@@ -505,10 +505,6 @@ int esp_riscv_wait_algorithm(struct target *target,
 			return result;
 	}
 
-	/* The current hart id might have been changed in poll(). */
-	if (riscv_select_current_hart(target) != ERROR_OK)
-		return ERROR_FAIL;
-
 	struct reg *reg_pc = register_get_by_name(target->reg_cache, "pc", true);
 	if (reg_pc->type->get(reg_pc) != ERROR_OK)
 		return ERROR_FAIL;
@@ -562,6 +558,8 @@ int esp_riscv_wait_algorithm(struct target *target,
 			return ERROR_FAIL;
 		}
 	}
+	if (riscv_flush_registers(target) != ERROR_OK)
+		return ERROR_FAIL;
 	return ERROR_OK;
 }
 

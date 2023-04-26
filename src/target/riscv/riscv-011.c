@@ -67,6 +67,8 @@
  * to the target. Afterwards use cache_get... to read results.
  */
 
+static int handle_halt(struct target *target, bool announce);
+
 #define get_field(reg, mask) (((reg) & (mask)) / ((mask) & ~((mask) << 1)))
 #define set_field(reg, mask, val) (((reg) & ~(mask)) | (((val) * ((mask) & ~((mask) << 1))) & (mask)))
 
@@ -160,15 +162,6 @@ typedef enum slot {
 #define DBUS_ADDRESS_UNKNOWN	0xffff
 
 #define DRAM_CACHE_SIZE		16
-
-struct trigger {
-	uint64_t address;
-	uint32_t length;
-	uint64_t mask;
-	uint64_t value;
-	bool read, write, execute;
-	int unique_id;
-};
 
 struct memory_cache_line {
 	uint32_t data;
@@ -1113,6 +1106,9 @@ static int execute_resume(struct target *target, bool step)
 
 	LOG_DEBUG("step=%d", step);
 
+	if (riscv_flush_registers(target) != ERROR_OK)
+		return ERROR_FAIL;
+
 	maybe_write_tselect(target);
 
 	/* TODO: check if dpc is dirty (which also is true if an exception was hit
@@ -1189,17 +1185,7 @@ static int full_step(struct target *target, bool announce)
 			return ERROR_FAIL;
 		}
 	}
-	return ERROR_OK;
-}
-
-static int resume(struct target *target, int debug_execution, bool step)
-{
-	if (debug_execution) {
-		LOG_ERROR("TODO: debug_execution is true");
-		return ERROR_FAIL;
-	}
-
-	return execute_resume(target, step);
+	return handle_halt(target, announce);
 }
 
 static uint64_t reg_cache_get(struct target *target, unsigned int number)
@@ -1590,7 +1576,6 @@ static int examine(struct target *target)
 		return result;
 
 	target_set_examined(target);
-	riscv_set_current_hartid(target, 0);
 	for (size_t i = 0; i < 32; ++i)
 		reg_cache_set(target, i, -1);
 	LOG_INFO("Examined RISCV core; XLEN=%d, misa=0x%" PRIx64,
@@ -1936,7 +1921,7 @@ static int riscv011_resume(struct target *target, int current,
 	jtag_add_ir_scan(target->tap, &select_dbus, TAP_IDLE);
 
 	r->prepped = false;
-	return resume(target, debug_execution, false);
+	return execute_resume(target, false);
 }
 
 static int assert_reset(struct target *target)
