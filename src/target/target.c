@@ -3441,14 +3441,14 @@ COMMAND_HANDLER(handle_step_command)
 }
 
 void target_handle_md_output(struct command_invocation *cmd,
-		struct target *target, target_addr_t address, unsigned size,
-		unsigned count, const uint8_t *buffer, bool include_address)
+		struct target *target, target_addr_t address, unsigned int size,
+		unsigned int count, const uint8_t *buffer, bool include_address)
 {
 	const unsigned line_bytecnt = 32;
-	unsigned line_modulo = line_bytecnt / size;
+	unsigned int line_modulo = line_bytecnt / size;
 
 	char output[line_bytecnt * 4 + 1];
-	unsigned output_len = 0;
+	unsigned int output_len = 0;
 
 	const char *value_fmt;
 	switch (size) {
@@ -3470,7 +3470,7 @@ void target_handle_md_output(struct command_invocation *cmd,
 		return;
 	}
 
-	for (unsigned i = 0; i < count; i++) {
+	for (unsigned int i = 0; i < count; i++) {
 		if (include_address && (i % line_modulo == 0)) {
 			output_len += snprintf(output + output_len,
 					sizeof(output) - output_len,

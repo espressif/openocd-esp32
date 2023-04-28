@@ -988,7 +988,7 @@ static uint32_t abstract_memory_size(unsigned width)
  * Creates a memory access abstract command.
  */
 static uint32_t access_memory_command(struct target *target, bool virtual,
-		unsigned width, bool postincrement, bool is_write)
+		unsigned int width, bool postincrement, bool is_write)
 {
 	uint32_t command = set_field(0, AC_ACCESS_MEMORY_CMDTYPE, 2);
 	command = set_field(command, AC_ACCESS_MEMORY_AAMVIRTUAL, virtual);
@@ -1516,7 +1516,7 @@ typedef enum {
 	HALTGROUP,
 	RESUMEGROUP
 } grouptype_t;
-static int set_group(struct target *target, bool *supported, unsigned group, grouptype_t grouptype)
+static int set_group(struct target *target, bool *supported, unsigned int group, grouptype_t grouptype)
 {
 	uint32_t write_val = DM_DMCS2_HGWRITE;
 	assert(group <= 31);
@@ -1696,8 +1696,8 @@ static int examine(struct target *target)
 	if (!halted) {
 		r->prepped = true;
 		if (riscv013_halt_go(target) != ERROR_OK) {
-			LOG_TARGET_ERROR(target, "Fatal: Hart %d failed to halt during examine()",
-					info->index);
+			LOG_TARGET_ERROR(target, "Fatal: Hart %d failed to halt during %s",
+					info->index, __func__);
 			return ERROR_FAIL;
 		}
 	}
@@ -1923,7 +1923,7 @@ static COMMAND_HELPER(riscv013_print_info, struct target *target)
 }
 
 static int prep_for_vector_access(struct target *target, uint64_t *saved_vtype,
-		uint64_t *saved_vl, unsigned *debug_vl, unsigned *debug_vsew)
+		uint64_t *saved_vl, unsigned int *debug_vl, unsigned int *debug_vsew)
 {
 	RISCV_INFO(r);
 	/* TODO: this continuous save/restore is terrible for performance. */
@@ -3355,7 +3355,7 @@ static int read_memory_progbuf_inner(struct target *target, target_addr_t addres
 
 		/* Now read whatever we got out of the batch. */
 		dmi_status_t status = DMI_STATUS_SUCCESS;
-		unsigned read_count = 0;
+		unsigned int read_count = 0;
 		assert(index >= 2);
 		for (unsigned j = index - 2; j < index + reads; j++) {
 			assert(j < count);
@@ -3770,35 +3770,35 @@ static int write_memory_bus_v1(struct target *target, target_addr_t address,
 
 			uint32_t sbvalue[4] = { 0 };
 			if (size > 12) {
-				sbvalue[3] = ((uint32_t) p[12]) |
-						(((uint32_t) p[13]) << 8) |
-						(((uint32_t) p[14]) << 16) |
-						(((uint32_t) p[15]) << 24);
+				sbvalue[3] = ((uint32_t)p[12]) |
+						(((uint32_t)p[13]) << 8) |
+						(((uint32_t)p[14]) << 16) |
+						(((uint32_t)p[15]) << 24);
 				riscv_batch_add_dmi_write(batch, DM_SBDATA3, sbvalue[3], false);
 			}
 
 			if (size > 8) {
-				sbvalue[2] = ((uint32_t) p[8]) |
-						(((uint32_t) p[9]) << 8) |
-						(((uint32_t) p[10]) << 16) |
-						(((uint32_t) p[11]) << 24);
+				sbvalue[2] = ((uint32_t)p[8]) |
+						(((uint32_t)p[9]) << 8) |
+						(((uint32_t)p[10]) << 16) |
+						(((uint32_t)p[11]) << 24);
 				riscv_batch_add_dmi_write(batch, DM_SBDATA2, sbvalue[2], false);
 			}
 			if (size > 4) {
-				sbvalue[1] = ((uint32_t) p[4]) |
-						(((uint32_t) p[5]) << 8) |
-						(((uint32_t) p[6]) << 16) |
-						(((uint32_t) p[7]) << 24);
+				sbvalue[1] = ((uint32_t)p[4]) |
+						(((uint32_t)p[5]) << 8) |
+						(((uint32_t)p[6]) << 16) |
+						(((uint32_t)p[7]) << 24);
 				riscv_batch_add_dmi_write(batch, DM_SBDATA1, sbvalue[1], false);
 			}
 
 			sbvalue[0] = p[0];
 			if (size > 2) {
-				sbvalue[0] |= ((uint32_t) p[2]) << 16;
-				sbvalue[0] |= ((uint32_t) p[3]) << 24;
+				sbvalue[0] |= ((uint32_t)p[2]) << 16;
+				sbvalue[0] |= ((uint32_t)p[3]) << 24;
 			}
 			if (size > 1)
-				sbvalue[0] |= ((uint32_t) p[1]) << 8;
+				sbvalue[0] |= ((uint32_t)p[1]) << 8;
 
 			riscv_batch_add_dmi_write(batch, DM_SBDATA0, sbvalue[0], false);
 
@@ -4262,7 +4262,7 @@ static int select_prepped_harts(struct target *target)
 		struct target *t = entry->target;
 		struct riscv_info *info = riscv_info(t);
 		riscv013_info_t *info_013 = get_info(t);
-		unsigned index = info_013->index;
+		unsigned int index = info_013->index;
 		LOG_DEBUG("index=%d, coreid=%d, prepped=%d", index, t->coreid, info->prepped);
 		if (info->prepped) {
 			info_013->selected = true;
@@ -4441,7 +4441,7 @@ static enum riscv_halt_reason riscv013_halt_reason(struct target *target)
 	}
 
 	LOG_ERROR("Unknown DCSR cause field: 0x%" PRIx64, get_field(dcsr, CSR_DCSR_CAUSE));
-	LOG_ERROR("  dcsr=0x%" PRIx32, (uint32_t) dcsr);
+	LOG_ERROR("  dcsr=0x%" PRIx32, (uint32_t)dcsr);
 	return RISCV_HALT_UNKNOWN;
 }
 
