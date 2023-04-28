@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 /*
  * Base64 encoding/decoding (RFC1341)
  * Copyright (c) 2005-2011, Jouni Malinen <j@w1.fi>
@@ -42,7 +44,7 @@ unsigned char *base64_encode(const unsigned char *src, size_t len,
 	if (olen < len)
 		return NULL; /* integer overflow */
 	out = malloc(olen);
-	if (out == NULL)
+	if (!out)
 		return NULL;
 
 	end = src + len;
@@ -105,7 +107,7 @@ unsigned char *base64_decode(const unsigned char *src, size_t len,
 
 	memset(dtable, 0x80, 256);
 	for (i = 0; i < sizeof(base64_table) - 1; i++)
-		dtable[base64_table[i]] = (unsigned char) i;
+		dtable[base64_table[i]] = (unsigned char)i;
 	dtable['='] = 0;
 
 	count = 0;
@@ -118,10 +120,10 @@ unsigned char *base64_decode(const unsigned char *src, size_t len,
 		return NULL;
 
 	olen = count / 4 * 3;
-	pos = out = malloc(olen);
-	if (out == NULL)
+	out = malloc(olen);
+	if (!out)
 		return NULL;
-
+	pos = out;
 	count = 0;
 	for (i = 0; i < len; i++) {
 		tmp = dtable[src[i]];
@@ -138,11 +140,11 @@ unsigned char *base64_decode(const unsigned char *src, size_t len,
 			*pos++ = (block[2] << 6) | block[3];
 			count = 0;
 			if (pad) {
-				if (pad == 1)
+				if (pad == 1) {
 					pos--;
-				else if (pad == 2)
+				} else if (pad == 2) {
 					pos -= 2;
-				else {
+				} else {
 					/* Invalid padding */
 					free(out);
 					return NULL;
