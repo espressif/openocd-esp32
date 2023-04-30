@@ -126,7 +126,7 @@ static const struct command_registration esp32s2_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-struct flash_driver esp32s2_flash = {
+const struct flash_driver esp32s2_flash = {
 	.name = "esp32s2",
 	.commands = esp32s2_command_handlers,
 	.flash_bank_command = esp32s2_flash_bank_command,
