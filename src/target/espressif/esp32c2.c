@@ -118,8 +118,6 @@ static const char *esp32c2_get_reset_reason(enum esp32c2_reset_reason reset_numb
 	return "Unknown reset cause";
 }
 
-extern struct target_type riscv_target;
-
 static int esp32c2_on_reset(struct target *target);
 
 static int esp32c2_wdt_disable(struct target *target)
