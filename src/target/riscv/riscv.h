@@ -408,11 +408,30 @@ int riscv_dmi_write_u64_bits(struct target *target);
 
 int riscv_enumerate_triggers(struct target *target);
 
+int riscv_assert_reset(struct target *target);
+int riscv_deassert_reset(struct target *target);
+int riscv_checksum_memory(struct target *target,
+		target_addr_t address, uint32_t count,
+		uint32_t *checksum);
+int riscv_target_resume(struct target *target, int current, target_addr_t address,
+		int handle_breakpoints, int debug_execution);
+int riscv_get_gdb_reg_list_noread(struct target *target,
+		struct reg **reg_list[], int *reg_list_size,
+		enum target_register_class reg_class);
+int riscv_get_gdb_reg_list(struct target *target,
+		struct reg **reg_list[], int *reg_list_size,
+		enum target_register_class reg_class);
+int riscv_arch_state(struct target *target);
+const char *riscv_get_gdb_arch(struct target *target);
+
 int riscv_add_breakpoint(struct target *target, struct breakpoint *breakpoint);
 int riscv_remove_breakpoint(struct target *target, struct breakpoint *breakpoint);
 int riscv_add_watchpoint(struct target *target, struct watchpoint *watchpoint);
 int riscv_remove_watchpoint(struct target *target,
 		struct watchpoint *watchpoint);
+int riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint);
+
+unsigned int riscv_xlen_nonconst(struct target *target);
 
 int riscv_init_registers(struct target *target);
 

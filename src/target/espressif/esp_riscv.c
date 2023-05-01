@@ -647,100 +647,12 @@ int esp_riscv_write_memory(struct target *target, target_addr_t address,
 	return riscv_target.write_memory(target, address, size, count, buffer);
 }
 
-int esp_riscv_poll(struct target *target)
-{
-	return riscv_target.poll(target);
-}
-
-int esp_riscv_halt(struct target *target)
-{
-	return riscv_target.halt(target);
-}
-
-int esp_riscv_resume(struct target *target, int current, target_addr_t address,
-	int handle_breakpoints, int debug_execution)
-{
-	return riscv_target.resume(target, current, address, handle_breakpoints, debug_execution);
-}
-
-int esp_riscv_step(
-	struct target *target,
-	int current,
-	target_addr_t address,
-	int handle_breakpoints)
-{
-	return riscv_target.step(target, current, address, handle_breakpoints);
-}
-
-int esp_riscv_assert_reset(struct target *target)
-{
-	return riscv_target.assert_reset(target);
-}
-
-int esp_riscv_deassert_reset(struct target *target)
-{
-	return riscv_target.deassert_reset(target);
-}
-
-int esp_riscv_checksum_memory(struct target *target,
-	target_addr_t address, uint32_t count,
-	uint32_t *checksum)
-{
-	return riscv_target.checksum_memory(target, address, count, checksum);
-}
-
-int esp_riscv_get_gdb_reg_list_noread(struct target *target,
-	struct reg **reg_list[], int *reg_list_size,
-	enum target_register_class reg_class)
-{
-	return riscv_target.get_gdb_reg_list_noread(target, reg_list, reg_list_size, reg_class);
-}
-
-int esp_riscv_get_gdb_reg_list(struct target *target,
-	struct reg **reg_list[], int *reg_list_size,
-	enum target_register_class reg_class)
-{
-	return riscv_target.get_gdb_reg_list(target, reg_list, reg_list_size, reg_class);
-}
-
-const char *esp_riscv_get_gdb_arch(struct target *target)
-{
-	return riscv_target.get_gdb_arch(target);
-}
-
-int esp_riscv_arch_state(struct target *target)
-{
-	return riscv_target.arch_state(target);
-}
-
-int esp_riscv_add_watchpoint(struct target *target, struct watchpoint *watchpoint)
-{
-	return riscv_target.add_watchpoint(target, watchpoint);
-}
-
-int esp_riscv_remove_watchpoint(struct target *target,
-	struct watchpoint *watchpoint)
-{
-	return riscv_target.remove_watchpoint(target, watchpoint);
-}
-
-int esp_riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint)
-{
-	return riscv_target.hit_watchpoint(target, hit_watchpoint);
-}
-
-unsigned int esp_riscv_address_bits(struct target *target)
-{
-	return riscv_target.address_bits(target);
-}
-
 bool esp_riscv_core_is_halted(struct target *target)
 {
-	uint32_t dmstatus;
-	RISCV_INFO(r);
-	if (r->dmi_read(target, &dmstatus, DM_DMSTATUS) != ERROR_OK)
+	enum riscv_hart_state state;
+	if (riscv_get_hart_state(target, &state) != ERROR_OK)
 		return false;
-	return get_field(dmstatus, DM_DMSTATUS_ALLHALTED);
+	return state == RISCV_STATE_HALTED;
 }
 
 int esp_riscv_core_halt(struct target *target)

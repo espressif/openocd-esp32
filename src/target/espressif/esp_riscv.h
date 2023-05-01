@@ -77,33 +77,7 @@ int esp_riscv_read_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer);
 int esp_riscv_write_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, const uint8_t *buffer);
-int esp_riscv_poll(struct target *target);
-int esp_riscv_halt(struct target *target);
-int esp_riscv_resume(struct target *target, int current, target_addr_t address,
-	int handle_breakpoints, int debug_execution);
-int esp_riscv_step(
-	struct target *target,
-	int current,
-	target_addr_t address,
-	int handle_breakpoints);
-int esp_riscv_assert_reset(struct target *target);
-int esp_riscv_deassert_reset(struct target *target);
-int esp_riscv_checksum_memory(struct target *target,
-	target_addr_t address, uint32_t count,
-	uint32_t *checksum);
-int esp_riscv_get_gdb_reg_list_noread(struct target *target,
-	struct reg **reg_list[], int *reg_list_size,
-	enum target_register_class reg_class);
-int esp_riscv_get_gdb_reg_list(struct target *target,
-	struct reg **reg_list[], int *reg_list_size,
-	enum target_register_class reg_class);
-const char *esp_riscv_get_gdb_arch(struct target *target);
-int esp_riscv_arch_state(struct target *target);
-int esp_riscv_add_watchpoint(struct target *target, struct watchpoint *watchpoint);
-int esp_riscv_remove_watchpoint(struct target *target,
-	struct watchpoint *watchpoint);
-int esp_riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint);
-unsigned int esp_riscv_address_bits(struct target *target);
+
 bool esp_riscv_core_is_halted(struct target *target);
 int esp_riscv_core_halt(struct target *target);
 int esp_riscv_core_resume(struct target *target);

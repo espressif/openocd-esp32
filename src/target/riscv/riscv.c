@@ -1313,7 +1313,7 @@ static int riscv_hit_trigger_hit_bit(struct target *target, uint32_t *unique_id)
  * The GDB server uses this information to tell GDB what data address has
  * been hit, which enables GDB to print the hit variable along with its old
  * and new value. */
-static int riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint)
+int riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint)
 {
 	RISCV_INFO(r);
 
@@ -1624,7 +1624,7 @@ int riscv_halt(struct target *target)
 	return result;
 }
 
-static int riscv_assert_reset(struct target *target)
+int riscv_assert_reset(struct target *target)
 {
 	LOG_DEBUG("[%d]", target->coreid);
 	struct target_type *tt = get_target_type(target);
@@ -1632,7 +1632,7 @@ static int riscv_assert_reset(struct target *target)
 	return tt->assert_reset(target);
 }
 
-static int riscv_deassert_reset(struct target *target)
+int riscv_deassert_reset(struct target *target)
 {
 	LOG_DEBUG("[%d]", target->coreid);
 	struct target_type *tt = get_target_type(target);
@@ -1856,7 +1856,7 @@ int riscv_resume(
 	return result;
 }
 
-static int riscv_target_resume(struct target *target, int current, target_addr_t address,
+int riscv_target_resume(struct target *target, int current, target_addr_t address,
 		int handle_breakpoints, int debug_execution)
 {
 	return riscv_resume(target, current, address, handle_breakpoints,
@@ -2075,7 +2075,7 @@ static int riscv_write_memory(struct target *target, target_addr_t address,
 	return tt->write_memory(target, address, size, count, buffer);
 }
 
-static const char *riscv_get_gdb_arch(struct target *target)
+const char *riscv_get_gdb_arch(struct target *target)
 {
 	switch (riscv_xlen(target)) {
 		case 32:
@@ -2130,7 +2130,7 @@ static int riscv_get_gdb_reg_list_internal(struct target *target,
 	return ERROR_OK;
 }
 
-static int riscv_get_gdb_reg_list_noread(struct target *target,
+int riscv_get_gdb_reg_list_noread(struct target *target,
 		struct reg **reg_list[], int *reg_list_size,
 		enum target_register_class reg_class)
 {
@@ -2138,7 +2138,7 @@ static int riscv_get_gdb_reg_list_noread(struct target *target,
 			reg_class, false);
 }
 
-static int riscv_get_gdb_reg_list(struct target *target,
+int riscv_get_gdb_reg_list(struct target *target,
 		struct reg **reg_list[], int *reg_list_size,
 		enum target_register_class reg_class)
 {
@@ -2146,7 +2146,7 @@ static int riscv_get_gdb_reg_list(struct target *target,
 			reg_class, true);
 }
 
-static int riscv_arch_state(struct target *target)
+int riscv_arch_state(struct target *target)
 {
 	struct target_type *tt = get_target_type(target);
 	return tt->arch_state(target);
@@ -2320,7 +2320,7 @@ static int riscv_run_algorithm(struct target *target, int num_mem_params,
 	return ERROR_OK;
 }
 
-static int riscv_checksum_memory(struct target *target,
+int riscv_checksum_memory(struct target *target,
 		target_addr_t address, uint32_t count,
 		uint32_t *checksum)
 {
@@ -4105,7 +4105,7 @@ const struct command_registration riscv_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
-static unsigned riscv_xlen_nonconst(struct target *target)
+unsigned int riscv_xlen_nonconst(struct target *target)
 {
 	return riscv_xlen(target);
 }
