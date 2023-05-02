@@ -1,21 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
 /***************************************************************************
  *   ESP32-C2 specific flasher stub functions                              *
  *   Copyright (C) 2021 Espressif Systems Ltd.                             *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 #include <string.h>
 #include "sdkconfig.h"
@@ -26,9 +13,6 @@
 #include "soc/gpio_reg.h"
 #include "soc/mmu.h"
 #include "soc/system_reg.h"
-#include "spi_flash_mmap.h"
-#include "soc/clk_tree_defs.h"
-#include "hal/clk_tree_ll.h"
 #include "hal/mmu_ll.h"
 #include "hal/systimer_ll.h"
 #include "systimer.h"
@@ -39,12 +23,14 @@
 #include "stub_flasher_chip.h"
 #include "stub_flasher.h"
 
-#define EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT                 (1 << 4)
+/* RTC related definitios */
+#define SYSTEM_SOC_CLK_MAX            1
+#define SYSTEM_CPUPERIOD_MAX          1  // CPU_CLK frequency is 120 MHz
 
 /* Cache MMU related definitions */
 #define STUB_CACHE_BUS                                  EXTMEM_ICACHE_SHUT_DBUS
-#define STUB_MMU_TABLE                                  FLASH_MMU_TABLE	/* 0x600c5000 */
-#define STUB_MMU_INVALID_ENTRY_VAL                      0x40	/* BIT(6) */
+#define STUB_MMU_TABLE                                  ((volatile uint32_t *)DR_REG_MMU_TABLE)	/* 0x600c5000 */
+#define STUB_MMU_INVALID_ENTRY_VAL                      MMU_INVALID	/* BIT(6) */
 
 #define ESP_APPTRACE_RISCV_BLOCK_LEN_MSK                0x7FFFUL
 #define ESP_APPTRACE_RISCV_BLOCK_LEN(_l_)               ((_l_) & ESP_APPTRACE_RISCV_BLOCK_LEN_MSK)
@@ -52,8 +38,8 @@
 #define ESP_APPTRACE_RISCV_BLOCK_ID_MSK                 0x7FUL
 #define ESP_APPTRACE_RISCV_BLOCK_ID(_id_)               (((_id_) & ESP_APPTRACE_RISCV_BLOCK_ID_MSK) << 15)
 #define ESP_APPTRACE_RISCV_BLOCK_ID_GET(_v_)            (((_v_) >> 15) & ESP_APPTRACE_RISCV_BLOCK_ID_MSK)
-#define ESP_APPTRACE_RISCV_HOST_DATA                    (1 << 22)
-#define ESP_APPTRACE_RISCV_HOST_CONNECT                 (1 << 23)
+#define ESP_APPTRACE_RISCV_HOST_DATA                    BIT(22)
+#define ESP_APPTRACE_RISCV_HOST_CONNECT                 BIT(23)
 
 /** RISCV memory host iface control block */
 typedef struct {
@@ -252,63 +238,22 @@ void stub_flash_state_restore(struct stub_flash_state *state)
 	s_sys_timer_dev->conf.val = s_sys_timer_conf;
 }
 
-#define RTC_PLL_FREQ_320M   320
-#define RTC_PLL_FREQ_480M   480
-
-rtc_xtal_freq_t stub_rtc_clk_xtal_freq_get(void)
+int stub_cpu_clock_configure(int conf_reg_val)
 {
-	uint32_t xtal_freq_mhz = clk_ll_xtal_load_freq_mhz();
-	if (xtal_freq_mhz == 0)
-		/* invalid RTC_XTAL_FREQ_REG value, assume 40MHz */
-		return RTC_XTAL_FREQ_40M;
-	return xtal_freq_mhz;
-}
+	uint32_t sysclk_conf_reg = 0;
 
-/* Obviously we can call rtc_clk_cpu_freq_get_config() from esp-idf
-But this call may cause undesired locks due to ets_printf or abort
-*/
-int stub_rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t *out_config)
-{
-	soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
-	uint32_t source_freq_mhz;
-	uint32_t div;
-	uint32_t freq_mhz;
-	switch (source) {
-	case SOC_CPU_CLK_SRC_XTAL: {
-		div = clk_ll_cpu_get_divider();
-		source_freq_mhz = (uint32_t)rtc_clk_xtal_freq_get();
-		freq_mhz = source_freq_mhz / div;
+	/* set to maximum possible value */
+	if (conf_reg_val == -1) {
+		sysclk_conf_reg = REG_READ(SYSTEM_SYSCLK_CONF_REG) & 0xFFF;
+		REG_WRITE(SYSTEM_SYSCLK_CONF_REG, (sysclk_conf_reg & ~SYSTEM_SOC_CLK_SEL_M) | (SYSTEM_SOC_CLK_MAX << SYSTEM_SOC_CLK_SEL_S));
+	} else { // restore old value
+        sysclk_conf_reg = conf_reg_val;
+        REG_WRITE(SYSTEM_SYSCLK_CONF_REG, (REG_READ(SYSTEM_SYSCLK_CONF_REG) & ~SYSTEM_SOC_CLK_SEL_M) | (sysclk_conf_reg & SYSTEM_SOC_CLK_SEL_M));
 	}
-	break;
-	case SOC_CPU_CLK_SRC_PLL: {
-		freq_mhz = clk_ll_cpu_get_freq_mhz_from_pll();
-		source_freq_mhz = CLK_LL_PLL_480M_FREQ_MHZ;	/* PLL clock on ESP32-C2 was fixed to 480MHz */
-		if (freq_mhz == CLK_LL_PLL_80M_FREQ_MHZ) {
-			div = 6;
-		} else if (freq_mhz == CLK_LL_PLL_120M_FREQ_MHZ) {
-			div = 4;
-		} else {
-			/* unsupported frequency configuration */
-			return -1;
-		}
-		break;
-	}
-	case SOC_CPU_CLK_SRC_RC_FAST:
-		source_freq_mhz = 20;
-		div = 1;
-		freq_mhz = source_freq_mhz;
-		break;
-	default:
-		/* unsupported frequency configuration */
-		return -2;
-	}
-	*out_config = (rtc_cpu_freq_config_t) {
-		.source = source,
-		.source_freq_mhz = source_freq_mhz,
-		.div = div,
-		.freq_mhz = freq_mhz
-	};
-	return 0;
+
+	STUB_LOGD("sysclk_conf_reg %x\n", sysclk_conf_reg);
+
+	return conf_reg_val;
 }
 
 #if STUB_LOG_ENABLE == 1
@@ -472,8 +417,7 @@ esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint3
 
 static inline bool esp_flash_encryption_enabled(void)
 {
-	uint32_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
-		EFUSE_SPI_BOOT_ENCRYPT_DECRYPT_CNT);
+	uint32_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG, EFUSE_SPI_BOOT_CRYPT_CNT);
 
 	/* __builtin_parity is in flash, so we calculate parity inline */
 	bool enabled = false;
@@ -491,33 +435,11 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 	static bool s_first = true;
 
 	if (s_first) {
-		if (esp_flash_encryption_enabled()) {
-			/* Check if SPI_BOOT_CRYPT_CNT is write protected */
-			bool flash_crypt_cnt_wr_dis = REG_READ(EFUSE_RD_WR_DIS_REG) &
-				EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT;
-			if (!flash_crypt_cnt_wr_dis) {
-				uint8_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
-					EFUSE_SPI_BOOT_ENCRYPT_DECRYPT_CNT);
-				/* Check if SPI_BOOT_CRYPT_CNT set for permanent encryption */
-				if (flash_crypt_cnt == EFUSE_SPI_BOOT_ENCRYPT_DECRYPT_CNT_V)
-					flash_crypt_cnt_wr_dis = true;
-			}
-
-			if (flash_crypt_cnt_wr_dis) {
-				uint8_t dis_dl_enc = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
-					EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT);
-				uint8_t dis_dl_icache = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
-					EFUSE_DIS_DOWNLOAD_ICACHE);
-				if (dis_dl_enc && dis_dl_icache)
-					s_mode = ESP_FLASH_ENC_MODE_RELEASE;
-			}
-		} else {
+		if (!esp_flash_encryption_enabled())
 			s_mode = ESP_FLASH_ENC_MODE_DISABLED;
-		}
 		s_first = false;
 		STUB_LOGD("flash_encryption_mode: %d\n", s_mode);
 	}
-
 	return s_mode;
 }
 
