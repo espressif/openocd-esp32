@@ -26,7 +26,7 @@
 /* needed due to various checks in IDF headers */
 #define CONFIG_FREERTOS_MAX_TASK_NAME_LEN       16
 /* TODO: use current clk, get it from PLL settings */
-#define CONFIG_ESP32H2_DEFAULT_CPU_FREQ_MHZ     64
+#define CONFIG_ESP32H2_DEFAULT_CPU_FREQ_MHZ     96
 /* Unused by stub, just for compilation of IDF */
 #define CONFIG_PARTITION_TABLE_OFFSET           0x8000
 #define CONFIG_MMU_PAGE_SIZE                    0x10000	/* 64KB */
