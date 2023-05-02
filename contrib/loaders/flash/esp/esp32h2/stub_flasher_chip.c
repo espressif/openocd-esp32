@@ -22,7 +22,8 @@
 #include "stub_flasher_chip.h"
 #include "stub_flasher.h"
 
-#define EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT                  BIT(4)
+/* RTC related definitios */
+#define PCR_SOC_CLK_MAX              1 // CPU_CLK frequency is 160 MHz (source is PLL_CLK)
 
 /* Cache MMU related definitions */
 #define STUB_CACHE_CTRL_REG								CACHE_L1_CACHE_CTRL_REG
@@ -263,71 +264,22 @@ void stub_flash_state_restore(struct stub_flash_state *state)
 	/* we do not disable or store the cache settings. So, nothing to restore*/
 }
 
-#define RTC_PLL_FREQ_320M   320
-#define RTC_PLL_FREQ_480M   480
-
-rtc_xtal_freq_t stub_rtc_clk_xtal_freq_get(void)
+int stub_cpu_clock_configure(int conf_reg_val)
 {
-	STUB_LOGD("rtc_clk_xtal_freq_get() has not been implemented yet");
-	return 40;
-#if 0
-	uint32_t xtal_freq_mhz = clk_ll_xtal_load_freq_mhz();
-	if (xtal_freq_mhz == 0)
-		/* invalid RTC_XTAL_FREQ_REG value, assume 40MHz */
-		return RTC_XTAL_FREQ_32M;
-	return xtal_freq_mhz;
-#endif
-}
+	uint32_t pcr_sysclk_conf_reg = 0;
 
-/* Obviously we can call rtc_clk_cpu_freq_get_config() from esp-idf
-But this call may cause undesired locks due to ets_printf or abort
-*/
-#define RTC_OSC_FREQ_RC8M   8
-int stub_rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t *out_config)
-{
-#if 0
-	soc_cpu_clk_src_t source = clk_ll_cpu_get_src();
-	uint32_t source_freq_mhz;
-	uint32_t div;
-	uint32_t freq_mhz;
-	switch (source) {
-	case SOC_CPU_CLK_SRC_XTAL: {
-		div = clk_ll_cpu_get_divider();
-		source_freq_mhz = (uint32_t)stub_rtc_clk_xtal_freq_get();
-		freq_mhz = source_freq_mhz / div;
-		break;
+	/* set to maximum possible value */
+	if (conf_reg_val == -1) {
+		pcr_sysclk_conf_reg = REG_READ(PCR_SYSCLK_CONF_REG);
+		REG_WRITE(PCR_SYSCLK_CONF_REG, (pcr_sysclk_conf_reg & ~PCR_SOC_CLK_SEL_M) | (PCR_SOC_CLK_MAX << PCR_SOC_CLK_SEL_S));
+	} else { // restore old value
+		pcr_sysclk_conf_reg = conf_reg_val;
+		REG_WRITE(PCR_SYSCLK_CONF_REG, (REG_READ(PCR_SYSCLK_CONF_REG) & ~PCR_SOC_CLK_SEL_M) | (pcr_sysclk_conf_reg & PCR_SOC_CLK_SEL_M));
 	}
-	case SOC_CPU_CLK_SRC_PLL: {
-		div = clk_ll_cpu_get_divider();
-		source_freq_mhz = CLK_LL_PLL_96M_FREQ_MHZ;
-		freq_mhz = source_freq_mhz / div;
-		break;
-	}
-	case SOC_CPU_CLK_SRC_RC_FAST: {
-		source_freq_mhz = RTC_OSC_FREQ_RC8M;
-		div = clk_ll_cpu_get_divider();
-		freq_mhz = source_freq_mhz / div;
-		break;
-	}
-	case SOC_CPU_CLK_SRC_XTAL_D2: {
-		div = clk_ll_cpu_get_divider();
-		source_freq_mhz = (uint32_t)stub_rtc_clk_xtal_freq_get();
-		freq_mhz = source_freq_mhz / div / 2;
-		break;
-	}
-	default: {
-		/* unsupported frequency configuration */
-		return -1;
-	}
-	}
-	*out_config = (rtc_cpu_freq_config_t) {
-		.source = source,
-		.source_freq_mhz = source_freq_mhz,
-		.div = div,
-		.freq_mhz = freq_mhz
-	};
-#endif
-	return 0;
+
+	STUB_LOGD("pcr_sysclk_conf_reg %x\n", pcr_sysclk_conf_reg);
+
+	return pcr_sysclk_conf_reg;
 }
 
 #if STUB_LOG_ENABLE == 1
