@@ -10,12 +10,15 @@
 #endif
 
 #include <jtag/interface.h>
+#include <transport/transport.h>
 #include "bitbang.h"
 
 /* esp-idf includes */
 #include <driver/gpio.h>
 #include <driver/dedic_gpio.h>
+#include "hal/gpio_hal.h"
 #include <hal/dedic_gpio_cpu_ll.h>
+#include "hal/gpio_ll.h"
 
 static dedic_gpio_bundle_handle_t gpio_in_bundle;
 static dedic_gpio_bundle_handle_t gpio_out_bundle;
@@ -31,6 +34,8 @@ static dedic_gpio_bundle_handle_t gpio_out_bundle;
 #define GPIO_SRST_MASK      0x10
 #define GPIO_BLINK_MASK     0x20
 
+static gpio_dev_t *const s_gpio_dev = GPIO_HAL_GET_HW(GPIO_PORT_0);
+
 /* GPIO setup functions */
 static inline void gpio_mode_input_set(int g)
 {
@@ -40,6 +45,11 @@ static inline void gpio_mode_input_set(int g)
 static inline void gpio_mode_output_set(int g)
 {
 	gpio_set_direction(g, GPIO_MODE_OUTPUT);
+}
+
+static inline void gpio_mode_input_output_set(int g)
+{
+	gpio_set_direction(g, GPIO_MODE_INPUT_OUTPUT);
 }
 
 static inline void gpio_set(int g)
@@ -60,11 +70,17 @@ static int esp32_gpio_blink(int on);
 static int esp32_gpio_init(void);
 static int esp32_gpio_quit(void);
 
+static void esp32_gpio_swdio_drive(bool is_output);
+static int esp32_gpio_swdio_read(void);
+static int esp32_gpio_swdio_write(int swclk, int swdio);
+static int esp32_gpio_swdio_blink(int on);
+
 static struct bitbang_interface esp32_gpio_bitbang = {
 	.read = esp32_gpio_read,
 	.write = esp32_gpio_write,
-	.swdio_read = NULL,
-	.swdio_drive = NULL,
+	.swdio_read = esp32_gpio_swdio_read,
+	.swdio_drive = esp32_gpio_swdio_drive,
+	.swd_write = esp32_gpio_swdio_write,
 	.blink = NULL
 };
 
@@ -76,8 +92,40 @@ static int tdo_gpio = GPIO_NUM_NC;
 static int trst_gpio = GPIO_NUM_NC;
 static int srst_gpio = GPIO_NUM_NC;
 static int blink_gpio = GPIO_NUM_NC;
+static int swdio_gpio = GPIO_NUM_NC;
+static int swclk_gpio = GPIO_NUM_NC;
 
 static unsigned int jtag_delay = 0;
+
+static void esp32_gpio_swdio_drive(bool is_output)
+{
+	if (is_output)
+		gpio_mode_output_set(swdio_gpio);
+	else
+		gpio_mode_input_set(swdio_gpio);
+}
+
+static int esp32_gpio_swdio_read(void)
+{
+	return gpio_ll_get_level(s_gpio_dev, swdio_gpio);
+}
+
+static int esp32_gpio_swdio_write(int swclk, int swdio)
+{
+	gpio_ll_set_level(s_gpio_dev, swclk_gpio, swclk ? 1 : 0);
+	gpio_ll_set_level(s_gpio_dev, swdio_gpio, swdio ? 1 : 0);
+
+	for (unsigned int i = 0; i < jtag_delay; i++)
+		asm volatile ("");
+
+	return ESP_OK;
+}
+
+static int esp32_gpio_swdio_blink(int on)
+{
+	gpio_ll_set_level(s_gpio_dev, blink_gpio, on ? 1 : 0);
+	return ERROR_OK;
+}
 
 static bb_value_t esp32_gpio_read(void)
 {
@@ -221,6 +269,40 @@ COMMAND_HANDLER(esp32_gpio_handle_jtag_gpionum_blink)
 	return ERROR_OK;
 }
 
+COMMAND_HANDLER(esp32_gpio_handle_swd_gpionums)
+{
+	if (CMD_ARGC == 2) {
+		COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], swclk_gpio);
+		COMMAND_PARSE_NUMBER(int, CMD_ARGV[1], swdio_gpio);
+	} else if (CMD_ARGC != 0) {
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+
+	command_print(CMD,
+			"esp32_gpio GPIO nums: swclk = %d, swdio = %d",
+			swclk_gpio, swdio_gpio);
+
+	return ERROR_OK;
+}
+
+COMMAND_HANDLER(esp32_gpio_handle_swd_gpionum_swclk)
+{
+	if (CMD_ARGC == 1)
+		COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], swclk_gpio);
+
+	command_print(CMD, "esp32_gpio num: swclk = %d", swclk_gpio);
+	return ERROR_OK;
+}
+
+COMMAND_HANDLER(esp32_gpio_handle_swd_gpionum_swdio)
+{
+	if (CMD_ARGC == 1)
+		COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], swdio_gpio);
+
+	command_print(CMD, "esp32_gpio num: swdio = %d", swdio_gpio);
+	return ERROR_OK;
+}
+
 static const struct command_registration esp32_gpio_command_handlers[] = {
 	{
 		.name = "esp32_gpio_jtag_nums",
@@ -278,11 +360,32 @@ static const struct command_registration esp32_gpio_command_handlers[] = {
 		.help = "gpio number for blink.",
 		.usage = "[blink]",
 	},
+	{
+		.name = "esp32_gpio_swd_nums",
+		.handler = &esp32_gpio_handle_swd_gpionums,
+		.mode = COMMAND_CONFIG,
+		.help = "gpio numbers for swclk, swdio. (in that order)",
+		.usage = "[swclk swdio]",
+	},
+	{
+		.name = "esp32_gpio_swclk_num",
+		.handler = &esp32_gpio_handle_swd_gpionum_swclk,
+		.mode = COMMAND_CONFIG,
+		.help = "gpio number for swclk.",
+		.usage = "[swclk]",
+	},
+	{
+		.name = "esp32_gpio_swdio_num",
+		.handler = &esp32_gpio_handle_swd_gpionum_swdio,
+		.mode = COMMAND_CONFIG,
+		.help = "gpio number for swdio.",
+		.usage = "[swdio]",
+	},
 
 	COMMAND_REGISTRATION_DONE
 };
 
-static const char *const esp32_gpio_transports[] = { "jtag", NULL };
+static const char *const esp32_gpio_transports[] = { "jtag", "swd", NULL };
 
 static struct jtag_interface esp32_gpio_jtag_interface = {
 	.supported = DEBUG_CAP_TMS_SEQ,
@@ -301,6 +404,7 @@ struct adapter_driver esp32_gpio_interface = {
 	.quit = esp32_gpio_quit,
 	.reset = esp32_gpio_reset,
 	.jtag_ops = &esp32_gpio_jtag_interface,
+	.swd_ops = &bitbang_swd,
 };
 
 static bool esp32_gpio_jtag_mode_possible(void)
@@ -316,9 +420,18 @@ static bool esp32_gpio_jtag_mode_possible(void)
 	return 1;
 }
 
+static bool esp32_gpio_swd_mode_possible(void)
+{
+	if (!GPIO_IS_VALID_GPIO(swclk_gpio))
+		return 0;
+	if (!GPIO_IS_VALID_GPIO(swdio_gpio))
+		return 0;
+	return 1;
+}
+
 static int esp32_gpio_init(void)
 {
-	LOG_INFO("esp32_gpio GPIO JTAG bitbang driver");
+	LOG_INFO("esp32_gpio GPIO JTAG/SWD bitbang driver");
 
 	int khz = 5000;
 	int jtag_speed = 0;
@@ -329,60 +442,78 @@ static int esp32_gpio_init(void)
 	 * Configure TDO as an input, and TDI, TCK, TMS, TRST, SRST
 	 * as outputs.  Drive TDI and TCK low, and TMS/TRST/SRST high.
 	 */
-	if (esp32_gpio_jtag_mode_possible()) {
-		gpio_clear(tdi_gpio);
-		gpio_clear(tck_gpio);
-		gpio_set(tms_gpio);
-		gpio_mode_input_set(tdo_gpio);
-		gpio_mode_output_set(tdi_gpio);
-		gpio_mode_output_set(tck_gpio);
-		gpio_mode_output_set(tms_gpio);
-	} else {
-		LOG_ERROR("some JTAG pins are not set");
-		return ERROR_FAIL;
+	if (transport_is_jtag()) {
+		if (esp32_gpio_jtag_mode_possible()) {
+			gpio_clear(tdi_gpio);
+			gpio_clear(tck_gpio);
+			gpio_set(tms_gpio);
+			gpio_mode_input_set(tdo_gpio);
+			gpio_mode_output_set(tdi_gpio);
+			gpio_mode_output_set(tck_gpio);
+			gpio_mode_output_set(tms_gpio);
+		} else {
+			LOG_ERROR("some JTAG pins are not set");
+			return ERROR_FAIL;
+		}
+
+		int bundle_out_gpios[] = { tck_gpio, tdi_gpio, tms_gpio, 0, 0, 0 };
+		int bundle_in_gpios[] = { tdo_gpio };
+
+		if (trst_gpio != GPIO_NUM_NC) {
+			gpio_set(trst_gpio);
+			gpio_mode_output_set(trst_gpio);
+			bundle_out_gpios[3] = trst_gpio;
+		}
+		if (srst_gpio != GPIO_NUM_NC) {
+			gpio_set(srst_gpio);
+			gpio_mode_output_set(srst_gpio);
+			bundle_out_gpios[4] = srst_gpio;
+		}
+		if (blink_gpio != GPIO_NUM_NC) {
+			gpio_clear(blink_gpio);
+			gpio_mode_output_set(blink_gpio);
+			bundle_out_gpios[5] = blink_gpio;
+			esp32_gpio_bitbang.blink = esp32_gpio_blink;
+		}
+
+		dedic_gpio_bundle_config_t out_bundle_config = {
+			.gpio_array = bundle_out_gpios,
+			.array_size = ARRAY_SIZE(bundle_out_gpios),
+			.flags = {
+				.out_en = 1,
+			},
+		};
+
+		dedic_gpio_bundle_config_t in_bundle_config = {
+			.gpio_array = bundle_in_gpios,
+			.array_size = ARRAY_SIZE(bundle_in_gpios),
+			.flags = {
+				.in_en = 1,
+			},
+		};
+
+		dedic_gpio_new_bundle(&out_bundle_config, &gpio_out_bundle);
+		dedic_gpio_new_bundle(&in_bundle_config, &gpio_in_bundle);
 	}
 
-	int bundle_out_gpios[] = { tck_gpio, tdi_gpio, tms_gpio, 0, 0, 0 };
-	int bundle_in_gpios[] = { tdo_gpio };
+	if (transport_is_swd()) {
+		if (esp32_gpio_swd_mode_possible()) {
+			gpio_clear(swdio_gpio);
+			gpio_clear(swclk_gpio);
+			gpio_mode_output_set(swdio_gpio);
+			gpio_mode_output_set(swclk_gpio);
 
-	if (trst_gpio != GPIO_NUM_NC) {
-		gpio_set(trst_gpio);
-		gpio_mode_output_set(trst_gpio);
-		bundle_out_gpios[3] = trst_gpio;
+			if (blink_gpio != GPIO_NUM_NC) {
+				gpio_clear(blink_gpio);
+				gpio_mode_output_set(blink_gpio);
+				esp32_gpio_bitbang.blink = esp32_gpio_swdio_blink;
+			}
+		} else {
+			LOG_ERROR("some SWD pins are not set");
+			return ERROR_FAIL;
+		}
 	}
-	if (srst_gpio != GPIO_NUM_NC) {
-		gpio_set(srst_gpio);
-		gpio_mode_output_set(srst_gpio);
-		bundle_out_gpios[4] = srst_gpio;
-	}
-	if (blink_gpio != GPIO_NUM_NC) {
-		gpio_clear(blink_gpio);
-		gpio_mode_output_set(blink_gpio);
-		bundle_out_gpios[5] = blink_gpio;
-		esp32_gpio_bitbang.blink = esp32_gpio_blink;
-	}
-
-	dedic_gpio_bundle_config_t out_bundle_config = {
-		.gpio_array = bundle_out_gpios,
-		.array_size = ARRAY_SIZE(bundle_out_gpios),
-		.flags = {
-			.out_en = 1,
-		},
-	};
-
-	dedic_gpio_bundle_config_t in_bundle_config = {
-		.gpio_array = bundle_in_gpios,
-		.array_size = ARRAY_SIZE(bundle_in_gpios),
-		.flags = {
-			.in_en = 1,
-		},
-	};
-
-	dedic_gpio_new_bundle(&out_bundle_config, &gpio_out_bundle);
-	dedic_gpio_new_bundle(&in_bundle_config, &gpio_in_bundle);
-
 	bitbang_interface = &esp32_gpio_bitbang;
-
 	return ERROR_OK;
 }
 
