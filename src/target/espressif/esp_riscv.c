@@ -346,6 +346,16 @@ int esp_riscv_breakpoint_remove(struct target *target, struct breakpoint *breakp
 {
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 
+	enum target_state prev_state = target->state;
+
+	/* TODO: Workaround solution for OCD-749. Remove below lines after it is done */
+	if (target->state != TARGET_HALTED) {
+		LOG_TARGET_DEBUG(target, "Target must be in harted state.Try to halt it");
+		if (esp_riscv_core_halt(target) != ERROR_OK)
+			return ERROR_FAIL;
+	}
+	/**************************************************/
+
 	int res = riscv_remove_breakpoint(target, breakpoint);
 	if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && breakpoint->type == BKPT_HARD) {
 		res = esp_common_flash_breakpoint_remove(target, &esp_riscv->esp, breakpoint);
@@ -353,8 +363,14 @@ int esp_riscv_breakpoint_remove(struct target *target, struct breakpoint *breakp
 			/* For SMP target return OK always, because SW flash breakpoint are set only
 			 *using one core, but GDB causes call to esp_algo_flash_breakpoint_remove() for
 			 *every core, since it treats flash breakpoints as HW ones */
-			return ERROR_OK;
+			res = ERROR_OK;
 		}
+	}
+
+	/* TODO: Workaround solution for OCD-749. Remove below lines after it is done */
+	if (res == ERROR_OK && prev_state == TARGET_RUNNING) {
+		LOG_TARGET_DEBUG(target, "Restore target state");
+		res = esp_riscv_core_resume(target);
 	}
 
 	return res;
