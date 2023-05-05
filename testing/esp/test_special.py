@@ -20,7 +20,6 @@ class DebuggerSpecialTestsImpl:
     """
 
     @idf_ver_min_for_arch('latest', ['riscv32'])
-    @skip_for_chip(['esp32c2'])
     def test_restart_debug_from_crash(self):
         """
             This test checks that debugger can operate correctly after SW reset with stalled CPU.
