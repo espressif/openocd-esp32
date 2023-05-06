@@ -39,6 +39,7 @@
 
 #include <helper/binarybuffer.h>
 #include <helper/log.h>
+#include <server/gdb_server.h>
 #include <sys/stat.h>
 
 /**
@@ -89,9 +90,6 @@ static const int open_host_modeflags[12] = {
 
 static int semihosting_common_fileio_info(struct target *target, struct gdb_fileio_info *fileio_info);
 static int semihosting_common_fileio_end(struct target *target, int result, int fileio_errno, bool ctrl_c);
-
-/* Attempts to include gdb_server.h failed. */
-extern int gdb_actual_connections;
 
 /**
  * Initialize common semihosting support.
@@ -491,7 +489,7 @@ int semihosting_common(struct target *target)
 					int code = semihosting_get_field(target, 1, fields);
 
 					if (type == ADP_STOPPED_APPLICATION_EXIT) {
-						if (!gdb_actual_connections)
+						if (!gdb_get_actual_connections())
 							exit(code);
 						else {
 							fprintf(stderr,
@@ -506,7 +504,7 @@ int semihosting_common(struct target *target)
 				}
 			} else {
 				if (semihosting->param == ADP_STOPPED_APPLICATION_EXIT) {
-					if (!gdb_actual_connections)
+					if (!gdb_get_actual_connections())
 						exit(0);
 					else {
 						fprintf(stderr,
@@ -515,14 +513,14 @@ int semihosting_common(struct target *target)
 				} else if (semihosting->param == ADP_STOPPED_RUN_TIME_ERROR) {
 					/* Chosen more or less arbitrarily to have a nicer message,
 					 * otherwise all other return the same exit code 1. */
-					if (!gdb_actual_connections)
+					if (!gdb_get_actual_connections())
 						exit(1);
 					else {
 						fprintf(stderr,
 							"semihosting: *** application exited with error ***\n");
 					}
 				} else {
-					if (!gdb_actual_connections)
+					if (!gdb_get_actual_connections())
 						exit(1);
 					else {
 						fprintf(stderr,
@@ -582,7 +580,7 @@ int semihosting_common(struct target *target)
 				int code = semihosting_get_field(target, 1, fields);
 
 				if (type == ADP_STOPPED_APPLICATION_EXIT) {
-					if (!gdb_actual_connections)
+					if (!gdb_get_actual_connections())
 						exit(code);
 					else {
 						fprintf(stderr,
