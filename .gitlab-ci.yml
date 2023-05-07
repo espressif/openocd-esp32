@@ -1,6 +1,6 @@
 stages:
   - pre_check
-  - scan_build
+  - static_analyzers
   - build_openocd
   - build_idf4.x
   - build_idf5.x

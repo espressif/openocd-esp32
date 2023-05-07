@@ -287,7 +287,7 @@ build_macos_arm64:
     HOST_CC: ${CONF_HOST}-cc
 
 scan-build:
-  stage: scan_build
+  stage: static_analyzers
   tags:
     - build
   allow_failure: true
@@ -308,6 +308,31 @@ scan-build:
     - ${ARCHIVE_TOOL} scan_build.${ARCHIVE_EXT} build-scanbuild/out
     - mkdir -p ${SCAN_BUILD_OUTPUT}
     - mv scan_build.${ARCHIVE_EXT} ${SCAN_BUILD_OUTPUT}
+
+sparse:
+  stage: static_analyzers
+  tags:
+    - build
+  allow_failure: true
+  variables:
+    SPARSE_BUILD_OUTDIR: "sparse"
+    SPARSE_BUILD_OUTFILE: "warnings.log"
+  artifacts:
+    paths:
+      - ${SPARSE_BUILD_OUTDIR}
+  script:
+    - !reference [.add_gitlab_key, script]
+    - !reference [.submodules_mirror_update, script]
+    - apt-get update && apt-get install sparse
+    - ./bootstrap
+    - mkdir build-sparse && pushd build-sparse
+    - ../configure CC=cgcc CFLAGS="-Wsparse-all -Wno-declaration-after-statement -Wno-unknown-attribute -Wno-transparent-union -Wno-tautological-compare -Wno-vla -Wno-flexible-array-array -D__FLT_EVAL_METHOD__=0"
+    - ((make -j`nproc`) 1> >(tee make.log)) 2> >(tee ${SPARSE_BUILD_OUTFILE} 2>&2)
+    - echo $(wc -l < ${SPARSE_BUILD_OUTFILE}) "sparse warning found"
+    - popd
+    - ${ARCHIVE_TOOL} sparse_out.${ARCHIVE_EXT} build-sparse/${SPARSE_BUILD_OUTFILE}
+    - mkdir -p ${SPARSE_BUILD_OUTDIR}
+    - mv sparse_out.${ARCHIVE_EXT} ${SPARSE_BUILD_OUTDIR}
 
 build_linux_cmake:
   stage: build_openocd
