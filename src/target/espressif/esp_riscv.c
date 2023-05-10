@@ -350,7 +350,7 @@ int esp_riscv_breakpoint_remove(struct target *target, struct breakpoint *breakp
 
 	/* TODO: Workaround solution for OCD-749. Remove below lines after it is done */
 	if (target->state != TARGET_HALTED) {
-		LOG_TARGET_DEBUG(target, "Target must be in harted state.Try to halt it");
+		LOG_TARGET_DEBUG(target, "Target must be in halted state. Try to halt it");
 		if (esp_riscv_core_halt(target) != ERROR_OK)
 			return ERROR_FAIL;
 	}

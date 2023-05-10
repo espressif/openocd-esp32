@@ -71,6 +71,24 @@ class DebuggerSpecialTestsImpl:
         self.prepare_app_for_debugging(self.test_app_cfg.app_off)
         self._debug_image()
 
+    def _do_test_bp_set_by_program(self):
+        # breakpoint at 'target_bp_func1' entry
+        self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func1', 'target_bp_func1')
+        self.step()
+        # breakpoint at 'target_bp_func2' entry
+        self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_bp_func2')
+
+    # wp set by program doesn't work for riscv yet. Run this test, until we found a solution.
+    @only_for_arch(['riscv32'])
+    def test_bp_set_by_program(self):
+        """
+            This test checks that breakpoints set by program on target work.
+            1) Select appropriate sub-test number on target.
+            2) Resume target, wait for the program to hit breakpoints.
+        """
+        self.select_sub_test(808)
+        self._do_test_bp_set_by_program()
+
     def _do_test_bp_and_wp_set_by_program(self):
         # breakpoint at 'target_bp_func1' entry
         self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func1', 'target_bp_func1')

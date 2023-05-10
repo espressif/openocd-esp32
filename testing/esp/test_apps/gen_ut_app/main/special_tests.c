@@ -215,6 +215,15 @@ static void target_bp_task(void *pvParameter)
     ESP_LOGI(TAG, "Start target BP task on core %d", xPortGetCoreID());
 
     SET_BP(0, target_bp_func1);
+
+    target_bp_func1();
+}
+
+static void target_bp_wp_task(void *pvParameter)
+{
+    ESP_LOGI(TAG, "Start target BP and WP task on core %d", xPortGetCoreID());
+
+    SET_BP(0, target_bp_func1);
     SET_WP(0, (void *)&s_var1, sizeof(s_var1), WATCHPOINT_TRIGGER_ON_RW);
     SET_WP(1, (void *)&s_var2, sizeof(s_var2), WATCHPOINT_TRIGGER_ON_RW);
 
@@ -287,7 +296,7 @@ ut_result_t special_test_do(int test_num)
 #endif
         case 803:
         {
-            xTaskCreatePinnedToCore(&target_bp_task, "target_bp_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+            xTaskCreatePinnedToCore(&target_bp_wp_task, "target_bp_wp_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
             break;
         }
 #if CONFIG_IDF_TARGET_ARCH_RISCV
@@ -299,6 +308,11 @@ ut_result_t special_test_do(int test_num)
             break;
         }
 #endif
+        case 808:
+        {
+            xTaskCreatePinnedToCore(&target_bp_task, "target_bp_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+            break;
+        }
         default:
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
             if (TEST_ID_MATCH(TEST_ID_PATTERN(gh264_psram_check), test_num))
