@@ -136,6 +136,46 @@ static void esp_riscv_print_exception_reason(struct target *target)
 	}
 }
 
+static bool esp_riscv_is_wp_set_by_program(struct target *target)
+{
+	RISCV_INFO(r);
+
+	for (struct watchpoint *wp = target->watchpoints; wp; wp = wp->next) {
+		if (wp->unique_id == (int)r->trigger_hit) {
+			struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+			/* check if wp set via semihosting call by target application */
+			for (unsigned int id = 0; id < esp_riscv->max_wp_num; ++id) {
+				if (esp_riscv->target_wp_addr[id] == wp->address) {
+					LOG_TARGET_DEBUG(target, "wp[%d] set by program", id);
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
+static bool esp_riscv_is_bp_set_by_program(struct target *target)
+{
+	RISCV_INFO(r);
+
+	for (struct breakpoint *bp = target->breakpoints; bp; bp = bp->next) {
+		if (bp->unique_id == r->trigger_hit) {
+			struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+			/* check if bp set via semihosting call by target application */
+			for (unsigned int id = 0; id < esp_riscv->max_bp_num; ++id) {
+				if (esp_riscv->target_bp_addr[id] == bp->address) {
+					LOG_TARGET_DEBUG(target, "bp[%d] set by program", id);
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
 int esp_riscv_alloc_trigger_addr(struct target *target)
 {
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
@@ -373,6 +413,35 @@ int esp_riscv_breakpoint_remove(struct target *target, struct breakpoint *breakp
 	}
 
 	return res;
+}
+
+int esp_riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint)
+{
+	/* Do not send watchpoint info if it is set by program.
+	 * Otherwise GDB will ignore T05 msg and will not halt at the watchpoint.
+	*/
+	if (esp_riscv_is_wp_set_by_program(target))
+		return ERROR_FAIL;
+
+	return riscv_hit_watchpoint(target, hit_watchpoint);
+}
+
+int esp_riscv_resume(struct target *target, int current, target_addr_t address,
+		int handle_breakpoints, int debug_execution)
+{
+	/* If the target stopped due to breakpoint/watchpoint set by program,
+	 * we need to handle_breakpoints to make single step
+	 */
+	if (!handle_breakpoints && target->debug_reason == DBG_REASON_BREAKPOINT) {
+		if (esp_riscv_is_bp_set_by_program(target))
+			handle_breakpoints = true;
+	}
+	if (!handle_breakpoints && target->debug_reason == DBG_REASON_WATCHPOINT) {
+		if (esp_riscv_is_wp_set_by_program(target))
+			handle_breakpoints = true;
+	}
+
+	return riscv_target_resume(target, current, address, handle_breakpoints, debug_execution);
 }
 
 int esp_riscv_on_halt(struct target *target)
