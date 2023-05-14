@@ -59,6 +59,9 @@ int esp_riscv_alloc_trigger_addr(struct target *target);
 int esp_riscv_semihosting(struct target *target);
 int esp_riscv_breakpoint_add(struct target *target, struct breakpoint *breakpoint);
 int esp_riscv_breakpoint_remove(struct target *target, struct breakpoint *breakpoint);
+int esp_riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint);
+int esp_riscv_resume(struct target *target, int current, target_addr_t address,
+		int handle_breakpoints, int debug_execution);
 int esp_riscv_start_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,

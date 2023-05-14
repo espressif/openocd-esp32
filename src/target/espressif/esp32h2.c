@@ -374,7 +374,7 @@ struct target_type esp32h2_target = {
 	.poll = esp32h2_poll,
 
 	.halt = riscv_halt,
-	.resume = riscv_target_resume,
+	.resume = esp_riscv_resume,
 	.step = riscv_openocd_step,
 
 	.assert_reset = riscv_assert_reset,
@@ -394,7 +394,7 @@ struct target_type esp32h2_target = {
 
 	.add_watchpoint = riscv_add_watchpoint,
 	.remove_watchpoint = riscv_remove_watchpoint,
-	.hit_watchpoint = riscv_hit_watchpoint,
+	.hit_watchpoint = esp_riscv_hit_watchpoint,
 
 	.arch_state = riscv_arch_state,
 
