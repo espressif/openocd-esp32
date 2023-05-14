@@ -157,7 +157,7 @@ class DebuggerSpecialTestsImpl:
                 self.gdb.stream_handler_remove('target', _target_stream_handler)
             self.assertTrue(expected_strings[i] in target_output)
             self.gdb.target_reset()
-            self.gdb.add_bp('app_main')
+            self.add_bp('app_main')
             self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
 
     def test_stub_logs(self):

@@ -72,7 +72,7 @@ class GDBConnectTestsImpl:
             self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
 
         self.gdb.target_reset()
-        self.gdb.add_bp('app_main')
+        self.add_bp('app_main')
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
         self.select_sub_test(105)
 

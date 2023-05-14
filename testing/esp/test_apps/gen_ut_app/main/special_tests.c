@@ -205,7 +205,7 @@ static void target_bp_func1()
     s_var1 = 0x12345; TEST_BREAK_LOC(target_wp_var1_1);
     ESP_LOGI(TAG, "Target BP func '%s' on core %d.", __func__,  xPortGetCoreID());
     volatile int tmp = s_var1; (void)tmp; TEST_BREAK_LOC(target_wp_var1_2);
-    /* we've just resumed from WP on previous line, deugger could modify breakpoints config, so set next BP here */
+    /* we've just resumed from WP on previous line, debugger could modify breakpoints config, so set next BP here */
     SET_BP(1, target_bp_func2);
     target_bp_func2();
 }

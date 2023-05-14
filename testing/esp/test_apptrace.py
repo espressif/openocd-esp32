@@ -111,7 +111,7 @@ class ApptraceTestsImpl:
             except ReaderTimeoutError:
                 break
 
-        self.gdb.add_bp('app_main')
+        self.add_bp('app_main')
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
         self.select_sub_test(505)
         self.resume_exec()
@@ -129,7 +129,6 @@ class ApptraceTestsImpl:
                 break
         reader.cleanup()
         os.remove(trace_file_name)
-
         # compare first 5 lines. But before that make sure first line includes number zero
         self.assertEqual(lines_before_reset[0].rstrip().split('#')[1], '0')
         self.assertEqual(lines_before_reset[:5], lines_after_reset[:5])
