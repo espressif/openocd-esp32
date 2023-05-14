@@ -398,14 +398,6 @@ COMMAND_HANDLER(esp_gdb_detach_command)
 
 const struct command_registration esp_command_handlers[] = {
 	{
-		.name = "semihost_basedir",
-		.handler = esp_semihosting_basedir_command,
-		.mode = COMMAND_ANY,
-		.help = "Set the base directory for semihosting I/O."
-			"DEPRECATED! use arm semihosting_basedir",
-		.usage = "dir",
-	},
-	{
 		.name = "gdb_detach_handler",
 		.handler = esp_gdb_detach_command,
 		.mode = COMMAND_ANY,

@@ -140,25 +140,15 @@ class SemihostTestsImpl:
     def test_semihost_rw(self):
         """
         This test checks that semihost functions working as expected.
-        In the 1st loop new `arm semihosting_basedir` command is used.
-        In the 2nd loop old `esp semihost_basedir` command is used.
-        Remove 2nd loop when the old command support dropped.
         """
-        for i in range(2):
-            if i == 0:
-                self.oocd.set_smp_semihosting_basedir(self.semi_dir)
-            else:
-                self.oocd.set_semihost_basedir(self.semi_dir)
-            self.select_sub_test(700)
-            self.add_bp('esp_vfs_semihost_unregister')
-            self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
-            get_logger().info('Files %s, %s', self.fout_names, self.fin_names)
-            for i in range(self.CORES_NUM):
-                get_logger().info('Compare files [%s, %s]', self.fout_names[i], self.fin_names[i])
-                self.assertTrue(filecmp.cmp(self.fout_names[i], self.fin_names[i]))
-            self.gdb.target_reset()
-            self.gdb.add_bp('app_main')
-            self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
+        self.oocd.set_smp_semihosting_basedir(self.semi_dir)
+        self.select_sub_test(700)
+        self.add_bp('esp_vfs_semihost_unregister')
+        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
+        get_logger().info('Files %s, %s', self.fout_names, self.fin_names)
+        for i in range(self.CORES_NUM):
+            get_logger().info('Compare files [%s, %s]', self.fout_names[i], self.fin_names[i])
+            self.assertTrue(filecmp.cmp(self.fout_names[i], self.fin_names[i]))
 
     @only_for_arch(['xtensa'])
     def test_semihost_args(self):
