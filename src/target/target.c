@@ -3008,10 +3008,12 @@ static int handle_target(void *priv)
 					target->backoff.times++;
 				}
 
-				/* Tell GDB to halt the debugger. This allows the user to
-				 * run monitor commands to handle the situation.
-				 */
-				target_call_event_callbacks(target, TARGET_EVENT_GDB_HALT);
+				/* Do *not* tell gdb the target halted. This might just
+				 * be a hiccup.  We have no reason to believe the target
+				 * is halted, and if it is running while gdb thinks it's
+				 * halted things just get unnecessarily confused.  gdb
+				 * users can hit ^C if the need to interact with the
+				 * target. */
 			}
 			if (target->backoff.times > 0) {
 				LOG_TARGET_ERROR(target, "Polling failed, trying to reexamine");
