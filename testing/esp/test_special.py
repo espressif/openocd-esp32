@@ -96,14 +96,13 @@ class DebuggerSpecialTestsImpl:
         self.select_sub_test(803)
         self._do_test_bp_and_wp_set_by_program()
 
-    @only_for_arch(['riscv32'])
     def test_wp_reconfigure_by_program(self):
         """
             This test checks that watchpoints can be reconfigured by target w/o removing them.
             1) Select appropriate sub-test number on target.
             2) Resume target, wait for the program to hit breakpoints.
         """
-        self.select_sub_test(804)
+        self.select_sub_test(808)
         self._do_test_bp_and_wp_set_by_program()
 
     @only_for_arch(['xtensa'])
