@@ -221,7 +221,6 @@ static void target_bp_wp_task(void *pvParameter)
     target_bp_func1();
 }
 
-#if CONFIG_IDF_TARGET_ARCH_RISCV
 static void target_wp_reconf_task(void *pvParameter)
 {
     ESP_LOGI(TAG, "Start target WP reconfigure task on core %d", xPortGetCoreID());
@@ -243,7 +242,6 @@ static void target_wp_reconf_task(void *pvParameter)
 
     target_bp_func1();
 }
-#endif
 
 ut_result_t special_test_do(int test_num)
 {
@@ -290,15 +288,11 @@ ut_result_t special_test_do(int test_num)
             xTaskCreatePinnedToCore(&target_bp_wp_task, "target_bp_wp_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
             break;
         }
-#if CONFIG_IDF_TARGET_ARCH_RISCV
-        /* we have two different tests for Xtensa and RISCV with the same ID. See above.
-           TODO: switch to string test IDs like 'test_bp.DebuggerBreakpointTestsDual.test_bp_add_remove_run', 'test_bp.DebuggerBreakpointTests*.test_bp_add_remove_run' */
-        case 804:
+        case 808:
         {
             xTaskCreatePinnedToCore(&target_wp_reconf_task, "target_wp_reconf_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
             break;
         }
-#endif
         default:
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
             if (TEST_ID_MATCH(TEST_ID_PATTERN(gh264_psram_check), test_num))
