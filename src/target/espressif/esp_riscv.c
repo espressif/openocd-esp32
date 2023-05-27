@@ -19,6 +19,10 @@
 
 #include "esp_semihosting.h"
 
+#if IS_ESPIDF
+extern int examine_failed_ui_handler(struct command_invocation *cmd);
+#endif
+
 /* Argument indexes for ESP_SEMIHOSTING_SYS_BREAKPOINT_SET */
 enum {
 	ESP_RISCV_SET_BREAKPOINT_ARG_SET,
@@ -877,5 +881,13 @@ const struct command_registration esp_riscv_command_handlers[] = {
 		.help = "Handles halted event and prints exception reason",
 		.usage = "",
 	},
+#if IS_ESPIDF
+	{
+		.name = "examine_failed_handler",
+		.handler = examine_failed_ui_handler,
+		.mode = COMMAND_EXEC,
+		.usage = "",
+	},
+#endif
 	COMMAND_REGISTRATION_DONE
 };

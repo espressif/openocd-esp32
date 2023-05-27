@@ -19,6 +19,10 @@
 #include "esp_xtensa_semihosting.h"
 #include <target/register.h>
 
+#if IS_ESPIDF
+extern int examine_failed_ui_handler(struct command_invocation *cmd);
+#endif
+
 #define XTENSA_EXCCAUSE(reg_val)         ((reg_val) & 0x3F)
 
 static const char *xtensa_get_exception_reason(struct target *target, enum esp_xtensa_exception_cause exccause_code)
@@ -404,5 +408,13 @@ const struct command_registration esp_command_handlers[] = {
 		.help = "Handles gdb-detach events and makes necessary cleanups such as removing flash breakpoints",
 		.usage = "",
 	},
+#if IS_ESPIDF
+	{
+		.name = "examine_failed_handler",
+		.handler = examine_failed_ui_handler,
+		.mode = COMMAND_ANY,
+		.usage = "",
+	},
+#endif
 	COMMAND_REGISTRATION_DONE
 };
