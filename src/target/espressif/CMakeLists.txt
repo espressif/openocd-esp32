@@ -38,3 +38,9 @@ target_sources(espressif PRIVATE
 	esp_semihosting.c
 	esp_semihosting.h
 )
+
+if(IS_ESPIDF)
+	target_sources(espressif PRIVATE esp_ui_dispatcher.c)
+	target_include_directories(espressif PRIVATE ${PROJECT_SOURCE_DIR})
+	target_link_libraries(espressif PRIVATE idf::lvgl__lvgl)
+endif()
