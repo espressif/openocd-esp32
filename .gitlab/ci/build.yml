@@ -35,7 +35,7 @@
   popd
 
 .buildx_hidapi: &buildx_hidapi |
-  export HIDAPI_VER=hidapi-0.13.1
+  export HIDAPI_VER=hidapi-0.14.0
   wget https://dl.espressif.com/dl/hidapi-$HIDAPI_VER.tar.gz -O $HIDAPI_VER.tar.gz
   tar xzf $HIDAPI_VER.tar.gz && rm $HIDAPI_VER.tar.gz
   pushd hidapi-$HIDAPI_VER
