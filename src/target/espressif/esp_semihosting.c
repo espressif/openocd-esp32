@@ -263,7 +263,8 @@ int esp_semihosting_common(struct target *target)
 	semihosting->result = -1;
 	semihosting->sys_errno = EIO;
 
-	LOG_TARGET_DEBUG(target, "op=0x%x, param=0x%" PRIx64, semihosting->op, semihosting->param);
+	LOG_TARGET_DEBUG(target, "op=0x%x (%s), param=0x%" PRIx64,
+		semihosting->op, semihosting_opcode_to_str(semihosting->op), semihosting->param);
 
 	switch (semihosting->op) {
 	case ESP_SEMIHOSTING_SYS_DRV_INFO:

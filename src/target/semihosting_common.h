@@ -66,9 +66,11 @@ enum semihosting_operation_numbers {
 	SEMIHOSTING_SYS_WRITE = 0x05,
 	SEMIHOSTING_SYS_WRITEC = 0x03,
 	SEMIHOSTING_SYS_WRITE0 = 0x04,
-	SEMIHOSTING_USER_CMD_0x100 = 0x100,	/* First user cmd op code */
-	SEMIHOSTING_USER_CMD_0x115 = 0x115,	/* Last supported user cmd op code */
-	SEMIHOSTING_USER_CMD_0x1FF = 0x1FF,	/* Last user cmd op code */
+	SEMIHOSTING_ARM_RESERVED_START = 0x32,
+	SEMIHOSTING_ARM_RESERVED_END = 0xFF,
+	SEMIHOSTING_USER_CMD_0X100 = 0x100,	/* First user cmd op code */
+	SEMIHOSTING_USER_CMD_0X115 = 0x115,	/* Last supported user cmd op code */
+	SEMIHOSTING_USER_CMD_0X1FF = 0x1FF,	/* Last user cmd op code */
 };
 
 /** Maximum allowed Tcl command segment length in bytes*/
@@ -187,7 +189,15 @@ struct semihosting {
 	int (*post_result)(struct target *target);
 };
 
-int semihosting_common_init(struct target *target, void *setup, void *post_result);
+/**
+ * @brief Convert the syscall opcode to a human-readable string
+ * @param[in] opcode Syscall opcode
+ * @return String representation of syscall opcode
+ */
+const char *semihosting_opcode_to_str(uint64_t opcode);
+
+int semihosting_common_init(struct target *target, void *setup,
+	void *post_result);
 int semihosting_common(struct target *target);
 
 /* utility functions which may also be used by semihosting extensions (custom vendor-defined syscalls) */
