@@ -33,6 +33,9 @@ static int esp_xtensa_semihosting_post_result(struct target *target)
 	/* Even with the v2 and later, errno will not retrieved from A3 reg, it is safe to set */
 	xtensa_reg_set(target, XTENSA_SYSCALL_RETVAL_REG, target->semihosting->result);
 	xtensa_reg_set(target, XTENSA_SYSCALL_ERRNO_REG, target->semihosting->sys_errno);
+	/* To step over the BREAK instructions, PC needs to be incremented by 3 */
+	xtensa_reg_val_t oldpc = xtensa_reg_get(target, XT_REG_IDX_PC);
+	xtensa_reg_set(target, XT_REG_IDX_PC, oldpc + 3);	/* PC = PC+3 */
 	return ERROR_OK;
 }
 
@@ -84,7 +87,6 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 	target->semihosting->param = a3;
 
 	*retval = semihosting_common(target);
-
 	/* Most operations are resumable, except the two exit calls. */
 	if (*retval != ERROR_OK) {
 		LOG_TARGET_ERROR(target, "Semihosting operation (op: 0x%x) error! Code: %d",
@@ -93,10 +95,11 @@ int esp_xtensa_semihosting(struct target *target, int *retval)
 	}
 
 	/* Resume if target it is resumable and we are not waiting on a fileio operation to complete. */
-	if (target->semihosting->is_resumable && !target->semihosting->hit_fileio)
+	if (target->semihosting->is_resumable && !target->semihosting->hit_fileio) {
 		target_to_esp_xtensa(target)->semihost.need_resume = true;
-
-	return SEMIHOSTING_HANDLED;
+		return SEMIHOSTING_HANDLED;
+	}
+	return SEMIHOSTING_WAITING;
 }
 
 static int xtensa_semihosting_init(struct target *target)

@@ -434,18 +434,21 @@ static int esp32s2_poll(struct target *target)
 		if (old_state == TARGET_DEBUG_RUNNING) {
 			target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
 		} else {
-			if (esp_xtensa_semihosting(target, &ret) == SEMIHOSTING_HANDLED) {
+			int retval = esp_xtensa_semihosting(target, &ret);
+			if (retval == SEMIHOSTING_HANDLED) {
 				struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
 				if (ret == ERROR_OK && esp_xtensa->semihost.need_resume) {
 					esp_xtensa->semihost.need_resume = false;
-					/* Resume xtensa_resume will handle BREAK instruction. */
-					ret = target_resume(target, 1, 0, 1, 0);
+					/* BREAK instruction will be handled in the xtensa_semihosting_post_result. */
+					ret = target_resume(target, 1, 0, 0, 0);
 					if (ret != ERROR_OK) {
 						LOG_ERROR("Failed to resume target");
 						return ret;
 					}
 				}
 				return ret;
+			} else if (retval == SEMIHOSTING_WAITING) {
+			   /* nothing to do. Don’t return to allow sending halted event */
 			}
 			esp32s2_on_halt(target);
 			target_call_event_callbacks(target, TARGET_EVENT_HALTED);
