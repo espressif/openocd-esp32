@@ -49,6 +49,15 @@ typedef struct {
     int ver;
 } drv_info_t;
 
+struct test_object {
+	/* File names without extension. The extension will indicate a used core.
+    E.g. if in_fname is "/tmp/read", core N is 1, will be used "/tmp/read.1" */
+	char in_fname[32];
+	char out_fname[32];
+    bool isFileIO;
+} s_tobj;
+SemaphoreHandle_t g_console_mutex;
+
 static inline void done(void)
 {
     ESP_LOGI(TAG, "CPU[%d]: [ DONE ]", xPortGetCoreID());
@@ -669,7 +678,7 @@ static void semihost_task(void *pvParameter)
 {
     uint8_t s_buf[512];
     int core_id = xPortGetCoreID();
-    char fname[32];
+    char fname[64];
     esp_err_t ret;
     ESP_LOGI(TAG, "Started test thread for a core #%d", core_id);
 
@@ -688,14 +697,14 @@ static void semihost_task(void *pvParameter)
     }
 
     /**** Opening files ****/
-    snprintf(fname, sizeof(fname)-1, "/host/test_write.%d", core_id);
+    snprintf(fname, sizeof(fname) - 1, "%s.%d", s_tobj.out_fname, core_id);
     ESP_LOGI(TAG, "CPU[%d]: Opening %s", core_id, fname);
     FILE *f_out = fopen(fname, "w+");
     if (f_out == NULL) {
         ESP_LOGE(TAG, "CPU[%d]: Failed to open file for writing (%d)!", core_id, errno);
         assert(false);
     }
-    snprintf(fname, sizeof(fname) - 1, "/host/test_read.%d", core_id);
+    snprintf(fname, sizeof(fname) - 1, "%s.%d", s_tobj.in_fname, core_id);
     ESP_LOGI(TAG, "CPU[%d]: Opening %s", core_id, fname);
     int fd_in = open(fname, O_RDONLY, 0);
     if (fd_in == -1) {
@@ -736,7 +745,7 @@ static void semihost_task(void *pvParameter)
 
     /**** Copy: In->Buf->Out ****/
 
-    ESP_LOGI(TAG, "CPU[%d]: Writing test_read.%d ->  test_write.%d", core_id, core_id, core_id);
+    ESP_LOGI(TAG, "CPU[%d]: Writing %s.%d ->  %s.%d", core_id, s_tobj.in_fname, core_id, s_tobj.out_fname, core_id);
     ssize_t read_bytes;
     int count = 0;
     do {
@@ -832,6 +841,95 @@ static void semihost_args_task(void *pvParameter)
 }
 #endif /* CONFIG_IDF_TARGET_ARCH_XTENSA */
 
+TEST_DECL(gdb_fileio, "test_semihost.SemihostTests*.test_semihost_with_fileio")
+{
+    /*
+    * *** About the test ***
+    *
+    * N - number of cores
+    *
+    * Its sequence:
+    * - There are N (gdb_io_test_read.*) files containing random bytes
+    * - Test creates N (gdb_io_test_write.*) files
+    * - Test opens the read- and write-files
+    * - Test writes (gdb_io_test_read.*) content to (gdb_io_test_write.*)
+    * - Test closes the files
+    */
+    strcpy(s_tobj.out_fname, "/host/tmp/gdb_io_test_write");
+    strcpy(s_tobj.in_fname, "/host/tmp/gdb_io_test_read");
+    s_tobj.isFileIO = true;
+    semihost_task(NULL);
+}
+
+TEST_DECL(gdb_consoleio, "test_semihost.SemihostTests*.test_semihost_with_consoleio")
+{
+    /*
+    * *** About the test ***
+    *
+    * N - number of cores
+    * Its sequence:
+    * Converts output to the :tt and prints some values
+    */
+    int core_id = xPortGetCoreID();
+    esp_err_t ret;
+    ESP_LOGI(TAG, "Started test thread for a core #%d", core_id);
+
+    /**** Init ****/
+    ESP_LOGI(TAG, "CPU[%d]: Initialization", core_id);
+    if (core_id == 0) {
+        ret = esp_vfs_semihost_register("/host");
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "CPU[%d]: Failed to register semihost driver (%s)!", core_id, esp_err_to_name(ret));
+            return;
+        }
+
+#if !CONFIG_FREERTOS_UNICORE
+        xTaskCreatePinnedToCore(TEST_ENTRY(gdb_consoleio), "gdb_consoleio_task1", 4096, xTaskGetCurrentTaskHandle(), 5, NULL, 1);
+        vTaskDelay(1);
+#endif
+    }
+
+    FILE *f_out = freopen("/host/:tt", "w", stdout);
+    if (f_out == NULL) {
+        ESP_LOGE(TAG, "CPU[%d]: Failed to open file for writing (%d)!", core_id, errno);
+        assert(false);
+    }
+    stderr = f_out;
+
+	fflush(stdout);
+	fflush(stderr);
+	setvbuf(stdout, NULL, _IONBF, 0);
+	setvbuf(stderr, NULL, _IONBF, 0);
+    for (int i = 0; i < 10; i++) {
+        xSemaphoreTake(g_console_mutex, pdMS_TO_TICKS(1000));
+        fprintf(stdout, "CPU[%d]: Semihosted stdout write %d\n", core_id, i);
+        fprintf(stderr, "CPU[%d]: Semihosted stderr write %d\n", core_id, i);
+        xSemaphoreGive(g_console_mutex);
+        vTaskDelay(1);
+    }
+
+    // restore std streams
+    char path[64] = { 0 };
+    snprintf(path, sizeof(path) - 1, "/dev/uart/%d", CONFIG_ESP_CONSOLE_UART_NUM);
+    stdout = freopen(path, "w", f_out);
+    stderr = stdout;
+
+    if (core_id == 0) {
+#if !CONFIG_FREERTOS_UNICORE
+        ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
+#endif
+        ESP_LOGI(TAG, "CPU[%d]: Unregister host FS", core_id);
+        ret = esp_vfs_semihost_unregister("/host");
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "CPU[%d]: Failed to unregister semihost driver (%s)!", core_id, esp_err_to_name(ret));
+            assert(false);
+        }
+    } else {
+        xTaskNotifyGive((TaskHandle_t)pvParameter);
+    }
+    done();
+}
+
 ut_result_t semihost_test_do(int test_num)
 {
     switch (test_num) {
@@ -848,6 +946,9 @@ ut_result_t semihost_test_do(int test_num)
         * - Test writes (test_read.*) content to (test_write.*)
         * - Test closes the files
         */
+            strcpy(s_tobj.out_fname, "/host/test_write");
+            strcpy(s_tobj.in_fname, "/host/test_read");
+            s_tobj.isFileIO = false;
             xTaskCreatePinnedToCore(&semihost_task, "semihost_task0", 4096, NULL, 5, NULL, 0);
             break;
         }
@@ -896,6 +997,14 @@ ut_result_t semihost_test_do(int test_num)
         }
 #endif
         default:
+            if (TEST_ID_MATCH(TEST_ID_PATTERN(gdb_fileio), test_num)) {
+                xTaskCreatePinnedToCore(TEST_ENTRY(gdb_fileio), "gdb_fileio_task", 4096, NULL, 5, NULL, 0);
+                break;
+            } else if (TEST_ID_MATCH(TEST_ID_PATTERN(gdb_consoleio), test_num)) {
+                g_console_mutex = xSemaphoreCreateMutex();
+                xTaskCreatePinnedToCore(TEST_ENTRY(gdb_consoleio), "gdb_consoleio_task", 4096, NULL, 5, NULL, 0);
+                break;
+            }
             return UT_UNSUPPORTED;
     }
     return UT_OK;

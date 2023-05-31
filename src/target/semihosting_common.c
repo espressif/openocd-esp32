@@ -1667,7 +1667,8 @@ void semihosting_set_field(struct target *target, uint64_t value, size_t index, 
  */
 int semihosting_get_file_name(struct target *target, uint64_t addr, size_t len, char **fname)
 {
-	size_t basedir_len = target->semihosting->basedir ? strlen(target->semihosting->basedir) : 0;
+	size_t basedir_len = !target->semihosting->is_fileio && target->semihosting->basedir ?
+		strlen(target->semihosting->basedir) : 0;
 	uint8_t *fn = malloc(basedir_len + len + 2);
 	if (!fn) {
 		target->semihosting->result = -1;
@@ -1686,6 +1687,11 @@ int semihosting_get_file_name(struct target *target, uint64_t addr, size_t len, 
 		}
 		fn[basedir_len + len] = 0;
 	}
+	if (target->semihosting->is_fileio && strcmp((char *)fn, "/:tt") == 0) {
+		free(fn);
+		fn = (uint8_t *)strdup(":tt");
+	}
+
 	*fname = (char *)fn;
 	return ERROR_OK;
 }

@@ -36,6 +36,12 @@ class SemihostTestsImpl:
     else:
         semi_dir = os.getcwd()
 
+    def set_semihosting_fileio(self, option):
+        target_list = self.oocd.targets()
+        for each_target in target_list:
+            for each_target_name in each_target.split('\n'):
+                self.gdb.monitor_run(cmd ="{} arm semihosting_fileio {}".format(each_target_name, "enable" if option else "disable"))
+
     def setUp(self):
         def rand_seq(n_vals):
             t = ""
@@ -46,22 +52,33 @@ class SemihostTestsImpl:
         self.fout_names = []
         self.fin_names = []
         self.fio_names = []
+        self.gdb_io_in_names = []
+        self.gdb_io_out_names = []
         for i in range(self.CORES_NUM):
             fname = os.path.join(self.semi_dir, 'test_read.%d' % i)
             fout = open(fname, 'w')
             fnametrunc = os.path.join(self.semi_dir, 'truncate_file.%d' % i)
             ftrunc = open(fnametrunc, 'w')
+            # use hardcoded '/tmp' base dir here and in C test,
+            # to ensure that GDB can access files using paths specified by target
+            fgdbio = open('/tmp/gdb_io_test_read.%d' % i, 'w')
             size = 1
             get_logger().info('Generate random file %dKB', size)
             for k in range(size):
                 fout.write(rand_seq(1024))
                 ftrunc.write(rand_seq(1024))
+                fgdbio.write(rand_seq(1024))
             fout.close()
             ftrunc.close()
+            fgdbio.close()
             self.fout_names.append(fname)
+            self.gdb_io_out_names.append(fgdbio.name)
             fname = os.path.join(self.semi_dir, 'test_write.%d' % i)
             get_logger().info('In File %d %s', i, fname)
             self.fin_names.append(fname)
+
+            self.gdb_io_in_names.append('/tmp/gdb_io_test_write.%d' % i)
+            get_logger().info('In File %d %s', i, self.gdb_io_in_names[-1])
 
             self.fio_names_tmp = []
             """
@@ -136,6 +153,7 @@ class SemihostTestsImpl:
                         shutil.rmtree(fname, ignore_errors=False)
                     else:
                         os.remove(fname)
+        self.set_semihosting_fileio(False)
 
     def test_semihost_rw(self):
         """
@@ -202,6 +220,42 @@ class SemihostTestsImpl:
             get_logger().info('Checking modification time [%s]', self.fout_names[i])
             mtime = os.path.getmtime(self.fout_names[i])
             self.assertTrue(mtime == 456789)
+
+    def test_semihost_with_fileio(self):
+        """
+        This test checks that gdb fileIO working as expected.
+        """
+        self.add_bp('esp_vfs_semihost_unregister')
+        self.set_semihosting_fileio(True)
+        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
+        get_logger().info('Files %s, %s', self.fout_names, self.fin_names)
+        for i in range(self.CORES_NUM):
+            get_logger().info('Compare files [%s, %s]', self.gdb_io_out_names[i], self.gdb_io_in_names[i])
+            self.assertTrue(filecmp.cmp(self.gdb_io_out_names[i], self.gdb_io_in_names[i]))
+
+    def test_semihost_with_consoleio(self):
+        """
+        This test checks that gdb consoleIO working as expected.
+        """
+        self.add_bp('esp_vfs_semihost_unregister')
+        self.set_semihosting_fileio(True)
+        get_logger().info('Files %s, %s', self.fout_names, self.fin_names)
+        target_output = ''
+        def _target_stream_handler(type, stream, payload):
+            nonlocal target_output
+            target_output += payload
+        self.gdb.stream_handler_add('target', _target_stream_handler)
+        try:
+            self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
+        finally:
+            self.gdb.stream_handler_remove('target', _target_stream_handler)
+        for each_core in range(self.CORES_NUM):
+            for i in range(10):
+                stdout_expected_strings = "CPU[{}]: Semihosted stdout write {}".format(each_core, i)
+                stderr_expected_strings = "CPU[{}]: Semihosted stderr write {}".format(each_core, i)
+                self.assertTrue(stdout_expected_strings in target_output)
+                self.assertTrue(stderr_expected_strings in target_output)
+
 
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
