@@ -481,7 +481,7 @@ AS_IF([test "x$is_darwin" = "xyes"], [
 ])
 
 AC_DEFINE([IS_ESPIDF], [0], [ESP-IDF platform only supported with CMake build system])
-AC_DEFINE([BUILD_ESP32_GPIO], [0], [ESP-IDF platform only supported with CMake build system])
+AC_DEFINE([BUILD_ESP_GPIO], [0], [ESP-IDF platform only supported with CMake build system])
 
 AS_IF([test "x$build_parport" = "xyes"], [
   build_bitbang=yes

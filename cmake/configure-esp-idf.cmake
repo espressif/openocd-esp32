@@ -70,7 +70,7 @@ set(HAVE_NETINET_IN_H 1)    #lwip
 set(HAVE_NETDB_H 1)         #lwip
 
 set(BUILD_BITBANG ON)
-set(BUILD_ESP32_GPIO ON)
+set(BUILD_ESP_GPIO ON)
 set(use_libusb1 0)
 set(use_hidapi 0)
 set(use_libftdi 0)
