@@ -228,7 +228,7 @@ if(BUILD_ESP_REMOTE)
 endif()
 
 if(IS_ESPIDF)
-    target_sources(ocdjtagdrivers PRIVATE esp32gpio.c)
+    target_sources(ocdjtagdrivers PRIVATE esp_gpio.c)
     target_link_libraries(ocdjtagdrivers PRIVATE idf::driver)
 endif()
 

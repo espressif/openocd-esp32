@@ -1,8 +1,8 @@
 set(TCL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/openocd/tcl)
 set(TCL_LITE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/openocd/tcl-lite)
 
-file(COPY ${TCL_DIR}/interface/esp32_gpio_jtag.cfg DESTINATION ${TCL_LITE_DIR}/interface)
-file(COPY ${TCL_DIR}/interface/esp32_gpio_swd.cfg DESTINATION ${TCL_LITE_DIR}/interface)
+file(COPY ${TCL_DIR}/interface/esp_gpio_jtag.cfg DESTINATION ${TCL_LITE_DIR}/interface)
+file(COPY ${TCL_DIR}/interface/esp_gpio_swd.cfg DESTINATION ${TCL_LITE_DIR}/interface)
 file(COPY ${TCL_DIR}/target/esp_common.cfg DESTINATION ${TCL_LITE_DIR}/target)
 file(COPY ${TCL_DIR}/target/esp32-solo-1.cfg DESTINATION ${TCL_LITE_DIR}/target)
 file(COPY ${TCL_DIR}/target/esp32.cfg DESTINATION ${TCL_LITE_DIR}/target)

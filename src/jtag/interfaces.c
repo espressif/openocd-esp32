@@ -150,8 +150,8 @@ struct adapter_driver *adapter_drivers[] = {
 #if BUILD_ESP_REMOTE
 		&esp_remote_adapter_driver,
 #endif
-#if BUILD_ESP32_GPIO
-		&esp32_gpio_interface,
+#if BUILD_ESP_GPIO
+		&esp_gpio_adapter_driver,
 #endif
 		NULL,
 	};
