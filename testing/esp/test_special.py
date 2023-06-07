@@ -245,6 +245,7 @@ class DebuggerSpecialTestsDual(DebuggerGenericTestAppTestsDual, DebuggerSpecialT
             state = self.oocd.target_state(target)
             self.assertEqual(state, 'running')
 
+
 class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpecialTestsImpl):
     """ Test cases for single core mode
     """
