@@ -317,6 +317,34 @@ def two_cores_concurrently_hit_wps(self):
     for i in range(10):
         self.run_to_bp_and_check(wp_stop_reason, 'blink_task', ['s_count11', 's_count2'])
 
+
+def appcpu_early_hw_bps(self):
+    """
+        This test checks if breakpoints set on APP_CPU just after reset work well.
+    """
+    self.gdb.target_reset()
+    rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
+    self.add_bp('call_start_cpu1', hw=True)
+    self.resume_exec()
+    self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
+    # We stopped when FreRTOS is not running yet, so GDB is connected to
+    # one core only (most probably core 0) and shows only one thread representing that core.
+    # Prepare to switch GDB to core 1.
+    self.gdb.monitor_run("esp32 smp_gdb 1", 5)
+    try:
+        # Switch GDB to core 1.
+        self.gdb.monitor_run("resume", 5)
+        # Invalidate register cache to re-read them and get proper backtrace
+        self.gdb.console_cmd_run("maint flush register-cache", 5)
+        # In this scenario we can not check stop reason for core 1,
+        # because GDB could be initially connected to core 0.
+        # So just check the function name we stopped in on core 1.
+        frame = self.gdb.read_current_frame()
+        self.assertEqual(frame['func'], 'call_start_cpu1')
+    finally:
+        # restore default GDB SMP handling to avoid other tests failures
+        self.gdb.monitor_run("esp32 smp_gdb -1", 5)
+
 class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTestsImpl):
     """ Test cases for breakpoints in dual core mode
     """
@@ -328,6 +356,9 @@ class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTes
     def test_2cores_concurrently_hit_bps(self):
         two_cores_concurrently_hit_bps(self)
 
+    def test_appcpu_early_hw_bps(self):
+        appcpu_early_hw_bps(self)
+
 class DebuggerBreakpointTestsDualEncrypted(DebuggerGenericTestAppTestsDualEncrypted, BreakpointTestsImpl):
     """ Breakpoint test cases on encrypted flash in dual core mode
     """
@@ -337,6 +368,9 @@ class DebuggerBreakpointTestsDualEncrypted(DebuggerGenericTestAppTestsDualEncryp
 
     def test_2cores_concurrently_hit_bps(self):
         two_cores_concurrently_hit_bps(self)
+
+    def test_appcpu_early_hw_bps(self):
+        appcpu_early_hw_bps(self)
 
 class DebuggerBreakpointTestsSingle(DebuggerGenericTestAppTestsSingle, BreakpointTestsImpl):
     """ Test cases for breakpoints in single core mode

@@ -438,6 +438,13 @@ class Gdb(object):
             raise DebuggerError('Failed to get backtrace! (%s / %s)' % (res, res_body))
         return res_body['stack']
 
+    def read_current_frame(self):
+        # -stack-info-frame
+        res, res_body = self._mi_cmd_run('-stack-info-frame')
+        if res != 'done' or not res_body or 'frame' not in res_body:
+            raise DebuggerError('Failed to get current frame! (%s / %s)' % (res, res_body))
+        return res_body['frame']
+
     def select_frame(self, frame):
         # -stack-select-frame framenum
         res, _ = self._mi_cmd_run('-stack-select-frame %d' % frame)

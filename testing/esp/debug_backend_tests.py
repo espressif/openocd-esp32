@@ -536,8 +536,8 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         self.gdb.delete_bp(bp)
 
 
-    def add_bp(self, loc, ignore_count=0, cond=''):
-        self.bpns.append(self.gdb.add_bp(loc, ignore_count=ignore_count, cond=cond))
+    def add_bp(self, loc, ignore_count=0, cond='', hw=False, tmp=False):
+        self.bpns.append(self.gdb.add_bp(loc, ignore_count=ignore_count, cond=cond, hw=hw, tmp=tmp))
 
     def add_wp(self, exp, tp='w'):
         self.wps[exp] = self.gdb.add_wp(exp, tp=tp)
