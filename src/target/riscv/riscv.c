@@ -741,8 +741,10 @@ static int try_setup_chained_match_triggers(struct target *target,
 struct match_triggers_tdata1_fields {
 	riscv_reg_t common;
 	struct {
+		/* Other values are available for this field,
+		 * but currently only `any` is needed.
+		 */
 		riscv_reg_t any;
-		riscv_reg_t s8bit;
 	} size;
 	struct {
 		riscv_reg_t enable;
@@ -776,10 +778,7 @@ static struct match_triggers_tdata1_fields fill_match_triggers_tdata1_fields_t2(
 		.size = {
 			.any =
 				field_value(CSR_MCONTROL_SIZELO, CSR_MCONTROL_SIZELO_ANY & 3) |
-				field_value(CSR_MCONTROL_SIZEHI, (CSR_MCONTROL_SIZELO_ANY >> 2) & 3),
-			.s8bit =
-				field_value(CSR_MCONTROL_SIZELO, CSR_MCONTROL_SIZELO_8BIT & 3) |
-				field_value(CSR_MCONTROL_SIZEHI, (CSR_MCONTROL_SIZELO_8BIT >> 2) & 3)
+				field_value(CSR_MCONTROL_SIZEHI, (CSR_MCONTROL_SIZELO_ANY >> 2) & 3)
 		},
 		.chain = {
 			.enable = field_value(CSR_MCONTROL_CHAIN, CSR_MCONTROL_CHAIN_ENABLED),
@@ -817,8 +816,7 @@ static struct match_triggers_tdata1_fields fill_match_triggers_tdata1_fields_t6(
 			field_value(CSR_MCONTROL6_LOAD, trigger->is_read) |
 			field_value(CSR_MCONTROL6_STORE, trigger->is_write),
 		.size = {
-			.any = field_value(CSR_MCONTROL6_SIZE, CSR_MCONTROL6_SIZE_ANY),
-			.s8bit = field_value(CSR_MCONTROL6_SIZE, CSR_MCONTROL6_SIZE_8BIT)
+			.any = field_value(CSR_MCONTROL6_SIZE, CSR_MCONTROL6_SIZE_ANY)
 		},
 		.chain = {
 			.enable = field_value(CSR_MCONTROL6_CHAIN, CSR_MCONTROL6_CHAIN_ENABLED),
@@ -876,13 +874,13 @@ static int maybe_add_trigger_t2_t6(struct target *target,
 		struct trigger_request_info lt_1 = {
 			.tdata1 = fields.common | fields.size.any | fields.chain.enable |
 				fields.match.lt,
-			.tdata2 = trigger->address,
+			.tdata2 = trigger->address + trigger->length,
 			.tdata1_ignore_mask = fields.tdata1_ignore_mask
 		};
 		struct trigger_request_info ge_2 = {
 			.tdata1 = fields.common | fields.size.any | fields.chain.disable |
 				fields.match.ge,
-			.tdata2 = trigger->address + trigger->length,
+			.tdata2 = trigger->address,
 			.tdata1_ignore_mask = fields.tdata1_ignore_mask
 		};
 		ret = try_setup_chained_match_triggers(target, trigger, lt_1, ge_2);
@@ -891,13 +889,32 @@ static int maybe_add_trigger_t2_t6(struct target *target,
 	}
 	LOG_TARGET_DEBUG(target, "trying to setup equality match trigger");
 	struct trigger_request_info eq = {
-		.tdata1 = fields.common |
-			(trigger->length == 1 ? fields.size.s8bit : fields.size.any) |
-			fields.chain.disable | fields.match.eq,
+		.tdata1 = fields.common | fields.size.any | fields.chain.disable |
+			fields.match.eq,
 		.tdata2 = trigger->address,
 		.tdata1_ignore_mask = fields.tdata1_ignore_mask
 	};
-	return try_setup_single_match_trigger(target, trigger, eq);
+	ret = try_setup_single_match_trigger(target, trigger, eq);
+	if (ret != ERROR_OK)
+		return ret;
+
+	if (trigger->length > 1) {
+		LOG_TARGET_DEBUG(target, "Trigger will match accesses at address 0x%" TARGET_PRIxADDR
+				", but may not match accesses at addresses in the inclusive range from 0x%"
+				TARGET_PRIxADDR " to 0x%" TARGET_PRIxADDR ".", trigger->address,
+				trigger->address + 1, trigger->address + trigger->length - 1);
+		RISCV_INFO(info);
+		if (!info->range_trigger_fallback_encountered)
+			/* This message is displayed only once per target to avoid
+			 * overwhelming the user with such messages on resume.
+			 */
+			LOG_TARGET_WARNING(target,
+					"Could not set a trigger that will match a whole address range. "
+					"As a fallback, this trigger (and maybe others) will only match "
+					"against the first address of the range.");
+		info->range_trigger_fallback_encountered = true;
+	}
+	return ERROR_OK;
 }
 
 static int maybe_add_trigger_t3(struct target *target, bool vs, bool vu,
@@ -1024,7 +1041,8 @@ static int add_trigger(struct target *target, struct trigger *trigger)
 			break;
 	} while (0);
 
-	riscv_set_register(target, GDB_REGNO_TSELECT, tselect);
+	if (riscv_set_register(target, GDB_REGNO_TSELECT, tselect) != ERROR_OK && ret == ERROR_OK)
+		return ERROR_FAIL;
 
 	return ret;
 }
