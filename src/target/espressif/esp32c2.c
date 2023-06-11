@@ -20,12 +20,6 @@
 #include "esp32_apptrace.h"
 #include <rtos/rtos.h>
 
-/* ESP32-C2 memory map */
-#define ESP32C2_IRAM_LOW      0x40380000
-#define ESP32C2_IRAM_HIGH     0x403C0000
-#define ESP32C2_DRAM_LOW      0x3FCA0000
-#define ESP32C2_DRAM_HIGH     0x3FCE0000
-
 /* ESP32-C2 WDT */
 #define ESP32C2_WDT_WKEY_VALUE                 0x50d83aa1
 #define ESP32C2_TIMG0_BASE                     0x6001F000
@@ -50,17 +44,6 @@
 
 #define ESP32C2_RTCCNTL_RESET_CAUSE_MASK       (BIT(6) - 1)
 #define ESP32C2_RESET_CAUSE(reg_val)           ((reg_val) & ESP32C2_RTCCNTL_RESET_CAUSE_MASK)
-
-/* ESP32-C2 PMP Config and address */
-#define ESP32C2_PMP_CFG_IRAM_START             0
-#define ESP32C2_PMP_CFG_IRAM_END               1
-#define ESP32C2_PMP_CFG_DRAM_START             2
-#define ESP32C2_PMP_CFG_DRAM_END               3
-#define ESP32C2_PMP_ADDR_IRAM_START            (CSR_PMPADDR0 + ESP32C2_PMP_CFG_IRAM_START)
-#define ESP32C2_PMP_ADDR_IRAM_END              (CSR_PMPADDR0 + ESP32C2_PMP_CFG_IRAM_END)
-#define ESP32C2_PMP_ADDR_DRAM_START            (CSR_PMPADDR0 + ESP32C2_PMP_CFG_DRAM_START)
-#define ESP32C2_PMP_ADDR_DRAM_END              (CSR_PMPADDR0 + ESP32C2_PMP_CFG_DRAM_END)
-#define ESP32C2_PMP_LOCKED_BIT                 BIT(7)
 
 /* max supported hw breakpoint and watchpoint count */
 #define ESP32C2_BP_NUM          2
@@ -311,79 +294,6 @@ static int esp32c2_poll(struct target *target)
 	return riscv_openocd_poll(target);
 }
 
-int esp32c2_memprot_is_enabled(struct command_invocation *cmd)
-{
-	struct target *target = get_current_target(CMD_CTX);
-
-	if (!target) {
-		LOG_ERROR("No target selected");
-		return ERROR_FAIL;
-	}
-	riscv_reg_t pmpcfg0, pmpaddr;
-	bool enabled = false;
-	int res;
-	RISCV_INFO(r);
-	while (1) {
-		res = r->get_register(target, &pmpcfg0, CSR_PMPCFG0 + GDB_REGNO_CSR0);
-		if (res == ERROR_OK) {
-			uint8_t buf[4];
-			buf_set_u32(buf, 0, 32, pmpcfg0);
-			if (buf[ESP32C2_PMP_CFG_IRAM_START] & ESP32C2_PMP_LOCKED_BIT) {
-				res = r->get_register(target, &pmpaddr, ESP32C2_PMP_ADDR_IRAM_START + GDB_REGNO_CSR0);
-				if (res == ERROR_OK) {
-					if ((pmpaddr << 2) > ESP32C2_IRAM_LOW) {
-						enabled = true;
-						break;
-					}
-				}
-			}
-			if (buf[ESP32C2_PMP_CFG_IRAM_END] & ESP32C2_PMP_LOCKED_BIT) {
-				res = r->get_register(target, &pmpaddr, ESP32C2_PMP_ADDR_IRAM_END + GDB_REGNO_CSR0);
-				if (res == ERROR_OK) {
-					if ((pmpaddr << 2) < ESP32C2_IRAM_HIGH) {
-						enabled = true;
-						break;
-					}
-				}
-			}
-			if (buf[ESP32C2_PMP_CFG_DRAM_START] & ESP32C2_PMP_LOCKED_BIT) {
-				res = r->get_register(target, &pmpaddr, ESP32C2_PMP_ADDR_DRAM_START + GDB_REGNO_CSR0);
-				if (res == ERROR_OK) {
-					if ((pmpaddr << 2) > ESP32C2_DRAM_LOW) {
-						enabled = true;
-						break;
-					}
-				}
-			}
-			if (buf[ESP32C2_PMP_CFG_DRAM_END] & ESP32C2_PMP_LOCKED_BIT) {
-				res = r->get_register(target, &pmpaddr, ESP32C2_PMP_ADDR_DRAM_END + GDB_REGNO_CSR0);
-				if (res == ERROR_OK) {
-					if ((pmpaddr << 2) < ESP32C2_DRAM_HIGH) {
-						enabled = true;
-						break;
-					}
-				}
-			}
-		}
-		break;
-	}
-
-	command_print(CMD, "%d", enabled);
-
-	return res;
-}
-
-static const struct command_registration esp32c2_target_command_handlers[] = {
-	{
-		.name = "memprot_stat",
-		.handler = esp32c2_memprot_is_enabled,
-		.mode = COMMAND_ANY,
-		.help = "returns memory protection is enabled or not",
-		.usage = "memprot_stat"
-	},
-	COMMAND_REGISTRATION_DONE
-};
-
 static const struct command_registration esp32c2_command_handlers[] = {
 	{
 		.usage = "",
@@ -398,11 +308,6 @@ static const struct command_registration esp32c2_command_handlers[] = {
 		.name = "esp",
 		.usage = "",
 		.chain = esp32_apptrace_command_handlers,
-	},
-	{
-		.name = "esp32c2",
-		.usage = "",
-		.chain = esp32c2_target_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE
 };
