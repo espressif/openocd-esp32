@@ -30,10 +30,10 @@ class MacTestsImpl:
         """
         if testee_info.arch == "xtensa":
             self.oocd.cmd_exec("xtensa set_permissive 1")
-            self.oocd.cmd_exec("set mac_list [read_memory $EFUSE_MAC_ADDR_REG 8 6]")
+            self.oocd.cmd_exec("set mac_list [read_memory $_ESP_EFUSE_MAC_ADDR_REG 8 6]")
             self.oocd.cmd_exec("xtensa set_permissive 0")
         else: #riscv32
-            self.oocd.cmd_exec("set mac_list [read_memory $EFUSE_MAC_ADDR_REG 8 6]")
+            self.oocd.cmd_exec("set mac_list [read_memory $_ESP_EFUSE_MAC_ADDR_REG 8 6]")
         m0 = self.oocd.cmd_exec("format %02x [lindex $mac_list 0]").strip('\n')
         m1 = self.oocd.cmd_exec("format %02x [lindex $mac_list 1]").strip('\n')
         m2 = self.oocd.cmd_exec("format %02x [lindex $mac_list 2]").strip('\n')
