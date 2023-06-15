@@ -68,7 +68,7 @@
   image: $CI_DOCKER_REGISTRY/rpi-openocd-env-v5.x:1
   variables:
     ESP_TOOLCHAIN: "${ESP_V5x_TOOLCHAIN_VER}"
-    ESP_GDB_TOOLCHAIN: ""
+    ESP_GDB_TOOLCHAIN: "${ESP_V5x_XTENSA_GDB_TOOLCHAIN}"
 
 .tests_armhf_v4x_template:
   extends: .tests_armhf_template
@@ -76,7 +76,7 @@
   image: $CI_DOCKER_REGISTRY/rpi-openocd-env-v4.4:1
   variables:
     ESP_TOOLCHAIN: "${ESP_V4x_TOOLCHAIN_VER}"
-    ESP_GDB_TOOLCHAIN: ""
+    ESP_GDB_TOOLCHAIN: "${ESP_V4x_XTENSA_GDB_TOOLCHAIN}"
 
 ##############
 # IDF master #
