@@ -106,6 +106,9 @@
 /* 0 if you don't want Keil ULINK JTAG Programmer */
 #cmakedefine01 BUILD_ULINK
 
+/* 0 if you do not want ANGIE USB-JTAG adapter */
+#cmakedefine01 BUILD_ANGIE
+
 /* 0 if you don't want Altera USB-Blaster II Compatible */
 #cmakedefine01 BUILD_USB_BLASTER_2
 
