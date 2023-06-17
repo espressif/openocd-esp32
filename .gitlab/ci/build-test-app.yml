@@ -22,8 +22,14 @@
   export V=0
 
   # Check if having custom idf branch
-  if [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF_LATEST_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF_BRANCH:-}" ]; then
-    TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF_BRANCH"
+  if [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF_LATEST_DOCKER_IMAGE}" ]; then
+    if  [ -n "${TEST_APP_IDF_BRANCH:-}" ]; then
+      TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF_BRANCH"
+    else
+      # Use the same idf branch name if exists
+      git ls-remote https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git | grep "refs/heads/$CI_COMMIT_REF_NAME"
+      test $? -eq 0 && echo "Use IDF branch \"$CI_COMMIT_REF_NAME\"" && TEST_APP_CUSTOM_BRANCH=$CI_COMMIT_REF_NAME
+    fi
   elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_X_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_X_BRANCH:-}" ]; then
     TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF5_X_BRANCH"
   elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF4_X_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF4_X_BRANCH:-}" ]; then
