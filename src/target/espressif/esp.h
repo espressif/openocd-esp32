@@ -131,4 +131,7 @@ int esp_common_handle_gdb_detach(struct target *target, struct esp_common *esp_c
 
 int esp_dbgstubs_table_read(struct target *target, struct esp_dbg_stubs *dbg_stubs);
 
+void esp_common_assist_debug_monitor_disable(struct target *target, uint32_t address, uint32_t *value);
+void esp_common_assist_debug_monitor_restore(struct target *target, uint32_t address, uint32_t value);
+
 #endif	/* OPENOCD_TARGET_ESP_H */

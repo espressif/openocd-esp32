@@ -121,7 +121,7 @@ static int algorithm_run(struct target *target, struct algorithm_image *image,
 	int retval, ret;
 	void **mem_handles = NULL;
 
-	retval = run->hw->algo_init(target, run, run->arch_info, num_args, ap);
+	retval = run->hw->algo_init(target, run, num_args, ap);
 	if (retval != ERROR_OK)
 		return retval;
 
@@ -295,7 +295,7 @@ _cleanup:
 		}
 		free(mem_handles);
 	}
-	run->hw->algo_cleanup(run);
+	run->hw->algo_cleanup(target, run);
 
 	return retval;
 }

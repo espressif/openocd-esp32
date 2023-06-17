@@ -11,13 +11,12 @@
 
 #include <target/target.h>
 #include <target/riscv/riscv.h>
+#include "esp_riscv.h"
 #include "esp_riscv_algorithm.h"
 
 static int esp_riscv_algo_init(struct target *target, struct algorithm_run_data *run,
-	void *arch_info,
-	uint32_t num_args,
-	va_list ap);
-static int esp_riscv_algo_cleanup(struct algorithm_run_data *run);
+	uint32_t num_args, va_list ap);
+static int esp_riscv_algo_cleanup(struct target *target, struct algorithm_run_data *run);
 static const uint8_t *esp_riscv_stub_tramp_get(struct target *target, size_t *size);
 
 const struct algorithm_hw riscv_algo_hw = {
@@ -55,9 +54,7 @@ static int esp_riscv_algo_regs_init_start(struct target *target, struct algorith
 }
 
 static int esp_riscv_algo_init(struct target *target, struct algorithm_run_data *run,
-	void *arch_info,
-	uint32_t num_args,
-	va_list ap)
+	uint32_t num_args, va_list ap)
 {
 	int xlen = riscv_xlen(target);
 	char *arg_regs[] = { "a0", "a1", "a2", "a3", "a4", "a5", "a6" };
@@ -101,12 +98,22 @@ static int esp_riscv_algo_init(struct target *target, struct algorithm_run_data 
 	assert(ainfo);
 	/* backup all regs */
 	ainfo->max_saved_reg = GDB_REGNO_COUNT - 1;
+	/* disable assist_debug to avoid triggering while executing algorithm code */
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	uint32_t ad_mon_reg = esp_riscv->assist_debug_cpu0_mon_reg + (target->coreid * esp_riscv->assist_debug_cpu_offset);
+	uint32_t *ad_mon_saved_val = &ainfo->saved_assist_debug_monitor_register;
+	esp_common_assist_debug_monitor_disable(target, ad_mon_reg, ad_mon_saved_val);
 	run->stub.ainfo = ainfo;
 	return ERROR_OK;
 }
 
-static int esp_riscv_algo_cleanup(struct algorithm_run_data *run)
+static int esp_riscv_algo_cleanup(struct target *target, struct algorithm_run_data *run)
 {
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	uint32_t ad_mon_reg = esp_riscv->assist_debug_cpu0_mon_reg + (target->coreid * esp_riscv->assist_debug_cpu_offset);
+	uint32_t ad_mon_val = ((struct esp_riscv_algorithm *)run->stub.ainfo)->saved_assist_debug_monitor_register;
+
+	esp_common_assist_debug_monitor_restore(target, ad_mon_reg, ad_mon_val);
 	free(run->stub.ainfo);
 	for (uint32_t i = 0; i < run->reg_args.count; i++)
 		destroy_reg_param(&run->reg_args.params[i]);

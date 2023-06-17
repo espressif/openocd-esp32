@@ -24,10 +24,8 @@
 #include "xtensa_algorithm.h"
 
 static int xtensa_algo_init(struct target *target, struct algorithm_run_data *run,
-	void *arch_info,
-	uint32_t num_args,
-	va_list ap);
-static int xtensa_algo_cleanup(struct algorithm_run_data *run);
+	uint32_t num_args, va_list ap);
+static int xtensa_algo_cleanup(struct target *target, struct algorithm_run_data *run);
 static const uint8_t *xtensa_stub_tramp_get(struct target *target, size_t *size);
 
 const struct algorithm_hw xtensa_algo_hw = {
@@ -81,9 +79,7 @@ static int xtensa_algo_regs_init_start(struct target *target, struct algorithm_r
 }
 
 static int xtensa_algo_init(struct target *target, struct algorithm_run_data *run,
-	void *arch_info,
-	uint32_t num_args,
-	va_list ap)
+	uint32_t num_args, va_list ap)
 {
 	enum xtensa_mode core_mode = XT_MODE_ANY;
 	char *arg_regs[] = { "a2", "a3", "a4", "a5", "a6" };
@@ -94,8 +90,8 @@ static int xtensa_algo_init(struct target *target, struct algorithm_run_data *ru
 		return ERROR_FAIL;
 	}
 
-	if (arch_info) {
-		struct xtensa_algorithm *xtensa_algo = arch_info;
+	if (run->arch_info) {
+		struct xtensa_algorithm *xtensa_algo = run->arch_info;
 		core_mode = xtensa_algo->core_mode;
 	}
 
@@ -141,7 +137,7 @@ static int xtensa_algo_init(struct target *target, struct algorithm_run_data *ru
 	return ERROR_OK;
 }
 
-static int xtensa_algo_cleanup(struct algorithm_run_data *run)
+static int xtensa_algo_cleanup(struct target *target, struct algorithm_run_data *run)
 {
 	free(run->stub.ainfo);
 	for (uint32_t i = 0; i < run->reg_args.count; i++)

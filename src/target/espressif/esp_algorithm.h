@@ -225,10 +225,8 @@ typedef void (*algorithm_usr_func_done_t)(struct target *target, struct algorith
 
 struct algorithm_hw {
 	int (*algo_init)(struct target *target, struct algorithm_run_data *run,
-		void *arch_info,
-		uint32_t num_args,
-		va_list ap);
-	int (*algo_cleanup)(struct algorithm_run_data *run);
+		uint32_t num_args, va_list ap);
+	int (*algo_cleanup)(struct target *target, struct algorithm_run_data *run);
 	const uint8_t *(*stub_tramp_get)(struct target *target, size_t *size);
 };
 
