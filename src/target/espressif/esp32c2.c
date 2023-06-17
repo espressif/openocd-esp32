@@ -46,8 +46,11 @@
 #define ESP32C2_RESET_CAUSE(reg_val)           ((reg_val) & ESP32C2_RTCCNTL_RESET_CAUSE_MASK)
 
 /* max supported hw breakpoint and watchpoint count */
-#define ESP32C2_BP_NUM          2
-#define ESP32C2_WP_NUM          2
+#define ESP32C2_BP_NUM                         2
+#define ESP32C2_WP_NUM                         2
+
+/* ASSIST_DEBUG registers */
+#define ESP32C2_ASSIST_DEBUG_CPU0_MON_REG       0x600CE000
 
 enum esp32c2_reset_reason {
 	ESP32C2_CHIP_POWER_ON_RESET      = 0x01,	/* Power on reset */
@@ -147,6 +150,9 @@ static int esp32c2_target_create(struct target *target, Jim_Interp *interp)
 		return ERROR_FAIL;
 
 	target->arch_info = esp32c2;
+
+	esp32c2->esp_riscv.assist_debug_cpu0_mon_reg = ESP32C2_ASSIST_DEBUG_CPU0_MON_REG;
+	esp32c2->esp_riscv.assist_debug_cpu_offset = 0;
 
 	esp32c2->esp_riscv.max_bp_num = ESP32C2_BP_NUM;
 	esp32c2->esp_riscv.max_wp_num = ESP32C2_WP_NUM;

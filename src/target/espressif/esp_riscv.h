@@ -29,6 +29,8 @@ struct esp_riscv_common {
 	target_addr_t *target_wp_addr;
 	uint8_t max_bp_num;
 	uint8_t max_wp_num;
+	uint32_t assist_debug_cpu0_mon_reg; /* cpu 0 monitor register address */
+	uint32_t assist_debug_cpu_offset;   /* address offset to register of next cpu id */
 };
 
 static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *target)

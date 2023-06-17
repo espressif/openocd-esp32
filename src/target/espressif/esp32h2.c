@@ -52,8 +52,11 @@
 #define ESP32H2_RESET_CAUSE(reg_val)            ((reg_val) & ESP32H2_RTCCNTL_RESET_CAUSE_MASK)
 
 /* max supported hw breakpoint and watchpoint count */
-#define ESP32H2_BP_NUM          4
-#define ESP32H2_WP_NUM          4
+#define ESP32H2_BP_NUM                          4
+#define ESP32H2_WP_NUM                          4
+
+/* ASSIST_DEBUG registers */
+#define ESP32H2_ASSIST_DEBUG_CPU0_MON_REG       0x600C2000
 
 enum esp32h2_reset_reason {
 	ESP32H2_CHIP_POWER_ON_RESET     = 0x01,	/* Vbat power on reset */
@@ -196,6 +199,9 @@ static int esp32h2_target_create(struct target *target, Jim_Interp *interp)
 		return ERROR_FAIL;
 
 	target->arch_info = esp32h2;
+
+	esp32h2->esp_riscv.assist_debug_cpu0_mon_reg = ESP32H2_ASSIST_DEBUG_CPU0_MON_REG;
+	esp32h2->esp_riscv.assist_debug_cpu_offset = 0;
 
 	esp32h2->esp_riscv.max_bp_num = ESP32H2_BP_NUM;
 	esp32h2->esp_riscv.max_wp_num = ESP32H2_WP_NUM;

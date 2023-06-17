@@ -15,6 +15,7 @@
 #include "esp.h"
 
 #define ESP_FLASH_BREAKPOINTS_MAX_NUM  32
+#define ESP_ASSIST_DEBUG_INVALID_VALUE 0xFFFFFFFF
 
 int esp_common_init(struct esp_common *esp,
 	const struct esp_flash_breakpoint_ops *flash_brps_ops,
@@ -219,4 +220,36 @@ int esp_common_handle_gdb_detach(struct target *target, struct esp_common *esp_c
 		}
 	}
 	return ERROR_OK;
+}
+
+void esp_common_assist_debug_monitor_disable(struct target *target, uint32_t address, uint32_t *value)
+{
+	LOG_TARGET_DEBUG(target, "addr 0x%08" PRIx32, address);
+
+	int res = target_read_u32(target, address, value);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Can not read assist_debug register (%d)!", res);
+		*value = ESP_ASSIST_DEBUG_INVALID_VALUE;
+		return;
+	}
+	LOG_DEBUG("Saved register value 0x%08" PRIx32, *value);
+
+	res = target_write_u32(target, address, 0);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Can not write assist_debug register (%d)!", res);
+		*value = ESP_ASSIST_DEBUG_INVALID_VALUE;
+	}
+}
+
+void esp_common_assist_debug_monitor_restore(struct target *target, uint32_t address, uint32_t value)
+{
+	LOG_TARGET_DEBUG(target, "value 0x%08" PRIx32 " addr 0x%08" PRIx32, value, address);
+
+	/* value was not set by disable function */
+	if (value == ESP_ASSIST_DEBUG_INVALID_VALUE)
+		return;
+
+	int res = target_write_u32(target, address, value);
+	if (res != ERROR_OK)
+		LOG_ERROR("Can not restore assist_debug register (%d)!", res);
 }

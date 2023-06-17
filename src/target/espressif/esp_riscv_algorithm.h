@@ -23,6 +23,7 @@ struct esp_riscv_algorithm {
 	size_t max_saved_reg;
 	uint64_t saved_registers[RISCV_MAX_REGISTERS];
 	bool valid_saved_registers[RISCV_MAX_REGISTERS];
+	uint32_t saved_assist_debug_monitor_register;
 };
 
 extern const struct algorithm_hw riscv_algo_hw;
