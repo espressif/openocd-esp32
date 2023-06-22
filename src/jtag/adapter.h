@@ -64,6 +64,7 @@ struct adapter_gpio_config {
 	enum adapter_gpio_pull pull;
 };
 
+extern struct adapter_driver *adapter_driver;
 struct command_context;
 
 /** Register the adapter's commands */

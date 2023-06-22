@@ -17,10 +17,9 @@
 #include "helper/command.h"
 #include "transport/transport.h"
 #include "jtag/interface.h"
+#include "jtag/adapter.h"
 
 static LIST_HEAD(all_dap);
-
-extern struct adapter_driver *adapter_driver;
 
 /* DAP command support */
 struct arm_dap_object {

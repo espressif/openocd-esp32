@@ -124,7 +124,7 @@ static int esp_xtensa_dbgstubs_restore(struct target *target)
 	return ERROR_OK;
 }
 
-void esp_xtensa_print_exception_reason(struct target *target)
+static void esp_xtensa_print_exception_reason(struct target *target)
 {
 	if (target->state != TARGET_HALTED)
 		return;

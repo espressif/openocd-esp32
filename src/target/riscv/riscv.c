@@ -1535,7 +1535,7 @@ int riscv_flush_registers(struct target *target)
 /**
  * Set OpenOCD's generic debug reason from the RISC-V halt reason.
  */
-int set_debug_reason(struct target *target, enum riscv_halt_reason halt_reason)
+static int set_debug_reason(struct target *target, enum riscv_halt_reason halt_reason)
 {
 	RISCV_INFO(r);
 	r->trigger_hit = -1;
@@ -3628,7 +3628,7 @@ COMMAND_HANDLER(riscv_set_ebreaku)
 	return ERROR_OK;
 }
 
-COMMAND_HELPER(riscv_clear_trigger, int trigger_id, const char *name)
+static int riscv_clear_trigger(struct command_invocation *cmd, int trigger_id, const char *name)
 {
 	struct target *target = get_current_target(CMD_CTX);
 	if (CMD_ARGC != 1) {

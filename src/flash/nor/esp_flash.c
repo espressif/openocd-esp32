@@ -101,15 +101,16 @@ struct esp_flash_bp_op_state {
 
 #if BUILD_ESP_COMPRESSION
 #include <zlib.h>
-int esp_algo_flash_compress(const uint8_t *in, uint32_t in_len, uint8_t **out, uint32_t *out_len)
+static int esp_algo_flash_compress(const uint8_t *in, uint32_t in_len, uint8_t **out, uint32_t *out_len)
 {
 	z_stream strm;
 	int wbits = -MAX_WBITS;		/*deflate */
 	int level = Z_DEFAULT_COMPRESSION;	/*Z_BEST_SPEED; */
 
-	strm.zalloc = Z_NULL;
-	strm.zfree = Z_NULL;
-	strm.opaque = Z_NULL;
+	/* Don't use Z_NULL to make Sparse tool happy */
+	strm.zalloc = NULL;
+	strm.zfree = NULL;
+	strm.opaque = NULL;
 
 	if (deflateInit2(&strm, level, Z_DEFLATED, wbits, MAX_MEM_LEVEL,
 			Z_DEFAULT_STRATEGY) != Z_OK) {
@@ -161,7 +162,7 @@ int esp_algo_flash_compress(const uint8_t *in, uint32_t in_len, uint8_t **out, u
 	return ERROR_OK;
 }
 #else
-int esp_algo_flash_compress(const uint8_t *in, uint32_t in_len, uint8_t **out, uint32_t *out_len)
+static int esp_algo_flash_compress(const uint8_t *in, uint32_t in_len, uint8_t **out, uint32_t *out_len)
 {
 	return ERROR_FAIL;
 }
@@ -652,7 +653,7 @@ static void esp_algo_flash_write_state_cleanup(struct target *target,
 	LOG_DEBUG("PROF: Workarea freed in %g ms", duration_elapsed(&algo_time) * 1000);
 }
 
-int esp_algo_flash_apptrace_info_init(struct target *target, struct esp_flash_bank *esp_info,
+static int esp_algo_flash_apptrace_info_init(struct target *target, struct esp_flash_bank *esp_info,
 	target_addr_t new_addr, target_addr_t *old_addr)
 {
 	if (esp_info->apptrace_hw->info_init)
@@ -661,7 +662,7 @@ int esp_algo_flash_apptrace_info_init(struct target *target, struct esp_flash_ba
 	return ERROR_OK;
 }
 
-int esp_algo_flash_apptrace_info_restore(struct target *target,
+static int esp_algo_flash_apptrace_info_restore(struct target *target,
 	struct esp_flash_bank *esp_info,
 	target_addr_t old_addr)
 {

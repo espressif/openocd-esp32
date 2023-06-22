@@ -359,7 +359,7 @@ static void esp32_apptrace_blocks_pool_cleanup(struct esp32_apptrace_cmd_ctx *ct
 	}
 }
 
-struct esp32_apptrace_block *esp32_apptrace_free_block_get(struct esp32_apptrace_cmd_ctx *ctx)
+static struct esp32_apptrace_block *esp32_apptrace_free_block_get(struct esp32_apptrace_cmd_ctx *ctx)
 {
 	struct esp32_apptrace_block *block = NULL;
 
@@ -685,7 +685,7 @@ static int esp32_apptrace_wait4halt(struct esp32_apptrace_cmd_ctx *ctx, struct t
 	return ERROR_OK;
 }
 
-int esp32_apptrace_safe_halt_targets(struct esp32_apptrace_cmd_ctx *ctx,
+static int esp32_apptrace_safe_halt_targets(struct esp32_apptrace_cmd_ctx *ctx,
 	struct esp32_apptrace_target_state *targets)
 {
 	int res = ERROR_OK;
@@ -881,7 +881,7 @@ static uint32_t esp32_apptrace_usr_block_check(struct esp32_apptrace_cmd_ctx *ct
 	return usr_len;
 }
 
-int esp32_apptrace_get_data_info(struct esp32_apptrace_cmd_ctx *ctx,
+static int esp32_apptrace_get_data_info(struct esp32_apptrace_cmd_ctx *ctx,
 	struct esp32_apptrace_target_state *target_state,
 	uint32_t *fired_target_num)
 {
@@ -2100,7 +2100,7 @@ static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 	return ERROR_OK;
 }
 
-int esp_gcov_poll(struct target *target, void *priv)
+static int esp_gcov_poll(struct target *target, void *priv)
 {
 	int res = ERROR_OK;
 	struct esp32_apptrace_cmd_ctx *cmd_ctx = (struct esp32_apptrace_cmd_ctx *)priv;

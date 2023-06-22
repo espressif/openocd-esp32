@@ -18,6 +18,7 @@
 #include "register.h"
 #include "dsp563xx.h"
 #include "dsp563xx_once.h"
+#include "openocd.h"
 
 #define ASM_REG_W_R0    0x60F400
 #define ASM_REG_W_R1    0x61F400
@@ -1461,9 +1462,6 @@ static int dsp563xx_run_algorithm(struct target *target,
 
 	return ERROR_OK;
 }
-
-/* global command context from openocd.c */
-extern struct command_context *global_cmd_ctx;
 
 static int dsp563xx_get_default_memory(void)
 {

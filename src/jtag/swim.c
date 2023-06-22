@@ -16,8 +16,7 @@
 #include "swim.h"
 #include <helper/command.h>
 #include <transport/transport.h>
-
-extern struct adapter_driver *adapter_driver;
+#include <jtag/adapter.h>
 
 int swim_system_reset(void)
 {

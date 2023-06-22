@@ -2222,7 +2222,7 @@ void target_free_all_working_areas(struct target *target)
 	target_free_all_working_areas_do(target, &target->working_area_cfg);
 }
 
-void target_free_all_alt_working_areas(struct target *target)
+static void target_free_all_alt_working_areas(struct target *target)
 {
 	target_free_all_working_areas_do(target, &target->alt_working_area_cfg);
 }

@@ -340,7 +340,8 @@ done:
 	return rtos_detected;
 }
 
-int get_thread_number_by_id(struct target *target, threadid_t threadid) {
+static int get_thread_number_by_id(struct target *target, threadid_t threadid)
+{
 	if ((target->rtos) && (target->rtos->thread_details)) {
 		for (int thread_num = 0; thread_num < target->rtos->thread_count; thread_num++) {
 			if (target->rtos->thread_details[thread_num].threadid == threadid &&

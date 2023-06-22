@@ -109,7 +109,7 @@ static int tcl_target_callback_trace_handler(struct target *target,
  * this is a blocking write, so the return value must equal the length, if
  * that is not the case then flag the connection with an output error.
  */
-int tcl_output(struct connection *connection, const void *data, ssize_t len)
+static int tcl_output(struct connection *connection, const void *data, ssize_t len)
 {
 	ssize_t wlen;
 	struct tcl_connection *tclc;

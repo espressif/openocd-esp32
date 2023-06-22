@@ -236,7 +236,7 @@ static int esp_usb_target_chip_id;
  * If this is defined, the log will have entries that allow replay on a testbed. */
 #define LOG_REPLAYABLE
 
-const char *cmds_string[] = { "000", "001", "010", "011", "100", "101", "110", "111",
+static const char * const cmds_string[] = { "000", "001", "010", "011", "100", "101", "110", "111",
 			      "srst0", "srst1", "flush", "rsv", "rep0", "rep1", "rep2", "rep3" };
 
 static int esp_usb_jtag_init(void);

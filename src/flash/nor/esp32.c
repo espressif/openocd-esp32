@@ -200,7 +200,7 @@ COMMAND_HANDLER(esp32_cmd_set_clock)
 		get_current_target(CMD_CTX));
 }
 
-const struct command_registration esp32_flash_command_handlers[] = {
+static const struct command_registration esp32_flash_command_handlers[] = {
 	{
 		.name = "appimage_offset",
 		.handler = esp32_cmd_appimage_flashoff,

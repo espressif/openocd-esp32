@@ -448,7 +448,7 @@ int esp_riscv_resume(struct target *target, int current, target_addr_t address,
 	return riscv_target_resume(target, current, address, handle_breakpoints, debug_execution);
 }
 
-int esp_riscv_on_halt(struct target *target)
+static int esp_riscv_on_halt(struct target *target)
 {
 	esp_riscv_print_exception_reason(target);
 	return ERROR_OK;
@@ -735,7 +735,7 @@ int esp_riscv_write_memory(struct target *target, target_addr_t address,
 	return riscv_target.write_memory(target, address, size, count, buffer);
 }
 
-bool esp_riscv_core_is_halted(struct target *target)
+static bool esp_riscv_core_is_halted(struct target *target)
 {
 	enum riscv_hart_state state;
 	if (riscv_get_hart_state(target, &state) != ERROR_OK)
