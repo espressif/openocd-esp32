@@ -42,6 +42,7 @@
 #include <jtag/interface.h>
 
 #include <jtag/swd.h>
+#include <jtag/adapter.h>
 
 /* for debug, set do_sync to true to force synchronous transfers */
 static bool do_sync;
@@ -685,7 +686,6 @@ static const struct command_registration swd_handlers[] = {
 static int swd_select(struct command_context *ctx)
 {
 	/* FIXME: only place where global 'adapter_driver' is still needed */
-	extern struct adapter_driver *adapter_driver;
 	const struct swd_driver *swd = adapter_driver->swd_ops;
 	int retval;
 

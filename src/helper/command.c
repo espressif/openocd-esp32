@@ -26,6 +26,7 @@
 #include "log.h"
 #include "time_support.h"
 #include "jim-eventloop.h"
+#include "openocd.h"
 
 /* nice short description of source file */
 #define __THIS__FILE__ "command.c"
@@ -131,8 +132,6 @@ static int command_retval_set(Jim_Interp *interp, int retval)
 
 	return (retval == ERROR_OK) ? JIM_OK : retval;
 }
-
-extern struct command_context *global_cmd_ctx;
 
 /* dump a single line to the log for the command.
  * Do nothing in case we are not at debug level 3 */

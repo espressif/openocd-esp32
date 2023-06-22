@@ -373,7 +373,7 @@ static int freertos_read_esp_symbol_table(struct rtos *rtos, int index, uint8_t 
 	return ERROR_OK;
 }
 
-uint8_t freertos_get_thread_name_offset(struct rtos *rtos)
+static uint8_t freertos_get_thread_name_offset(struct rtos *rtos)
 {
 	struct freertos_data *rtos_data = (struct freertos_data *)rtos->rtos_specific_params;
 
@@ -384,7 +384,7 @@ uint8_t freertos_get_thread_name_offset(struct rtos *rtos)
 	return thread_name_offset;
 }
 
-uint8_t freertos_get_thread_stack_offset(struct rtos *rtos)
+static uint8_t freertos_get_thread_stack_offset(struct rtos *rtos)
 {
 	struct freertos_data *rtos_data = (struct freertos_data *)rtos->rtos_specific_params;
 
@@ -397,7 +397,7 @@ uint8_t freertos_get_thread_stack_offset(struct rtos *rtos)
 	return thread_stack_offset;
 }
 
-uint8_t freertos_get_ux_top_used_priority(struct rtos *rtos)
+static uint8_t freertos_get_ux_top_used_priority(struct rtos *rtos)
 {
 	uint32_t ux_top_used_priority = 0;
 
@@ -415,7 +415,7 @@ uint8_t freertos_get_ux_top_used_priority(struct rtos *rtos)
 	return retval == ERROR_OK ? ux_top_used_priority : 0;
 }
 
-symbol_address_t freertos_current_tcb_address(struct rtos *rtos)
+static symbol_address_t freertos_current_tcb_address(struct rtos *rtos)
 {
 	if (rtos->symbols[FREERTOS_VAL_PX_CURRENT_TCB].address)
 		return rtos->symbols[FREERTOS_VAL_PX_CURRENT_TCB].address;

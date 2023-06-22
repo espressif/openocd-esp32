@@ -394,7 +394,7 @@ static const char *esp32_reset_reason_str(int coreid, enum esp32_reset_reason re
 	return "Unknown reset cause";
 }
 
-int esp32_reset_reason_fetch(struct target *target, int *rsn_id, const char **rsn_str)
+static int esp32_reset_reason_fetch(struct target *target, int *rsn_id, const char **rsn_str)
 {
 	uint32_t rsn_val;
 

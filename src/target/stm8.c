@@ -21,6 +21,7 @@
 #include "breakpoints.h"
 #include "algorithm.h"
 #include "stm8.h"
+#include "jtag/adapter.h"
 
 static struct reg_cache *stm8_build_reg_cache(struct target *target);
 static int stm8_read_core_reg(struct target *target, unsigned int num);
@@ -35,7 +36,6 @@ static void stm8_enable_watchpoints(struct target *target);
 static int stm8_unset_watchpoint(struct target *target,
 		struct watchpoint *watchpoint);
 static int (*adapter_speed)(int speed);
-extern struct adapter_driver *adapter_driver;
 
 static const struct {
 	unsigned id;

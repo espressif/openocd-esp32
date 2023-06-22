@@ -48,9 +48,9 @@ static int riscv013_on_halt(struct target *target);
 static int riscv013_on_step(struct target *target);
 static int riscv013_resume_prep(struct target *target);
 static enum riscv_halt_reason riscv013_halt_reason(struct target *target);
-static int riscv013_write_debug_buffer(struct target *target, unsigned index,
+static int riscv013_write_debug_buffer(struct target *target, unsigned int index,
 		riscv_insn_t d);
-static riscv_insn_t riscv013_read_debug_buffer(struct target *target, unsigned
+static riscv_insn_t riscv013_read_debug_buffer(struct target *target, unsigned int
 		index);
 static int riscv013_invalidate_cached_debug_buffer(struct target *target);
 static int riscv013_execute_debug_buffer(struct target *target);
@@ -4532,7 +4532,7 @@ static enum riscv_halt_reason riscv013_halt_reason(struct target *target)
 	return RISCV_HALT_UNKNOWN;
 }
 
-int riscv013_write_debug_buffer(struct target *target, unsigned index, riscv_insn_t data)
+static int riscv013_write_debug_buffer(struct target *target, unsigned int index, riscv_insn_t data)
 {
 	dm013_info_t *dm = get_dm(target);
 	if (!dm)
@@ -4547,14 +4547,14 @@ int riscv013_write_debug_buffer(struct target *target, unsigned index, riscv_ins
 	return ERROR_OK;
 }
 
-riscv_insn_t riscv013_read_debug_buffer(struct target *target, unsigned index)
+static riscv_insn_t riscv013_read_debug_buffer(struct target *target, unsigned int index)
 {
 	uint32_t value;
 	dmi_read(target, &value, DM_PROGBUF0 + index);
 	return value;
 }
 
-int riscv013_invalidate_cached_debug_buffer(struct target *target)
+static int riscv013_invalidate_cached_debug_buffer(struct target *target)
 {
 	dm013_info_t *dm = get_dm(target);
 	if (!dm) {
@@ -4568,7 +4568,7 @@ int riscv013_invalidate_cached_debug_buffer(struct target *target)
 	return ERROR_OK;
 }
 
-int riscv013_execute_debug_buffer(struct target *target)
+static int riscv013_execute_debug_buffer(struct target *target)
 {
 	uint32_t run_program = 0;
 	run_program = set_field(run_program, AC_ACCESS_REGISTER_AARSIZE, 2);
@@ -4579,7 +4579,7 @@ int riscv013_execute_debug_buffer(struct target *target)
 	return execute_abstract_command(target, run_program);
 }
 
-void riscv013_fill_dmi_write_u64(struct target *target, char *buf, int a, uint64_t d)
+static void riscv013_fill_dmi_write_u64(struct target *target, char *buf, int a, uint64_t d)
 {
 	RISCV013_INFO(info);
 	buf_set_u64((unsigned char *)buf, DTM_DMI_OP_OFFSET, DTM_DMI_OP_LENGTH, DMI_OP_WRITE);
@@ -4587,7 +4587,7 @@ void riscv013_fill_dmi_write_u64(struct target *target, char *buf, int a, uint64
 	buf_set_u64((unsigned char *)buf, DTM_DMI_ADDRESS_OFFSET, info->abits, a);
 }
 
-void riscv013_fill_dmi_read_u64(struct target *target, char *buf, int a)
+static void riscv013_fill_dmi_read_u64(struct target *target, char *buf, int a)
 {
 	RISCV013_INFO(info);
 	buf_set_u64((unsigned char *)buf, DTM_DMI_OP_OFFSET, DTM_DMI_OP_LENGTH, DMI_OP_READ);
@@ -4595,7 +4595,7 @@ void riscv013_fill_dmi_read_u64(struct target *target, char *buf, int a)
 	buf_set_u64((unsigned char *)buf, DTM_DMI_ADDRESS_OFFSET, info->abits, a);
 }
 
-void riscv013_fill_dmi_nop_u64(struct target *target, char *buf)
+static void riscv013_fill_dmi_nop_u64(struct target *target, char *buf)
 {
 	RISCV013_INFO(info);
 	buf_set_u64((unsigned char *)buf, DTM_DMI_OP_OFFSET, DTM_DMI_OP_LENGTH, DMI_OP_NOP);
@@ -4603,7 +4603,7 @@ void riscv013_fill_dmi_nop_u64(struct target *target, char *buf)
 	buf_set_u64((unsigned char *)buf, DTM_DMI_ADDRESS_OFFSET, info->abits, 0);
 }
 
-int riscv013_dmi_write_u64_bits(struct target *target)
+static int riscv013_dmi_write_u64_bits(struct target *target)
 {
 	RISCV013_INFO(info);
 	return info->abits + DTM_DMI_DATA_LENGTH + DTM_DMI_OP_LENGTH;
@@ -4692,7 +4692,7 @@ static int riscv013_step_or_resume_current_hart(struct target *target,
 	return ERROR_FAIL;
 }
 
-void riscv013_clear_abstract_error(struct target *target)
+static void riscv013_clear_abstract_error(struct target *target)
 {
 	/* Wait for busy to go away. */
 	time_t start = time(NULL);
