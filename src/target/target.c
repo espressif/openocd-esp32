@@ -78,6 +78,7 @@ static struct target_type *target_types[] = {
 	&feroceon_target,
 	&dragonite_target,
 	&xscale_target,
+	&xtensa_chip_target,
 	&cortexm_target,
 	&cortexa_target,
 	&cortexr4_target,
