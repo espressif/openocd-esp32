@@ -665,30 +665,17 @@ int esp_xtensa_smp_target_init(struct command_context *cmd_ctx, struct target *t
 
 	if (target->smp) {
 		struct target_list *head;
-		if (!target->working_area_cfg.phys_spec) {
+		if (!target->working_area_phys_spec) {
 			/* Working areas are configured for one core only. Use the same config data for other cores.
 			It is safe to share config data because algorithms can not be ran on different cores concurrently. */
 			foreach_smp_target(head, target->smp_targets) {
 				struct target *curr = head->target;
 				if (curr == target)
 					continue;
-				if (curr->working_area_cfg.phys_spec) {
-					memcpy(&target->working_area_cfg,
-						&curr->working_area_cfg,
-						sizeof(curr->working_area_cfg));
-					break;
-				}
-			}
-		}
-		if (!target->alt_working_area_cfg.phys_spec) {
-			foreach_smp_target(head, target->smp_targets) {
-				struct target *curr = head->target;
-				if (curr == target)
-					continue;
-				if (curr->alt_working_area_cfg.phys_spec) {
-					memcpy(&target->alt_working_area_cfg,
-						&curr->alt_working_area_cfg,
-						sizeof(curr->alt_working_area_cfg));
+				if (curr->working_area_phys_spec) {
+					memcpy(&target->working_area,
+						&curr->working_area,
+						sizeof(curr->working_area));
 					break;
 				}
 			}

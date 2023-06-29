@@ -346,7 +346,7 @@ static int rsl10_ll_flash_erase(struct rsl10_info *chip, uint32_t address)
 
 	int retval = target_alloc_working_area(target, sizeof(rsl10_rom_launcher_code), &write_algorithm);
 	if (retval != ERROR_OK) {
-		LOG_ERROR("Current working area 0x%x is too small! Increase working area size!", target->working_area_cfg.size);
+		LOG_ERROR("Current working area 0x%x is too small! Increase working area size!", target->working_area_size);
 		return ERROR_FAIL;
 	}
 
@@ -409,7 +409,7 @@ static int rsl10_ll_flash_write(struct rsl10_info *chip, uint32_t address, const
 	/* allocate working area with flash programming code */
 	int retval = target_alloc_working_area(target, sizeof(rsl10_rom_launcher_code), &write_algorithm);
 	if (retval != ERROR_OK) {
-		LOG_ERROR("Current working area 0x%x is too small! Increase working area size!", target->working_area_cfg.size);
+		LOG_ERROR("Current working area 0x%x is too small! Increase working area size!", target->working_area_size);
 		return ERROR_FAIL;
 	}
 
@@ -424,7 +424,7 @@ static int rsl10_ll_flash_write(struct rsl10_info *chip, uint32_t address, const
 	struct working_area *source;
 	retval = target_alloc_working_area(target, buffer_size, &source);
 	if (retval != ERROR_OK) {
-		LOG_ERROR("Current working area 0x%x is too small! Increase working area size!", target->working_area_cfg.size);
+		LOG_ERROR("Current working area 0x%x is too small! Increase working area size!", target->working_area_size);
 		goto free_algorithm;
 	}
 
@@ -504,7 +504,7 @@ static int rsl10_mass_erase(struct target *target)
 
 	int retval = target_alloc_working_area(target, sizeof(rsl10_rom_launcher_code), &write_algorithm);
 	if (retval != ERROR_OK) {
-		LOG_ERROR("Current working area 0x%x is too small! Increase working area size!", target->working_area_cfg.size);
+		LOG_ERROR("Current working area 0x%x is too small! Increase working area size!", target->working_area_size);
 		return ERROR_FAIL;
 	}
 

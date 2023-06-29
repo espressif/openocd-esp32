@@ -351,8 +351,8 @@ static int fm3_write_block(struct flash_bank *bank, const uint8_t *buffer,
 	uint32_t u32_flash_seq_address2;
 
 	/* Increase buffer_size if needed */
-	if (buffer_size < (target->working_area_cfg.size / 2))
-		buffer_size = (target->working_area_cfg.size / 2);
+	if (buffer_size < (target->working_area_size / 2))
+		buffer_size = (target->working_area_size / 2);
 
 	u32_flash_type = (uint32_t) fm3_info->flashtype;
 
