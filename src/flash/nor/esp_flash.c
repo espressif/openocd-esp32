@@ -592,7 +592,7 @@ static int esp_algo_flash_write_state_init(struct target *target,
 	}
 
 	/* alloc memory for stub flash write arguments in data working area */
-	if (target_alloc_alt_working_area(target, sizeof(state->stub_wargs),
+	if (target_alloc_working_area(target, sizeof(state->stub_wargs),
 			&state->stub_wargs_area) != ERROR_OK) {
 		LOG_ERROR("no working area available, can't alloc space for stub flash arguments");
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
@@ -604,7 +604,7 @@ static int esp_algo_flash_write_state_init(struct target *target,
 		return ERROR_FAIL;
 	}
 	uint32_t buffer_size = 64 * 1024;
-	while (target_alloc_alt_working_area_try(target, buffer_size,
+	while (target_alloc_working_area_try(target, buffer_size,
 			&state->target_buf) != ERROR_OK) {
 		buffer_size /= 2;
 		if (buffer_size == 0) {
@@ -646,8 +646,8 @@ static void esp_algo_flash_write_state_cleanup(struct target *target,
 		return;
 	if (duration_start(&algo_time) != 0)
 		LOG_ERROR("Failed to start workarea alloc time measurement!");
-	target_free_alt_working_area(target, state->target_buf);
-	target_free_alt_working_area(target, state->stub_wargs_area);
+	target_free_working_area(target, state->target_buf);
+	target_free_working_area(target, state->stub_wargs_area);
 	if (duration_measure(&algo_time) != 0)
 		LOG_ERROR("Failed to stop data write measurement!");
 	LOG_DEBUG("PROF: Workarea freed in %g ms", duration_elapsed(&algo_time) * 1000);
@@ -1040,7 +1040,7 @@ static int esp_algo_flash_bp_op_state_init(struct target *target,
 	/* aloocate target buffer for temp storage of flash sections contents when modifying
 	 * instruction */
 	LOG_DEBUG("SEC_SIZE %d", state->esp_info->sec_sz);
-	int ret = target_alloc_alt_working_area(target,
+	int ret = target_alloc_working_area(target,
 		2 * (state->esp_info->sec_sz),
 		&state->target_buf);
 	if (ret != ERROR_OK) {
@@ -1059,7 +1059,7 @@ static void esp_algo_flash_bp_op_state_cleanup(struct target *target,
 {
 	if (!state->target_buf)
 		return;
-	target_free_alt_working_area(target, state->target_buf);
+	target_free_working_area(target, state->target_buf);
 }
 
 int esp_algo_flash_breakpoint_add(struct target *target,

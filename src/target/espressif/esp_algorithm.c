@@ -142,10 +142,7 @@ static int algorithm_run(struct target *target, struct algorithm_image *image,
 			if (image) {
 				static struct working_area *area;	/* see TODO at target.c:2018
 									 *for why this is static */
-				retval =
-					target_alloc_alt_working_area(target,
-					run->mem_args.params[i].size,
-					&area);
+				retval = target_alloc_working_area(target, run->mem_args.params[i].size, &area);
 				if (retval != ERROR_OK) {
 					LOG_ERROR("Failed to alloc target buffer!");
 					retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
@@ -268,7 +265,7 @@ _cleanup:
 		for (uint32_t i = 0; i < run->mem_args.count; i++) {
 			if (mem_handles[i]) {
 				if (image) {
-					target_free_alt_working_area(target, mem_handles[i]);
+					target_free_working_area(target, mem_handles[i]);
 				} else {
 					struct algorithm_run_data free_run;
 					memset(&free_run, 0, sizeof(free_run));
@@ -370,7 +367,7 @@ int algorithm_load_func_image(struct target *target,
 			LOG_DEBUG("BSS sec size %" PRIu32 " -> %" PRIu32,
 				run->image.bss_size,
 				bss_sec_sz);
-			if (target_alloc_alt_working_area(target,
+			if (target_alloc_working_area(target,
 					data_sec_sz + bss_sec_sz,
 					&run->stub.data) != ERROR_OK) {
 				LOG_ERROR(
@@ -423,7 +420,7 @@ int algorithm_load_func_image(struct target *target,
 
 	if (run->stub.stack_addr == 0 && run->stack_size > 0) {
 		/* alloc stack in data working area */
-		if (target_alloc_alt_working_area(target, run->stack_size,
+		if (target_alloc_working_area(target, run->stack_size,
 				&run->stub.stack) != ERROR_OK) {
 			LOG_ERROR("no working area available, can't alloc stub stack!");
 			retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
@@ -471,7 +468,7 @@ int algorithm_unload_func_image(struct target *target,
 		run->stub.tramp = NULL;
 	}
 	if (run->stub.stack) {
-		target_free_alt_working_area(target, run->stub.stack);
+		target_free_working_area(target, run->stub.stack);
 		run->stub.stack = NULL;
 	}
 	if (run->stub.code) {
@@ -479,7 +476,7 @@ int algorithm_unload_func_image(struct target *target,
 		run->stub.code = NULL;
 	}
 	if (run->stub.data) {
-		target_free_alt_working_area(target, run->stub.data);
+		target_free_working_area(target, run->stub.data);
 		run->stub.data = NULL;
 	}
 	return ERROR_OK;
