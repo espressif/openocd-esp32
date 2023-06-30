@@ -28,6 +28,12 @@ PHDRS
 ENTRY(stub_main)
 
 SECTIONS {
+  .iram_org = ORIGIN(iram);
+  .iram_len = ABSOLUTE(. + LENGTH(iram));
+
+  .dram_org = ORIGIN(dram);
+  .dram_len = ABSOLUTE(. + LENGTH(dram));
+
   .text : ALIGN(4) {
     *(.literal)
     *(.text .text.*)

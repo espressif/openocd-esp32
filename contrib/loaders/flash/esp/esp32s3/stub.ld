@@ -20,10 +20,12 @@
  ***************************************************************************/
 
 MEMORY {
-  /* place stub at the beginning of the OpenOCD working area,
-     remaining space will be used for other chunks */
-  iram : org = 0x403B0000, len = 0x4000
-  dram : org = 0x3FCA0000, len = 0x20000
+  /* Place sections by starting from the Internal SRAM1. OpenOCD will fill the sections using data bus.
+     0x3FC88000 - code (OpenOCD workarea address)
+	 0x3FC8C000 - data
+  */
+  iram : org = 0x40378000, len = 0x4000
+  dram : org = 0x3FC8C000, len = 0x20000
 }
 
 INCLUDE stub_common.ld

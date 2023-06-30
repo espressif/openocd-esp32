@@ -56,6 +56,12 @@ struct esp_flasher_stub_config {
 	uint32_t stack_data_pool_sz;
 	target_addr_t log_buff_addr;
 	uint32_t log_buff_size;	/* current_log_len + len(buff) */
+	target_addr_t iram_org;
+	uint32_t iram_len;
+	target_addr_t dram_org;
+	uint32_t dram_len;
+	/* ibus address range can be in reverse order compared to dbus */
+	bool reverse;
 };
 
 /* ESP flash data.

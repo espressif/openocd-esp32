@@ -20,8 +20,10 @@
  ***************************************************************************/
 
 MEMORY {
-  /* place stub at the beginning of the OpenOCD working area,
-     remaining space will be used for other chunks */
+  /* Place sections by starting from the HPSRAM. ESP32-H2 has unified i/d bus
+     0x40800000 - code (OpenOCD workarea address)
+	 0x40804000 - data
+  */
   iram : org = 0x40800000, len = 0x4000
   dram : org = 0x40804000, len = 0x20000
 }
