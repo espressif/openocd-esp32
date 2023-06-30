@@ -9,6 +9,7 @@
 #include "config.h"
 #endif
 
+#include <helper/align.h>
 #include <target/algorithm.h>
 #include <target/target.h>
 #include "esp_algorithm.h"
@@ -204,12 +205,13 @@ static int algorithm_run(struct target *target, struct algorithm_image *image,
 		goto _cleanup;
 	}
 #endif
+
 	LOG_DEBUG("Algorithm start @ " TARGET_ADDR_FMT ", stack %d bytes @ " TARGET_ADDR_FMT,
-		run->stub.tramp_addr, run->stack_size, run->stub.stack_addr);
+		run->stub.tramp_mapped_addr, run->stack_size, run->stub.stack_addr);
 	retval = target_start_algorithm(target,
 		run->mem_args.count, run->mem_args.params,
 		run->reg_args.count, run->reg_args.params,
-		run->stub.tramp_addr, 0,
+		run->stub.tramp_mapped_addr, 0,
 		run->stub.ainfo);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Failed to start algorithm (%d)!", retval);
@@ -297,8 +299,71 @@ _cleanup:
 	return retval;
 }
 
-int algorithm_load_func_image(struct target *target,
-	struct algorithm_run_data *run)
+static void reverse_binary(const uint8_t *src, uint8_t *dest, size_t length)
+{
+	size_t i;
+
+	/* Put extra bytes to the beginning with padding */
+	size_t remaining = length % 4;
+	if (remaining > 0) {
+		memset(dest, 0xFF, 4);
+		for (i = 0; i < remaining; i++)
+			dest[i] = src[length - remaining + i];
+	}
+
+	for (i = remaining; i < length - remaining; i += 4) {
+		dest[i + 0] = src[length - i - 4];
+		dest[i + 1] = src[length - i - 3];
+		dest[i + 2] = src[length - i - 2];
+		dest[i + 3] = src[length - i - 1];
+	}
+}
+
+static int load_section_from_image(struct target *target,
+	struct algorithm_run_data *run, int section_num, bool reverse)
+{
+	struct imagesection *section = &run->image.image.sections[section_num];
+	uint32_t sec_wr = 0;
+	uint8_t buf[1024];
+
+	assert(sizeof(buf) % 4 == 0);
+
+	while (sec_wr < section->size) {
+		uint32_t nb = section->size - sec_wr > sizeof(buf) ? sizeof(buf) : section->size - sec_wr;
+		size_t size_read = 0;
+		int retval = image_read_section(&(run->image.image), section_num, sec_wr, nb, buf, &size_read);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Failed to read stub section (%d)!", retval);
+			return retval;
+		}
+
+		if (reverse) {
+			size_t aligned_len = ALIGN_UP(size_read, 4);
+			uint8_t reversed_buf[aligned_len];
+
+			/* Send original size to allow padding calculation */
+			reverse_binary(buf, reversed_buf, size_read);
+
+			retval = target_write_buffer(target, run->image.dram_org - sec_wr - size_read, size_read, reversed_buf);
+			if (retval != ERROR_OK) {
+				LOG_ERROR("Failed to write stub section!");
+				return retval;
+			}
+		} else {
+			retval = target_write_buffer(target, section->base_address + sec_wr, size_read, buf);
+			if (retval != ERROR_OK) {
+				LOG_ERROR("Failed to write stub section!");
+				return retval;
+			}
+		}
+
+		sec_wr += size_read;
+	}
+
+	return ERROR_OK;
+}
+
+int algorithm_load_func_image(struct target *target, struct algorithm_run_data *run)
 {
 	int retval;
 	size_t tramp_sz = 0;
@@ -310,75 +375,138 @@ int algorithm_load_func_image(struct target *target,
 		return ERROR_FAIL;
 	}
 
-	if (run->hw->stub_tramp_get != NULL) {
+	if (run->hw->stub_tramp_get) {
 		tramp = run->hw->stub_tramp_get(target, &tramp_sz);
-		if (tramp == NULL)
+		if (!tramp)
 			return ERROR_FAIL;
 	}
 
-	/*TODO: add description of how to build proper ELF image to be loaded to
-	        * workspace */
-	LOG_DEBUG(
-		"stub: base 0x%x, start 0x%x, %d sections",
+	/*TODO: add description of how to build proper ELF image to be loaded to workspace */
+	LOG_DEBUG("stub: base 0x%x, start 0x%x, %d sections",
 		run->image.image.base_address_set ? (unsigned int)run->image.image.base_address : 0,
 		run->image.image.start_address,
 		run->image.image.num_sections);
 	run->stub.entry = run->image.image.start_address;
+
+	/* Load the code section */
+
+	/* calculate the padding size between code and data regions */
+	/* [code + trampoline] --- padding --- [data] */
+	uint32_t total_code_size = 0;
+
 	for (unsigned int i = 0; i < run->image.image.num_sections; i++) {
 		struct imagesection *section = &run->image.image.sections[i];
-		LOG_DEBUG("addr " TARGET_ADDR_FMT ", sz %d, flags %" PRIx64,
-			section->base_address,
-			section->size,
-			section->flags);
+
 		if (section->size == 0)
 			continue;
+
 		if (section->flags & IMAGE_ELF_PHF_EXEC) {
-			if (target_alloc_working_area(target, section->size,
-					&run->stub.code) != ERROR_OK) {
-				LOG_ERROR(
-					"no working area available, can't alloc space for stub code!");
+			LOG_DEBUG("addr " TARGET_ADDR_FMT ", sz %d, flags %" PRIx64,
+				section->base_address, section->size, section->flags);
+
+			if (target_alloc_working_area(target, section->size, &run->stub.code) != ERROR_OK) {
+				LOG_ERROR("no working area available, can't alloc space for stub code!");
 				retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 				goto _on_error;
 			}
 			if (section->base_address == 0) {
 				section->base_address = run->stub.code->address;
-				/* sanity check, stub is compiled to be run from working
-				        * area */
+				/* sanity check, stub is compiled to be run from working area */
 			} else if (run->stub.code->address != section->base_address) {
-				LOG_ERROR(
-					"working area " TARGET_ADDR_FMT
-					" and stub code section " TARGET_ADDR_FMT
+				LOG_ERROR("working area " TARGET_ADDR_FMT " and stub code section " TARGET_ADDR_FMT
 					" address mismatch!",
 					section->base_address,
 					run->stub.code->address);
 				retval = ERROR_FAIL;
 				goto _on_error;
 			}
+
+			retval = load_section_from_image(target, run, i, run->image.reverse);
+			if (retval != ERROR_OK)
+				goto _on_error;
+			total_code_size += ALIGN_UP(section->size, 4);
+		}
+	}
+
+	/* If exists, load trampoline to the code area */
+	if (tramp) {
+		if (run->stub.tramp_addr == 0) {
+			/* alloc trampoline in code working area */
+			if (target_alloc_working_area(target, tramp_sz, &run->stub.tramp) != ERROR_OK) {
+				LOG_ERROR("no working area available, can't alloc space for stub jumper!");
+				retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+				goto _on_error;
+			}
+			run->stub.tramp_addr = run->stub.tramp->address;
+			total_code_size += ALIGN_UP(tramp_sz, 4);
+		}
+
+		uint32_t offset = run->stub.tramp_addr - target->working_area_phys;
+
+		if (run->image.reverse) {
+			target_addr_t reversed_tramp_addr = run->image.dram_org - offset;
+			size_t aligned_len = ALIGN_UP(tramp_sz, 4);
+			uint8_t reversed_tramp[aligned_len];
+
+			/* Send original size to allow padding calculation */
+			reverse_binary(tramp, reversed_tramp, tramp_sz);
+
+			retval = target_write_buffer(target, reversed_tramp_addr - tramp_sz, tramp_sz, reversed_tramp);
+			if (retval != ERROR_OK) {
+				LOG_ERROR("Failed to write stub jumper!");
+				goto _on_error;
+			}
+
 		} else {
-			/* target_alloc_alt_working_area() aligns the whole working area size to 4-byte boundary.
+			LOG_DEBUG("Write tramp to addr " TARGET_ADDR_FMT ", sz %zu", run->stub.tramp_addr, tramp_sz);
+			retval = target_write_buffer(target, run->stub.tramp_addr, tramp_sz, tramp);
+			if (retval != ERROR_OK) {
+				LOG_ERROR("Failed to write stub jumper!");
+				goto _on_error;
+			}
+		}
+
+		run->stub.tramp_mapped_addr = run->image.iram_org + offset;
+
+		LOG_DEBUG("Tramp mapped to addr " TARGET_ADDR_FMT, run->stub.tramp_mapped_addr);
+	}
+
+	/* allocate dummy space until the data address */
+
+	/* we dont need to restore padding area. TODO: check for reversed regions */
+	uint32_t backup_working_area_prev = target->backup_working_area;
+	target->backup_working_area = 0;
+	if (target_alloc_working_area(target, run->image.iram_len - total_code_size, &run->stub.padding) != ERROR_OK) {
+		LOG_ERROR("no working area available, can't alloc space for stub code!");
+		retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		goto _on_error;
+	}
+	target->backup_working_area = backup_working_area_prev;
+
+	/*  Load the data section */
+	for (unsigned int i = 0; i < run->image.image.num_sections; i++) {
+		struct imagesection *section = &run->image.image.sections[i];
+
+		if (section->size == 0)
+			continue;
+
+		if (!(section->flags & IMAGE_ELF_PHF_EXEC)) {
+			LOG_DEBUG("addr " TARGET_ADDR_FMT ", sz %d, flags %" PRIx64, section->base_address, section->size,
+				section->flags);
+			/* target_alloc_working_area() aligns the whole working area size to 4-byte boundary.
 			   We alloc one area for both DATA and BSS, so align each of them ourselves. */
-			uint32_t data_sec_sz = section->size;
-			data_sec_sz = (data_sec_sz + 3) & (~3UL);
-			LOG_DEBUG("DATA sec size %" PRIu32 " -> %" PRIu32,
-				section->size,
-				data_sec_sz);
-			uint32_t bss_sec_sz = run->image.bss_size;
-			bss_sec_sz = (bss_sec_sz + 3) & (~3UL);
-			LOG_DEBUG("BSS sec size %" PRIu32 " -> %" PRIu32,
-				run->image.bss_size,
-				bss_sec_sz);
-			if (target_alloc_working_area(target,
-					data_sec_sz + bss_sec_sz,
-					&run->stub.data) != ERROR_OK) {
-				LOG_ERROR(
-					"no working area available, can't alloc space for stub data!");
+			uint32_t data_sec_sz = ALIGN_UP(section->size, 4);
+			LOG_DEBUG("DATA sec size %" PRIu32 " -> %" PRIu32, section->size, data_sec_sz);
+			uint32_t bss_sec_sz = ALIGN_UP(run->image.bss_size, 4);
+			LOG_DEBUG("BSS sec size %" PRIu32 " -> %" PRIu32, run->image.bss_size, bss_sec_sz);
+			if (target_alloc_working_area(target, data_sec_sz + bss_sec_sz, &run->stub.data) != ERROR_OK) {
+				LOG_ERROR("no working area available, can't alloc space for stub data!");
 				retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 				goto _on_error;
 			}
 			if (section->base_address == 0) {
 				section->base_address = run->stub.data->address;
-				/* sanity check, stub is compiled to be run from working
-				        * area */
+				/* sanity check, stub is compiled to be run from working area */
 			} else if (run->stub.data->address != section->base_address) {
 				LOG_ERROR(
 					"working area " TARGET_ADDR_FMT
@@ -389,62 +517,22 @@ int algorithm_load_func_image(struct target *target,
 				retval = ERROR_FAIL;
 				goto _on_error;
 			}
-		}
-		uint32_t sec_wr = 0;
-		uint8_t buf[512];
-		while (sec_wr < section->size) {
-			uint32_t nb = section->size - sec_wr >
-				sizeof(buf) ? sizeof(buf) : section->size - sec_wr;
-			size_t size_read = 0;
-			retval = image_read_section(&(run->image.image),
-				i,
-				sec_wr,
-				nb,
-				buf,
-				&size_read);
-			if (retval != ERROR_OK) {
-				LOG_ERROR("Failed to read stub section (%d)!", retval);
+
+			retval = load_section_from_image(target, run, i, false);
+			if (retval != ERROR_OK)
 				goto _on_error;
-			}
-			retval = target_write_buffer(target,
-				section->base_address + sec_wr,
-				size_read,
-				buf);
-			if (retval != ERROR_OK) {
-				LOG_ERROR("Failed to write stub section!");
-				goto _on_error;
-			}
-			sec_wr += size_read;
 		}
 	}
 
+	/* stack */
 	if (run->stub.stack_addr == 0 && run->stack_size > 0) {
 		/* alloc stack in data working area */
-		if (target_alloc_working_area(target, run->stack_size,
-				&run->stub.stack) != ERROR_OK) {
+		if (target_alloc_working_area(target, run->stack_size, &run->stub.stack) != ERROR_OK) {
 			LOG_ERROR("no working area available, can't alloc stub stack!");
 			retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 			goto _on_error;
 		}
 		run->stub.stack_addr = run->stub.stack->address + run->stack_size;
-	}
-	if (tramp != NULL) {
-		if (run->stub.tramp_addr == 0) {
-			/* alloc trampoline in code working area */
-			if (target_alloc_working_area(target, tramp_sz,
-					&run->stub.tramp) != ERROR_OK) {
-				LOG_ERROR(
-					"no working area available, can't alloc space for stub jumper!");
-				retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
-				goto _on_error;
-			}
-			run->stub.tramp_addr = run->stub.tramp->address;
-		}
-		retval = target_write_buffer(target, run->stub.tramp_addr, tramp_sz, tramp);
-		if (retval != ERROR_OK) {
-			LOG_ERROR("Failed to write stub jumper!");
-			goto _on_error;
-		}
 	}
 
 	if (duration_measure(&algo_time) != 0) {
@@ -460,25 +548,10 @@ _on_error:
 	return retval;
 }
 
-int algorithm_unload_func_image(struct target *target,
-	struct algorithm_run_data *run)
+int algorithm_unload_func_image(struct target *target, struct algorithm_run_data *run)
 {
-	if (run->stub.tramp) {
-		target_free_working_area(target, run->stub.tramp);
-		run->stub.tramp = NULL;
-	}
-	if (run->stub.stack) {
-		target_free_working_area(target, run->stub.stack);
-		run->stub.stack = NULL;
-	}
-	if (run->stub.code) {
-		target_free_working_area(target, run->stub.code);
-		run->stub.code = NULL;
-	}
-	if (run->stub.data) {
-		target_free_working_area(target, run->stub.data);
-		run->stub.data = NULL;
-	}
+	target_free_all_working_areas(target);
+
 	return ERROR_OK;
 }
 
@@ -509,7 +582,7 @@ int algorithm_load_onboard_func(struct target *target,
 
 	if (run->hw->stub_tramp_get != NULL) {
 		tramp = run->hw->stub_tramp_get(target, &tramp_sz);
-		if (tramp == NULL)
+		if (!tramp)
 			return ERROR_FAIL;
 	}
 
@@ -552,9 +625,10 @@ int algorithm_load_onboard_func(struct target *target,
 	}
 
 	run->stub.tramp_addr = run->on_board.code_buf_addr;
+	run->stub.tramp_mapped_addr = run->stub.tramp_addr;
 	run->stub.entry = func_addr;
 
-	if (tramp != NULL) {
+	if (tramp) {
 		res = target_write_buffer(target, run->stub.tramp_addr, tramp_sz, tramp);
 		if (res != ERROR_OK) {
 			LOG_ERROR("Failed to write stub jumper!");

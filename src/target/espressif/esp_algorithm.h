@@ -116,6 +116,16 @@ struct algorithm_image {
 	struct image image;
 	/** BSS section size. */
 	uint32_t bss_size;
+	/** IRAM start address in the linker script */
+	uint32_t iram_org;
+	/** Total reserved IRAM size */
+	uint32_t iram_len;
+	/** DRAM start address in the linker script */
+	uint32_t dram_org;
+	/** Total reserved DRAM size */
+	uint32_t dram_len;
+	/** IRAM DRAM address range reversed or not */
+	bool reverse;
 };
 
 /**
@@ -130,9 +140,15 @@ struct algorithm_stub {
 	struct working_area *data;
 	/** Working area for tramploline. */
 	struct working_area *tramp;
+	/** Working area for padding between code and data area. */
+	struct working_area *padding;
 	/** Address of the target buffer for stub trampoline. If zero tramp->address will be used.
 	 **/
 	target_addr_t tramp_addr;
+	/** Tramp code area will be filled from dbus.
+	 *  We need to map it to the ibus to be able to initialize PC register to start algorithm execution from.
+	 */
+	target_addr_t tramp_mapped_addr;
 	/** Working area for stack. */
 	struct working_area *stack;
 	/** Address of the target buffer for stack. If zero tramp->address will be used. */

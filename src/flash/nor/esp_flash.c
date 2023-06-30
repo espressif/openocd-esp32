@@ -206,6 +206,11 @@ static int esp_algo_flasher_algorithm_init(struct algorithm_run_data *algo,
 	algo->hw = stub_hw;
 	algo->reg_args.first_user_param = stub_cfg->first_user_reg_param;
 	algo->image.bss_size = stub_cfg->bss_sz;
+	algo->image.iram_org = stub_cfg->iram_org;
+	algo->image.iram_len = stub_cfg->iram_len;
+	algo->image.dram_org = stub_cfg->dram_org;
+	algo->image.dram_len = stub_cfg->dram_len;
+	algo->image.reverse = stub_cfg->reverse;
 	algo->stub.log_buff_addr = stub_cfg->log_buff_addr;
 	algo->stub.log_buff_size = stub_cfg->log_buff_size;
 	memset(&algo->image.image, 0, sizeof(algo->image.image));

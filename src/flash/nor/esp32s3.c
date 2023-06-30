@@ -49,6 +49,10 @@ static const struct esp_flasher_stub_config s_esp32s3_stub_cfg = {
 	.data_sz = sizeof(esp32s3_flasher_stub_data),
 	.entry_addr = ESP32S3_STUB_ENTRY_ADDR,
 	.bss_sz = ESP32S3_STUB_BSS_SIZE,
+	.iram_org = ESP32S3_STUB_IRAM_ORG,
+	.iram_len = ESP32S3_STUB_IRAM_LEN,
+	.dram_org = ESP32S3_STUB_DRAM_ORG,
+	.dram_len = ESP32S3_STUB_DRAM_LEN,
 	.first_user_reg_param = XTENSA_STUB_ARGS_FUNC_START
 };
 
@@ -59,6 +63,10 @@ static const struct esp_flasher_stub_config s_esp32s3_stub_cfg_wlog = {
 	.data_sz = sizeof(esp32s3_flasher_stub_data_wlog),
 	.entry_addr = ESP32S3_STUB_WLOG_ENTRY_ADDR,
 	.bss_sz = ESP32S3_STUB_WLOG_BSS_SIZE,
+	.iram_org = ESP32S3_STUB_IRAM_ORG,
+	.iram_len = ESP32S3_STUB_IRAM_LEN,
+	.dram_org = ESP32S3_STUB_DRAM_ORG,
+	.dram_len = ESP32S3_STUB_DRAM_LEN,
 	.first_user_reg_param = XTENSA_STUB_ARGS_FUNC_START,
 	.log_buff_addr = ESP32S3_STUB_WLOG_LOG_ADDR,
 	.log_buff_size = ESP32S3_STUB_WLOG_LOG_SIZE
