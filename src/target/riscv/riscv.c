@@ -1528,7 +1528,9 @@ int riscv_flush_registers(struct target *target)
 			reg->dirty = false;
 		}
 	}
-	LOG_TARGET_DEBUG(target, "Flush of register cache completed");
+
+	LOG_TARGET_DEBUG_IO(target, "Flush of register cache completed");
+
 	return ERROR_OK;
 }
 
