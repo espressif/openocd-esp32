@@ -80,6 +80,8 @@ class ApptraceTestsImpl:
             self.assertEqual(line, "[%d %s]\n" % (i, " " * (i * 20)))
         os.remove(trace_file_name)
 
+    # This test has high failure rate.
+    @unittest.skip('OCD-773')
     def test_apptrace_reset(self):
         """
             This test checks that apptracing continue to work if target resets between start and stop

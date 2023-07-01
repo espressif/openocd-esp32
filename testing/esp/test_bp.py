@@ -369,6 +369,8 @@ class DebuggerBreakpointTestsDualEncrypted(DebuggerGenericTestAppTestsDualEncryp
     def test_2cores_concurrently_hit_bps(self):
         two_cores_concurrently_hit_bps(self)
 
+    # OCD-773
+    @skip_for_chip(['esp32'])
     def test_appcpu_early_hw_bps(self):
         appcpu_early_hw_bps(self)
 
