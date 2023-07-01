@@ -432,6 +432,8 @@ class GcovTestAppTestsSingle(DebuggerGenericTestAppTests):
         self.test_app_cfg.build_dir = os.path.join('builds', 'apptrace_gcov_single')
 
 
+# OCD-773
+@skip_for_chip(['esp32s3'])
 class GcovTestsDual(GcovTestAppTestsDual, GcovTestsImpl):
     """ Test cases via GDB in dual core mode
     """
@@ -439,7 +441,8 @@ class GcovTestsDual(GcovTestAppTestsDual, GcovTestsImpl):
         GcovTestAppTestsDual.setUp(self)
         GcovTestsImpl.setUp(self)
 
-
+# OCD-773
+@skip_for_chip(['esp32s3'])
 class GcovTestsSingle(GcovTestAppTestsSingle, GcovTestsImpl):
     """ Test cases via GDB in single core mode
     """
