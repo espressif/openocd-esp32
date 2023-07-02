@@ -673,11 +673,13 @@ static int esp_usb_jtag_init(void)
 	 * 1- With the minimum size required to get to know the total length of that struct,
 	 * 2- Then exactly the length of that struct. */
 	uint8_t jtag_caps_desc[JTAG_PROTO_CAPS_DATA_LEN];
-	int jtag_caps_read_len = jtag_libusb_control_transfer(priv->usb_device,
+	int jtag_caps_read_len;
+	r = jtag_libusb_control_transfer(priv->usb_device,
 		LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_STANDARD | LIBUSB_RECIPIENT_DEVICE,
 		LIBUSB_REQUEST_GET_DESCRIPTOR, esp_usb_jtag_caps, 0,
-		(char *)jtag_caps_desc, JTAG_PROTO_CAPS_DATA_LEN, LIBUSB_TIMEOUT_MS);
-	if (jtag_caps_read_len <= 0) {
+		(char *)jtag_caps_desc, JTAG_PROTO_CAPS_DATA_LEN, LIBUSB_TIMEOUT_MS,
+		&jtag_caps_read_len);
+	if (r != ERROR_OK || jtag_caps_read_len == 0) {
 		LOG_ERROR("esp_usb_jtag: could not retrieve jtag_caps descriptor!");
 		goto out;
 	}
@@ -747,7 +749,8 @@ static int esp_usb_jtag_init(void)
 		0,
 		NULL,
 		0,
-		LIBUSB_TIMEOUT_MS);
+		LIBUSB_TIMEOUT_MS,
+		NULL);
 
 	return ERROR_OK;
 
@@ -812,19 +815,23 @@ static int esp_usb_jtag_speed(int divisor)
 	if (priv->logfile)
 		fprintf(priv->logfile, "Setting divisor to %d\n.", divisor);
 	jtag_libusb_control_transfer(priv->usb_device,
-		LIBUSB_REQUEST_TYPE_VENDOR, VEND_JTAG_SETDIV, divisor, 0, NULL, 0, LIBUSB_TIMEOUT_MS);
+		LIBUSB_REQUEST_TYPE_VENDOR, VEND_JTAG_SETDIV, divisor, 0, NULL, 0, LIBUSB_TIMEOUT_MS, NULL);
 
 	return ERROR_OK;
 }
 
 COMMAND_HANDLER(esp_usb_jtag_tdo_cmd)
 {
-	char tdo;
 	if (!priv->usb_device)
 		return ERROR_FAIL;
+
+	char tdo;
+	int transferred;
+
 	int r = jtag_libusb_control_transfer(priv->usb_device,
-		LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_VENDOR, VEND_JTAG_GETTDO, 0, 0, &tdo, 1, LIBUSB_TIMEOUT_MS);
-	if (r < 1)
+		LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_VENDOR, VEND_JTAG_GETTDO,
+		0, 0, &tdo, 1, LIBUSB_TIMEOUT_MS, &transferred);
+	if (r != ERROR_OK || transferred == 0)
 		return r;
 
 	command_print(CMD, "%d", tdo);
@@ -864,7 +871,7 @@ COMMAND_HANDLER(esp_usb_jtag_setio_cmd)
 	if (priv->logfile)
 		fprintf(priv->logfile, "SetIO command 0x%X\n.", d);
 	jtag_libusb_control_transfer(priv->usb_device,
-		0x40, VEND_JTAG_SETIO, d, 0, NULL, 0, LIBUSB_TIMEOUT_MS);
+		0x40, VEND_JTAG_SETIO, d, 0, NULL, 0, LIBUSB_TIMEOUT_MS, NULL);
 
 	return ERROR_OK;
 }
