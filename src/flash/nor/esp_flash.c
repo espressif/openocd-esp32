@@ -224,7 +224,7 @@ static int esp_algo_flasher_algorithm_init(struct algorithm_run_data *algo,
 	ret = image_add_section(&algo->image.image,
 		0,
 		stub_cfg->code_sz,
-		IMAGE_ELF_PHF_EXEC,
+		ESP_IMAGE_ELF_PHF_EXEC,
 		stub_cfg->code);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to create image (%d)!", ret);
