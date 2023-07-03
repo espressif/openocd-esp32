@@ -15,7 +15,7 @@
 #include <target/image.h>
 
 /**
- * API defined below allows to execute pieces of code on target without breaking execution of running program.
+ * API defined below allows executing pieces of code on target without breaking the execution of the running program.
  * This functionality can be useful for various debugging and maintenance procedures.
  * @note ESP flashing code to load flasher stub on target and write/read/erase flash.
  * Also ESP GCOV command uses some of these functions to run onboard routines to dump coverage info.
@@ -23,7 +23,7 @@
  *
  * int stub_entry([uint32_t a1 [, uint32_t a2 [, uint32_t a3 [, uint32_t a4 [, uint32_t a5]]]]]);
  *
- * General scheme of stub code execution is shown below.
+ * The general scheme of stub code execution is shown below.
  *
  *  -------                                                    -----------   (initial frame)    ----
  * |       | -------(registers, stub entry, stub args)------> |trampoline | ---(stub args)---> |    |
@@ -36,31 +36,31 @@
  * Procedure of executing stub on target includes:
  * 1) User prepares struct algorithm_run_data and calls one of algorithm_run_xxx() functions.
  * 2) Routine allocates all necessary stub code and data sections.
- * 3) If user specifies an initializer func algorithm_usr_func_init_t it is called just before stub start.
+ * 3) If a user specifies an initializer func algorithm_usr_func_init_t it is called just before the stub starts.
  * 4) If user specifies stub communication func algorithm_usr_func_t (@see esp_flash_write/read in ESP flash driver)
- *    it is called just after the stub start. When communication with stub is finished this function must return.
- * 5) OpenOCD waits for stub to finish (hit exit breakpoint).
- * 6) If user specified arguments cleanup func algorithm_usr_func_done_t it is called just after stub finishes.
+ *    it is called just after the stub starts. When communication with stub is finished this function must return.
+ * 5) OpenOCD waits for the stub to finish (hit exit breakpoint).
+ * 6) If the user specified arguments cleanup func algorithm_usr_func_done_t it is called just after the stub finishes.
  *
  * There are two options to run code on target under OpenOCD control:
  * - Run externally compiled stub code.
  * - Run onboard pre-compiled code. @note For ESP chips debug stubs must be enabled in target code @see ESP IDF docs.
- * The main difference between execution of external stub code and target built-in functions is that in latter case
- * working areas can not be used to allocate target memory for code and data because they can overlap
- * with code and data involved into onboard function execution. For example if memory allocated in working area
- * for stub stack will overlap with some on-board data used by the stub the stack will get overwritten.
+ * The main difference between the execution of external stub code and target built-in functions is that
+ * in the latter case working areas can not be used to allocate target memory for code and data because they can overlap
+ * with code and data involved in onboard function execution. For example, if memory allocated in the working area
+ * for the stub stack will overlap with some on-board data used by the stub the stack will get overwritten.
  * The same stands for allocations in target code space.
  *
  * External Code Execution
  * -----------------------
- * To run external code on target user should use algorithm_run_func_image().
- * In this case all necesarry memory (code/data) is alocated in working areas which have fixed configuration
+ * To run external code on the target user should use algorithm_run_func_image().
+ * In this case all necessary memory (code/data) is allocated in working areas that have fixed configuration
  * defined in target TCL file. Stub code is actually a standalone program, so all its segments must have known
- * addresses due to position dependent code nature. So stub must be linked in such way that its code segment
- * starts at the beginning of working area for code space defined in TCL. The same restriction must be applied
+ * addresses due to position-dependent code nature. So stub must be linked in such a way that its code segment
+ * starts at the beginning of the working area for code space defined in TCL. The same restriction must be applied
  * to stub's data segment and base addresses of working area for data space. @see ESP stub flasher LD scripts.
- * Also in order to simplify memory allocation BSS section must follow DATA section in stub image.
- * The size of BSS section must be specified in bss_size field of struct algorithm_image.
+ * Also in order to simplify memory allocation BSS section must follow the DATA section in the stub image.
+ * The size of the BSS section must be specified in the bss_size field of struct algorithm_image.
  * Sample stub memory map is shown below.
  *  ___________________________________________
  * | data space working area start             |
@@ -90,17 +90,19 @@
  * | <stub trampoline with exit breakpoint>    |
  * |___________________________________________|
  *
- * For example on how to execute external code with memory arguments @see esp_algo_flash_blank_check in ESP flash driver.
+ * For example on how to execute external code with memory arguments @see esp_algo_flash_blank_check in
+ * ESP flash driver.
  *
  * On-Board Code Execution
  * -----------------------
- * To run on-board code on target user should use algorithm_run_onboard_func().
+ * To run on-board code on the target user should use algorithm_run_onboard_func().
  * On-board code execution process does not need to allocate target memory for stub code and data,
- * because stub is pre-compiled to the code running on target.
- * But it still needs memory for stub trampoline, stack and memory arguments.
+ * Because the stub is pre-compiled to the code running on the target.
+ * But it still needs memory for stub trampoline, stack, and memory arguments.
  * Working areas can not be used due to possible memory layout conflicts with on-board stub code and data.
- * Debug stubs functionality provided by ESP IDF allows to overcome above problem. It provides special descriptor
- * which provides info necessary to safely allocate memory on target @see struct esp_dbg_stubs_desc.
+ * Debug stubs functionality provided by ESP IDF allows OpenOCD to overcome the above problem.
+ * It provides a special descriptor which provides info necessary to safely allocate memory on target.
+ * @see struct esp_dbg_stubs_desc.
  * That info is also used to locate memory for stub trampoline code.
  * User can execute target function at any address, but @see ESP IDF debug stubs also provide a way to pass to the host
  * an entry address of pre-defined registered stub functions.
@@ -128,6 +130,8 @@ struct algorithm_image {
 	bool reverse;
 };
 
+#define ESP_IMAGE_ELF_PHF_EXEC			0x1
+
 /**
  * Algorithm stub data.
  */
@@ -142,8 +146,7 @@ struct algorithm_stub {
 	struct working_area *tramp;
 	/** Working area for padding between code and data area. */
 	struct working_area *padding;
-	/** Address of the target buffer for stub trampoline. If zero tramp->address will be used.
-	 **/
+	/** Address of the target buffer for stub trampoline. If zero tramp->address will be used. */
 	target_addr_t tramp_addr;
 	/** Tramp code area will be filled from dbus.
 	 *  We need to map it to the ibus to be able to initialize PC register to start algorithm execution from.
@@ -195,8 +198,7 @@ struct algorithm_run_data;
  *
  * @return ERROR_OK on success, otherwise ERROR_XXX.
  */
-typedef int (*algorithm_func_t)(struct target *target, struct algorithm_run_data *run,
-	void *arg);
+typedef int (*algorithm_func_t)(struct target *target, struct algorithm_run_data *run, void *arg);
 
 /**
  * @brief Host part of algorithm.
@@ -222,8 +224,7 @@ typedef int (*algorithm_usr_func_t)(struct target *target, void *usr_arg);
  *
  * @return ERROR_OK on success, otherwise ERROR_XXX.
  */
-typedef int (*algorithm_usr_func_init_t)(struct target *target, struct algorithm_run_data *run,
-	void *usr_arg);
+typedef int (*algorithm_usr_func_init_t)(struct target *target, struct algorithm_run_data *run, void *usr_arg);
 
 /**
  * @brief Algorithm's arguments cleanup function.
@@ -236,12 +237,10 @@ typedef int (*algorithm_usr_func_init_t)(struct target *target, struct algorithm
  *
  * @return ERROR_OK on success, otherwise ERROR_XXX.
  */
-typedef void (*algorithm_usr_func_done_t)(struct target *target, struct algorithm_run_data *run,
-	void *usr_arg);
+typedef void (*algorithm_usr_func_done_t)(struct target *target, struct algorithm_run_data *run, void *usr_arg);
 
 struct algorithm_hw {
-	int (*algo_init)(struct target *target, struct algorithm_run_data *run,
-		uint32_t num_args, va_list ap);
+	int (*algo_init)(struct target *target, struct algorithm_run_data *run, uint32_t num_args, va_list ap);
 	int (*algo_cleanup)(struct target *target, struct algorithm_run_data *run);
 	const uint8_t *(*stub_tramp_get)(struct target *target, size_t *size);
 };
@@ -250,7 +249,7 @@ struct algorithm_hw {
  * Algorithm run data.
  */
 struct algorithm_run_data {
-	/** Algoritm completion timeout in ms. If 0, default value will be used */
+	/** Algorithm completion timeout in ms. If 0, default value will be used */
 	uint32_t tmo;
 	/** Algorithm stack size. */
 	uint32_t stack_size;
@@ -258,8 +257,7 @@ struct algorithm_run_data {
 	struct algorithm_reg_args reg_args;
 	/** Algorithm memory arguments. */
 	struct algorithm_mem_args mem_args;
-	/** Algorithm arch-specific info. For Xtensa this should point to struct xtensa_algorithm.
-	 **/
+	/** Algorithm arch-specific info. For Xtensa this should point to struct xtensa_algorithm. */
 	void *arch_info;
 	/** Algorithm return code. */
 	int32_t ret_code;
@@ -277,8 +275,7 @@ struct algorithm_run_data {
 			target_addr_t min_stack_addr;
 			/** Address of malloc-like function to allocate buffer on target. */
 			target_addr_t alloc_func;
-			/** Address of free-like function to free buffer allocated with
-			 *on_board_alloc_func. */
+			/** Address of free-like function to free buffer allocated with on_board_alloc_func. */
 			target_addr_t free_func;
 		} on_board;
 		struct algorithm_image image;
@@ -297,11 +294,8 @@ struct algorithm_run_data {
 	const struct algorithm_hw *hw;
 };
 
-int algorithm_load_func_image(struct target *target,
-	struct algorithm_run_data *run);
-
-int algorithm_unload_func_image(struct target *target,
-	struct algorithm_run_data *run);
+int algorithm_load_func_image(struct target *target, struct algorithm_run_data *run);
+int algorithm_unload_func_image(struct target *target, struct algorithm_run_data *run);
 
 int algorithm_exec_func_image_va(struct target *target,
 	struct algorithm_run_data *run,
@@ -355,13 +349,8 @@ static inline int algorithm_run_func_image(struct target *target,
 	return retval;
 }
 
-int algorithm_load_onboard_func(struct target *target,
-	target_addr_t func_addr,
-	struct algorithm_run_data *run);
-
-int algorithm_unload_onboard_func(struct target *target,
-	struct algorithm_run_data *run);
-
+int algorithm_load_onboard_func(struct target *target, target_addr_t func_addr, struct algorithm_run_data *run);
+int algorithm_unload_onboard_func(struct target *target, struct algorithm_run_data *run);
 int algorithm_exec_onboard_func_va(struct target *target,
 	struct algorithm_run_data *run,
 	uint32_t num_args,
@@ -411,34 +400,24 @@ static inline void algorithm_user_arg_set_uint(struct algorithm_run_data *run,
 	uint64_t val)
 {
 	struct reg_param *param = &run->reg_args.params[run->reg_args.first_user_param + arg_num];
+
 	assert(param->size <= 64);
-	if (param->size <= 32) {
-		buf_set_u32(param->value,
-			0,
-			param->size,
-			val);
-	} else {
-		buf_set_u64(param->value,
-			0,
-			param->size,
-			val);
-	}
+
+	if (param->size <= 32)
+		buf_set_u32(param->value, 0, param->size, val);
+	else
+		buf_set_u64(param->value, 0, param->size, val);
 }
 
 static inline uint64_t algorithm_user_arg_get_uint(struct algorithm_run_data *run, int arg_num)
 {
 	struct reg_param *param = &run->reg_args.params[run->reg_args.first_user_param + arg_num];
+
 	assert(param->size <= 64);
-	if (param->size <= 32) {
-		return buf_get_u32(
-			param->value,
-			0,
-			param->size);
-	}
-	return buf_get_u64(
-		param->value,
-		0,
-		param->size);
+
+	if (param->size <= 32)
+		return buf_get_u32(param->value, 0, param->size);
+	return buf_get_u64(param->value, 0, param->size);
 }
 
 #endif	/* OPENOCD_TARGET_ESP_ALGORITHM_H */

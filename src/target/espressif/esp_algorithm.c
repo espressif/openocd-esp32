@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 /***************************************************************************
  *   Espressif chips common algorithm API for OpenOCD                      *
@@ -119,17 +119,16 @@ static int algorithm_run(struct target *target, struct algorithm_image *image,
 	uint32_t num_args,
 	va_list ap)
 {
-	int retval, ret;
 	void **mem_handles = NULL;
 
-	retval = run->hw->algo_init(target, run, num_args, ap);
+	int retval = run->hw->algo_init(target, run, num_args, ap);
 	if (retval != ERROR_OK)
 		return retval;
 
 	/* allocate memory arguments and fill respective reg params */
 	if (run->mem_args.count > 0) {
 		mem_handles = calloc(run->mem_args.count, sizeof(void *));
-		if (mem_handles == NULL) {
+		if (!mem_handles) {
 			LOG_ERROR("Failed to alloc target mem handles!");
 			retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 			goto _cleanup;
@@ -141,8 +140,7 @@ static int algorithm_run(struct target *target, struct algorithm_image *image,
 			/* otherwise should hold UINT_MAX */
 			uint32_t usr_param_num = run->mem_args.params[i].address;
 			if (image) {
-				static struct working_area *area;	/* see TODO at target.c:2018
-									 *for why this is static */
+				static struct working_area *area;
 				retval = target_alloc_working_area(target, run->mem_args.params[i].size, &area);
 				if (retval != ERROR_OK) {
 					LOG_ERROR("Failed to alloc target buffer!");
@@ -165,8 +163,7 @@ static int algorithm_run(struct target *target, struct algorithm_image *image,
 					1,
 					run->mem_args.params[i].size);
 				if (retval != ERROR_OK) {
-					LOG_ERROR("Failed to run mem arg alloc onboard algo (%d)!",
-						retval);
+					LOG_ERROR("Failed to run mem arg alloc onboard algo (%d)!", retval);
 					goto _cleanup;
 				}
 				if (alloc_run.ret_code == 0) {
@@ -177,12 +174,8 @@ static int algorithm_run(struct target *target, struct algorithm_image *image,
 				mem_handles[i] = (void *)((long)alloc_run.ret_code);
 				run->mem_args.params[i].address = alloc_run.ret_code;
 			}
-			if (usr_param_num != UINT_MAX) {/* if we need update some register param
-							 * with mem param value */
-				algorithm_user_arg_set_uint(run,
-					usr_param_num,
-					run->mem_args.params[i].address);
-			}
+			if (usr_param_num != UINT_MAX) /* if we need update some register param with mem param value */
+				algorithm_user_arg_set_uint(run, usr_param_num, run->mem_args.params[i].address);
 		}
 	}
 
@@ -219,8 +212,7 @@ static int algorithm_run(struct target *target, struct algorithm_image *image,
 	}
 
 	if (run->usr_func) {
-		/* give target algorithm stub time to init itself, then user func can communicate to
-		 * it safely */
+		/* give target algorithm stub time to init itself, then user func can communicate to it safely */
 		alive_sleep(100);
 		retval = run->usr_func(target, run->usr_func_arg);
 		if (retval != ERROR_OK)
@@ -273,22 +265,16 @@ _cleanup:
 					memset(&free_run, 0, sizeof(free_run));
 					free_run.hw = run->hw;
 					free_run.stack_size = run->on_board.min_stack_size;
-					free_run.on_board.min_stack_addr =
-						run->on_board.min_stack_addr;
-					free_run.on_board.code_buf_size =
-						run->on_board.code_buf_size;
-					free_run.on_board.code_buf_addr =
-						run->on_board.code_buf_addr;
-					ret = algorithm_run_onboard_func(target,
+					free_run.on_board.min_stack_addr = run->on_board.min_stack_addr;
+					free_run.on_board.code_buf_size = run->on_board.code_buf_size;
+					free_run.on_board.code_buf_addr = run->on_board.code_buf_addr;
+					int ret = algorithm_run_onboard_func(target,
 						&free_run,
 						run->on_board.free_func,
 						1,
 						mem_handles[i]);
-					if (ret != ERROR_OK) {
-						LOG_ERROR(
-							"Failed to run mem arg free onboard algo (%d)!",
-							ret);
-					}
+					if (ret != ERROR_OK)
+						LOG_ERROR("Failed to run mem arg free onboard algo (%d)!", ret);
 				}
 			}
 		}
@@ -331,7 +317,7 @@ static int load_section_from_image(struct target *target,
 	while (sec_wr < section->size) {
 		uint32_t nb = section->size - sec_wr > sizeof(buf) ? sizeof(buf) : section->size - sec_wr;
 		size_t size_read = 0;
-		int retval = image_read_section(&(run->image.image), section_num, sec_wr, nb, buf, &size_read);
+		int retval = image_read_section(&run->image.image, section_num, sec_wr, nb, buf, &size_read);
 		if (retval != ERROR_OK) {
 			LOG_ERROR("Failed to read stub section (%d)!", retval);
 			return retval;
@@ -341,7 +327,7 @@ static int load_section_from_image(struct target *target,
 			size_t aligned_len = ALIGN_UP(size_read, 4);
 			uint8_t reversed_buf[aligned_len];
 
-			/* Send original size to allow padding calculation */
+			/* Send original size to allow padding */
 			reverse_binary(buf, reversed_buf, size_read);
 
 			retval = target_write_buffer(target, run->image.dram_org - sec_wr - size_read, size_read, reversed_buf);
@@ -388,10 +374,11 @@ int algorithm_load_func_image(struct target *target, struct algorithm_run_data *
 		run->image.image.num_sections);
 	run->stub.entry = run->image.image.start_address;
 
-	/* Load the code section */
-
-	/* calculate the padding size between code and data regions */
 	/* [code + trampoline] --- padding --- [data] */
+
+	/* Load code section */
+
+	/* Will help to calculate the padding size between code and data regions */
 	uint32_t total_code_size = 0;
 
 	for (unsigned int i = 0; i < run->image.image.num_sections; i++) {
@@ -400,7 +387,7 @@ int algorithm_load_func_image(struct target *target, struct algorithm_run_data *
 		if (section->size == 0)
 			continue;
 
-		if (section->flags & IMAGE_ELF_PHF_EXEC) {
+		if (section->flags & ESP_IMAGE_ELF_PHF_EXEC) {
 			LOG_DEBUG("addr " TARGET_ADDR_FMT ", sz %d, flags %" PRIx64,
 				section->base_address, section->size, section->flags);
 
@@ -448,7 +435,7 @@ int algorithm_load_func_image(struct target *target, struct algorithm_run_data *
 			size_t aligned_len = ALIGN_UP(tramp_sz, 4);
 			uint8_t reversed_tramp[aligned_len];
 
-			/* Send original size to allow padding calculation */
+			/* Send original size to allow padding */
 			reverse_binary(tramp, reversed_tramp, tramp_sz);
 
 			retval = target_write_buffer(target, reversed_tramp_addr - tramp_sz, tramp_sz, reversed_tramp);
@@ -490,7 +477,7 @@ int algorithm_load_func_image(struct target *target, struct algorithm_run_data *
 		if (section->size == 0)
 			continue;
 
-		if (!(section->flags & IMAGE_ELF_PHF_EXEC)) {
+		if (!(section->flags & ESP_IMAGE_ELF_PHF_EXEC)) {
 			LOG_DEBUG("addr " TARGET_ADDR_FMT ", sz %d, flags %" PRIx64, section->base_address, section->size,
 				section->flags);
 			/* target_alloc_working_area() aligns the whole working area size to 4-byte boundary.
@@ -508,8 +495,7 @@ int algorithm_load_func_image(struct target *target, struct algorithm_run_data *
 				section->base_address = run->stub.data->address;
 				/* sanity check, stub is compiled to be run from working area */
 			} else if (run->stub.data->address != section->base_address) {
-				LOG_ERROR(
-					"working area " TARGET_ADDR_FMT
+				LOG_ERROR("working area " TARGET_ADDR_FMT
 					" and stub data section " TARGET_ADDR_FMT
 					" address mismatch!",
 					section->base_address,
@@ -526,7 +512,7 @@ int algorithm_load_func_image(struct target *target, struct algorithm_run_data *
 
 	/* stack */
 	if (run->stub.stack_addr == 0 && run->stack_size > 0) {
-		/* alloc stack in data working area */
+		/* allocate stack in data working area */
 		if (target_alloc_working_area(target, run->stack_size, &run->stub.stack) != ERROR_OK) {
 			LOG_ERROR("no working area available, can't alloc stub stack!");
 			retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
@@ -566,9 +552,7 @@ int algorithm_exec_func_image_va(struct target *target,
 	return algorithm_run(target, &run->image, run, num_args, ap);
 }
 
-int algorithm_load_onboard_func(struct target *target,
-	target_addr_t func_addr,
-	struct algorithm_run_data *run)
+int algorithm_load_onboard_func(struct target *target, target_addr_t func_addr, struct algorithm_run_data *run)
 {
 	int res;
 	const uint8_t *tramp = NULL;
@@ -580,7 +564,7 @@ int algorithm_load_onboard_func(struct target *target,
 		return ERROR_FAIL;
 	}
 
-	if (run->hw->stub_tramp_get != NULL) {
+	if (run->hw->stub_tramp_get) {
 		tramp = run->hw->stub_tramp_get(target, &tramp_sz);
 		if (!tramp)
 			return ERROR_FAIL;
@@ -646,8 +630,7 @@ int algorithm_load_onboard_func(struct target *target,
 	return ERROR_OK;
 }
 
-int algorithm_unload_onboard_func(struct target *target,
-	struct algorithm_run_data *run)
+int algorithm_unload_onboard_func(struct target *target, struct algorithm_run_data *run)
 {
 	if (run->stack_size > run->on_board.min_stack_size) {
 		/* free stack */
