@@ -54,7 +54,6 @@ class GDBConnectTestsImpl:
         # flash SW breakpoints
         bps += ['gdb_detach0', 'gdb_detach1', 'gdb_detach2']
 
-        self.select_sub_test(105)
         for each_bp in bps:
             self.add_bp(each_bp)
 
@@ -74,7 +73,7 @@ class GDBConnectTestsImpl:
         self.gdb.target_reset()
         self.add_bp('app_main')
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
-        self.select_sub_test(105)
+        self.select_sub_test(self.id())
 
         # Add a breakpoint to the last line of the test function.
         self.add_bp('gdb_detach3')

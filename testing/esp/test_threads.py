@@ -24,7 +24,6 @@ class DebuggerThreadsTestsImpl:
             4) Stops app execution
             5) Switches between tasks and checks their backtraces
         """
-        self.select_sub_test(400)
         self.add_bp('check_backtrace_test_done')
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'check_backtrace_test_done', tmo=120)
         test_tasks = {'1': [3, 0], '2': [7, 0], '3': [5, 0]}
@@ -56,7 +55,6 @@ class DebuggerThreadsTestsImpl:
             3) Compare that active thread id and expected thread id are the same
             4) Repeat test several times
         """
-        self.select_sub_test(401)
         self.add_bp('test_check_bp')
 
         for i in range(10):

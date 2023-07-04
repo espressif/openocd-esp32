@@ -40,21 +40,28 @@ void gcov_task(void *pvParameter)
     }
 }
 
+TEST_DECL(gcov_on_the_fly, "test_gcov.GcovTests*.test_on_the_fly*")
+{
+    xTaskCreatePinnedToCore(&gcov_task, "gcov_task", 8192, (void *)false, 5, NULL, portNUM_PROCESSORS-1);
+}
+
+TEST_DECL(gcov_simple, "test_gcov.GcovTests*.test_simple*")
+{
+    xTaskCreatePinnedToCore(&gcov_task, "gcov_task", 8192, (void *)true, 5, NULL, portNUM_PROCESSORS-1);
+}
 #endif //CONFIG_ESP32_GCOV_ENABLE
 
 ut_result_t gcov_test_do(int test_num)
 {
-    switch (test_num) {
 #if CONFIG_ESP32_GCOV_ENABLE
-        case 300:
-            xTaskCreatePinnedToCore(&gcov_task, "gcov_task", 8192, (void *)true, 5, NULL, portNUM_PROCESSORS-1);
-            break;
-        case 301:
-            xTaskCreatePinnedToCore(&gcov_task, "gcov_task", 8192, (void *)false, 5, NULL, portNUM_PROCESSORS-1);
-            break;
-#endif //CONFIG_ESP32_GCOV_ENABLE
-        default:
-            return UT_UNSUPPORTED;
+    if (TEST_ID_MATCH(TEST_ID_PATTERN(gcov_on_the_fly), test_num)) {
+        TEST_ENTRY(gcov_on_the_fly)(NULL);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(gcov_simple), test_num)) {
+        TEST_ENTRY(gcov_simple)(NULL);
+    } else {
+        return UT_UNSUPPORTED;
     }
     return UT_OK;
+#endif //CONFIG_ESP32_GCOV_ENABLE
+    return UT_UNSUPPORTED;
 }

@@ -18,7 +18,7 @@ class PerfMonTestsImpl:
     """
 
     def test_perfmon(self):
-        self.select_sub_test(100)
+        self.select_sub_test("blink")
         self.oocd.perfmon_enable(0, 0)  # count cycles
         self.oocd.perfmon_enable(1, 2)  # count retired instructions
         self.resume_exec()

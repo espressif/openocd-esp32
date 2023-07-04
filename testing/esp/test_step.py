@@ -68,7 +68,6 @@ class StepTestsImpl():
             '_step_over_bp_break5', '_step_over_bp_break6']  # SW RAM BPs
         for f in bps:
             self.add_bp(f)
-        self.select_sub_test(103)
         for i in range(2):
             # step from and over HW BPs
             self.do_step_over_bp_check(['_step_over_bp_break1', '_step_over_bp_break2'])
@@ -102,7 +101,7 @@ class StepTestsImpl():
         self.wps = {'s_count1': None}
         for e in self.wps:
             self.add_wp(e, 'rw')
-        self.select_sub_test(100)
+        self.select_sub_test("blink")
         for i in range(2):
             # 'count' read
             self.do_step_over_wp_check('blink_task')
@@ -114,7 +113,6 @@ class StepTestsImpl():
     @only_for_arch(['xtensa'])
     def test_step_window_exception(self):
         # start the test, stopping at the window_exception_test function
-        self.select_sub_test(200)
         bp = self.gdb.add_bp('_recursive_func')
         self.resume_exec()
         rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
@@ -139,7 +137,7 @@ class StepTestsImpl():
             self.step_out()
 
         cur_frame = self.gdb.get_current_frame()
-        self.assertEqual(cur_frame['func'], 'window_exception_test')
+        self.assertEqual(cur_frame['func'], 'window_exception_task')
 
     @only_for_arch(['xtensa'])
     def test_step_in_window_exception_handler(self):
@@ -154,7 +152,6 @@ class StepTestsImpl():
             6) After every step backtrace is checked.
         """
         # start the test, stopping at the window_exception_test function
-        self.select_sub_test(200)
         bp = self.gdb.add_bp('_WindowOverflow8')
         self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, "_WindowOverflow8")
         self.gdb.delete_bp(bp)
@@ -187,7 +184,6 @@ class StepTestsImpl():
             9) Increment counter.
             10) Repeat steps 3-9 several times.
         """
-        self.select_sub_test(102)
         val = 100
         self.add_bp('_scratch_reg_using_task_break')
         for i in range(5):
@@ -195,7 +191,7 @@ class StepTestsImpl():
             rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
             self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
             cur_frame = self.gdb.get_current_frame()
-            self.assertEqual(cur_frame['func'], 'scratch_reg_using_task')
+            self.assertEqual(cur_frame['func'], 'step_over_insn_using_scratch_reg_task')
             self.step(insn=True)
             reg_val = self.gdb.get_reg('a3')
             self.assertEqual(reg_val, val)
@@ -214,7 +210,6 @@ class StepTestsImpl():
         5) Interrupt target (ctrl+c).
         6) Repeat steps 1-5 several times.
         """
-        self.select_sub_test(104)
         self.add_bp("fib_while")
 
         for i in range(3):
@@ -226,7 +221,7 @@ class StepTestsImpl():
             rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
             self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
             cur_frame = self.gdb.get_current_frame()
-            self.assertEqual(cur_frame['func'], "fibonacci_calc")
+            self.assertEqual(cur_frame['func'], "fibonacci_calc_task")
 
             for s in range(3):
                 get_logger().info('line test ' + str(s))
@@ -253,7 +248,7 @@ class StepTestsImpl():
             rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
             self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
             cur_frame = self.gdb.get_current_frame()
-            self.assertEqual(cur_frame['func'], "fibonacci_calc")
+            self.assertEqual(cur_frame['func'], "fibonacci_calc_task")
 
             for m in range(3):
                 get_logger().info('mixed test ' + str(m))
@@ -287,7 +282,6 @@ class StepTestsImpl():
             4) Repeat 2-4 steps
 
         """
-        self.select_sub_test(201)
         self.add_bp('nested_bottom')
         for i in range(3):
 
@@ -312,7 +306,7 @@ class StepTestsImpl():
             self.assertEqual(cur_frame['func'], 'nested_top')
             self.step_out()
             cur_frame = self.gdb.get_current_frame()
-            self.assertEqual(cur_frame['func'], 'step_out_of_function_test')
+            self.assertEqual(cur_frame['func'], 'step_out_of_function_task')
 
     @only_for_arch(['xtensa'])
     def test_step_level5_int(self):
@@ -323,7 +317,6 @@ class StepTestsImpl():
             3) Step into the handler
             4) Return from the interrupt
         """
-        self.select_sub_test(202)
         self.add_bp('_Level5Vector')
         for _ in range(3):
             self.resume_exec()
@@ -373,7 +366,6 @@ class StepTestsImpl():
             8) Check PS and PC has correct value
             9) Repeat steps 3 several times
         """
-        self.select_sub_test(120)
         self.add_bp('_step_over_intlevel_ch')
         for i in range(3):
             get_logger().info('test_step_over_intlevel_disabled_isr loop ' + str(i))
@@ -381,7 +373,7 @@ class StepTestsImpl():
             rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
             self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
             cur_frame = self.gdb.get_current_frame()
-            self.assertEqual(cur_frame['func'], 'step_over_inst_changing_intlevel')
+            self.assertEqual(cur_frame['func'], 'step_over_inst_changing_intlevel_task')
             old_pc = self.gdb.get_reg('pc')
             old_ps = self.gdb.get_reg('ps')
             old_masking = self.get_isr_masking()

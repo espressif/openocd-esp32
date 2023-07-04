@@ -109,7 +109,6 @@ class BaseTracingTestsImpl:
             6) Resume target, wait for the third breakpoint to hit and stop tracing.
             7) Check collected log messages.
         """
-        self.select_sub_test(501)
         self.add_bp('_trace_test_log_continuous_start')
         self.add_bp('_trace_test_log_continuous_end')
         self.add_bp('_trace_test_log_continuous_stop')
@@ -152,7 +151,6 @@ class BaseTracingTestsImpl:
             6) Resume target, wait for the third breakpoint to hit and stop tracing.
             7) Check collected log messages and heap API calls.
         """
-        self.select_sub_test(500)
         self.add_bp('heap_trace_start')
         self.add_bp('heap_trace_stop')
         self.add_bp('_do_trace_test_heap_log_end')
@@ -351,7 +349,6 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
         if self.test_tasks_num > 1:
             irq_ref_data['TG1_T0_LEVEL'] = {'freq': 1.0/0.5, 'core': 1}
 
-        self.select_sub_test(502)
         self.resume_exec()
         # collect trace
         time.sleep(3.0)

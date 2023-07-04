@@ -275,7 +275,6 @@ class GcovTestsImpl:
             7) Repeat steps 3-6 several times.
             8) Finally delete breakpoint
         """
-        self.select_sub_test(300)
         bp = self.gdb.add_bp('esp_gcov_dump')
         for i in range(5):
             self.resume_exec()
@@ -326,7 +325,6 @@ class GcovTestsImpl:
             5) Run 'esp32 gcov dump'.
             6) Compare collected data with the reference one.
         """
-        self.select_sub_test(300)
         self.resume_exec()
         # TODO: better way to ensure that test app called esp_gcov_dump
         time.sleep(3)
@@ -367,7 +365,6 @@ class GcovTestsImpl:
             6) Run 'mon esp32 gcov'.
             7) Compare collected data with the reference one.
         """
-        self.select_sub_test(301)
         self.resume_exec()
         # wait some time to let app run and generate gcov data
         time.sleep(3)
@@ -393,7 +390,6 @@ class GcovTestsImpl:
             5) Run 'esp32 gcov'.
             6) Compare collected data with the reference one.
         """
-        self.select_sub_test(301)
         self.resume_exec()
         # wait some time to let app run and generate gcov data
         time.sleep(3)

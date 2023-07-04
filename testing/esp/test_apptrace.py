@@ -37,7 +37,6 @@ class ApptraceTestsImpl:
         pass
 
     def test_apptrace_dest_tcp(self):
-        self.select_sub_test(503)
         self.add_bp('raw_trace_log_done')
         trace_src = 'tcp://localhost:53535'
         reader = reader_create(trace_src, 1.0)
@@ -59,7 +58,6 @@ class ApptraceTestsImpl:
             self.assertEqual(line, "[%d %s]\n" % (i, " " * (i * 20)))
 
     def test_apptrace_autostop(self):
-        self.select_sub_test(504)
         trace_file = tempfile.NamedTemporaryFile(delete=False)
         trace_file_name = trace_file.name
         trace_file.close()
@@ -86,7 +84,6 @@ class ApptraceTestsImpl:
         """
             This test checks that apptracing continue to work if target resets between start and stop
         """
-        self.select_sub_test(505)
         trace_file = tempfile.NamedTemporaryFile(delete=False)
         trace_file_name = trace_file.name
         trace_file.close()
@@ -115,7 +112,7 @@ class ApptraceTestsImpl:
 
         self.add_bp('app_main')
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
-        self.select_sub_test(505)
+        self.select_sub_test(self.id())
         self.resume_exec()
         sleep(2) #  let it works some time
         self.oocd.apptrace_stop();

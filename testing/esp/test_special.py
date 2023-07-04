@@ -27,13 +27,12 @@ class DebuggerSpecialTestsImpl:
             2) Resume target, wait for the program to crash (in dual core mode one CPU will be stalled).
             3) Re-start debugging (SW reset, set break to app_main(), resume and wait for the stop).
         """
-        self.select_sub_test(800)
         # under OOCD panic handler sets BP on instruction which generated the exception and stops execution there
-        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_SIGTRAP, 'crash_task', ['crash'], outmost_func_name='crash_task')
+        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_SIGTRAP, 'restart_debug_from_crash_task', ['crash'], outmost_func_name='restart_debug_from_crash_task')
         self.prepare_app_for_debugging(self.test_app_cfg.app_off)
 
     def _debug_image(self):
-        self.select_sub_test(100)
+        self.select_sub_test("blink")
         bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
         for f in bps:
             self.add_bp(f)
@@ -57,7 +56,7 @@ class DebuggerSpecialTestsImpl:
         """
         # avoid simultaneous access to UART with SerialReader
         self.assertIsNone(self.uart_reader, "Can not run this test with UART logging enabled!")
-        self.select_sub_test(100)
+        self.select_sub_test("blink")
         self.resume_exec()
         time.sleep(2.0)
         if self.port_name:
@@ -93,7 +92,6 @@ class DebuggerSpecialTestsImpl:
             1) Select appropriate sub-test number on target.
             2) Resume target, wait for the program to hit breakpoints.
         """
-        self.select_sub_test(803)
         self._do_test_bp_and_wp_set_by_program()
 
     # OCD-773
@@ -104,7 +102,6 @@ class DebuggerSpecialTestsImpl:
             1) Select appropriate sub-test number on target.
             2) Resume target, wait for the program to hit breakpoints.
         """
-        self.select_sub_test(808)
         self._do_test_bp_and_wp_set_by_program()
 
     @only_for_arch(['xtensa'])
@@ -112,6 +109,10 @@ class DebuggerSpecialTestsImpl:
         """
         This test checks that expected exception cause string equal to the OpenOCD output.
         """
+        sub_tests = ["illegal_instruction",
+                     "load_prohibited",
+                     "store_prohibited",
+                     "divide_by_zero"]
         bps = ["exception_bp_1", "exception_bp_2", "exception_bp_3", "exception_bp_4"]
         expected_strings = ["Halt cause (0) - (Illegal instruction)",
                             "Halt cause (28) - (Load prohibited)",
@@ -119,7 +120,7 @@ class DebuggerSpecialTestsImpl:
                             "Halt cause (6) - (Integer divide by zero)"]
         for i in range (len(bps)):
             self.add_bp(bps[i])
-            self.select_sub_test(804 + i)
+            self.select_sub_test(self.id() + '_' + sub_tests[i])
             self.resume_exec()
             rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
             self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
@@ -183,13 +184,12 @@ class PsramTestsImpl:
         bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
         for f in bps:
             self.add_bp(f)
-        self.select_sub_test(802)
-        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_direction', ['gpio_set_direction'], outmost_func_name='psram_check_task')
+        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_direction', ['gpio_set_direction'], outmost_func_name='psram_with_flash_breakpoints_task')
         for i in range(10):
             # break at gpio_set_level
-            self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_level', ['gpio_set_level%d' % (i % 2)], outmost_func_name='psram_check_task')
+            self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_level', ['gpio_set_level%d' % (i % 2)], outmost_func_name='psram_with_flash_breakpoints_task')
             # break at vTaskDelay
-            self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay%d' % (i % 2)], outmost_func_name='psram_check_task')
+            self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay%d' % (i % 2)], outmost_func_name='psram_with_flash_breakpoints_task')
 
     def test_psram_with_flash_breakpoints_gh264(self):
         """
@@ -230,7 +230,7 @@ class DebuggerSpecialTestsDual(DebuggerGenericTestAppTestsDual, DebuggerSpecialT
         """
         # avoid simultaneous access to UART with SerialReader
         self.assertIsNone(self.uart_reader, "Can not run this test with UART logging enabled!")
-        self.select_sub_test(100)
+        self.select_sub_test("blink")
         self.resume_exec()
         time.sleep(2.0)
         for target in self.oocd.targets():

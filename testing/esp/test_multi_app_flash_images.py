@@ -28,7 +28,7 @@ class MultiAppImagesTests(DebuggerGenericTestAppTests):
         self.bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
 
     def _debug_image(self, off):
-        self.select_sub_test(100)
+        self.select_sub_test("blink")
         for f in self.bps:
             self.add_bp(f)
         # break at gpio_set_direction
