@@ -67,14 +67,13 @@ class FlasherTestsImpl:
             It is checked by the test code on target. This test method sets breakpoint and resumes execution several times.
             Before hiting the BP program save cache config and after resuming checks its value.
         """
-        self.select_sub_test(801)
         # 2 HW + 1 SW flash BP
         self.bps = ['app_main', 'gpio_set_direction', 'gpio_set_level']
         for f in self.bps:
             self.add_bp(f)
-        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_direction', ['gpio_set_direction'], outmost_func_name='cache_check_task')
+        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_direction', ['gpio_set_direction'], outmost_func_name='cache_handling_task')
         for i in range(5):
-            self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_level', ['gpio_set_level'], outmost_func_name='cache_check_task')
+            self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_level', ['gpio_set_level'], outmost_func_name='cache_handling_task')
   
     def program_esp_bins(self, actions):
         # Temp Folder where everything will be contained

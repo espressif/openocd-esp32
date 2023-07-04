@@ -84,7 +84,7 @@ static void blink_task(void *pvParameter)
     }
 }
 
-static void gdb_detach_task(void *pvParameter)
+TEST_DECL(gdb_detach, "test_connect.GDBConnectTests*.test_gdb_detach")
 {
     ESP_LOGI(TAG, "Detach test started");
     while(1) {
@@ -154,8 +154,7 @@ static void recursive(int levels)
     recursive(levels - 1);
 }
 
-
-void window_exception_test(void* arg)
+TEST_DECL(window_exception, "test_step.DebuggerStepTests*.test_step*_window_exception*")
 {
     recursive(20);
     printf("sum=%d\n",sum);
@@ -181,7 +180,7 @@ static  __attribute__((noinline)) void nested_top()
     nested_middle();
 }
 
-void step_out_of_function_test()
+TEST_DECL(step_out_of_function, "test_step.DebuggerStepTests*.test_step_out_of_function")
 {
     while(1)
     {
@@ -193,7 +192,7 @@ void step_out_of_function_test()
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
 #define L5_TIMER_INUM   16
 
-void level5_int_test(void* arg)
+TEST_DECL(level5_int, "test_step.DebuggerStepTests*.test_step_level5_int")
 {
     XTHAL_SET_CCOMPARE(2, XTHAL_GET_CCOUNT() + 1000000);
     xt_ints_on(BIT(L5_TIMER_INUM));
@@ -202,7 +201,7 @@ void level5_int_test(void* arg)
     }
 }
 
-static void scratch_reg_using_task(void *pvParameter)
+TEST_DECL(step_over_insn_using_scratch_reg, "test_step.DebuggerStepTests*.test_step_over_insn_using_scratch_reg")
 {
     int val = 100;
     while(1) {
@@ -251,7 +250,7 @@ static void IRAM_ATTR dummy_iram_func(void)
 #endif
 }
 
-static void step_over_bp_task(void *pvParameter)
+TEST_DECL(step_over_bp, "test_step.DebuggerStepTests*.test_step_over_bp")
 {
     while(1) {
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
@@ -304,7 +303,7 @@ static void step_over_bp_task(void *pvParameter)
     }
 }
 
-static void fibonacci_calc(void* arg)
+TEST_DECL(fibonacci_calc, "test_step.DebuggerStepTests*.test_step_multimode")
 /* calculation of 3 Fibonacci sequences: f0, f1 and f2
  * f(n) = f(n-1) + f(n-2) -> f(n) : 0, 1, 1, 2, 3, 5, 8, 13, 21, 34, ...*/
 {
@@ -334,8 +333,20 @@ static void fibonacci_calc(void* arg)
     }
 }
 
+TEST_DECL(cores_concurrently_hit, "test_bp.Debugger*Tests*.test_2cores_concurrently_hit*")
+{
+    xTaskCreatePinnedToCore(&blink_task, "blink_task0", 4096, NULL, 5, NULL, 0);
+    xTaskCreatePinnedToCore(&blink_task, "blink_task1", 4096, NULL, 5, NULL, 1);
+}
+
+TEST_DECL(test_blink, "blink")
+{
+    static struct timer_task_arg task_arg = { .tim_grp = TEST_TIMER_GROUP_1, .tim_id = TEST_TIMER_0, .tim_period = 500000UL, .isr_func = test_timer_isr};
+    xTaskCreate(&blink_task, "blink_task", 4096, &task_arg, 5, NULL);
+}
+
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
-static void step_over_inst_changing_intlevel(void* arg)
+TEST_DECL(step_over_inst_changing_intlevel, "test_step.DebuggerStepTests*.test_step_over_intlevel_disabled_isr")
 {
     while(1)
     {
@@ -368,33 +379,31 @@ void app_main()
     } else {
         ESP_LOGI(TAG, "Run test %d\n", s_run_test);
     }
-    if (s_run_test == 100){
-        static struct timer_task_arg task_arg = { .tim_grp = TEST_TIMER_GROUP_1, .tim_id = TEST_TIMER_0, .tim_period = 500000UL, .isr_func = test_timer_isr};
-        xTaskCreate(&blink_task, "blink_task", 4096, &task_arg, 5, NULL);
-    } else if (s_run_test == 101){
-        xTaskCreatePinnedToCore(&blink_task, "blink_task0", 4096, NULL, 5, NULL, 0);
-        xTaskCreatePinnedToCore(&blink_task, "blink_task1", 4096, NULL, 5, NULL, 1);
+    if (TEST_ID_MATCH(TEST_ID_PATTERN(test_blink), s_run_test)) {
+        TEST_ENTRY(test_blink)(NULL);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(cores_concurrently_hit), s_run_test)) {
+        TEST_ENTRY(cores_concurrently_hit)(NULL);
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
-    } else if (s_run_test == 102){
-        xTaskCreatePinnedToCore(&scratch_reg_using_task, "sreg_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(step_over_insn_using_scratch_reg), s_run_test)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(step_over_insn_using_scratch_reg), "sreg_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
 #endif
-    } else if (s_run_test == 103){
-        xTaskCreate(&step_over_bp_task, "step_over_bp_task", 2048, NULL, 5, NULL);
-    } else if (s_run_test == 104){
-        xTaskCreate(&fibonacci_calc, "fibonacci_calc", 2048, NULL, 5, NULL);
-    } else if (s_run_test == 105){
-        xTaskCreate(&gdb_detach_task, "gdb_detach_task", 4096, NULL, 5, NULL);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(step_over_bp), s_run_test)) {
+        xTaskCreate(TEST_ENTRY(step_over_bp), "step_over_bp_task", 2048, NULL, 5, NULL);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(fibonacci_calc), s_run_test)) {
+        xTaskCreate(TEST_ENTRY(fibonacci_calc), "fibonacci_calc", 2048, NULL, 5, NULL);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(gdb_detach), s_run_test)) {
+        xTaskCreate(TEST_ENTRY(gdb_detach), "gdb_detach_task", 4096, NULL, 5, NULL);
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
-    } else if (s_run_test == 120){
-        xTaskCreate(&step_over_inst_changing_intlevel, "step_over_inst_changing_intlevel", 2048, NULL, 5, NULL);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(step_over_inst_changing_intlevel), s_run_test)) {
+        xTaskCreate(TEST_ENTRY(step_over_inst_changing_intlevel), "step_over_inst_changing_intlevel", 2048, NULL, 5, NULL);
 #endif
-    } else if (s_run_test == 200){
-        xTaskCreate(&window_exception_test, "win_exc_task", 8192, NULL, 5, NULL);
-    } else if (s_run_test == 201){
-        xTaskCreate(&step_out_of_function_test, "step_out_func", 2048, NULL, 5, NULL);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(window_exception), s_run_test)) {
+        xTaskCreate(TEST_ENTRY(window_exception), "win_exc_task", 8192, NULL, 5, NULL);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(step_out_of_function), s_run_test)) {
+        xTaskCreate(TEST_ENTRY(step_out_of_function), "step_out_func", 2048, NULL, 5, NULL);
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
-    } else if (s_run_test == 202){
-        xTaskCreate(&level5_int_test, "level5_int_test", 2048, NULL, 5, NULL);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(level5_int), s_run_test)) {
+        xTaskCreate(TEST_ENTRY(level5_int), "level5_int_test", 2048, NULL, 5, NULL);
 #endif
     } else {
         ut_result_t res = UT_UNSUPPORTED;

@@ -462,7 +462,7 @@ static int semihost_opendir_test(void)
     return 0;
 }
 
-static void semihost_custom_call_task(void *pvParameter)
+TEST_DECL(semihost_custom_calls, "test_semihost.SemihostTests*.test_semihost_custom")
 {
     int core_id = xPortGetCoreID();
     char fname[32];
@@ -478,7 +478,7 @@ static void semihost_custom_call_task(void *pvParameter)
             return;
         }
 #if !CONFIG_FREERTOS_UNICORE
-        xTaskCreatePinnedToCore(&semihost_custom_call_task, "semihost_custom_call_task1", 4096, xTaskGetCurrentTaskHandle(), 5, NULL, 1);
+        xTaskCreatePinnedToCore(TEST_ENTRY(semihost_custom_calls), "semihost_custom_call_task1", 4096, xTaskGetCurrentTaskHandle(), 5, NULL, 1);
         vTaskDelay(1);
 #endif
     }
@@ -672,6 +672,12 @@ static void semihost_custom_call_task(void *pvParameter)
     }
     done();
 }
+
+TEST_DECL(semihost_custom_calls_win, "test_semihost.SemihostTests*.test_semihost_custom_win")
+{
+    s_win_flag = 1;
+    xTaskCreatePinnedToCore(TEST_ENTRY(semihost_custom_calls), "semihost_custom_call_task0", 4096, NULL, 5, NULL, 0);
+}
 #endif
 
 static void semihost_task(void *pvParameter)
@@ -795,7 +801,7 @@ static void semihost_task(void *pvParameter)
 }
 
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
-static void semihost_args_task(void *pvParameter)
+TEST_DECL(semihost_args, "test_semihost.SemihostTests*.test_semihost_args")
 {
     int ret;
     int core_id = xPortGetCoreID();
@@ -809,7 +815,7 @@ static void semihost_args_task(void *pvParameter)
             return;
         }
 #if !CONFIG_FREERTOS_UNICORE
-        xTaskCreatePinnedToCore(&semihost_args_task, "semihost_args_task1", 8000, xTaskGetCurrentTaskHandle(), 5, NULL, 1);
+        xTaskCreatePinnedToCore(TEST_ENTRY(semihost_args), "semihost_args_task1", 8000, xTaskGetCurrentTaskHandle(), 5, NULL, 1);
         vTaskDelay(1);
 #endif
     }
@@ -840,6 +846,26 @@ static void semihost_args_task(void *pvParameter)
     done();
 }
 #endif /* CONFIG_IDF_TARGET_ARCH_XTENSA */
+
+TEST_DECL(semihost_rw, "test_semihost.SemihostTests*.test_semihost_rw")
+{
+    /*
+    * *** About the test ***
+    *
+    * N - number of cores
+    *
+    * Its sequence:
+    * - There are N (test_read.*) files containing random bytes
+    * - Test creates N (test_write.*) files
+    * - Test opens the read- and write-files
+    * - Test writes (test_read.*) content to (test_write.*)
+    * - Test closes the files
+    */
+    strcpy(s_tobj.out_fname, "/host/test_write");
+    strcpy(s_tobj.in_fname, "/host/test_read");
+    s_tobj.isFileIO = false;
+    semihost_task(NULL);
+}
 
 TEST_DECL(gdb_fileio, "test_semihost.SemihostTests*.test_semihost_with_fileio")
 {
@@ -932,28 +958,15 @@ TEST_DECL(gdb_consoleio, "test_semihost.SemihostTests*.test_semihost_with_consol
 
 ut_result_t semihost_test_do(int test_num)
 {
-    switch (test_num) {
-        case 700: {
-        /*
-        * *** About the test ***
-        *
-        * N - number of cores
-        *
-        * Its sequence:
-        * - There are N (test_read.*) files containing random bytes
-        * - Test creates N (test_write.*) files
-        * - Test opens the read- and write-files
-        * - Test writes (test_read.*) content to (test_write.*)
-        * - Test closes the files
-        */
-            strcpy(s_tobj.out_fname, "/host/test_write");
-            strcpy(s_tobj.in_fname, "/host/test_read");
-            s_tobj.isFileIO = false;
-            xTaskCreatePinnedToCore(&semihost_task, "semihost_task0", 4096, NULL, 5, NULL, 0);
-            break;
-        }
+    if (TEST_ID_MATCH(TEST_ID_PATTERN(gdb_fileio), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(gdb_fileio), "gdb_fileio_task", 4096, NULL, 5, NULL, 0);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(gdb_consoleio), test_num)) {
+        g_console_mutex = xSemaphoreCreateMutex();
+        xTaskCreatePinnedToCore(TEST_ENTRY(gdb_consoleio), "gdb_consoleio_task", 4096, NULL, 5, NULL, 0);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(semihost_rw), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(semihost_rw), "semihost_task", 4096, NULL, 5, NULL, 0);
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
-        case 701: {
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(semihost_args), test_num)) {
         /*
         * *** About the test ***
         *
@@ -973,39 +986,24 @@ ut_result_t semihost_test_do(int test_num)
         * - Send SYS_CLOSE syscall with wrong args
         * - Close the file
         */
-            xTaskCreatePinnedToCore(&semihost_args_task, "semihost_args_task0", 8000, NULL, 5, 
-                NULL, 0);
-            break;
-        }
+        xTaskCreatePinnedToCore(TEST_ENTRY(semihost_args), "semihost_args_task0", 8000, NULL, 5, NULL, 0);
 #endif /* CONFIG_IDF_TARGET_ARCH_XTENSA  */
 #if UT_IDF_VER >= MAKE_UT_IDF_VER(5,0,0,0)
-        case 702:
-        case 703: {
-        /*
-        * *** About the test ***
-        *
-        * N - number of cores
-        *
-        * Its sequence:
-        * - Test checks new syscall numbers from 0x106 to 0x115
-        */
-            if (test_num == 703) {
-                s_win_flag = 1;
-            }
-            xTaskCreatePinnedToCore(&semihost_custom_call_task, "semihost_custom_call_task0", 4096, NULL, 5, NULL, 0);
-            break;
-        }
+    /*
+    * *** About the tests ***
+    *
+    * N - number of cores
+    *
+    * Its sequence:
+    * - Test checks new syscall numbers from 0x106 to 0x115
+    */
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(semihost_custom_calls), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(semihost_custom_calls), "semihost_custom_call_task0", 4096, NULL, 5, NULL, 0);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(semihost_custom_calls_win), test_num)) {
+        TEST_ENTRY(semihost_custom_calls_win)(NULL);
 #endif
-        default:
-            if (TEST_ID_MATCH(TEST_ID_PATTERN(gdb_fileio), test_num)) {
-                xTaskCreatePinnedToCore(TEST_ENTRY(gdb_fileio), "gdb_fileio_task", 4096, NULL, 5, NULL, 0);
-                break;
-            } else if (TEST_ID_MATCH(TEST_ID_PATTERN(gdb_consoleio), test_num)) {
-                g_console_mutex = xSemaphoreCreateMutex();
-                xTaskCreatePinnedToCore(TEST_ENTRY(gdb_consoleio), "gdb_consoleio_task", 4096, NULL, 5, NULL, 0);
-                break;
-            }
-            return UT_UNSUPPORTED;
+    } else {
+        return UT_UNSUPPORTED;
     }
     return UT_OK;
 }

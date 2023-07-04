@@ -160,7 +160,6 @@ class SemihostTestsImpl:
         This test checks that semihost functions working as expected.
         """
         self.oocd.set_smp_semihosting_basedir(self.semi_dir)
-        self.select_sub_test(700)
         self.add_bp('esp_vfs_semihost_unregister')
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
         get_logger().info('Files %s, %s', self.fout_names, self.fin_names)
@@ -174,7 +173,6 @@ class SemihostTestsImpl:
         This test checks that semihosting syscalls working properly with wrong argumented functions
         """
         self.oocd.set_smp_semihosting_basedir(self.semi_dir)
-        self.select_sub_test(701)
         self.add_bp('esp_vfs_semihost_unregister')
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
 
@@ -185,9 +183,7 @@ class SemihostTestsImpl:
         """
         self.oocd.set_smp_semihosting_basedir(self.semi_dir)
         if platform.system() == "Windows":
-            self.select_sub_test(703)
-        else:
-            self.select_sub_test(702)
+            self.select_sub_test(self.id() + "_win")
         self.add_bp('esp_vfs_semihost_unregister')
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'esp_vfs_semihost_unregister', tmo=120)
         for i in range(self.CORES_NUM):

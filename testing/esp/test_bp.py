@@ -72,7 +72,7 @@ class BreakpointTestsImpl:
             6) Removes several breakpoints and adds them again.
             7) Repeat steps 3-5 several times.
         """
-        self.select_sub_test(100)
+        self.select_sub_test("blink")
         for f in self.bps:
             self.add_bp(f)
         self.readd_bps()
@@ -98,7 +98,7 @@ class BreakpointTestsImpl:
             6) Check backtrace at the stop point.
             7) Repeat steps 3-6 several times.
         """
-        self.select_sub_test(100)
+        self.select_sub_test("blink")
         for f in self.bps:
             if f == 'vTaskDelay':
                 self.add_bp(f, ignore_count=2)
@@ -124,7 +124,7 @@ class BreakpointTestsImpl:
             6) Check backtrace at the stop point.
             7) Repeat steps 3-6 several times.
         """
-        self.select_sub_test(100)
+        self.select_sub_test("blink")
         for f in self.bps:
             if f == 'vTaskDelay':
                 self.add_bp(f, cond='s_count1 == 1')
@@ -153,7 +153,7 @@ class BreakpointTestsImpl:
             7) Connect GDB to OOCD.
             8) Repeat steps 3-7 several times.
         """
-        self.select_sub_test(100)
+        self.select_sub_test("blink")
         for f in self.bps:
             self.add_bp(f)
         for i in range(5):
@@ -181,7 +181,7 @@ class BreakpointTestsImpl:
         """
         # 2 HW breaks + 1 flash SW break + RAM SW break
         self.bps = ['app_main', 'test_timer_isr', 'test_timer_isr_func', 'test_timer_isr_ram_func']
-        self.select_sub_test(100)
+        self.select_sub_test("blink")
         for f in self.bps:
             self.add_bp(f)
 
@@ -209,7 +209,7 @@ class WatchpointTestsImpl:
             6) Check that watched expression has correct value.
             7) Repeat steps 3-6 several times.
         """
-        self.select_sub_test(100)
+        self.select_sub_test("blink")
         self.wps = {'s_count1': None}
         for e in self.wps:
             self.add_wp(e, 'rw')
@@ -242,7 +242,7 @@ class WatchpointTestsImpl:
             7) Connect GDB to OOCD.
             8) Repeat steps 3-7 several times.
         """
-        self.select_sub_test(100)
+        self.select_sub_test("blink")
         self.wps = {'s_count1': None, 's_count2': None}
         cnt = 0
         cnt2 = 100
@@ -279,7 +279,6 @@ def two_cores_concurrently_hit_bps(self):
         7) Check that all set breakpoints hit one time at least.
     """
     hit_cnt = [0] * len(self.bps)
-    self.select_sub_test(101)
     for f in self.bps:
         self.add_bp(f)
     for i in range(30):
@@ -307,7 +306,6 @@ def two_cores_concurrently_hit_wps(self):
         5) Check backtrace at the stop point.
         6) Repeat steps 3-5 several times.
     """
-    self.select_sub_test(101)
     self.wps = {'s_count1': None, 's_count2': None}
     for e in self.wps:
         self.add_wp(e, 'w')

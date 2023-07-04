@@ -19,14 +19,14 @@
 
 const static char *TAG = "special_test";
 
-static void crash_task(void *pvParameter)
+TEST_DECL(restart_debug_from_crash, "test_special.DebuggerSpecialTests*.test_restart_debug_from_crash")
 {
     ESP_LOGI(TAG, "Start crash task on core %d", xPortGetCoreID());
     int *p = 0;
     *p = 0; TEST_BREAK_LOC(crash);
 }
 
-static void cache_check_task(void *pvParameter)
+TEST_DECL(cache_handling, "test_flasher.FlasherTests*.test_cache_handling")
 {
     int count = 0;
     gpio_reset_pin(BLINK_GPIO);
@@ -53,7 +53,7 @@ static void cache_check_task(void *pvParameter)
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
 #define SPIRAM_TEST_ARRAY_SZ    100
 
-static void psram_check_task(void *pvParameter)
+TEST_DECL(psram_with_flash_breakpoints, "test_special.PsramTests*.test_psram_with_flash_breakpoints")
 {
     uint32_t *mem = (uint32_t *)heap_caps_malloc(sizeof(uint32_t)*SPIRAM_TEST_ARRAY_SZ, MALLOC_CAP_DEFAULT|MALLOC_CAP_SPIRAM);
     for (int i = 0, k = 0x20; i < SPIRAM_TEST_ARRAY_SZ; i++, k++) {
@@ -84,7 +84,7 @@ static void psram_check_task(void *pvParameter)
     }
 }
 
-static void illegal_instruction_exc(void *pvParameter)
+TEST_DECL(illegal_instruction_exc, "test_special.DebuggerSpecialTests*.test_exception_xtensa_illegal_instruction")
 {
     int core_id = xPortGetCoreID();
     ESP_LOGI(TAG, "CPU[%d]: Illegal instruction exception test started", core_id);
@@ -96,7 +96,7 @@ static void illegal_instruction_exc(void *pvParameter)
     );
 }
 
-static void load_prohibited_exc(void *pvParameter)
+TEST_DECL(load_prohibited_exc, "test_special.DebuggerSpecialTests*.test_exception_xtensa_load_prohibited")
 {
     int core_id = xPortGetCoreID();
     ESP_LOGI(TAG, "CPU[%d]: Load prohibited exception test started", core_id);
@@ -111,7 +111,7 @@ static void load_prohibited_exc(void *pvParameter)
     );
 }
 
-static void store_prohibited_exc(void *pvParameter)
+TEST_DECL(store_prohibited_exc, "test_special.DebuggerSpecialTests*.test_exception_xtensa_store_prohibited")
 {
     int core_id = xPortGetCoreID();
     ESP_LOGI(TAG, "CPU[%d]: Store prohibited exception test started", core_id);
@@ -126,7 +126,7 @@ static void store_prohibited_exc(void *pvParameter)
     );
 }
 
-static void divide_by_zero_exc(void *pvParameter)
+TEST_DECL(divide_by_zero_exc, "test_special.DebuggerSpecialTests*.test_exception_xtensa_divide_by_zero")
 {
     int core_id = xPortGetCoreID();
     ESP_LOGI(TAG, "CPU[%d]: Divide by zero exception test started", core_id);
@@ -210,7 +210,7 @@ static void target_bp_func1()
     target_bp_func2();
 }
 
-static void target_bp_wp_task(void *pvParameter)
+TEST_DECL(target_bp_wp, "test_special.DebuggerSpecialTest*.test_bp_and_wp_set_by_program")
 {
     ESP_LOGI(TAG, "Start target BP and WP task on core %d", xPortGetCoreID());
 
@@ -221,7 +221,7 @@ static void target_bp_wp_task(void *pvParameter)
     target_bp_func1();
 }
 
-static void target_wp_reconf_task(void *pvParameter)
+TEST_DECL(wp_reconfigure_by_program, "test_special.DebuggerSpecialTests*.test_wp_reconfigure_by_program")
 {
     ESP_LOGI(TAG, "Start target WP reconfigure task on core %d", xPortGetCoreID());
 
@@ -245,62 +245,29 @@ static void target_wp_reconf_task(void *pvParameter)
 
 ut_result_t special_test_do(int test_num)
 {
-    switch (test_num) {
-        case 800:
-        {
-            xTaskCreatePinnedToCore(&crash_task, "crash_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
-            break;
-        }
-        case 801:
-        {
-            xTaskCreatePinnedToCore(&cache_check_task, "cache_check_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
-            break;
-        }
+    if (TEST_ID_MATCH(TEST_ID_PATTERN(target_bp_wp), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(target_bp_wp), "target_bp_wp_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(restart_debug_from_crash), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(restart_debug_from_crash), "crash_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(cache_handling), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(cache_handling), "cache_check_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(wp_reconfigure_by_program), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(wp_reconfigure_by_program), "target_wp_reconf_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
-        case 802:
-        {
-            xTaskCreatePinnedToCore(&psram_check_task, "psram_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
-            break;
-        }
-        case 804:
-        {
-            xTaskCreatePinnedToCore(&illegal_instruction_exc, "illegal_instruction_exc", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
-            break;
-        }
-        case 805:
-        {
-            xTaskCreatePinnedToCore(&load_prohibited_exc, "load_prohibited_exc", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
-            break;
-        }
-        case 806:
-        {
-            xTaskCreatePinnedToCore(&store_prohibited_exc, "store_prohibited_exc", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
-            break;
-        }
-        case 807:
-        {
-            xTaskCreatePinnedToCore(&divide_by_zero_exc, "divide_by_zero_exc", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
-            break;
-        }
-#endif
-        case 803:
-        {
-            xTaskCreatePinnedToCore(&target_bp_wp_task, "target_bp_wp_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
-            break;
-        }
-        case 808:
-        {
-            xTaskCreatePinnedToCore(&target_wp_reconf_task, "target_wp_reconf_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
-            break;
-        }
-        default:
-#if CONFIG_IDF_TARGET_ARCH_XTENSA
-            if (TEST_ID_MATCH(TEST_ID_PATTERN(gh264_psram_check), test_num))
-            {
-                xTaskCreatePinnedToCore(TEST_ENTRY(gh264_psram_check), "gh264_psram_check_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
-                break;
-            }
-#endif
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(gh264_psram_check), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(gh264_psram_check), "gh264_psram_check_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(psram_with_flash_breakpoints), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(psram_with_flash_breakpoints), "psram_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(illegal_instruction_exc), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(illegal_instruction_exc), "illegal_instruction_exc", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(load_prohibited_exc), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(load_prohibited_exc), "load_prohibited_exc", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(store_prohibited_exc), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(store_prohibited_exc), "store_prohibited_exc", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(divide_by_zero_exc), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(divide_by_zero_exc), "divide_by_zero_exc", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+#endif // CONFIG_IDF_TARGET_ARCH_XTENSA
+    } else {
             return UT_UNSUPPORTED;
     }
     return UT_OK;

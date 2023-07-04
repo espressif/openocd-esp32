@@ -242,6 +242,18 @@ static void os_trace_test_task(void *pvParameter)
     }
 }
 
+TEST_DECL(os_tracing, "test_sysview.SysView*TracingTests*.test_os_tracing")
+{
+    static struct os_trace_task_arg task_args[2] = {
+        { .tim_grp = TEST_TIMER_GROUP_0, .tim_id = TEST_TIMER_0, .tim_period = 300000UL /*us*/, .task_period = 500 /*ms*/},
+        { .tim_grp = TEST_TIMER_GROUP_1, .tim_id = TEST_TIMER_0, .tim_period = 500000UL /*us*/, .task_period = 2000 /*ms*/}
+    };
+    xTaskCreatePinnedToCore(os_trace_test_task, "trace_task0", 4096, (void *)&task_args[0], 5, NULL, 0);
+#if !CONFIG_FREERTOS_UNICORE
+    xTaskCreatePinnedToCore(os_trace_test_task, "trace_task1", 4096, (void *)&task_args[1], 5, NULL, 1);
+#endif
+}
+
 /* CONFIG_ESP32_APPTRACE_ENABLE is for IDF <= 4.0 */
 #if defined(CONFIG_APPTRACE_ENABLE) || defined(CONFIG_ESP32_APPTRACE_ENABLE)
 
@@ -277,9 +289,9 @@ static void raw_trace_log(void* arg)
     vTaskDelete(NULL);
 }
 
-static void raw_trace_log_periodic(void* arg)
+TEST_DECL(apptrace_reset, "test_apptrace.ApptraceTests*.test_apptrace_reset")
 {
-    uint32_t delay = (uint32_t)arg;
+    uint32_t delay = (uint32_t)pvParameter;
     stdout = fwopen(NULL, &apptrace_writefn);
     static char stdout_buf[128];
     setvbuf(stdout, stdout_buf, _IOLBF, sizeof(stdout_buf));
@@ -294,79 +306,76 @@ static void raw_trace_log_periodic(void* arg)
     }
 
 }
+
+TEST_DECL(apptrace_dest_tcp, "test_apptrace.ApptraceTests*.test_apptrace_dest_tcp")
+{
+    xTaskCreate(raw_trace_log, "raw_trace_log", 4096, (void *)10, 5, NULL);
+}
+
+TEST_DECL(apptrace_autostop, "test_apptrace.ApptraceTests*.test_apptrace_autostop")
+{
+    xTaskCreate(raw_trace_log, "raw_trace_log", 4096, (void *)100, 5, NULL);
+}
 #endif // CONFIG_APPTRACE_ENABLE
 
-ut_result_t tracing_test_do(int test_num)
+#if CONFIG_HEAP_TRACING
+TEST_DECL(log_heap_tracing, "test_sysview.SysView*TracingTests*.test_heap_log_from_file")
 {
     static trace_test_task_arg_t task_args[2];
     memset(task_args, 0, sizeof(task_args));
+    task_args[0].test_func = (do_trace_test_t)trace_test_heap_log_main;
+    task_args[0].trace_printf = do_trace_printf;
+    task_args[0].trace_flush = do_trace_flush;
+    task_args[0].trace_is_started = do_trace_is_started;
+    xTaskCreatePinnedToCore(trace_test_task, "trace_task0", 4096, (void *)&task_args[0], 5, &task_args[1].other_task, 0);
+#if !CONFIG_FREERTOS_UNICORE
+    task_args[1].test_func = (do_trace_test_t)trace_test_heap_log_slave;
+    task_args[1].trace_printf = do_trace_printf;
+    task_args[1].trace_flush = do_trace_flush;
+    task_args[1].trace_is_started = do_trace_is_started;
+    xTaskCreatePinnedToCore(trace_test_task, "trace_task1", 4096, (void *)&task_args[1], 5, &task_args[0].other_task, 1);
+#endif
+}
+#endif // CONFIG_HEAP_TRACING
 
-    switch(test_num) {
+TEST_DECL(log_continuous_tracing, "test_sysview.SysView*TracingTests*.test_log_from_file")
+{
+    static trace_test_task_arg_t task_args[2];
+    memset(task_args, 0, sizeof(task_args));
+    task_args[0].test_func = (do_trace_test_t)trace_test_log_continuous_main;
+    task_args[0].trace_printf = do_trace_printf;
+    task_args[0].trace_flush = do_trace_flush;
+    task_args[0].trace_is_started = do_trace_is_started;
+    xTaskCreatePinnedToCore(trace_test_task, "trace_task0", 4096, (void *)&task_args[0], 5, &task_args[1].other_task, 0);
+#if !CONFIG_FREERTOS_UNICORE
+    task_args[1].test_func = (do_trace_test_t)trace_test_log_continuous_slave;
+    task_args[1].trace_printf = do_trace_printf;
+    task_args[1].trace_flush = do_trace_flush;
+    task_args[1].trace_is_started = do_trace_is_started;
+    xTaskCreatePinnedToCore(trace_test_task, "trace_task1", 4096, (void *)&task_args[1], 5, &task_args[0].other_task, 1);
+#endif
+}
+
+ut_result_t tracing_test_do(int test_num)
+{
+    if (TEST_ID_MATCH(TEST_ID_PATTERN(os_tracing), test_num)) {
+        TEST_ENTRY(os_tracing)(NULL);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(log_continuous_tracing), test_num)) {
+        TEST_ENTRY(log_continuous_tracing)(NULL);
 #if CONFIG_HEAP_TRACING
-        case 500:
-        {
-            task_args[0].test_func = (do_trace_test_t)trace_test_heap_log_main;
-            task_args[0].trace_printf = do_trace_printf;
-            task_args[0].trace_flush = do_trace_flush;
-            task_args[0].trace_is_started = do_trace_is_started;
-            xTaskCreatePinnedToCore(trace_test_task, "trace_task0", 4096, (void *)&task_args[0], 5, &task_args[1].other_task, 0);
-#if !CONFIG_FREERTOS_UNICORE
-            task_args[1].test_func = (do_trace_test_t)trace_test_heap_log_slave;
-            task_args[1].trace_printf = do_trace_printf;
-            task_args[1].trace_flush = do_trace_flush;
-            task_args[1].trace_is_started = do_trace_is_started;
-            xTaskCreatePinnedToCore(trace_test_task, "trace_task1", 4096, (void *)&task_args[1], 5, &task_args[0].other_task, 1);
-#endif
-            break;
-        }
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(log_heap_tracing), test_num)) {
+        TEST_ENTRY(log_heap_tracing)(NULL);
 #endif //CONFIG_HEAP_TRACING
-        case 501:
-        {
-            task_args[0].test_func = (do_trace_test_t)trace_test_log_continuous_main;
-            task_args[0].trace_printf = do_trace_printf;
-            task_args[0].trace_flush = do_trace_flush;
-            task_args[0].trace_is_started = do_trace_is_started;
-            xTaskCreatePinnedToCore(trace_test_task, "trace_task0", 4096, (void *)&task_args[0], 5, &task_args[1].other_task, 0);
-#if !CONFIG_FREERTOS_UNICORE
-            task_args[1].test_func = (do_trace_test_t)trace_test_log_continuous_slave;
-            task_args[1].trace_printf = do_trace_printf;
-            task_args[1].trace_flush = do_trace_flush;
-            task_args[1].trace_is_started = do_trace_is_started;
-            xTaskCreatePinnedToCore(trace_test_task, "trace_task1", 4096, (void *)&task_args[1], 5, &task_args[0].other_task, 1);
-#endif
-            break;
-        }
-        case 502:
-        {
-            static struct os_trace_task_arg task_args[2] = {
-                { .tim_grp = TEST_TIMER_GROUP_0, .tim_id = TEST_TIMER_0, .tim_period = 300000UL /*us*/, .task_period = 500 /*ms*/},
-                { .tim_grp = TEST_TIMER_GROUP_1, .tim_id = TEST_TIMER_0, .tim_period = 500000UL /*us*/, .task_period = 2000 /*ms*/}
-            };
-            xTaskCreatePinnedToCore(os_trace_test_task, "trace_task0", 4096, (void *)&task_args[0], 5, NULL, 0);
-#if !CONFIG_FREERTOS_UNICORE
-            xTaskCreatePinnedToCore(os_trace_test_task, "trace_task1", 4096, (void *)&task_args[1], 5, NULL, 1);
-#endif
-            break;
-        }
 #if defined(CONFIG_APPTRACE_ENABLE) || defined(CONFIG_ESP32_APPTRACE_ENABLE)
-        case 503:
-        {
-            xTaskCreate(raw_trace_log, "raw_trace_log", 4096, (void *)10, 5, NULL);
-            break;
-        }
-        case 504:
-        {
-            xTaskCreate(raw_trace_log, "raw_trace_log", 4096, (void *)100, 5, NULL);
-            break;
-        }
-        case 505:
-        {
-            xTaskCreate(raw_trace_log_periodic, "raw_trace_log_periodic", 4096, (void *)100, 5, NULL);
-            break;
-        }
-#endif //CONFIG_APPTRACE_ENABLE
-        default:
-            return UT_UNSUPPORTED;
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(apptrace_dest_tcp), test_num)) {
+        TEST_ENTRY(apptrace_dest_tcp)(NULL);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(apptrace_autostop), test_num)) {
+        TEST_ENTRY(apptrace_autostop)(NULL);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(apptrace_reset), test_num)) {
+        xTaskCreate(TEST_ENTRY(apptrace_reset), "raw_trace_log_periodic", 4096, (void *)100, 5, NULL);
+#endif // defined(CONFIG_APPTRACE_ENABLE) || defined(CONFIG_ESP32_APPTRACE_ENABLE)
+    } else {
+        return UT_UNSUPPORTED;
     }
     return UT_OK;
 }
