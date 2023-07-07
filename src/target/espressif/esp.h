@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include "flash/nor/esp_flash.h"
+#include <helper/bits.h>
 
 #define IS_1XXX(v)		(((v) & 0x08) == 0x08)
 #define IS_0100(v)      (((v) & 0x0f) == 0x04)
@@ -42,7 +43,7 @@ enum esp_dbg_stub_id {
 };
 
 #define ESP_DBG_STUB_MAGIC_NUM_VAL      0xFEEDBEEF
-#define ESP_DBG_STUB_CAP_GCOV_THREAD    (1 << 0)
+#define ESP_DBG_STUB_CAP_GCOV_THREAD    BIT(0)
 
 
 /**
@@ -51,14 +52,16 @@ enum esp_dbg_stub_id {
  * @note Must be in sync with ESP-IDF version
  */
 struct esp_dbg_stubs_desc {
-	/** Address of pre-compiled target buffer for stub trampoline. Size of the buffer is
-	 * ESP_DBG_STUBS_CODE_BUF_SIZE. */
+	/** Address of pre-compiled target buffer for stub trampoline.
+	 * Size of the buffer is ESP_DBG_STUBS_CODE_BUF_SIZE
+	 */
 	uint32_t tramp_addr;
 	/** Pre-compiled target buffer's addr for stack. The size of the buffer is ESP_DBG_STUBS_STACK_MIN_SIZE.
-	    Target has the buffer which is used for the stack of onboard algorithms.
-	If stack size required by algorithm exceeds ESP_DBG_STUBS_STACK_MIN_SIZE,
-	it should be allocated using onboard function pointed by 'data_alloc' and
-	freed by 'data_free'. They fit to the minimal stack. See below. */
+	 * Target has the buffer which is used for the stack of onboard algorithms.
+	 * If stack size required by algorithm exceeds ESP_DBG_STUBS_STACK_MIN_SIZE,
+	 * it should be allocated using onboard function pointed by 'data_alloc' and
+	 * freed by 'data_free'. They fit to the minimal stack. See below.
+	 */
 	uint32_t min_stack_addr;
 	/** Address of malloc-like function to allocate buffer on target. */
 	uint32_t data_alloc;
