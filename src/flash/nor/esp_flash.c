@@ -5,50 +5,53 @@
  *   Copyright (C) 2021 Espressif Systems Ltd.                             *
  ***************************************************************************/
 
-/*
- * Overview
- * --------
- * Like many other flash drivers this one uses special binary program (stub) running on target
- * to perform all operations and communicate to the host. Stub has entry function which accepts
- * variable number of arguments and therefore can handle different flash operation requests.
- * Only the first argument of the stub entry function is mandatory for all operations it must
- * specify the type of flash function to perform (read, write etc.). Actually stub main function
- * is a dispatcher which determines the type of flash operation to perform, retrieves other
- * arguments and calls corresponding handler. In C notation entry function looks like the following:
+/**
+* Overview
+* --------
+* Like many other flash drivers this one uses special binary program (stub) running on target
+* to perform all operations and communicate to the host. Stub has entry function which accepts
+* variable number of arguments and therefore can handle different flash operation requests.
+* Only the first argument of the stub entry function is mandatory for all operations it must
+* specify the type of flash function to perform (read, write etc.). Actually stub main function
+* is a dispatcher which determines the type of flash operation to perform, retrieves other
+* arguments and calls corresponding handler. In C notation entry function looks like the following:
 
- * int stub_main(int cmd, ...);
+* int stub_main(int cmd, ...);
 
- * In general every flash operation consists of the following steps:
- * 1) Stub is loaded to target.
- * 2) Necessary arguments are prepared and stub's main function is called.
- * 3) Stub does the work and returns the result.
+* In general every flash operation consists of the following steps:
+* 1) Stub is loaded to target.
+* 2) Necessary arguments are prepared and stub's main function is called.
+* 3) Stub does the work and returns the result.
 
- * Stub Loading
- * ------------
- * To run stub its code and data sections must be loaded to the target. It is done using working area API.
- * But since code and data address spaces are separated in ESP32 it is necessary to have two configured
- * working areas: one in code address space and another one in data space. So driver allocates chunks
- * in respective pools and writes stub sections to them. It is important that the both stub sections reside
- * at the beginning of respective working areas because stub code is linked as ELF and therefore it is
- * position dependent. So target memory for stub code and data must be allocated first.
+* Stub Loading
+* ------------
+* To execute the stub, the code and data sections need to be loaded onto the target device.
+* This is accomplished using the working area API. In ESP32, the code and data address spaces are separate,
+* but the CPU can read and write memory from both the data bus and the instruction bus.
+* This means that data written from the data bus can be accessed from the instruction bus.
+* However, ESP32 differs from other chips as it maps these buses differently.
+* To address this, the load function in the algorithm will make the necessary adjustments.
+* It is crucial that both the stub code and data sections are located at the beginning of their respective
+* working areas because the stub code is linked as ELF and therefore its position is dependent.
+* Hence, allocating target memory for the stub code and data is the first step in this process.
 
- * Stub Execution
- * --------------
- * Special wrapping code is used to enter and exit the stub's main function. It prepares register arguments
- * before Windowed ABI call to stub entry and upon return from it executes break command to indicate to OpenOCD
- * that operation is finished.
+* Stub Execution
+* --------------
+* Special wrapping code is used to enter and exit the stub's main function. It prepares register arguments
+* before Windowed ABI call to stub entry and upon return from it executes break command to indicate to OpenOCD
+* that operation is finished.
 
- * Flash Data Transfers
- * --------------------
- * To transfer data from/to target a buffer should be allocated at ESP32 side. Also during the data transfer
- * target and host must maintain the state of that buffer (read/write pointers etc.). So host needs to check
- * the state of that buffer periodically and write to or read from it (depending on flash operation type).
- * ESP32 does not support access to its memory via JTAG when it is not halted, so accessing target memory would
- * requires halting the CPUs every time the host needs to check if there are incoming data or free space available
- * in the buffer. This fact can slow down flash write/read operations dramatically. To avoid this flash driver and
- * stub use application level tracing module API to transfer the data in 'non-stop' mode.
- *
- */
+* Flash Data Transfers
+* --------------------
+* To transfer data from/to target a buffer should be allocated at ESP32 side. Also during the data transfer
+* target and host must maintain the state of that buffer (read/write pointers etc.). So host needs to check
+* the state of that buffer periodically and write to or read from it (depending on flash operation type).
+* ESP32 does not support access to its memory via JTAG when it is not halted, so accessing target memory would
+* requires halting the CPUs every time the host needs to check if there are incoming data or free space available
+* in the buffer. This fact can slow down flash write/read operations dramatically. To avoid this flash driver and
+* stub use application level tracing module API to transfer the data in 'non-stop' mode.
+*
+**/
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
