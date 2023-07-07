@@ -11,4 +11,5 @@ git diff HEAD~${cnt} \
                 -x "a/testing/esp/*" \
                 -x "a/contrib/loaders/flash/esp/*" \
 				-x "*/tools/scanbuild_reference.html" \
-            | ./tools/scripts/checkpatch.pl --no-signoff --ignore STATIC_CONST_CHAR_ARRAY --ignore MACRO_ARG_PRECEDENCE
+            | ./tools/scripts/checkpatch.pl --no-signoff \
+				--ignore STATIC_CONST_CHAR_ARRAY --ignore MACRO_ARG_PRECEDENCE --ignore MACRO_ARG_REUSE

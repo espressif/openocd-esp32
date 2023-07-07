@@ -274,12 +274,10 @@ int esp_common_gdb_detach_command(struct command_invocation *cmd)
 	if (target->smp) {
 		struct target_list *head;
 		foreach_smp_target(head, target->smp_targets) {
-			CMD_CTX->current_target = head->target;
-			int ret = esp_common_handle_gdb_detach(CMD_CTX->current_target);
+			int ret = esp_common_handle_gdb_detach(head->target);
 			if (ret != ERROR_OK)
 				return ret;
 		}
-		cmd->ctx->current_target = target;
 		return ERROR_OK;
 	}
 	return esp_common_handle_gdb_detach(target);
