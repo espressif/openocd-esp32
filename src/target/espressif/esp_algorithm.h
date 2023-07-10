@@ -273,10 +273,6 @@ struct algorithm_run_data {
 			uint32_t min_stack_size;
 			/** Pre-compiled target buffer's addr for stack. */
 			target_addr_t min_stack_addr;
-			/** Address of malloc-like function to allocate buffer on target. */
-			target_addr_t alloc_func;
-			/** Address of free-like function to free buffer allocated with on_board_alloc_func. */
-			target_addr_t free_func;
 		} on_board;
 		struct algorithm_image image;
 	};
