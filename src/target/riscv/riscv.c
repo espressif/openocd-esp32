@@ -571,33 +571,46 @@ static int set_trigger(struct target *target, unsigned int idx, riscv_reg_t tdat
 	riscv_reg_t tdata1_ignore_mask)
 {
 	riscv_reg_t tdata1_rb, tdata2_rb;
+	// Select which trigger to use
 	if (riscv_set_register(target, GDB_REGNO_TSELECT, idx) != ERROR_OK)
 		return ERROR_FAIL;
+
+	// Disable the trigger by writing 0 to it
+	if (riscv_set_register(target, GDB_REGNO_TDATA1, 0) != ERROR_OK)
+		return ERROR_FAIL;
+
+	// Set trigger data for tdata2 (and tdata3 if it was supported)
+	if (riscv_set_register(target, GDB_REGNO_TDATA2, tdata2) != ERROR_OK)
+		return ERROR_FAIL;
+
+	// Set trigger data for tdata1
 	if (riscv_set_register(target, GDB_REGNO_TDATA1, tdata1) != ERROR_OK)
 		return ERROR_FAIL;
+
+	// Read back tdata1, tdata2, (tdata3), and check if the configuration is supported
 	if (riscv_get_register(target, &tdata1_rb, GDB_REGNO_TDATA1) != ERROR_OK)
-		return ERROR_FAIL;
-	if ((tdata1 & ~tdata1_ignore_mask) != (tdata1_rb & ~tdata1_ignore_mask)) {
-		LOG_TARGET_DEBUG(target,
-			"Trigger %u doesn't support what we need; After writing 0x%"
-			PRIx64 " to tdata1 it contains 0x%" PRIx64
-			"; tdata1_ignore_mask=0x%" PRIx64,
-			idx, tdata1, tdata1_rb, tdata1_ignore_mask);
-		riscv_set_register(target, GDB_REGNO_TDATA1, 0);
-		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
-	}
-	if (riscv_set_register(target, GDB_REGNO_TDATA2, tdata2) != ERROR_OK)
 		return ERROR_FAIL;
 	if (riscv_get_register(target, &tdata2_rb, GDB_REGNO_TDATA2) != ERROR_OK)
 		return ERROR_FAIL;
-	if (tdata2 != tdata2_rb) {
-		LOG_TARGET_DEBUG(target,
-			"Trigger %u doesn't support what we need; wrote 0x%"
-			PRIx64 " to tdata2 but read back 0x%" PRIx64,
-			idx, tdata2, tdata2_rb);
+	bool tdata1_config_denied = (tdata1 & ~tdata1_ignore_mask) != (tdata1_rb & ~tdata1_ignore_mask);
+	bool tdata2_config_denied = tdata2 != tdata2_rb;
+	if (tdata1_config_denied || tdata2_config_denied) {
+		LOG_TARGET_DEBUG(target, "Trigger %u doesn't support what we need.", idx);
+
+		if (tdata1_config_denied)
+			LOG_TARGET_DEBUG(target,
+				"After writing 0x%" PRIx64 " to tdata1 it contains 0x%" PRIx64 "; tdata1_ignore_mask=0x%" PRIx64,
+				tdata1, tdata1_rb, tdata1_ignore_mask);
+
+		if (tdata2_config_denied)
+			LOG_TARGET_DEBUG(target,
+				"wrote 0x%" PRIx64 " to tdata2 but read back 0x%" PRIx64,
+				tdata2, tdata2_rb);
+
 		riscv_set_register(target, GDB_REGNO_TDATA1, 0);
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
+
 	return ERROR_OK;
 }
 
@@ -1787,15 +1800,8 @@ static int enable_triggers(struct target *target, riscv_reg_t *state)
 static int resume_prep(struct target *target, int current,
 		target_addr_t address, int handle_breakpoints, int debug_execution)
 {
+	assert(target->state == TARGET_HALTED);
 	RISCV_INFO(r);
-
-	LOG_TARGET_DEBUG(target, "target->state=%d, current=%s, address=0x%"
-		TARGET_PRIxADDR ", handle_breakpoints=%s, debug_exec=%s",
-		target->state,
-		current ? "true" : "false",
-		address,
-		handle_breakpoints ? "true" : "false",
-		debug_execution ? "true" : "false");
 
 	if (!current && riscv_set_register(target, GDB_REGNO_PC, address) != ERROR_OK)
 		return ERROR_FAIL;
@@ -1826,6 +1832,7 @@ static int resume_prep(struct target *target, int current,
 static int resume_go(struct target *target, int current,
 		target_addr_t address, int handle_breakpoints, int debug_execution)
 {
+	assert(target->state == TARGET_HALTED);
 	RISCV_INFO(r);
 	int result;
 	if (!r->get_hart_state) {
@@ -1841,6 +1848,7 @@ static int resume_go(struct target *target, int current,
 
 static int resume_finish(struct target *target, int debug_execution)
 {
+	assert(target->state == TARGET_HALTED);
 	register_cache_invalidate(target->reg_cache);
 
 	target->state = debug_execution ? TARGET_DEBUG_RUNNING : TARGET_RUNNING;
@@ -1861,7 +1869,6 @@ int riscv_resume(
 		int debug_execution,
 		bool single_hart)
 {
-	LOG_DEBUG("handle_breakpoints=%d", handle_breakpoints);
 	int result = ERROR_OK;
 
 	struct list_head *targets;
@@ -1881,14 +1888,22 @@ int riscv_resume(
 		targets = &single_target_list;
 	}
 
+	LOG_TARGET_DEBUG(target, "current=%s, address=0x%"
+				TARGET_PRIxADDR ", handle_breakpoints=%s, debug_exec=%s",
+				current ? "true" : "false",
+				address,
+				handle_breakpoints ? "true" : "false",
+				debug_execution ? "true" : "false");
+
 	struct target_list *tlist;
 	foreach_smp_target_direction(resume_order == RO_NORMAL, tlist, targets) {
 		struct target *t = tlist->target;
-		if (t->state != TARGET_UNAVAILABLE) {
-			if (resume_prep(t, current, address, handle_breakpoints,
-						debug_execution) != ERROR_OK)
-				result = ERROR_FAIL;
-		}
+		LOG_TARGET_DEBUG(t, "target->state=%s", target_state_name(t));
+		if (t->state != TARGET_HALTED)
+			LOG_TARGET_DEBUG(t, "skipping this target: target not halted");
+		else if (resume_prep(t, current, address, handle_breakpoints,
+					debug_execution) != ERROR_OK)
+			result = ERROR_FAIL;
 	}
 
 	foreach_smp_target_direction(resume_order == RO_NORMAL, tlist, targets) {
@@ -1903,7 +1918,7 @@ int riscv_resume(
 
 	foreach_smp_target_direction(resume_order == RO_NORMAL, tlist, targets) {
 		struct target *t = tlist->target;
-		if (t->state != TARGET_UNAVAILABLE) {
+		if (t->state == TARGET_HALTED) {
 			if (resume_finish(t, debug_execution) != ERROR_OK)
 				result = ERROR_FAIL;
 		}
@@ -1915,13 +1930,10 @@ int riscv_resume(
 int riscv_target_resume(struct target *target, int current,
 		target_addr_t address, int handle_breakpoints, int debug_execution)
 {
-	LOG_TARGET_DEBUG(target, "target->state=%d, current=%s, address=0x%"
-		TARGET_PRIxADDR ", handle_breakpoints=%s, debug_exec=%s",
-		target->state,
-		current ? "true" : "false",
-		address,
-		handle_breakpoints ? "true" : "false",
-		debug_execution ? "true" : "false");
+	if (target->state != TARGET_HALTED) {
+		LOG_TARGET_ERROR(target, "not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
 	return riscv_resume(target, current, address, handle_breakpoints,
 			debug_execution, false);
 }
@@ -2753,7 +2765,12 @@ static int riscv_poll_hart(struct target *target, enum riscv_next_action *next_a
 					}
 				}
 
+				/* TODO: Espressif: replace with handle_became_halted event. */
 				r->on_halt(target);
+
+				if (r->handle_became_halted &&
+						r->handle_became_halted(target, previous_riscv_state) != ERROR_OK)
+					return ERROR_FAIL;
 
 				/* We shouldn't do the callbacks yet. What if
 				 * there are multiple harts that halted at the
@@ -2772,12 +2789,18 @@ static int riscv_poll_hart(struct target *target, enum riscv_next_action *next_a
 				LOG_TARGET_DEBUG(target, "  triggered running");
 				target->state = TARGET_RUNNING;
 				target->debug_reason = DBG_REASON_NOTHALTED;
+				if (r->handle_became_running &&
+						r->handle_became_running(target, previous_riscv_state) != ERROR_OK)
+					return ERROR_FAIL;
 				break;
 
 			case RISCV_STATE_UNAVAILABLE:
 				LOG_TARGET_DEBUG(target, "  became unavailable");
 				LOG_TARGET_INFO(target, "became unavailable.");
 				target->state = TARGET_UNAVAILABLE;
+				if (r->handle_became_unavailable &&
+						r->handle_became_unavailable(target, previous_riscv_state) != ERROR_OK)
+					return ERROR_FAIL;
 				break;
 
 			case RISCV_STATE_NON_EXISTENT:
@@ -2911,7 +2934,7 @@ int riscv_openocd_poll(struct target *target)
 			should_remain_halted);
 		riscv_halt(target);
 	} else if (should_resume) {
-		LOG_DEBUG("resume all");
+		LOG_TARGET_DEBUG(target, "resume all");
 		riscv_resume(target, true, 0, 0, 0, false);
 	} else if (halted && running) {
 		LOG_TARGET_DEBUG(target, "halt all; halted=%d",
@@ -4082,10 +4105,17 @@ COMMAND_HANDLER(riscv_exec_progbuf)
 			return ERROR_FAIL;
 	}
 
-	if (riscv_program_exec(&prog, target) == ERROR_OK)
-		LOG_TARGET_DEBUG(target, "exec_progbuf: Program buffer execution successful.");
-	else
+	if (riscv_flush_registers(target) != ERROR_OK)
+		return ERROR_FAIL;
+	int error = riscv_program_exec(&prog, target);
+	riscv_invalidate_register_cache(target);
+
+	if (error != ERROR_OK) {
 		LOG_TARGET_ERROR(target, "exec_progbuf: Program buffer execution failed.");
+		return ERROR_FAIL;
+	}
+
+	LOG_TARGET_DEBUG(target, "exec_progbuf: Program buffer execution successful.");
 
 	return ERROR_OK;
 }
@@ -4362,6 +4392,9 @@ const struct command_registration riscv_command_handlers[] = {
 		.usage = "",
 		.chain = semihosting_common_handlers
 	},
+	{
+		.chain = smp_command_handlers
+	},
 	COMMAND_REGISTRATION_DONE
 };
 
@@ -4569,12 +4602,8 @@ static void riscv_invalidate_register_cache(struct target *target)
 	if (!target->reg_cache)
 		return;
 
-	LOG_DEBUG("[%d]", target->coreid);
+	LOG_TARGET_DEBUG(target, "Invalidating register cache");
 	register_cache_invalidate(target->reg_cache);
-	for (size_t i = 0; i < target->reg_cache->num_regs; ++i) {
-		struct reg *reg = &target->reg_cache->reg_list[i];
-		reg->valid = false;
-	}
 }
 
 
