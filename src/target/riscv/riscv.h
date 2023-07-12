@@ -193,6 +193,21 @@ struct riscv_info {
 	 * was resumed. */
 	int (*resume_go)(struct target *target);
 	int (*step_current_hart)(struct target *target);
+
+	/* These get called from riscv_poll_hart(), which is a house of cards
+	 * together with openocd_poll(), so be careful not to upset things too
+	 * much. */
+	int (*handle_became_halted)(struct target *target,
+		enum riscv_hart_state previous_riscv_state);
+	int (*handle_became_running)(struct target *target,
+		enum riscv_hart_state previous_riscv_state);
+	int (*handle_became_unavailable)(struct target *target,
+		enum riscv_hart_state previous_riscv_state);
+
+	/* Called periodically (no guarantees about frequency), while there's
+	 * nothing else going on. */
+	int (*tick)(struct target *target);
+
 	int (*on_halt)(struct target *target);
 	/* Indicates that target was reset.*/
 	int (*on_reset)(struct target *target);
@@ -422,6 +437,7 @@ int riscv_dmi_write_u64_bits(struct target *target);
 
 int riscv_enumerate_triggers(struct target *target);
 
+/* Espressif; we exported some functions for the common esp_riscv target */
 int riscv_assert_reset(struct target *target);
 int riscv_deassert_reset(struct target *target);
 int riscv_checksum_memory(struct target *target,
