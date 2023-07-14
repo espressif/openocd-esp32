@@ -153,9 +153,6 @@ testee_info = TesteeInfo()
 def idf_ver_min(ver_str):
     return unittest.skipIf(testee_info.idf_ver < IdfVersion.fromstr(ver_str), "requires min IDF_VER='%s', current IDF_VER='%s'" % (ver_str, testee_info.idf_ver))
 
-def skip_for_ver(ver_str):
-    return unittest.skipIf(testee_info.idf_ver == IdfVersion.fromstr(ver_str), "requires IDF_VER='%s', current IDF_VER='%s'" % (ver_str, testee_info.idf_ver))
-
 def run_with_version(ver_str):
     return unittest.skipIf(testee_info.idf_ver != IdfVersion.fromstr(ver_str), "Not Applicable to this version")
 
@@ -176,6 +173,12 @@ def skip_for_chip(chips_to_skip):
             skip = True
             break
     return unittest.skipIf(skip, "skipped for chip '%s'" % (testee_info.chip))
+
+def skip_for_chip_and_ver(ver_str, chips_to_skip):
+    for id in chips_to_skip:
+        if id == testee_info.chip:
+            return unittest.skipIf(testee_info.idf_ver == IdfVersion.fromstr(ver_str), "for the '%s' for the IDF_VER='%s'" % (id, testee_info.idf_ver))
+    return False
 
 def skip_for_arch(archs_to_skip):
     skip = False

@@ -62,10 +62,25 @@
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_GDB_TOOLCHAIN: "${ESP_RISCV_GDB_TOOLCHAIN}"
 
+.tests_armhf_v5.1.x_xtensa_template:
+  extends: .tests_armhf_template
+  stage: test_idf5.1.x
+  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-v5.1:1
+  variables:
+    ESP_GDB_TOOLCHAIN: "${ESP_XTENSA_GDB_TOOLCHAIN}"
+
+.tests_armhf_v5.1.x_riscv_template:
+  extends: .tests_armhf_template
+  stage: test_idf5.1.x
+  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-v5.1:1
+  variables:
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_RISCV_GDB_TOOLCHAIN}"
+
 .tests_armhf_v5.0.x_template:
   extends: .tests_armhf_template
   stage: test_idf5.0.x
-  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-v5.x:1
+  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-v5.0:1
   variables:
     ESP_TOOLCHAIN: "${ESP_V5x_TOOLCHAIN_VER}"
     ESP_GDB_TOOLCHAIN: "${ESP_V5x_XTENSA_GDB_TOOLCHAIN}"
@@ -233,6 +248,136 @@ tests_armhf_esp32h2_builtin_usb_jtag:
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32h2-builtin -p test_*.*Single -u /dev/ttyACM0"
 
 #############
+# IDF 5.1.X #
+#############
+
+tests_armhf_esp32_idf5.1.x:
+  extends: .tests_armhf_v5.1.x_xtensa_template
+  needs:
+    - job: build_test_app_esp32_idf5.1.x
+    - job: build_linux_armhf_test
+  variables:
+    TEST_RUN_DIR: "build_test_app_esp32_idf5.1.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
+
+tests_armhf_esp32_idf5.1.x_flash_encrypted:
+  extends: .tests_armhf_v5.1.x_xtensa_template
+  tags:
+    - test_jtag_arm_flash_encryption
+  needs:
+    - job: build_test_app_esp32_idf5.1.x
+    - job: build_linux_armhf_test
+  variables:
+    TEST_RUN_DIR: "build_test_app_esp32_idf5.1.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
+
+tests_armhf_esp32s2_idf5.1.x:
+  extends: .tests_armhf_v5.1.x_xtensa_template
+  needs:
+    - job: build_test_app_esp32s2_idf5.1.x
+    - job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    TEST_RUN_DIR: "build_test_app_esp32s2_idf5.1.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32s2-devkitj -p test_*.*Single"
+
+tests_armhf_esp32s2_idf5.1.x_flash_encrypted:
+  extends: .tests_armhf_v5.1.x_xtensa_template
+  tags:
+    - test_jtag_arm_flash_encryption_esp32s2
+  needs:
+    - job: build_test_app_esp32s2_idf5.1.x
+    - job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    TEST_RUN_DIR: "build_test_app_esp32s2_idf5.1.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32s2-devkitj -p test_*.*SingleEncrypted"
+
+tests_armhf_esp32s3_idf5.1.x:
+  extends: .tests_armhf_v5.1.x_xtensa_template
+  needs:
+    - job: build_test_app_esp32s3_idf5.1.x
+    - job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32s3"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s3"
+    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.1.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
+
+tests_armhf_esp32c2_idf5.1.x:
+  extends: .tests_armhf_v5.1.x_riscv_template
+  needs:
+    - job: build_test_app_esp32c2_idf5.1.x
+    - job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32c2"
+    TEST_RUN_DIR: "build_test_app_esp32c2_idf5.1.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32c2-ftdi -p test_*.*Single"
+
+tests_armhf_esp32c3_idf5.1.x:
+  extends: .tests_armhf_v5.1.x_riscv_template
+  needs:
+    - job: build_test_app_esp32c3_idf5.1.x
+    - job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32c3"
+    TEST_RUN_DIR: "build_test_app_esp32c3_idf5.1.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single"
+
+tests_armhf_esp32c3_idf5.1.x_builtin_usb_jtag:
+  extends: .tests_armhf_v5.1.x_riscv_template
+  tags:
+    - arm
+    - test_jtag_arm_esp32c3_builtin
+  needs:
+    - job: build_test_app_esp32c3_idf5.1.x
+    - job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32c3"
+    TEST_RUN_DIR: "build_test_app_esp32c3_idf5.1.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32c3-builtin -p test_*.*Single"
+
+tests_armhf_esp32c3_idf5.1.x_flash_encrypted:
+  extends: .tests_armhf_v5.1.x_riscv_template
+  tags:
+    - test_jtag_arm_flash_encryption_esp32c3
+  needs:
+    - job: build_test_app_esp32c3_idf5.1.x
+    - job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32c3"
+    TEST_RUN_DIR: "build_test_app_esp32c3_idf5.1.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*SingleEncrypted"
+
+tests_armhf_esp32c6_idf5.1.x_builtin_usb_jtag:
+  extends: .tests_armhf_v5.1.x_riscv_template
+  tags:
+    - esp32c6
+    - usb_serial_jtag
+  needs:
+    - job: build_test_app_esp32c6_idf5.1.x
+    - job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32c6"
+    TEST_RUN_DIR: "build_test_app_esp32c6_idf5.1.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32c6-builtin -p test_*.*Single -u /dev/ttyACM0"
+
+tests_armhf_esp32h2_idf5.1.x_builtin_usb_jtag:
+  extends: .tests_armhf_v5.1.x_riscv_template
+  tags:
+    - esp32h2
+    - usb_serial_jtag
+  needs:
+    - job: build_test_app_esp32h2_idf5.1.x
+    - job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32h2"
+    TEST_RUN_DIR: "build_test_app_esp32h2_idf5.1.x"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32h2-builtin -p test_*.*Single -u /dev/ttyACM0"
+
+#############
 # IDF 5.0.X #
 #############
 
@@ -255,18 +400,6 @@ tests_armhf_esp32_idf5.0.x_flash_encrypted:
   variables:
     TEST_RUN_DIR: "build_test_app_esp32_idf5.0.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
-
-.tests_armhf_esp32_solo_idf5.0.x:
-  extends: .tests_armhf_v5.0.x_template
-  tags:
-    - arm
-    - test_jtag_solo
-  needs:
-    - job: build_test_app_esp32_idf5.0.x
-    - job: build_linux_armhf_test
-  variables:
-    TEST_RUN_DIR: "build_test_app_esp32_idf5.0.x"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32-solo-devkitj -p test_*.*Single"
 
 tests_armhf_esp32s2_idf5.0.x:
   extends: .tests_armhf_v5.0.x_template
@@ -311,6 +444,7 @@ tests_armhf_esp32c2_idf5.0.x:
   variables:
     CHIP_NAME: "esp32c2"
     TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5x_RISCV_GDB_TOOLCHAIN}"
     TEST_RUN_DIR: "build_test_app_esp32c2_idf5.0.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32c2-ftdi -p test_*.*Single"
 
@@ -322,6 +456,7 @@ tests_armhf_esp32c3_idf5.0.x:
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5x_RISCV_GDB_TOOLCHAIN}"
     TEST_RUN_DIR: "build_test_app_esp32c3_idf5.0.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single"
 
@@ -336,6 +471,7 @@ tests_armhf_esp32c3_idf5.0.x_builtin_usb_jtag:
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5x_RISCV_GDB_TOOLCHAIN}"
     TEST_RUN_DIR: "build_test_app_esp32c3_idf5.0.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32c3-builtin -p test_*.*Single"
 
@@ -349,24 +485,13 @@ tests_armhf_esp32c3_idf5.0.x_flash_encrypted:
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5x_RISCV_GDB_TOOLCHAIN}"
     TEST_RUN_DIR: "build_test_app_esp32c3_idf5.0.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
 ###########
 # IDF 4.X #
 ###########
-
-.tests_armhf_esp32_solo_idf4.x:
-  extends: .tests_armhf_v4x_template
-  tags:
-    - arm
-    - test_jtag_solo
-  needs:
-    - job: build_test_app_esp32_idf4.x
-    - job: build_linux_armhf_test
-  variables:
-    TEST_RUN_DIR: "build_test_app_esp32_idf4.x"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32-solo-devkitj -p test_*.*Single"
 
 tests_armhf_esp32_idf4.x:
   extends: .tests_armhf_v4x_template
@@ -431,6 +556,7 @@ tests_armhf_esp32c3_idf4.x:
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V4x_RISCV_GDB_TOOLCHAIN}"
     TEST_RUN_DIR: "build_test_app_esp32c3_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single"
 
@@ -444,6 +570,7 @@ tests_armhf_esp32c3_idf4.x_flash_encrypted:
   variables:
     CHIP_NAME: "esp32c3"
     TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V4x_RISCV_GDB_TOOLCHAIN}"
     TEST_RUN_DIR: "build_test_app_esp32c3_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
