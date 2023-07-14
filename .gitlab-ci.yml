@@ -3,11 +3,11 @@ stages:
   - static_analyzers
   - build_openocd
   - build_idf4.x
-  - build_idf5.x
+  - build_idf5.0.x
   - build_idf_master
   - build_nuttx
   - test_idf4.x
-  - test_idf5.x
+  - test_idf5.0.x
   - test_idf_master
   - test_host
   - test_nuttx
@@ -219,7 +219,7 @@ test_idf_master_examples:
     project: espressif/esp-idf
     strategy: depend
 
-test_idf5.x_examples:
+test_idf5.0.x_examples:
   stage: pre_release
   when: manual
   only:
@@ -232,7 +232,7 @@ test_idf5.x_examples:
       artifacts: true
   trigger:
     project: espressif/esp-idf
-    branch: ${TEST_APP_IDF5_X_RELEASE_BRANCH}
+    branch: ${TEST_APP_IDF5_0_RELEASE_BRANCH}
     strategy: depend
 
 test_idf4.x_examples:
@@ -269,6 +269,7 @@ create_coverage_reports:
     when: always
     expire_in: 1 week
   needs:
+    # idf 4.x
     - job: tests_armhf_esp32_idf4.x
     - job: tests_armhf_esp32_idf4.x_flash_encrypted
     - job: tests_armhf_esp32s2_idf4.x
@@ -277,6 +278,16 @@ create_coverage_reports:
     - job: tests_armhf_esp32c3_idf4.x
     - job: tests_armhf_esp32c3_idf4.x_flash_encrypted
     #- job: tests_armhf_esp32_solo_idf4.x
+    # idf 5.0.x
+    - job: tests_armhf_esp32_idf5.0.x
+    - job: tests_armhf_esp32_idf5.0.x_flash_encrypted
+    - job: tests_armhf_esp32s2_idf5.0.x
+    - job: tests_armhf_esp32s2_idf5.0.x_flash_encrypted
+    - job: tests_armhf_esp32c2_idf5.0.x
+    - job: tests_armhf_esp32c3_idf5.0.x
+    - job: tests_armhf_esp32c3_idf5.0.x_builtin_usb_jtag
+    - job: tests_armhf_esp32c3_idf5.0.x_flash_encrypted
+    ## idf master
     - job: tests_armhf_esp32_flash_encrypted
     - job: tests_armhf_esp32s2
     - job: tests_armhf_esp32s2_flash_encrypted
