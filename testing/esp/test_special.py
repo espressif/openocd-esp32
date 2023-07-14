@@ -19,7 +19,7 @@ class DebuggerSpecialTestsImpl:
     """ Special test cases generic for dual and single core modes
     """
 
-    @idf_ver_min_for_arch('latest', ['riscv32'])
+    @idf_ver_min_for_arch('5.0', ['riscv32'])
     def test_restart_debug_from_crash(self):
         """
             This test checks that debugger can operate correctly after SW reset with stalled CPU.

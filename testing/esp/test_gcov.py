@@ -103,7 +103,7 @@ class GcovDataFile:
                 out = subprocess.check_output(['%sgcov' % toolchain, '-j', path], stderr=subprocess.STDOUT)
                 get_logger().debug('GCOV: %s', out)
                 #TODO check toolchain version, not IDF
-                if testee_info.idf_ver < IdfVersion.fromstr('latest'):
+                if testee_info.idf_ver < IdfVersion.fromstr('5.1'):
                     gcov_gz_file = file_name
                 else:
                     gcov_gz_file = os.path.splitext(file_name)[0] # remove .gcda extension.
@@ -223,7 +223,7 @@ class GcovTestsImpl:
         # TODO check toolchain version, not IDF
         if testee_info.idf_ver < IdfVersion.fromstr('5.0'):
             ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.gcda.gcov')
-        elif testee_info.idf_ver < IdfVersion.fromstr('latest'):
+        elif testee_info.idf_ver < IdfVersion.fromstr('5.1'):
             ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.c.gcda.gcov.json')
         else:
             ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.c.gcov.json')
@@ -241,7 +241,7 @@ class GcovTestsImpl:
         data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', MAIN_COMP_BUILD_DIR_NAME, 'helper_funcs.c.gcda')
         if testee_info.idf_ver < IdfVersion.fromstr('5.0'):
             ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.gcda.gcov')
-        elif testee_info.idf_ver < IdfVersion.fromstr('latest'):
+        elif testee_info.idf_ver < IdfVersion.fromstr('5.1'):
             ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.c.gcda.gcov.json')
         else:
             ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.c.gcov.json')
@@ -291,7 +291,7 @@ class GcovTestsImpl:
                 gcov_data_files.append(GcovDataFile(self.toolchain, f['data_path'], self.src_dirs,
                                         self.proj_path, self.test_app_cfg.build_obj_dir()))
             if i == 0:
-                # after first test iteration gcov data should be equal to reference ones
+                # after the first test iteration gcov data should be equal to reference ones
                 for k in range(len(gcov_data_files)):
                     self.assertEqual(gcov_data_files[k], self.gcov_files[k]['ref_data'])
             else:
@@ -336,7 +336,7 @@ class GcovTestsImpl:
         data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', MAIN_COMP_BUILD_DIR_NAME, 'gcov_tests.c.gcda')
         if testee_info.idf_ver < IdfVersion.fromstr('5.0'):
             ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.gcda.gcov')
-        elif testee_info.idf_ver < IdfVersion.fromstr('latest'):
+        elif testee_info.idf_ver < IdfVersion.fromstr('5.1'):
             ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.c.gcda.gcov.json')
         else:
             ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.c.gcov.json')
@@ -347,7 +347,7 @@ class GcovTestsImpl:
         data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', MAIN_COMP_BUILD_DIR_NAME, 'helper_funcs.c.gcda')
         if testee_info.idf_ver < IdfVersion.fromstr('5.0'):
             ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.gcda.gcov')
-        elif testee_info.idf_ver < IdfVersion.fromstr('latest'):
+        elif testee_info.idf_ver < IdfVersion.fromstr('5.1'):
             ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.c.gcda.gcov.json')
         else:
             ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.c.gcov.json')

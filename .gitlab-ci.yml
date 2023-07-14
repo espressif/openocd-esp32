@@ -9,6 +9,7 @@ stages:
   - build_nuttx
   - test_idf4.x
   - test_idf5.0.x
+  - test_idf5.1.x
   - test_idf_master
   - test_host
   - test_nuttx
@@ -220,6 +221,22 @@ test_idf_master_examples:
     project: espressif/esp-idf
     strategy: depend
 
+test_idf5.1.x_examples:
+  stage: pre_release
+  when: manual
+  only:
+    - master
+  allow_failure: true
+  variables:
+    OOCD_DISTRO_URL: ${NEW_OOCD_DISTRO_URL}
+  needs:
+    - job: upload_to_http
+      artifacts: true
+  trigger:
+    project: espressif/esp-idf
+    branch: ${TEST_APP_IDF5_1_RELEASE_BRANCH}
+    strategy: depend
+
 test_idf5.0.x_examples:
   stage: pre_release
   when: manual
@@ -278,7 +295,6 @@ create_coverage_reports:
     - job: tests_armhf_esp32s3_idf4.x
     - job: tests_armhf_esp32c3_idf4.x
     - job: tests_armhf_esp32c3_idf4.x_flash_encrypted
-    #- job: tests_armhf_esp32_solo_idf4.x
     # idf 5.0.x
     - job: tests_armhf_esp32_idf5.0.x
     - job: tests_armhf_esp32_idf5.0.x_flash_encrypted
@@ -288,22 +304,35 @@ create_coverage_reports:
     - job: tests_armhf_esp32c3_idf5.0.x
     - job: tests_armhf_esp32c3_idf5.0.x_builtin_usb_jtag
     - job: tests_armhf_esp32c3_idf5.0.x_flash_encrypted
-    ## idf master
+    # idf 5.1.x
+    - job: tests_armhf_esp32_idf5.1.x
+    - job: tests_armhf_esp32_idf5.1.x_flash_encrypted
+    - job: tests_armhf_esp32s2_idf5.1.x
+    - job: tests_armhf_esp32s2_idf5.1.x_flash_encrypted
+    - job: tests_armhf_esp32s3_idf5.1.x
+    - job: tests_armhf_esp32c2_idf5.1.x
+    - job: tests_armhf_esp32c3_idf5.1.x
+    - job: tests_armhf_esp32c3_idf5.1.x_builtin_usb_jtag
+    - job: tests_armhf_esp32c3_idf5.1.x_flash_encrypted
+    - job: tests_armhf_esp32c6_idf5.1.x_builtin_usb_jtag
+    - job: tests_armhf_esp32h2_idf5.1.x_builtin_usb_jtag
+    # idf master
+    - job: tests_armhf_esp32
     - job: tests_armhf_esp32_flash_encrypted
     - job: tests_armhf_esp32s2
     - job: tests_armhf_esp32s2_flash_encrypted
     - job: tests_armhf_esp32s3
+    - job: tests_armhf_esp32c2
+    - job: tests_armhf_esp32c3
     - job: tests_armhf_esp32c3_builtin_usb_jtag
     - job: tests_armhf_esp32c3_flash_encrypted
-    - job: tests_armhf_esp32
-    #- job: tests_armhf_esp32_solo
-    - job: tests_armhf_esp32c3
-    - job: tests_armhf_esp32c2
+    - job: tests_armhf_esp32c6_builtin_usb_jtag
+    - job: tests_armhf_esp32h2_builtin_usb_jtag
     - job: test_nuttx_esp32
     - job: test_nuttx_esp32s2
     - job: test_nuttx_esp32s3
     - job: test_nuttx_esp32c3
-    - job: tests_armhf_esp32c6_builtin_usb_jtag
+
   script:
     - mkdir -p cov_infos
     - mkdir -p dist
