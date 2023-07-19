@@ -1,0 +1,190 @@
+<html>
+<head>
+<title>build-scanbuild - scan-build results</title>
+<link type="text/css" rel="stylesheet" href="scanview.css"/>
+<script src="sorttable.js"></script>
+<script language='javascript' type="text/javascript">
+function SetDisplay(RowClass, DisplayVal)
+{
+  var Rows = document.getElementsByTagName("tr");
+  for ( var i = 0 ; i < Rows.length; ++i ) {
+    if (Rows[i].className == RowClass) {
+      Rows[i].style.display = DisplayVal;
+    }
+  }
+}
+
+function CopyCheckedStateToCheckButtons(SummaryCheckButton) {
+  var Inputs = document.getElementsByTagName("input");
+  for ( var i = 0 ; i < Inputs.length; ++i ) {
+    if (Inputs[i].type == "checkbox") {
+      if(Inputs[i] != SummaryCheckButton) {
+        Inputs[i].checked = SummaryCheckButton.checked;
+        Inputs[i].onclick();
+      }
+    }
+  }
+}
+
+function returnObjById( id ) {
+    if (document.getElementById)
+        var returnVar = document.getElementById(id);
+    else if (document.all)
+        var returnVar = document.all[id];
+    else if (document.layers)
+        var returnVar = document.layers[id];
+    return returnVar;
+}
+
+var NumUnchecked = 0;
+
+function ToggleDisplay(CheckButton, ClassName) {
+  if (CheckButton.checked) {
+    SetDisplay(ClassName, "");
+    if (--NumUnchecked == 0) {
+      returnObjById("AllBugsCheck").checked = true;
+    }
+  }
+  else {
+    SetDisplay(ClassName, "none");
+    NumUnchecked++;
+    returnObjById("AllBugsCheck").checked = false;
+  }
+}
+</script>
+<!-- SUMMARYENDHEAD -->
+</head>
+<body>
+<h1>build-scanbuild - scan-build results</h1>
+
+<table>
+<tr><th>User:</th><td>root@runner-c-vw-ybg-project-67-concurrent-0</td></tr>
+<tr><th>Working Directory:</th><td>/builds/idf/openocd-esp32/build-scanbuild</td></tr>
+<tr><th>Command Line:</th><td>make -j64 'CFLAGS=-std=gnu99 -I. -I../../jimtcl'</td></tr>
+<tr><th>Clang Version:</th><td>Ubuntu clang version 14.0.0-1ubuntu1.1
+</td></tr>
+<tr><th>Date:</th><td>Fri Aug 18 07:26:30 2023</td></tr>
+</table>
+<h2>Bug Summary</h2><table>
+<thead><tr><td>Bug Type</td><td>Quantity</td><td class="sorttable_nosort">Display?</td></tr></thead>
+<tr style="font-weight:bold"><td class="SUMM_DESC">All Bugs</td><td class="Q">28</td><td><center><input type="checkbox" id="AllBugsCheck" onClick="CopyCheckedStateToCheckButtons(this);" checked/></center></td></tr>
+<tr><th>API</th><th colspan=2></th></tr>
+<tr><td class="SUMM_DESC">Argument with 'nonnull' attribute passed null</td><td class="Q">2</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_api_argument_with_nonnull_attribute_passed_null');" checked/></center></td></tr>
+<tr><th>Logic error</th><th colspan=2></th></tr>
+<tr><td class="SUMM_DESC">Array subscript is undefined</td><td class="Q">1</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_array_subscript_is_undefined');" checked/></center></td></tr>
+<tr><td class="SUMM_DESC">Assigned value is garbage or undefined</td><td class="Q">1</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_assigned_value_is_garbage_or_undefined');" checked/></center></td></tr>
+<tr><td class="SUMM_DESC">Branch condition evaluates to a garbage value</td><td class="Q">3</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_branch_condition_evaluates_to_a_garbage_value');" checked/></center></td></tr>
+<tr><td class="SUMM_DESC">Called function pointer is null (null dereference)</td><td class="Q">1</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_called_function_pointer_is_null_null_dereference_');" checked/></center></td></tr>
+<tr><td class="SUMM_DESC">Dereference of null pointer</td><td class="Q">5</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_dereference_of_null_pointer');" checked/></center></td></tr>
+<tr><td class="SUMM_DESC">Dereference of undefined pointer value</td><td class="Q">2</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_dereference_of_undefined_pointer_value');" checked/></center></td></tr>
+<tr><td class="SUMM_DESC">Result of operation is garbage or undefined</td><td class="Q">2</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_result_of_operation_is_garbage_or_undefined');" checked/></center></td></tr>
+<tr><td class="SUMM_DESC">Uninitialized argument value</td><td class="Q">5</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_uninitialized_argument_value');" checked/></center></td></tr>
+<tr><th>Memory error</th><th colspan=2></th></tr>
+<tr><td class="SUMM_DESC">Bad free</td><td class="Q">1</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_memory_error_bad_free');" checked/></center></td></tr>
+<tr><td class="SUMM_DESC">Memory leak</td><td class="Q">2</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_memory_error_memory_leak');" checked/></center></td></tr>
+<tr><td class="SUMM_DESC">Use-after-free</td><td class="Q">2</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_memory_error_use-after-free');" checked/></center></td></tr>
+<tr><th>Unused code</th><th colspan=2></th></tr>
+<tr><td class="SUMM_DESC">Dead initialization</td><td class="Q">1</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_unused_code_dead_initialization');" checked/></center></td></tr>
+</table>
+<h2>Reports</h2>
+
+<table class="sortable" style="table-layout:automatic">
+<thead><tr>
+  <td>Bug Group</td>
+  <td class="sorttable_sorted">Bug Type<span id="sorttable_sortfwdind">&nbsp;&#x25BE;</span></td>
+  <td>File</td>
+  <td>Function/Method</td>
+  <td class="Q">Line</td>
+  <td class="Q">Path Length</td>
+  <td class="sorttable_nosort"></td>
+  <!-- REPORTBUGCOL -->
+</tr></thead>
+<tbody>
+<tr class="bt_api_argument_with_nonnull_attribute_passed_null"><td class="DESC">API</td><td class="DESC">Argument with 'nonnull' attribute passed null</td><td>jimtcl/jim-format.c</td><td class="DESC">Jim_FormatString</td><td class="Q">429</td><td class="Q">65</td><td><a href="report-037af7.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-037af7.html" -->
+</tr>
+<tr class="bt_api_argument_with_nonnull_attribute_passed_null"><td class="DESC">API</td><td class="DESC">Argument with 'nonnull' attribute passed null</td><td>jimtcl/jim.c</td><td class="DESC">ListInsertElements</td><td class="Q">7056</td><td class="Q">41</td><td><a href="report-5f55b3.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-5f55b3.html" -->
+</tr>
+<tr class="bt_logic_error_array_subscript_is_undefined"><td class="DESC">Logic error</td><td class="DESC">Array subscript is undefined</td><td>src/target/armv4_5.c</td><td class="DESC">armv4_5_run_algorithm_inner</td><td class="Q">1333</td><td class="Q">13</td><td><a href="report-21edc8.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-21edc8.html" -->
+</tr>
+<tr class="bt_logic_error_assigned_value_is_garbage_or_undefined"><td class="DESC">Logic error</td><td class="DESC">Assigned value is garbage or undefined</td><td>jimtcl/jim.c</td><td class="DESC">ListInsertElements</td><td class="Q">7058</td><td class="Q">46</td><td><a href="report-bc1434.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-bc1434.html" -->
+</tr>
+<tr class="bt_memory_error_bad_free"><td class="DESC">Memory error</td><td class="DESC">Bad free</td><td>src/target/adi_v5_jtag.c</td><td class="DESC">dap_cmd_release</td><td class="Q">214</td><td class="Q">13</td><td><a href="report-a82c24.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-a82c24.html" -->
+</tr>
+<tr class="bt_logic_error_branch_condition_evaluates_to_a_garbage_value"><td class="DESC">Logic error</td><td class="DESC">Branch condition evaluates to a garbage value</td><td>jimtcl/jim.c</td><td class="DESC">Jim_IfCoreCommand</td><td class="Q">12753</td><td class="Q">20</td><td><a href="report-5e3fbe.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-5e3fbe.html" -->
+</tr>
+<tr class="bt_logic_error_branch_condition_evaluates_to_a_garbage_value"><td class="DESC">Logic error</td><td class="DESC">Branch condition evaluates to a garbage value</td><td>jimtcl/jim.c</td><td class="DESC">JimInterpolateTokens</td><td class="Q">11046</td><td class="Q">13</td><td><a href="report-79aa18.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-79aa18.html" -->
+</tr>
+<tr class="bt_logic_error_branch_condition_evaluates_to_a_garbage_value"><td class="DESC">Logic error</td><td class="DESC">Branch condition evaluates to a garbage value</td><td>src/target/riscv/riscv.c</td><td class="DESC">riscv_virt2phys</td><td class="Q">2293</td><td class="Q">19</td><td><a href="report-efb7a6.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-efb7a6.html" -->
+</tr>
+<tr class="bt_logic_error_called_function_pointer_is_null_null_dereference_"><td class="DESC">Logic error</td><td class="DESC">Called function pointer is null (null dereference)</td><td>jimtcl/jim.c</td><td class="DESC">Jim_GetString</td><td class="Q">2326</td><td class="Q">24</td><td><a href="report-0a5212.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-0a5212.html" -->
+</tr>
+<tr class="bt_unused_code_dead_initialization"><td class="DESC">Unused code</td><td class="DESC">Dead initialization</td><td>src/jtag/drivers/angie.c</td><td class="DESC">angie_reset</td><td class="Q">1721</td><td class="Q">1</td><td><a href="report-e64c84.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-e64c84.html" -->
+</tr>
+<tr class="bt_logic_error_dereference_of_null_pointer"><td class="DESC">Logic error</td><td class="DESC">Dereference of null pointer</td><td>jimtcl/jim.c</td><td class="DESC">Jim_ScanString</td><td class="Q">10495</td><td class="Q">27</td><td><a href="report-170992.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-170992.html" -->
+</tr>
+<tr class="bt_logic_error_dereference_of_null_pointer"><td class="DESC">Logic error</td><td class="DESC">Dereference of null pointer</td><td>jimtcl/jim.c</td><td class="DESC">Jim_GetString</td><td class="Q">2326</td><td class="Q">11</td><td><a href="report-40715c.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-40715c.html" -->
+</tr>
+<tr class="bt_logic_error_dereference_of_null_pointer"><td class="DESC">Logic error</td><td class="DESC">Dereference of null pointer</td><td>src/helper/list.h</td><td class="DESC">__list_del</td><td class="Q">133</td><td class="Q">38</td><td><a href="report-5f7460.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-5f7460.html" -->
+</tr>
+<tr class="bt_logic_error_dereference_of_null_pointer"><td class="DESC">Logic error</td><td class="DESC">Dereference of null pointer</td><td>jimtcl/jim.c</td><td class="DESC">JimInterpolateTokens</td><td class="Q">11015</td><td class="Q">38</td><td><a href="report-8147c9.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-8147c9.html" -->
+</tr>
+<tr class="bt_logic_error_dereference_of_null_pointer"><td class="DESC">Logic error</td><td class="DESC">Dereference of null pointer</td><td>src/target/target.c</td><td class="DESC">target_call_timer_callbacks_check_time</td><td class="Q">1903</td><td class="Q">35</td><td><a href="report-97e181.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-97e181.html" -->
+</tr>
+<tr class="bt_logic_error_dereference_of_undefined_pointer_value"><td class="DESC">Logic error</td><td class="DESC">Dereference of undefined pointer value</td><td>jimtcl/jim.c</td><td class="DESC">JimInterpolateTokens</td><td class="Q">11022</td><td class="Q">24</td><td><a href="report-9db1d5.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-9db1d5.html" -->
+</tr>
+<tr class="bt_logic_error_dereference_of_undefined_pointer_value"><td class="DESC">Logic error</td><td class="DESC">Dereference of undefined pointer value</td><td>src/jtag/drivers/osbdm.c</td><td class="DESC">osbdm_add_scan</td><td class="Q">527</td><td class="Q">21</td><td><a href="report-fa8c43.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-fa8c43.html" -->
+</tr>
+<tr class="bt_memory_error_memory_leak"><td class="DESC">Memory error</td><td class="DESC">Memory leak</td><td>src/target/semihosting_common.c</td><td class="DESC">semihosting_common</td><td class="Q">1611</td><td class="Q">29</td><td><a href="report-29aacb.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-29aacb.html" -->
+</tr>
+<tr class="bt_memory_error_memory_leak"><td class="DESC">Memory error</td><td class="DESC">Memory leak</td><td>src/target/semihosting_common.c</td><td class="DESC">semihosting_common</td><td class="Q">1611</td><td class="Q">31</td><td><a href="report-f4eabd.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-f4eabd.html" -->
+</tr>
+<tr class="bt_logic_error_result_of_operation_is_garbage_or_undefined"><td class="DESC">Logic error</td><td class="DESC">Result of operation is garbage or undefined</td><td>jimtcl/jim.c</td><td class="DESC">Jim_ForCoreCommand</td><td class="Q">12408</td><td class="Q">78</td><td><a href="report-183ca9.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-183ca9.html" -->
+</tr>
+<tr class="bt_logic_error_result_of_operation_is_garbage_or_undefined"><td class="DESC">Logic error</td><td class="DESC">Result of operation is garbage or undefined</td><td>jimtcl/jim-pack.c</td><td class="DESC">JimSignExtend</td><td class="Q">45</td><td class="Q">24</td><td><a href="report-7c917c.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-7c917c.html" -->
+</tr>
+<tr class="bt_logic_error_uninitialized_argument_value"><td class="DESC">Logic error</td><td class="DESC">Uninitialized argument value</td><td>src/target/riscv/riscv-013.c</td><td class="DESC">register_read_direct</td><td class="Q">1556</td><td class="Q">18</td><td><a href="report-44fb32.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-44fb32.html" -->
+</tr>
+<tr class="bt_logic_error_uninitialized_argument_value"><td class="DESC">Logic error</td><td class="DESC">Uninitialized argument value</td><td>jimtcl/jim.c</td><td class="DESC">Jim_SetResultFormatted</td><td class="Q">16667</td><td class="Q">2</td><td><a href="report-4a319e.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-4a319e.html" -->
+</tr>
+<tr class="bt_logic_error_uninitialized_argument_value"><td class="DESC">Logic error</td><td class="DESC">Uninitialized argument value</td><td>src/target/riscv/riscv-011.c</td><td class="DESC">read_bits</td><td class="Q">708</td><td class="Q">54</td><td><a href="report-51e5d5.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-51e5d5.html" -->
+</tr>
+<tr class="bt_logic_error_uninitialized_argument_value"><td class="DESC">Logic error</td><td class="DESC">Uninitialized argument value</td><td>src/jtag/core.c</td><td class="DESC">jtag_add_pathmove</td><td class="Q">520</td><td class="Q">17</td><td><a href="report-5a4855.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-5a4855.html" -->
+</tr>
+<tr class="bt_logic_error_uninitialized_argument_value"><td class="DESC">Logic error</td><td class="DESC">Uninitialized argument value</td><td>src/target/riscv/riscv-013.c</td><td class="DESC">register_write_direct</td><td class="Q">1527</td><td class="Q">27</td><td><a href="report-5d8fbf.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-5d8fbf.html" -->
+</tr>
+<tr class="bt_memory_error_use-after-free"><td class="DESC">Memory error</td><td class="DESC">Use-after-free</td><td>src/target/adi_v5_jtag.c</td><td class="DESC">flush_journal</td><td class="Q">225</td><td class="Q">18</td><td><a href="report-9852de.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-9852de.html" -->
+</tr>
+<tr class="bt_memory_error_use-after-free"><td class="DESC">Memory error</td><td class="DESC">Use-after-free</td><td>src/helper/list.h</td><td class="DESC">list_add</td><td class="Q">107</td><td class="Q">41</td><td><a href="report-996343.html#EndPath">View Report</a></td>
+<!-- REPORTBUG id="report-996343.html" -->
+</tr>
+</tbody>
+</table>
+
+</body></html>

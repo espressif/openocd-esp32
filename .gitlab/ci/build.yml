@@ -296,6 +296,8 @@ scan-build:
   artifacts:
     paths:
       - ${SCAN_BUILD_OUTPUT}
+      - scanbuild_reference.html
+    when: always
   script:
     - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
@@ -308,6 +310,13 @@ scan-build:
     - ${ARCHIVE_TOOL} scan_build.${ARCHIVE_EXT} build-scanbuild/out
     - mkdir -p ${SCAN_BUILD_OUTPUT}
     - mv scan_build.${ARCHIVE_EXT} ${SCAN_BUILD_OUTPUT}
+    - cp build-scanbuild/out/*/index.html scanbuild_reference.html
+    - apt-get update && apt-get install pip && pip install beautifulsoup4
+    - SCANBUILD_REF_FILE="tools/scanbuild_reference.txt"
+    - SCANBUILD_OUT_FILE="scanbuild_report.txt"
+    - python3 tools/scanbuild_parser.py -i scanbuild_reference.html -o $SCANBUILD_OUT_FILE
+    - python3 tools/scanbuild_parser.py -i tools/scanbuild_reference.html -o $SCANBUILD_REF_FILE
+    - ./tools/compare_static_analyzer_files.sh $SCANBUILD_OUT_FILE $SCANBUILD_REF_FILE
 
 sparse:
   stage: static_analyzers
@@ -320,6 +329,8 @@ sparse:
   artifacts:
     paths:
       - ${SPARSE_BUILD_OUTDIR}
+      - sparse_reference.log
+    when: always
   script:
     - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
@@ -333,6 +344,8 @@ sparse:
     - ${ARCHIVE_TOOL} sparse_out.${ARCHIVE_EXT} build-sparse/${SPARSE_BUILD_OUTFILE}
     - mkdir -p ${SPARSE_BUILD_OUTDIR}
     - mv sparse_out.${ARCHIVE_EXT} ${SPARSE_BUILD_OUTDIR}
+    - SPARSE_REF_FILE="tools/sparse_reference.log"
+    - ./tools/compare_static_analyzer_files.sh build-sparse/${SPARSE_BUILD_OUTFILE} $SPARSE_REF_FILE sparse_reference.log
 
 build_linux_cmake:
   stage: build_openocd

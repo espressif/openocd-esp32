@@ -1,0 +1,32 @@
+../src/target/espressif/esp32_apptrace.c:461:9: warning: the address of an array will always evaluate as true
+../src/target/espressif/esp32_apptrace.c:461:9: warning: the address of an array will always evaluate as true
+../src/target/espressif/esp32_apptrace.c:599:9: warning: the address of an array will always evaluate as true
+../src/target/espressif/esp32_apptrace.c:599:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/program.c:135:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/program.c:135:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv-013.c:1123:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv-013.c:1123:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv-013.c:3850:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv-013.c:3850:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv.c:4841:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv.c:4841:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv.c:4843:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv.c:4843:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv.c:4863:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv.c:4863:9: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:1429:17: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:1429:17: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:2700:25: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:2700:25: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:3954:17: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:3954:17: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:427:9: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:427:9: warning: the address of an array will always evaluate as true
+_glob.c:3:5: warning: symbol 'Jim_globInit' was not declared. Should it be static?
+_initjimsh.c:3:5: warning: symbol 'Jim_initjimshInit' was not declared. Should it be static?
+_jsonencode.c:3:5: warning: symbol 'Jim_jsonencodeInit' was not declared. Should it be static?
+_nshelper.c:3:5: warning: symbol 'Jim_nshelperInit' was not declared. Should it be static?
+_oo.c:3:5: warning: symbol 'Jim_ooInit' was not declared. Should it be static?
+_stdlib.c:3:5: warning: symbol 'Jim_stdlibInit' was not declared. Should it be static?
+_tclcompat.c:3:5: warning: symbol 'Jim_tclcompatInit' was not declared. Should it be static?
+_tree.c:3:5: warning: symbol 'Jim_treeInit' was not declared. Should it be static?
