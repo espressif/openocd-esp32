@@ -10,4 +10,5 @@ git diff HEAD~${cnt} \
                 -x "a/HACKING" \
                 -x "a/testing/esp/*" \
                 -x "a/contrib/loaders/flash/esp/*" \
-            | ./tools/scripts/checkpatch.pl --no-signoff --ignore FSF_MAILING_ADDRESS
+				-x "*/tools/scanbuild_reference.html" \
+            | ./tools/scripts/checkpatch.pl --no-signoff
