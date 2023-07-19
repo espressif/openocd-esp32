@@ -197,6 +197,8 @@ static const char *const s_existent_regs[] = {
 	"pmpaddr0", "pmpaddr1", "pmpaddr2", "pmpaddr3", "pmpaddr4", "pmpaddr5", "pmpaddr6", "pmpaddr7",
 	"pmpaddr8", "pmpaddr9", "pmpaddr10", "pmpaddr11", "pmpaddr12", "pmpaddr13", "pmpaddr14", "pmpaddr15",
 	"tselect", "tdata1", "tdata2", "tcontrol", "dcsr", "dpc", "dscratch0", "dscratch1", "hpmcounter16",
+	/* custom exposed CSRs will start with 'csr_' prefix*/
+	"csr_mpcer", "csr_mpcmr", "csr_mpccr", "csr_cpu_gpio_oen", "csr_cpu_gpio_in", "csr_cpu_gpio_out",
 };
 
 static int esp32c2_examine(struct target *target)
