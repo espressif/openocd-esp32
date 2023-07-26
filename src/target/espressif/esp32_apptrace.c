@@ -57,8 +57,8 @@
 #define ESP_APPTRACE_FILE_CMD_FREAD             0x3
 #define ESP_APPTRACE_FILE_CMD_FSEEK             0x4
 #define ESP_APPTRACE_FILE_CMD_FTELL             0x5
-#define ESP_APPTRACE_FILE_CMD_FTELL             0x5
 #define ESP_APPTRACE_FILE_CMD_STOP              0x6	/* indicates that there is no files to transfer */
+#define ESP_APPTRACE_FILE_CMD_FEOF              0x7
 
 #define ESP_GCOV_FILES_MAX_NUM                  512
 
@@ -2003,6 +2003,42 @@ static int esp_gcov_ftell(struct esp32_gcov_cmd_data *cmd_data,
 	return ERROR_OK;
 }
 
+static int esp_gcov_feof(struct esp32_gcov_cmd_data *cmd_data,
+	uint8_t *data,
+	uint32_t data_len,
+	uint8_t **resp,
+	uint32_t *resp_len)
+{
+	*resp_len = 0;
+	if (data_len < sizeof(uint32_t)) {
+		LOG_ERROR("Missed FEOF args!");
+		return ERROR_FAIL;
+	}
+	uint32_t fd;
+	memcpy(&fd, data, sizeof(fd));
+	fd--;
+	if (fd >= ESP_GCOV_FILES_MAX_NUM) {
+		LOG_ERROR("Invalid file desc received 0x%x!", fd);
+		return ERROR_FAIL;
+	}
+	if (!cmd_data->files[fd]) {
+		LOG_ERROR("FEOF for not open file!");
+		return ERROR_FAIL;
+	}
+
+	int32_t fret = feof(cmd_data->files[fd]);
+
+	*resp_len = sizeof(fret);
+	*resp = malloc(*resp_len);
+	if (!*resp) {
+		LOG_ERROR("Failed to alloc mem for resp!");
+		return ERROR_FAIL;
+	}
+	memcpy(*resp, &fret, sizeof(fret));
+
+	return ERROR_OK;
+}
+
 /*TODO: support for multi-block data transfers */
 static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 	unsigned int core_id,
@@ -2042,6 +2078,9 @@ static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 		break;
 	case ESP_APPTRACE_FILE_CMD_STOP:
 		ctx->running = 0;
+		break;
+	case ESP_APPTRACE_FILE_CMD_FEOF:
+		ret = esp_gcov_feof(cmd_data, data + 1, data_len - 1, &resp, &resp_len);
 		break;
 	default:
 		LOG_ERROR("Invalid FCMD 0x%x!", *data);
