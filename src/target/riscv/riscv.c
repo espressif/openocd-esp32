@@ -1294,6 +1294,11 @@ static void trigger_from_watchpoint(struct trigger *trigger,
 
 int riscv_add_watchpoint(struct target *target, struct watchpoint *watchpoint)
 {
+	if (watchpoint->mask != WATCHPOINT_IGNORE_DATA_VALUE_MASK) {
+		LOG_TARGET_ERROR(target, "Watchpoints on data values are not implemented");
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	}
+
 	struct trigger trigger;
 	trigger_from_watchpoint(&trigger, watchpoint);
 
