@@ -309,7 +309,7 @@ int esp_riscv_semihosting(struct target *target)
 					size,
 					wp_type,
 					0,
-					0);
+					WATCHPOINT_IGNORE_DATA_VALUE_MASK);
 			if (res != ERROR_OK)
 				return res;
 		} else {
