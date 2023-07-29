@@ -20,12 +20,12 @@
  ***************************************************************************/
 
 MEMORY {
-  /* Place sections by starting from the Internal SRAM1. OpenOCD will fill the sections using data bus.
-     0x3FC88000 - code (OpenOCD workarea address)
-	 0x3FC8C000 - data
+  /* Place sections by the offset 0x14000 from the Internal SRAM1. OpenOCD will fill the sections using data bus.
+     0x3FC9C000 - code (OpenOCD workarea address)
+	 0x3FCA0000 - data
   */
-  iram : org = 0x40378000, len = 0x4000
-  dram : org = 0x3FC8C000, len = 0x20000
+  iram : org = 0x4038C000, len = 0x4000
+  dram : org = 0x3FCA0000, len = 0x20000
 }
 
 INCLUDE stub_common.ld
