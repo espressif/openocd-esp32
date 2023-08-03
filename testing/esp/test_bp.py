@@ -355,7 +355,7 @@ class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTes
         two_cores_concurrently_hit_bps(self)
 
     # OCD-773
-    @skip_for_chip_and_ver('5.1', ['esp32'])
+    @skip_for_chip(['esp32'])
     def test_appcpu_early_hw_bps(self):
         appcpu_early_hw_bps(self)
 
