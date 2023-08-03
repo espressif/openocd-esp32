@@ -1041,7 +1041,8 @@ static int add_trigger(struct target *target, struct trigger *trigger)
 			break;
 	} while (0);
 
-	if (riscv_set_register(target, GDB_REGNO_TSELECT, tselect) != ERROR_OK && ret == ERROR_OK)
+	if (riscv_set_register(target, GDB_REGNO_TSELECT, tselect) != ERROR_OK &&
+			ret == ERROR_OK)
 		return ERROR_FAIL;
 
 	return ret;
