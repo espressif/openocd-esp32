@@ -85,7 +85,7 @@ variables:
     - job: build_linux_armel
     - job: build_linux_arm64
     - job: build_windows
-    - job: osx_code_sign
+    - job: macos_codesign
 
 .release_submit_action: &release_submit_action
   image: espressif/github-hub:2
@@ -105,33 +105,28 @@ before_script:
   - set -o errexit; set -o pipefail; set -o nounset
   - test "${DEBUG_SHELL:-''}" = "1" && set -x
 
-.do_osx_code_sign: &do_osx_code_sign |
-  tar -xzf ${DIST_ART_DIR}/$ARCHIVE_NAME -C ${DIST_ART_DIR} && rm ${DIST_ART_DIR}/$ARCHIVE_NAME
-  export TARGET_BINARY="${DIST_ART_DIR}/openocd-esp32/bin/openocd"
-  $PWD/tools/codesign.sh
-  $PWD/tools/notarize.sh
-  pushd ${DIST_ART_DIR}
-  ${ARCHIVE_TOOL} ${ARCHIVE_NAME} openocd-esp32/
-  rm -r openocd-esp32/
-  popd
-
-osx_code_sign:
+macos_codesign:
   stage: pre_release
   <<: *release_tag_filter
   when: on_success
-  tags:
-    - macos_shell
-  dependencies:
-   - build_macos
-   - build_macos_arm64
+  resource_group: macos_codesign
+  tags: [ "darwin", "codesign" ]
+  # list all jobs that produces macos distros
+  needs: [build_macos, build_macos_arm64]
   artifacts:
     paths:
       - ${DIST_ART_DIR}
+  variables:
+    # directory with distro archives
+    DIST_ART_DIR: dist
+    # command to unarchive distro
+    UNARCHIVE_TOOL: "tar xzf"
+    # URL to macos codesign repo
+    NOTARIZATION_SCRIPTS_GIT: "${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/macos_codesign_notarization.git"
   script:
-    - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_macos)
-    - *do_osx_code_sign
-    - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_macos-arm64)
-    - *do_osx_code_sign
+    - git clone -q --depth=1 ${NOTARIZATION_SCRIPTS_GIT} -b ${CI_COMMIT_REF_NAME} ||
+      git clone -q --depth=1 ${NOTARIZATION_SCRIPTS_GIT}
+    - ./macos_codesign_notarization/run.sh
 
 release_tag_draft:
   stage: release_stage1
