@@ -102,20 +102,24 @@ class DebuggerSpecialTestsImpl:
         """
         self._do_test_bp_and_wp_set_by_program()
 
-    @only_for_arch(['xtensa'])
-    def test_exception_xtensa(self):
+    def test_exception(self):
         """
         This test checks that expected exception cause string equal to the OpenOCD output.
         """
-        sub_tests = ["illegal_instruction",
-                     "load_prohibited",
-                     "store_prohibited",
-                     "divide_by_zero"]
-        bps = ["exception_bp_1", "exception_bp_2", "exception_bp_3", "exception_bp_4"]
-        expected_strings = ["Halt cause (0) - (Illegal instruction)",
+        bps = ["exception_bp_1", "exception_bp_2", "exception_bp_3"]
+        if testee_info.arch == "xtensa":
+            bps.append("exception_bp_4");
+            sub_tests = ["illegal_instruction", "load_prohibited", "store_prohibited", "divide_by_zero"]
+            expected_strings = ["Halt cause (0) - (Illegal instruction)",
                             "Halt cause (28) - (Load prohibited)",
                             "Halt cause (29) - (Store prohibited)",
                             "Halt cause (6) - (Integer divide by zero)"]
+        else: 
+            sub_tests = ["illegal_instruction", "load_access_fault", "store_access_fault"]
+            expected_strings = ["Halt cause (2) - (Illegal Instruction)",
+                                "Halt cause (5) - (PMP Load access fault)",
+                                "Halt cause (7) - (PMP Store access fault)"]
+            
         for i in range (len(bps)):
             self.add_bp(bps[i])
             self.select_sub_test(self.id() + '_' + sub_tests[i])
