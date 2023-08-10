@@ -84,10 +84,8 @@ TEST_DECL(psram_with_flash_breakpoints, "test_special.PsramTests*.test_psram_wit
     }
 }
 
-TEST_DECL(illegal_instruction_exc, "test_special.DebuggerSpecialTests*.test_exception_xtensa_illegal_instruction")
+TEST_DECL(illegal_instruction_ex, "test_special.DebuggerSpecialTests*.test_exception_illegal_instruction")
 {
-    int core_id = xPortGetCoreID();
-    ESP_LOGI(TAG, "CPU[%d]: Illegal instruction exception test started", core_id);
     __asm__ __volatile__ (
         ".global exception_bp\n" \
         ".type   exception_bp,@function\n" \
@@ -96,10 +94,8 @@ TEST_DECL(illegal_instruction_exc, "test_special.DebuggerSpecialTests*.test_exce
     );
 }
 
-TEST_DECL(load_prohibited_exc, "test_special.DebuggerSpecialTests*.test_exception_xtensa_load_prohibited")
+TEST_DECL(load_prohibited_ex, "test_special.DebuggerSpecialTests*.test_exception_load_prohibited")
 {
-    int core_id = xPortGetCoreID();
-    ESP_LOGI(TAG, "CPU[%d]: Load prohibited exception test started", core_id);
     register long a2 asm ("a2") = 0;
     register long a3 asm ("a3") = 0;
     __asm__ __volatile__ (
@@ -111,10 +107,8 @@ TEST_DECL(load_prohibited_exc, "test_special.DebuggerSpecialTests*.test_exceptio
     );
 }
 
-TEST_DECL(store_prohibited_exc, "test_special.DebuggerSpecialTests*.test_exception_xtensa_store_prohibited")
+TEST_DECL(store_prohibited_ex, "test_special.DebuggerSpecialTests*.test_exception_store_prohibited")
 {
-    int core_id = xPortGetCoreID();
-    ESP_LOGI(TAG, "CPU[%d]: Store prohibited exception test started", core_id);
     register long a2 asm ("a2") = 0;
     register long a3 asm ("a3") = 0;
     __asm__ __volatile__ (
@@ -126,10 +120,8 @@ TEST_DECL(store_prohibited_exc, "test_special.DebuggerSpecialTests*.test_excepti
     );
 }
 
-TEST_DECL(divide_by_zero_exc, "test_special.DebuggerSpecialTests*.test_exception_xtensa_divide_by_zero")
+TEST_DECL(divide_by_zero_ex, "test_special.DebuggerSpecialTests*.test_exception_divide_by_zero")
 {
-    int core_id = xPortGetCoreID();
-    ESP_LOGI(TAG, "CPU[%d]: Divide by zero exception test started", core_id);
     register long a2 asm ("a2") = 0;
     register long a3 asm ("a3") = 0;
     __asm__ __volatile__ (
@@ -243,6 +235,46 @@ TEST_DECL(wp_reconfigure_by_program, "test_special.DebuggerSpecialTests*.test_wp
     target_bp_func1();
 }
 
+#if CONFIG_IDF_TARGET_ARCH_RISCV
+TEST_DECL(illegal_instruction_ex, "test_special.DebuggerSpecialTests*.test_exception_illegal_instruction")
+{
+    __asm__ __volatile__ (
+        ".global exception_bp\n" \
+        ".type   exception_bp,@function\n" \
+        "exception_bp_1:\n" \
+        "unimp\n" \
+    );
+}
+
+TEST_DECL(load_access_fault_ex, "test_special.DebuggerSpecialTests*.test_exception_load_access_fault")
+{
+    int value;
+
+    __asm__ __volatile__ (
+		".global exception_bp_2\n" \
+        ".type   exception_bp_2,@function\n" \
+        "exception_bp_2:\n" \
+        "lw %0, 0(%1)\n" \
+        : "=r"(value) : "r"(0x1000)
+    );
+}
+
+TEST_DECL(store_access_fault_ex, "test_special.DebuggerSpecialTests*.test_exception_store_access_fault")
+{
+    int value = 42;
+
+    asm __volatile__ (
+		".global exception_bp_3\n" \
+		".type   exception_bp_3,@function\n" \
+		"exception_bp_3:\n" \
+        "sw %0, 0(%1)"
+        :
+        : "r"(0x1000),
+          "r"(value)
+    );
+}
+#endif /* CONFIG_IDF_TARGET_ARCH_RISCV */
+
 ut_result_t special_test_do(int test_num)
 {
     if (TEST_ID_MATCH(TEST_ID_PATTERN(target_bp_wp), test_num)) {
@@ -253,20 +285,27 @@ ut_result_t special_test_do(int test_num)
         xTaskCreatePinnedToCore(TEST_ENTRY(cache_handling), "cache_check_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(wp_reconfigure_by_program), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(wp_reconfigure_by_program), "target_wp_reconf_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
-#if CONFIG_IDF_TARGET_ARCH_XTENSA
+#if CONFIG_IDF_TARGET_ARCH_RISCV
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(illegal_instruction_ex), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(illegal_instruction_ex), "illegal_instruction_ex", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(load_access_fault_ex), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(load_access_fault_ex), "load_access_fault_ex", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(store_access_fault_ex), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(store_access_fault_ex), "store_access_fault_ex", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
+#else /* CONFIG_IDF_TARGET_ARCH_XTENSA */
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(gh264_psram_check), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(gh264_psram_check), "gh264_psram_check_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(psram_with_flash_breakpoints), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(psram_with_flash_breakpoints), "psram_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
-    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(illegal_instruction_exc), test_num)) {
-        xTaskCreatePinnedToCore(TEST_ENTRY(illegal_instruction_exc), "illegal_instruction_exc", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
-    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(load_prohibited_exc), test_num)) {
-        xTaskCreatePinnedToCore(TEST_ENTRY(load_prohibited_exc), "load_prohibited_exc", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
-    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(store_prohibited_exc), test_num)) {
-        xTaskCreatePinnedToCore(TEST_ENTRY(store_prohibited_exc), "store_prohibited_exc", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
-    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(divide_by_zero_exc), test_num)) {
-        xTaskCreatePinnedToCore(TEST_ENTRY(divide_by_zero_exc), "divide_by_zero_exc", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
-#endif // CONFIG_IDF_TARGET_ARCH_XTENSA
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(illegal_instruction_ex), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(illegal_instruction_ex), "illegal_instruction_ex", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(load_prohibited_ex), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(load_prohibited_ex), "load_prohibited_ex", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(store_prohibited_ex), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(store_prohibited_ex), "store_prohibited_ex", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(divide_by_zero_ex), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(divide_by_zero_ex), "divide_by_zero_ex", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+#endif
     } else {
             return UT_UNSUPPORTED;
     }
