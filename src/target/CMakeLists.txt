@@ -204,6 +204,7 @@ target_sources(target PRIVATE
 	image.h
 	mips32.h
 	mips64.h
+	mips_cpu.h
 	mips_m4k.h
 	mips_mips64.h
 	mips_ejtag.h
