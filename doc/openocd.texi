@@ -11006,7 +11006,9 @@ $_TARGETNAME expose_custom 32=myregister
 @end deffn
 
 @deffn {Command} {riscv info}
-Displays some information OpenOCD detected about the target.
+Displays some information OpenOCD detected about the target. Output's format
+allows to use it directly with TCL's `array set` function. In case obtaining an
+info point failed, the corresponding value is displayed as "unavailable".
 @end deffn
 
 @deffn {Command} {riscv reset_delays} [wait]
