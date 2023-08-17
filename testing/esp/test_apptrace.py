@@ -57,6 +57,8 @@ class ApptraceTestsImpl:
         for i, line in enumerate(lines):
             self.assertEqual(line, "[%d %s]\n" % (i, " " * (i * 20)))
 
+    # OCD-773
+    @skip_for_chip_and_ver('4.4.5', ['esp32s3'])
     def test_apptrace_autostop(self):
         trace_file = tempfile.NamedTemporaryFile(delete=False)
         trace_file_name = trace_file.name
