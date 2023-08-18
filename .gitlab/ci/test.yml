@@ -119,19 +119,6 @@ tests_armhf_esp32_flash_encrypted:
     TEST_RUN_DIR: "build_test_app_esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
 
-.tests_armhf_esp32_solo:
-  extends: .tests_armhf_master_xtensa_template
-  tags:
-    - arm
-    - test_jtag_solo
-  allow_failure: true
-  needs:
-    - job: build_test_app_esp32
-    - job: build_linux_armhf_test
-  variables:
-    TEST_RUN_DIR: "build_test_app_esp32"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-solo-devkitj -p test_*.*Single"
-
 tests_armhf_esp32s2:
   extends: .tests_armhf_master_xtensa_template
   allow_failure: true

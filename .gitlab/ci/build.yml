@@ -195,9 +195,6 @@ build_linux_gcc_latest:
 
 build_linux_armhf_test:
   extends: .build_linux_arm_template
-  except:
-    refs:
-      - schedules
   variables:
     CONF_HOST: "arm-linux-gnueabihf"
     PLATFORM_NAME: "linux-armhf-test"
@@ -206,11 +203,6 @@ build_linux_armhf_test:
 
 build_linux_armhf_sanitizer_test:
   extends: .build_linux_arm_template
-  only:
-    refs:
-      - schedules
-    variables:
-      - $SCHEDULE_TYPE == "build_sanitizer_test"
   variables:
     CONF_HOST: "arm-linux-gnueabihf"
     PLATFORM_NAME: "linux-armhf-test"
