@@ -14,8 +14,16 @@ stages:
   - test_host
   - test_nuttx
   - coverage
-  - sanitizer_tests
-  - sanitizer_checks
+  - sanitizer_test_idf4.x
+  - sanitizer_test_idf5.0.x
+  - sanitizer_test_idf5.1.x
+  - sanitizer_test_idf_master
+  - sanitizer_test_nuttx
+  - sanitizer_check_idf4.x
+  - sanitizer_check_idf5.0.x
+  - sanitizer_check_idf5.1.x
+  - sanitizer_check_idf_master
+  - sanitizer_check_nuttx
   - deploy
   - private_deploy
   - pre_release
