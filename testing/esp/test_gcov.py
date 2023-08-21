@@ -429,7 +429,7 @@ class GcovTestAppTestsSingle(DebuggerGenericTestAppTests):
 
 
 # OCD-773
-@skip_for_chip(['esp32s3'])
+@idf_ver_min_for_chip('5.1', ['esp32s3'])
 class GcovTestsDual(GcovTestAppTestsDual, GcovTestsImpl):
     """ Test cases via GDB in dual core mode
     """
@@ -438,7 +438,7 @@ class GcovTestsDual(GcovTestAppTestsDual, GcovTestsImpl):
         GcovTestsImpl.setUp(self)
 
 # OCD-773
-@skip_for_chip(['esp32s3'])
+@idf_ver_min_for_chip('5.1', ['esp32s3'])
 class GcovTestsSingle(GcovTestAppTestsSingle, GcovTestsImpl):
     """ Test cases via GDB in single core mode
     """
