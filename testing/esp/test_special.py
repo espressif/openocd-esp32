@@ -94,8 +94,6 @@ class DebuggerSpecialTestsImpl:
         """
         self._do_test_bp_and_wp_set_by_program()
 
-    # OCD-773
-    @skip_for_chip(['esp32s3'])
     def test_wp_reconfigure_by_program(self):
         """
             This test checks that watchpoints can be reconfigured by target w/o removing them.
