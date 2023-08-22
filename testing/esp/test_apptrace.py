@@ -58,14 +58,14 @@ class ApptraceTestsImpl:
             self.assertEqual(line, "[%d %s]\n" % (i, " " * (i * 20)))
 
     # OCD-773
-    @skip_for_chip_and_ver('4.4.5', ['esp32s3'])
+    @skip_for_chip(['esp32s3'])
     def test_apptrace_autostop(self):
         trace_file = tempfile.NamedTemporaryFile(delete=False)
         trace_file_name = trace_file.name
         trace_file.close()
         trace_src = 'file://%s' % trace_file_name
         reader = reader_create(trace_src, 1.0)
-        # 0 ms poll period, stop when 9000 bytes are received or due to 5 s timeout
+        # 0 ms poll period, stop when 10000 bytes are received or due to 5 s timeout
         self.oocd.apptrace_start("%s 0 10000 5" % trace_src)
         self.resume_exec()
         self.oocd.apptrace_wait_stop(tmo=30)
