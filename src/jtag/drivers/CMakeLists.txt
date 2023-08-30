@@ -172,6 +172,10 @@ if(BUILD_RSHIM)
     target_sources(ocdjtagdrivers PRIVATE rshim.c)
 endif()
 
+if(BUILD_DMEM)
+    target_sources(ocdjtagdrivers PRIVATE dmem.c)
+endif()
+
 if(BUILD_OSBDM)
     target_sources(ocdjtagdrivers PRIVATE osbdm.c)
 endif()

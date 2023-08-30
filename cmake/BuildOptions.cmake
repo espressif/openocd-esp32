@@ -11,6 +11,7 @@ option(VERBOSE_USB_COMM "Verbose USB communication messages (for debugging)" OFF
 option(MALLOC_LOGGING "Include free space in logging messages (requires malloc.h)" OFF)
 option(BUILD_DUMMY "Build the dummy port driver" OFF)
 option(BUILD_RSHIM "Build the rshim driver" OFF)
+option(BUILD_DMEM "Build the dmem driver" OFF)
 option(BUILD_PARPORT "Build the pc parallel port driver" OFF)
 option(PARPORT_USE_PPDEV "Use of ppdev (/dev/parportN) for parport (for x86 only)" ON)
 option(PARPORT_USE_GIVEIO "Use of giveio for parport (for CygWin only)" OFF)
