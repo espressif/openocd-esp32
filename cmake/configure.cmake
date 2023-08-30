@@ -294,6 +294,9 @@ if(NOT ${host_os} MATCHES "(linux*)")
     if (BUILD_RSHIM AND NOT ${host_os} MATCHES "(freebsd*)")
         message(SEND_ERROR "build_rshim is only available on linux or freebsd")
     endif()
+	if (BUILD_DMEM)
+		message(SEND_ERROR "dmem is only available on linux")
+	endif()
 endif()
 
 # Process adapters

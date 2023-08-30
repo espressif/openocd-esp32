@@ -28,6 +28,9 @@
 /* 0 if you don't want to debug BlueField SoC via rshim */
 #cmakedefine01 BUILD_RSHIM
 
+/* 0 if you don't want dmem */
+#cmakedefine01 BUILD_DMEM
+
 /* 0 if you don't want dummy driver */
 #cmakedefine01 BUILD_DUMMY
 
