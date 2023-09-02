@@ -1458,7 +1458,7 @@ int semihosting_common(struct target *target)
 			}
 			break;
 
-		case SEMIHOSTING_USER_CMD_0X100 ... SEMIHOSTING_USER_CMD_0X115:
+		case SEMIHOSTING_USER_CMD_0X100 ... SEMIHOSTING_USER_CMD_0X116:
 			/**
 			 * This is a user defined operation (while user cmds 0x100-0x1ff
 			 * are possible, only 0x100-0x107 are currently implemented).

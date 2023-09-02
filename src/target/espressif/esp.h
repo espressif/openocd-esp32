@@ -80,6 +80,11 @@ struct esp_dbg_stubs {
 	struct esp_dbg_stubs_desc desc;
 };
 
+struct esp_pseudo_ex_reason {
+	target_addr_t addr;
+	uint32_t len;
+};
+
 /**
  * Semihost calls handling operations.
  */
@@ -113,6 +118,7 @@ struct esp_common {
 	struct esp_flash_breakpoints flash_brps;
 	const struct algorithm_hw *algo_hw;
 	struct esp_dbg_stubs dbg_stubs;
+	struct esp_pseudo_ex_reason pseudo_ex_reason;
 };
 
 struct esp_ops {
@@ -122,6 +128,7 @@ struct esp_ops {
 	int (*reset_reason_fetch)(struct target *target, int *rsn_id, const char **rsn_str);
 };
 
+struct esp_common *target_to_esp_common(struct target *target);
 int esp_common_init(struct esp_common *esp,
 	const struct esp_flash_breakpoint_ops *flash_brps_ops,
 	const struct algorithm_hw *algo_hw);
@@ -139,6 +146,7 @@ int esp_dbgstubs_table_read(struct target *target, struct esp_dbg_stubs *dbg_stu
 
 void esp_common_assist_debug_monitor_disable(struct target *target, uint32_t address, uint32_t *value);
 void esp_common_assist_debug_monitor_restore(struct target *target, uint32_t address, uint32_t value);
+int esp_common_read_pseudo_ex_reason(struct target *target);
 
 static inline bool esp_is_flash_boot(uint32_t strap_reg)
 {

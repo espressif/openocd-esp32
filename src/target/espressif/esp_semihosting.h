@@ -18,7 +18,7 @@
 #define ESP_SEMIHOSTING_SYS_BREAKPOINT_SET          0x103
 #define ESP_SEMIHOSTING_SYS_WATCHPOINT_SET          0x104
 #define ESP_SEMIHOSTING_SYS_SEEK                    0x105	/* custom lseek with whence */
-/* not implemented yet */
+/* directory related syscalls */
 #define ESP_SEMIHOSTING_SYS_MKDIR                   0x106
 #define ESP_SEMIHOSTING_SYS_OPENDIR                 0x107
 #define ESP_SEMIHOSTING_SYS_READDIR                 0x108
@@ -35,6 +35,8 @@
 #define ESP_SEMIHOSTING_SYS_FSYNC                   0x113
 #define ESP_SEMIHOSTING_SYS_LINK                    0x114
 #define ESP_SEMIHOSTING_SYS_UNLINK                  0x115
+/* esp-idf internal syscalls */
+#define ESP_SEMIHOSTING_SYS_PSEUDO_EXCAUSE			0x116
 
 int esp_semihosting_common(struct target *target);
 int esp_semihosting_post_reset(struct target *target);
