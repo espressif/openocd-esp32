@@ -69,7 +69,7 @@ enum semihosting_operation_numbers {
 	SEMIHOSTING_ARM_RESERVED_START = 0x32,
 	SEMIHOSTING_ARM_RESERVED_END = 0xFF,
 	SEMIHOSTING_USER_CMD_0X100 = 0x100,	/* First user cmd op code */
-	SEMIHOSTING_USER_CMD_0X115 = 0x115,	/* Last supported user cmd op code */
+	SEMIHOSTING_USER_CMD_0X116 = 0x116,	/* Last supported user cmd op code */
 	SEMIHOSTING_USER_CMD_0X1FF = 0x1FF,	/* Last user cmd op code */
 };
 

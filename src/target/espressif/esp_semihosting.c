@@ -301,6 +301,18 @@ int esp_semihosting_common(struct target *target)
 		/* For the time being only riscv chips support these commands */
 		return esp_riscv_semihosting(target);
 
+	case ESP_SEMIHOSTING_SYS_PSEUDO_EXCAUSE:		/* 0x116 */
+		/* Read pseudo exception string */
+		retval = semihosting_read_fields(target, 2, fields);
+		if (retval == ERROR_OK) {
+			struct esp_common *esp = target_to_esp_common(target);
+			if (esp) {
+				esp->pseudo_ex_reason.addr = semihosting_get_field(target, 0, fields);
+				esp->pseudo_ex_reason.len = semihosting_get_field(target, 1, fields);
+			}
+		}
+		break;
+
 	case ESP_SEMIHOSTING_SYS_MKDIR:			/* 0x106 */
 		/* Attempts to create a directory to the given path. */
 		if (semihosting->is_fileio) {

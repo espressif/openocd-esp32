@@ -128,6 +128,9 @@ static void esp_riscv_print_exception_reason(struct target *target)
 		/* halted upon `halt` request. This is not an exception */
 		return;
 
+	if (esp_common_read_pseudo_ex_reason(target) == ERROR_OK)
+		return;
+
 	riscv_reg_t mcause;
 	int result = riscv_get_register(target, &mcause, GDB_REGNO_MCAUSE);
 	if (result != ERROR_OK) {

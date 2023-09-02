@@ -133,6 +133,9 @@ static void esp_xtensa_print_exception_reason(struct target *target)
 		/* halted upon `halt` request. This is not an exception */
 		return;
 
+	if (esp_common_read_pseudo_ex_reason(target) == ERROR_OK)
+		return;
+
 	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
 	xtensa_reg_val_t eps = xtensa_reg_get(target, esp_xtensa->xtensa.eps_dbglevel_idx);
 	int eps_excm = (eps & BIT(4)) == BIT(4);

@@ -12,10 +12,23 @@
 #include <helper/log.h>
 #include <helper/binarybuffer.h>
 #include "target/target.h"
+#include "esp_riscv.h"
+#include "esp_xtensa.h"
 #include "esp.h"
 
 #define ESP_FLASH_BREAKPOINTS_MAX_NUM  32
 #define ESP_ASSIST_DEBUG_INVALID_VALUE 0xFFFFFFFF
+
+struct esp_common *target_to_esp_common(struct target *target)
+{
+	struct xtensa *xtensa = target->arch_info;
+	if (xtensa->common_magic == RISCV_COMMON_MAGIC)
+		return &(target_to_esp_riscv(target)->esp);
+	else if (xtensa->common_magic == XTENSA_COMMON_MAGIC)
+		return &(target_to_esp_xtensa(target)->esp);
+	LOG_ERROR("Unknown target arch!");
+	return NULL;
+}
 
 int esp_common_init(struct esp_common *esp,
 	const struct esp_flash_breakpoint_ops *flash_brps_ops,
@@ -252,4 +265,22 @@ void esp_common_assist_debug_monitor_restore(struct target *target, uint32_t add
 	int res = target_write_u32(target, address, value);
 	if (res != ERROR_OK)
 		LOG_ERROR("Can not restore assist_debug register (%d)!", res);
+}
+
+int esp_common_read_pseudo_ex_reason(struct target *target)
+{
+	struct esp_common *esp = target_to_esp_common(target);
+	if (esp && esp->pseudo_ex_reason.addr) {
+		uint8_t str[esp->pseudo_ex_reason.len + 1];
+		memset(str, 0x00, sizeof(str));
+		int retval = target_read_memory(target, esp->pseudo_ex_reason.addr, 1, esp->pseudo_ex_reason.len, str);
+		if (retval == ERROR_OK)
+			LOG_TARGET_INFO(target, "Halt cause (%s)", str);
+		else
+			LOG_TARGET_ERROR(target, "Pseudo exception reason read failed (%d)", retval);
+		esp->pseudo_ex_reason.addr = 0;
+		return ERROR_OK;
+	}
+
+	return ERROR_FAIL;
 }
