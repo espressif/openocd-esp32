@@ -8865,6 +8865,10 @@ Redirect logging to @var{filename} or set it back to default output;
 the default log output channel is stderr.
 @end deffn
 
+@deffn {Command} {log_non_error_levels_to_stdout} [on | off]
+This command can be used when there is a desire to change the default channel for non-error messages.
+@end deffn
+
 @deffn {Command} {add_script_search_dir} [directory]
 Add @var{directory} to the file/script search path.
 @end deffn
