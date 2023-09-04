@@ -133,6 +133,28 @@ TEST_DECL(divide_by_zero_ex, "test_special.DebuggerSpecialTests*.test_exception_
     );
 }
 
+TEST_DECL(pseudo_debug_ex, "test_special.DebuggerSpecialTests*.test_exception_pseudo_debug")
+{
+    __asm__ __volatile__ (
+        ".global exception_bp_5\n" \
+        ".type   exception_bp_5,@function\n" \
+        "exception_bp_5:\n" \
+        "call0 _DebugExceptionVector\n" \
+    );
+}
+
+TEST_DECL(pseudo_coprocessor_ex, "test_special.DebuggerSpecialTests*.test_exception_pseudo_coprocessor")
+{
+    __asm__ __volatile__ (
+        ".global exception_bp_6\n" \
+        ".type   exception_bp_6,@function\n" \
+        "exception_bp_6:\n" \
+        "movi    a0,4\n" \
+        "wsr     a0,EXCCAUSE\n" \
+        "call0   _xt_panic \n" \
+    );
+}
+
 static bool mem_check(uint8_t *mem, uint32_t mem_sz)
 {
     const uint8_t buf[256] = {0};
@@ -275,6 +297,18 @@ TEST_DECL(store_access_fault_ex, "test_special.DebuggerSpecialTests*.test_except
 }
 #endif /* CONFIG_IDF_TARGET_ARCH_RISCV */
 
+TEST_DECL(assert_failure_ex, "test_special.DebuggerSpecialTests*.test_exception_assert_failure")
+{
+	TEST_BREAK_LBL(assert_failure_bp);
+	assert(0);
+}
+
+TEST_DECL(abort_ex, "test_special.DebuggerSpecialTests*.test_exception_abort")
+{
+	TEST_BREAK_LBL(abort_bp);
+	abort();
+}
+
 ut_result_t special_test_do(int test_num)
 {
     if (TEST_ID_MATCH(TEST_ID_PATTERN(target_bp_wp), test_num)) {
@@ -298,16 +332,24 @@ ut_result_t special_test_do(int test_num)
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(psram_with_flash_breakpoints), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(psram_with_flash_breakpoints), "psram_task", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(illegal_instruction_ex), test_num)) {
-        xTaskCreatePinnedToCore(TEST_ENTRY(illegal_instruction_ex), "illegal_instruction_ex", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+        xTaskCreatePinnedToCore(TEST_ENTRY(illegal_instruction_ex), "illegal_instruction_ex", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(load_prohibited_ex), test_num)) {
-        xTaskCreatePinnedToCore(TEST_ENTRY(load_prohibited_ex), "load_prohibited_ex", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+        xTaskCreatePinnedToCore(TEST_ENTRY(load_prohibited_ex), "load_prohibited_ex", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(store_prohibited_ex), test_num)) {
-        xTaskCreatePinnedToCore(TEST_ENTRY(store_prohibited_ex), "store_prohibited_ex", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+        xTaskCreatePinnedToCore(TEST_ENTRY(store_prohibited_ex), "store_prohibited_ex", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(divide_by_zero_ex), test_num)) {
-        xTaskCreatePinnedToCore(TEST_ENTRY(divide_by_zero_ex), "divide_by_zero_ex", 4096, NULL, 5, NULL, portNUM_PROCESSORS-1);
+        xTaskCreatePinnedToCore(TEST_ENTRY(divide_by_zero_ex), "divide_by_zero_ex", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
+	} else if (TEST_ID_MATCH(TEST_ID_PATTERN(pseudo_debug_ex), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(pseudo_debug_ex), "pseudo_debug_ex", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(pseudo_coprocessor_ex), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(pseudo_coprocessor_ex), "pseudo_coprocessor_ex", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
 #endif
+	} else if (TEST_ID_MATCH(TEST_ID_PATTERN(assert_failure_ex), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(assert_failure_ex), "assert_failure_ex", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(abort_ex), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(abort_ex), "abort_ex", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
     } else {
-            return UT_UNSUPPORTED;
+        return UT_UNSUPPORTED;
     }
     return UT_OK;
 }

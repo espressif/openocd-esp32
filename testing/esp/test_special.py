@@ -1,6 +1,7 @@
 import logging
 import unittest
 import subprocess
+import re
 import debug_backend as dbg
 from debug_backend_tests import *
 
@@ -119,7 +120,27 @@ class DebuggerSpecialTestsImpl:
             expected_strings = ["Halt cause (2) - (Illegal Instruction)",
                                 "Halt cause (5) - (PMP Load access fault)",
                                 "Halt cause (7) - (PMP Store access fault)"]
-            
+
+        #TODO: enable after IDF MR(25708) merged
+        if 0:
+        #if testee_info.idf_ver >= IdfVersion.fromstr('latest'):
+            # Pseudo exeption tests only implemented for xtensa
+            if testee_info.arch == "xtensa":
+                bps.append("exception_bp_5");
+                bps.append("exception_bp_6");
+                sub_tests.append("pseudo_debug")
+                sub_tests.append("pseudo_coprocessor")
+                expected_strings.append("Halt cause (Unhandled debug exception)")
+                expected_strings.append("Halt cause (Coprocessor exception)")
+
+            bps.append("assert_failure_bp")
+            sub_tests.append("assert_failure")
+            expected_strings.append("Halt cause \(assert failed: assert_failure_ex_task special_tests.c:[^\n]+\)")
+
+            bps.append("abort_bp")
+            sub_tests.append("abort")
+            expected_strings.append("Halt cause \(abort\(\) was called at PC 0x[0-9a-fA-F]+ on core [0-9]+\)")
+
         for i in range (len(bps)):
             self.add_bp(bps[i])
             self.select_sub_test(self.id() + '_' + sub_tests[i])
@@ -135,11 +156,37 @@ class DebuggerSpecialTestsImpl:
                 nonlocal target_output
                 target_output += payload
             self.gdb.stream_handler_add('target', _target_stream_handler)
+
             try:
-                self.step()
+                self.resume_exec()
+                rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED , 5)
+                self.assertTrue(rsn == dbg.TARGET_STATE_STOPPED or rsn == dbg.TARGET_STOP_REASON_SIGTRAP)
+                self.step() # Without step OpenOCD may not print the exception cause
             finally:
                 self.gdb.stream_handler_remove('target', _target_stream_handler)
-            self.assertTrue(expected_strings[i] in target_output)
+
+            if any(word in sub_tests[i] for word in ["assert", "abort"]):
+				# On assert and abort panics, file line numbers or PC value can be vary.
+                # Therefore, we will use regex pattern for the matching expected strings.
+                pattern = re.compile(expected_strings[i])
+                if testee_info.arch == "xtensa":
+                    match = re.search(pattern, target_output)
+                    self.assertTrue(match)
+                # On RISC-V, when the SIGTRAP signal is received from GDB, there is no corresponding MI response from the target.
+                # As a result, the OpenOCD output is not visible in the gdb logs.
+                # Therefore, we will need to search for the expected strings in the OpenOCD log file instead.
+                else:
+                    log_path = get_logger().handlers[1].baseFilename
+                    found_line_count = 0
+                    with open(log_path) as file:
+                        for line in file:
+                            match = re.search(pattern, line)
+                            if match:
+                                found_line_count += 1
+                                break
+                    self.assertTrue(found_line_count)
+            else:
+               self.assertTrue(expected_strings[i] in target_output)
             self.gdb.target_reset()
             self.add_bp('app_main')
             self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
