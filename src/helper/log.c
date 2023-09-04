@@ -32,10 +32,13 @@
 #endif
 #endif
 
+#define DEFAULT_LOG_OUTPUT	stderr
+
 int debug_level = LOG_LVL_INFO;
 
 static FILE *log_output;
 static struct log_callback *log_callbacks;
+static bool log_non_error_levels_to_stdout;
 
 static int64_t last_time;
 
@@ -84,16 +87,27 @@ static void log_puts(enum log_levels level,
 	char *f;
 
 	if (!log_output) {
-		/* log_init() not called yet; print on stderr */
-		fputs(string, stderr);
-		fflush(stderr);
+		/* log_init() not called yet; print on DEFAULT_LOG_OUTPUT */
+		fputs(string, DEFAULT_LOG_OUTPUT);
+		fflush(DEFAULT_LOG_OUTPUT);
 		return;
+	}
+
+	/* global log_output value can be stderr(default), stdout or a file descriptor */
+	FILE *current_log_output = log_output;
+	if (log_non_error_levels_to_stdout) {
+		/* default log output is stderr for all levels but now we are redirect non-error logs to the stdout */
+		if (log_output == stderr && level != LOG_LVL_ERROR)
+			current_log_output = stdout;
+		/* If the default value set as stdout, just error logs will be redirected */
+		else if (log_output == stdout && level == LOG_LVL_ERROR)
+			current_log_output = stderr;
 	}
 
 	if (level == LOG_LVL_OUTPUT) {
 		/* do not prepend any headers, just print out what we were given and return */
-		fputs(string, log_output);
-		fflush(log_output);
+		fputs(string, current_log_output);
+		fflush(current_log_output);
 		return;
 	}
 
@@ -108,7 +122,7 @@ static void log_puts(enum log_levels level,
 		struct mallinfo info;
 		info = mallinfo();
 #endif
-		fprintf(log_output, "%s%d %" PRId64 " %s:%d %s()"
+		fprintf(current_log_output, "%s%d %" PRId64 " %s:%d %s()"
 #ifdef _DEBUG_FREE_SPACE_
 			" %d"
 #endif
@@ -120,11 +134,11 @@ static void log_puts(enum log_levels level,
 	} else {
 		/* if we are using gdb through pipes then we do not want any output
 		 * to the pipe otherwise we get repeated strings */
-		fprintf(log_output, "%s%s",
+		fprintf(current_log_output, "%s%s",
 			(level > LOG_LVL_USER) ? log_strings[level + 1] : "", string);
 	}
 
-	fflush(log_output);
+	fflush(current_log_output);
 
 	/* Never forward LOG_LVL_DEBUG, too verbose and they can be found in the log if need be */
 	if (level <= LOG_LVL_INFO)
@@ -215,11 +229,11 @@ COMMAND_HANDLER(handle_debug_level_command)
 COMMAND_HANDLER(handle_log_output_command)
 {
 	if (CMD_ARGC == 0 || (CMD_ARGC == 1 && strcmp(CMD_ARGV[0], "default") == 0)) {
-		if (log_output != stderr && log_output) {
-			/* Close previous log file, if it was open and wasn't stderr. */
+		if (log_output != DEFAULT_LOG_OUTPUT && log_output) {
+			/* Close previous log file, if it was open and wasn't DEFAULT_LOG_OUTPUT. */
 			fclose(log_output);
 		}
-		log_output = stderr;
+		log_output = DEFAULT_LOG_OUTPUT;
 		LOG_DEBUG("set log_output to default");
 		return ERROR_OK;
 	}
@@ -229,8 +243,8 @@ COMMAND_HANDLER(handle_log_output_command)
 			LOG_ERROR("failed to open output log '%s'", CMD_ARGV[0]);
 			return ERROR_FAIL;
 		}
-		if (log_output != stderr && log_output) {
-			/* Close previous log file, if it was open and wasn't stderr. */
+		if (log_output != DEFAULT_LOG_OUTPUT && log_output) {
+			/* Close previous log file, if it was open and wasn't DEFAULT_LOG_OUTPUT. */
 			fclose(log_output);
 		}
 		log_output = file;
@@ -239,6 +253,19 @@ COMMAND_HANDLER(handle_log_output_command)
 	}
 
 	return ERROR_COMMAND_SYNTAX_ERROR;
+}
+
+COMMAND_HANDLER(handle_log_non_error_levels_to_stdout)
+{
+	if (CMD_ARGC > 0)
+		COMMAND_PARSE_BOOL(CMD_ARGV[0], log_non_error_levels_to_stdout, "on", "off");
+
+	if (log_non_error_levels_to_stdout)
+		LOG_INFO("non-error logs will be re-directed to the stdout");
+	else
+		LOG_INFO("non-error logs will be re-directed to the %s", DEFAULT_LOG_OUTPUT == stdout ? "stdout" : "stderr");
+
+	return ERROR_OK;
 }
 
 static const struct command_registration log_command_handlers[] = {
@@ -258,6 +285,13 @@ static const struct command_registration log_command_handlers[] = {
 			"2 (default) adds other info; 3 adds debugging; "
 			"4 adds extra verbose debugging.",
 		.usage = "number",
+	},
+	{
+		.name = "log_non_error_levels_to_stdout",
+		.handler = handle_log_non_error_levels_to_stdout,
+		.mode = COMMAND_ANY,
+		.help = "redirect non-error logs to the stdout and errors to the default channel",
+		.usage = "[on | off]",
 	},
 	COMMAND_REGISTRATION_DONE
 };
@@ -282,15 +316,15 @@ void log_init(void)
 	}
 
 	if (!log_output)
-		log_output = stderr;
+		log_output = DEFAULT_LOG_OUTPUT;
 
 	start = last_time = timeval_ms();
 }
 
 void log_exit(void)
 {
-	if (log_output && log_output != stderr) {
-		/* Close log file, if it was open and wasn't stderr. */
+	if (log_output && log_output != DEFAULT_LOG_OUTPUT) {
+		/* Close log file, if it was open and wasn't default. */
 		fclose(log_output);
 	}
 	log_output = NULL;
