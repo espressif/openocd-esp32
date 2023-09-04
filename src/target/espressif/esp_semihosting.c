@@ -301,7 +301,7 @@ int esp_semihosting_common(struct target *target)
 		/* For the time being only riscv chips support these commands */
 		return esp_riscv_semihosting(target);
 
-	case ESP_SEMIHOSTING_SYS_PSEUDO_EXCAUSE:		/* 0x116 */
+	case ESP_SEMIHOSTING_SYS_PANIC_REASON:		/* 0x116 */
 		/* Read pseudo exception string */
 		retval = semihosting_read_fields(target, 2, fields);
 		if (retval == ERROR_OK) {

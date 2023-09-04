@@ -36,7 +36,7 @@
 #define ESP_SEMIHOSTING_SYS_LINK                    0x114
 #define ESP_SEMIHOSTING_SYS_UNLINK                  0x115
 /* esp-idf internal syscalls */
-#define ESP_SEMIHOSTING_SYS_PSEUDO_EXCAUSE			0x116
+#define ESP_SEMIHOSTING_SYS_PANIC_REASON            0x116
 
 int esp_semihosting_common(struct target *target);
 int esp_semihosting_post_reset(struct target *target);
