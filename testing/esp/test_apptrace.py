@@ -57,8 +57,6 @@ class ApptraceTestsImpl:
         for i, line in enumerate(lines):
             self.assertEqual(line, "[%d %s]\n" % (i, " " * (i * 20)))
 
-    # OCD-773
-    @skip_for_chip(['esp32s3'])
     def test_apptrace_autostop(self):
         trace_file = tempfile.NamedTemporaryFile(delete=False)
         trace_file_name = trace_file.name
@@ -80,8 +78,6 @@ class ApptraceTestsImpl:
             self.assertEqual(line, "[%d %s]\n" % (i, " " * (i * 20)))
         os.remove(trace_file_name)
 
-    # This test has high failure rate.
-    @unittest.skip('OCD-773')
     def test_apptrace_reset(self):
         """
             This test checks that apptracing continue to work if target resets between start and stop

@@ -263,6 +263,10 @@ static int apptrace_writefn(void* cookie, const char* data, int size)
     if (res != ESP_OK) {
         return 0;
     }
+
+    /* OCD-831. Why is the below delay avoids data corruption on ESP32-S3? */
+    vTaskDelay(1);
+
     /* this function may fail if host is busy and is not able to read data (flushed previously) within 1 ms  */
     esp_apptrace_flush(ESP_APPTRACE_DEST_TRAX, 1000);
     return size;
