@@ -31,6 +31,15 @@ struct esp_riscv_common {
 	uint8_t max_wp_num;
 	uint32_t assist_debug_cpu0_mon_reg; /* cpu 0 monitor register address */
 	uint32_t assist_debug_cpu_offset;   /* address offset to register of next cpu id */
+	target_addr_t gpio_strap_reg;		/* to read flash boot moode */
+	target_addr_t rtccntl_reset_state_reg;	/* to read reset cause */
+	unsigned long reset_cause_mask;
+	const char *(*get_reset_reason)(int reset_number);
+	bool (*is_flash_boot)(uint32_t strap_reg);
+	int (*wdt_disable)(struct target *target);
+	bool was_reset;
+	const char **existent_regs;
+	size_t existent_regs_size;
 };
 
 static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *target)
@@ -38,12 +47,20 @@ static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *
 	return target->arch_info;
 }
 
+static inline int esp_riscv_on_reset(struct target *target)
+{
+	LOG_TARGET_DEBUG(target, "on reset!");
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	esp_riscv->was_reset = true;
+	return ERROR_OK;
+}
+
 static inline int esp_riscv_init_arch_info(struct command_context *cmd_ctx, struct target *target,
-	struct esp_riscv_common *esp_riscv, int (*on_reset)(struct target *),
+	struct esp_riscv_common *esp_riscv,
 	const struct esp_flash_breakpoint_ops *flash_brps_ops,
 	const struct esp_semihost_ops *semi_ops)
 {
-	esp_riscv->riscv.on_reset = on_reset;
+	esp_riscv->riscv.on_reset = esp_riscv_on_reset;
 
 	INIT_LIST_HEAD(&esp_riscv->semihost.dir_map_list);
 
@@ -57,6 +74,8 @@ static inline int esp_riscv_init_arch_info(struct command_context *cmd_ctx, stru
 	return ERROR_OK;
 }
 
+int esp_riscv_examine(struct target *target);
+int esp_riscv_poll(struct target *target);
 int esp_riscv_alloc_trigger_addr(struct target *target);
 int esp_riscv_semihosting(struct target *target);
 int esp_riscv_breakpoint_add(struct target *target, struct breakpoint *breakpoint);
