@@ -9,14 +9,20 @@
 #include "config.h"
 #endif
 
-#include <target/espressif/esp32h2.h>
 #include <target/espressif/esp_riscv_algorithm.h>
 #include "imp.h"
 #include "esp_riscv.h"
+#include <target/espressif/esp_riscv_apptrace.h>
 #include "contrib/loaders/flash/esp/esp32h2/stub_flasher_image.h"
 #include "contrib/loaders/flash/esp/esp32h2/stub_flasher_image_wlog.h"
 
 #define ESP32H2_FLASH_SECTOR_SIZE 4096
+
+/* memory map */
+#define ESP32H2_DROM_LOW    0x42000000
+#define ESP32H2_DROM_HIGH   0x43000000
+#define ESP32H2_IROM_LOW    0x42000000
+#define ESP32H2_IROM_HIGH   0x43000000
 
 struct esp32h2_flash_bank {
 	struct esp_riscv_flash_bank riscv;

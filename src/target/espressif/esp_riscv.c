@@ -9,14 +9,18 @@
 #include "config.h"
 #endif
 
-#include <helper/bits.h>
+
 #include <stdbool.h>
 #include <stdint.h>
-#include "esp_riscv.h"
+
+#include <helper/bits.h>
+#include <target/target.h>
 #include <target/target_type.h>
 #include <target/smp.h>
 #include <target/semihosting_common.h>
+#include <rtos/rtos.h>
 
+#include "esp_riscv.h"
 #include "esp_semihosting.h"
 
 #if IS_ESPIDF
@@ -178,6 +182,112 @@ static bool esp_riscv_is_bp_set_by_program(struct target *target)
 	}
 
 	return false;
+}
+
+int esp_riscv_examine(struct target *target)
+{
+	int ret = riscv_target.examine(target);
+	if (ret != ERROR_OK)
+		return ret;
+
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	if (!esp_riscv->existent_regs)
+		return ERROR_FAIL;
+
+	/*
+		RISCV code initializes registers upon target examination.
+		Disable some registers because their reading or writing causes exception.
+		TODO: check if it is still valid for all RISCV chips
+	*/
+	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
+		if (target->reg_cache->reg_list[i].exist) {
+			target->reg_cache->reg_list[i].exist = false;
+			for (unsigned int j = 0; j < esp_riscv->existent_regs_size; j++)
+				if (!strcmp(target->reg_cache->reg_list[i].name, esp_riscv->existent_regs[j])) {
+					target->reg_cache->reg_list[i].exist = true;
+					break;
+				}
+		}
+	}
+	return ERROR_OK;
+}
+
+int esp_riscv_poll(struct target *target)
+{
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	int res = ERROR_OK;
+
+	RISCV_INFO(r);
+	if (esp_riscv->was_reset && r->dmi_read && r->dmi_write) {
+		uint32_t dmstatus;
+		res = r->dmi_read(target, &dmstatus, DM_DMSTATUS);
+		if (res != ERROR_OK) {
+			LOG_TARGET_ERROR(target, "Failed to read DMSTATUS (%d)!", res);
+		} else {
+			if (esp_riscv->get_reset_reason) {
+				uint32_t reset_buffer = 0;
+				res = target_read_u32(target, esp_riscv->rtccntl_reset_state_reg, &reset_buffer);
+				if (res != ERROR_OK) {
+					LOG_TARGET_WARNING(target, "Failed to read reset cause register (%d)!", res);
+				} else {
+					LOG_TARGET_INFO(target, "Reset cause (%ld) - (%s)", reset_buffer & esp_riscv->reset_cause_mask,
+						esp_riscv->get_reset_reason((reset_buffer)));
+				}
+			}
+
+			uint32_t strap_reg = 0;
+			if (esp_riscv->is_flash_boot) {
+				LOG_TARGET_DEBUG(target, "Core is out of reset: dmstatus 0x%x", dmstatus);
+				esp_riscv->was_reset = false;
+				res = target_read_u32(target, esp_riscv->gpio_strap_reg, &strap_reg);
+				if (res != ERROR_OK) {
+					LOG_TARGET_WARNING(target, "Failed to read GPIO_STRAP_REG (%d)!", res);
+					strap_reg = ESP_FLASH_BOOT_MODE;
+				}
+
+				if (esp_riscv->is_flash_boot(strap_reg) &&
+					get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
+					LOG_TARGET_DEBUG(target, "Halt core");
+					res = esp_riscv_core_halt(target);
+					if (res == ERROR_OK) {
+						res = esp_riscv->wdt_disable ? esp_riscv->wdt_disable(target) : ERROR_FAIL;
+						if (res != ERROR_OK)
+							LOG_TARGET_ERROR(target, "Failed to disable WDTs (%d)!", res);
+					} else {
+						LOG_TARGET_ERROR(target, "Failed to halt core (%d)!", res);
+					}
+				}
+			}
+
+			if (esp_riscv->semi_ops->post_reset)
+				esp_riscv->semi_ops->post_reset(target);
+			/* Clear memory which is used by RTOS layer to get the task count */
+			if (target->rtos && target->rtos->type->post_reset_cleanup) {
+				res = (*target->rtos->type->post_reset_cleanup)(target);
+				if (res != ERROR_OK)
+					LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
+			}
+			/* clear previous apptrace ctrl_addr to avoid invalid tracing control block usage in the long
+			 *run. */
+			esp_riscv->apptrace.ctrl_addr = 0;
+
+			if (esp_riscv->is_flash_boot && esp_riscv->is_flash_boot(strap_reg)) {
+				/* enable ebreaks */
+				res = esp_riscv_core_ebreaks_enable(target);
+				if (res != ERROR_OK)
+					LOG_TARGET_ERROR(target, "Failed to enable EBREAKS handling (%d)!", res);
+				if (get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
+					LOG_TARGET_DEBUG(target, "Resume core");
+					res = esp_riscv_core_resume(target);
+					if (res != ERROR_OK)
+						LOG_TARGET_ERROR(target, "Failed to resume core (%d)!", res);
+					LOG_TARGET_DEBUG(target, "resumed core");
+				}
+			}
+		}
+	}
+
+	return riscv_openocd_poll(target);
 }
 
 int esp_riscv_alloc_trigger_addr(struct target *target)

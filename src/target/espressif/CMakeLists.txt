@@ -13,13 +13,9 @@ target_sources(espressif PRIVATE
 	esp32s2.c
 	esp32s3.c
 	esp32c2.c
-	esp32c2.h
 	esp32c3.c
-	esp32c3.h
 	esp32c6.c
-	esp32c6.h
 	esp32h2.c
-	esp32h2.h
 	esp.c
 	esp.h
 	esp_riscv.c

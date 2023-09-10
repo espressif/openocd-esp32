@@ -9,6 +9,7 @@ struct riscv_program;
 #include "opcodes.h"
 #include "gdb_regs.h"
 #include "jtag/jtag.h"
+#include "target/target.h"
 #include "target/register.h"
 #include "target/semihosting_common.h"
 #include <helper/command.h>

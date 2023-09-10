@@ -9,16 +9,17 @@
 #include "config.h"
 #endif
 
-#include "esp32c6.h"
 #include <helper/command.h>
 #include <helper/bits.h>
+#include <target/target.h>
 #include <target/target_type.h>
 #include <target/register.h>
 #include <target/semihosting_common.h>
-#include "esp_semihosting.h"
 #include <target/riscv/debug_defines.h>
-#include "esp32_apptrace.h"
-#include "rtos/rtos.h"
+
+#include "esp_semihosting.h"
+#include "esp_riscv_apptrace.h"
+#include "esp_riscv.h"
 
 /* ESP32-C6 WDT */
 #define ESP32C6_WDT_WKEY_VALUE                  0x50d83aa1
@@ -43,10 +44,6 @@
 #define ESP32C6_GPIO_BASE                       0x60091000
 #define ESP32C6_GPIO_STRAP_REG_OFF              0x0038
 #define ESP32C6_GPIO_STRAP_REG                  (ESP32C6_GPIO_BASE + ESP32C6_GPIO_STRAP_REG_OFF)
-#define IS_1XXX(v)                              (((v) & 0x08) == 0x08)
-#define IS_0100(v)                              (((v) & 0x0f) == 0x04)
-#define ESP32C6_IS_FLASH_BOOT(_r_)              (IS_1XXX(_r_) || IS_0100(_r_))
-#define ESP32C6_FLASH_BOOT_MODE                 0x08
 
 #define ESP32C6_RTCCNTL_RESET_CAUSE_MASK        (BIT(5) - 1)
 #define ESP32C6_RESET_CAUSE(reg_val)            ((reg_val) & ESP32C6_RTCCNTL_RESET_CAUSE_MASK)
@@ -81,7 +78,7 @@ enum esp32c6_reset_reason {
 	ESP32C6_CPU0_JTAG_RESET       = 0x18,	/* JTAG resets the CPU 0 */
 };
 
-static const char *esp32c6_get_reset_reason(enum esp32c6_reset_reason reset_number)
+static const char *esp32c6_get_reset_reason(int reset_number)
 {
 	switch (ESP32C6_RESET_CAUSE(reset_number)) {
 	case ESP32C6_CHIP_POWER_ON_RESET:
@@ -124,8 +121,6 @@ static const char *esp32c6_get_reset_reason(enum esp32c6_reset_reason reset_numb
 	}
 	return "Unknown reset cause";
 }
-
-static int esp32c6_on_reset(struct target *target);
 
 static int esp32c6_wdt_disable(struct target *target)
 {
@@ -187,52 +182,7 @@ static const struct esp_flash_breakpoint_ops esp32c6_flash_brp_ops = {
 	.breakpoint_remove = esp_algo_flash_breakpoint_remove
 };
 
-static int esp32c6_target_create(struct target *target, Jim_Interp *interp)
-{
-	struct esp32c6_common *esp32c6 = calloc(1, sizeof(*esp32c6));
-	if (!esp32c6)
-		return ERROR_FAIL;
-
-	target->arch_info = esp32c6;
-
-	esp32c6->esp_riscv.assist_debug_cpu0_mon_reg = ESP32C6_ASSIST_DEBUG_CPU0_MON_REG;
-	esp32c6->esp_riscv.assist_debug_cpu_offset = 0;
-
-	esp32c6->esp_riscv.max_bp_num = ESP32C6_BP_NUM;
-	esp32c6->esp_riscv.max_wp_num = ESP32C6_WP_NUM;
-
-	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
-		return ERROR_FAIL;
-
-	riscv_info_init(target, &esp32c6->esp_riscv.riscv);
-
-	return ERROR_OK;
-}
-
-static int esp32c6_init_target(struct command_context *cmd_ctx,
-	struct target *target)
-{
-	int ret = riscv_target.init_target(cmd_ctx, target);
-	if (ret != ERROR_OK)
-		return ret;
-
-	target->semihosting->user_command_extension = esp_semihosting_common;
-
-	struct esp32c6_common *esp32c6 = esp32c6_common(target);
-
-	ret = esp_riscv_init_arch_info(cmd_ctx,
-		target,
-		&esp32c6->esp_riscv,
-		esp32c6_on_reset,
-		&esp32c6_flash_brp_ops,
-		&esp32c6_semihost_ops);
-	if (ret != ERROR_OK)
-		return ret;
-
-	return ERROR_OK;
-}
-
-static const char *const s_existent_regs[] = {
+static const char *esp32c6_existent_regs[] = {
 	"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "t3", "t4", "t5", "t6",
 	"fp", "pc", "mstatus", "misa", "mtvec", "mscratch", "mepc", "mcause", "mtval", "priv",
 	"s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11",
@@ -251,106 +201,57 @@ static const char *const s_existent_regs[] = {
 	"csr_pma_addr14", "csr_pma_addr15",
 };
 
-static int esp32c6_examine(struct target *target)
+static int esp32c6_target_create(struct target *target, Jim_Interp *interp)
 {
-	int ret = riscv_target.examine(target);
+	struct esp_riscv_common *esp_riscv = calloc(1, sizeof(*esp_riscv));
+	if (!esp_riscv)
+		return ERROR_FAIL;
+
+	target->arch_info = esp_riscv;
+
+	esp_riscv->assist_debug_cpu0_mon_reg = ESP32C6_ASSIST_DEBUG_CPU0_MON_REG;
+	esp_riscv->assist_debug_cpu_offset = 0;
+
+	esp_riscv->max_bp_num = ESP32C6_BP_NUM;
+	esp_riscv->max_wp_num = ESP32C6_WP_NUM;
+
+	esp_riscv->gpio_strap_reg = ESP32C6_GPIO_STRAP_REG;
+	esp_riscv->rtccntl_reset_state_reg = ESP32C6_RTCCNTL_RESET_STATE_REG;
+	esp_riscv->reset_cause_mask = ESP32C6_RTCCNTL_RESET_CAUSE_MASK;
+	esp_riscv->get_reset_reason = &esp32c6_get_reset_reason;
+	esp_riscv->is_flash_boot = &esp_is_flash_boot;
+	esp_riscv->wdt_disable = &esp32c6_wdt_disable;
+	esp_riscv->existent_regs = esp32c6_existent_regs;
+	esp_riscv->existent_regs_size = ARRAY_SIZE(esp32c6_existent_regs);
+
+	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
+		return ERROR_FAIL;
+
+	riscv_info_init(target, &esp_riscv->riscv);
+
+	return ERROR_OK;
+}
+
+static int esp32c6_init_target(struct command_context *cmd_ctx,
+	struct target *target)
+{
+	int ret = riscv_target.init_target(cmd_ctx, target);
 	if (ret != ERROR_OK)
 		return ret;
-	/* RISCV code initializes registers upon target examination.
-	   disable some registers because their reading or writing causes exception. Not supported in ESP32-C6??? */
-	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
-		if (target->reg_cache->reg_list[i].exist) {
-			target->reg_cache->reg_list[i].exist = false;
-			for (unsigned int j = 0; j < ARRAY_SIZE(s_existent_regs); j++)
-				if (!strcmp(target->reg_cache->reg_list[i].name, s_existent_regs[j])) {
-					target->reg_cache->reg_list[i].exist = true;
-					break;
-				}
-		}
-	}
+
+	target->semihosting->user_command_extension = esp_semihosting_common;
+
+	struct esp_riscv_common *esp_riscv = calloc(1, sizeof(*esp_riscv));
+
+	ret = esp_riscv_init_arch_info(cmd_ctx,
+		target,
+		esp_riscv,
+		&esp32c6_flash_brp_ops,
+		&esp32c6_semihost_ops);
+	if (ret != ERROR_OK)
+		return ret;
+
 	return ERROR_OK;
-}
-
-static int esp32c6_on_reset(struct target *target)
-{
-	LOG_DEBUG("esp32c6_on_reset!");
-	struct esp32c6_common *esp32c6 = esp32c6_common(target);
-	esp32c6->was_reset = true;
-	return ERROR_OK;
-}
-
-static int esp32c6_poll(struct target *target)
-{
-	struct esp32c6_common *esp32c6 = esp32c6_common(target);
-	int res = ERROR_OK;
-
-	RISCV_INFO(r);
-	if (esp32c6->was_reset && r->dmi_read && r->dmi_write) {
-		uint32_t dmstatus;
-		res = r->dmi_read(target, &dmstatus, DM_DMSTATUS);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to read DMSTATUS (%d)!", res);
-		} else {
-			uint32_t strap_reg;
-			LOG_DEBUG("Core is out of reset: dmstatus 0x%x", dmstatus);
-			esp32c6->was_reset = false;
-			res = target_read_u32(target, ESP32C6_GPIO_STRAP_REG, &strap_reg);
-			if (res != ERROR_OK) {
-				LOG_WARNING("Failed to read ESP32C6_GPIO_STRAP_REG (%d)!", res);
-				strap_reg = ESP32C6_FLASH_BOOT_MODE;
-			}
-			uint32_t reset_buffer = 0;
-			res = target_read_u32(target,
-				ESP32C6_RTCCNTL_RESET_STATE_REG,
-				&reset_buffer);
-			if (res != ERROR_OK) {
-				LOG_WARNING("Failed to read read reset cause register (%d)!", res);
-			} else {
-				LOG_INFO("Reset cause (%ld) - (%s)",
-					(ESP32C6_RESET_CAUSE(reset_buffer)),
-					esp32c6_get_reset_reason((reset_buffer)));
-			}
-
-			if (ESP32C6_IS_FLASH_BOOT(strap_reg) &&
-				get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
-				LOG_DEBUG("Halt core");
-				res = esp_riscv_core_halt(target);
-				if (res == ERROR_OK) {
-					res = esp32c6_wdt_disable(target);
-					if (res != ERROR_OK)
-						LOG_ERROR("Failed to disable WDTs (%d)!", res);
-				} else {
-					LOG_ERROR("Failed to halt core (%d)!", res);
-				}
-			}
-			if (esp32c6->esp_riscv.semi_ops->post_reset)
-				esp32c6->esp_riscv.semi_ops->post_reset(target);
-			/* Clear memory which is used by RTOS layer to get the task count */
-			if (target->rtos && target->rtos->type->post_reset_cleanup) {
-				res = (*target->rtos->type->post_reset_cleanup)(target);
-				if (res != ERROR_OK)
-					LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
-			}
-			/* clear previous apptrace ctrl_addr to avoid invalid tracing control block usage in the long
-			 *run. */
-			esp32c6->esp_riscv.apptrace.ctrl_addr = 0;
-
-			if (ESP32C6_IS_FLASH_BOOT(strap_reg)) {
-				/* enable ebreaks */
-				res = esp_riscv_core_ebreaks_enable(target);
-				if (res != ERROR_OK)
-					LOG_ERROR("Failed to enable EBREAKS handling (%d)!", res);
-				if (get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
-					LOG_DEBUG("Resume core");
-					res = esp_riscv_core_resume(target);
-					if (res != ERROR_OK)
-						LOG_ERROR("Failed to resume core (%d)!", res);
-					LOG_DEBUG("resumed core");
-				}
-			}
-		}
-	}
-	return riscv_openocd_poll(target);
 }
 
 static const struct command_registration esp32c6_command_handlers[] = {
@@ -377,10 +278,10 @@ struct target_type esp32c6_target = {
 	.target_create = esp32c6_target_create,
 	.init_target = esp32c6_init_target,
 	.deinit_target = esp_riscv_deinit_target,
-	.examine = esp32c6_examine,
+	.examine = esp_riscv_examine,
 
 	/* poll current target status */
-	.poll = esp32c6_poll,
+	.poll = esp_riscv_poll,
 
 	.halt = riscv_halt,
 	.resume = esp_riscv_resume,

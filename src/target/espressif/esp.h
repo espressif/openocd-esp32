@@ -11,6 +11,11 @@
 #include <stdint.h>
 #include "flash/nor/esp_flash.h"
 
+#define IS_1XXX(v)		(((v) & 0x08) == 0x08)
+#define IS_0100(v)      (((v) & 0x0f) == 0x04)
+
+#define ESP_FLASH_BOOT_MODE	0x08
+
 /* must be in sync with ESP-IDF version */
 /** Size of the pre-compiled target buffer for stub trampoline.
  * @note Must be in sync with ESP-IDF version */
@@ -38,6 +43,7 @@ enum esp_dbg_stub_id {
 
 #define ESP_DBG_STUB_MAGIC_NUM_VAL      0xFEEDBEEF
 #define ESP_DBG_STUB_CAP_GCOV_THREAD    (1 << 0)
+
 
 /**
  * Debug stubs descriptor. ID: ESP_DBG_STUB_DESC
@@ -133,5 +139,10 @@ int esp_dbgstubs_table_read(struct target *target, struct esp_dbg_stubs *dbg_stu
 
 void esp_common_assist_debug_monitor_disable(struct target *target, uint32_t address, uint32_t *value);
 void esp_common_assist_debug_monitor_restore(struct target *target, uint32_t address, uint32_t value);
+
+static inline bool esp_is_flash_boot(uint32_t strap_reg)
+{
+	return (IS_1XXX(strap_reg) || IS_0100(strap_reg));
+}
 
 #endif	/* OPENOCD_TARGET_ESP_H */
