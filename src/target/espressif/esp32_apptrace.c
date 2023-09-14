@@ -1780,12 +1780,13 @@ static int esp_gcov_fopen(struct esp32_gcov_cmd_data *cmd_data,
 		LOG_ERROR("Failed to alloc memory for file name!");
 		return ERROR_FAIL;
 	}
-	LOG_INFO("Open file 0x%x '%s'", fd + 1, fname);
+	LOG_INFO("Open file 0x%x '%s' mode '%s'", fd + 1, fname, mode);
 	cmd_data->files[fd] = fopen(fname, mode);
 	if (!cmd_data->files[fd]) {
 		/* do not report error on reading non-existent file */
 		if (errno != ENOENT || strchr(mode, 'r') == NULL)
 			LOG_ERROR("Failed to open file '%s', mode '%s' (%d)!", fname, mode, errno);
+		errno = 0;
 		fd = 0;
 	} else {
 		fd++;	/* 1-based, 0 indicates error */
@@ -1821,6 +1822,7 @@ static int esp_gcov_fclose(struct esp32_gcov_cmd_data *cmd_data,
 	}
 	uint32_t fd;
 	memcpy(&fd, data, sizeof(fd));
+	LOG_INFO("Close file 0x%x", fd);
 	fd--;
 	if (fd >= ESP_GCOV_FILES_MAX_NUM) {
 		LOG_ERROR("Invalid file desc received 0x%x!", fd);
@@ -1910,6 +1912,13 @@ static int esp_gcov_fread(struct esp32_gcov_cmd_data *cmd_data,
 		LOG_ERROR("FREAD for not open file!");
 		return ERROR_FAIL;
 	}
+
+	/* get the file size and leave the file in the original position */
+	long fpos = ftell(cmd_data->files[fd]);
+	fseek(cmd_data->files[fd], 0, SEEK_END);
+	long fsize = ftell(cmd_data->files[fd]);
+	fseek(cmd_data->files[fd], fpos, SEEK_SET);
+
 	uint32_t len;
 	memcpy(&len, data + sizeof(fd), sizeof(len));
 
@@ -1919,9 +1928,11 @@ static int esp_gcov_fread(struct esp32_gcov_cmd_data *cmd_data,
 		LOG_ERROR("Failed to alloc mem for resp!");
 		return ERROR_FAIL;
 	}
+
 	fret = fread(*resp + sizeof(fret), 1, len, cmd_data->files[fd]);
-	if (fret == 0)
-		LOG_ERROR("Failed to read %d byte (%d)!", len, errno);
+	/* GCC tries to read an empty file before writing to it. In that case don't show an error to the users */
+	if (fsize != 0 && fret == 0)
+		LOG_ERROR("Failed to read %d byte (%d) from fd 0x%x", len, errno, fd + 1);
 	*resp_len = sizeof(fret) + fret;
 	memcpy(*resp, &fret, sizeof(fret));
 
@@ -2056,6 +2067,8 @@ static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 		LOG_ERROR("Too small data length %d!", data_len);
 		return ERROR_FAIL;
 	}
+
+	LOG_DEBUG("Apptrace FCMD: 0x%x", *data);
 
 	switch (*data) {
 	case ESP_APPTRACE_FILE_CMD_FOPEN:
