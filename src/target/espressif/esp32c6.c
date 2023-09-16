@@ -241,7 +241,7 @@ static int esp32c6_init_target(struct command_context *cmd_ctx,
 
 	target->semihosting->user_command_extension = esp_semihosting_common;
 
-	struct esp_riscv_common *esp_riscv = calloc(1, sizeof(*esp_riscv));
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 
 	ret = esp_riscv_init_arch_info(cmd_ctx,
 		target,
