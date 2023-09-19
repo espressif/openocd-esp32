@@ -80,8 +80,8 @@ struct esp_dbg_stubs {
 	struct esp_dbg_stubs_desc desc;
 };
 
-struct esp_pseudo_ex_reason {
-	target_addr_t addr;
+struct esp_panic_reason {
+	uint32_t addr;
 	uint32_t len;
 };
 
@@ -118,7 +118,7 @@ struct esp_common {
 	struct esp_flash_breakpoints flash_brps;
 	const struct algorithm_hw *algo_hw;
 	struct esp_dbg_stubs dbg_stubs;
-	struct esp_pseudo_ex_reason pseudo_ex_reason;
+	struct esp_panic_reason panic_reason;
 };
 
 struct esp_ops {

@@ -307,8 +307,8 @@ int esp_semihosting_common(struct target *target)
 		if (retval == ERROR_OK) {
 			struct esp_common *esp = target_to_esp_common(target);
 			if (esp) {
-				esp->pseudo_ex_reason.addr = semihosting_get_field(target, 0, fields);
-				esp->pseudo_ex_reason.len = semihosting_get_field(target, 1, fields);
+				esp->panic_reason.addr = semihosting_get_field(target, 0, fields);
+				esp->panic_reason.len = semihosting_get_field(target, 1, fields);
 			}
 		}
 		break;
