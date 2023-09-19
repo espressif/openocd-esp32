@@ -1586,7 +1586,7 @@ static int wait_for_authbusy(struct target *target, uint32_t *dmstatus)
 	return ERROR_OK;
 }
 
-static int set_dcsr_ebreak(struct target *target, bool step)
+int set_dcsr_ebreak(struct target *target, bool step)
 {
 	LOG_TARGET_DEBUG(target, "Set dcsr.ebreak*");
 
@@ -2526,7 +2526,6 @@ static int riscv013_get_hart_state(struct target *target, enum riscv_hart_state 
 		if (target->state != TARGET_RESET)
 			/* warn for "unexpected" reset when it is not requested by user */
 			LOG_TARGET_INFO(target, "Hart unexpectedly reset!");
-		/* TODO: Espressif: remove custom ebreak set functions from the targets */
 		info->dcsr_ebreak_is_set = false;
 		/* TODO: Can we make this more obvious to eg. a gdb user? */
 		uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE |
