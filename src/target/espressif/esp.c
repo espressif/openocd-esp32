@@ -270,15 +270,15 @@ void esp_common_assist_debug_monitor_restore(struct target *target, uint32_t add
 int esp_common_read_pseudo_ex_reason(struct target *target)
 {
 	struct esp_common *esp = target_to_esp_common(target);
-	if (esp && esp->pseudo_ex_reason.addr) {
-		uint8_t str[esp->pseudo_ex_reason.len + 1];
+	if (esp && esp->panic_reason.addr) {
+		uint8_t str[esp->panic_reason.len + 1];
 		memset(str, 0x00, sizeof(str));
-		int retval = target_read_memory(target, esp->pseudo_ex_reason.addr, 1, esp->pseudo_ex_reason.len, str);
+		int retval = target_read_memory(target, esp->panic_reason.addr, 1, esp->panic_reason.len, str);
 		if (retval == ERROR_OK)
 			LOG_TARGET_INFO(target, "Halt cause (%s)", str);
 		else
 			LOG_TARGET_ERROR(target, "Pseudo exception reason read failed (%d)", retval);
-		esp->pseudo_ex_reason.addr = 0;
+		esp->panic_reason.addr = 0;
 		return ERROR_OK;
 	}
 
