@@ -21,6 +21,17 @@
 #include "esp_riscv_apptrace.h"
 #include "esp_riscv.h"
 
+/* ESP32-P4 WDT */
+#define ESP32P4_WDT_WKEY_VALUE                  0x50d83aa1
+#define ESP32P4_TIMG0_BASE                      0x500C2000
+#define ESP32P4_TIMG1_BASE                      0x500C3000
+#define ESP32P4_TIMGWDT_CFG_OFF                 0x48
+#define ESP32P4_TIMGWDT_PROTECT_OFF             0x64
+#define ESP32P4_TIMG0WDT_CFG0                   (ESP32P4_TIMG0_BASE + ESP32P4_TIMGWDT_CFG_OFF)
+#define ESP32P4_TIMG1WDT_CFG0                   (ESP32P4_TIMG1_BASE + ESP32P4_TIMGWDT_CFG_OFF)
+#define ESP32P4_TIMG0WDT_PROTECT                (ESP32P4_TIMG0_BASE + ESP32P4_TIMGWDT_PROTECT_OFF)
+#define ESP32P4_TIMG1WDT_PROTECT                (ESP32P4_TIMG1_BASE + ESP32P4_TIMGWDT_PROTECT_OFF)
+
 /* boot mode */
 #define ESP32P4_GPIO_BASE						(0x500C0000 + 0x20000)
 #define ESP32P4_GPIO_STRAP_REG_OFF              0x0038
@@ -41,7 +52,6 @@ enum esp32p4_reset_reason {
 	ESP32P4_CHIP_POWER_ON_RESET   = 0x01,	/* Power on reset */
 	ESP32P4_CORE_SW_RESET         = 0x03,	/* Software resets the digital core */
 	ESP32P4_SYS_PMU_PWR_DOWN_RESET = 0x05,	/* PMU HP power down system reset */
-	ESP32P4_CPU_PMU_PWR_DOWN_RESET = 0x06,	/* PMU HP power down CPU reset */
 	ESP32P4_SYS_HP_WDT_RESET      = 0x07,	/* HP WDT resets system */
 	ESP32P4_SYS_LP_WDT_RESET      = 0x09,	/* LP WDT resets system */
 	ESP32P4_CORE_HP_WDT_RESET     = 0x0B,	/* HP WDT resets digital core */
@@ -55,6 +65,7 @@ enum esp32p4_reset_reason {
 	ESP32P4_CORE_USB_JTAG_RESET   = 0x16,	/* USB JTAG resets the digital core */
 	ESP32P4_CORE_USB_UART_RESET   = 0x17,	/* UART resets the digital core */
 	ESP32P4_CPU_JTAG_RESET        = 0x18,	/* JTAG resets the digital core */
+	ESP32P4_CPU_LOCKUP_RESET      = 0x1A,	/* Cpu lockup resets the chip */
 };
 
 static const char *esp32p4_get_reset_reason(int reset_number)
@@ -66,8 +77,6 @@ static const char *esp32p4_get_reset_reason(int reset_number)
 		return "Software core reset";
 	case ESP32P4_SYS_PMU_PWR_DOWN_RESET:
 		return "PMU HP power down system reset";
-	case ESP32P4_CPU_PMU_PWR_DOWN_RESET:
-		return "PMU HP power down CPU reset";
 	case ESP32P4_SYS_HP_WDT_RESET:
 		return "HP WDT resets system";
 	case ESP32P4_SYS_LP_WDT_RESET:
@@ -94,13 +103,36 @@ static const char *esp32p4_get_reset_reason(int reset_number)
 		return "UART resets the digital core";
 	case ESP32P4_CPU_JTAG_RESET:
 		return "JTAG CPU reset";
+	case ESP32P4_CPU_LOCKUP_RESET:
+		return "CPU Lockup reset";
 	}
 	return "Unknown reset cause";
 }
 
 static int esp32p4_wdt_disable(struct target *target)
 {
-	/* TODO: not implemented yet */
+	/* TIMG0 WDT */
+	int res = target_write_u32(target, ESP32P4_TIMG0WDT_PROTECT, ESP32P4_WDT_WKEY_VALUE);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32P4_TIMG0WDT_PROTECT (%d)!", res);
+		return res;
+	}
+	res = target_write_u32(target, ESP32P4_TIMG0WDT_CFG0, 0);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32P4_TIMG0WDT_CFG0 (%d)!", res);
+		return res;
+	}
+	/* TIMG1 WDT */
+	res = target_write_u32(target, ESP32P4_TIMG1WDT_PROTECT, ESP32P4_WDT_WKEY_VALUE);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32P4_TIMG1WDT_PROTECT (%d)!", res);
+		return res;
+	}
+	res = target_write_u32(target, ESP32P4_TIMG1WDT_CFG0, 0);
+	if (res != ERROR_OK) {
+		LOG_ERROR("Failed to write ESP32P4_TIMG1WDT_CFG0 (%d)!", res);
+		return res;
+	}
 	return ERROR_OK;
 }
 
