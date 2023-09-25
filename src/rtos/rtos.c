@@ -82,6 +82,7 @@ static void os_free(struct target *target)
 		return;
 
 	free(target->rtos->symbols);
+	rtos_free_threadlist(target->rtos);
 	free(target->rtos);
 
 	/* For ESP chips there is one rtos instance for both target */
