@@ -39,6 +39,7 @@ option(BUILD_SANITIZERS "Build support with the sanitizer flags" OFF)
 
 # USB1 Adapters #TODO check default values
 option(BUILD_FTDI "MPSSE mode of FTDI based devices" ON)
+option(BUILD_CH347 "Mode 3 of the CH347 devices" ON)
 option(BUILD_HLADAPTER_STLINK "ST-Link Programmer" ON)
 option(BUILD_HLADAPTER_ICDI "TI ICDI JTAG Programmer" ON)
 option(BUILD_ULINK "Keil ULINK JTAG Programmer" ON)

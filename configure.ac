@@ -116,6 +116,7 @@ m4_define([ADAPTER_OPT], [m4_translit(ADAPTER_ARG($1), [_], [-])])
 
 m4_define([USB1_ADAPTERS],
 	[[[ftdi], [MPSSE mode of FTDI based devices], [FTDI]],
+  [[ch347], [Mode 3 of the CH347 devices], [CH347]],
 	[[stlink], [ST-Link Programmer], [HLADAPTER_STLINK]],
 	[[ti_icdi], [TI ICDI JTAG Programmer], [HLADAPTER_ICDI]],
 	[[ulink], [Keil ULINK JTAG Programmer], [ULINK]],
@@ -393,6 +394,10 @@ AC_ARG_ENABLE([remote-bitbang],
   AS_HELP_STRING([--enable-remote-bitbang], [Enable building support for the Remote Bitbang jtag driver]),
   [build_remote_bitbang=$enableval], [build_remote_bitbang=no])
 
+AC_ARG_ENABLE([ch347],
+  AS_HELP_STRING([--enable-ch347], [Enable building support for CH347]),
+  [build_ch347=$enableval], [build_ch347=no])
+
 AS_CASE(["${host_cpu}"],
   [i?86|x86*], [],
   [
@@ -643,6 +648,12 @@ AS_IF([test "x$build_gcov" = "xyes"], [
   AC_DEFINE([BUILD_GCOV], [0], [0 if you don't want OpenOCD source code coverage support.])
 ])
 
+AS_IF([test "x$build_ch347" = "xyes"], [
+  AC_DEFINE([BUILD_CH347], [1], [1 if you want CH347.])
+], [
+  AC_DEFINE([BUILD_CH347], [0], [0 if you don't want CH347.])
+])
+
 PKG_CHECK_MODULES([LIBUSB1], [libusb-1.0], [
 	use_libusb1=yes
 	AC_DEFINE([HAVE_LIBUSB1], [1], [Define if you have libusb-1.x])
@@ -803,6 +814,8 @@ AM_CONDITIONAL([BUILD_ESP_REMOTE], [test "x$build_esp_remote" = "xyes"])
 AM_CONDITIONAL([BUILD_ESP_COMPRESSION], [test "x$build_esp_compression" = "xyes"])
 
 AM_CONDITIONAL([BUILD_GCOV], [test "x$build_gcov" = "xyes"])
+
+AM_CONDITIONAL([BUILD_CH347], [test "x$build_ch347" = "xyes"])
 
 # Look for environ alternatives.  Possibility #1: is environ in unistd.h or stdlib.h?
 AC_MSG_CHECKING([for environ in unistd.h and stdlib.h])

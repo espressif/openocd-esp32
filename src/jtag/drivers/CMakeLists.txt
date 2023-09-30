@@ -232,6 +232,10 @@ if(IS_ESPIDF)
     target_link_libraries(ocdjtagdrivers PRIVATE idf::driver)
 endif()
 
+if(BUILD_CH347)
+    target_sources(ocdjtagdrivers PRIVATE ch347.c)
+endif()
+
 target_sources(ocdjtagdrivers PRIVATE
     bitbang.h
     bitq.h

@@ -1,0 +1,59 @@
+name: OpenOCD EasyDevKits CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build-linux:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install dependencies
+      run: sudo apt-get -y install libusb-1.0
+    - name: Bootstrap
+      run: ./bootstrap
+    - name: Configure
+      run: ./configure
+    - name: Make
+      run: make
+    - name: Create package
+      run: make DESTDIR=/tmp install
+    - uses: actions/upload-artifact@v3
+      with:
+        name: openocd-easydevkits-linux
+        path: /tmp/usr/local
+
+  build-windows:
+
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: msys2 {0}
+    
+    steps:
+    - uses: actions/checkout@v3
+    - uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW32
+        update: true
+        #for MINGW64 but not working - install: base-devel mingw-w64-x86_64-toolchain git libtool pkg-config autoconf automake texinfo mingw-w64-x86_64-libusb
+        install: base-devel mingw-w64-i686-gcc mingw-w64-i686-toolchain git libtool pkg-config autoconf automake texinfo mingw-w64-i686-libusb
+
+    - name: Bootstrap
+      run: ./bootstrap
+    - name: Configure
+      run: ./configure
+    - name: Make
+      run: make
+    - name: Create package
+      run: make DESTDIR=/tmp install
+    - uses: actions/upload-artifact@v3
+      with:
+        name: openocd-easydevkits-windows
+        path: D:\a\_temp\msys64\tmp\mingw32
