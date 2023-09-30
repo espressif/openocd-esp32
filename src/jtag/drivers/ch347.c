@@ -153,6 +153,8 @@ typedef struct _CH347_info /* Record the CH347 pin status */
 int DevIsOpened; /* Whether the device is turned on */
 bool UsbHighDev = true;
 unsigned long USBC_PACKET;
+static uint8_t ch347_activity_led_gpio_pin = 0xFF;
+static bool ch347_activity_led_active_high = false;
 
 typedef struct _CH347_SWD_IO {
 	uint8_t usbcmd; /* 0xA0、0xA1、0xA2 */
@@ -240,8 +242,6 @@ struct libusb_device_handle *ch347_handle;
 static uint16_t ch347_vids[] = {0x1a86, 0};
 static uint16_t ch347_pids[] = {0x55dd, 0};
 static char *ch347_device_desc = NULL;
-static uint8_t ch347_activity_led_gpio_pin = 0xFF;
-static bool ch347_activity_led_active_high = false;
 
 static uint32_t CH347OpenDevice(uint64_t iIndex)
 {
