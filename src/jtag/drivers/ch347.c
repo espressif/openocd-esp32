@@ -234,12 +234,14 @@ bool ugOpen;
 unsigned long ugIndex;
 struct libusb_device_handle *ch347_handle;
 
-static const uint16_t ch347_vids[] = {0x1a86, 0};
-static const uint16_t ch347_pids[] = {0x55dd, 0};
+static uint16_t ch347_vids[] = {0x1a86, 0};
+static uint16_t ch347_pids[] = {0x55dd, 0};
+static char *ch347_device_desc = NULL;
+static uint8_t ch347_activity_led_gpio_pin = 0xFF;
 
 static uint32_t CH347OpenDevice(uint64_t iIndex)
 {
-	if (jtag_libusb_open(ch347_vids, ch347_pids,
+	if (jtag_libusb_open(ch347_vids, ch347_pids, ch347_device_desc,
 			     &ch347_handle, NULL) != ERROR_OK) {
 		return false;
 	} else {
@@ -1293,7 +1295,14 @@ static int ch347_trst_out(unsigned char status)
 
 COMMAND_HANDLER(ch347_handle_vid_pid_command)
 {
-	/* TODO */
+	if (CMD_ARGC != 2) {
+		LOG_WARNING("incomplete ch347 vid_pid configuration directive");
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+
+	COMMAND_PARSE_NUMBER(u16, CMD_ARGV[0], ch347_vids[0]);
+	COMMAND_PARSE_NUMBER(u16, CMD_ARGV[1], ch347_pids[0]);
+	
 	return ERROR_OK;
 }
 
@@ -1305,13 +1314,36 @@ COMMAND_HANDLER(ch347_trst)
 	return ERROR_OK;
 }
 
+COMMAND_HANDLER(ch347_handle_device_desc_command)
+{
+	if (CMD_ARGC == 1) {
+		if (ch347_device_desc != NULL)
+			free(ch347_device_desc);
+		ch347_device_desc = strdup(CMD_ARGV[0]);
+	} else {
+		LOG_ERROR("expected exactly one argument to ch347 device_desc <description>");
+	}
+	
+	return ERROR_OK;
+}
+
+COMMAND_HANDLER(ch347_handle_activity_led_command)
+{
+	if (CMD_ARGC != 1)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	COMMAND_PARSE_NUMBER(u8, CMD_ARGV[0], ch347_activity_led_gpio_pin);
+	
+	return ERROR_OK;
+}
+
 static const struct command_registration ch347_subcommand_handlers[] = {
 	{
 		.name = "vid_pid",
 		.handler = &ch347_handle_vid_pid_command,
 		.mode = COMMAND_CONFIG,
-		.help = "",
-		.usage = "",
+		.help = "the vendor ID and product ID of the CH347 device",
+		.usage = "(vid pid)*",
 	},
 	{
 		.name = "jtag_ntrst_delay",
@@ -1319,6 +1351,20 @@ static const struct command_registration ch347_subcommand_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "set the trst of the CH347 device that is used as JTAG",
 		.usage = "[milliseconds]",
+	},
+	{
+		.name = "device_desc",
+		.handler = &ch347_handle_device_desc_command,
+		.mode = COMMAND_CONFIG,
+		.help = "set the USB device description of the CH347 device",
+		.usage = "description_string",
+	},
+	{
+		.name = "activity_led",
+		.handler = &ch347_handle_activity_led_command,
+		.mode = COMMAND_CONFIG,
+		.help = "if set this CH347 GPIO pin is the JTAG activity LED; e.g. 4",
+		.usage = "",
 	},
 
 	COMMAND_REGISTRATION_DONE};
