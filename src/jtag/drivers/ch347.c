@@ -74,6 +74,8 @@
 #define TCK_L               0
 #define TRST_H              JTAGIO_STA_OUT_TRST
 #define TRST_L              0
+#define LED_ON				1
+#define LED_OFF				0
 
 #define KHZ(n) ((n)*UINT64_C(1000))
 #define MHZ(n) ((n)*UINT64_C(1000000))
@@ -90,7 +92,6 @@
 					      package length */
 #define CH347_CMD_HEADER             3     /* Protocol header length */
 
-#define CH347_CMD_HEADER 3 /* 协议包头长度 */
 /* Protocol transmission format: CMD (1 byte)+Length (2 bytes)+Data */
 #define CH347_CMD_INFO_RD            0xCA /* Parameter acquisition, used to
 					     obtain firmware version,
@@ -132,6 +133,8 @@ typedef struct _CH347_info /* Record the CH347 pin status */
 	int TDI;
 	int TCK;
 	int TRST;
+	
+	int activity_led;
 
 	int buffer_idx;
 	uint8_t buffer[SF_PACKET_BUF_SIZE];
@@ -238,6 +241,7 @@ static uint16_t ch347_vids[] = {0x1a86, 0};
 static uint16_t ch347_pids[] = {0x55dd, 0};
 static char *ch347_device_desc = NULL;
 static uint8_t ch347_activity_led_gpio_pin = 0xFF;
+static bool ch347_activity_led_active_high = false;
 
 static uint32_t CH347OpenDevice(uint64_t iIndex)
 {
@@ -341,6 +345,15 @@ static char *HexToString(uint8_t *buf, uint32_t size)
 	for (i = 0; i < size; i++)
 		sprintf(str + 2 * i, "%02x ", buf[i]);
 	return str;
+}
+
+static void CH347_SetActivityLed(int ledState)
+{
+	if (ch347_activity_led_gpio_pin != 0xff)
+	{
+		ch347.activity_led = ch347_activity_led_active_high == true ? ledState : 1 - ledState;
+		// TODO: output LED here
+	}
 }
 
 /**
@@ -651,6 +664,8 @@ static void CH347_TMS(struct tms_command *cmd)
 static int ch347_reset(int trst, int srst)
 {
 	LOG_DEBUG_IO("reset trst: %i srst %i", trst, srst);
+	CH347_SetActivityLed(LED_OFF);
+	
 #if 1
 	unsigned char BitBang[512] = "", BII, i;
 	unsigned long TxLen;
@@ -1032,6 +1047,8 @@ static int ch347_execute_queue(void)
 	struct jtag_command *cmd;
 	int ret = ERROR_OK;
 
+	CH347_SetActivityLed(LED_ON);
+
 	for (cmd = jtag_command_queue; ret == ERROR_OK && cmd;
 	     cmd = cmd->next) {
 		switch (cmd->type) {
@@ -1072,6 +1089,7 @@ static int ch347_execute_queue(void)
 	}
 
 	CH347_Flush_Buffer();
+	CH347_SetActivityLed(LED_OFF);
 	return ret;
 }
 
@@ -1158,6 +1176,9 @@ static int ch347_init(void)
  */
 static int ch347_quit(void)
 {
+	// on close set the LED on, because the state without JTAG is on
+	CH347_SetActivityLed(LED_ON);
+
 	unsigned long retlen = 4;
 	uint8_t byte[4] = {CH347_CMD_JTAG_BIT_OP, 0x01, 0x00, ch347.TRST};
 	if (!swd_mode) {
@@ -1332,7 +1353,14 @@ COMMAND_HANDLER(ch347_handle_activity_led_command)
 	if (CMD_ARGC != 1)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 
-	COMMAND_PARSE_NUMBER(u8, CMD_ARGV[0], ch347_activity_led_gpio_pin);
+	if (CMD_ARGV[0][0] == 'n') {
+		COMMAND_PARSE_NUMBER(u8, ++CMD_ARGV[0], ch347_activity_led_gpio_pin);
+		ch347_activity_led_active_high = false;
+		CMD_ARGV[0]--;
+	} else {
+		COMMAND_PARSE_NUMBER(u8, CMD_ARGV[0], ch347_activity_led_gpio_pin);
+		ch347_activity_led_active_high = true;
+	}
 	
 	return ERROR_OK;
 }
@@ -1363,8 +1391,8 @@ static const struct command_registration ch347_subcommand_handlers[] = {
 		.name = "activity_led",
 		.handler = &ch347_handle_activity_led_command,
 		.mode = COMMAND_CONFIG,
-		.help = "if set this CH347 GPIO pin is the JTAG activity LED; e.g. 4",
-		.usage = "",
+		.help = "if set this CH347 GPIO pin is the JTAG activity LED; start with n for active low output",
+		.usage = "n4 or 4",
 	},
 
 	COMMAND_REGISTRATION_DONE};
