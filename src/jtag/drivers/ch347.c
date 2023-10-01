@@ -76,6 +76,8 @@
 #define TRST_L              0
 #define LED_ON				1
 #define LED_OFF				0
+#define GPIO_CNT	   		8	/* the CH347 has 8 GPIO's */
+#define USEABLE_GPIOS	   	0x10 /* mask which GPIO's are available in mode 3 of CH347 - needs more investigation: to ba save only GPIO4 (Pin15 / ACT) is possible */
 
 #define KHZ(n) ((n)*UINT64_C(1000))
 #define MHZ(n) ((n)*UINT64_C(1000000))
@@ -91,12 +93,15 @@
 #define USBC_PACKET_USBHS_SINGLE     510   /* usb high speed max
 					      package length */
 #define CH347_CMD_HEADER             3     /* Protocol header length */
+#define CH347_GPIO_CMD_LENGTH 		 (CH347_CMD_HEADER + GPIO_CNT)	/* fixed length of the GPIO control command*/
 
 /* Protocol transmission format: CMD (1 byte)+Length (2 bytes)+Data */
 #define CH347_CMD_INFO_RD            0xCA /* Parameter acquisition, used to
 					     obtain firmware version,
 					     JTAG interface related parameters,
 					     etc */
+#define CH347_CMD_GPIO 				 0xCC /* GPIO Command */
+
 #define CH347_CMD_JTAG_INIT          0xD0 /* JTAG Interface Initialization
 					     Command */
 #define CH347_CMD_JTAG_BIT_OP        0xD1 /* JTAG interface pin bit control
@@ -134,8 +139,6 @@ typedef struct _CH347_info /* Record the CH347 pin status */
 	int TCK;
 	int TRST;
 	
-	int activity_led;
-
 	int buffer_idx;
 	uint8_t buffer[SF_PACKET_BUF_SIZE];
 
@@ -345,15 +348,6 @@ static char *HexToString(uint8_t *buf, uint32_t size)
 	for (i = 0; i < size; i++)
 		sprintf(str + 2 * i, "%02x ", buf[i]);
 	return str;
-}
-
-static void CH347_SetActivityLed(int ledState)
-{
-	if (ch347_activity_led_gpio_pin != 0xff)
-	{
-		ch347.activity_led = ch347_activity_led_active_high == true ? ledState : 1 - ledState;
-		// TODO: output LED here
-	}
 }
 
 /**
@@ -653,6 +647,41 @@ static void CH347_TMS(struct tms_command *cmd)
 {
 	LOG_DEBUG_IO("(step: %d)", cmd->num_bits);
 	CH347_TmsChange(cmd->bits, cmd->num_bits, 0);
+}
+
+static void CH347_GpioSet(int gpio, int data)
+{
+	// build a gpio control command
+	long unsigned int cmdLength = CH347_GPIO_CMD_LENGTH;
+	uint8_t gpioCmd[CH347_GPIO_CMD_LENGTH];
+	memset(gpioCmd, 0, sizeof(gpioCmd));
+	gpioCmd[0] = CH347_CMD_GPIO;
+	gpioCmd[1] = GPIO_CNT;
+	gpioCmd[2] = 0;
+	// always set bits 7 and 6 for GPIO enable and bits 5 and 4 for pin direction output
+	// bit 3 is the data bit
+	gpioCmd[CH347_CMD_HEADER + gpio] = data == 0 ? 0xF0 : 0xF8;
+
+	if (!CH347_Write(gpioCmd, &cmdLength) && (cmdLength != CH347_GPIO_CMD_LENGTH)) {
+		LOG_ERROR("JTAG_Gpio send usb data failure.");
+		return;
+	}
+	else if (!CH347_Read(gpioCmd, &cmdLength) && (cmdLength != CH347_GPIO_CMD_LENGTH)) {
+		LOG_ERROR("JTAG_Gpio read usb data failure.");
+		return;
+	}
+	else if ((gpioCmd[CH347_CMD_HEADER + gpio] & 0x40) >> 6 != data) {
+		LOG_ERROR("JTAG_Gpio output not set.");
+		return;
+	}
+	return;
+}
+
+static void CH347_SetActivityLed(int ledState)
+{
+	if (ch347_activity_led_gpio_pin != 0xff) {
+		CH347_GpioSet(ch347_activity_led_gpio_pin, ch347_activity_led_active_high ? ledState : 1 - ledState);
+	}
 }
 
 /**
@@ -1353,13 +1382,24 @@ COMMAND_HANDLER(ch347_handle_activity_led_command)
 	if (CMD_ARGC != 1)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 
+	uint8_t gpio;
 	if (CMD_ARGV[0][0] == 'n') {
-		COMMAND_PARSE_NUMBER(u8, ++CMD_ARGV[0], ch347_activity_led_gpio_pin);
+		COMMAND_PARSE_NUMBER(u8, ++CMD_ARGV[0], gpio);
 		ch347_activity_led_active_high = false;
 		CMD_ARGV[0]--;
 	} else {
-		COMMAND_PARSE_NUMBER(u8, CMD_ARGV[0], ch347_activity_led_gpio_pin);
+		COMMAND_PARSE_NUMBER(u8, CMD_ARGV[0], gpio);
 		ch347_activity_led_active_high = true;
+	}
+
+	if (gpio >= GPIO_CNT) {
+		LOG_ERROR("activity_led out of range");
+	} 
+	else if (((1 << gpio) & USEABLE_GPIOS) == 0) {
+		LOG_ERROR("activity_led pin not in useable list");
+	}
+	else {
+		ch347_activity_led_gpio_pin = gpio;
 	}
 	
 	return ERROR_OK;
