@@ -77,7 +77,10 @@
 #define LED_ON				1
 #define LED_OFF				0
 #define GPIO_CNT	   		8	/* the CH347 has 8 GPIO's */
-#define USEABLE_GPIOS	   	0x10 /* mask which GPIO's are available in mode 3 of CH347 - needs more investigation: to ba save only GPIO4 (Pin15 / ACT) is possible */
+#define USEABLE_GPIOS	   	0x78 /* mask which GPIO's are available in mode 3 of CH347T
+								only GPIO3 (Pin11 / SCL), GPIO4 (Pin15 / ACT),
+								GPIO5 (Pin9 / TRST) and GPIO6 (Pin2 / CTS1) are possible
+								Tested only with CH347T not CH347F chip - pin numbers are for CH347T */
 
 #define KHZ(n) ((n)*UINT64_C(1000))
 #define MHZ(n) ((n)*UINT64_C(1000000))
