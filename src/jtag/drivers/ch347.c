@@ -82,6 +82,8 @@
 								GPIO5 (Pin9 / TRST) and GPIO6 (Pin2 / CTS1) are possible
 								Tested only with CH347T not CH347F chip - pin numbers are for CH347T */
 
+#define VENDOR_VERSION	0x5F
+
 #define KHZ(n) ((n)*UINT64_C(1000))
 #define MHZ(n) ((n)*UINT64_C(1000000))
 #define GHZ(n) ((n)*UINT64_C(1000000000))
@@ -244,19 +246,37 @@ pCH347WriteData CH347WriteData;
 
 #define CH347_EPOUT 0x06u
 #define CH347_EPIN  0x86u
+#define CH347_MPHSI_INTERFACE 2
 
 bool ugOpen;
 unsigned long ugIndex;
 struct libusb_device_handle *ch347_handle;
+uint32_t usb_write_timeout = 500;
+uint32_t usb_read_timeout = 500;
 
 static uint32_t CH347OpenDevice(uint64_t iIndex)
 {
-	if (jtag_libusb_open(ch347_vids, ch347_pids, ch347_device_desc,
-			     &ch347_handle, NULL) != ERROR_OK) {
+	if (jtag_libusb_open(ch347_vids, ch347_pids, ch347_device_desc, &ch347_handle, NULL) != ERROR_OK) {
+		LOG_ERROR("ch347 not found: vid=%04x, pid=%04x",  ch347_vids[0], ch347_pids[0]);
 		return false;
-	} else {
-		return true;
 	}
+
+	if (libusb_claim_interface(ch347_handle, CH347_MPHSI_INTERFACE)) {
+		LOG_ERROR("ch347 unable to claim interface");
+		return false;
+	}
+
+	char firmwareVersion;
+	if (jtag_libusb_control_transfer(ch347_handle,
+				LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_DEVICE,
+				VENDOR_VERSION, 0, 0, &firmwareVersion, sizeof(firmwareVersion), usb_write_timeout, NULL) != ERROR_OK)
+	{
+		LOG_ERROR("ch347 unable to get firmware version");
+		return false;
+	}
+
+	LOG_INFO("CH347 found (Firmware=0x%02X)", firmwareVersion);     
+	return true;
 }
 
 static bool CH347WriteData(uint64_t iIndex, uint8_t *data, uint64_t *length)
@@ -266,7 +286,7 @@ static bool CH347WriteData(uint64_t iIndex, uint8_t *data, uint64_t *length)
 				     CH347_EPOUT,
 				     (char *)data,
 				     *length,
-				     100, &tmp);
+				     usb_write_timeout, &tmp);
 	*length = tmp;
 
 	if (!ret)
@@ -284,7 +304,7 @@ static bool CH347ReadData(uint64_t iIndex, uint8_t *data, uint64_t *length)
 				    CH347_EPIN,
 				    (char *)data,
 				    size,
-				    100, &tmp);
+				    usb_read_timeout, &tmp);
 
 	*length = tmp;
 	if (!ret)
@@ -412,7 +432,7 @@ static int CH347_Read(void *oBuffer, unsigned long *ioLength)
 	while (1) {
 		if (!CH347ReadData(ugIndex, (uint8_t *)oBuffer + WI,
 				   &rlength)) {
-			LOG_ERROR("CH347_Read read data failure.");
+			LOG_ERROR("CH347 read fail");
 			return false;
 		}
 
@@ -445,7 +465,7 @@ static void CH347_Read_Scan(UCHAR *pBuffer, uint32_t length)
 	read_buf_index = 0;
 	read_buf = calloc(sizeof(unsigned char), read_size);
 	if (!CH347_Read(read_buf, &RxLen)) {
-		LOG_ERROR("CH347_Read read data failure.");
+		LOG_ERROR("CH347 read fail");
 		return;
 	}
 	while (index < read_size) { /* deal with the CH347_CMD_JTAG_BIT_OP_RD  or  CH347_CMD_JTAG_DATA_SHIFT_RD */
@@ -469,7 +489,7 @@ static void CH347_Read_Scan(UCHAR *pBuffer, uint32_t length)
 			read_buf_index += 1;
 			index += dataLen + 1;
 		} else {
-			LOG_ERROR("readbuf read_commend error");
+			LOG_ERROR("CH347 read command fail");
 			*(pBuffer + read_buf_index) = read_buf[index];
 			read_buf_index++;
 			index++;
@@ -696,35 +716,14 @@ static void CH347_SetActivityLed(int ledState)
 static int ch347_reset(int trst, int srst)
 {
 	LOG_DEBUG_IO("reset trst: %i srst %i", trst, srst);
-	CH347_SetActivityLed(LED_OFF);
+	// have seen in ftdi driver, that reset does only the reset via trst or srst pins.
+	// if both are unset the ftdi driver does nothing. => do also nothing if both are unset
+	if (!trst && !srst)
+		return ERROR_OK;
 	
-#if 1
-	unsigned char BitBang[512] = "", BII, i;
-	unsigned long TxLen;
-
-	BII = CH347_CMD_HEADER;
-	for (i = 0; i < 7; i++) {
-		BitBang[BII++] = TMS_H | TDI_L | TCK_L;
-		BitBang[BII++] = TMS_H | TDI_L | TCK_H;
-	}
-	BitBang[BII++] = TMS_H | TDI_L | TCK_L;
-
-	ch347.TCK = TCK_L;
-	ch347.TDI = TDI_L;
-	ch347.TMS = 0;
-
-	BitBang[0] = CH347_CMD_JTAG_BIT_OP;
-	BitBang[1] = BII - CH347_CMD_HEADER;
-	BitBang[2] = 0;
-
-	TxLen = BII;
-
-	if (!CH347_Write(BitBang, &TxLen) && (TxLen != BII)) {
-		LOG_ERROR("JTAG_Init send usb data failure.");
-		return false;
-	}
-#else
-	if (!swd_mode && trst == 0) {
+	// untested! if not in swd mode and trst is defined we can give
+	// a 50µs pulse to the TRST pin via bit operations
+	if (!swd_mode && trst != 0) {
 
 		unsigned long int BI = 0;
 
@@ -737,7 +736,7 @@ static int ch347_reset(int trst, int srst)
 
 		CH347_Flush_Buffer();
 
-		Sleep(50);
+		usleep(50);
 
 		CH347_In_Buffer(CH347_CMD_JTAG_BIT_OP);
 		CH347_In_Buffer(0x01);
@@ -749,7 +748,6 @@ static int ch347_reset(int trst, int srst)
 		CH347_Flush_Buffer();
 		return ERROR_OK;
 	}
-#endif
 	return ERROR_OK;
 }
 
@@ -801,7 +799,8 @@ static void CH347_MoveState(tap_state_t state, int skip)
 
 	LOG_DEBUG_IO("(from %s to %s)", tap_state_name(tap_get_state()),
 		     tap_state_name(state));
-	if (tap_get_state() == state)
+	// don't do anything if we are already in the right state; but do execute always the TAP_RESET
+	if (tap_get_state() == state && state != TAP_RESET)
 		return;
 	tms_scan = tap_get_tms_path(tap_get_state(), state);
 	tms_len = tap_get_tms_path_len(tap_get_state(), state);
@@ -1080,7 +1079,7 @@ static int ch347_execute_queue(void)
 	int ret = ERROR_OK;
 
 	CH347_SetActivityLed(LED_ON);
-
+	
 	for (cmd = jtag_command_queue; ret == ERROR_OK && cmd;
 	     cmd = cmd->next) {
 		switch (cmd->type) {
@@ -1113,8 +1112,7 @@ static int ch347_execute_queue(void)
 			ret = CH347_Scan(cmd->cmd.scan);
 			break;
 		default:
-			LOG_ERROR("BUG: unknown JTAG command type 0x%X",
-				  cmd->type);
+			LOG_ERROR("BUG: unknown JTAG command type 0x%X", cmd->type);
 			ret = ERROR_FAIL;
 			break;
 		}
@@ -1162,15 +1160,14 @@ static int ch347_init(void)
 	DevIsOpened = CH347OpenDevice(ugIndex);
 	ugIndex = DevIsOpened;
 #endif
-	if (DevIsOpened == -1) {
-		LOG_ERROR("CH347 Open Error.");
+	if (DevIsOpened < 0) {
+		LOG_ERROR("CH347 open error");
 		return ERROR_FAIL;
 	} else {
-		LOG_INFO("CH347 Open Succ.");
+		LOG_DEBUG_IO("CH347 open success");
 	}
 
 	if (!swd_mode) {
-		USBC_PACKET = USBC_PACKET_USBHS;
 		/* ch347 init */
 		ch347.TCK = 0;
 		ch347.TMS = 0;
@@ -1189,13 +1186,11 @@ static int ch347_init(void)
 
 		bit_copy_queue_init(&ch347.read_queue);
 
-		/* CH347SetTimeout(ugIndex, 500, 500); */
-
 		tap_set_state(TAP_RESET);
 	} else { /* swd init */
-		CH347SWD_INIT(ugIndex, 1);
+		CH347SWD_INIT(ugIndex, 0);
 	}
-	return 0;
+	return ERROR_OK;
 }
 
 /**
@@ -1219,7 +1214,7 @@ static int ch347_quit(void)
 	}
 	if (DevIsOpened) {
 		CH347CloseDevice(ugIndex);
-		LOG_INFO("Close the CH347.");
+		LOG_DEBUG_IO("CH347 close");
 		DevIsOpened = false;
 	}
 	return 0;
@@ -1349,7 +1344,7 @@ static int ch347_trst_out(unsigned char status)
 COMMAND_HANDLER(ch347_handle_vid_pid_command)
 {
 	if (CMD_ARGC != 2) {
-		LOG_WARNING("incomplete ch347 vid_pid configuration directive");
+		LOG_ERROR("incomplete ch347 vid_pid configuration directive");
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
@@ -1375,6 +1370,7 @@ COMMAND_HANDLER(ch347_handle_device_desc_command)
 		ch347_device_desc = strdup(CMD_ARGV[0]);
 	} else {
 		LOG_ERROR("expected exactly one argument to ch347 device_desc <description>");
+		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 	
 	return ERROR_OK;
@@ -1397,9 +1393,11 @@ COMMAND_HANDLER(ch347_handle_activity_led_command)
 
 	if (gpio >= GPIO_CNT) {
 		LOG_ERROR("activity_led out of range");
+		return ERROR_COMMAND_SYNTAX_ERROR;
 	} 
 	else if (((1 << gpio) & USEABLE_GPIOS) == 0) {
 		LOG_ERROR("activity_led pin not in useable list");
+		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 	else {
 		ch347_activity_led_gpio_pin = gpio;
