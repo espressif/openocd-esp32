@@ -235,7 +235,7 @@ int esp_xtensa_reset_reason_read(struct target *target)
 		/* Can not call `target_wait_state` here because it will re-enter `esp_xtensa_poll` in waiting loop. So
 		 * implement our own waiting cycle. `xtensa_poll` does not call target state event handlers, so GDB will
 		 * not notice target state change. */
-		int64_t timeout = timeval_ms() + 100;
+		int64_t timeout = timeval_ms() + 200;
 		while (target->state != TARGET_HALTED) {
 			alive_sleep(10);
 			ret = xtensa_poll(target);
