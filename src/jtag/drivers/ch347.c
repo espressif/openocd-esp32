@@ -261,6 +261,13 @@ static uint32_t CH347OpenDevice(uint64_t iIndex)
 		return false;
 	}
 
+	struct libusb_device_descriptor ch347_device_descriptor;
+	libusb_get_device_descriptor(libusb_get_device(ch347_handle), &ch347_device_descriptor);
+	if (ch347_device_descriptor.bcdDevice < 0x241) {
+		LOG_ERROR("ch347 old version of the chip, JTAG not working. Need at least version 2.41.");
+		return false;
+	}
+
 	if (libusb_claim_interface(ch347_handle, CH347_MPHSI_INTERFACE)) {
 		LOG_ERROR("ch347 unable to claim interface");
 		return false;
@@ -275,7 +282,10 @@ static uint32_t CH347OpenDevice(uint64_t iIndex)
 		return false;
 	}
 
-	LOG_INFO("CH347 found (Firmware=0x%02X)", firmwareVersion);     
+	LOG_INFO("CH347 found (Chip version=%2X.%2X, Firmware=0x%02X)",
+		(ch347_device_descriptor.bcdDevice >> 8) & 0xFF,
+		ch347_device_descriptor.bcdDevice & 0xFF,
+		firmwareVersion);     
 	return true;
 }
 
