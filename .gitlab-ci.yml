@@ -369,7 +369,7 @@ update_idf_tools:
   allow_failure: true
   <<: *release_tag_filter
   variables:
-    TOOL_NAME: OpenOCD
+    TOOL_NAME: openocd
     TOOL_MEMBERS: openocd-esp32
     TOOL_VERSION: ${CI_COMMIT_TAG}
     TOOL_SHA256_URL: https://github.com/espressif/openocd-esp32/releases/download/${CI_COMMIT_TAG}/openocd-esp32-${CI_COMMIT_TAG}-checksum.sha256
