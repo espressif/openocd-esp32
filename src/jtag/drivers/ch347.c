@@ -183,58 +183,6 @@ static CH347_SWD_CONTEXT ch347_swd_context;
 static bool swd_mode;
 #pragma pack()
 
-#ifdef _WIN32
-#include <windows.h>
-
-typedef int(__stdcall  * pCH347OpenDevice)(unsigned long iIndex);
-
-typedef int(__stdcall * pCH347CloseDevice)(unsigned long iIndex);
-
-typedef unsigned long(__stdcall * pCH347SetTimeout)(
-	unsigned long iIndex,        /* Specify equipment serial number */
-	unsigned long iWriteTimeout, /* Specifies the timeout period for USB
-					write out data blocks, in milliseconds
-					mS, and 0xFFFFFFFF specifies no timeout
-					(default) */
-	unsigned long iReadTimeout); /* Specifies the timeout period for USB
-					reading data blocks, in milliseconds mS,
-					and 0xFFFFFFFF specifies no timeout
-					(default) */
-
-typedef unsigned long(__stdcall * pCH347WriteData)(
-	unsigned long iIndex,         /* Specify equipment serial number */
-	void *oBuffer,                /* Point to a buffer large enough to hold
-					 the descriptor */
-	unsigned long *ioLength);     /* Pointing to the length unit, the input
-					 is the length to be read, and the
-					 return is the actual read length */
-
-typedef unsigned long(__stdcall * pCH347ReadData)(
-	unsigned long iIndex,          /* Specify equipment serial number */
-	void *oBuffer,                 /* Point to a buffer large enough to
-					  hold the descriptor */
-	unsigned long *ioLength);      /* Pointing to the length unit, the input
-					  is the length to be read, and the
-					  return is the actual read length */
-
-typedef unsigned long(__stdcall * pCH347Jtag_INIT)(
-	unsigned long iIndex,         /* Specify equipment serial number */
-	unsigned char iClockRate);    /* Pointing to the length unit, the input
-					 is the length to be read, and the
-					 return is the actual read length */
-HMODULE uhModule;
-BOOL ugOpen;
-unsigned long ugIndex;
-pCH347OpenDevice CH347OpenDevice;
-pCH347CloseDevice CH347CloseDevice;
-pCH347SetTimeout CH347SetTimeout;
-pCH347ReadData CH347ReadData;
-pCH347WriteData CH347WriteData;
-/* pCH347Jtag_INIT CH347Jtag_INIT; */
-#elif defined(__linux__)
-
-#include <jtag/drivers/libusb_helper.h>
-
 #define CH347_EPOUT 0x06u
 #define CH347_EPIN  0x86u
 #define CH347_MPHSI_INTERFACE 2
@@ -324,8 +272,6 @@ static bool CH347CloseDevice(uint64_t iIndex)
 	return true;
 }
 
-#endif
-
 static int ch347_swd_run_queue(void);
 /* swd init func */
 static bool CH347SWD_INIT(uint64_t iIndex, uint8_t iClockRate)
@@ -343,7 +289,7 @@ static bool CH347SWD_INIT(uint64_t iIndex, uint8_t iClockRate)
 	cmdBuf[i++] = iClockRate; /* JTAG clock speed */
 	i += 3;                   /* Reserved Bytes */
 
-	unsigned long mLength = i;
+	uint64_t mLength = i;
 	if (!CH347WriteData(iIndex, cmdBuf, &mLength) || (mLength != i))
 		return false;
 
@@ -387,7 +333,7 @@ static char *HexToString(uint8_t *buf, uint32_t size)
 static int CH347_Write(void *oBuffer, unsigned long *ioLength)
 {
 	int ret = -1;
-	unsigned long wlength = *ioLength, WI;
+	uint64_t wlength = *ioLength, WI;
 	if (*ioLength >= HW_TDO_BUF_SIZE)
 		wlength = HW_TDO_BUF_SIZE;
 	WI = 0;
@@ -398,7 +344,7 @@ static int CH347_Write(void *oBuffer, unsigned long *ioLength)
 			*ioLength = 0;
 			return false;
 		}
-		LOG_DEBUG_IO("(size=%lu, buf=[%s]) -> %" PRIu32, wlength,
+		LOG_DEBUG_IO("(size=%" PRIu64 ", buf=[%s]) -> %" PRIu32, wlength,
 			     HexToString((uint8_t *)oBuffer, wlength),
 			     (uint32_t)wlength);
 		WI += wlength;
@@ -424,7 +370,7 @@ static int CH347_Write(void *oBuffer, unsigned long *ioLength)
  */
 static int CH347_Read(void *oBuffer, unsigned long *ioLength)
 {
-	unsigned long rlength = *ioLength, WI;
+	uint64_t rlength = *ioLength, WI;
 	/* The maximum allowable reading for a single read is 4096B of data.
 	   If it exceeds the allowable reading limit, it will be calculated as
 	   4096B */
@@ -447,7 +393,7 @@ static int CH347_Read(void *oBuffer, unsigned long *ioLength)
 		else
 			rlength = *ioLength - WI;
 	}
-	LOG_DEBUG_IO("(size=%lu, buf=[%s]) -> %" PRIu32, WI,
+	LOG_DEBUG_IO("(size=%" PRIu64 ", buf=[%s]) -> %" PRIu32, WI,
 		     HexToString((uint8_t *)oBuffer, WI), (uint32_t)WI);
 	*ioLength = WI;
 	return true;
@@ -1227,33 +1173,9 @@ static int ch347_execute_queue(void)
  */
 static int ch347_init(void)
 {
-#ifdef _WIN32
-	if (uhModule == 0) {
-		uhModule = LoadLibrary("CH347DLL.DLL");
-		if (uhModule) {
-			CH347OpenDevice = (pCH347OpenDevice)GetProcAddress(
-				uhModule, "CH347OpenDevice");
-			CH347CloseDevice = (pCH347CloseDevice)GetProcAddress(
-				uhModule, "CH347CloseDevice");
-			CH347ReadData = (pCH347ReadData)GetProcAddress(
-				uhModule, "CH347ReadData");
-			CH347WriteData = (pCH347WriteData)GetProcAddress(
-				uhModule, "CH347WriteData");
-			CH347SetTimeout = (pCH347SetTimeout)GetProcAddress(
-				uhModule, "CH347SetTimeout");
-			if (CH347OpenDevice == NULL || CH347CloseDevice == NULL
-			    || CH347SetTimeout == NULL || CH347ReadData == NULL
-			    || CH347WriteData == NULL) {
-				LOG_ERROR("Jtag_init error ");
-				return ERROR_FAIL;
-			}
-		}
-	}
-	DevIsOpened = CH347OpenDevice(ugIndex);
-#elif defined(__linux__)
 	DevIsOpened = CH347OpenDevice(ugIndex);
 	ugIndex = DevIsOpened;
-#endif
+
 	if (DevIsOpened < 0) {
 		LOG_ERROR("CH347 open error");
 		return ERROR_FAIL;
@@ -1329,7 +1251,7 @@ static bool Check_Speed(uint64_t iIndex, uint8_t iClockRate)
 	for (j = 0; j < 4; j++)
 		cmdBuf[i++] = ch347.TCK | ch347.TDI | ch347.TMS | ch347.TRST;
 
-	unsigned long int mLength = i;
+	uint64_t mLength = i;
 	if (!CH347WriteData(iIndex, cmdBuf, &mLength) || (mLength != i))
 		return false;
 
@@ -1587,7 +1509,7 @@ static PCH347_SWD_IO ch347_get_one_swd_io(void)
 
 static void ch347_swd_queue_flush(void)
 {
-	unsigned long mLength = ch347_swd_context.send_len;
+	uint64_t mLength = ch347_swd_context.send_len;
 	ch347_swd_context.send_buf[0] = (uint8_t)CH347_CMD_SWD;
 	ch347_swd_context.send_buf[1] = (uint8_t)(ch347_swd_context.send_len -
 						  CH347_CMD_HEADER);
