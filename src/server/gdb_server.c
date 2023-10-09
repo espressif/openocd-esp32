@@ -3294,7 +3294,7 @@ static int gdb_v_packet(struct connection *connection,
 	}
 
 	if (strncmp(packet, "vFlashErase:", 12) == 0) {
-		unsigned long addr;
+		target_addr_t addr;
 		unsigned long length;
 
 		char const *parse = packet + 12;
@@ -3303,7 +3303,7 @@ static int gdb_v_packet(struct connection *connection,
 			return ERROR_SERVER_REMOTE_CLOSED;
 		}
 
-		addr = strtoul(parse, (char **)&parse, 16);
+		addr = strtoull(parse, (char **)&parse, 16);
 
 		if (*(parse++) != ',' || *parse == '\0') {
 			LOG_ERROR("incomplete vFlashErase packet received, dropping connection");
@@ -3351,7 +3351,7 @@ static int gdb_v_packet(struct connection *connection,
 
 	if (strncmp(packet, "vFlashWrite:", 12) == 0) {
 		int retval;
-		unsigned long addr;
+		target_addr_t addr;
 		unsigned long length;
 		char const *parse = packet + 12;
 
@@ -3359,7 +3359,8 @@ static int gdb_v_packet(struct connection *connection,
 			LOG_ERROR("incomplete vFlashErase packet received, dropping connection");
 			return ERROR_SERVER_REMOTE_CLOSED;
 		}
-		addr = strtoul(parse, (char **)&parse, 16);
+
+		addr = strtoull(parse, (char **)&parse, 16);
 		if (*(parse++) != ':') {
 			LOG_ERROR("incomplete vFlashErase packet received, dropping connection");
 			return ERROR_SERVER_REMOTE_CLOSED;
