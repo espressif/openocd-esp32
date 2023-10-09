@@ -303,7 +303,6 @@ scan-build:
     - mkdir -p ${SCAN_BUILD_OUTPUT}
     - mv scan_build.${ARCHIVE_EXT} ${SCAN_BUILD_OUTPUT}
     - cp build-scanbuild/out/*/index.html scanbuild_reference.html
-    - apt-get update && apt-get install pip && pip install beautifulsoup4
     - SCANBUILD_REF_FILE="tools/scanbuild_reference.txt"
     - SCANBUILD_OUT_FILE="scanbuild_report.txt"
     - python3 tools/scanbuild_parser.py -i scanbuild_reference.html -o $SCANBUILD_OUT_FILE
@@ -326,7 +325,6 @@ sparse:
   script:
     - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
-    - apt-get update && apt-get install sparse
     - ./bootstrap
     - mkdir build-sparse && pushd build-sparse
     - ../configure CC=cgcc CFLAGS="-Wsparse-all -Wno-declaration-after-statement -Wno-unknown-attribute -Wno-transparent-union -Wno-tautological-compare -Wno-vla -Wno-flexible-array-array -D__FLT_EVAL_METHOD__=0"

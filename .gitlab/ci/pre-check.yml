@@ -4,7 +4,6 @@ style_check:
     - build
   script:
     - tools/check-line-endings.sh $PWD
-    - apt-get update && apt-get install patchutils python3-ply python3-git -y
     - tools/checkpatch-esp.sh
 
 esp_config_check:
