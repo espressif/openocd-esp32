@@ -276,7 +276,7 @@ int esp_riscv_poll(struct target *target)
 
 			if (esp_riscv->is_flash_boot && esp_riscv->is_flash_boot(strap_reg)) {
 				/* enable ebreaks */
-				res = esp_riscv_core_ebreaks_enable(target);
+				res = set_dcsr_ebreak(target, false);
 				if (res != ERROR_OK)
 					LOG_TARGET_ERROR(target, "Failed to enable EBREAKS handling (%d)!", res);
 				if (get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
@@ -922,20 +922,6 @@ int esp_riscv_core_resume(struct target *target)
 	LOG_ERROR("  dmstatus =0x%08x", dmstatus);
 
 	return ERROR_FAIL;
-}
-
-int esp_riscv_core_ebreaks_enable(struct target *target)
-{
-	riscv_reg_t dcsr;
-	RISCV_INFO(r);
-	int result = r->get_register(target, &dcsr, GDB_REGNO_DCSR);
-	if (result != ERROR_OK)
-		return result;
-	LOG_DEBUG("DCSR: %" PRIx64, dcsr);
-	dcsr = set_field(dcsr, CSR_DCSR_EBREAKM, 1);
-	dcsr = set_field(dcsr, CSR_DCSR_EBREAKS, 1);
-	dcsr = set_field(dcsr, CSR_DCSR_EBREAKU, 1);
-	return r->set_register(target, GDB_REGNO_DCSR, dcsr);
 }
 
 void esp_riscv_deinit_target(struct target *target)
