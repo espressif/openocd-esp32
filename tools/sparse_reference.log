@@ -6,8 +6,8 @@
 ../src/target/riscv/program.c:135:9: warning: the address of an array will always evaluate as true
 ../src/target/riscv/riscv-013.c:1123:9: warning: the address of an array will always evaluate as true
 ../src/target/riscv/riscv-013.c:1123:9: warning: the address of an array will always evaluate as true
-../src/target/riscv/riscv-013.c:3850:9: warning: the address of an array will always evaluate as true
-../src/target/riscv/riscv-013.c:3850:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv-013.c:3849:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv-013.c:3849:9: warning: the address of an array will always evaluate as true
 ../src/target/riscv/riscv.c:4841:9: warning: the address of an array will always evaluate as true
 ../src/target/riscv/riscv.c:4841:9: warning: the address of an array will always evaluate as true
 ../src/target/riscv/riscv.c:4843:9: warning: the address of an array will always evaluate as true
