@@ -215,13 +215,31 @@ static bool ch347_open_device(void)
 	char firmwareVersion;
 	if (jtag_libusb_control_transfer(ch347_handle,
 				LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_DEVICE,
-				VENDOR_VERSION, 0, 0, &firmwareVersion, sizeof(firmwareVersion), USB_WRITE_TIMEOUT, NULL) != ERROR_OK)
-	{
+				VENDOR_VERSION, 0, 0, &firmwareVersion, sizeof(firmwareVersion), USB_WRITE_TIMEOUT, NULL) != ERROR_OK) {
 		LOG_ERROR("ch347 unable to get firmware version");
 		return false;
 	}
 
-	LOG_INFO("CH347 found (Chip version=%X.%2X, Firmware=0x%02X)",
+	char manufacturer[256+1];
+	if (libusb_get_string_descriptor_ascii(ch347_handle, ch347_device_descriptor.iManufacturer,
+		(unsigned char *)manufacturer, sizeof(manufacturer)-1) < 0)	{
+		strcpy(manufacturer, "(unknown)");
+	}
+	char product[256+1];
+	if (libusb_get_string_descriptor_ascii(ch347_handle, ch347_device_descriptor.iProduct,
+		(unsigned char *)product, sizeof(product)-1) < 0)	{
+		strcpy(product, "(unknown)");
+	}
+	char serialNumber[256+1];
+	if (libusb_get_string_descriptor_ascii(ch347_handle, ch347_device_descriptor.iSerialNumber,
+		(unsigned char *)serialNumber, sizeof(serialNumber)-1) < 0)	{
+		strcpy(serialNumber, "(unknown)");
+	}
+	
+	LOG_INFO("CH347 %s from vendor %s with serial number %s found. (Chip version=%X.%2X, Firmware=0x%02X)",
+		product,
+		manufacturer,
+		serialNumber,
 		(ch347_device_descriptor.bcdDevice >> 8) & 0xFF,
 		ch347_device_descriptor.bcdDevice & 0xFF,
 		firmwareVersion);
@@ -1651,7 +1669,7 @@ static void ch347_swd_queue_flush(void)
 	}
 }
 
-static void ch347_wrtie_swd_reg(uint8_t cmd, const uint8_t *out, uint8_t parity)
+static void ch347_write_swd_reg(uint8_t cmd, const uint8_t *out, uint8_t parity)
 {
 	ch347_swd_context.send_buf[ch347_swd_context.send_len++] =
 		CH347_CMD_SWD_REG_W;
@@ -1668,7 +1686,7 @@ static void ch347_wrtie_swd_reg(uint8_t cmd, const uint8_t *out, uint8_t parity)
 	ch347_swd_context.need_recv_len += (1 + 1);
 }
 
-static void ch347_wrtie_spec_seq(const uint8_t *out, uint8_t out_len)
+static void ch347_write_spec_seq(const uint8_t *out, uint8_t out_len)
 {
 	ch347_swd_context.send_buf[ch347_swd_context.send_len++] =
 		CH347_CMD_SWD_SEQ_W;
@@ -1710,7 +1728,7 @@ static int ch347_swd_switch_out(enum swd_special_seq seq, const uint8_t *out, un
 
 	pswd_io = ch347_get_one_swd_io();
 	if (pswd_io) {
-		ch347_wrtie_spec_seq(out, out_len);
+		ch347_write_spec_seq(out, out_len);
 		list_add_tail(&pswd_io->list_entry,
 			      &ch347_swd_context.send_cmd_head);
 		return ERROR_OK;
@@ -1786,7 +1804,7 @@ static void ch347_swd_send_idle(uint32_t ap_delay_clk)
 			return;
 		}
 	}
-	ch347_wrtie_spec_seq(NULL, ap_delay_clk);
+	ch347_write_spec_seq(NULL, ap_delay_clk);
 
 	list_add_tail(&pswd_io->list_entry, &ch347_swd_context.send_cmd_head);
 }
@@ -1983,7 +2001,7 @@ static void ch347_swd_queue_cmd(uint8_t cmd, uint32_t *dst, uint32_t data, uint3
 	} else {
 		pswd_io->usbcmd = CH347_CMD_SWD_REG_W;
 		pswd_io->value = data;
-		ch347_wrtie_swd_reg(pswd_io->cmd, (uint8_t *)&data,
+		ch347_write_swd_reg(pswd_io->cmd, (uint8_t *)&data,
 				    parity_u32(data));
 	}
 
