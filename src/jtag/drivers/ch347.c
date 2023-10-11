@@ -207,8 +207,9 @@ static bool ch347_open_device(void)
 	struct libusb_device_descriptor ch347_device_descriptor;
 	libusb_get_device_descriptor(libusb_get_device(ch347_handle), &ch347_device_descriptor);
 	
-	if (libusb_claim_interface(ch347_handle, CH347_MPHSI_INTERFACE)) {
-		LOG_ERROR("ch347 unable to claim interface");
+	int err_code = libusb_claim_interface(ch347_handle, CH347_MPHSI_INTERFACE);
+	if (err_code != ERROR_OK) {
+		LOG_ERROR("ch347 unable to claim interface: %s", libusb_error_name(err_code));
 		return false;
 	}
 
