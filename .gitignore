@@ -117,14 +117,3 @@ tcl-lite/*
 # A compile_commands.json can be generated using bear and will help tools such
 # as clangd to locate header files and use correct $CFLAGS
 compile_commands.json
-compile
-config.guess
-config.sub
-depcomp
-install-sh
-ltmain.sh
-mdate-sh
-missing
-texinfo.tex
-.vscode/launch.json
-tcl/openocd.cfg
