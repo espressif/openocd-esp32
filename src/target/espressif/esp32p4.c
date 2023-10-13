@@ -21,17 +21,6 @@
 #include "esp_riscv_apptrace.h"
 #include "esp_riscv.h"
 
-/* ESP32-P4 WDT */
-#define ESP32P4_WDT_WKEY_VALUE                  0x50d83aa1
-#define ESP32P4_TIMG0_BASE                      0x500C2000
-#define ESP32P4_TIMG1_BASE                      0x500C3000
-#define ESP32P4_TIMGWDT_CFG_OFF                 0x48
-#define ESP32P4_TIMGWDT_PROTECT_OFF             0x64
-#define ESP32P4_TIMG0WDT_CFG0                   (ESP32P4_TIMG0_BASE + ESP32P4_TIMGWDT_CFG_OFF)
-#define ESP32P4_TIMG1WDT_CFG0                   (ESP32P4_TIMG1_BASE + ESP32P4_TIMGWDT_CFG_OFF)
-#define ESP32P4_TIMG0WDT_PROTECT                (ESP32P4_TIMG0_BASE + ESP32P4_TIMGWDT_PROTECT_OFF)
-#define ESP32P4_TIMG1WDT_PROTECT                (ESP32P4_TIMG1_BASE + ESP32P4_TIMGWDT_PROTECT_OFF)
-
 /* boot mode */
 #define ESP32P4_GPIO_BASE						(0x500C0000 + 0x20000)
 #define ESP32P4_GPIO_STRAP_REG_OFF              0x0038
@@ -109,35 +98,8 @@ static const char *esp32p4_get_reset_reason(int reset_number)
 	return "Unknown reset cause";
 }
 
-static int esp32p4_wdt_disable(struct target *target)
-{
-	/* TIMG0 WDT */
-	int res = target_write_u32(target, ESP32P4_TIMG0WDT_PROTECT, ESP32P4_WDT_WKEY_VALUE);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write ESP32P4_TIMG0WDT_PROTECT (%d)!", res);
-		return res;
-	}
-	res = target_write_u32(target, ESP32P4_TIMG0WDT_CFG0, 0);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write ESP32P4_TIMG0WDT_CFG0 (%d)!", res);
-		return res;
-	}
-	/* TIMG1 WDT */
-	res = target_write_u32(target, ESP32P4_TIMG1WDT_PROTECT, ESP32P4_WDT_WKEY_VALUE);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write ESP32P4_TIMG1WDT_PROTECT (%d)!", res);
-		return res;
-	}
-	res = target_write_u32(target, ESP32P4_TIMG1WDT_CFG0, 0);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write ESP32P4_TIMG1WDT_CFG0 (%d)!", res);
-		return res;
-	}
-	return ERROR_OK;
-}
-
 static const struct esp_semihost_ops esp32p4_semihost_ops = {
-	.prepare = esp32p4_wdt_disable,
+	.prepare = NULL,
 	.post_reset = esp_semihosting_post_reset
 };
 
@@ -179,7 +141,6 @@ static int esp32p4_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->reset_cause_mask = ESP32P4_LP_CLKRST_RESET_CAUSE_MASK;
 	esp_riscv->get_reset_reason = &esp32p4_get_reset_reason;
 	esp_riscv->is_flash_boot = &esp_is_flash_boot;
-	esp_riscv->wdt_disable = &esp32p4_wdt_disable;
 	esp_riscv->existent_regs = esp32p4_existent_regs;
 	esp_riscv->existent_regs_size = ARRAY_SIZE(esp32p4_existent_regs);
 
