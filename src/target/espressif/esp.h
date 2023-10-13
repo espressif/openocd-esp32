@@ -140,7 +140,8 @@ int esp_common_flash_breakpoint_remove(struct target *target,
 	struct breakpoint *breakpoint);
 bool esp_common_flash_breakpoint_exists(struct esp_common *esp,
 	struct breakpoint *breakpoint);
-int esp_common_handle_gdb_detach(struct target *target, struct esp_common *esp_common);
+int esp_common_handle_gdb_detach(struct target *target);
+int esp_common_gdb_detach_command(struct command_invocation *cmd);
 
 int esp_dbgstubs_table_read(struct target *target, struct esp_dbg_stubs *dbg_stubs);
 
