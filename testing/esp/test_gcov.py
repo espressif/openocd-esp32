@@ -403,7 +403,9 @@ class GcovTestsImpl:
         self.assertTrue(os.path.exists(os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path))))
         data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', MAIN_COMP_BUILD_DIR_NAME, 'helper_funcs.c.gcda')
         self.assertTrue(os.path.exists(os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path))))
-
+        # Left gdb in a proper state for the next tests.
+        self.gdb.disconnect()
+        self.gdb.connect()
 
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
