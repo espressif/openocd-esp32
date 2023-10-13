@@ -21,18 +21,7 @@
 #include "esp_riscv_apptrace.h"
 #include "esp_riscv.h"
 
-/* ESP32-C2 WDT */
-#define ESP32C2_WDT_WKEY_VALUE                 0x50d83aa1
-#define ESP32C2_TIMG0_BASE                     0x6001F000
-#define ESP32C2_TIMGWDT_CFG0_OFF               0x48
-#define ESP32C2_TIMGWDT_PROTECT_OFF            0x64
-#define ESP32C2_TIMG0WDT_CFG0                  (ESP32C2_TIMG0_BASE + ESP32C2_TIMGWDT_CFG0_OFF)
-#define ESP32C2_TIMG0WDT_PROTECT               (ESP32C2_TIMG0_BASE + ESP32C2_TIMGWDT_PROTECT_OFF)
 #define ESP32C2_RTCCNTL_BASE                   0x60008000
-#define ESP32C2_RTCWDT_CFG_OFF                 0x84
-#define ESP32C2_RTCWDT_PROTECT_OFF             0x9C
-#define ESP32C2_RTCWDT_CFG                     (ESP32C2_RTCCNTL_BASE + ESP32C2_RTCWDT_CFG_OFF)
-#define ESP32C2_RTCWDT_PROTECT                 (ESP32C2_RTCCNTL_BASE + ESP32C2_RTCWDT_PROTECT_OFF)
 #define ESP32C2_RTCCNTL_RESET_STATE_OFF        0x0030
 #define ESP32C2_RTCCNTL_RESET_STATE_REG        (ESP32C2_RTCCNTL_BASE + ESP32C2_RTCCNTL_RESET_STATE_OFF)
 
@@ -107,35 +96,8 @@ static inline bool esp32c2_is_flash_boot(uint32_t strap_reg)
 	return IS_1XXX(strap_reg);
 }
 
-static int esp32c2_wdt_disable(struct target *target)
-{
-	/* TIMG1 WDT */
-	int res = target_write_u32(target, ESP32C2_TIMG0WDT_PROTECT, ESP32C2_WDT_WKEY_VALUE);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write ESP32C2_TIMG0WDT_PROTECT (%d)!", res);
-		return res;
-	}
-	res = target_write_u32(target, ESP32C2_TIMG0WDT_CFG0, 0);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write ESP32C2_TIMG0WDT_CFG0 (%d)!", res);
-		return res;
-	}
-	/* RTC WDT */
-	res = target_write_u32(target, ESP32C2_RTCWDT_PROTECT, ESP32C2_WDT_WKEY_VALUE);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write ESP32C2_RTCWDT_PROTECT (%d)!", res);
-		return res;
-	}
-	res = target_write_u32(target, ESP32C2_RTCWDT_CFG, 0);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to write ESP32C2_RTCWDT_CFG (%d)!", res);
-		return res;
-	}
-	return ERROR_OK;
-}
-
 static const struct esp_semihost_ops esp32c2_semihost_ops = {
-	.prepare = esp32c2_wdt_disable,
+	.prepare = NULL,
 	.post_reset = esp_semihosting_post_reset
 };
 
@@ -176,7 +138,6 @@ static int esp32c2_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->reset_cause_mask = ESP32C2_RTCCNTL_RESET_CAUSE_MASK;
 	esp_riscv->get_reset_reason = &esp32c2_get_reset_reason;
 	esp_riscv->is_flash_boot = &esp32c2_is_flash_boot;
-	esp_riscv->wdt_disable = &esp32c2_wdt_disable;
 	esp_riscv->existent_regs = esp32c2_existent_regs;
 	esp_riscv->existent_regs_size = ARRAY_SIZE(esp32c2_existent_regs);
 

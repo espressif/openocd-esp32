@@ -252,13 +252,13 @@ int esp_riscv_poll(struct target *target)
 					get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
 					LOG_TARGET_DEBUG(target, "Halt core");
 					res = esp_riscv_core_halt(target);
-					if (res == ERROR_OK) {
-						res = esp_riscv->wdt_disable ? esp_riscv->wdt_disable(target) : ERROR_FAIL;
-						if (res != ERROR_OK)
-							LOG_TARGET_ERROR(target, "Failed to disable WDTs (%d)!", res);
-					} else {
+					if (res != ERROR_OK)
 						LOG_TARGET_ERROR(target, "Failed to halt core (%d)!", res);
-					}
+					else
+						/* We don't want GDB involved to halted event. But at the same we want to invoke TCL event
+							handler to disable watchdog. Thats why we call DEBUG_HALTED event here.
+						*/
+						target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
 				}
 			}
 
@@ -278,9 +278,12 @@ int esp_riscv_poll(struct target *target)
 				if (get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
 					LOG_TARGET_DEBUG(target, "Resume core");
 					res = esp_riscv_core_resume(target);
-					if (res != ERROR_OK)
+					if (res != ERROR_OK) {
 						LOG_TARGET_ERROR(target, "Failed to resume core (%d)!", res);
-					LOG_TARGET_DEBUG(target, "resumed core");
+					} else {
+						LOG_TARGET_DEBUG(target, "resumed core");
+						target_call_event_callbacks(target, TARGET_EVENT_DEBUG_RESUMED);
+					}
 				}
 			}
 		}
@@ -311,9 +314,6 @@ int esp_riscv_semihosting(struct target *target)
 	struct semihosting *semihosting = target->semihosting;
 
 	LOG_DEBUG("op:(%x) param: (%" PRIx64 ")", semihosting->op, semihosting->param);
-
-	if (esp_riscv->semi_ops && esp_riscv->semi_ops->prepare)
-		esp_riscv->semi_ops->prepare(target);
 
 	switch (semihosting->op) {
 	case ESP_SEMIHOSTING_SYS_APPTRACE_INIT:

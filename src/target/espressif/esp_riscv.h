@@ -36,7 +36,6 @@ struct esp_riscv_common {
 	unsigned long reset_cause_mask;
 	const char *(*get_reset_reason)(int reset_number);
 	bool (*is_flash_boot)(uint32_t strap_reg);
-	int (*wdt_disable)(struct target *target);
 	bool was_reset;
 	const char **existent_regs;
 	size_t existent_regs_size;
