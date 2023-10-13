@@ -1586,7 +1586,7 @@ static int wait_for_authbusy(struct target *target, uint32_t *dmstatus)
 	return ERROR_OK;
 }
 
-int set_dcsr_ebreak(struct target *target, bool step)
+static int set_dcsr_ebreak(struct target *target, bool step)
 {
 	LOG_TARGET_DEBUG(target, "Set dcsr.ebreak*");
 
@@ -2566,9 +2566,6 @@ static int handle_became_unavailable(struct target *target,
 
 static int tick(struct target *target)
 {
-	/* FIXME: tested with gcov app but not worked for Espressif. Continued to set ebreak from each target */
-	return ERROR_OK;
-
 	RISCV013_INFO(info);
 	if (!info->dcsr_ebreak_is_set &&
 			target->state == TARGET_RUNNING &&

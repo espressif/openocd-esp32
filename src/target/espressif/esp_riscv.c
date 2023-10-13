@@ -275,10 +275,6 @@ int esp_riscv_poll(struct target *target)
 			esp_riscv->apptrace.ctrl_addr = 0;
 
 			if (esp_riscv->is_flash_boot && esp_riscv->is_flash_boot(strap_reg)) {
-				/* enable ebreaks */
-				res = set_dcsr_ebreak(target, false);
-				if (res != ERROR_OK)
-					LOG_TARGET_ERROR(target, "Failed to enable EBREAKS handling (%d)!", res);
 				if (get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
 					LOG_TARGET_DEBUG(target, "Resume core");
 					res = esp_riscv_core_resume(target);
