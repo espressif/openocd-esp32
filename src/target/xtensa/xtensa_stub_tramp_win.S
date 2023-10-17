@@ -15,7 +15,7 @@
  * xtensa-xtensa-elf-objcopy -O binary xtensa_stub_tramp_win.o xtensa_stub_tramp_win.bin
  *
  * To generate include file:
- * cat xtensa_stub_tramp_win.bin | xxd -i > xtensa_stub_tramp_win.inc
+ * ../../../src/helper/bin2char.sh < xtensa_stub_tramp_win.bin > xtensa_stub_tramp_win.inc
  */
 
 /*
