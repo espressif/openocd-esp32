@@ -30,7 +30,7 @@
         },
         {
             "name": "ESP32 chip (via ESP-PROG)",
-            "description": "ESP32 used with ESP-PROG board",
+            "description": "ESP32 debugging via ESP-PROG board",
             "target": "esp32",
             "config_files": [
                 "interface/ftdi/esp32_devkitj_v1.cfg",
@@ -38,8 +38,8 @@
             ]
         },
         {
-            "name": "ESP32 chip (via ESP USB Bridge)",
-            "description": "ESP32 used with ESP USB Bridge board",
+            "name": "ESP32 chip (via ESP-PROG-2)",
+            "description": "ESP32 debugging via ESP-PROG-2 board",
             "target": "esp32",
             "config_files": [
                 "board/esp32-bridge.cfg"
@@ -47,7 +47,7 @@
         },
         {
             "name": "ESP32-SOLO-1 module (via ESP-PROG)",
-            "description": "ESP32-SOLO-1 used with ESP-PROG board",
+            "description": "ESP32-SOLO-1 debugging via ESP-PROG board",
             "target": "esp32",
             "config_files": [
                 "interface/ftdi/esp32_devkitj_v1.cfg",
@@ -62,7 +62,7 @@
         },
         {
             "name": "ESP32-S2 chip (via ESP-PROG)",
-            "description": "ESP32-S2 used with ESP-PROG board",
+            "description": "ESP32-S2 debugging via ESP-PROG board",
             "target": "esp32s2",
             "config_files": [
                 "interface/ftdi/esp32_devkitj_v1.cfg",
@@ -70,20 +70,11 @@
             ]
         },
         {
-            "name": "ESP32-S2 chip (via ESP USB Bridge)",
-            "description": "ESP32-S2 used with ESP USB Bridge board",
+            "name": "ESP32-S2 chip (via ESP-PROG-2)",
+            "description": "ESP32-S2 debugging via ESP-PROG-2 board",
             "target": "esp32s2",
             "config_files": [
                 "board/esp32s2-bridge.cfg"
-            ]
-        },
-        {
-            "name": "ESP32-S3 chip (via ESP-PROG)",
-            "description": "ESP32-S3 used with ESP-PROG board",
-            "target": "esp32s3",
-            "config_files": [
-                "interface/ftdi/esp32_devkitj_v1.cfg",
-                "target/esp32s3.cfg"
             ]
         },
         {
@@ -95,8 +86,17 @@
             ]
         },
         {
-            "name": "ESP32-S3 chip (via ESP USB Bridge)",
-            "description": "ESP32-S3 used with ESP USB Bridge board",
+            "name": "ESP32-S3 chip (via ESP-PROG)",
+            "description": "ESP32-S3 debugging via ESP-PROG board",
+            "target": "esp32s3",
+            "config_files": [
+                "interface/ftdi/esp32_devkitj_v1.cfg",
+                "target/esp32s3.cfg"
+            ]
+        },
+        {
+            "name": "ESP32-S3 chip (via ESP-PROG-2)",
+            "description": "ESP32-S3 debugging via ESP-PROG-2 board",
             "target": "esp32s3",
             "config_files": [
                 "board/esp32s3-bridge.cfg"
@@ -104,26 +104,18 @@
         },
         {
             "name": "ESP32-C2 chip (via ESP-PROG)",
-            "description": "ESP32-C2 used with ESP-PROG board",
+            "description": "ESP32-C2 debugging via ESP-PROG board",
             "target": "esp32c2",
             "config_files": [
                 "board/esp32c2-ftdi.cfg"
             ]
         },
         {
-            "name": "ESP32-C2 chip (via ESP USB Bridge)",
-            "description": "ESP32-C2 debugging via ESP USB Bridge board",
+            "name": "ESP32-C2 chip (via ESP-PROG-2)",
+            "description": "ESP32-C2 debugging via ESP-PROG-2 board",
             "target": "esp32c2",
             "config_files": [
                 "board/esp32c2-bridge.cfg"
-            ]
-        },
-        {
-            "name": "ESP32-C3 chip (via ESP-PROG)",
-            "description": "ESP32-C3 used with ESP-PROG board",
-            "target": "esp32c3",
-            "config_files": [
-                "board/esp32c3-ftdi.cfg"
             ]
         },
         {
@@ -135,19 +127,19 @@
             ]
         },
         {
-            "name": "ESP32-C3 chip (via ESP USB Bridge)",
-            "description": "ESP32-C3 debugging via ESP USB Bridge board",
+            "name": "ESP32-C3 chip (via ESP-PROG)",
+            "description": "ESP32-C3 debugging via ESP-PROG board",
             "target": "esp32c3",
             "config_files": [
-                "board/esp32c3-bridge.cfg"
+                "board/esp32c3-ftdi.cfg"
             ]
         },
         {
-            "name": "ESP32-C6 chip (via ESP-PROG)",
-            "description": "ESP32-C6 used with ESP-PROG board",
-            "target": "esp32c6",
+            "name": "ESP32-C3 chip (via ESP-PROG-2)",
+            "description": "ESP32-C3 debugging via ESP-PROG-2 board",
+            "target": "esp32c3",
             "config_files": [
-                "board/esp32c6-ftdi.cfg"
+                "board/esp32c3-bridge.cfg"
             ]
         },
         {
@@ -159,19 +151,19 @@
             ]
         },
         {
-            "name": "ESP32-C6 chip (via ESP USB Bridge)",
-            "description": "ESP32-C6 debugging via ESP USB Bridge board",
+            "name": "ESP32-C6 chip (via ESP-PROG)",
+            "description": "ESP32-C6 debugging via ESP-PROG board",
             "target": "esp32c6",
             "config_files": [
-                "board/esp32c6-bridge.cfg"
+                "board/esp32c6-ftdi.cfg"
             ]
         },
         {
-            "name": "ESP32-H2 chip (via ESP-PROG)",
-            "description": "ESP32-H2 used with ESP-PROG board",
-            "target": "esp32h2",
+            "name": "ESP32-C6 chip (via ESP-PROG-2)",
+            "description": "ESP32-C6 debugging via ESP-PROG-2 board",
+            "target": "esp32c6",
             "config_files": [
-                "board/esp32h2-ftdi.cfg"
+                "board/esp32c6-bridge.cfg"
             ]
         },
         {
@@ -183,8 +175,16 @@
             ]
         },
         {
-            "name": "ESP32-H2 chip (via ESP USB Bridge)",
-            "description": "ESP32-H2 debugging via ESP USB Bridge board",
+            "name": "ESP32-H2 chip (via ESP-PROG)",
+            "description": "ESP32-H2 debugging via ESP-PROG board",
+            "target": "esp32h2",
+            "config_files": [
+                "board/esp32h2-ftdi.cfg"
+            ]
+        },
+        {
+            "name": "ESP32-H2 chip (via ESP-PROG-2)",
+            "description": "ESP32-H2 debugging via ESP-PROG-2 board",
             "target": "esp32h2",
             "config_files": [
                 "board/esp32h2-bridge.cfg"
