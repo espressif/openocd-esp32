@@ -23,19 +23,19 @@
 
   # Check if having custom idf branch
   if [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF_LATEST_DOCKER_IMAGE}" ]; then
-    if  [ -n "${TEST_APP_IDF_BRANCH:-}" ]; then
-      TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF_BRANCH"
+    if  [ -n "${TEST_APP_IDF_MASTER_BRANCH:-}" ]; then
+      TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF_MASTER_BRANCH"
     else
       # Use the same idf branch name if exists
       git ls-remote https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git | grep "refs/heads/$CI_COMMIT_REF_NAME"
       test $? -eq 0 && echo "Use IDF branch \"$CI_COMMIT_REF_NAME\"" && TEST_APP_CUSTOM_BRANCH=$CI_COMMIT_REF_NAME
     fi
-  elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_1_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_1_RELEASE_BRANCH:-}" ]; then
-    TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF5_1_RELEASE_BRANCH"
-  elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_0_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_0_RELEASE_BRANCH:-}" ]; then
-    TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF5_0_RELEASE_BRANCH"
-  elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF4_X_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF4_X_RELEASE_BRANCH:-}" ]; then
-    TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF4_X_RELEASE_BRANCH"
+  elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_1_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_1_BRANCH:-}" ]; then
+    TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF5_1_BRANCH"
+  elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_0_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_0_BRANCH:-}" ]; then
+    TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF5_0_BRANCH"
+  elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF4_X_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF4_X_BRANCH:-}" ]; then
+    TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF4_X_BRANCH"
   fi
 
   # Use custom idf in case custom branch is present
@@ -52,7 +52,12 @@
     fi
     # Install tools
     ${IDF_PATH}/tools/idf_tools.py install-python-env
-    ${IDF_PATH}/tools/idf_tools.py install ${TOOLCHAIN_PREFIX}-elf
+    if [ -n "${TEST_APP_BUILD_TOOLCHAIN_PREFIX:-}" ]; then
+      echo "TEST_APP_BUILD_TOOLCHAIN_PREFIX=$TEST_APP_BUILD_TOOLCHAIN_PREFIX"
+      ${IDF_PATH}/tools/idf_tools.py install ${TEST_APP_BUILD_TOOLCHAIN_PREFIX}-elf
+    else
+      ${IDF_PATH}/tools/idf_tools.py install ${TOOLCHAIN_PREFIX}-elf
+    fi
     # cannot exec '. ${IDF_PATH}/export.sh' here because not all tools distros are presented
     # in the image and `export.sh` fails w/o adding tools to $PATH
     idf_exports=$(${IDF_PATH}/tools/idf_tools.py export) || true
@@ -165,6 +170,7 @@
     TEST_APP_CONFIGS: ""
     TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF_LATEST_DOCKER_IMAGE}"
     UT_GET_IDF_VER: "0"
+    TEST_APP_IDF_MASTER_BRANCH: master #checkout from gitlab master
   extends: .build_test_app_template
 
 ##############
@@ -176,6 +182,7 @@ build_test_app_esp32:
     CHIP_NAME: "esp32"
     TOOLCHAIN_PREFIX: "xtensa-esp32"
     BUILD_TEST_APP_DIR: "build_test_app_esp32"
+    TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
   extends: .build_idf_master_test_app_template
 
 build_test_app_esp32s2:
@@ -183,6 +190,7 @@ build_test_app_esp32s2:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
     BUILD_TEST_APP_DIR: "build_test_app_esp32s2"
+    TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
   extends: .build_idf_master_test_app_template
 
 build_test_app_esp32s3:
@@ -190,6 +198,7 @@ build_test_app_esp32s3:
     CHIP_NAME: "esp32s3"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
     BUILD_TEST_APP_DIR: "build_test_app_esp32s3"
+    TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
   extends: .build_idf_master_test_app_template
 
 build_test_app_esp32c2:
