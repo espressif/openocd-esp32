@@ -76,8 +76,6 @@ struct esp_flash_bank {
 	/* Those fake banks are necessary for generating proper memory map for GDB and using flash
 	 * breakpoints */
 	uint32_t hw_flash_base;
-	/* Minimal offset for erase/write on flash bank */
-	uint32_t flash_min_offset;
 	/* Offset of the application image in the HW flash bank */
 	uint32_t appimage_flash_base;
 	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank);

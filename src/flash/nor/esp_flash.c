@@ -426,11 +426,6 @@ int esp_algo_flash_erase(struct flash_bank *bank, unsigned int first, unsigned i
 		return ERROR_TARGET_NOT_HALTED;
 	}
 	assert((first <= last) && (last < bank->num_sectors));
-	if (esp_info->hw_flash_base + first * esp_info->sec_sz <
-		esp_info->flash_min_offset) {
-		LOG_ERROR("Invalid offset!");
-		return ERROR_FAIL;
-	}
 
 	struct duration bench;
 	duration_start(&bench);
@@ -690,10 +685,6 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	uint32_t compressed_len = 0;
 	uint32_t stack_size = 1024 + ESP_STUB_UNZIP_BUFF_SIZE;
 
-	if (esp_info->hw_flash_base + offset < esp_info->flash_min_offset) {
-		LOG_ERROR("Invalid offset!");
-		return ERROR_FAIL;
-	}
 	if (offset & 0x3UL) {
 		LOG_ERROR("Unaligned offset!");
 		return ERROR_FAIL;
