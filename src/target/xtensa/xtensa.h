@@ -194,7 +194,7 @@ enum xtensa_stepping_isr_mode {
 	XT_STEPPING_ISR_ON,		/* interrupts are enabled during stepping */
 };
 
-typedef enum xtensa_nx_reg_idx_e {
+enum xtensa_nx_reg_idx {
 	XT_NX_REG_IDX_IBREAKC0 = 0,
 	XT_NX_REG_IDX_WB,
 	XT_NX_REG_IDX_MS,
@@ -203,7 +203,7 @@ typedef enum xtensa_nx_reg_idx_e {
 	XT_NX_REG_IDX_MESR,
 	XT_NX_REG_IDX_MESRCLR,
 	XT_NX_REG_IDX_NUM
-} xtensa_nx_reg_idx;
+};
 
 /* Only supported in cores with in-CPU MMU. None of Espressif chips as of now. */
 enum xtensa_mode {
@@ -228,8 +228,9 @@ struct xtensa_sw_breakpoint {
 struct xtensa_algorithm {
 	/** User can set this to specify which core mode algorithm should be run in. */
 	enum xtensa_mode core_mode;
-	/** Used internally to backup and restore debug_reason. */
+	/** Used internally to backup and restore core state. */
 	enum target_debug_reason ctx_debug_reason;
+	xtensa_reg_val_t ctx_ps;
 };
 
 #define XTENSA_COMMON_MAGIC 0x54E4E555U
