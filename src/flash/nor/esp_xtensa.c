@@ -13,8 +13,6 @@
 #include <target/espressif/esp_xtensa_apptrace.h>
 #include <target/xtensa/xtensa_algorithm.h>
 
-#define ESP_XTENSA_FLASH_MIN_OFFSET  0x1000	/* protect secure boot digest data */
-
 static const struct esp_flash_apptrace_hw s_esp_xtensa_flash_apptrace_hw = {
 	.data_len_read = esp_xtensa_apptrace_data_len_read,
 	.data_read = esp_xtensa_apptrace_data_read,
@@ -37,6 +35,5 @@ int esp_xtensa_flash_init(struct esp_xtensa_flash_bank *esp_info, uint32_t sec_s
 	int ret = esp_algo_flash_init(&esp_info->esp, sec_sz, run_func_image, is_irom_address,
 		is_drom_address, get_stub, &s_esp_xtensa_flash_apptrace_hw,
 		&xtensa_algo_hw);
-	esp_info->esp.flash_min_offset = ESP_XTENSA_FLASH_MIN_OFFSET;
 	return ret;
 }

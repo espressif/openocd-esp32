@@ -113,7 +113,6 @@ FLASH_BANK_COMMAND_HANDLER(esp32s3_flash_bank_command)
 		free(esp32s3_info);
 		return ret;
 	}
-	esp32s3_info->esp_xtensa.esp.flash_min_offset = 0;
 	bank->driver_priv = esp32s3_info;
 	return ERROR_OK;
 }
