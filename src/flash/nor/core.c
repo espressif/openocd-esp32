@@ -317,7 +317,7 @@ int get_flash_bank_by_addr(struct target *target,
 			return retval;
 		}
 		/* check whether address belongs to this flash bank */
-		if ((addr >= c->base) && (addr <= c->base + (c->size - 1))) {
+		if (addr >= c->base && c->size > 0 && (addr <= c->base + (c->size - 1))) {
 			*result_bank = c;
 			return ERROR_OK;
 		}
