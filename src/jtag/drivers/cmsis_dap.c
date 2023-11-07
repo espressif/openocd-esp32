@@ -864,7 +864,7 @@ static void cmsis_dap_swd_write_from_queue(struct cmsis_dap *dap)
 	unsigned int packet_count = dap->quirk_mode ? 1 : dap->packet_count;
 	dap->pending_fifo_put_idx = (dap->pending_fifo_put_idx + 1) % packet_count;
 	dap->pending_fifo_block_count++;
-	if (dap->pending_fifo_block_count > dap->packet_count)
+	if (dap->pending_fifo_block_count > packet_count)
 		LOG_ERROR("internal: too much pending writes %u", dap->pending_fifo_block_count);
 
 	return;
@@ -1081,7 +1081,8 @@ static void cmsis_dap_swd_queue_cmd(uint8_t cmd, uint32_t *dst, uint32_t data)
 		/* Not enough room in the queue. Run the queue. */
 		cmsis_dap_swd_write_from_queue(cmsis_dap_handle);
 
-		if (cmsis_dap_handle->pending_fifo_block_count >= cmsis_dap_handle->packet_count)
+		unsigned int packet_count = cmsis_dap_handle->quirk_mode ? 1 : cmsis_dap_handle->packet_count;
+		if (cmsis_dap_handle->pending_fifo_block_count >= packet_count)
 			cmsis_dap_swd_read_process(cmsis_dap_handle, CMSIS_DAP_BLOCKING);
 	}
 
@@ -1224,7 +1225,7 @@ static int cmsis_dap_swd_switch_seq(enum swd_special_seq seq)
 	if (swd_mode)
 		queued_retval = cmsis_dap_swd_run_queue();
 
-	if (seq != LINE_RESET &&
+	if (cmsis_dap_handle->quirk_mode && seq != LINE_RESET &&
 			(output_pins & (SWJ_PIN_SRST | SWJ_PIN_TRST))
 				== (SWJ_PIN_SRST | SWJ_PIN_TRST)) {
 		/* Following workaround deasserts reset on most adapters.
