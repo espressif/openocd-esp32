@@ -60,6 +60,12 @@ struct esp_flash_mapping {
 	struct esp_flash_region_mapping maps[ESP_STUB_FLASH_MAPPINGS_MAX_NUM];
 };
 
+#define ESP_STUB_FLASHMAP_MAPSNUM_OFF (offsetof(struct esp_flash_mapping, maps_num))
+#define ESP_STUB_FLASHMAP_MAPS_OFF(_i_) (offsetof(struct esp_flash_mapping, maps) + (_i_) * sizeof(struct esp_flash_region_mapping))
+#define ESP_STUB_FLASHMAP_PHYADDR_OFF(_i_) (ESP_STUB_FLASHMAP_MAPS_OFF(_i_) + offsetof(struct esp_flash_region_mapping, phy_addr))
+#define ESP_STUB_FLASHMAP_LOADADDR_OFF(_i_) (ESP_STUB_FLASHMAP_MAPS_OFF(_i_) + offsetof(struct esp_flash_region_mapping, load_addr))
+#define ESP_STUB_FLASHMAP_SIZE_OFF(_i_) (ESP_STUB_FLASHMAP_MAPS_OFF(_i_) + offsetof(struct esp_flash_region_mapping, size))
+
 struct esp_flash_stub_flash_write_args {
 	uint32_t start_addr;
 	uint32_t size;
