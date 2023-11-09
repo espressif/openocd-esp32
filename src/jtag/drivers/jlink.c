@@ -969,7 +969,7 @@ COMMAND_HANDLER(jlink_usb_command)
 
 	if (tmp > JAYLINK_USB_ADDRESS_3) {
 		command_print(CMD, "Invalid USB address: %s", CMD_ARGV[0]);
-		return ERROR_FAIL;
+		return ERROR_COMMAND_ARGUMENT_INVALID;
 	}
 
 	usb_address = tmp;
@@ -1061,7 +1061,6 @@ COMMAND_HANDLER(jlink_handle_jlink_jtag_command)
 			return ERROR_COMMAND_ARGUMENT_INVALID;
 		}
 	} else {
-		command_print(CMD, "Need exactly one argument for jlink jtag");
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
@@ -1419,12 +1418,11 @@ COMMAND_HANDLER(jlink_handle_config_usb_address_command)
 
 		if (tmp > JAYLINK_USB_ADDRESS_3) {
 			command_print(CMD, "Invalid USB address: %u", tmp);
-			return ERROR_FAIL;
+			return ERROR_COMMAND_ARGUMENT_INVALID;
 		}
 
 		tmp_config.usb_address = tmp;
 	} else {
-		command_print(CMD, "Need exactly one argument for jlink config usb");
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
@@ -1456,13 +1454,11 @@ COMMAND_HANDLER(jlink_handle_config_target_power_command)
 			enable = false;
 		} else {
 			command_print(CMD, "Invalid argument: %s", CMD_ARGV[0]);
-			return ERROR_FAIL;
+			return ERROR_COMMAND_ARGUMENT_INVALID;
 		}
 
 		tmp_config.target_power = enable;
 	} else {
-		command_print(CMD, "Need exactly one argument for jlink config "
-			"targetpower");
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
@@ -1496,7 +1492,7 @@ COMMAND_HANDLER(jlink_handle_config_mac_address_command)
 		if ((strlen(str) != 17) || (str[2] != ':' || str[5] != ':' ||
 				str[8] != ':' || str[11] != ':' || str[14] != ':')) {
 			command_print(CMD, "Invalid MAC address format");
-			return ERROR_COMMAND_SYNTAX_ERROR;
+			return ERROR_COMMAND_ARGUMENT_INVALID;
 		}
 
 		for (i = 5; i >= 0; i--) {
@@ -1506,17 +1502,16 @@ COMMAND_HANDLER(jlink_handle_config_mac_address_command)
 
 		if (!(addr[0] | addr[1] | addr[2] | addr[3] | addr[4] | addr[5])) {
 			command_print(CMD, "Invalid MAC address: zero address");
-			return ERROR_COMMAND_SYNTAX_ERROR;
+			return ERROR_COMMAND_ARGUMENT_INVALID;
 		}
 
 		if (!(0x01 & addr[0])) {
 			command_print(CMD, "Invalid MAC address: multicast address");
-			return ERROR_COMMAND_SYNTAX_ERROR;
+			return ERROR_COMMAND_ARGUMENT_INVALID;
 		}
 
 		memcpy(tmp_config.mac_address, addr, sizeof(addr));
 	} else {
-		command_print(CMD, "Need exactly one argument for jlink config mac");
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
@@ -1578,20 +1573,26 @@ COMMAND_HANDLER(jlink_handle_config_ip_address_command)
 	if (!CMD_ARGC) {
 		show_config_ip_address(CMD);
 	} else {
-		if (!string_to_ip(CMD_ARGV[0], ip_address, &i))
-			return ERROR_COMMAND_SYNTAX_ERROR;
+		if (!string_to_ip(CMD_ARGV[0], ip_address, &i)) {
+			command_print(CMD, "invalid IPv4 address");
+			return ERROR_COMMAND_ARGUMENT_INVALID;
+		}
 
 		len = strlen(CMD_ARGV[0]);
 
 		/* Check for format A.B.C.D/E. */
 		if (i < len) {
-			if (CMD_ARGV[0][i] != '/')
-				return ERROR_COMMAND_SYNTAX_ERROR;
+			if (CMD_ARGV[0][i] != '/') {
+				command_print(CMD, "missing network mask");
+				return ERROR_COMMAND_ARGUMENT_INVALID;
+			}
 
 			COMMAND_PARSE_NUMBER(u8, CMD_ARGV[0] + i + 1, subnet_bits);
 		} else if (CMD_ARGC > 1) {
-			if (!string_to_ip(CMD_ARGV[1], (uint8_t *)&subnet_mask, &i))
-				return ERROR_COMMAND_SYNTAX_ERROR;
+			if (!string_to_ip(CMD_ARGV[1], (uint8_t *)&subnet_mask, &i)) {
+				command_print(CMD, "invalid subnet mask");
+				return ERROR_COMMAND_ARGUMENT_INVALID;
+			}
 		}
 
 		if (!subnet_mask)
