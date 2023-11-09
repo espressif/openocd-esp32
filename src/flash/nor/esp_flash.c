@@ -385,7 +385,7 @@ static int esp_algo_flash_get_mappings(struct flash_bank *bank,
 		return ret;
 	}
 	if (run.ret_code != ESP_STUB_ERR_OK) {
-		LOG_ERROR("Failed to get flash maps (%" PRId32 ")!", run.ret_code);
+		LOG_WARNING("Failed to get flash maps (%" PRId32 ")!", run.ret_code);
 		if (run.ret_code == ESP_STUB_ERR_INVALID_IMAGE)
 			LOG_WARNING(
 				"Application image is invalid! Check configured binary flash offset 'appimage_offset'.");
@@ -395,7 +395,7 @@ static int esp_algo_flash_get_mappings(struct flash_bank *bank,
 			LOG_WARNING("Invalid magic number in app image!");
 		ret = ERROR_FAIL;
 	} else {
-		memcpy(flash_map, mp.value, sizeof(struct esp_flash_mapping));
+		flash_map->maps_num = target_buffer_get_u32(bank->target, mp.value + ESP_STUB_FLASHMAP_MAPSNUM_OFF);
 		if (flash_map->maps_num > ESP_FLASH_MAPS_MAX) {
 			LOG_ERROR("Too many flash mappings %d! Must be %d.",
 				flash_map->maps_num,
@@ -404,12 +404,19 @@ static int esp_algo_flash_get_mappings(struct flash_bank *bank,
 		} else if (flash_map->maps_num == 0) {
 			LOG_WARNING("Empty flash mapping!");
 		} else {
-			for (uint32_t i = 0; i < flash_map->maps_num; i++)
+			for (uint32_t i = 0; i < flash_map->maps_num; i++) {
+				flash_map->maps[i].phy_addr =
+					target_buffer_get_u32(bank->target, mp.value + ESP_STUB_FLASHMAP_PHYADDR_OFF(i));
+				flash_map->maps[i].load_addr =
+					target_buffer_get_u32(bank->target, mp.value + ESP_STUB_FLASHMAP_LOADADDR_OFF(i));
+				flash_map->maps[i].size =
+					target_buffer_get_u32(bank->target, mp.value + ESP_STUB_FLASHMAP_SIZE_OFF(i));
 				LOG_INFO("Flash mapping %d: 0x%x -> 0x%x, %d KB",
 					i,
 					flash_map->maps[i].phy_addr,
 					flash_map->maps[i].load_addr,
 					flash_map->maps[i].size / 1024);
+			}
 		}
 	}
 	destroy_mem_param(&mp);
