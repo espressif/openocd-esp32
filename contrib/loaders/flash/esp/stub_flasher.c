@@ -363,13 +363,9 @@ static int stub_write_aligned_buffer(void *data_buf, uint32_t length)
 			bytes_in_out_buf == ESP_STUB_UNZIP_BUFF_SIZE) {
 			uint32_t wr_sz = bytes_in_out_buf;
 
-			/* add padding if this is the last package */
-			if (bytes_in_out_buf < ESP_STUB_UNZIP_BUFF_SIZE) {
-				memset(s_fs.out_buf + bytes_in_out_buf,
-					0xFF,
-					ESP_STUB_UNZIP_BUFF_SIZE - bytes_in_out_buf);
-				wr_sz = ESP_STUB_UNZIP_BUFF_SIZE;
-			}
+			/* stub_spiflash_write() expects length to be aligned to 4 bytes.
+				If this is the last package we do not need to care about it here because OpenOCD flash driver
+				ensures that address and size are always aligned to sector size which is multiple of 4 */
 
 			/* write buffer with aligned size */
 			esp_rom_spiflash_result_t rc = stub_spiflash_write(s_fs.next_write, (uint32_t *)s_fs.out_buf,
@@ -474,12 +470,12 @@ static int stub_write_inflated_data(void *data_buf, uint32_t length)
 	if (length == 0)
 		return ESP_STUB_ERR_OK;
 
-	/* add padding if this is the last package */
+	/* if this is the last package */
 	if (length < ESP_STUB_UNZIP_BUFF_SIZE) {
-		if (s_fs.remaining_uncompressed - length == 0) {
-			memset(data_buf + length, 0xFF, ESP_STUB_UNZIP_BUFF_SIZE - length);
-			length = ESP_STUB_UNZIP_BUFF_SIZE;
-		} else {
+		/* stub_spiflash_write() expects length to be aligned to 4 bytes.
+			If this is the last package we do not need to care about it here because OpenOCD flash driver
+			ensures that address and size are always aligned to sector size which is multiple of 4 */
+		if (s_fs.remaining_uncompressed - length != 0) {
 			STUB_LOGE("Unaligned offset! %d-%d\n", length, s_fs.remaining_uncompressed);
 			return ESP_STUB_ERR_FAIL;
 		}
