@@ -487,7 +487,7 @@ static int esp_algo_flash_rw_do(struct target *target, void *priv)
 			return retval;
 		}
 		/* transfer block */
-		LOG_DEBUG("Transfer block %d, %d bytes", block_id, len);
+		LOG_DEBUG("Transfer block %d, read %d bytes from target", block_id, len);
 		retval = rw->xfer(target, block_id, len, rw);
 		if (retval == ERROR_WAIT) {
 			LOG_DEBUG("Block not ready");
@@ -579,6 +579,7 @@ static int esp_algo_flash_write_xfer(struct target *target, uint32_t block_id, u
 	}
 	state->rw.total_count += wr_sz;
 	state->prev_block_id = block_id;
+	LOG_DEBUG("Transferred %u bytes to target. %u/%u", wr_sz, state->rw.total_count, state->rw.count);
 
 	return ERROR_OK;
 }
@@ -604,7 +605,7 @@ static int esp_algo_flash_write_state_init(struct target *target,
 	/* alloc memory for stub flash write arguments in data working area */
 	if (target_alloc_working_area(target, sizeof(state->stub_wargs),
 			&state->stub_wargs_area) != ERROR_OK) {
-		LOG_ERROR("no working area available, can't alloc space for stub flash arguments");
+		LOG_ERROR("no working area available, can't alloc space for stub flash arguments!");
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
