@@ -15,9 +15,6 @@ ESP_XTENSA_BLD_FLASH_OFF = 0x1000
 ESP32_PT_FLASH_OFF = 0x8000
 # TODO: get from partition table
 ESP32_APP_FLASH_OFF = 0x10000
-ESP32_APP_FLASH_SZ = (1024*1024) # 1M
-# TODO: get automatically
-ESP32_FLASH_SZ =  4*(1024*1024) # 4M
 
 test_apps_dir = ''
 
