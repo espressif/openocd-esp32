@@ -22,6 +22,7 @@
 #include "target/target.h"
 #include "target/armv7m.h"
 #include "target/arc.h"
+#include "target/riscv/riscv.h"
 
 #define UNIMPLEMENTED 0xFFFFFFFFU
 
@@ -105,6 +106,43 @@ static const struct stack_register_offset arc_callee_saved[] = {
 	{ ARC_FP,  56,  32 },
 	{ ARC_R30,  60,  32 }
 };
+
+static struct stack_register_offset riscv_callee_saved[] = {
+	{ GDB_REGNO_ZERO, -1, 32 },
+	{ GDB_REGNO_RA, 4, 32 },
+	{ GDB_REGNO_SP, -2, 32 },
+	{ GDB_REGNO_GP, -1, 32 },
+	{ GDB_REGNO_TP, -1, 32 },
+	{ GDB_REGNO_T0, -1, 32 },
+	{ GDB_REGNO_T1, -1, 32 },
+	{ GDB_REGNO_T2, -1, 32 },
+	{ GDB_REGNO_FP, 8, 32 },
+	{ GDB_REGNO_S1, 12, 32 },
+	{ GDB_REGNO_A0, -1, 32 },
+	{ GDB_REGNO_A1, -1, 32 },
+	{ GDB_REGNO_A2, -1, 32 },
+	{ GDB_REGNO_A3, -1, 32 },
+	{ GDB_REGNO_A4, -1, 32 },
+	{ GDB_REGNO_A5, -1, 32 },
+	{ GDB_REGNO_A6, -1, 32 },
+	{ GDB_REGNO_A7, -1, 32 },
+	{ GDB_REGNO_S2, 16, 32 },
+	{ GDB_REGNO_S3, 20, 32 },
+	{ GDB_REGNO_S4, 24, 32 },
+	{ GDB_REGNO_S5, 28, 32 },
+	{ GDB_REGNO_S6, 32, 32 },
+	{ GDB_REGNO_S7, 36, 32 },
+	{ GDB_REGNO_S8, 40, 32 },
+	{ GDB_REGNO_S9, 44, 32 },
+	{ GDB_REGNO_S10, 48, 32 },
+	{ GDB_REGNO_S11, 52, 32 },
+	{ GDB_REGNO_T3, -1, 32 },
+	{ GDB_REGNO_T4, -1, 32 },
+	{ GDB_REGNO_T5, -1, 32 },
+	{ GDB_REGNO_T6, -1, 32 },
+	{ GDB_REGNO_PC, -1, 32 },
+};
+
 static const struct rtos_register_stacking arm_callee_saved_stacking = {
 	.stack_registers_size = 36,
 	.stack_growth_direction = -1,
@@ -117,6 +155,14 @@ static const struct rtos_register_stacking arc_callee_saved_stacking = {
 	.stack_growth_direction = -1,
 	.num_output_registers = ARRAY_SIZE(arc_callee_saved),
 	.register_offsets = arc_callee_saved,
+};
+
+static const struct rtos_register_stacking riscv_callee_saved_stacking = {
+	.stack_registers_size = 56,
+	.stack_growth_direction = -1,
+	.num_output_registers = ARRAY_SIZE(riscv_callee_saved),
+	.calculate_process_stack = rtos_generic_stack_align8,
+	.register_offsets = riscv_callee_saved,
 };
 
 static const struct stack_register_offset arm_cpu_saved[] = {
@@ -331,6 +377,19 @@ static int zephyr_get_arm_state(struct rtos *rtos, target_addr_t *addr,
 	return 0;
 }
 
+/* RiscV specific implementation */
+static int zephyr_get_riscv_state(struct rtos *rtos, target_addr_t *addr,
+			 struct zephyr_params *params,
+			 struct rtos_reg *callee_saved_reg_list,
+			 struct rtos_reg **reg_list, int *num_regs)
+{
+	/* Getting callee registers */
+	return rtos_generic_stack_read(rtos->target,
+			params->callee_saved_stacking,
+			*addr, reg_list,
+			num_regs);
+}
+
 static struct zephyr_params zephyr_params_list[] = {
 	{
 		.target_name = "cortex_m",
@@ -365,6 +424,30 @@ static struct zephyr_params zephyr_params_list[] = {
 		.get_cpu_state = &zephyr_get_arc_state,
 	},
 	{
+		.target_name = "esp32c2",
+		.pointer_width = 4,
+		.callee_saved_stacking = &riscv_callee_saved_stacking,
+		.get_cpu_state = &zephyr_get_riscv_state,
+	},
+	{
+		.target_name = "esp32c3",
+		.pointer_width = 4,
+		.callee_saved_stacking = &riscv_callee_saved_stacking,
+		.get_cpu_state = &zephyr_get_riscv_state,
+	},
+	{
+		.target_name = "esp32c6",
+		.pointer_width = 4,
+		.callee_saved_stacking = &riscv_callee_saved_stacking,
+		.get_cpu_state = &zephyr_get_riscv_state,
+	},
+	{
+		.target_name = "esp32h2",
+		.pointer_width = 4,
+		.callee_saved_stacking = &riscv_callee_saved_stacking,
+		.get_cpu_state = &zephyr_get_riscv_state,
+	},
+	{
 		.target_name = NULL
 	}
 };
@@ -394,7 +477,7 @@ static const struct symbol_table_elem zephyr_symbol_list[] = {
 static bool zephyr_detect_rtos(struct target *target)
 {
 	if (!target->rtos->symbols) {
-		LOG_INFO("Zephyr: no symbols while detecting RTOS");
+		LOG_DEBUG("Zephyr: no symbols while detecting RTOS");
 		return false;
 	}
 
@@ -449,6 +532,8 @@ static int zephyr_create(struct target *target)
 			return ERROR_OK;
 		}
 	}
+
+	target->rtos->current_threadid = -1;
 
 	LOG_ERROR("Could not find target in Zephyr compatibility list");
 	return ERROR_FAIL;
@@ -558,8 +643,8 @@ static int zephyr_fetch_thread(const struct rtos *rtos,
 	}
 
 	LOG_DEBUG("Fetched thread%" PRIx32 ": {entry@0x%" PRIx32
-		", state=%" PRIu8 ", useropts=%" PRIu8 ", prio=%" PRId8 "}",
-		ptr, thread->entry, thread->state, thread->user_options, thread->prio);
+		", state=%" PRIu8 ", useropts=%" PRIu8 ", prio=%" PRId8 ", name=%s}",
+		ptr, thread->entry, thread->state, thread->user_options, thread->prio, thread->name);
 
 	return ERROR_OK;
 }
@@ -569,7 +654,6 @@ static int zephyr_fetch_thread_list(struct rtos *rtos, uint32_t current_thread)
 	struct zephyr_array thread_array;
 	struct zephyr_thread thread;
 	struct thread_detail *td;
-	int64_t curr_id = -1;
 	uint32_t curr;
 	int retval;
 
@@ -604,8 +688,6 @@ static int zephyr_fetch_thread_list(struct rtos *rtos, uint32_t current_thread)
 		if (!td->thread_name_str || !td->extra_info_str)
 			goto error;
 
-		if (td->threadid == current_thread)
-			curr_id = (int64_t)thread_array.elements - 1;
 	}
 
 	LOG_DEBUG("Got information for %zu threads", thread_array.elements);
@@ -615,7 +697,6 @@ static int zephyr_fetch_thread_list(struct rtos *rtos, uint32_t current_thread)
 	rtos->thread_count = (int)thread_array.elements;
 	rtos->thread_details = zephyr_array_detach_ptr(&thread_array);
 
-	rtos->current_threadid = curr_id;
 	rtos->current_thread = current_thread;
 
 	return ERROR_OK;
@@ -643,7 +724,7 @@ static int zephyr_update_threads(struct rtos *rtos)
 	param = (struct zephyr_params *)rtos->rtos_specific_params;
 
 	if (!rtos->symbols) {
-		LOG_ERROR("No symbols for Zephyr");
+		LOG_WARNING("No symbols for Zephyr");
 		return ERROR_FAIL;
 	}
 
@@ -739,6 +820,37 @@ static int zephyr_update_threads(struct rtos *rtos)
 		LOG_ERROR("Could not obtain thread list");
 		return retval;
 	}
+	return ERROR_OK;
+}
+
+static int zephyr_get_current_thread_reg_list(struct rtos *rtos,
+	struct rtos_reg **reg_list, int *num_regs)
+{
+	struct reg **gdb_reg_list;
+
+	/* Registers for currently running thread are not on task's stack and
+	 * should be retrieved from reg caches via target_get_gdb_reg_list */
+	int ret = target_get_gdb_reg_list(rtos->target, &gdb_reg_list, num_regs,
+		REG_CLASS_GENERAL);
+	if (ret != ERROR_OK) {
+		LOG_ERROR("target_get_gdb_reg_list failed %d", ret);
+		return ret;
+	}
+
+	*reg_list = calloc(*num_regs, sizeof(struct rtos_reg));
+	if (!(*reg_list)) {
+		LOG_ERROR("Failed to alloc memory for %d", *num_regs);
+		free(gdb_reg_list);
+		return ERROR_FAIL;
+	}
+
+	for (int i = 0; i < *num_regs; i++) {
+		(*reg_list)[i].number = gdb_reg_list[i]->number;
+		(*reg_list)[i].size = gdb_reg_list[i]->size;
+		memcpy((*reg_list)[i].value, gdb_reg_list[i]->value, ((*reg_list)[i].size + 7) / 8);
+	}
+
+	free(gdb_reg_list);
 
 	return ERROR_OK;
 }
@@ -763,12 +875,16 @@ static int zephyr_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 	if (!params)
 		return ERROR_FAIL;
 
-	addr = thread_id + params->offsets[OFFSET_T_STACK_POINTER]
-		 - params->callee_saved_stacking->register_offsets[0].offset;
+	addr = thread_id + params->offsets[OFFSET_T_STACK_POINTER];
+	if (params->callee_saved_stacking->register_offsets[0].offset > 0)
+		addr -= params->callee_saved_stacking->register_offsets[0].offset;
 
-	retval = params->get_cpu_state(rtos, &addr, params, callee_saved_reg_list, reg_list, num_regs);
-
-	free(callee_saved_reg_list);
+	if (thread_id == rtos->current_thread) {
+		retval = zephyr_get_current_thread_reg_list(rtos, reg_list, num_regs);
+	} else {
+		retval = params->get_cpu_state(rtos, &addr, params, callee_saved_reg_list, reg_list, num_regs);
+		free(callee_saved_reg_list);
+	}
 
 	return retval;
 }
