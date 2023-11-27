@@ -15,8 +15,8 @@
 #include <target/espressif/esp_xtensa_apptrace.h>
 #include <target/espressif/esp_xtensa_smp.h>
 #include "esp_xtensa.h"
-#include "contrib/loaders/flash/esp/esp32s3/stub_flasher_image.h"
-#include "contrib/loaders/flash/esp/esp32s3/stub_flasher_image_wlog.h"
+#include "../../../contrib/loaders/flash/espressif/esp32s3/stub_flasher_image.h"
+#include "../../../contrib/loaders/flash/espressif/esp32s3/stub_flasher_image_wlog.h"
 
 #define ESP32_S3_DROM_LOW             0x3C000000
 #define ESP32_S3_DROM_HIGH            0x3D000000
@@ -30,16 +30,16 @@ struct esp32s3_flash_bank {
 };
 
 static const uint8_t esp32s3_flasher_stub_code[] = {
-#include "contrib/loaders/flash/esp/esp32s3/stub_flasher_code.inc"
+#include "../../../contrib/loaders/flash/espressif/esp32s3/stub_flasher_code.inc"
 };
 static const uint8_t esp32s3_flasher_stub_data[] = {
-#include "contrib/loaders/flash/esp/esp32s3/stub_flasher_data.inc"
+#include "../../../contrib/loaders/flash/espressif/esp32s3/stub_flasher_data.inc"
 };
 static const uint8_t esp32s3_flasher_stub_code_wlog[] = {
-#include "contrib/loaders/flash/esp/esp32s3/stub_flasher_code_wlog.inc"
+#include "../../../contrib/loaders/flash/espressif/esp32s3/stub_flasher_code_wlog.inc"
 };
 static const uint8_t esp32s3_flasher_stub_data_wlog[] = {
-#include "contrib/loaders/flash/esp/esp32s3/stub_flasher_data_wlog.inc"
+#include "../../../contrib/loaders/flash/espressif/esp32s3/stub_flasher_data_wlog.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp32s3_stub_cfg = {
