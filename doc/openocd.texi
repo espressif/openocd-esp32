@@ -11737,7 +11737,7 @@ Stops Espressif multi-core SystremView tracing started with above command.
 Requests ongoing Espressif multi-core SystremView tracing status.
 @end deffn
 
-@deffn {Command} {esp gcov} [dump]
+@deffn {Command} {esp gcov} [dump] [prefix [prefix_strip]]
 Dumps collected source code coverage (gcov) data from the target.
 The process involves compiling the source code with specific options, transferring the coverage data from the target to the host,
 and using Gcov or Gcovr to create reports that show which parts of the code were executed.
@@ -11752,6 +11752,8 @@ you can relocate the generated data files using two environment variables: OPENO
 Cross-profiling feature is related to GCC, see @url{https://gcc.gnu.org/onlinedocs/gcc/Cross-profiling.html}
 @itemize @bullet
 @item @code{dump} - Used for @uref{https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/app_trace.html#hard-coded-dump, hard-coded dump mode}.
+@item @code{prefix} - Can be used as a prefix path, If OPENOCD_GCOV_PREFIX not set as an env variable
+@item @code{prefix_strip} - Can be used as a prefix strip, If OPENOCD_GCOV_PREFIX_STRIP not set as an env variable.
 @end itemize
 @end deffn
 
