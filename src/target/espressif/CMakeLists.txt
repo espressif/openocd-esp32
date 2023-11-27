@@ -30,6 +30,8 @@ target_sources(espressif PRIVATE
 	segger_sysview.h
 	esp_algorithm.c
 	esp_algorithm.h
+	esp_xtensa_algorithm.c
+	esp_xtensa_algorithm.h
 	esp_riscv_algorithm.c
 	esp_riscv_algorithm.h
 	esp_semihosting.c

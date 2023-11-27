@@ -12,14 +12,14 @@
 ../src/target/riscv/riscv.c:4874:9: warning: the address of an array will always evaluate as true
 ../src/target/riscv/riscv.c:4894:9: warning: the address of an array will always evaluate as true
 ../src/target/riscv/riscv.c:4894:9: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:1429:17: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:1429:17: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:2700:25: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:2700:25: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:3954:17: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:3954:17: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:427:9: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:427:9: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:1428:17: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:1428:17: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:2699:25: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:2699:25: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:3953:17: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:3953:17: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:426:9: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:426:9: warning: the address of an array will always evaluate as true
 _glob.c:3:5: warning: symbol 'Jim_globInit' was not declared. Should it be static?
 _initjimsh.c:3:5: warning: symbol 'Jim_initjimshInit' was not declared. Should it be static?
 _jsonencode.c:3:5: warning: symbol 'Jim_jsonencodeInit' was not declared. Should it be static?

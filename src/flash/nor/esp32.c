@@ -12,7 +12,7 @@
 #include "imp.h"
 #include <target/smp.h>
 #include <target/espressif/esp_xtensa_apptrace.h>
-#include <target/xtensa/xtensa_algorithm.h>
+#include <target/espressif/esp_xtensa_algorithm.h>
 #include <target/espressif/esp_xtensa_smp.h>
 #include "esp_xtensa.h"
 #include "../../../contrib/loaders/flash/espressif/esp32/stub_flasher_image.h"
@@ -53,7 +53,7 @@ static const struct esp_flasher_stub_config s_esp32_stub_cfg = {
 	.iram_len = ESP32_STUB_IRAM_LEN,
 	.dram_org = ESP32_STUB_DRAM_ORG,
 	.dram_len = ESP32_STUB_DRAM_LEN,
-	.first_user_reg_param = XTENSA_STUB_ARGS_FUNC_START,
+	.first_user_reg_param = ESP_XTENSA_STUB_ARGS_FUNC_START,
 	.reverse = true
 };
 
@@ -68,7 +68,7 @@ static const struct esp_flasher_stub_config s_esp32_stub_cfg_wlog = {
 	.iram_len = ESP32_STUB_IRAM_LEN,
 	.dram_org = ESP32_STUB_DRAM_ORG,
 	.dram_len = ESP32_STUB_DRAM_LEN,
-	.first_user_reg_param = XTENSA_STUB_ARGS_FUNC_START,
+	.first_user_reg_param = ESP_XTENSA_STUB_ARGS_FUNC_START,
 	.log_buff_addr = ESP32_STUB_WLOG_LOG_ADDR,
 	.log_buff_size = ESP32_STUB_WLOG_LOG_SIZE,
 	.reverse = true

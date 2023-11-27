@@ -1,22 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /***************************************************************************
- *   ESP32 flasher stub wrapper                                           *
+ *   Xtensa flasher stub wrapper                                           *
  *   Copyright (C) 2017 Espressif Systems Ltd.                             *
  ***************************************************************************/
-
-/* To assemble:
- * xtensa-esp32-elf-gcc -c esp32_stub_tramp.S -o esp32_stub_tramp.o
- *
- * To disassemble:
- * xtensa-esp32-elf-objdump -d esp32_stub_tramp.o
- *
- * To generate binary file:
- * xtensa-esp32-elf-objcopy -O binary esp32_stub_tramp.o esp32_stub_tramp.bin
- *
- * To generate include file:
- * cat esp32_stub_tramp.bin | xxd -i > esp32_stub_tramp.inc
- */
 
 /*
  * Expects :

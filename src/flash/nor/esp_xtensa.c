@@ -11,7 +11,7 @@
 
 #include "esp_xtensa.h"
 #include <target/espressif/esp_xtensa_apptrace.h>
-#include <target/xtensa/xtensa_algorithm.h>
+#include <target/espressif/esp_xtensa_algorithm.h>
 
 static const struct esp_flash_apptrace_hw s_esp_xtensa_flash_apptrace_hw = {
 	.data_len_read = esp_xtensa_apptrace_data_len_read,

@@ -222,6 +222,16 @@ struct xtensa_sw_breakpoint {
 	uint8_t insn_sz;	/* 2 or 3 bytes */
 };
 
+/**
+ * Xtensa algorithm data.
+ */
+struct xtensa_algorithm {
+	/** User can set this to specify which core mode algorithm should be run in. */
+	enum xtensa_mode core_mode;
+	/** Used internally to backup and restore debug_reason. */
+	enum target_debug_reason ctx_debug_reason;
+};
+
 #define XTENSA_COMMON_MAGIC 0x54E4E555U
 
 /**
