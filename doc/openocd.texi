@@ -11595,8 +11595,18 @@ Requests ongoing Espressif multi-core SystremView tracing status.
 @end deffn
 
 @deffn {Command} {esp gcov} [dump]
-Dumps collected coverage (gcov) data from target.
-@url{https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/app_trace.html#gcov-source-code-coverage}
+Dumps collected source code coverage (gcov) data from the target.
+The process involves compiling the source code with specific options, transferring the coverage data from the target to the host,
+and using Gcov or Gcovr to create reports that show which parts of the code were executed.
+These reports are useful for understanding how well the program's code is being tested.
+For the details, see @url{https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/app_trace.html#gcov-source-code-coverage}
+To enable cross-profiling support, when compiling a program with the -fprofile-arcs option,
+you can relocate the generated data files using two environment variables: OPENOCD_GCOV_PREFIX and OPENOCD_GCOV_PREFIX_STRIP
+@itemize @bullet
+@item @code{OPENOCD_GCOV_PREFIX} - Lets you specify a prefix to add to the absolute paths in the object file. It can be an absolute or relative path, and by default, there's no prefix.
+@item @code{OPENOCD_GCOV_PREFIX_STRIP} - Determines how many initial directory names should be removed from the hardwired absolute paths. By default, it's set to 0.
+@end itemize
+Cross-profiling feature is related to GCC, see @url{https://gcc.gnu.org/onlinedocs/gcc/Cross-profiling.html}
 @itemize @bullet
 @item @code{dump} - Used for @uref{https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/app_trace.html#hard-coded-dump, hard-coded dump mode}.
 @end itemize

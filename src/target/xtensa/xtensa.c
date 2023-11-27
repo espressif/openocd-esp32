@@ -19,7 +19,6 @@
 #include <target/algorithm.h>
 
 #include "xtensa.h"
-#include "xtensa_algorithm.h"
 /* Swap 4-bit Xtensa opcodes and fields */
 #define XT_NIBSWAP8(V)									\
 	((((V) & 0x0F) << 4)								\

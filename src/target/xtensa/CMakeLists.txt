@@ -7,8 +7,6 @@ target_sources(xtensa PRIVATE
     xtensa.h
     xtensa_chip.c
     xtensa_chip.h
-    xtensa_algorithm.c
-    xtensa_algorithm.h
     xtensa_debug_module.c
     xtensa_debug_module.h
     xtensa_fileio.c

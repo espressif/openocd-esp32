@@ -12,7 +12,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <target/smp.h>
-#include <target/xtensa/xtensa_algorithm.h>
+#include <target/espressif/esp_xtensa_algorithm.h>
 #include <target/espressif/esp_semihosting.h>
 #include "esp_xtensa.h"
 #include "esp_xtensa_apptrace.h"
