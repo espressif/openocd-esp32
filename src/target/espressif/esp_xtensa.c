@@ -12,12 +12,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <target/smp.h>
-#include <target/espressif/esp_xtensa_algorithm.h>
-#include <target/espressif/esp_semihosting.h>
+#include <target/register.h>
+#include "esp_semihosting.h"
+#include "esp_xtensa_algorithm.h"
 #include "esp_xtensa.h"
 #include "esp_xtensa_apptrace.h"
 #include "esp_xtensa_semihosting.h"
-#include <target/register.h>
 
 #if IS_ESPIDF
 extern int examine_failed_ui_handler(struct command_invocation *cmd);

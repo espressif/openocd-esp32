@@ -891,7 +891,7 @@ static int esp32_apptrace_get_data_info(struct esp32_apptrace_cmd_ctx *ctx,
 	for (unsigned int i = 0; i < ctx->cores_num; i++) {
 		int res = ctx->hw->data_len_read(ctx->cpus[i], &target_state[i].block_id, &target_state[i].data_len);
 		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to read data len on (%s)!", target_name(ctx->cpus[i]));
+			LOG_TARGET_ERROR(ctx->cpus[i], "Failed to read data len!");
 			return res;
 		}
 		if (target_state[i].data_len) {
@@ -1080,8 +1080,8 @@ static int esp32_apptrace_poll(void *priv)
 		LOG_ERROR("Failed to read data len!");
 		return res;
 	}
-	/* LOG_DEBUG("Block %d (%d bytes) on target (%s)!", target_state[0].block_id,
-	 * target_state[0].data_len, target_name(ctx->cpus[0])); */
+	/* LOG_TARGET_DEBUG(ctx->cpus[0], "Block %d (%d bytes) on target (%s)!", target_state[0].block_id,
+	 * target_state[0].data_len); */
 	if (fired_target_num == UINT32_MAX) {
 		/* no data has been received, but block could be switched due to the data transferred
 		 * from host to target */
@@ -1480,12 +1480,12 @@ static int esp32_cmd_apptrace_generic(struct command_invocation *cmd, int mode, 
 	if (target->smp && !target_was_examined(target)) {
 		struct target_list *head;
 		struct target *curr;
-		LOG_WARNING("Current target '%s' was not examined!", target_name(target));
+		LOG_TARGET_WARNING(target, "Current target was not examined!");
 		foreach_smp_target(head, target->smp_targets) {
 			curr = head->target;
 			if (target_was_examined(curr)) {
 				target = curr;
-				LOG_WARNING("Run command on target '%s'", target_name(target));
+				LOG_TARGET_WARNING(target, "Run command on this target");
 				break;
 			}
 		}
@@ -1684,10 +1684,16 @@ static int esp_gcov_cmd_cleanup(struct esp32_apptrace_cmd_ctx *cmd_ctx)
 
 #ifdef _WIN32
 #define DIR_SEPARATORS      ("\\/")
-#define IS_DIR_SEPARATOR(c) ((c) == '\\' || (c) == '/')
+bool is_dir_seperator(char c)
+{
+	return c == '\\' || c == '/';
+}
 #else
 #define DIR_SEPARATORS      ("/")
-#define IS_DIR_SEPARATOR(c) ((c) == '/')
+bool is_dir_seperator(char c)
+{
+	return c == '/';
+}
 #endif
 
 static const char *esp_gcov_filename_alloc(const char *orig_fname)
@@ -1714,17 +1720,17 @@ static const char *esp_gcov_filename_alloc(const char *orig_fname)
 	prefix_length = gcov_prefix ? strlen(gcov_prefix) : 0;
 
 	/* Remove an unnecessary trailing '/' */
-	if (prefix_length && IS_DIR_SEPARATOR(gcov_prefix[prefix_length - 1]))
+	if (prefix_length && is_dir_seperator(gcov_prefix[prefix_length - 1]))
 		prefix_length--;
 
-	/* If no prefix was specified and a prefix stip, then we assume relative.  */
+	/* If no prefix was specified and a prefix strip, then we assume relative.  */
 	if (!prefix_length && strip) {
 		gcov_prefix = ".";
 		prefix_length = 1;
 	}
 
 	/* Allocate and initialize the filename scratch space.  */
-	char *filename = (char *)malloc(prefix_length + orig_fname_len + 1);
+	char *filename = malloc(prefix_length + orig_fname_len + 1);
 	if (prefix_length)
 		memcpy(filename, gcov_prefix, prefix_length);
 	const char *striped_fname = orig_fname;
@@ -1740,7 +1746,7 @@ static const char *esp_gcov_filename_alloc(const char *orig_fname)
 		striped_fname = tmp;
 	}
 	if (strip > 0)
-		LOG_WARNING("Failed to srip %d dir names in gcov file path '%s'!", strip, orig_fname);
+		LOG_WARNING("Failed to strip %d dir names in gcov file path '%s'!", strip, orig_fname);
 	strcpy(&filename[prefix_length], striped_fname);
 
 	return filename;
@@ -1753,6 +1759,7 @@ static int esp_gcov_fopen(struct target *target,
 	uint8_t **resp,
 	uint32_t *resp_len)
 {
+	char *cdata = (char *)data;
 	*resp_len = 0;
 	if (cmd_data->files_num == ESP_GCOV_FILES_MAX_NUM) {
 		LOG_ERROR("Max gcov files num exceeded!");
@@ -1763,7 +1770,7 @@ static int esp_gcov_fopen(struct target *target,
 		LOG_ERROR("Missed FOPEN args!");
 		return ERROR_FAIL;
 	}
-	int len = strlen((char *)data);
+	int len = strlen(cdata);
 	if (len == 0) {
 		LOG_ERROR("Missed FOPEN path arg!");
 		return ERROR_FAIL;
@@ -1774,8 +1781,8 @@ static int esp_gcov_fopen(struct target *target,
 	}
 
 	uint32_t fd = cmd_data->files_num;
-	char *mode = (char *)data + len + 1;
-	const char *fname = esp_gcov_filename_alloc((const char *)data);
+	char *mode = cdata + len + 1;
+	const char *fname = esp_gcov_filename_alloc(cdata);
 	if (!fname) {
 		LOG_ERROR("Failed to alloc memory for file name!");
 		return ERROR_FAIL;
@@ -1821,7 +1828,9 @@ static int esp_gcov_fclose(struct target *target,
 		LOG_ERROR("Missed FCLOSE args!");
 		return ERROR_FAIL;
 	}
+
 	uint32_t fd = target_buffer_get_u32(target, data);
+	LOG_INFO("Close file 0x%x", fd);
 	fd--;
 	if (fd >= ESP_GCOV_FILES_MAX_NUM) {
 		LOG_ERROR("Invalid file desc received 0x%x!", fd);
@@ -2033,7 +2042,6 @@ static int esp_gcov_feof(struct target *target,
 	}
 
 	int32_t fret = feof(cmd_data->files[fd]);
-
 	*resp_len = sizeof(fret);
 	*resp = malloc(*resp_len);
 	if (!*resp) {
@@ -2097,6 +2105,11 @@ static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 	if (ret != ERROR_OK)
 		return ret;
 
+	/*
+	    File operation errors (fclose, fread, fwrite, fseek, ftell...) will be handled on the target side
+		Therefore, we didn't return with error code in order to send the failure reason to the target
+	*/
+
 	if (resp_len) {
 		/* write response */
 		int res = esp_apptrace_usr_block_write(ctx->hw, ctx->cpus[core_id],
@@ -2104,7 +2117,7 @@ static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 			resp,
 			resp_len);
 		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to write data to (%s)!", target_name(ctx->cpus[core_id]));
+			LOG_TARGET_ERROR(ctx->cpus[core_id], "Failed to write data!");
 			free(resp);
 			return res;
 		}
@@ -2118,10 +2131,10 @@ static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 				true /*host connected*/,
 				true /*host data*/);
 			if (res != ERROR_OK) {
-				LOG_ERROR("Failed to ack data on (%s)!", target_name(ctx->cpus[i]));
+				LOG_TARGET_ERROR(ctx->cpus[i], "Failed to ack data!");
 				return res;
 			}
-			LOG_DEBUG("Ack block %d target (%s)!", ctx->last_blk_id, target_name(ctx->cpus[i]));
+			LOG_TARGET_DEBUG(ctx->cpus[i], "Ack block %d!", ctx->last_blk_id);
 		}
 	} else {
 		for (unsigned int i = 0; i < ctx->cores_num; i++) {
@@ -2131,10 +2144,10 @@ static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 				true /*host connected*/,
 				false /*host data*/);
 			if (res != ERROR_OK) {
-				LOG_ERROR("Failed to ack data on (%s)!", target_name(ctx->cpus[i]));
+				LOG_TARGET_ERROR(ctx->cpus[i], "Failed to ack data!");
 				return res;
 			}
-			LOG_DEBUG("Ack block %d target (%s)!", ctx->last_blk_id, target_name(ctx->cpus[i]));
+			LOG_TARGET_DEBUG(ctx->cpus[i], "Ack block %d!", ctx->last_blk_id);
 		}
 	}
 
@@ -2144,7 +2157,7 @@ static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 static int esp_gcov_poll(struct target *target, void *priv)
 {
 	int res = ERROR_OK;
-	struct esp32_apptrace_cmd_ctx *cmd_ctx = (struct esp32_apptrace_cmd_ctx *)priv;
+	struct esp32_apptrace_cmd_ctx *cmd_ctx = priv;
 
 	while (!openocd_is_shutdown_pending() && target->state != TARGET_HALTED && cmd_ctx->running) {
 		res = esp32_apptrace_poll(cmd_ctx);
@@ -2205,13 +2218,13 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 	uint32_t stub_capabilites;
 	bool gcov_idf_has_thread = false;
 
-	if (CMD_ARGC > 0) {
-		if (strcmp(CMD_ARGV[0], "dump") == 0) {
-			dump = true;
-		} else {
-			command_print(CMD, "Invalid action!");
-			return ERROR_FAIL;
-		}
+	if (CMD_ARGC > 1)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	if (CMD_ARGC == 1) {
+		if (strcmp(CMD_ARGV[0], "dump") != 0)
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		dump = true;
 	}
 
 	/* init cmd context */
@@ -2224,11 +2237,11 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 	if (target->smp && !target_was_examined(target)) {
 		struct target_list *head;
 		struct target *curr = target;
-		LOG_WARNING("Current target '%s' was not examined!", target_name(target));
+		LOG_TARGET_WARNING(target, "Current target was not examined!");
 		foreach_smp_target(head, target->smp_targets) {
 			curr = head->target;
 			if (target_was_examined(curr)) {
-				LOG_WARNING("Run command on target '%s'", target_name(target));
+				LOG_TARGET_WARNING(target, "Run command on this target");
 				break;
 			}
 		}
