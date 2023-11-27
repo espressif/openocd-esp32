@@ -12,12 +12,12 @@ The folowing configuration variables are common for all Espressif chips:
 * `ESP_RTOS` - the name of RTOS running on the target. Default is 'FreeRTOS'. To disable OS support (for bare metal system) use 'none'.
 * `ESP_FLASH_SIZE` - size of the chip's flash. Default is 'auto'. To disable flash functionality set to '0'.
 * `ESP_SEMIHOST_BASEDIR` - base dir for semihosting I/O. Default is OpenOCD's current working directory.
+* `ESP_ONLYCPU` - the mask indicating which cores are enabled for debugging. Default is '3' for ESP32 and ESP32-S3.
+  Set to '1' for single core debugging.
 
 ### ESP32 Options
 
 The folowing configuration variables are common for ESP32 family chips:
-* `ESP32_ONLYCPU` - the mask indicating which cores are enabled for debugging. Default is '3'. 
-  Set to '1' for single core debugging.
 * `ESP32_FLASH_VOLTAGE` - tell OpenOCD which SPI flash voltage is used by the board (3.3 or 1.8)
   The TDI pin of ESP32 is also a bootstrap pin that selects the voltage the SPI flash
   chip runs at. When a hard reset happens (e.g. because someone switches the board off
