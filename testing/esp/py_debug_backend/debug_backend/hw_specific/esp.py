@@ -19,9 +19,9 @@ class OocdEspImpl:
 
     def gcov_dump(self, on_the_fly=True):
         if on_the_fly:
-            cmd = 'esp gcov'
+            cmd = 'esp_gcov'
         else:
-            cmd = 'esp gcov dump'
+            cmd = 'esp_gcov_dump'
         self.cmd_exec(cmd)
 
     def sysview_start(self, file1, file2=''):

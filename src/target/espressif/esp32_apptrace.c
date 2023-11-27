@@ -90,9 +90,11 @@ struct esp32_apptrace_block {
 };
 
 struct esp32_gcov_cmd_data {
-	FILE *files[ESP_GCOV_FILES_MAX_NUM];
+	FILE * files[ESP_GCOV_FILES_MAX_NUM];
 	uint32_t files_num;
 	bool wait4halt;
+	int prefix_strip;
+	char *prefix;
 };
 
 static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
@@ -1639,8 +1641,8 @@ COMMAND_HANDLER(esp32_cmd_sysview_mcore)
 
 static int esp_gcov_cmd_init(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 	struct command_invocation *cmd,
-	const char **argv,
-	int argc)
+	char *prefix,
+	int prefix_strip)
 {
 	int res = esp32_apptrace_cmd_ctx_init(cmd_ctx, cmd, ESP_APPTRACE_CMD_MODE_SYNC);
 	if (res)
@@ -1653,12 +1655,12 @@ static int esp_gcov_cmd_init(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 		esp32_apptrace_cmd_ctx_cleanup(cmd_ctx);
 		return ERROR_FAIL;
 	}
+
+	cmd_data->prefix = prefix;
+	cmd_data->prefix_strip = prefix_strip;
+
 	cmd_ctx->stop_tmo = 3.0;
 	cmd_ctx->cmd_priv = cmd_data;
-
-	if (argc > 0)
-		cmd_data->wait4halt = strtoul(argv[0], NULL, 10);
-
 	cmd_ctx->trace_format.hdr_sz = ESP32_APPTRACE_USER_BLOCK_HDR_SZ;
 	cmd_ctx->trace_format.core_id_get = esp32_apptrace_core_id_get;
 	cmd_ctx->trace_format.usr_block_len_get = esp32_apptrace_usr_block_len_get;
@@ -1676,6 +1678,7 @@ static int esp_gcov_cmd_cleanup(struct esp32_apptrace_cmd_ctx *cmd_ctx)
 			res = ERROR_FAIL;
 		}
 	}
+	free(cmd_data->prefix);
 	free(cmd_data);
 	cmd_ctx->cmd_priv = NULL;
 	esp32_apptrace_cmd_ctx_cleanup(cmd_ctx);
@@ -1684,19 +1687,19 @@ static int esp_gcov_cmd_cleanup(struct esp32_apptrace_cmd_ctx *cmd_ctx)
 
 #ifdef _WIN32
 #define DIR_SEPARATORS      ("\\/")
-bool is_dir_seperator(char c)
+static inline bool is_dir_seperator(char c)
 {
 	return c == '\\' || c == '/';
 }
 #else
 #define DIR_SEPARATORS      ("/")
-bool is_dir_seperator(char c)
+static inline bool is_dir_seperator(char c)
 {
 	return c == '/';
 }
 #endif
 
-static const char *esp_gcov_filename_alloc(const char *orig_fname)
+static char *esp_gcov_filename_alloc(struct esp32_gcov_cmd_data *cmd_data, const char *orig_fname)
 {
 	const char *gcov_prefix;
 	size_t prefix_length;
@@ -1706,18 +1709,23 @@ static const char *esp_gcov_filename_alloc(const char *orig_fname)
 		return NULL;
 
 	LOG_DEBUG("Convert gcov file path '%s'", orig_fname);
-	/* Check if the level of dirs to strip off specified. */
-	char *tmp = getenv("OPENOCD_GCOV_PREFIX_STRIP");
-	if (tmp) {
-		strip = atoi(tmp);
-		/* Do not consider negative values. */
-		if (strip < 0)
-			strip = 0;
+
+	if (cmd_data->prefix) {
+		strip = cmd_data->prefix_strip;
+		gcov_prefix = cmd_data->prefix;
+	} else {
+		char *tmp = getenv("OPENOCD_GCOV_PREFIX_STRIP");
+		if (tmp)
+			strip = atoi(tmp);
+		/* Get file name relocation prefix. Non-absolute values are ignored. */
+		gcov_prefix = getenv("OPENOCD_GCOV_PREFIX");
 	}
 
-	/* Get file name relocation prefix. Non-absolute values are ignored. */
-	gcov_prefix = getenv("OPENOCD_GCOV_PREFIX");
 	prefix_length = gcov_prefix ? strlen(gcov_prefix) : 0;
+
+	/* Do not consider negative values. */
+	if (strip < 0)
+		strip = 0;
 
 	/* Remove an unnecessary trailing '/' */
 	if (prefix_length && is_dir_seperator(gcov_prefix[prefix_length - 1]))
@@ -1740,7 +1748,7 @@ static const char *esp_gcov_filename_alloc(const char *orig_fname)
 		 * path can contain mixed Windows and Unix and */
 		/* can look like
 		 * `c:\esp\esp-idf\examples\system\gcov\build/esp-idf/main/CMakeFiles/__idf_main.dir/gcov_example.c.gcda` */
-		tmp = strpbrk(striped_fname + 1, DIR_SEPARATORS);
+		char *tmp = strpbrk(striped_fname + 1, DIR_SEPARATORS);
 		if (!tmp)
 			break;
 		striped_fname = tmp;
@@ -1782,7 +1790,7 @@ static int esp_gcov_fopen(struct target *target,
 
 	uint32_t fd = cmd_data->files_num;
 	char *mode = cdata + len + 1;
-	const char *fname = esp_gcov_filename_alloc(cdata);
+	char *fname = esp_gcov_filename_alloc(cmd_data, cdata);
 	if (!fname) {
 		LOG_ERROR("Failed to alloc memory for file name!");
 		return ERROR_FAIL;
@@ -1804,7 +1812,7 @@ static int esp_gcov_fopen(struct target *target,
 		LOG_ERROR("Failed to alloc mem for resp!");
 		if (fd != 0)
 			fclose(cmd_data->files[fd - 1]);
-		free((void *)fname);
+		free(fname);
 		return ERROR_FAIL;
 	}
 	target_buffer_set_u32(target, *resp, fd);
@@ -1812,7 +1820,7 @@ static int esp_gcov_fopen(struct target *target,
 	if (fd != 0)
 		cmd_data->files_num++;
 
-	free((void *)fname);
+	free(fname);
 	return ERROR_OK;
 }
 
@@ -2217,18 +2225,32 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 	bool dump = false;
 	uint32_t stub_capabilites;
 	bool gcov_idf_has_thread = false;
+	unsigned int prefix_offset = 1, prefix_strip = 0;
+	char *prefix = NULL;
 
-	if (CMD_ARGC > 1)
+	if (CMD_ARGC > 3)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 
-	if (CMD_ARGC == 1) {
-		if (strcmp(CMD_ARGV[0], "dump") != 0)
-			return ERROR_COMMAND_SYNTAX_ERROR;
+	if (CMD_ARGC >= 1 && !strcmp(CMD_ARGV[0], "dump")) {
 		dump = true;
+		prefix_offset++;
+	}
+
+	if (prefix_offset < CMD_ARGC) {
+		if (strlen(CMD_ARGV[prefix_offset - 1])) {
+			prefix = strdup(CMD_ARGV[prefix_offset - 1]);
+			LOG_INFO("OPENOCD_GCOV_PREFIX: (%s)", prefix);
+		}
+		// GCOV_PREFIX_STRIP can be set without GCOV_PREFIX
+		// In that case we still expect GCOV_PREFIX as an empty string
+		if (++prefix_offset <= CMD_ARGC) {
+			prefix_strip = atoi(CMD_ARGV[prefix_offset - 1]);
+			LOG_INFO("OPENOCD_GCOV_PREFIX_STRIP: (%d)", prefix_strip);
+		}
 	}
 
 	/* init cmd context */
-	res = esp_gcov_cmd_init(&s_at_cmd_ctx, CMD, CMD_ARGV, CMD_ARGC);
+	res = esp_gcov_cmd_init(&s_at_cmd_ctx, CMD, prefix, prefix_strip);
 	if (res != ERROR_OK) {
 		command_print(CMD, "Failed to init cmd ctx (%d)!", res);
 		return res;
@@ -2353,7 +2375,7 @@ const struct command_registration esp32_apptrace_command_handlers[] = {
 		.handler = esp32_cmd_gcov,
 		.mode = COMMAND_EXEC,
 		.help = "GCOV: Dumps gcov info collected on target.",
-		.usage = "[dump]",
+		.usage = "[dump] [<prefix> [<prefix_strip>]]",
 	},
 	COMMAND_REGISTRATION_DONE
 };
