@@ -62,7 +62,7 @@
 #include <helper/binarybuffer.h>
 #include <target/register.h>
 #include <helper/time_support.h>
-#include "contrib/loaders/flash/esp/stub_flasher.h"
+#include "contrib/loaders/flash/espressif/stub_flasher.h"
 #include "esp_flash.h"
 
 #define ESP_FLASH_RW_TMO                20000	/* ms */

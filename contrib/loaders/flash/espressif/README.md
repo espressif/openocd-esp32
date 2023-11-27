@@ -26,7 +26,7 @@ source export.sh
 
 4. Go back to your `openocd-esp32` directory and build the stub for your target chip
 ```bash
-cd ../openocd-esp32/contrib/loaders/flash/esp/esp32s3
+cd ../openocd-esp32/contrib/loaders/flash/espressif/esp32s3
 ```
 
 5. Build the stub for all makefile targets. Currently, one target with disabled logs, and the other with `-DSTUB_LOG_ENABLE=1` macro. Latter will help to transfer the stub logs to the OpenOCD screen.
