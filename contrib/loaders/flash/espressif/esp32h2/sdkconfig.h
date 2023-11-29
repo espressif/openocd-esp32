@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
 #ifndef _STUB_SDKCONFIG_H_
 #define _STUB_SDKCONFIG_H_
 
