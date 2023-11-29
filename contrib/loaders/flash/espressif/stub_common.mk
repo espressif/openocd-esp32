@@ -1,25 +1,6 @@
-# Common Makefile rules to compile the flasher stub program
-#
-# Note that YOU DO NOT NEED TO COMPILE THIS IN ORDER TO JUST USE
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-# See the comments in the top of the Makefile for parameters that
-# you probably want to override.
-#
-# Copyright (c) 2017 Espressif Systems
-# All rights reserved
-#
-#
-# This program is free software; you can redistribute it and/or modify it under
-# the terms of the GNU General Public License as published by the Free Software
-# Foundation; either version 2 of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along with
-# this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
-# Street, Fifth Floor, Boston, MA 02110-1301 USA.
+# Common Makefile rules to compile the flasher stub program
 
 # Pass V=1 to see the commands being executed by make
 ifneq ("$(V)","1")
@@ -37,6 +18,7 @@ SRCS += $(STUB_COMMON_PATH)/stub_flasher.c \
 	$(IDF_PATH)/components/esp_hw_support/regi2c_ctrl.c
 
 BUILD_DIR = build
+BIN2C = ../../../../../src/helper/bin2char.sh
 
 STUB_ELF = $(BUILD_DIR)/$(STUB).elf
 STUB_OBJ = $(BUILD_DIR)/$(STUB).o
@@ -123,26 +105,27 @@ $(STUB_WLOG_OBJ): $(SRCS) $(STUB_OBJ_DEPS)
 $(STUB_CODE_SECT): $(STUB_ELF)
 	@echo "  CC   $^ -> $@"
 	$(Q) $(CROSS)objcopy -O binary -j.text $^ $(BUILD_DIR)/$(STUB)_code.bin
-	$(Q) cat $(BUILD_DIR)/$(STUB)_code.bin | xxd -i > $@
+	$(Q) $(BIN2C) < $(BUILD_DIR)/$(STUB)_code.bin > $@
 
 $(STUB_CODE_WLOG_SECT): $(STUB_WLOG_ELF)
 	@echo "  CC   $^ -> $@"
 	$(Q) $(CROSS)objcopy -O binary -j.text $^ $(BUILD_DIR)/$(STUB)_code_wlog.bin
-	$(Q) cat $(BUILD_DIR)/$(STUB)_code_wlog.bin | xxd -i > $@
+	$(Q) $(BIN2C) < $(BUILD_DIR)/$(STUB)_code_wlog.bin > $@
 
 $(STUB_DATA_SECT): $(STUB_ELF)
 	@echo "  CC   $^ -> $@"
 	$(Q) $(CROSS)objcopy -O binary -j.data $^ $(BUILD_DIR)/$(STUB)_data.bin
-	$(Q) cat $(BUILD_DIR)/$(STUB)_data.bin | xxd -i > $@
+	$(Q) $(BIN2C) < $(BUILD_DIR)/$(STUB)_data.bin > $@
 
 $(STUB_DATA_WLOG_SECT): $(STUB_WLOG_ELF)
 	@echo "  CC   $^ -> $@"
 	$(Q) $(CROSS)objcopy -O binary -j.data $^ $(BUILD_DIR)/$(STUB)_data_wlog.bin
-	$(Q) cat $(BUILD_DIR)/$(STUB)_data_wlog.bin | xxd -i > $@
+	$(Q) $(BIN2C) < $(BUILD_DIR)/$(STUB)_data_wlog.bin > $@
 
 $(STUB_IMAGE_HDR): $(STUB_ELF)
 	@echo "  CC   $^ -> $@"
-	$(Q) @printf "#define $(STUB_CHIP)_STUB_BSS_SIZE 0x0" > $(STUB_IMAGE_HDR)
+	$(Q) @printf "/* SPDX-License-Identifier: GPL-2.0-or-later */\n\n" > $(STUB_IMAGE_HDR)
+	$(Q) @printf "#define $(STUB_CHIP)_STUB_BSS_SIZE 0x0" >> $(STUB_IMAGE_HDR)
 	$(Q) $(CROSS)readelf -S $^ | fgrep .bss | awk '{print $$7"UL"}' >> $(STUB_IMAGE_HDR)
 	$(Q) @printf "\\n#define $(STUB_CHIP)_STUB_IRAM_ORG 0x0" >> $(STUB_IMAGE_HDR)
 	$(Q) $(CROSS)readelf -s $^ | fgrep .iram_org | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR)
@@ -163,7 +146,8 @@ $(STUB_IMAGE_HDR): $(STUB_ELF)
 
 $(STUB_IMAGE_WLOG_HDR): $(STUB_WLOG_ELF)
 	@echo "  CC   $^ -> $@"
-	$(Q) @printf "#define $(STUB_CHIP)_STUB_WLOG_BSS_SIZE 0x0" > $(STUB_IMAGE_WLOG_HDR)
+	$(Q) @printf "/* SPDX-License-Identifier: GPL-2.0-or-later */\n\n" > $(STUB_IMAGE_WLOG_HDR)
+	$(Q) @printf "#define $(STUB_CHIP)_STUB_WLOG_BSS_SIZE 0x0" >> $(STUB_IMAGE_WLOG_HDR)
 	$(Q) $(CROSS)readelf -S $^ | fgrep .bss | awk '{print $$7"UL"}' >> $(STUB_IMAGE_WLOG_HDR)
 	$(Q) @printf "\\n#define $(STUB_CHIP)_STUB_WLOG_LOG_ADDR 0x0" >> $(STUB_IMAGE_WLOG_HDR)
 	$(Q) $(CROSS)readelf -s $^ | fgrep s_stub_log_buff | awk '{print $$2"UL"}' >> $(STUB_IMAGE_WLOG_HDR)
