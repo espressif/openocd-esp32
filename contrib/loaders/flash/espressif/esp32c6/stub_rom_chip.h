@@ -10,7 +10,6 @@
 
 #include "esp32c6/rom/ets_sys.h"
 #include "esp32c6/rom/spi_flash.h"
-#include "esp32c6/rom/spi_flash.h"
 #include "esp32c6/rom/cache.h"
 #include "esp32c6/rom/efuse.h"
 #include "esp32c6/rom/uart.h"

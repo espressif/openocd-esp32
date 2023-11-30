@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /***************************************************************************
- *   ESP32-C2 flasher stub definitions                                     *
+ *   ESP32-C6 flasher stub definitions                                     *
  *   Copyright (C) 2022 Espressif Systems Ltd.                             *
  ***************************************************************************/
 #ifndef ESP32C6_FLASHER_STUB_H
