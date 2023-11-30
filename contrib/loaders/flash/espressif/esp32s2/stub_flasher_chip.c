@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 /***************************************************************************
  *   ESP32-S2 specific flasher stub functions                              *
@@ -96,7 +96,8 @@ uint32_t stub_flash_get_id(void)
 	}
 	WRITE_PERI_REG(PERIPHS_SPI_FLASH_C0, 0);/* clear regisrter */
 	WRITE_PERI_REG(PERIPHS_SPI_FLASH_CMD, SPI_MEM_FLASH_RDID);
-	while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0) ;
+	while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0)
+		;
 	ret = READ_PERI_REG(PERIPHS_SPI_FLASH_C0) & 0xffffff;
 	STUB_LOGD("Flash ID read %x\n", ret);
 	return ret >> 16;
@@ -111,7 +112,7 @@ void stub_flash_cache_flush(void)
 
 void stub_cache_init(void)
 {
-	STUB_LOGD("stub_cache_init\n");
+	STUB_LOGD("%s\n", __func__);
 
 	Cache_Allocate_SRAM(CACHE_MEMORY_ICACHE_LOW,
 		CACHE_MEMORY_INVALID,
@@ -307,17 +308,13 @@ esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint3
 		return ESP_ROM_SPIFLASH_RESULT_ERR;
 
 	/* Unlock flash to enable erase */
-	if (ESP_ROM_SPIFLASH_RESULT_OK != esp_rom_spiflash_unlock(/*&g_rom_spiflash_chip*/))
+	if (esp_rom_spiflash_unlock(/*&g_rom_spiflash_chip*/) != ESP_ROM_SPIFLASH_RESULT_OK)
 		return ESP_ROM_SPIFLASH_RESULT_ERR;
 
 	sector_no = start_addr / g_rom_spiflash_chip.sector_size;
 	sector_num_per_block = g_rom_spiflash_chip.block_size / g_rom_spiflash_chip.sector_size;
-	total_sector_num =
-		(0 ==
-		(area_len %
-			g_rom_spiflash_chip.sector_size)) ? area_len /
-		g_rom_spiflash_chip.sector_size :
-		1 + (area_len / g_rom_spiflash_chip.sector_size);
+	total_sector_num = (0 == (area_len % g_rom_spiflash_chip.sector_size)) ? area_len /
+		g_rom_spiflash_chip.sector_size : 1 + (area_len / g_rom_spiflash_chip.sector_size);
 
 	/* check if erase area reach over block boundary */
 	head_sector_num = sector_num_per_block - (sector_no % sector_num_per_block);
@@ -330,8 +327,8 @@ esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint3
 	total_sector_num -= head_sector_num;
 
 	/* head part of area is erased */
-	while (0 != head_sector_num) {
-		if (ESP_ROM_SPIFLASH_RESULT_OK != esp_rom_spiflash_erase_sector(sector_no))
+	while (head_sector_num > 0) {
+		if (esp_rom_spiflash_erase_sector(sector_no) != ESP_ROM_SPIFLASH_RESULT_OK)
 			return ESP_ROM_SPIFLASH_RESULT_ERR;
 		sector_no++;
 		head_sector_num--;
@@ -345,8 +342,8 @@ esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint3
 	}
 
 	/* tail part of area burn */
-	while (0 < total_sector_num) {
-		if (ESP_ROM_SPIFLASH_RESULT_OK != esp_rom_spiflash_erase_sector(sector_no))
+	while (total_sector_num > 0) {
+		if (esp_rom_spiflash_erase_sector(sector_no) != ESP_ROM_SPIFLASH_RESULT_OK)
 			return ESP_ROM_SPIFLASH_RESULT_ERR;
 		sector_no++;
 		total_sector_num--;
@@ -425,8 +422,7 @@ static int stub_flash_mmap(struct spiflash_map_req *req)
 
 	if (start_page + page_cnt < STUB_MMU_DROM_PAGES_END) {
 		for (int i = 0; i < page_cnt; i++)
-			STUB_MMU_TABLE[start_page + i] = SOC_MMU_PAGE_IN_FLASH(
-				flash_page + i);
+			STUB_MMU_TABLE[start_page + i] = SOC_MMU_PAGE_IN_FLASH(flash_page + i);
 
 		req->start_page = start_page;
 		req->page_cnt = page_cnt;
@@ -439,8 +435,7 @@ static int stub_flash_mmap(struct spiflash_map_req *req)
 		ret = ESP_ROM_SPIFLASH_RESULT_OK;
 	}
 
-	STUB_LOGD(
-		"start_page: %d map_src: %x map_size: %x page_cnt: %d flash_page: %d map_ptr: %x\n",
+	STUB_LOGD("start_page: %d map_src: %x map_size: %x page_cnt: %d flash_page: %d map_ptr: %x\n",
 		start_page,
 		map_src,
 		map_size,
