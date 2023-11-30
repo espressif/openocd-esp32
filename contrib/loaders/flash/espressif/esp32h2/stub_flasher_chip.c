@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 /***************************************************************************
  *   ESP32-H2 specific flasher stub functions                              *
@@ -27,9 +27,9 @@
 
 /* Cache MMU related definitions */
 #define STUB_CACHE_CTRL_REG								CACHE_L1_CACHE_CTRL_REG
-#define STUB_CACHE_BUS                                  (CACHE_L1_CACHE_SHUT_BUS0 | CACHE_L1_CACHE_SHUT_BUS1)
-#define STUB_MMU_DROM_PAGES_END                         MMU_ENTRY_NUM
-#define STUB_MMU_DROM_PAGES_START                       (STUB_MMU_DROM_PAGES_END - 8) /* 8 pages will be more than enough */
+#define STUB_CACHE_BUS					(CACHE_L1_CACHE_SHUT_BUS0 | CACHE_L1_CACHE_SHUT_BUS1)
+#define STUB_MMU_DROM_PAGES_END			MMU_ENTRY_NUM
+#define STUB_MMU_DROM_PAGES_START		(STUB_MMU_DROM_PAGES_END - 8) /* 8 pages will be more than enough */
 
 #define ESP_APPTRACE_RISCV_BLOCK_LEN_MSK                0x7FFFUL
 #define ESP_APPTRACE_RISCV_BLOCK_LEN(_l_)               ((_l_) & ESP_APPTRACE_RISCV_BLOCK_LEN_MSK)
@@ -82,7 +82,7 @@ typedef struct {
 
 static cache_mmu_config_t s_cache_mmu_config;
 
-extern void spi_flash_attach(uint32_t, bool);
+extern void spi_flash_attach(uint32_t ishspi, bool legacy);
 
 uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32H2_DEFAULT_CPU_FREQ_MHZ * MHZ;
 
@@ -134,9 +134,9 @@ static inline void __attribute__((always_inline)) stub_mmu_ll_write_entry(uint32
 		mmu_val |= MMU_SENSITIVE;
 
 	/* Note: for ESP32-H2, invert invalid bit for compatible with upper-layer software */
-    mmu_raw_value = mmu_val ^ MMU_INVALID_MASK;
-    REG_WRITE(SPI_MEM_MMU_ITEM_INDEX_REG(0), entry_id);
-    REG_WRITE(SPI_MEM_MMU_ITEM_CONTENT_REG(0), mmu_raw_value);
+	mmu_raw_value = mmu_val ^ MMU_INVALID_MASK;
+	REG_WRITE(SPI_MEM_MMU_ITEM_INDEX_REG(0), entry_id);
+	REG_WRITE(SPI_MEM_MMU_ITEM_CONTENT_REG(0), mmu_raw_value);
 }
 
 static inline void __attribute__((always_inline)) stub_mmu_ll_set_entry_invalid(uint32_t entry_id)
@@ -148,14 +148,14 @@ static inline void __attribute__((always_inline)) stub_mmu_ll_set_entry_invalid(
 static inline int __attribute__((always_inline)) stub_mmu_ll_read_entry(uint32_t entry_id)
 {
 	uint32_t mmu_raw_value;
-    REG_WRITE(SPI_MEM_MMU_ITEM_INDEX_REG(0), entry_id);
-    mmu_raw_value = REG_READ(SPI_MEM_MMU_ITEM_CONTENT_REG(0));
+	REG_WRITE(SPI_MEM_MMU_ITEM_INDEX_REG(0), entry_id);
+	mmu_raw_value = REG_READ(SPI_MEM_MMU_ITEM_CONTENT_REG(0));
 
 	if (stub_get_flash_encryption_mode() != ESP_FLASH_ENC_MODE_DISABLED)
 		mmu_raw_value &= ~MMU_SENSITIVE;
 
-    /* Note: for ESP32-H2, invert invalid bit for compatible with upper-layer software */
-    return mmu_raw_value ^ MMU_INVALID_MASK;
+	/* Note: for ESP32-H2, invert invalid bit for compatible with upper-layer software */
+	return mmu_raw_value ^ MMU_INVALID_MASK;
 }
 
 uint32_t stub_flash_get_id(void)
@@ -169,9 +169,10 @@ uint32_t stub_flash_get_id(void)
 		rom_spiflash_legacy_data->chip.sector_size,
 		rom_spiflash_legacy_data->chip.page_size,
 		rom_spiflash_legacy_data->chip.status_mask);
-	WRITE_PERI_REG(PERIPHS_SPI_FLASH_C0, 0);/* clear regisrter */
+	WRITE_PERI_REG(PERIPHS_SPI_FLASH_C0, 0);	/* clear register */
 	WRITE_PERI_REG(PERIPHS_SPI_FLASH_CMD, SPI_MEM_FLASH_RDID);
-	while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0) ;
+	while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0)
+		;
 	ret = READ_PERI_REG(PERIPHS_SPI_FLASH_C0) & 0xffffff;
 	STUB_LOGD("Flash ID read %x\n", ret);
 	return ret >> 16;
@@ -220,7 +221,7 @@ void stub_cache_configure(void)
 
 void stub_cache_init(void)
 {
-	STUB_LOGD("stub_cache_init\n");
+	STUB_LOGD("%s\n", __func__);
 
 	SET_PERI_REG_MASK(PCR_CACHE_CONF_REG, PCR_CACHE_CLK_EN_M);
 	SET_PERI_REG_MASK(PCR_CACHE_CONF_REG, PCR_CACHE_RST_EN_M);
@@ -271,10 +272,12 @@ int stub_cpu_clock_configure(int conf_reg_val)
 	/* set to maximum possible value */
 	if (conf_reg_val == -1) {
 		pcr_sysclk_conf_reg = REG_READ(PCR_SYSCLK_CONF_REG);
-		REG_WRITE(PCR_SYSCLK_CONF_REG, (pcr_sysclk_conf_reg & ~PCR_SOC_CLK_SEL_M) | (PCR_SOC_CLK_MAX << PCR_SOC_CLK_SEL_S));
+		REG_WRITE(PCR_SYSCLK_CONF_REG,
+			(pcr_sysclk_conf_reg & ~PCR_SOC_CLK_SEL_M) | (PCR_SOC_CLK_MAX << PCR_SOC_CLK_SEL_S));
 	} else { // restore old value
 		pcr_sysclk_conf_reg = conf_reg_val;
-		REG_WRITE(PCR_SYSCLK_CONF_REG, (REG_READ(PCR_SYSCLK_CONF_REG) & ~PCR_SOC_CLK_SEL_M) | (pcr_sysclk_conf_reg & PCR_SOC_CLK_SEL_M));
+		REG_WRITE(PCR_SYSCLK_CONF_REG,
+			(REG_READ(PCR_SYSCLK_CONF_REG) & ~PCR_SOC_CLK_SEL_M) | (pcr_sysclk_conf_reg & PCR_SOC_CLK_SEL_M));
 	}
 
 	STUB_LOGD("pcr_sysclk_conf_reg %x\n", pcr_sysclk_conf_reg);
@@ -295,7 +298,8 @@ void stub_uart_console_configure(int dest)
 	Uart_Init(0, APB_CLK_FREQ_ROM);
 	/* install to print later
 	 * Non-Flash Boot can print
-	 * Flash Boot can print when RTC_CNTL_STORE4_REG bit0 is 0 (can be 1 after deep sleep, software reset) and printf boot.
+	 * Flash Boot can print when RTC_CNTL_STORE4_REG bit0 is 0 (can be 1 after deep sleep, software reset)
+	 * and printf boot.
 	 * print boot determined by GPIO and efuse, see ets_is_print_boot
 	 */
 	ets_install_uart_printf();
@@ -332,7 +336,7 @@ void esp_apptrace_get_up_buffers(esp_apptrace_mem_block_t mem_blocks_cfg[2])
 }
 #endif
 
-int stub_apptrace_prepare()
+int stub_apptrace_prepare(void)
 {
 	/* imply that host is auto-connected */
 	s_apptrace_ctrl->ctrl |= ESP_APPTRACE_RISCV_HOST_CONNECT;
@@ -341,18 +345,21 @@ int stub_apptrace_prepare()
 
 int64_t esp_timer_get_time(void)
 {
-	/* this function is used by apptrace code to implement timeouts.
-	   unfortunately esp32h2 does not support CPU cycle counter, so we have two options:
-	   1) Use some HW timer. It can be hard, because we need to ensure that it is initialized and possibly restore its state.
-	   2) Emulate timer by incrementing some var on every call.
-	          Stub flasher uses ESP_APPTRACE_TMO_INFINITE only, so this function won't be called by apptrace at all. */
+	/*
+		This function is used by apptrace code to implement timeouts.
+		unfortunately esp32h2 does not support CPU cycle counter, so we have two options:
+		1) Use some HW timer. It can be hard, because we need to ensure that it is initialized
+		and possibly restore its state.
+		2) Emulate timer by incrementing some var on every call.
+		Stub flasher uses ESP_APPTRACE_TMO_INFINITE only, so this function won't be called by apptrace at all.
+	*/
 	return 0;
 }
 
 uint64_t stub_get_time(void)
 {
 	/* this function is used for perf measurements only.
-	   unfortunately esp32h2 does not support CPU cycle counter and usage of HW timer is problematic */
+		unfortunately esp32h2 does not support CPU cycle counter and usage of HW timer is problematic */
 	return 0;
 }
 
@@ -378,32 +385,27 @@ esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint3
 		return ESP_ROM_SPIFLASH_RESULT_ERR;
 
 	/* Unlock flash to enable erase */
-	if (ESP_ROM_SPIFLASH_RESULT_OK != esp_rom_spiflash_unlock(/*&rom_spiflash_legacy_data->chip*/))
+	if (esp_rom_spiflash_unlock(/*&rom_spiflash_legacy_data->chip*/) != ESP_ROM_SPIFLASH_RESULT_OK)
 		return ESP_ROM_SPIFLASH_RESULT_ERR;
 
 	sector_no = start_addr / rom_spiflash_legacy_data->chip.sector_size;
-	sector_num_per_block = rom_spiflash_legacy_data->chip.block_size /
-		rom_spiflash_legacy_data->chip.sector_size;
-	total_sector_num =
-		(0 ==
-		(area_len %
-			rom_spiflash_legacy_data->chip.sector_size)) ? area_len /
-		rom_spiflash_legacy_data->chip.sector_size :
+	sector_num_per_block = rom_spiflash_legacy_data->chip.block_size / rom_spiflash_legacy_data->chip.sector_size;
+	total_sector_num = (0 == (area_len % rom_spiflash_legacy_data->chip.sector_size)) ?
+		area_len / rom_spiflash_legacy_data->chip.sector_size :
 		1 + (area_len / rom_spiflash_legacy_data->chip.sector_size);
 
 	/* check if erase area reach over block boundary */
 	head_sector_num = sector_num_per_block - (sector_no % sector_num_per_block);
 
-	head_sector_num =
-		(head_sector_num >= total_sector_num) ? total_sector_num : head_sector_num;
+	head_sector_num = (head_sector_num >= total_sector_num) ? total_sector_num : head_sector_num;
 
 	/* JJJ, BUG of 6.0 erase
 	 * middle part of area is aligned by blocks */
 	total_sector_num -= head_sector_num;
 
 	/* head part of area is erased */
-	while (0 != head_sector_num) {
-		if (ESP_ROM_SPIFLASH_RESULT_OK != esp_rom_spiflash_erase_sector(sector_no))
+	while (head_sector_num > 0) {
+		if (esp_rom_spiflash_erase_sector(sector_no) != ESP_ROM_SPIFLASH_RESULT_OK)
 			return ESP_ROM_SPIFLASH_RESULT_ERR;
 		sector_no++;
 		head_sector_num--;
@@ -417,8 +419,8 @@ esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint3
 	}
 
 	/* tail part of area burn */
-	while (0 < total_sector_num) {
-		if (ESP_ROM_SPIFLASH_RESULT_OK != esp_rom_spiflash_erase_sector(sector_no))
+	while (total_sector_num > 0) {
+		if (esp_rom_spiflash_erase_sector(sector_no) != ESP_ROM_SPIFLASH_RESULT_OK)
 			return ESP_ROM_SPIFLASH_RESULT_ERR;
 		sector_no++;
 		total_sector_num--;
@@ -496,11 +498,11 @@ static int stub_flash_mmap(struct spiflash_map_req *req)
 	uint32_t map_src = req->src_addr & (~(s_cache_mmu_config.page_size - 1));	/* start of the page */
 	uint32_t map_size = req->src_addr - map_src + req->size;
 	uint32_t saved_state = Cache_Suspend_ICache();
-	
+
 	req->vaddr_start = s_cache_mmu_config.vaddr0_start_addr;
 	req->ptr = (void *)req->vaddr_start + req->src_addr - map_src;
 
-	STUB_LOGD("map_ptr: %x size:%d req->src_addr:%x map_src:%x map_size:%x\n", 
+	STUB_LOGD("map_ptr: %x size:%d req->src_addr:%x map_src:%x map_size:%x\n",
 		req->ptr, req->size, req->src_addr, map_src, map_size);
 
 	stub_mmu_hal_map_region(req->vaddr_start, req->src_addr, map_size);
