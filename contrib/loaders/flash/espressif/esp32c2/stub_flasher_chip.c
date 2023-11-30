@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 /***************************************************************************
  *   ESP32-C2 specific flasher stub functions                              *
@@ -124,9 +124,10 @@ uint32_t stub_flash_get_id(void)
 		rom_spiflash_legacy_data->chip.sector_size,
 		rom_spiflash_legacy_data->chip.page_size,
 		rom_spiflash_legacy_data->chip.status_mask);
-	WRITE_PERI_REG(PERIPHS_SPI_FLASH_C0, 0);/* clear regisrter */
+	WRITE_PERI_REG(PERIPHS_SPI_FLASH_C0, 0); /* clear register */
 	WRITE_PERI_REG(PERIPHS_SPI_FLASH_CMD, SPI_MEM_FLASH_RDID);
-	while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0) ;
+	while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0)
+		;
 	ret = READ_PERI_REG(PERIPHS_SPI_FLASH_C0) & 0xffffff;
 	STUB_LOGD("Flash ID read %x\n", ret);
 	return ret >> 16;
@@ -141,7 +142,7 @@ void stub_flash_cache_flush(void)
 
 void stub_cache_init(void)
 {
-	STUB_LOGD("stub_cache_init\n");
+	STUB_LOGD("%s\n", __func__);
 
 	Cache_Mask_All();
 	/* init cache mmu, set cache mode, invalidate cache tags, enable cache*/
@@ -245,10 +246,12 @@ int stub_cpu_clock_configure(int conf_reg_val)
 	/* set to maximum possible value */
 	if (conf_reg_val == -1) {
 		sysclk_conf_reg = REG_READ(SYSTEM_SYSCLK_CONF_REG) & 0xFFF;
-		REG_WRITE(SYSTEM_SYSCLK_CONF_REG, (sysclk_conf_reg & ~SYSTEM_SOC_CLK_SEL_M) | (SYSTEM_SOC_CLK_MAX << SYSTEM_SOC_CLK_SEL_S));
+		REG_WRITE(SYSTEM_SYSCLK_CONF_REG,
+			(sysclk_conf_reg & ~SYSTEM_SOC_CLK_SEL_M) | (SYSTEM_SOC_CLK_MAX << SYSTEM_SOC_CLK_SEL_S));
 	} else { // restore old value
-        sysclk_conf_reg = conf_reg_val;
-        REG_WRITE(SYSTEM_SYSCLK_CONF_REG, (REG_READ(SYSTEM_SYSCLK_CONF_REG) & ~SYSTEM_SOC_CLK_SEL_M) | (sysclk_conf_reg & SYSTEM_SOC_CLK_SEL_M));
+		sysclk_conf_reg = conf_reg_val;
+		REG_WRITE(SYSTEM_SYSCLK_CONF_REG,
+			(REG_READ(SYSTEM_SYSCLK_CONF_REG) & ~SYSTEM_SOC_CLK_SEL_M) | (sysclk_conf_reg & SYSTEM_SOC_CLK_SEL_M));
 	}
 
 	STUB_LOGD("sysclk_conf_reg %x\n", sysclk_conf_reg);
@@ -269,7 +272,8 @@ void stub_uart_console_configure(int dest)
 	Uart_Init(0, APB_CLK_FREQ_ROM);
 	/* install to print later
 	 * Non-Flash Boot can print
-	 * Flash Boot can print when RTC_CNTL_STORE4_REG bit0 is 0 (can be 1 after deep sleep, software reset) and printf boot.
+	 * Flash Boot can print when RTC_CNTL_STORE4_REG bit0 is 0 (can be 1 after deep sleep, software reset)
+	 * and printf boot.
 	 * print boot determined by GPIO and efuse, see ets_is_print_boot
 	 */
 	g_uart_print = true;
@@ -307,7 +311,7 @@ void esp_apptrace_get_up_buffers(esp_apptrace_mem_block_t mem_blocks_cfg[2])
 }
 #endif
 
-int stub_apptrace_prepare()
+int stub_apptrace_prepare(void)
 {
 	/* imply that host is auto-connected */
 	s_apptrace_ctrl->ctrl |= ESP_APPTRACE_RISCV_HOST_CONNECT;
@@ -321,7 +325,8 @@ uint64_t stub_get_time(void)
 
 	/* Set the "update" bit and wait for acknowledgment */
 	systimer_ll_counter_snapshot(s_sys_timer_dev, SYSTIMER_COUNTER_OS_TICK);
-	while (!systimer_ll_is_counter_value_valid(s_sys_timer_dev, SYSTIMER_COUNTER_OS_TICK)) ;
+	while (!systimer_ll_is_counter_value_valid(s_sys_timer_dev, SYSTIMER_COUNTER_OS_TICK))
+		;
 
 	/* Read LO, HI, then LO again, check that LO returns the same value.
 	* This accounts for the case when an interrupt may happen between reading
@@ -366,32 +371,27 @@ esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint3
 		return ESP_ROM_SPIFLASH_RESULT_ERR;
 
 	/* Unlock flash to enable erase */
-	if (ESP_ROM_SPIFLASH_RESULT_OK != esp_rom_spiflash_unlock(/*&rom_spiflash_legacy_data->chip*/))
+	if (esp_rom_spiflash_unlock(/*&rom_spiflash_legacy_data->chip*/) != ESP_ROM_SPIFLASH_RESULT_OK)
 		return ESP_ROM_SPIFLASH_RESULT_ERR;
 
 	sector_no = start_addr / rom_spiflash_legacy_data->chip.sector_size;
-	sector_num_per_block = rom_spiflash_legacy_data->chip.block_size /
-		rom_spiflash_legacy_data->chip.sector_size;
-	total_sector_num =
-		(0 ==
-		(area_len %
-			rom_spiflash_legacy_data->chip.sector_size)) ? area_len /
-		rom_spiflash_legacy_data->chip.sector_size :
+	sector_num_per_block = rom_spiflash_legacy_data->chip.block_size / rom_spiflash_legacy_data->chip.sector_size;
+	total_sector_num = (0 == (area_len % rom_spiflash_legacy_data->chip.sector_size)) ?
+		area_len / rom_spiflash_legacy_data->chip.sector_size :
 		1 + (area_len / rom_spiflash_legacy_data->chip.sector_size);
 
 	/* check if erase area reach over block boundary */
 	head_sector_num = sector_num_per_block - (sector_no % sector_num_per_block);
 
-	head_sector_num =
-		(head_sector_num >= total_sector_num) ? total_sector_num : head_sector_num;
+	head_sector_num = (head_sector_num >= total_sector_num) ? total_sector_num : head_sector_num;
 
 	/* JJJ, BUG of 6.0 erase
 	 * middle part of area is aligned by blocks */
 	total_sector_num -= head_sector_num;
 
 	/* head part of area is erased */
-	while (0 != head_sector_num) {
-		if (ESP_ROM_SPIFLASH_RESULT_OK != esp_rom_spiflash_erase_sector(sector_no))
+	while (head_sector_num > 0) {
+		if (esp_rom_spiflash_erase_sector(sector_no) != ESP_ROM_SPIFLASH_RESULT_OK)
 			return ESP_ROM_SPIFLASH_RESULT_ERR;
 		sector_no++;
 		head_sector_num--;
@@ -405,8 +405,8 @@ esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint3
 	}
 
 	/* tail part of area burn */
-	while (0 < total_sector_num) {
-		if (ESP_ROM_SPIFLASH_RESULT_OK != esp_rom_spiflash_erase_sector(sector_no))
+	while (total_sector_num > 0) {
+		if (esp_rom_spiflash_erase_sector(sector_no) != ESP_ROM_SPIFLASH_RESULT_OK)
 			return ESP_ROM_SPIFLASH_RESULT_ERR;
 		sector_no++;
 		total_sector_num--;
@@ -463,8 +463,7 @@ static int stub_flash_mmap(struct spiflash_map_req *req)
 
 	if (start_page + page_cnt < s_cache_mmu_config.drom_page_end) {
 		for (int i = 0; i < page_cnt; i++)
-			STUB_MMU_TABLE[start_page + i] = SOC_MMU_PAGE_IN_FLASH(
-				flash_page + i);
+			STUB_MMU_TABLE[start_page + i] = SOC_MMU_PAGE_IN_FLASH(flash_page + i);
 
 		req->start_page = start_page;
 		req->page_cnt = page_cnt;
@@ -477,8 +476,7 @@ static int stub_flash_mmap(struct spiflash_map_req *req)
 		ret = ESP_ROM_SPIFLASH_RESULT_OK;
 	}
 
-	STUB_LOGD(
-		"start_page: %d map_src: %x map_size: %x page_cnt: %d flash_page: %d map_ptr: %x\n",
+	STUB_LOGD("start_page: %d map_src: %x map_size: %x page_cnt: %d flash_page: %d map_ptr: %x\n",
 		start_page,
 		map_src,
 		map_size,
