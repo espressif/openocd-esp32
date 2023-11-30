@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 /***************************************************************************
  *   ESP32 specific flasher stub functions                                 *
@@ -186,7 +186,8 @@ static uint32_t esp32_flash_exec_usr_cmd(uint32_t cmd)
 	while (ESP_ROM_SPIFLASH_BUSY_FLAG == (status_value & ESP_ROM_SPIFLASH_BUSY_FLAG)) {
 		WRITE_PERI_REG(PERIPHS_SPI_FLASH_STATUS, 0);	/* clear register */
 		WRITE_PERI_REG(PERIPHS_SPI_FLASH_CMD, SPI_USR | cmd);
-		while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0) ;
+		while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0)
+			;
 
 		status_value = READ_PERI_REG(PERIPHS_SPI_FLASH_STATUS) &
 			g_rom_spiflash_chip.status_mask;
@@ -195,14 +196,15 @@ static uint32_t esp32_flash_exec_usr_cmd(uint32_t cmd)
 	return status_value;
 }
 
-static void esp32_flash_spi_wait_ready()
+static void esp32_flash_spi_wait_ready(void)
 {
 	uint32_t status_value = ESP_ROM_SPIFLASH_BUSY_FLAG;
 
 	while (ESP_ROM_SPIFLASH_BUSY_FLAG == (status_value & ESP_ROM_SPIFLASH_BUSY_FLAG)) {
 		WRITE_PERI_REG(PERIPHS_SPI_FLASH_STATUS, 0);	/* clear register */
 		WRITE_PERI_REG(PERIPHS_SPI_FLASH_CMD, SPI_FLASH_RDSR);
-		while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0) ;
+		while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0)
+			;
 		status_value = READ_PERI_REG(PERIPHS_SPI_FLASH_STATUS) &
 			(g_rom_spiflash_chip.status_mask);
 	}
@@ -290,13 +292,17 @@ void stub_spiram_writeback_cache(void)
 	}
 
 	if (cache_was_disabled & (1 << 0)) {
-		while (DPORT_GET_PERI_REG_BITS2(DPORT_PRO_DCACHE_DBUG0_REG, DPORT_PRO_CACHE_STATE,
-				DPORT_PRO_CACHE_STATE_S) != 1) ;
+		int reg_bits = DPORT_GET_PERI_REG_BITS2(DPORT_PRO_DCACHE_DBUG0_REG,
+			DPORT_PRO_CACHE_STATE, DPORT_PRO_CACHE_STATE_S);
+		while (reg_bits != 1)
+			;
 		DPORT_SET_PERI_REG_BITS(DPORT_PRO_CACHE_CTRL_REG, 1, 0, DPORT_PRO_CACHE_ENABLE_S);
 	}
 	if (cache_was_disabled & (1 << 1)) {
-		while (DPORT_GET_PERI_REG_BITS2(DPORT_APP_DCACHE_DBUG0_REG, DPORT_APP_CACHE_STATE,
-				DPORT_APP_CACHE_STATE_S) != 1) ;
+		int reg_bits = DPORT_GET_PERI_REG_BITS2(DPORT_APP_DCACHE_DBUG0_REG, DPORT_APP_CACHE_STATE,
+			DPORT_APP_CACHE_STATE_S);
+		while (reg_bits != 1)
+			;
 		DPORT_SET_PERI_REG_BITS(DPORT_APP_CACHE_CTRL_REG, 1, 0, DPORT_APP_CACHE_ENABLE_S);
 	}
 }
@@ -335,8 +341,7 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 			state->cache_flags[other_core_id],
 			esp32_flash_cache_enabled(other_core_id));
 	}
-	state->cache_enabled = esp32_flash_cache_enabled(core_id) && esp32_flash_cache_bus_enabled(
-		core_id);
+	state->cache_enabled = esp32_flash_cache_enabled(core_id) && esp32_flash_cache_bus_enabled(core_id);
 	if (!state->cache_enabled) {
 		STUB_LOGI("Cache needs to be enabled for CPU%d\n", core_id);
 		stub_cache_init(core_id);
@@ -485,8 +490,7 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 					EFUSE_RD_DISABLE_DL_ENCRYPT);
 				uint8_t dis_dl_dec = REG_GET_FIELD(EFUSE_BLK0_RDATA6_REG,
 					EFUSE_RD_DISABLE_DL_DECRYPT);
-				/* Check if DISABLE_DL_DECRYPT, DISABLE_DL_ENCRYPT & DISABLE_DL_CACHE are
-				        set */
+				/* Check if DISABLE_DL_DECRYPT, DISABLE_DL_ENCRYPT & DISABLE_DL_CACHE are set */
 				if (dis_dl_cache && dis_dl_enc && dis_dl_dec)
 					mode = ESP_FLASH_ENC_MODE_RELEASE;
 			}
@@ -521,8 +525,7 @@ static int stub_flash_mmap(struct spiflash_map_req *req)
 
 	if (start_page + page_cnt < STUB_MMU_DROM_PAGES_END) {
 		for (int i = 0; i < page_cnt; i++)
-			mmu_table_s[req->core_id][start_page + i] = SOC_MMU_PAGE_IN_FLASH(
-				flash_page + i);
+			mmu_table_s[req->core_id][start_page + i] = SOC_MMU_PAGE_IN_FLASH(flash_page + i);
 
 		req->start_page = start_page;
 		req->page_cnt = page_cnt;
@@ -533,8 +536,7 @@ static int stub_flash_mmap(struct spiflash_map_req *req)
 		ret = ESP_ROM_SPIFLASH_RESULT_OK;
 	}
 
-	STUB_LOGD(
-		"start_page: %d map_src: %x map_size: %x page_cnt: %d flash_page: %d map_ptr: %x\n",
+	STUB_LOGD("start_page: %d map_src: %x map_size: %x page_cnt: %d flash_page: %d map_ptr: %x\n",
 		start_page,
 		map_src,
 		map_size,

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "stub_rom_chip.h"
 #include "soc/spi_periph.h"
@@ -18,12 +18,12 @@ esp_rom_spiflash_result_t esp_rom_spiflash_wait_idle(esp_rom_spiflash_chip_t *sp
 {
 	uint32_t status;
 	/* wait for spi control ready */
-	while ((REG_READ(SPI_EXT2_REG(1)) & SPI_ST)) {
-	}
-	while ((REG_READ(SPI_EXT2_REG(0)) & SPI_ST)) {
-	}
+	while ((REG_READ(SPI_EXT2_REG(1)) & SPI_ST))
+		;
+	while ((REG_READ(SPI_EXT2_REG(0)) & SPI_ST))
+		;
 	/* wait for flash status ready */
-	if (ESP_ROM_SPIFLASH_RESULT_OK != esp_rom_spiflash_read_status(spi, &status))
+	if (esp_rom_spiflash_read_status(spi, &status) != ESP_ROM_SPIFLASH_RESULT_OK)
 		return ESP_ROM_SPIFLASH_RESULT_ERR;
 	return ESP_ROM_SPIFLASH_RESULT_OK;
 }
@@ -50,8 +50,7 @@ esp_rom_spiflash_result_t esp_rom_spiflash_unlock(void)
 	if (is_issi_chip(&g_rom_spiflash_chip)) {
 		/* ISSI chips have different QE position */
 
-		if (esp_rom_spiflash_read_status(&g_rom_spiflash_chip,
-				&status) != ESP_ROM_SPIFLASH_RESULT_OK)
+		if (esp_rom_spiflash_read_status(&g_rom_spiflash_chip, &status) != ESP_ROM_SPIFLASH_RESULT_OK)
 			return ESP_ROM_SPIFLASH_RESULT_ERR;
 
 		/* Clear all bits in the mask.
@@ -65,8 +64,7 @@ esp_rom_spiflash_result_t esp_rom_spiflash_unlock(void)
 
 		CLEAR_PERI_REG_MASK(SPI_CTRL_REG(SPI_IDX), SPI_WRSR_2B);
 	} else {
-		if (esp_rom_spiflash_read_statushigh(&g_rom_spiflash_chip,
-				&status) != ESP_ROM_SPIFLASH_RESULT_OK)
+		if (esp_rom_spiflash_read_statushigh(&g_rom_spiflash_chip, &status) != ESP_ROM_SPIFLASH_RESULT_OK)
 			return ESP_ROM_SPIFLASH_RESULT_ERR;
 
 		/* Clear all bits except QE, if it is set.
@@ -78,15 +76,17 @@ esp_rom_spiflash_result_t esp_rom_spiflash_unlock(void)
 
 	esp_rom_spiflash_wait_idle(&g_rom_spiflash_chip);
 	REG_WRITE(SPI_CMD_REG(SPI_IDX), SPI_FLASH_WREN);
-	while (REG_READ(SPI_CMD_REG(SPI_IDX)) != 0) {
-	}
+	while (REG_READ(SPI_CMD_REG(SPI_IDX)) != 0)
+		;
+
 	esp_rom_spiflash_wait_idle(&g_rom_spiflash_chip);
-	esp_rom_spiflash_result_t ret = esp_rom_spiflash_write_status(&g_rom_spiflash_chip,
-		new_status);
+	esp_rom_spiflash_result_t ret = esp_rom_spiflash_write_status(&g_rom_spiflash_chip, new_status);
+
 	/* WEL bit should be cleared after operations regardless of writing succeed or not. */
 	esp_rom_spiflash_wait_idle(&g_rom_spiflash_chip);
 	REG_WRITE(SPI_CMD_REG(SPI_IDX), SPI_FLASH_WRDI);
-	while (REG_READ(SPI_CMD_REG(SPI_IDX)) != 0) {
-	}
+	while (REG_READ(SPI_CMD_REG(SPI_IDX)) != 0)
+		;
+
 	return ret;
 }

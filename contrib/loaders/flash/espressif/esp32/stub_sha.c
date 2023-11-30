@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 /* Copyright 2021 Espressif Systems (Shanghai) PTE LTD */
 
@@ -64,7 +64,7 @@ void stub_sha256_data(const void *data, size_t data_len)
 
 void stub_sha256_finish(uint8_t *digest)
 {
-	if (digest == NULL)
+	if (!digest)
 		return;	/* We'd free resources here, but there are none to free */
 
 	uint32_t data_words = words_hashed;

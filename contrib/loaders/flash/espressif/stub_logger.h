@@ -47,7 +47,7 @@ void stub_log_init(enum stub_log_levels level, enum stub_log_destination dest);
 
 #define STUB_LOG(level, format, ...)   \
 	do { \
-		if (s_log_level != STUB_LOG_LEVEL_NONE && s_log_level >= level) { \
+		if (s_log_level != STUB_LOG_LEVEL_NONE && s_log_level >= (level)) { \
 			ets_printf(format, ## __VA_ARGS__); \
 		} \
 	} while (0)
