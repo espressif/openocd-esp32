@@ -108,7 +108,7 @@ FLASH_BANK_COMMAND_HANDLER(esp32c3_flash_bank_command)
 		return ERROR_FAIL;
 	int ret = esp_riscv_flash_init(&esp32c3_info->riscv,
 		ESP32C3_FLASH_SECTOR_SIZE,
-		algorithm_run_func_image,
+		esp_algorithm_run_func_image,
 		esp32c3_is_irom_address,
 		esp32c3_is_drom_address,
 		esp32c3_get_stub);

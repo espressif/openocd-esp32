@@ -2846,9 +2846,7 @@ int xtensa_run_algorithm(struct target *target,
 	target_addr_t entry_point, target_addr_t exit_point,
 	unsigned int timeout_ms, void *arch_info)
 {
-	int retval;
-
-	retval = xtensa_start_algorithm(target,
+	int retval = xtensa_start_algorithm(target,
 		num_mem_params, mem_params,
 		num_reg_params, reg_params,
 		entry_point, exit_point,

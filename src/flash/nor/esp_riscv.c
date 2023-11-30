@@ -26,7 +26,7 @@ static const struct esp_flash_apptrace_hw s_esp_riscv_flash_apptrace_hw = {
 };
 
 int esp_riscv_flash_init(struct esp_riscv_flash_bank *esp_info, uint32_t sec_sz,
-	int (*run_func_image)(struct target *target, struct algorithm_run_data *run,
+	int (*run_func_image)(struct target *target, struct esp_algorithm_run_data *run,
 		uint32_t num_args, ...),
 	bool (*is_irom_address)(target_addr_t addr),
 	bool (*is_drom_address)(target_addr_t addr),

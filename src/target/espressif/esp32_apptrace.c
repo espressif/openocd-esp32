@@ -2199,7 +2199,7 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 	int res = ERROR_OK;
 	struct target *target = get_current_target(CMD_CTX);
 	enum target_state old_state;
-	struct algorithm_run_data run;
+	struct esp_algorithm_run_data run;
 	uint32_t func_addr;
 	bool dump = false;
 	uint32_t stub_capabilites;

@@ -14,6 +14,6 @@
 /** Index of the first user-defined algo arg. @see algorithm_stub */
 #define ESP_XTENSA_STUB_ARGS_FUNC_START             6
 
-extern const struct algorithm_hw xtensa_algo_hw;
+extern const struct esp_algorithm_hw xtensa_algo_hw;
 
 #endif	/* OPENOCD_TARGET_XTENSA_ALGO_H */

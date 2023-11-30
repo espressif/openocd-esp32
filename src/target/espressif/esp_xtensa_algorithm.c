@@ -12,12 +12,12 @@
 #include <target/xtensa/xtensa.h>
 #include "esp_xtensa_algorithm.h"
 
-static int esp_xtensa_algo_init(struct target *target, struct algorithm_run_data *run,
+static int esp_xtensa_algo_init(struct target *target, struct esp_algorithm_run_data *run,
 	uint32_t num_args, va_list ap);
-static int esp_xtensa_algo_cleanup(struct target *target, struct algorithm_run_data *run);
+static int esp_xtensa_algo_cleanup(struct target *target, struct esp_algorithm_run_data *run);
 static const uint8_t *esp_xtensa_stub_tramp_get(struct target *target, size_t *size);
 
-const struct algorithm_hw xtensa_algo_hw = {
+const struct esp_algorithm_hw xtensa_algo_hw = {
 	.algo_init = esp_xtensa_algo_init,
 	.algo_cleanup = esp_xtensa_algo_cleanup,
 	.stub_tramp_get = esp_xtensa_stub_tramp_get,
@@ -40,7 +40,7 @@ static const uint8_t *esp_xtensa_stub_tramp_get(struct target *target, size_t *s
 	return esp_xtensa_stub_tramp_win;
 }
 
-static int esp_xtensa_algo_regs_init_start(struct target *target, struct algorithm_run_data *run)
+static int esp_xtensa_algo_regs_init_start(struct target *target, struct esp_algorithm_run_data *run)
 {
 	uint32_t stack_addr = run->stub.stack_addr;
 
@@ -66,7 +66,7 @@ static int esp_xtensa_algo_regs_init_start(struct target *target, struct algorit
 	return ERROR_OK;
 }
 
-static int esp_xtensa_algo_init(struct target *target, struct algorithm_run_data *run,
+static int esp_xtensa_algo_init(struct target *target, struct esp_algorithm_run_data *run,
 	uint32_t num_args, va_list ap)
 {
 	enum xtensa_mode core_mode = XT_MODE_ANY;
@@ -112,16 +112,16 @@ static int esp_xtensa_algo_init(struct target *target, struct algorithm_run_data
 
 	if (num_args > 0) {
 		uint32_t arg = va_arg(ap, uint32_t);
-		algorithm_user_arg_set_uint(run, 0, arg);
+		esp_algorithm_user_arg_set_uint(run, 0, arg);
 		LOG_DEBUG("Set arg[0] = %d (%s)", arg, run->reg_args.params[run->reg_args.first_user_param + 0].reg_name);
 	} else {
-		algorithm_user_arg_set_uint(run, 0, 0);
+		esp_algorithm_user_arg_set_uint(run, 0, 0);
 	}
 
 	for (unsigned int i = 1; i < num_args; i++) {
 		uint32_t arg = va_arg(ap, uint32_t);
 		init_reg_param(&run->reg_args.params[run->reg_args.first_user_param + i], (char *)arg_regs[i], 32, PARAM_OUT);
-		algorithm_user_arg_set_uint(run, i, arg);
+		esp_algorithm_user_arg_set_uint(run, i, arg);
 		LOG_DEBUG("Set arg[%d] = %d (%s)", i, arg, run->reg_args.params[run->reg_args.first_user_param + i].reg_name);
 	}
 
@@ -130,7 +130,7 @@ static int esp_xtensa_algo_init(struct target *target, struct algorithm_run_data
 	return ERROR_OK;
 }
 
-static int esp_xtensa_algo_cleanup(struct target *target, struct algorithm_run_data *run)
+static int esp_xtensa_algo_cleanup(struct target *target, struct esp_algorithm_run_data *run)
 {
 	free(run->stub.ainfo);
 	for (uint32_t i = 0; i < run->reg_args.count; i++)

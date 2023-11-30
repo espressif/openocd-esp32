@@ -14,11 +14,11 @@
 #include <target/target.h>
 #include "esp_algorithm.h"
 
-#define ALGO_ALGORITHM_EXIT_TMO    40000	/* ms */
+#define DEFAULT_ALGORITHM_TIMEOUT_MS    40000	/* ms */
 
-static int algorithm_read_stub_logs(struct target *target, struct algorithm_stub *stub)
+static int esp_algorithm_read_stub_logs(struct target *target, struct esp_algorithm_stub *stub)
 {
-	if (stub->log_buff_addr == 0 || stub->log_buff_size == 0)
+	if (!stub || stub->log_buff_addr == 0 || stub->log_buff_size == 0)
 		return ERROR_FAIL;
 
 	uint32_t len = 0;
@@ -32,8 +32,8 @@ static int algorithm_read_stub_logs(struct target *target, struct algorithm_stub
 
 	uint8_t *log_buff = calloc(1, len);
 	if (!log_buff) {
-		LOG_ERROR("Failed to allocate memory for the stub log (%d)!", retval);
-		return retval;
+		LOG_ERROR("Failed to allocate memory for the stub log!");
+		return ERROR_FAIL;
 	}
 	retval = target_read_memory(target, stub->log_buff_addr + 4, 1, len, log_buff);
 	if (retval == ERROR_OK)
@@ -42,9 +42,15 @@ static int algorithm_read_stub_logs(struct target *target, struct algorithm_stub
 	return retval;
 }
 
-static int algorithm_run_image(struct target *target, struct algorithm_run_data *run, uint32_t num_args, va_list ap)
+static int esp_algorithm_run_image(struct target *target,
+	struct esp_algorithm_run_data *run,
+	uint32_t num_args,
+	va_list ap)
 {
-	void **mem_handles = NULL;
+	struct working_area **mem_handles = NULL;
+
+	if (!run || !run->hw)
+		return ERROR_FAIL;
 
 	int retval = run->hw->algo_init(target, run, num_args, ap);
 	if (retval != ERROR_OK)
@@ -52,10 +58,10 @@ static int algorithm_run_image(struct target *target, struct algorithm_run_data 
 
 	/* allocate memory arguments and fill respective reg params */
 	if (run->mem_args.count > 0) {
-		mem_handles = calloc(run->mem_args.count, sizeof(void *));
+		mem_handles = calloc(run->mem_args.count, sizeof(*mem_handles));
 		if (!mem_handles) {
 			LOG_ERROR("Failed to alloc target mem handles!");
-			retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+			retval = ERROR_FAIL;
 			goto _cleanup;
 		}
 		/* alloc memory args target buffers */
@@ -74,7 +80,7 @@ static int algorithm_run_image(struct target *target, struct algorithm_run_data 
 			mem_handles[i] = area;
 			run->mem_args.params[i].address = area->address;
 			if (usr_param_num != UINT_MAX) /* if we need update some register param with mem param value */
-				algorithm_user_arg_set_uint(run, usr_param_num, run->mem_args.params[i].address);
+				esp_algorithm_user_arg_set_uint(run, usr_param_num, run->mem_args.params[i].address);
 		}
 	}
 
@@ -105,20 +111,20 @@ static int algorithm_run_image(struct target *target, struct algorithm_run_data 
 		if (retval != ERROR_OK)
 			LOG_ERROR("Failed to exec algorithm user func (%d)!", retval);
 	}
-	uint32_t tmo = 0;	/* do not wait if 'usr_func' returned error */
+	uint32_t timeout_ms = 0;	/* do not wait if 'usr_func' returned error */
 	if (retval == ERROR_OK)
-		tmo = run->tmo ? run->tmo : ALGO_ALGORITHM_EXIT_TMO;
+		timeout_ms = run->timeout_ms ? run->timeout_ms : DEFAULT_ALGORITHM_TIMEOUT_MS;
 	LOG_DEBUG("Wait algorithm completion");
 	retval = target_wait_algorithm(target,
 		run->mem_args.count, run->mem_args.params,
 		run->reg_args.count, run->reg_args.params,
-		0, tmo,
+		0, timeout_ms,
 		run->stub.ainfo);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Failed to wait algorithm (%d)!", retval);
 		/* target has been forced to stop in target_wait_algorithm() */
 	}
-	algorithm_read_stub_logs(target, &run->stub);
+	esp_algorithm_read_stub_logs(target, &run->stub);
 
 	if (run->usr_func_done)
 		run->usr_func_done(target, run, run->usr_func_arg);
@@ -126,7 +132,7 @@ static int algorithm_run_image(struct target *target, struct algorithm_run_data 
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Algorithm run failed (%d)!", retval);
 	} else {
-		run->ret_code = algorithm_user_arg_get_uint(run, 0);
+		run->ret_code = esp_algorithm_user_arg_get_uint(run, 0);
 		LOG_DEBUG("Got algorithm RC 0x%" PRIx32, run->ret_code);
 	}
 
@@ -134,9 +140,8 @@ _cleanup:
 	/* free memory arguments */
 	if (mem_handles) {
 		for (uint32_t i = 0; i < run->mem_args.count; i++) {
-			if (mem_handles[i]) {
+			if (mem_handles[i])
 				target_free_working_area(target, mem_handles[i]);
-			}
 		}
 		free(mem_handles);
 	}
@@ -145,12 +150,13 @@ _cleanup:
 	return retval;
 }
 
-static int algorithm_run_debug_stub(struct target *target,
-	struct algorithm_run_data *run,
+static int esp_algorithm_run_debug_stub(struct target *target,
+	struct esp_algorithm_run_data *run,
 	uint32_t num_args,
 	va_list ap)
 {
-	void **mem_handles = NULL;
+	if (!run || !run->hw)
+		return ERROR_FAIL;
 
 	int retval = run->hw->algo_init(target, run, num_args, ap);
 	if (retval != ERROR_OK)
@@ -168,14 +174,14 @@ static int algorithm_run_debug_stub(struct target *target,
 		goto _cleanup;
 	}
 
-	uint32_t tmo = 0;	/* do not wait if 'usr_func' returned error */
+	uint32_t timeout_ms = 0;	/* do not wait if 'usr_func' returned error */
 	if (retval == ERROR_OK)
-		tmo = run->tmo ? run->tmo : ALGO_ALGORITHM_EXIT_TMO;
+		timeout_ms = run->timeout_ms ? run->timeout_ms : DEFAULT_ALGORITHM_TIMEOUT_MS;
 	LOG_DEBUG("Wait algorithm completion");
 	retval = target_wait_algorithm(target,
 		run->mem_args.count, run->mem_args.params,
 		run->reg_args.count, run->reg_args.params,
-		0, tmo,
+		0, timeout_ms,
 		run->stub.ainfo);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Failed to wait algorithm (%d)!", retval);
@@ -185,13 +191,11 @@ static int algorithm_run_debug_stub(struct target *target,
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Algorithm run failed (%d)!", retval);
 	} else {
-		run->ret_code = algorithm_user_arg_get_uint(run, 0);
+		run->ret_code = esp_algorithm_user_arg_get_uint(run, 0);
 		LOG_DEBUG("Got algorithm RC 0x%" PRIx32, run->ret_code);
 	}
 
 _cleanup:
-	free(mem_handles);
-
 	run->hw->algo_cleanup(target, run);
 
 	return retval;
@@ -221,8 +225,13 @@ static void reverse_binary(const uint8_t *src, uint8_t *dest, size_t length)
 }
 
 static int load_section_from_image(struct target *target,
-	struct algorithm_run_data *run, int section_num, bool reverse)
+	struct esp_algorithm_run_data *run,
+	int section_num,
+	bool reverse)
 {
+	if (!run)
+		return ERROR_FAIL;
+
 	struct imagesection *section = &run->image.image.sections[section_num];
 	uint32_t sec_wr = 0;
 	uint8_t buf[1024];
@@ -245,6 +254,21 @@ static int load_section_from_image(struct target *target,
 			/* Send original size to allow padding */
 			reverse_binary(buf, reversed_buf, size_read);
 
+			/*
+				The address range accessed via the instruction bus is in reverse order (word-wise) compared to access
+				via the data bus. That is to say, address
+				0x3FFE_0000 and 0x400B_FFFC access the same word
+				0x3FFE_0004 and 0x400B_FFF8 access the same word
+				0x3FFE_0008 and 0x400B_FFF4 access the same word
+				...
+				The data bus and instruction bus of the CPU are still both little-endian,
+				so the byte order of individual words is not reversed between address spaces.
+				For example, address
+				0x3FFE_0000 accesses the least significant byte in the word accessed by 0x400B_FFFC.
+				0x3FFE_0001 accesses the second least significant byte in the word accessed by 0x400B_FFFC.
+				0x3FFE_0002 accesses the second most significant byte in the word accessed by 0x400B_FFFC.
+				For more details, please refer to ESP32 TRM, Internal SRAM1 section.
+			*/
 			retval = target_write_buffer(target, run->image.dram_org - sec_wr - aligned_len, aligned_len, reversed_buf);
 			if (retval != ERROR_OK) {
 				LOG_ERROR("Failed to write stub section!");
@@ -264,13 +288,24 @@ static int load_section_from_image(struct target *target,
 	return ERROR_OK;
 }
 
-int algorithm_load_func_image(struct target *target, struct algorithm_run_data *run)
+/*
+ * Configuration:
+ * ----------------------------
+ * The linker scripts defines the memory layout for the stub code.
+ * The OpenOCD script specifies the workarea address and it's size
+ * Sections defined in the linker are organized to share the same addresses with the workarea.
+ * Code and data sections are located in Internal SRAM1 and OpenOCD fills these sections using the data bus.
+ */
+int esp_algorithm_load_func_image(struct target *target, struct esp_algorithm_run_data *run)
 {
 	int retval;
 	size_t tramp_sz = 0;
 	const uint8_t *tramp = NULL;
 	struct duration algo_time;
-	bool alloc_working_area = true;
+	bool alloc_code_working_area = true;
+
+	if (!run || !run->hw)
+		return ERROR_FAIL;
 
 	if (duration_start(&algo_time) != 0) {
 		LOG_ERROR("Failed to start algo time measurement!");
@@ -302,7 +337,7 @@ int algorithm_load_func_image(struct target *target, struct algorithm_run_data *
 			retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 			goto _on_error;
 		}
-		alloc_working_area = false;
+		alloc_code_working_area = false;
 	}
 
 	uint32_t code_size = 0;
@@ -318,7 +353,7 @@ int algorithm_load_func_image(struct target *target, struct algorithm_run_data *
 			LOG_DEBUG("addr " TARGET_ADDR_FMT ", sz %d, flags %" PRIx64,
 				section->base_address, section->size, section->flags);
 
-			if (alloc_working_area) {
+			if (alloc_code_working_area) {
 				retval = target_alloc_working_area(target, section->size, &run->stub.code);
 				if (retval != ERROR_OK) {
 					LOG_ERROR("no working area available, can't alloc space for stub code!");
@@ -351,7 +386,7 @@ int algorithm_load_func_image(struct target *target, struct algorithm_run_data *
 	/* If exists, load trampoline to the code area */
 	if (tramp) {
 		if (run->stub.tramp_addr == 0) {
-			if (alloc_working_area) {
+			if (alloc_code_working_area) {
 				/* alloc trampoline in code working area */
 				if (target_alloc_working_area(target, tramp_sz, &run->stub.tramp) != ERROR_OK) {
 					LOG_ERROR("no working area available, can't alloc space for stub jumper!");
@@ -389,7 +424,7 @@ int algorithm_load_func_image(struct target *target, struct algorithm_run_data *
 	}
 
 	/* allocate dummy space until the data address */
-	if (alloc_working_area) {
+	if (alloc_code_working_area) {
 		/* we dont need to restore padding area. */
 		uint32_t backup_working_area_prev = target->backup_working_area;
 		target->backup_working_area = 0;
@@ -461,13 +496,17 @@ int algorithm_load_func_image(struct target *target, struct algorithm_run_data *
 	return ERROR_OK;
 
 _on_error:
-	algorithm_unload_func_image(target, run);
+	esp_algorithm_unload_func_image(target, run);
 	return retval;
 }
 
-int algorithm_unload_func_image(struct target *target, struct algorithm_run_data *run)
+int esp_algorithm_unload_func_image(struct target *target, struct esp_algorithm_run_data *run)
 {
+	if (!run)
+		return ERROR_FAIL;
+
 	target_free_all_working_areas(target);
+
 	run->stub.tramp = NULL;
 	run->stub.stack = NULL;
 	run->stub.code = NULL;
@@ -477,23 +516,26 @@ int algorithm_unload_func_image(struct target *target, struct algorithm_run_data
 	return ERROR_OK;
 }
 
-int algorithm_exec_func_image_va(struct target *target,
-	struct algorithm_run_data *run,
+int esp_algorithm_exec_func_image_va(struct target *target,
+	struct esp_algorithm_run_data *run,
 	uint32_t num_args,
 	va_list ap)
 {
-	if (!run->image.image.start_address_set || run->image.image.start_address == 0)
+	if (!run || !run->image.image.start_address_set || run->image.image.start_address == 0)
 		return ERROR_FAIL;
 
-	return algorithm_run_image(target, run, num_args, ap);
+	return esp_algorithm_run_image(target, run, num_args, ap);
 }
 
-int algorithm_load_onboard_func(struct target *target, target_addr_t func_addr, struct algorithm_run_data *run)
+int esp_algorithm_load_onboard_func(struct target *target, target_addr_t func_addr, struct esp_algorithm_run_data *run)
 {
 	int res;
 	const uint8_t *tramp = NULL;
 	size_t tramp_sz = 0;
 	struct duration algo_time;
+
+	if (!run || !run->hw)
+		return ERROR_FAIL;
 
 	if (duration_start(&algo_time) != 0) {
 		LOG_ERROR("Failed to start algo time measurement!");
@@ -507,8 +549,8 @@ int algorithm_load_onboard_func(struct target *target, target_addr_t func_addr, 
 	}
 
 	if (tramp_sz > run->on_board.code_buf_size) {
-		LOG_ERROR("Stub tramp size %u bytes exceeds target buf size %d bytes!",
-			(uint32_t)tramp_sz, run->on_board.code_buf_size);
+		LOG_ERROR("Stub tramp size %zu bytes exceeds target buf size %d bytes!",
+			tramp_sz, run->on_board.code_buf_size);
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
@@ -526,7 +568,7 @@ int algorithm_load_onboard_func(struct target *target, target_addr_t func_addr, 
 		res = target_write_buffer(target, run->stub.tramp_addr, tramp_sz, tramp);
 		if (res != ERROR_OK) {
 			LOG_ERROR("Failed to write stub jumper!");
-			algorithm_unload_onboard_func(target, run);
+			esp_algorithm_unload_onboard_func(target, run);
 			return res;
 		}
 	}
@@ -540,15 +582,15 @@ int algorithm_load_onboard_func(struct target *target, target_addr_t func_addr, 
 	return ERROR_OK;
 }
 
-int algorithm_unload_onboard_func(struct target *target, struct algorithm_run_data *run)
+int esp_algorithm_unload_onboard_func(struct target *target, struct esp_algorithm_run_data *run)
 {
 	return ERROR_OK;
 }
 
-int algorithm_exec_onboard_func_va(struct target *target,
-	struct algorithm_run_data *run,
+int esp_algorithm_exec_onboard_func_va(struct target *target,
+	struct esp_algorithm_run_data *run,
 	uint32_t num_args,
 	va_list ap)
 {
-	return algorithm_run_debug_stub(target, run, num_args, ap);
+	return esp_algorithm_run_debug_stub(target, run, num_args, ap);
 }

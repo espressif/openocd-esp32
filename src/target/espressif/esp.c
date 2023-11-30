@@ -33,7 +33,7 @@ struct esp_common *target_to_esp_common(struct target *target)
 
 int esp_common_init(struct esp_common *esp,
 	const struct esp_flash_breakpoint_ops *flash_brps_ops,
-	const struct algorithm_hw *algo_hw)
+	const struct esp_algorithm_hw *algo_hw)
 {
 	esp->algo_hw = algo_hw;
 	esp->flash_brps.ops = flash_brps_ops;
