@@ -1,21 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 /***************************************************************************
  *   ESP32-C3 specific flasher stub functions                              *
  *   Copyright (C) 2021 Espressif Systems Ltd.                             *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 #include <string.h>
 #include "sdkconfig.h"
@@ -34,7 +21,7 @@
 #include "stub_flasher_chip.h"
 #include "stub_flasher.h"
 
-#define EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT          (1 << 4)
+#define EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT BIT(4)
 
 /* Cache MMU related definitions */
 #define STUB_CACHE_BUS                  EXTMEM_ICACHE_SHUT_DBUS
@@ -50,8 +37,8 @@
 #define ESP_APPTRACE_RISCV_BLOCK_ID_MSK          0x7FUL
 #define ESP_APPTRACE_RISCV_BLOCK_ID(_id_)        (((_id_) & ESP_APPTRACE_RISCV_BLOCK_ID_MSK) << 15)
 #define ESP_APPTRACE_RISCV_BLOCK_ID_GET(_v_)     (((_v_) >> 15) & ESP_APPTRACE_RISCV_BLOCK_ID_MSK)
-#define ESP_APPTRACE_RISCV_HOST_DATA             (1 << 22)
-#define ESP_APPTRACE_RISCV_HOST_CONNECT          (1 << 23)
+#define ESP_APPTRACE_RISCV_HOST_DATA             BIT(22)
+#define ESP_APPTRACE_RISCV_HOST_CONNECT          BIT(23)
 
 /** RISCV memory host iface control block */
 typedef struct {
@@ -114,9 +101,10 @@ uint32_t stub_flash_get_id(void)
 		rom_spiflash_legacy_data->chip.sector_size,
 		rom_spiflash_legacy_data->chip.page_size,
 		rom_spiflash_legacy_data->chip.status_mask);
-	WRITE_PERI_REG(PERIPHS_SPI_FLASH_C0, 0);/* clear regisrter */
+	WRITE_PERI_REG(PERIPHS_SPI_FLASH_C0, 0); /* clear register */
 	WRITE_PERI_REG(PERIPHS_SPI_FLASH_CMD, SPI_MEM_FLASH_RDID);
-	while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0) ;
+	while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0)
+		;
 	ret = READ_PERI_REG(PERIPHS_SPI_FLASH_C0) & 0xffffff;
 	STUB_LOGD("Flash ID read %x\n", ret);
 	return ret >> 16;
@@ -131,7 +119,8 @@ void stub_flash_cache_flush(void)
 
 void stub_cache_init(void)
 {
-	STUB_LOGD("stub_cache_init\n");
+	STUB_LOGD("%s\n", __func__);
+
 	/* init cache mmu, set cache mode, invalidate cache tags, enable cache*/
 	REG_SET_BIT(SYSTEM_CACHE_CONTROL_REG, SYSTEM_ICACHE_CLK_ON);
 	REG_SET_BIT(SYSTEM_CACHE_CONTROL_REG, SYSTEM_ICACHE_RESET);
@@ -294,7 +283,8 @@ void stub_uart_console_configure(int dest)
 	Uart_Init(0, UART_CLK_FREQ_ROM);
 	/* install to print later
 	 * Non-Flash Boot can print
-	 * Flash Boot can print when RTC_CNTL_STORE4_REG bit0 is 0 (can be 1 after deep sleep, software reset) and printf boot.
+	 * Flash Boot can print when RTC_CNTL_STORE4_REG bit0 is 0 (can be 1 after deep sleep, software reset)
+	 * and printf boot.
 	 * print boot determined by GPIO and efuse, see ets_is_print_boot
 	 */
 	g_uart_print = true;
@@ -332,7 +322,7 @@ void esp_apptrace_get_up_buffers(esp_apptrace_mem_block_t mem_blocks_cfg[2])
 }
 #endif
 
-int stub_apptrace_prepare()
+int stub_apptrace_prepare(void)
 {
 	/* imply that host is auto-connected */
 	s_apptrace_ctrl->ctrl |= ESP_APPTRACE_RISCV_HOST_CONNECT;
@@ -341,11 +331,14 @@ int stub_apptrace_prepare()
 
 int64_t esp_timer_get_time(void)
 {
-	/* this function is used by apptrace code to implement timeouts.
-	   unfortunately esp32c3 does not support CPU cycle counter, so we have two options:
-	   1) Use some HW timer. It can be hard, because we need to ensure that it is initialized and possibly restore its state.
-	   2) Emulate timer by incrementing some var on every call.
-	          Stub flasher uses ESP_APPTRACE_TMO_INFINITE only, so this function won't be called by apptrace at all. */
+	/*
+	This function is used by apptrace code to implement timeouts.
+	unfortunately esp32c3 does not support CPU cycle counter, so we have two options:
+	1) Use some HW timer. It can be hard, because we need to ensure that it is initialized and
+	possibly restore its state.
+	2) Emulate timer by incrementing some var on every call.
+	Stub flasher uses ESP_APPTRACE_TMO_INFINITE only, so this function won't be called by apptrace at all.
+	*/
 	return 0;
 }
 
@@ -374,51 +367,45 @@ esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint3
 		return ESP_ROM_SPIFLASH_RESULT_ERR;
 
 	/* start_addr is aligned as sector boundary */
-	if (0 != (start_addr % rom_spiflash_legacy_data->chip.sector_size))
+	if (start_addr % rom_spiflash_legacy_data->chip.sector_size != 0)
 		return ESP_ROM_SPIFLASH_RESULT_ERR;
 
 	/* Unlock flash to enable erase */
-	if (ESP_ROM_SPIFLASH_RESULT_OK != esp_rom_spiflash_unlock(/*&rom_spiflash_legacy_data->chip*/))
+	if (esp_rom_spiflash_unlock(/*&rom_spiflash_legacy_data->chip*/) != ESP_ROM_SPIFLASH_RESULT_OK)
 		return ESP_ROM_SPIFLASH_RESULT_ERR;
 
 	sector_no = start_addr / rom_spiflash_legacy_data->chip.sector_size;
 	sector_num_per_block = rom_spiflash_legacy_data->chip.block_size /
 		rom_spiflash_legacy_data->chip.sector_size;
-	total_sector_num =
-		(0 ==
-		(area_len %
-			rom_spiflash_legacy_data->chip.sector_size)) ? area_len /
-		rom_spiflash_legacy_data->chip.sector_size :
-		1 + (area_len / rom_spiflash_legacy_data->chip.sector_size);
+	total_sector_num = (0 == (area_len % rom_spiflash_legacy_data->chip.sector_size)) ? area_len /
+		rom_spiflash_legacy_data->chip.sector_size : 1 + (area_len / rom_spiflash_legacy_data->chip.sector_size);
 
 	/* check if erase area reach over block boundary */
 	head_sector_num = sector_num_per_block - (sector_no % sector_num_per_block);
 
-	head_sector_num =
-		(head_sector_num >= total_sector_num) ? total_sector_num : head_sector_num;
+	head_sector_num = (head_sector_num >= total_sector_num) ? total_sector_num : head_sector_num;
 
 	/* JJJ, BUG of 6.0 erase
 	 * middle part of area is aligned by blocks */
 	total_sector_num -= head_sector_num;
 
 	/* head part of area is erased */
-	while (0 != head_sector_num) {
-		if (ESP_ROM_SPIFLASH_RESULT_OK != esp_rom_spiflash_erase_sector(sector_no))
+	while (head_sector_num > 0) {
+		if (esp_rom_spiflash_erase_sector(sector_no) != ESP_ROM_SPIFLASH_RESULT_OK)
 			return ESP_ROM_SPIFLASH_RESULT_ERR;
 		sector_no++;
 		head_sector_num--;
 	}
 	while (total_sector_num > sector_num_per_block) {
-		if (ESP_ROM_SPIFLASH_RESULT_OK !=
-			esp_rom_spiflash_erase_block(sector_no / sector_num_per_block))
+		if (esp_rom_spiflash_erase_block(sector_no / sector_num_per_block) != ESP_ROM_SPIFLASH_RESULT_OK)
 			return ESP_ROM_SPIFLASH_RESULT_ERR;
 		sector_no += sector_num_per_block;
 		total_sector_num -= sector_num_per_block;
 	}
 
 	/* tail part of area burn */
-	while (0 < total_sector_num) {
-		if (ESP_ROM_SPIFLASH_RESULT_OK != esp_rom_spiflash_erase_sector(sector_no))
+	while (total_sector_num > 0) {
+		if (esp_rom_spiflash_erase_sector(sector_no) != ESP_ROM_SPIFLASH_RESULT_OK)
 			return ESP_ROM_SPIFLASH_RESULT_ERR;
 		sector_no++;
 		total_sector_num--;
@@ -503,8 +490,7 @@ static int stub_flash_mmap(struct spiflash_map_req *req)
 
 	if (start_page + page_cnt < STUB_MMU_DROM_PAGES_END) {
 		for (int i = 0; i < page_cnt; i++)
-			STUB_MMU_TABLE[start_page + i] = SOC_MMU_PAGE_IN_FLASH(
-				flash_page + i);
+			STUB_MMU_TABLE[start_page + i] = SOC_MMU_PAGE_IN_FLASH(flash_page + i);
 
 		req->start_page = start_page;
 		req->page_cnt = page_cnt;
@@ -517,8 +503,7 @@ static int stub_flash_mmap(struct spiflash_map_req *req)
 		ret = ESP_ROM_SPIFLASH_RESULT_OK;
 	}
 
-	STUB_LOGD(
-		"start_page: %d map_src: %x map_size: %x page_cnt: %d flash_page: %d map_ptr: %x\n",
+	STUB_LOGD("start_page: %d map_src: %x map_size: %x page_cnt: %d flash_page: %d map_ptr: %x\n",
 		start_page,
 		map_src,
 		map_size,
