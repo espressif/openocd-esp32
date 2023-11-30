@@ -119,7 +119,7 @@ struct esp_flash_breakpoints {
 
 struct esp_common {
 	struct esp_flash_breakpoints flash_brps;
-	const struct algorithm_hw *algo_hw;
+	const struct esp_algorithm_hw *algo_hw;
 	struct esp_dbg_stubs dbg_stubs;
 	struct esp_panic_reason panic_reason;
 };
@@ -134,7 +134,7 @@ struct esp_ops {
 struct esp_common *target_to_esp_common(struct target *target);
 int esp_common_init(struct esp_common *esp,
 	const struct esp_flash_breakpoint_ops *flash_brps_ops,
-	const struct algorithm_hw *algo_hw);
+	const struct esp_algorithm_hw *algo_hw);
 int esp_common_flash_breakpoint_add(struct target *target,
 	struct esp_common *esp,
 	struct breakpoint *breakpoint);

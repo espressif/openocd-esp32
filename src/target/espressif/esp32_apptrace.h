@@ -81,7 +81,7 @@ struct esp32_apptrace_cmd_ctx {
 	/* TODO: use cores num from target */
 	unsigned int cores_num;
 	const struct esp32_apptrace_hw *hw;
-	const struct algorithm_hw *algo_hw;
+	const struct esp_algorithm_hw *algo_hw;
 	enum target_state target_state;
 	uint32_t last_blk_id;
 	struct list_head free_trace_blocks;

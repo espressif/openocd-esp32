@@ -15,9 +15,10 @@
 #include "rtos/rtos.h"
 #include <target/smp.h>
 #include <target/semihosting_common.h>
-#include <target/espressif/esp_semihosting.h>
+#include "esp_semihosting.h"
 #include "esp_xtensa_smp.h"
 #include "esp_xtensa_semihosting.h"
+#include "esp_algorithm.h"
 
 #if IS_ESPIDF
 extern int examine_failed_ui_handler(struct command_invocation *cmd);
@@ -26,8 +27,8 @@ extern int examine_failed_ui_handler(struct command_invocation *cmd);
 /*
 Multiprocessor stuff common:
 
-The ESP Xtensa chip can have several cores in it, which can run in SMP-mode if an
-SMP-capable OS is running. The hardware has a few features which make
+The ESP Xtensa chip can have several cores in it, which can run in SMP mode if an
+SMP capable OS is running. The hardware has a few features which makes
 SMP debugging much easier.
 
 First of all, there's something called a 'break network', consisting of a
@@ -552,10 +553,7 @@ int esp_xtensa_smp_watchpoint_remove(struct target *target, struct watchpoint *w
 	return ERROR_OK;
 }
 
-int esp_xtensa_smp_run_func_image(struct target *target,
-	struct algorithm_run_data *run,
-	uint32_t num_args,
-	...)
+int esp_xtensa_smp_run_func_image(struct target *target, struct esp_algorithm_run_data *run, uint32_t num_args, ...)
 {
 	struct target *run_target = target;
 	struct target_list *head;
@@ -570,7 +568,7 @@ int esp_xtensa_smp_run_func_image(struct target *target,
 			if (target_was_examined(run_target) && run_target->state == TARGET_HALTED)
 				break;
 		}
-		if (head == NULL) {
+		if (!head) {
 			LOG_ERROR("Failed to find HALTED core!");
 			return ERROR_FAIL;
 		}
@@ -590,7 +588,7 @@ int esp_xtensa_smp_run_func_image(struct target *target,
 	}
 
 	va_start(ap, num_args);
-	int algo_res = algorithm_run_func_image_va(run_target, run, num_args, ap);
+	int algo_res = esp_algorithm_run_func_image_va(run_target, run, num_args, ap);
 	va_end(ap);
 
 	if (target->smp) {
@@ -602,7 +600,7 @@ int esp_xtensa_smp_run_func_image(struct target *target,
 }
 
 int esp_xtensa_smp_run_onboard_func(struct target *target,
-	struct algorithm_run_data *run,
+	struct esp_algorithm_run_data *run,
 	uint32_t func_addr,
 	uint32_t num_args,
 	...)
@@ -620,7 +618,7 @@ int esp_xtensa_smp_run_onboard_func(struct target *target,
 			if (target_was_examined(run_target) && run_target->state == TARGET_HALTED)
 				break;
 		}
-		if (head == NULL) {
+		if (!head) {
 			LOG_ERROR("Failed to find HALTED core!");
 			return ERROR_FAIL;
 		}
@@ -630,7 +628,7 @@ int esp_xtensa_smp_run_onboard_func(struct target *target,
 	}
 
 	va_start(ap, num_args);
-	int algo_res = algorithm_run_onboard_func_va(run_target, run, func_addr, num_args, ap);
+	int algo_res = esp_algorithm_run_onboard_func_va(run_target, run, func_addr, num_args, ap);
 	va_end(ap);
 
 	if (target->smp) {
