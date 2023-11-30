@@ -9,7 +9,7 @@
 #define ESP_STUB_ROM_H
 
 #include "esp32s2/rom/ets_sys.h"
-#include "esp32s2/rom/spi_flash.h"  
+#include "esp32s2/rom/spi_flash.h"
 #include "esp32s2/rom/miniz.h"
 #include "esp32s2/rom/spi_flash.h"
 #include "esp32s2/rom/cache.h"

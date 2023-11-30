@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
 /***************************************************************************
  *   ESP32-S2 flasher stub definitions                                     *
  *   Copyright (C) 2021 Espressif Systems Ltd.                             *
