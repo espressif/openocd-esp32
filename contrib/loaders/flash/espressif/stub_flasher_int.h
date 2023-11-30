@@ -14,7 +14,11 @@
 #endif
 
 #ifndef ALIGN_UP_BY
-#define ALIGN_UP_BY(num, align) (((num) + ((align) - 1)) & ~((align) - 1))
+#define ALIGN_UP_BY(num, a) (((num) + ((a) - 1)) & ~((a) - 1))
+#endif
+
+#ifndef BIT
+#define BIT(nr) (1UL << (nr))
 #endif
 
 /*

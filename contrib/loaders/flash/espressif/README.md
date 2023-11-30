@@ -4,7 +4,7 @@ These are small bits of code that run on the ESP32 to facilitate OpenOCD operati
 
 ## Building Stubs
 
-The stubs use a specific build of ESP-IDF. Look at at the `stub_flasher_image.h` file for the `ESP32*_STUB_BUILD_IDF_REV` comment to find the ESP-IDF SHA that you need to use to build the stub. The process for each chip (e.g. esp32, esp32s3, etc) is roughly the same, though the stubs may use different versions of IDF. The process is:
+The stubs use a specific build of ESP-IDF. Look at the `stub_flasher_image.h` file for the `ESP32*_STUB_BUILD_IDF_REV` comment to find the ESP-IDF SHA that you need to use to build the stub. The process for each chip (e.g. esp32, esp32s3, etc) is roughly the same, though the stubs may use different versions of IDF. The process is:
 
 1. Download the git repo for the ESP-IDF version.
 ```bash

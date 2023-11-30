@@ -16,7 +16,7 @@
 #define ESP_APPTRACE_USR_DATA_LEN_MAX   (ESP_APPTRACE_TRAX_BLOCK_SIZE - 2)
 
 #define ESP_APPTRACE_TRAX_CTRL_REG      ERI_TRAX_DELAYCNT
-#define ESP_APPTRACE_TRAX_HOST_CONNECT  (1 << 23)
+#define ESP_APPTRACE_TRAX_HOST_CONNECT  BIT(23)
 
 #define XT_INS_BREAK    0x004000
 #define XT_INS_BREAKN   0xF02D
@@ -54,11 +54,10 @@ static inline uint32_t stub_get_break_insn(uint8_t insn_sz)
 	return insn_sz == 2 ? XT_INS_BREAKN : XT_INS_BREAK;
 }
 
-static inline uint32_t stub_get_coreid()
+static inline uint32_t stub_get_coreid(void)
 {
 	int id;
-	__asm__ volatile (
-		"rsr.prid %0\n"
+	__asm__ volatile ("rsr.prid %0\n"
 		" extui %0,%0,13,1"
 		: "=r" (id));
 	return id;

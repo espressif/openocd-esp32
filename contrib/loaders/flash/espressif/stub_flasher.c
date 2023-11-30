@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 /***************************************************************************
  *   ESP flasher stub                                                      *
@@ -66,10 +66,10 @@ static struct {
 	uint8_t *next_out;
 } s_fs;
 
-static uint32_t s_encrypt_binary = 0;
+static uint32_t s_encrypt_binary;
 
 /* used in app trace module */
-uint32_t esp_log_early_timestamp()
+uint32_t esp_log_early_timestamp(void)
 {
 	return 0;
 }
@@ -83,13 +83,15 @@ uint32_t esp_clk_cpu_freq(void)
 void __assert_func(const char *path, int line, const char *func, const char *msg)
 {
 	STUB_LOGE("ASSERT at %s:%d '%s'\n", func, line, msg);
-	while (1) ;
+	while (1)
+		;
 }
 
 void abort(void)
 {
 	STUB_LOGE("ABORT\n");
-	while (1) ;
+	while (1)
+		;
 }
 
 /* used in REGI2C_WRITE and REGI2C_WRITE_MASK */
@@ -105,8 +107,7 @@ static int stub_flash_test(void)
 	uint8_t buf[32] = { 9, 1, 2, 3, 4, 5, 6, 8 };
 	uint32_t flash_addr = 0x1d4000;
 
-	esp_rom_spiflash_result_t rc = esp_rom_spiflash_erase_sector(
-		flash_addr / STUB_FLASH_SECTOR_SIZE);
+	esp_rom_spiflash_result_t rc = esp_rom_spiflash_erase_sector(flash_addr / STUB_FLASH_SECTOR_SIZE);
 	if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 		STUB_LOGE("Failed to erase flash (%d)\n", rc);
 		return ESP_STUB_ERR_FAIL;
@@ -133,7 +134,7 @@ static int stub_flash_test(void)
 }
 #endif
 
-static int stub_apptrace_init()
+static int stub_apptrace_init(void)
 {
 	STUB_LOGI("Init apptrace module\n");
 	esp_err_t err = esp_apptrace_init();
@@ -150,7 +151,7 @@ static int stub_flash_calc_hash(uint32_t addr, uint32_t size, uint8_t *hash)
 	uint32_t rd_cnt = 0, rd_sz = 0;
 	uint8_t read_buf[ESP_STUB_RDWR_BUFF_SIZE];
 
-	STUB_LOGD("stub_flash_calc_hash %d bytes @ 0x%x\n", size, addr);
+	STUB_LOGD("%s %d bytes @ 0x%x\n", __func__, size, addr);
 
 	stub_sha256_start();
 
@@ -656,8 +657,7 @@ static int stub_flash_erase_check(uint32_t start_sec, uint32_t sec_num, uint8_t 
 	for (int i = start_sec; i < start_sec + sec_num; i++) {
 		sec_erased[i] = 1;
 		for (int k = 0; k < STUB_FLASH_SECTOR_SIZE / sizeof(buf); k++) {
-			esp_rom_spiflash_result_t rc = stub_flash_read_buff(
-				i * STUB_FLASH_SECTOR_SIZE + k * sizeof(buf),
+			esp_rom_spiflash_result_t rc = stub_flash_read_buff(i * STUB_FLASH_SECTOR_SIZE + k * sizeof(buf),
 				(uint32_t *)buf,
 				sizeof(buf));
 			if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
@@ -688,18 +688,42 @@ static uint32_t stub_flash_get_size(void)
 
 	uint32_t id = stub_flash_get_id();
 	switch (id) {
-	case 0x12: size = 256 * 1024; break;
-	case 0x13: size = 512 * 1024; break;
-	case 0x14: size = 1 * 1024 * 1024; break;
-	case 0x15: size = 2 * 1024 * 1024; break;
-	case 0x16: size = 4 * 1024 * 1024; break;
-	case 0x17: size = 8 * 1024 * 1024; break;
-	case 0x18: size = 16 * 1024 * 1024; break;
-	case 0x19: size = 32 * 1024 * 1024; break;
-	case 0x20: size = 64 * 1024 * 1024; break;
-	case 0x21: size = 128 * 1024 * 1024; break;
-	case 0x22: size = 256 * 1024 * 1024; break;
-	case 0x39: size = 32 * 1024 * 1024; break;
+		case 0x12:
+			size = 256 * 1024;
+			break;
+		case 0x13:
+			size = 512 * 1024;
+			break;
+		case 0x14:
+			size = 1 * 1024 * 1024;
+			break;
+		case 0x15:
+			size = 2 * 1024 * 1024;
+			break;
+		case 0x16:
+			size = 4 * 1024 * 1024;
+			break;
+		case 0x17:
+			size = 8 * 1024 * 1024;
+			break;
+		case 0x18:
+			size = 16 * 1024 * 1024;
+			break;
+		case 0x19:
+			size = 32 * 1024 * 1024;
+			break;
+		case 0x20:
+			size = 64 * 1024 * 1024;
+			break;
+		case 0x21:
+			size = 128 * 1024 * 1024;
+			break;
+		case 0x22:
+			size = 256 * 1024 * 1024;
+			break;
+		case 0x39:
+			size = 32 * 1024 * 1024;
+			break;
 	default:
 		size = 0;
 	}
@@ -779,10 +803,9 @@ static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr)
 		return stub_flash_get_app_mappings(app_off, flash_map);
 
 	for (uint32_t i = 0;; i++) {
-		rc = stub_flash_read_buff(
-			ESP_PARTITION_TABLE_OFFSET + i * sizeof(esp_partition_info_t),
-			(uint32_t *)&part,
-			sizeof(part));
+		rc = stub_flash_read_buff(ESP_PARTITION_TABLE_OFFSET + i * sizeof(esp_partition_info_t),
+				(uint32_t *)&part,
+				sizeof(part));
 		if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 			STUB_LOGE("Failed to read partitions table entry (%d)!\n", rc);
 			return ESP_STUB_ERR_FAIL;
@@ -792,8 +815,7 @@ static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr)
 			return ESP_STUB_ERR_INVALID_IMAGE;
 		}
 		if (part.pos.offset > flash_size || part.pos.offset + part.pos.size > flash_size) {
-			STUB_LOGE(
-				"Partition %d invalid - offset 0x%x size 0x%x exceeds flash chip size 0x%x\n",
+			STUB_LOGE("Partition %d invalid - offset 0x%x size 0x%x exceeds flash chip size 0x%x\n",
 				i,
 				part.pos.offset,
 				part.pos.size,
