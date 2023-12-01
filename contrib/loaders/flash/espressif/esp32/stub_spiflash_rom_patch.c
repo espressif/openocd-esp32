@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "stub_rom_chip.h"
+#include "esp32/rom/spi_flash.h"
 #include "soc/spi_periph.h"
 #include "spi_flash_defs.h"
 

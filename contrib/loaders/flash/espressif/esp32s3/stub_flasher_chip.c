@@ -5,27 +5,35 @@
  *   Copyright (C) 2021 Espressif Systems Ltd.                             *
  ***************************************************************************/
 #include <string.h>
-#include "sdkconfig.h"
-#include "soc/rtc.h"
-#include "soc/efuse_periph.h"
-#include "soc/spi_mem_reg.h"
-#include "soc/extmem_reg.h"
-#include "soc/system_reg.h"
-#include "soc/gpio_reg.h"
-#include "soc/mmu.h"
-#include "xtensa/hal.h"
-#include "esp_spi_flash.h"
-#include "rtc_clk_common.h"
-#include "stub_rom_chip.h"
-#include "stub_logger.h"
-#include "stub_flasher_int.h"
+
+#include <sdkconfig.h>
+
+#include <esp32s3/rom/cache.h>
+#include <esp32s3/rom/efuse.h>
+#include <esp32s3/rom/uart.h>
+#include <esp32s3/rom/rtc.h>
+
+#include <soc/rtc.h>
+#include <soc/efuse_periph.h>
+#include <soc/spi_mem_reg.h>
+#include <soc/extmem_reg.h>
+#include <soc/system_reg.h>
+#include <soc/gpio_reg.h>
+#include <soc/mmu.h>
+
+#include <xtensa/hal.h>
+#include <esp_spi_flash.h>
+#include <rtc_clk_common.h>
+
+#include <stub_logger.h>
+#include <stub_flasher_int.h>
 #include "stub_flasher_chip.h"
 
-#define ESP_FLASH_CHIP_MXIC_OCT     0xC2	/* Supported Octal Flash chip vendor id */
-#define SPI_BUFF_BYTE_WRITE_NUM     32
-#define SPI_BUFF_BYTE_READ_NUM      16
+#define ESP_FLASH_CHIP_MXIC_OCT         0xC2 /* Supported Octal Flash chip vendor id */
+#define SPI_BUFF_BYTE_WRITE_NUM         32
+#define SPI_BUFF_BYTE_READ_NUM          16
 
-#define EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT	BIT(4)
+#define EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT BIT(4)
 
 /* Cache MMU related definitions */
 #define STUB_CACHE_BUS_PRO              EXTMEM_DCACHE_SHUT_CORE0_BUS
@@ -33,49 +41,15 @@
 #define STUB_MMU_DROM_VADDR             SOC_MMU_VADDR0_START_ADDR
 #define STUB_MMU_DROM_PAGES_START       SOC_MMU_DROM0_PAGES_START
 #define STUB_MMU_DROM_PAGES_END         SOC_MMU_DROM0_PAGES_END
-#define STUB_MMU_TABLE                  SOC_MMU_DPORT_PRO_FLASH_MMU_TABLE	/* 0x600c5000 */
-#define STUB_MMU_INVALID_ENTRY_VAL      SOC_MMU_INVALID_ENTRY_VAL	/* 0x4000 */
-
-/* SPI Flash map request data */
-struct spiflash_map_req {
-	/* Request mapping SPI Flash base address */
-	uint32_t src_addr;
-	/* Request mapping SPI Flash size */
-	uint32_t size;
-	/* Mapped memory pointer */
-	void *ptr;
-	/* Mapped started MMU page index */
-	uint32_t start_page;
-	/* Mapped MMU page count */
-	uint32_t page_cnt;
-};
+#define STUB_MMU_TABLE                  SOC_MMU_DPORT_PRO_FLASH_MMU_TABLE /* 0x600c5000 */
+#define STUB_MMU_INVALID_ENTRY_VAL      SOC_MMU_INVALID_ENTRY_VAL         /* 0x4000 */
 
 uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32S3_DEFAULT_CPU_FREQ_MHZ * MHZ;
 
 extern bool ets_efuse_flash_octal_mode(void);
 
-void vPortEnterCritical(void *mux)
-{
-}
-
-void vPortExitCritical(void *mux)
-{
-}
-
-#if STUB_LOG_ENABLE == 1
-void stub_print_cache_mmu_registers(void)
-{
-	uint32_t icache_ctrl1_reg = REG_READ(EXTMEM_DCACHE_CTRL1_REG);
-
-	STUB_LOGD("dcache_ctrl1_reg: 0x%x\n",
-		icache_ctrl1_reg);
-}
-#endif
-
 uint32_t stub_flash_get_id(void)
 {
-	uint32_t ret;
-
 	STUB_LOGD("flash %x, cs %x, bs %x, ss %x, ps %x, sm %x\n",
 		rom_spiflash_legacy_data->chip.device_id,
 		rom_spiflash_legacy_data->chip.chip_size,
@@ -91,11 +65,11 @@ uint32_t stub_flash_get_id(void)
 		REG_WRITE(PERIPHS_SPI_FLASH_USRREG1,
 			(rom_spiflash_legacy_data->dummy_len_plus[1] - 1) << SPI_MEM_USR_DUMMY_CYCLELEN_S);
 	}
-	WRITE_PERI_REG(PERIPHS_SPI_FLASH_C0, 0);/* clear register */
+	WRITE_PERI_REG(PERIPHS_SPI_FLASH_C0, 0); /* clear register */
 	WRITE_PERI_REG(PERIPHS_SPI_FLASH_CMD, SPI_MEM_FLASH_RDID);
 	while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0)
 		;
-	ret = READ_PERI_REG(PERIPHS_SPI_FLASH_C0) & 0xffffff;
+	uint32_t ret = READ_PERI_REG(PERIPHS_SPI_FLASH_C0) & 0xffffff;
 	STUB_LOGD("Flash ID read %x\n", ret);
 	if (ets_efuse_flash_octal_mode() && (ret & 0xFF) != ESP_FLASH_CHIP_MXIC_OCT) {
 		STUB_LOGE("Unsupported octal flash manufacturer");
@@ -106,8 +80,7 @@ uint32_t stub_flash_get_id(void)
 
 void stub_flash_cache_flush(void)
 {
-	/* we do not know breakpoint program address here, so invalidate the
-	 * whole ICache */
+	/* we do not know breakpoint program address here, so invalidate the whole ICache */
 	Cache_Invalidate_ICache_All();
 }
 
@@ -208,16 +181,14 @@ int stub_rtc_clk_cpu_freq_get_config(rtc_cpu_freq_config_t *out_config)
 	break;
 	case DPORT_SOC_CLK_SEL_PLL: {
 		source = RTC_CPU_FREQ_SRC_PLL;
-		uint32_t cpuperiod_sel = REG_GET_FIELD(SYSTEM_CPU_PER_CONF_REG,
-				SYSTEM_CPUPERIOD_SEL);
-		uint32_t pllfreq_sel = REG_GET_FIELD(SYSTEM_CPU_PER_CONF_REG,
-				SYSTEM_PLL_FREQ_SEL);
-		source_freq_mhz = (pllfreq_sel) ? RTC_PLL_FREQ_480M : RTC_PLL_FREQ_320M;
+		uint32_t cpuperiod_sel = REG_GET_FIELD(SYSTEM_CPU_PER_CONF_REG, SYSTEM_CPUPERIOD_SEL);
+		uint32_t pllfreq_sel = REG_GET_FIELD(SYSTEM_CPU_PER_CONF_REG, SYSTEM_PLL_FREQ_SEL);
+		source_freq_mhz = pllfreq_sel ? RTC_PLL_FREQ_480M : RTC_PLL_FREQ_320M;
 		if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_80) {
-			div = (source_freq_mhz == RTC_PLL_FREQ_480M) ? 6 : 4;
+			div = source_freq_mhz == RTC_PLL_FREQ_480M ? 6 : 4;
 			freq_mhz = 80;
 		} else if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_160) {
-			div = (source_freq_mhz == RTC_PLL_FREQ_480M) ? 3 : 2;
+			div = source_freq_mhz == RTC_PLL_FREQ_480M ? 3 : 2;
 			div = 3;
 			freq_mhz = 160;
 		} else if (cpuperiod_sel == DPORT_CPUPERIOD_SEL_240) {
@@ -255,8 +226,7 @@ int stub_cpu_clock_configure(int cpu_freq_mhz)
 	rtc_cpu_freq_config_t old_config;
 	int ret = stub_rtc_clk_cpu_freq_get_config(&old_config);
 	if (ret < 0) {
-		/* this return value will avoid undesired restore requests for unsupported frequency
-		 *configuration */
+		/* this return value will avoid undesired restore requests for unsupported frequency configuration */
 		old_config.freq_mhz = 0;
 	}
 
@@ -307,76 +277,6 @@ void stub_uart_console_configure(int dest)
 }
 #endif
 
-uint32_t stub_esp_clk_cpu_freq(void)
-{
-	return g_stub_cpu_freq_hz;
-}
-
-esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint32_t area_len)
-{
-	int32_t total_sector_num;
-	int32_t head_sector_num;
-	uint32_t sector_no;
-	uint32_t sector_num_per_block;
-
-	/* set read mode to Fastmode ,not QDIO mode for erase
-	 *
-	 * TODO: this is probably a bug as it doesn't re-enable QIO mode, not serious as this
-	 * function is not used in IDF.
-	 * esp_rom_spiflash_config_readmode(ESP_ROM_SPIFLASH_SLOWRD_MODE); */
-
-	/* check if area is oversize of flash */
-	if ((start_addr + area_len) > rom_spiflash_legacy_data->chip.chip_size)
-		return ESP_ROM_SPIFLASH_RESULT_ERR;
-
-	/* start_addr is aligned as sector boundary */
-	if (start_addr % rom_spiflash_legacy_data->chip.sector_size != 0)
-		return ESP_ROM_SPIFLASH_RESULT_ERR;
-
-	/* Unlock flash to enable erase */
-	if (esp_rom_spiflash_unlock(/*&rom_spiflash_legacy_data->chip*/) != ESP_ROM_SPIFLASH_RESULT_OK)
-		return ESP_ROM_SPIFLASH_RESULT_ERR;
-
-	sector_no = start_addr / rom_spiflash_legacy_data->chip.sector_size;
-	sector_num_per_block = rom_spiflash_legacy_data->chip.block_size /
-		rom_spiflash_legacy_data->chip.sector_size;
-	total_sector_num = (0 == (area_len % rom_spiflash_legacy_data->chip.sector_size)) ? area_len /
-		rom_spiflash_legacy_data->chip.sector_size : 1 + (area_len / rom_spiflash_legacy_data->chip.sector_size);
-
-	/* check if erase area reach over block boundary */
-	head_sector_num = sector_num_per_block - (sector_no % sector_num_per_block);
-
-	head_sector_num = (head_sector_num >= total_sector_num) ? total_sector_num : head_sector_num;
-
-	/* JJJ, BUG of 6.0 erase
-	 * middle part of area is aligned by blocks */
-	total_sector_num -= head_sector_num;
-
-	/* head part of area is erased */
-	while (head_sector_num > 0) {
-		if (esp_rom_spiflash_erase_sector(sector_no) != ESP_ROM_SPIFLASH_RESULT_OK)
-			return ESP_ROM_SPIFLASH_RESULT_ERR;
-		sector_no++;
-		head_sector_num--;
-	}
-	while (total_sector_num > sector_num_per_block) {
-		if (esp_rom_spiflash_erase_block(sector_no / sector_num_per_block) != ESP_ROM_SPIFLASH_RESULT_OK)
-			return ESP_ROM_SPIFLASH_RESULT_ERR;
-		sector_no += sector_num_per_block;
-		total_sector_num -= sector_num_per_block;
-	}
-
-	/* tail part of area burn */
-	while (total_sector_num > 0) {
-		if (esp_rom_spiflash_erase_sector(sector_no) != ESP_ROM_SPIFLASH_RESULT_OK)
-			return ESP_ROM_SPIFLASH_RESULT_ERR;
-		sector_no++;
-		total_sector_num--;
-	}
-
-	return ESP_ROM_SPIFLASH_RESULT_OK;
-}
-
 static inline bool esp_flash_encryption_enabled(void)
 {
 	uint32_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA1_REG,
@@ -400,21 +300,17 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 	if (s_first) {
 		if (esp_flash_encryption_enabled()) {
 			/* Check if SPI_BOOT_CRYPT_CNT is write protected */
-			bool flash_crypt_cnt_wr_dis = REG_READ(EFUSE_RD_WR_DIS_REG) &
-				EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT;
+			bool flash_crypt_cnt_wr_dis = REG_READ(EFUSE_RD_WR_DIS_REG) & EFUSE_WR_DIS_SPI_BOOT_CRYPT_CNT;
 			if (!flash_crypt_cnt_wr_dis) {
-				uint8_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA1_REG,
-					EFUSE_SPI_BOOT_CRYPT_CNT);
+				uint8_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA1_REG, EFUSE_SPI_BOOT_CRYPT_CNT);
 				/* Check if SPI_BOOT_CRYPT_CNT set for permanent encryption */
 				if (flash_crypt_cnt == EFUSE_SPI_BOOT_CRYPT_CNT_V)
 					flash_crypt_cnt_wr_dis = true;
 			}
 
 			if (flash_crypt_cnt_wr_dis) {
-				uint8_t dis_dl_enc = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
-					EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT);
-				uint8_t dis_dl_icache = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG,
-					EFUSE_DIS_DOWNLOAD_ICACHE);
+				uint8_t dis_dl_enc = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG, EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT);
+				uint8_t dis_dl_icache = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA0_REG, EFUSE_DIS_DOWNLOAD_ICACHE);
 				if (dis_dl_enc && dis_dl_icache)
 					s_mode = ESP_FLASH_ENC_MODE_RELEASE;
 			}

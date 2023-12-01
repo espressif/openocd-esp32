@@ -4,8 +4,8 @@
  *   ESP chips flasher stub logger definitions                             *
  *   Copyright (C) 2022 Espressif Systems Ltd.                             *
  ***************************************************************************/
-#ifndef ESP_FLASHER_STUB_LOGGER_H
-#define ESP_FLASHER_STUB_LOGGER_H
+#ifndef OPENOCD_LOADERS_FLASH_ESPRESSIF_STUB_LOGGER_H
+#define OPENOCD_LOADERS_FLASH_ESPRESSIF_STUB_LOGGER_H
 
 #include <stdint.h>
 
@@ -41,6 +41,8 @@ struct stub_log_buffer {
 
 #if STUB_LOG_ENABLE == 1
 
+extern int ets_printf(const char *fmt, ...);
+
 extern enum stub_log_levels s_log_level;
 
 void stub_log_init(enum stub_log_levels level, enum stub_log_destination dest);
@@ -58,7 +60,7 @@ void stub_log_init(enum stub_log_levels level, enum stub_log_destination dest);
 #define STUB_LOGD(format, ...)  STUB_LOG(STUB_LOG_LEVEL_DEBUG, "STUB_D: "format, ## __VA_ARGS__)
 #define STUB_LOGV(format, ...)  STUB_LOG(STUB_LOG_LEVEL_VERBOSE, "STUB_V: "format, ## __VA_ARGS__)
 
-#else
+#else /* !STUB_LOG_ENABLE */
 
 #define STUB_LOGE(format, ...)  do {} while (0)
 #define STUB_LOGW(format, ...)  do {} while (0)
@@ -68,4 +70,4 @@ void stub_log_init(enum stub_log_levels level, enum stub_log_destination dest);
 
 #endif
 
-#endif	/* ESP_FLASHER_STUB_LOGGER_H */
+#endif	/* OPENOCD_LOADERS_FLASH_ESPRESSIF_STUB_LOGGER_H */

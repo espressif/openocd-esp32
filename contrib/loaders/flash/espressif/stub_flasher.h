@@ -2,12 +2,10 @@
 
 /***************************************************************************
  *   ESP xtensa chips flasher stub definitions                             *
- *   Copyright (C) 2017-2021 Espressif Systems Ltd.                        *
+ *   Copyright (C) 2023 Espressif Systems Ltd.                             *
  ***************************************************************************/
-#ifndef ESP_FLASHER_STUB_H
-#define ESP_FLASHER_STUB_H
-
-#include <stdint.h>
+#ifndef OPENOCD_LOADERS_FLASH_ESPRESSIF_STUB_FLASHER_H
+#define OPENOCD_LOADERS_FLASH_ESPRESSIF_STUB_FLASHER_H
 
 #define ESP_STUB_ERR_OK                         0
 #define ESP_STUB_ERR_FAIL                       (-1)
@@ -31,10 +29,19 @@
 #define ESP_STUB_CMD_FLASH_WRITE_DEFLATED       9
 #define ESP_STUB_CMD_FLASH_CALC_HASH            10
 #define ESP_STUB_CMD_CLOCK_CONFIGURE            11
-#define ESP_STUB_CMD_FLASH_MAX_ID        ESP_STUB_CMD_CLOCK_CONFIGURE
-#define ESP_STUB_CMD_TEST                (ESP_STUB_CMD_FLASH_MAX_ID + 2)
+#define ESP_STUB_CMD_FLASH_MAX_ID               ESP_STUB_CMD_CLOCK_CONFIGURE
+#define ESP_STUB_CMD_TEST                       (ESP_STUB_CMD_FLASH_MAX_ID + 2)
 
-#define ESP_STUB_FLASH_MAPPINGS_MAX_NUM  2	/* IROM, DROM */
+/* exported to let openocd know for stack allocation */
+#define ESP_STUB_UNZIP_BUFF_SIZE                32768
+#define ESP_STUB_IFLATOR_SIZE                   11000
+#define ESP_STUB_RDWR_BUFF_SIZE                 32768
+
+/* stub runtime options */
+#define ESP_STUB_FLASH_WR_RAW                   0x0
+#define ESP_STUB_FLASH_ENCRYPT_BINARY           0x1
+
+#define ESP_STUB_FLASH_MAPPINGS_MAX_NUM         2  /* IROM, DROM */
 
 struct esp_flash_region_mapping {
 	uint32_t phy_addr;
@@ -63,18 +70,9 @@ struct esp_flash_stub_flash_write_args {
 	uint32_t size;
 	uint32_t down_buf_addr;
 	uint32_t down_buf_size;
-	uint32_t total_size;		/* uncompressed file size */
-	uint32_t extra_stack_addr;	/* extra stack for compression */
-	uint32_t options;	/* Write options. e.g. encrypted */
+	uint32_t total_size;        /* uncompressed file size */
+	uint32_t extra_stack_addr;  /* extra stack for compression */
+	uint32_t options;           /* Write options. e.g. encrypted */
 };
 
-/* exported to let openocd know for stack allocation */
-#define ESP_STUB_UNZIP_BUFF_SIZE         32768
-#define ESP_STUB_IFLATOR_SIZE            11000
-#define ESP_STUB_RDWR_BUFF_SIZE          32768
-
-/* stub runtime options */
-#define ESP_STUB_FLASH_WR_RAW            0x0
-#define ESP_STUB_FLASH_ENCRYPT_BINARY    0x1
-
-#endif	/* ESP_FLASHER_STUB_H */
+#endif	/* OPENOCD_LOADERS_FLASH_ESPRESSIF_STUB_FLASHER_H */

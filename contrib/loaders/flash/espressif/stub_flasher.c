@@ -5,20 +5,21 @@
  *   Copyright (C) 2017-2019 Espressif Systems Ltd.                        *
  *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  ***************************************************************************/
-
 #include <stdarg.h>
 #include <string.h>
-#include "esp_app_trace.h"
-#include "esp_app_trace_port.h"
-#include "esp_flash_partitions.h"
-#include "esp_image_format.h"
+
+#include <esp_app_trace.h>
+#include <esp_app_trace_port.h>
+#include <esp_flash_partitions.h>
+#include <esp_image_format.h>
+
+#include <stub_flasher_chip.h>
+
 #include "stub_flasher.h"
-#include "stub_rom_chip.h"
 #include "stub_logger.h"
 #include "stub_flasher_int.h"
-#include "stub_flasher_chip.h"
 
-#define STUB_DEBUG    0
+#define STUB_DEBUG      0
 
 #if STUB_LOG_ENABLE == 1
 	#define STUB_BENCH(var)	\
@@ -29,10 +30,10 @@
 #endif
 
 #define STUB_BP_INSN_SECT_BUF_SIZE        (2 * STUB_FLASH_SECTOR_SIZE)
-#define MHZ (1000000)
 
-extern void stub_flash_state_prepare(struct stub_flash_state *state);
-extern void stub_flash_state_restore(struct stub_flash_state *state);
+extern void stub_sha256_start(void);
+extern void stub_sha256_data(const void *data, size_t data_len);
+extern void stub_sha256_finish(uint8_t *digest);
 
 extern uint32_t _bss_start;
 extern uint32_t _bss_end;
@@ -42,14 +43,13 @@ extern uint32_t _data_end;
 /* g_ticks_us defined in ROMs for PRO and APP CPU */
 extern uint32_t g_ticks_per_us_pro;
 
-extern uint32_t stub_flash_get_id(void);
-extern void stub_flash_cache_flush(void);
-extern void stub_flash_state_prepare(struct stub_flash_state *state);
-extern void stub_flash_state_restore(struct stub_flash_state *state);
-extern void stub_clock_configure(void);
-extern void stub_uart_console_configure(int dest);
-extern int stub_apptrace_prepare(void);
-extern uint64_t stub_get_time(void);
+/* Flash data defined in ROM*/
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2
+extern esp_rom_spiflash_chip_t g_rom_flashchip;
+#else
+extern esp_rom_spiflash_legacy_data_t *rom_spiflash_legacy_data;
+#define g_rom_flashchip (rom_spiflash_legacy_data->chip)
+#endif
 
 static struct {
 	/* offset of next flash write */
@@ -211,9 +211,7 @@ static int stub_flash_read(uint32_t addr, uint32_t size)
 			return ESP_STUB_ERR_FAIL;
 		}
 		STUB_BENCH(end);
-		STUB_LOGD("Got trace buf %d bytes @ 0x%x in %lld us\n", rd_sz, buf,
-			end - start);
-
+		STUB_LOGD("Got trace buf %d bytes @ 0x%x in %lld us\n", rd_sz, buf, end - start);
 		{
 			STUB_BENCH(start);
 			rc = stub_flash_read_buff(addr + total_cnt, (uint32_t *)buf, rd_sz);
@@ -352,8 +350,8 @@ static int stub_write_aligned_buffer(void *data_buf, uint32_t length)
 			uint32_t wr_sz = bytes_in_out_buf;
 
 			/* stub_spiflash_write() expects length to be aligned to 4 bytes.
-				If this is the last package we do not need to care about it here because OpenOCD flash driver
-				ensures that address and size are always aligned to sector size which is multiple of 4 */
+			   If this is the last package we do not need to care about it here because OpenOCD flash driver
+			   ensures that address and size are always aligned to sector size which is multiple of 4 */
 
 			/* write buffer with aligned size */
 			esp_rom_spiflash_result_t rc = stub_spiflash_write(s_fs.next_write, (uint32_t *)s_fs.out_buf,
@@ -385,8 +383,7 @@ static int stub_flash_write(void *args)
 	s_encrypt_binary = wargs->options & ESP_STUB_FLASH_ENCRYPT_BINARY ? 1 : 0;
 
 #if CONFIG_STUB_STACK_DATA_POOL_SIZE > 0
-	/* for non-xtensa chips stub_apptrace_init alloc up buffers on stack, xtensa chips uses TRAX
-	 *memory */
+	/* for non-xtensa chips stub_apptrace_init alloc up buffers on stack, xtensa chips uses TRAX memory */
 	uint8_t stack_data_pool[CONFIG_STUB_STACK_DATA_POOL_SIZE];
 	stub_stack_data_pool_init(stack_data_pool, sizeof(stack_data_pool));
 #endif
@@ -461,8 +458,8 @@ static int stub_write_inflated_data(void *data_buf, uint32_t length)
 	/* if this is the last package */
 	if (length < ESP_STUB_UNZIP_BUFF_SIZE) {
 		/* stub_spiflash_write() expects length to be aligned to 4 bytes.
-			If this is the last package we do not need to care about it here because OpenOCD flash driver
-			ensures that address and size are always aligned to sector size which is multiple of 4 */
+		   If this is the last package we do not need to care about it here because OpenOCD flash driver
+		   ensures that address and size are always aligned to sector size which is multiple of 4 */
 		if (s_fs.remaining_uncompressed - length != 0) {
 			STUB_LOGE("Unaligned offset! %d-%d\n", length, s_fs.remaining_uncompressed);
 			return ESP_STUB_ERR_FAIL;
@@ -581,22 +578,16 @@ static int stub_flash_write_deflated(void *args)
 
 	while (total_cnt < wargs->size) {
 		uint32_t wr_sz = wargs->size - total_cnt;
-		STUB_LOGV("Req trace down buf %d bytes %d-%d\n",
-			wr_sz,
-			wargs->size,
-			total_cnt);
+		STUB_LOGV("Req trace down buf %d bytes %d-%d\n", wr_sz, wargs->size, total_cnt);
 
 		STUB_BENCH(start);
-		buf = esp_apptrace_down_buffer_get(ESP_APPTRACE_DEST_TRAX,
-			&wr_sz,
-			ESP_APPTRACE_TMO_INFINITE);
+		buf = esp_apptrace_down_buffer_get(ESP_APPTRACE_DEST_TRAX, &wr_sz, ESP_APPTRACE_TMO_INFINITE);
 		if (!buf) {
 			STUB_LOGE("Failed to get trace down buf!\n");
 			return ESP_STUB_ERR_FAIL;
 		}
 		STUB_BENCH(end);
-		STUB_LOGV("Got trace down buf %d bytes @ 0x%x in %lld us\n", wr_sz, buf,
-			end - start);
+		STUB_LOGV("Got trace down buf %d bytes @ 0x%x in %lld us\n", wr_sz, buf, end - start);
 
 		if (stub_run_inflator(buf, wr_sz) != ESP_STUB_ERR_OK)
 			return ESP_STUB_ERR_INFLATE;
@@ -620,6 +611,71 @@ static int stub_flash_write_deflated(void *args)
 	STUB_LOGD("Wrote %d bytes @ 0x%x\n", wargs->total_size, wargs->start_addr);
 
 	return ESP_STUB_ERR_OK;
+}
+
+esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint32_t area_len)
+{
+	int32_t total_sector_num;
+	int32_t head_sector_num;
+	uint32_t sector_no;
+	uint32_t sector_num_per_block;
+
+	/* set read mode to Fastmode ,not QDIO mode for erase
+	 *
+	 * TODO: this is probably a bug as it doesn't re-enable QIO mode, not serious as this
+	 * function is not used in IDF.
+	 * esp_rom_spiflash_config_readmode(ESP_ROM_SPIFLASH_SLOWRD_MODE); */
+
+	/* check if area is oversize of flash */
+	if (start_addr + area_len > g_rom_flashchip.chip_size)
+		return ESP_ROM_SPIFLASH_RESULT_ERR;
+
+	/* start_addr is aligned as sector boundary */
+	if (start_addr % g_rom_flashchip.sector_size != 0)
+		return ESP_ROM_SPIFLASH_RESULT_ERR;
+
+	/* Unlock flash to enable erase */
+	if (esp_rom_spiflash_unlock(/*&g_rom_flashchip*/) != ESP_ROM_SPIFLASH_RESULT_OK)
+		return ESP_ROM_SPIFLASH_RESULT_ERR;
+
+	sector_no = start_addr / g_rom_flashchip.sector_size;
+	sector_num_per_block = g_rom_flashchip.block_size / g_rom_flashchip.sector_size;
+	total_sector_num = area_len % g_rom_flashchip.sector_size == 0 ?
+		area_len / g_rom_flashchip.sector_size :
+		1 + (area_len / g_rom_flashchip.sector_size);
+
+	/* check if erase area reach over block boundary */
+	head_sector_num = sector_num_per_block - (sector_no % sector_num_per_block);
+	head_sector_num = head_sector_num >= total_sector_num ? total_sector_num : head_sector_num;
+
+	/* JJJ, BUG of 6.0 erase
+	 * middle part of area is aligned by blocks */
+	total_sector_num -= head_sector_num;
+
+	/* head part of area is erased */
+	while (head_sector_num > 0) {
+		if (esp_rom_spiflash_erase_sector(sector_no) != ESP_ROM_SPIFLASH_RESULT_OK)
+			return ESP_ROM_SPIFLASH_RESULT_ERR;
+		sector_no++;
+		head_sector_num--;
+	}
+	while (total_sector_num > sector_num_per_block) {
+		if (ESP_ROM_SPIFLASH_RESULT_OK !=
+			esp_rom_spiflash_erase_block(sector_no / sector_num_per_block))
+			return ESP_ROM_SPIFLASH_RESULT_ERR;
+		sector_no += sector_num_per_block;
+		total_sector_num -= sector_num_per_block;
+	}
+
+	/* tail part of area burn */
+	while (total_sector_num > 0) {
+		if (esp_rom_spiflash_erase_sector(sector_no) != ESP_ROM_SPIFLASH_RESULT_OK)
+			return ESP_ROM_SPIFLASH_RESULT_ERR;
+		sector_no++;
+		total_sector_num--;
+	}
+
+	return ESP_ROM_SPIFLASH_RESULT_OK;
 }
 
 static int stub_flash_erase(uint32_t flash_addr, uint32_t size)
@@ -649,8 +705,7 @@ static int stub_flash_erase(uint32_t flash_addr, uint32_t size)
 static int stub_flash_erase_check(uint32_t start_sec, uint32_t sec_num, uint8_t *sec_erased)
 {
 	int ret = ESP_STUB_ERR_OK;
-	uint8_t buf[STUB_FLASH_SECTOR_SIZE / 8];/* implying that sector size is multiple of
-						 * sizeof(buf) */
+	uint8_t buf[STUB_FLASH_SECTOR_SIZE / 8];/* implying that sector size is multiple of sizeof(buf) */
 
 	STUB_LOGD("erase check start %d, sz %d\n", start_sec, sec_num);
 
@@ -734,7 +789,7 @@ static uint32_t stub_flash_get_size(void)
 static inline bool stub_flash_should_map(uint32_t load_addr)
 {
 	return (load_addr >= SOC_IROM_LOW && load_addr < SOC_IROM_HIGH)
-	       || (load_addr >= SOC_DROM_LOW && load_addr < SOC_DROM_HIGH);
+		|| (load_addr >= SOC_DROM_LOW && load_addr < SOC_DROM_HIGH);
 }
 
 static int stub_flash_get_app_mappings(uint32_t off, struct esp_flash_mapping *flash_map)
@@ -863,8 +918,7 @@ static uint8_t stub_flash_set_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr,
 		STUB_LOGE("Failed to read insn sector (%d)!\n", rc);
 		return 0;
 	}
-	uint8_t insn_sz =
-		stub_get_insn_size(&insn_sect[bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)]);
+	uint8_t insn_sz = stub_get_insn_size(&insn_sect[bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)]);
 	memcpy((void *)insn_buf_addr,
 		&insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1))],
 		insn_sz);
@@ -1082,6 +1136,12 @@ _flash_end:
 	return ret;
 }
 
+uint32_t stub_esp_clk_cpu_freq(void)
+{
+	extern uint32_t g_stub_cpu_freq_hz;
+	return g_stub_cpu_freq_hz;
+}
+
 void ets_update_cpu_frequency(uint32_t ticks_per_us)
 {
 	/* do nothing for stub */
@@ -1099,10 +1159,6 @@ __attribute__((weak)) void stub_uart_console_configure(int dest)
 __attribute__((weak)) esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 {
 	return ESP_FLASH_ENC_MODE_DISABLED;
-}
-
-__attribute__((weak)) void stub_print_cache_mmu_registers(void)
-{
 }
 
 __attribute__((weak)) void stub_log_init(enum stub_log_levels level, enum stub_log_destination dest)
@@ -1141,12 +1197,10 @@ int stub_main(int cmd, ...)
 
 	/* we get here just after OpenOCD's stub trampoline
 	 * up to 5 parameters are passed via registers by that jumping code */
-	/* interrupts level in PS is set to 5 to allow high prio IRQs only (including Debug
-	 * Interrupt) */
+	/* interrupts level in PS is set to 5 to allow high prio IRQs only (including Debug Interrupt) */
 	/* We need Debug Interrupt Level to allow breakpoints handling by OpenOCD */
 	stub_log_init(STUB_RESET_LOG_LEVEL, STUB_RESET_LOG_DEST);
 	STUB_LOGD("cpu_freq:%d Mhz\n", stub_esp_clk_cpu_freq() / MHZ);
-	stub_print_cache_mmu_registers();
 	STUB_LOGD("DATA 0x%x..0x%x\n", &_data_start, &_data_end);
 	STUB_LOGD("BSS 0x%x..0x%x\n", &_bss_start, &_bss_end);
 	STUB_LOGD("cmd %d:%s\n", cmd, cmd_to_str(cmd));

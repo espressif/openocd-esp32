@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-/* Copyright 2021 Espressif Systems (Shanghai) PTE LTD */
+/***************************************************************************
+ *   ESP chips flasher stub sha calculation                                *
+ *   Copyright (C) 2022 Espressif Systems Ltd.                             *
+ ***************************************************************************/
+#include <sdkconfig.h>
+
+#if !CONFIG_IDF_TARGET_ESP32
 
 #include <string.h>
-#include "stub_rom_chip.h"
+#include <stdint.h>
+
+#include <stub_flasher_chip.h>
 
 static SHA_CTX ctx;
 
-/* this function has the same implementation for ESP32-S2
- * TODO: move to common file */
 void stub_sha256_start(void)
 {
 	/* Enable SHA hardware */
@@ -32,3 +38,5 @@ void stub_sha256_finish(uint8_t *digest)
 	ets_sha_finish(&ctx, digest);
 	ets_sha_disable();
 }
+
+#endif /* !CONFIG_IDF_TARGET_ESP32 */
