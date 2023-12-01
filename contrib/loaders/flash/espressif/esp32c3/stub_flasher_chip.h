@@ -2,43 +2,15 @@
 
 /***************************************************************************
  *   ESP32-C3 flasher stub definitions                                     *
- *   Copyright (C) 2019 Espressif Systems Ltd.                             *
- *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
+ *   Copyright (C) 2023 Espressif Systems Ltd.                             *
  ***************************************************************************/
-#ifndef ESP32C3_FLASHER_STUB_H
-#define ESP32C3_FLASHER_STUB_H
+#ifndef OPENOCD_LOADERS_FLASH_ESPRESSIF_ESP32C3_STUB_FLASHER_CHIP_H
+#define OPENOCD_LOADERS_FLASH_ESPRESSIF_ESP32C3_STUB_FLASHER_CHIP_H
 
-#include "sdkconfig.h"
+#include <esp32c3/rom/spi_flash.h>
+#include <esp32c3/rom/miniz.h>
+#include <esp32c3/rom/sha.h>
 
-#define STUB_FLASH_SECTOR_SIZE  0x1000
-/* Flash geometry constants */
-#define STUB_FLASH_BLOCK_SIZE   0x10000
-#define STUB_FLASH_PAGE_SIZE    0x100
-#define STUB_FLASH_STATUS_MASK  0xFFFF
+#include "stub_riscv_common.h"
 
-struct stub_flash_state {
-	uint32_t cache_flags[2];
-	bool cache_enabled;
-};
-
-#define ESP_APPTRACE_USR_DATA_LEN_MAX   (CONFIG_APPTRACE_BUF_SIZE - 2)
-#define RISCV_EBREAK    0x9002
-
-extern bool ets_efuse_flash_octal_mode(void);
-
-uint32_t stub_esp_clk_cpu_freq(void);
-
-static inline uint8_t stub_get_insn_size(uint8_t *insn)
-{
-	/* we use 16bit `c.ebreak`. it works perfectly with either 32bit and 16bit code */
-	return 2;
-}
-
-static inline uint32_t stub_get_break_insn(uint8_t insn_sz)
-{
-	return RISCV_EBREAK;
-}
-
-void stub_stack_data_pool_init(uint8_t *data, size_t sz);
-
-#endif	/*ESP32C3_FLASHER_STUB_H */
+#endif	/* OPENOCD_LOADERS_FLASH_ESPRESSIF_ESP32C3_STUB_FLASHER_CHIP_H */

@@ -3,7 +3,7 @@
 /* Copyright 2021 Espressif Systems (Shanghai) PTE LTD */
 
 #include <string.h>
-#include "stub_rom_chip.h"
+#include "esp32/rom/sha.h"
 #include "soc/dport_reg.h"
 #include "soc/hwcrypto_periph.h"
 #include "stub_flasher_int.h"

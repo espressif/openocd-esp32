@@ -2,19 +2,15 @@
 
 /***************************************************************************
  *   ESP32 flasher stub definitions                                        *
- *   Copyright (C) 2019 Espressif Systems Ltd.                             *
- *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
+ *   Copyright (C) 2023 Espressif Systems Ltd.                             *
  ***************************************************************************/
-#ifndef ESP32_FLASHER_STUB_H
-#define ESP32_FLASHER_STUB_H
+#ifndef OPENOCD_LOADERS_FLASH_ESPRESSIF_ESP32_STUB_FLASHER_CHIP_H
+#define OPENOCD_LOADERS_FLASH_ESPRESSIF_ESP32_STUB_FLASHER_CHIP_H
 
-#include <stdint.h>
+#include <esp32/rom/spi_flash.h>
+#include <esp32/rom/miniz.h>
 
-#define STUB_FLASH_SECTOR_SIZE  4096
-/* Flash geometry constants */
-#define STUB_FLASH_BLOCK_SIZE   65536
-#define STUB_FLASH_PAGE_SIZE    256
-#define STUB_FLASH_STATUS_MASK  0xFFFF
+#include <stub_xtensa_common.h>
 
 #define ESP32_STUB_FLASH_STATE_SPI_USER_REG_ID    0
 #define ESP32_STUB_FLASH_STATE_SPI_USER1_REG_ID   1
@@ -34,8 +30,4 @@ struct stub_flash_state {
 void stub_flash_state_prepare(struct stub_flash_state *state);
 void stub_flash_state_restore(struct stub_flash_state *state);
 
-uint32_t stub_esp_clk_cpu_freq(void);
-
-#include "stub_xtensa_chips.h"
-
-#endif	/*ESP32_FLASHER_STUB_H */
+#endif /* OPENOCD_LOADERS_FLASH_ESPRESSIF_ESP32_STUB_FLASHER_CHIP_H */

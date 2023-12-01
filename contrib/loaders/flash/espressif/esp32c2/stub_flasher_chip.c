@@ -5,57 +5,40 @@
  *   Copyright (C) 2021 Espressif Systems Ltd.                             *
  ***************************************************************************/
 #include <string.h>
-#include "sdkconfig.h"
-#include "soc/rtc.h"
-#include "soc/efuse_periph.h"
-#include "soc/spi_mem_reg.h"
-#include "soc/extmem_reg.h"
-#include "soc/gpio_reg.h"
-#include "soc/mmu.h"
-#include "soc/system_reg.h"
-#include "hal/mmu_ll.h"
-#include "hal/systimer_ll.h"
-#include "systimer.h"
-#include "esp_app_trace_membufs_proto.h"
-#include "stub_rom_chip.h"
-#include "stub_logger.h"
-#include "stub_flasher_int.h"
+
+#include <sdkconfig.h>
+
+#include <esp32c2/rom/cache.h>
+#include <esp32c2/rom/uart.h>
+#include <esp32c2/rom/rtc.h>
+
+#include <soc/rtc.h>
+#include <soc/efuse_periph.h>
+#include <soc/spi_mem_reg.h>
+#include <soc/extmem_reg.h>
+#include <soc/gpio_reg.h>
+#include <soc/mmu.h>
+#include <soc/system_reg.h>
+
+#include <hal/mmu_ll.h>
+#include <hal/systimer_ll.h>
+
+#include <systimer.h>
+#include <esp_rom_efuse.h>
+#include <esp_app_trace_membufs_proto.h>
+
+#include <stub_flasher_int.h>
+#include <stub_logger.h>
 #include "stub_flasher_chip.h"
-#include "stub_flasher.h"
 
 /* RTC related definitios */
-#define SYSTEM_SOC_CLK_MAX            1
-#define SYSTEM_CPUPERIOD_MAX          1  // CPU_CLK frequency is 120 MHz
+#define SYSTEM_SOC_CLK_MAX              1
+#define SYSTEM_CPUPERIOD_MAX            1  // CPU_CLK frequency is 120 MHz
 
 /* Cache MMU related definitions */
-#define STUB_CACHE_BUS                                  EXTMEM_ICACHE_SHUT_DBUS
-#define STUB_MMU_TABLE                                  ((volatile uint32_t *)DR_REG_MMU_TABLE)	/* 0x600c5000 */
-#define STUB_MMU_INVALID_ENTRY_VAL                      MMU_INVALID	/* BIT(6) */
-
-#define ESP_APPTRACE_RISCV_BLOCK_LEN_MSK                0x7FFFUL
-#define ESP_APPTRACE_RISCV_BLOCK_LEN(_l_)               ((_l_) & ESP_APPTRACE_RISCV_BLOCK_LEN_MSK)
-#define ESP_APPTRACE_RISCV_BLOCK_LEN_GET(_v_)           ((_v_) & ESP_APPTRACE_RISCV_BLOCK_LEN_MSK)
-#define ESP_APPTRACE_RISCV_BLOCK_ID_MSK                 0x7FUL
-#define ESP_APPTRACE_RISCV_BLOCK_ID(_id_)               (((_id_) & ESP_APPTRACE_RISCV_BLOCK_ID_MSK) << 15)
-#define ESP_APPTRACE_RISCV_BLOCK_ID_GET(_v_)            (((_v_) >> 15) & ESP_APPTRACE_RISCV_BLOCK_ID_MSK)
-#define ESP_APPTRACE_RISCV_HOST_DATA                    BIT(22)
-#define ESP_APPTRACE_RISCV_HOST_CONNECT                 BIT(23)
-
-/** RISCV memory host iface control block */
-typedef struct {
-	uint32_t ctrl;
-	/* - Guard field. If this register is not zero then CPU is changing this struct and */
-	/*   this guard field holds address of the instruction which application will execute when
-	 * CPU finishes with those modifications. */
-	uint32_t stat;
-	esp_apptrace_mem_block_t *mem_blocks;
-} esp_apptrace_riscv_ctrl_block_t;
-
-static esp_apptrace_riscv_ctrl_block_t *s_apptrace_ctrl;
-#if CONFIG_STUB_STACK_DATA_POOL_SIZE > 0
-static uint8_t *s_stack_data_pool;
-static size_t s_stack_data_pool_sz;
-#endif
+#define STUB_CACHE_BUS                  EXTMEM_ICACHE_SHUT_DBUS
+#define STUB_MMU_TABLE                  ((volatile uint32_t *)DR_REG_MMU_TABLE)	/* 0x600c5000 */
+#define STUB_MMU_INVALID_ENTRY_VAL      MMU_INVALID	/* BIT(6) */
 
 typedef struct {
 	mmu_page_size_t page_size;
@@ -66,32 +49,10 @@ typedef struct {
 
 static cache_mmu_config_t s_cache_mmu_config;
 
-/* SPI Flash map request data */
-struct spiflash_map_req {
-	/* Request mapping SPI Flash base address */
-	uint32_t src_addr;
-	/* Request mapping SPI Flash size */
-	uint32_t size;
-	/* Mapped memory pointer */
-	void *ptr;
-	/* Mapped started MMU page index */
-	uint32_t start_page;
-	/* Mapped MMU page count */
-	uint32_t page_cnt;
-};
-
 static systimer_dev_t *s_sys_timer_dev = &SYSTIMER;
 static uint32_t s_sys_timer_conf;
 
 uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32C2_DEFAULT_CPU_FREQ_MHZ * MHZ;
-
-void vPortEnterCritical(void)
-{
-}
-
-void vPortExitCritical(void)
-{
-}
 
 int xPortInIsrContext(void)
 {
@@ -103,40 +64,9 @@ void *esp_apptrace_uart_hw_get(int num, void **data)
 	return NULL;
 }
 
-#if STUB_LOG_ENABLE == 1
-void stub_print_cache_mmu_registers(void)
-{
-	uint32_t icache_ctrl1_reg = REG_READ(EXTMEM_ICACHE_CTRL1_REG);
-
-	STUB_LOGD("icache_ctrl1_reg: 0x%x\n",
-		icache_ctrl1_reg);
-}
-#endif
-
-uint32_t stub_flash_get_id(void)
-{
-	uint32_t ret;
-
-	STUB_LOGD("flash %x, cs %x, bs %x, ss %x, ps %x, sm %x\n",
-		rom_spiflash_legacy_data->chip.device_id,
-		rom_spiflash_legacy_data->chip.chip_size,
-		rom_spiflash_legacy_data->chip.block_size,
-		rom_spiflash_legacy_data->chip.sector_size,
-		rom_spiflash_legacy_data->chip.page_size,
-		rom_spiflash_legacy_data->chip.status_mask);
-	WRITE_PERI_REG(PERIPHS_SPI_FLASH_C0, 0); /* clear register */
-	WRITE_PERI_REG(PERIPHS_SPI_FLASH_CMD, SPI_MEM_FLASH_RDID);
-	while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0)
-		;
-	ret = READ_PERI_REG(PERIPHS_SPI_FLASH_C0) & 0xffffff;
-	STUB_LOGD("Flash ID read %x\n", ret);
-	return ret >> 16;
-}
-
 void stub_flash_cache_flush(void)
 {
-	/* we do not know breakpoint program address here, so invalidate the
-	 * whole ICache */
+	/* we do not know breakpoint program address here, so invalidate the whole ICache */
 	Cache_Invalidate_ICache_All();
 }
 
@@ -281,43 +211,6 @@ void stub_uart_console_configure(int dest)
 }
 #endif
 
-uint32_t stub_esp_clk_cpu_freq(void)
-{
-	return CONFIG_ESP32C2_DEFAULT_CPU_FREQ_MHZ * 1000000;
-}
-
-/* override apptrace control block advertising func, IDF's implementation issues syscall */
-int esp_apptrace_advertise_ctrl_block(void *ctrl_block_addr)
-{
-	s_apptrace_ctrl = ctrl_block_addr;
-	return 0;
-}
-
-#if CONFIG_STUB_STACK_DATA_POOL_SIZE > 0
-void stub_stack_data_pool_init(uint8_t *data, size_t sz)
-{
-	STUB_LOGD("stack data pool %lu bytes @ 0x%x\n", sz, data);
-	s_stack_data_pool = data;
-	s_stack_data_pool_sz = sz;
-}
-
-void esp_apptrace_get_up_buffers(esp_apptrace_mem_block_t mem_blocks_cfg[2])
-{
-	/* use whole stack data pool for apptrace up buffers */
-	mem_blocks_cfg[0].start = s_stack_data_pool;
-	mem_blocks_cfg[0].sz = s_stack_data_pool_sz / 2;
-	mem_blocks_cfg[1].start = s_stack_data_pool + mem_blocks_cfg[0].sz;
-	mem_blocks_cfg[1].sz = mem_blocks_cfg[0].sz;
-}
-#endif
-
-int stub_apptrace_prepare(void)
-{
-	/* imply that host is auto-connected */
-	s_apptrace_ctrl->ctrl |= ESP_APPTRACE_RISCV_HOST_CONNECT;
-	return ESP_STUB_ERR_OK;
-}
-
 /* this function is used for perf measurements only.*/
 uint64_t stub_get_time(void)
 {
@@ -347,72 +240,6 @@ uint64_t stub_get_time(void)
 int64_t esp_timer_get_time(void)
 {
 	return (int64_t)stub_get_time();
-}
-
-esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint32_t area_len)
-{
-	int32_t total_sector_num;
-	int32_t head_sector_num;
-	uint32_t sector_no;
-	uint32_t sector_num_per_block;
-
-	/* set read mode to Fastmode ,not QDIO mode for erase
-	 *
-	 * TODO: this is probably a bug as it doesn't re-enable QIO mode, not serious as this
-	 * function is not used in IDF.
-	 * esp_rom_spiflash_config_readmode(ESP_ROM_SPIFLASH_SLOWRD_MODE); */
-
-	/* check if area is oversize of flash */
-	if ((start_addr + area_len) > rom_spiflash_legacy_data->chip.chip_size)
-		return ESP_ROM_SPIFLASH_RESULT_ERR;
-
-	/* start_addr is aligned as sector boundary */
-	if (0 != (start_addr % rom_spiflash_legacy_data->chip.sector_size))
-		return ESP_ROM_SPIFLASH_RESULT_ERR;
-
-	/* Unlock flash to enable erase */
-	if (esp_rom_spiflash_unlock(/*&rom_spiflash_legacy_data->chip*/) != ESP_ROM_SPIFLASH_RESULT_OK)
-		return ESP_ROM_SPIFLASH_RESULT_ERR;
-
-	sector_no = start_addr / rom_spiflash_legacy_data->chip.sector_size;
-	sector_num_per_block = rom_spiflash_legacy_data->chip.block_size / rom_spiflash_legacy_data->chip.sector_size;
-	total_sector_num = (0 == (area_len % rom_spiflash_legacy_data->chip.sector_size)) ?
-		area_len / rom_spiflash_legacy_data->chip.sector_size :
-		1 + (area_len / rom_spiflash_legacy_data->chip.sector_size);
-
-	/* check if erase area reach over block boundary */
-	head_sector_num = sector_num_per_block - (sector_no % sector_num_per_block);
-
-	head_sector_num = (head_sector_num >= total_sector_num) ? total_sector_num : head_sector_num;
-
-	/* JJJ, BUG of 6.0 erase
-	 * middle part of area is aligned by blocks */
-	total_sector_num -= head_sector_num;
-
-	/* head part of area is erased */
-	while (head_sector_num > 0) {
-		if (esp_rom_spiflash_erase_sector(sector_no) != ESP_ROM_SPIFLASH_RESULT_OK)
-			return ESP_ROM_SPIFLASH_RESULT_ERR;
-		sector_no++;
-		head_sector_num--;
-	}
-	while (total_sector_num > sector_num_per_block) {
-		if (ESP_ROM_SPIFLASH_RESULT_OK !=
-			esp_rom_spiflash_erase_block(sector_no / sector_num_per_block))
-			return ESP_ROM_SPIFLASH_RESULT_ERR;
-		sector_no += sector_num_per_block;
-		total_sector_num -= sector_num_per_block;
-	}
-
-	/* tail part of area burn */
-	while (total_sector_num > 0) {
-		if (esp_rom_spiflash_erase_sector(sector_no) != ESP_ROM_SPIFLASH_RESULT_OK)
-			return ESP_ROM_SPIFLASH_RESULT_ERR;
-		sector_no++;
-		total_sector_num--;
-	}
-
-	return ESP_ROM_SPIFLASH_RESULT_OK;
 }
 
 static inline bool esp_flash_encryption_enabled(void)

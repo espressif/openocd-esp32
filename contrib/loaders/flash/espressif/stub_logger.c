@@ -4,13 +4,18 @@
  *   ESP chips flasher stub logger definitions                             *
  *   Copyright (C) 2022 Espressif Systems Ltd.                             *
  ***************************************************************************/
-#include "stub_logger.h"
+#include <stddef.h>
+
 #include "stub_flasher_int.h"
+#include "stub_logger.h"
 
 enum stub_log_levels s_log_level = STUB_LOG_LEVEL_NONE;
 static enum stub_log_destination s_log_dest = STUB_LOG_DEST_SRAM;
 
 #if STUB_LOG_ENABLE == 1
+
+extern void ets_install_putc1(void (*p)(char c));
+extern void ets_install_putc2(void (*p)(char c));
 
 static struct stub_log_buffer s_stub_log_buff;
 
@@ -38,7 +43,7 @@ void stub_log_init(enum stub_log_levels level, enum stub_log_destination dest)
 	s_log_dest = level == STUB_LOG_LEVEL_NONE ? STUB_LOG_DEST_NONE : dest;
 }
 
-#endif
+#endif /* STUB_LOG_ENABLE == 1*/
 
 inline enum stub_log_levels stub_get_log_level(void)
 {

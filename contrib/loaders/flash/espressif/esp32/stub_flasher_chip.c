@@ -5,21 +5,27 @@
  *   Copyright (C) 2019 Espressif Systems Ltd.                             *
  *   Author: Alexey Gerenkov <alexey@espressif.com>                        *
  ***************************************************************************/
-
-#include <stdlib.h>
 #include <string.h>
-#include "soc/rtc_cntl_reg.h"
-#include "soc/rtc.h"
-#include "soc/efuse_periph.h"
-#include "soc/dport_reg.h"
-#include "soc/spi_reg.h"
-#include "soc/gpio_reg.h"
-#include "soc/mmu.h"
-#include "esp_spi_flash.h"
-#include "esp32/spiram.h"
-#include "stub_rom_chip.h"
-#include "stub_logger.h"
-#include "stub_flasher_int.h"
+
+#include <sdkconfig.h>
+
+#include <esp32/spiram.h>
+#include <esp32/rom/efuse.h>
+#include <esp32/rom/cache.h>
+#include <esp32/rom/uart.h>
+
+#include <soc/rtc_cntl_reg.h>
+#include <soc/rtc.h>
+#include <soc/efuse_periph.h>
+#include <soc/dport_reg.h>
+#include <soc/spi_reg.h>
+#include <soc/gpio_reg.h>
+#include <soc/mmu.h>
+
+#include <esp_spi_flash.h>
+
+#include <stub_logger.h>
+#include <stub_flasher_int.h>
 #include "stub_flasher_chip.h"
 
 uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * MHZ;
@@ -38,71 +44,19 @@ uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * MHZ;
 #define SPI_USR2_DLEN_SHIFT                         SPI_USR_COMMAND_BITLEN_S
 
 /* Cache MMU related definitions */
-#define STUB_CACHE_BUS_PRO              DPORT_PRO_CACHE_MASK_DROM0
-#define STUB_CACHE_BUS_APP              DPORT_APP_CACHE_MASK_DROM0
-#define STUB_MMU_DROM_VADDR             SOC_MMU_VADDR0_START_ADDR
-#define STUB_MMU_DROM_PAGES_START       SOC_MMU_DROM0_PAGES_START	/* 0 */
-#define STUB_MMU_DROM_PAGES_END         SOC_MMU_DROM0_PAGES_END		/* 64 */
-#define STUB_PRO_MMU_TABLE              ((volatile uint32_t *)0x3FF10000)
-#define STUB_APP_MMU_TABLE              ((volatile uint32_t *)0x3FF12000)
-#define STUB_MMU_INVALID_ENTRY_VAL      SOC_MMU_INVALID_ENTRY_VAL	/* 0x100 */
-
-/* SPI Flash map request data */
-struct spiflash_map_req {
-	/* Request mapping SPI Flash base address */
-	uint32_t src_addr;
-	/* Request mapping SPI Flash size */
-	uint32_t size;
-	/* Mapped memory pointer */
-	void *ptr;
-	/* Mapped started MMU page index */
-	uint32_t start_page;
-	/* Mapped MMU page count */
-	uint32_t page_cnt;
-	/* ID of the core currently executing this code */
-	int core_id;
-};
+#define STUB_CACHE_BUS_PRO                          DPORT_PRO_CACHE_MASK_DROM0
+#define STUB_CACHE_BUS_APP                          DPORT_APP_CACHE_MASK_DROM0
+#define STUB_MMU_DROM_VADDR                         SOC_MMU_VADDR0_START_ADDR
+#define STUB_MMU_DROM_PAGES_START                   SOC_MMU_DROM0_PAGES_START   /* 0 */
+#define STUB_MMU_DROM_PAGES_END                     SOC_MMU_DROM0_PAGES_END     /* 64 */
+#define STUB_PRO_MMU_TABLE                          ((volatile uint32_t *)0x3FF10000)
+#define STUB_APP_MMU_TABLE                          ((volatile uint32_t *)0x3FF12000)
+#define STUB_MMU_INVALID_ENTRY_VAL                  SOC_MMU_INVALID_ENTRY_VAL   /* 0x100 */
 
 static volatile uint32_t *mmu_table_s[2] = { STUB_PRO_MMU_TABLE, STUB_APP_MMU_TABLE };
 
 extern esp_rom_spiflash_chip_t g_rom_spiflash_chip;
 extern uint8_t g_rom_spiflash_dummy_len_plus[];
-
-void vPortEnterCritical(void *mux)
-{
-}
-
-void vPortExitCritical(void *mux)
-{
-}
-
-bool ets_efuse_flash_octal_mode(void)
-{
-	return false;
-}
-
-#if STUB_LOG_ENABLE == 1
-void stub_print_cache_mmu_registers(void)
-{
-	uint32_t ctrl_reg = DPORT_READ_PERI_REG(DPORT_PRO_CACHE_CTRL_REG);
-	uint32_t ctrl1_reg = DPORT_READ_PERI_REG(DPORT_PRO_CACHE_CTRL1_REG);
-	uint32_t dbug0_reg = DPORT_READ_PERI_REG(DPORT_PRO_DCACHE_DBUG0_REG);
-
-	STUB_LOGD("pro ctrl_reg: 0x%x ctrl1_reg: 0x%x dbug0_reg: 0x%x\n",
-		ctrl_reg,
-		ctrl1_reg,
-		dbug0_reg);
-
-	ctrl_reg = DPORT_READ_PERI_REG(DPORT_APP_CACHE_CTRL_REG);
-	ctrl1_reg = DPORT_READ_PERI_REG(DPORT_APP_CACHE_CTRL1_REG);
-	dbug0_reg = DPORT_READ_PERI_REG(DPORT_APP_DCACHE_DBUG0_REG);
-
-	STUB_LOGD("app ctrl_reg: 0x%x ctrl1_reg: 0x%x dbug0_reg: 0x%x\n",
-		ctrl_reg,
-		ctrl1_reg,
-		dbug0_reg);
-}
-#endif
 
 static const uint32_t cache_mask = DPORT_APP_CACHE_MASK_OPSDRAM | DPORT_APP_CACHE_MASK_DROM0 |
 	DPORT_APP_CACHE_MASK_DRAM1 | DPORT_APP_CACHE_MASK_IROM0 |
@@ -110,18 +64,18 @@ static const uint32_t cache_mask = DPORT_APP_CACHE_MASK_OPSDRAM | DPORT_APP_CACH
 
 static void esp32_flash_disable_cache_for_cpu(uint32_t cpuid, uint32_t *saved_state)
 {
-	uint32_t ret = 0;
+	uint32_t ret;
+
 	if (cpuid == 0) {
-		ret |= DPORT_GET_PERI_REG_BITS2(DPORT_PRO_CACHE_CTRL1_REG, cache_mask, 0);
+		ret = DPORT_GET_PERI_REG_BITS2(DPORT_PRO_CACHE_CTRL1_REG, cache_mask, 0);
 		while (DPORT_GET_PERI_REG_BITS2(DPORT_PRO_DCACHE_DBUG0_REG, DPORT_PRO_CACHE_STATE,
-				DPORT_PRO_CACHE_STATE_S) != 1) {
+			DPORT_PRO_CACHE_STATE_S) != 1)
 			;
-		}
 		DPORT_SET_PERI_REG_BITS(DPORT_PRO_CACHE_CTRL_REG, 1, 0, DPORT_PRO_CACHE_ENABLE_S);
 	} else {
-		ret |= DPORT_GET_PERI_REG_BITS2(DPORT_APP_CACHE_CTRL1_REG, cache_mask, 0);
+		ret = DPORT_GET_PERI_REG_BITS2(DPORT_APP_CACHE_CTRL1_REG, cache_mask, 0);
 		while (DPORT_GET_PERI_REG_BITS2(DPORT_APP_DCACHE_DBUG0_REG, DPORT_APP_CACHE_STATE,
-				DPORT_APP_CACHE_STATE_S) != 1) {
+			DPORT_APP_CACHE_STATE_S) != 1) {
 			;
 		}
 		DPORT_SET_PERI_REG_BITS(DPORT_APP_CACHE_CTRL_REG, 1, 0, DPORT_APP_CACHE_ENABLE_S);
@@ -154,8 +108,8 @@ static void stub_cache_init(int cpuid)
 
 static bool esp32_flash_cache_bus_enabled(uint32_t cpuid)
 {
-	uint32_t cache_bus = 0;
-	uint32_t cache_mask = 0;
+	uint32_t cache_bus;
+	uint32_t cache_mask;
 
 	if (cpuid == 0) {
 		cache_bus = DPORT_READ_PERI_REG(DPORT_PRO_CACHE_CTRL1_REG);
@@ -170,12 +124,12 @@ static bool esp32_flash_cache_bus_enabled(uint32_t cpuid)
 
 static bool esp32_flash_cache_enabled(uint32_t cpuid)
 {
-	bool result = false;
+	bool result;
 
 	if (cpuid == 0)
-		result = (DPORT_REG_GET_BIT(DPORT_PRO_CACHE_CTRL_REG, DPORT_PRO_CACHE_ENABLE) != 0);
+		result = DPORT_REG_GET_BIT(DPORT_PRO_CACHE_CTRL_REG, DPORT_PRO_CACHE_ENABLE) != 0;
 	else
-		result = (DPORT_REG_GET_BIT(DPORT_APP_CACHE_CTRL_REG, DPORT_APP_CACHE_ENABLE) != 0);
+		result = DPORT_REG_GET_BIT(DPORT_APP_CACHE_CTRL_REG, DPORT_APP_CACHE_ENABLE) != 0;
 	return result;
 }
 
@@ -184,13 +138,11 @@ static uint32_t esp32_flash_exec_usr_cmd(uint32_t cmd)
 	uint32_t status_value = ESP_ROM_SPIFLASH_BUSY_FLAG;
 
 	while (ESP_ROM_SPIFLASH_BUSY_FLAG == (status_value & ESP_ROM_SPIFLASH_BUSY_FLAG)) {
-		WRITE_PERI_REG(PERIPHS_SPI_FLASH_STATUS, 0);	/* clear register */
+		WRITE_PERI_REG(PERIPHS_SPI_FLASH_STATUS, 0); /* clear register */
 		WRITE_PERI_REG(PERIPHS_SPI_FLASH_CMD, SPI_USR | cmd);
 		while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0)
 			;
-
-		status_value = READ_PERI_REG(PERIPHS_SPI_FLASH_STATUS) &
-			g_rom_spiflash_chip.status_mask;
+		status_value = READ_PERI_REG(PERIPHS_SPI_FLASH_STATUS) & g_rom_spiflash_chip.status_mask;
 	}
 
 	return status_value;
@@ -201,12 +153,11 @@ static void esp32_flash_spi_wait_ready(void)
 	uint32_t status_value = ESP_ROM_SPIFLASH_BUSY_FLAG;
 
 	while (ESP_ROM_SPIFLASH_BUSY_FLAG == (status_value & ESP_ROM_SPIFLASH_BUSY_FLAG)) {
-		WRITE_PERI_REG(PERIPHS_SPI_FLASH_STATUS, 0);	/* clear register */
+		WRITE_PERI_REG(PERIPHS_SPI_FLASH_STATUS, 0); /* clear register */
 		WRITE_PERI_REG(PERIPHS_SPI_FLASH_CMD, SPI_FLASH_RDSR);
 		while (READ_PERI_REG(PERIPHS_SPI_FLASH_CMD) != 0)
 			;
-		status_value = READ_PERI_REG(PERIPHS_SPI_FLASH_STATUS) &
-			(g_rom_spiflash_chip.status_mask);
+		status_value = READ_PERI_REG(PERIPHS_SPI_FLASH_STATUS) & g_rom_spiflash_chip.status_mask;
 	}
 }
 
@@ -236,8 +187,7 @@ static uint32_t esp32_flash_spi_cmd_run(uint32_t cmd,
 		WRITE_PERI_REG(PERIPHS_SPI_FLASH_C0, 0);
 	} else {
 		for (uint32_t i = 0; i <= data_bits_num / 32; i += 32)
-			WRITE_PERI_REG(PERIPHS_SPI_FLASH_C0 + i / 8,
-				*((uint32_t *)&data_bits[i / 8]));
+			WRITE_PERI_REG(PERIPHS_SPI_FLASH_C0 + i / 8, *((uint32_t *)&data_bits[i / 8]));
 	}
 	esp32_flash_exec_usr_cmd(0);
 	uint32_t status = READ_PERI_REG(PERIPHS_SPI_FLASH_C0);
@@ -250,8 +200,6 @@ static uint32_t esp32_flash_spi_cmd_run(uint32_t cmd,
 
 uint32_t stub_flash_get_id(void)
 {
-	uint32_t ret;
-
 	STUB_LOGD("flash %x, cs %x, bs %x, ss %x, ps %x, sm %x\n",
 		g_rom_spiflash_chip.device_id,
 		g_rom_spiflash_chip.chip_size,
@@ -259,8 +207,10 @@ uint32_t stub_flash_get_id(void)
 		g_rom_spiflash_chip.sector_size,
 		g_rom_spiflash_chip.page_size,
 		g_rom_spiflash_chip.status_mask);
-	ret = esp32_flash_spi_cmd_run(ESP32_STUB_SPI_FLASH_RDID, NULL, 0, 24);
+
+	uint32_t ret = esp32_flash_spi_cmd_run(ESP32_STUB_SPI_FLASH_RDID, NULL, 0, 24);
 	STUB_LOGD("Flash ID read %x\n", ret);
+
 	return ret >> 16;
 }
 
@@ -274,11 +224,11 @@ void stub_spiram_writeback_cache(void)
 	/* We need cache enabled for this to work. Re-enable it if needed; make sure we
 	 * disable it again on exit as well. */
 	if (DPORT_REG_GET_BIT(DPORT_PRO_CACHE_CTRL_REG, DPORT_PRO_CACHE_ENABLE) == 0) {
-		cache_was_disabled |= (1 << 0);
+		cache_was_disabled |= BIT(0);
 		DPORT_SET_PERI_REG_BITS(DPORT_PRO_CACHE_CTRL_REG, 1, 1, DPORT_PRO_CACHE_ENABLE_S);
 	}
 	if (DPORT_REG_GET_BIT(DPORT_APP_CACHE_CTRL_REG, DPORT_APP_CACHE_ENABLE) == 0) {
-		cache_was_disabled |= (1 << 1);
+		cache_was_disabled |= BIT(1);
 		DPORT_SET_PERI_REG_BITS(DPORT_APP_CACHE_CTRL_REG, 1, 1, DPORT_APP_CACHE_ENABLE_S);
 	}
 
@@ -291,14 +241,14 @@ void stub_spiram_writeback_cache(void)
 		i += psram[x + (1024 * 1024 * 2)];
 	}
 
-	if (cache_was_disabled & (1 << 0)) {
+	if (cache_was_disabled & BIT(0)) {
 		int reg_bits = DPORT_GET_PERI_REG_BITS2(DPORT_PRO_DCACHE_DBUG0_REG,
 			DPORT_PRO_CACHE_STATE, DPORT_PRO_CACHE_STATE_S);
 		while (reg_bits != 1)
 			;
 		DPORT_SET_PERI_REG_BITS(DPORT_PRO_CACHE_CTRL_REG, 1, 0, DPORT_PRO_CACHE_ENABLE_S);
 	}
-	if (cache_was_disabled & (1 << 1)) {
+	if (cache_was_disabled & BIT(1)) {
 		int reg_bits = DPORT_GET_PERI_REG_BITS2(DPORT_APP_DCACHE_DBUG0_REG, DPORT_APP_CACHE_STATE,
 			DPORT_APP_CACHE_STATE_S);
 		while (reg_bits != 1)
@@ -309,10 +259,8 @@ void stub_spiram_writeback_cache(void)
 
 void stub_flash_cache_flush(void)
 {
-	if (DPORT_GET_PERI_REG_MASK(DPORT_PRO_CACHE_CTRL1_REG,
-			DPORT_PRO_CACHE_MASK_OPSDRAM) == 0 ||
-		DPORT_GET_PERI_REG_MASK(DPORT_APP_CACHE_CTRL1_REG,
-			DPORT_APP_CACHE_MASK_OPSDRAM) == 0)
+	if (DPORT_GET_PERI_REG_MASK(DPORT_PRO_CACHE_CTRL1_REG, DPORT_PRO_CACHE_MASK_OPSDRAM) == 0 ||
+		DPORT_GET_PERI_REG_MASK(DPORT_APP_CACHE_CTRL1_REG, DPORT_APP_CACHE_MASK_OPSDRAM) == 0)
 		stub_spiram_writeback_cache();
 	Cache_Flush(0);
 	Cache_Flush(1);
@@ -335,8 +283,7 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 
 	state->other_cache_enabled = esp32_flash_cache_enabled(other_core_id);
 	if (state->other_cache_enabled) {
-		esp32_flash_disable_cache_for_cpu(other_core_id,
-			&state->cache_flags[other_core_id]);
+		esp32_flash_disable_cache_for_cpu(other_core_id, &state->cache_flags[other_core_id]);
 		STUB_LOGI("Cache disable CPU%d: 0x%x %d\n", other_core_id,
 			state->cache_flags[other_core_id],
 			esp32_flash_cache_enabled(other_core_id));
@@ -390,10 +337,6 @@ void stub_flash_state_restore(struct stub_flash_state *state)
 			state->cache_flags[other_core_id],
 			esp32_flash_cache_enabled(other_core_id));
 	}
-	if (state->cache_enabled) {
-		/* we are managing the running core's cache while map unmap. So nothing to do here..
-		 **/
-	}
 }
 
 int stub_cpu_clock_configure(int cpu_freq_mhz)
@@ -445,11 +388,6 @@ void stub_uart_console_configure(int dest)
 }
 #endif
 
-uint32_t stub_esp_clk_cpu_freq(void)
-{
-	return g_stub_cpu_freq_hz;
-}
-
 static inline bool esp_flash_encryption_enabled(void)
 {
 	uint32_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_BLK0_RDATA0_REG,
@@ -473,23 +411,18 @@ esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
 	if (first) {
 		if (esp_flash_encryption_enabled()) {
 			/* Check if FLASH CRYPT CNT is write protected */
-			bool flash_crypt_cnt_wr_dis = REG_READ(EFUSE_BLK0_RDATA0_REG) &
-				EFUSE_WR_DIS_FLASH_CRYPT_CNT;
+			bool flash_crypt_cnt_wr_dis = REG_READ(EFUSE_BLK0_RDATA0_REG) & EFUSE_WR_DIS_FLASH_CRYPT_CNT;
 			if (!flash_crypt_cnt_wr_dis) {
-				uint8_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_BLK0_RDATA0_REG,
-					EFUSE_RD_FLASH_CRYPT_CNT);
+				uint8_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_BLK0_RDATA0_REG, EFUSE_RD_FLASH_CRYPT_CNT);
 				/* Check if FLASH_CRYPT_CNT set for permanent encryption */
 				if (flash_crypt_cnt == EFUSE_RD_FLASH_CRYPT_CNT_V)
 					flash_crypt_cnt_wr_dis = true;
 			}
 
 			if (flash_crypt_cnt_wr_dis) {
-				uint8_t dis_dl_cache = REG_GET_FIELD(EFUSE_BLK0_RDATA6_REG,
-					EFUSE_RD_DISABLE_DL_CACHE);
-				uint8_t dis_dl_enc = REG_GET_FIELD(EFUSE_BLK0_RDATA6_REG,
-					EFUSE_RD_DISABLE_DL_ENCRYPT);
-				uint8_t dis_dl_dec = REG_GET_FIELD(EFUSE_BLK0_RDATA6_REG,
-					EFUSE_RD_DISABLE_DL_DECRYPT);
+				uint8_t dis_dl_cache = REG_GET_FIELD(EFUSE_BLK0_RDATA6_REG, EFUSE_RD_DISABLE_DL_CACHE);
+				uint8_t dis_dl_enc = REG_GET_FIELD(EFUSE_BLK0_RDATA6_REG, EFUSE_RD_DISABLE_DL_ENCRYPT);
+				uint8_t dis_dl_dec = REG_GET_FIELD(EFUSE_BLK0_RDATA6_REG, EFUSE_RD_DISABLE_DL_DECRYPT);
 				/* Check if DISABLE_DL_DECRYPT, DISABLE_DL_ENCRYPT & DISABLE_DL_CACHE are set */
 				if (dis_dl_cache && dis_dl_enc && dis_dl_dec)
 					mode = ESP_FLASH_ENC_MODE_RELEASE;
@@ -512,6 +445,7 @@ static int stub_flash_mmap(struct spiflash_map_req *req)
 	uint32_t page_cnt = (map_size + SPI_FLASH_MMU_PAGE_SIZE - 1) / SPI_FLASH_MMU_PAGE_SIZE;
 	int start_page, ret = ESP_ROM_SPIFLASH_RESULT_ERR;
 	uint32_t saved_state = 0;
+
 	esp32_flash_disable_cache_for_cpu(req->core_id, &saved_state);
 
 	for (start_page = STUB_MMU_DROM_PAGES_START; start_page < STUB_MMU_DROM_PAGES_END;
