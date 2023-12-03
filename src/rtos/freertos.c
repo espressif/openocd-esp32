@@ -516,7 +516,7 @@ static int freertos_smp_init(struct target *target)
 
 	if (rtos_data->curr_threads_handles_buff == NULL) {
 		LOG_ERROR("Failed to allocate current threads handles buffer!");
-		return JIM_ERR;
+		return ERROR_FAIL;
 	}
 
 	return ERROR_OK;
@@ -1502,20 +1502,20 @@ static int freertos_create(struct target *target)
 	}
 	if (i >= FREERTOS_NUM_PARAMS) {
 		LOG_ERROR("Could not find target in FreeRTOS compatibility list");
-		return JIM_ERR;
+		return ERROR_FAIL;
 	}
 
 	if (!(freertos_params_list[i].pointer_width == 4 ||
 			freertos_params_list[i].pointer_width == 8)) {
 		LOG_ERROR("Unsupported OS pointer width %u!",
 			freertos_params_list[i].pointer_width);
-		return JIM_ERR;
+		return ERROR_FAIL;
 	}
 
 	struct freertos_data *rtos_data = calloc(1, sizeof(struct freertos_data));
 	if (!rtos_data) {
 		LOG_ERROR("Failed to allocate OS data!");
-		return JIM_ERR;
+		return ERROR_FAIL;
 	}
 	rtos_data->nr_cpus = 1;
 	rtos_data->thread_counter = 0;
@@ -1524,10 +1524,10 @@ static int freertos_create(struct target *target)
 	if (!rtos_data->curr_threads_handles_buff) {
 		free(rtos_data);
 		LOG_ERROR("Failed to allocate current threads handles buffer!");
-		return JIM_ERR;
+		return ERROR_FAIL;
 	}
 	target->rtos->rtos_specific_params = rtos_data;
 	target->rtos->thread_details = NULL;
 	target->rtos->gdb_target_for_threadid = freertos_target_for_threadid;
-	return JIM_OK;
+	return ERROR_OK;
 }
