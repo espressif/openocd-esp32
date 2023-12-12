@@ -218,6 +218,12 @@ void esp_common_assist_debug_monitor_disable(struct target *target, uint32_t add
 {
 	LOG_TARGET_DEBUG(target, "addr 0x%08" PRIx32, address);
 
+	if (address == ESP_ASSIST_DEBUG_INVALID_VALUE) {
+		*value = ESP_ASSIST_DEBUG_INVALID_VALUE;
+		LOG_TARGET_DEBUG(target, "assist debug monitor feature is not supported yet!");
+		return;
+	}
+
 	int res = target_read_u32(target, address, value);
 	if (res != ERROR_OK) {
 		LOG_ERROR("Can not read assist_debug register (%d)!", res);

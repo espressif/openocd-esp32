@@ -98,11 +98,13 @@ static int esp_riscv_algo_init(struct target *target, struct esp_algorithm_run_d
 	assert(ainfo);
 	/* backup all regs */
 	ainfo->max_saved_reg = GDB_REGNO_COUNT - 1;
+
 	/* disable assist_debug to avoid triggering while executing algorithm code */
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 	uint32_t ad_mon_reg = esp_riscv->assist_debug_cpu0_mon_reg + (target->coreid * esp_riscv->assist_debug_cpu_offset);
 	uint32_t *ad_mon_saved_val = &ainfo->saved_assist_debug_monitor_register;
 	esp_common_assist_debug_monitor_disable(target, ad_mon_reg, ad_mon_saved_val);
+
 	run->stub.ainfo = ainfo;
 	return ERROR_OK;
 }
