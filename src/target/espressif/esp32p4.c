@@ -120,7 +120,7 @@ static const char *esp32p4_existent_regs[] = {
 	"pmpcfg0", "pmpcfg1", "pmpcfg2", "pmpcfg3",
 	"pmpaddr0", "pmpaddr1", "pmpaddr2", "pmpaddr3", "pmpaddr4", "pmpaddr5", "pmpaddr6", "pmpaddr7",
 	"pmpaddr8", "pmpaddr9", "pmpaddr10", "pmpaddr11", "pmpaddr12", "pmpaddr13", "pmpaddr14", "pmpaddr15",
-	"tselect", "tdata1", "tdata2", "tcontrol", "dcsr", "dpc", "dscratch0", "dscratch1", "hpmcounter16",
+	"tselect", "tdata1", "tdata2", "tcontrol", "dcsr", "dpc", "dscratch0", "dscratch1",
 	/* custom exposed CSRs will start with 'csr_' prefix*/
 	/* TODO */
 };
