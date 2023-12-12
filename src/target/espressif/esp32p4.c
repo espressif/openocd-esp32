@@ -33,8 +33,8 @@
 #define ESP32P4_RESET_CAUSE(reg_val)            ((reg_val) & ESP32P4_LP_CLKRST_RESET_CAUSE_MASK)
 
 /* max supported hw breakpoint and watchpoint count */
-#define ESP32P4_BP_NUM                          4
-#define ESP32P4_WP_NUM                          4
+#define ESP32P4_BP_NUM                          3
+#define ESP32P4_WP_NUM                          3
 
 /* components/soc/esp32p4/include/soc/reset_reasons.h */
 enum esp32p4_reset_reason {
