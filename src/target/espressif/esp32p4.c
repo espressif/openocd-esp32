@@ -41,6 +41,7 @@ enum esp32p4_reset_reason {
 	ESP32P4_CHIP_POWER_ON_RESET   = 0x01,	/* Power on reset */
 	ESP32P4_CORE_SW_RESET         = 0x03,	/* Software resets the digital core */
 	ESP32P4_SYS_PMU_PWR_DOWN_RESET = 0x05,	/* PMU HP power down system reset */
+	ESP32P4_CPU_PMU_PWR_DOWN_RESET = 0x06,	/* PMU HP power down CPU reset */
 	ESP32P4_SYS_HP_WDT_RESET      = 0x07,	/* HP WDT resets system */
 	ESP32P4_SYS_LP_WDT_RESET      = 0x09,	/* LP WDT resets system */
 	ESP32P4_CORE_HP_WDT_RESET     = 0x0B,	/* HP WDT resets digital core */
