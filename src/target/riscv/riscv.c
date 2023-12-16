@@ -25,10 +25,7 @@
 #include "rtos/rtos.h"
 #include "debug_defines.h"
 #include <helper/bits.h>
-
-#define get_field(reg, mask) (((reg) & (mask)) / ((mask) & ~((mask) << 1)))
-#define set_field(reg, mask, val) (((reg) & ~(mask)) | (((val) * ((mask) & ~((mask) << 1))) & (mask)))
-#define field_value(mask, val) set_field((riscv_reg_t)0, mask, val)
+#include "field_helpers.h"
 
 /*** JTAG registers. ***/
 
@@ -128,6 +125,17 @@ struct trigger {
 	int unique_id;
 };
 
+struct tdata2_cache {
+	struct list_head elem_tdata2;
+	riscv_reg_t tdata2;
+};
+
+struct tdata1_cache {
+	riscv_reg_t tdata1;
+	struct list_head tdata2_cache_head;
+	struct list_head elem_tdata1;
+};
+
 /* Wall-clock timeout for a command/access. Settable via RISC-V Target commands.*/
 int riscv_command_timeout_sec = DEFAULT_COMMAND_TIMEOUT_SEC;
 
@@ -135,9 +143,6 @@ int riscv_command_timeout_sec = DEFAULT_COMMAND_TIMEOUT_SEC;
 int riscv_reset_timeout_sec = DEFAULT_RESET_TIMEOUT_SEC;
 
 static bool riscv_enable_virt2phys = true;
-bool riscv_ebreakm = true;
-bool riscv_ebreaks = true;
-bool riscv_ebreaku = true;
 
 bool riscv_enable_virtual;
 
@@ -221,7 +226,33 @@ static const virt2phys_info_t sv48x4 = {
 	.pte_ppn_shift = {10, 19, 28, 37},
 	.pte_ppn_mask = {0x1ff, 0x1ff, 0x1ff, 0x1ffff},
 	.pa_ppn_shift = {12, 21, 30, 39},
-	.pa_ppn_mask = {0x1ff, 0x1ff, 0x1ff, 0x7ffff},
+	.pa_ppn_mask = {0x1ff, 0x1ff, 0x1ff, 0x1ffff},
+};
+
+static const virt2phys_info_t sv57 = {
+	.name = "Sv57",
+	.va_bits = 57,
+	.level = 5,
+	.pte_shift = 3,
+	.vpn_shift = {12, 21, 30, 39, 48},
+	.vpn_mask = {0x1ff, 0x1ff, 0x1ff, 0x1ff, 0x1ff},
+	.pte_ppn_shift = {10, 19, 28, 37, 46},
+	.pte_ppn_mask = {0x1ff, 0x1ff, 0x1ff, 0x1ff, 0xff},
+	.pa_ppn_shift = {12, 21, 30, 39, 48},
+	.pa_ppn_mask = {0x1ff, 0x1ff, 0x1ff, 0x1ff, 0xff},
+};
+
+static const virt2phys_info_t sv57x4 = {
+	.name = "Sv57x4",
+	.va_bits = 59,
+	.level = 5,
+	.pte_shift = 3,
+	.vpn_shift = {12, 21, 30, 39, 48},
+	.vpn_mask = {0x1ff, 0x1ff, 0x1ff, 0x1ff, 0x7ff},
+	.pte_ppn_shift = {10, 19, 28, 37, 46},
+	.pte_ppn_mask = {0x1ff, 0x1ff, 0x1ff, 0x1ff, 0xff},
+	.pa_ppn_shift = {12, 21, 30, 39, 48},
+	.pa_ppn_mask = {0x1ff, 0x1ff, 0x1ff, 0x1ff, 0xff},
 };
 
 static enum riscv_halt_reason riscv_halt_reason(struct target *target);
@@ -257,7 +288,7 @@ void select_dmi_via_bscan(struct target *target)
 										bscan_tunnel_nested_tap_select_dmi, TAP_IDLE);
 }
 
-uint32_t dtmcontrol_scan_via_bscan(struct target *target, uint32_t out)
+int dtmcontrol_scan_via_bscan(struct target *target, uint32_t out, uint32_t *in_ptr)
 {
 	/* On BSCAN TAP: Select IR=USER4, issue tunneled IR scan via BSCAN TAP's DR */
 	uint8_t tunneled_ir_width[4] = {bscan_tunnel_ir_width};
@@ -338,18 +369,19 @@ uint32_t dtmcontrol_scan_via_bscan(struct target *target, uint32_t out)
 	uint32_t in = buf_get_u32(in_value, 1, 32);
 	LOG_DEBUG("DTMCS: 0x%x -> 0x%x", out, in);
 
-	return in;
+	if (in_ptr)
+		*in_ptr = in;
+	return ERROR_OK;
 }
 
-static uint32_t dtmcontrol_scan(struct target *target, uint32_t out)
+static int dtmcontrol_scan(struct target *target, uint32_t out, uint32_t *in_ptr)
 {
 	struct scan_field field;
 	uint8_t in_value[4];
 	uint8_t out_value[4] = { 0 };
 
 	if (bscan_tunnel_ir_width != 0)
-		return dtmcontrol_scan_via_bscan(target, out);
-
+		return dtmcontrol_scan_via_bscan(target, out, in_ptr);
 
 	buf_set_u32(out_value, 0, 32, out);
 
@@ -365,14 +397,16 @@ static uint32_t dtmcontrol_scan(struct target *target, uint32_t out)
 
 	int retval = jtag_execute_queue();
 	if (retval != ERROR_OK) {
-		LOG_ERROR("failed jtag scan: %d", retval);
+		LOG_TARGET_ERROR(target, "dtmcontrol scan failed, error code = %d", retval);
 		return retval;
 	}
 
 	uint32_t in = buf_get_u32(field.in_value, 0, 32);
 	LOG_DEBUG("DTMCONTROL: 0x%x -> 0x%x", out, in);
 
-	return in;
+	if (in_ptr)
+		*in_ptr = in;
+	return ERROR_OK;
 }
 
 static struct target_type *get_target_type(struct target *target)
@@ -384,11 +418,13 @@ static struct target_type *get_target_type(struct target *target)
 
 	RISCV_INFO(info);
 	switch (info->dtm_version) {
-		case 0:
+		case DTM_DTMCS_VERSION_0_11:
 			return &riscv011_target;
-		case 1:
+		case DTM_DTMCS_VERSION_1_0:
 			return &riscv013_target;
 		default:
+			/* TODO: once we have proper support for non-examined targets
+			 * we should have an assert here */
 			LOG_TARGET_ERROR(target, "Unsupported DTM version: %d",
 					info->dtm_version);
 			return NULL;
@@ -455,7 +491,42 @@ static void riscv_free_registers(struct target *target)
 			free(target->reg_cache->reg_list);
 		}
 		free(target->reg_cache);
+		target->reg_cache = NULL;
 	}
+}
+
+static void free_reg_names(struct target *target);
+
+static void free_custom_register_names(struct target *target)
+{
+	RISCV_INFO(info);
+
+	if (!info->custom_register_names.reg_names)
+		return;
+
+	for (unsigned int i = 0; i < info->custom_register_names.num_entries; i++)
+		free(info->custom_register_names.reg_names[i]);
+	free(info->custom_register_names.reg_names);
+	info->custom_register_names.reg_names = NULL;
+}
+
+static void free_wp_triggers_cache(struct target *target)
+{
+	RISCV_INFO(r);
+
+	for (unsigned int i = 0; i < r->trigger_count; ++i) {
+		struct tdata1_cache *elem_1, *tmp_1;
+		list_for_each_entry_safe(elem_1, tmp_1, &r->wp_triggers_negative_cache[i], elem_tdata1) {
+			struct tdata2_cache *elem_2, *tmp_2;
+			list_for_each_entry_safe(elem_2, tmp_2, &elem_1->tdata2_cache_head, elem_tdata2) {
+				list_del(&elem_2->elem_tdata2);
+				free(elem_2);
+			}
+			list_del(&elem_1->elem_tdata1);
+			free(elem_1);
+		}
+	}
+	free(r->wp_triggers_negative_cache);
 }
 
 static void riscv_deinit_target(struct target *target)
@@ -464,6 +535,8 @@ static void riscv_deinit_target(struct target *target)
 
 	struct riscv_info *info = target->arch_info;
 	struct target_type *tt = get_target_type(target);
+	if (!tt)
+		LOG_TARGET_ERROR(target, "Could not identify target type.");
 
 	if (riscv_flush_registers(target) != ERROR_OK)
 		LOG_TARGET_ERROR(target, "Failed to flush registers. Ignoring this error.");
@@ -472,6 +545,7 @@ static void riscv_deinit_target(struct target *target)
 		tt->deinit_target(target);
 
 	riscv_free_registers(target);
+	free_wp_triggers_cache(target);
 
 	if (!info)
 		return;
@@ -492,7 +566,7 @@ static void riscv_deinit_target(struct target *target)
 		free(entry);
 	}
 
-	free(info->reg_names);
+	free_reg_names(target);
 	free(target->arch_info);
 
 	target->arch_info = NULL;
@@ -606,8 +680,8 @@ static int set_trigger(struct target *target, unsigned int idx, riscv_reg_t tdat
 			LOG_TARGET_DEBUG(target,
 				"wrote 0x%" PRIx64 " to tdata2 but read back 0x%" PRIx64,
 				tdata2, tdata2_rb);
-
-		riscv_set_register(target, GDB_REGNO_TDATA1, 0);
+		if (riscv_set_register(target, GDB_REGNO_TDATA1, 0) != ERROR_OK)
+			return ERROR_FAIL;
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
@@ -673,6 +747,99 @@ static void log_trigger_request_info(struct trigger_request_info trig_info)
 			trig_info.tdata1, trig_info.tdata2, trig_info.tdata1_ignore_mask);
 };
 
+static struct tdata1_cache *tdata1_cache_alloc(struct list_head *tdata1_cache_head, riscv_reg_t tdata1)
+{
+	struct tdata1_cache *elem = (struct tdata1_cache *)calloc(1, sizeof(struct tdata1_cache));
+	elem->tdata1 = tdata1;
+	INIT_LIST_HEAD(&elem->tdata2_cache_head);
+	list_add_tail(&elem->elem_tdata1, tdata1_cache_head);
+	return elem;
+}
+
+static void tdata2_cache_alloc(struct list_head *tdata2_cache_head, riscv_reg_t tdata2)
+{
+	struct tdata2_cache * const elem = calloc(1, sizeof(struct tdata2_cache));
+	elem->tdata2 = tdata2;
+	list_add(&elem->elem_tdata2, tdata2_cache_head);
+}
+
+struct tdata2_cache *tdata2_cache_search(struct list_head *tdata2_cache_head, riscv_reg_t find_tdata2)
+{
+	struct tdata2_cache *elem_2;
+	list_for_each_entry(elem_2, tdata2_cache_head, elem_tdata2) {
+		if (elem_2->tdata2 == find_tdata2)
+			return elem_2;
+	}
+	return NULL;
+}
+
+struct tdata1_cache *tdata1_cache_search(struct list_head *tdata1_cache_head, riscv_reg_t find_tdata1)
+{
+	struct tdata1_cache *elem_1;
+	list_for_each_entry(elem_1, tdata1_cache_head, elem_tdata1) {
+		if (elem_1->tdata1 == find_tdata1)
+			return elem_1;
+	}
+	return NULL;
+}
+
+static void create_wp_trigger_cache(struct target *target)
+{
+	RISCV_INFO(r);
+
+	r->wp_triggers_negative_cache = (struct list_head *)calloc(r->trigger_count,
+		sizeof(struct list_head));
+	for (unsigned int i = 0; i < r->trigger_count; ++i)
+		INIT_LIST_HEAD(&r->wp_triggers_negative_cache[i]);
+}
+
+static void wp_triggers_cache_add(struct target *target, unsigned int idx, riscv_reg_t tdata1,
+	riscv_reg_t tdata2, int error_code)
+{
+	RISCV_INFO(r);
+
+	struct tdata1_cache *tdata1_cache = tdata1_cache_search(&r->wp_triggers_negative_cache[idx], tdata1);
+	if (!tdata1_cache) {
+		tdata1_cache = tdata1_cache_alloc(&r->wp_triggers_negative_cache[idx], tdata1);
+	} else {
+		struct tdata2_cache *tdata2_cache = tdata2_cache_search(&tdata1_cache->tdata2_cache_head, tdata2);
+		if (tdata2_cache) {
+			list_move(&tdata2_cache->elem_tdata2, &tdata1_cache->tdata2_cache_head);
+			return;
+		}
+	}
+	tdata2_cache_alloc(&tdata1_cache->tdata2_cache_head, tdata2);
+}
+
+static bool wp_triggers_cache_search(struct target *target, unsigned int idx,
+	riscv_reg_t tdata1, riscv_reg_t tdata2)
+{
+	RISCV_INFO(r);
+
+	struct tdata1_cache *tdata1_cache = tdata1_cache_search(&r->wp_triggers_negative_cache[idx], tdata1);
+	if (!tdata1_cache)
+		return false;
+	struct tdata2_cache *tdata2_cache = tdata2_cache_search(&tdata1_cache->tdata2_cache_head, tdata2);
+	if (!tdata2_cache)
+		return false;
+	assert(tdata1_cache->tdata1 == tdata1 && tdata2_cache->tdata2 == tdata2);
+	return true;
+}
+
+static int try_use_trigger_and_cache_result(struct target *target, unsigned int idx, riscv_reg_t tdata1,
+	riscv_reg_t tdata2, riscv_reg_t tdata1_ignore_mask)
+{
+	if (wp_triggers_cache_search(target, idx, tdata1, tdata2))
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+
+	int ret = set_trigger(target, idx, tdata1, tdata2, tdata1_ignore_mask);
+
+	/* Add these values to the cache to remember that they are not supported. */
+	if (ret == ERROR_TARGET_RESOURCE_NOT_AVAILABLE)
+		wp_triggers_cache_add(target, idx, tdata1, tdata2, ret);
+	return ret;
+}
+
 static int try_setup_single_match_trigger(struct target *target,
 		struct trigger *trigger, struct trigger_request_info trig_info)
 {
@@ -688,8 +855,9 @@ static int try_setup_single_match_trigger(struct target *target,
 	for (unsigned int idx = 0;
 			find_next_free_trigger(target, trigger_type, false, &idx) == ERROR_OK;
 			++idx) {
-		ret = set_trigger(target, idx, trig_info.tdata1, trig_info.tdata2,
-				trig_info.tdata1_ignore_mask);
+		ret = try_use_trigger_and_cache_result(target, idx, trig_info.tdata1, trig_info.tdata2,
+			trig_info.tdata1_ignore_mask);
+
 		if (ret == ERROR_OK) {
 			r->trigger_unique_id[idx] = trigger->unique_id;
 			return ERROR_OK;
@@ -716,12 +884,17 @@ static int try_setup_chained_match_triggers(struct target *target,
 	for (unsigned int idx = 0;
 			find_next_free_trigger(target, trigger_type, true, &idx) == ERROR_OK;
 			++idx) {
-		ret = set_trigger(target, idx, t1.tdata1, t1.tdata2,
-				t1.tdata1_ignore_mask);
-		if (ret != ERROR_OK)
+		ret = try_use_trigger_and_cache_result(target, idx, t1.tdata1, t1.tdata2,
+			t1.tdata1_ignore_mask);
+
+		if (ret == ERROR_TARGET_RESOURCE_NOT_AVAILABLE)
 			continue;
-		ret = set_trigger(target, idx + 1, t2.tdata1, t2.tdata2,
-				t2.tdata1_ignore_mask);
+		else if (ret != ERROR_OK)
+			return ret;
+
+		ret = try_use_trigger_and_cache_result(target, idx + 1, t2.tdata1, t2.tdata2,
+			t2.tdata1_ignore_mask);
+
 		if (ret == ERROR_OK) {
 			r->trigger_unique_id[idx] = trigger->unique_id;
 			r->trigger_unique_id[idx + 1] = trigger->unique_id;
@@ -833,15 +1006,16 @@ static struct match_triggers_tdata1_fields fill_match_triggers_tdata1_fields_t6(
 	return result;
 }
 
-static int maybe_add_trigger_t2_t6(struct target *target,
+static int maybe_add_trigger_t2_t6_for_wp(struct target *target,
 		struct trigger *trigger, struct match_triggers_tdata1_fields fields)
 {
-	int ret = ERROR_OK;
+	RISCV_INFO(r);
+	int ret = ERROR_FAIL;
 
-	if (!trigger->is_execute && trigger->length > 1) {
+	if (trigger->length > 0) {
 		/* Setting a load/store trigger ("watchpoint") on a range of addresses */
 
-		if (can_use_napot_match(trigger)) {
+		if (r->enable_napot_trigger && can_use_napot_match(trigger)) {
 			LOG_TARGET_DEBUG(target, "trying to setup NAPOT match trigger");
 			struct trigger_request_info napot = {
 				.tdata1 = fields.common | fields.size.any |
@@ -853,52 +1027,58 @@ static int maybe_add_trigger_t2_t6(struct target *target,
 			if (ret != ERROR_TARGET_RESOURCE_NOT_AVAILABLE)
 				return ret;
 		}
-		LOG_TARGET_DEBUG(target, "trying to setup GE+LT chained match trigger pair");
-		struct trigger_request_info ge_1 = {
-			.tdata1 = fields.common | fields.size.any | fields.chain.enable |
-				fields.match.ge,
-			.tdata2 = trigger->address,
-			.tdata1_ignore_mask = fields.tdata1_ignore_mask
-		};
-		struct trigger_request_info lt_2 = {
-			.tdata1 = fields.common | fields.size.any | fields.chain.disable |
-				fields.match.lt,
-			.tdata2 = trigger->address + trigger->length,
-			.tdata1_ignore_mask = fields.tdata1_ignore_mask
-		};
-		ret = try_setup_chained_match_triggers(target, trigger, ge_1, lt_2);
-		if (ret != ERROR_TARGET_RESOURCE_NOT_AVAILABLE)
-			return ret;
 
-		LOG_TARGET_DEBUG(target, "trying to setup LT+GE chained match trigger pair");
-		struct trigger_request_info lt_1 = {
-			.tdata1 = fields.common | fields.size.any | fields.chain.enable |
-				fields.match.lt,
-			.tdata2 = trigger->address + trigger->length,
-			.tdata1_ignore_mask = fields.tdata1_ignore_mask
-		};
-		struct trigger_request_info ge_2 = {
+		if (r->enable_ge_lt_trigger) {
+			LOG_TARGET_DEBUG(target, "trying to setup GE+LT chained match trigger pair");
+			struct trigger_request_info ge_1 = {
+				.tdata1 = fields.common | fields.size.any | fields.chain.enable |
+					fields.match.ge,
+				.tdata2 = trigger->address,
+				.tdata1_ignore_mask = fields.tdata1_ignore_mask
+			};
+			struct trigger_request_info lt_2 = {
+				.tdata1 = fields.common | fields.size.any | fields.chain.disable |
+					fields.match.lt,
+				.tdata2 = trigger->address + trigger->length,
+				.tdata1_ignore_mask = fields.tdata1_ignore_mask
+			};
+			ret = try_setup_chained_match_triggers(target, trigger, ge_1, lt_2);
+			if (ret != ERROR_TARGET_RESOURCE_NOT_AVAILABLE)
+				return ret;
+
+			LOG_TARGET_DEBUG(target, "trying to setup LT+GE chained match trigger pair");
+			struct trigger_request_info lt_1 = {
+				.tdata1 = fields.common | fields.size.any | fields.chain.enable |
+					fields.match.lt,
+				.tdata2 = trigger->address + trigger->length,
+				.tdata1_ignore_mask = fields.tdata1_ignore_mask
+			};
+			struct trigger_request_info ge_2 = {
+				.tdata1 = fields.common | fields.size.any | fields.chain.disable |
+					fields.match.ge,
+				.tdata2 = trigger->address,
+				.tdata1_ignore_mask = fields.tdata1_ignore_mask
+			};
+			ret = try_setup_chained_match_triggers(target, trigger, lt_1, ge_2);
+			if (ret != ERROR_TARGET_RESOURCE_NOT_AVAILABLE)
+				return ret;
+		}
+	}
+
+	if (r->enable_equality_match_trigger) {
+		LOG_TARGET_DEBUG(target, "trying to setup equality match trigger");
+		struct trigger_request_info eq = {
 			.tdata1 = fields.common | fields.size.any | fields.chain.disable |
-				fields.match.ge,
+				fields.match.eq,
 			.tdata2 = trigger->address,
 			.tdata1_ignore_mask = fields.tdata1_ignore_mask
 		};
-		ret = try_setup_chained_match_triggers(target, trigger, lt_1, ge_2);
-		if (ret != ERROR_TARGET_RESOURCE_NOT_AVAILABLE)
+		ret = try_setup_single_match_trigger(target, trigger, eq);
+		if (ret != ERROR_OK)
 			return ret;
 	}
-	LOG_TARGET_DEBUG(target, "trying to setup equality match trigger");
-	struct trigger_request_info eq = {
-		.tdata1 = fields.common | fields.size.any | fields.chain.disable |
-			fields.match.eq,
-		.tdata2 = trigger->address,
-		.tdata1_ignore_mask = fields.tdata1_ignore_mask
-	};
-	ret = try_setup_single_match_trigger(target, trigger, eq);
-	if (ret != ERROR_OK)
-		return ret;
 
-	if (trigger->length > 1) {
+	if (ret == ERROR_OK && trigger->length > 1) {
 		LOG_TARGET_DEBUG(target, "Trigger will match accesses at address 0x%" TARGET_PRIxADDR
 				", but may not match accesses at addresses in the inclusive range from 0x%"
 				TARGET_PRIxADDR " to 0x%" TARGET_PRIxADDR ".", trigger->address,
@@ -914,7 +1094,34 @@ static int maybe_add_trigger_t2_t6(struct target *target,
 					"against the first address of the range.");
 		info->range_trigger_fallback_encountered = true;
 	}
-	return ERROR_OK;
+
+	return ret;
+}
+
+static int maybe_add_trigger_t2_t6_for_bp(struct target *target,
+		struct trigger *trigger, struct match_triggers_tdata1_fields fields)
+{
+	LOG_TARGET_DEBUG(target, "trying to setup equality match trigger");
+	struct trigger_request_info eq = {
+		.tdata1 = fields.common | fields.size.any | fields.chain.disable |
+			fields.match.eq,
+		.tdata2 = trigger->address,
+		.tdata1_ignore_mask = fields.tdata1_ignore_mask
+	};
+
+	return try_setup_single_match_trigger(target, trigger, eq);
+}
+
+static int maybe_add_trigger_t2_t6(struct target *target,
+		struct trigger *trigger, struct match_triggers_tdata1_fields fields)
+{
+	if (trigger->is_execute) {
+		assert(!trigger->is_read && !trigger->is_write);
+		return maybe_add_trigger_t2_t6_for_bp(target, trigger, fields);
+	}
+
+	assert(trigger->is_read || trigger->is_write);
+	return maybe_add_trigger_t2_t6_for_wp(target, trigger, fields);
 }
 
 static int maybe_add_trigger_t3(struct target *target, bool vs, bool vu,
@@ -1171,17 +1378,15 @@ int riscv_add_breakpoint(struct target *target, struct breakpoint *breakpoint)
 	LOG_TARGET_DEBUG(target, "@0x%" TARGET_PRIxADDR, breakpoint->address);
 	assert(breakpoint);
 	if (breakpoint->type == BKPT_SOFT) {
-		const bool c_extension_supported = riscv_supports_extension(target, 'C');
-		if (!(breakpoint->length == 4 || (breakpoint->length == 2 && c_extension_supported))) {
-			LOG_TARGET_ERROR(target, "Invalid breakpoint length %d, supported lengths: %s", breakpoint->length,
-				c_extension_supported ? "2, 4" : "4");
+		/** @todo check RVC for size/alignment */
+		if (!(breakpoint->length == 4 || breakpoint->length == 2)) {
+			LOG_TARGET_ERROR(target, "Invalid breakpoint length %d", breakpoint->length);
 			return ERROR_FAIL;
 		}
 
-		const unsigned int required_align = c_extension_supported ? 2 : 4;
-		if ((breakpoint->address % required_align) != 0) {
-			LOG_TARGET_ERROR(target, "Invalid breakpoint alignment for address 0x%" TARGET_PRIxADDR
-				", required alignment: %u", breakpoint->address, required_align);
+		if (0 != (breakpoint->address % 2)) {
+			LOG_TARGET_ERROR(target, "Invalid breakpoint alignment for address 0x%" TARGET_PRIxADDR,
+				breakpoint->address);
 			return ERROR_FAIL;
 		}
 
@@ -1363,7 +1568,7 @@ static int riscv_hit_trigger_hit_bit(struct target *target, uint32_t *unique_id)
 				hit_mask = CSR_MCONTROL_HIT;
 				break;
 			case CSR_TDATA1_TYPE_MCONTROL6:
-				hit_mask = CSR_MCONTROL6_HIT;
+				hit_mask = CSR_MCONTROL6_HIT0 | CSR_MCONTROL6_HIT1;
 				break;
 			case CSR_TDATA1_TYPE_ICOUNT:
 				hit_mask = CSR_ICOUNT_HIT;
@@ -1490,6 +1695,8 @@ static int oldriscv_step(struct target *target, int current, uint32_t address,
 		int handle_breakpoints)
 {
 	struct target_type *tt = get_target_type(target);
+	if (!tt)
+		return ERROR_FAIL;
 	return tt->step(target, current, address, handle_breakpoints);
 }
 
@@ -1515,25 +1722,40 @@ static int riscv_examine(struct target *target)
 	/* Don't need to select dbus, since the first thing we do is read dtmcontrol. */
 
 	RISCV_INFO(info);
-	uint32_t dtmcontrol = dtmcontrol_scan(target, 0);
+	uint32_t dtmcontrol;
+	if (dtmcontrol_scan(target, 0, &dtmcontrol) != ERROR_OK || dtmcontrol == 0) {
+		LOG_TARGET_ERROR(target, "Could not read dtmcontrol. Check JTAG connectivity/board power.");
+		return ERROR_FAIL;
+	}
 	LOG_TARGET_DEBUG(target, "dtmcontrol=0x%x", dtmcontrol);
 	info->dtm_version = get_field(dtmcontrol, DTMCONTROL_VERSION);
 	LOG_TARGET_DEBUG(target, "version=0x%x", info->dtm_version);
 
+	int examine_status = ERROR_FAIL;
 	struct target_type *tt = get_target_type(target);
 	if (!tt)
-		return ERROR_FAIL;
+		goto examine_fail;
 
-	int result = tt->init_target(info->cmd_ctx, target);
-	if (result != ERROR_OK)
-		return result;
+	examine_status = tt->init_target(info->cmd_ctx, target);
+	if (examine_status != ERROR_OK)
+		goto examine_fail;
 
-	return tt->examine(target);
+	examine_status = tt->examine(target);
+	if (examine_status != ERROR_OK)
+		goto examine_fail;
+
+	return ERROR_OK;
+
+examine_fail:
+	info->dtm_version = DTM_DTMCS_VERSION_UNKNOWN;
+	return examine_status;
 }
 
 static int oldriscv_poll(struct target *target)
 {
 	struct target_type *tt = get_target_type(target);
+	if (!tt)
+		return ERROR_FAIL;
 	return tt->poll(target);
 }
 
@@ -1562,7 +1784,7 @@ int riscv_flush_registers(struct target *target)
 	if (!target->reg_cache)
 		return ERROR_OK;
 
-	LOG_TARGET_DEBUG_IO(target, "Flushing register cache");
+	LOG_TARGET_DEBUG_IO(target, "Flushing register cache"); /* ESPRESSIF */
 
 	/* Writing non-GPR registers may require progbuf execution, and some GPRs
 	 * may become dirty in the process (e.g. S0, S1). For that reason, flush
@@ -1581,7 +1803,7 @@ int riscv_flush_registers(struct target *target)
 		}
 	}
 
-	LOG_TARGET_DEBUG_IO(target, "Flush of register cache completed");
+	LOG_TARGET_DEBUG_IO(target, "Flush of register cache completed"); /* ESPRESSIF */
 
 	return ERROR_OK;
 }
@@ -1669,6 +1891,8 @@ static int halt_go(struct target *target)
 	int result;
 	if (!r->get_hart_state) {
 		struct target_type *tt = get_target_type(target);
+		if (!tt)
+			return ERROR_FAIL;
 		result = tt->halt(target);
 	} else {
 		result = riscv_halt_go_all_harts(target);
@@ -1690,6 +1914,8 @@ int riscv_halt(struct target *target)
 
 	if (!r->get_hart_state) {
 		struct target_type *tt = get_target_type(target);
+		if (!tt)
+			return ERROR_FAIL;
 		return tt->halt(target);
 	}
 
@@ -1733,16 +1959,20 @@ int riscv_halt(struct target *target)
 
 int riscv_assert_reset(struct target *target)
 {
-	LOG_TARGET_DEBUG(target, "coreid: [%d]", target->coreid);
+	LOG_TARGET_DEBUG(target, "");
 	struct target_type *tt = get_target_type(target);
+	if (!tt)
+		return ERROR_FAIL;
 	riscv_invalidate_register_cache(target);
 	return tt->assert_reset(target);
 }
 
 int riscv_deassert_reset(struct target *target)
 {
-	LOG_TARGET_DEBUG(target, "coreid: [%d]", target->coreid);
+	LOG_TARGET_DEBUG(target, "");
 	struct target_type *tt = get_target_type(target);
+	if (!tt)
+		return ERROR_FAIL;
 	return tt->deassert_reset(target);
 }
 
@@ -2003,10 +2233,10 @@ static int riscv_effective_privilege_mode(struct target *target, int *v_mode, in
 
 static int riscv_mmu(struct target *target, int *enabled)
 {
-	if (!riscv_enable_virt2phys) {
-		*enabled = 0;
+	*enabled = 0;
+
+	if (!riscv_enable_virt2phys)
 		return ERROR_OK;
-	}
 
 	/* Don't use MMU in explicit or effective M (machine) mode */
 	riscv_reg_t priv;
@@ -2037,6 +2267,7 @@ static int riscv_mmu(struct target *target, int *enabled)
 				/* In hypervisor mode regular satp translation
 				 * doesn't happen. */
 				return ERROR_OK;
+
 		}
 
 		riscv_reg_t vsatp;
@@ -2063,7 +2294,6 @@ static int riscv_mmu(struct target *target, int *enabled)
 			*enabled = 1;
 		} else {
 			LOG_TARGET_DEBUG(target, "No V-mode address translation enabled.");
-			*enabled = 0;
 		}
 
 		return ERROR_OK;
@@ -2072,7 +2302,6 @@ static int riscv_mmu(struct target *target, int *enabled)
 	/* Don't use MMU in explicit or effective M (machine) mode */
 	if (effective_mode == PRV_M) {
 		LOG_TARGET_DEBUG(target, "SATP/MMU ignored in Machine mode.");
-		*enabled = 0;
 		return ERROR_OK;
 	}
 
@@ -2080,13 +2309,11 @@ static int riscv_mmu(struct target *target, int *enabled)
 	if (riscv_get_register(target, &satp, GDB_REGNO_SATP) != ERROR_OK) {
 		LOG_TARGET_DEBUG(target, "Couldn't read SATP.");
 		/* If we can't read SATP, then there must not be an MMU. */
-		*enabled = 0;
 		return ERROR_OK;
 	}
 
 	if (get_field(satp, RISCV_SATP_MODE(xlen)) == SATP_MODE_OFF) {
 		LOG_TARGET_DEBUG(target, "MMU is disabled.");
-		*enabled = 0;
 	} else {
 		LOG_TARGET_DEBUG(target, "MMU is enabled.");
 		*enabled = 1;
@@ -2203,7 +2430,7 @@ static int riscv_virt2phys_v(struct target *target, target_addr_t virtual, targe
 		LOG_TARGET_ERROR(target, "Failed to read hgatp register.");
 		return ERROR_FAIL;
 	}
-	int hgatp_mode = get_field(vsatp, RISCV_HGATP_MODE(xlen));
+	int hgatp_mode = get_field(hgatp, RISCV_HGATP_MODE(xlen));
 	LOG_TARGET_DEBUG(target, "G-stage translation mode: %d", hgatp_mode);
 
 	const virt2phys_info_t *vsatp_info;
@@ -2218,8 +2445,13 @@ static int riscv_virt2phys_v(struct target *target, target_addr_t virtual, targe
 		case SATP_MODE_SV48:
 			vsatp_info = &sv48;
 			break;
+		case SATP_MODE_SV57:
+			vsatp_info = &sv57;
+			break;
 		case SATP_MODE_OFF:
 			vsatp_info = NULL;
+			LOG_TARGET_DEBUG(target, "vsatp mode is %d. No VS-stage translation. (vsatp: 0x%" PRIx64 ")",
+				vsatp_mode, vsatp);
 			break;
 		default:
 			LOG_TARGET_ERROR(target,
@@ -2240,8 +2472,13 @@ static int riscv_virt2phys_v(struct target *target, target_addr_t virtual, targe
 		case HGATP_MODE_SV48X4:
 			hgatp_info = &sv48x4;
 			break;
+		case HGATP_MODE_SV57X4:
+			hgatp_info = &sv57x4;
+			break;
 		case HGATP_MODE_OFF:
 			hgatp_info = NULL;
+			LOG_TARGET_DEBUG(target, "hgatp mode is %d. No G-stage translation. (hgatp: 0x%" PRIx64 ")",
+				hgatp_mode, hgatp);
 			break;
 		default:
 			LOG_TARGET_ERROR(target,
@@ -2292,9 +2529,11 @@ static int riscv_virt2phys(struct target *target, target_addr_t virtual, target_
 	int enabled;
 	if (riscv_mmu(target, &enabled) != ERROR_OK)
 		return ERROR_FAIL;
-	if (!enabled)
-		return ERROR_FAIL;
-
+	if (!enabled) {
+		*physical = virtual;
+		LOG_TARGET_DEBUG(target, "MMU is disabled. 0x%" TARGET_PRIxADDR " -> 0x%" TARGET_PRIxADDR, virtual, *physical);
+		return ERROR_OK;
+	}
 
 	riscv_reg_t priv;
 	if (riscv_get_register(target, &priv, GDB_REGNO_PRIV) != ERROR_OK) {
@@ -2306,9 +2545,10 @@ static int riscv_virt2phys(struct target *target, target_addr_t virtual, target_
 		return riscv_virt2phys_v(target, virtual, physical);
 
 	riscv_reg_t satp_value;
-	int result = riscv_get_register(target, &satp_value, GDB_REGNO_SATP);
-	if (result != ERROR_OK)
-		return result;
+	if (riscv_get_register(target, &satp_value, GDB_REGNO_SATP) != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to read SATP register.");
+		return ERROR_FAIL;
+	}
 
 	unsigned int xlen = riscv_xlen(target);
 	int satp_mode = get_field(satp_value, RISCV_SATP_MODE(xlen));
@@ -2322,6 +2562,9 @@ static int riscv_virt2phys(struct target *target, target_addr_t virtual, target_
 			break;
 		case SATP_MODE_SV48:
 			satp_info = &sv48;
+			break;
+		case SATP_MODE_SV57:
+			satp_info = &sv57;
 			break;
 		case SATP_MODE_OFF:
 			LOG_TARGET_ERROR(target, "No translation or protection."
@@ -2355,17 +2598,22 @@ static int riscv_read_memory(struct target *target, target_addr_t address,
 	}
 
 	target_addr_t physical_addr;
-	if (target->type->virt2phys(target, address, &physical_addr) == ERROR_OK)
-		address = physical_addr;
+	int result = target->type->virt2phys(target, address, &physical_addr);
+	if (result != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Address translation failed.");
+		return result;
+	}
 
 	RISCV_INFO(r);
-	return r->read_memory(target, address, size, count, buffer, size);
+	return r->read_memory(target, physical_addr, size, count, buffer, size);
 }
 
 static int riscv_write_phys_memory(struct target *target, target_addr_t phys_address,
 			uint32_t size, uint32_t count, const uint8_t *buffer)
 {
 	struct target_type *tt = get_target_type(target);
+	if (!tt)
+		return ERROR_FAIL;
 	return tt->write_memory(target, phys_address, size, count, buffer);
 }
 
@@ -2378,11 +2626,16 @@ static int riscv_write_memory(struct target *target, target_addr_t address,
 	}
 
 	target_addr_t physical_addr;
-	if (target->type->virt2phys(target, address, &physical_addr) == ERROR_OK)
-		address = physical_addr;
+	int result = target->type->virt2phys(target, address, &physical_addr);
+	if (result != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Address translation failed.");
+		return result;
+	}
 
 	struct target_type *tt = get_target_type(target);
-	return tt->write_memory(target, address, size, count, buffer);
+	if (!tt)
+		return ERROR_FAIL;
+	return tt->write_memory(target, physical_addr, size, count, buffer);
 }
 
 const char *riscv_get_gdb_arch(struct target *target)
@@ -2459,6 +2712,8 @@ int riscv_get_gdb_reg_list(struct target *target,
 int riscv_arch_state(struct target *target)
 {
 	struct target_type *tt = get_target_type(target);
+	if (!tt)
+		return ERROR_FAIL;
 	return tt->arch_state(target);
 }
 
@@ -2471,7 +2726,7 @@ static int riscv_run_algorithm(struct target *target, int num_mem_params,
 	RISCV_INFO(info);
 
 	if (target->state != TARGET_HALTED) {
-		LOG_TARGET_ERROR(target, "not halted.");
+		LOG_TARGET_ERROR(target, "not halted (run target algo)");
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
@@ -2561,7 +2816,8 @@ static int riscv_run_algorithm(struct target *target, int num_mem_params,
 				riscv_reg_t reg_value;
 				if (riscv_get_register(target, &reg_value, regno) != ERROR_OK)
 					break;
-				LOG_TARGET_ERROR(target, "%s = 0x%" PRIx64, gdb_regno_name(regno), reg_value);
+
+				LOG_TARGET_ERROR(target, "%s = 0x%" PRIx64, gdb_regno_name(target, regno), reg_value);
 			}
 			return ERROR_TARGET_TIMEOUT;
 		}
@@ -2728,7 +2984,7 @@ static int riscv_poll_hart(struct target *target, enum riscv_next_action *next_a
 {
 	RISCV_INFO(r);
 
-	LOG_TARGET_DEBUG_IO(target, "polling, target->state=%d", target->state);
+	LOG_TARGET_DEBUG_IO(target, "polling, target->state=%d", target->state); /* ESPRESSIF */
 
 	*next_action = RPH_NONE;
 
@@ -2777,6 +3033,9 @@ static int riscv_poll_hart(struct target *target, enum riscv_next_action *next_a
 	if (target->state == TARGET_UNKNOWN || state != previous_riscv_state) {
 		switch (state) {
 			case RISCV_STATE_HALTED:
+				if (previous_riscv_state == RISCV_STATE_UNAVAILABLE)
+					LOG_TARGET_INFO(target, "became available (halted)");
+
 				LOG_TARGET_DEBUG(target, "  triggered a halt; previous_target_state=%d",
 					previous_target_state);
 				target->state = TARGET_HALTED;
@@ -2825,6 +3084,9 @@ static int riscv_poll_hart(struct target *target, enum riscv_next_action *next_a
 				break;
 
 			case RISCV_STATE_RUNNING:
+				if (previous_riscv_state == RISCV_STATE_UNAVAILABLE)
+					LOG_TARGET_INFO(target, "became available (running)");
+
 				LOG_TARGET_DEBUG(target, "  triggered running");
 				target->state = TARGET_RUNNING;
 				target->debug_reason = DBG_REASON_NOTHALTED;
@@ -2902,7 +3164,7 @@ exit:
 /*** OpenOCD Interface ***/
 int riscv_openocd_poll(struct target *target)
 {
-	LOG_TARGET_DEBUG_IO(target, "Polling all harts");
+	LOG_TARGET_DEBUG_IO(target, "Polling all harts"); /* ESPRESSIF */
 
 	struct list_head *targets;
 
@@ -2962,6 +3224,7 @@ int riscv_openocd_poll(struct target *target)
 		}
 	}
 
+	/* ESPRESSIF */
 	LOG_TARGET_DEBUG_IO(target, "should_remain_halted=%d, should_resume=%d",
 				should_remain_halted, should_resume);
 	if (should_remain_halted && should_resume) {
@@ -3122,37 +3385,6 @@ COMMAND_HANDLER(riscv_set_reset_timeout_sec)
 	}
 
 	riscv_reset_timeout_sec = timeout;
-	return ERROR_OK;
-}
-
-COMMAND_HANDLER(riscv_set_prefer_sba)
-{
-	struct target *target = get_current_target(CMD_CTX);
-	RISCV_INFO(r);
-	bool prefer_sba;
-	LOG_WARNING("`riscv set_prefer_sba` is deprecated. Please use `riscv set_mem_access` instead.");
-	if (CMD_ARGC != 1) {
-		LOG_ERROR("Command takes exactly 1 parameter");
-		return ERROR_COMMAND_SYNTAX_ERROR;
-	}
-	COMMAND_PARSE_ON_OFF(CMD_ARGV[0], prefer_sba);
-	if (prefer_sba) {
-		/* Use system bus with highest priority */
-		r->mem_access_methods[0] = RISCV_MEM_ACCESS_SYSBUS;
-		r->mem_access_methods[1] = RISCV_MEM_ACCESS_PROGBUF;
-		r->mem_access_methods[2] = RISCV_MEM_ACCESS_ABSTRACT;
-	} else {
-		/* Use progbuf with highest priority */
-		r->mem_access_methods[0] = RISCV_MEM_ACCESS_PROGBUF;
-		r->mem_access_methods[1] = RISCV_MEM_ACCESS_SYSBUS;
-		r->mem_access_methods[2] = RISCV_MEM_ACCESS_ABSTRACT;
-	}
-
-	/* Reset warning flags */
-	r->mem_access_progbuf_warn = true;
-	r->mem_access_sysbus_warn = true;
-	r->mem_access_abstract_warn = true;
-
 	return ERROR_OK;
 }
 
@@ -3490,13 +3722,12 @@ COMMAND_HANDLER(riscv_dmi_read)
 		if (r->dmi_read(target, &value, address) != ERROR_OK)
 			return ERROR_FAIL;
 		command_print(CMD, "0x%" PRIx32, value);
-		return ERROR_OK;
 	} else {
 		LOG_TARGET_ERROR(target, "dmi_read is not implemented for this target.");
 		return ERROR_FAIL;
 	}
+	return ERROR_OK;
 }
-
 
 COMMAND_HANDLER(riscv_dmi_write)
 {
@@ -3532,6 +3763,76 @@ COMMAND_HANDLER(riscv_dmi_write)
 	}
 
 	LOG_TARGET_ERROR(target, "dmi_write is not implemented for this target.");
+	return ERROR_FAIL;
+}
+
+
+COMMAND_HANDLER(riscv_dm_read)
+{
+	if (CMD_ARGC != 1) {
+		LOG_ERROR("Command takes 1 parameter");
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+
+	struct target *target = get_current_target(CMD_CTX);
+	if (!target) {
+		LOG_ERROR("target is NULL!");
+		return ERROR_FAIL;
+	}
+
+	RISCV_INFO(r);
+	if (!r) {
+		LOG_TARGET_ERROR(target, "riscv_info is NULL!");
+		return ERROR_FAIL;
+	}
+
+	if (r->dm_read) {
+		uint32_t address, value;
+		COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], address);
+		if (r->dm_read(target, &value, address) != ERROR_OK)
+			return ERROR_FAIL;
+		command_print(CMD, "0x%" PRIx32, value);
+	} else {
+		LOG_TARGET_ERROR(target, "dm_read is not implemented for this target.");
+		return ERROR_FAIL;
+	}
+	return ERROR_OK;
+}
+
+COMMAND_HANDLER(riscv_dm_write)
+{
+	if (CMD_ARGC != 2) {
+		LOG_ERROR("Command takes exactly 2 arguments");
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+
+	struct target *target = get_current_target(CMD_CTX);
+	RISCV_INFO(r);
+
+	uint32_t address, value;
+	COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], address);
+	COMMAND_PARSE_NUMBER(u32, CMD_ARGV[1], value);
+
+	if (r->dm_write) {
+		/* Perform the DM write */
+		int retval = r->dm_write(target, address, value);
+
+		/* Invalidate our cached progbuf copy:
+		   - if the user tinkered directly with a progbuf register
+		   - if debug module was reset, in which case progbuf registers
+		     may not retain their value.
+		*/
+		bool progbuf_touched = (address >= DM_PROGBUF0 && address <= DM_PROGBUF15);
+		bool dm_deactivated = (address == DM_DMCONTROL && (value & DM_DMCONTROL_DMACTIVE) == 0);
+		if (progbuf_touched || dm_deactivated) {
+			if (r->invalidate_cached_debug_buffer)
+				r->invalidate_cached_debug_buffer(target);
+		}
+
+		return retval;
+	}
+
+	LOG_TARGET_ERROR(target, "dm_write is not implemented for this target.");
 	return ERROR_FAIL;
 }
 
@@ -3674,35 +3975,56 @@ COMMAND_HANDLER(riscv_set_enable_virt2phys)
 
 COMMAND_HANDLER(riscv_set_ebreakm)
 {
-	if (CMD_ARGC != 1) {
-		LOG_ERROR("Command takes exactly 1 parameter");
-		return ERROR_COMMAND_SYNTAX_ERROR;
+	struct target *target = get_current_target(CMD_CTX);
+	RISCV_INFO(r);
+
+	if (CMD_ARGC == 0) {
+		command_print(CMD, "riscv_ebreakm enabled: %s", r->riscv_ebreakm ? "on" : "off");
+		return ERROR_OK;
+	} else if (CMD_ARGC == 1) {
+		COMMAND_PARSE_ON_OFF(CMD_ARGV[0], r->riscv_ebreakm);
+		return ERROR_OK;
 	}
-	COMMAND_PARSE_ON_OFF(CMD_ARGV[0], riscv_ebreakm);
-	return ERROR_OK;
+
+	LOG_ERROR("Command takes 0 or 1 parameters");
+	return ERROR_COMMAND_SYNTAX_ERROR;
 }
 
 COMMAND_HANDLER(riscv_set_ebreaks)
 {
-	if (CMD_ARGC != 1) {
-		LOG_ERROR("Command takes exactly 1 parameter");
-		return ERROR_COMMAND_SYNTAX_ERROR;
+	struct target *target = get_current_target(CMD_CTX);
+	RISCV_INFO(r);
+
+	if (CMD_ARGC == 0) {
+		command_print(CMD, "riscv_ebreaks enabled: %s", r->riscv_ebreaks ? "on" : "off");
+		return ERROR_OK;
+	} else if (CMD_ARGC == 1) {
+		COMMAND_PARSE_ON_OFF(CMD_ARGV[0], r->riscv_ebreaks);
+		return ERROR_OK;
 	}
-	COMMAND_PARSE_ON_OFF(CMD_ARGV[0], riscv_ebreaks);
-	return ERROR_OK;
+
+	LOG_ERROR("Command takes 0 or 1 parameters");
+	return ERROR_COMMAND_SYNTAX_ERROR;
 }
 
 COMMAND_HANDLER(riscv_set_ebreaku)
 {
-	if (CMD_ARGC != 1) {
-		LOG_ERROR("Command takes exactly 1 parameter");
-		return ERROR_COMMAND_SYNTAX_ERROR;
+	struct target *target = get_current_target(CMD_CTX);
+	RISCV_INFO(r);
+
+	if (CMD_ARGC == 0) {
+		command_print(CMD, "riscv_ebreaku enabled: %s", r->riscv_ebreaku ? "on" : "off");
+		return ERROR_OK;
+	} else if (CMD_ARGC == 1) {
+		COMMAND_PARSE_ON_OFF(CMD_ARGV[0], r->riscv_ebreaku);
+		return ERROR_OK;
 	}
-	COMMAND_PARSE_ON_OFF(CMD_ARGV[0], riscv_ebreaku);
-	return ERROR_OK;
+
+	LOG_ERROR("Command takes 0 or 1 parameters");
+	return ERROR_COMMAND_SYNTAX_ERROR;
 }
 
-static int riscv_clear_trigger(struct command_invocation *cmd, int trigger_id, const char *name)
+COMMAND_HELPER(riscv_clear_trigger, int trigger_id, const char *name)
 {
 	struct target *target = get_current_target(CMD_CTX);
 	if (CMD_ARGC != 1) {
@@ -4138,7 +4460,7 @@ COMMAND_HANDLER(riscv_exec_progbuf)
 	struct target *target = get_current_target(CMD_CTX);
 
 	RISCV_INFO(r);
-	if (r->dtm_version != 1) {
+	if (r->dtm_version != DTM_DTMCS_VERSION_1_0) {
 		LOG_TARGET_ERROR(target, "exec_progbuf: Program buffer is "
 				"only supported on v0.13 or v1.0 targets.");
 		return ERROR_FAIL;
@@ -4179,6 +4501,57 @@ COMMAND_HANDLER(riscv_exec_progbuf)
 	LOG_TARGET_DEBUG(target, "exec_progbuf: Program buffer execution successful.");
 
 	return ERROR_OK;
+}
+
+COMMAND_HANDLER(riscv_set_enable_eq_match_trigger)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	RISCV_INFO(r);
+
+	if (CMD_ARGC == 0) {
+		command_print(CMD, "equality match trigger enabled: %s", r->enable_equality_match_trigger ? "on" : "off");
+		return ERROR_OK;
+	} else if (CMD_ARGC == 1) {
+		COMMAND_PARSE_ON_OFF(CMD_ARGV[0], r->enable_equality_match_trigger);
+		return ERROR_OK;
+	}
+
+	LOG_ERROR("Command takes 0 or 1 parameters");
+	return ERROR_COMMAND_SYNTAX_ERROR;
+}
+
+COMMAND_HANDLER(riscv_set_enable_napot_trigger)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	RISCV_INFO(r);
+
+	if (CMD_ARGC == 0) {
+		command_print(CMD, "NAPOT trigger enabled: %s", r->enable_napot_trigger ? "on" : "off");
+		return ERROR_OK;
+	} else if (CMD_ARGC == 1) {
+		COMMAND_PARSE_ON_OFF(CMD_ARGV[0], r->enable_napot_trigger);
+		return ERROR_OK;
+	}
+
+	LOG_ERROR("Command takes 0 or 1 parameters");
+	return ERROR_COMMAND_SYNTAX_ERROR;
+}
+
+COMMAND_HANDLER(riscv_set_enable_ge_lt_trigger)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	RISCV_INFO(r);
+
+	if (CMD_ARGC == 0) {
+		command_print(CMD, "ge-lt triggers enabled: %s", r->enable_ge_lt_trigger ? "on" : "off");
+		return ERROR_OK;
+	} else if (CMD_ARGC == 1) {
+		COMMAND_PARSE_ON_OFF(CMD_ARGV[0], r->enable_ge_lt_trigger);
+		return ERROR_OK;
+	}
+
+	LOG_ERROR("Command takes 0 or 1 parameters");
+	return ERROR_COMMAND_SYNTAX_ERROR;
 }
 
 static const struct command_registration riscv_exec_command_handlers[] = {
@@ -4223,14 +4596,6 @@ static const struct command_registration riscv_exec_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.usage = "[sec]",
 		.help = "Set the wall-clock timeout (in seconds) after reset is deasserted"
-	},
-	{
-		.name = "set_prefer_sba",
-		.handler = riscv_set_prefer_sba,
-		.mode = COMMAND_ANY,
-		.usage = "on|off",
-		.help = "When on, prefer to use System Bus Access to access memory. "
-			"When off (default), prefer to use the Program Buffer to access memory."
 	},
 	{
 		.name = "set_mem_access",
@@ -4308,6 +4673,20 @@ static const struct command_registration riscv_exec_command_handlers[] = {
 		.help = "Perform a 32-bit DMI write of value at address."
 	},
 	{
+		.name = "dm_read",
+		.handler = riscv_dm_read,
+		.mode = COMMAND_ANY,
+		.usage = "reg_address",
+		.help = "Perform a 32-bit read from DM register at reg_address, returning the value."
+	},
+	{
+		.name = "dm_write",
+		.handler = riscv_dm_write,
+		.mode = COMMAND_ANY,
+		.usage = "reg_address value",
+		.help = "Write a 32-bit value to the DM register at reg_address."
+	},
+	{
 		.name = "reset_delays",
 		.handler = riscv_reset_delays,
 		.mode = COMMAND_ANY,
@@ -4372,7 +4751,7 @@ static const struct command_registration riscv_exec_command_handlers[] = {
 		.name = "set_ebreakm",
 		.handler = riscv_set_ebreakm,
 		.mode = COMMAND_ANY,
-		.usage = "on|off",
+		.usage = "[on|off]",
 		.help = "Control dcsr.ebreakm. When off, M-mode ebreak instructions "
 			"don't trap to OpenOCD. Defaults to on."
 	},
@@ -4380,7 +4759,7 @@ static const struct command_registration riscv_exec_command_handlers[] = {
 		.name = "set_ebreaks",
 		.handler = riscv_set_ebreaks,
 		.mode = COMMAND_ANY,
-		.usage = "on|off",
+		.usage = "[on|off]",
 		.help = "Control dcsr.ebreaks. When off, S-mode ebreak instructions "
 			"don't trap to OpenOCD. Defaults to on."
 	},
@@ -4388,7 +4767,7 @@ static const struct command_registration riscv_exec_command_handlers[] = {
 		.name = "set_ebreaku",
 		.handler = riscv_set_ebreaku,
 		.mode = COMMAND_ANY,
-		.usage = "on|off",
+		.usage = "[on|off]",
 		.help = "Control dcsr.ebreaku. When off, U-mode ebreak instructions "
 			"don't trap to OpenOCD. Defaults to on."
 	},
@@ -4420,6 +4799,27 @@ static const struct command_registration riscv_exec_command_handlers[] = {
 		.usage = "instr1 [instr2 [... instr16]]",
 		.help = "Execute a sequence of 32-bit instructions using the program buffer. "
 			"The final ebreak instruction is added automatically, if needed."
+	},
+	{
+		.name = "set_enable_eq_match_trigger",
+		.handler = riscv_set_enable_eq_match_trigger,
+		.mode = COMMAND_CONFIG,
+		.usage = "[on|off]",
+		.help = "When on, allow OpenOCD to use equality match trigger in wp."
+	},
+	{
+		.name = "set_enable_napot_trigger",
+		.handler = riscv_set_enable_napot_trigger,
+		.mode = COMMAND_CONFIG,
+		.usage = "[on|off]",
+		.help = "When on, allow OpenOCD to use NAPOT trigger in wp."
+	},
+	{
+		.name = "set_enable_ge_lt_trigger",
+		.handler = riscv_set_enable_ge_lt_trigger,
+		.mode = COMMAND_CONFIG,
+		.usage = "[on|off]",
+		.help = "When on, allow OpenOCD to use GE/LT triggers in wp."
 	},
 	COMMAND_REGISTRATION_DONE
 };
@@ -4530,7 +4930,7 @@ void riscv_info_init(struct target *target, struct riscv_info *r)
 
 	r->common_magic = RISCV_COMMON_MAGIC;
 
-	r->dtm_version = 1;
+	r->dtm_version = DTM_DTMCS_VERSION_UNKNOWN;
 	r->version_specific = NULL;
 
 	memset(r->trigger_unique_id, 0xff, sizeof(r->trigger_unique_id));
@@ -4552,6 +4952,14 @@ void riscv_info_init(struct target *target, struct riscv_info *r)
 	INIT_LIST_HEAD(&r->hide_csr);
 
 	r->vsew64_supported = YNM_MAYBE;
+
+	r->riscv_ebreakm = true;
+	r->riscv_ebreaks = true;
+	r->riscv_ebreaku = true;
+
+	r->enable_equality_match_trigger = true;
+	r->enable_ge_lt_trigger = true;
+	r->enable_napot_trigger = true;
 }
 
 static int riscv_resume_go_all_harts(struct target *target)
@@ -4628,7 +5036,7 @@ static int riscv_step_rtos_hart(struct target *target)
 	r->on_step(target);
 	if (r->step_current_hart(target) != ERROR_OK)
 		return ERROR_FAIL;
-	r->on_halt(target);
+	r->on_halt(target); /* ESPRESSIF */
 	if (target->state != TARGET_HALTED) {
 		LOG_TARGET_ERROR(target, "Hart was not halted after single step!");
 		return ERROR_FAIL;
@@ -4700,8 +5108,6 @@ static bool gdb_regno_cacheable(enum gdb_regno regno, bool is_write)
 	 * CSRs. */
 	switch (regno) {
 		case GDB_REGNO_DPC:
-			return true;
-
 		case GDB_REGNO_VSTART:
 		case GDB_REGNO_VXSAT:
 		case GDB_REGNO_VXRM:
@@ -4743,11 +5149,23 @@ static int riscv_set_or_write_register(struct target *target,
 
 	keep_alive();
 
+	if (regid == GDB_REGNO_PC) {
+		return riscv_set_or_write_register(target, GDB_REGNO_DPC, value, write_through);
+	} else if (regid == GDB_REGNO_PRIV) {
+		riscv_reg_t dcsr;
+
+		if (riscv_get_register(target, &dcsr, GDB_REGNO_DCSR) != ERROR_OK)
+			return ERROR_FAIL;
+		dcsr = set_field(dcsr, CSR_DCSR_PRV, get_field(value, VIRT_PRIV_PRV));
+		dcsr = set_field(dcsr, CSR_DCSR_V, get_field(value, VIRT_PRIV_V));
+		return riscv_set_or_write_register(target, GDB_REGNO_DCSR, dcsr, write_through);
+	}
+
 	if (!target->reg_cache) {
 		assert(!target_was_examined(target));
 		LOG_TARGET_DEBUG(target,
 				"No cache, writing to target: %s <- 0x%" PRIx64,
-				gdb_regno_name(regid), value);
+				gdb_regno_name(target, regid), value);
 		return r->set_register(target, regid, value);
 	}
 
@@ -4828,10 +5246,21 @@ int riscv_get_register(struct target *target, riscv_reg_t *value,
 
 	keep_alive();
 
+	if (regid == GDB_REGNO_PC) {
+		return riscv_get_register(target, value, GDB_REGNO_DPC);
+	} else if (regid == GDB_REGNO_PRIV) {
+		uint64_t dcsr;
+		if (riscv_get_register(target, &dcsr, GDB_REGNO_DCSR) != ERROR_OK)
+			return ERROR_FAIL;
+		*value = set_field(0, VIRT_PRIV_V, get_field(dcsr, CSR_DCSR_V));
+		*value = set_field(*value, VIRT_PRIV_PRV, get_field(dcsr, CSR_DCSR_PRV));
+		return ERROR_OK;
+	}
+
 	if (!target->reg_cache) {
 		assert(!target_was_examined(target));
 		LOG_TARGET_DEBUG(target, "No cache, reading %s from target",
-				gdb_regno_name(regid));
+				gdb_regno_name(target, regid));
 		return r->get_register(target, value, regid);
 	}
 
@@ -4868,7 +5297,7 @@ int riscv_save_register(struct target *target, enum gdb_regno regid)
 {
 	if (target->state != TARGET_HALTED) {
 		LOG_TARGET_ERROR(target, "Can't save register %s on a hart that is not halted.",
-				 gdb_regno_name(regid));
+				 gdb_regno_name(target, regid));
 		return ERROR_FAIL;
 	}
 	assert(gdb_regno_cacheable(regid, /* is write? */ false) &&
@@ -4945,22 +5374,22 @@ int riscv_execute_debug_buffer(struct target *target)
 	return r->execute_debug_buffer(target);
 }
 
-void riscv_fill_dmi_write_u64(struct target *target, char *buf, int a, uint64_t d)
+void riscv_fill_dm_write_u64(struct target *target, char *buf, int a, uint64_t d)
 {
 	RISCV_INFO(r);
-	r->fill_dmi_write_u64(target, buf, a, d);
+	r->fill_dm_write_u64(target, buf, a, d);
 }
 
-void riscv_fill_dmi_read_u64(struct target *target, char *buf, int a)
+void riscv_fill_dm_read_u64(struct target *target, char *buf, int a)
 {
 	RISCV_INFO(r);
-	r->fill_dmi_read_u64(target, buf, a);
+	r->fill_dm_read_u64(target, buf, a);
 }
 
-void riscv_fill_dmi_nop_u64(struct target *target, char *buf)
+void riscv_fill_dm_nop_u64(struct target *target, char *buf)
 {
 	RISCV_INFO(r);
-	r->fill_dmi_nop_u64(target, buf);
+	r->fill_dm_nop_u64(target, buf);
 }
 
 int riscv_dmi_write_u64_bits(struct target *target)
@@ -5047,7 +5476,7 @@ static int disable_trigger_if_dmode(struct target *target, riscv_reg_t tdata1)
  * something.
  * Disable any hardware triggers that have dmode set. We can't have set them
  * ourselves. Maybe they're left over from some killed debug session.
- * */
+ */
 int riscv_enumerate_triggers(struct target *target)
 {
 	RISCV_INFO(r);
@@ -5103,191 +5532,178 @@ int riscv_enumerate_triggers(struct target *target)
 	r->triggers_enumerated = true;
 	r->trigger_count = t;
 	LOG_TARGET_INFO(target, "Found %d triggers", r->trigger_count);
+	create_wp_trigger_cache(target);
 	return ERROR_OK;
 }
 
-const char *gdb_regno_name(enum gdb_regno regno)
+static char *init_reg_name(const char *name)
 {
-	static char buf[32];
+	const int size_buf = strlen(name) + 1;
 
-	switch (regno) {
-		case GDB_REGNO_ZERO:
-			return "zero";
-		case GDB_REGNO_RA:
-			return "ra";
-		case GDB_REGNO_SP:
-			return "sp";
-		case GDB_REGNO_GP:
-			return "gp";
-		case GDB_REGNO_TP:
-			return "tp";
-		case GDB_REGNO_T0:
-			return "t0";
-		case GDB_REGNO_T1:
-			return "t1";
-		case GDB_REGNO_T2:
-			return "t2";
-		case GDB_REGNO_S0:
-			return "s0";
-		case GDB_REGNO_S1:
-			return "s1";
-		case GDB_REGNO_A0:
-			return "a0";
-		case GDB_REGNO_A1:
-			return "a1";
-		case GDB_REGNO_A2:
-			return "a2";
-		case GDB_REGNO_A3:
-			return "a3";
-		case GDB_REGNO_A4:
-			return "a4";
-		case GDB_REGNO_A5:
-			return "a5";
-		case GDB_REGNO_A6:
-			return "a6";
-		case GDB_REGNO_A7:
-			return "a7";
-		case GDB_REGNO_S2:
-			return "s2";
-		case GDB_REGNO_S3:
-			return "s3";
-		case GDB_REGNO_S4:
-			return "s4";
-		case GDB_REGNO_S5:
-			return "s5";
-		case GDB_REGNO_S6:
-			return "s6";
-		case GDB_REGNO_S7:
-			return "s7";
-		case GDB_REGNO_S8:
-			return "s8";
-		case GDB_REGNO_S9:
-			return "s9";
-		case GDB_REGNO_S10:
-			return "s10";
-		case GDB_REGNO_S11:
-			return "s11";
-		case GDB_REGNO_T3:
-			return "t3";
-		case GDB_REGNO_T4:
-			return "t4";
-		case GDB_REGNO_T5:
-			return "t5";
-		case GDB_REGNO_T6:
-			return "t6";
-		case GDB_REGNO_PC:
-			return "pc";
-		case GDB_REGNO_FPR0:
-			return "fpr0";
-		case GDB_REGNO_FPR31:
-			return "fpr31";
-		case GDB_REGNO_CSR0:
-			return "csr0";
-		case GDB_REGNO_TSELECT:
-			return "tselect";
-		case GDB_REGNO_TDATA1:
-			return "tdata1";
-		case GDB_REGNO_TDATA2:
-			return "tdata2";
-		case GDB_REGNO_MISA:
-			return "misa";
-		case GDB_REGNO_DPC:
-			return "dpc";
-		case GDB_REGNO_DCSR:
-			return "dcsr";
-		case GDB_REGNO_DSCRATCH0:
-			return "dscratch0";
-		case GDB_REGNO_MSTATUS:
-			return "mstatus";
-		case GDB_REGNO_MEPC:
-			return "mepc";
-		case GDB_REGNO_MCAUSE:
-			return "mcause";
-		case GDB_REGNO_PRIV:
-			return "priv";
-		case GDB_REGNO_SATP:
-			return "satp";
-		case GDB_REGNO_VTYPE:
-			return "vtype";
-		case GDB_REGNO_VL:
-			return "vl";
-		case GDB_REGNO_V0:
-			return "v0";
-		case GDB_REGNO_V1:
-			return "v1";
-		case GDB_REGNO_V2:
-			return "v2";
-		case GDB_REGNO_V3:
-			return "v3";
-		case GDB_REGNO_V4:
-			return "v4";
-		case GDB_REGNO_V5:
-			return "v5";
-		case GDB_REGNO_V6:
-			return "v6";
-		case GDB_REGNO_V7:
-			return "v7";
-		case GDB_REGNO_V8:
-			return "v8";
-		case GDB_REGNO_V9:
-			return "v9";
-		case GDB_REGNO_V10:
-			return "v10";
-		case GDB_REGNO_V11:
-			return "v11";
-		case GDB_REGNO_V12:
-			return "v12";
-		case GDB_REGNO_V13:
-			return "v13";
-		case GDB_REGNO_V14:
-			return "v14";
-		case GDB_REGNO_V15:
-			return "v15";
-		case GDB_REGNO_V16:
-			return "v16";
-		case GDB_REGNO_V17:
-			return "v17";
-		case GDB_REGNO_V18:
-			return "v18";
-		case GDB_REGNO_V19:
-			return "v19";
-		case GDB_REGNO_V20:
-			return "v20";
-		case GDB_REGNO_V21:
-			return "v21";
-		case GDB_REGNO_V22:
-			return "v22";
-		case GDB_REGNO_V23:
-			return "v23";
-		case GDB_REGNO_V24:
-			return "v24";
-		case GDB_REGNO_V25:
-			return "v25";
-		case GDB_REGNO_V26:
-			return "v26";
-		case GDB_REGNO_V27:
-			return "v27";
-		case GDB_REGNO_V28:
-			return "v28";
-		case GDB_REGNO_V29:
-			return "v29";
-		case GDB_REGNO_V30:
-			return "v30";
-		case GDB_REGNO_V31:
-			return "v31";
-		default:
-			if (regno <= GDB_REGNO_XPR31)
-				sprintf(buf, "x%d", regno - GDB_REGNO_ZERO);
-			else if (regno >= GDB_REGNO_CSR0 && regno <= GDB_REGNO_CSR4095)
-				sprintf(buf, "csr%d", regno - GDB_REGNO_CSR0);
-			else if (regno >= GDB_REGNO_FPR0 && regno <= GDB_REGNO_FPR31)
-				sprintf(buf, "f%d", regno - GDB_REGNO_FPR0);
-			else
-				sprintf(buf, "gdb_regno_%d", regno);
-			return buf;
+	char * const buf = calloc(size_buf, sizeof(char));
+	if (!buf) {
+		LOG_ERROR("Failed to allocate memory for a register name.");
+		return NULL;
+	}
+	strcpy(buf, name);
+	return buf;
+}
+
+static char *init_reg_name_with_prefix(const char *name_prefix,
+	unsigned int num)
+{
+	const int size_buf = snprintf(NULL, 0, "%s%d", name_prefix, num) + 1;
+
+	char * const buf = calloc(size_buf, sizeof(char));
+	if (!buf) {
+		LOG_ERROR("Failed to allocate memory for a register name.");
+		return NULL;
+	}
+	int result = snprintf(buf, size_buf, "%s%d", name_prefix, num);
+	assert(result > 0 && result <= (size_buf - 1));
+	return buf;
+}
+
+static const char * const default_reg_names[GDB_REGNO_COUNT] = {
+	[GDB_REGNO_ZERO] = "zero",
+	[GDB_REGNO_RA] = "ra",
+	[GDB_REGNO_SP] = "sp",
+	[GDB_REGNO_GP] = "gp",
+	[GDB_REGNO_TP] = "tp",
+	[GDB_REGNO_T0] = "t0",
+	[GDB_REGNO_T1] = "t1",
+	[GDB_REGNO_T2] = "t2",
+	[GDB_REGNO_FP] = "fp",
+	[GDB_REGNO_S1] = "s1",
+	[GDB_REGNO_A0] = "a0",
+	[GDB_REGNO_A1] = "a1",
+	[GDB_REGNO_A2] = "a2",
+	[GDB_REGNO_A3] = "a3",
+	[GDB_REGNO_A4] = "a4",
+	[GDB_REGNO_A5] = "a5",
+	[GDB_REGNO_A6] = "a6",
+	[GDB_REGNO_A7] = "a7",
+	[GDB_REGNO_S2] = "s2",
+	[GDB_REGNO_S3] = "s3",
+	[GDB_REGNO_S4] = "s4",
+	[GDB_REGNO_S5] = "s5",
+	[GDB_REGNO_S6] = "s6",
+	[GDB_REGNO_S7] = "s7",
+	[GDB_REGNO_S8] = "s8",
+	[GDB_REGNO_S9] = "s9",
+	[GDB_REGNO_S10] = "s10",
+	[GDB_REGNO_S11] = "s11",
+	[GDB_REGNO_T3] = "t3",
+	[GDB_REGNO_T4] = "t4",
+	[GDB_REGNO_T5] = "t5",
+	[GDB_REGNO_T6] = "t6",
+	[GDB_REGNO_PC] = "pc",
+	[GDB_REGNO_CSR0] = "csr0",
+	[GDB_REGNO_PRIV] = "priv",
+	[GDB_REGNO_FT0] = "ft0",
+	[GDB_REGNO_FT1] = "ft1",
+	[GDB_REGNO_FT2] = "ft2",
+	[GDB_REGNO_FT3] = "ft3",
+	[GDB_REGNO_FT4] = "ft4",
+	[GDB_REGNO_FT5] = "ft5",
+	[GDB_REGNO_FT6] = "ft6",
+	[GDB_REGNO_FT7] = "ft7",
+	[GDB_REGNO_FS0] = "fs0",
+	[GDB_REGNO_FS1] = "fs1",
+	[GDB_REGNO_FA0] = "fa0",
+	[GDB_REGNO_FA1] = "fa1",
+	[GDB_REGNO_FA2] = "fa2",
+	[GDB_REGNO_FA3] = "fa3",
+	[GDB_REGNO_FA4] = "fa4",
+	[GDB_REGNO_FA5] = "fa5",
+	[GDB_REGNO_FA6] = "fa6",
+	[GDB_REGNO_FA7] = "fa7",
+	[GDB_REGNO_FS2] = "fs2",
+	[GDB_REGNO_FS3] = "fs3",
+	[GDB_REGNO_FS4] = "fs4",
+	[GDB_REGNO_FS5] = "fs5",
+	[GDB_REGNO_FS6] = "fs6",
+	[GDB_REGNO_FS7] = "fs7",
+	[GDB_REGNO_FS8] = "fs8",
+	[GDB_REGNO_FS9] = "fs9",
+	[GDB_REGNO_FS10] = "fs10",
+	[GDB_REGNO_FS11] = "fs11",
+	[GDB_REGNO_FT8] = "ft8",
+	[GDB_REGNO_FT9] = "ft9",
+	[GDB_REGNO_FT10] = "ft10",
+	[GDB_REGNO_FT11] = "ft11",
+
+	#define DECLARE_CSR(csr_name, number)[(number) + GDB_REGNO_CSR0] = #csr_name,
+	#include "encoding.h"
+	#undef DECLARE_CSR
+};
+
+static void free_reg_names(struct target *target)
+{
+	RISCV_INFO(info);
+
+	if (!info->reg_names)
+		return;
+
+	for (unsigned int i = 0; i < GDB_REGNO_COUNT; ++i)
+		free(info->reg_names[i]);
+	free(info->reg_names);
+	info->reg_names = NULL;
+
+	free_custom_register_names(target);
+}
+
+static void init_custom_csr_names(struct target *target)
+{
+	RISCV_INFO(info);
+	range_list_t *entry;
+
+	list_for_each_entry(entry, &info->expose_csr, list) {
+		if (!entry->name)
+			continue;
+		assert(entry->low == entry->high);
+		const unsigned int regno = entry->low + GDB_REGNO_CSR0;
+		assert(regno <= GDB_REGNO_CSR4095);
+		if (info->reg_names[regno])
+			return;
+		info->reg_names[regno] = init_reg_name(entry->name);
 	}
 }
 
+const char *gdb_regno_name(struct target *target, enum gdb_regno regno)
+{
+	RISCV_INFO(info);
+
+	if (regno >= GDB_REGNO_COUNT) {
+		assert(info->custom_register_names.reg_names);
+		assert(regno - GDB_REGNO_COUNT <= info->custom_register_names.num_entries);
+		return info->custom_register_names.reg_names[regno - GDB_REGNO_COUNT];
+	}
+
+	if (!info->reg_names)
+		info->reg_names = calloc(GDB_REGNO_COUNT, sizeof(char *));
+
+	if (info->reg_names[regno])
+		return info->reg_names[regno];
+	if (default_reg_names[regno])
+		return default_reg_names[regno];
+	if (regno <= GDB_REGNO_XPR31) {
+		info->reg_names[regno] = init_reg_name_with_prefix("x", regno - GDB_REGNO_ZERO);
+		return info->reg_names[regno];
+	}
+	if (regno <= GDB_REGNO_V31 && regno >= GDB_REGNO_V0) {
+		info->reg_names[regno] = init_reg_name_with_prefix("v", regno - GDB_REGNO_V0);
+		return info->reg_names[regno];
+	}
+	if (regno >= GDB_REGNO_CSR0 && regno <= GDB_REGNO_CSR4095) {
+		init_custom_csr_names(target);
+		info->reg_names[regno] = init_reg_name_with_prefix("csr", regno - GDB_REGNO_CSR0);
+		return info->reg_names[regno];
+	}
+	assert(!"Encountered uninitialized entry in reg_names table");
+
+	return NULL;
+}
 
 /**
  * This function is the handler of user's request to read a register.
@@ -5387,14 +5803,54 @@ static struct reg_arch_type riscv_reg_arch_type = {
 	.set = register_set
 };
 
-struct csr_info {
-	unsigned number;
-	const char *name;
-};
-
-static int cmp_csr_info(const void *p1, const void *p2)
+static int init_custom_register_names(struct list_head *expose_custom,
+		struct reg_name_table *custom_register_names)
 {
-	return (int) (((struct csr_info *)p1)->number) - (int) (((struct csr_info *)p2)->number);
+	unsigned int custom_regs_num = 0;
+	if (!list_empty(expose_custom)) {
+		range_list_t *entry;
+		list_for_each_entry(entry, expose_custom, list)
+			custom_regs_num += entry->high - entry->low + 1;
+	}
+
+	if (!custom_regs_num)
+		return ERROR_OK;
+
+	custom_register_names->reg_names = calloc(custom_regs_num, sizeof(char *));
+	if (!custom_register_names->reg_names) {
+		LOG_ERROR("Failed to allocate memory for custom_register_names->reg_names");
+		return ERROR_FAIL;
+	}
+	custom_register_names->num_entries = custom_regs_num;
+	char **reg_names = custom_register_names->reg_names;
+	range_list_t *range;
+	unsigned int next_custom_reg_index = 0;
+	list_for_each_entry(range, expose_custom, list) {
+		for (unsigned int custom_number = range->low; custom_number <= range->high; ++custom_number) {
+			if (range->name)
+				reg_names[next_custom_reg_index] = init_reg_name(range->name);
+			else
+				reg_names[next_custom_reg_index] =
+					init_reg_name_with_prefix("custom", custom_number);
+
+			if (!reg_names[next_custom_reg_index])
+				return ERROR_FAIL;
+			++next_custom_reg_index;
+		}
+	}
+	return ERROR_OK;
+}
+
+static bool is_known_standard_csr(unsigned int csr_num)
+{
+	static const bool is_csr_in_buf[GDB_REGNO_CSR4095 - GDB_REGNO_CSR0 + 1] = {
+		#define DECLARE_CSR(csr_name, number)[number] = true,
+		#include "encoding.h"
+		#undef DECLARE_CSR
+	};
+	assert(csr_num < ARRAY_SIZE(is_csr_in_buf));
+
+	return is_csr_in_buf[csr_num];
 }
 
 int riscv_init_registers(struct target *target)
@@ -5404,32 +5860,27 @@ int riscv_init_registers(struct target *target)
 	riscv_free_registers(target);
 
 	target->reg_cache = calloc(1, sizeof(*target->reg_cache));
-	if (!target->reg_cache)
+	if (!target->reg_cache) {
+		LOG_TARGET_ERROR(target, "Failed to allocate memory for target->reg_cache");
 		return ERROR_FAIL;
+	}
 	target->reg_cache->name = "RISC-V Registers";
-	target->reg_cache->num_regs = GDB_REGNO_COUNT;
 
-	if (!list_empty(&info->expose_custom)) {
-		range_list_t *entry;
-		list_for_each_entry(entry, &info->expose_custom, list)
-			target->reg_cache->num_regs += entry->high - entry->low + 1;
+	if (init_custom_register_names(&info->expose_custom, &info->custom_register_names) != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "init_custom_register_names failed");
+		return ERROR_FAIL;
 	}
 
+	target->reg_cache->num_regs = GDB_REGNO_COUNT + info->custom_register_names.num_entries;
 	LOG_TARGET_DEBUG(target, "create register cache for %d registers",
 			target->reg_cache->num_regs);
 
 	target->reg_cache->reg_list =
 		calloc(target->reg_cache->num_regs, sizeof(struct reg));
-	if (!target->reg_cache->reg_list)
+	if (!target->reg_cache->reg_list) {
+		LOG_TARGET_ERROR(target, "Failed to allocate memory for target->reg_cache->reg_list");
 		return ERROR_FAIL;
-
-	const unsigned int max_reg_name_len = 12;
-	free(info->reg_names);
-	info->reg_names =
-		calloc(target->reg_cache->num_regs, max_reg_name_len);
-	if (!info->reg_names)
-		return ERROR_FAIL;
-	char *reg_name = info->reg_names;
+	}
 
 	static struct reg_feature feature_cpu = {
 		.name = "org.gnu.gdb.riscv.cpu"
@@ -5561,152 +6012,45 @@ int riscv_init_registers(struct target *target)
 	info->type_vector.type_class = REG_TYPE_CLASS_UNION;
 	info->type_vector.reg_type_union = &info->vector_union;
 
-	struct csr_info csr_info[] = {
-#define DECLARE_CSR(name, number) { number, #name },
-#include "encoding.h"
-#undef DECLARE_CSR
-	};
-	/* encoding.h does not contain the registers in sorted order. */
-	qsort(csr_info, ARRAY_SIZE(csr_info), sizeof(*csr_info), cmp_csr_info);
-	unsigned csr_info_index = 0;
-
-	int custom_within_range = 0;
-
 	riscv_reg_info_t *shared_reg_info = calloc(1, sizeof(riscv_reg_info_t));
 	if (!shared_reg_info)
 		return ERROR_FAIL;
 	shared_reg_info->target = target;
+
+	int custom_within_range = 0;
 
 	/* When gdb requests register N, gdb_get_register_packet() assumes that this
 	 * is register at index N in reg_list. So if there are certain registers
 	 * that don't exist, we need to leave holes in the list (or renumber, but
 	 * it would be nice not to have yet another set of numbers to translate
 	 * between). */
-	for (uint32_t number = 0; number < target->reg_cache->num_regs; number++) {
-		struct reg *r = &target->reg_cache->reg_list[number];
+	for (uint32_t reg_num = 0; reg_num < target->reg_cache->num_regs; reg_num++) {
+		struct reg *r = &target->reg_cache->reg_list[reg_num];
 		r->dirty = false;
 		r->valid = false;
 		r->exist = true;
 		r->type = &riscv_reg_arch_type;
 		r->arch_info = shared_reg_info;
-		r->number = number;
+		r->number = reg_num;
 		r->size = riscv_xlen(target);
 		/* r->size is set in riscv_invalidate_register_cache, maybe because the
 		 * target is in theory allowed to change XLEN on us. But I expect a lot
 		 * of other things to break in that case as well. */
-		if (number <= GDB_REGNO_XPR31) {
-			r->exist = number <= GDB_REGNO_XPR15 ||
+		r->name = gdb_regno_name(target, reg_num);
+		if (reg_num <= GDB_REGNO_XPR31) {
+			r->exist = reg_num <= GDB_REGNO_XPR15 ||
 				!riscv_supports_extension(target, 'E');
 			/* TODO: For now we fake that all GPRs exist because otherwise gdb
 			 * doesn't work. */
 			r->exist = true;
 			r->caller_save = true;
-			switch (number) {
-				case GDB_REGNO_ZERO:
-					r->name = "zero";
-					break;
-				case GDB_REGNO_RA:
-					r->name = "ra";
-					break;
-				case GDB_REGNO_SP:
-					r->name = "sp";
-					break;
-				case GDB_REGNO_GP:
-					r->name = "gp";
-					break;
-				case GDB_REGNO_TP:
-					r->name = "tp";
-					break;
-				case GDB_REGNO_T0:
-					r->name = "t0";
-					break;
-				case GDB_REGNO_T1:
-					r->name = "t1";
-					break;
-				case GDB_REGNO_T2:
-					r->name = "t2";
-					break;
-				case GDB_REGNO_FP:
-					r->name = "fp";
-					break;
-				case GDB_REGNO_S1:
-					r->name = "s1";
-					break;
-				case GDB_REGNO_A0:
-					r->name = "a0";
-					break;
-				case GDB_REGNO_A1:
-					r->name = "a1";
-					break;
-				case GDB_REGNO_A2:
-					r->name = "a2";
-					break;
-				case GDB_REGNO_A3:
-					r->name = "a3";
-					break;
-				case GDB_REGNO_A4:
-					r->name = "a4";
-					break;
-				case GDB_REGNO_A5:
-					r->name = "a5";
-					break;
-				case GDB_REGNO_A6:
-					r->name = "a6";
-					break;
-				case GDB_REGNO_A7:
-					r->name = "a7";
-					break;
-				case GDB_REGNO_S2:
-					r->name = "s2";
-					break;
-				case GDB_REGNO_S3:
-					r->name = "s3";
-					break;
-				case GDB_REGNO_S4:
-					r->name = "s4";
-					break;
-				case GDB_REGNO_S5:
-					r->name = "s5";
-					break;
-				case GDB_REGNO_S6:
-					r->name = "s6";
-					break;
-				case GDB_REGNO_S7:
-					r->name = "s7";
-					break;
-				case GDB_REGNO_S8:
-					r->name = "s8";
-					break;
-				case GDB_REGNO_S9:
-					r->name = "s9";
-					break;
-				case GDB_REGNO_S10:
-					r->name = "s10";
-					break;
-				case GDB_REGNO_S11:
-					r->name = "s11";
-					break;
-				case GDB_REGNO_T3:
-					r->name = "t3";
-					break;
-				case GDB_REGNO_T4:
-					r->name = "t4";
-					break;
-				case GDB_REGNO_T5:
-					r->name = "t5";
-					break;
-				case GDB_REGNO_T6:
-					r->name = "t6";
-					break;
-			}
 			r->group = "general";
 			r->feature = &feature_cpu;
-		} else if (number == GDB_REGNO_PC) {
+		} else if (reg_num == GDB_REGNO_PC) {
 			r->caller_save = true;
-			sprintf(reg_name, "pc");
 			r->group = "general";
 			r->feature = &feature_cpu;
-		} else if (number >= GDB_REGNO_FPR0 && number <= GDB_REGNO_FPR31) {
+		} else if (reg_num >= GDB_REGNO_FPR0 && reg_num <= GDB_REGNO_FPR31) {
 			r->caller_save = true;
 			if (riscv_supports_extension(target, 'D')) {
 				r->size = 64;
@@ -5720,119 +6064,14 @@ int riscv_init_registers(struct target *target)
 			} else {
 				r->exist = false;
 			}
-			switch (number) {
-				case GDB_REGNO_FT0:
-					r->name = "ft0";
-					break;
-				case GDB_REGNO_FT1:
-					r->name = "ft1";
-					break;
-				case GDB_REGNO_FT2:
-					r->name = "ft2";
-					break;
-				case GDB_REGNO_FT3:
-					r->name = "ft3";
-					break;
-				case GDB_REGNO_FT4:
-					r->name = "ft4";
-					break;
-				case GDB_REGNO_FT5:
-					r->name = "ft5";
-					break;
-				case GDB_REGNO_FT6:
-					r->name = "ft6";
-					break;
-				case GDB_REGNO_FT7:
-					r->name = "ft7";
-					break;
-				case GDB_REGNO_FS0:
-					r->name = "fs0";
-					break;
-				case GDB_REGNO_FS1:
-					r->name = "fs1";
-					break;
-				case GDB_REGNO_FA0:
-					r->name = "fa0";
-					break;
-				case GDB_REGNO_FA1:
-					r->name = "fa1";
-					break;
-				case GDB_REGNO_FA2:
-					r->name = "fa2";
-					break;
-				case GDB_REGNO_FA3:
-					r->name = "fa3";
-					break;
-				case GDB_REGNO_FA4:
-					r->name = "fa4";
-					break;
-				case GDB_REGNO_FA5:
-					r->name = "fa5";
-					break;
-				case GDB_REGNO_FA6:
-					r->name = "fa6";
-					break;
-				case GDB_REGNO_FA7:
-					r->name = "fa7";
-					break;
-				case GDB_REGNO_FS2:
-					r->name = "fs2";
-					break;
-				case GDB_REGNO_FS3:
-					r->name = "fs3";
-					break;
-				case GDB_REGNO_FS4:
-					r->name = "fs4";
-					break;
-				case GDB_REGNO_FS5:
-					r->name = "fs5";
-					break;
-				case GDB_REGNO_FS6:
-					r->name = "fs6";
-					break;
-				case GDB_REGNO_FS7:
-					r->name = "fs7";
-					break;
-				case GDB_REGNO_FS8:
-					r->name = "fs8";
-					break;
-				case GDB_REGNO_FS9:
-					r->name = "fs9";
-					break;
-				case GDB_REGNO_FS10:
-					r->name = "fs10";
-					break;
-				case GDB_REGNO_FS11:
-					r->name = "fs11";
-					break;
-				case GDB_REGNO_FT8:
-					r->name = "ft8";
-					break;
-				case GDB_REGNO_FT9:
-					r->name = "ft9";
-					break;
-				case GDB_REGNO_FT10:
-					r->name = "ft10";
-					break;
-				case GDB_REGNO_FT11:
-					r->name = "ft11";
-					break;
-			}
 			r->group = "float";
 			r->feature = &feature_fpu;
-		} else if (number >= GDB_REGNO_CSR0 && number <= GDB_REGNO_CSR4095) {
+		} else if (reg_num >= GDB_REGNO_CSR0 && reg_num <= GDB_REGNO_CSR4095) {
 			r->group = "csr";
 			r->feature = &feature_csr;
-			unsigned csr_number = number - GDB_REGNO_CSR0;
+			const unsigned int csr_num = reg_num - GDB_REGNO_CSR0;
 
-			while (csr_info[csr_info_index].number < csr_number &&
-					csr_info_index < ARRAY_SIZE(csr_info) - 1) {
-				csr_info_index++;
-			}
-			if (csr_info[csr_info_index].number == csr_number) {
-				r->name = csr_info[csr_info_index].name;
-			} else {
-				sprintf(reg_name, "csr%d", csr_number);
+			if (!is_known_standard_csr(csr_num)) {
 				/* Assume unnamed registers don't exist, unless we have some
 				 * configuration that tells us otherwise. That's important
 				 * because eg. Eclipse crashes if a target has too many
@@ -5841,7 +6080,7 @@ int riscv_init_registers(struct target *target)
 				r->exist = false;
 			}
 
-			switch (csr_number) {
+			switch (csr_num) {
 				case CSR_DCSR:
 				case CSR_MVENDORID:
 				case CSR_MCOUNTINHIBIT:
@@ -6031,67 +6270,60 @@ int riscv_init_registers(struct target *target)
 			if (!r->exist && !list_empty(&info->expose_csr)) {
 				range_list_t *entry;
 				list_for_each_entry(entry, &info->expose_csr, list)
-					if ((entry->low <= csr_number) && (csr_number <= entry->high)) {
-						if (entry->name) {
-							*reg_name = 0;
-							r->name = entry->name;
-						}
-
-						LOG_TARGET_DEBUG(target, "Exposing additional CSR %d (name=%s).",
-								csr_number, entry->name ? entry->name : reg_name);
-
+					if (entry->low <= csr_num && csr_num <= entry->high) {
+						LOG_TARGET_DEBUG(target, "Exposing additional CSR %d (name=%s)",
+								csr_num, r->name);
 						r->exist = true;
 						break;
 					}
 			} else if (r->exist && !list_empty(&info->hide_csr)) {
 				range_list_t *entry;
 				list_for_each_entry(entry, &info->hide_csr, list)
-					if (entry->low <= csr_number && csr_number <= entry->high) {
-						LOG_TARGET_DEBUG(target, "Hiding CSR %d (name=%s).", csr_number, r->name);
+					if (entry->low <= csr_num && csr_num <= entry->high) {
+						LOG_TARGET_DEBUG(target, "Hiding CSR %d (name=%s).", csr_num, r->name);
 						r->hidden = true;
 						break;
 					}
 			}
 
-		} else if (number == GDB_REGNO_PRIV) {
-			sprintf(reg_name, "priv");
+		} else if (reg_num == GDB_REGNO_PRIV) {
 			r->group = "general";
 			r->feature = &feature_virtual;
 			r->size = 8;
 
-		} else if (number >= GDB_REGNO_V0 && number <= GDB_REGNO_V31) {
+		} else if (reg_num >= GDB_REGNO_V0 && reg_num <= GDB_REGNO_V31) {
 			r->caller_save = false;
 			r->exist = (info->vlenb > 0);
 			r->size = info->vlenb * 8;
-			sprintf(reg_name, "v%d", number - GDB_REGNO_V0);
 			r->group = "vector";
 			r->feature = &feature_vector;
 			r->reg_data_type = &info->type_vector;
 
-		} else if (number >= GDB_REGNO_COUNT) {
+		} else if (reg_num >= GDB_REGNO_COUNT) {
 			/* Custom registers. */
+			const unsigned int custom_reg_index = reg_num - GDB_REGNO_COUNT;
+
 			assert(!list_empty(&info->expose_custom));
+			assert(custom_reg_index < info->custom_register_names.num_entries);
 
 			range_list_t *range = list_first_entry(&info->expose_custom, range_list_t, list);
 
-			unsigned custom_number = range->low + custom_within_range;
+			const unsigned int custom_number = range->low + custom_within_range;
 
 			r->group = "custom";
 			r->feature = &feature_custom;
 			r->arch_info = calloc(1, sizeof(riscv_reg_info_t));
-			if (!r->arch_info)
+			if (!r->arch_info) {
+				LOG_ERROR("Failed to allocate memory for r->arch_info");
 				return ERROR_FAIL;
-			((riscv_reg_info_t *) r->arch_info)->target = target;
-			((riscv_reg_info_t *) r->arch_info)->custom_number = custom_number;
-			sprintf(reg_name, "custom%d", custom_number);
-
-			if (range->name) {
-				*reg_name = 0;
-				r->name = range->name;
 			}
+			((riscv_reg_info_t *)r->arch_info)->target = target;
+			((riscv_reg_info_t *)r->arch_info)->custom_number = custom_number;
 
-			LOG_TARGET_DEBUG(target, "Exposing additional custom register %d (name=%s).",
-					number, range->name ? range->name : reg_name);
+			char **reg_names = info->custom_register_names.reg_names;
+			r->name = reg_names[custom_reg_index];
+
+			LOG_TARGET_DEBUG(target, "Exposing additional custom register %d (name=%s)", reg_num, r->name);
 
 			custom_within_range++;
 			if (custom_within_range > range->high - range->low) {
@@ -6100,12 +6332,6 @@ int riscv_init_registers(struct target *target)
 			}
 		}
 
-		if (reg_name[0]) {
-			r->name = reg_name;
-			reg_name += strlen(reg_name) + 1;
-			assert(reg_name < info->reg_names + target->reg_cache->num_regs *
-					max_reg_name_len);
-		}
 		r->value = calloc(1, DIV_ROUND_UP(r->size, 8));
 	}
 

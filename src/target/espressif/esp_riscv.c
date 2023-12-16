@@ -692,7 +692,7 @@ int esp_riscv_wait_algorithm(struct target *target,
 				riscv_reg_t reg_value;
 				if (riscv_get_register(target, &reg_value, regno) != ERROR_OK)
 					break;
-				LOG_ERROR("%s = 0x%" PRIx64, gdb_regno_name(regno), reg_value);
+				LOG_ERROR("%s = 0x%" PRIx64, gdb_regno_name(target, regno), reg_value);
 			}
 			return ERROR_TARGET_TIMEOUT;
 		}
