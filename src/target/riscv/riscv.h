@@ -20,6 +20,7 @@ struct riscv_program;
 #define RISCV_MAX_HARTS  ((int)BIT(20))
 #define RISCV_MAX_TRIGGERS 32
 #define RISCV_MAX_HWBPS 16
+#define RISCV_MAX_DMS 100
 
 #define DEFAULT_COMMAND_TIMEOUT_SEC		2
 #define DEFAULT_RESET_TIMEOUT_SEC		30
@@ -30,7 +31,7 @@ struct riscv_program;
 #define RISCV_HGATP_PPN(xlen)  ((xlen) == 32 ? HGATP32_PPN : HGATP64_PPN)
 #define RISCV_PGSHIFT 12
 
-#define PG_MAX_LEVEL 4
+#define PG_MAX_LEVEL 5
 
 #define RISCV_NUM_MEM_ACCESS_METHODS  3
 
@@ -111,17 +112,23 @@ typedef struct {
 	char *name;
 } range_list_t;
 
+#define DTM_DTMCS_VERSION_UNKNOWN ((unsigned int)-1)
+
+struct reg_name_table {
+	unsigned int num_entries;
+	char **reg_names;
+};
+
 struct riscv_info {
 	unsigned int common_magic;
 
-	unsigned dtm_version;
+	unsigned int dtm_version;
 
 	struct command_context *cmd_ctx;
 	void *version_specific;
 
-	/* Single buffer that contains all register names, instead of calling
-	 * malloc for each register. Needs to be freed when reg_list is freed. */
-	char *reg_names;
+	struct reg_name_table custom_register_names;
+	char **reg_names;
 
 	/* It's possible that each core has a different supported ISA set. */
 	int xlen;
@@ -136,6 +143,12 @@ struct riscv_info {
 
 	/* The number of triggers per hart. */
 	unsigned int trigger_count;
+
+	/* Data structure to record known unsupported tdata1+tdata2 trigger CSR values.
+	 * This is to avoid repetitive attempts to set trigger configurations that are already
+	 * known to be unsupported in the HW.
+	 * A separate data structure is created for each trigger. */
+	struct list_head *wp_triggers_negative_cache;
 
 	/* record the tinfo of each trigger */
 	unsigned int trigger_tinfo[RISCV_MAX_TRIGGERS];
@@ -207,10 +220,11 @@ struct riscv_info {
 	/* Called periodically (no guarantees about frequency), while there's
 	 * nothing else going on. */
 	int (*tick)(struct target *target);
-
+	/* ESPRESSIF */
 	int (*on_halt)(struct target *target);
 	/* Indicates that target was reset.*/
 	int (*on_reset)(struct target *target);
+	/****************/
 	/* Get this target as ready as possible to resume, without actually
 	 * resuming. */
 	int (*resume_prep)(struct target *target);
@@ -224,15 +238,18 @@ struct riscv_info {
 	int (*execute_debug_buffer)(struct target *target);
 	int (*invalidate_cached_debug_buffer)(struct target *target);
 	int (*dmi_write_u64_bits)(struct target *target);
-	void (*fill_dmi_write_u64)(struct target *target, char *buf, int a, uint64_t d);
-	void (*fill_dmi_read_u64)(struct target *target, char *buf, int a);
-	void (*fill_dmi_nop_u64)(struct target *target, char *buf);
+	void (*fill_dm_write_u64)(struct target *target, char *buf, int a, uint64_t d);
+	void (*fill_dm_read_u64)(struct target *target, char *buf, int a);
+	void (*fill_dm_nop_u64)(struct target *target, char *buf);
 
 	int (*authdata_read)(struct target *target, uint32_t *value, unsigned int index);
 	int (*authdata_write)(struct target *target, uint32_t value, unsigned int index);
 
 	int (*dmi_read)(struct target *target, uint32_t *value, uint32_t address);
 	int (*dmi_write)(struct target *target, uint32_t address, uint32_t value);
+
+	int (*dm_read)(struct target *target, uint32_t *value, uint32_t address);
+	int (*dm_write)(struct target *target, uint32_t address, uint32_t value);
 
 	int (*sample_memory)(struct target *target,
 						 struct riscv_sample_buf *buf,
@@ -297,6 +314,14 @@ struct riscv_info {
 	yes_no_maybe_t vsew64_supported;
 
 	bool range_trigger_fallback_encountered;
+
+	bool riscv_ebreakm;
+	bool riscv_ebreaks;
+	bool riscv_ebreaku;
+
+	bool enable_equality_match_trigger;
+	bool enable_napot_trigger;
+	bool enable_ge_lt_trigger;
 };
 
 COMMAND_HELPER(riscv_print_info_line, const char *section, const char *key,
@@ -328,9 +353,6 @@ extern int riscv_command_timeout_sec;
 extern int riscv_reset_timeout_sec;
 
 extern bool riscv_enable_virtual;
-extern bool riscv_ebreakm;
-extern bool riscv_ebreaks;
-extern bool riscv_ebreaku;
 
 /* Everything needs the RISC-V specific info structure, so here's a nice macro
  * that provides that. */
@@ -358,21 +380,13 @@ extern int bscan_tunnel_ir_width;
 
 extern const struct command_registration riscv_command_handlers[];
 
-uint32_t dtmcontrol_scan_via_bscan(struct target *target, uint32_t out);
+int dtmcontrol_scan_via_bscan(struct target *target, uint32_t out, uint32_t *in_ptr);
 void select_dmi_via_bscan(struct target *target);
 
 /*** OpenOCD Interface */
 int riscv_openocd_poll(struct target *target);
 
 int riscv_halt(struct target *target);
-
-int riscv_resume(
-		struct target *target,
-		int current,
-		target_addr_t address,
-		int handle_breakpoints,
-		int debug_execution,
-		bool single_hart);
 
 int riscv_openocd_step(
 	struct target *target,
@@ -381,18 +395,12 @@ int riscv_openocd_step(
 	int handle_breakpoints
 );
 
-int riscv_openocd_assert_reset(struct target *target);
-int riscv_openocd_deassert_reset(struct target *target);
-
 /*** RISC-V Interface ***/
-
-void riscv_info_init(struct target *target, struct riscv_info *r);
 
 bool riscv_supports_extension(struct target *target, char letter);
 
 /* Returns XLEN for the given (or current) hart. */
 unsigned riscv_xlen(const struct target *target);
-int riscv_xlen_of_hart(const struct target *target);
 
 /*** Support functions for the RISC-V 'RTOS', which provides multihart support
  * without requiring multiple targets.  */
@@ -432,9 +440,9 @@ riscv_insn_t riscv_read_debug_buffer(struct target *target, int index);
 int riscv_write_debug_buffer(struct target *target, int index, riscv_insn_t insn);
 int riscv_execute_debug_buffer(struct target *target);
 
-void riscv_fill_dmi_nop_u64(struct target *target, char *buf);
-void riscv_fill_dmi_write_u64(struct target *target, char *buf, int a, uint64_t d);
-void riscv_fill_dmi_read_u64(struct target *target, char *buf, int a);
+void riscv_fill_dm_nop_u64(struct target *target, char *buf);
+void riscv_fill_dm_write_u64(struct target *target, char *buf, int a, uint64_t d);
+void riscv_fill_dm_read_u64(struct target *target, char *buf, int a);
 int riscv_dmi_write_u64_bits(struct target *target);
 
 int riscv_enumerate_triggers(struct target *target);
@@ -455,15 +463,24 @@ int riscv_get_gdb_reg_list(struct target *target,
 		enum target_register_class reg_class);
 int riscv_arch_state(struct target *target);
 const char *riscv_get_gdb_arch(struct target *target);
+void riscv_info_init(struct target *target, struct riscv_info *r);
 
 int riscv_add_breakpoint(struct target *target, struct breakpoint *breakpoint);
 int riscv_remove_breakpoint(struct target *target, struct breakpoint *breakpoint);
-int riscv_add_watchpoint(struct target *target, struct watchpoint *watchpoint);
-int riscv_remove_watchpoint(struct target *target,
-		struct watchpoint *watchpoint);
 int riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint);
 
 unsigned int riscv_xlen_nonconst(struct target *target);
+int riscv_resume(struct target *target,
+	int current,
+	target_addr_t address,
+	int handle_breakpoints,
+	int debug_execution,
+	bool single_hart);
+/************/
+
+int riscv_add_watchpoint(struct target *target, struct watchpoint *watchpoint);
+int riscv_remove_watchpoint(struct target *target,
+		struct watchpoint *watchpoint);
 
 int riscv_init_registers(struct target *target);
 

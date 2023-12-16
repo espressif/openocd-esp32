@@ -7,9 +7,7 @@
 #include "batch.h"
 #include "debug_defines.h"
 #include "riscv.h"
-
-#define get_field(reg, mask) (((reg) & (mask)) / ((mask) & ~((mask) << 1)))
-#define set_field(reg, mask, val) (((reg) & ~(mask)) | (((val) * ((mask) & ~((mask) << 1))) & (mask)))
+#include "field_helpers.h"
 
 #define DTM_DMI_MAX_ADDRESS_LENGTH	((1<<DTM_DTMCS_ABITS_LENGTH)-1)
 #define DMI_SCAN_MAX_BIT_LENGTH (DTM_DMI_MAX_ADDRESS_LENGTH + DTM_DMI_DATA_LENGTH + DTM_DMI_OP_LENGTH)
@@ -127,17 +125,17 @@ int riscv_batch_run(struct riscv_batch *batch)
 	return ERROR_OK;
 }
 
-void riscv_batch_add_dmi_write(struct riscv_batch *batch, unsigned int address, uint64_t data,
+void riscv_batch_add_dm_write(struct riscv_batch *batch, unsigned int address, uint64_t data,
 	bool read_back)
 {
 	assert(batch->used_scans < batch->allocated_scans);
 	struct scan_field *field = batch->fields + batch->used_scans;
 	field->num_bits = riscv_dmi_write_u64_bits(batch->target);
 	field->out_value = (void *)(batch->data_out + batch->used_scans * DMI_SCAN_BUF_SIZE);
-	riscv_fill_dmi_write_u64(batch->target, (char *)field->out_value, address, data);
+	riscv_fill_dm_write_u64(batch->target, (char *)field->out_value, address, data);
 	if (read_back) {
 		field->in_value = (void *)(batch->data_in + batch->used_scans * DMI_SCAN_BUF_SIZE);
-		riscv_fill_dmi_nop_u64(batch->target, (char *)field->in_value);
+		riscv_fill_dm_nop_u64(batch->target, (char *)field->in_value);
 	} else {
 		field->in_value = NULL;
 	}
@@ -145,15 +143,15 @@ void riscv_batch_add_dmi_write(struct riscv_batch *batch, unsigned int address, 
 	batch->used_scans++;
 }
 
-size_t riscv_batch_add_dmi_read(struct riscv_batch *batch, unsigned address)
+size_t riscv_batch_add_dm_read(struct riscv_batch *batch, unsigned int address)
 {
 	assert(batch->used_scans < batch->allocated_scans);
 	struct scan_field *field = batch->fields + batch->used_scans;
 	field->num_bits = riscv_dmi_write_u64_bits(batch->target);
 	field->out_value = (void *)(batch->data_out + batch->used_scans * DMI_SCAN_BUF_SIZE);
 	field->in_value  = (void *)(batch->data_in  + batch->used_scans * DMI_SCAN_BUF_SIZE);
-	riscv_fill_dmi_read_u64(batch->target, (char *)field->out_value, address);
-	riscv_fill_dmi_nop_u64(batch->target, (char *)field->in_value);
+	riscv_fill_dm_read_u64(batch->target, (char *)field->out_value, address);
+	riscv_fill_dm_nop_u64(batch->target, (char *)field->in_value);
 	batch->last_scan = RISCV_SCAN_TYPE_READ;
 	batch->used_scans++;
 
@@ -188,8 +186,8 @@ void riscv_batch_add_nop(struct riscv_batch *batch)
 	field->num_bits = riscv_dmi_write_u64_bits(batch->target);
 	field->out_value = (void *)(batch->data_out + batch->used_scans * DMI_SCAN_BUF_SIZE);
 	field->in_value  = (void *)(batch->data_in  + batch->used_scans * DMI_SCAN_BUF_SIZE);
-	riscv_fill_dmi_nop_u64(batch->target, (char *)field->out_value);
-	riscv_fill_dmi_nop_u64(batch->target, (char *)field->in_value);
+	riscv_fill_dm_nop_u64(batch->target, (char *)field->out_value);
+	riscv_fill_dm_nop_u64(batch->target, (char *)field->in_value);
 	batch->last_scan = RISCV_SCAN_TYPE_NOP;
 	batch->used_scans++;
 }
@@ -199,7 +197,7 @@ static void dump_field(int idle, const struct scan_field *field)
 	static const char * const op_string[] = {"-", "r", "w", "?"};
 	static const char * const status_string[] = {"+", "?", "F", "b"};
 
-	if (debug_level < LOG_LVL_DEBUG_IO)
+	if (debug_level < LOG_LVL_DEBUG_IO) /* ESPRESSIF */
 		return;
 
 	assert(field->out_value);
@@ -215,13 +213,13 @@ static void dump_field(int idle, const struct scan_field *field)
 		unsigned int in_address = in >> DTM_DMI_ADDRESS_OFFSET;
 
 		log_printf_lf(LOG_LVL_DEBUG,
-				__FILE__, __LINE__, __PRETTY_FUNCTION__,
+				__FILE__, __LINE__, __func__,
 				"%db %s %08x @%02x -> %s %08x @%02x; %di",
 				field->num_bits, op_string[out_op], out_data, out_address,
 				status_string[in_op], in_data, in_address, idle);
 	} else {
 		log_printf_lf(LOG_LVL_DEBUG,
-				__FILE__, __LINE__, __PRETTY_FUNCTION__, "%db %s %08x @%02x -> ?; %di",
+				__FILE__, __LINE__, __func__, "%db %s %08x @%02x -> ?; %di",
 				field->num_bits, op_string[out_op], out_data, out_address, idle);
 	}
 }
@@ -229,4 +227,14 @@ static void dump_field(int idle, const struct scan_field *field)
 size_t riscv_batch_available_scans(struct riscv_batch *batch)
 {
 	return batch->allocated_scans - batch->used_scans - 4;
+}
+
+bool riscv_batch_dmi_busy_encountered(const struct riscv_batch *batch)
+{
+	if (!batch->used_scans)
+		return false;
+	assert(batch->last_scan == RISCV_SCAN_TYPE_NOP);
+	const struct scan_field *field = batch->fields + batch->used_scans - 1;
+	const uint64_t in = buf_get_u64(field->in_value, 0, field->num_bits);
+	return get_field(in, DTM_DMI_OP) == DTM_DMI_OP_BUSY;
 }

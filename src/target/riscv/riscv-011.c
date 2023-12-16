@@ -24,6 +24,7 @@
 #include "riscv.h"
 #include "asm.h"
 #include "gdb_regs.h"
+#include "field_helpers.h"
 
 /**
  * Since almost everything can be accomplish by scanning the dbus register, all
@@ -68,9 +69,6 @@
  */
 
 static int handle_halt(struct target *target, bool announce);
-
-#define get_field(reg, mask) (((reg) & (mask)) / ((mask) & ~((mask) << 1)))
-#define set_field(reg, mask, val) (((reg) & ~(mask)) | (((val) * ((mask) & ~((mask) << 1))) & (mask)))
 
 /* Constants for legacy SiFive hardware breakpoints. */
 #define CSR_BPCONTROL_X			(1<<0)
@@ -273,7 +271,7 @@ static uint16_t dram_address(unsigned int index)
 		return 0x40 + index - 0x10;
 }
 
-static uint32_t dtmcontrol_scan(struct target *target, uint32_t out)
+static int dtmcontrol_scan(struct target *target, uint32_t out, uint32_t *in_ptr)
 {
 	struct scan_field field;
 	uint8_t in_value[4];
@@ -300,7 +298,9 @@ static uint32_t dtmcontrol_scan(struct target *target, uint32_t out)
 	uint32_t in = buf_get_u32(field.in_value, 0, 32);
 	LOG_DEBUG("DTMCONTROL: 0x%x -> 0x%x", out, in);
 
-	return in;
+	if (in_ptr)
+		*in_ptr = in;
+	return ERROR_OK;
 }
 
 static uint32_t idcode_scan(struct target *target)
@@ -338,7 +338,7 @@ static void increase_dbus_busy_delay(struct target *target)
 			info->dtmcontrol_idle, info->dbus_busy_delay,
 			info->interrupt_high_delay);
 
-	dtmcontrol_scan(target, DTMCONTROL_DBUS_RESET);
+	dtmcontrol_scan(target, DTMCONTROL_DBUS_RESET, NULL /* discard value */);
 }
 
 static void increase_interrupt_high_delay(struct target *target)
@@ -1043,7 +1043,7 @@ static int read_remote_csr(struct target *target, uint64_t *value, uint32_t csr)
 	uint32_t exception = cache_get32(target, info->dramsize-1);
 	if (exception) {
 		LOG_WARNING("Got exception 0x%x when reading %s", exception,
-				gdb_regno_name(GDB_REGNO_CSR0 + csr));
+				gdb_regno_name(target, GDB_REGNO_CSR0 + csr));
 		*value = ~0;
 		return ERROR_FAIL;
 	}
@@ -1104,6 +1104,7 @@ static int maybe_write_tselect(struct target *target)
 
 static int execute_resume(struct target *target, bool step)
 {
+	RISCV_INFO(r);
 	riscv011_info_t *info = get_info(target);
 
 	LOG_DEBUG("step=%d", step);
@@ -1135,9 +1136,9 @@ static int execute_resume(struct target *target, bool step)
 		}
 	}
 
-	info->dcsr = set_field(info->dcsr, DCSR_EBREAKM, riscv_ebreakm);
-	info->dcsr = set_field(info->dcsr, DCSR_EBREAKS, riscv_ebreaks);
-	info->dcsr = set_field(info->dcsr, DCSR_EBREAKU, riscv_ebreaku);
+	info->dcsr = set_field(info->dcsr, DCSR_EBREAKM, r->riscv_ebreakm);
+	info->dcsr = set_field(info->dcsr, DCSR_EBREAKS, r->riscv_ebreaks);
+	info->dcsr = set_field(info->dcsr, DCSR_EBREAKU, r->riscv_ebreaku);
 	info->dcsr = set_field(info->dcsr, DCSR_EBREAKH, 1);
 	info->dcsr &= ~DCSR_HALT;
 
@@ -1244,7 +1245,7 @@ static int register_read(struct target *target, riscv_reg_t *value, int regnum)
 
 	uint32_t exception = cache_get32(target, info->dramsize-1);
 	if (exception) {
-		LOG_WARNING("Got exception 0x%x when reading %s", exception, gdb_regno_name(regnum));
+		LOG_WARNING("Got exception 0x%x when reading %s", exception, gdb_regno_name(target, regnum));
 		*value = ~0;
 		return ERROR_FAIL;
 	}
@@ -1319,7 +1320,7 @@ static int register_write(struct target *target, unsigned int number,
 	uint32_t exception = cache_get32(target, info->dramsize-1);
 	if (exception) {
 		LOG_WARNING("Got exception 0x%x when writing %s", exception,
-				gdb_regno_name(number));
+				gdb_regno_name(target, number));
 		return ERROR_FAIL;
 	}
 
@@ -1458,19 +1459,20 @@ static int step(struct target *target, int current, target_addr_t address,
 static int examine(struct target *target)
 {
 	/* Don't need to select dbus, since the first thing we do is read dtmcontrol. */
-
-	uint32_t dtmcontrol = dtmcontrol_scan(target, 0);
-	LOG_DEBUG("dtmcontrol=0x%x", dtmcontrol);
-	LOG_DEBUG("  addrbits=%d", get_field(dtmcontrol, DTMCONTROL_ADDRBITS));
-	LOG_DEBUG("  version=%d", get_field(dtmcontrol, DTMCONTROL_VERSION));
-	LOG_DEBUG("  idle=%d", get_field(dtmcontrol, DTMCONTROL_IDLE));
-	if (dtmcontrol == 0) {
-		LOG_ERROR("dtmcontrol is 0. Check JTAG connectivity/board power.");
+	uint32_t dtmcontrol;
+	if (dtmcontrol_scan(target, 0, &dtmcontrol) != ERROR_OK || dtmcontrol == 0) {
+		LOG_ERROR("Could not scan dtmcontrol. Check JTAG connectivity/board power.");
 		return ERROR_FAIL;
 	}
+
+	LOG_DEBUG("dtmcontrol=0x%x", dtmcontrol);
+	LOG_DEBUG("  addrbits=%d", get_field32(dtmcontrol, DTMCONTROL_ADDRBITS));
+	LOG_DEBUG("  version=%d", get_field32(dtmcontrol, DTMCONTROL_VERSION));
+	LOG_DEBUG("  idle=%d", get_field32(dtmcontrol, DTMCONTROL_IDLE));
+
 	if (get_field(dtmcontrol, DTMCONTROL_VERSION) != 0) {
 		LOG_ERROR("Unsupported DTM version %d. (dtmcontrol=0x%x)",
-				get_field(dtmcontrol, DTMCONTROL_VERSION), dtmcontrol);
+				get_field32(dtmcontrol, DTMCONTROL_VERSION), dtmcontrol);
 		return ERROR_FAIL;
 	}
 
@@ -1488,22 +1490,22 @@ static int examine(struct target *target)
 
 	uint32_t dminfo = dbus_read(target, DMINFO);
 	LOG_DEBUG("dminfo: 0x%08x", dminfo);
-	LOG_DEBUG("  abussize=0x%x", get_field(dminfo, DMINFO_ABUSSIZE));
-	LOG_DEBUG("  serialcount=0x%x", get_field(dminfo, DMINFO_SERIALCOUNT));
-	LOG_DEBUG("  access128=%d", get_field(dminfo, DMINFO_ACCESS128));
-	LOG_DEBUG("  access64=%d", get_field(dminfo, DMINFO_ACCESS64));
-	LOG_DEBUG("  access32=%d", get_field(dminfo, DMINFO_ACCESS32));
-	LOG_DEBUG("  access16=%d", get_field(dminfo, DMINFO_ACCESS16));
-	LOG_DEBUG("  access8=%d", get_field(dminfo, DMINFO_ACCESS8));
-	LOG_DEBUG("  dramsize=0x%x", get_field(dminfo, DMINFO_DRAMSIZE));
-	LOG_DEBUG("  authenticated=0x%x", get_field(dminfo, DMINFO_AUTHENTICATED));
-	LOG_DEBUG("  authbusy=0x%x", get_field(dminfo, DMINFO_AUTHBUSY));
-	LOG_DEBUG("  authtype=0x%x", get_field(dminfo, DMINFO_AUTHTYPE));
-	LOG_DEBUG("  version=0x%x", get_field(dminfo, DMINFO_VERSION));
+	LOG_DEBUG("  abussize=0x%x", get_field32(dminfo, DMINFO_ABUSSIZE));
+	LOG_DEBUG("  serialcount=0x%x", get_field32(dminfo, DMINFO_SERIALCOUNT));
+	LOG_DEBUG("  access128=%d", get_field32(dminfo, DMINFO_ACCESS128));
+	LOG_DEBUG("  access64=%d", get_field32(dminfo, DMINFO_ACCESS64));
+	LOG_DEBUG("  access32=%d", get_field32(dminfo, DMINFO_ACCESS32));
+	LOG_DEBUG("  access16=%d", get_field32(dminfo, DMINFO_ACCESS16));
+	LOG_DEBUG("  access8=%d", get_field32(dminfo, DMINFO_ACCESS8));
+	LOG_DEBUG("  dramsize=0x%x", get_field32(dminfo, DMINFO_DRAMSIZE));
+	LOG_DEBUG("  authenticated=0x%x", get_field32(dminfo, DMINFO_AUTHENTICATED));
+	LOG_DEBUG("  authbusy=0x%x", get_field32(dminfo, DMINFO_AUTHBUSY));
+	LOG_DEBUG("  authtype=0x%x", get_field32(dminfo, DMINFO_AUTHTYPE));
+	LOG_DEBUG("  version=0x%x", get_field32(dminfo, DMINFO_VERSION));
 
 	if (get_field(dminfo, DMINFO_VERSION) != 1) {
 		LOG_ERROR("OpenOCD only supports Debug Module version 1, not %d "
-				"(dminfo=0x%x)", get_field(dminfo, DMINFO_VERSION), dminfo);
+				"(dminfo=0x%x)", get_field32(dminfo, DMINFO_VERSION), dminfo);
 		return ERROR_FAIL;
 	}
 
@@ -1936,6 +1938,7 @@ static int riscv011_resume(struct target *target, int current,
 
 static int assert_reset(struct target *target)
 {
+	RISCV_INFO(r);
 	riscv011_info_t *info = get_info(target);
 	/* TODO: Maybe what I implemented here is more like soft_reset_halt()? */
 
@@ -1949,9 +1952,9 @@ static int assert_reset(struct target *target)
 
 	/* Not sure what we should do when there are multiple cores.
 	 * Here just reset the single hart we're talking to. */
-	info->dcsr = set_field(info->dcsr, DCSR_EBREAKM, riscv_ebreakm);
-	info->dcsr = set_field(info->dcsr, DCSR_EBREAKS, riscv_ebreaks);
-	info->dcsr = set_field(info->dcsr, DCSR_EBREAKU, riscv_ebreaku);
+	info->dcsr = set_field(info->dcsr, DCSR_EBREAKM, r->riscv_ebreakm);
+	info->dcsr = set_field(info->dcsr, DCSR_EBREAKS, r->riscv_ebreaks);
+	info->dcsr = set_field(info->dcsr, DCSR_EBREAKU, r->riscv_ebreaku);
 	info->dcsr = set_field(info->dcsr, DCSR_EBREAKH, 1);
 	info->dcsr |= DCSR_HALT;
 	if (target->reset_halt)
