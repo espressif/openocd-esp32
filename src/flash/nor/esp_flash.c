@@ -677,7 +677,7 @@ static int esp_algo_flash_apptrace_info_restore(struct target *target,
 	struct esp_flash_bank *esp_info,
 	target_addr_t old_addr)
 {
-	if (esp_info->apptrace_hw->info_init)
+	if (esp_info->apptrace_hw->info_init && old_addr > 0)
 		return esp_info->apptrace_hw->info_init(target, old_addr, NULL);
 	return ERROR_OK;
 }

@@ -67,21 +67,25 @@ int esp_riscv_apptrace_info_init(struct target *target, target_addr_t ctrl_addr,
 		return res;
 	}
 
-	for (int i = 0; i < 2; i++) {
-		LOG_DEBUG("memory block %d start @ 0x%x!", i, mem_cfg_addr);
-		res = target_read_u32(target, mem_cfg_addr, &esp_riscv->apptrace.mem_blocks[i].start);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to read memory blocks config @ 0x%x!", mem_cfg_addr);
-			return res;
+	/* We may read mem_cfg_addr as zero, when target algorithm code is not running yet.
+	   For some targets (e.g. esp32p4), reading invalid address will be an error */
+	if (mem_cfg_addr > 0) {
+		for (int i = 0; i < 2; i++) {
+			LOG_DEBUG("memory block %d start @ 0x%x!", i, mem_cfg_addr);
+			res = target_read_u32(target, mem_cfg_addr, &esp_riscv->apptrace.mem_blocks[i].start);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to read memory blocks config @ 0x%x!", mem_cfg_addr);
+				return res;
+			}
+			mem_cfg_addr += sizeof(uint32_t);
+			LOG_DEBUG("memory block %d size @ 0x%x!", i, mem_cfg_addr);
+			res = target_read_u32(target, mem_cfg_addr, &esp_riscv->apptrace.mem_blocks[i].sz);
+			if (res != ERROR_OK) {
+				LOG_ERROR("Failed to read memory blocks config @ 0x%x!", mem_cfg_addr);
+				return res;
+			}
+			mem_cfg_addr += sizeof(uint32_t);
 		}
-		mem_cfg_addr += sizeof(uint32_t);
-		LOG_DEBUG("memory block %d size @ 0x%x!", i, mem_cfg_addr);
-		res = target_read_u32(target, mem_cfg_addr, &esp_riscv->apptrace.mem_blocks[i].sz);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to read memory blocks config @ 0x%x!", mem_cfg_addr);
-			return res;
-		}
-		mem_cfg_addr += sizeof(uint32_t);
 	}
 
 	/* TODO: add checks for memory blocks ranges */
@@ -179,8 +183,7 @@ static int esp_riscv_apptrace_buffs_write(struct target *target, uint32_t bufs_n
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 
 	LOG_DEBUG("Block ID %d block @ 0x%x", block_id, esp_riscv->apptrace.mem_blocks[blk_idx].start);
-	for (uint32_t i = 0, curr_addr = esp_riscv->apptrace.mem_blocks[blk_idx].start;
-		i < bufs_num; i++) {
+	for (uint32_t i = 0, curr_addr = esp_riscv->apptrace.mem_blocks[blk_idx].start; i < bufs_num; i++) {
 		res = target_write_buffer(target, curr_addr, buf_sz[i], bufs[i]);
 		if (res != ERROR_OK)
 			return res;
