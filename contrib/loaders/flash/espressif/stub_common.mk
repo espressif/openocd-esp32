@@ -77,7 +77,11 @@ INCLUDES += -I. -I$(STUB_COMMON_PATH) -I$(STUB_CHIP_PATH) -I$(STUB_CHIP_ARCH_PAT
 		-I$(IDF_PATH)/components/esp_system/port/include/private \
 		-I$(IDF_PATH)/components/app_trace/include \
 		-I$(IDF_PATH)/components/app_trace/private_include \
-		-I$(IDF_PATH)/components/app_trace/port/include
+		-I$(IDF_PATH)/components/app_trace/port/include \
+		-I$(IDF_PATH)/components/freertos/config/include \
+		-I$(IDF_PATH)/components/freertos/config/include/freertos \
+		-I$(IDF_PATH)/components/freertos/config/$(STUB_ARCH)/include \
+		-I$(IDF_PATH)/components/freertos/FreeRTOS-Kernel/portable/$(STUB_ARCH)/include/freertos
 
 DEFINES += -Dasm=__asm__
 
