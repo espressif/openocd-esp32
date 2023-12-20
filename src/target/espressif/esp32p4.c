@@ -32,6 +32,33 @@
 #define ESP32P4_LP_CLKRST_RESET_CAUSE_MASK      (BIT(6) - 1) /* 0x3F */
 #define ESP32P4_RESET_CAUSE(reg_val)            ((reg_val) & ESP32P4_LP_CLKRST_RESET_CAUSE_MASK)
 
+/* cache */
+#define ESP32P4_CACHE_BASE                      (0x3FF00000 + 0x10000)
+#define ESP32P4_CACHE_SYNC_CTRL_REG             (ESP32P4_CACHE_BASE + 0x98)
+#define ESP32P4_CACHE_SYNC_MAP_REG              (ESP32P4_CACHE_BASE + 0x9C)
+#define ESP32P4_CACHE_SYNC_ADDR_REG             (ESP32P4_CACHE_BASE + 0xA0)
+#define ESP32P4_CACHE_SYNC_SIZE_REG             (ESP32P4_CACHE_BASE + 0xA4)
+
+#define ESP32P4_CACHE_MAP_L1_ICACHE0            BIT(0)
+#define ESP32P4_CACHE_MAP_L1_ICACHE1            BIT(1)
+#define ESP32P4_CACHE_MAP_L1_DCACHE             BIT(4)
+#define ESP32P4_CACHE_MAP_L2_CACHE              BIT(5)
+#define ESP32P4_CACHE_SYNC_INVALIDATE           BIT(0)
+#define ESP32P4_CACHE_SYNC_WRITEBACK            BIT(2)
+
+#define ESP32P4_IRAM0_CACHEABLE_ADDRESS_LOW     0x4ff00000U
+#define ESP32P4_IRAM0_CACHEABLE_ADDRESS_HIGH    0x4ffc0000U
+#define ESP32P4_NON_CACHEABLE_OFFSET            0x40000000U
+#define ESP32P4_NON_CACHEABLE_ADDR(addr)        ((addr) + ESP32P4_NON_CACHEABLE_OFFSET)
+#define ESP32P4_IRAM0_NON_CACHEABLE_ADDRESS_LOW     ESP32P4_NON_CACHEABLE_ADDR(ESP32P4_IRAM0_CACHEABLE_ADDRESS_LOW)
+#define ESP32P4_IRAM0_NON_CACHEABLE_ADDRESS_HIGH    ESP32P4_NON_CACHEABLE_ADDR(ESP32P4_IRAM0_CACHEABLE_ADDRESS_HIGH)
+
+#define ESP32P4_ADDRESS_IS_CACHEABLE(addr)      ((addr) >= ESP32P4_IRAM0_CACHEABLE_ADDRESS_LOW && \
+	(addr) < ESP32P4_IRAM0_CACHEABLE_ADDRESS_HIGH)
+#define ESP32P4_ADDRESS_IS_NONCACHEABLE(addr)      ((addr) >= (ESP32P4_IRAM0_NON_CACHEABLE_ADDRESS_LOW) && \
+	(addr) < (ESP32P4_IRAM0_NON_CACHEABLE_ADDRESS_HIGH))
+#define ESP32P4_ADDRESS_IS_L2MEM(addr) (ESP32P4_ADDRESS_IS_NONCACHEABLE(addr) || ESP32P4_ADDRESS_IS_CACHEABLE(addr))
+
 /* max supported hw breakpoint and watchpoint count */
 #define ESP32P4_BP_NUM                          3
 #define ESP32P4_WP_NUM                          3
@@ -177,6 +204,66 @@ static int esp32p4_init_target(struct command_context *cmd_ctx,
 	return ERROR_OK;
 }
 
+static inline uint32_t esp32p4_make_non_cachable_addr(uint32_t address)
+{
+	return (address & ESP32P4_NON_CACHEABLE_OFFSET) ? (address + ESP32P4_NON_CACHEABLE_OFFSET) : address;
+}
+// We will call sync cache only at running state before/after accessing memory from sysbus.
+// Halted state will be handled by execute_fence() before/after accessing memory from progbuf.
+static int esp32p4_sync_cache(struct target *target, uint32_t op)
+{
+	int res;
+	uint8_t value_buf[4];
+
+	target_buffer_set_u32(target, value_buf, ESP32P4_CACHE_MAP_L1_DCACHE | ESP32P4_CACHE_MAP_L2_CACHE);
+	res = esp_riscv_write_memory(target, ESP32P4_CACHE_SYNC_MAP_REG, 4, 1, value_buf);
+	if (res != ERROR_OK)
+		return res;
+	target_buffer_set_u32(target, value_buf, 0);
+	res = esp_riscv_write_memory(target, ESP32P4_CACHE_SYNC_ADDR_REG, 4, 1, value_buf);
+	if (res != ERROR_OK)
+		return res;
+	res = esp_riscv_write_memory(target, ESP32P4_CACHE_SYNC_SIZE_REG, 4, 1, value_buf);
+	if (res != ERROR_OK)
+		return res;
+	target_buffer_set_u32(target, value_buf, op);
+	res = esp_riscv_write_memory(target, ESP32P4_CACHE_SYNC_CTRL_REG, 4, 1, value_buf);
+	return res;
+}
+
+static int esp32p4_read_memory(struct target *target, target_addr_t address,
+	uint32_t size, uint32_t count, uint8_t *buffer)
+{
+	if (target->state == TARGET_RUNNING && ESP32P4_ADDRESS_IS_L2MEM(address)) {
+		int res = esp32p4_sync_cache(target, ESP32P4_CACHE_SYNC_WRITEBACK);
+		if (res != ERROR_OK)
+			LOG_TARGET_WARNING(target, "Cache writeback failed! Read main memory anyway.");
+		address = esp32p4_make_non_cachable_addr(address);
+	}
+
+	return esp_riscv_read_memory(target, address, size, count, buffer);
+}
+
+static int esp32p4_write_memory(struct target *target, target_addr_t address,
+	uint32_t size, uint32_t count, const uint8_t *buffer)
+{
+	bool cache_invalidate = false;
+
+	if (target->state == TARGET_RUNNING && ESP32P4_ADDRESS_IS_L2MEM(address)) {
+		/* write to main memory and invalidate cache */
+		esp32p4_sync_cache(target, ESP32P4_CACHE_SYNC_WRITEBACK);
+		address = esp32p4_make_non_cachable_addr(address);
+		cache_invalidate = true;
+	}
+
+	int res = esp_riscv_write_memory(target, address, size, count, buffer);
+
+	if (cache_invalidate && esp32p4_sync_cache(target, ESP32P4_CACHE_SYNC_INVALIDATE) != ERROR_OK)
+		LOG_TARGET_WARNING(target, "Cache invalidate failed!");
+
+	return res;
+}
+
 static const struct command_registration esp32p4_command_handlers[] = {
 	{
 		.usage = "",
@@ -213,8 +300,8 @@ struct target_type esp32p4_target = {
 	.assert_reset = riscv_assert_reset,
 	.deassert_reset = riscv_deassert_reset,
 
-	.read_memory = esp_riscv_read_memory,
-	.write_memory = esp_riscv_write_memory,
+	.read_memory = esp32p4_read_memory,
+	.write_memory = esp32p4_write_memory,
 
 	.checksum_memory = riscv_checksum_memory,
 
