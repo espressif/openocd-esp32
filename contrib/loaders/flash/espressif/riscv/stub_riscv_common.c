@@ -51,12 +51,17 @@ void esp_apptrace_get_up_buffers(esp_apptrace_mem_block_t mem_blocks_cfg[2])
 	mem_blocks_cfg[0].sz = s_stack_data_pool_sz / 2;
 	mem_blocks_cfg[1].start = s_stack_data_pool + mem_blocks_cfg[0].sz;
 	mem_blocks_cfg[1].sz = mem_blocks_cfg[0].sz;
+
+	STUB_LOGD("Apptrace memory blocks: [0] %d bytes @ 0x%x, [1] %d bytes @ 0x%x\n",
+		mem_blocks_cfg[0].sz, mem_blocks_cfg[0].start,
+		mem_blocks_cfg[1].sz, mem_blocks_cfg[1].start);
 }
 #endif
 
 /* override apptrace control block advertising func, IDF's implementation issues syscall */
 int esp_apptrace_advertise_ctrl_block(void *ctrl_block_addr)
 {
+	STUB_LOGD("ctrl_block_addr %p\n", ctrl_block_addr);
 	s_apptrace_ctrl = ctrl_block_addr;
 
 	return ESP_STUB_ERR_OK;
