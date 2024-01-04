@@ -2105,6 +2105,8 @@ static int resume_go(struct target *target, int current,
 	int result;
 	if (!r->get_hart_state) {
 		struct target_type *tt = get_target_type(target);
+		if (!tt)
+			return ERROR_FAIL;
 		result = tt->resume(target, current, address, handle_breakpoints,
 				debug_execution);
 	} else {
