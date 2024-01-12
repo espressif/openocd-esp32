@@ -461,7 +461,7 @@ int riscv_get_gdb_reg_list(struct target *target,
 		struct reg **reg_list[], int *reg_list_size,
 		enum target_register_class reg_class);
 int riscv_arch_state(struct target *target);
-const char *riscv_get_gdb_arch(struct target *target);
+const char *riscv_get_gdb_arch(const struct target *target);
 void riscv_info_init(struct target *target, struct riscv_info *r);
 
 int riscv_add_breakpoint(struct target *target, struct breakpoint *breakpoint);
