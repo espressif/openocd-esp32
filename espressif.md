@@ -2,13 +2,13 @@
 
 ## OpenOCD Configuration Variables 
 
-Espressif specific functionality of OpenOCD can be controled using configuration variables which can be set on the command line via option `-c`:
+Espressif specific functionality of OpenOCD can be controlled using configuration variables which can be set on the command line via option `-c`:
 
 `openocd -c 'set ESP_RTOS none' -f board/esp32-wrover-kit-3.3v.cfg`
 
 ### Common Options
 
-The folowing configuration variables are common for all Espressif chips:
+The following configuration variables are common for all Espressif chips:
 * `ESP_RTOS` - the name of RTOS running on the target. Default is 'FreeRTOS'. To disable OS support (for bare metal system) use 'none'.
 * `ESP_FLASH_SIZE` - size of the chip's flash. Default is 'auto'. To disable flash functionality set to '0'.
 * `ESP_SEMIHOST_BASEDIR` - base dir for semihosting I/O. Default is OpenOCD's current working directory.
@@ -17,7 +17,7 @@ The folowing configuration variables are common for all Espressif chips:
 
 ### ESP32 Options
 
-The folowing configuration variables are common for ESP32 family chips:
+The following configuration variables are common for ESP32 family chips:
 * `ESP32_FLASH_VOLTAGE` - tell OpenOCD which SPI flash voltage is used by the board (3.3 or 1.8)
   The TDI pin of ESP32 is also a bootstrap pin that selects the voltage the SPI flash
   chip runs at. When a hard reset happens (e.g. because someone switches the board off

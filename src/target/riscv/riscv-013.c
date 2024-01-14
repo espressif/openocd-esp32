@@ -3837,7 +3837,7 @@ static int read_memory_progbuf_inner_extract_batch_data(struct target *target,
 
 /**
  * This function reads a batch of elements from memory.
- * Prior to calling this function the folowing conditions should be met:
+ * Prior to calling this function the following conditions should be met:
  * - Appropriate program loaded to program buffer.
  * - DM_ABSTRACTAUTO_AUTOEXECDATA is set.
  */
