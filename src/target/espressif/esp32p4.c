@@ -138,18 +138,30 @@ static const struct esp_flash_breakpoint_ops esp32p4_flash_brp_ops = {
 	.breakpoint_remove = esp_algo_flash_breakpoint_remove
 };
 
-/* TODO: update this table for the P4 */
 static const char *esp32p4_existent_regs[] = {
 	"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "t3", "t4", "t5", "t6",
-	"fp", "pc", "mstatus", "misa", "mtvec", "mscratch", "mepc", "mcause", "mtval", "priv",
+	"fp", "pc", "mstatus", "misa", "mie", "mtvec", "mscratch", "mepc", "mcause", "mtval",
+	"mip", "mtvt", "mnxti", "mintstatus",
+	"mscratchcsw", "mscratchcswl", "mcycle", "minstret", "mcounteren", "mcountinhibit",
+	"mhpmcounter8", "mhpmcounter9", "mhpmcounter13", "mhpmevent8", "mhpmevent9", "mhpmevent13",
+	"mcycleh", "minstreth", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
 	"s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11",
 	"a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7",
 	"pmpcfg0", "pmpcfg1", "pmpcfg2", "pmpcfg3",
 	"pmpaddr0", "pmpaddr1", "pmpaddr2", "pmpaddr3", "pmpaddr4", "pmpaddr5", "pmpaddr6", "pmpaddr7",
 	"pmpaddr8", "pmpaddr9", "pmpaddr10", "pmpaddr11", "pmpaddr12", "pmpaddr13", "pmpaddr14", "pmpaddr15",
-	"tselect", "tdata1", "tdata2", "tcontrol", "dcsr", "dpc", "dscratch0", "dscratch1",
+	"tselect", "tdata1", "tdata2", "tdata3", "tcontrol", "tinfo", "mcontext",
+	"dcsr", "dpc", "dscratch0", "dscratch1",
 	/* custom exposed CSRs will start with 'csr_' prefix*/
-	/* TODO */
+	"csr_mclicbase", "csr_mxstatus", "csr_mhcr", "csr_mhint", "csr_mraddr", "csr_mexstatus",
+	"csr_mnmicause", "csr_mnmipc", "csr_mcpuid", "csr_cpu_testbus_ctrl", "csr_pm_user",
+	"csr_gpio_oen_user", "csr_gpio_in_user", "csr_gpio_out_user",
+	"csr_pma_cfg0", "csr_pma_cfg1", "csr_pma_cfg2", "csr_pma_cfg3", "csr_pma_cfg4", "csr_pma_cfg5",
+	"csr_pma_cfg6", "csr_pma_cfg7", "csr_pma_cfg8", "csr_pma_cfg9", "csr_pma_cfg10", "csr_pma_cfg11",
+	"csr_pma_cfg12", "csr_pma_cfg13", "csr_pma_cfg14", "csr_pma_cfg15", "csr_pma_addr0", "csr_pma_addr1",
+	"csr_pma_addr2", "csr_pma_addr3", "csr_pma_addr4", "csr_pma_addr5", "csr_pma_addr6", "csr_pma_addr7",
+	"csr_pma_addr8", "csr_pma_addr9", "csr_pma_addr10", "csr_pma_addr11", "csr_pma_addr12", "csr_pma_addr13",
+	"csr_pma_addr14", "csr_pma_addr15",
 };
 
 static int esp32p4_target_create(struct target *target, Jim_Interp *interp)
