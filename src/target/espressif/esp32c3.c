@@ -62,9 +62,9 @@ enum esp32c3_reset_reason {
 	ESP32C3_CORE_PWR_GLITCH_RESET    = 0x17,	/* Glitch on power resets the digital core */
 };
 
-static const char *esp32c3_get_reset_reason(int reset_number)
+static const char *esp32c3_get_reset_reason(uint32_t reset_reason_reg_val)
 {
-	switch (ESP32C3_RESET_CAUSE(reset_number)) {
+	switch (ESP32C3_RESET_CAUSE(reset_reason_reg_val)) {
 	case ESP32C3_CHIP_POWER_ON_RESET:
 		/* case ESP32C3_CHIP_BROWN_OUT_RESET:
 		 * case ESP32C3_CHIP_SUPER_WDT_RESET: */
@@ -104,7 +104,15 @@ static const char *esp32c3_get_reset_reason(int reset_number)
 	case ESP32C3_CORE_PWR_GLITCH_RESET:
 		return "Power glitch core reset";
 	}
+
 	return "Unknown reset cause";
+}
+
+static void esp32c3_print_reset_reason(struct target *target, uint32_t reset_reason_reg_val)
+{
+	LOG_TARGET_INFO(target, "Reset cause (%ld) - (%s)",
+		ESP32C3_RESET_CAUSE(reset_reason_reg_val),
+		esp32c3_get_reset_reason(reset_reason_reg_val));
 }
 
 static const struct esp_semihost_ops esp32c3_semihost_ops = {
@@ -146,8 +154,7 @@ static int esp32c3_target_create(struct target *target, Jim_Interp *interp)
 
 	esp_riscv->gpio_strap_reg = ESP32C3_GPIO_STRAP_REG;
 	esp_riscv->rtccntl_reset_state_reg = ESP32C3_RTCCNTL_RESET_STATE_REG;
-	esp_riscv->reset_cause_mask = ESP32C3_RTCCNTL_RESET_CAUSE_MASK;
-	esp_riscv->get_reset_reason = &esp32c3_get_reset_reason;
+	esp_riscv->print_reset_reason = &esp32c3_print_reset_reason;
 	esp_riscv->is_flash_boot = &esp_is_flash_boot;
 	esp_riscv->existent_regs = esp32c3_existent_regs;
 	esp_riscv->existent_regs_size = ARRAY_SIZE(esp32c3_existent_regs);

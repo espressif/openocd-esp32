@@ -33,8 +33,7 @@ struct esp_riscv_common {
 	uint32_t assist_debug_cpu_offset;   /* address offset to register of next cpu id */
 	target_addr_t gpio_strap_reg;		/* to read flash boot moode */
 	target_addr_t rtccntl_reset_state_reg;	/* to read reset cause */
-	unsigned long reset_cause_mask;
-	const char *(*get_reset_reason)(int reset_number);
+	void (*print_reset_reason)(struct target *target, uint32_t reset_reason_reg_val);
 	bool (*is_flash_boot)(uint32_t strap_reg);
 	bool was_reset;
 	const char **existent_regs;

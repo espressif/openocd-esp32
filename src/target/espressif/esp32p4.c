@@ -22,15 +22,17 @@
 #include "esp_riscv.h"
 
 /* boot mode */
-#define ESP32P4_GPIO_BASE						(0x500C0000 + 0x20000)
+#define ESP32P4_GPIO_BASE                       (0x500C0000 + 0x20000)
 #define ESP32P4_GPIO_STRAP_REG_OFF              0x0038
 #define ESP32P4_GPIO_STRAP_REG                  (ESP32P4_GPIO_BASE + ESP32P4_GPIO_STRAP_REG_OFF)
 
 /* reset cause */
-#define ESP32P4_LP_AON_BASE						0x50110000
+#define ESP32P4_LP_AON_BASE                     0x50110000
 #define ESP32P4_LP_CLKRST_RESET_CAUSE_REG       (ESP32P4_LP_AON_BASE + 0x1000 + 0x10)
 #define ESP32P4_LP_CLKRST_RESET_CAUSE_MASK      (BIT(6) - 1) /* 0x3F */
-#define ESP32P4_RESET_CAUSE(reg_val)            ((reg_val) & ESP32P4_LP_CLKRST_RESET_CAUSE_MASK)
+#define ESP32P4_LP_CORE_RESET_CAUSE_SHIFT       0
+#define ESP32P4_HP_CORE_RESET_CAUSE_SHIFT       7
+#define ESP32P4_RESET_CAUSE(reg_val, shift)     ((reg_val >> shift) & ESP32P4_LP_CLKRST_RESET_CAUSE_MASK) /* HP0*/
 
 /* cache */
 #define ESP32P4_CACHE_BASE                      (0x3FF00000 + 0x10000)
@@ -73,6 +75,7 @@ enum esp32p4_reset_reason {
 	ESP32P4_CPU_PMU_PWR_DOWN_RESET = 0x06,	/* PMU HP power down CPU reset */
 	ESP32P4_SYS_HP_WDT_RESET      = 0x07,	/* HP WDT resets system */
 	ESP32P4_SYS_LP_WDT_RESET      = 0x09,	/* LP WDT resets system */
+	ESP32P4_SYS_LP_CPU_RESET      = 0x0A,	/* LP CPU reset */
 	ESP32P4_CORE_HP_WDT_RESET     = 0x0B,	/* HP WDT resets digital core */
 	ESP32P4_CPU0_SW_RESET         = 0x0C,	/* Software resets CPU 0 */
 	ESP32P4_CORE_LP_WDT_RESET     = 0x0D,	/* LP WDT resets digital core */
@@ -87,9 +90,9 @@ enum esp32p4_reset_reason {
 	ESP32P4_CPU_LOCKUP_RESET      = 0x1A,	/* Cpu lockup resets the chip */
 };
 
-static const char *esp32p4_get_reset_reason(int reset_number)
+static const char *esp32p4_get_reset_reason(uint32_t reset_reason_reg_val, int shift_val)
 {
-	switch (ESP32P4_RESET_CAUSE(reset_number)) {
+	switch (ESP32P4_RESET_CAUSE(reset_reason_reg_val, shift_val)) {
 	case ESP32P4_CHIP_POWER_ON_RESET:
 		return "Power on reset";
 	case ESP32P4_CORE_SW_RESET:
@@ -100,6 +103,8 @@ static const char *esp32p4_get_reset_reason(int reset_number)
 		return "HP WDT resets system";
 	case ESP32P4_SYS_LP_WDT_RESET:
 		return "LP WDT resets system";
+	case ESP32P4_SYS_LP_CPU_RESET:
+		return "PMU LP CPU reset";
 	case ESP32P4_CORE_HP_WDT_RESET:
 		return "HP WDT resets digital core";
 	case ESP32P4_CPU0_SW_RESET:
@@ -115,6 +120,9 @@ static const char *esp32p4_get_reset_reason(int reset_number)
 	case ESP32P4_SYS_CLK_GLITCH_RESET:
 		return "Glitch on clock reset";
 	case ESP32P4_CORE_EFUSE_CRC_RESET:
+	if (shift_val == ESP32P4_LP_CORE_RESET_CAUSE_SHIFT)
+		return "PMU LP CPU reset";
+	else
 		return "eFuse CRC error core reset";
 	case ESP32P4_CORE_USB_JTAG_RESET:
 		return "USB (JTAG) core reset";
@@ -126,6 +134,17 @@ static const char *esp32p4_get_reset_reason(int reset_number)
 		return "CPU Lockup reset";
 	}
 	return "Unknown reset cause";
+}
+
+static void esp32p4_print_reset_reason(struct target *target, uint32_t reset_reason_reg_val)
+{
+	LOG_INFO("[esp32p4.lp.cpu] Reset cause (%ld) - (%s)",
+		ESP32P4_RESET_CAUSE(reset_reason_reg_val, ESP32P4_LP_CORE_RESET_CAUSE_SHIFT),
+		esp32p4_get_reset_reason(reset_reason_reg_val, ESP32P4_LP_CORE_RESET_CAUSE_SHIFT));
+
+	LOG_INFO("[esp32p4.hp.cpu] Reset cause (%ld) - (%s)",
+		ESP32P4_RESET_CAUSE(reset_reason_reg_val, ESP32P4_HP_CORE_RESET_CAUSE_SHIFT),
+		esp32p4_get_reset_reason(reset_reason_reg_val, ESP32P4_HP_CORE_RESET_CAUSE_SHIFT));
 }
 
 static const struct esp_semihost_ops esp32p4_semihost_ops = {
@@ -180,8 +199,7 @@ static int esp32p4_target_create(struct target *target, Jim_Interp *interp)
 
 	esp_riscv->gpio_strap_reg = ESP32P4_GPIO_STRAP_REG;
 	esp_riscv->rtccntl_reset_state_reg = ESP32P4_LP_CLKRST_RESET_CAUSE_REG;
-	esp_riscv->reset_cause_mask = ESP32P4_LP_CLKRST_RESET_CAUSE_MASK;
-	esp_riscv->get_reset_reason = &esp32p4_get_reset_reason;
+	esp_riscv->print_reset_reason = &esp32p4_print_reset_reason;
 	esp_riscv->is_flash_boot = &esp_is_flash_boot;
 	esp_riscv->existent_regs = esp32p4_existent_regs;
 	esp_riscv->existent_regs_size = ARRAY_SIZE(esp32p4_existent_regs);
