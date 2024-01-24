@@ -228,15 +228,13 @@ int esp_riscv_poll(struct target *target)
 		if (res != ERROR_OK) {
 			LOG_TARGET_ERROR(target, "Failed to read DMSTATUS (%d)!", res);
 		} else {
-			if (esp_riscv->get_reset_reason) {
-				uint32_t reset_buffer = 0;
-				res = target_read_u32(target, esp_riscv->rtccntl_reset_state_reg, &reset_buffer);
-				if (res != ERROR_OK) {
+			if (esp_riscv->print_reset_reason) {
+				uint32_t reset_reason_reg_val = 0;
+				res = target_read_u32(target, esp_riscv->rtccntl_reset_state_reg, &reset_reason_reg_val);
+				if (res != ERROR_OK)
 					LOG_TARGET_WARNING(target, "Failed to read reset cause register (%d)!", res);
-				} else {
-					LOG_TARGET_INFO(target, "Reset cause (%ld) - (%s)", reset_buffer & esp_riscv->reset_cause_mask,
-						esp_riscv->get_reset_reason((reset_buffer)));
-				}
+				else
+					esp_riscv->print_reset_reason(target, reset_reason_reg_val);
 			}
 
 			uint32_t strap_reg = 0;

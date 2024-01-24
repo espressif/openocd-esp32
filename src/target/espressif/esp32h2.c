@@ -62,9 +62,9 @@ enum esp32h2_reset_reason {
 	ESP32H2_JTAG_CPU_RESET          = 0x18,	/* Jtag reset CPU*/
 };
 
-static const char *esp32h2_get_reset_reason(int reset_number)
+static const char *esp32h2_get_reset_reason(uint32_t reset_reason_reg_val)
 {
-	switch (ESP32H2_RESET_CAUSE(reset_number)) {
+	switch (ESP32H2_RESET_CAUSE(reset_reason_reg_val)) {
 	case ESP32H2_CHIP_POWER_ON_RESET:
 		/* case ESP32H2_CHIP_BROWN_OUT_RESET: */
 		return "Power on reset";
@@ -108,6 +108,13 @@ static const char *esp32h2_get_reset_reason(int reset_number)
 		return "JTAG CPU reset";
 	}
 	return "Unknown reset cause";
+}
+
+static void esp32h2_print_reset_reason(struct target *target, uint32_t reset_reason_reg_val)
+{
+	LOG_TARGET_INFO(target, "Reset cause (%ld) - (%s)",
+		ESP32H2_RESET_CAUSE(reset_reason_reg_val),
+		esp32h2_get_reset_reason(reset_reason_reg_val));
 }
 
 static const struct esp_semihost_ops esp32h2_semihost_ops = {
@@ -155,8 +162,7 @@ static int esp32h2_target_create(struct target *target, Jim_Interp *interp)
 
 	esp_riscv->gpio_strap_reg = ESP32H2_GPIO_STRAP_REG;
 	esp_riscv->rtccntl_reset_state_reg = ESP32H2_RTCCNTL_RESET_STATE_REG;
-	esp_riscv->reset_cause_mask = ESP32H2_RTCCNTL_RESET_CAUSE_MASK;
-	esp_riscv->get_reset_reason = &esp32h2_get_reset_reason;
+	esp_riscv->print_reset_reason = &esp32h2_print_reset_reason;
 	esp_riscv->is_flash_boot = &esp_is_flash_boot;
 	esp_riscv->existent_regs = esp32h2_existent_regs;
 	esp_riscv->existent_regs_size = ARRAY_SIZE(esp32h2_existent_regs);
