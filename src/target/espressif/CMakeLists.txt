@@ -41,5 +41,7 @@ target_sources(espressif PRIVATE
 if(IS_ESPIDF)
 	target_sources(espressif PRIVATE esp_ui_dispatcher.c)
 	target_include_directories(espressif PRIVATE ${PROJECT_SOURCE_DIR})
-	target_link_libraries(espressif PRIVATE idf::lvgl__lvgl)
+	if(CONFIG_UI_ENABLE)
+		target_link_libraries(espressif PRIVATE idf::lvgl__lvgl)
+	endif()
 endif()
