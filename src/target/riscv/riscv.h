@@ -321,6 +321,9 @@ struct riscv_info {
 	bool enable_equality_match_trigger;
 	bool enable_napot_trigger;
 	bool enable_ge_lt_trigger;
+
+	/* ESPRESSIF */
+	void (*trigger_match_result_fixup)(struct target *target, riscv_reg_t *tdata1_ignore_mask, bool t6);
 };
 
 COMMAND_HELPER(riscv_print_info_line, const char *section, const char *key,

@@ -193,6 +193,30 @@
             ]
         },
         {
+            "name": "ESP32-C6 chip with LP core (via builtin USB-JTAG)",
+            "description": "ESP32-C6 with LP core debugging via builtin USB-JTAG",
+            "target": "esp32c6",
+            "config_files": [
+                "board/esp32c6-lpcore-builtin.cfg"
+            ]
+        },
+        {
+            "name": "ESP32-C6 chip with LP core (via ESP-PROG)",
+            "description": "ESP32-C6 with LP core debugging via ESP-PROG board",
+            "target": "esp32c6",
+            "config_files": [
+                "board/esp32c6-lpcore-ftdi.cfg"
+            ]
+        },
+        {
+            "name": "ESP32-C6 chip with LP core (via ESP-PROG-2)",
+            "description": "ESP32-C6 with LP core debugging via ESP-PROG-2 board",
+            "target": "esp32c6",
+            "config_files": [
+                "board/esp32c6-lpcore-bridge.cfg"
+            ]
+        },
+        {
             "name": "ESP32-H2 chip (via builtin USB-JTAG)",
             "description": "ESP32-H2 debugging via builtin USB-JTAG",
             "target": "esp32h2",

@@ -965,6 +965,8 @@ static struct match_triggers_tdata1_fields fill_match_triggers_tdata1_fields_t2(
 		},
 		.tdata1_ignore_mask = CSR_MCONTROL_MASKMAX(riscv_xlen(target))
 	};
+	if (r->trigger_match_result_fixup)
+		r->trigger_match_result_fixup(target, &result.tdata1_ignore_mask, false);
 	return result;
 }
 
@@ -974,6 +976,7 @@ static struct match_triggers_tdata1_fields fill_match_triggers_tdata1_fields_t6(
 	bool misa_s = riscv_supports_extension(target, 'S');
 	bool misa_u = riscv_supports_extension(target, 'U');
 	bool misa_h = riscv_supports_extension(target, 'H');
+	RISCV_INFO(r);
 
 	struct match_triggers_tdata1_fields result = {
 		.common =
@@ -1003,6 +1006,8 @@ static struct match_triggers_tdata1_fields fill_match_triggers_tdata1_fields_t6(
 		},
 		.tdata1_ignore_mask = 0
 	};
+	if (r->trigger_match_result_fixup)
+		r->trigger_match_result_fixup(target, &result.tdata1_ignore_mask, true);
 	return result;
 }
 
@@ -1823,11 +1828,18 @@ static int set_debug_reason(struct target *target, enum riscv_halt_reason halt_r
 		case RISCV_HALT_TRIGGER:
 			if (riscv_hit_trigger_hit_bit(target, &r->trigger_hit) != ERROR_OK)
 				return ERROR_FAIL;
-			target->debug_reason = DBG_REASON_WATCHPOINT;
-			/* Check if we hit a hardware breakpoint. */
-			for (struct breakpoint *bp = target->breakpoints; bp; bp = bp->next) {
+			// riscv_hit_trigger_hit_bit() looks for fired trigger basing on mcontrol 'hit' bit.
+			// That bit is optional. GDB handles(steps over) BPs and watchpoints differently.
+			// ESPRESSIF: ESP32-C6 LP core does not implement this bit, we changed logic here
+			// and by default we assume that debug reason is DBG_REASON_BREAKPOINT
+			// instead of DBG_REASON_WATCHPOINT (as done in upstream).
+			// This should not change behaviour for the chips implementing mcontrol 'hit' bit,
+			// and fixes the problem with GDB behaviour for the chips which lacks support for it.
+			target->debug_reason = DBG_REASON_BREAKPOINT;
+			/* Check if we hit a hardware watchpoint. */
+			for (struct watchpoint *bp = target->watchpoints; bp; bp = bp->next) {
 				if (bp->unique_id == r->trigger_hit)
-					target->debug_reason = DBG_REASON_BREAKPOINT;
+					target->debug_reason = DBG_REASON_WATCHPOINT;
 			}
 			break;
 		case RISCV_HALT_INTERRUPT:

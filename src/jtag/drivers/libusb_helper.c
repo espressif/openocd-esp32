@@ -501,3 +501,23 @@ int oocd_libusb_dev_mem_free(libusb_device_handle *devh,
 	}
 	return ERROR_FAIL;
 }
+
+void libusb_list_devices(void)
+{
+	struct libusb_device **list;
+
+	int cnt = libusb_get_device_list(jtag_libusb_context, &list);
+
+	for (int idx = 0; idx < cnt; idx++) {
+		struct libusb_device *device = list[idx];
+		struct libusb_device_descriptor dev_desc;
+
+		int err = libusb_get_device_descriptor(device, &dev_desc);
+		if (err != LIBUSB_SUCCESS) {
+			LOG_ERROR("libusb_get_device_descriptor() failed with %s", libusb_error_name(err));
+			continue;
+		}
+		LOG_INFO("USB dev VID/PID %x/%x", dev_desc.idVendor, dev_desc.idProduct);
+	}
+	libusb_free_device_list(list, 1);
+}

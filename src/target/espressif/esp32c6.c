@@ -12,6 +12,7 @@
 #include <helper/command.h>
 #include <helper/bits.h>
 #include <target/target.h>
+#include <target/smp.h>
 #include <target/target_type.h>
 #include <target/register.h>
 #include <target/semihosting_common.h>
@@ -117,6 +118,17 @@ static bool esp32c6_is_idram_address(target_addr_t addr)
 	return addr >= ESP32C6_DRAM_LOW && addr < ESP32C6_DRAM_HIGH;
 }
 
+static void esp32c6_trigger_match_result_fixup(struct target *target, riscv_reg_t *tdata1_ignore_mask, bool t6)
+{
+	if (target->coreid == 1 && !t6) {
+		// For LP core DM reports that triggers support BP in user mode ("u" bit is set in mcontrol).
+		// After writing 0x28001044 to mcontrol 0x2800104c is read back. But LP core MISA register
+		// has no "U" extension enabled. So ignore this field, otherwise RISCV code will fail to find
+		// suitable HW trigger for breakpoint.
+		*tdata1_ignore_mask |= CSR_MCONTROL_U;
+	}
+}
+
 static const struct esp_semihost_ops esp32c6_semihost_ops = {
 	.prepare = NULL,
 	.post_reset = esp_semihosting_post_reset
@@ -187,7 +199,45 @@ static int esp32c6_init_target(struct command_context *cmd_ctx,
 	if (ret != ERROR_OK)
 		return ret;
 
+	esp_riscv->riscv.trigger_match_result_fixup = esp32c6_trigger_match_result_fixup;
+
 	return ERROR_OK;
+}
+
+static int esp32c6_read_memory(struct target *target, target_addr_t address,
+	uint32_t size, uint32_t count, uint8_t *buffer)
+{
+	struct target *hp_core_target = target;
+	// Only HP core can access whole memory
+	if (target->smp && target->coreid != 0) {
+		struct target_list *entry;
+		foreach_smp_target(entry, target->smp_targets) {
+			struct target *t = entry->target;
+			if (t->coreid == 0) {
+				hp_core_target = t;
+				break;
+			}
+		}
+	}
+	return esp_riscv_read_memory(hp_core_target, address, size, count, buffer);
+}
+
+static int esp32c6_write_memory(struct target *target, target_addr_t address,
+	uint32_t size, uint32_t count, const uint8_t *buffer)
+{
+	struct target *hp_core_target = target;
+	// Only HP core can access whole memory
+	if (target->smp && target->coreid != 0) {
+		struct target_list *entry;
+		foreach_smp_target(entry, target->smp_targets) {
+			struct target *t = entry->target;
+			if (t->coreid == 0) {
+				hp_core_target = t;
+				break;
+			}
+		}
+	}
+	return esp_riscv_write_memory(hp_core_target, address, size, count, buffer);
 }
 
 static const struct command_registration esp32c6_command_handlers[] = {
@@ -226,8 +276,8 @@ struct target_type esp32c6_target = {
 	.assert_reset = riscv_assert_reset,
 	.deassert_reset = riscv_deassert_reset,
 
-	.read_memory = esp_riscv_read_memory,
-	.write_memory = esp_riscv_write_memory,
+	.read_memory = esp32c6_read_memory,
+	.write_memory = esp32c6_write_memory,
 
 	.checksum_memory = riscv_checksum_memory,
 
