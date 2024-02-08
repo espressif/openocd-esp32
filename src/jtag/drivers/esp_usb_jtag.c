@@ -915,6 +915,14 @@ COMMAND_HANDLER(esp_usb_jtag_chip_id)
 	return ERROR_OK;
 }
 
+extern void libusb_list_devices(void);
+
+COMMAND_HANDLER(esp_usb_jtag_list)
+{
+	libusb_list_devices();
+	return ERROR_OK;
+}
+
 static const struct command_registration esp_usb_jtag_subcommands[] = {
 	{
 		.name = "tdo",
@@ -957,6 +965,13 @@ static const struct command_registration esp_usb_jtag_subcommands[] = {
 		.mode = COMMAND_CONFIG,
 		.help = "set chip_id to transfer to the bridge",
 		.usage = "chip_id",
+	},
+	{
+		.name = "list",
+		.handler = &esp_usb_jtag_list,
+		.mode = COMMAND_ANY,
+		.help = "list",
+		.usage = "list",
 	},
 	COMMAND_REGISTRATION_DONE
 };
