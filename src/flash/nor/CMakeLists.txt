@@ -24,6 +24,7 @@ target_sources(nor PRIVATE
 	dsp5680xx_flash.c
 	efm32.c
 	em357.c
+	eneispif.c
 	esp_flash.c
 	esp_xtensa.c
 	esp_riscv.c
