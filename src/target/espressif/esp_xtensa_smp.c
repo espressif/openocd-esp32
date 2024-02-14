@@ -908,7 +908,7 @@ COMMAND_HANDLER(esp_xtensa_smp_cmd_perfmon_dump)
 		struct target *curr;
 		foreach_smp_target(head, target->smp_targets) {
 			curr = head->target;
-			LOG_INFO("CPU%d:", curr->coreid);
+			command_print(CMD, "CPU%d:", curr->coreid);
 			int ret = CALL_COMMAND_HANDLER(xtensa_cmd_perfmon_dump_do,
 				target_to_xtensa(curr));
 			if (ret != ERROR_OK)
