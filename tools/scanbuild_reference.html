@@ -58,27 +58,27 @@ function ToggleDisplay(CheckButton, ClassName) {
 <h1>build-scanbuild - scan-build results</h1>
 
 <table>
-<tr><th>User:</th><td>root@runner-rsnunaef-project-67-concurrent-10</td></tr>
+<tr><th>User:</th><td>root@runner-ogj6uuyw-project-67-concurrent-0</td></tr>
 <tr><th>Working Directory:</th><td>/builds/idf/openocd-esp32/build-scanbuild</td></tr>
-<tr><th>Command Line:</th><td>make -j64 'CFLAGS=-std=gnu99 -I. -I../../jimtcl'</td></tr>
+<tr><th>Command Line:</th><td>make -j128 'CFLAGS=-std=gnu99 -I. -I../../jimtcl'</td></tr>
 <tr><th>Clang Version:</th><td>Ubuntu clang version 14.0.0-1ubuntu1.1
 </td></tr>
-<tr><th>Date:</th><td>Mon Oct  9 20:38:45 2023</td></tr>
+<tr><th>Date:</th><td>Wed Feb 14 12:06:25 2024</td></tr>
 </table>
 <h2>Bug Summary</h2><table>
 <thead><tr><td>Bug Type</td><td>Quantity</td><td class="sorttable_nosort">Display?</td></tr></thead>
-<tr style="font-weight:bold"><td class="SUMM_DESC">All Bugs</td><td class="Q">27</td><td><center><input type="checkbox" id="AllBugsCheck" onClick="CopyCheckedStateToCheckButtons(this);" checked/></center></td></tr>
+<tr style="font-weight:bold"><td class="SUMM_DESC">All Bugs</td><td class="Q">23</td><td><center><input type="checkbox" id="AllBugsCheck" onClick="CopyCheckedStateToCheckButtons(this);" checked/></center></td></tr>
 <tr><th>API</th><th colspan=2></th></tr>
 <tr><td class="SUMM_DESC">Argument with 'nonnull' attribute passed null</td><td class="Q">2</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_api_argument_with_nonnull_attribute_passed_null');" checked/></center></td></tr>
 <tr><th>Logic error</th><th colspan=2></th></tr>
 <tr><td class="SUMM_DESC">Array subscript is undefined</td><td class="Q">1</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_array_subscript_is_undefined');" checked/></center></td></tr>
 <tr><td class="SUMM_DESC">Assigned value is garbage or undefined</td><td class="Q">1</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_assigned_value_is_garbage_or_undefined');" checked/></center></td></tr>
-<tr><td class="SUMM_DESC">Branch condition evaluates to a garbage value</td><td class="Q">3</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_branch_condition_evaluates_to_a_garbage_value');" checked/></center></td></tr>
+<tr><td class="SUMM_DESC">Branch condition evaluates to a garbage value</td><td class="Q">2</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_branch_condition_evaluates_to_a_garbage_value');" checked/></center></td></tr>
 <tr><td class="SUMM_DESC">Called function pointer is null (null dereference)</td><td class="Q">1</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_called_function_pointer_is_null_null_dereference_');" checked/></center></td></tr>
 <tr><td class="SUMM_DESC">Dereference of null pointer</td><td class="Q">5</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_dereference_of_null_pointer');" checked/></center></td></tr>
 <tr><td class="SUMM_DESC">Dereference of undefined pointer value</td><td class="Q">2</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_dereference_of_undefined_pointer_value');" checked/></center></td></tr>
 <tr><td class="SUMM_DESC">Result of operation is garbage or undefined</td><td class="Q">2</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_result_of_operation_is_garbage_or_undefined');" checked/></center></td></tr>
-<tr><td class="SUMM_DESC">Uninitialized argument value</td><td class="Q">5</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_uninitialized_argument_value');" checked/></center></td></tr>
+<tr><td class="SUMM_DESC">Uninitialized argument value</td><td class="Q">2</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_logic_error_uninitialized_argument_value');" checked/></center></td></tr>
 <tr><th>Memory error</th><th colspan=2></th></tr>
 <tr><td class="SUMM_DESC">Bad free</td><td class="Q">1</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_memory_error_bad_free');" checked/></center></td></tr>
 <tr><td class="SUMM_DESC">Memory leak</td><td class="Q">2</td><td><center><input type="checkbox" onClick="ToggleDisplay(this,'bt_memory_error_memory_leak');" checked/></center></td></tr>
@@ -104,7 +104,7 @@ function ToggleDisplay(CheckButton, ClassName) {
 <tr class="bt_api_argument_with_nonnull_attribute_passed_null"><td class="DESC">API</td><td class="DESC">Argument with 'nonnull' attribute passed null</td><td>jimtcl/jim.c</td><td class="DESC">ListInsertElements</td><td class="Q">7056</td><td class="Q">41</td><td><a href="report-5f55b3.html#EndPath">View Report</a></td>
 <!-- REPORTBUG id="report-5f55b3.html" -->
 </tr>
-<tr class="bt_logic_error_array_subscript_is_undefined"><td class="DESC">Logic error</td><td class="DESC">Array subscript is undefined</td><td>src/target/armv4_5.c</td><td class="DESC">armv4_5_run_algorithm_inner</td><td class="Q">1333</td><td class="Q">13</td><td><a href="report-21edc8.html#EndPath">View Report</a></td>
+<tr class="bt_logic_error_array_subscript_is_undefined"><td class="DESC">Logic error</td><td class="DESC">Array subscript is undefined</td><td>src/target/armv4_5.c</td><td class="DESC">armv4_5_run_algorithm_inner</td><td class="Q">1435</td><td class="Q">13</td><td><a href="report-21edc8.html#EndPath">View Report</a></td>
 <!-- REPORTBUG id="report-21edc8.html" -->
 </tr>
 <tr class="bt_logic_error_assigned_value_is_garbage_or_undefined"><td class="DESC">Logic error</td><td class="DESC">Assigned value is garbage or undefined</td><td>jimtcl/jim.c</td><td class="DESC">ListInsertElements</td><td class="Q">7058</td><td class="Q">46</td><td><a href="report-bc1434.html#EndPath">View Report</a></td>
@@ -118,9 +118,6 @@ function ToggleDisplay(CheckButton, ClassName) {
 </tr>
 <tr class="bt_logic_error_branch_condition_evaluates_to_a_garbage_value"><td class="DESC">Logic error</td><td class="DESC">Branch condition evaluates to a garbage value</td><td>jimtcl/jim.c</td><td class="DESC">JimInterpolateTokens</td><td class="Q">11046</td><td class="Q">13</td><td><a href="report-79aa18.html#EndPath">View Report</a></td>
 <!-- REPORTBUG id="report-79aa18.html" -->
-</tr>
-<tr class="bt_logic_error_branch_condition_evaluates_to_a_garbage_value"><td class="DESC">Logic error</td><td class="DESC">Branch condition evaluates to a garbage value</td><td>src/target/riscv/riscv.c</td><td class="DESC">riscv_virt2phys</td><td class="Q">2295</td><td class="Q">19</td><td><a href="report-efb7a6.html#EndPath">View Report</a></td>
-<!-- REPORTBUG id="report-efb7a6.html" -->
 </tr>
 <tr class="bt_logic_error_called_function_pointer_is_null_null_dereference_"><td class="DESC">Logic error</td><td class="DESC">Called function pointer is null (null dereference)</td><td>jimtcl/jim.c</td><td class="DESC">Jim_GetString</td><td class="Q">2326</td><td class="Q">24</td><td><a href="report-0a5212.html#EndPath">View Report</a></td>
 <!-- REPORTBUG id="report-0a5212.html" -->
@@ -137,7 +134,7 @@ function ToggleDisplay(CheckButton, ClassName) {
 <tr class="bt_logic_error_dereference_of_null_pointer"><td class="DESC">Logic error</td><td class="DESC">Dereference of null pointer</td><td>jimtcl/jim.c</td><td class="DESC">JimInterpolateTokens</td><td class="Q">11015</td><td class="Q">38</td><td><a href="report-8147c9.html#EndPath">View Report</a></td>
 <!-- REPORTBUG id="report-8147c9.html" -->
 </tr>
-<tr class="bt_logic_error_dereference_of_null_pointer"><td class="DESC">Logic error</td><td class="DESC">Dereference of null pointer</td><td>src/target/target.c</td><td class="DESC">target_call_timer_callbacks_check_time</td><td class="Q">1904</td><td class="Q">35</td><td><a href="report-97e181.html#EndPath">View Report</a></td>
+<tr class="bt_logic_error_dereference_of_null_pointer"><td class="DESC">Logic error</td><td class="DESC">Dereference of null pointer</td><td>src/target/target.c</td><td class="DESC">target_call_timer_callbacks_check_time</td><td class="Q">1873</td><td class="Q">35</td><td><a href="report-97e181.html#EndPath">View Report</a></td>
 <!-- REPORTBUG id="report-97e181.html" -->
 </tr>
 <tr class="bt_logic_error_dereference_of_undefined_pointer_value"><td class="DESC">Logic error</td><td class="DESC">Dereference of undefined pointer value</td><td>jimtcl/jim.c</td><td class="DESC">JimInterpolateTokens</td><td class="Q">11022</td><td class="Q">24</td><td><a href="report-9db1d5.html#EndPath">View Report</a></td>
@@ -158,20 +155,11 @@ function ToggleDisplay(CheckButton, ClassName) {
 <tr class="bt_logic_error_result_of_operation_is_garbage_or_undefined"><td class="DESC">Logic error</td><td class="DESC">Result of operation is garbage or undefined</td><td>jimtcl/jim-pack.c</td><td class="DESC">JimSignExtend</td><td class="Q">45</td><td class="Q">24</td><td><a href="report-7c917c.html#EndPath">View Report</a></td>
 <!-- REPORTBUG id="report-7c917c.html" -->
 </tr>
-<tr class="bt_logic_error_uninitialized_argument_value"><td class="DESC">Logic error</td><td class="DESC">Uninitialized argument value</td><td>src/target/riscv/riscv-013.c</td><td class="DESC">register_read_direct</td><td class="Q">1556</td><td class="Q">18</td><td><a href="report-44fb32.html#EndPath">View Report</a></td>
-<!-- REPORTBUG id="report-44fb32.html" -->
-</tr>
 <tr class="bt_logic_error_uninitialized_argument_value"><td class="DESC">Logic error</td><td class="DESC">Uninitialized argument value</td><td>jimtcl/jim.c</td><td class="DESC">Jim_SetResultFormatted</td><td class="Q">16667</td><td class="Q">2</td><td><a href="report-4a319e.html#EndPath">View Report</a></td>
 <!-- REPORTBUG id="report-4a319e.html" -->
 </tr>
-<tr class="bt_logic_error_uninitialized_argument_value"><td class="DESC">Logic error</td><td class="DESC">Uninitialized argument value</td><td>src/target/riscv/riscv-011.c</td><td class="DESC">read_bits</td><td class="Q">708</td><td class="Q">54</td><td><a href="report-51e5d5.html#EndPath">View Report</a></td>
-<!-- REPORTBUG id="report-51e5d5.html" -->
-</tr>
 <tr class="bt_logic_error_uninitialized_argument_value"><td class="DESC">Logic error</td><td class="DESC">Uninitialized argument value</td><td>src/jtag/core.c</td><td class="DESC">jtag_add_pathmove</td><td class="Q">520</td><td class="Q">17</td><td><a href="report-5a4855.html#EndPath">View Report</a></td>
 <!-- REPORTBUG id="report-5a4855.html" -->
-</tr>
-<tr class="bt_logic_error_uninitialized_argument_value"><td class="DESC">Logic error</td><td class="DESC">Uninitialized argument value</td><td>src/target/riscv/riscv-013.c</td><td class="DESC">register_write_direct</td><td class="Q">1527</td><td class="Q">27</td><td><a href="report-5d8fbf.html#EndPath">View Report</a></td>
-<!-- REPORTBUG id="report-5d8fbf.html" -->
 </tr>
 <tr class="bt_memory_error_use-after-free"><td class="DESC">Memory error</td><td class="DESC">Use-after-free</td><td>src/target/adi_v5_jtag.c</td><td class="DESC">flush_journal</td><td class="Q">225</td><td class="Q">18</td><td><a href="report-9852de.html#EndPath">View Report</a></td>
 <!-- REPORTBUG id="report-9852de.html" -->

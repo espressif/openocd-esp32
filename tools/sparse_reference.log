@@ -1,13 +1,42 @@
 ../src/target/espressif/esp32_apptrace.c:461:9: warning: the address of an array will always evaluate as true
+../src/target/espressif/esp32_apptrace.c:461:9: warning: the address of an array will always evaluate as true
 ../src/target/espressif/esp32_apptrace.c:599:9: warning: the address of an array will always evaluate as true
-../src/target/riscv/program.c:135:9: warning: the address of an array will always evaluate as true
-../src/target/riscv/riscv-013.c:1123:9: warning: the address of an array will always evaluate as true
-../src/target/riscv/riscv-013.c:3839:9: warning: the address of an array will always evaluate as true
-../src/target/riscv/riscv.c:4874:9: warning: the address of an array will always evaluate as true
-../src/target/riscv/riscv.c:4894:9: warning: the address of an array will always evaluate as true
+../src/target/espressif/esp32_apptrace.c:599:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/program.c:123:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/program.c:123:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/program.c:160:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/program.c:160:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv-013.c:1227:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv-013.c:1227:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv-013.c:4099:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv-013.c:4099:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv.c:2282:21: warning: constant 0xF000000000000000 is so big it is unsigned long
+../src/target/riscv/riscv.c:2294:21: warning: constant 0xF000000000000000 is so big it is unsigned long
+../src/target/riscv/riscv.c:2317:29: warning: constant 0xF000000000000000 is so big it is unsigned long
+../src/target/riscv/riscv.c:2428:43: warning: constant 0xF000000000000000 is so big it is unsigned long
+../src/target/riscv/riscv.c:2435:43: warning: constant 0xF000000000000000 is so big it is unsigned long
+../src/target/riscv/riscv.c:2505:62: warning: constant 0x00000FFFFFFFFFFF is so big it is long
+../src/target/riscv/riscv.c:2506:62: warning: constant 0x00000FFFFFFFFFFF is so big it is long
+../src/target/riscv/riscv.c:2518:62: warning: constant 0x00000FFFFFFFFFFF is so big it is long
+../src/target/riscv/riscv.c:2556:47: warning: constant 0xF000000000000000 is so big it is unsigned long
+../src/target/riscv/riscv.c:2582:58: warning: constant 0x00000FFFFFFFFFFF is so big it is long
+../src/target/riscv/riscv.c:4029:1: warning: symbol 'riscv_clear_trigger' was not declared. Should it be static?
+../src/target/riscv/riscv.c:5305:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv.c:5305:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv.c:5325:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv.c:5325:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv.c:5853:9: warning: expression using sizeof _Bool
+../src/target/riscv/riscv.c:5853:9: warning: expression using sizeof _Bool
+../src/target/riscv/riscv.c:766:21: warning: symbol 'tdata2_cache_search' was not declared. Should it be static?
+../src/target/riscv/riscv.c:776:21: warning: symbol 'tdata1_cache_search' was not declared. Should it be static?
 ../src/target/xtensa/xtensa.c:1428:17: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:2699:25: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:3951:17: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:1428:17: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:2711:25: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:2711:25: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:3950:17: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:3950:17: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:4207:1: warning: symbol 'xtensa_cmd_dm_rw_do' was not declared. Should it be static?
+../src/target/xtensa/xtensa.c:426:9: warning: the address of an array will always evaluate as true
 ../src/target/xtensa/xtensa.c:426:9: warning: the address of an array will always evaluate as true
 _glob.c:3:5: warning: symbol 'Jim_globInit' was not declared. Should it be static?
 _initjimsh.c:3:5: warning: symbol 'Jim_initjimshInit' was not declared. Should it be static?
