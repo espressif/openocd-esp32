@@ -44,21 +44,23 @@ struct nuttx_params {
 #define TCB_STATE_OFFSET                2
 #define TCB_PRI_OFFSET                  4
 #define TCB_NAME_OFFSET                 6
-#define TCB_REGS_OFFSET                 8
-#define TCB_BASIC_NUM_OFFSET            10
-#define TCB_TOTAL_NUM_OFFSET            12
-#define TCB_XPCREG_OFFSET               14
-#define TCBINFO_TARGET_SIZE             22
+#define TCB_STACK_OFFSET                8
+#define TCB_STACK_SIZE_OFFSET           10
+#define TCB_REGS_OFFSET                 12
+#define TCB_REG_NUM_OFFSET              14
+#define TCB_XPCREG_OFFSET               16
+#define TCBINFO_TARGET_SIZE             24
 
 struct tcbinfo {
-	uint16_t pid_off;			/* Offset of tcb.pid                */
-	uint16_t state_off;			/* Offset of tcb.task_state         */
-	uint16_t pri_off;			/* Offset of tcb.sched_priority     */
-	uint16_t name_off;			/* Offset of tcb.name               */
-	uint16_t regs_off;			/* Offset of tcb.regs               */
-	uint16_t basic_num;			/* Num of genernal regs             */
-	uint16_t total_num;			/* Num of regs in tcbinfo.reg_offs  */
-	target_addr_t xcpreg_off;	/* Offset pointer of xcp.regs       */
+	uint16_t pid_off;           /* Offset of tcb.pid                */
+	uint16_t state_off;         /* Offset of tcb.task_state         */
+	uint16_t pri_off;           /* Offset of tcb.sched_priority     */
+	uint16_t name_off;          /* Offset of tcb.name               */
+	uint16_t stack_off;         /* Offset of tcb.stack_alloc_ptr    */
+	uint16_t stack_size_off;    /* Offset of tcb.adj_stack_size     */
+	uint16_t regs_off;          /* Offset of tcb.regs               */
+	uint16_t reg_num;           /* Num of general regs              */
+	target_addr_t xcpreg_off;   /* Offset pointer of xcp.regs       */
 };
 
 struct symbols {
@@ -259,9 +261,10 @@ static int nuttx_update_threads(struct rtos *rtos)
 	tcbinfo.state_off = target_buffer_get_u16(rtos->target, buff + TCB_STATE_OFFSET);
 	tcbinfo.pri_off = target_buffer_get_u16(rtos->target, buff + TCB_PRI_OFFSET);
 	tcbinfo.name_off = target_buffer_get_u16(rtos->target, buff + TCB_NAME_OFFSET);
+	tcbinfo.stack_off = target_buffer_get_u16(rtos->target, buff + TCB_STACK_OFFSET);
+	tcbinfo.stack_size_off = target_buffer_get_u16(rtos->target, buff + TCB_STACK_SIZE_OFFSET);
 	tcbinfo.regs_off = target_buffer_get_u16(rtos->target, buff + TCB_REGS_OFFSET);
-	tcbinfo.basic_num = target_buffer_get_u16(rtos->target, buff + TCB_BASIC_NUM_OFFSET);
-	tcbinfo.total_num = target_buffer_get_u16(rtos->target, buff + TCB_TOTAL_NUM_OFFSET);
+	tcbinfo.reg_num = target_buffer_get_u16(rtos->target, buff + TCB_REG_NUM_OFFSET);
 	tcbinfo.xcpreg_off = target_buffer_get_addr(rtos->target, buff + TCB_XPCREG_OFFSET);
 
 	/* The head of the g_readytorun list is the currently running task.
