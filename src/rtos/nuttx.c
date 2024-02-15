@@ -23,6 +23,7 @@
 
 #define NAME_SIZE       32
 #define EXTRAINFO_SIZE  256
+#define NUTTX_MAX_TASKS_NUM  512
 
 /* Only 32-bit CPUs are supported by the current implementation.  Supporting
  * other CPUs will require reading this information from the target and
@@ -227,6 +228,11 @@ static int nuttx_update_threads(struct rtos *rtos)
 
 	LOG_DEBUG("Hash table size (g_npidhash) = %" PRId32, npidhash);
 
+	if (npidhash > NUTTX_MAX_TASKS_NUM) {
+		LOG_ERROR("Too large number of npidhash %" PRId32 "!", npidhash);
+		return ERROR_FAIL;
+	}
+
 	ret = target_read_u32(rtos->target, rtos->symbols[NX_SYM_PIDHASH].address, &pidhashaddr);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to read g_pidhash address: ret = %d", ret);
@@ -234,6 +240,11 @@ static int nuttx_update_threads(struct rtos *rtos)
 	}
 
 	LOG_DEBUG("Hash table address (g_pidhash) = %" PRIx32, pidhashaddr);
+
+	if (pidhashaddr == 0) {
+		LOG_ERROR("Failed to read hash table address!");
+		return ERROR_FAIL;
+	}
 
 	uint8_t *pidhash = malloc(npidhash * PTR_WIDTH);
 	if (!pidhash) {
