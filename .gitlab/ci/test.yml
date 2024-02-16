@@ -653,7 +653,6 @@ tests_linux_simple_esp32:
   tags:
     - $CHIP
     - jtag
-  allow_failure: true
   artifacts:
     paths:
       - $TEST_RUN_DIR/debug_backend_tests.log
@@ -702,16 +701,22 @@ test_nuttx_esp32s2:
 test_nuttx_esp32s3:
   extends:
     - .test_nuttx_template
+  tags:
+    - esp32s3
+    - usb_serial_jtag
   variables:
     CHIP: esp32s3
-    TEST_BOARD: "esp32s3-ftdi"
+    TEST_BOARD: "esp32s3-builtin"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
 
 test_nuttx_esp32c3:
   extends:
     - .test_nuttx_template
+  tags:
+    - esp32c3
+    - usb_serial_jtag
   variables:
     CHIP: esp32c3
-    TEST_BOARD: "esp32c3-ftdi"
+    TEST_BOARD: "esp32c3-builtin"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_GDB_TOOLCHAIN: "${ESP_RISCV_GDB_TOOLCHAIN}"
