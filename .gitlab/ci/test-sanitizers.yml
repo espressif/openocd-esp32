@@ -21,94 +21,113 @@
     - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
     - !reference [.run_tests_linux, script]
 
-.tests_sanitizers_master_xtensa_template:
+.tests_sanitizers_master_template:
   extends: .tests_sanitizers_template
   stage: sanitizer_test_idf_master
-  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-master:1
+  image: $CI_DOCKER_REGISTRY/target-test-env-v5.3:1
+  before_script:
+  - pip install xmlrunner
+  - pip install pygdbmi==0.9.0.2
   variables:
-    ESP_GDB_TOOLCHAIN: "${ESP_XTENSA_GDB_TOOLCHAIN}"
+    CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
+    TEST_RUN_DIR: "build_test_app_${CHIP_NAME}"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_3X_XTENSA_GDB_TOOLCHAIN}"
+    TOOLCHAIN_PREFIX: "xtensa-esp"
+    ESP_TOOLCHAIN: "${ESP_V5_3X_TOOLCHAIN_VER}"
 
 .tests_sanitizers_master_riscv_template:
-  extends: .tests_sanitizers_template
-  stage: sanitizer_test_idf_master
-  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-master:1
+  extends: .tests_sanitizers_master_template
   variables:
+    CHIP_TEST_TOOLCHAIN: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_3X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    ESP_GDB_TOOLCHAIN: "${ESP_RISCV_GDB_TOOLCHAIN}"
 
-.tests_sanitizers_v5.1.x_xtensa_template:
+.tests_sanitizers_v5.1.x_template:
   extends: .tests_sanitizers_template
   stage: sanitizer_test_idf5.1.x
-  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-v5.1:1
+  image: $CI_DOCKER_REGISTRY/target-test-env-v5.1:1
+  before_script:
+    - pip install xmlrunner
+    - pip install pygdbmi==0.9.0.2
   variables:
-    ESP_GDB_TOOLCHAIN: "${ESP_XTENSA_GDB_TOOLCHAIN}"
+    CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
+    TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.1.x"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_1X_XTENSA_GDB_TOOLCHAIN}"
+    TOOLCHAIN_PREFIX: "xtensa-${CHIP_NAME}"
+    ESP_TOOLCHAIN: "${ESP_V5_1X_TOOLCHAIN_VER}"
 
 .tests_sanitizers_v5.1.x_riscv_template:
-  extends: .tests_sanitizers_template
+  extends: .tests_sanitizers_v5.1.x_template
   stage: sanitizer_test_idf5.1.x
-  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-v5.1:1
+  image: $CI_DOCKER_REGISTRY/target-test-env-v5.1:1
   variables:
+    CHIP_TEST_TOOLCHAIN: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_1X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    ESP_GDB_TOOLCHAIN: "${ESP_RISCV_GDB_TOOLCHAIN}"
 
-.tests_sanitizers_v5.0.x_xtensa_template:
+.tests_sanitizers_v5.0.x_template:
   extends: .tests_sanitizers_template
   stage: sanitizer_test_idf5.0.x
-  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-v5.0:1
+  image: $CI_DOCKER_REGISTRY/target-test-env-v5.0:3
+  before_script:
+  - pip install xmlrunner
+  - pip install pygdbmi==0.9.0.2
   variables:
-    ESP_TOOLCHAIN: "${ESP_V5_0_X_TOOLCHAIN_VER}"
-    ESP_GDB_TOOLCHAIN: "${ESP_V5_0_X_XTENSA_GDB_TOOLCHAIN}"
+    CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
+    TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.0.x"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_0X_XTENSA_GDB_TOOLCHAIN}"
+    TOOLCHAIN_PREFIX: "xtensa-${CHIP_NAME}"
+    ESP_TOOLCHAIN: "${ESP_V5_0X_TOOLCHAIN_VER}"
 
 .tests_sanitizers_v5.0.x_riscv_template:
-  extends: .tests_sanitizers_template
-  stage: sanitizer_test_idf5.0.x
-  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-v5.0:1
+  extends: .tests_sanitizers_v5.0.x_template
   variables:
+    CHIP_TEST_TOOLCHAIN: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_0X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    ESP_TOOLCHAIN: "${ESP_V5_0_X_TOOLCHAIN_VER}"
-    ESP_GDB_TOOLCHAIN: "${ESP_V5_0_X_RISCV_GDB_TOOLCHAIN}"
 
 .tests_sanitizers_v4.x_template:
   extends: .tests_sanitizers_template
   stage: sanitizer_test_idf4.x
   image: $CI_DOCKER_REGISTRY/rpi-openocd-env-v4.4:1
+  before_script:
+    - source /opt/pyenv/activate && pyenv global ${TEST_IMAGE_PYTHON_VER}
   variables:
+    TOOLCHAIN_PREFIX: "xtensa-${CHIP_NAME}"
+    CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     ESP_TOOLCHAIN: "${ESP_V4x_TOOLCHAIN_VER}"
     ESP_GDB_TOOLCHAIN: "${ESP_V4x_XTENSA_GDB_TOOLCHAIN}"
+    TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf4.x"
 
 ##############
 # IDF master #
 ##############
 
 tests_sanitizers_esp32:
-  extends: .tests_sanitizers_master_xtensa_template
+  extends: .tests_sanitizers_master_template
   needs:
     - job: build_test_app_esp32
     - job: build_linux_armhf_sanitizer_test
   variables:
-    TEST_RUN_DIR: "build_test_app_esp32"
+    CHIP_NAME: "esp32"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_sanitizers_esp32s2:
-  extends: .tests_sanitizers_master_xtensa_template
+  extends: .tests_sanitizers_master_template
   needs:
     - job: build_test_app_esp32s2
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32s2"
-    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
-    TEST_RUN_DIR: "build_test_app_esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*Single"
 
 tests_sanitizers_esp32s3:
-  extends: .tests_sanitizers_master_xtensa_template
+  extends: .tests_sanitizers_master_template
   needs:
     - job: build_test_app_esp32s3
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32s3"
-    TOOLCHAIN_PREFIX: "xtensa-esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
 tests_sanitizers_esp32c2:
@@ -118,7 +137,6 @@ tests_sanitizers_esp32c2:
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32c2"
-    TEST_RUN_DIR: "build_test_app_esp32c2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c2-ftdi -p test_*.*Single"
 
 tests_sanitizers_esp32c3:
@@ -128,7 +146,6 @@ tests_sanitizers_esp32c3:
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32c3"
-    TEST_RUN_DIR: "build_test_app_esp32c3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*Single"
 
 tests_sanitizers_esp32c3_builtin_usb_jtag:
@@ -141,7 +158,6 @@ tests_sanitizers_esp32c3_builtin_usb_jtag:
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32c3"
-    TEST_RUN_DIR: "build_test_app_esp32c3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-builtin -p test_*.*Single"
 
 tests_sanitizers_esp32c6_builtin_usb_jtag:
@@ -154,7 +170,6 @@ tests_sanitizers_esp32c6_builtin_usb_jtag:
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32c6"
-    TEST_RUN_DIR: "build_test_app_esp32c6"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c6-builtin -p test_*.*Single -u /dev/ttyACM0"
 
 tests_sanitizers_esp32h2_builtin_usb_jtag:
@@ -167,7 +182,6 @@ tests_sanitizers_esp32h2_builtin_usb_jtag:
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32h2"
-    TEST_RUN_DIR: "build_test_app_esp32h2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32h2-builtin -p test_*.*Single -u /dev/ttyACM0"
 
 #############
@@ -175,34 +189,30 @@ tests_sanitizers_esp32h2_builtin_usb_jtag:
 #############
 
 tests_sanitizers_esp32_idf5.1.x:
-  extends: .tests_sanitizers_v5.1.x_xtensa_template
+  extends: .tests_sanitizers_v5.1.x_template
   needs:
     - job: build_test_app_esp32_idf5.1.x
     - job: build_linux_armhf_sanitizer_test
   variables:
-    TEST_RUN_DIR: "build_test_app_esp32_idf5.1.x"
+    CHIP_NAME: "esp32"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_sanitizers_esp32s2_idf5.1.x:
-  extends: .tests_sanitizers_v5.1.x_xtensa_template
+  extends: .tests_sanitizers_v5.1.x_template
   needs:
     - job: build_test_app_esp32s2_idf5.1.x
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32s2"
-    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
-    TEST_RUN_DIR: "build_test_app_esp32s2_idf5.1.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32s2-devkitj -p test_*.*Single"
 
 tests_sanitizers_esp32s3_idf5.1.x:
-  extends: .tests_sanitizers_v5.1.x_xtensa_template
+  extends: .tests_sanitizers_v5.1.x_template
   needs:
     - job: build_test_app_esp32s3_idf5.1.x
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32s3"
-    TOOLCHAIN_PREFIX: "xtensa-esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.1.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
 tests_sanitizers_esp32c2_idf5.1.x:
@@ -212,7 +222,6 @@ tests_sanitizers_esp32c2_idf5.1.x:
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32c2"
-    TEST_RUN_DIR: "build_test_app_esp32c2_idf5.1.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32c2-ftdi -p test_*.*Single"
 
 tests_sanitizers_esp32c3_idf5.1.x:
@@ -222,7 +231,6 @@ tests_sanitizers_esp32c3_idf5.1.x:
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32c3"
-    TEST_RUN_DIR: "build_test_app_esp32c3_idf5.1.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single"
 
 tests_sanitizers_esp32c3_idf5.1.x_builtin_usb_jtag:
@@ -235,7 +243,6 @@ tests_sanitizers_esp32c3_idf5.1.x_builtin_usb_jtag:
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32c3"
-    TEST_RUN_DIR: "build_test_app_esp32c3_idf5.1.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32c3-builtin -p test_*.*Single"
 
 tests_sanitizers_esp32c6_idf5.1.x_builtin_usb_jtag:
@@ -248,7 +255,6 @@ tests_sanitizers_esp32c6_idf5.1.x_builtin_usb_jtag:
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32c6"
-    TEST_RUN_DIR: "build_test_app_esp32c6_idf5.1.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32c6-builtin -p test_*.*Single -u /dev/ttyACM0"
 
 tests_sanitizers_esp32h2_idf5.1.x_builtin_usb_jtag:
@@ -261,7 +267,6 @@ tests_sanitizers_esp32h2_idf5.1.x_builtin_usb_jtag:
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32h2"
-    TEST_RUN_DIR: "build_test_app_esp32h2_idf5.1.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32h2-builtin -p test_*.*Single -u /dev/ttyACM0"
 
 #############
@@ -269,34 +274,30 @@ tests_sanitizers_esp32h2_idf5.1.x_builtin_usb_jtag:
 #############
 
 tests_sanitizers_esp32_idf5.0.x:
-  extends: .tests_sanitizers_v5.0.x_xtensa_template
+  extends: .tests_sanitizers_v5.0.x_template
   needs:
     - job: build_test_app_esp32_idf5.0.x
     - job: build_linux_armhf_sanitizer_test
   variables:
-    TEST_RUN_DIR: "build_test_app_esp32_idf5.0.x"
+    CHIP_NAME: "esp32"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_sanitizers_esp32s2_idf5.0.x:
-  extends: .tests_sanitizers_v5.0.x_xtensa_template
+  extends: .tests_sanitizers_v5.0.x_template
   needs:
     - job: build_test_app_esp32s2_idf5.0.x
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32s2"
-    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
-    TEST_RUN_DIR: "build_test_app_esp32s2_idf5.0.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32s2-devkitj -p test_*.*Single"
 
 tests_sanitizers_esp32s3_idf5.0.x:
-  extends: .tests_sanitizers_v5.0.x_xtensa_template
+  extends: .tests_sanitizers_v5.0.x_template
   needs:
     - job: build_test_app_esp32s3_idf5.0.x
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32s3"
-    TOOLCHAIN_PREFIX: "xtensa-esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.0.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
 tests_sanitizers_esp32c2_idf5.0.x:
@@ -306,7 +307,6 @@ tests_sanitizers_esp32c2_idf5.0.x:
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32c2"
-    TEST_RUN_DIR: "build_test_app_esp32c2_idf5.0.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32c2-ftdi -p test_*.*Single"
 
 tests_sanitizers_esp32c3_idf5.0.x:
@@ -316,7 +316,6 @@ tests_sanitizers_esp32c3_idf5.0.x:
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32c3"
-    TEST_RUN_DIR: "build_test_app_esp32c3_idf5.0.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single"
 
 tests_sanitizers_esp32c3_idf5.0.x_builtin_usb_jtag:
@@ -329,7 +328,6 @@ tests_sanitizers_esp32c3_idf5.0.x_builtin_usb_jtag:
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32c3"
-    TEST_RUN_DIR: "build_test_app_esp32c3_idf5.0.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32c3-builtin -p test_*.*Single"
 
 ###########
@@ -342,7 +340,7 @@ tests_sanitizers_esp32_idf4.x:
     - job: build_test_app_esp32_idf4.x
     - job: build_linux_armhf_sanitizer_test
   variables:
-    TEST_RUN_DIR: "build_test_app_esp32_idf4.x"
+    CHIP_NAME: "esp32"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_sanitizers_esp32s2_idf4.x:
@@ -351,9 +349,7 @@ tests_sanitizers_esp32s2_idf4.x:
     - job: build_test_app_esp32s2_idf4.x
     - job: build_linux_armhf_sanitizer_test
   variables:
-    CHIP_NAME: "esp32s2"
-    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
-    TEST_RUN_DIR: "build_test_app_esp32s2_idf4.x"
+    CHIP_NAME: "esp32"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s2-devkitj -p test_*.*Single"
 
 tests_sanitizers_esp32s3_idf4.x:
@@ -363,8 +359,6 @@ tests_sanitizers_esp32s3_idf4.x:
     - job: build_linux_armhf_sanitizer_test
   variables:
     CHIP_NAME: "esp32s3"
-    TOOLCHAIN_PREFIX: "xtensa-esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3_idf4.x"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
 
 tests_sanitizers_esp32c3_idf4.x:
@@ -382,8 +376,9 @@ tests_sanitizers_esp32c3_idf4.x:
 #  NUTTX  #
 ###########
 
+# nuttx build environment is nuttx/build-env-v5.1
 test_sanitizers_nuttx_esp32:
-  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-master:1
+  image: $CI_DOCKER_REGISTRY/target-test-env-v5.1:1
   stage: sanitizer_test_nuttx
   tags:
     - esp32
@@ -398,7 +393,10 @@ test_sanitizers_nuttx_esp32:
     expire_in: 1 week
   variables:
     PLATFORM_NAME: "linux-armhf-test"
-    ESP_GDB_TOOLCHAIN: "${ESP_XTENSA_GDB_TOOLCHAIN}"
+    ESP_TOOLCHAIN: "${ESP_V5_1X_TOOLCHAIN_VER}"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_1X_TOOLCHAIN_VER}"
+    TOOLCHAIN_PREFIX: "xtensa-esp32"
+    CHIP_TEST_TOOLCHAIN: "xtensa-esp32"
     TEST_RUN_DIR: "nuttx_test"
     NUTTX_APP_NAME: "nuttx_openocd"
     OOCD_CMDS: "set ESP_RTOS nuttx,set ESP_ONLYCPU 1"
@@ -424,7 +422,7 @@ test_sanitizers_nuttx_esp32:
 ###########
 
 .sanitizer_check_armhf: &sanitizer_check_armhf
-  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-master:1
+  image: $CI_DOCKER_REGISTRY/target-test-env-v5.3:1
   tags:
     - arm
   allow_failure: true

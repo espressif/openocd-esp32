@@ -203,6 +203,8 @@ build_linux_armhf_test:
 
 build_linux_armhf_sanitizer_test:
   extends: .build_linux_arm_template
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "run_sanitizer_tests"
   variables:
     CONF_HOST: "arm-linux-gnueabihf"
     PLATFORM_NAME: "linux-armhf-test"
