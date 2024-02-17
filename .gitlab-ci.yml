@@ -66,12 +66,6 @@ variables:
   ARCHIVE_EXT: "tar.gz"
   RELEASE_DESC: "New release"
 
-  #
-  # default variables
-  ESP_TOOLCHAIN: "${ESP_MASTER_TOOLCHAIN_VER}"
-  TOOLCHAIN_PREFIX: "xtensa-esp32"
-  CHIP_NAME: "esp32"
-
 # prefix should be like a $CI_PROJECT_NAME, but we cannot use variable here
 .release_tag_filter: &release_tag_filter
   only:
