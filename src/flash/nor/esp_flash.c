@@ -1389,7 +1389,7 @@ static int esp_algo_flash_set_compression(struct target *target,
 	struct flash_bank *bank;
 	struct esp_flash_bank *esp_info;
 
-	int retval = esp_algo_target_to_flash_bank(target, &bank, bank_name_suffix, true);
+	int retval = esp_algo_target_to_flash_bank(target, &bank, bank_name_suffix, false);
 	if (retval != ERROR_OK)
 		return ERROR_FAIL;
 
@@ -1439,7 +1439,7 @@ static int esp_algo_flash_set_encryption(struct target *target,
 	int encryption)
 {
 	struct flash_bank *bank;
-	int retval = esp_algo_target_to_flash_bank(target, &bank, bank_name_suffix, true);
+	int retval = esp_algo_target_to_flash_bank(target, &bank, bank_name_suffix, false);
 	if (retval != ERROR_OK)
 		return ERROR_FAIL;
 
@@ -1451,7 +1451,7 @@ static int esp_algo_flash_set_encryption(struct target *target,
 static int esp_algo_flash_set_stub_log(struct target *target, char *bank_name_suffix, bool log_stat)
 {
 	struct flash_bank *bank;
-	int retval = esp_algo_target_to_flash_bank(target, &bank, bank_name_suffix, true);
+	int retval = esp_algo_target_to_flash_bank(target, &bank, bank_name_suffix, false);
 	if (retval != ERROR_OK)
 		return ERROR_FAIL;
 
