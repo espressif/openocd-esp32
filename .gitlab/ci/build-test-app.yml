@@ -30,6 +30,8 @@
       git ls-remote https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git | grep "refs/heads/$CI_COMMIT_REF_NAME"
       test $? -eq 0 && echo "Use IDF branch \"$CI_COMMIT_REF_NAME\"" && TEST_APP_CUSTOM_BRANCH=$CI_COMMIT_REF_NAME
     fi
+  elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_2_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_2_BRANCH:-}" ]; then
+    TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF5_2_BRANCH"
   elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_1_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_1_BRANCH:-}" ]; then
     TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF5_1_BRANCH"
   elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_0_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_0_BRANCH:-}" ]; then
@@ -163,6 +165,14 @@
     UT_GET_IDF_VER: "1"
   extends: .build_test_app_template
 
+.build_idf52x_test_app_template: &build_idf52x_test_app_template
+  stage: build_idf5.2.x
+  variables:
+    TEST_APP_CONFIGS: ""
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF5_2_RELEASE_DOCKER_IMAGE}"
+    UT_GET_IDF_VER: "1"
+  extends: .build_test_app_template
+
 .build_idf_master_test_app_template: &build_idf_master_test_app_template
   stage: build_idf_master
   allow_failure: true
@@ -232,6 +242,66 @@ build_test_app_esp32h2:
     BUILD_TEST_APP_DIR: "build_test_app_esp32h2"
     TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single"
   extends: .build_idf_master_test_app_template
+
+##############
+# IDF 5.2.X #
+##############
+
+build_test_app_esp32_idf5.2.x:
+  variables:
+    CHIP_NAME: "esp32"
+    TOOLCHAIN_PREFIX: "xtensa-esp32"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32_idf5.2.x"
+    TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
+  extends: .build_idf52x_test_app_template
+
+build_test_app_esp32s2_idf5.2.x:
+  variables:
+    CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32s2_idf5.2.x"
+    TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
+  extends: .build_idf52x_test_app_template
+
+build_test_app_esp32s3_idf5.2.x:
+  variables:
+    CHIP_NAME: "esp32s3"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s3"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32s3_idf5.2.x"
+    TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
+  extends: .build_idf52x_test_app_template
+
+build_test_app_esp32c2_idf5.2.x:
+  variables:
+    CHIP_NAME: "esp32c2"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32c2_idf5.2.x"
+    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single"
+  extends: .build_idf52x_test_app_template
+
+build_test_app_esp32c3_idf5.2.x:
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32c3_idf5.2.x"
+    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single"
+  extends: .build_idf52x_test_app_template
+
+build_test_app_esp32c6_idf5.2.x:
+  variables:
+    CHIP_NAME: "esp32c6"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32c6_idf5.2.x"
+    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single"
+  extends: .build_idf52x_test_app_template
+
+build_test_app_esp32h2_idf5.2.x:
+  variables:
+    CHIP_NAME: "esp32h2"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32h2_idf5.2.x"
+    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single"
+  extends: .build_idf52x_test_app_template
 
 #############
 # IDF 5.1.X #

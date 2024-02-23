@@ -5,11 +5,13 @@ stages:
   - build_idf4.x
   - build_idf5.0.x
   - build_idf5.1.x
+  - build_idf5.2.x
   - build_idf_master
   - build_nuttx
   - test_idf4.x
   - test_idf5.0.x
   - test_idf5.1.x
+  - test_idf5.2.x
   - test_idf_master
   - test_host
   - test_nuttx
@@ -17,11 +19,13 @@ stages:
   - sanitizer_test_idf4.x
   - sanitizer_test_idf5.0.x
   - sanitizer_test_idf5.1.x
+  - sanitizer_test_idf5.2.x
   - sanitizer_test_idf_master
   - sanitizer_test_nuttx
   - sanitizer_check_idf4.x
   - sanitizer_check_idf5.0.x
   - sanitizer_check_idf5.1.x
+  - sanitizer_check_idf5.2.x
   - sanitizer_check_idf_master
   - sanitizer_check_nuttx
   - deploy
@@ -297,9 +301,9 @@ create_coverage_reports:
     - job: tests_armhf_esp32_idf5.0.x_flash_encrypted
     - job: tests_armhf_esp32s2_idf5.0.x
     - job: tests_armhf_esp32s2_idf5.0.x_flash_encrypted
+    - job: tests_armhf_esp32s3_idf5.0.x
     - job: tests_armhf_esp32c2_idf5.0.x
     - job: tests_armhf_esp32c3_idf5.0.x
-    - job: tests_armhf_esp32c3_idf5.0.x_builtin_usb_jtag
     - job: tests_armhf_esp32c3_idf5.0.x_flash_encrypted
     # idf 5.1.x
     - job: tests_armhf_esp32_idf5.1.x
@@ -309,10 +313,20 @@ create_coverage_reports:
     - job: tests_armhf_esp32s3_idf5.1.x
     - job: tests_armhf_esp32c2_idf5.1.x
     - job: tests_armhf_esp32c3_idf5.1.x
-    - job: tests_armhf_esp32c3_idf5.1.x_builtin_usb_jtag
     - job: tests_armhf_esp32c3_idf5.1.x_flash_encrypted
-    - job: tests_armhf_esp32c6_idf5.1.x_builtin_usb_jtag
-    - job: tests_armhf_esp32h2_idf5.1.x_builtin_usb_jtag
+    - job: tests_armhf_esp32c6_idf5.1.x
+    - job: tests_armhf_esp32h2_idf5.1.x
+    # idf 5.2.x
+    - job: tests_armhf_esp32_idf5.2.x
+    - job: tests_armhf_esp32_idf5.2.x_flash_encrypted
+    - job: tests_armhf_esp32s2_idf5.2.x
+    - job: tests_armhf_esp32s2_idf5.2.x_flash_encrypted
+    - job: tests_armhf_esp32s3_idf5.2.x
+    - job: tests_armhf_esp32c2_idf5.2.x
+    - job: tests_armhf_esp32c3_idf5.2.x
+    - job: tests_armhf_esp32c3_idf5.2.x_flash_encrypted
+    - job: tests_armhf_esp32c6_idf5.2.x
+    - job: tests_armhf_esp32h2_idf5.2.x
     # idf master
     - job: tests_armhf_esp32
     - job: tests_armhf_esp32_flash_encrypted
@@ -321,10 +335,9 @@ create_coverage_reports:
     - job: tests_armhf_esp32s3
     - job: tests_armhf_esp32c2
     - job: tests_armhf_esp32c3
-    - job: tests_armhf_esp32c3_builtin_usb_jtag
     - job: tests_armhf_esp32c3_flash_encrypted
-    - job: tests_armhf_esp32c6_builtin_usb_jtag
-    - job: tests_armhf_esp32h2_builtin_usb_jtag
+    - job: tests_armhf_esp32c6
+    - job: tests_armhf_esp32h2
     - job: test_nuttx_esp32
     - job: test_nuttx_esp32s2
     - job: test_nuttx_esp32s3
@@ -378,4 +391,3 @@ include:
   - '.gitlab/ci/test.yml'
   - '.gitlab/ci/test-sanitizers.yml'
   - '.gitlab/ci/pre-check.yml'
-
