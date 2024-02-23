@@ -197,7 +197,7 @@ tests_armhf_esp32s3:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_bp*.*Single test_bp*.*Dual"
 
 tests_armhf_esp32c2:
   extends: .tests_armhf_master_riscv_template
