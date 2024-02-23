@@ -189,6 +189,30 @@
             "config_files": [
                 "board/esp32h2-bridge.cfg"
             ]
+        },
+        {
+            "name": "ESP32-P4 chip (via builtin USB-JTAG)",
+            "description": "ESP32-P4 debugging via builtin USB-JTAG",
+            "target": "esp32p4",
+            "config_files": [
+                "board/esp32p4-builtin.cfg"
+            ]
+        },
+        {
+            "name": "ESP32-P4 chip (via ESP-PROG)",
+            "description": "ESP32-P4 debugging via ESP-PROG board",
+            "target": "esp32p4",
+            "config_files": [
+                "board/esp32p4-ftdi.cfg"
+            ]
+        },
+        {
+            "name": "ESP32-P4 chip (via ESP-PROG-2)",
+            "description": "ESP32-P4 debugging via ESP-PROG-2 board",
+            "target": "esp32p4",
+            "config_files": [
+                "board/esp32p4-bridge.cfg"
+            ]
         }
     ],
     "options": [
