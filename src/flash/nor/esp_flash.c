@@ -976,7 +976,7 @@ int esp_algo_flash_probe(struct flash_bank *bank)
 	} else {
 		/* flash map index 0 belongs to drom */
 		if (esp_info->is_drom_address(flash_map.maps[0].load_addr)) {
-			drom_flash_base = flash_map.maps[0].load_addr & ~(esp_info->sec_sz - 1);
+			drom_flash_base = flash_map.maps[0].phy_addr & ~(esp_info->sec_sz - 1);
 			drom_base = flash_map.maps[0].load_addr & ~(esp_info->sec_sz - 1);
 			drom_sz = flash_map.maps[0].size;
 			if (drom_sz & (esp_info->sec_sz - 1))
