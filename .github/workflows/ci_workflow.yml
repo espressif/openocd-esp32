@@ -1,0 +1,15 @@
+name: Build and Test OpenOCD Workflow
+
+on:
+  push:
+  workflow_dispatch:  # (to start the workflow manually)
+
+jobs:
+  build-openocd:
+    name: Build OpenOCD
+    uses: ./.github/workflows/build_openocd.yml
+
+  test-openocd:
+    name: Test OpenOCD
+    uses: ./.github/workflows/test_openocd.yml
+    needs: build-openocd

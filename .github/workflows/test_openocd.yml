@@ -1,0 +1,44 @@
+name: Test OpenOCD
+
+on:
+  workflow_call: {}
+  workflow_dispatch: {}
+jobs:
+  run-macos-host:
+    name: Test OpenOCD on MacOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Download files / artifacts from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: openocd-macos-x86
+      - name: Run OpenOCD
+        run: chmod +x bin/openocd && ./bin/openocd --version
+
+  run-linux-host:
+    name: Test OpenOCD on Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Download files / artifacts from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: openocd-linux
+      - name: Run OpenOCD
+        run: chmod +x bin/openocd && ./bin/openocd --version
+
+  run-win-host:
+    name: Test OpenOCD on Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Download files / artifacts from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: openocd-windows
+      - name: Run OpenOCD
+        run: .\bin\openocd --version
