@@ -20,6 +20,7 @@ noinst_LTLIBRARIES += %D%/libhelper.la
 	%D%/nvp.c \
 	%D%/align.h \
 	%D%/binarybuffer.h \
+	%D%/bitfield.h \
 	%D%/bits.h \
 	%D%/configuration.h \
 	%D%/list.h \
