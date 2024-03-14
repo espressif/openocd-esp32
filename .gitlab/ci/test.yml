@@ -197,7 +197,7 @@ tests_armhf_esp32s3:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_bp*.*Single test_bp*.*Dual"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Dual test_*.*Single"
 
 tests_armhf_esp32c2:
   extends: .tests_armhf_master_riscv_template
@@ -304,7 +304,7 @@ tests_armhf_esp32s3_idf5.2.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_2_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_2_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Dual test_*.*Single"
 
 tests_armhf_esp32c2_idf5.2.x:
   extends: .tests_armhf_v5.2.x_riscv_template
@@ -410,7 +410,7 @@ tests_armhf_esp32s3_idf5.1.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Dual test_*.*Single"
 
 tests_armhf_esp32c2_idf5.1.x:
   extends: .tests_armhf_v5.1.x_riscv_template
@@ -516,7 +516,7 @@ tests_armhf_esp32s3_idf5.0.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Dual test_*.*Single"
 
 tests_armhf_esp32c2_idf5.0.x:
   extends: .tests_armhf_v5.0.x_riscv_template
@@ -598,7 +598,7 @@ tests_armhf_esp32s3_idf4.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single test_*.*Dual"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Dual test_*.*Single"
 
 tests_armhf_esp32c3_idf4.x:
   extends: .tests_armhf_v4x_template
