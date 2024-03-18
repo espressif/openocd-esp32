@@ -206,69 +206,52 @@ upload_to_http:
     - echo "Archive was published there '${OOCD_DISTRO_URL}'"
     - echo "NEW_OOCD_DISTRO_URL=${OOCD_DISTRO_URL}" >> build.env
 
-test_idf_master_examples:
+.test_idf_examples:
   stage: pre_release
   when: manual
   only:
     - master
   allow_failure: true
-  variables:
-    OOCD_DISTRO_URL: ${NEW_OOCD_DISTRO_URL}
-    BOT_LABEL_EXAMPLE_TEST: "1"
   needs:
     - job: upload_to_http
       artifacts: true
+  variables:
+    OOCD_DISTRO_URL: ${NEW_OOCD_DISTRO_URL}
   trigger:
     project: espressif/esp-idf
     strategy: depend
+    branch: ${IDF_TEST_BRANCH}
+
+test_idf_master_examples:
+  extends:
+    - .test_idf_examples
+  variables:
+    BOT_LABEL_EXAMPLE_TEST: "1"
+    IDF_TEST_BRANCH: "master"
+
+test_idf5.2.x_examples:
+  extends:
+    - .test_idf_examples
+  variables:
+    IDF_TEST_BRANCH: ${TEST_APP_IDF5_2_RELEASE_BRANCH}
 
 test_idf5.1.x_examples:
-  stage: pre_release
-  when: manual
-  only:
-    - master
-  allow_failure: true
+  extends:
+    - .test_idf_examples
   variables:
-    OOCD_DISTRO_URL: ${NEW_OOCD_DISTRO_URL}
-  needs:
-    - job: upload_to_http
-      artifacts: true
-  trigger:
-    project: espressif/esp-idf
-    branch: ${TEST_APP_IDF5_1_RELEASE_BRANCH}
-    strategy: depend
+    IDF_TEST_BRANCH: ${TEST_APP_IDF5_1_RELEASE_BRANCH}
 
 test_idf5.0.x_examples:
-  stage: pre_release
-  when: manual
-  only:
-    - master
-  allow_failure: true
+  extends:
+    - .test_idf_examples
   variables:
-    OOCD_DISTRO_URL: ${NEW_OOCD_DISTRO_URL}
-  needs:
-    - job: upload_to_http
-      artifacts: true
-  trigger:
-    project: espressif/esp-idf
-    branch: ${TEST_APP_IDF5_0_RELEASE_BRANCH}
-    strategy: depend
+    IDF_TEST_BRANCH: ${TEST_APP_IDF5_0_RELEASE_BRANCH}
 
 test_idf4.x_examples:
-  stage: pre_release
-  when: manual
-  only:
-    - master
-  allow_failure: true
+  extends:
+    - .test_idf_examples
   variables:
-    OOCD_DISTRO_URL: ${NEW_OOCD_DISTRO_URL}
-  needs:
-    - job: upload_to_http
-      artifacts: true
-  trigger:
-    project: espressif/esp-idf
-    branch: ${TEST_APP_IDF4_X_RELEASE_BRANCH}
-    strategy: depend
+    IDF_TEST_BRANCH: ${TEST_APP_IDF4_X_RELEASE_BRANCH}
 
 create_coverage_reports:
   stage: coverage
