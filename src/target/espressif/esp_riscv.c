@@ -188,6 +188,10 @@ static bool esp_riscv_is_bp_set_by_program(struct target *target)
 	return false;
 }
 
+static const char *esp_riscv_ro_regs[] = {
+	"mvendorid", "marchid", "mimpid", "mhartid",
+};
+
 int esp_riscv_examine(struct target *target)
 {
 	int ret = riscv_target.examine(target);
@@ -206,11 +210,19 @@ int esp_riscv_examine(struct target *target)
 	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
 		if (target->reg_cache->reg_list[i].exist) {
 			target->reg_cache->reg_list[i].exist = false;
+			target->reg_cache->reg_list[i].caller_save = true;
 			for (unsigned int j = 0; j < esp_riscv->existent_regs_size; j++)
 				if (!strcmp(target->reg_cache->reg_list[i].name, esp_riscv->existent_regs[j])) {
 					target->reg_cache->reg_list[i].exist = true;
 					break;
 				}
+			for (unsigned int j = 0; j < ARRAY_SIZE(esp_riscv_ro_regs); j++) {
+				if (!strcmp(target->reg_cache->reg_list[i].name, esp_riscv_ro_regs[j])) {
+					target->reg_cache->reg_list[i].exist = true;
+					target->reg_cache->reg_list[i].caller_save = false;
+					break;
+				}
+			}
 		}
 	}
 	return ERROR_OK;
@@ -582,7 +594,7 @@ int esp_riscv_start_algorithm(struct target *target,
 		struct reg *r = &target->reg_cache->reg_list[number];
 
 		algorithm_info->valid_saved_registers[r->number] = r->exist;
-		if (!r->exist)
+		if (!r->exist || !r->caller_save)
 			continue;
 
 		LOG_DEBUG("save %s", r->name);
@@ -743,7 +755,7 @@ int esp_riscv_wait_algorithm(struct target *target,
 		number <= max_saved_reg && number < target->reg_cache->num_regs; number++) {
 		struct reg *r = &target->reg_cache->reg_list[number];
 
-		if (!algorithm_info->valid_saved_registers[r->number])
+		if (!algorithm_info->valid_saved_registers[r->number] || !r->caller_save)
 			continue;
 
 		LOG_DEBUG("restore %s", r->name);
