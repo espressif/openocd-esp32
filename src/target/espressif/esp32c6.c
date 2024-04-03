@@ -125,7 +125,7 @@ static const struct esp_flash_breakpoint_ops esp32c6_flash_brp_ops = {
 
 static const char *esp32c6_existent_regs[] = {
 	"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "t3", "t4", "t5", "t6",
-	"fp", "pc", "mstatus", "misa", "mtvec", "mscratch", "mepc", "mcause", "mtval", "priv",
+	"fp", "pc", "mstatus", "misa", "mideleg", "mie", "mtvec", "mscratch", "mepc", "mcause", "mtval", "mip", "priv",
 	"s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11",
 	"a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7",
 	"pmpcfg0", "pmpcfg1", "pmpcfg2", "pmpcfg3",
