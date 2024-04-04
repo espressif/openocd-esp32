@@ -125,19 +125,6 @@ static const struct esp_flash_breakpoint_ops esp32c3_flash_brp_ops = {
 	.breakpoint_remove = esp_algo_flash_breakpoint_remove
 };
 
-static const char *esp32c3_existent_regs[] = {
-	"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "t3", "t4", "t5", "t6",
-	"fp", "pc", "mstatus", "misa", "mtvec", "mscratch", "mepc", "mcause", "mtval", "priv",
-	"s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11",
-	"a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7",
-	"pmpcfg0", "pmpcfg1", "pmpcfg2", "pmpcfg3",
-	"pmpaddr0", "pmpaddr1", "pmpaddr2", "pmpaddr3", "pmpaddr4", "pmpaddr5", "pmpaddr6", "pmpaddr7",
-	"pmpaddr8", "pmpaddr9", "pmpaddr10", "pmpaddr11", "pmpaddr12", "pmpaddr13", "pmpaddr14", "pmpaddr15",
-	"tselect", "tdata1", "tdata2", "tcontrol", "dcsr", "dpc", "dscratch0", "dscratch1", "hpmcounter16",
-	/* custom exposed CSRs will start with 'csr_' prefix*/
-	"csr_mpcer", "csr_mpcmr", "csr_mpccr", "csr_cpu_gpio_oen", "csr_cpu_gpio_in", "csr_cpu_gpio_out",
-};
-
 static int esp32c3_target_create(struct target *target, Jim_Interp *interp)
 {
 	struct esp_riscv_common *esp_riscv = calloc(1, sizeof(*esp_riscv));
@@ -156,8 +143,8 @@ static int esp32c3_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->rtccntl_reset_state_reg = ESP32C3_RTCCNTL_RESET_STATE_REG;
 	esp_riscv->print_reset_reason = &esp32c3_print_reset_reason;
 	esp_riscv->is_flash_boot = &esp_is_flash_boot;
-	esp_riscv->existent_regs = esp32c3_existent_regs;
-	esp_riscv->existent_regs_size = ARRAY_SIZE(esp32c3_existent_regs);
+	esp_riscv->existent_csrs = NULL;
+	esp_riscv->existent_csr_size = 0;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;

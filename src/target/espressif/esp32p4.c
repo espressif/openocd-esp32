@@ -157,20 +157,13 @@ static const struct esp_flash_breakpoint_ops esp32p4_flash_brp_ops = {
 	.breakpoint_remove = esp_algo_flash_breakpoint_remove
 };
 
-static const char *esp32p4_existent_regs[] = {
-	"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "t3", "t4", "t5", "t6",
-	"fp", "pc", "mstatus", "misa", "mie", "mtvec", "mscratch", "mepc", "mcause", "mtval",
-	"mip", "mtvt", "mnxti", "mintstatus",
-	"mscratchcsw", "mscratchcswl", "mcycle", "minstret", "mcounteren", "mcountinhibit",
+static const char *esp32p4_csrs[] = {
+	"mie", "mcause", "mip", "mtvt", "mnxti",
+	"mintstatus", "mscratchcsw", "mscratchcswl",
+	"mcycle", "minstret", "mcounteren", "mcountinhibit",
 	"mhpmcounter8", "mhpmcounter9", "mhpmcounter13", "mhpmevent8", "mhpmevent9", "mhpmevent13",
 	"mcycleh", "minstreth", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
-	"s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11",
-	"a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7",
-	"pmpcfg0", "pmpcfg1", "pmpcfg2", "pmpcfg3",
-	"pmpaddr0", "pmpaddr1", "pmpaddr2", "pmpaddr3", "pmpaddr4", "pmpaddr5", "pmpaddr6", "pmpaddr7",
-	"pmpaddr8", "pmpaddr9", "pmpaddr10", "pmpaddr11", "pmpaddr12", "pmpaddr13", "pmpaddr14", "pmpaddr15",
-	"tselect", "tdata1", "tdata2", "tdata3", "tcontrol", "tinfo", "mcontext",
-	"dcsr", "dpc", "dscratch0", "dscratch1",
+	"tdata3", "tinfo", "mcontext",
 	/* custom exposed CSRs will start with 'csr_' prefix*/
 	"csr_mclicbase", "csr_mxstatus", "csr_mhcr", "csr_mhint", "csr_mraddr", "csr_mexstatus",
 	"csr_mnmicause", "csr_mnmipc", "csr_mcpuid", "csr_cpu_testbus_ctrl", "csr_pm_user",
@@ -201,8 +194,8 @@ static int esp32p4_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->rtccntl_reset_state_reg = ESP32P4_LP_CLKRST_RESET_CAUSE_REG;
 	esp_riscv->print_reset_reason = &esp32p4_print_reset_reason;
 	esp_riscv->is_flash_boot = &esp_is_flash_boot;
-	esp_riscv->existent_regs = esp32p4_existent_regs;
-	esp_riscv->existent_regs_size = ARRAY_SIZE(esp32p4_existent_regs);
+	esp_riscv->existent_csrs = esp32p4_csrs;
+	esp_riscv->existent_csr_size = ARRAY_SIZE(esp32p4_csrs);
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;

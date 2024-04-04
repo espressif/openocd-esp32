@@ -127,17 +127,9 @@ static const struct esp_flash_breakpoint_ops esp32h2_flash_brp_ops = {
 	.breakpoint_remove = esp_algo_flash_breakpoint_remove
 };
 
-static const char *esp32h2_existent_regs[] = {
-	"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "t3", "t4", "t5", "t6",
-	"fp", "pc", "mstatus", "misa", "mideleg", "mie", "mtvec", "mscratch", "mepc", "mcause", "mtval", "mip", "priv",
-	"s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11",
-	"a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7",
-	"pmpcfg0", "pmpcfg1", "pmpcfg2", "pmpcfg3",
-	"pmpaddr0", "pmpaddr1", "pmpaddr2", "pmpaddr3", "pmpaddr4", "pmpaddr5", "pmpaddr6", "pmpaddr7",
-	"pmpaddr8", "pmpaddr9", "pmpaddr10", "pmpaddr11", "pmpaddr12", "pmpaddr13", "pmpaddr14", "pmpaddr15",
-	"tselect", "tdata1", "tdata2", "tcontrol", "dcsr", "dpc", "dscratch0", "dscratch1", "hpmcounter16",
+static const char *esp32h2_csrs[] = {
+	"mideleg", "mie", "mip",
 	/* custom exposed CSRs will start with 'csr_' prefix*/
-	"csr_mpcer", "csr_mpcmr", "csr_mpccr", "csr_cpu_gpio_oen", "csr_cpu_gpio_in", "csr_cpu_gpio_out",
 	"csr_pma_cfg0", "csr_pma_cfg1", "csr_pma_cfg2", "csr_pma_cfg3", "csr_pma_cfg4", "csr_pma_cfg5",
 	"csr_pma_cfg6", "csr_pma_cfg7", "csr_pma_cfg8", "csr_pma_cfg9", "csr_pma_cfg10", "csr_pma_cfg11",
 	"csr_pma_cfg12", "csr_pma_cfg13", "csr_pma_cfg14", "csr_pma_cfg15", "csr_pma_addr0", "csr_pma_addr1",
@@ -164,8 +156,8 @@ static int esp32h2_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->rtccntl_reset_state_reg = ESP32H2_RTCCNTL_RESET_STATE_REG;
 	esp_riscv->print_reset_reason = &esp32h2_print_reset_reason;
 	esp_riscv->is_flash_boot = &esp_is_flash_boot;
-	esp_riscv->existent_regs = esp32h2_existent_regs;
-	esp_riscv->existent_regs_size = ARRAY_SIZE(esp32h2_existent_regs);
+	esp_riscv->existent_csrs = esp32h2_csrs;
+	esp_riscv->existent_csr_size = ARRAY_SIZE(esp32h2_csrs);
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;

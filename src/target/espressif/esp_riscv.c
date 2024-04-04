@@ -188,7 +188,36 @@ static bool esp_riscv_is_bp_set_by_program(struct target *target)
 	return false;
 }
 
-static const char *esp_riscv_ro_regs[] = {
+/* General purpose registers */
+static const char *esp_riscv_gprs[] = {
+	"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "fp", "s1",
+	"a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "s2", "s3", "s4",
+	"s5", "s6", "s7", "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6",
+	"pc", "priv",
+};
+
+/* Floating point registers */
+static const char *esp_riscv_fprs[] = {
+	"ft0", "ft1", "ft2", "ft3", "ft4", "ft5", "ft6", "ft7", "fs0", "fs1",
+	"fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7", "fs2", "fs3",
+	"fs4", "fs5", "fs6", "fs7", "fs8", "fs9", "fs10", "fs11", "ft8", "ft9",
+	"ft10", "ft11",
+};
+
+/* Common CSRs for all chips */
+static const char *esp_riscv_csrs[] = {
+	"mstatus", "misa", "mtvec", "mscratch", "mepc", "mcause", "mtval",
+	"pmpcfg0", "pmpcfg1", "pmpcfg2", "pmpcfg3",
+	"pmpaddr0", "pmpaddr1", "pmpaddr2", "pmpaddr3", "pmpaddr4", "pmpaddr5", "pmpaddr6", "pmpaddr7",
+	"pmpaddr8", "pmpaddr9", "pmpaddr10", "pmpaddr11", "pmpaddr12", "pmpaddr13", "pmpaddr14", "pmpaddr15",
+	"tselect", "tdata1", "tdata2", "tcontrol",
+	"dcsr", "dpc", "dscratch0", "dscratch1",
+	"csr_mpcer",  "csr_mpcmr", "csr_mpccr",
+	"csr_cpu_gpio_oen", "csr_cpu_gpio_in", "csr_cpu_gpio_out",
+};
+
+/* Read only registers */
+static const char *esp_riscv_ro_csrs[] = {
 	"mvendorid", "marchid", "mimpid", "mhartid",
 };
 
@@ -199,32 +228,42 @@ int esp_riscv_examine(struct target *target)
 		return ret;
 
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
-	if (!esp_riscv->existent_regs)
-		return ERROR_FAIL;
 
 	/*
-		RISCV code initializes registers upon target examination.
-		Disable some registers because their reading or writing causes exception.
-		TODO: check if it is still valid for all RISCV chips
+		RISCV code initializes all registers upon target examination.
+		Espressif chips don't support all of them.
+		Disable not supported registers and avoid writing to read only registers during algorithm run
 	*/
+
+	struct {
+		const char **reg_array;
+		size_t reg_array_size;
+		bool save_restore;
+	} esp_riscv_registers[] = {
+		{ esp_riscv_gprs, ARRAY_SIZE(esp_riscv_gprs), true },
+		{ esp_riscv_fprs, ARRAY_SIZE(esp_riscv_fprs), true },
+		{ esp_riscv_csrs, ARRAY_SIZE(esp_riscv_csrs), true },
+		{ esp_riscv_ro_csrs, ARRAY_SIZE(esp_riscv_ro_csrs), false },
+		{ esp_riscv->existent_csrs, esp_riscv->existent_csr_size, true } /* chip specific CSRs */
+	};
+
 	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
 		if (target->reg_cache->reg_list[i].exist) {
 			target->reg_cache->reg_list[i].exist = false;
-			target->reg_cache->reg_list[i].caller_save = true;
-			for (unsigned int j = 0; j < esp_riscv->existent_regs_size; j++)
-				if (!strcmp(target->reg_cache->reg_list[i].name, esp_riscv->existent_regs[j])) {
-					target->reg_cache->reg_list[i].exist = true;
-					break;
+			for (unsigned int j = 0; j < ARRAY_SIZE(esp_riscv_registers); j++) {
+				for (unsigned int k = 0; k < esp_riscv_registers[j].reg_array_size; k++) {
+					if (!strcmp(target->reg_cache->reg_list[i].name, esp_riscv_registers[j].reg_array[k])) {
+						target->reg_cache->reg_list[i].exist = true;
+						target->reg_cache->reg_list[i].caller_save = esp_riscv_registers[j].save_restore;
+						break;
+					}
 				}
-			for (unsigned int j = 0; j < ARRAY_SIZE(esp_riscv_ro_regs); j++) {
-				if (!strcmp(target->reg_cache->reg_list[i].name, esp_riscv_ro_regs[j])) {
-					target->reg_cache->reg_list[i].exist = true;
-					target->reg_cache->reg_list[i].caller_save = false;
+				if (target->reg_cache->reg_list[i].exist)
 					break;
-				}
 			}
 		}
 	}
+
 	return ERROR_OK;
 }
 
