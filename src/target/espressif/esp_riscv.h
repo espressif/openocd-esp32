@@ -36,8 +36,8 @@ struct esp_riscv_common {
 	void (*print_reset_reason)(struct target *target, uint32_t reset_reason_reg_val);
 	bool (*is_flash_boot)(uint32_t strap_reg);
 	bool was_reset;
-	const char **existent_regs;
-	size_t existent_regs_size;
+	const char **existent_csrs;
+	size_t existent_csr_size;
 };
 
 static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *target)
