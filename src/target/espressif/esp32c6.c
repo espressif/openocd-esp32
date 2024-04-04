@@ -124,7 +124,7 @@ static const struct esp_flash_breakpoint_ops esp32c6_flash_brp_ops = {
 };
 
 static const char *esp32c6_csrs[] = {
-	"mideleg", "mie", "mip",
+	"mideleg", "medeleg", "mie", "mip",
 	/* custom exposed CSRs will start with 'csr_' prefix*/
 	"csr_pma_cfg0", "csr_pma_cfg1", "csr_pma_cfg2", "csr_pma_cfg3", "csr_pma_cfg4", "csr_pma_cfg5",
 	"csr_pma_cfg6", "csr_pma_cfg7", "csr_pma_cfg8", "csr_pma_cfg9", "csr_pma_cfg10", "csr_pma_cfg11",

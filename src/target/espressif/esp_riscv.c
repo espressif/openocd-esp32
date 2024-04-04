@@ -241,7 +241,7 @@ int esp_riscv_examine(struct target *target)
 		bool save_restore;
 	} esp_riscv_registers[] = {
 		{ esp_riscv_gprs, ARRAY_SIZE(esp_riscv_gprs), true },
-		{ esp_riscv_fprs, ARRAY_SIZE(esp_riscv_fprs), true },
+		{ esp_riscv_fprs, ARRAY_SIZE(esp_riscv_fprs), false }, /* We can't read FPRs in the ESP32-P4 ECO version */
 		{ esp_riscv_csrs, ARRAY_SIZE(esp_riscv_csrs), true },
 		{ esp_riscv_ro_csrs, ARRAY_SIZE(esp_riscv_ro_csrs), false },
 		{ esp_riscv->existent_csrs, esp_riscv->existent_csr_size, true } /* chip specific CSRs */
