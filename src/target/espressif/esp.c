@@ -230,7 +230,7 @@ void esp_common_assist_debug_monitor_disable(struct target *target, uint32_t add
 		*value = ESP_ASSIST_DEBUG_INVALID_VALUE;
 		return;
 	}
-	LOG_DEBUG("Saved register value 0x%08" PRIx32, *value);
+	LOG_TARGET_DEBUG(target, "Saved register value 0x%08" PRIx32, *value);
 
 	res = target_write_u32(target, address, 0);
 	if (res != ERROR_OK) {
