@@ -65,7 +65,8 @@
 #define ESP32P4_BP_NUM                          3
 #define ESP32P4_WP_NUM                          3
 
-#define ESP32P4_ASSIST_DEBUG_CPU0_MON_REG		0xFFFFFFFF /* TODO */
+#define ESP32P4_ASSIST_DEBUG_CPU0_MON_REG       0x3FF06000
+#define ESP32P4_ASSIST_DEBUG_CPU_OFFSET         0x80
 
 /* components/soc/esp32p4/include/soc/reset_reasons.h */
 enum esp32p4_reset_reason {
@@ -185,7 +186,7 @@ static int esp32p4_target_create(struct target *target, Jim_Interp *interp)
 	target->arch_info = esp_riscv;
 
 	esp_riscv->assist_debug_cpu0_mon_reg = ESP32P4_ASSIST_DEBUG_CPU0_MON_REG;
-	esp_riscv->assist_debug_cpu_offset = 0;
+	esp_riscv->assist_debug_cpu_offset = ESP32P4_ASSIST_DEBUG_CPU_OFFSET;
 
 	esp_riscv->max_bp_num = ESP32P4_BP_NUM;
 	esp_riscv->max_wp_num = ESP32P4_WP_NUM;
