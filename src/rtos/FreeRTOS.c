@@ -14,7 +14,6 @@
 #include <helper/time_support.h>
 #include <jtag/jtag.h>
 #include "target/target.h"
-#include "target/target_type.h"
 #include "rtos.h"
 #include "helper/log.h"
 #include "helper/types.h"
@@ -1432,7 +1431,7 @@ static int freertos_create(struct target *target)
 
 	size_t i = 0;
 	while ((i < FREERTOS_NUM_PARAMS) &&
-		(0 != strcmp(freertos_params_list[i].target_name, target->type->name))) {
+		(strcmp(freertos_params_list[i].target_name, target_type_name(target)) != 0)) {
 		i++;
 	}
 	if (i >= FREERTOS_NUM_PARAMS) {
