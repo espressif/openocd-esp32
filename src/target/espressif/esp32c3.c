@@ -25,10 +25,6 @@
 #define ESP32C3_RTCCNTL_RESET_STATE_OFF         0x0038
 #define ESP32C3_RTCCNTL_RESET_STATE_REG         (ESP32C3_RTCCNTL_BASE + ESP32C3_RTCCNTL_RESET_STATE_OFF)
 
-#define ESP32C3_GPIO_BASE                       0x60004000
-#define ESP32C3_GPIO_STRAP_REG_OFF              0x0038
-#define ESP32C3_GPIO_STRAP_REG                  (ESP32C3_GPIO_BASE + ESP32C3_GPIO_STRAP_REG_OFF)
-
 #define ESP32C3_RTCCNTL_RESET_CAUSE_MASK        (BIT(6) - 1)
 #define ESP32C3_RESET_CAUSE(reg_val)            ((reg_val) & ESP32C3_RTCCNTL_RESET_CAUSE_MASK)
 
@@ -139,10 +135,8 @@ static int esp32c3_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->max_bp_num = ESP32C3_BP_NUM;
 	esp_riscv->max_wp_num = ESP32C3_WP_NUM;
 
-	esp_riscv->gpio_strap_reg = ESP32C3_GPIO_STRAP_REG;
 	esp_riscv->rtccntl_reset_state_reg = ESP32C3_RTCCNTL_RESET_STATE_REG;
 	esp_riscv->print_reset_reason = &esp32c3_print_reset_reason;
-	esp_riscv->is_flash_boot = &esp_is_flash_boot;
 	esp_riscv->existent_csrs = NULL;
 	esp_riscv->existent_csr_size = 0;
 

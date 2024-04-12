@@ -21,11 +21,6 @@
 #include "esp_riscv_apptrace.h"
 #include "esp_riscv.h"
 
-/* boot mode */
-#define ESP32P4_GPIO_BASE                       (0x500C0000 + 0x20000)
-#define ESP32P4_GPIO_STRAP_REG_OFF              0x0038
-#define ESP32P4_GPIO_STRAP_REG                  (ESP32P4_GPIO_BASE + ESP32P4_GPIO_STRAP_REG_OFF)
-
 /* reset cause */
 #define ESP32P4_LP_AON_BASE                     0x50110000
 #define ESP32P4_LP_CLKRST_RESET_CAUSE_REG       (ESP32P4_LP_AON_BASE + 0x1000 + 0x10)
@@ -191,10 +186,8 @@ static int esp32p4_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->max_bp_num = ESP32P4_BP_NUM;
 	esp_riscv->max_wp_num = ESP32P4_WP_NUM;
 
-	esp_riscv->gpio_strap_reg = ESP32P4_GPIO_STRAP_REG;
 	esp_riscv->rtccntl_reset_state_reg = ESP32P4_LP_CLKRST_RESET_CAUSE_REG;
 	esp_riscv->print_reset_reason = &esp32p4_print_reset_reason;
-	esp_riscv->is_flash_boot = &esp_is_flash_boot;
 	esp_riscv->existent_csrs = esp32p4_csrs;
 	esp_riscv->existent_csr_size = ARRAY_SIZE(esp32p4_csrs);
 
