@@ -25,10 +25,6 @@
 #define ESP32H2_LP_CLKRST_RESET_CAUSE_REG       (ESP32H2_LP_CLKRST_BASE + 0x10)
 #define ESP32H2_RTCCNTL_RESET_STATE_REG         (ESP32H2_LP_CLKRST_RESET_CAUSE_REG)
 
-#define ESP32H2_GPIO_BASE                       0x60091000
-#define ESP32H2_GPIO_STRAP_REG_OFF              0x0038
-#define ESP32H2_GPIO_STRAP_REG                  (ESP32H2_GPIO_BASE + ESP32H2_GPIO_STRAP_REG_OFF)
-
 #define ESP32H2_RTCCNTL_RESET_CAUSE_MASK        (BIT(5) - 1)
 #define ESP32H2_RESET_CAUSE(reg_val)            ((reg_val) & ESP32H2_RTCCNTL_RESET_CAUSE_MASK)
 
@@ -152,10 +148,8 @@ static int esp32h2_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->max_bp_num = ESP32H2_BP_NUM;
 	esp_riscv->max_wp_num = ESP32H2_WP_NUM;
 
-	esp_riscv->gpio_strap_reg = ESP32H2_GPIO_STRAP_REG;
 	esp_riscv->rtccntl_reset_state_reg = ESP32H2_RTCCNTL_RESET_STATE_REG;
 	esp_riscv->print_reset_reason = &esp32h2_print_reset_reason;
-	esp_riscv->is_flash_boot = &esp_is_flash_boot;
 	esp_riscv->existent_csrs = esp32h2_csrs;
 	esp_riscv->existent_csr_size = ARRAY_SIZE(esp32h2_csrs);
 

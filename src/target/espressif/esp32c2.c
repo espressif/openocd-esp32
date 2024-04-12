@@ -25,10 +25,6 @@
 #define ESP32C2_RTCCNTL_RESET_STATE_OFF        0x0030
 #define ESP32C2_RTCCNTL_RESET_STATE_REG        (ESP32C2_RTCCNTL_BASE + ESP32C2_RTCCNTL_RESET_STATE_OFF)
 
-#define ESP32C2_GPIO_BASE                      0x60004000
-#define ESP32C2_GPIO_STRAP_REG_OFF             0x0038
-#define ESP32C2_GPIO_STRAP_REG                 (ESP32C2_GPIO_BASE + ESP32C2_GPIO_STRAP_REG_OFF)
-
 #define ESP32C2_RTCCNTL_RESET_CAUSE_MASK       (BIT(6) - 1)
 #define ESP32C2_RESET_CAUSE(reg_val)           ((reg_val) & ESP32C2_RTCCNTL_RESET_CAUSE_MASK)
 
@@ -98,11 +94,6 @@ static void esp32c2_print_reset_reason(struct target *target, uint32_t reset_rea
 		esp32c2_get_reset_reason(reset_reason_reg_val));
 }
 
-static inline bool esp32c2_is_flash_boot(uint32_t strap_reg)
-{
-	return IS_1XXX(strap_reg);
-}
-
 static const struct esp_semihost_ops esp32c2_semihost_ops = {
 	.prepare = NULL,
 	.post_reset = esp_semihosting_post_reset
@@ -127,10 +118,8 @@ static int esp32c2_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->max_bp_num = ESP32C2_BP_NUM;
 	esp_riscv->max_wp_num = ESP32C2_WP_NUM;
 
-	esp_riscv->gpio_strap_reg = ESP32C2_GPIO_STRAP_REG;
 	esp_riscv->rtccntl_reset_state_reg = ESP32C2_RTCCNTL_RESET_STATE_REG;
 	esp_riscv->print_reset_reason = &esp32c2_print_reset_reason;
-	esp_riscv->is_flash_boot = &esp32c2_is_flash_boot;
 	esp_riscv->existent_csrs = NULL;
 	esp_riscv->existent_csr_size = 0;
 

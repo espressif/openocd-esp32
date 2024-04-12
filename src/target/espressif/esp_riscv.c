@@ -241,7 +241,8 @@ int esp_riscv_examine(struct target *target)
 		bool save_restore;
 	} esp_riscv_registers[] = {
 		{ esp_riscv_gprs, ARRAY_SIZE(esp_riscv_gprs), true },
-		{ esp_riscv_fprs, ARRAY_SIZE(esp_riscv_fprs), false }, /* We can't read FPRs in the ESP32-P4 ECO version */
+		/* FPRs can't be read via abstract command in ESP32-P4 ECO version */
+		{ esp_riscv_fprs, ARRAY_SIZE(esp_riscv_fprs), false },
 		{ esp_riscv_csrs, ARRAY_SIZE(esp_riscv_csrs), true },
 		{ esp_riscv_ro_csrs, ARRAY_SIZE(esp_riscv_ro_csrs), false },
 		{ esp_riscv->existent_csrs, esp_riscv->existent_csr_size, true } /* chip specific CSRs */
@@ -272,71 +273,29 @@ int esp_riscv_poll(struct target *target)
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 	int res = ERROR_OK;
 
-	RISCV_INFO(r);
-	if (esp_riscv->was_reset && r->dmi_read && r->dmi_write) {
-		uint32_t dmstatus;
-		res = r->dmi_read(target, &dmstatus, DM_DMSTATUS);
-		if (res != ERROR_OK) {
-			LOG_TARGET_ERROR(target, "Failed to read DMSTATUS (%d)!", res);
-		} else {
-			if (esp_riscv->print_reset_reason) {
-				uint32_t reset_reason_reg_val = 0;
-				res = target_read_u32(target, esp_riscv->rtccntl_reset_state_reg, &reset_reason_reg_val);
-				if (res != ERROR_OK)
-					LOG_TARGET_WARNING(target, "Failed to read reset cause register (%d)!", res);
-				else
-					esp_riscv->print_reset_reason(target, reset_reason_reg_val);
-			}
-
-			uint32_t strap_reg = 0;
-			if (esp_riscv->is_flash_boot) {
-				LOG_TARGET_DEBUG(target, "Core is out of reset: dmstatus 0x%x", dmstatus);
-				esp_riscv->was_reset = false;
-				res = target_read_u32(target, esp_riscv->gpio_strap_reg, &strap_reg);
-				if (res != ERROR_OK) {
-					LOG_TARGET_WARNING(target, "Failed to read GPIO_STRAP_REG (%d)!", res);
-					strap_reg = ESP_FLASH_BOOT_MODE;
-				}
-
-				if (esp_riscv->is_flash_boot(strap_reg) &&
-					get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
-					LOG_TARGET_DEBUG(target, "Halt core");
-					res = esp_riscv_core_halt(target);
-					if (res != ERROR_OK)
-						LOG_TARGET_ERROR(target, "Failed to halt core (%d)!", res);
-					else
-						/* We don't want GDB involved to halted event. But at the same we want to invoke TCL event
-							handler to disable watchdog. Thats why we call DEBUG_HALTED event here.
-						*/
-						target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
-				}
-			}
-
-			if (esp_riscv->semi_ops->post_reset)
-				esp_riscv->semi_ops->post_reset(target);
-			/* Clear memory which is used by RTOS layer to get the task count */
-			if (target->rtos && target->rtos->type->post_reset_cleanup) {
-				res = (*target->rtos->type->post_reset_cleanup)(target);
-				if (res != ERROR_OK)
-					LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
-			}
-			/* clear previous apptrace ctrl_addr to avoid invalid tracing control block usage in the long
-			 *run. */
-			esp_riscv->apptrace.ctrl_addr = 0;
-
-			if (esp_riscv->is_flash_boot && esp_riscv->is_flash_boot(strap_reg)) {
-				if (get_field(dmstatus, DM_DMSTATUS_ALLHALTED) == 0) {
-					LOG_TARGET_DEBUG(target, "Resume core");
-					res = esp_riscv_core_resume(target);
-					if (res != ERROR_OK) {
-						LOG_TARGET_ERROR(target, "Failed to resume core (%d)!", res);
-					} else {
-						LOG_TARGET_DEBUG(target, "resumed core");
-						target_call_event_callbacks(target, TARGET_EVENT_DEBUG_RESUMED);
-					}
-				}
-			}
+	if (esp_riscv->was_reset) {
+		if (esp_riscv->print_reset_reason) {
+			uint32_t reset_reason_reg_val = 0;
+			res = target_read_u32(target, esp_riscv->rtccntl_reset_state_reg, &reset_reason_reg_val);
+			if (res != ERROR_OK)
+				LOG_TARGET_WARNING(target, "Failed to read reset cause register (%d)!", res);
+			else
+				esp_riscv->print_reset_reason(target, reset_reason_reg_val);
 		}
+
+		if (esp_riscv->semi_ops->post_reset)
+			esp_riscv->semi_ops->post_reset(target);
+
+		/* Clear memory which is used by RTOS layer to get the task count */
+		if (target->rtos && target->rtos->type->post_reset_cleanup) {
+			res = (*target->rtos->type->post_reset_cleanup)(target);
+			if (res != ERROR_OK)
+				LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
+		}
+
+		/* clear previous apptrace ctrl_addr to avoid invalid tracing control block usage in the long run. */
+		esp_riscv->apptrace.ctrl_addr = 0;
+		esp_riscv->was_reset = false;
 	}
 
 	return riscv_openocd_poll(target);

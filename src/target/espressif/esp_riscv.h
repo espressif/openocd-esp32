@@ -31,10 +31,8 @@ struct esp_riscv_common {
 	uint8_t max_wp_num;
 	uint32_t assist_debug_cpu0_mon_reg; /* cpu 0 monitor register address */
 	uint32_t assist_debug_cpu_offset;   /* address offset to register of next cpu id */
-	target_addr_t gpio_strap_reg;		/* to read flash boot moode */
 	target_addr_t rtccntl_reset_state_reg;	/* to read reset cause */
 	void (*print_reset_reason)(struct target *target, uint32_t reset_reason_reg_val);
-	bool (*is_flash_boot)(uint32_t strap_reg);
 	bool was_reset;
 	const char **existent_csrs;
 	size_t existent_csr_size;
