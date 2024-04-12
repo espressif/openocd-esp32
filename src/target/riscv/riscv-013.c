@@ -1922,6 +1922,13 @@ static int examine(struct target *target)
 		return ERROR_FAIL;
 	}
 
+	/*
+		!! ESPRESSIF workaround !!
+		Dummy read avoids "Debug Module did not become active error" at the 2nd hart examination stage for the same DM.
+	*/
+	uint32_t dmcontrol;
+	dmi_read(target, &dmcontrol, DM_DMCONTROL);
+
 	/* Reset the Debug Module. */
 	dm013_info_t *dm = get_dm(target);
 	if (!dm)
@@ -1939,7 +1946,6 @@ static int examine(struct target *target)
 			DM_DMCONTROL_HARTSELHI | DM_DMCONTROL_DMACTIVE |
 			DM_DMCONTROL_HASEL);
 	dm->current_hartid = HART_INDEX_UNKNOWN;
-	uint32_t dmcontrol;
 	if (dm_read(target, &dmcontrol, DM_DMCONTROL) != ERROR_OK)
 		return ERROR_FAIL;
 	/* Ensure the HART_INDEX_UNKNOWN is flushed out */
