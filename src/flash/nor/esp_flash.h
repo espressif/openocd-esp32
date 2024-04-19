@@ -9,7 +9,6 @@
 #define OPENOCD_FLASH_NOR_ESP_FLASH_H
 
 #include <target/target.h>
-#include <helper/command.h>
 #include <target/espressif/esp_algorithm.h>
 #include <target/breakpoints.h>
 #include <flash/nor/core.h>
@@ -130,12 +129,5 @@ int esp_algo_flash_breakpoint_remove(struct target *target,
 	struct esp_flash_breakpoint *sw_bp);
 
 extern const struct command_registration esp_flash_exec_flash_command_handlers[];
-
-COMMAND_HELPER(esp_algo_flash_cmd_appimage_flashoff_do, struct target *target);
-COMMAND_HELPER(esp_algo_flash_cmd_set_compression, struct target *target);
-COMMAND_HELPER(esp_algo_flash_cmd_set_encryption, struct target *target);
-COMMAND_HELPER(esp_algo_flash_parse_cmd_verify_bank_hash, struct target *target);
-COMMAND_HELPER(esp_algo_flash_parse_cmd_clock_boost, struct target *target);
-COMMAND_HELPER(esp_algo_flash_parse_cmd_stub_log, struct target *target);
 
 #endif	/* OPENOCD_FLASH_NOR_ESP_FLASH_H */

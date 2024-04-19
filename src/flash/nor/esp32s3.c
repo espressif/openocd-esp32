@@ -124,149 +124,13 @@ static int esp32s3_get_info(struct flash_bank *bank, struct command_invocation *
 	return ERROR_OK;
 }
 
-COMMAND_HANDLER(esp32s3_cmd_appimage_flashoff)
-{
-	struct target *target = get_current_target(CMD_CTX);
-
-	if (target->smp) {
-		struct target_list *head;
-		struct target *curr;
-		foreach_smp_target(head, target->smp_targets) {
-			curr = head->target;
-			int ret = CALL_COMMAND_HANDLER(esp_algo_flash_cmd_appimage_flashoff_do, curr);
-			if (ret != ERROR_OK)
-				return ret;
-		}
-		return ERROR_OK;
-	}
-	return CALL_COMMAND_HANDLER(esp_algo_flash_cmd_appimage_flashoff_do, target);
-}
-
-COMMAND_HANDLER(esp32s3_cmd_compression)
-{
-	struct target *target = get_current_target(CMD_CTX);
-
-	if (target->smp) {
-		struct target_list *head;
-		struct target *curr;
-		foreach_smp_target(head, target->smp_targets) {
-			curr = head->target;
-			int ret = CALL_COMMAND_HANDLER(esp_algo_flash_cmd_set_compression, curr);
-			if (ret != ERROR_OK)
-				return ret;
-		}
-		return ERROR_OK;
-	}
-	return CALL_COMMAND_HANDLER(esp_algo_flash_cmd_set_compression, target);
-}
-
-COMMAND_HANDLER(esp32s3_cmd_encryption)
-{
-	struct target *target = get_current_target(CMD_CTX);
-
-	if (target->smp) {
-		struct target_list *head;
-		struct target *curr;
-		foreach_smp_target(head, target->smp_targets) {
-			curr = head->target;
-			int ret = CALL_COMMAND_HANDLER(esp_algo_flash_cmd_set_encryption, curr);
-			if (ret != ERROR_OK)
-				return ret;
-		}
-		return ERROR_OK;
-	}
-	return CALL_COMMAND_HANDLER(esp_algo_flash_cmd_set_encryption, target);
-}
-
-COMMAND_HANDLER(esp32s3_cmd_stub_log)
-{
-	struct target *target = get_current_target(CMD_CTX);
-
-	if (target->smp) {
-		struct target_list *head;
-		struct target *curr;
-		foreach_smp_target(head, target->smp_targets) {
-			curr = head->target;
-			int ret = CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_stub_log, curr);
-			if (ret != ERROR_OK)
-				return ret;
-		}
-		return ERROR_OK;
-	}
-	return CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_stub_log, target);
-}
-
-COMMAND_HANDLER(esp32s3_cmd_verify_bank_hash)
-{
-	return CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_verify_bank_hash,
-		get_current_target(CMD_CTX));
-}
-
-COMMAND_HANDLER(esp32s3_cmd_set_clock)
-{
-	return CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_clock_boost,
-		get_current_target(CMD_CTX));
-}
-
-static const struct command_registration esp32s3_flash_command_handlers[] = {
-	{
-		.name = "appimage_offset",
-		.handler = esp32s3_cmd_appimage_flashoff,
-		.mode = COMMAND_ANY,
-		.help =
-			"Set offset of application image in flash. Use -1 to debug the first application image from partition table.",
-		.usage = "offset",
-	},
-	{
-		.name = "compression",
-		.handler = esp32s3_cmd_compression,
-		.mode = COMMAND_ANY,
-		.help =
-			"Set compression flag",
-		.usage = "['on'|'off']",
-	},
-	{
-		.name = "verify_bank_hash",
-		.handler = esp32s3_cmd_verify_bank_hash,
-		.mode = COMMAND_ANY,
-		.usage = "bank_id filename [offset]",
-		.help = "Perform a comparison between the file and the contents of the "
-			"flash bank using SHA256 hash values. Allow optional offset from beginning of the bank "
-			"(defaults to zero).",
-	},
-	{
-		.name = "flash_stub_clock_boost",
-		.handler = esp32s3_cmd_set_clock,
-		.mode = COMMAND_ANY,
-		.help =
-			"Set cpu clock freq to the max level. Use 'off' to restore the clock speed",
-		.usage = "['on'|'off']",
-	},
-	{
-		.name = "encrypt_binary",
-		.handler = esp32s3_cmd_encryption,
-		.mode = COMMAND_ANY,
-		.help =
-			"Set if binary encryption needs to be handled on chip before writing to flash",
-		.usage = "['yes'|'no']",
-	},
-	{
-		.name = "stub_log",
-		.handler = esp32s3_cmd_stub_log,
-		.mode = COMMAND_ANY,
-		.help = "Enable stub flasher logs",
-		.usage = "['on'|'off']",
-	},
-	COMMAND_REGISTRATION_DONE
-};
-
 static const struct command_registration esp32s3_command_handlers[] = {
 	{
 		.name = "esp",
 		.mode = COMMAND_ANY,
 		.help = "ESP flash command group",
 		.usage = "",
-		.chain = esp32s3_flash_command_handlers,
+		.chain = esp_flash_exec_flash_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE
 };
@@ -277,7 +141,7 @@ static const struct command_registration esp32s3_legacy_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "ESP32_S3 flash command group",
 		.usage = "",
-		.chain = esp32s3_flash_command_handlers,
+		.chain = esp_flash_exec_flash_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE
 };
