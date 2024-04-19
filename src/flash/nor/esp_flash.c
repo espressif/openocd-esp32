@@ -63,6 +63,7 @@
 #include <target/register.h>
 #include <helper/time_support.h>
 #include "contrib/loaders/flash/espressif/stub_flasher.h"
+#include <target/smp.h>
 #include "esp_flash.h"
 
 #define ESP_FLASH_RW_TMO                20000	/* ms */
@@ -1373,13 +1374,7 @@ COMMAND_HELPER(esp_algo_flash_cmd_appimage_flashoff_do, struct target *target)
 	if (ret != ERROR_OK)
 		return ret;
 
-	return ERROR_OK;
-}
-
-COMMAND_HANDLER(esp_algo_flash_cmd_appimage_flashoff)
-{
-	return CALL_COMMAND_HANDLER(esp_algo_flash_cmd_appimage_flashoff_do,
-		get_current_target(CMD_CTX));
+	return esp_algo_flash_appimage_base_update(target, "flash", appimage_flash_base);
 }
 
 static int esp_algo_flash_set_compression(struct target *target,
@@ -1428,12 +1423,6 @@ COMMAND_HELPER(esp_algo_flash_cmd_set_compression, struct target *target)
 	return esp_algo_flash_set_compression(target, "flash", compression);
 }
 
-COMMAND_HANDLER(esp_algo_flash_cmd_compression)
-{
-	return CALL_COMMAND_HANDLER(esp_algo_flash_cmd_set_compression,
-		get_current_target(CMD_CTX));
-}
-
 static int esp_algo_flash_set_encryption(struct target *target,
 	char *bank_name_suffix,
 	int encryption)
@@ -1471,12 +1460,6 @@ COMMAND_HELPER(esp_algo_flash_cmd_set_encryption, struct target *target)
 	COMMAND_PARSE_ON_OFF(CMD_ARGV[0], encryption);
 
 	return esp_algo_flash_set_encryption(target, "flash", encryption);
-}
-
-COMMAND_HANDLER(esp_algo_flash_cmd_encryption)
-{
-	return CALL_COMMAND_HANDLER(esp_algo_flash_cmd_set_encryption,
-		get_current_target(CMD_CTX));
 }
 
 static int esp_flash_verify_bank_hash(struct target *target,
@@ -1583,12 +1566,6 @@ COMMAND_HELPER(esp_algo_flash_parse_cmd_verify_bank_hash, struct target *target)
 	return esp_flash_verify_bank_hash(target, offset, CMD_ARGV[1]);
 }
 
-COMMAND_HANDLER(esp_algo_flash_cmd_verify_bank_hash)
-{
-	return CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_verify_bank_hash,
-		get_current_target(CMD_CTX));
-}
-
 COMMAND_HELPER(esp_algo_flash_parse_cmd_clock_boost, struct target *target)
 {
 	if (CMD_ARGC != 1) {
@@ -1617,12 +1594,6 @@ COMMAND_HELPER(esp_algo_flash_parse_cmd_clock_boost, struct target *target)
 	return esp_algo_flash_boost_clock_freq(bank, boost);
 }
 
-COMMAND_HANDLER(esp_algo_flash_cmd_clock_boost)
-{
-	return CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_clock_boost,
-		get_current_target(CMD_CTX));
-}
-
 COMMAND_HELPER(esp_algo_flash_parse_cmd_stub_log, struct target *target)
 {
 	if (CMD_ARGC != 1) {
@@ -1643,20 +1614,39 @@ COMMAND_HELPER(esp_algo_flash_parse_cmd_stub_log, struct target *target)
 		return ERROR_FAIL;
 	}
 
-	int ret = esp_algo_flash_set_stub_log(target, "irom", log_stat);
-	if (ret != ERROR_OK)
-		return ret;
-	ret = esp_algo_flash_set_stub_log(target, "drom", log_stat);
-	if (ret != ERROR_OK)
-		return ret;
 	return esp_algo_flash_set_stub_log(target, "flash", log_stat);
 }
 
-COMMAND_HANDLER(esp_algo_flash_cmd_stub_log)
+COMMAND_HANDLER(esp_algo_flash_cmd_clock_boost)
 {
-	return CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_stub_log,
-		get_current_target(CMD_CTX));
+	return CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_clock_boost, get_current_target(CMD_CTX));
 }
+
+COMMAND_HANDLER(esp_algo_flash_cmd_verify_bank_hash)
+{
+	return CALL_COMMAND_HANDLER(esp_algo_flash_parse_cmd_verify_bank_hash, get_current_target(CMD_CTX));
+}
+
+#define COMMAND_HANDLER_SMP(name, handler) \
+COMMAND_HANDLER(name) \
+{ \
+	struct target *target = get_current_target(CMD_CTX); \
+	if (target->smp) { \
+		struct target_list *head; \
+		foreach_smp_target(head, target->smp_targets) { \
+			int ret = CALL_COMMAND_HANDLER(handler, head->target); \
+			if (ret != ERROR_OK) \
+				return ret; \
+		} \
+		return ERROR_OK; \
+	} \
+	return CALL_COMMAND_HANDLER(handler, target); \
+}
+
+COMMAND_HANDLER_SMP(esp_algo_flash_cmd_stub_log, esp_algo_flash_parse_cmd_stub_log)
+COMMAND_HANDLER_SMP(esp_algo_flash_cmd_encryption, esp_algo_flash_cmd_set_encryption)
+COMMAND_HANDLER_SMP(esp_algo_flash_cmd_compression, esp_algo_flash_cmd_set_compression)
+COMMAND_HANDLER_SMP(esp_algo_flash_cmd_appimage_flashoff, esp_algo_flash_cmd_appimage_flashoff_do)
 
 const struct command_registration esp_flash_exec_flash_command_handlers[] = {
 	{
