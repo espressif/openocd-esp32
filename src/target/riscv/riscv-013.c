@@ -523,7 +523,7 @@ static dmi_status_t dmi_scan(struct target *target, uint32_t *address_in,
 		jtag_add_dr_scan(target->tap, 1, &field, TAP_IDLE);
 	}
 
-	int idle_count = info->dmi_busy_delay;
+	int idle_count = info->dmi_busy_delay + info->dtmcs_idle;
 	if (exec)
 		idle_count += info->ac_busy_delay;
 
@@ -1922,17 +1922,12 @@ static int examine(struct target *target)
 		return ERROR_FAIL;
 	}
 
-	/*
-		!! ESPRESSIF workaround !!
-		Dummy read avoids "Debug Module did not become active error" at the 2nd hart examination stage for the same DM.
-	*/
-	uint32_t dmcontrol;
-	dmi_read(target, &dmcontrol, DM_DMCONTROL);
-
 	/* Reset the Debug Module. */
 	dm013_info_t *dm = get_dm(target);
 	if (!dm)
 		return ERROR_FAIL;
+
+	uint32_t dmcontrol;
 	if (!dm->was_reset) {
 		dm_write(target, DM_DMCONTROL, 0);
 		dm_write(target, DM_DMCONTROL, DM_DMCONTROL_DMACTIVE);
