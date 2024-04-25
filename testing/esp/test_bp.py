@@ -342,6 +342,7 @@ def appcpu_early_hw_bps(self):
     finally:
         # restore default GDB SMP handling to avoid other tests failures
         self.gdb.monitor_run("esp32 smp_gdb -1", 5)
+        self.gdb.monitor_run("resume", 5)
 
 class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTestsImpl):
     """ Test cases for breakpoints in dual core mode
@@ -355,7 +356,7 @@ class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTes
     def test_2cores_concurrently_hit_bps(self):
         two_cores_concurrently_hit_bps(self)
 
-    # OCD-773
+    # OCD-773
     @idf_ver_min_for_chip('5.1', ['esp32'])
     def test_appcpu_early_hw_bps(self):
         appcpu_early_hw_bps(self)
@@ -370,7 +371,7 @@ class DebuggerBreakpointTestsDualEncrypted(DebuggerGenericTestAppTestsDualEncryp
     def test_2cores_concurrently_hit_bps(self):
         two_cores_concurrently_hit_bps(self)
 
-    # OCD-773
+    # OCD-773
     @idf_ver_min_for_chip('5.1', ['esp32'])
     def test_appcpu_early_hw_bps(self):
         appcpu_early_hw_bps(self)
