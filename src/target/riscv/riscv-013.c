@@ -1933,6 +1933,24 @@ static int examine(struct target *target)
 		dm_write(target, DM_DMCONTROL, DM_DMCONTROL_DMACTIVE);
 		dm->was_reset = true;
 	}
+
+	/* ESPRESSIF: workaround to handle external reset while target is halted.
+		If reset happens, target will go into running state, but allhavereset, anyhavereset,
+		allhalted and anyhalted bits will remain set. dmstatus = 0x000f03a2
+	*/
+	uint32_t dmstatus;
+	if (dmstatus_read(target, &dmstatus, false) != ERROR_OK)
+		return ERROR_FAIL;
+	enum riscv_hart_state state_at_examine_start;
+	if (get_field(dmstatus, DM_DMSTATUS_ALLHAVERESET) && get_field(dmstatus, DM_DMSTATUS_ALLHALTED)) {
+		/* By changing the actual state, we allow the target to go into a halted state before accessing registers
+			via abstract commands. This will avoid busy timeout errors. */
+		/* TODO: check SMP target behaviour */
+		target->state = TARGET_RESET;
+		state_at_examine_start = RISCV_STATE_RUNNING;
+		LOG_TARGET_INFO(target, "external reset happened in halted state (dmstatus:0x%08x)", dmstatus);
+	}
+
 	/* We're here because we're uncertain about the state of the target. That
 	 * includes our progbuf cache. */
 	riscv013_invalidate_cached_progbuf(target);
@@ -1956,7 +1974,6 @@ static int examine(struct target *target)
 
 	dm->hasel_supported = get_field(dmcontrol, DM_DMCONTROL_HASEL);
 
-	uint32_t dmstatus;
 	if (dmstatus_read(target, &dmstatus, false) != ERROR_OK)
 		return ERROR_FAIL;
 	LOG_TARGET_DEBUG(target, "dmstatus:  0x%08x", dmstatus);
@@ -2054,9 +2071,10 @@ static int examine(struct target *target)
 	if (dm013_select_hart(target, info->index) != ERROR_OK)
 		return ERROR_FAIL;
 
-	enum riscv_hart_state state_at_examine_start;
-	if (riscv_get_hart_state(target, &state_at_examine_start) != ERROR_OK)
-		return ERROR_FAIL;
+	if (target->state == TARGET_UNKNOWN) {
+		if (riscv_get_hart_state(target, &state_at_examine_start) != ERROR_OK)
+			return ERROR_FAIL;
+	}
 	const bool hart_halted_at_examine_start = state_at_examine_start == RISCV_STATE_HALTED;
 	if (!hart_halted_at_examine_start) {
 		r->prepped = true;
