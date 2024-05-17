@@ -322,18 +322,8 @@ static int esp_usb_jtag_revive_device(struct libusb_device_handle *usb_device)
 
 	while (tries-- >= 0) {
 		new_dev = jtag_libusb_find_device(vids, pids, esp_usb_jtag_serial);
-		if (new_dev) {
-			if (esp_usb_jtag_libusb_location_equal(cur_dev, new_dev)) {
-				/* device is still at the same location on bus and with the same address,
-				        try to reset it */
-				int rc = libusb_reset_device(usb_device);
-				if (rc == LIBUSB_ERROR_NOT_FOUND || rc == LIBUSB_ERROR_NO_DEVICE) {
-					/* re-enumeration is necessary */
-					break;
-				}
-				libusb_unref_device(new_dev);
-				return rc == 0 ? ERROR_OK : ERROR_WAIT;
-			}
+		if (new_dev && esp_usb_jtag_libusb_location_equal(cur_dev, new_dev)) {
+			/* device is still at the same location on bus and with the same address, try to re-init it */
 			break;
 		}
 		jtag_sleep(100000);
