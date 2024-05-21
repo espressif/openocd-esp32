@@ -23,11 +23,13 @@ SRCS := $(IDF_PATH)/components/esp_hw_support/port/esp32h2/rtc_clk_init.c \
 		$(IDF_PATH)/components/app_trace/port/$(STUB_ARCH)/port.c
 
 CFLAGS := -std=gnu17
+CFLAGS += -Wno-dangling-pointer
 
 INCLUDES := -I$(IDF_PATH)/components/soc/esp32h2/include -I$(IDF_PATH)/components/riscv/include \
 	-I$(IDF_PATH)/components/hal/esp32h2/include \
 	-I$(IDF_PATH)/components/esp32h2/include \
 	-I$(IDF_PATH)/components/esp_hw_support/port/esp32h2/private_include \
+	-I$(IDF_PATH)/components/esp_hw_support/port/esp32h2/include \
 	-I$(IDF_PATH)/components/esp_rom/include/esp32h2 \
 	-I$(IDF_PATH)/components/esp_hw_support/port/esp32h2 \
 	-I$(IDF_PATH)/components/spi_flash/include \

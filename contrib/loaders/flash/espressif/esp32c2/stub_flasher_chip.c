@@ -38,7 +38,7 @@
 /* Cache MMU related definitions */
 #define STUB_CACHE_BUS                  EXTMEM_ICACHE_SHUT_DBUS
 #define STUB_MMU_TABLE                  ((volatile uint32_t *)DR_REG_MMU_TABLE)	/* 0x600c5000 */
-#define STUB_MMU_INVALID_ENTRY_VAL      MMU_INVALID	/* BIT(6) */
+#define STUB_MMU_INVALID_ENTRY_VAL      SOC_MMU_INVALID	/* BIT(6) */
 
 typedef struct {
 	mmu_page_size_t page_size;
@@ -73,6 +73,8 @@ void stub_flash_cache_flush(void)
 void stub_cache_init(void)
 {
 	STUB_LOGD("%s\n", __func__);
+
+	esp_rom_spiflash_attach(0, false);
 
 	Cache_Mask_All();
 	/* init cache mmu, set cache mode, invalidate cache tags, enable cache*/
@@ -148,8 +150,6 @@ void stub_systimer_init(void)
 
 void stub_flash_state_prepare(struct stub_flash_state *state)
 {
-	const uint32_t spiconfig = 0;	/* ESP32C2 doesn't support ets_efuse_get_spiconfig(); */
-
 	state->cache_enabled = stub_is_cache_enabled();
 	if (!state->cache_enabled) {
 		STUB_LOGI("Cache needs to be enabled\n");
@@ -157,8 +157,6 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 	}
 	stub_cache_configure();
 	stub_systimer_init();
-
-	esp_rom_spiflash_attach(spiconfig, false);
 }
 
 void stub_flash_state_restore(struct stub_flash_state *state)

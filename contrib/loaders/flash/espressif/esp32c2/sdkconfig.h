@@ -38,6 +38,11 @@
 #define CONFIG_PARTITION_TABLE_OFFSET                   0x8000
 #define CONFIG_MMU_PAGE_SIZE                            0x10000	/* 64KB */
 
+#define CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE              1
+#define CONFIG_FREERTOS_NUMBER_OF_CORES                 1
+
+#define CONFIG_LOG_DEFAULT_LEVEL                        0
+
 #define CONFIG_FREERTOS_TASK_NOTIFICATION_ARRAY_ENTRIES 1
 
 #endif	/* OPENOCD_LOADERS_FLASH_ESPRESSIF_ESP32C2_SDKCONFIG_H */

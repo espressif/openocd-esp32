@@ -34,7 +34,7 @@
 /* Cache MMU related definitions */
 #define STUB_CACHE_CTRL_REG                     EXTMEM_L1_CACHE_CTRL_REG
 #define STUB_CACHE_BUS                          (EXTMEM_L1_CACHE_SHUT_DBUS | EXTMEM_L1_CACHE_SHUT_IBUS)
-#define STUB_MMU_DROM_PAGES_END                 MMU_ENTRY_NUM
+#define STUB_MMU_DROM_PAGES_END                 SOC_MMU_ENTRY_NUM
 #define STUB_MMU_DROM_PAGES_START               (STUB_MMU_DROM_PAGES_END - 8) /* 8 pages will be more than enough */
 
 typedef struct {
@@ -71,7 +71,7 @@ static inline uint32_t __attribute__((always_inline)) stub_mmu_ll_format_paddr(u
 	return paddr >> s_cache_mmu_config.shift_count;
 }
 
-#define STUB_MMU_VADDR_MASK (s_cache_mmu_config.page_size * MMU_MAX_PADDR_PAGE_NUM - 1)
+#define STUB_MMU_VADDR_MASK (s_cache_mmu_config.page_size * SOC_MMU_MAX_PADDR_PAGE_NUM - 1)
 static inline uint32_t __attribute__((always_inline)) stub_mmu_ll_get_entry_id(uint32_t vaddr)
 {
 	return (vaddr & STUB_MMU_VADDR_MASK) >> s_cache_mmu_config.shift_count;
@@ -82,9 +82,9 @@ static inline void __attribute__((always_inline)) stub_mmu_ll_write_entry(uint32
 	uint32_t mmu_raw_value;
 
 	if (stub_get_flash_encryption_mode() != ESP_FLASH_ENC_MODE_DISABLED)
-		mmu_val |= MMU_SENSITIVE;
+		mmu_val |= SOC_MMU_SENSITIVE;
 
-	mmu_raw_value = mmu_val | MMU_VALID;
+	mmu_raw_value = mmu_val | SOC_MMU_VALID;
 	REG_WRITE(SPI_MEM_MMU_ITEM_INDEX_REG(0), entry_id);
 	REG_WRITE(SPI_MEM_MMU_ITEM_CONTENT_REG(0), mmu_raw_value);
 }
@@ -92,7 +92,7 @@ static inline void __attribute__((always_inline)) stub_mmu_ll_write_entry(uint32
 static inline void __attribute__((always_inline)) stub_mmu_ll_set_entry_invalid(uint32_t entry_id)
 {
 	REG_WRITE(SPI_MEM_MMU_ITEM_INDEX_REG(0), entry_id);
-	REG_WRITE(SPI_MEM_MMU_ITEM_CONTENT_REG(0), MMU_INVALID);
+	REG_WRITE(SPI_MEM_MMU_ITEM_CONTENT_REG(0), SOC_MMU_INVALID);
 }
 
 static inline int __attribute__((always_inline)) stub_mmu_ll_read_entry(uint32_t entry_id)
@@ -102,7 +102,7 @@ static inline int __attribute__((always_inline)) stub_mmu_ll_read_entry(uint32_t
 	mmu_raw_value = REG_READ(SPI_MEM_MMU_ITEM_CONTENT_REG(0));
 
 	if (stub_get_flash_encryption_mode() != ESP_FLASH_ENC_MODE_DISABLED)
-		mmu_raw_value &= ~MMU_SENSITIVE;
+		mmu_raw_value &= ~SOC_MMU_SENSITIVE;
 
 	return  mmu_raw_value;
 }
@@ -152,6 +152,8 @@ void stub_cache_init(void)
 {
 	STUB_LOGD("%s\n", __func__);
 
+	esp_rom_spiflash_attach(0, false);
+
 	SET_PERI_REG_MASK(PCR_CACHE_CONF_REG, PCR_CACHE_CLK_EN_M);
 	SET_PERI_REG_MASK(PCR_CACHE_CONF_REG, PCR_CACHE_RST_EN_M);
 	CLEAR_PERI_REG_MASK(PCR_CACHE_CONF_REG, PCR_CACHE_RST_EN_M);
@@ -165,12 +167,12 @@ void stub_cache_init(void)
 static bool stub_is_cache_enabled(void)
 {
 	int cache_ctrl_reg = REG_READ(STUB_CACHE_CTRL_REG);
-	STUB_LOGD("cache_ctrl_reg:%X MMU_VALID:%x\n", cache_ctrl_reg, MMU_VALID);
+	STUB_LOGD("cache_ctrl_reg:%X MMU_VALID:%x\n", cache_ctrl_reg, SOC_MMU_VALID);
 
-	/* if any of the entry is valid and busses are enabled  we can consider that cache is enabled */
-	for (int i = 0; i < MMU_ENTRY_NUM; ++i) {
+	/* if any of the entry is valid and busses are enabled we can consider that cache is enabled */
+	for (int i = 0; i < SOC_MMU_ENTRY_NUM; ++i) {
 		uint32_t mmu_raw_value = stub_mmu_ll_read_entry(i);
-		if ((mmu_raw_value & MMU_VALID) == MMU_VALID)
+		if ((mmu_raw_value & SOC_MMU_VALID) == SOC_MMU_VALID)
 			return !(cache_ctrl_reg & STUB_CACHE_BUS);
 	}
 	return false;
@@ -178,14 +180,11 @@ static bool stub_is_cache_enabled(void)
 
 void stub_flash_state_prepare(struct stub_flash_state *state)
 {
-	const uint32_t spiconfig = 0;	/* esp_rom_efuse_get_flash_gpio_info(); */
-
 	state->cache_enabled = stub_is_cache_enabled();
 	if (!state->cache_enabled) {
 		STUB_LOGI("Cache needs to be enabled\n");
 		stub_cache_init();
 	}
-	spi_flash_attach(spiconfig, false);
 	stub_cache_configure();
 }
 
