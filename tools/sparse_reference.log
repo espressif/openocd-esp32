@@ -1,15 +1,21 @@
-../src/target/espressif/esp32_apptrace.c:461:9: warning: the address of an array will always evaluate as true
-../src/target/espressif/esp32_apptrace.c:461:9: warning: the address of an array will always evaluate as true
-../src/target/espressif/esp32_apptrace.c:599:9: warning: the address of an array will always evaluate as true
-../src/target/espressif/esp32_apptrace.c:599:9: warning: the address of an array will always evaluate as true
+../src/flash/nor/esp_flash.c:1360:1: warning: symbol 'esp_algo_flash_cmd_appimage_flashoff_do' was not declared. Should it be static?
+../src/flash/nor/esp_flash.c:1403:1: warning: symbol 'esp_algo_flash_cmd_set_compression' was not declared. Should it be static?
+../src/flash/nor/esp_flash.c:1452:1: warning: symbol 'esp_algo_flash_cmd_set_encryption' was not declared. Should it be static?
+../src/flash/nor/esp_flash.c:1556:1: warning: symbol 'esp_algo_flash_parse_cmd_verify_bank_hash' was not declared. Should it be static?
+../src/flash/nor/esp_flash.c:1569:1: warning: symbol 'esp_algo_flash_parse_cmd_clock_boost' was not declared. Should it be static?
+../src/flash/nor/esp_flash.c:1597:1: warning: symbol 'esp_algo_flash_parse_cmd_stub_log' was not declared. Should it be static?
+../src/target/espressif/esp32_apptrace.c:463:9: warning: the address of an array will always evaluate as true
+../src/target/espressif/esp32_apptrace.c:463:9: warning: the address of an array will always evaluate as true
+../src/target/espressif/esp32_apptrace.c:601:9: warning: the address of an array will always evaluate as true
+../src/target/espressif/esp32_apptrace.c:601:9: warning: the address of an array will always evaluate as true
 ../src/target/riscv/program.c:123:9: warning: the address of an array will always evaluate as true
 ../src/target/riscv/program.c:123:9: warning: the address of an array will always evaluate as true
 ../src/target/riscv/program.c:160:9: warning: the address of an array will always evaluate as true
 ../src/target/riscv/program.c:160:9: warning: the address of an array will always evaluate as true
 ../src/target/riscv/riscv-013.c:1227:9: warning: the address of an array will always evaluate as true
 ../src/target/riscv/riscv-013.c:1227:9: warning: the address of an array will always evaluate as true
-../src/target/riscv/riscv-013.c:4099:9: warning: the address of an array will always evaluate as true
-../src/target/riscv/riscv-013.c:4099:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv-013.c:4118:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv-013.c:4118:9: warning: the address of an array will always evaluate as true
 ../src/target/riscv/riscv.c:2282:21: warning: constant 0xF000000000000000 is so big it is unsigned long
 ../src/target/riscv/riscv.c:2294:21: warning: constant 0xF000000000000000 is so big it is unsigned long
 ../src/target/riscv/riscv.c:2317:29: warning: constant 0xF000000000000000 is so big it is unsigned long

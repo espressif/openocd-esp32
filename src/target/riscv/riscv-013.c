@@ -1941,7 +1941,7 @@ static int examine(struct target *target)
 	uint32_t dmstatus;
 	if (dmstatus_read(target, &dmstatus, false) != ERROR_OK)
 		return ERROR_FAIL;
-	enum riscv_hart_state state_at_examine_start;
+	enum riscv_hart_state state_at_examine_start = RISCV_STATE_NON_EXISTENT;
 	if (get_field(dmstatus, DM_DMSTATUS_ALLHAVERESET) && get_field(dmstatus, DM_DMSTATUS_ALLHALTED)) {
 		/* By changing the actual state, we allow the target to go into a halted state before accessing registers
 			via abstract commands. This will avoid busy timeout errors. */
@@ -2071,7 +2071,7 @@ static int examine(struct target *target)
 	if (dm013_select_hart(target, info->index) != ERROR_OK)
 		return ERROR_FAIL;
 
-	if (target->state == TARGET_UNKNOWN) {
+	if (state_at_examine_start == RISCV_STATE_NON_EXISTENT) {
 		if (riscv_get_hart_state(target, &state_at_examine_start) != ERROR_OK)
 			return ERROR_FAIL;
 	}
