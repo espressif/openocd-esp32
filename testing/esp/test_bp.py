@@ -411,3 +411,20 @@ class DebuggerWatchpointTestsSingleEncrypted(DebuggerGenericTestAppTestsSingleEn
     """ Watchpoint test cases on encrypted flash in single core mode
     """
     pass
+
+class DebuggerTestsSingle4MB(DebuggerGenericTestAppTestsSingle):
+    """ Base class to run tests with a single core 4MB flash config
+    """
+
+    def __init__(self, methodName='runTest'):
+        super(DebuggerTestsSingle4MB, self).__init__(methodName)
+        self.test_app_cfg.bin_dir = os.path.join('output', 'single_core_4MB')
+        self.test_app_cfg.build_dir = os.path.join('builds', 'single_core_4MB')
+
+class FlashTestsSingle4MB(DebuggerTestsSingle4MB, BreakpointTestsImpl):
+    """ Breakpoint test cases via GDB in single core mode with 4MB flash config
+    """
+
+    def setUp(self):
+        DebuggerTestsSingle4MB.setUp(self)
+        BreakpointTestsImpl.setUp(self)

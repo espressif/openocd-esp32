@@ -206,7 +206,7 @@ tests_armhf_esp32c2:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c2"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c2-ftdi -p test_*.*Single"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
 
 tests_armhf_esp32c3:
   extends: .tests_armhf_master_riscv_template
@@ -238,7 +238,7 @@ tests_armhf_esp32c6:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c6"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c6-builtin -p test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c6-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
 
 tests_armhf_esp32h2:
   extends: .tests_armhf_master_riscv_template
@@ -251,7 +251,7 @@ tests_armhf_esp32h2:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32h2"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32h2-builtin -p test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32h2-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
 
 ##############
 # IDF 5.2.X #
@@ -313,7 +313,7 @@ tests_armhf_esp32c2_idf5.2.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c2"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_2_X_RELEASE_TAG -b esp32c2-ftdi -p test_*.*Single"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_2_X_RELEASE_TAG -b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
 
 tests_armhf_esp32c3_idf5.2.x:
   extends: .tests_armhf_v5.2.x_riscv_template
@@ -345,7 +345,7 @@ tests_armhf_esp32c6_idf5.2.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c6"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_2_X_RELEASE_TAG -b esp32c6-builtin -p test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_2_X_RELEASE_TAG -b esp32c6-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
 
 tests_armhf_esp32h2_idf5.2.x:
   extends: .tests_armhf_v5.2.x_riscv_template
@@ -357,7 +357,7 @@ tests_armhf_esp32h2_idf5.2.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32h2"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_2_X_RELEASE_TAG -b esp32h2-builtin -p test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_2_X_RELEASE_TAG -b esp32h2-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
 
 #############
 # IDF 5.1.X #
@@ -419,7 +419,7 @@ tests_armhf_esp32c2_idf5.1.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c2"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32c2-ftdi -p test_*.*Single"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
 
 tests_armhf_esp32c3_idf5.1.x:
   extends: .tests_armhf_v5.1.x_riscv_template
@@ -451,7 +451,7 @@ tests_armhf_esp32c6_idf5.1.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c6"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32c6-builtin -p test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32c6-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
 
 tests_armhf_esp32h2_idf5.1.x:
   extends: .tests_armhf_v5.1.x_riscv_template
@@ -463,7 +463,7 @@ tests_armhf_esp32h2_idf5.1.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32h2"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32h2-builtin -p test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32h2-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
 
 #############
 # IDF 5.0.X #
@@ -525,7 +525,7 @@ tests_armhf_esp32c2_idf5.0.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c2"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32c2-ftdi -p test_*.*Single"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
 
 tests_armhf_esp32c3_idf5.0.x:
   extends: .tests_armhf_v5.0.x_riscv_template
