@@ -1614,6 +1614,13 @@ COMMAND_HELPER(esp_algo_flash_parse_cmd_stub_log, struct target *target)
 		return ERROR_FAIL;
 	}
 
+	int ret = esp_algo_flash_set_stub_log(target, "irom", log_stat);
+	if (ret != ERROR_OK)
+		return ret;
+	ret = esp_algo_flash_set_stub_log(target, "drom", log_stat);
+	if (ret != ERROR_OK)
+		return ret;
+
 	return esp_algo_flash_set_stub_log(target, "flash", log_stat);
 }
 
