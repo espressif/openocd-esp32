@@ -216,7 +216,7 @@ build_test_app_esp32c2:
     CHIP_NAME: "esp32c2"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     BUILD_TEST_APP_DIR: "build_test_app_esp32c2"
-    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single"
   extends: .build_idf_master_test_app_template
 
 build_test_app_esp32c3:
@@ -232,7 +232,7 @@ build_test_app_esp32c6:
     CHIP_NAME: "esp32c6"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     BUILD_TEST_APP_DIR: "build_test_app_esp32c6"
-    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single"
   extends: .build_idf_master_test_app_template
 
 build_test_app_esp32h2:
@@ -240,7 +240,7 @@ build_test_app_esp32h2:
     CHIP_NAME: "esp32h2"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     BUILD_TEST_APP_DIR: "build_test_app_esp32h2"
-    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single"
   extends: .build_idf_master_test_app_template
 
 ##############
@@ -276,7 +276,7 @@ build_test_app_esp32c2_idf5.2.x:
     CHIP_NAME: "esp32c2"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     BUILD_TEST_APP_DIR: "build_test_app_esp32c2_idf5.2.x"
-    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single"
   extends: .build_idf52x_test_app_template
 
 build_test_app_esp32c3_idf5.2.x:
@@ -292,7 +292,7 @@ build_test_app_esp32c6_idf5.2.x:
     CHIP_NAME: "esp32c6"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     BUILD_TEST_APP_DIR: "build_test_app_esp32c6_idf5.2.x"
-    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single"
   extends: .build_idf52x_test_app_template
 
 build_test_app_esp32h2_idf5.2.x:
@@ -300,7 +300,7 @@ build_test_app_esp32h2_idf5.2.x:
     CHIP_NAME: "esp32h2"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     BUILD_TEST_APP_DIR: "build_test_app_esp32h2_idf5.2.x"
-    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single"
   extends: .build_idf52x_test_app_template
 
 #############
@@ -333,7 +333,7 @@ build_test_app_esp32c2_idf5.1.x:
     CHIP_NAME: "esp32c2"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     BUILD_TEST_APP_DIR: "build_test_app_esp32c2_idf5.1.x"
-    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single"
   extends: .build_idf51x_test_app_template
 
 build_test_app_esp32c3_idf5.1.x:
@@ -349,7 +349,7 @@ build_test_app_esp32c6_idf5.1.x:
     CHIP_NAME: "esp32c6"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     BUILD_TEST_APP_DIR: "build_test_app_esp32c6_idf5.1.x"
-    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single"
   extends: .build_idf51x_test_app_template
 
 build_test_app_esp32h2_idf5.1.x:
@@ -357,7 +357,7 @@ build_test_app_esp32h2_idf5.1.x:
     CHIP_NAME: "esp32h2"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     BUILD_TEST_APP_DIR: "build_test_app_esp32h2_idf5.1.x"
-    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single"
   extends: .build_idf51x_test_app_template
 
 #############
@@ -390,7 +390,7 @@ build_test_app_esp32c2_idf5.0.x:
     CHIP_NAME: "esp32c2"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     BUILD_TEST_APP_DIR: "build_test_app_esp32c2_idf5.0.x"
-    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single"
   extends: .build_idf50x_test_app_template
 
 build_test_app_esp32c3_idf5.0.x:
