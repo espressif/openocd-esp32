@@ -14,7 +14,8 @@
 #include <target/target.h>
 #include "esp_algorithm.h"
 
-#define DEFAULT_ALGORITHM_TIMEOUT_MS    40000	/* ms */
+/* 3 sec will be enough for the regular commands. Flash erase will take time but it has another timer value */
+#define DEFAULT_ALGORITHM_TIMEOUT_MS    3000	/* ms */
 
 static int esp_algorithm_read_stub_logs(struct target *target, struct esp_algorithm_stub *stub)
 {
