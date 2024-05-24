@@ -77,13 +77,13 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 	if (spiconfig == 0 && (strapping & 0x1c) == 0x08)
 		spiconfig = 1; /* HSPI flash mode */
 
+	esp_rom_spiflash_attach(spiconfig, 0);
+
 	state->cache_enabled = stub_is_cache_enabled();
 	if (!state->cache_enabled) {
 		STUB_LOGI("Cache needs to be enabled\n");
 		stub_cache_init();
 	}
-
-	esp_rom_spiflash_attach(spiconfig, 0);
 }
 
 void stub_flash_state_restore(struct stub_flash_state *state)
