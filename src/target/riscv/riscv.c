@@ -1446,7 +1446,8 @@ static int remove_trigger(struct target *target, int unique_id)
 		}
 	}
 	if (!done) {
-		LOG_TARGET_ERROR(target,
+		/* This is not an error for Espressif because of the flash breakpoints as a backup. */
+		LOG_TARGET_DEBUG(target,
 			"Couldn't find the hardware resources used by hardware trigger.");
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
