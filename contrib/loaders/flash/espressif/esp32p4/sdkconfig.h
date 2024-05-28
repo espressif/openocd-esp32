@@ -3,9 +3,11 @@
 #ifndef OPENOCD_LOADERS_FLASH_ESPRESSIF_ESP32P4_SDKCONFIG_H
 #define OPENOCD_LOADERS_FLASH_ESPRESSIF_ESP32P4_SDKCONFIG_H
 
+#define CONFIG_IDF_TARGET                               "esp32p4"
 #define CONFIG_IDF_TARGET_ARCH_RISCV                    1
 #define CONFIG_IDF_TARGET_ESP32P4                       1
-#define CONFIG_FREERTOS_UNICORE                         1
+#define CONFIG_FREERTOS_UNICORE                         0
+#define CONFIG_FREERTOS_NUMBER_OF_CORES                 2
 /* Use ROM flash driver patch */
 // #define CONFIG_SPI_FLASH_ROM_DRIVER_PATCH            1
 
@@ -35,6 +37,7 @@
 #define CONFIG_PARTITION_TABLE_OFFSET                   0x8000
 #define CONFIG_MMU_PAGE_SIZE                            0x10000	/* 64KB */
 #define CONFIG_HAL_DEFAULT_ASSERTION_LEVEL              0 /* no assert in the hal functions */
+#define CONFIG_LOG_DEFAULT_LEVEL                        0
 
 #define CONFIG_FREERTOS_TASK_NOTIFICATION_ARRAY_ENTRIES 1
 #define CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE              0

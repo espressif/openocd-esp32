@@ -83,6 +83,9 @@ void vPortExitCritical(void)
 {
 }
 
+#if CONFIG_IDF_TARGET_ESP32P4
+#define SPI_MEM_FLASH_RDID SPI1_MEM_C_FLASH_RDID
+#endif
 uint32_t stub_flash_get_id(void)
 {
 	uint32_t ret;
