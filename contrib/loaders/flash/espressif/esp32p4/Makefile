@@ -31,6 +31,7 @@ INCLUDES := -I$(IDF_PATH)/components/soc/esp32p4/include -I$(IDF_PATH)/component
 	-I$(IDF_PATH)/components/esp_hw_support/port/esp32p4/private_include \
 	-I$(IDF_PATH)/components/esp_rom/include/esp32p4 \
 	-I$(IDF_PATH)/components/esp_hw_support/port/esp32p4 \
+	-I$(IDF_PATH)/components/esp_hw_support/port/esp32p4/include \
 	-I$(IDF_PATH)/components/spi_flash/include \
 	-I$(IDF_PATH)/components/esp_rom/esp32p4
 
