@@ -195,8 +195,8 @@ class DebuggerSpecialTestsImpl:
         """
             This test checks if stub logs are enabled successfully.
         """
-        expected_strings = ["STUB_D: cmd 5:FLASH_MAP_GET",
-                            "STUB_D: cmd 4:FLASH_SIZE"]
+        expected_strings = ["STUB_D: cmd 4:FLASH_MAP_GET",
+                            "STUB_D: stub_flash_get_size: ENTER"]
 
         self.gdb.monitor_run("esp stub_log on", 5)
         self.gdb.monitor_run("flash probe 0", 5)

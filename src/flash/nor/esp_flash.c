@@ -325,36 +325,9 @@ int esp_algo_flash_blank_check(struct flash_bank *bank)
 	return ret;
 }
 
-static uint32_t esp_algo_flash_get_size(struct flash_bank *bank)
-{
-	struct esp_flash_bank *esp_info = bank->driver_priv;
-	uint32_t size = 0;
-	struct esp_algorithm_run_data run;
-
-	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
-	if (ret != ERROR_OK)
-		return ret;
-
-	run.stack_size = 256 + (esp_info->stub_log_enabled ? 256 : 0);
-	ret = esp_info->run_func_image(bank->target,
-		&run,
-		1,
-		ESP_STUB_CMD_FLASH_SIZE);
-	image_close(&run.image.image);
-	if (ret != ERROR_OK) {
-		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
-		return 0;
-	}
-	size = (uint32_t)run.ret_code;
-	if (size == 0)
-		LOG_ERROR("Failed to get flash size!");
-	LOG_DEBUG("%s size 0x%x", __func__, size);
-	return size;
-}
-
 static int esp_algo_flash_get_mappings(struct flash_bank *bank,
 	struct esp_flash_bank *esp_info,
-	struct esp_flash_mapping *flash_map,
+	struct esp_stub_flash_map *flash_map,
 	uint32_t appimage_flash_base)
 {
 	struct esp_algorithm_run_data run;
@@ -368,7 +341,7 @@ static int esp_algo_flash_get_mappings(struct flash_bank *bank,
 	struct mem_param mp;
 	init_mem_param(&mp,
 		2 /*2nd usr arg*/,
-		sizeof(struct esp_flash_mapping) /*size in bytes*/,
+		sizeof(struct esp_stub_flash_map) /*size in bytes*/,
 		PARAM_IN);
 	run.mem_args.params = &mp;
 	run.mem_args.count = 1;
@@ -385,38 +358,50 @@ static int esp_algo_flash_get_mappings(struct flash_bank *bank,
 		destroy_mem_param(&mp);
 		return ret;
 	}
-	if (run.ret_code != ESP_STUB_ERR_OK) {
-		LOG_WARNING("Failed to get flash maps (%" PRId32 ")!", run.ret_code);
-		if (run.ret_code == ESP_STUB_ERR_INVALID_IMAGE)
+
+	flash_map->flash_size = target_buffer_get_u32(bank->target, mp.value + ESP_STUB_FLASHMAP_FLASH_SIZE);
+	flash_map->retcode = target_buffer_get_u32(bank->target, mp.value + ESP_STUB_FLASHMAP_RETCODE);
+
+	if (flash_map->retcode != ESP_STUB_ERR_OK) {
+		LOG_WARNING("Failed to get flash maps (%" PRId32 ")!", flash_map->retcode);
+		if (flash_map->retcode == ESP_STUB_ERR_INVALID_IMAGE)
 			LOG_WARNING(
 				"Application image is invalid! Check configured binary flash offset 'appimage_offset'.");
-		else if (run.ret_code == ESP_STUB_ERR_INVALID_PARTITION)
+		else if (flash_map->retcode == ESP_STUB_ERR_INVALID_PARTITION)
 			LOG_WARNING("Invalid partition! One of the partition size exceeds the flash chip size!");
-		else if (run.ret_code == ESP_STUB_ERR_INVALID_APP_MAGIC)
+		else if (flash_map->retcode == ESP_STUB_ERR_INVALID_APP_MAGIC)
 			LOG_WARNING("Invalid magic number in app image!");
+		else if (flash_map->retcode == ESP_STUB_ERR_FLASH_SIZE)
+			LOG_WARNING("Failed to read flash size!");
+		else if (flash_map->retcode == ESP_STUB_ERR_READ_PARTITION)
+			LOG_WARNING("Failed to read partititon table!");
+		else if (flash_map->retcode == ESP_STUB_ERR_READ_APP_SEGMENT)
+			LOG_WARNING("Failed to read app segment header!");
+		else if (flash_map->retcode == ESP_STUB_ERR_READ_APP_IMAGE_HEADER)
+			LOG_WARNING("Failed to read app image header!");
 		ret = ERROR_FAIL;
 	} else {
-		flash_map->maps_num = target_buffer_get_u32(bank->target, mp.value + ESP_STUB_FLASHMAP_MAPSNUM_OFF);
-		if (flash_map->maps_num > ESP_FLASH_MAPS_MAX) {
+		flash_map->map.maps_num = target_buffer_get_u32(bank->target, mp.value + ESP_STUB_FLASHMAP_MAPSNUM_OFF);
+		if (flash_map->map.maps_num > ESP_FLASH_MAPS_MAX) {
 			LOG_ERROR("Too many flash mappings %d! Must be %d.",
-				flash_map->maps_num,
+				flash_map->map.maps_num,
 				ESP_FLASH_MAPS_MAX);
 			ret = ERROR_FAIL;
-		} else if (flash_map->maps_num == 0) {
+		} else if (flash_map->map.maps_num == 0) {
 			LOG_WARNING("Empty flash mapping!");
 		} else {
-			for (uint32_t i = 0; i < flash_map->maps_num; i++) {
-				flash_map->maps[i].phy_addr =
+			for (uint32_t i = 0; i < flash_map->map.maps_num; i++) {
+				flash_map->map.maps[i].phy_addr =
 					target_buffer_get_u32(bank->target, mp.value + ESP_STUB_FLASHMAP_PHYADDR_OFF(i));
-				flash_map->maps[i].load_addr =
+				flash_map->map.maps[i].load_addr =
 					target_buffer_get_u32(bank->target, mp.value + ESP_STUB_FLASHMAP_LOADADDR_OFF(i));
-				flash_map->maps[i].size =
+				flash_map->map.maps[i].size =
 					target_buffer_get_u32(bank->target, mp.value + ESP_STUB_FLASHMAP_SIZE_OFF(i));
 				LOG_INFO("Flash mapping %d: 0x%x -> 0x%x, %d KB",
 					i,
-					flash_map->maps[i].phy_addr,
-					flash_map->maps[i].load_addr,
-					flash_map->maps[i].size / 1024);
+					flash_map->map.maps[i].phy_addr,
+					flash_map->map.maps[i].load_addr,
+					flash_map->map.maps[i].size / 1024);
 			}
 		}
 	}
@@ -943,7 +928,7 @@ int esp_algo_flash_read(struct flash_bank *bank, uint8_t *buffer,
 int esp_algo_flash_probe(struct flash_bank *bank)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
-	struct esp_flash_mapping flash_map = { .maps_num = 0 };
+	struct esp_stub_flash_map flash_map = { .map.maps_num = 0 };
 	uint32_t irom_base = 0, irom_sz = 0, drom_base = 0, drom_sz = 0, irom_flash_base = 0,
 		drom_flash_base = 0;
 
@@ -969,25 +954,26 @@ int esp_algo_flash_probe(struct flash_bank *bank)
 		esp_info,
 		&flash_map,
 		esp_info->appimage_flash_base);
-	if (ret != ERROR_OK || flash_map.maps_num == 0) {
+	if (ret != ERROR_OK || flash_map.map.maps_num == 0) {
 		LOG_WARNING("Failed to get flash mappings (%d)!", ret);
 		/* if no DROM/IROM mappings so pretend they are at the end of the HW flash bank and
 		 * have zero size to allow correct memory map with non zero RAM region */
-		irom_base = drom_base = esp_algo_flash_get_size(bank);
+		irom_base = flash_map.flash_size;
+		drom_base = flash_map.flash_size;
 	} else {
 		/* flash map index 0 belongs to drom */
-		if (esp_info->is_drom_address(flash_map.maps[0].load_addr)) {
-			drom_flash_base = flash_map.maps[0].phy_addr & ~(esp_info->sec_sz - 1);
-			drom_base = flash_map.maps[0].load_addr & ~(esp_info->sec_sz - 1);
-			drom_sz = flash_map.maps[0].size;
+		if (esp_info->is_drom_address(flash_map.map.maps[0].load_addr)) {
+			drom_flash_base = flash_map.map.maps[0].phy_addr & ~(esp_info->sec_sz - 1);
+			drom_base = flash_map.map.maps[0].load_addr & ~(esp_info->sec_sz - 1);
+			drom_sz = flash_map.map.maps[0].size;
 			if (drom_sz & (esp_info->sec_sz - 1))
 				drom_sz = (drom_sz & ~(esp_info->sec_sz - 1)) + esp_info->sec_sz;
 		}
 		/* flash map index 1 belongs to irom */
-		if (flash_map.maps_num > 1 && esp_info->is_irom_address(flash_map.maps[1].load_addr)) {
-			irom_flash_base = flash_map.maps[1].phy_addr & ~(esp_info->sec_sz - 1);
-			irom_base = flash_map.maps[1].load_addr & ~(esp_info->sec_sz - 1);
-			irom_sz = flash_map.maps[1].size;
+		if (flash_map.map.maps_num > 1 && esp_info->is_irom_address(flash_map.map.maps[1].load_addr)) {
+			irom_flash_base = flash_map.map.maps[1].phy_addr & ~(esp_info->sec_sz - 1);
+			irom_base = flash_map.map.maps[1].load_addr & ~(esp_info->sec_sz - 1);
+			irom_sz = flash_map.map.maps[1].size;
 			if (irom_sz & (esp_info->sec_sz - 1))
 				irom_sz = (irom_sz & ~(esp_info->sec_sz - 1)) + esp_info->sec_sz;
 		}
@@ -1003,7 +989,7 @@ int esp_algo_flash_probe(struct flash_bank *bank)
 		bank->size = drom_sz;
 	} else {
 		esp_info->hw_flash_base = 0;
-		bank->size = esp_algo_flash_get_size(bank);
+		bank->size = flash_map.flash_size;
 		if (bank->size == 0) {
 			LOG_ERROR("Failed to probe flash, size %d KB", bank->size / 1024);
 			return ERROR_FAIL;
