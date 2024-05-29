@@ -801,7 +801,7 @@ static int stub_flash_get_app_mappings(uint32_t off, struct esp_flash_mapping *f
 		stub_flash_read_buff(off, (uint32_t *)&img_hdr, sizeof(img_hdr));
 	if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 		STUB_LOGE("Failed to read app image header (%d)!\n", rc);
-		return ESP_STUB_ERR_FAIL;
+		return ESP_STUB_ERR_READ_APP_IMAGE_HEADER;
 	}
 	if (img_hdr.magic != ESP_IMAGE_HEADER_MAGIC) {
 		STUB_LOGE("Invalid magic number 0x%x in app image!\n", img_hdr.magic);
@@ -818,7 +818,7 @@ static int stub_flash_get_app_mappings(uint32_t off, struct esp_flash_mapping *f
 		rc = stub_flash_read_buff(flash_addr, (uint32_t *)&seg_hdr, sizeof(seg_hdr));
 		if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 			STUB_LOGE("Failed to read app segment header (%d)!\n", rc);
-			return ESP_STUB_ERR_FAIL;
+			return ESP_STUB_ERR_READ_APP_SEGMENT;
 		}
 		STUB_LOGI("App segment %d: %d bytes @ 0x%x\n",
 			k,
@@ -845,17 +845,25 @@ static int stub_flash_get_app_mappings(uint32_t off, struct esp_flash_mapping *f
 	return ESP_STUB_ERR_OK;
 }
 
-static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr)
+static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr, uint32_t flash_size)
 {
 	esp_rom_spiflash_result_t rc;
 	esp_partition_info_t part;
-	struct esp_flash_mapping *flash_map = (struct esp_flash_mapping *)maps_addr;
-	uint32_t flash_size = stub_flash_get_size();
+	struct esp_stub_flash_map *flash_map = (struct esp_stub_flash_map *)maps_addr;
+
+	flash_map->flash_size = flash_size;
+	if (flash_size == 0) {
+		flash_map->retcode = ESP_STUB_ERR_FLASH_SIZE;
+		return ESP_STUB_ERR_OK;
+	}
 
 	STUB_LOGD("%s: 0x%x 0x%x\n", __func__, app_off, maps_addr);
-	flash_map->maps_num = 0;
-	if (app_off != (uint32_t)-1)
-		return stub_flash_get_app_mappings(app_off, flash_map);
+	flash_map->retcode = ESP_STUB_ERR_OK;
+	flash_map->map.maps_num = 0;
+	if (app_off != (uint32_t)-1) {
+		flash_map->retcode = stub_flash_get_app_mappings(app_off, &flash_map->map);
+		return ESP_STUB_ERR_OK;
+	}
 
 	for (uint32_t i = 0;; i++) {
 		rc = stub_flash_read_buff(ESP_PARTITION_TABLE_OFFSET + i * sizeof(esp_partition_info_t),
@@ -863,11 +871,13 @@ static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr)
 				sizeof(part));
 		if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 			STUB_LOGE("Failed to read partitions table entry (%d)!\n", rc);
-			return ESP_STUB_ERR_FAIL;
+			flash_map->retcode = ESP_STUB_ERR_READ_PARTITION;
+			return ESP_STUB_ERR_OK;
 		}
 		if (part.magic != ESP_PARTITION_MAGIC) {
 			STUB_LOGE("Invalid partition table magic! (0x%x)\n", part.magic);
-			return ESP_STUB_ERR_INVALID_IMAGE;
+			flash_map->retcode = ESP_STUB_ERR_INVALID_IMAGE;
+			return ESP_STUB_ERR_OK;
 		}
 		if (part.pos.offset > flash_size || part.pos.offset + part.pos.size > flash_size) {
 			STUB_LOGE("Partition %d invalid - offset 0x%x size 0x%x exceeds flash chip size 0x%x\n",
@@ -875,7 +885,8 @@ static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr)
 				part.pos.offset,
 				part.pos.size,
 				flash_size);
-			return ESP_STUB_ERR_INVALID_PARTITION;
+			flash_map->retcode = ESP_STUB_ERR_INVALID_PARTITION;
+			return ESP_STUB_ERR_OK;
 		}
 		STUB_LOGD("Found partition %d, m 0x%x, t 0x%x, st 0x%x, l '%s'\n",
 			i,
@@ -888,7 +899,8 @@ static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr)
 				part.label,
 				part.pos.size / 1024,
 				part.pos.offset);
-			return stub_flash_get_app_mappings(part.pos.offset, flash_map);
+			flash_map->retcode = stub_flash_get_app_mappings(part.pos.offset, &flash_map->map);
+			return ESP_STUB_ERR_OK;
 		}
 	}
 	/* PART_TYPE_APP not found */
@@ -1068,25 +1080,25 @@ static int stub_flash_handler(int cmd, va_list ap)
 	uint32_t flash_size = stub_flash_get_size();
 	if (flash_size == 0) {
 		STUB_LOGE("Failed to get flash size!\n");
-		ret = cmd == ESP_STUB_CMD_FLASH_SIZE ? 0 : ESP_STUB_ERR_FAIL;
-		goto _flash_end;
-	}
-	if (cmd == ESP_STUB_CMD_FLASH_SIZE) {
-		ret = flash_size;
-		goto _flash_end;
-	}
-	esp_rom_spiflash_config_param(g_rom_flashchip.device_id,
-		flash_size,
-		STUB_FLASH_BLOCK_SIZE,
-		STUB_FLASH_SECTOR_SIZE,
-		STUB_FLASH_PAGE_SIZE,
-		STUB_FLASH_STATUS_MASK);
+		if (cmd != ESP_STUB_CMD_FLASH_MAP_GET) {
+			ret = ESP_STUB_ERR_FAIL;
+			goto _flash_end;
+		}
+		/* We will fill the esp_stub_flash_map struct and set the return code there */
+	} else {
+		esp_rom_spiflash_config_param(g_rom_flashchip.device_id,
+			flash_size,
+			STUB_FLASH_BLOCK_SIZE,
+			STUB_FLASH_SECTOR_SIZE,
+			STUB_FLASH_PAGE_SIZE,
+			STUB_FLASH_STATUS_MASK);
 
-	esp_rom_spiflash_result_t rc = esp_rom_spiflash_unlock();
-	if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
-		STUB_LOGE("Failed to unlock flash (%d)\n", rc);
-		ret = ESP_STUB_ERR_FAIL;
-		goto _flash_end;
+		esp_rom_spiflash_result_t rc = esp_rom_spiflash_unlock();
+		if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
+			STUB_LOGE("Failed to unlock flash (%d)\n", rc);
+			ret = ESP_STUB_ERR_FAIL;
+			goto _flash_end;
+		}
 	}
 
 	switch (cmd) {
@@ -1109,7 +1121,7 @@ static int stub_flash_handler(int cmd, va_list ap)
 		ret = stub_flash_calc_hash(arg1, arg2, arg3);
 		break;
 	case ESP_STUB_CMD_FLASH_MAP_GET:
-		ret = stub_flash_get_map(arg1, arg2);
+		ret = stub_flash_get_map(arg1, arg2, flash_size);
 		break;
 	case ESP_STUB_CMD_FLASH_BP_SET:
 		ret = stub_flash_set_bp(arg1, arg2, arg3);
@@ -1173,7 +1185,6 @@ const char *cmd_to_str(int cmd)
 	case ESP_STUB_CMD_FLASH_WRITE: return "FLASH_WRITE";
 	case ESP_STUB_CMD_FLASH_ERASE: return "FLASH_ERASE";
 	case ESP_STUB_CMD_FLASH_ERASE_CHECK: return "FLASH_ERASE_CHECK";
-	case ESP_STUB_CMD_FLASH_SIZE: return "FLASH_SIZE";
 	case ESP_STUB_CMD_FLASH_MAP_GET: return "FLASH_MAP_GET";
 	case ESP_STUB_CMD_FLASH_BP_SET: return "FLASH_BP_SET";
 	case ESP_STUB_CMD_FLASH_BP_CLEAR: return "FLASH_BP_CLEAR";

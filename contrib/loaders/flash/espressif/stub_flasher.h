@@ -16,19 +16,22 @@
 #define ESP_STUB_ERR_INVALID_IMAGE              (-6)
 #define ESP_STUB_ERR_INVALID_PARTITION          (-7)
 #define ESP_STUB_ERR_INVALID_APP_MAGIC          (-8)
+#define ESP_STUB_ERR_FLASH_SIZE                 (-9)
+#define ESP_STUB_ERR_READ_PARTITION             (-10)
+#define ESP_STUB_ERR_READ_APP_SEGMENT           (-11)
+#define ESP_STUB_ERR_READ_APP_IMAGE_HEADER      (-12)
 
 #define ESP_STUB_CMD_FLASH_READ                 0
 #define ESP_STUB_CMD_FLASH_WRITE                1
 #define ESP_STUB_CMD_FLASH_ERASE                2
 #define ESP_STUB_CMD_FLASH_ERASE_CHECK          3
-#define ESP_STUB_CMD_FLASH_SIZE                 4
-#define ESP_STUB_CMD_FLASH_MAP_GET              5
-#define ESP_STUB_CMD_FLASH_BP_SET               6
-#define ESP_STUB_CMD_FLASH_BP_CLEAR             7
-#define ESP_STUB_CMD_FLASH_TEST                 8
-#define ESP_STUB_CMD_FLASH_WRITE_DEFLATED       9
-#define ESP_STUB_CMD_FLASH_CALC_HASH            10
-#define ESP_STUB_CMD_CLOCK_CONFIGURE            11
+#define ESP_STUB_CMD_FLASH_MAP_GET              4
+#define ESP_STUB_CMD_FLASH_BP_SET               5
+#define ESP_STUB_CMD_FLASH_BP_CLEAR             6
+#define ESP_STUB_CMD_FLASH_TEST                 7
+#define ESP_STUB_CMD_FLASH_WRITE_DEFLATED       8
+#define ESP_STUB_CMD_FLASH_CALC_HASH            9
+#define ESP_STUB_CMD_CLOCK_CONFIGURE            10
 #define ESP_STUB_CMD_FLASH_MAX_ID               ESP_STUB_CMD_CLOCK_CONFIGURE
 #define ESP_STUB_CMD_TEST                       (ESP_STUB_CMD_FLASH_MAX_ID + 2)
 
@@ -64,6 +67,17 @@ struct esp_flash_mapping {
 	(ESP_STUB_FLASHMAP_MAPS_OFF(_i_) + offsetof(struct esp_flash_region_mapping, load_addr))
 #define ESP_STUB_FLASHMAP_SIZE_OFF(_i_) \
 	(ESP_STUB_FLASHMAP_MAPS_OFF(_i_) + offsetof(struct esp_flash_region_mapping, size))
+
+struct esp_stub_flash_map {
+	struct esp_flash_mapping map; /* must be at the beginning */
+	uint32_t flash_size;
+	int32_t retcode;
+};
+
+#define ESP_STUB_FLASHMAP_FLASH_SIZE \
+	(offsetof(struct esp_stub_flash_map, flash_size))
+#define ESP_STUB_FLASHMAP_RETCODE \
+	(offsetof(struct esp_stub_flash_map, retcode))
 
 struct esp_flash_stub_flash_write_args {
 	uint32_t start_addr;
