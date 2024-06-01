@@ -131,6 +131,7 @@ struct esp_algorithm_image {
 	bool reverse;
 };
 
+//#define ESP_STACK_HIGH_WATER_MARK  /* Comment out to see the stack usage of each stub command */
 #define ESP_IMAGE_ELF_PHF_EXEC			0x1
 
 /**
