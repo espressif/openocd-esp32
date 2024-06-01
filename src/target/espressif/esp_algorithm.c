@@ -43,6 +43,59 @@ static int esp_algorithm_read_stub_logs(struct target *target, struct esp_algori
 	return retval;
 }
 
+#ifdef ESP_STACK_HIGH_WATER_MARK
+char *hexdump(uint8_t *buf, unsigned int size)
+{
+	int lines = (size + 15) / 16;
+	int line_length = 8 + 1 + 3 * 16 + 1;
+	int str_size = lines * line_length + 1;
+	char *str = calloc(str_size, 1);
+
+	if (!str)
+		return NULL;
+
+	char *current = str;
+	for (int i = 0; i < lines; i++) {
+		/* Print the address line */
+		current += sprintf(current, "%08x: ", i * 16);
+		/* Print the hex bytes */
+		for (int j = 0; j < 16 && (i * 16 + j) < size; j++)
+			current += sprintf(current, "%02x ", buf[i * 16 + j]);
+		/* Add newline at the end of each line */
+		*current++ = '\n';
+	}
+
+	return str;
+}
+
+static int esp_algorithm_calculate_stack_usage(struct target *target, struct esp_algorithm_stub *stub)
+{
+	if (!stub || stub->stack->address == 0)
+		return ERROR_FAIL;
+
+	uint8_t *stack_content = calloc(1, stub->stack->size);
+	if (!stack_content) {
+		LOG_ERROR("Failed to allocate memory for the stack memory!");
+		return ERROR_FAIL;
+	}
+	int retval = target_read_memory(target, stub->stack->address, 1, stub->stack->size, stack_content);
+	if (retval == ERROR_OK) {
+		LOG_OUTPUT("=================================================\n");
+		//LOG_OUTPUT("%s", hexdump(stack_content, stub->stack->size));
+		/* find first non 0xA5 address */
+		for (size_t i = 0; i < stub->stack->size; ++i) {
+			if (stack_content[i] != 0xA5) {
+				LOG_OUTPUT("(%zu) bytes used in (%d) bytes stack\n", stub->stack->size - i, stub->stack->size);
+				LOG_OUTPUT("=================================================\n");
+				break;
+			}
+		}
+	}
+	free(stack_content);
+	return retval;
+}
+#endif
+
 static int esp_algorithm_run_image(struct target *target,
 	struct esp_algorithm_run_data *run,
 	uint32_t num_args,
@@ -126,6 +179,10 @@ static int esp_algorithm_run_image(struct target *target,
 		/* target has been forced to stop in target_wait_algorithm() */
 	}
 	esp_algorithm_read_stub_logs(target, &run->stub);
+
+#ifdef ESP_STACK_HIGH_WATER_MARK
+	esp_algorithm_calculate_stack_usage(target, &run->stub);
+#endif
 
 	if (run->usr_func_done)
 		run->usr_func_done(target, run, run->usr_func_arg);
@@ -486,6 +543,15 @@ int esp_algorithm_load_func_image(struct target *target, struct esp_algorithm_ru
 			goto _on_error;
 		}
 		run->stub.stack_addr = run->stub.stack->address + run->stack_size;
+
+#ifdef ESP_STACK_HIGH_WATER_MARK
+		/* For development purpose only */
+		uint8_t buff[run->stack_size];
+		memset(buff, 0xA5, sizeof(buff));
+		retval = target_write_memory(target, run->stub.stack->address, 1, run->stack_size, buff);
+		if (retval != ERROR_OK)
+			return retval;
+#endif
 	}
 
 	if (duration_measure(&algo_time) != 0) {

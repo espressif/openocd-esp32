@@ -295,7 +295,7 @@ int esp_algo_flash_blank_check(struct flash_bank *bank)
 	if (ret != ERROR_OK)
 		return ret;
 
-	run.stack_size = 1300;
+	run.stack_size = 512 + (esp_info->stub_log_enabled ? 512 : 0);
 	struct mem_param mp;
 	init_mem_param(&mp, 3 /*3rd usr arg*/, bank->num_sectors /*size in bytes*/, PARAM_IN);
 	run.mem_args.params = &mp;
@@ -335,7 +335,7 @@ static uint32_t esp_algo_flash_get_size(struct flash_bank *bank)
 	if (ret != ERROR_OK)
 		return ret;
 
-	run.stack_size = 1024;
+	run.stack_size = 256 + (esp_info->stub_log_enabled ? 256 : 0);
 	ret = esp_info->run_func_image(bank->target,
 		&run,
 		1,
@@ -363,7 +363,7 @@ static int esp_algo_flash_get_mappings(struct flash_bank *bank,
 	if (ret != ERROR_OK)
 		return ret;
 
-	run.stack_size = 1300;
+	run.stack_size = 512 + (esp_info->stub_log_enabled ? 512 : 0);
 
 	struct mem_param mp;
 	init_mem_param(&mp,
@@ -442,7 +442,7 @@ int esp_algo_flash_erase(struct flash_bank *bank, unsigned int first, unsigned i
 	if (ret != ERROR_OK)
 		return ret;
 
-	run.stack_size = 1024;
+	run.stack_size = 512 + (esp_info->stub_log_enabled ? 512 : 0);
 	run.timeout_ms = ESP_FLASH_ERASE_TMO;
 	ret = esp_info->run_func_image(bank->target,
 		&run,
@@ -1104,7 +1104,7 @@ int esp_algo_flash_breakpoint_add(struct target *target,
 	ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
 	if (ret != ERROR_OK)
 		return ret;
-	run.stack_size = 1300;
+	run.stack_size = 512 + (esp_info->stub_log_enabled ? 512 : 0);
 	run.usr_func_arg = &op_state;
 	run.usr_func_init = (esp_algorithm_usr_func_init_t)esp_algo_flash_bp_op_state_init;
 	run.usr_func_done = (esp_algorithm_usr_func_done_t)esp_algo_flash_bp_op_state_cleanup;
@@ -1170,7 +1170,7 @@ int esp_algo_flash_breakpoint_remove(struct target *target,
 		return ret;
 
 	op_state.esp_info = esp_info;
-	run.stack_size = 1300;
+	run.stack_size = 512 + (esp_info->stub_log_enabled ? 512 : 0);
 	run.usr_func_arg = &op_state;
 	run.usr_func_init = (esp_algorithm_usr_func_init_t)esp_algo_flash_bp_op_state_init;
 	run.usr_func_done = (esp_algorithm_usr_func_done_t)esp_algo_flash_bp_op_state_cleanup;
@@ -1287,7 +1287,7 @@ static int esp_algo_flash_boost_clock_freq(struct flash_bank *bank, int boost)
 	if (boost == 0)
 		new_cpu_freq = esp_info->old_cpu_freq;
 
-	run.stack_size = 1024;
+	run.stack_size = 512 + (esp_info->stub_log_enabled ? 512 : 0);
 	ret = esp_info->run_func_image(bank->target,
 		&run,
 		2,
