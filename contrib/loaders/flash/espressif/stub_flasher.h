@@ -7,6 +7,8 @@
 #ifndef OPENOCD_LOADERS_FLASH_ESPRESSIF_STUB_FLASHER_H
 #define OPENOCD_LOADERS_FLASH_ESPRESSIF_STUB_FLASHER_H
 
+#include <stdint.h>
+
 #define ESP_STUB_ERR_OK                         0
 #define ESP_STUB_ERR_FAIL                       (-1)
 #define ESP_STUB_ERR_NOT_SUPPORTED              (-2)
@@ -31,8 +33,9 @@
 #define ESP_STUB_CMD_FLASH_TEST                 7
 #define ESP_STUB_CMD_FLASH_WRITE_DEFLATED       8
 #define ESP_STUB_CMD_FLASH_CALC_HASH            9
-#define ESP_STUB_CMD_CLOCK_CONFIGURE            10
-#define ESP_STUB_CMD_FLASH_MAX_ID               ESP_STUB_CMD_CLOCK_CONFIGURE
+#define ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE      10
+#define ESP_STUB_CMD_FLASH_WITH_LOG             11 /* not an actual command. */
+#define ESP_STUB_CMD_FLASH_MAX_ID               ESP_STUB_CMD_FLASH_WITH_LOG
 #define ESP_STUB_CMD_TEST                       (ESP_STUB_CMD_FLASH_MAX_ID + 2)
 
 /* exported to let openocd know for stack allocation */

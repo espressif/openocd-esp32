@@ -13,8 +13,10 @@
 #include "imp.h"
 #include "esp_riscv.h"
 #include <target/espressif/esp_riscv_apptrace.h>
-#include "../../../contrib/loaders/flash/espressif/esp32c2/stub_flasher_image.h"
-#include "../../../contrib/loaders/flash/espressif/esp32c2/stub_flasher_image_wlog.h"
+
+#define ESP_TARGET_ESP32C2
+#include "esp_stub_config.h"
+#undef ESP_TARGET_ESP32C2
 
 #define ESP32C2_FLASH_SECTOR_SIZE 4096
 
@@ -28,53 +30,6 @@ struct esp32c2_flash_bank {
 	struct esp_riscv_flash_bank riscv;
 };
 
-static const uint8_t s_esp32c2_flasher_stub_code[] = {
-#include "../../../contrib/loaders/flash/espressif/esp32c2/stub_flasher_code.inc"
-};
-static const uint8_t s_esp32c2_flasher_stub_data[] = {
-#include "../../../contrib/loaders/flash/espressif/esp32c2/stub_flasher_data.inc"
-};
-static const uint8_t s_esp32c2_flasher_stub_code_wlog[] = {
-#include "../../../contrib/loaders/flash/espressif/esp32c2/stub_flasher_code_wlog.inc"
-};
-static const uint8_t s_esp32c2_flasher_stub_data_wlog[] = {
-#include "../../../contrib/loaders/flash/espressif/esp32c2/stub_flasher_data_wlog.inc"
-};
-
-static const struct esp_flasher_stub_config s_esp32c2_stub_cfg = {
-	.code = s_esp32c2_flasher_stub_code,
-	.code_sz = sizeof(s_esp32c2_flasher_stub_code),
-	.data = s_esp32c2_flasher_stub_data,
-	.data_sz = sizeof(s_esp32c2_flasher_stub_data),
-	.entry_addr = ESP32C2_STUB_ENTRY_ADDR,
-	.bss_sz = ESP32C2_STUB_BSS_SIZE,
-	.iram_org = ESP32C2_STUB_IRAM_ORG,
-	.iram_len = ESP32C2_STUB_IRAM_LEN,
-	.dram_org = ESP32C2_STUB_DRAM_ORG,
-	.dram_len = ESP32C2_STUB_DRAM_LEN,
-	.first_user_reg_param = ESP_RISCV_STUB_ARGS_FUNC_START,
-	.apptrace_ctrl_addr = ESP32C2_STUB_APPTRACE_CTRL_ADDR,
-	.stack_data_pool_sz = ESP_RISCV_STACK_DATA_POOL_SIZE
-};
-
-static const struct esp_flasher_stub_config s_esp32c2_stub_cfg_wlog = {
-	.code = s_esp32c2_flasher_stub_code_wlog,
-	.code_sz = sizeof(s_esp32c2_flasher_stub_code_wlog),
-	.data = s_esp32c2_flasher_stub_data_wlog,
-	.data_sz = sizeof(s_esp32c2_flasher_stub_data_wlog),
-	.entry_addr = ESP32C2_STUB_WLOG_ENTRY_ADDR,
-	.bss_sz = ESP32C2_STUB_WLOG_BSS_SIZE,
-	.iram_org = ESP32C2_STUB_IRAM_ORG,
-	.iram_len = ESP32C2_STUB_IRAM_LEN,
-	.dram_org = ESP32C2_STUB_DRAM_ORG,
-	.dram_len = ESP32C2_STUB_DRAM_LEN,
-	.first_user_reg_param = ESP_RISCV_STUB_ARGS_FUNC_START,
-	.apptrace_ctrl_addr = ESP32C2_STUB_WLOG_APPTRACE_CTRL_ADDR,
-	.stack_data_pool_sz = ESP_RISCV_STACK_DATA_POOL_SIZE,
-	.log_buff_addr = ESP32C2_STUB_WLOG_LOG_ADDR,
-	.log_buff_size = ESP32C2_STUB_WLOG_LOG_SIZE
-};
-
 static bool esp32c2_is_irom_address(target_addr_t addr)
 {
 	return addr >= ESP32C2_IROM_LOW && addr < ESP32C2_IROM_HIGH;
@@ -85,12 +40,16 @@ static bool esp32c2_is_drom_address(target_addr_t addr)
 	return addr >= ESP32C2_DROM_LOW && addr < ESP32C2_DROM_HIGH;
 }
 
-static const struct esp_flasher_stub_config *esp32c2_get_stub(struct flash_bank *bank)
+static const struct command_map s_cmd_map[ESP_STUB_CMD_FLASH_MAX_ID + 1] = {
+	MAKE_CMD_MAP_ENTRIES
+};
+
+static const struct esp_flasher_stub_config *esp32c2_get_stub(struct flash_bank *bank, int cmd)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	if (esp_info->stub_log_enabled)
-		return &s_esp32c2_stub_cfg_wlog;
-	return &s_esp32c2_stub_cfg;
+		return s_cmd_map[ESP_STUB_CMD_FLASH_WITH_LOG].config;
+	return s_cmd_map[cmd].config;
 }
 
 /* flash bank <bank_name> esp32 <base> <size> 0 0 <target#>

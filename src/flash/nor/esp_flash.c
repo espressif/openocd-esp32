@@ -252,7 +252,7 @@ int esp_algo_flash_init(struct esp_flash_bank *esp_info, uint32_t sec_sz,
 		uint32_t num_args, ...),
 	bool (*is_irom_address)(target_addr_t addr),
 	bool (*is_drom_address)(target_addr_t addr),
-	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank),
+	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank, int cmd),
 	const struct esp_flash_apptrace_hw *apptrace_hw,
 	const struct esp_algorithm_hw *stub_hw)
 {
@@ -291,7 +291,8 @@ int esp_algo_flash_blank_check(struct flash_bank *bank)
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
+	int ret = esp_algo_flasher_algorithm_init(&run,
+		esp_info->stub_hw, esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_ERASE_CHECK));
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -332,7 +333,8 @@ static int esp_algo_flash_get_mappings(struct flash_bank *bank,
 {
 	struct esp_algorithm_run_data run;
 
-	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
+	int ret = esp_algo_flasher_algorithm_init(&run,
+		esp_info->stub_hw, esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_MAP_GET));
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -423,7 +425,8 @@ int esp_algo_flash_erase(struct flash_bank *bank, unsigned int first, unsigned i
 	struct duration bench;
 	duration_start(&bench);
 
-	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw,
+		esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_ERASE));
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -674,7 +677,8 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	struct esp_algorithm_run_data run;
 	struct esp_flash_write_state wr_state;
-	const struct esp_flasher_stub_config *stub_cfg = esp_info->get_stub(bank);
+	const struct esp_flasher_stub_config *stub_cfg = esp_info->get_stub(bank,
+		esp_info->compression ? ESP_STUB_CMD_FLASH_WRITE_DEFLATED : ESP_STUB_CMD_FLASH_WRITE);
 	uint8_t *compressed_buff = NULL;
 	uint32_t compressed_len = 0;
 	uint32_t stack_size = 1024 + ESP_STUB_UNZIP_BUFF_SIZE;
@@ -859,7 +863,7 @@ int esp_algo_flash_read(struct flash_bank *bank, uint8_t *buffer,
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	struct esp_algorithm_run_data run;
 	struct esp_flash_read_state rd_state;
-	const struct esp_flasher_stub_config *stub_cfg = esp_info->get_stub(bank);
+	const struct esp_flasher_stub_config *stub_cfg = esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_READ);
 
 	if (offset & 0x3UL) {
 		LOG_ERROR("Unaligned offset!");
@@ -1087,7 +1091,8 @@ int esp_algo_flash_breakpoint_add(struct target *target,
 	op_state.esp_info = esp_info;
 	LOG_DEBUG("SEC_SIZE %d", esp_info->sec_sz);
 
-	ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
+	ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw,
+		esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_BP_SET));
 	if (ret != ERROR_OK)
 		return ret;
 	run.stack_size = 512 + (esp_info->stub_log_enabled ? 512 : 0);
@@ -1151,7 +1156,8 @@ int esp_algo_flash_breakpoint_remove(struct target *target,
 	struct esp_flash_bp_op_state op_state;
 	struct mem_param mp;
 
-	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw,
+		esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_BP_CLEAR));
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -1216,7 +1222,8 @@ static int esp_algo_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw,
+		esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_CALC_HASH));
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -1265,7 +1272,8 @@ static int esp_algo_flash_boost_clock_freq(struct flash_bank *bank, int boost)
 	struct esp_algorithm_run_data run;
 	int new_cpu_freq = -1;	/* set to max level */
 
-	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, esp_info->get_stub(bank));
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw,
+		esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE));
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -1277,7 +1285,7 @@ static int esp_algo_flash_boost_clock_freq(struct flash_bank *bank, int boost)
 	ret = esp_info->run_func_image(bank->target,
 		&run,
 		2,
-		ESP_STUB_CMD_CLOCK_CONFIGURE,
+		ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE,
 		new_cpu_freq);
 	image_close(&run.image.image);
 	if (ret != ERROR_OK) {

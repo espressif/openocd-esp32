@@ -19,7 +19,6 @@
 #include "stub_logger.h"
 #include "stub_flasher_int.h"
 
-#define STUB_DEBUG      0
 
 #if STUB_LOG_ENABLE == 1
 	#define STUB_BENCH(var)	\
@@ -100,7 +99,7 @@ BaseType_t xPortEnterCriticalTimeout(portMUX_TYPE *mux, BaseType_t timeout)
 	return (BaseType_t)1;
 }
 
-#if STUB_DEBUG
+#if CMD_FLASH_TEST
 static int stub_flash_test(void)
 {
 	int ret = ESP_STUB_ERR_OK;
@@ -145,7 +144,7 @@ static int stub_apptrace_init(void)
 	return stub_apptrace_prepare();
 }
 
-static int stub_flash_calc_hash(uint32_t addr, uint32_t size, uint8_t *hash)
+static __attribute__((unused)) int stub_flash_calc_hash(uint32_t addr, uint32_t size, uint8_t *hash)
 {
 	esp_rom_spiflash_result_t rc;
 	uint32_t rd_cnt = 0, rd_sz = 0;
@@ -176,7 +175,7 @@ static int stub_flash_calc_hash(uint32_t addr, uint32_t size, uint8_t *hash)
 	return ESP_STUB_ERR_OK;
 }
 
-static int stub_flash_read(uint32_t addr, uint32_t size)
+static __attribute__((unused)) int stub_flash_read(uint32_t addr, uint32_t size)
 {
 	esp_rom_spiflash_result_t rc;
 	uint32_t total_cnt = 0;
@@ -372,7 +371,7 @@ static int stub_write_aligned_buffer(void *data_buf, uint32_t length)
 	return ESP_STUB_ERR_OK;
 }
 
-static int stub_flash_write(void *args)
+static __attribute__((unused)) int stub_flash_write(void *args)
 {
 	uint32_t total_cnt = 0;
 	uint8_t *buf = NULL;
@@ -535,7 +534,7 @@ static int stub_run_inflator(void *data_buf, uint32_t length)
 	return ESP_STUB_ERR_OK;
 }
 
-static int stub_flash_write_deflated(void *args)
+static __attribute__((unused)) int stub_flash_write_deflated(void *args)
 {
 	uint32_t total_cnt = 0;
 	uint8_t *buf = NULL;
@@ -678,7 +677,7 @@ esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint3
 	return ESP_ROM_SPIFLASH_RESULT_OK;
 }
 
-static int stub_flash_erase(uint32_t flash_addr, uint32_t size)
+static __attribute__((unused)) int stub_flash_erase(uint32_t flash_addr, uint32_t size)
 {
 	int ret = ESP_STUB_ERR_OK;
 
@@ -702,7 +701,7 @@ static int stub_flash_erase(uint32_t flash_addr, uint32_t size)
 	return ret;
 }
 
-static int stub_flash_erase_check(uint32_t start_sec, uint32_t sec_num, uint8_t *sec_erased)
+static __attribute__((unused)) int stub_flash_erase_check(uint32_t start_sec, uint32_t sec_num, uint8_t *sec_erased)
 {
 	int ret = ESP_STUB_ERR_OK;
 	uint8_t buf[STUB_FLASH_SECTOR_SIZE / 8];/* implying that sector size is multiple of sizeof(buf) */
@@ -845,7 +844,7 @@ static int stub_flash_get_app_mappings(uint32_t off, struct esp_flash_mapping *f
 	return ESP_STUB_ERR_OK;
 }
 
-static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr, uint32_t flash_size)
+static __attribute__((unused)) int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr, uint32_t flash_size)
 {
 	esp_rom_spiflash_result_t rc;
 	esp_partition_info_t part;
@@ -915,7 +914,8 @@ static int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr, uint32_t fla
 *   - crossing 4 bytes alignment boundary
 * 3) addr is unaligned to 4 bytes, BP is crossing sector's boundary (in 2 sectors)
 */
-static uint8_t stub_flash_set_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr, uint8_t *insn_sect)
+static __attribute__((unused)) uint8_t stub_flash_set_bp(uint32_t bp_flash_addr,
+	uint32_t insn_buf_addr, uint8_t *insn_sect)
 {
 	esp_rom_spiflash_result_t rc;
 
@@ -994,7 +994,8 @@ static uint8_t stub_flash_set_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr,
 	return insn_sz;
 }
 
-static int stub_flash_clear_bp(uint32_t bp_flash_addr, uint32_t insn_buf_addr, uint8_t *insn_sect)
+static __attribute__((unused)) int stub_flash_clear_bp(uint32_t bp_flash_addr,
+	uint32_t insn_buf_addr, uint8_t *insn_sect)
 {
 	esp_rom_spiflash_result_t rc;
 	uint8_t *insn = (uint8_t *)insn_buf_addr;
@@ -1102,39 +1103,59 @@ static int stub_flash_handler(int cmd, va_list ap)
 	}
 
 	switch (cmd) {
+#ifdef CMD_FLASH_READ
 	case ESP_STUB_CMD_FLASH_READ:
 		ret = stub_flash_read(arg1, arg2);
 		break;
+#endif
+#ifdef CMD_FLASH_ERASE
 	case ESP_STUB_CMD_FLASH_ERASE:
 		ret = stub_flash_erase(arg1, arg2);
 		break;
+#endif
+#ifdef CMD_FLASH_ERASE_CHECK
 	case ESP_STUB_CMD_FLASH_ERASE_CHECK:
 		ret = stub_flash_erase_check(arg1, arg2, arg3);
 		break;
+#endif
+#ifdef CMD_FLASH_WRITE
 	case ESP_STUB_CMD_FLASH_WRITE:
 		ret = stub_flash_write((void *)arg1);
 		break;
+#endif
+#ifdef CMD_FLASH_WRITE_DEFLATED
 	case ESP_STUB_CMD_FLASH_WRITE_DEFLATED:
 		ret = stub_flash_write_deflated((void *)arg1);
 		break;
+#endif
+#ifdef CMD_FLASH_CALC_HASH
 	case ESP_STUB_CMD_FLASH_CALC_HASH:
 		ret = stub_flash_calc_hash(arg1, arg2, arg3);
 		break;
+#endif
+#ifdef CMD_FLASH_MAP_GET
 	case ESP_STUB_CMD_FLASH_MAP_GET:
 		ret = stub_flash_get_map(arg1, arg2, flash_size);
 		break;
+#endif
+#ifdef CMD_FLASH_BP_SET
 	case ESP_STUB_CMD_FLASH_BP_SET:
 		ret = stub_flash_set_bp(arg1, arg2, arg3);
 		break;
+#endif
+#ifdef CMD_FLASH_BP_CLEAR
 	case ESP_STUB_CMD_FLASH_BP_CLEAR:
 		ret = stub_flash_clear_bp(arg1, arg2, arg3);
 		break;
-	case ESP_STUB_CMD_CLOCK_CONFIGURE:
+#endif
+#ifdef CMD_FLASH_CLOCK_CONFIGURE
+	case ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE:
 		ret = stub_cpu_clock_configure(arg1);
 		if (stub_get_log_dest() == STUB_LOG_DEST_UART)
 			stub_uart_console_configure(stub_get_log_dest());
 		break;
-#if STUB_DEBUG
+#endif
+#ifdef CMD_FLASH_TEST
 	case ESP_STUB_CMD_FLASH_TEST:
 		ret = stub_flash_test();
 		break;
@@ -1191,7 +1212,7 @@ const char *cmd_to_str(int cmd)
 	case ESP_STUB_CMD_FLASH_TEST: return "FLASH_TEST";
 	case ESP_STUB_CMD_FLASH_WRITE_DEFLATED: return "FLASH_WRITE_DEFLATED";
 	case ESP_STUB_CMD_FLASH_CALC_HASH: return "FLASH_CALC_HASH";
-	case ESP_STUB_CMD_CLOCK_CONFIGURE: return "CLOCK_CONFIGURE";
+	case ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE: return "CLOCK_CONFIGURE";
 	default: return "";
 	}
 }
