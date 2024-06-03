@@ -77,7 +77,7 @@ struct esp_flash_bank {
 	uint32_t hw_flash_base;
 	/* Offset of the application image in the HW flash bank */
 	uint32_t appimage_flash_base;
-	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank);
+	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank, int cmd);
 	/* function to run algorithm on Xtensa target */
 	int (*run_func_image)(struct target *target, struct esp_algorithm_run_data *run,
 		uint32_t num_args, ...);
@@ -109,7 +109,7 @@ int esp_algo_flash_init(struct esp_flash_bank *esp_info, uint32_t sec_sz,
 		uint32_t num_args, ...),
 	bool (*is_irom_address)(target_addr_t addr),
 	bool (*is_drom_address)(target_addr_t addr),
-	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank),
+	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank, int cmd),
 	const struct esp_flash_apptrace_hw *apptrace_hw,
 	const struct esp_algorithm_hw *stub_hw);
 int esp_algo_flash_protect(struct flash_bank *bank, int set, unsigned int first, unsigned int last);

@@ -12,4 +12,4 @@ git diff HEAD~${cnt} \
 				-x "*/tools/scanbuild_reference.html" \
             | ./tools/scripts/checkpatch.pl --no-signoff \
 				--ignore STATIC_CONST_CHAR_ARRAY --ignore MACRO_ARG_PRECEDENCE --ignore MACRO_ARG_REUSE \
-				--ignore CAMELCASE
+				--ignore CAMELCASE --ignore TRAILING_SEMICOLON

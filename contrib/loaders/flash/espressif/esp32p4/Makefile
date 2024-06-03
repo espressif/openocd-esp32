@@ -15,7 +15,7 @@ STUB_COMMON_PATH := $(STUB_CHIP_PATH)/..
 STUB_CHIP_ARCH_PATH := $(STUB_COMMON_PATH)/$(STUB_ARCH)
 STUB_OBJ_DEPS := sdkconfig.h
 STUB_LD_SCRIPT := stub.ld
-STUB_CHIP := ESP32P4
+STUB_CHIP := esp32p4
 
 SRCS := $(IDF_PATH)/components/esp_hw_support/port/esp32p4/rtc_clk_init.c \
 		$(IDF_PATH)/components/esp_hw_support/port/esp32p4/rtc_clk.c \
