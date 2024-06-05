@@ -54,6 +54,11 @@ uint8_t stub_get_insn_size(uint8_t *insn)
 	return insn[0] & 0x8 ? 2 : 3;
 }
 
+uint8_t stub_get_max_insn_size(void)
+{
+	return 3;
+}
+
 uint32_t stub_get_break_insn(uint8_t insn_sz)
 {
 	return insn_sz == 2 ? XT_INS_BREAKN : XT_INS_BREAK;

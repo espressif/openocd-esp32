@@ -61,7 +61,10 @@
 #include <helper/sha256.h>
 #include <helper/binarybuffer.h>
 #include <target/register.h>
+#include <target/xtensa/xtensa.h>
+#include <target/espressif/esp.h>
 #include <helper/time_support.h>
+#include <helper/align.h>
 #include "contrib/loaders/flash/espressif/stub_flasher.h"
 #include <target/smp.h>
 #include "esp_flash.h"
@@ -101,6 +104,7 @@ struct esp_flash_erase_check_args {
 struct esp_flash_bp_op_state {
 	struct working_area *target_buf;
 	struct esp_flash_bank *esp_info;
+	struct esp_flash_breakpoint *sw_bp;
 };
 
 #if BUILD_ESP_COMPRESSION
@@ -1035,14 +1039,29 @@ static int esp_algo_flash_bp_op_state_init(struct target *target,
 	struct esp_algorithm_run_data *run,
 	struct esp_flash_bp_op_state *state)
 {
-	/* aloocate target buffer for temp storage of flash sections contents when modifying
-	 * instruction */
+	struct xtensa *xtensa = target->arch_info;
+
 	LOG_DEBUG("SEC_SIZE %d", state->esp_info->sec_sz);
-	int ret = target_alloc_working_area(target,
-		2 * (state->esp_info->sec_sz),
-		&state->target_buf);
+
+	int inst_size = 2; /* riscv uses 2 byte c.ebreak instruction */
+	if (xtensa->common_magic == XTENSA_COMMON_MAGIC) {
+		/* Depends on the original inst size. While adding bp we don't know it yet. */
+		inst_size = state->sw_bp->insn_sz > 0 ? state->sw_bp->insn_sz : XT_ISNS_SZ_MAX;
+	}
+
+	/* Check if replacing the break instruction will overlap with the next sector. */
+	int sector_no = ALIGN_DOWN(state->sw_bp->bp_flash_addr,
+		state->esp_info->sec_sz - 1) / state->esp_info->sec_sz;
+	int next_sector_no = ALIGN_DOWN(state->sw_bp->bp_flash_addr + inst_size,
+		state->esp_info->sec_sz - 1) / state->esp_info->sec_sz;
+	size_t alloc_size = state->esp_info->sec_sz;
+	if (next_sector_no > sector_no)
+		alloc_size *= 2;
+
+	/* allocate target buffer for temp storage of flash sections contents when modifying instruction */
+	int ret = target_alloc_working_area(target, alloc_size, &state->target_buf);
 	if (ret != ERROR_OK) {
-		LOG_ERROR("Failed to alloc target buffer for insn sectors!");
+		LOG_ERROR("Failed to alloc (%zu) bytes target buffer for insn sectors!", alloc_size);
 		return ret;
 	}
 	/* insn sectors buffer */
@@ -1089,6 +1108,7 @@ int esp_algo_flash_breakpoint_add(struct target *target,
 	esp_info = bank->driver_priv;
 
 	op_state.esp_info = esp_info;
+	op_state.sw_bp = sw_bp;
 	LOG_DEBUG("SEC_SIZE %d", esp_info->sec_sz);
 
 	ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw,
@@ -1102,17 +1122,17 @@ int esp_algo_flash_breakpoint_add(struct target *target,
 
 	sw_bp->oocd_bp = breakpoint;
 	sw_bp->bank = bank;
+	sw_bp->bp_flash_addr = esp_info->hw_flash_base + (breakpoint->address - bank->base);
 
 	init_mem_param(&mp, 2 /*2nd usr arg*/, 4 /*size in bytes*/, PARAM_IN);
 	run.mem_args.params = &mp;
 	run.mem_args.count = 1;
-	uint32_t bp_flash_addr = esp_info->hw_flash_base +
-		(breakpoint->address - bank->base);
+
 	ret = esp_info->run_func_image(target,
 		&run,
 		4 /*args num*/,
 		ESP_STUB_CMD_FLASH_BP_SET /*cmd*/,
-		bp_flash_addr /*bp_addr*/,
+		sw_bp->bp_flash_addr /*bp_addr*/,
 		0 /*address to store insn*/,
 		0 /*address to store insn sectors*/);
 	image_close(&run.image.image);
@@ -1133,10 +1153,8 @@ int esp_algo_flash_breakpoint_add(struct target *target,
 	assert(sw_bp->insn_sz <= sizeof(sw_bp->insn));
 	memcpy(sw_bp->insn, mp.value, sw_bp->insn_sz);
 	destroy_mem_param(&mp);
-	LOG_DEBUG(
-		"%s: Placed flash SW breakpoint at " TARGET_ADDR_FMT
-		", insn [%02x %02x %02x %02x] %d bytes",
-		target_name(target),
+	LOG_TARGET_DEBUG(target,
+		"Placed flash SW breakpoint at " TARGET_ADDR_FMT ", insn [%02x %02x %02x %02x] %d bytes",
 		breakpoint->address,
 		sw_bp->insn[0],
 		sw_bp->insn[1],
@@ -1162,6 +1180,7 @@ int esp_algo_flash_breakpoint_remove(struct target *target,
 		return ret;
 
 	op_state.esp_info = esp_info;
+	op_state.sw_bp = sw_bp;
 	run.stack_size = 512 + (esp_info->stub_log_enabled ? 512 : 0);
 	run.usr_func_arg = &op_state;
 	run.usr_func_init = (esp_algorithm_usr_func_init_t)esp_algo_flash_bp_op_state_init;
@@ -1172,18 +1191,17 @@ int esp_algo_flash_breakpoint_remove(struct target *target,
 	run.mem_args.params = &mp;
 	run.mem_args.count = 1;
 
-	uint32_t bp_flash_addr = esp_info->hw_flash_base +
-		(sw_bp->oocd_bp->address - bank->base);
-	LOG_DEBUG(
-		"%s: Remove flash SW breakpoint at " TARGET_ADDR_FMT
-		", insn [%02x %02x %02x %02x] %d bytes",
-		target_name(target),
-		sw_bp->oocd_bp->address,
-		sw_bp->insn[0],
-		sw_bp->insn[1],
-		sw_bp->insn[2],
-		sw_bp->insn[3],
-		sw_bp->insn_sz);
+	uint32_t bp_flash_addr = esp_info->hw_flash_base + (sw_bp->oocd_bp->address - bank->base);
+	assert(sw_bp->bp_flash_addr == bp_flash_addr);
+
+	LOG_TARGET_DEBUG(target,
+			"Remove flash SW breakpoint at " TARGET_ADDR_FMT ", insn [%02x %02x %02x %02x] %d bytes",
+			sw_bp->oocd_bp->address,
+			sw_bp->insn[0],
+			sw_bp->insn[1],
+			sw_bp->insn[2],
+			sw_bp->insn[3],
+			sw_bp->insn_sz);
 	ret = esp_info->run_func_image(target,
 		&run,
 		4 /*args num*/,
@@ -1203,6 +1221,9 @@ int esp_algo_flash_breakpoint_remove(struct target *target,
 	}
 
 	sw_bp->oocd_bp = NULL;
+	sw_bp->insn_sz = 0;
+	sw_bp->bp_flash_addr = 0;
+
 	return ret;
 }
 
