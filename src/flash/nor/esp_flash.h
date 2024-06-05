@@ -102,6 +102,7 @@ struct esp_flash_breakpoint {
 	/* original insn size. Actually this is size of break instruction. */
 	uint8_t insn_sz;
 	struct flash_bank *bank;
+	target_addr_t bp_flash_addr;
 };
 
 int esp_algo_flash_init(struct esp_flash_bank *esp_info, uint32_t sec_sz,

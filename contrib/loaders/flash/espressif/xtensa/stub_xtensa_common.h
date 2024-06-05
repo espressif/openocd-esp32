@@ -11,6 +11,7 @@
 #define ESP_APPTRACE_USR_DATA_LEN_MAX   (ESP_APPTRACE_TRAX_BLOCK_SIZE - 2)
 
 uint8_t stub_get_insn_size(uint8_t *insn);
+uint8_t stub_get_max_insn_size(void);
 uint32_t stub_get_break_insn(uint8_t insn_sz);
 uint32_t stub_get_coreid(void);
 int stub_apptrace_prepare(void);

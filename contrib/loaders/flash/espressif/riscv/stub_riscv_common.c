@@ -116,3 +116,8 @@ uint8_t stub_get_insn_size(uint8_t *insn)
 	/* we use 16bit `c.ebreak`. it works perfectly with either 32bit and 16bit code */
 	return 2;
 }
+
+uint8_t stub_get_max_insn_size(void)
+{
+	return 2;
+}

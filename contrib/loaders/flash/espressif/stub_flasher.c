@@ -642,7 +642,6 @@ esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint3
 	total_sector_num = area_len % g_rom_flashchip.sector_size == 0 ?
 		area_len / g_rom_flashchip.sector_size :
 		1 + (area_len / g_rom_flashchip.sector_size);
-
 	/* check if erase area reach over block boundary */
 	head_sector_num = sector_num_per_block - (sector_no % sector_num_per_block);
 	head_sector_num = head_sector_num >= total_sector_num ? total_sector_num : head_sector_num;
@@ -650,6 +649,8 @@ esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint3
 	/* JJJ, BUG of 6.0 erase
 	 * middle part of area is aligned by blocks */
 	total_sector_num -= head_sector_num;
+
+	STUB_LOGD("tsn:%d hsn:%d sn:%d snpb:%d\n", total_sector_num, head_sector_num, sector_no, sector_num_per_block);
 
 	/* head part of area is erased */
 	while (head_sector_num > 0) {
@@ -906,6 +907,19 @@ static __attribute__((unused)) int stub_flash_get_map(uint32_t app_off, uint32_t
 	return ESP_STUB_ERR_OK;
 }
 
+#define ALIGN_DOWN(x, a)        ((x) & ~((typeof(x))(a) - 1))
+
+static size_t stub_get_inst_buff_size(uint32_t bp_flash_addr, uint8_t inst_size)
+{
+	int sector_no = ALIGN_DOWN(bp_flash_addr, STUB_FLASH_SECTOR_SIZE) / STUB_FLASH_SECTOR_SIZE;
+	int next_sector_no = ALIGN_DOWN(bp_flash_addr + inst_size, STUB_FLASH_SECTOR_SIZE) / STUB_FLASH_SECTOR_SIZE;
+	size_t buff_size = STUB_FLASH_SECTOR_SIZE;
+	if (next_sector_no > sector_no)
+		buff_size *= 2;
+	STUB_LOGD("%s: %d %d 0x%x\n", __func__, sector_no, next_sector_no, buff_size);
+	return buff_size;
+}
+
 /**
 * Possible BP layouts in flash:
 * 1) addr is aligned to 4 bytes (in 1 sector)
@@ -918,22 +932,21 @@ static __attribute__((unused)) uint8_t stub_flash_set_bp(uint32_t bp_flash_addr,
 	uint32_t insn_buf_addr, uint8_t *insn_sect)
 {
 	esp_rom_spiflash_result_t rc;
+	const size_t inst_buff_size = stub_get_inst_buff_size(bp_flash_addr, stub_get_max_insn_size());
 
 	STUB_LOGD("%s: 0x%x 0x%x\n", __func__, bp_flash_addr, insn_buf_addr);
 
 	stub_flash_cache_flush();
 
-	rc = stub_flash_read_buff(bp_flash_addr & ~(STUB_FLASH_SECTOR_SIZE - 1),
+	rc = stub_flash_read_buff(ALIGN_DOWN(bp_flash_addr, STUB_FLASH_SECTOR_SIZE),
 		(uint32_t *)insn_sect,
-		STUB_BP_INSN_SECT_BUF_SIZE);
+		inst_buff_size);
 	if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 		STUB_LOGE("Failed to read insn sector (%d)!\n", rc);
 		return 0;
 	}
 	uint8_t insn_sz = stub_get_insn_size(&insn_sect[bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)]);
-	memcpy((void *)insn_buf_addr,
-		&insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1))],
-		insn_sz);
+	memcpy((void *)insn_buf_addr, &insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1))], insn_sz);
 	STUB_LOGI("Read insn [%02x %02x %02x %02x] %d bytes @ 0x%x\n",
 		insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 0],
 		insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 1],
@@ -943,7 +956,7 @@ static __attribute__((unused)) uint8_t stub_flash_set_bp(uint32_t bp_flash_addr,
 		bp_flash_addr);
 
 	/* this will erase full sector or two */
-	if (stub_flash_erase(bp_flash_addr, insn_sz) != ESP_STUB_ERR_OK) {
+	if (stub_flash_erase(bp_flash_addr, inst_buff_size) != ESP_STUB_ERR_OK) {
 		STUB_LOGE("Failed to erase insn sector!\n");
 		return 0;
 	}
@@ -960,7 +973,7 @@ static __attribute__((unused)) uint8_t stub_flash_set_bp(uint32_t bp_flash_addr,
 		insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 3] = break_insn.d8[3];
 	rc = stub_spiflash_write(bp_flash_addr & ~(STUB_FLASH_SECTOR_SIZE - 1),
 		(uint32_t *)insn_sect,
-		STUB_BP_INSN_SECT_BUF_SIZE,
+		inst_buff_size,
 		stub_get_flash_encryption_mode() != ESP_FLASH_ENC_MODE_DISABLED);
 	if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 		STUB_LOGE("Failed to write break insn (%d)!\n", rc);
@@ -999,6 +1012,8 @@ static __attribute__((unused)) int stub_flash_clear_bp(uint32_t bp_flash_addr,
 {
 	esp_rom_spiflash_result_t rc;
 	uint8_t *insn = (uint8_t *)insn_buf_addr;
+	uint8_t insn_sz = stub_get_insn_size(insn);
+	const size_t inst_buff_size = stub_get_inst_buff_size(bp_flash_addr, insn_sz);
 
 	STUB_LOGD("%s: 0x%x 0x%x [%02x %02x %02x %02x]\n",
 		__func__,
@@ -1011,16 +1026,16 @@ static __attribute__((unused)) int stub_flash_clear_bp(uint32_t bp_flash_addr,
 
 	stub_flash_cache_flush();
 
-	rc = stub_flash_read_buff(bp_flash_addr & ~(STUB_FLASH_SECTOR_SIZE - 1),
+	rc = stub_flash_read_buff(ALIGN_DOWN(bp_flash_addr, STUB_FLASH_SECTOR_SIZE),
 		(uint32_t *)insn_sect,
-		STUB_BP_INSN_SECT_BUF_SIZE);
+		inst_buff_size);
 	if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 		STUB_LOGE("Failed to read insn sector (%d)!\n", rc);
 		return ESP_STUB_ERR_FAIL;
 	}
-	uint8_t insn_sz = stub_get_insn_size(insn);
+
 	/* this will erase full sector or two */
-	if (stub_flash_erase(bp_flash_addr, insn_sz) != ESP_STUB_ERR_OK) {
+	if (stub_flash_erase(bp_flash_addr, inst_buff_size) != ESP_STUB_ERR_OK) {
 		STUB_LOGE("Failed to erase insn sector!\n");
 		return ESP_STUB_ERR_FAIL;
 	}
@@ -1032,7 +1047,7 @@ static __attribute__((unused)) int stub_flash_clear_bp(uint32_t bp_flash_addr,
 		insn_sect[(bp_flash_addr & (STUB_FLASH_SECTOR_SIZE - 1)) + 3] = insn[3];
 	rc = stub_spiflash_write(bp_flash_addr & ~(STUB_FLASH_SECTOR_SIZE - 1),
 		(uint32_t *)insn_sect,
-		STUB_BP_INSN_SECT_BUF_SIZE,
+		inst_buff_size,
 		stub_get_flash_encryption_mode() != ESP_FLASH_ENC_MODE_DISABLED);
 	if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
 		STUB_LOGE("Failed to restore insn (%d)!\n", rc);

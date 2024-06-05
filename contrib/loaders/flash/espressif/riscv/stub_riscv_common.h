@@ -21,6 +21,7 @@ int stub_apptrace_prepare(void);
 uint32_t stub_flash_get_id(void);
 uint32_t stub_get_break_insn(uint8_t insn_sz);
 uint8_t stub_get_insn_size(uint8_t *insn);
+uint8_t stub_get_max_insn_size(void);
 
 #if CONFIG_STUB_STACK_DATA_POOL_SIZE > 0
 void stub_stack_data_pool_init(uint8_t *data, size_t sz);
