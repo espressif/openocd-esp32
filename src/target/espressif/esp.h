@@ -106,10 +106,16 @@ struct esp_semihost_data {
 };
 
 struct esp_flash_breakpoint_ops {
-	int (*breakpoint_add)(struct target *target, struct breakpoint *breakpoint,
+	int (*breakpoint_prepare)(struct target *target,
+		struct breakpoint *breakpoint,
 		struct esp_flash_breakpoint *bp);
+	int (*breakpoint_add)(struct target *target,
+		struct esp_flash_breakpoint *bp,
+		size_t num_bps);
 	int (*breakpoint_remove)(struct target *target,
-		struct esp_flash_breakpoint *bp);
+		struct esp_flash_breakpoint *bp,
+		size_t num_bps);
+	bool breakpoint_lazy_process;
 };
 
 struct esp_flash_breakpoints {
@@ -143,8 +149,10 @@ int esp_common_flash_breakpoint_remove(struct target *target,
 	struct breakpoint *breakpoint);
 bool esp_common_flash_breakpoint_exists(struct esp_common *esp,
 	struct breakpoint *breakpoint);
+int esp_common_set_flash_breakpoints(struct command_invocation *cmd);
 int esp_common_handle_gdb_detach(struct target *target);
 int esp_common_gdb_detach_command(struct command_invocation *cmd);
+int esp_common_process_flash_breakpoints_command(struct command_invocation *cmd);
 
 int esp_dbgstubs_table_read(struct target *target, struct esp_dbg_stubs *dbg_stubs);
 

@@ -2971,6 +2971,10 @@ static int gdb_query_packet(struct connection *connection,
 		gdb_put_packet(connection, xml, strlen(xml));
 
 		free(xml);
+
+		/* ESPRESSIF: will be used to process lazy breakpoints */
+		target_call_event_callbacks(target, TARGET_EVENT_QXFER_THREAD_READ_END);
+
 		return ERROR_OK;
 	} else if (strncmp(packet, "QStartNoAckMode", 15) == 0) {
 		gdb_connection->noack_mode = 1;

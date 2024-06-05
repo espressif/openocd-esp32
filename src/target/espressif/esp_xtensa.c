@@ -396,6 +396,13 @@ const struct command_registration esp_command_handlers[] = {
 		.help = "Handles gdb-detach events and makes necessary cleanups such as removing flash breakpoints",
 		.usage = "",
 	},
+	{
+		.name = "process_lazy_breakpoints",
+		.handler = esp_common_process_flash_breakpoints_command,
+		.mode = COMMAND_ANY,
+		.help = "Handles resum-start and step-start events to set/clear all waiting flash breakpoints",
+		.usage = "",
+	},
 #if IS_ESPIDF
 	{
 		.name = "examine_failed_handler",

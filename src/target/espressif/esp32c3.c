@@ -132,8 +132,10 @@ static const struct esp_semihost_ops esp32c3_semihost_ops = {
 };
 
 static const struct esp_flash_breakpoint_ops esp32c3_flash_brp_ops = {
+	.breakpoint_prepare = esp_algo_flash_breakpoint_prepare,
 	.breakpoint_add = esp_algo_flash_breakpoint_add,
-	.breakpoint_remove = esp_algo_flash_breakpoint_remove
+	.breakpoint_remove = esp_algo_flash_breakpoint_remove,
+	.breakpoint_lazy_process = true,
 };
 
 static int esp32c3_target_create(struct target *target, Jim_Interp *interp)

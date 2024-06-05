@@ -44,7 +44,7 @@ static int esp_algorithm_read_stub_logs(struct target *target, struct esp_algori
 }
 
 #ifdef ESP_STACK_HIGH_WATER_MARK
-char *hexdump(uint8_t *buf, unsigned int size)
+char *hexdump(uint8_t *buf, int size)
 {
 	int lines = (size + 15) / 16;
 	int line_length = 8 + 1 + 3 * 16 + 1;
