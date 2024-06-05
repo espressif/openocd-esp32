@@ -221,6 +221,9 @@ class PsramTestsImpl:
     def setUp(self):
         pass
 
+    def tearDown(self):
+        pass
+
     def test_psram_with_flash_breakpoints(self):
         """
             This test checks that PSRAM memory contents ard not corrupted when using flash SW breakpoints.
@@ -257,7 +260,6 @@ class PsramTestsImpl:
             self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_BP, 'gh264_psram_check_task', 'gh264_psram_check_1')
             self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_BP, 'gh264_psram_check_task', 'gh264_psram_check_2')
             self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_BP, 'gh264_psram_check_task', 'gh264_psram_check_3')
-
 
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
@@ -375,6 +377,10 @@ class PsramTestsDual(PsramTestAppTestsDual, PsramTestsImpl):
         PsramTestAppTestsDual.setUp(self)
         PsramTestsImpl.setUp(self)
 
+    def tearDown(self):
+        PsramTestAppTestsDual.tearDown(self)
+        PsramTestsImpl.tearDown(self)
+
 # to be skipped for any board with 'esp32-solo' module, but still needs to be ran
 # for dual-core version of ESP32 modules even in single-core mode
 @skip_for_chip(['esp32-solo'])
@@ -384,3 +390,7 @@ class PsramTestsSingle(PsramTestAppTestsSingle, PsramTestsImpl):
     def setUp(self):
         PsramTestAppTestsSingle.setUp(self)
         PsramTestsImpl.setUp(self)
+
+    def tearDown(self):
+        PsramTestAppTestsSingle.tearDown(self)
+        PsramTestsImpl.tearDown(self)

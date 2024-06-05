@@ -25,6 +25,8 @@
 #define MHZ                             (1000000)
 #endif
 
+#define __maybe_unused  __attribute__((unused))
+
 /* Flash geometry constants */
 #define STUB_FLASH_SECTOR_SIZE          0x1000
 #define STUB_FLASH_BLOCK_SIZE           0x10000

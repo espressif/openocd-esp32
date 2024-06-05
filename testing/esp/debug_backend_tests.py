@@ -525,6 +525,7 @@ class DebuggerTestAppTests(DebuggerTestsBase):
     def tearDown(self):
         self.clear_bps()
         self.clear_wps()
+        self.oocd.process_lazy_bps()
 
     def prepare_app_for_debugging(self, app_flash_off):
         self.gdb.target_reset()

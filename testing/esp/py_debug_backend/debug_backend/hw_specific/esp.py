@@ -58,6 +58,8 @@ class OocdEspImpl:
             if not stopped and tmo and time.time() > end:
                 raise DebuggerError('Failed to wait for apptrace stop!')
 
+    def process_lazy_bps(self):
+        self.cmd_exec('esp process_lazy_breakpoints')
 
 class OocdEspXtensa(OocdXtensa, OocdEspImpl):
     """

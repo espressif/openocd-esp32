@@ -199,6 +199,8 @@ static const struct jim_nvp nvp_target_event[] = {
 
 	{ .value = TARGET_EVENT_TRACE_CONFIG, .name = "trace-config" },
 
+	{ .value = TARGET_EVENT_QXFER_THREAD_READ_END, .name = "qxfer-thread-read-end" }, /* Espressif */
+
 	{ .value = TARGET_EVENT_SEMIHOSTING_USER_CMD_0X100, .name = "semihosting-user-cmd-0x100" },
 	{ .value = TARGET_EVENT_SEMIHOSTING_USER_CMD_0X101, .name = "semihosting-user-cmd-0x101" },
 	{ .value = TARGET_EVENT_SEMIHOSTING_USER_CMD_0X102, .name = "semihosting-user-cmd-0x102" },

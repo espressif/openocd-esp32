@@ -47,8 +47,7 @@ $(foreach cmd, $(COMMANDS), \
 
 CFLAGS += -Wall -Werror -Os \
           -nostdlib -fno-builtin -flto \
-          -Wl,-static -g -ffunction-sections -Wl,--gc-sections \
-		  -Wno-unused-variable
+          -Wl,-static -g -ffunction-sections -Wl,--gc-sections
 
 INCLUDES += -I. -I$(STUB_COMMON_PATH) -I$(STUB_CHIP_PATH) -I$(STUB_CHIP_ARCH_PATH) \
           -I$(IDF_PATH)/components/$(STUB_ARCH)/include \

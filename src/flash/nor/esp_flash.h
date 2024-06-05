@@ -95,6 +95,36 @@ struct esp_flash_bank {
 	bool stub_log_enabled;
 };
 
+enum esp_flash_bp_action {
+	ESP_BP_ACT_NAN,
+	ESP_BP_ACT_REM = ESP_BP_ACT_NAN,
+	ESP_BP_ACT_ADD
+};
+
+enum esp_flash_bp_status {
+	ESP_BP_STAT_DONE,
+	ESP_BP_STAT_PEND,
+};
+
+/*
+Breakpoint States:
+1 - Init state equal to Remove-Done: Initial state for the empty slot
+2 - Add-Pending: Z1 package received but break inst is not written to flash yet
+3 - Add-Done: Break inst is written to flash
+3 - Remove-Pending: z1 package received but original inst is not written back to flash yet
+3 - Remove-Done equal to Init: Original inst written back to flash and slot is empty
+
+Transitions will normally follow the same order as described above
+[ INIT (BP_REM-DONE) ] --> [ BP-ADD-PENDING ] --> [ BP-ADD-DONE ] --> [ BP-REM-PENDING ] --> [ BP_REM-DONE ]
+
+In one case, we performed a special state change. When the breakpoint is at the rem-pending state,
+it means the breakpoint instruction is written to the flash but not removed yet.
+However, GDB thinks it is removed since the Z1 package has already been sent.
+So, it might send an add package for the same address.
+In this case, we don't need to remove the breakpoint and add it again.
+It is fine to change the state to add-done (fake-add).
+*/
+
 struct esp_flash_breakpoint {
 	struct breakpoint *oocd_bp;
 	/* original insn or part of it */
@@ -102,7 +132,11 @@ struct esp_flash_breakpoint {
 	/* original insn size. Actually this is size of break instruction. */
 	uint8_t insn_sz;
 	struct flash_bank *bank;
-	target_addr_t bp_flash_addr;
+	int sector_num;
+	target_addr_t bp_address; /* virtual */
+	uint32_t bp_flash_addr; /* physical */
+	enum esp_flash_bp_action action;
+	enum esp_flash_bp_status status;
 };
 
 int esp_algo_flash_init(struct esp_flash_bank *esp_info, uint32_t sec_sz,
@@ -123,11 +157,15 @@ int esp_algo_flash_read(struct flash_bank *bank, uint8_t *buffer,
 	uint32_t offset, uint32_t count);
 int esp_algo_flash_probe(struct flash_bank *bank);
 int esp_algo_flash_auto_probe(struct flash_bank *bank);
-int esp_algo_flash_breakpoint_add(struct target *target,
+int esp_algo_flash_breakpoint_prepare(struct target *target,
 	struct breakpoint *breakpoint,
 	struct esp_flash_breakpoint *sw_bp);
+int esp_algo_flash_breakpoint_add(struct target *target,
+	struct esp_flash_breakpoint *sw_bp,
+	size_t num_bps);
 int esp_algo_flash_breakpoint_remove(struct target *target,
-	struct esp_flash_breakpoint *sw_bp);
+	struct esp_flash_breakpoint *sw_bp,
+	size_t num_bps);
 
 extern const struct command_registration esp_flash_exec_flash_command_handlers[];
 

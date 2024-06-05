@@ -92,4 +92,9 @@ struct esp_flash_stub_flash_write_args {
 	uint32_t options;           /* Write options. e.g. encrypted */
 };
 
+struct esp_flash_stub_bp_instructions {
+	uint8_t size;
+	uint8_t buff[3];
+};
+
 #endif	/* OPENOCD_LOADERS_FLASH_ESPRESSIF_STUB_FLASHER_H */

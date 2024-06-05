@@ -437,8 +437,10 @@ static const struct xtensa_power_ops esp32_pwr_ops = {
 };
 
 static const struct esp_flash_breakpoint_ops esp32_flash_brp_ops = {
+	.breakpoint_prepare = esp_algo_flash_breakpoint_prepare,
 	.breakpoint_add = esp_algo_flash_breakpoint_add,
-	.breakpoint_remove = esp_algo_flash_breakpoint_remove
+	.breakpoint_remove = esp_algo_flash_breakpoint_remove,
+	.breakpoint_lazy_process = true,
 };
 
 static const struct esp_xtensa_smp_chip_ops esp32_chip_ops = {

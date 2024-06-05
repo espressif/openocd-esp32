@@ -144,7 +144,7 @@ static int stub_apptrace_init(void)
 	return stub_apptrace_prepare();
 }
 
-static __attribute__((unused)) int stub_flash_calc_hash(uint32_t addr, uint32_t size, uint8_t *hash)
+static __maybe_unused int stub_flash_calc_hash(uint32_t addr, uint32_t size, uint8_t *hash)
 {
 	esp_rom_spiflash_result_t rc;
 	uint32_t rd_cnt = 0, rd_sz = 0;
@@ -175,7 +175,7 @@ static __attribute__((unused)) int stub_flash_calc_hash(uint32_t addr, uint32_t 
 	return ESP_STUB_ERR_OK;
 }
 
-static __attribute__((unused)) int stub_flash_read(uint32_t addr, uint32_t size)
+static __maybe_unused int stub_flash_read(uint32_t addr, uint32_t size)
 {
 	esp_rom_spiflash_result_t rc;
 	uint32_t total_cnt = 0;
@@ -371,7 +371,7 @@ static int stub_write_aligned_buffer(void *data_buf, uint32_t length)
 	return ESP_STUB_ERR_OK;
 }
 
-static __attribute__((unused)) int stub_flash_write(void *args)
+static __maybe_unused int stub_flash_write(void *args)
 {
 	uint32_t total_cnt = 0;
 	uint8_t *buf = NULL;
@@ -534,7 +534,7 @@ static int stub_run_inflator(void *data_buf, uint32_t length)
 	return ESP_STUB_ERR_OK;
 }
 
-static __attribute__((unused)) int stub_flash_write_deflated(void *args)
+static __maybe_unused int stub_flash_write_deflated(void *args)
 {
 	uint32_t total_cnt = 0;
 	uint8_t *buf = NULL;
@@ -678,7 +678,7 @@ esp_rom_spiflash_result_t esp_rom_spiflash_erase_area(uint32_t start_addr, uint3
 	return ESP_ROM_SPIFLASH_RESULT_OK;
 }
 
-static __attribute__((unused)) int stub_flash_erase(uint32_t flash_addr, uint32_t size)
+static __maybe_unused int stub_flash_erase(uint32_t flash_addr, uint32_t size)
 {
 	int ret = ESP_STUB_ERR_OK;
 
@@ -702,7 +702,7 @@ static __attribute__((unused)) int stub_flash_erase(uint32_t flash_addr, uint32_
 	return ret;
 }
 
-static __attribute__((unused)) int stub_flash_erase_check(uint32_t start_sec, uint32_t sec_num, uint8_t *sec_erased)
+static __maybe_unused int stub_flash_erase_check(uint32_t start_sec, uint32_t sec_num, uint8_t *sec_erased)
 {
 	int ret = ESP_STUB_ERR_OK;
 	uint8_t buf[STUB_FLASH_SECTOR_SIZE / 8];/* implying that sector size is multiple of sizeof(buf) */
@@ -845,7 +845,7 @@ static int stub_flash_get_app_mappings(uint32_t off, struct esp_flash_mapping *f
 	return ESP_STUB_ERR_OK;
 }
 
-static __attribute__((unused)) int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr, uint32_t flash_size)
+static __maybe_unused int stub_flash_get_map(uint32_t app_off, uint32_t maps_addr, uint32_t flash_size)
 {
 	esp_rom_spiflash_result_t rc;
 	esp_partition_info_t part;
@@ -928,7 +928,7 @@ static size_t stub_get_inst_buff_size(uint32_t bp_flash_addr, uint8_t inst_size)
 *   - crossing 4 bytes alignment boundary
 * 3) addr is unaligned to 4 bytes, BP is crossing sector's boundary (in 2 sectors)
 */
-static __attribute__((unused)) uint8_t stub_flash_set_bp(uint32_t bp_flash_addr,
+static __maybe_unused uint8_t stub_flash_set_bp(uint32_t bp_flash_addr,
 	uint32_t insn_buf_addr, uint8_t *insn_sect)
 {
 	esp_rom_spiflash_result_t rc;
@@ -1007,7 +1007,34 @@ static __attribute__((unused)) uint8_t stub_flash_set_bp(uint32_t bp_flash_addr,
 	return insn_sz;
 }
 
-static __attribute__((unused)) int stub_flash_clear_bp(uint32_t bp_flash_addr,
+/*
+ * This function combines multiple flash addresses and instructions into a single buffer.
+ * The following variables are used:
+ * bp_flash_addr --> bp0_flash_addr + bp1_flash_addr + bp2_flash_addr + ... + bpn_flash_addr
+ * insn_buf_addr <-- insn_sz0 + inst0 + insn_sz1 + inst1 + insn_sz2 + inst2 + ... + insn_szn + instn
+ *
+ * Each bp_flash_addr is 4 bytes long.
+ * Each insn_sz is 1 byte long, representing the size of the corresponding instruction. (2 or 3)
+ * Each inst is 3 bytes long.
+ *
+ */
+static __maybe_unused uint8_t stub_flash_set_bp_multi(uint32_t *bp_flash_addr,
+	uint8_t *insn_buf_addr, uint8_t *insn_sect, uint32_t num_bps)
+{
+	STUB_LOGD("%s %d bps\n", __func__, num_bps);
+
+	struct esp_flash_stub_bp_instructions *bp_insts = (struct esp_flash_stub_bp_instructions *)insn_buf_addr;
+	for (size_t i = 0; i < num_bps; ++i) {
+		uint8_t rc = stub_flash_set_bp(bp_flash_addr[i], (uint32_t)&bp_insts[i].buff, insn_sect);
+		if (rc == 0)
+			return rc;
+		bp_insts[i].size = rc;
+	}
+
+	return num_bps * sizeof(struct esp_flash_stub_bp_instructions);
+}
+
+static __maybe_unused int stub_flash_clear_bp(uint32_t bp_flash_addr,
 	uint32_t insn_buf_addr, uint8_t *insn_sect)
 {
 	esp_rom_spiflash_result_t rc;
@@ -1081,13 +1108,30 @@ static __attribute__((unused)) int stub_flash_clear_bp(uint32_t bp_flash_addr,
 	return ESP_STUB_ERR_OK;
 }
 
+static __maybe_unused uint8_t stub_flash_clear_bp_multi(uint32_t *bp_flash_addr,
+	uint8_t *insn_buf_addr, uint8_t *insn_sect, uint32_t num_bps)
+{
+	STUB_LOGD("%s %d bps\n", __func__, num_bps);
+
+	struct esp_flash_stub_bp_instructions *bp_insts = (struct esp_flash_stub_bp_instructions *)insn_buf_addr;
+
+	for (size_t i = 0; i < num_bps; ++i) {
+		int rc = stub_flash_clear_bp(bp_flash_addr[i], (uint32_t)&bp_insts[i].buff, insn_sect);
+		if (rc < 0)
+			return rc;
+	}
+
+	return ESP_STUB_ERR_OK;
+}
+
 static int stub_flash_handler(int cmd, va_list ap)
 {
 	int ret = ESP_STUB_ERR_OK;
 	struct stub_flash_state flash_state;
-	uint32_t arg1 = va_arg(ap, uint32_t);	/* flash_addr, start_sect */
-	uint32_t arg2 = va_arg(ap, uint32_t);	/* number of sectors */
-	uint8_t *arg3 = va_arg(ap, uint8_t *);	/* sectors' state buf address */
+	uint32_t arg1 __maybe_unused = va_arg(ap, uint32_t);  /* flash_addr, start_sect */
+	uint32_t arg2 __maybe_unused = va_arg(ap, uint32_t);	/* number of sectors */
+	uint8_t *arg3 __maybe_unused = va_arg(ap, uint8_t *);	/* sectors' state buf address */
+	uint32_t arg4 __maybe_unused = va_arg(ap, uint32_t);	/* set/clear bp count */
 
 	STUB_LOGD("%s arg1 %x, arg2 %d\n", __func__, arg1, arg2);
 
@@ -1155,12 +1199,12 @@ static int stub_flash_handler(int cmd, va_list ap)
 #endif
 #ifdef CMD_FLASH_BP_SET
 	case ESP_STUB_CMD_FLASH_BP_SET:
-		ret = stub_flash_set_bp(arg1, arg2, arg3);
+		ret = stub_flash_set_bp_multi((void *)arg1, (void *)arg2, (void *)arg3, arg4);
 		break;
 #endif
 #ifdef CMD_FLASH_BP_CLEAR
 	case ESP_STUB_CMD_FLASH_BP_CLEAR:
-		ret = stub_flash_clear_bp(arg1, arg2, arg3);
+		ret = stub_flash_clear_bp_multi((void *)arg1, (void *)arg2, (void *)arg3, arg4);
 		break;
 #endif
 #ifdef CMD_FLASH_CLOCK_CONFIGURE
