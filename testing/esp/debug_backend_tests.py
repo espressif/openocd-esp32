@@ -200,6 +200,14 @@ def only_for_arch(archs_to_run):
             break
     return unittest.skipIf(skip, "skipped due to arch '%s' does not match to '%s'" % (testee_info.arch, archs_to_run))
 
+def only_for_chip(chips_to_run):
+    skip = True
+    for id in chips_to_run:
+        if id == testee_info.chip:
+            skip = False
+            break
+    return unittest.skipIf(skip, "skipped for chip '%s'" % (testee_info.chip))
+
 def idf_ver_min_for_arch(ver_str, archs_to_run):
     skip = True
     for id in archs_to_run:
