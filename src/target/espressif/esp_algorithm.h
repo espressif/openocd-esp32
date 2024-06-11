@@ -117,6 +117,10 @@
 struct esp_algorithm_image {
 	/** Image. */
 	struct image image;
+	/** CODE section size. */
+	uint32_t code_size;
+	/** DATA section size. */
+	uint32_t data_size;
 	/** BSS section size. */
 	uint32_t bss_size;
 	/** IRAM start address in the linker script */
@@ -294,8 +298,13 @@ struct esp_algorithm_run_data {
 	esp_algorithm_func_t algo_func;
 	/** HW specific API */
 	const struct esp_algorithm_hw *hw;
+	/** Check If stub binary is already loaded to the target's reserved memory */
+	bool check_preloaded_binary;
+	/** True if stub binary is loaded to the target reserved memory */
+	bool run_preloaded_binary;
 };
 
+int esp_algorithm_check_preloaded_image(struct target *target, struct esp_algorithm_run_data *run);
 int esp_algorithm_load_func_image(struct target *target, struct esp_algorithm_run_data *run);
 int esp_algorithm_unload_func_image(struct target *target, struct esp_algorithm_run_data *run);
 
@@ -319,9 +328,15 @@ static inline int esp_algorithm_run_func_image_va(struct target *target,
 	uint32_t num_args,
 	va_list ap)
 {
-	int ret = esp_algorithm_load_func_image(target, run);
-	if (ret != ERROR_OK)
-		return ret;
+	int ret = ERROR_FAIL;
+
+	if (run->check_preloaded_binary)
+		ret = esp_algorithm_check_preloaded_image(target, run);
+	if (ret != ERROR_OK) {
+		ret = esp_algorithm_load_func_image(target, run);
+		if (ret != ERROR_OK)
+			return ret;
+	}
 	ret = esp_algorithm_exec_func_image_va(target, run, num_args, ap);
 	int rc = esp_algorithm_unload_func_image(target, run);
 	return ret != ERROR_OK ? ret : rc;

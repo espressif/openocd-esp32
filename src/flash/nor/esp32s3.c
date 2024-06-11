@@ -71,7 +71,8 @@ FLASH_BANK_COMMAND_HANDLER(esp32s3_flash_bank_command)
 		esp_xtensa_smp_run_func_image,
 		esp32s3_is_irom_address,
 		esp32s3_is_drom_address,
-		esp32s3_get_stub);
+		esp32s3_get_stub,
+		false);
 	if (ret != ERROR_OK) {
 		free(esp32s3_info);
 		return ret;

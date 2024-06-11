@@ -34,7 +34,9 @@
 #define ESP_STUB_CMD_FLASH_WRITE_DEFLATED       8
 #define ESP_STUB_CMD_FLASH_CALC_HASH            9
 #define ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE      10
-#define ESP_STUB_CMD_FLASH_WITH_LOG             11 /* not an actual command. */
+#define ESP_STUB_CMD_FLASH_MULTI_COMMAND        11 /* not an actual command. Added for the automation */
+#define ESP_STUB_CMD_FLASH_IDF_BINARY           12 /* not an actual command. Added for the automation */
+#define ESP_STUB_CMD_FLASH_WITH_LOG             13 /* not an actual command. Added for the automation */
 #define ESP_STUB_CMD_FLASH_MAX_ID               ESP_STUB_CMD_FLASH_WITH_LOG
 #define ESP_STUB_CMD_TEST                       (ESP_STUB_CMD_FLASH_MAX_ID + 2)
 
@@ -96,5 +98,38 @@ struct esp_flash_stub_bp_instructions {
 	uint8_t size;
 	uint8_t buff[3];
 };
+
+struct esp_flash_stub_desc {
+	uint32_t magic;
+	uint32_t stub_version;
+	uint32_t idf_key; /* idf will set the key with known value. (5C3A9F5A) */
+};
+
+#define ESP_STUB_FLASHER_DESC_MAGIC_NUM       (offsetof(struct esp_flash_stub_desc, magic))
+#define ESP_STUB_FLASHER_DESC_MAGIC_VERSION   (offsetof(struct esp_flash_stub_desc, stub_version))
+#define ESP_STUB_FLASHER_DESC_IDF_KEY         (offsetof(struct esp_flash_stub_desc, idf_key))
+#define ESP_STUB_FLASHER_DESC_SIZE            (sizeof(struct esp_flash_stub_desc))
+
+#define ESP_STUB_FLASHER_MAGIC_NUM             0xFEEDFACE
+
+/*
+The IDF key is important when the stub code and data work area backup feature are disabled.
+For example, the program_esp_bins command disables the work area backup to increase programming speed.
+After programming, if the chip is not reset, we can see the stub descriptor header in the target memory and might
+assume that there is a stub code loaded. However, this assumption is not correct for every chip.
+To differentiate whether the target memory is loaded from JTAG or the IDF application, we will use the idf_key field.
+This field will be zero if the stub code is loaded from JTAG.
+OpenOCD will reload the stub code when it reads this field as all zeros.
+Otherwise, for specific commands, the stub will not be loaded and will run directly from memory.
+*/
+#define ESP_STUB_FLASHER_IDF_KEY               0x5C3A9F5A
+
+/*
+Bump the version if there are any changes related to mapping, bp setting, or removal.
+In other words, if the binary generated for the `ESP_STUB_CMD_FLASH_IDF_BINARY` command changes,
+we need to increase the version and update the related .inc files in the
+esp-idf/components/esp_system/openocd_stub_bins/ directory.
+*/
+#define ESP_STUB_FLASHER_VERSION               1
 
 #endif	/* OPENOCD_LOADERS_FLASH_ESPRESSIF_STUB_FLASHER_H */

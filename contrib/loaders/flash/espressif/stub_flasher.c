@@ -67,6 +67,16 @@ static struct {
 
 static uint32_t s_encrypt_binary;
 
+const struct esp_flash_stub_desc __attribute__((section(".stub_desc")))  s_esp_stub_desc = {
+	.magic = ESP_STUB_FLASHER_MAGIC_NUM,
+	.stub_version = ESP_STUB_FLASHER_VERSION,
+#ifdef CMD_FLASH_IDF_BINARY
+	.idf_key = ESP_STUB_FLASHER_IDF_KEY,
+#else
+	.idf_key = 0x00,
+#endif
+};
+
 /* used in app trace module */
 uint32_t esp_log_early_timestamp(void)
 {
@@ -1192,17 +1202,17 @@ static int stub_flash_handler(int cmd, va_list ap)
 		ret = stub_flash_calc_hash(arg1, arg2, arg3);
 		break;
 #endif
-#ifdef CMD_FLASH_MAP_GET
+#if defined(CMD_FLASH_MAP_GET) || defined(CMD_FLASH_MULTI_COMMAND) || defined(CMD_FLASH_IDF_BINARY)
 	case ESP_STUB_CMD_FLASH_MAP_GET:
 		ret = stub_flash_get_map(arg1, arg2, flash_size);
 		break;
 #endif
-#ifdef CMD_FLASH_BP_SET
+#if defined(CMD_FLASH_BP_SET) || defined(CMD_FLASH_MULTI_COMMAND) || defined(CMD_FLASH_IDF_BINARY)
 	case ESP_STUB_CMD_FLASH_BP_SET:
 		ret = stub_flash_set_bp_multi((void *)arg1, (void *)arg2, (void *)arg3, arg4);
 		break;
 #endif
-#ifdef CMD_FLASH_BP_CLEAR
+#if defined(CMD_FLASH_BP_CLEAR) || defined(CMD_FLASH_MULTI_COMMAND) || defined(CMD_FLASH_IDF_BINARY)
 	case ESP_STUB_CMD_FLASH_BP_CLEAR:
 		ret = stub_flash_clear_bp_multi((void *)arg1, (void *)arg2, (void *)arg3, arg4);
 		break;

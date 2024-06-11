@@ -49,7 +49,15 @@ static const struct esp_flasher_stub_config *esp32h2_get_stub(struct flash_bank 
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	if (esp_info->stub_log_enabled)
 		return s_cmd_map[ESP_STUB_CMD_FLASH_WITH_LOG].config;
-	return s_cmd_map[cmd].config;
+	switch (cmd) {
+		case ESP_STUB_CMD_FLASH_MAP_GET:
+		case ESP_STUB_CMD_FLASH_BP_SET:
+		case ESP_STUB_CMD_FLASH_BP_CLEAR:
+			/* TODO: return multi_command config only when stub preloaded code running. */
+			return s_cmd_map[ESP_STUB_CMD_FLASH_MULTI_COMMAND].config;
+		default:
+			return s_cmd_map[cmd].config;
+	}
 }
 
 /* flash bank <bank_name> esp32 <base> <size> 0 0 <target#>
@@ -70,7 +78,8 @@ FLASH_BANK_COMMAND_HANDLER(esp32h2_flash_bank_command)
 		esp_algorithm_run_func_image,
 		esp32h2_is_irom_address,
 		esp32h2_is_drom_address,
-		esp32h2_get_stub);
+		esp32h2_get_stub,
+		true);
 	if (ret != ERROR_OK) {
 		free(esp32h2_info);
 		return ret;

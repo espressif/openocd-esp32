@@ -21,6 +21,16 @@
   mv ${ARCHIVE_NAME} ${DIST_ART_DIR}
   echo "${ARCHIVE_NAME}" > ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME}
 
+.copy_stub_bins: &copy_stub_bins |
+  STUB_BIN_PATH=$DIST_INSTALLED_DIR/share/openocd/esp_stub_bins
+  mkdir -p $STUB_BIN_PATH/{esp32c6,esp32h2}
+
+  for chip in esp32c6 esp32h2; do
+    cp contrib/loaders/flash/espressif/$chip/inc/stub_flash_idf_binary_code.inc $STUB_BIN_PATH/$chip/
+    cp contrib/loaders/flash/espressif/$chip/inc/stub_flash_idf_binary_data.inc $STUB_BIN_PATH/$chip/
+    cp contrib/loaders/flash/espressif/$chip/stub_flash_idf_image.h $STUB_BIN_PATH/$chip/
+  done
+
 .buildx_libusb: &buildx_libusb |
   export LIBUSB_VER=libusb-1.0.26
   wget https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
@@ -118,6 +128,7 @@
         echo coverage enabled
         rsync -a --prune-empty-dirs --include '*/' --include '*.gcno' --exclude '*' _build/ ${DIST_INSTALLED_DIR}/_build
       fi
+    - *copy_stub_bins
     - *dist_archive
 
 .build_macos_template: &build_macos_template
@@ -142,6 +153,7 @@
     - export OSXCROSS_PKG_CONFIG_PATH=$PWD/hidapi-$HIDAPI_VER/dist/lib/pkgconfig/:$PWD/$LIBJAYLINK_VER/dist/lib/pkgconfig:$OSXCROSS_PKG_CONFIG_PATH
     - export LDFLAGS="-Wl,-framework,CoreFoundation -Wl,-framework,IOKit -Wl,-framework,Security"
     - *buildx_openocd
+    - *copy_stub_bins
     - *dist_archive
 
 build_linux:
@@ -176,6 +188,7 @@ build_linux:
     - src/openocd --version 2>&1 | { ! grep 'dirty'; }
     - MAKEFLAGS= make install-strip
     - popd
+    - *copy_stub_bins
     - *dist_archive
 
 # Just to test build with latest gcc.
@@ -262,6 +275,7 @@ build_windows:
     - export LDFLAGS=$ZLIB_LDFLAGS
     - *buildx_openocd
     - cp $PWD/${ZLIB_VER}/dist/bin/zlib1.dll $DIST_INSTALLED_DIR/bin/
+    - *copy_stub_bins
     - *dist_archive
 
 build_macos:

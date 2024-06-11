@@ -27,10 +27,12 @@ SRCS += $(STUB_COMMON_PATH)/stub_flasher.c \
         $(IDF_PATH)/components/esp_hw_support/regi2c_ctrl.c
 
 STUB_IMAGE_HDR = $(STUB)_flasher_image.h
+STUB_IDF_IMAGE_HDR = $(STUB)_flash_idf_image.h
 
 # Command list
 COMMANDS = flash_read flash_write flash_erase flash_erase_check flash_map_get flash_bp_set flash_bp_clear \
-	flash_test flash_write_deflated flash_calc_hash flash_clock_configure flash_with_log
+	flash_test flash_write_deflated flash_calc_hash flash_clock_configure flash_multi_command flash_idf_binary \
+	flash_with_log
 
 ELF_OUTPUTS = $(foreach cmd, $(COMMANDS), $(BUILD_DIR)/$(STUB)_$(cmd).elf)
 CODE_SECT_OUTPUTS = $(foreach cmd, $(COMMANDS), $(INC_DIR)/$(STUB)_$(cmd)_code.inc)
@@ -90,11 +92,12 @@ DEFINES += -Dasm=__asm__
 
 CFLAGS += $(INCLUDES) $(DEFINES)
 
-LDFLAGS += -L$(STUB_COMMON_PATH) -T$(STUB_LD_SCRIPT) -Wl,--start-group -lgcc -lc -Wl,--end-group
+LDFLAGS += -Wl,--start-group -lgcc -lc -Wl,--end-group -Wl,--undefined=s_esp_stub_desc
 
 .PHONY: all clean
 
-all: $(BUILD_DIR) $(INC_DIR) $(ELF_OUTPUTS) $(CODE_SECT_OUTPUTS) $(DATA_SECT_OUTPUTS) $(STUB_IMAGE_HDR)
+all: $(BUILD_DIR) $(INC_DIR) $(ELF_OUTPUTS) $(CODE_SECT_OUTPUTS) $(DATA_SECT_OUTPUTS) $(STUB_IMAGE_HDR) \
+	$(STUB_IDF_IMAGE_HDR)
 
 $(BUILD_DIR):
 	$(Q) mkdir -p $@
@@ -103,9 +106,9 @@ $(INC_DIR):
 	$(Q) mkdir -p $@
 
 define BUILD_ELF
-$(1): $(SRCS) $(STUB_COMMON_PATH)/stub_common.ld $(STUB_LD_SCRIPT) $(BUILD_DIR)
+$(1): $(SRCS) $(STUB_COMMON_PATH)/stub_common.ld $(BUILD_DIR)
 	@echo "  CC   $(SRCS) -> $(1)"
-	$(Q) $(CC) $(CFLAGS) $(2) -Wl,-Map=$(BUILD_DIR)/$(notdir $(1:.elf=.map)) -o $(1) $(filter %.c, $(SRCS)) $(LDFLAGS)
+	$(Q) $(CC) $(CFLAGS) $(2) -Wl,-Map=$(BUILD_DIR)/$(notdir $(1:.elf=.map)) -o $(1) $(filter %.c, $(SRCS)) $(LDFLAGS) -L$(STUB_COMMON_PATH) -T$(3)
 	$(Q) $(SIZE) $(1)
 endef
 
@@ -125,8 +128,11 @@ endef
 # Call the BUILD_ELF macro for each command
 $(foreach cmd, $(COMMANDS), \
 	$(if $(filter $(cmd),flash_with_log), \
-		$(eval $(call BUILD_ELF,$(BUILD_DIR)/$(STUB)_$(cmd).elf,-DSTUB_LOG_ENABLE=1 $(ALL_COMMAND_DEFS))), \
-		$(eval $(call BUILD_ELF,$(BUILD_DIR)/$(STUB)_$(cmd).elf,-DCMD_$(shell echo $(cmd) | tr a-z A-Z))) \
+		$(eval $(call BUILD_ELF,$(BUILD_DIR)/$(STUB)_$(cmd).elf,-DSTUB_LOG_ENABLE=1 $(ALL_COMMAND_DEFS),$(STUB_LD_SCRIPT))), \
+		$(if $(or $(filter $(cmd),flash_map_get flash_bp_set flash_bp_clear flash_multi_command flash_idf_binary)), \
+			$(eval $(call BUILD_ELF,$(BUILD_DIR)/$(STUB)_$(cmd).elf,-DCMD_$(shell echo $(cmd) | tr a-z A-Z),$(STUB_IDF_BIN_LD_SCRIPT))), \
+			$(eval $(call BUILD_ELF,$(BUILD_DIR)/$(STUB)_$(cmd).elf,-DCMD_$(shell echo $(cmd) | tr a-z A-Z),$(STUB_LD_SCRIPT))) \
+		) \
 	) \
 )
 
@@ -148,16 +154,19 @@ $(STUB_IMAGE_HDR): $(ELF_OUTPUTS)
 	@echo "  GENERATE_HEADER  $@"
 	$(Q) printf "/* SPDX-License-Identifier: GPL-2.0-or-later */\n\n" > $(STUB_IMAGE_HDR)
 
-	$(Q) # We use the same iram, dram map for all commands.
-	$(Q) @printf "#define ESP_STUB_IRAM_ORG 0x0" >> $(STUB_IMAGE_HDR)
-	$(Q) $(READELF) -s $(STUB_FLASH_READ_ELF) | fgrep .iram_org | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR)
-	$(Q) @printf "#define ESP_STUB_IRAM_LEN 0x0" >> $(STUB_IMAGE_HDR)
-	$(Q) $(READELF) -s $(STUB_FLASH_READ_ELF) | fgrep .iram_len | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR)
-	$(Q) @printf "#define ESP_STUB_DRAM_ORG 0x0" >> $(STUB_IMAGE_HDR)
-	$(Q) $(READELF) -s $(STUB_FLASH_READ_ELF) | fgrep .dram_org | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR)
-	$(Q) @printf "#define ESP_STUB_DRAM_LEN 0x0" >> $(STUB_IMAGE_HDR)
-	$(Q) $(READELF) -s $(STUB_FLASH_READ_ELF) | fgrep .dram_len | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR)
-	$(Q) printf "\n" >> $(STUB_IMAGE_HDR)
+	$(Q) $(foreach cmd, $(COMMANDS), \
+		$(eval CMD_NAME = $(shell echo $(cmd) | tr a-z A-Z)) \
+		$(eval ELF_FILE = $(STUB_$(CMD_NAME)_ELF)) \
+		printf "#define ESP_STUB_$(CMD_NAME)_IRAM_ORG 0x0" >> $(STUB_IMAGE_HDR) ; \
+		$(READELF) -s $(ELF_FILE) | fgrep .iram_org | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR) ; \
+		printf "#define ESP_STUB_$(CMD_NAME)_IRAM_LEN 0x0" >> $(STUB_IMAGE_HDR) ; \
+		$(READELF) -s $(ELF_FILE) | fgrep .iram_len | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR) ; \
+		printf "#define ESP_STUB_$(CMD_NAME)_DRAM_ORG 0x0" >> $(STUB_IMAGE_HDR) ; \
+		$(READELF) -s $(ELF_FILE) | fgrep .dram_org | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR) ; \
+		printf "#define ESP_STUB_$(CMD_NAME)_DRAM_LEN 0x0" >> $(STUB_IMAGE_HDR) ; \
+		$(READELF) -s $(ELF_FILE) | fgrep .dram_len | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR) ; \
+		printf "\n" >> $(STUB_IMAGE_HDR) ; \
+	)
 
 	$(Q) $(foreach cmd, $(COMMANDS), \
 		$(eval CMD_NAME = $(shell echo $(cmd) | tr a-z A-Z)) \
@@ -184,6 +193,22 @@ $(STUB_IMAGE_HDR): $(ELF_OUTPUTS)
 		printf "};\n" >> $(STUB_IMAGE_HDR) ; \
 	)
 
+	$(Q) @printf "\n/*\n#define $(STUB_CHIP)_STUB_BUILD_IDF_REV " >> $(STUB_IMAGE_HDR)
+	$(Q) cd $(IDF_PATH); git rev-parse --short HEAD >> $(STUB_CHIP_PATH)/$(STUB_IMAGE_HDR)
+	$(Q) @printf "*/\n" >> $(STUB_IMAGE_HDR)
+
+$(STUB_IDF_IMAGE_HDR): $(ELF_OUTPUTS)
+	@echo "  GENERATE_IDF_HEADER  $@"
+	$(Q) printf "/* SPDX-License-Identifier: GPL-2.0-or-later */\n\n" > $(STUB_IDF_IMAGE_HDR)
+
+	$(eval CMD_NAME = FLASH_IDF_BINARY)
+	$(eval ELF_FILE = $(STUB_$(CMD_NAME)_ELF))
+	$(Q) printf "#define OPENOCD_STUB_BSS_SIZE 0x0" >> $(STUB_IDF_IMAGE_HDR)
+	$(Q) $(READELF) -S $(ELF_FILE) | fgrep .bss | awk 'NR==1 {print ($$7 "UL"); exit} END {if (NR==0) print "0UL"}' >> $(STUB_IDF_IMAGE_HDR)
+	$(Q) printf "#define OPENOCD_STUB_STACK_SIZE 512\n" >> $(STUB_IDF_IMAGE_HDR)
+	$(Q) printf "#define OPENOCD_STUB_PARAM_SIZE 512\n" >> $(STUB_IDF_IMAGE_HDR)
+	$(Q) printf "#define OPENOCD_STUB_BP_SECTOR_SIZE 4096\n" >> $(STUB_IDF_IMAGE_HDR)
+
 clean:
 	@echo "  CLEAN"
-	$(Q) rm -rf $(BUILD_DIR) $(STUB_IMAGE_HDR) $(INC_DIR)/*.inc
+	$(Q) rm -rf $(BUILD_DIR) $(STUB_IMAGE_HDR) $(STUB_IDF_IMAGE_HDR) $(INC_DIR)/*.inc
