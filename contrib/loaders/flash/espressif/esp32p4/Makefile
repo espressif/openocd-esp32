@@ -15,6 +15,7 @@ STUB_COMMON_PATH := $(STUB_CHIP_PATH)/..
 STUB_CHIP_ARCH_PATH := $(STUB_COMMON_PATH)/$(STUB_ARCH)
 STUB_OBJ_DEPS := sdkconfig.h
 STUB_LD_SCRIPT := stub.ld
+STUB_IDF_BIN_LD_SCRIPT := stub.ld
 STUB_CHIP := esp32p4
 
 SRCS := $(IDF_PATH)/components/esp_hw_support/port/esp32p4/rtc_clk_init.c \
@@ -33,7 +34,9 @@ INCLUDES := -I$(IDF_PATH)/components/soc/esp32p4/include -I$(IDF_PATH)/component
 	-I$(IDF_PATH)/components/esp_hw_support/port/esp32p4 \
 	-I$(IDF_PATH)/components/esp_hw_support/port/esp32p4/include \
 	-I$(IDF_PATH)/components/spi_flash/include \
-	-I$(IDF_PATH)/components/esp_rom/esp32p4
+	-I$(IDF_PATH)/components/esp_rom/esp32p4 \
+	-I$(IDF_PATH)/components/esp_rom/esp32p4/include \
+	-I$(IDF_PATH)/components/esp_rom/esp32p4/include/esp32p4
 
 DEFINES :=
 

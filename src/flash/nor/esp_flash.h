@@ -78,9 +78,8 @@ struct esp_flash_bank {
 	/* Offset of the application image in the HW flash bank */
 	uint32_t appimage_flash_base;
 	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank, int cmd);
-	/* function to run algorithm on Xtensa target */
-	int (*run_func_image)(struct target *target, struct esp_algorithm_run_data *run,
-		uint32_t num_args, ...);
+	/* function to run algorithm on Espressif target */
+	int (*run_func_image)(struct target *target, struct esp_algorithm_run_data *run, uint32_t num_args, ...);
 	bool (*is_irom_address)(target_addr_t addr);
 	bool (*is_drom_address)(target_addr_t addr);
 	const struct esp_flash_apptrace_hw *apptrace_hw;
@@ -93,6 +92,8 @@ struct esp_flash_bank {
 	int encryption_needed_on_chip;
 	/* Enable/disable stub log*/
 	bool stub_log_enabled;
+	/* If exist at the target memory, allow to run preloaded stub code without loading again */
+	bool check_preloaded_binary;
 };
 
 enum esp_flash_bp_action {
@@ -146,7 +147,8 @@ int esp_algo_flash_init(struct esp_flash_bank *esp_info, uint32_t sec_sz,
 	bool (*is_drom_address)(target_addr_t addr),
 	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank, int cmd),
 	const struct esp_flash_apptrace_hw *apptrace_hw,
-	const struct esp_algorithm_hw *stub_hw);
+	const struct esp_algorithm_hw *stub_hw,
+	bool check_preloaded_binary);
 int esp_algo_flash_protect(struct flash_bank *bank, int set, unsigned int first, unsigned int last);
 int esp_algo_flash_protect_check(struct flash_bank *bank);
 int esp_algo_flash_blank_check(struct flash_bank *bank);

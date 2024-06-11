@@ -214,6 +214,8 @@ static int esp_algo_flasher_algorithm_init(struct esp_algorithm_run_data *algo,
 	memset(algo, 0, sizeof(*algo));
 	algo->hw = stub_hw;
 	algo->reg_args.first_user_param = stub_cfg->first_user_reg_param;
+	algo->image.code_size = stub_cfg->code_sz;
+	algo->image.data_size = stub_cfg->data_sz;
 	algo->image.bss_size = stub_cfg->bss_sz;
 	algo->image.iram_org = stub_cfg->iram_org;
 	algo->image.iram_len = stub_cfg->iram_len;
@@ -259,7 +261,8 @@ int esp_algo_flash_init(struct esp_flash_bank *esp_info, uint32_t sec_sz,
 	bool (*is_drom_address)(target_addr_t addr),
 	const struct esp_flasher_stub_config *(*get_stub)(struct flash_bank *bank, int cmd),
 	const struct esp_flash_apptrace_hw *apptrace_hw,
-	const struct esp_algorithm_hw *stub_hw)
+	const struct esp_algorithm_hw *stub_hw,
+	bool check_preloaded_binary)
 {
 	esp_info->probed = 0;
 	esp_info->sec_sz = sec_sz;
@@ -272,6 +275,7 @@ int esp_algo_flash_init(struct esp_flash_bank *esp_info, uint32_t sec_sz,
 	esp_info->compression = BUILD_ESP_COMPRESSION;
 	esp_info->apptrace_hw = apptrace_hw;
 	esp_info->stub_hw = stub_hw;
+	esp_info->check_preloaded_binary = check_preloaded_binary;
 
 	return ERROR_OK;
 }
@@ -344,6 +348,7 @@ static int esp_algo_flash_get_mappings(struct flash_bank *bank,
 		return ret;
 
 	run.stack_size = 512 + (esp_info->stub_log_enabled ? 512 : 0);
+	run.check_preloaded_binary = esp_info->stub_log_enabled ? false : esp_info->check_preloaded_binary;
 
 	struct mem_param mp;
 	init_mem_param(&mp,
@@ -1065,6 +1070,25 @@ static int esp_algo_flash_bp_op_state_init(struct target *target,
 		}
 	}
 
+	if (run->run_preloaded_binary) {
+		/* On the target, as a BP backup/restore space 4K is allocated at the (iram_start + 0x1000) address */
+		/* If alloc_size is 8K, we will allocate memory from working area by adding necessary padding of 4K bytes */
+		/* Because first 4K is reserved for the code at the target. We don't want stub code to override it */
+		if (alloc_size > state->esp_info->sec_sz) {
+			uint32_t backup_working_area_prev = target->backup_working_area;
+			target->backup_working_area = 0;
+			if (target_alloc_working_area(target, 0x1000, &run->stub.padding) != ERROR_OK) {
+				LOG_ERROR("no working area available, can't alloc space for stub code!");
+				return ERROR_FAIL;
+			}
+			target->backup_working_area = backup_working_area_prev;
+		} else {
+			target_addr_t addr = run->image.iram_org + state->esp_info->sec_sz;
+			esp_algorithm_user_arg_set_uint(run, 3, addr);
+			return ERROR_OK;
+		}
+	}
+
 	/* allocate target buffer for temp storage of flash sections contents when modifying instruction */
 	int ret = target_alloc_working_area(target, alloc_size, &state->target_buf);
 	if (ret != ERROR_OK) {
@@ -1131,6 +1155,7 @@ int esp_algo_flash_breakpoint_add(struct target *target, struct esp_flash_breakp
 	op_state.esp_info = esp_info;
 	op_state.sw_bp = sw_bp;
 	op_state.num_bps = num_bps;
+	op_state.target_buf = NULL;
 
 	LOG_DEBUG("SEC_SIZE % " PRId32 " num_bps:(%zu)", esp_info->sec_sz, num_bps);
 
@@ -1142,13 +1167,14 @@ int esp_algo_flash_breakpoint_add(struct target *target, struct esp_flash_breakp
 	run.usr_func_arg = &op_state;
 	run.usr_func_init = (esp_algorithm_usr_func_init_t)esp_algo_flash_bp_op_state_init;
 	run.usr_func_done = (esp_algorithm_usr_func_done_t)esp_algo_flash_bp_op_state_cleanup;
+	run.check_preloaded_binary = esp_info->stub_log_enabled ? false : esp_info->check_preloaded_binary;
 
 	init_mem_param(&mp[0], 1 /* First user arg */, num_bps * size_bp_inst /* size in bytes */, PARAM_OUT);
 	/* bp0_flash_addr + bp1_flash_addr + bp2_flash_addr + ... bpn_flash_addr */
 	for (size_t slot = 0; slot < num_bps; ++slot)
 		target_buffer_set_u32(target, &mp[0].value[slot * size_bp_inst], sw_bp[slot].bp_flash_addr);
 
-	init_mem_param(&mp[1], 2 /* 2nd usr arg */, size_bp_inst * num_bps /* size in bytes */, PARAM_IN);
+	init_mem_param(&mp[1], 2 /* 2nd usr arg */, num_bps * size_bp_inst /* size in bytes */, PARAM_IN);
 
 	run.mem_args.params = mp;
 	run.mem_args.count = 2;
@@ -1217,17 +1243,20 @@ int esp_algo_flash_breakpoint_remove(struct target *target, struct esp_flash_bre
 	op_state.esp_info = esp_info;
 	op_state.sw_bp = sw_bp;
 	op_state.num_bps = num_bps;
+	op_state.target_buf = NULL;
+
 	run.stack_size = 512 + (esp_info->stub_log_enabled ? 512 : 0);
 	run.usr_func_arg = &op_state;
 	run.usr_func_init = (esp_algorithm_usr_func_init_t)esp_algo_flash_bp_op_state_init;
 	run.usr_func_done = (esp_algorithm_usr_func_done_t)esp_algo_flash_bp_op_state_cleanup;
+	run.check_preloaded_binary = esp_info->stub_log_enabled ? false : esp_info->check_preloaded_binary;
 
 	init_mem_param(&mp[0], 1 /* First user arg */, 1 + num_bps * size_bp_inst /* size in bytes */, PARAM_OUT);
 	/* bp0_flash_addr + bp1_flash_addr + bp2_flash_addr + ... bpn_flash_addr */
 	for (size_t slot = 0; slot < num_bps; ++slot)
 		target_buffer_set_u32(target, &mp[0].value[slot * size_bp_inst], sw_bp[slot].bp_flash_addr);
 
-	init_mem_param(&mp[1], 2 /* 2nd usr arg */, size_bp_inst * num_bps /* size in bytes */, PARAM_OUT);
+	init_mem_param(&mp[1], 2 /* 2nd usr arg */, num_bps * size_bp_inst /* size in bytes */, PARAM_OUT);
 	struct esp_flash_stub_bp_instructions *bp_insts = (struct esp_flash_stub_bp_instructions *)mp[1].value;
 	for (size_t slot = 0; slot < num_bps; ++slot) {
 		bp_insts[slot].size = sw_bp[slot].insn_sz;

@@ -48,7 +48,7 @@
 #endif
 
 #define MAKE_ESP_STUB_CFG(name, code_array, data_array, entry, bss, apptrace, log_addr, log_size, \
-	first_user_reg, stack_pool_sz, reverse_bin) \
+	first_user_reg, stack_pool_sz, iram_start, iram_size, dram_start, dram_size, reverse_bin) \
 	static const struct esp_flasher_stub_config s_esp_stub_cfg_##name = { \
 		.code = code_array, \
 		.code_sz = sizeof(code_array), \
@@ -61,10 +61,10 @@
 		.stack_data_pool_sz = stack_pool_sz, \
 		.log_buff_addr = log_addr, \
 		.log_buff_size = log_size, \
-		.iram_org = ESP_STUB_IRAM_ORG, \
-		.iram_len = ESP_STUB_IRAM_LEN, \
-		.dram_org = ESP_STUB_DRAM_ORG, \
-		.dram_len = ESP_STUB_DRAM_LEN, \
+		.iram_org = iram_start, \
+		.iram_len = iram_size, \
+		.dram_org = dram_start, \
+		.dram_len = dram_size, \
 		.reverse = reverse_bin \
 	}
 
@@ -80,6 +80,8 @@
 	X(flash_write_deflated, FLASH_WRITE_DEFLATED) \
 	X(flash_calc_hash, FLASH_CALC_HASH) \
 	X(flash_clock_configure, FLASH_CLOCK_CONFIGURE) \
+	X(flash_multi_command, FLASH_MULTI_COMMAND) \
+	X(flash_idf_binary, FLASH_IDF_BINARY) \
 	X(flash_with_log, FLASH_WITH_LOG)
 
 struct command_map {
@@ -92,7 +94,10 @@ struct command_map {
 		ESP_STUB_##uppercase_name##_ENTRY_ADDR, ESP_STUB_##uppercase_name##_BSS_SIZE, \
 		ESP_STUB_##uppercase_name##_APPTRACE_CTRL_ADDR, \
 		ESP_STUB_##uppercase_name##_LOG_ADDR, ESP_STUB_##uppercase_name##_LOG_SIZE, \
-		STUB_ARGS_FUNC_START, STUB_STACK_DATA_POOL_SIZE, STUB_REVERSE_BINARY);
+		STUB_ARGS_FUNC_START, STUB_STACK_DATA_POOL_SIZE, \
+		ESP_STUB_##uppercase_name##_IRAM_ORG, ESP_STUB_##uppercase_name##_IRAM_LEN, \
+		ESP_STUB_##uppercase_name##_DRAM_ORG, ESP_STUB_##uppercase_name##_DRAM_LEN, \
+		STUB_REVERSE_BINARY);
 
 /* Expand the macro for each command */
 COMMANDS

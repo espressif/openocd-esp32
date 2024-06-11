@@ -22,6 +22,7 @@ SECTIONS {
   .dram_len = ABSOLUTE(. + LENGTH(dram));
 
   .text : ALIGN(4) {
+    *(.stub_desc)
     *(.literal)
     *(.text .text.*)
   } > iram : text_phdr

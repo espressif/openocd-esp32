@@ -13,6 +13,7 @@
 #include <target/algorithm.h>
 #include <target/target.h>
 #include "esp_algorithm.h"
+#include "../../../contrib/loaders/flash/espressif/stub_flasher.h"
 
 /* 3 sec will be enough for the regular commands. Flash erase will take time but it has another timer value */
 #define DEFAULT_ALGORITHM_TIMEOUT_MS    3000	/* ms */
@@ -112,29 +113,44 @@ static int esp_algorithm_run_image(struct target *target,
 
 	/* allocate memory arguments and fill respective reg params */
 	if (run->mem_args.count > 0) {
-		mem_handles = calloc(run->mem_args.count, sizeof(*mem_handles));
-		if (!mem_handles) {
-			LOG_ERROR("Failed to alloc target mem handles!");
-			retval = ERROR_FAIL;
-			goto _cleanup;
-		}
-		/* alloc memory args target buffers */
-		for (uint32_t i = 0; i < run->mem_args.count; i++) {
-			/* small hack: if we need to update some reg param this field holds
-			 * appropriate user argument number, */
-			/* otherwise should hold UINT_MAX */
-			uint32_t usr_param_num = run->mem_args.params[i].address;
-			static struct working_area *area;
-			retval = target_alloc_working_area(target, run->mem_args.params[i].size, &area);
-			if (retval != ERROR_OK) {
-				LOG_ERROR("Failed to alloc target buffer!");
-				retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		if (!run->run_preloaded_binary) {
+			mem_handles = calloc(run->mem_args.count, sizeof(*mem_handles));
+			if (!mem_handles) {
+				LOG_ERROR("Failed to alloc target mem handles!");
+				retval = ERROR_FAIL;
 				goto _cleanup;
 			}
-			mem_handles[i] = area;
-			run->mem_args.params[i].address = area->address;
-			if (usr_param_num != UINT_MAX) /* if we need update some register param with mem param value */
-				esp_algorithm_user_arg_set_uint(run, usr_param_num, run->mem_args.params[i].address);
+			/* alloc memory args target buffers */
+			for (uint32_t i = 0; i < run->mem_args.count; i++) {
+				/* small hack: if we need to update some reg param this field holds
+				* appropriate user argument number, */
+				/* otherwise should hold UINT_MAX */
+				uint32_t usr_param_num = run->mem_args.params[i].address;
+				static struct working_area *area;
+				retval = target_alloc_working_area(target, run->mem_args.params[i].size, &area);
+				if (retval != ERROR_OK) {
+					LOG_ERROR("Failed to alloc target buffer!");
+					retval = ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+					goto _cleanup;
+				}
+				mem_handles[i] = area;
+				run->mem_args.params[i].address = area->address;
+				if (usr_param_num != UINT_MAX) /* if we need update some register param with mem param value */
+					esp_algorithm_user_arg_set_uint(run, usr_param_num, run->mem_args.params[i].address);
+			}
+		} else {
+			target_addr_t base_address = run->stub.stack_addr;
+			for (uint32_t i = 0; i < run->mem_args.count; i++) {
+				/* small hack: if we need to update some reg param this field holds
+				* appropriate user argument number, */
+				/* otherwise should hold UINT_MAX */
+				uint32_t usr_param_num = run->mem_args.params[i].address;
+				run->mem_args.params[i].address = base_address;
+				if (usr_param_num != UINT_MAX) /* if we need update some register param with mem param value */
+					esp_algorithm_user_arg_set_uint(run, usr_param_num, base_address);
+				/* only allocate multiples of 4 byte */
+				base_address += ALIGN_UP(run->mem_args.params[i].size, 4);
+			}
 		}
 	}
 
@@ -342,6 +358,60 @@ static int load_section_from_image(struct target *target,
 
 		sec_wr += size_read;
 	}
+
+	return ERROR_OK;
+}
+
+int esp_algorithm_check_preloaded_image(struct target *target, struct esp_algorithm_run_data *run)
+{
+	uint8_t buffer[ESP_STUB_FLASHER_DESC_SIZE];
+
+	if (!run || !run->hw)
+		return ERROR_FAIL;
+
+	run->run_preloaded_binary = false;
+
+	int retval = target_read_buffer(target, run->image.iram_org, ESP_STUB_FLASHER_DESC_SIZE, buffer);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Failed to read stub description!");
+		return retval;
+	}
+
+	uint32_t magic_num = target_buffer_get_u32(target, buffer + ESP_STUB_FLASHER_DESC_MAGIC_NUM);
+	uint32_t stub_version = target_buffer_get_u32(target, buffer + ESP_STUB_FLASHER_DESC_MAGIC_VERSION);
+	uint32_t idf_key = target_buffer_get_u32(target, buffer + ESP_STUB_FLASHER_DESC_IDF_KEY);
+
+	LOG_DEBUG("Stub code magic_num(0x%" PRIX32 ") stub_version(%" PRIX32 ") idf_key(%" PRIX32 ")",
+		magic_num, stub_version, idf_key);
+
+	if (magic_num != ESP_STUB_FLASHER_MAGIC_NUM || stub_version != ESP_STUB_FLASHER_VERSION
+		|| idf_key != ESP_STUB_FLASHER_IDF_KEY)
+		return ERROR_FAIL;
+
+	/*  code and data is already loaded and we know code is at the beginning of iram_org.
+		data is at the begginning of dram_org
+	*/
+	run->stub.entry = run->image.image.start_address;
+	LOG_DEBUG("stub preloaded entry address " TARGET_ADDR_FMT, run->stub.entry);
+
+	/* memory map in the idf application */
+	/* code + tramp + [padding until dram_org] + data + bss + stack + params + [padding to aligned mem ] + 2 sectors */
+	LOG_DEBUG("stub preloaded code size %d", run->image.code_size);
+
+	/* set tramp code address */
+	if (run->hw->stub_tramp_get) {
+		run->stub.tramp_addr = run->image.iram_org + ALIGN_UP(run->image.code_size, 4);
+		run->stub.tramp_mapped_addr = run->stub.tramp_addr;
+		LOG_DEBUG("stub preloaded tramp address " TARGET_ADDR_FMT, run->stub.tramp_addr);
+	}
+
+	/* set stack address */
+	run->stub.stack_addr = run->image.dram_org + ALIGN_UP(run->image.data_size, 4) + ALIGN_UP(run->image.bss_size, 4);
+	run->stub.stack_addr += run->stack_size;
+
+	LOG_DEBUG("stub preloaded stack address " TARGET_ADDR_FMT, run->stub.stack_addr);
+
+	run->run_preloaded_binary = true;
 
 	return ERROR_OK;
 }

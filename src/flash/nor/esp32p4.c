@@ -70,7 +70,8 @@ FLASH_BANK_COMMAND_HANDLER(esp32p4_flash_bank_command)
 		esp_algorithm_run_func_image,
 		esp32p4_is_irom_address,
 		esp32p4_is_drom_address,
-		esp32p4_get_stub);
+		esp32p4_get_stub,
+		false);
 	if (ret != ERROR_OK) {
 		free(esp32p4_info);
 		return ret;
