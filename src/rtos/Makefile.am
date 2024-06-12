@@ -12,15 +12,15 @@ noinst_LTLIBRARIES += %D%/librtos.la
 	%D%/rtos_freertos_stackings.c \
 	%D%/rtos_nuttx_stackings.c \
 	%D%/rtos_riot_stackings.c \
-	%D%/FreeRTOS.c \
-	%D%/ThreadX.c \
-	%D%/eCos.c \
+	%D%/freertos.c \
+	%D%/threadx.c \
+	%D%/ecos.c \
 	%D%/linux.c \
 	%D%/chibios.c \
 	%D%/chromium-ec.c \
-	%D%/embKernel.c \
+	%D%/embkernel.c \
 	%D%/mqx.c \
-	%D%/uCOS-III.c \
+	%D%/ucos_iii.c \
 	%D%/nuttx.c \
 	%D%/rtkernel.c \
 	%D%/hwthread.c \
