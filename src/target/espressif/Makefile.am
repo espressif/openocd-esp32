@@ -16,6 +16,7 @@ noinst_LTLIBRARIES += %D%/libespressif.la
 		%D%/esp32c3.c \
 		%D%/esp32c6.c \
 		%D%/esp32p4.c \
+		%D%/esp32c5.c \
 		%D%/esp.c \
 		%D%/esp.h \
 		%D%/esp_riscv.c \
