@@ -24,10 +24,11 @@
 /* reset cause */
 #define ESP32P4_LP_AON_BASE                     0x50110000
 #define ESP32P4_LP_CLKRST_RESET_CAUSE_REG       (ESP32P4_LP_AON_BASE + 0x1000 + 0x10)
-#define ESP32P4_LP_CLKRST_RESET_CAUSE_MASK      (BIT(6) - 1) /* 0x3F */
+#define ESP32P4_RESET_CAUSE_MASK                (BIT(6) - 1) /* 0x3F */
 #define ESP32P4_LP_CORE_RESET_CAUSE_SHIFT       0
-#define ESP32P4_HP_CORE_RESET_CAUSE_SHIFT       7
-#define ESP32P4_RESET_CAUSE(reg_val, shift)     ((reg_val >> shift) & ESP32P4_LP_CLKRST_RESET_CAUSE_MASK) /* HP0*/
+#define ESP32P4_HP_CORE0_RESET_CAUSE_SHIFT      7
+#define ESP32P4_HP_CORE1_RESET_CAUSE_SHIFT      14
+#define ESP32P4_RESET_CAUSE(reg_val, shift)     ((reg_val >> shift) & ESP32P4_RESET_CAUSE_MASK)
 
 /* cache */
 #define ESP32P4_CACHE_BASE                      (0x3FF00000 + 0x10000)
@@ -137,13 +138,15 @@ static const char *esp32p4_get_reset_reason(uint32_t reset_reason_reg_val, int s
 
 static void esp32p4_print_reset_reason(struct target *target, uint32_t reset_reason_reg_val)
 {
-	LOG_INFO("[esp32p4.lp.cpu] Reset cause (%ld) - (%s)",
-		ESP32P4_RESET_CAUSE(reset_reason_reg_val, ESP32P4_LP_CORE_RESET_CAUSE_SHIFT),
-		esp32p4_get_reset_reason(reset_reason_reg_val, ESP32P4_LP_CORE_RESET_CAUSE_SHIFT));
+	if (target->coreid == 0)
+		LOG_TARGET_INFO(target, "Reset cause (%ld) - (%s)",
+			ESP32P4_RESET_CAUSE(reset_reason_reg_val, ESP32P4_HP_CORE0_RESET_CAUSE_SHIFT),
+			esp32p4_get_reset_reason(reset_reason_reg_val, ESP32P4_HP_CORE0_RESET_CAUSE_SHIFT));
+	else
+		LOG_TARGET_INFO(target, "Reset cause (%ld) - (%s)",
+			ESP32P4_RESET_CAUSE(reset_reason_reg_val, ESP32P4_HP_CORE1_RESET_CAUSE_SHIFT),
+			esp32p4_get_reset_reason(reset_reason_reg_val, ESP32P4_HP_CORE1_RESET_CAUSE_SHIFT));
 
-	LOG_INFO("[esp32p4.hp.cpu] Reset cause (%ld) - (%s)",
-		ESP32P4_RESET_CAUSE(reset_reason_reg_val, ESP32P4_HP_CORE_RESET_CAUSE_SHIFT),
-		esp32p4_get_reset_reason(reset_reason_reg_val, ESP32P4_HP_CORE_RESET_CAUSE_SHIFT));
 }
 
 static bool esp32p4_is_l2mem_address(target_addr_t addr)

@@ -2735,9 +2735,11 @@ static int riscv013_get_hart_state(struct target *target, enum riscv_hart_state 
 			dmcontrol |= DM_DMCONTROL_HALTREQ;
 		dm_write(target, DM_DMCONTROL, dmcontrol);
 		/* ESPRESSIF */
-		RISCV_INFO(r);
-		if (r->on_reset)
-			r->on_reset(target);
+		if (target->state == TARGET_RESET) {
+			RISCV_INFO(r);
+			if (r->on_reset)
+				r->on_reset(target);
+		}
 		/*************/
 	}
 	if (get_field(dmstatus, DM_DMSTATUS_ALLNONEXISTENT)) {
