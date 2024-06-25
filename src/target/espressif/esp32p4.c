@@ -56,6 +56,9 @@
 	(addr) < (ESP32P4_IRAM0_NON_CACHEABLE_ADDRESS_HIGH))
 #define ESP32P4_ADDRESS_IS_L2MEM(addr) (ESP32P4_ADDRESS_IS_NONCACHEABLE(addr) || ESP32P4_ADDRESS_IS_CACHEABLE(addr))
 
+#define ESP32P4_RESERVED_ADDRESS_LOW            0x00000000U
+#define ESP32P4_RESERVED_ADDRESS_HIGH           0x300FFFFFU
+
 /* max supported hw breakpoint and watchpoint count */
 #define ESP32P4_BP_NUM                          3
 #define ESP32P4_WP_NUM                          3
@@ -143,6 +146,16 @@ static void esp32p4_print_reset_reason(struct target *target, uint32_t reset_rea
 		esp32p4_get_reset_reason(reset_reason_reg_val, ESP32P4_HP_CORE_RESET_CAUSE_SHIFT));
 }
 
+static bool esp32p4_is_l2mem_address(target_addr_t addr)
+{
+	return ESP32P4_ADDRESS_IS_L2MEM(addr);
+}
+
+static bool esp32p4_is_reserved_address(target_addr_t addr)
+{
+	return addr < ESP32P4_RESERVED_ADDRESS_HIGH;
+}
+
 static const struct esp_semihost_ops esp32p4_semihost_ops = {
 	.prepare = NULL,
 	.post_reset = esp_semihosting_post_reset
@@ -190,6 +203,8 @@ static int esp32p4_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->print_reset_reason = &esp32p4_print_reset_reason;
 	esp_riscv->existent_csrs = esp32p4_csrs;
 	esp_riscv->existent_csr_size = ARRAY_SIZE(esp32p4_csrs);
+	esp_riscv->is_dram_address = esp32p4_is_l2mem_address;
+	esp_riscv->is_iram_address = esp32p4_is_l2mem_address;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;
@@ -225,8 +240,7 @@ static inline uint32_t esp32p4_make_non_cachable_addr(uint32_t address)
 {
 	return (address & ESP32P4_NON_CACHEABLE_OFFSET) ? (address + ESP32P4_NON_CACHEABLE_OFFSET) : address;
 }
-// We will call sync cache only at running state before/after accessing memory from sysbus.
-// Halted state will be handled by execute_fence() before/after accessing memory from progbuf.
+
 static int esp32p4_sync_cache(struct target *target, uint32_t op)
 {
 	int res;
@@ -251,11 +265,18 @@ static int esp32p4_sync_cache(struct target *target, uint32_t op)
 static int esp32p4_read_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
-	if (target->state == TARGET_RUNNING && ESP32P4_ADDRESS_IS_L2MEM(address)) {
+	/* TODO: check that do we still need the cache related things */
+	if (ESP32P4_ADDRESS_IS_L2MEM(address)) {
 		int res = esp32p4_sync_cache(target, ESP32P4_CACHE_SYNC_WRITEBACK);
 		if (res != ERROR_OK)
 			LOG_TARGET_WARNING(target, "Cache writeback failed! Read main memory anyway.");
 		address = esp32p4_make_non_cachable_addr(address);
+	}
+
+	if (esp32p4_is_reserved_address(address)) {
+		/* TODO: OCD-976 */
+		memset(buffer, 0, size * count);
+		return ERROR_OK;
 	}
 
 	return esp_riscv_read_memory(target, address, size, count, buffer);
@@ -266,7 +287,8 @@ static int esp32p4_write_memory(struct target *target, target_addr_t address,
 {
 	bool cache_invalidate = false;
 
-	if (target->state == TARGET_RUNNING && ESP32P4_ADDRESS_IS_L2MEM(address)) {
+	/* TODO: check that do we still need the cache related things */
+	if (ESP32P4_ADDRESS_IS_L2MEM(address)) {
 		/* write to main memory and invalidate cache */
 		esp32p4_sync_cache(target, ESP32P4_CACHE_SYNC_WRITEBACK);
 		address = esp32p4_make_non_cachable_addr(address);

@@ -35,6 +35,11 @@
 /* ASSIST_DEBUG registers */
 #define ESP32C3_ASSIST_DEBUG_CPU0_MON_REG       0x600CE000
 
+#define ESP32C3_IRAM_LOW    0x4037C000
+#define ESP32C3_IRAM_HIGH   0x403E0000
+#define ESP32C3_DRAM_LOW    0x3FC80000
+#define ESP32C3_DRAM_HIGH   0x3FCE0000
+
 enum esp32c3_reset_reason {
 	ESP32C3_CHIP_POWER_ON_RESET      = 0x01,	/* Power on reset */
 	ESP32C3_CHIP_BROWN_OUT_RESET     = 0x01,	/* VDD voltage is not stable and resets the chip */
@@ -111,6 +116,16 @@ static void esp32c3_print_reset_reason(struct target *target, uint32_t reset_rea
 		esp32c3_get_reset_reason(reset_reason_reg_val));
 }
 
+static bool esp32c3_is_iram_address(target_addr_t addr)
+{
+	return addr >= ESP32C3_IRAM_LOW && addr < ESP32C3_IRAM_HIGH;
+}
+
+static bool esp32c3_is_dram_address(target_addr_t addr)
+{
+	return addr >= ESP32C3_DRAM_LOW && addr < ESP32C3_DRAM_HIGH;
+}
+
 static const struct esp_semihost_ops esp32c3_semihost_ops = {
 	.prepare = NULL,
 	.post_reset = esp_semihosting_post_reset
@@ -139,6 +154,8 @@ static int esp32c3_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->print_reset_reason = &esp32c3_print_reset_reason;
 	esp_riscv->existent_csrs = NULL;
 	esp_riscv->existent_csr_size = 0;
+	esp_riscv->is_dram_address = esp32c3_is_dram_address;
+	esp_riscv->is_iram_address = esp32c3_is_iram_address;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;

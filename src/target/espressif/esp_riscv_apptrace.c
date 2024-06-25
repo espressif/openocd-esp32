@@ -67,9 +67,9 @@ int esp_riscv_apptrace_info_init(struct target *target, target_addr_t ctrl_addr,
 		return res;
 	}
 
-	/* We may read mem_cfg_addr as zero, when target algorithm code is not running yet.
+	/* When target algorithm code is not running yet, we may read mem_cfg_addr as garbage (invalid addr)
 	   For some targets (e.g. esp32p4), reading invalid address will be an error */
-	if (mem_cfg_addr > 0) {
+	if (esp_riscv->is_dram_address(mem_cfg_addr)) {
 		for (int i = 0; i < 2; i++) {
 			LOG_DEBUG("memory block %d start @ 0x%x!", i, mem_cfg_addr);
 			res = target_read_u32(target, mem_cfg_addr, &esp_riscv->apptrace.mem_blocks[i].start);

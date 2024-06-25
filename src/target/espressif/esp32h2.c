@@ -35,6 +35,9 @@
 /* ASSIST_DEBUG registers */
 #define ESP32H2_ASSIST_DEBUG_CPU0_MON_REG       0x600C2000
 
+#define ESP32H2_DRAM_LOW    0x40800000
+#define ESP32H2_DRAM_HIGH   0x40850000
+
 enum esp32h2_reset_reason {
 	ESP32H2_CHIP_POWER_ON_RESET     = 0x01,	/* Vbat power on reset */
 	ESP32H2_RTC_SW_SYS_RESET        = 0x03,	/* Software reset digital core */
@@ -113,6 +116,11 @@ static void esp32h2_print_reset_reason(struct target *target, uint32_t reset_rea
 		esp32h2_get_reset_reason(reset_reason_reg_val));
 }
 
+static bool esp32h2_is_idram_address(target_addr_t addr)
+{
+	return addr >= ESP32H2_DRAM_LOW && addr < ESP32H2_DRAM_HIGH;
+}
+
 static const struct esp_semihost_ops esp32h2_semihost_ops = {
 	.prepare = NULL,
 	.post_reset = esp_semihosting_post_reset
@@ -152,6 +160,8 @@ static int esp32h2_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->print_reset_reason = &esp32h2_print_reset_reason;
 	esp_riscv->existent_csrs = esp32h2_csrs;
 	esp_riscv->existent_csr_size = ARRAY_SIZE(esp32h2_csrs);
+	esp_riscv->is_dram_address = esp32h2_is_idram_address;
+	esp_riscv->is_iram_address = esp32h2_is_idram_address;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;

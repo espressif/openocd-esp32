@@ -36,6 +36,8 @@ struct esp_riscv_common {
 	bool was_reset;
 	const char **existent_csrs;
 	size_t existent_csr_size;
+	bool (*is_iram_address)(target_addr_t addr);
+	bool (*is_dram_address)(target_addr_t addr);
 };
 
 static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *target)
