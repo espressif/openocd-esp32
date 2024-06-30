@@ -13,6 +13,7 @@
 #include "imp.h"
 #include "esp_riscv.h"
 #include <target/espressif/esp_riscv_apptrace.h>
+#include <target/espressif/esp_riscv.h>
 
 #define ESP_TARGET_ESP32P4
 #include "esp_stub_config.h"
@@ -67,7 +68,7 @@ FLASH_BANK_COMMAND_HANDLER(esp32p4_flash_bank_command)
 		return ERROR_FAIL;
 	int ret = esp_riscv_flash_init(&esp32p4_info->riscv,
 		ESP32P4_FLASH_SECTOR_SIZE,
-		esp_algorithm_run_func_image,
+		esp_riscv_smp_run_func_image,
 		esp32p4_is_irom_address,
 		esp32p4_is_drom_address,
 		esp32p4_get_stub,

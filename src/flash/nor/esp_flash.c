@@ -65,6 +65,7 @@
 #include <target/espressif/esp.h>
 #include <helper/time_support.h>
 #include <helper/align.h>
+#include <target/smp.h>
 #include "contrib/loaders/flash/espressif/stub_flasher.h"
 #include <target/smp.h>
 #include "esp_flash.h"
@@ -526,7 +527,10 @@ static int esp_algo_flash_rw_do(struct target *target, void *priv)
 			return ERROR_FAIL;
 		}
 		alive_sleep(10);
+		int smp = target->smp;
+		target->smp = 0;
 		target_poll(target);
+		target->smp = smp;
 	}
 	if (duration_measure(&algo_time) != 0) {
 		LOG_ERROR("Failed to stop data write measurement!");
