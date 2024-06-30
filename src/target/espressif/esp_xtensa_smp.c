@@ -135,20 +135,6 @@ int esp_xtensa_smp_on_halt(struct target *target)
 	return ERROR_OK;
 }
 
-static struct target *get_halted_esp_xtensa_smp(struct target *target, int32_t coreid)
-{
-	struct target_list *head;
-	struct target *curr;
-
-	foreach_smp_target(head, target->smp_targets) {
-		curr = head->target;
-		if ((curr->coreid == coreid) && (curr->state == TARGET_HALTED))
-			return curr;
-	}
-
-	return target;
-}
-
 int esp_xtensa_smp_poll(struct target *target)
 {
 	enum target_state old_state = target->state;
@@ -160,7 +146,7 @@ int esp_xtensa_smp_poll(struct target *target)
 	bool other_core_resume_req = false;
 
 	if (target->state == TARGET_HALTED && target->smp && target->gdb_service && !target->gdb_service->target) {
-		target->gdb_service->target = get_halted_esp_xtensa_smp(target, target->gdb_service->core[1]);
+		target->gdb_service->target = esp_common_get_halted_target(target, target->gdb_service->core[1]);
 		LOG_INFO("Switch GDB target to '%s'", target_name(target->gdb_service->target));
 		if (esp_xtensa_smp->chip_ops->on_halt)
 			esp_xtensa_smp->chip_ops->on_halt(target);

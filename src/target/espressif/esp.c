@@ -115,6 +115,20 @@ int esp_dbgstubs_table_read(struct target *target, struct esp_dbg_stubs *dbg_stu
 	return ERROR_OK;
 }
 
+struct target *esp_common_get_halted_target(struct target *target, int32_t coreid)
+{
+	struct target_list *head;
+	struct target *curr;
+
+	foreach_smp_target(head, target->smp_targets) {
+		curr = head->target;
+		if (curr->coreid == coreid && curr->state == TARGET_HALTED)
+			return curr;
+	}
+
+	return target;
+}
+
 void esp_common_dump_bp_slot(const char *caption, struct esp_flash_breakpoints *bps, size_t slot)
 {
 	if (!LOG_LEVEL_IS(LOG_LVL_DEBUG))

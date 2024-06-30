@@ -269,6 +269,13 @@ int esp_riscv_poll(struct target *target)
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 	int res = ERROR_OK;
 
+	if (target->state == TARGET_HALTED && target->smp && target->gdb_service && !target->gdb_service->target) {
+		target->gdb_service->target = esp_common_get_halted_target(target, target->gdb_service->core[1]);
+		LOG_INFO("Switch GDB target to '%s'", target_name(target->gdb_service->target));
+		target_call_event_callbacks(target, TARGET_EVENT_HALTED);
+		return ERROR_OK;
+	}
+
 	if (esp_riscv->was_reset) {
 		if (esp_riscv->print_reset_reason) {
 			uint32_t reset_reason_reg_val = 0;
@@ -572,6 +579,15 @@ static int esp_riscv_on_halt(struct target *target)
 	return ERROR_OK;
 }
 
+static int esp_riscv_single_hart_poll(struct target *target)
+{
+	int smp = target->smp;
+	target->smp = 0;
+	int res = riscv_openocd_poll(target);
+	target->smp = smp;
+	return res;
+}
+
 int esp_riscv_start_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
@@ -582,7 +598,7 @@ int esp_riscv_start_algorithm(struct target *target,
 	size_t max_saved_reg = algorithm_info->max_saved_reg;
 
 	if (target->state != TARGET_HALTED) {
-		LOG_WARNING("target not halted");
+		LOG_TARGET_ERROR(target, "Not halted. Can not start target algo!");
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
@@ -595,17 +611,17 @@ int esp_riscv_start_algorithm(struct target *target,
 		if (!r->exist || !r->caller_save)
 			continue;
 
-		LOG_DEBUG("save %s", r->name);
+		LOG_TARGET_DEBUG(target, "save %s", r->name);
 
 		if (r->size > 64) {
-			LOG_ERROR("Register %s is %d bits! Max 64-bits are supported.",
+			LOG_TARGET_ERROR(target, "Register %s is %d bits! Max 64-bits are supported.",
 				r->name,
 				r->size);
 			return ERROR_FAIL;
 		}
 
 		if (r->type->get(r) != ERROR_OK) {
-			LOG_ERROR("get(%s) failed", r->name);
+			LOG_TARGET_ERROR(target, "get(%s) failed", r->name);
 			r->exist = false;
 			return ERROR_FAIL;
 		}
@@ -624,30 +640,27 @@ int esp_riscv_start_algorithm(struct target *target,
 	}
 
 	for (int i = 0; i < num_reg_params; i++) {
-		LOG_DEBUG("set %s", reg_params[i].reg_name);
-		struct reg *r = register_get_by_name(target->reg_cache,
-			reg_params[i].reg_name,
-			false);
+		LOG_TARGET_DEBUG(target, "set %s", reg_params[i].reg_name);
+		struct reg *r = register_get_by_name(target->reg_cache, reg_params[i].reg_name, false);
 		if (!r) {
-			LOG_ERROR("Couldn't find register named '%s'", reg_params[i].reg_name);
+			LOG_TARGET_ERROR(target, "Couldn't find register named '%s'", reg_params[i].reg_name);
 			return ERROR_FAIL;
 		}
 
 		if (r->size != reg_params[i].size) {
-			LOG_ERROR("Register %s is %d bits instead of %d bits.",
+			LOG_TARGET_ERROR(target, "Register %s is %d bits instead of %d bits.",
 				reg_params[i].reg_name, r->size, reg_params[i].size);
 			return ERROR_FAIL;
 		}
 
 		if (r->number > GDB_REGNO_XPR31) {
-			LOG_ERROR("Only GPRs can be use as argument registers.");
+			LOG_TARGET_ERROR(target, "Only GPRs can be use as argument registers.");
 			return ERROR_FAIL;
 		}
 
-		if (reg_params[i].direction == PARAM_OUT || reg_params[i].direction ==
-			PARAM_IN_OUT) {
+		if (reg_params[i].direction == PARAM_OUT || reg_params[i].direction == PARAM_IN_OUT) {
 			if (r->type->set(r, reg_params[i].value) != ERROR_OK) {
-				LOG_ERROR("set(%s) failed", reg_params[i].reg_name);
+				LOG_TARGET_ERROR(target, "set(%s) failed", reg_params[i].reg_name);
 				return ERROR_FAIL;
 			}
 		}
@@ -656,12 +669,12 @@ int esp_riscv_start_algorithm(struct target *target,
 	/* Disable Interrupts before attempting to run the algorithm. */
 	int retval = riscv_interrupts_disable(target,
 		MSTATUS_MIE | MSTATUS_HIE | MSTATUS_SIE | MSTATUS_UIE,
-		NULL);
+		&algorithm_info->masked_mstatus);
 	if (retval != ERROR_OK)
 		return retval;
 
 	/* Run algorithm */
-	LOG_DEBUG("resume at 0x%" TARGET_PRIxADDR, entry_point);
+	LOG_TARGET_DEBUG(target, "resume at 0x%" TARGET_PRIxADDR, entry_point);
 	return riscv_resume(target, 0, entry_point, 0, 1, true);
 }
 
@@ -681,9 +694,9 @@ int esp_riscv_wait_algorithm(struct target *target,
 		LOG_DEBUG_IO("poll()");
 		int64_t now = timeval_ms();
 		if (now - start > timeout_ms) {
-			LOG_ERROR("Algorithm timed out after %" PRId64 " ms.", now - start);
+			LOG_TARGET_ERROR(target, "Algorithm timed out after %" PRId64 " ms.", now - start);
 			riscv_halt(target);
-			riscv_openocd_poll(target);
+			esp_riscv_single_hart_poll(target);
 			enum gdb_regno regnums[] = {
 				GDB_REGNO_RA, GDB_REGNO_SP, GDB_REGNO_GP, GDB_REGNO_TP,
 				GDB_REGNO_T0, GDB_REGNO_T1, GDB_REGNO_T2, GDB_REGNO_FP,
@@ -701,12 +714,12 @@ int esp_riscv_wait_algorithm(struct target *target,
 				riscv_reg_t reg_value;
 				if (riscv_get_register(target, &reg_value, regno) != ERROR_OK)
 					break;
-				LOG_ERROR("%s = 0x%" PRIx64, gdb_regno_name(target, regno), reg_value);
+				LOG_TARGET_ERROR(target, "%s = 0x%" PRIx64, gdb_regno_name(target, regno), reg_value);
 			}
 			return ERROR_TARGET_TIMEOUT;
 		}
 
-		int result = riscv_openocd_poll(target);
+		int result = esp_riscv_single_hart_poll(target);
 		if (result != ERROR_OK)
 			return result;
 	}
@@ -716,7 +729,7 @@ int esp_riscv_wait_algorithm(struct target *target,
 		return ERROR_FAIL;
 	uint64_t final_pc = buf_get_u64(reg_pc->value, 0, reg_pc->size);
 	if (exit_point && final_pc != exit_point) {
-		LOG_ERROR("PC ended up at 0x%" PRIx64 " instead of 0x%"
+		LOG_TARGET_ERROR(target, "PC ended up at 0x%" PRIx64 " instead of 0x%"
 			TARGET_PRIxADDR, final_pc, exit_point);
 		return ERROR_FAIL;
 	}
@@ -728,18 +741,18 @@ int esp_riscv_wait_algorithm(struct target *target,
 				reg_params[i].reg_name,
 				false);
 			if (r->type->get(r) != ERROR_OK) {
-				LOG_ERROR("get(%s) failed", r->name);
+				LOG_TARGET_ERROR(target, "get(%s) failed", r->name);
 				return ERROR_FAIL;
 			}
 			buf_cpy(r->value, reg_params[i].value, reg_params[i].size);
 		}
 	}
 	/* Read memory values to mem_params */
-	LOG_DEBUG("Read mem params");
+	LOG_TARGET_DEBUG(target, "Read mem params");
 	for (int i = 0; i < num_mem_params; i++) {
-		LOG_DEBUG("Check mem param @ " TARGET_ADDR_FMT, mem_params[i].address);
+		LOG_TARGET_DEBUG(target, "Check mem param @ " TARGET_ADDR_FMT, mem_params[i].address);
 		if (mem_params[i].direction != PARAM_OUT) {
-			LOG_DEBUG("Read mem param @ " TARGET_ADDR_FMT, mem_params[i].address);
+			LOG_TARGET_DEBUG(target, "Read mem param @ " TARGET_ADDR_FMT, mem_params[i].address);
 			int retval = target_read_buffer(target, mem_params[i].address,
 				mem_params[i].size,
 				mem_params[i].value);
@@ -756,14 +769,19 @@ int esp_riscv_wait_algorithm(struct target *target,
 		if (!algorithm_info->valid_saved_registers[r->number] || !r->caller_save)
 			continue;
 
-		LOG_DEBUG("restore %s", r->name);
+		LOG_TARGET_DEBUG(target, "restore %s", r->name);
 		uint8_t buf[8];
 		buf_set_u64(buf, 0, info->xlen, algorithm_info->saved_registers[r->number]);
 		if (r->type->set(r, buf) != ERROR_OK) {
-			LOG_ERROR("set(%s) failed", r->name);
+			LOG_TARGET_ERROR(target, "set(%s) failed", r->name);
 			return ERROR_FAIL;
 		}
 	}
+
+	/* We restore mstatus above, but writing to other m registers can changes it's original value */
+	if (riscv_interrupts_restore(target, algorithm_info->masked_mstatus) != ERROR_OK)
+		return ERROR_FAIL;
+
 	if (riscv_flush_registers(target) != ERROR_OK)
 		return ERROR_FAIL;
 	return ERROR_OK;
@@ -791,6 +809,28 @@ int esp_riscv_run_algorithm(struct target *target, int num_mem_params,
 	}
 
 	return retval;
+}
+
+int esp_riscv_smp_run_func_image(struct target *target, struct esp_algorithm_run_data *run, uint32_t num_args, ...)
+{
+	struct target *run_target = target;
+	struct target_list *head;
+	va_list ap;
+
+	if (target->smp) {
+		head = list_first_entry(target->smp_targets, struct target_list, lh);
+		run_target = head->target;
+	}
+
+	if (run_target->coreid != 0 || !target_was_examined(run_target) || run_target->state != TARGET_HALTED) {
+		LOG_ERROR("Algorithm only can be run on examined and halted Core0");
+		return ERROR_FAIL;
+	}
+
+	va_start(ap, num_args);
+	int res = esp_algorithm_run_func_image_va(run_target, run, num_args, ap);
+	va_end(ap);
+	return res;
 }
 
 int esp_riscv_read_memory(struct target *target, target_addr_t address,

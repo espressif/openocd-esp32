@@ -156,6 +156,7 @@ int esp_dbgstubs_table_read(struct target *target, struct esp_dbg_stubs *dbg_stu
 void esp_common_assist_debug_monitor_disable(struct target *target, uint32_t address, uint32_t *value);
 void esp_common_assist_debug_monitor_restore(struct target *target, uint32_t address, uint32_t value);
 int esp_common_read_pseudo_ex_reason(struct target *target);
+struct target *esp_common_get_halted_target(struct target *target, int32_t coreid);
 
 static inline bool esp_is_flash_boot(uint32_t strap_reg)
 {
