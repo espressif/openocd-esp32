@@ -612,6 +612,15 @@ AS_IF([test "x$use_internal_jimtcl" = "xyes"], [
   ], [
     AC_MSG_ERROR([jimtcl not found, run git submodule init and git submodule update.])
   ])
+], [
+  PKG_CHECK_MODULES([JIMTCL], [jimtcl >= 0.79], [
+      have_jimtcl_pkg_config=yes
+    ], [
+      have_jimtcl_pkg_config=no
+      AC_CHECK_HEADER([jim.h], [], [
+        AC_MSG_ERROR([jimtcl is required but not found via pkg-config and system includes])
+      ])
+  ])
 ])
 
 AS_IF([test "x$build_remote_bitbang" = "xyes"], [
@@ -821,6 +830,7 @@ AM_CONDITIONAL([DMEM], [test "x$build_dmem" = "xyes"])
 AM_CONDITIONAL([HAVE_CAPSTONE], [test "x$enable_capstone" != "xno"])
 
 AM_CONDITIONAL([INTERNAL_JIMTCL], [test "x$use_internal_jimtcl" = "xyes"])
+AM_CONDITIONAL([HAVE_JIMTCL_PKG_CONFIG], [test "x$have_jimtcl_pkg_config" = "xyes"])
 AM_CONDITIONAL([INTERNAL_LIBJAYLINK], [test "x$use_internal_libjaylink" = "xyes"])
 
 AM_CONDITIONAL([BUILD_ESP_REMOTE], [test "x$build_esp_remote" = "xyes"])
