@@ -14,7 +14,6 @@ def get_logger():
 
 class DebuggerThreadsTestsImpl:
 
-    @idf_ver_min_for_arch('5.0', ['riscv32'])
     def test_threads_backtraces(self):
         """
             This test switches between threads and checks that their backtraces are as expected:

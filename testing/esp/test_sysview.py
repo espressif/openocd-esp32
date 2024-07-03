@@ -56,9 +56,6 @@ class BaseTracingTestsImpl:
         trace_src,self.reader = _create_file_reader()
         if not self.reader:
             self.fail("Failed to create trace reader!")
-        if testee_info.idf_ver < IdfVersion.fromstr('5.0'):
-            # old style trace source URL
-            trace_src = trace_src[len('file://'):]
         test_func(trace_src)
 
     def _start_tracing(self, trace_src):
@@ -401,7 +398,7 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
             freq_dev = 100*(task_ref_data[name]['freq'] - task_run_data[name]['run_count']/iv)/task_ref_data[name]['freq']
             self.assertTrue(freq_dev <= 10) # max event's freq deviation (due to measurement error) is 10%
         for name in irq_run_data:
-            if ((testee_info.idf_ver < IdfVersion.fromstr('5.0')) or (name == "SysTick")):
+            if name == "SysTick":
                 print_run_data('IRQ "%s"' % name, irq_run_data[name], iv)
                 freq_dev = 100*(irq_ref_data[name]['freq'] - irq_run_data[name]['run_count']/iv)/irq_ref_data[name]['freq']
                 self.assertTrue(freq_dev <= 10) # max event's freq deviation (due to measurement error) is 10%

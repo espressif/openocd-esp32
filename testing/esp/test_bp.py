@@ -185,8 +185,8 @@ class BreakpointTestsImpl:
         for f in self.bps:
             self.add_bp(f)
 
-        # riscv gdb11 workaround
-        run_bt = True if testee_info.arch == "riscv32" and testee_info.idf_ver >= IdfVersion.fromstr('5.0') else False
+        # riscv workaround
+        run_bt = testee_info.arch == "riscv32"
         for i in range(3):
             self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, 'test_timer_isr', run_bt)
             self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, 'test_timer_isr_func', run_bt)

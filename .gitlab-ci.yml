@@ -2,13 +2,11 @@ stages:
   - pre_check
   - static_analyzers
   - build_openocd
-  - build_idf4.x
   - build_idf5.0.x
   - build_idf5.1.x
   - build_idf5.2.x
   - build_idf_master
   - build_nuttx
-  - test_idf4.x
   - test_idf5.0.x
   - test_idf5.1.x
   - test_idf5.2.x
@@ -16,13 +14,11 @@ stages:
   - test_host
   - test_nuttx
   - coverage
-  - sanitizer_test_idf4.x
   - sanitizer_test_idf5.0.x
   - sanitizer_test_idf5.1.x
   - sanitizer_test_idf5.2.x
   - sanitizer_test_idf_master
   - sanitizer_test_nuttx
-  - sanitizer_check_idf4.x
   - sanitizer_check_idf5.0.x
   - sanitizer_check_idf5.1.x
   - sanitizer_check_idf5.2.x
@@ -247,12 +243,6 @@ test_idf5.0.x_examples:
   variables:
     IDF_TEST_BRANCH: ${TEST_APP_IDF5_0_RELEASE_BRANCH}
 
-test_idf4.x_examples:
-  extends:
-    - .test_idf_examples
-  variables:
-    IDF_TEST_BRANCH: ${TEST_APP_IDF4_X_RELEASE_BRANCH}
-
 create_coverage_reports:
   stage: coverage
   tags:
@@ -271,14 +261,6 @@ create_coverage_reports:
     when: always
     expire_in: 1 week
   needs:
-    # idf 4.x
-    - job: tests_armhf_esp32_idf4.x
-    - job: tests_armhf_esp32_idf4.x_flash_encrypted
-    - job: tests_armhf_esp32s2_idf4.x
-    - job: tests_armhf_esp32s2_idf4.x_flash_encrypted
-    - job: tests_armhf_esp32s3_idf4.x
-    - job: tests_armhf_esp32c3_idf4.x
-    - job: tests_armhf_esp32c3_idf4.x_flash_encrypted
     # idf 5.0.x
     - job: tests_armhf_esp32_idf5.0.x
     - job: tests_armhf_esp32_idf5.0.x_flash_encrypted

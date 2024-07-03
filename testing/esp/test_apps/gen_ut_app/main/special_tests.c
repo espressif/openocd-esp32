@@ -5,17 +5,12 @@
 #include "sdkconfig.h"
 #include "gen_ut_app.h"
 #include "esp_log.h"
-#if UT_IDF_VER < MAKE_UT_IDF_VER(5,0,0,0)
-#include "esp_spi_flash.h"
-#define SET_BP(id, addr)                cpu_hal_set_breakpoint(id, addr)
-#define SET_WP(id, addr, size, trigger) cpu_hal_set_watchpoint(id, addr, size, trigger)
-#else
-#define SET_BP(id, addr)                esp_cpu_set_breakpoint(id, addr)
-#define SET_WP(id, addr, size, trigger) esp_cpu_set_watchpoint(id, addr, size, trigger)
 #include "spi_flash_mmap.h"
 #include "esp_private/cache_utils.h"
 #include "hal/cpu_hal.h"
-#endif
+
+#define SET_BP(id, addr)                esp_cpu_set_breakpoint(id, addr)
+#define SET_WP(id, addr, size, trigger) esp_cpu_set_watchpoint(id, addr, size, trigger)
 
 const static char *TAG = "special_test";
 
