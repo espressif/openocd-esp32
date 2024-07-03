@@ -20,6 +20,8 @@
 #define ESP_FLASH_BREAKPOINTS_MAX_NUM  32
 #define ESP_ASSIST_DEBUG_INVALID_VALUE 0xFFFFFFFF
 
+static int esp_callback_event_handler(struct target *target, enum target_event event, void *priv);
+
 struct esp_common *target_to_esp_common(struct target *target)
 {
 	struct xtensa *xtensa = target->arch_info;
@@ -31,7 +33,7 @@ struct esp_common *target_to_esp_common(struct target *target)
 	return NULL;
 }
 
-int esp_common_init(struct esp_common *esp,
+int esp_common_init(struct target *target, struct esp_common *esp,
 	const struct esp_flash_breakpoint_ops *flash_brps_ops,
 	const struct esp_algorithm_hw *algo_hw)
 {
@@ -40,6 +42,9 @@ int esp_common_init(struct esp_common *esp,
 	esp->flash_brps.brps = calloc(ESP_FLASH_BREAKPOINTS_MAX_NUM, sizeof(struct esp_flash_breakpoint));
 	if (!esp->flash_brps.brps)
 		return ERROR_FAIL;
+
+	if (target->coreid == 0)
+		target_register_event_callback(esp_callback_event_handler, esp);
 
 	return ERROR_OK;
 }
@@ -474,12 +479,9 @@ int esp_common_read_pseudo_ex_reason(struct target *target)
 }
 
 /* Generic commands for xtensa and riscv */
-int esp_common_gdb_detach_command(struct command_invocation *cmd)
-{
-	if (CMD_ARGC != 0)
-		return ERROR_COMMAND_SYNTAX_ERROR;
 
-	struct target *target = get_current_target(CMD_CTX);
+int esp_common_gdb_detach_handler(struct target *target)
+{
 	if (target->smp) {
 		struct target_list *head;
 		foreach_smp_target(head, target->smp_targets) {
@@ -492,12 +494,8 @@ int esp_common_gdb_detach_command(struct command_invocation *cmd)
 	return esp_common_handle_gdb_detach(target);
 }
 
-int esp_common_process_flash_breakpoints_command(struct command_invocation *cmd)
+int esp_common_process_flash_breakpoints_handler(struct target *target)
 {
-	if (CMD_ARGC != 0)
-		return ERROR_COMMAND_SYNTAX_ERROR;
-
-	struct target *target = get_current_target(CMD_CTX);
 	if (target->smp) {
 		struct target_list *head;
 		foreach_smp_target(head, target->smp_targets) {
@@ -508,4 +506,35 @@ int esp_common_process_flash_breakpoints_command(struct command_invocation *cmd)
 		return ERROR_OK;
 	}
 	return esp_common_handle_flash_breakpoints(target);
+}
+
+int esp_common_process_flash_breakpoints_command(struct command_invocation *cmd)
+{
+	if (CMD_ARGC != 0)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	struct target *target = get_current_target(CMD_CTX);
+
+	return esp_common_process_flash_breakpoints_handler(target);
+}
+
+static int esp_callback_event_handler(struct target *target, enum target_event event, void *priv)
+{
+	switch (event) {
+		case TARGET_EVENT_STEP_START:
+		case TARGET_EVENT_RESUME_START:
+		case TARGET_EVENT_QXFER_THREAD_READ_END:
+			return esp_common_process_flash_breakpoints_handler(target);
+		case TARGET_EVENT_GDB_DETACH:
+			return esp_common_gdb_detach_handler(target);
+#if IS_ESPIDF
+		case TARGET_EVENT_EXAMINE_FAIL:
+			extern int examine_failed_ui_handler(struct command_invocation *cmd);
+			return examine_failed_ui_handler;
+#endif
+		default:
+			break;
+	}
+
+	return ERROR_OK;
 }

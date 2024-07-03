@@ -53,7 +53,7 @@ static inline int esp_riscv_on_reset(struct target *target)
 	return ERROR_OK;
 }
 
-static inline int esp_riscv_init_arch_info(struct command_context *cmd_ctx, struct target *target,
+static inline int esp_riscv_init_arch_info(struct target *target,
 	struct esp_riscv_common *esp_riscv,
 	const struct esp_flash_breakpoint_ops *flash_brps_ops,
 	const struct esp_semihost_ops *semi_ops)
@@ -62,7 +62,7 @@ static inline int esp_riscv_init_arch_info(struct command_context *cmd_ctx, stru
 
 	INIT_LIST_HEAD(&esp_riscv->semihost.dir_map_list);
 
-	int ret = esp_common_init(&esp_riscv->esp, flash_brps_ops, &riscv_algo_hw);
+	int ret = esp_common_init(target, &esp_riscv->esp, flash_brps_ops, &riscv_algo_hw);
 	if (ret != ERROR_OK)
 		return ret;
 

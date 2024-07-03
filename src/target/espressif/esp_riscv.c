@@ -24,10 +24,6 @@
 #include "esp_riscv.h"
 #include "esp_semihosting.h"
 
-#if IS_ESPIDF
-extern int examine_failed_ui_handler(struct command_invocation *cmd);
-#endif
-
 /* Argument indexes for ESP_SEMIHOSTING_SYS_BREAKPOINT_SET */
 enum {
 	ESP_RISCV_SET_BREAKPOINT_ARG_SET,
@@ -942,13 +938,6 @@ COMMAND_HANDLER(esp_riscv_halted_command)
 
 const struct command_registration esp_riscv_command_handlers[] = {
 	{
-		.name = "gdb_detach_handler",
-		.handler = esp_common_gdb_detach_command,
-		.mode = COMMAND_ANY,
-		.help = "Handles gdb-detach events and makes necessary cleanups such as removing flash breakpoints",
-		.usage = "",
-	},
-	{
 		.name = "process_lazy_breakpoints",
 		.handler = esp_common_process_flash_breakpoints_command,
 		.mode = COMMAND_ANY,
@@ -962,13 +951,5 @@ const struct command_registration esp_riscv_command_handlers[] = {
 		.help = "Handles halted event and prints exception reason",
 		.usage = "",
 	},
-#if IS_ESPIDF
-	{
-		.name = "examine_failed_handler",
-		.handler = examine_failed_ui_handler,
-		.mode = COMMAND_EXEC,
-		.usage = "",
-	},
-#endif
 	COMMAND_REGISTRATION_DONE
 };
