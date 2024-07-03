@@ -141,14 +141,6 @@
   needs:
     - job: style_check
 
-.build_idf4x_test_app_template: &build_idf4x_test_app_template
-  stage: build_idf4.x
-  variables:
-    TEST_APP_CONFIGS: ""
-    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF4_X_RELEASE_DOCKER_IMAGE}"
-    UT_GET_IDF_VER: "1"
-  extends: .build_test_app_template
-
 .build_idf50x_test_app_template: &build_idf50x_test_app_template
   stage: build_idf5.0.x
   variables:
@@ -404,40 +396,6 @@ build_test_app_esp32c3_idf5.0.x:
     BUILD_TEST_APP_DIR: "build_test_app_esp32c3_idf5.0.x"
     TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single"
   extends: .build_idf50x_test_app_template
-
-###########
-# IDF 4.X #
-###########
-
-build_test_app_esp32_idf4.x:
-  variables:
-    CHIP_NAME: "esp32"
-    TOOLCHAIN_PREFIX: "xtensa-esp32"
-    BUILD_TEST_APP_DIR: "build_test_app_esp32_idf4.x"
-  extends: .build_idf4x_test_app_template
-
-build_test_app_esp32s2_idf4.x:
-  variables:
-    CHIP_NAME: "esp32s2"
-    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
-    BUILD_TEST_APP_DIR: "build_test_app_esp32s2_idf4.x"
-    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single psram_single"
-  extends: .build_idf4x_test_app_template
-
-build_test_app_esp32s3_idf4.x:
-  variables:
-    CHIP_NAME: "esp32s3"
-    TOOLCHAIN_PREFIX: "xtensa-esp32s3"
-    BUILD_TEST_APP_DIR: "build_test_app_esp32s3_idf4.x"
-  extends: .build_idf4x_test_app_template
-
-build_test_app_esp32c3_idf4.x:
-  variables:
-    CHIP_NAME: "esp32c3"
-    TOOLCHAIN_PREFIX: "riscv32-esp"
-    BUILD_TEST_APP_DIR: "build_test_app_esp32c3_idf4.x"
-    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single"
-  extends: .build_idf4x_test_app_template
 
 ########
 # Misc #

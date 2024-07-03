@@ -133,19 +133,6 @@
     ESP_GDB_TOOLCHAIN: "${ESP_V5_0X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
 
-.tests_armhf_v4x_template:
-  extends: .tests_armhf_template
-  stage: test_idf4.x
-  image: $CI_DOCKER_REGISTRY/rpi-openocd-env-v4.4:1
-  before_script:
-    - source /opt/pyenv/activate && pyenv global ${TEST_IMAGE_PYTHON_VER}
-  variables:
-    TOOLCHAIN_PREFIX: "xtensa-${CHIP_NAME}"
-    CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
-    ESP_TOOLCHAIN: "${ESP_V4x_TOOLCHAIN_VER}"
-    ESP_GDB_TOOLCHAIN: "${ESP_V4x_XTENSA_GDB_TOOLCHAIN}"
-    TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf4.x"
-
 ##############
 # IDF master #
 ##############
@@ -546,85 +533,6 @@ tests_armhf_esp32c3_idf5.0.x_flash_encrypted:
   variables:
     CHIP_NAME: "esp32c3"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*SingleEncrypted"
-
-###########
-# IDF 4.X #
-###########
-
-tests_armhf_esp32_idf4.x:
-  extends: .tests_armhf_v4x_template
-  needs:
-    - job: build_test_app_esp32_idf4.x
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32-wrover-kit-3.3v -e *.*Encrypted"
-
-tests_armhf_esp32_idf4.x_flash_encrypted:
-  extends: .tests_armhf_v4x_template
-  tags:
-    - test_jtag_arm_flash_encryption
-  needs:
-    - job: build_test_app_esp32_idf4.x
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
-
-tests_armhf_esp32s2_idf4.x:
-  extends: .tests_armhf_v4x_template
-  needs:
-    - job: build_test_app_esp32s2_idf4.x
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32s2"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s2-devkitj -p test_*.*Single"
-
-tests_armhf_esp32s2_idf4.x_flash_encrypted:
-  extends: .tests_armhf_v4x_template
-  tags:
-    - test_jtag_arm_flash_encryption_esp32s2
-  needs:
-    - job: build_test_app_esp32s2_idf4.x
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32s2"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s2-devkitj -p test_*.*SingleEncrypted"
-
-tests_armhf_esp32s3_idf4.x:
-  extends: .tests_armhf_v4x_template
-  needs:
-    - job: build_test_app_esp32s3_idf4.x
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32s3"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Dual test_*.*Single"
-
-tests_armhf_esp32c3_idf4.x:
-  extends: .tests_armhf_v4x_template
-  needs:
-    - job: build_test_app_esp32c3_idf4.x
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32c3"
-    TOOLCHAIN_PREFIX: "riscv32-esp"
-    CHIP_TEST_TOOLCHAIN: "riscv32-esp"
-    ESP_GDB_TOOLCHAIN: "${ESP_V4x_RISCV_GDB_TOOLCHAIN}"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*Single"
-
-tests_armhf_esp32c3_idf4.x_flash_encrypted:
-  extends: .tests_armhf_v4x_template
-  tags:
-    - test_jtag_arm_flash_encryption_esp32c3
-  needs:
-    - job: build_test_app_esp32c3_idf4.x
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32c3"
-    TOOLCHAIN_PREFIX: "riscv32-esp"
-    CHIP_TEST_TOOLCHAIN: "riscv32-esp"
-    ESP_GDB_TOOLCHAIN: "${ESP_V4x_RISCV_GDB_TOOLCHAIN}"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF4_X_RELEASE_TAG -b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
 #############
 # HOST TEST #

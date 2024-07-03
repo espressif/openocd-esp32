@@ -66,14 +66,10 @@ static inline void done(void)
     }
 }
 
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(5,0,0,0)
-
 static inline bool esp_cpu_in_ocd_debug_mode(void)  //check
 {
     return esp_cpu_dbgr_is_attached();
 }
-
-#endif
 
 static inline long semihosting_call_noerrno_generic(long id, long *data)
 {
@@ -277,8 +273,6 @@ static inline int semihosting_wrong_args(int wrong_arg)
 
     return 0;
 }
-
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(5,0,0,0)
 
 static int s_win_flag = 0;
 
@@ -678,7 +672,6 @@ TEST_DECL(semihost_custom_calls_win, "test_semihost.SemihostTests*.test_semihost
     s_win_flag = 1;
     xTaskCreatePinnedToCore(TEST_ENTRY(semihost_custom_calls), "semihost_custom_call_task0", 4096, NULL, 5, NULL, 0);
 }
-#endif
 
 static void semihost_task(void *pvParameter)
 {
@@ -988,7 +981,6 @@ ut_result_t semihost_test_do(int test_num)
         */
         xTaskCreatePinnedToCore(TEST_ENTRY(semihost_args), "semihost_args_task0", 8000, NULL, 5, NULL, 0);
 #endif /* CONFIG_IDF_TARGET_ARCH_XTENSA  */
-#if UT_IDF_VER >= MAKE_UT_IDF_VER(5,0,0,0)
     /*
     * *** About the tests ***
     *
@@ -1001,7 +993,6 @@ ut_result_t semihost_test_do(int test_num)
         xTaskCreatePinnedToCore(TEST_ENTRY(semihost_custom_calls), "semihost_custom_call_task0", 4096, NULL, 5, NULL, 0);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(semihost_custom_calls_win), test_num)) {
         TEST_ENTRY(semihost_custom_calls_win)(NULL);
-#endif
     } else {
         return UT_UNSUPPORTED;
     }
