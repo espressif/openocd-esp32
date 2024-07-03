@@ -227,8 +227,7 @@ static int esp32p4_init_target(struct command_context *cmd_ctx,
 
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 
-	ret = esp_riscv_init_arch_info(cmd_ctx,
-		target,
+	ret = esp_riscv_init_arch_info(target,
 		esp_riscv,
 		&esp32p4_flash_brp_ops,
 		&esp32p4_semihost_ops);

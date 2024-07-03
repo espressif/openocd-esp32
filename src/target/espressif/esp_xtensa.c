@@ -19,10 +19,6 @@
 #include "esp_xtensa_apptrace.h"
 #include "esp_xtensa_semihosting.h"
 
-#if IS_ESPIDF
-extern int examine_failed_ui_handler(struct command_invocation *cmd);
-#endif
-
 #define XTENSA_EXCCAUSE(reg_val)         ((reg_val) & 0x3F)
 
 static const char *xtensa_get_exception_reason(struct target *target, enum esp_xtensa_exception_cause exccause_code)
@@ -172,7 +168,7 @@ int esp_xtensa_init_arch_info(struct target *target,
 	int ret = xtensa_init_arch_info(target, &esp_xtensa->xtensa, dm_cfg);
 	if (ret != ERROR_OK)
 		return ret;
-	ret = esp_common_init(&esp_xtensa->esp, esp_ops->flash_brps_ops, &xtensa_algo_hw);
+	ret = esp_common_init(target, &esp_xtensa->esp, esp_ops->flash_brps_ops, &xtensa_algo_hw);
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -390,26 +386,11 @@ int esp_xtensa_breakpoint_remove(struct target *target, struct breakpoint *break
 
 const struct command_registration esp_command_handlers[] = {
 	{
-		.name = "gdb_detach_handler",
-		.handler = esp_common_gdb_detach_command,
-		.mode = COMMAND_ANY,
-		.help = "Handles gdb-detach events and makes necessary cleanups such as removing flash breakpoints",
-		.usage = "",
-	},
-	{
 		.name = "process_lazy_breakpoints",
 		.handler = esp_common_process_flash_breakpoints_command,
 		.mode = COMMAND_ANY,
 		.help = "Handles resum-start and step-start events to set/clear all waiting flash breakpoints",
 		.usage = "",
 	},
-#if IS_ESPIDF
-	{
-		.name = "examine_failed_handler",
-		.handler = examine_failed_ui_handler,
-		.mode = COMMAND_ANY,
-		.usage = "",
-	},
-#endif
 	COMMAND_REGISTRATION_DONE
 };

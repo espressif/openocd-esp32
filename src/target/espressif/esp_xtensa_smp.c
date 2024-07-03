@@ -20,10 +20,6 @@
 #include "esp_xtensa_semihosting.h"
 #include "esp_algorithm.h"
 
-#if IS_ESPIDF
-extern int examine_failed_ui_handler(struct command_invocation *cmd);
-#endif
-
 /*
 Multiprocessor stuff common:
 
@@ -1098,27 +1094,12 @@ const struct command_registration esp_xtensa_smp_xtensa_command_handlers[] = {
 
 const struct command_registration esp_xtensa_smp_esp_command_handlers[] = {
 	{
-		.name = "gdb_detach_handler",
-		.handler = esp_common_gdb_detach_command,
-		.mode = COMMAND_ANY,
-		.help = "Handles gdb-detach events and makes necessary cleanups such as removing flash breakpoints",
-		.usage = "",
-	},
-	{
 		.name = "process_lazy_breakpoints",
 		.handler = esp_common_process_flash_breakpoints_command,
 		.mode = COMMAND_ANY,
 		.help = "Handles resum-start and step-start events to set/clear all waiting flash breakpoints",
 		.usage = "",
 	},
-#if IS_ESPIDF
-	{
-		.name = "examine_failed_handler",
-		.handler = examine_failed_ui_handler,
-		.mode = COMMAND_ANY,
-		.usage = "",
-	},
-#endif
 	COMMAND_REGISTRATION_DONE
 };
 
