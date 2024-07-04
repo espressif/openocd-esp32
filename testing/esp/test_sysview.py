@@ -313,6 +313,8 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
             trace_src.append(self.trace_ctrl[1]['src'])
         self._do_test_log_continuous(trace_src)
 
+    # OCD-843 for xtensa fix
+    @only_for_arch(['riscv32'])
     def test_heap_log_from_file(self):
         trace_src = [self.trace_ctrl[0]['src']]
         if self.cores_num > 1:
@@ -486,6 +488,8 @@ class SysViewMcoreTracingTestsImpl(BaseTracingTestsImpl):
         trace_src = [self.trace_ctrl['src']]
         self._do_test_log_continuous(trace_src)
 
+    # OCD-843 for xtensa fix
+    @only_for_arch(['riscv32'])
     def test_heap_log_from_file(self):
         trace_src = [self.trace_ctrl['src']]
         self._do_test_heap_log(trace_src)
@@ -539,7 +543,6 @@ class SysViewTracingTestsSingle(SysViewTraceTestAppTestsSingle, SysViewTracingTe
     def tearDown(self):
         SysViewTraceTestAppTestsSingle.tearDown(self)
         SysViewTracingTestsImpl.tearDown(self)
-
 
 class SysViewMcoreTracingTestsDual(SysViewTraceTestAppTestsDual, SysViewMcoreTracingTestsImpl):
     """ Test cases via GDB in dual core mode

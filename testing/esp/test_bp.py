@@ -61,6 +61,8 @@ class BreakpointTestsImpl:
         for i in range(1, len(self.bps)):
             self.add_bp(self.bps[i])
 
+    # OCD-843
+    @skip_for_chip_and_ver('5.1', ['esp32s3'])
     def test_bp_add_remove_run(self):
         """
             This simple test checks general breakpoints usage scenario.
