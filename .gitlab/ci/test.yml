@@ -538,7 +538,13 @@ tests_armhf_esp32c3_idf5.0.x_flash_encrypted:
 # HOST TEST #
 #############
 
-tests_win_simple_esp32:
+.run_openocd_unix: &run_openocd_unix |
+  ARCHIVE_NAME=$(cat "$DIST_ART_DIR/dist_name_$PLATFORM_NAME")
+  echo $ARCHIVE_NAME
+  tar xzf $DIST_ART_DIR/$ARCHIVE_NAME openocd-esp32
+  ./openocd-esp32/bin/openocd --version
+
+test_on_windows:
   stage: test_host
   tags:
     - test_jtag_win
@@ -555,10 +561,11 @@ tests_win_simple_esp32:
     - Expand-Archive -DestinationPath . "$DIST_ART_DIR/$ARCHIVE_NAME"
     - .\openocd-esp32\bin\openocd --version
 
-tests_macos_simple_esp32:
+test_on_macos:
   stage: test_host
   tags:
     - macos_shell
+    - amd64
   needs:
     - job: build_macos
   variables:
@@ -568,12 +575,25 @@ tests_macos_simple_esp32:
     PLATFORM_NAME: "macos"
   before_script: []
   script:
-    - ARCHIVE_NAME=$(cat "$DIST_ART_DIR/dist_name_$PLATFORM_NAME")
-    - echo $ARCHIVE_NAME
-    - tar xzf $DIST_ART_DIR/$ARCHIVE_NAME openocd-esp32
-    - ./openocd-esp32/bin/openocd --version
+    - *run_openocd_unix
 
-tests_linux_simple_esp32:
+tests_on_macos_arm64:
+  stage: test_host
+  tags:
+    - macos_shell
+    - aarch64
+  needs:
+    - job: build_macos_arm64
+  variables:
+    # actually we don't need the project sources, but we need the `git clean` gitlab-runner's stage.
+    # It's possible only for `fetch` or `clone`.
+    GIT_STRATEGY: fetch
+    PLATFORM_NAME: "macos-arm64"
+  before_script: []
+  script:
+    - *run_openocd_unix
+
+tests_on_linux:
   stage: test_host
   image: $CI_DOCKER_REGISTRY/esp-env-v5.1:1
   tags:
@@ -587,10 +607,7 @@ tests_linux_simple_esp32:
     PLATFORM_NAME: "linux-amd64"
   before_script: []
   script:
-    - ARCHIVE_NAME=$(cat "$DIST_ART_DIR/dist_name_$PLATFORM_NAME")
-    - echo $ARCHIVE_NAME
-    - tar xzf $DIST_ART_DIR/$ARCHIVE_NAME openocd-esp32
-    - ./openocd-esp32/bin/openocd --version
+    - *run_openocd_unix
 
 ###########
 #  NUTTX  #
