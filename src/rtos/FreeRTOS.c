@@ -306,6 +306,7 @@ enum freertos_symbol_values {
 	FREERTOS_VAL_UX_TASK_NUMBER = 13,
 	FREERTOS_VAL_ESP_OPENOCD_PARAMS = 14,
 	FREERTOS_VAL_PX_CURRENT_TCBs = 15,
+	FREERTOS_VAL_PORT_X_SCHEDULER_RUNNING = 16,
 };
 
 struct symbols {
@@ -325,11 +326,12 @@ static const struct symbols freertos_symbol_list[] = {
 	{ "xSuspendedTaskList", true },	/* Only if INCLUDE_vTaskSuspend */
 	{ "uxCurrentNumberOfTasks", false },
 	{ "uxTopUsedPriority", true },	/* Unavailable since v7.5.3 */
-	{ "xSchedulerRunning", false },
+	{ "xSchedulerRunning", true },
 	{ "port_interruptNesting", true },
 	{ "uxTaskNumber", false },
 	{ "FreeRTOS_openocd_params", true },	/* Only if ESP_PLATFORM defined */
 	{ "pxCurrentTCBs", true },	/* Available since ESP-IDF v5.0 */
+	{ "port_xSchedulerRunning", true },
 	{ NULL, false }
 };
 
@@ -1040,16 +1042,18 @@ static int freertos_update_threads(struct rtos *rtos)
 
 	/* read scheduler running */
 	uint32_t scheduler_running;
-	retval = target_read_u32(rtos->target,
-		rtos->symbols[FREERTOS_VAL_X_SCHEDULER_RUNNING].address,
-		&scheduler_running);
+	symbol_address_t scheduler_running_sym_address = rtos->symbols[FREERTOS_VAL_X_SCHEDULER_RUNNING].address;
+	if (!scheduler_running_sym_address)
+		scheduler_running_sym_address = rtos->symbols[FREERTOS_VAL_PORT_X_SCHEDULER_RUNNING].address;
+
+	retval = target_read_u32(rtos->target, scheduler_running_sym_address, &scheduler_running);
 	if (retval != ERROR_OK) {
-		LOG_ERROR("Error reading FreeRTOS scheduler state");
+		LOG_TARGET_ERROR(target, "Error reading FreeRTOS scheduler state");
 		return retval;
 	}
-	LOG_DEBUG("FreeRTOS: Read xSchedulerRunning at 0x%" PRIx64 ", value 0x%" PRIx32,
-		rtos->symbols[FREERTOS_VAL_X_SCHEDULER_RUNNING].address,
-		scheduler_running);
+	LOG_TARGET_DEBUG(target, "FreeRTOS: Read xSchedulerRunning at 0x%" PRIx64 ", value 0x%" PRIx32,
+			scheduler_running_sym_address,
+			scheduler_running);
 
 	if ((thread_list_size == 0) || (rtos->current_thread == 0) || !scheduler_running) {
 		/* Either : No RTOS threads - there is always at least the current execution though
