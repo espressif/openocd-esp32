@@ -32,11 +32,11 @@
 #ifndef __ASSEMBLER__
 
 #define TEST_BREAK_LOC(_nm_)  \
-    volatile static const int _nm_ ## _break_ln = __LINE__; \
+    volatile static DRAM_ATTR const int _nm_ ## _break_ln = __LINE__; \
     s_tmp_ln = _nm_ ## _break_ln;
 
 #define TEST_BREAK_LOC_EX(_nm_, _shft_)  \
-    volatile static const int _nm_ ## _break_ln = __LINE__ + _shft_; \
+    volatile static DRAM_ATTR const int _nm_ ## _break_ln = __LINE__ + _shft_; \
     s_tmp_ln = _nm_ ## _break_ln;
 
 #define TEST_BREAK_LBL(_nm_)  \
