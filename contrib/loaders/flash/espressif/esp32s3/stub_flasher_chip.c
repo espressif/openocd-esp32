@@ -16,6 +16,7 @@
 #include <soc/rtc.h>
 #include <soc/efuse_periph.h>
 #include <soc/spi_mem_reg.h>
+#include <soc/spi_reg.h>
 #include <soc/extmem_reg.h>
 #include <soc/system_reg.h>
 #include <soc/gpio_reg.h>
@@ -28,6 +29,9 @@
 #include <stub_logger.h>
 #include <stub_flasher_int.h>
 #include "stub_flasher_chip.h"
+
+// this works for SPI0 and SPI1 only
+#define REG_SPI_BASE(i)     (DR_REG_SPI0_BASE - (i) * 0x1000)
 
 #define ESP_FLASH_CHIP_MXIC_OCT         0xC2 /* Supported Octal Flash chip vendor id */
 #define SPI_BUFF_BYTE_WRITE_NUM         32
@@ -47,6 +51,60 @@
 uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32S3_DEFAULT_CPU_FREQ_MHZ * MHZ;
 
 extern bool ets_efuse_flash_octal_mode(void);
+extern void spi_cache_mode_switch(uint32_t  modebit);
+extern void spi_common_set_flash_cs_timing(void);
+
+static void stub_spi_read_mode_config(void)
+{
+	uint32_t  modebit = 0;
+	//clear old mode bit
+	WRITE_PERI_REG(SPI_MEM_DDR_REG(0), 0);
+	WRITE_PERI_REG(SPI_MEM_DDR_REG(1), 0);
+	CLEAR_PERI_REG_MASK(PERIPHS_SPI_FLASH_CTRL, SPI_MEM_FCMD_OCT | SPI_MEM_FCMD_DUAL | SPI_MEM_FCMD_QUAD
+			| SPI_MEM_FREAD_QIO | SPI_MEM_FREAD_QUAD | SPI_MEM_FREAD_DIO | SPI_MEM_FREAD_DUAL | SPI_MEM_FASTRD_MODE
+			| SPI_MEM_FADDR_OCT | SPI_MEM_FDIN_OCT | SPI_MEM_FDOUT_OCT);
+	CLEAR_PERI_REG_MASK(SPI_MEM_CTRL_REG(0), SPI_MEM_FCMD_OCT | SPI_MEM_FCMD_DUAL | SPI_MEM_FCMD_QUAD
+			| SPI_MEM_FREAD_QIO | SPI_MEM_FREAD_QUAD | SPI_MEM_FREAD_DIO | SPI_MEM_FREAD_DUAL | SPI_MEM_FASTRD_MODE
+			| SPI_MEM_FADDR_OCT | SPI_MEM_FDIN_OCT | SPI_MEM_FDOUT_OCT);
+
+	SET_PERI_REG_MASK(PERIPHS_SPI_FLASH_CTRL, modebit);
+	SET_PERI_REG_MASK(SPI_MEM_CTRL_REG(0), modebit);
+	spi_cache_mode_switch(modebit);
+}
+
+static void stub_spi_init(void)
+{
+	uint32_t modebit = 0;
+	uint32_t freqbits;
+	uint8_t freqdiv = 4;
+
+	// Modified version of SPI_init(SpiFlashRdMode mode, uint8_t freqdiv) from esp_rom project
+	// We do no reset the SPI module in order not to break communication with the PSRAM
+	// Settings are done for mode SPI_FLASH_SLOWRD_MODE (5) and freqdiv SPI_CLK_DIV (4)
+
+	REG_CLR_BIT(SPI_MEM_MISC_REG(0), SPI_MEM_CS0_DIS);
+	REG_SET_BIT(SPI_MEM_MISC_REG(0), SPI_MEM_CS1_DIS);
+
+	spi_common_set_flash_cs_timing();
+
+	freqbits = (((freqdiv - 1) << SPI_MEM_CLKCNT_N_S)) |
+		(((freqdiv / 2 - 1) << SPI_MEM_CLKCNT_H_S)) | ((freqdiv - 1) << SPI_MEM_CLKCNT_L_S);
+	WRITE_PERI_REG(SPI_MEM_CLOCK_REG(1), freqbits);
+	WRITE_PERI_REG(SPI_MEM_CLOCK_REG(0), freqbits);
+
+	WRITE_PERI_REG(PERIPHS_SPI_FLASH_CTRL,  SPI_MEM_WP_REG | SPI_MEM_RESANDRES | modebit);
+	WRITE_PERI_REG(SPI_MEM_CTRL_REG(0),  SPI_MEM_WP_REG | modebit);
+	REG_SET_FIELD(SPI_MEM_MISO_DLEN_REG(0), SPI_MEM_USR_MISO_DBITLEN, 0xff);
+	REG_SET_FIELD(SPI_MEM_MOSI_DLEN_REG(0), SPI_MEM_USR_MOSI_DBITLEN, 0xff);
+	REG_SET_FIELD(SPI_MEM_USER2_REG(0), SPI_MEM_USR_COMMAND_BITLEN, 0x7);
+	REG_SET_BIT(SPI_MEM_CACHE_FCTRL_REG(0), SPI_MEM_CACHE_REQ_EN);
+
+	WRITE_PERI_REG(SPI_MEM_DDR_REG(0), 0);
+	WRITE_PERI_REG(SPI_MEM_DDR_REG(1), 0);
+	spi_cache_mode_switch(modebit);
+
+	REG_SET_BIT(SPI_MEM_CACHE_FCTRL_REG(0), SPI_MEM_CACHE_FLASH_USR_CMD);
+}
 
 uint32_t stub_flash_get_id(void)
 {
@@ -72,7 +130,7 @@ uint32_t stub_flash_get_id(void)
 	uint32_t ret = READ_PERI_REG(PERIPHS_SPI_FLASH_C0) & 0xffffff;
 	STUB_LOGD("Flash ID read %x\n", ret);
 	if (ets_efuse_flash_octal_mode() && (ret & 0xFF) != ESP_FLASH_CHIP_MXIC_OCT) {
-		STUB_LOGE("Unsupported octal flash manufacturer");
+		STUB_LOGE("Unsupported octal flash manufacturer\n");
 		return 0;
 	}
 	return ret >> 16;
@@ -113,11 +171,101 @@ static bool stub_is_cache_enabled(uint32_t cpuid)
 	return is_enabled && !cache_bus_disabled;
 }
 
+void stub_save_spi_regs(struct stub_flash_state *state)
+{
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_USER_REG_ID] = READ_PERI_REG(SPI_USER_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_USER1_REG_ID] = READ_PERI_REG(SPI_USER1_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_USER2_REG_ID] = READ_PERI_REG(SPI_USER2_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_SLAVE_REG_ID] = READ_PERI_REG(SPI_SLAVE_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_CLOCK_REG_ID] = READ_PERI_REG(SPI_CLOCK_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_CTRL_REG_ID] = READ_PERI_REG(SPI_CTRL_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_CMD_REG_ID] = READ_PERI_REG(SPI_CMD_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_ADDR_REG_ID] = READ_PERI_REG(SPI_ADDR_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_MS_DLEN_REG_ID] = READ_PERI_REG(SPI_MS_DLEN_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_MISC_REG_ID] = READ_PERI_REG(SPI_MISC_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_SLAVE1_REG_ID] = READ_PERI_REG(SPI_SLAVE1_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_CLK_GATE_REG_ID] = READ_PERI_REG(SPI_CLK_GATE_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DIN_MODE_REG_ID] = READ_PERI_REG(SPI_DIN_MODE_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DIN_NUM_REG_ID] = READ_PERI_REG(SPI_DIN_NUM_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DOUT_MODE_REG_ID] = READ_PERI_REG(SPI_DOUT_MODE_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DMA_CONF_REG_ID] = READ_PERI_REG(SPI_DMA_CONF_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DMA_INT_ENA_REG_ID] = READ_PERI_REG(SPI_DMA_INT_ENA_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DMA_INT_CLR_REG_ID] = READ_PERI_REG(SPI_DMA_INT_CLR_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DMA_INT_RAW_REG_ID] = READ_PERI_REG(SPI_DMA_INT_RAW_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DMA_INT_ST_REG_ID] = READ_PERI_REG(SPI_DMA_INT_ST_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DMA_INT_SET_REG_ID] = READ_PERI_REG(SPI_DMA_INT_SET_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W0_REG_ID] = READ_PERI_REG(SPI_W0_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W1_REG_ID] = READ_PERI_REG(SPI_W1_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W2_REG_ID] = READ_PERI_REG(SPI_W2_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W3_REG_ID] = READ_PERI_REG(SPI_W3_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W4_REG_ID] = READ_PERI_REG(SPI_W4_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W5_REG_ID] = READ_PERI_REG(SPI_W5_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W6_REG_ID] = READ_PERI_REG(SPI_W6_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W7_REG_ID] = READ_PERI_REG(SPI_W7_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W8_REG_ID] = READ_PERI_REG(SPI_W8_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W9_REG_ID] = READ_PERI_REG(SPI_W9_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W10_REG_ID] = READ_PERI_REG(SPI_W10_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W11_REG_ID] = READ_PERI_REG(SPI_W11_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W12_REG_ID] = READ_PERI_REG(SPI_W12_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W13_REG_ID] = READ_PERI_REG(SPI_W13_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W14_REG_ID] = READ_PERI_REG(SPI_W14_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W15_REG_ID] = READ_PERI_REG(SPI_W15_REG(1));
+	state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DATE_REG_ID] = READ_PERI_REG(SPI_DATE_REG(1));
+	state->dummy_len_plus = g_rom_spiflash_dummy_len_plus[1];
+	state->spi_regs_saved = true;
+}
+
+void stub_restore_spi_regs(struct stub_flash_state *state)
+{
+	WRITE_PERI_REG(SPI_USER_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_USER_REG_ID]);
+	WRITE_PERI_REG(SPI_USER1_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_USER1_REG_ID]);
+	WRITE_PERI_REG(SPI_USER2_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_USER2_REG_ID]);
+	WRITE_PERI_REG(SPI_SLAVE_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_SLAVE_REG_ID]);
+	WRITE_PERI_REG(SPI_CLOCK_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_CLOCK_REG_ID]);
+	WRITE_PERI_REG(SPI_CTRL_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_CTRL_REG_ID]);
+	WRITE_PERI_REG(SPI_CMD_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_CMD_REG_ID]);
+	WRITE_PERI_REG(SPI_ADDR_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_ADDR_REG_ID]);
+	WRITE_PERI_REG(SPI_MS_DLEN_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_MS_DLEN_REG_ID]);
+	WRITE_PERI_REG(SPI_MISC_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_MISC_REG_ID]);
+	WRITE_PERI_REG(SPI_SLAVE1_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_SLAVE1_REG_ID]);
+	WRITE_PERI_REG(SPI_CLK_GATE_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_CLK_GATE_REG_ID]);
+	WRITE_PERI_REG(SPI_DIN_MODE_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DIN_MODE_REG_ID]);
+	WRITE_PERI_REG(SPI_DIN_NUM_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DIN_NUM_REG_ID]);
+	WRITE_PERI_REG(SPI_DOUT_MODE_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DOUT_MODE_REG_ID]);
+	WRITE_PERI_REG(SPI_DMA_CONF_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DMA_CONF_REG_ID]);
+	WRITE_PERI_REG(SPI_DMA_INT_ENA_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DMA_INT_ENA_REG_ID]);
+	WRITE_PERI_REG(SPI_DMA_INT_CLR_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DMA_INT_CLR_REG_ID]);
+	WRITE_PERI_REG(SPI_DMA_INT_RAW_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DMA_INT_RAW_REG_ID]);
+	WRITE_PERI_REG(SPI_DMA_INT_ST_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DMA_INT_ST_REG_ID]);
+	WRITE_PERI_REG(SPI_DMA_INT_SET_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DMA_INT_SET_REG_ID]);
+	WRITE_PERI_REG(SPI_W0_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W0_REG_ID]);
+	WRITE_PERI_REG(SPI_W1_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W1_REG_ID]);
+	WRITE_PERI_REG(SPI_W2_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W2_REG_ID]);
+	WRITE_PERI_REG(SPI_W3_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W3_REG_ID]);
+	WRITE_PERI_REG(SPI_W4_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W4_REG_ID]);
+	WRITE_PERI_REG(SPI_W5_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W5_REG_ID]);
+	WRITE_PERI_REG(SPI_W6_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W6_REG_ID]);
+	WRITE_PERI_REG(SPI_W7_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W7_REG_ID]);
+	WRITE_PERI_REG(SPI_W8_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W8_REG_ID]);
+	WRITE_PERI_REG(SPI_W9_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W9_REG_ID]);
+	WRITE_PERI_REG(SPI_W10_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W10_REG_ID]);
+	WRITE_PERI_REG(SPI_W11_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W11_REG_ID]);
+	WRITE_PERI_REG(SPI_W12_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W12_REG_ID]);
+	WRITE_PERI_REG(SPI_W13_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W13_REG_ID]);
+	WRITE_PERI_REG(SPI_W14_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W14_REG_ID]);
+	WRITE_PERI_REG(SPI_W15_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_W15_REG_ID]);
+	WRITE_PERI_REG(SPI_DATE_REG(1), state->spi_regs[ESP32S3_STUB_FLASH_STATE_SPI_DATE_REG_ID]);
+
+	g_rom_spiflash_dummy_len_plus[1] = state->dummy_len_plus;
+	state->spi_regs_saved = false;
+}
+
 void stub_flash_state_prepare(struct stub_flash_state *state)
 {
 	uint32_t core_id = stub_get_coreid();
 	uint32_t spiconfig = ets_efuse_get_spiconfig();
 
+	state->spi_regs_saved = false;
 	state->cache_enabled = stub_is_cache_enabled(core_id);
 	if (!state->cache_enabled) {
 		STUB_LOGI("Cache needs to be enabled for CPU%d\n", core_id);
@@ -136,10 +284,15 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 		rom_spiflash_legacy_funcs = &rom_default_spiflash_legacy_funcs;
 	}
 
-	/* Attach flash only if it has not been attached yet. Re-attaching it breaks PSRAM operation. */
 	if ((READ_PERI_REG(SPI_MEM_CACHE_FCTRL_REG(0)) & SPI_MEM_CACHE_FLASH_USR_CMD) == 0) {
 		STUB_LOGI("Attach spi flash...\n");
 		esp_rom_spiflash_attach(spiconfig, 0);
+	} else {
+		stub_save_spi_regs(state);
+		stub_spi_init();
+		stub_spi_read_mode_config();
+		if (ets_efuse_flash_octal_mode())
+			esp_rom_opiflash_mode_reset(1);
 	}
 
 	STUB_LOGI("Flash state prepared...\n");
@@ -148,6 +301,8 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 void stub_flash_state_restore(struct stub_flash_state *state)
 {
 	/* we do not disable or store the cache settings. So, nothing to restore*/
+	if (state->spi_regs_saved)
+		stub_restore_spi_regs(state);
 }
 
 #define RTC_PLL_FREQ_320M   320

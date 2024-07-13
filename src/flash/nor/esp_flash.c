@@ -305,7 +305,7 @@ int esp_algo_flash_blank_check(struct flash_bank *bank)
 	if (ret != ERROR_OK)
 		return ret;
 
-	run.stack_size = 512 + (esp_info->stub_log_enabled ? 512 : 0);
+	run.stack_size = 768 + (esp_info->stub_log_enabled ? 768 : 0);
 	struct mem_param mp;
 	init_mem_param(&mp, 3 /*3rd usr arg*/, bank->num_sectors /*size in bytes*/, PARAM_IN);
 	run.mem_args.params = &mp;
@@ -347,7 +347,7 @@ static int esp_algo_flash_get_mappings(struct flash_bank *bank,
 	if (ret != ERROR_OK)
 		return ret;
 
-	run.stack_size = 512 + (esp_info->stub_log_enabled ? 512 : 0);
+	run.stack_size = 768 + (esp_info->stub_log_enabled ? 768 : 0);
 	run.check_preloaded_binary = esp_info->stub_log_enabled ? false : esp_info->check_preloaded_binary;
 
 	struct mem_param mp;
@@ -440,7 +440,7 @@ int esp_algo_flash_erase(struct flash_bank *bank, unsigned int first, unsigned i
 	if (ret != ERROR_OK)
 		return ret;
 
-	run.stack_size = 512 + (esp_info->stub_log_enabled ? 512 : 0);
+	run.stack_size = 768 + (esp_info->stub_log_enabled ? 768 : 0);
 	run.timeout_ms = ESP_FLASH_ERASE_TMO;
 	ret = esp_info->run_func_image(bank->target,
 		&run,
@@ -691,7 +691,7 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 		esp_info->compression ? ESP_STUB_CMD_FLASH_WRITE_DEFLATED : ESP_STUB_CMD_FLASH_WRITE);
 	uint8_t *compressed_buff = NULL;
 	uint32_t compressed_len = 0;
-	uint32_t stack_size = 1024 + ESP_STUB_UNZIP_BUFF_SIZE;
+	uint32_t stack_size = 1300 + ESP_STUB_UNZIP_BUFF_SIZE;
 
 	if (offset & 0x3UL) {
 		LOG_ERROR("Unaligned offset!");
@@ -1163,7 +1163,7 @@ int esp_algo_flash_breakpoint_add(struct target *target, struct esp_flash_breakp
 		esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_BP_SET));
 	if (ret != ERROR_OK)
 		return ret;
-	run.stack_size = 512 + (esp_info->stub_log_enabled ? 512 : 0);
+	run.stack_size = 768 + (esp_info->stub_log_enabled ? 768 : 0);
 	run.usr_func_arg = &op_state;
 	run.usr_func_init = (esp_algorithm_usr_func_init_t)esp_algo_flash_bp_op_state_init;
 	run.usr_func_done = (esp_algorithm_usr_func_done_t)esp_algo_flash_bp_op_state_cleanup;
@@ -1245,7 +1245,7 @@ int esp_algo_flash_breakpoint_remove(struct target *target, struct esp_flash_bre
 	op_state.num_bps = num_bps;
 	op_state.target_buf = NULL;
 
-	run.stack_size = 512 + (esp_info->stub_log_enabled ? 512 : 0);
+	run.stack_size = 768 + (esp_info->stub_log_enabled ? 768 : 0);
 	run.usr_func_arg = &op_state;
 	run.usr_func_init = (esp_algorithm_usr_func_init_t)esp_algo_flash_bp_op_state_init;
 	run.usr_func_done = (esp_algorithm_usr_func_done_t)esp_algo_flash_bp_op_state_cleanup;
@@ -1382,7 +1382,7 @@ static int esp_algo_flash_boost_clock_freq(struct flash_bank *bank, int boost)
 	if (boost == 0)
 		new_cpu_freq = esp_info->old_cpu_freq;
 
-	run.stack_size = 512 + (esp_info->stub_log_enabled ? 512 : 0);
+	run.stack_size = 768 + (esp_info->stub_log_enabled ? 768 : 0);
 	ret = esp_info->run_func_image(bank->target,
 		&run,
 		2,
