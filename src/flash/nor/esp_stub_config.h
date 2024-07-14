@@ -9,46 +9,54 @@
 #include "../../../contrib/loaders/flash/espressif/esp32c6/stub_flasher_image.h"
 #define STUB_ARGS_FUNC_START            ESP_RISCV_STUB_ARGS_FUNC_START
 #define STUB_STACK_DATA_POOL_SIZE       ESP_RISCV_STACK_DATA_POOL_SIZE
+#define STUB_EXTRA_STACK_NEEDS          0
 #define STUB_REVERSE_BINARY             false
 #elif defined(ESP_TARGET_ESP32H2)
 #include "../../../contrib/loaders/flash/espressif/esp32h2/stub_flasher_image.h"
 #define STUB_ARGS_FUNC_START            ESP_RISCV_STUB_ARGS_FUNC_START
 #define STUB_STACK_DATA_POOL_SIZE       ESP_RISCV_STACK_DATA_POOL_SIZE
+#define STUB_EXTRA_STACK_NEEDS          0
 #define STUB_REVERSE_BINARY             false
 #elif defined(ESP_TARGET_ESP32P4)
 #include "../../../contrib/loaders/flash/espressif/esp32p4/stub_flasher_image.h"
 #define STUB_ARGS_FUNC_START            ESP_RISCV_STUB_ARGS_FUNC_START
 #define STUB_STACK_DATA_POOL_SIZE       ESP_RISCV_STACK_DATA_POOL_SIZE
+#define STUB_EXTRA_STACK_NEEDS          0
 #define STUB_REVERSE_BINARY             false
 #elif defined(ESP_TARGET_ESP32C2)
 #include "../../../contrib/loaders/flash/espressif/esp32c2/stub_flasher_image.h"
 #define STUB_ARGS_FUNC_START            ESP_RISCV_STUB_ARGS_FUNC_START
 #define STUB_STACK_DATA_POOL_SIZE       ESP_RISCV_STACK_DATA_POOL_SIZE
+#define STUB_EXTRA_STACK_NEEDS          0
 #define STUB_REVERSE_BINARY             false
 #elif defined(ESP_TARGET_ESP32C3)
 #include "../../../contrib/loaders/flash/espressif/esp32c3/stub_flasher_image.h"
 #define STUB_ARGS_FUNC_START            ESP_RISCV_STUB_ARGS_FUNC_START
 #define STUB_STACK_DATA_POOL_SIZE       ESP_RISCV_STACK_DATA_POOL_SIZE
+#define STUB_EXTRA_STACK_NEEDS          0
 #define STUB_REVERSE_BINARY             false
 #elif defined(ESP_TARGET_ESP32)
 #include "../../../contrib/loaders/flash/espressif/esp32/stub_flasher_image.h"
 #define STUB_ARGS_FUNC_START            ESP_XTENSA_STUB_ARGS_FUNC_START
 #define STUB_STACK_DATA_POOL_SIZE       0
+#define STUB_EXTRA_STACK_NEEDS          0
 #define STUB_REVERSE_BINARY             true
 #elif defined(ESP_TARGET_ESP32S2)
 #include "../../../contrib/loaders/flash/espressif/esp32s2/stub_flasher_image.h"
 #define STUB_ARGS_FUNC_START            ESP_XTENSA_STUB_ARGS_FUNC_START
 #define STUB_STACK_DATA_POOL_SIZE       0
+#define STUB_EXTRA_STACK_NEEDS          0
 #define STUB_REVERSE_BINARY             false
 #elif defined(ESP_TARGET_ESP32S3)
 #include "../../../contrib/loaders/flash/espressif/esp32s3/stub_flasher_image.h"
 #define STUB_ARGS_FUNC_START            ESP_XTENSA_STUB_ARGS_FUNC_START
 #define STUB_STACK_DATA_POOL_SIZE       0
+#define STUB_EXTRA_STACK_NEEDS          256
 #define STUB_REVERSE_BINARY             false
 #endif
 
 #define MAKE_ESP_STUB_CFG(name, code_array, data_array, entry, bss, apptrace, log_addr, log_size, \
-	first_user_reg, stack_pool_sz, iram_start, iram_size, dram_start, dram_size, reverse_bin) \
+	first_user_reg, stack_add_size, stack_pool_sz, iram_start, iram_size, dram_start, dram_size, reverse_bin) \
 	static const struct esp_flasher_stub_config s_esp_stub_cfg_##name = { \
 		.code = code_array, \
 		.code_sz = sizeof(code_array), \
@@ -58,6 +66,7 @@
 		.bss_sz = bss, \
 		.first_user_reg_param = first_user_reg, \
 		.apptrace_ctrl_addr = apptrace, \
+		.stack_additional_sz = stack_add_size, \
 		.stack_data_pool_sz = stack_pool_sz, \
 		.log_buff_addr = log_addr, \
 		.log_buff_size = log_size, \
@@ -94,7 +103,7 @@ struct command_map {
 		ESP_STUB_##uppercase_name##_ENTRY_ADDR, ESP_STUB_##uppercase_name##_BSS_SIZE, \
 		ESP_STUB_##uppercase_name##_APPTRACE_CTRL_ADDR, \
 		ESP_STUB_##uppercase_name##_LOG_ADDR, ESP_STUB_##uppercase_name##_LOG_SIZE, \
-		STUB_ARGS_FUNC_START, STUB_STACK_DATA_POOL_SIZE, \
+		STUB_ARGS_FUNC_START, STUB_EXTRA_STACK_NEEDS, STUB_STACK_DATA_POOL_SIZE, \
 		ESP_STUB_##uppercase_name##_IRAM_ORG, ESP_STUB_##uppercase_name##_IRAM_LEN, \
 		ESP_STUB_##uppercase_name##_DRAM_ORG, ESP_STUB_##uppercase_name##_DRAM_LEN, \
 		STUB_REVERSE_BINARY);
