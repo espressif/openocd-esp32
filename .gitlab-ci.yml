@@ -266,7 +266,8 @@ create_coverage_reports:
     - job: tests_armhf_esp32_idf5.0.x_flash_encrypted
     - job: tests_armhf_esp32s2_idf5.0.x
     - job: tests_armhf_esp32s2_idf5.0.x_flash_encrypted
-    - job: tests_armhf_esp32s3_idf5.0.x
+    - job: tests_armhf_esp32s3_idf5.0.x_dual
+    - job: tests_armhf_esp32s3_idf5.0.x_single
     - job: tests_armhf_esp32c2_idf5.0.x
     - job: tests_armhf_esp32c3_idf5.0.x
     - job: tests_armhf_esp32c3_idf5.0.x_flash_encrypted
@@ -275,7 +276,8 @@ create_coverage_reports:
     - job: tests_armhf_esp32_idf5.1.x_flash_encrypted
     - job: tests_armhf_esp32s2_idf5.1.x
     - job: tests_armhf_esp32s2_idf5.1.x_flash_encrypted
-    - job: tests_armhf_esp32s3_idf5.1.x
+    - job: tests_armhf_esp32s3_idf5.1.x_dual
+    - job: tests_armhf_esp32s3_idf5.1.x_single
     - job: tests_armhf_esp32c2_idf5.1.x
     - job: tests_armhf_esp32c3_idf5.1.x
     - job: tests_armhf_esp32c3_idf5.1.x_flash_encrypted
@@ -286,7 +288,8 @@ create_coverage_reports:
     - job: tests_armhf_esp32_idf5.2.x_flash_encrypted
     - job: tests_armhf_esp32s2_idf5.2.x
     - job: tests_armhf_esp32s2_idf5.2.x_flash_encrypted
-    - job: tests_armhf_esp32s3_idf5.2.x
+    - job: tests_armhf_esp32s3_idf5.2.x_dual
+    - job: tests_armhf_esp32s3_idf5.2.x_single
     - job: tests_armhf_esp32c2_idf5.2.x
     - job: tests_armhf_esp32c3_idf5.2.x
     - job: tests_armhf_esp32c3_idf5.2.x_flash_encrypted
@@ -297,7 +300,8 @@ create_coverage_reports:
     - job: tests_armhf_esp32_flash_encrypted
     - job: tests_armhf_esp32s2
     - job: tests_armhf_esp32s2_flash_encrypted
-    - job: tests_armhf_esp32s3
+    - job: tests_armhf_esp32s3_dual
+    - job: tests_armhf_esp32s3_single
     - job: tests_armhf_esp32c2
     - job: tests_armhf_esp32c3
     - job: tests_armhf_esp32c3_flash_encrypted

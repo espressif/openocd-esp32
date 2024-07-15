@@ -225,7 +225,7 @@ class PsramTestsImpl:
 
     def test_psram_with_flash_breakpoints(self):
         """
-            This test checks that PSRAM memory contents ard not corrupted when using flash SW breakpoints.
+            This test checks that PSRAM memory contents are not corrupted when using flash SW breakpoints.
             1) Select appropriate sub-test number on target.
             2) Resume target, wait for the program to stop at the places where we set breakpoints.
             3) Target program checks PSRAM memory contents and calls 'assert()' in case of error,
@@ -245,7 +245,7 @@ class PsramTestsImpl:
     def test_psram_with_flash_breakpoints_gh264(self):
         """
             GH issue reported for ESP32-S3. See https://github.com/espressif/openocd-esp32/issues/264
-            This test checks that PSRAM memory contents ard not corrupted when using flash SW breakpoints.
+            This test checks that PSRAM memory contents are not corrupted when using flash SW breakpoints.
             1) Select appropriate sub-test number on target.
             2) Resume target, wait for the program to stop at the places where we set breakpoints.
             3) Target program checks PSRAM memory contents and calls 'assert()' in case of error,

@@ -62,4 +62,3 @@ class MultiAppImagesTests(DebuggerGenericTestAppTests):
             self.prepare_app_for_debugging(off)
             # debug OTA image and erase it to allow bootloader to run the next OTA image after reset
             self._debug_image(off)
-

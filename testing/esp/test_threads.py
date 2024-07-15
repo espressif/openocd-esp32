@@ -108,5 +108,5 @@ class DebuggerThreadsTestsAmazonFreeRTOSSingle(DebuggerGenericTestAppTestsSingle
 
     def __init__(self, methodName='runTest'):
         super(DebuggerGenericTestAppTestsSingle, self).__init__(methodName)
-        self.test_app_cfg.bin_dir = os.path.join('output', 'single_amazon_freertos')
-        self.test_app_cfg.build_dir = os.path.join('builds', 'single_amazon_freertos')
+        self.test_app_cfg.bin_dir = os.path.join('output', 'single_core_amazon_freertos')
+        self.test_app_cfg.build_dir = os.path.join('builds', 'single_core_amazon_freertos')
