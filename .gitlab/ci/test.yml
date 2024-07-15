@@ -4,6 +4,7 @@
     - jtag
   variables:
     PLATFORM_NAME: "linux-armhf-test"
+    OOCD_CMDS: "set VAR 1" # default command to avoid missing argument error.
   artifacts:
     paths:
       - $TEST_RUN_DIR/debug_backend_tests.log
@@ -72,7 +73,6 @@
 .tests_armhf_v5.2.x_template:
   extends: .tests_armhf_template
   stage: test_idf5.2.x
-  allow_failure: true
   image: $CI_DOCKER_REGISTRY/target-test-env-v5.2:2
   before_script:
     - pip install xmlrunner
@@ -177,14 +177,26 @@ tests_armhf_esp32s2_flash_encrypted:
     CHIP_NAME: "esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s2-devkitj -p test_*.*SingleEncrypted"
 
-tests_armhf_esp32s3:
+tests_armhf_esp32s3_dual:
   extends: .tests_armhf_master_template
   needs:
-    - job: build_test_app_esp32s3
+    - job: build_test_app_esp32s3_dual
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Dual test_*.*Single"
+    TEST_RUN_DIR: "build_test_app_esp32s3_dual"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Dual"
+
+tests_armhf_esp32s3_single:
+  extends: .tests_armhf_master_template
+  needs:
+    - job: build_test_app_esp32s3_single
+    - job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32s3"
+    TEST_RUN_DIR: "build_test_app_esp32s3_single"
+    OOCD_CMDS: "set ESP_ONLYCPU 1"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32s3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c2:
   extends: .tests_armhf_master_riscv_template
@@ -284,14 +296,26 @@ tests_armhf_esp32s2_idf5.2.x_flash_encrypted:
     CHIP_NAME: "esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_2_X_RELEASE_TAG -b esp32s2-devkitj -p test_*.*SingleEncrypted"
 
-tests_armhf_esp32s3_idf5.2.x:
+tests_armhf_esp32s3_idf5.2.x_dual:
   extends: .tests_armhf_v5.2.x_template
   needs:
-    - job: build_test_app_esp32s3_idf5.2.x
+    - job: build_test_app_esp32s3_idf5.2.x_dual
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_2_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Dual test_*.*Single"
+    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.2.x_dual"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_2_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Dual"
+
+tests_armhf_esp32s3_idf5.2.x_single:
+  extends: .tests_armhf_v5.2.x_template
+  needs:
+    - job: build_test_app_esp32s3_idf5.2.x_single
+    - job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32s3"
+    OOCD_CMDS: "set ESP_ONLYCPU 1"
+    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.2.x_single"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_2_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c2_idf5.2.x:
   extends: .tests_armhf_v5.2.x_riscv_template
@@ -390,14 +414,26 @@ tests_armhf_esp32s2_idf5.1.x_flash_encrypted:
     CHIP_NAME: "esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32s2-devkitj -p test_*.*SingleEncrypted"
 
-tests_armhf_esp32s3_idf5.1.x:
+tests_armhf_esp32s3_idf5.1.x_dual:
   extends: .tests_armhf_v5.1.x_template
   needs:
-    - job: build_test_app_esp32s3_idf5.1.x
+    - job: build_test_app_esp32s3_idf5.1.x_dual
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Dual test_*.*Single"
+    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.1.x_dual"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Dual"
+
+tests_armhf_esp32s3_idf5.1.x_single:
+  extends: .tests_armhf_v5.1.x_template
+  needs:
+    - job: build_test_app_esp32s3_idf5.1.x_single
+    - job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32s3"
+    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.1.x_single"
+    OOCD_CMDS: "set ESP_ONLYCPU 1"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_1_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c2_idf5.1.x:
   extends: .tests_armhf_v5.1.x_riscv_template
@@ -496,14 +532,26 @@ tests_armhf_esp32s2_idf5.0.x_flash_encrypted:
     CHIP_NAME: "esp32s2"
     TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32s2-devkitj -p test_*.*SingleEncrypted"
 
-tests_armhf_esp32s3_idf5.0.x:
+tests_armhf_esp32s3_idf5.0.x_dual:
   extends: .tests_armhf_v5.0.x_template
   needs:
-    - job: build_test_app_esp32s3_idf5.0.x
+    - job: build_test_app_esp32s3_idf5.0.x_dual
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Dual test_*.*Single"
+    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.0.x_dual"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Dual"
+
+tests_armhf_esp32s3_idf5.0.x_single:
+  extends: .tests_armhf_v5.0.x_template
+  needs:
+    - job: build_test_app_esp32s3_idf5.0.x_single
+    - job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32s3"
+    OOCD_CMDS: "set ESP_ONLYCPU 1"
+    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.0.x_single"
+    TEST_RUN_EXTRA_OPTS: "-i $TEST_APP_IDF5_0_X_RELEASE_TAG -b esp32s3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c2_idf5.0.x:
   extends: .tests_armhf_v5.0.x_riscv_template
