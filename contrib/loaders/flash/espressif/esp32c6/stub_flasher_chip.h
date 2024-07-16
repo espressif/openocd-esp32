@@ -10,6 +10,7 @@
 #include <esp32c6/rom/spi_flash.h>
 #include <esp32c6/rom/sha.h>
 #include <miniz.h>
+#include <soc/spi_mem_reg.h>
 
 #include "stub_riscv_common.h"
 
