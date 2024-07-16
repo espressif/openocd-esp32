@@ -14,7 +14,6 @@
 
 #include <soc/rtc.h>
 #include <soc/efuse_periph.h>
-#include <soc/spi_mem_reg.h>
 #include <soc/extmem_reg.h>
 #include <soc/gpio_reg.h>
 #include <soc/mmu.h>

@@ -1,41 +1,38 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 /***************************************************************************
- *   ESP32-H2 specific flasher stub functions                              *
+ *   ESP32-C5 specific flasher stub functions                              *
  *   Copyright (C) 2022 Espressif Systems Ltd.                             *
  ***************************************************************************/
 #include <string.h>
 
 #include <sdkconfig.h>
 
-#include <esp32h2/rom/cache.h>
-#include <esp32h2/rom/uart.h>
-#include <esp32h2/rom/rtc.h>
+#include <esp32c5/rom/cache.h>
+#include <esp32c5/rom/uart.h>
+#include <esp32c5/rom/rtc.h>
 
 #include <soc/rtc.h>
 #include <soc/efuse_periph.h>
-#include <soc/extmem_reg.h>
+#include <soc/cache_reg.h>
 #include <soc/gpio_reg.h>
 #include <soc/system_reg.h>
 #include <soc/pcr_reg.h>
 
 #include <hal/mmu_ll.h>
+#include <hal/cache_types.h>
 
-#include <esp_app_trace_membufs_proto.h>
 #include <esp_rom_efuse.h>
 
 #include <stub_flasher_int.h>
 #include <stub_logger.h>
 #include "stub_flasher_chip.h"
 
-/* RTC related definitios */
-#define PCR_SOC_CLK_MAX                 1 //CPU_CLK frequency is 160 MHz (source is PLL_CLK)
-
 /* Cache MMU related definitions */
-#define STUB_CACHE_CTRL_REG             CACHE_L1_CACHE_CTRL_REG
-#define STUB_CACHE_BUS                  (CACHE_L1_CACHE_SHUT_BUS0 | CACHE_L1_CACHE_SHUT_BUS1)
-#define STUB_MMU_DROM_PAGES_END         SOC_MMU_ENTRY_NUM
-#define STUB_MMU_DROM_PAGES_START       (STUB_MMU_DROM_PAGES_END - 8) /* 8 pages will be more than enough */
+#define STUB_CACHE_CTRL_REG                     CACHE_L1_CACHE_CTRL_REG
+#define STUB_CACHE_BUS                          (CACHE_BUS_IBUS1 | CACHE_BUS_IBUS2 | CACHE_BUS_DBUS1 | CACHE_BUS_DBUS2)
+#define STUB_MMU_DROM_PAGES_END                 SOC_MMU_ENTRY_NUM
+#define STUB_MMU_DROM_PAGES_START               (STUB_MMU_DROM_PAGES_END - 8) /* 8 pages will be more than enough */
 
 typedef struct {
 	mmu_page_size_t page_size;
@@ -49,7 +46,7 @@ static cache_mmu_config_t s_cache_mmu_config;
 
 extern void spi_flash_attach(uint32_t ishspi, bool legacy);
 
-uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32H2_DEFAULT_CPU_FREQ_MHZ * MHZ;
+uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32C5_DEFAULT_CPU_FREQ_MHZ * MHZ;
 
 int xPortInIsrContext(void)
 {
@@ -71,7 +68,7 @@ static inline uint32_t __attribute__((always_inline)) stub_mmu_ll_format_paddr(u
 	return paddr >> s_cache_mmu_config.shift_count;
 }
 
-#define STUB_MMU_VADDR_MASK (s_cache_mmu_config.page_size * SOC_MMU_ENTRY_NUM - 1)
+#define STUB_MMU_VADDR_MASK (s_cache_mmu_config.page_size * SOC_MMU_MAX_PADDR_PAGE_NUM - 1)
 static inline uint32_t __attribute__((always_inline)) stub_mmu_ll_get_entry_id(uint32_t vaddr)
 {
 	return (vaddr & STUB_MMU_VADDR_MASK) >> s_cache_mmu_config.shift_count;
@@ -84,8 +81,7 @@ static inline void __attribute__((always_inline)) stub_mmu_ll_write_entry(uint32
 	if (stub_get_flash_encryption_mode() != ESP_FLASH_ENC_MODE_DISABLED)
 		mmu_val |= SOC_MMU_SENSITIVE;
 
-	/* Note: for ESP32-H2, invert invalid bit for compatible with upper-layer software */
-	mmu_raw_value = mmu_val ^ SOC_MMU_INVALID_MASK;
+	mmu_raw_value = mmu_val | SOC_MMU_VALID;
 	REG_WRITE(SPI_MEM_MMU_ITEM_INDEX_REG(0), entry_id);
 	REG_WRITE(SPI_MEM_MMU_ITEM_CONTENT_REG(0), mmu_raw_value);
 }
@@ -105,14 +101,14 @@ static inline int __attribute__((always_inline)) stub_mmu_ll_read_entry(uint32_t
 	if (stub_get_flash_encryption_mode() != ESP_FLASH_ENC_MODE_DISABLED)
 		mmu_raw_value &= ~SOC_MMU_SENSITIVE;
 
-	/* Note: for ESP32-H2, invert invalid bit for compatible with upper-layer software */
-	return mmu_raw_value ^ SOC_MMU_INVALID_MASK;
+	return  mmu_raw_value;
 }
 
 void stub_flash_cache_flush(void)
 {
-	/* we do not know breakpoint program address here, so invalidate the whole ICache */
-	Cache_Invalidate_ICache_All();
+	/* we do not know breakpoint program address here, so invalidate the
+	 * whole ICache */
+	Cache_Invalidate_All();
 }
 
 void stub_cache_configure(void)
@@ -162,15 +158,15 @@ void stub_cache_init(void)
 	REG_CLR_BIT(STUB_CACHE_CTRL_REG, STUB_CACHE_BUS);
 	mmu_ll_set_page_size(0, CONFIG_MMU_PAGE_SIZE);
 	Cache_MMU_Init();
-	Cache_Enable_ICache(0);
+	Cache_Enable_Cache(0);
 }
 
 static bool stub_is_cache_enabled(void)
 {
 	int cache_ctrl_reg = REG_READ(STUB_CACHE_CTRL_REG);
-	STUB_LOGD("cache_ctrl_reg:%X\n", cache_ctrl_reg);
+	STUB_LOGD("cache_ctrl_reg:%X MMU_VALID:%x\n", cache_ctrl_reg, SOC_MMU_VALID);
 
-	/* if any of the entry is valid and busses are enabled  we can consider that cache is enabled */
+	/* if any of the entry is valid and busses are enabled we can consider that cache is enabled */
 	for (int i = 0; i < SOC_MMU_ENTRY_NUM; ++i) {
 		uint32_t mmu_raw_value = stub_mmu_ll_read_entry(i);
 		if ((mmu_raw_value & SOC_MMU_VALID) == SOC_MMU_VALID)
@@ -186,7 +182,6 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 		STUB_LOGI("Cache needs to be enabled\n");
 		stub_cache_init();
 	}
-
 	stub_cache_configure();
 }
 
@@ -197,22 +192,7 @@ void stub_flash_state_restore(struct stub_flash_state *state)
 
 int stub_cpu_clock_configure(int conf_reg_val)
 {
-	uint32_t pcr_sysclk_conf_reg = 0;
-
-	/* set to maximum possible value */
-	if (conf_reg_val == -1) {
-		pcr_sysclk_conf_reg = REG_READ(PCR_SYSCLK_CONF_REG);
-		REG_WRITE(PCR_SYSCLK_CONF_REG,
-			(pcr_sysclk_conf_reg & ~PCR_SOC_CLK_SEL_M) | (PCR_SOC_CLK_MAX << PCR_SOC_CLK_SEL_S));
-	} else { // restore old value
-		pcr_sysclk_conf_reg = conf_reg_val;
-		REG_WRITE(PCR_SYSCLK_CONF_REG,
-			(REG_READ(PCR_SYSCLK_CONF_REG) & ~PCR_SOC_CLK_SEL_M) | (pcr_sysclk_conf_reg & PCR_SOC_CLK_SEL_M));
-	}
-
-	STUB_LOGD("pcr_sysclk_conf_reg %x\n", pcr_sysclk_conf_reg);
-
-	return pcr_sysclk_conf_reg;
+	return 0;
 }
 
 #if STUB_LOG_ENABLE == 1
@@ -225,7 +205,7 @@ void stub_uart_console_configure(int dest)
 	uint32_t clock = ets_clk_get_xtal_freq();
 	ets_update_cpu_frequency(clock / 1000000);
 
-	Uart_Init(0, APB_CLK_FREQ_ROM);
+	Uart_Init(0, APB_CLK_FREQ);
 	/* install to print later
 	 * Non-Flash Boot can print
 	 * Flash Boot can print when RTC_CNTL_STORE4_REG bit0 is 0 (can be 1 after deep sleep, software reset)
@@ -240,9 +220,9 @@ int64_t esp_timer_get_time(void)
 {
 	/*
 		This function is used by apptrace code to implement timeouts.
-		unfortunately esp32h2 does not support CPU cycle counter, so we have two options:
-		1) Use some HW timer. It can be hard, because we need to ensure that it is initialized
-		and possibly restore its state.
+		unfortunately esp32c5 does not support CPU cycle counter, so we have two options:
+		1) Use some HW timer. It can be hard, because we need to ensure that it is initialized and
+		possibly restore its state.
 		2) Emulate timer by incrementing some var on every call.
 		Stub flasher uses ESP_APPTRACE_TMO_INFINITE only, so this function won't be called by apptrace at all.
 	*/
@@ -252,22 +232,16 @@ int64_t esp_timer_get_time(void)
 uint64_t stub_get_time(void)
 {
 	/* this function is used for perf measurements only.
-		unfortunately esp32h2 does not support CPU cycle counter and usage of HW timer is problematic */
+		unfortunately esp32c5 does not support CPU cycle counter and usage of HW timer is problematic */
 	return 0;
 }
 
 static inline bool esp_flash_encryption_enabled(void)
 {
-	uint32_t flash_crypt_cnt = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA1_REG, EFUSE_SPI_BOOT_CRYPT_CNT);
-
-	/* __builtin_parity is in flash, so we calculate parity inline */
-	bool enabled = false;
-	while (flash_crypt_cnt) {
-		if (flash_crypt_cnt & 1)
-			enabled = !enabled;
-		flash_crypt_cnt >>= 1;
-	}
-	return enabled;
+	uint32_t cnt = REG_GET_FIELD(EFUSE_RD_REPEAT_DATA1_REG, EFUSE_SPI_BOOT_CRYPT_CNT);
+	// 3 bits wide, any odd number - 1 or 3 - bits set means encryption is on
+	cnt = ((cnt >> 2) ^ (cnt >> 1) ^ cnt) & 0x1;
+	return (cnt == 1);
 }
 
 esp_flash_enc_mode_t stub_get_flash_encryption_mode(void)
@@ -324,7 +298,7 @@ static int stub_flash_mmap(struct spiflash_map_req *req)
 {
 	uint32_t map_src = req->src_addr & (~(s_cache_mmu_config.page_size - 1));	/* start of the page */
 	uint32_t map_size = req->src_addr - map_src + req->size;
-	uint32_t saved_state = Cache_Suspend_ICache();
+	uint32_t saved_state = Cache_Suspend_Cache();
 
 	req->vaddr_start = s_cache_mmu_config.vaddr0_start_addr;
 	req->ptr = (void *)req->vaddr_start + req->src_addr - map_src;
@@ -336,7 +310,7 @@ static int stub_flash_mmap(struct spiflash_map_req *req)
 
 	REG_CLR_BIT(STUB_CACHE_CTRL_REG, STUB_CACHE_BUS);
 
-	Cache_Resume_ICache(saved_state);
+	Cache_Resume_Cache(saved_state);
 
 	return 0;
 }
@@ -345,9 +319,9 @@ static void stub_flash_ummap(const struct spiflash_map_req *req)
 {
 	uint32_t map_src = req->src_addr & (~(s_cache_mmu_config.page_size - 1));	/* start of the page */
 	uint32_t map_size = req->src_addr - map_src + req->size;
-	uint32_t saved_state = Cache_Suspend_ICache();
+	uint32_t saved_state = Cache_Suspend_Cache();
 	stub_mmu_hal_unmap_region(req->vaddr_start, map_size);
-	Cache_Resume_ICache(saved_state);
+	Cache_Resume_Cache(saved_state);
 }
 
 int stub_flash_read_buff(uint32_t addr, void *buffer, uint32_t size)

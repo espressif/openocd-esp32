@@ -28,6 +28,13 @@
 /* ASSIST_DEBUG registers */
 #define ESP32C5_ASSIST_DEBUG_CPU0_MON_REG       0xFFFFFFFF//0x600C2000
 
+#define ESP32C5_DRAM_LOW    0x40800000
+#define ESP32C5_DRAM_HIGH   0x40860000
+
+static bool esp32c5_is_idram_address(target_addr_t addr)
+{
+	return addr >= ESP32C5_DRAM_LOW && addr < ESP32C5_DRAM_HIGH;
+}
 
 static const struct esp_semihost_ops esp32c5_semihost_ops = {
 	.prepare = NULL,
@@ -35,8 +42,10 @@ static const struct esp_semihost_ops esp32c5_semihost_ops = {
 };
 
 static const struct esp_flash_breakpoint_ops esp32c5_flash_brp_ops = {
+	.breakpoint_prepare = esp_algo_flash_breakpoint_prepare,
 	.breakpoint_add = esp_algo_flash_breakpoint_add,
-	.breakpoint_remove = esp_algo_flash_breakpoint_remove
+	.breakpoint_remove = esp_algo_flash_breakpoint_remove,
+	.breakpoint_lazy_process = true,
 };
 
 static const char *esp32c5_csrs[] = {
@@ -61,6 +70,8 @@ static int esp32c5_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->print_reset_reason = NULL;//&esp32c5_print_reset_reason;
 	esp_riscv->existent_csrs = esp32c5_csrs;
 	esp_riscv->existent_csr_size = ARRAY_SIZE(esp32c5_csrs);
+	esp_riscv->is_dram_address = esp32c5_is_idram_address;
+	esp_riscv->is_iram_address = esp32c5_is_idram_address;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;
