@@ -16,6 +16,7 @@ STUB_CHIP_ARCH_PATH := $(STUB_COMMON_PATH)/$(STUB_ARCH)
 STUB_OBJ_DEPS := sdkconfig.h
 STUB_LD_SCRIPT := stub.ld
 STUB_IDF_BIN_LD_SCRIPT := stub.ld
+STUB_STACK_SIZE := 512
 STUB_CHIP := esp32s2
 
 SRCS := $(IDF_PATH)/components/app_trace/port/$(STUB_ARCH)/port.c \

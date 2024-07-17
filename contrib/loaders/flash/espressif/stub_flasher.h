@@ -42,7 +42,7 @@
 
 /* exported to let openocd know for stack allocation */
 #define ESP_STUB_UNZIP_BUFF_SIZE                32768
-#define ESP_STUB_IFLATOR_SIZE                   11000
+#define ESP_STUB_IFLATOR_SIZE                   11520
 #define ESP_STUB_RDWR_BUFF_SIZE                 32768
 
 /* stub runtime options */

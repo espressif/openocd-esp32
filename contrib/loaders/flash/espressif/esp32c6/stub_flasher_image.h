@@ -154,6 +154,8 @@
 #define ESP_STUB_FLASH_WITH_LOG_LOG_ADDR 0x0408053a8UL
 #define ESP_STUB_FLASH_WITH_LOG_LOG_SIZE 4100UL
 
+#define ESP_STUB_STACK_SIZE 512
+
 #include <stdint.h>
 
 static const uint8_t s_esp_flasher_stub_flash_read_code[] = {
@@ -242,5 +244,5 @@ static const uint8_t s_esp_flasher_stub_flash_with_log_data[] = {
 };
 
 /*
-#define esp32c6_STUB_BUILD_IDF_REV 12aca9d83c
+#define esp32c6_STUB_BUILD_IDF_REV fe1355eac4
 */
