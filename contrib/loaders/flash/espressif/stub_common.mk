@@ -183,6 +183,9 @@ $(STUB_IMAGE_HDR): $(ELF_OUTPUTS)
 		$(READELF) -s $(ELF_FILE) | fgrep s_stub_log_buff | awk 'NR==1 {print ($$3 "UL"); exit} END {if (NR==0) print "0UL"}' >> $(STUB_IMAGE_HDR) ; \
 		printf "\n" >> $(STUB_IMAGE_HDR) ; \
 	)
+
+	$(Q) printf "#define ESP_STUB_STACK_SIZE $(STUB_STACK_SIZE)\n\n" >> $(STUB_IMAGE_HDR)
+
 	$(Q) printf "#include <stdint.h>\n\n" >> $(STUB_IMAGE_HDR)
 	$(Q) $(foreach cmd, $(COMMANDS), \
 		printf "static const uint8_t s_esp_flasher_stub_$(cmd)_code[] = {\n" >> $(STUB_IMAGE_HDR) ; \
@@ -205,7 +208,7 @@ $(STUB_IDF_IMAGE_HDR): $(ELF_OUTPUTS)
 	$(eval ELF_FILE = $(STUB_$(CMD_NAME)_ELF))
 	$(Q) printf "#define OPENOCD_STUB_BSS_SIZE 0x0" >> $(STUB_IDF_IMAGE_HDR)
 	$(Q) $(READELF) -S $(ELF_FILE) | fgrep .bss | awk 'NR==1 {print ($$7 "UL"); exit} END {if (NR==0) print "0UL"}' >> $(STUB_IDF_IMAGE_HDR)
-	$(Q) printf "#define OPENOCD_STUB_STACK_SIZE 512\n" >> $(STUB_IDF_IMAGE_HDR)
+	$(Q) printf "#define OPENOCD_STUB_STACK_SIZE $(STUB_STACK_SIZE)\n" >> $(STUB_IDF_IMAGE_HDR)
 	$(Q) printf "#define OPENOCD_STUB_PARAM_SIZE 512\n" >> $(STUB_IDF_IMAGE_HDR)
 	$(Q) printf "#define OPENOCD_STUB_BP_SECTOR_SIZE 4096\n" >> $(STUB_IDF_IMAGE_HDR)
 

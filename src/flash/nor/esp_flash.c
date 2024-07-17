@@ -296,7 +296,8 @@ int esp_algo_flash_blank_check(struct flash_bank *bank)
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	struct esp_algorithm_run_data run;
 	const struct esp_flasher_stub_config *stub_cfg = esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_ERASE_CHECK);
-	const uint32_t stack_size = 512 + stub_cfg->stack_additional_sz;
+	const uint32_t stack_size = esp_info->stub_log_enabled ?
+		stub_cfg->stack_default_sz * 2 : stub_cfg->stack_default_sz;
 
 	if (bank->target->state != TARGET_HALTED) {
 		LOG_ERROR("Target not halted!");
@@ -307,7 +308,7 @@ int esp_algo_flash_blank_check(struct flash_bank *bank)
 	if (ret != ERROR_OK)
 		return ret;
 
-	run.stack_size = esp_info->stub_log_enabled ? stack_size * 2 : stack_size;
+	run.stack_size = stack_size;
 	struct mem_param mp;
 	init_mem_param(&mp, 3 /*3rd usr arg*/, bank->num_sectors /*size in bytes*/, PARAM_IN);
 	run.mem_args.params = &mp;
@@ -344,13 +345,14 @@ static int esp_algo_flash_get_mappings(struct flash_bank *bank,
 {
 	struct esp_algorithm_run_data run;
 	const struct esp_flasher_stub_config *stub_cfg = esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_MAP_GET);
-	const uint32_t stack_size = 512 + stub_cfg->stack_additional_sz;
+	const uint32_t stack_size = esp_info->stub_log_enabled ?
+		stub_cfg->stack_default_sz * 2 : stub_cfg->stack_default_sz;
 
 	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
 	if (ret != ERROR_OK)
 		return ret;
 
-	run.stack_size = esp_info->stub_log_enabled ? stack_size * 2 : stack_size;
+	run.stack_size = stack_size;
 	run.check_preloaded_binary = esp_info->stub_log_enabled ? false : esp_info->check_preloaded_binary;
 
 	struct mem_param mp;
@@ -429,7 +431,8 @@ int esp_algo_flash_erase(struct flash_bank *bank, unsigned int first, unsigned i
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	struct esp_algorithm_run_data run;
 	const struct esp_flasher_stub_config *stub_cfg = esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_READ);
-	const uint32_t stack_size = 512 + stub_cfg->stack_additional_sz;
+	const uint32_t stack_size = esp_info->stub_log_enabled ?
+		stub_cfg->stack_default_sz * 2 : stub_cfg->stack_default_sz;
 
 	if (bank->target->state != TARGET_HALTED) {
 		LOG_ERROR("Target not halted");
@@ -445,7 +448,7 @@ int esp_algo_flash_erase(struct flash_bank *bank, unsigned int first, unsigned i
 	if (ret != ERROR_OK)
 		return ret;
 
-	run.stack_size = esp_info->stub_log_enabled ? stack_size * 2 : stack_size;
+	run.stack_size = stack_size;
 	run.timeout_ms = ESP_FLASH_ERASE_TMO;
 	ret = esp_info->run_func_image(bank->target,
 		&run,
@@ -699,7 +702,8 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 		esp_info->compression ? ESP_STUB_CMD_FLASH_WRITE_DEFLATED : ESP_STUB_CMD_FLASH_WRITE);
 	uint8_t *compressed_buff = NULL;
 	uint32_t compressed_len = 0;
-	uint32_t stack_size = 1300 + ESP_STUB_UNZIP_BUFF_SIZE;
+	uint32_t stack_size = esp_info->stub_log_enabled ?
+		stub_cfg->stack_default_sz * 2 : stub_cfg->stack_default_sz;
 
 	if (offset & 0x3UL) {
 		LOG_ERROR("Unaligned offset!");
@@ -748,7 +752,7 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 		stack_size += ESP_STUB_IFLATOR_SIZE;
 	}
 
-	run.stack_size = stack_size + stub_cfg->stack_additional_sz + stub_cfg->stack_data_pool_sz;
+	run.stack_size = stack_size + ESP_STUB_UNZIP_BUFF_SIZE + stub_cfg->stack_data_pool_sz;
 	run.usr_func = esp_algo_flash_rw_do;
 	run.usr_func_arg = &wr_state;
 	run.usr_func_init = (esp_algorithm_usr_func_init_t)esp_algo_flash_write_state_init;
@@ -882,6 +886,8 @@ int esp_algo_flash_read(struct flash_bank *bank, uint8_t *buffer,
 	struct esp_algorithm_run_data run;
 	struct esp_flash_read_state rd_state;
 	const struct esp_flasher_stub_config *stub_cfg = esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_READ);
+	const uint32_t stack_size = esp_info->stub_log_enabled ?
+		stub_cfg->stack_default_sz * 2 : stub_cfg->stack_default_sz;
 
 	if (offset & 0x3UL) {
 		LOG_ERROR("Unaligned offset!");
@@ -911,7 +917,7 @@ int esp_algo_flash_read(struct flash_bank *bank, uint8_t *buffer,
 		return ret;
 	}
 
-	run.stack_size = 1024 + stub_cfg->stack_additional_sz + stub_cfg->stack_data_pool_sz;
+	run.stack_size = stack_size + stub_cfg->stack_data_pool_sz;
 	run.usr_func_init = (esp_algorithm_usr_func_init_t)esp_algo_flash_read_state_init;
 	run.usr_func = esp_algo_flash_rw_do;
 	run.usr_func_arg = &rd_state;
@@ -1160,7 +1166,8 @@ int esp_algo_flash_breakpoint_add(struct target *target, struct esp_flash_breakp
 	struct mem_param mp[2]; /* in and out */
 	const size_t size_bp_inst = sizeof(sw_bp->bp_flash_addr);
 	const struct esp_flasher_stub_config *stub_cfg = esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_BP_SET);
-	const uint32_t stack_size = 512 + stub_cfg->stack_additional_sz;
+	const uint32_t stack_size = esp_info->stub_log_enabled ?
+		stub_cfg->stack_default_sz * 2 : stub_cfg->stack_default_sz;
 
 	op_state.esp_info = esp_info;
 	op_state.sw_bp = sw_bp;
@@ -1173,7 +1180,7 @@ int esp_algo_flash_breakpoint_add(struct target *target, struct esp_flash_breakp
 	if (ret != ERROR_OK)
 		return ret;
 
-	run.stack_size = esp_info->stub_log_enabled ? stack_size * 2 : stack_size;
+	run.stack_size = stack_size;
 	run.usr_func_arg = &op_state;
 	run.usr_func_init = (esp_algorithm_usr_func_init_t)esp_algo_flash_bp_op_state_init;
 	run.usr_func_done = (esp_algorithm_usr_func_done_t)esp_algo_flash_bp_op_state_cleanup;
@@ -1245,7 +1252,8 @@ int esp_algo_flash_breakpoint_remove(struct target *target, struct esp_flash_bre
 	struct mem_param mp[2]; /* out and out */
 	const size_t size_bp_inst = sizeof(struct esp_flash_stub_bp_instructions);
 	const struct esp_flasher_stub_config *stub_cfg = esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_BP_CLEAR);
-	const uint32_t stack_size = 512 + stub_cfg->stack_additional_sz;
+	const uint32_t stack_size = esp_info->stub_log_enabled ?
+		stub_cfg->stack_default_sz * 2 : stub_cfg->stack_default_sz;
 
 	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
 	if (ret != ERROR_OK)
@@ -1256,7 +1264,7 @@ int esp_algo_flash_breakpoint_remove(struct target *target, struct esp_flash_bre
 	op_state.num_bps = num_bps;
 	op_state.target_buf = NULL;
 
-	run.stack_size = esp_info->stub_log_enabled ? stack_size * 2 : stack_size;
+	run.stack_size = stack_size;
 	run.usr_func_arg = &op_state;
 	run.usr_func_init = (esp_algorithm_usr_func_init_t)esp_algo_flash_bp_op_state_init;
 	run.usr_func_done = (esp_algorithm_usr_func_done_t)esp_algo_flash_bp_op_state_cleanup;
@@ -1324,6 +1332,8 @@ static int esp_algo_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	struct esp_algorithm_run_data run;
 	const struct esp_flasher_stub_config *stub_cfg = esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_CALC_HASH);
+	const uint32_t stack_size = esp_info->stub_log_enabled ?
+		stub_cfg->stack_default_sz * 2 : stub_cfg->stack_default_sz;
 
 	if (offset & 0x3UL) {
 		LOG_ERROR("Unaligned offset!");
@@ -1339,7 +1349,7 @@ static int esp_algo_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 	if (ret != ERROR_OK)
 		return ret;
 
-	run.stack_size = 1024 + ESP_STUB_RDWR_BUFF_SIZE;
+	run.stack_size = stack_size + ESP_STUB_RDWR_BUFF_SIZE;
 
 	struct mem_param mp;
 	init_mem_param(&mp,
@@ -1384,7 +1394,8 @@ static int esp_algo_flash_boost_clock_freq(struct flash_bank *bank, int boost)
 	struct esp_algorithm_run_data run;
 	int new_cpu_freq = -1;	/* set to max level */
 	const struct esp_flasher_stub_config *stub_cfg = esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE);
-	const uint32_t stack_size = 512 + stub_cfg->stack_additional_sz;
+	const uint32_t stack_size = esp_info->stub_log_enabled ?
+		stub_cfg->stack_default_sz * 2 : stub_cfg->stack_default_sz;
 
 	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
 	if (ret != ERROR_OK)
@@ -1394,7 +1405,7 @@ static int esp_algo_flash_boost_clock_freq(struct flash_bank *bank, int boost)
 	if (boost == 0)
 		new_cpu_freq = esp_info->old_cpu_freq;
 
-	run.stack_size = esp_info->stub_log_enabled ? stack_size * 2 : stack_size;
+	run.stack_size = stack_size;
 	ret = esp_info->run_func_image(bank->target,
 		&run,
 		2,
