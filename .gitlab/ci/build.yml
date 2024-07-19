@@ -244,7 +244,7 @@ build_linux_arm64:
     PLATFORM_NAME: "linux-arm64"
     TEST_CFLAGS: ""
 
-build_windows:
+.build_windows_template: &build_windows_template
   stage: build_openocd
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-win-cross
   tags:
@@ -254,10 +254,9 @@ build_windows:
       - ${DIST_ART_DIR}
     expire_in: 2 weeks
   variables:
-    CONF_HOST: "i686-w64-mingw32"
-    PLATFORM_NAME: "win32"
     ARCHIVE_TOOL: "zip -r"
     ARCHIVE_EXT: "zip"
+    CONF_HOST: "i686-w64-mingw32"
     INSTALL_TARGET: "install-strip"
     HOST_CC: ${CONF_HOST}-gcc
   needs:
@@ -277,6 +276,16 @@ build_windows:
     - cp $PWD/${ZLIB_VER}/dist/bin/zlib1.dll $DIST_INSTALLED_DIR/bin/
     - *copy_stub_bins
     - *dist_archive
+
+build_windows_win32:
+  extends: .build_windows_template
+  variables:
+    PLATFORM_NAME: "win32"
+
+build_windows_win64:
+  extends: .build_windows_template
+  variables:
+    PLATFORM_NAME: "win64"
 
 build_macos:
   <<: *build_macos_template

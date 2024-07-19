@@ -78,7 +78,8 @@ variables:
     - job: build_linux_armhf
     - job: build_linux_armel
     - job: build_linux_arm64
-    - job: build_windows
+    - job: build_windows_win32
+    - job: build_windows_win64
     - job: macos_codesign
 
 .release_submit_action: &release_submit_action
