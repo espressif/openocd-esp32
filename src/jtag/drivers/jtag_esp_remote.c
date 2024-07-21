@@ -272,7 +272,7 @@ static int jtag_esp_remote_path_move(struct pathmove_command *cmd)
 	uint8_t trans[cb];
 	memset(trans, 0, cb);
 
-	for (int i = 0; i < cmd->num_states; i++) {
+	for (unsigned int i = 0; i < cmd->num_states; i++) {
 		if (tap_state_transition(tap_get_state(), true) == cmd->path[i])
 			buf_set_u32(trans, i, 1, 1);
 		tap_set_state(cmd->path[i]);
@@ -432,7 +432,7 @@ static int jtag_esp_remote_scan(struct scan_command *cmd, size_t *out_read_size)
 	scan_bits = jtag_build_buffer(cmd, &buf);
 
 	*out_read_size = 0;
-	for (int i = 0; i < cmd->num_fields; ++i) {
+	for (unsigned int i = 0; i < cmd->num_fields; ++i) {
 		struct scan_field *sf = cmd->fields + i;
 		if (sf->in_value)
 			*out_read_size += sf->num_bits;
@@ -471,7 +471,7 @@ static int jtag_esp_remote_scan_read(struct scan_command *cmd)
 	uint8_t *buf = NULL;
 
 	size_t read_size = 0;
-	for (int i = 0; i < cmd->num_fields; ++i) {
+	for (unsigned int i = 0; i < cmd->num_fields; ++i) {
 		struct scan_field *sf = cmd->fields + i;
 		if (sf->in_value)
 			read_size += sf->num_bits;
