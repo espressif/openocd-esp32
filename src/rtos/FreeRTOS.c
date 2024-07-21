@@ -1366,7 +1366,11 @@ static int freertos_post_reset_cleanup(struct target *target)
 	struct freertos_data *rtos_data =
 		(struct freertos_data *)target->rtos->rtos_specific_params;
 
-	if ((target->rtos->symbols != NULL) &&
+	// TODO: refactor and test here for the SMP riscv targets. Do we still need to clear target memory?
+	if (!strcmp(target_type_name(target), "esp32p4")) {
+		rtos_free_threadlist(target->rtos);
+		// writing esp32p4 memory causes a reset issue. OCD-989
+	} else if (target->rtos->symbols &&
 		(target->rtos->symbols[FREERTOS_VAL_UX_CURRENT_NUMBER_OF_TASKS].address != 0)) {
 		int ret = target_buffer_write_uint(target,
 			target->rtos->symbols[FREERTOS_VAL_UX_CURRENT_NUMBER_OF_TASKS].address,
