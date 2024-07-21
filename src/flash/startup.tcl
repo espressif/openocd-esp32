@@ -101,7 +101,8 @@ proc program {filename args} {
 	return
 }
 
-add_help_text program "write an image to flash, address is only required for binary images. preverify, verify, reset, exit are optional"
+add_help_text program "write an image to flash, address is only required for binary images. preverify, verify, reset,\
+	exit are optional"
 add_usage_text program "<filename> \[address\] \[preverify\] \[verify\] \[reset\] \[exit\]"
 
 # stm32[f0x|f3x] uses the same flash driver as the stm32f1x
