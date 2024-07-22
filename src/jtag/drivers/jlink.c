@@ -961,25 +961,18 @@ static int jlink_reset_safe(int trst, int srst)
 
 COMMAND_HANDLER(jlink_usb_command)
 {
-	int tmp;
-
-	if (CMD_ARGC != 1) {
-		command_print(CMD, "Need exactly one argument for jlink usb");
+	if (CMD_ARGC != 1)
 		return ERROR_COMMAND_SYNTAX_ERROR;
-	}
 
-	if (sscanf(CMD_ARGV[0], "%i", &tmp) != 1) {
-		command_print(CMD, "Invalid USB address: %s", CMD_ARGV[0]);
-		return ERROR_FAIL;
-	}
+	unsigned int tmp;
+	COMMAND_PARSE_NUMBER(uint, CMD_ARGV[0], tmp);
 
-	if (tmp < JAYLINK_USB_ADDRESS_0 || tmp > JAYLINK_USB_ADDRESS_3) {
+	if (tmp > JAYLINK_USB_ADDRESS_3) {
 		command_print(CMD, "Invalid USB address: %s", CMD_ARGV[0]);
 		return ERROR_FAIL;
 	}
 
 	usb_address = tmp;
-
 	use_usb_address = true;
 
 	return ERROR_OK;
@@ -1037,38 +1030,35 @@ COMMAND_HANDLER(jlink_handle_free_memory_command)
 
 COMMAND_HANDLER(jlink_handle_jlink_jtag_command)
 {
-	int tmp;
-	int version;
-
 	if (!CMD_ARGC) {
+		unsigned int version;
+
 		switch (jtag_command_version) {
-			case JAYLINK_JTAG_VERSION_2:
-				version = 2;
-				break;
-			case JAYLINK_JTAG_VERSION_3:
-				version = 3;
-				break;
-			default:
-				return ERROR_FAIL;
+		case JAYLINK_JTAG_VERSION_2:
+			version = 2;
+			break;
+		case JAYLINK_JTAG_VERSION_3:
+			version = 3;
+			break;
+		default:
+			return ERROR_FAIL;
 		}
 
-		command_print(CMD, "JTAG command version: %i", version);
+		command_print(CMD, "JTAG command version: %u", version);
 	} else if (CMD_ARGC == 1) {
-		if (sscanf(CMD_ARGV[0], "%i", &tmp) != 1) {
-			command_print(CMD, "Invalid argument: %s", CMD_ARGV[0]);
-			return ERROR_COMMAND_SYNTAX_ERROR;
-		}
+		uint8_t tmp;
+		COMMAND_PARSE_NUMBER(u8, CMD_ARGV[0], tmp);
 
 		switch (tmp) {
-			case 2:
-				jtag_command_version = JAYLINK_JTAG_VERSION_2;
-				break;
-			case 3:
-				jtag_command_version = JAYLINK_JTAG_VERSION_3;
-				break;
-			default:
-				command_print(CMD, "Invalid argument: %s", CMD_ARGV[0]);
-				return ERROR_COMMAND_SYNTAX_ERROR;
+		case 2:
+			jtag_command_version = JAYLINK_JTAG_VERSION_2;
+			break;
+		case 3:
+			jtag_command_version = JAYLINK_JTAG_VERSION_3;
+			break;
+		default:
+			command_print(CMD, "Invalid argument: %s", CMD_ARGV[0]);
+			return ERROR_COMMAND_ARGUMENT_INVALID;
 		}
 	} else {
 		command_print(CMD, "Need exactly one argument for jlink jtag");
@@ -1080,13 +1070,8 @@ COMMAND_HANDLER(jlink_handle_jlink_jtag_command)
 
 COMMAND_HANDLER(jlink_handle_target_power_command)
 {
-	int ret;
-	int enable;
-
-	if (CMD_ARGC != 1) {
-		command_print(CMD, "Need exactly one argument for jlink targetpower");
+	if (CMD_ARGC != 1)
 		return ERROR_COMMAND_SYNTAX_ERROR;
-	}
 
 	if (!jaylink_has_cap(caps, JAYLINK_DEV_CAP_SET_TARGET_POWER)) {
 		command_print(CMD, "Target power supply is not supported by the "
@@ -1094,16 +1079,10 @@ COMMAND_HANDLER(jlink_handle_target_power_command)
 		return ERROR_OK;
 	}
 
-	if (!strcmp(CMD_ARGV[0], "on")) {
-		enable = true;
-	} else if (!strcmp(CMD_ARGV[0], "off")) {
-		enable = false;
-	} else {
-		command_print(CMD, "Invalid argument: %s", CMD_ARGV[0]);
-		return ERROR_FAIL;
-	}
+	bool enable;
+	COMMAND_PARSE_ON_OFF(CMD_ARGV[0], enable);
 
-	ret = jaylink_set_target_power(devh, enable);
+	int ret = jaylink_set_target_power(devh, enable);
 
 	if (ret != JAYLINK_OK) {
 		command_print(CMD, "jaylink_set_target_power() failed: %s",
@@ -1412,8 +1391,6 @@ static int config_trace(bool enabled, enum tpiu_pin_protocol pin_protocol,
 
 COMMAND_HANDLER(jlink_handle_config_usb_address_command)
 {
-	uint8_t tmp;
-
 	if (!jaylink_has_cap(caps, JAYLINK_DEV_CAP_READ_CONFIG)) {
 		command_print(CMD, "Reading configuration is not supported by the "
 			"device");
@@ -1423,10 +1400,8 @@ COMMAND_HANDLER(jlink_handle_config_usb_address_command)
 	if (!CMD_ARGC) {
 		show_config_usb_address(CMD);
 	} else if (CMD_ARGC == 1) {
-		if (sscanf(CMD_ARGV[0], "%" SCNd8, &tmp) != 1) {
-			command_print(CMD, "Invalid USB address: %s", CMD_ARGV[0]);
-			return ERROR_FAIL;
-		}
+		uint8_t tmp;
+		COMMAND_PARSE_NUMBER(u8, CMD_ARGV[0], tmp);
 
 		if (tmp > JAYLINK_USB_ADDRESS_3) {
 			command_print(CMD, "Invalid USB address: %u", tmp);
@@ -1883,7 +1858,7 @@ static const struct command_registration jlink_subcommand_handlers[] = {
 		.handler = &jlink_handle_target_power_command,
 		.mode = COMMAND_EXEC,
 		.help = "set the target power supply",
-		.usage = "<on|off>"
+		.usage = "<0|1|on|off>"
 	},
 	{
 		.name = "freemem",
