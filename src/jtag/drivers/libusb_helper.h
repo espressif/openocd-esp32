@@ -93,4 +93,9 @@ uint8_t *oocd_libusb_dev_mem_alloc(libusb_device_handle *devh,
 int oocd_libusb_dev_mem_free(libusb_device_handle *devh,
 			uint8_t *buffer, size_t length);
 
+int jtag_libusb_get_dev_location_by_handle(struct libusb_device_handle *dev, char *loc, int loc_len);
+int jtag_libusb_get_devs_locations(const uint16_t vids[], const uint16_t pids[], char ***locations);
+void jtag_libusb_free_devs_locations(char *locations[], int cnt);
+
+
 #endif /* OPENOCD_JTAG_DRIVERS_LIBUSB_HELPER_H */

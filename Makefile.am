@@ -19,6 +19,10 @@ nobase_dist_pkgdata_DATA = \
 	contrib/libdcc/README \
 	contrib/60-openocd.rules
 
+esptoolsdir = $(pkgdatadir)/espressif/tools
+dist_esptools_DATA = \
+	tools/esp_detect_config.py
+
 SUBDIRS =
 DIST_SUBDIRS =
 bin_PROGRAMS =

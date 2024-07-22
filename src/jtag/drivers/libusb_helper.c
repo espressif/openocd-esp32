@@ -145,6 +145,104 @@ static bool jtag_libusb_match_serial(struct libusb_device_handle *device,
 	return match;
 }
 
+static int jtag_libusb_get_dev_location(struct libusb_device *dev, char *loc, int loc_len)
+{
+	int k, len, wr;
+	uint8_t dev_bus = 0;
+	uint8_t port_path[MAX_USB_PORTS];
+	int path_len = 0;
+
+#ifdef HAVE_LIBUSB_GET_PORT_NUMBERS
+	path_len = libusb_get_port_numbers(dev, port_path, MAX_USB_PORTS);
+	if (path_len == LIBUSB_ERROR_OVERFLOW) {
+		LOG_WARNING("cannot determine path to usb device! (more than %i ports in path)", MAX_USB_PORTS);
+		return ERROR_FAIL;
+	}
+	dev_bus = libusb_get_bus_number(dev);
+#endif /* HAVE_LIBUSB_GET_PORT_NUMBERS */
+
+	len = snprintf(loc, loc_len, "%d", dev_bus);
+	if (len < 0 || len >= (loc_len - len)) {
+		*loc = 0;
+		return ERROR_FAIL;
+	}
+
+	for (k = 0; k < path_len; k++) {
+		wr = snprintf(&loc[len], loc_len - len, k == 0 ? "-%d" : ".%d", port_path[k]);
+		if (wr < 0 || wr >= (loc_len - len)) {
+			*loc = 0;
+			return ERROR_FAIL;
+		}
+		len += wr;
+	}
+	return ERROR_OK;
+}
+
+int jtag_libusb_get_dev_location_by_handle(struct libusb_device_handle *dev, char *loc, int loc_len)
+{
+	return jtag_libusb_get_dev_location(libusb_get_device(dev), loc, loc_len);
+}
+
+int jtag_libusb_get_devs_locations(const uint16_t vids[], const uint16_t pids[], char ***locations)
+{
+	int cnt, idx, devs_cnt = 0;
+	struct libusb_device **list;
+	struct libusb_device_descriptor desc;
+	char **locs;
+	/* <bus>-<port>[.<port>]... */
+	#define MAX_DEV_LOCATION_LEN	128
+
+	cnt = libusb_get_device_list(jtag_libusb_context, &list);
+	if (cnt <= 0) {
+		LOG_WARNING("Cannot get devices list (%d)!", cnt);
+		return 0;
+	}
+
+	locs = calloc(cnt, sizeof(char *));
+	if (!locs) {
+		LOG_ERROR("Unable to allocate space USB devices list!");
+		libusb_free_device_list(list, 1);
+		return 0;
+	}
+	for (idx = 0; idx < cnt; idx++) {
+		if (libusb_get_device_descriptor(list[idx], &desc) != 0)
+			continue;
+		if (!jtag_libusb_match_ids(&desc, vids, pids))
+			continue;
+
+		locs[devs_cnt] = calloc(1, MAX_DEV_LOCATION_LEN);
+		if (!locs[devs_cnt]) {
+			LOG_ERROR("Unable to allocate space USB device location!");
+			jtag_libusb_free_devs_locations(locs, devs_cnt);
+			libusb_free_device_list(list, true);
+			return 0;
+		}
+		if (jtag_libusb_get_dev_location(list[idx], locs[devs_cnt], MAX_DEV_LOCATION_LEN) != ERROR_OK)
+			LOG_WARNING("Cannot get location for usb device!");
+
+		devs_cnt++;
+	}
+	*locations = locs;
+
+	libusb_free_device_list(list, true);
+
+	return devs_cnt;
+}
+
+void jtag_libusb_free_devs_locations(char *locations[], int cnt)
+{
+	int i;
+
+	if (!locations || cnt == 0)
+		return;
+
+	for (i = 0; i < cnt; i++) {
+		if (locations[i])
+			free(locations[i]);
+	}
+	free(locations);
+}
+
 int jtag_libusb_open(const uint16_t vids[], const uint16_t pids[],
 		const char *product, struct libusb_device_handle **out,
 		adapter_get_alternate_serial_fn adapter_get_alternate_serial)
