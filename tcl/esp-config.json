@@ -1,39 +1,48 @@
 {
     "version" : "1.0",
     "targets" : [
-        { "id": "esp32", "name": "ESP32" },
-        { "id": "esp32s2", "name": "ESP32-S2" },
-        { "id": "esp32s3", "name": "ESP32-S3" },
-        { "id": "esp32c2", "name": "ESP32-C2" },
-        { "id": "esp32c3", "name": "ESP32-C3" },
-        { "id": "esp32c5", "name": "ESP32-C5" },
-        { "id": "esp32c6", "name": "ESP32-C6" },
-        { "id": "esp32h2", "name": "ESP32-H2" },
-        { "id": "esp32p4", "name": "ESP32-P4" }
+        { "id": "esp32", "name": "ESP32", "idcode": "0x120034e5", "ocdid": "0x0733bff2"},
+        { "id": "esp32s2", "name": "ESP32-S2", "idcode": "0x120034e5", "ocdid": "0x03339fd2" },
+        { "id": "esp32s3", "name": "ESP32-S3", "idcode": "0x120034e5", "ocdid": "0x0b339fd2" },
+        { "id": "esp32c2", "name": "ESP32-C2", "idcode": "0x0000cc25" },
+        { "id": "esp32c3", "name": "ESP32-C3", "idcode": "0x00005c25" },
+        { "id": "esp32c5", "name": "ESP32-C5", "idcode": "0x00017c25" },
+        { "id": "esp32c6", "name": "ESP32-C6", "idcode": "0x0000dc25" },
+        { "id": "esp32h2", "name": "ESP32-H2", "idcode": "0x00010c25" },
+        { "id": "esp32p4", "name": "ESP32-P4", "idcode": "0x00012c25" }
+    ],
+    "interfaces" : [
+        { "id": "ftdi", "config_file": "ftdi/esp32_devkitj_v1.cfg", "command": "ftdi" },
+        { "id": "esp_usb_jtag", "config_file": "esp_usb_jtag.cfg", "command": "espusbjtag" },
+        { "id": "esp_usb_bridge", "config_file": "esp_usb_bridge.cfg", "command": "espusbjtag" }
     ],
     "boards" : [
         {
             "name": "ESP-WROVER-KIT 3.3V",
             "description": "ESP-WROVER-KIT with 3.3V ESP32-WROVER-B module",
             "target": "esp32",
+            "interface": "ftdi",
             "config_files": ["board/esp32-wrover-kit-3.3v.cfg"]
         },
         {
             "name": "ESP-WROVER-KIT 1.8V",
             "description": "ESP-WROVER-KIT with 1.8V ESP32-WROVER-B module",
             "target": "esp32",
+            "interface": "ftdi",
             "config_files": ["board/esp32-wrover-kit-1.8v.cfg"]
         },
         {
             "name": "ESP32-ETHERNET-KIT",
             "description": "ESP32-ETHERNET-KIT with ESP32-WROVER-E module",
             "target": "esp32",
+            "interface": "ftdi",
             "config_files": ["board/esp32-ethernet-kit-3.3v.cfg"]
         },
         {
             "name": "ESP32 chip (via ESP-PROG)",
             "description": "ESP32 debugging via ESP-PROG board",
             "target": "esp32",
+            "interface": "ftdi",
             "config_files": [
                 "interface/ftdi/esp32_devkitj_v1.cfg",
                 "target/esp32.cfg"
@@ -43,6 +52,7 @@
             "name": "ESP32 chip (via ESP-PROG-2)",
             "description": "ESP32 debugging via ESP-PROG-2 board",
             "target": "esp32",
+            "interface": "esp_usb_bridge",
             "config_files": [
                 "board/esp32-bridge.cfg"
             ]
@@ -51,6 +61,7 @@
             "name": "ESP32-SOLO-1 module (via ESP-PROG)",
             "description": "ESP32-SOLO-1 debugging via ESP-PROG board",
             "target": "esp32",
+            "interface": "ftdi",
             "config_files": [
                 "interface/ftdi/esp32_devkitj_v1.cfg",
                 "target/esp32-solo-1.cfg"
@@ -60,12 +71,14 @@
             "name": "ESP32-S2-KALUGA-1",
             "description": "ESP32-S2-KALUGA-1 kit",
             "target": "esp32s2",
+            "interface": "ftdi",
             "config_files": ["board/esp32s2-kaluga-1.cfg"]
         },
         {
             "name": "ESP32-S2 chip (via ESP-PROG)",
             "description": "ESP32-S2 debugging via ESP-PROG board",
             "target": "esp32s2",
+            "interface": "ftdi",
             "config_files": [
                 "interface/ftdi/esp32_devkitj_v1.cfg",
                 "target/esp32s2.cfg"
@@ -75,6 +88,7 @@
             "name": "ESP32-S2 chip (via ESP-PROG-2)",
             "description": "ESP32-S2 debugging via ESP-PROG-2 board",
             "target": "esp32s2",
+            "interface": "esp_usb_bridge",
             "config_files": [
                 "board/esp32s2-bridge.cfg"
             ]
@@ -83,6 +97,7 @@
             "name": "ESP32-S3 chip (via builtin USB-JTAG)",
             "description": "ESP32-S3 debugging via builtin USB-JTAG",
             "target": "esp32s3",
+            "interface": "esp_usb_jtag",
             "config_files": [
                 "board/esp32s3-builtin.cfg"
             ]
@@ -91,6 +106,7 @@
             "name": "ESP32-S3 chip (via ESP-PROG)",
             "description": "ESP32-S3 debugging via ESP-PROG board",
             "target": "esp32s3",
+            "interface": "ftdi",
             "config_files": [
                 "interface/ftdi/esp32_devkitj_v1.cfg",
                 "target/esp32s3.cfg"
@@ -100,6 +116,7 @@
             "name": "ESP32-S3 chip (via ESP-PROG-2)",
             "description": "ESP32-S3 debugging via ESP-PROG-2 board",
             "target": "esp32s3",
+            "interface": "esp_usb_bridge",
             "config_files": [
                 "board/esp32s3-bridge.cfg"
             ]
@@ -108,6 +125,7 @@
             "name": "ESP32-C2 chip (via ESP-PROG)",
             "description": "ESP32-C2 debugging via ESP-PROG board",
             "target": "esp32c2",
+            "interface": "ftdi",
             "config_files": [
                 "board/esp32c2-ftdi.cfg"
             ]
@@ -116,6 +134,7 @@
             "name": "ESP32-C2 chip (via ESP-PROG-2)",
             "description": "ESP32-C2 debugging via ESP-PROG-2 board",
             "target": "esp32c2",
+            "interface": "esp_usb_bridge",
             "config_files": [
                 "board/esp32c2-bridge.cfg"
             ]
@@ -124,6 +143,7 @@
             "name": "ESP32-C3 chip (via builtin USB-JTAG)",
             "description": "ESP32-C3 debugging via builtin USB-JTAG",
             "target": "esp32c3",
+            "interface": "esp_usb_jtag",
             "config_files": [
                 "board/esp32c3-builtin.cfg"
             ]
@@ -132,6 +152,7 @@
             "name": "ESP32-C3 chip (via ESP-PROG)",
             "description": "ESP32-C3 debugging via ESP-PROG board",
             "target": "esp32c3",
+            "interface": "ftdi",
             "config_files": [
                 "board/esp32c3-ftdi.cfg"
             ]
@@ -140,6 +161,7 @@
             "name": "ESP32-C3 chip (via ESP-PROG-2)",
             "description": "ESP32-C3 debugging via ESP-PROG-2 board",
             "target": "esp32c3",
+            "interface": "esp_usb_bridge",
             "config_files": [
                 "board/esp32c3-bridge.cfg"
             ]
@@ -148,6 +170,7 @@
             "name": "ESP32-C5 chip (via builtin USB-JTAG)",
             "description": "ESP32-C5 debugging via builtin USB-JTAG",
             "target": "esp32c5",
+            "interface": "esp_usb_jtag",
             "config_files": [
                 "board/esp32c5-builtin.cfg"
             ]
@@ -156,6 +179,7 @@
             "name": "ESP32-C5 chip (via ESP-PROG)",
             "description": "ESP32-C5 debugging via ESP-PROG board",
             "target": "esp32c5",
+            "interface": "ftdi",
             "config_files": [
                 "board/esp32c5-ftdi.cfg"
             ]
@@ -164,6 +188,7 @@
             "name": "ESP32-C5 chip (via ESP-PROG-2)",
             "description": "ESP32-C5 debugging via ESP-PROG-2 board",
             "target": "esp32c5",
+            "interface": "esp_usb_bridge",
             "config_files": [
                 "board/esp32c5-bridge.cfg"
             ]
@@ -172,6 +197,7 @@
             "name": "ESP32-C6 chip (via builtin USB-JTAG)",
             "description": "ESP32-C6 debugging via builtin USB-JTAG",
             "target": "esp32c6",
+            "interface": "esp_usb_jtag",
             "config_files": [
                 "board/esp32c6-builtin.cfg"
             ]
@@ -180,6 +206,7 @@
             "name": "ESP32-C6 chip (via ESP-PROG)",
             "description": "ESP32-C6 debugging via ESP-PROG board",
             "target": "esp32c6",
+            "interface": "ftdi",
             "config_files": [
                 "board/esp32c6-ftdi.cfg"
             ]
@@ -188,6 +215,7 @@
             "name": "ESP32-C6 chip (via ESP-PROG-2)",
             "description": "ESP32-C6 debugging via ESP-PROG-2 board",
             "target": "esp32c6",
+            "interface": "esp_usb_bridge",
             "config_files": [
                 "board/esp32c6-bridge.cfg"
             ]
@@ -196,6 +224,7 @@
             "name": "ESP32-C6 chip with LP core (via builtin USB-JTAG)",
             "description": "ESP32-C6 with LP core debugging via builtin USB-JTAG",
             "target": "esp32c6",
+            "interface": "esp_usb_jtag",
             "config_files": [
                 "board/esp32c6-lpcore-builtin.cfg"
             ]
@@ -204,6 +233,7 @@
             "name": "ESP32-C6 chip with LP core (via ESP-PROG)",
             "description": "ESP32-C6 with LP core debugging via ESP-PROG board",
             "target": "esp32c6",
+            "interface": "ftdi",
             "config_files": [
                 "board/esp32c6-lpcore-ftdi.cfg"
             ]
@@ -212,6 +242,7 @@
             "name": "ESP32-C6 chip with LP core (via ESP-PROG-2)",
             "description": "ESP32-C6 with LP core debugging via ESP-PROG-2 board",
             "target": "esp32c6",
+            "interface": "esp_usb_bridge",
             "config_files": [
                 "board/esp32c6-lpcore-bridge.cfg"
             ]
@@ -244,6 +275,7 @@
             "name": "ESP32-H2 chip (via builtin USB-JTAG)",
             "description": "ESP32-H2 debugging via builtin USB-JTAG",
             "target": "esp32h2",
+            "interface": "esp_usb_jtag",
             "config_files": [
                 "board/esp32h2-builtin.cfg"
             ]
@@ -252,6 +284,7 @@
             "name": "ESP32-H2 chip (via ESP-PROG)",
             "description": "ESP32-H2 debugging via ESP-PROG board",
             "target": "esp32h2",
+            "interface": "ftdi",
             "config_files": [
                 "board/esp32h2-ftdi.cfg"
             ]
@@ -260,6 +293,7 @@
             "name": "ESP32-H2 chip (via ESP-PROG-2)",
             "description": "ESP32-H2 debugging via ESP-PROG-2 board",
             "target": "esp32h2",
+            "interface": "esp_usb_bridge",
             "config_files": [
                 "board/esp32h2-bridge.cfg"
             ]
@@ -268,6 +302,7 @@
             "name": "ESP32-P4 chip (via builtin USB-JTAG)",
             "description": "ESP32-P4 debugging via builtin USB-JTAG",
             "target": "esp32p4",
+            "interface": "esp_usb_jtag",
             "config_files": [
                 "board/esp32p4-builtin.cfg"
             ]
@@ -276,6 +311,7 @@
             "name": "ESP32-P4 chip (via ESP-PROG)",
             "description": "ESP32-P4 debugging via ESP-PROG board",
             "target": "esp32p4",
+            "interface": "ftdi",
             "config_files": [
                 "board/esp32p4-ftdi.cfg"
             ]
@@ -284,6 +320,7 @@
             "name": "ESP32-P4 chip (via ESP-PROG-2)",
             "description": "ESP32-P4 debugging via ESP-PROG-2 board",
             "target": "esp32p4",
+            "interface": "esp_usb_bridge",
             "config_files": [
                 "board/esp32p4-bridge.cfg"
             ]

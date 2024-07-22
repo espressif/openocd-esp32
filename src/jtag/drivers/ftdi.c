@@ -75,6 +75,8 @@
 /* FTDI access library includes */
 #include "mpsse.h"
 
+#include "libusb_helper.h"
+
 #define JTAG_MODE (LSB_FIRST | POS_EDGE_IN | NEG_EDGE_OUT)
 #define JTAG_MODE_ALT (LSB_FIRST | NEG_EDGE_IN | NEG_EDGE_OUT)
 #define SWD_MODE (LSB_FIRST | POS_EDGE_IN | NEG_EDGE_OUT)
@@ -918,6 +920,39 @@ COMMAND_HANDLER(ftdi_handle_tdo_sample_edge_command)
 	return ERROR_OK;
 }
 
+COMMAND_HANDLER(ftdi_handle_get_location)
+{
+	char dev_loc[128];
+
+	struct libusb_device_handle *usb_dev = mpsse_get_usb_device(mpsse_ctx);
+	if (!usb_dev) {
+		command_print(CMD, "Can not get device location! No open device.");
+		return ERROR_FAIL;
+	}
+
+	if (jtag_libusb_get_dev_location_by_handle(usb_dev, dev_loc, sizeof(dev_loc)) != ERROR_OK) {
+		command_print(CMD, "Cannot get location for open usb device!");
+		return ERROR_FAIL;
+	}
+
+	command_print(CMD, "%s", dev_loc);
+	return ERROR_OK;
+}
+
+COMMAND_HANDLER(ftdi_handle_dev_list)
+{
+	int cnt, i;
+	char **locations;
+
+	cnt = jtag_libusb_get_devs_locations(ftdi_vid, ftdi_pid, &locations);
+	for (i = 0; i < cnt; i++)
+		command_print(CMD, "%s", locations[i]);
+
+	jtag_libusb_free_devs_locations(locations, cnt);
+
+	return ERROR_OK;
+}
+
 static const struct command_registration ftdi_subcommand_handlers[] = {
 	{
 		.name = "device_desc",
@@ -978,6 +1013,20 @@ static const struct command_registration ftdi_subcommand_handlers[] = {
 			"- default is rising-edge (Setting to falling-edge may "
 			"allow signalling speed increase)",
 		.usage = "(rising|falling)",
+	},
+	{
+		.name = "list_devs",
+		.handler = &ftdi_handle_dev_list,
+		.mode = COMMAND_ANY,
+		.help = "list devices",
+		.usage = "list_devs",
+	},
+	{
+		.name = "get_location",
+		.handler = &ftdi_handle_get_location,
+		.mode = COMMAND_ANY,
+		.help = "get device location",
+		.usage = "get_location",
 	},
 	COMMAND_REGISTRATION_DONE
 };

@@ -16,6 +16,13 @@
                 "$ref": "#/definitions/targetsInfo"
             }
         },
+        "interfaces": {
+            "description": "List of debug interfaces",
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/interfacesInfo"
+            }
+        },
         "boards": {
             "description": "List of boards",
             "type": "array",
@@ -49,12 +56,38 @@
                 "name": {
                     "description": "Name of the target e.g. 'ESP32'",
                     "type": "string"
+                },
+                "idcode": {
+                    "description": "JTAG IDCODE of the chip",
+                    "type": "string"
+                },
+                "ocdid": {
+                    "description": "OCDID of Xtensa chip",
+                    "type": "string"
                 }
             },
             "required": [
                 "id",
                 "name"
             ]
+        },
+        "interfacesInfo": {
+            "type": "object",
+            "description": "Information about debug interface",
+            "properties": {
+                "id": {
+                    "description": "Interface ID. Actually this is OpenOCD debug adapter driver name.",
+                    "type": "string"
+                },
+                "config_file": {
+                    "description": "Config file of debug interface e.g. 'ftdi/esp32_devkitj_v1.cfg'. Path relative to 'interface' sub-dir.",
+                    "type": "string"
+                },
+                "command": {
+                    "description": "Command for the debug interface driver, e.g. 'ftdi'",
+                    "type": "string"
+                }
+            }
         },
         "boardsInfo": {
             "type": "object",
@@ -78,6 +111,15 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "interface": {
+                    "description": "Interface ID. Actually this is OpenOCD debug adapter driver name.",
+                    "type": "string",
+                    "$ref": "#/definitions/interfacesInfo/properties/id"
+                },
+                "location": {
+                    "description": "Location of the board, e.g. for USB it will look like 'usb://<bus>-<port>[.<port>]...'.",
+                    "type": "string"
                 }
             },
             "required": [

@@ -421,6 +421,11 @@ bool mpsse_is_high_speed(struct mpsse_ctx *ctx)
 	return ctx->type != TYPE_FT2232C;
 }
 
+struct libusb_device_handle *mpsse_get_usb_device(struct mpsse_ctx *ctx)
+{
+	return ctx->usb_dev;
+}
+
 void mpsse_purge(struct mpsse_ctx *ctx)
 {
 	int err;
