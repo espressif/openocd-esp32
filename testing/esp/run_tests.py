@@ -82,6 +82,22 @@ BOARD_TCL_CONFIG = {
         'chip_name' : 'esp32c3',
         'target_triple' : 'riscv32-esp-elf'
     },
+    'esp32c5-ftdi' :  {
+        'files' : [
+            os.path.join('board', 'esp32c5-ftdi.cfg')
+        ],
+        'commands' : [],
+        'chip_name' : 'esp32c5',
+        'target_triple' : 'riscv32-esp-elf'
+    },
+    'esp32c5-builtin' :  {
+        'files' : [
+            os.path.join('board', 'esp32c5-builtin.cfg')
+        ],
+        'commands' : [],
+        'chip_name' : 'esp32c5',
+        'target_triple' : 'riscv32-esp-elf'
+    },
     'esp32c6-ftdi' :  {
         'files' : [
             os.path.join('board', 'esp32c6-ftdi.cfg')

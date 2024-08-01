@@ -227,6 +227,18 @@ tests_armhf_esp32c3_flash_encrypted:
     CHIP_NAME: "esp32c3"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
+tests_armhf_esp32c5:
+  extends: .tests_armhf_master_riscv_template
+  tags:
+    - esp32c5
+    - usb_serial_jtag
+  needs:
+    - job: build_test_app_esp32c5
+    - job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32c5"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c5-builtin -p test_*.*Single -e test_special*.*Single"
+
 tests_armhf_esp32c6:
   extends: .tests_armhf_master_riscv_template
   tags:
