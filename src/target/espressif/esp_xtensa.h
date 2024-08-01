@@ -76,6 +76,9 @@ int esp_xtensa_breakpoint_add(struct target *target, struct breakpoint *breakpoi
 int esp_xtensa_breakpoint_remove(struct target *target, struct breakpoint *breakpoint);
 int esp_xtensa_poll(struct target *target);
 int esp_xtensa_reset_reason_read(struct target *target);
+int esp_xtensa_profiling(struct target *target, uint32_t *samples,
+	uint32_t max_num_samples, uint32_t *num_samples, uint32_t seconds);
+
 int esp_xtensa_on_halt(struct target *target);
 
 extern const struct command_registration esp_command_handlers[];
