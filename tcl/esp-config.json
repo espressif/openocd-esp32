@@ -217,6 +217,30 @@
             ]
         },
         {
+            "name": "ESP32-C61 chip (via builtin USB-JTAG)",
+            "description": "ESP32-C61 debugging via builtin USB-JTAG",
+            "target": "esp32c61",
+            "config_files": [
+                "board/esp32c61-builtin.cfg"
+            ]
+        },
+        {
+            "name": "ESP32-C61 chip (via ESP-PROG)",
+            "description": "ESP32-C61 debugging via ESP-PROG board",
+            "target": "esp32c61",
+            "config_files": [
+                "board/esp32c61-ftdi.cfg"
+            ]
+        },
+        {
+            "name": "ESP32-C61 chip (via ESP-PROG-2)",
+            "description": "ESP32-C61 debugging via ESP-PROG-2 board",
+            "target": "esp32c61",
+            "config_files": [
+                "board/esp32c61-bridge.cfg"
+            ]
+        },
+        {
             "name": "ESP32-H2 chip (via builtin USB-JTAG)",
             "description": "ESP32-H2 debugging via builtin USB-JTAG",
             "target": "esp32h2",
