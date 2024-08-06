@@ -40,7 +40,6 @@ def _create_file_reader():
 ########################################################################
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
-@skip_for_chip(['esp32s3'])
 class BaseTracingTestsImpl:
     """ Test cases which are common for dual and single core modes
     """
@@ -193,7 +192,7 @@ class BaseTracingTestsImpl:
                 # every alloc has unique size
                 for t in self.tasks_test_data:
                     if len(self.tasks_test_data[t]['leaks']) > 0 and self.tasks_test_data[t]['leaks'][0]['sz'] == alloc.size:
-                        if testee_info.arch == "riscv32":
+                        if testee_info.arch == "riscv32" or testee_info.idf_ver > IdfVersion.fromstr('5.0'):
                             # skip backtrace check for RISCV
                             self.tasks_test_data[t]['leaks'].pop(0)
                             alloc_valid = True
@@ -218,7 +217,6 @@ class BaseTracingTestsImpl:
     def test_heap_log_from_file(self):
         self._test_trace_from_file(self._do_test_heap_log)
 
-@skip_for_chip(['esp32s3'])
 class SysViewTracingTestsImpl(BaseTracingTestsImpl):
     """ Test cases which are common for dual and single core modes
     """
@@ -313,8 +311,6 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
             trace_src.append(self.trace_ctrl[1]['src'])
         self._do_test_log_continuous(trace_src)
 
-    # OCD-843 for xtensa fix
-    @only_for_arch(['riscv32'])
     def test_heap_log_from_file(self):
         trace_src = [self.trace_ctrl[0]['src']]
         if self.cores_num > 1:
@@ -404,7 +400,7 @@ class SysViewTracingTestsImpl(BaseTracingTestsImpl):
                 print_run_data('IRQ "%s"' % name, irq_run_data[name], iv)
                 freq_dev = 100*(irq_ref_data[name]['freq'] - irq_run_data[name]['run_count']/iv)/irq_ref_data[name]['freq']
                 self.assertTrue(freq_dev <= 10) # max event's freq deviation (due to measurement error) is 10%
-@skip_for_chip(['esp32s3'])
+
 class SysViewMcoreTracingTestsImpl(BaseTracingTestsImpl):
     """ Test cases which are common for dual and single core modes
     """
@@ -488,8 +484,6 @@ class SysViewMcoreTracingTestsImpl(BaseTracingTestsImpl):
         trace_src = [self.trace_ctrl['src']]
         self._do_test_log_continuous(trace_src)
 
-    # OCD-843 for xtensa fix
-    @only_for_arch(['riscv32'])
     def test_heap_log_from_file(self):
         trace_src = [self.trace_ctrl['src']]
         self._do_test_heap_log(trace_src)
@@ -498,7 +492,7 @@ class SysViewMcoreTracingTestsImpl(BaseTracingTestsImpl):
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
 ########################################################################
-
+@skip_for_chip(['esp32s3'])
 class SysViewTraceTestAppTestsDual(DebuggerGenericTestAppTests):
     """ Base class to run tests which use gcov test app in dual core mode
     """
@@ -519,7 +513,6 @@ class SysViewTraceTestAppTestsSingle(DebuggerGenericTestAppTests):
         self.test_app_cfg.build_dir = os.path.join('builds', 'svtrace_single')
         self.test_tasks_num = 1
         self.cores_num = 1
-
 
 class SysViewTracingTestsDual(SysViewTraceTestAppTestsDual, SysViewTracingTestsImpl):
     """ Test cases via GDB in dual core mode
