@@ -885,6 +885,7 @@ COMMAND_HANDLER(esp_xtensa_smp_cmd_perfmon_dump)
 		}
 		return ERROR_OK;
 	}
+	command_print(CMD, "CPU0:");
 	return CALL_COMMAND_HANDLER(xtensa_cmd_perfmon_dump_do,
 		target_to_xtensa(target));
 }
