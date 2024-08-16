@@ -61,6 +61,9 @@ class OocdEspImpl:
     def process_lazy_bps(self):
         self.cmd_exec('esp process_lazy_breakpoints')
 
+    def disable_lazy_bps(self):
+        self.cmd_exec('esp disable_lazy_breakpoints')
+
 class OocdEspXtensa(OocdXtensa, OocdEspImpl):
     """
         Class to communicate to OpenOCD supporting ESP Xtensa-specific features

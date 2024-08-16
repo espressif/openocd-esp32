@@ -42,6 +42,7 @@ int esp_common_init(struct target *target, struct esp_common *esp,
 	esp->flash_brps.brps = calloc(ESP_FLASH_BREAKPOINTS_MAX_NUM, sizeof(struct esp_flash_breakpoint));
 	if (!esp->flash_brps.brps)
 		return ERROR_FAIL;
+	esp->breakpoint_lazy_process = true;
 
 	if (target->coreid == 0)
 		target_register_event_callback(esp_callback_event_handler, esp);
@@ -245,7 +246,7 @@ int esp_common_flash_breakpoint_add(struct target *target, struct esp_common *es
 	if (ret != ERROR_OK)
 		return ret;
 
-	if (flash_bps->ops->breakpoint_lazy_process) {
+	if (esp->breakpoint_lazy_process) {
 		flash_bps->brps[slot].action = ESP_BP_ACT_ADD;
 		flash_bps->brps[slot].status = ESP_BP_STAT_PEND;
 		esp_common_dump_bp_slot("BP-ADD(new)", flash_bps, slot);
@@ -267,7 +268,7 @@ int esp_common_flash_breakpoint_remove(struct target *target, struct esp_common 
 	}
 
 	if (slot == ESP_FLASH_BREAKPOINTS_MAX_NUM) {
-		if (esp->flash_brps.ops->breakpoint_lazy_process) {
+		if (esp->breakpoint_lazy_process) {
 			/* This is not an error since breakpoints are already removed inside qxfer-thread-read-end event */
 			return ERROR_OK;
 		}
@@ -276,7 +277,7 @@ int esp_common_flash_breakpoint_remove(struct target *target, struct esp_common 
 	}
 
 	/* Mark that z1 package received for this slot */
-	if (esp->flash_brps.ops->breakpoint_lazy_process) {
+	if (esp->breakpoint_lazy_process) {
 		flash_bps[slot].action = ESP_BP_ACT_REM;
 		flash_bps[slot].status = ESP_BP_STAT_PEND;
 		esp_common_dump_bp_slot("BP-REMOVE", &esp->flash_brps, slot);
@@ -380,7 +381,7 @@ int esp_common_handle_gdb_detach(struct target *target)
 	if (ret != ERROR_OK)
 		return ret;
 
-	if (esp->flash_brps.ops->breakpoint_lazy_process) {
+	if (esp->breakpoint_lazy_process) {
 		esp_common_flash_breakpoints_get_ready_to_remove(esp);
 		ret = esp_common_process_lazy_flash_breakpoints(target);
 	} else {
@@ -403,7 +404,7 @@ int esp_common_handle_flash_breakpoints(struct target *target)
 {
 	struct esp_common *esp = target_to_esp_common(target);
 
-	if (!esp->flash_brps.ops->breakpoint_lazy_process)
+	if (!esp->breakpoint_lazy_process)
 		return ERROR_OK;
 
 	if (!esp_common_any_pending_flash_breakpoint(esp))
@@ -515,6 +516,26 @@ int esp_common_process_flash_breakpoints_handler(struct target *target)
 	return esp_common_handle_flash_breakpoints(target);
 }
 
+int esp_common_disable_lazy_breakpoints_handler(struct target *target)
+{
+	/* Before disabling, add/remove pending breakpoints */
+	int ret = esp_common_process_flash_breakpoints_handler(target);
+	if (ret != ERROR_OK)
+		return ret;
+
+	if (target->smp) {
+		struct target_list *head;
+		foreach_smp_target(head, target->smp_targets) {
+			target_to_esp_common(target)->breakpoint_lazy_process = false;
+		}
+		return ERROR_OK;
+	}
+
+	target_to_esp_common(target)->breakpoint_lazy_process = false;
+
+	return ERROR_OK;
+}
+
 int esp_common_process_flash_breakpoints_command(struct command_invocation *cmd)
 {
 	if (CMD_ARGC != 0)
@@ -523,6 +544,23 @@ int esp_common_process_flash_breakpoints_command(struct command_invocation *cmd)
 	struct target *target = get_current_target(CMD_CTX);
 
 	return esp_common_process_flash_breakpoints_handler(target);
+}
+
+int esp_common_disable_lazy_breakpoints_command(struct command_invocation *cmd)
+{
+	if (CMD_ARGC != 0)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	struct target *target = get_current_target(CMD_CTX);
+
+	int ret = esp_common_disable_lazy_breakpoints_handler(target);
+
+	if (ret == ERROR_OK)
+		command_print(CMD, "disabled");
+	else
+		command_print(CMD, "failed");
+
+	return ret;
 }
 
 static int esp_callback_event_handler(struct target *target, enum target_event event, void *priv)

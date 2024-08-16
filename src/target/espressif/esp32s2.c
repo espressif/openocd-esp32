@@ -547,7 +547,6 @@ static const struct esp_flash_breakpoint_ops esp32s2_spec_brp_ops = {
 	.breakpoint_prepare = esp_algo_flash_breakpoint_prepare,
 	.breakpoint_add = esp_algo_flash_breakpoint_add,
 	.breakpoint_remove = esp_algo_flash_breakpoint_remove,
-	.breakpoint_lazy_process = true,
 };
 
 static const struct esp_semihost_ops esp32s2_semihost_ops = {

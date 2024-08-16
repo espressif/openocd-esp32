@@ -115,7 +115,6 @@ struct esp_flash_breakpoint_ops {
 	int (*breakpoint_remove)(struct target *target,
 		struct esp_flash_breakpoint *bp,
 		size_t num_bps);
-	bool breakpoint_lazy_process;
 };
 
 struct esp_flash_breakpoints {
@@ -128,6 +127,7 @@ struct esp_common {
 	const struct esp_algorithm_hw *algo_hw;
 	struct esp_dbg_stubs dbg_stubs;
 	struct esp_panic_reason panic_reason;
+	bool breakpoint_lazy_process;
 };
 
 struct esp_ops {
@@ -151,6 +151,7 @@ bool esp_common_flash_breakpoint_exists(struct esp_common *esp,
 	struct breakpoint *breakpoint);
 int esp_common_handle_gdb_detach(struct target *target);
 int esp_common_process_flash_breakpoints_command(struct command_invocation *cmd);
+int esp_common_disable_lazy_breakpoints_command(struct command_invocation *cmd);
 int esp_dbgstubs_table_read(struct target *target, struct esp_dbg_stubs *dbg_stubs);
 
 void esp_common_assist_debug_monitor_disable(struct target *target, uint32_t address, uint32_t *value);
