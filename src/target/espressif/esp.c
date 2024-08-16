@@ -140,14 +140,7 @@ void esp_common_dump_bp_slot(const char *caption, struct esp_flash_breakpoints *
 		if (caption && strlen(caption))
 			LOG_OUTPUT("=========== %s ===============\n", caption);
 		LOG_OUTPUT("Slot: %zu\n", slot);
-		LOG_OUTPUT("\tbreakpoint:\n");
-		LOG_OUTPUT("\t\taddress   : " TARGET_ADDR_FMT "\n", curr->address);
-		LOG_OUTPUT("\t\tnumber    : %d\n", curr->number);
-		LOG_OUTPUT("\t\tunique_id : %d\n", curr->unique_id);
-		LOG_OUTPUT("\t\ttype      : %s\n", curr->type ? "SOFT" : "HARD");
-		LOG_OUTPUT("\t\tlen       : %d\n", curr->length);
-		LOG_OUTPUT("\t\tis_set    : %d\n", curr->is_set);
-		LOG_OUTPUT(" \tinst          : ");
+		LOG_OUTPUT(" \toriginal inst : ");
 		struct esp_flash_breakpoint *brps = &bps->brps[slot];
 		for (int i = 0; i < brps->insn_sz; i++)
 			LOG_OUTPUT("%02X", brps->insn[i]);
