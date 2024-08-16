@@ -985,7 +985,14 @@ const struct command_registration esp_riscv_command_handlers[] = {
 		.name = "process_lazy_breakpoints",
 		.handler = esp_common_process_flash_breakpoints_command,
 		.mode = COMMAND_ANY,
-		.help = "Handles resum-start and step-start events to set/clear all waiting flash breakpoints",
+		.help = "Set/clear all pending flash breakpoints",
+		.usage = "",
+	},
+	{
+		.name = "disable_lazy_breakpoints",
+		.handler = esp_common_disable_lazy_breakpoints_command,
+		.mode = COMMAND_ANY,
+		.help = "Process flash breakpoints on time",
 		.usage = "",
 	},
 	{
