@@ -1,9 +1,22 @@
-../src/flash/nor/esp_flash.c:1360:1: warning: symbol 'esp_algo_flash_cmd_appimage_flashoff_do' was not declared. Should it be static?
-../src/flash/nor/esp_flash.c:1403:1: warning: symbol 'esp_algo_flash_cmd_set_compression' was not declared. Should it be static?
-../src/flash/nor/esp_flash.c:1452:1: warning: symbol 'esp_algo_flash_cmd_set_encryption' was not declared. Should it be static?
-../src/flash/nor/esp_flash.c:1556:1: warning: symbol 'esp_algo_flash_parse_cmd_verify_bank_hash' was not declared. Should it be static?
-../src/flash/nor/esp_flash.c:1569:1: warning: symbol 'esp_algo_flash_parse_cmd_clock_boost' was not declared. Should it be static?
-../src/flash/nor/esp_flash.c:1597:1: warning: symbol 'esp_algo_flash_parse_cmd_stub_log' was not declared. Should it be static?
+../src/flash/nor/eneispif.c:37:21: warning: symbol 'ene_flash_device' was not declared. Should it be static?
+../src/flash/nor/esp_flash.c:1478:1: warning: symbol 'esp_algo_flash_cmd_appimage_flashoff_do' was not declared. Should it be static?
+../src/flash/nor/esp_flash.c:1521:1: warning: symbol 'esp_algo_flash_cmd_set_compression' was not declared. Should it be static?
+../src/flash/nor/esp_flash.c:1570:1: warning: symbol 'esp_algo_flash_cmd_set_encryption' was not declared. Should it be static?
+../src/flash/nor/esp_flash.c:1674:1: warning: symbol 'esp_algo_flash_parse_cmd_verify_bank_hash' was not declared. Should it be static?
+../src/flash/nor/esp_flash.c:1687:1: warning: symbol 'esp_algo_flash_parse_cmd_clock_boost' was not declared. Should it be static?
+../src/flash/nor/esp_flash.c:1715:1: warning: symbol 'esp_algo_flash_parse_cmd_stub_log' was not declared. Should it be static?
+../src/jtag/drivers/libusb_helper.c:505:6: warning: symbol 'libusb_list_devices' was not declared. Should it be static?
+../src/rtos/hwthread.c:46:9: warning: the address of an array will always evaluate as true
+../src/rtos/hwthread.c:46:9: warning: the address of an array will always evaluate as true
+../src/target/espressif/esp.c:132:6: warning: symbol 'esp_common_dump_bp_slot' was not declared. Should it be static?
+../src/target/espressif/esp.c:176:6: warning: symbol 'esp_common_any_pending_flash_breakpoint' was not declared. Should it be static?
+../src/target/espressif/esp.c:185:6: warning: symbol 'esp_common_any_added_flash_breakpoint' was not declared. Should it be static?
+../src/target/espressif/esp.c:194:6: warning: symbol 'esp_common_flash_breakpoints_get_ready_to_remove' was not declared. Should it be static?
+../src/target/espressif/esp.c:289:5: warning: symbol 'esp_common_process_lazy_flash_breakpoints' was not declared. Should it be static?
+../src/target/espressif/esp.c:348:5: warning: symbol 'esp_common_halt_target' was not declared. Should it be static?
+../src/target/espressif/esp.c:402:5: warning: symbol 'esp_common_handle_flash_breakpoints' was not declared. Should it be static?
+../src/target/espressif/esp.c:490:5: warning: symbol 'esp_common_gdb_detach_handler' was not declared. Should it be static?
+../src/target/espressif/esp.c:504:5: warning: symbol 'esp_common_process_flash_breakpoints_handler' was not declared. Should it be static?
 ../src/target/espressif/esp32_apptrace.c:463:9: warning: the address of an array will always evaluate as true
 ../src/target/espressif/esp32_apptrace.c:463:9: warning: the address of an array will always evaluate as true
 ../src/target/espressif/esp32_apptrace.c:601:9: warning: the address of an array will always evaluate as true
@@ -14,36 +27,36 @@
 ../src/target/riscv/program.c:160:9: warning: the address of an array will always evaluate as true
 ../src/target/riscv/riscv-013.c:1227:9: warning: the address of an array will always evaluate as true
 ../src/target/riscv/riscv-013.c:1227:9: warning: the address of an array will always evaluate as true
-../src/target/riscv/riscv-013.c:4118:9: warning: the address of an array will always evaluate as true
-../src/target/riscv/riscv-013.c:4118:9: warning: the address of an array will always evaluate as true
-../src/target/riscv/riscv.c:2282:21: warning: constant 0xF000000000000000 is so big it is unsigned long
-../src/target/riscv/riscv.c:2294:21: warning: constant 0xF000000000000000 is so big it is unsigned long
-../src/target/riscv/riscv.c:2317:29: warning: constant 0xF000000000000000 is so big it is unsigned long
-../src/target/riscv/riscv.c:2428:43: warning: constant 0xF000000000000000 is so big it is unsigned long
-../src/target/riscv/riscv.c:2435:43: warning: constant 0xF000000000000000 is so big it is unsigned long
-../src/target/riscv/riscv.c:2505:62: warning: constant 0x00000FFFFFFFFFFF is so big it is long
-../src/target/riscv/riscv.c:2506:62: warning: constant 0x00000FFFFFFFFFFF is so big it is long
+../src/target/riscv/riscv-013.c:4120:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv-013.c:4120:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv.c:2295:21: warning: constant 0xF000000000000000 is so big it is unsigned long
+../src/target/riscv/riscv.c:2307:21: warning: constant 0xF000000000000000 is so big it is unsigned long
+../src/target/riscv/riscv.c:2330:29: warning: constant 0xF000000000000000 is so big it is unsigned long
+../src/target/riscv/riscv.c:2441:43: warning: constant 0xF000000000000000 is so big it is unsigned long
+../src/target/riscv/riscv.c:2448:43: warning: constant 0xF000000000000000 is so big it is unsigned long
 ../src/target/riscv/riscv.c:2518:62: warning: constant 0x00000FFFFFFFFFFF is so big it is long
-../src/target/riscv/riscv.c:2556:47: warning: constant 0xF000000000000000 is so big it is unsigned long
-../src/target/riscv/riscv.c:2582:58: warning: constant 0x00000FFFFFFFFFFF is so big it is long
-../src/target/riscv/riscv.c:4029:1: warning: symbol 'riscv_clear_trigger' was not declared. Should it be static?
-../src/target/riscv/riscv.c:5305:9: warning: the address of an array will always evaluate as true
-../src/target/riscv/riscv.c:5305:9: warning: the address of an array will always evaluate as true
-../src/target/riscv/riscv.c:5325:9: warning: the address of an array will always evaluate as true
-../src/target/riscv/riscv.c:5325:9: warning: the address of an array will always evaluate as true
-../src/target/riscv/riscv.c:5853:9: warning: expression using sizeof _Bool
-../src/target/riscv/riscv.c:5853:9: warning: expression using sizeof _Bool
+../src/target/riscv/riscv.c:2519:62: warning: constant 0x00000FFFFFFFFFFF is so big it is long
+../src/target/riscv/riscv.c:2531:62: warning: constant 0x00000FFFFFFFFFFF is so big it is long
+../src/target/riscv/riscv.c:2569:47: warning: constant 0xF000000000000000 is so big it is unsigned long
+../src/target/riscv/riscv.c:2595:58: warning: constant 0x00000FFFFFFFFFFF is so big it is long
+../src/target/riscv/riscv.c:4042:1: warning: symbol 'riscv_clear_trigger' was not declared. Should it be static?
+../src/target/riscv/riscv.c:5318:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv.c:5318:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv.c:5338:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv.c:5338:9: warning: the address of an array will always evaluate as true
+../src/target/riscv/riscv.c:5866:9: warning: expression using sizeof _Bool
+../src/target/riscv/riscv.c:5866:9: warning: expression using sizeof _Bool
 ../src/target/riscv/riscv.c:766:21: warning: symbol 'tdata2_cache_search' was not declared. Should it be static?
 ../src/target/riscv/riscv.c:776:21: warning: symbol 'tdata1_cache_search' was not declared. Should it be static?
-../src/target/xtensa/xtensa.c:1428:17: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:1428:17: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:2711:25: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:2711:25: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:3950:17: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:3950:17: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:4207:1: warning: symbol 'xtensa_cmd_dm_rw_do' was not declared. Should it be static?
-../src/target/xtensa/xtensa.c:426:9: warning: the address of an array will always evaluate as true
-../src/target/xtensa/xtensa.c:426:9: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:1493:17: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:1493:17: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:2784:25: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:2784:25: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:4023:17: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:4023:17: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:4280:1: warning: symbol 'xtensa_cmd_dm_rw_do' was not declared. Should it be static?
+../src/target/xtensa/xtensa.c:453:9: warning: the address of an array will always evaluate as true
+../src/target/xtensa/xtensa.c:453:9: warning: the address of an array will always evaluate as true
 _glob.c:3:5: warning: symbol 'Jim_globInit' was not declared. Should it be static?
 _initjimsh.c:3:5: warning: symbol 'Jim_initjimshInit' was not declared. Should it be static?
 _jsonencode.c:3:5: warning: symbol 'Jim_jsonencodeInit' was not declared. Should it be static?
@@ -52,3 +65,4 @@ _oo.c:3:5: warning: symbol 'Jim_ooInit' was not declared. Should it be static?
 _stdlib.c:3:5: warning: symbol 'Jim_stdlibInit' was not declared. Should it be static?
 _tclcompat.c:3:5: warning: symbol 'Jim_tclcompatInit' was not declared. Should it be static?
 _tree.c:3:5: warning: symbol 'Jim_treeInit' was not declared. Should it be static?
+openocd.texi:5201: warning: `.' or `,' must follow @xref, not f
