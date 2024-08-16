@@ -324,11 +324,11 @@ int esp_common_process_lazy_flash_breakpoints(struct target *target)
 	/* If both possible pending states in the cache, add them one by one in the order they were added */
 	if (add_num_bps && remove_num_bps) {
 		for (size_t slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; ++slot) {
-			if (flash_bps->status == ESP_BP_STAT_PEND) {
+			if (flash_bps[slot].status == ESP_BP_STAT_PEND) {
 				if (flash_bps[slot].action == ESP_BP_ACT_ADD)
-					ret = esp->flash_brps.ops->breakpoint_add(target, flash_bps, 1);
+					ret = esp->flash_brps.ops->breakpoint_add(target, &flash_bps[slot], 1);
 				else
-					ret = esp->flash_brps.ops->breakpoint_remove(target, flash_bps, 1);
+					ret = esp->flash_brps.ops->breakpoint_remove(target, &flash_bps[slot], 1);
 				if (ret != ERROR_OK) {
 					LOG_TARGET_ERROR(target, "Breakpoints couldn't be processed at slot (%zu)", slot);
 					return ret;
