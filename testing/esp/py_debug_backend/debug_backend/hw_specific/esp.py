@@ -270,6 +270,21 @@ class OocdEsp32s3(OocdEspXtensa):
                                         log_stream_handler=log_stream_handler,
                                         log_file_handler=log_file_handler)
 
+class OocdEsp32p4(OocdEspRiscv):
+    """
+        Class to communicate to OpenOCD supporting ESP32-P4 specific features
+    """
+    chip_name = 'esp32p4'
+
+    def __init__(self, oocd_exec=None, oocd_scripts=None, oocd_cfg_files=[], oocd_cfg_cmds=[], oocd_debug=2,
+                 oocd_args=[], host='127.0.0.1', log_level=None, log_stream_handler=None, log_file_handler=None):
+        super(OocdEsp32p4, self).__init__(cores_num=2, oocd_exec=oocd_exec, oocd_scripts=oocd_scripts,
+                                        oocd_cfg_files=oocd_cfg_files, oocd_cfg_cmds=oocd_cfg_cmds,
+                                        oocd_debug=oocd_debug,
+                                        oocd_args=oocd_args, host=host, log_level=log_level,
+                                        log_stream_handler=log_stream_handler,
+                                        log_file_handler=log_file_handler)
+
 class GdbEspRiscv(GdbEspImpl, GdbRiscv):
     """
         Class to communicate to GDB supporting ESP RISCV-specific features

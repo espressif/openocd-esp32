@@ -249,6 +249,14 @@ build_test_app_esp32h2:
     TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single single_core_amazon_freertos"
   extends: .build_idf_master_test_app_template
 
+build_test_app_esp32p4:
+  variables:
+    CHIP_NAME: "esp32p4"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    BUILD_TEST_APP_DIR: "build_test_app_esp32p4"
+    TEST_APP_CONFIGS: "default svtrace_dual apptrace_gcov_dual default_amazon_freertos"
+  extends: .build_idf_master_test_app_template
+
 ##############
 # IDF 5.2.X #
 ##############
