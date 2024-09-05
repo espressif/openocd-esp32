@@ -288,6 +288,17 @@ tests_armhf_esp32h2:
     CHIP_NAME: "esp32h2"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32h2-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
 
+tests_armhf_esp32p4:
+  extends: .tests_armhf_master_riscv_template
+  allow_failure: true
+  needs:
+    - job: build_test_app_esp32p4
+    - job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32p4"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32p4-ftdi -p test_*.*Dual"
+
+
 ##############
 # IDF 5.2.X #
 ##############
