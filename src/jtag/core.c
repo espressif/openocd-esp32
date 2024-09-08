@@ -222,7 +222,7 @@ static void jtag_tap_add(struct jtag_tap *t)
 }
 
 /* returns a pointer to the n-th device in the scan chain */
-struct jtag_tap *jtag_tap_by_position(unsigned n)
+struct jtag_tap *jtag_tap_by_position(unsigned int n)
 {
 	struct jtag_tap *t = jtag_all_taps();
 
@@ -244,7 +244,7 @@ struct jtag_tap *jtag_tap_by_string(const char *s)
 	}
 
 	/* no tap found by name, so try to parse the name as a number */
-	unsigned n;
+	unsigned int n;
 	if (parse_uint(s, &n) != ERROR_OK)
 		return NULL;
 
