@@ -221,9 +221,9 @@ enum dsp563xx_reg_idx {
 };
 
 static const struct {
-	unsigned id;
+	unsigned int id;
 	const char *name;
-	unsigned bits;
+	unsigned int bits;
 	/* effective addressing mode encoding */
 	uint8_t eame;
 	uint32_t instr_mask;
@@ -2144,7 +2144,7 @@ COMMAND_HANDLER(dsp563xx_mem_command)
 		err = dsp563xx_read_memory(target, mem_type, address, sizeof(uint32_t),
 				count, buffer);
 		if (err == ERROR_OK)
-			target_handle_md_output(CMD, target, address, sizeof(uint32_t), count, buffer, true);
+			target_handle_md_output(CMD, target, address, sizeof(uint32_t), count, buffer);
 
 	} else {
 		b = buffer;

@@ -486,7 +486,7 @@ static int swd_queue_ap_abort(struct adiv5_dap *dap, uint8_t *ack)
 	return check_sync(dap);
 }
 
-static int swd_queue_dp_read(struct adiv5_dap *dap, unsigned reg,
+static int swd_queue_dp_read(struct adiv5_dap *dap, unsigned int reg,
 		uint32_t *data)
 {
 	int retval = swd_check_reconnect(dap);
@@ -500,7 +500,7 @@ static int swd_queue_dp_read(struct adiv5_dap *dap, unsigned reg,
 	return swd_queue_dp_read_inner(dap, reg, data);
 }
 
-static int swd_queue_dp_write(struct adiv5_dap *dap, unsigned reg,
+static int swd_queue_dp_write(struct adiv5_dap *dap, unsigned int reg,
 		uint32_t data)
 {
 	const struct swd_driver *swd = adiv5_dap_swd_driver(dap);
@@ -518,7 +518,7 @@ static int swd_queue_dp_write(struct adiv5_dap *dap, unsigned reg,
 }
 
 /** Select the AP register bank */
-static int swd_queue_ap_bankselect(struct adiv5_ap *ap, unsigned reg)
+static int swd_queue_ap_bankselect(struct adiv5_ap *ap, unsigned int reg)
 {
 	int retval;
 	struct adiv5_dap *dap = ap->dap;
@@ -568,7 +568,7 @@ static int swd_queue_ap_bankselect(struct adiv5_ap *ap, unsigned reg)
 	return ERROR_OK;
 }
 
-static int swd_queue_ap_read(struct adiv5_ap *ap, unsigned reg,
+static int swd_queue_ap_read(struct adiv5_ap *ap, unsigned int reg,
 		uint32_t *data)
 {
 	struct adiv5_dap *dap = ap->dap;
@@ -593,7 +593,7 @@ static int swd_queue_ap_read(struct adiv5_ap *ap, unsigned reg,
 	return check_sync(dap);
 }
 
-static int swd_queue_ap_write(struct adiv5_ap *ap, unsigned reg,
+static int swd_queue_ap_write(struct adiv5_ap *ap, unsigned int reg,
 		uint32_t data)
 {
 	struct adiv5_dap *dap = ap->dap;
