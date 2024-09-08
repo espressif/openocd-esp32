@@ -38,7 +38,7 @@ static int stm8_unset_watchpoint(struct target *target,
 static int (*adapter_speed)(int speed);
 
 static const struct {
-	unsigned id;
+	unsigned int id;
 	const char *name;
 	const uint8_t bits;
 	enum reg_type type;
