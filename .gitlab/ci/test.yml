@@ -648,7 +648,7 @@ test_on_windows:
 test_on_macos:
   stage: test_host
   tags:
-    - macos_shell
+    - darwin
     - amd64
   needs:
     - job: build_macos
@@ -664,7 +664,7 @@ test_on_macos:
 tests_on_macos_arm64:
   stage: test_host
   tags:
-    - macos_shell
+    - darwin
     - aarch64
   needs:
     - job: build_macos_arm64
