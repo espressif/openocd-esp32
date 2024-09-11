@@ -31,15 +31,15 @@
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}"
-    ESP_GDB_TOOLCHAIN: "${ESP_V5_3X_XTENSA_GDB_TOOLCHAIN}"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_4X_XTENSA_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "xtensa-esp"
-    ESP_TOOLCHAIN: "${ESP_V5_3X_TOOLCHAIN_VER}"
+    ESP_TOOLCHAIN: "${ESP_V5_4X_TOOLCHAIN_VER}"
 
 .tests_sanitizers_master_riscv_template:
   extends: .tests_sanitizers_master_template
   variables:
     CHIP_TEST_TOOLCHAIN: "riscv32-esp"
-    ESP_GDB_TOOLCHAIN: "${ESP_V5_3X_RISCV_GDB_TOOLCHAIN}"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_4X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
 
 .tests_sanitizers_v5.2.x_template:
