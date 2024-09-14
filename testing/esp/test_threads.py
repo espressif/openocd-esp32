@@ -95,7 +95,6 @@ class DebuggerThreadsTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerThre
     pass
 
 @idf_ver_min('5.3')
-@skip_for_chip(['esp342p4'])
 class DebuggerThreadsTestsAmazonFreeRTOSDual(DebuggerGenericTestAppTestsDual, DebuggerThreadsTestsImpl):
 
     def __init__(self, methodName='runTest'):
