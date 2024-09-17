@@ -31,13 +31,7 @@ int test_timer_init(struct timer_task_arg* arg)
 
     gptimer_handle_t gptimer = NULL;
     gptimer_config_t config = {
-#if CONFIG_SOC_TIMER_GROUP_SUPPORT_APB
-        .clk_src = GPTIMER_CLK_SRC_APB,
-#elif CONFIG_SOC_TIMER_GROUP_SUPPORT_PLL_F40M
-        .clk_src = GPTIMER_CLK_SRC_PLL_F40M,
-#else
-        .clk_src = GPTIMER_CLK_SRC_XTAL,
-#endif
+        .clk_src = GPTIMER_CLK_SRC_DEFAULT,
         .direction = GPTIMER_COUNT_UP,
         .resolution_hz = 2.5 * 1000 * 1000,
     };
