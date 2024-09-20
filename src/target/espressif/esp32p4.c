@@ -44,6 +44,9 @@
 #define ESP32P4_CACHE_SYNC_INVALIDATE           BIT(0)
 #define ESP32P4_CACHE_SYNC_WRITEBACK            BIT(2)
 
+#define ESP32P4_CACHE_MAP_L1_ICACHE (ESP32P4_CACHE_MAP_L1_ICACHE0 | ESP32P4_CACHE_MAP_L1_ICACHE1)
+#define ESP32P4_CACHE_MAP_ALL (ESP32P4_CACHE_MAP_L1_ICACHE | ESP32P4_CACHE_MAP_L1_DCACHE | ESP32P4_CACHE_MAP_L2_CACHE)
+
 #define ESP32P4_IRAM0_CACHEABLE_ADDRESS_LOW     0x4ff00000U
 #define ESP32P4_IRAM0_CACHEABLE_ADDRESS_HIGH    0x4ffc0000U
 #define ESP32P4_NON_CACHEABLE_OFFSET            0x40000000U
@@ -249,7 +252,7 @@ static int esp32p4_sync_cache(struct target *target, uint32_t op)
 	int res;
 	uint8_t value_buf[4];
 
-	target_buffer_set_u32(target, value_buf, ESP32P4_CACHE_MAP_L1_DCACHE | ESP32P4_CACHE_MAP_L2_CACHE);
+	target_buffer_set_u32(target, value_buf, ESP32P4_CACHE_MAP_ALL);
 	res = esp_riscv_write_memory(target, ESP32P4_CACHE_SYNC_MAP_REG, 4, 1, value_buf);
 	if (res != ERROR_OK)
 		return res;

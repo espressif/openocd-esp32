@@ -87,6 +87,8 @@ class StepTestsImpl():
         new_pc = self.gdb.get_reg('pc')
         self.compare_pc_diffs(new_pc, old_pc)
 
+    # OCD-1006
+    @skip_for_chip(['esp32p4'])
     def test_step_over_wp(self):
         """
             This test checks that debugger can step over triggered watchpoint.
