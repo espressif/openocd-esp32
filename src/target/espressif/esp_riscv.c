@@ -590,6 +590,9 @@ int esp_riscv_resume(struct target *target, int current, target_addr_t address,
 			handle_breakpoints = true;
 	}
 
+	if (!(target->debug_reason == DBG_REASON_BREAKPOINT || target->debug_reason == DBG_REASON_WATCHPOINT))
+		handle_breakpoints = false;
+
 	return riscv_target_resume(target, current, address, handle_breakpoints, debug_execution);
 }
 
