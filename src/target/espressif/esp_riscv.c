@@ -61,6 +61,10 @@ enum esp_riscv_exception_cause {
 
 #define ESP_RISCV_EXCEPTION_CAUSE(reg_val)  ((reg_val) & 0x1F)
 
+#define ESP_RISCV_LOAD_FP     0x07
+#define ESP_RISCV_STORE_FP    0x27
+#define ESP_RISCV_OP_FP       0x53
+
 #define ESP_SEMIHOSTING_WP_FLG_RD   (1UL << 0)
 #define ESP_SEMIHOSTING_WP_FLG_WR   (1UL << 1)
 
@@ -132,16 +136,36 @@ static void esp_riscv_print_exception_reason(struct target *target)
 	int result = riscv_get_register(target, &mcause, GDB_REGNO_MCAUSE);
 	if (result != ERROR_OK) {
 		LOG_ERROR("Failed to read mcause register. Unknown exception reason!");
-	} else {
-		/* Exception ID 0x0 (instruction access misaligned) is not present because CPU always masks the lowest
-		 * bit of the address during instruction fetch.
-		 * And (mcause(31) is 1 for interrupts and 0 for exceptions). We will print only exception reasons */
-		LOG_TARGET_DEBUG(target, "mcause=%" PRIx64, mcause);
-		if (mcause & BIT(31) || mcause == 0)
-			return;
-		LOG_TARGET_INFO(target, "Halt cause (%d) - (%s)", (int)ESP_RISCV_EXCEPTION_CAUSE(mcause),
-			esp_riscv_get_exception_reason(mcause));
+		return;
 	}
+
+	/* Exception ID 0x0 (instruction access misaligned) is not present because CPU always masks the lowest
+	* bit of the address during instruction fetch.
+	* And (mcause(31) is 1 for interrupts and 0 for exceptions). We will print only exception reasons */
+	LOG_TARGET_DEBUG(target, "mcause=0x%" PRIx64, mcause);
+	if (mcause & BIT(31) || ESP_RISCV_EXCEPTION_CAUSE(mcause) == 0)
+		return;
+
+	if (ESP_RISCV_EXCEPTION_CAUSE(mcause) == ILLEGAL_INSTRUCTION) {
+		riscv_reg_t mtval;
+		result = riscv_get_register(target, &mtval, CSR_MTVAL + GDB_REGNO_CSR0);
+		if (result != ERROR_OK) {
+			LOG_ERROR("Failed to read mtval register!");
+			return;
+		}
+		uint32_t opcode = (mtval >> 0) & ((1U << 7) - 1);
+		LOG_TARGET_DEBUG(target, "mtval=0x%" PRIx64 " opcode=0x%" PRIx32, mtval, opcode);
+		/*
+			These floating point instruction faults are handled in the idf _panic_handler and returned
+			without terminating the program.
+			Therefore, printing the exception cause here could provide incorrect information to users.
+		*/
+		if (opcode == ESP_RISCV_LOAD_FP || opcode == ESP_RISCV_STORE_FP || opcode == ESP_RISCV_OP_FP)
+			return;
+	}
+
+	LOG_TARGET_INFO(target, "Halt cause (%d) - (%s)", (int)ESP_RISCV_EXCEPTION_CAUSE(mcause),
+		esp_riscv_get_exception_reason(mcause));
 }
 
 static bool esp_riscv_is_wp_set_by_program(struct target *target)
