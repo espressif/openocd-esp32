@@ -21,6 +21,13 @@
 #include "esp_riscv_apptrace.h"
 #include "esp_riscv.h"
 
+#define ESP32C5_LP_CLKRST_BASE                  0x600B0400
+#define ESP32C5_LP_CLKRST_RESET_CAUSE_REG       (ESP32C5_LP_CLKRST_BASE + 0x10)
+#define ESP32C5_RTCCNTL_RESET_STATE_REG         (ESP32C5_LP_CLKRST_RESET_CAUSE_REG)
+
+#define ESP32C5_RTCCNTL_RESET_CAUSE_MASK        (BIT(5) - 1)
+#define ESP32C5_RESET_CAUSE(reg_val)            ((reg_val) & ESP32C5_RTCCNTL_RESET_CAUSE_MASK)
+
 /* max supported hw breakpoint and watchpoint count */
 #define ESP32C5_BP_NUM                          3
 #define ESP32C5_WP_NUM                          3
@@ -30,6 +37,83 @@
 
 #define ESP32C5_DRAM_LOW    0x40800000
 #define ESP32C5_DRAM_HIGH   0x40860000
+
+enum esp32c5_reset_reason {
+	ESP32C5_CHIP_POWER_ON_RESET   = 0x01, /* Power on reset */
+	ESP32C5_CHIP_BROWN_OUT_RESET  = 0x01, /* VDD voltage is not stable and resets the chip */
+	ESP32C5_CORE_SW_RESET         = 0x03, /* Software resets the digital core (hp system) by LP_AON_HPSYS_SW_RESET */
+	ESP32C5_CORE_DEEP_SLEEP_RESET = 0x05, /* Deep sleep reset the digital core (hp system) */
+	ESP32C5_CORE_MWDT0_RESET      = 0x07, /* Main watch dog 0 resets digital core (hp system) */
+	ESP32C5_CORE_MWDT1_RESET      = 0x08, /* Main watch dog 1 resets digital core (hp system) */
+	ESP32C5_CORE_RTC_WDT_RESET    = 0x09, /* RTC watch dog resets digital core (hp system) */
+	ESP32C5_CPU0_MWDT0_RESET      = 0x0B, /* Main watch dog 0 resets CPU 0 */
+	ESP32C5_CPU0_SW_RESET         = 0x0C, /* Software resets CPU 0 by LP_AON_CPU_CORE0_SW_RESET */
+	ESP32C5_CPU0_RTC_WDT_RESET    = 0x0D, /* RTC watch dog resets CPU 0 */
+	ESP32C5_SYS_BROWN_OUT_RESET   = 0x0F, /* VDD voltage is not stable and resets the digital core */
+	ESP32C5_SYS_RTC_WDT_RESET     = 0x10, /* RTC watch dog resets digital core and rtc module */
+	ESP32C5_CPU0_MWDT1_RESET      = 0x11, /* Main watch dog 1 resets CPU 0 */
+	ESP32C5_SYS_SUPER_WDT_RESET   = 0x12, /* Super watch dog resets the digital core and rtc module */
+	ESP32C5_CORE_EFUSE_CRC_RESET  = 0x14, /* eFuse CRC error resets the digital core (hp system) */
+	ESP32C5_CORE_USB_UART_RESET   = 0x15, /* USB UART resets the digital core (hp system) */
+	ESP32C5_CORE_USB_JTAG_RESET   = 0x16, /* USB JTAG resets the digital core (hp system) */
+	ESP32C5_CPU0_JTAG_RESET       = 0x18, /* JTAG resets the CPU 0 */
+	ESP32C5_CORE_PWR_GLITCH_RESET = 0x19, /* Glitch on power resets the digital core and rtc module */
+	ESP32C5_CPU0_LOCKUP_RESET     = 0x1A, /* Triggered when the CPU enters lockup
+											 (exception inside the exception handler would cause this) */
+};
+
+static const char *esp32c5_get_reset_reason(uint32_t reset_reason_reg_val)
+{
+	switch (ESP32C5_RESET_CAUSE(reset_reason_reg_val)) {
+	case ESP32C5_CHIP_POWER_ON_RESET:
+		/* case ESP32C5_CHIP_BROWN_OUT_RESET: */
+		return "Chip reset";
+	case ESP32C5_CORE_SW_RESET:
+		return "Software core reset";
+	case ESP32C5_CORE_DEEP_SLEEP_RESET:
+		return "Deep-sleep core reset";
+	case ESP32C5_CORE_MWDT0_RESET:
+		return "Main WDT0 core reset";
+	case ESP32C5_CORE_MWDT1_RESET:
+		return "Main WDT1 core reset";
+	case ESP32C5_CORE_RTC_WDT_RESET:
+		return "RTC WDT core reset";
+	case ESP32C5_CPU0_MWDT0_RESET:
+		return "Main WDT0 CPU reset";
+	case ESP32C5_CPU0_SW_RESET:
+		return "Software CPU reset";
+	case ESP32C5_CPU0_RTC_WDT_RESET:
+		return "RTC WDT CPU reset";
+	case ESP32C5_SYS_BROWN_OUT_RESET:
+		return "Brown-out core reset";
+	case ESP32C5_SYS_RTC_WDT_RESET:
+		return "RTC WDT core and rtc reset";
+	case ESP32C5_CPU0_MWDT1_RESET:
+		return "Main WDT1 CPU reset";
+	case ESP32C5_SYS_SUPER_WDT_RESET:
+		return "Super Watchdog core and rtc";
+	case ESP32C5_CORE_EFUSE_CRC_RESET:
+		return "eFuse CRC error core reset";
+	case ESP32C5_CORE_USB_UART_RESET:
+		return "USB (UART) core reset";
+	case ESP32C5_CORE_USB_JTAG_RESET:
+		return "USB (JTAG) core reset";
+	case ESP32C5_CPU0_JTAG_RESET:
+		return "JTAG CPU reset";
+	case ESP32C5_CORE_PWR_GLITCH_RESET:
+		return "Power glitch core reset";
+	case ESP32C5_CPU0_LOCKUP_RESET:
+		return "CPU lockup reset";
+	}
+	return "Unknown reset cause";
+}
+
+static void esp32c5_print_reset_reason(struct target *target, uint32_t reset_reason_reg_val)
+{
+	LOG_TARGET_INFO(target, "Reset cause (%ld) - (%s)",
+		ESP32C5_RESET_CAUSE(reset_reason_reg_val),
+		esp32c5_get_reset_reason(reset_reason_reg_val));
+}
 
 static bool esp32c5_is_idram_address(target_addr_t addr)
 {
@@ -65,8 +149,8 @@ static int esp32c5_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->max_bp_num = ESP32C5_BP_NUM;
 	esp_riscv->max_wp_num = ESP32C5_WP_NUM;
 
-	esp_riscv->rtccntl_reset_state_reg = 0;//ESP32C5_RTCCNTL_RESET_STATE_REG;
-	esp_riscv->print_reset_reason = NULL;//&esp32c5_print_reset_reason;
+	esp_riscv->rtccntl_reset_state_reg = ESP32C5_RTCCNTL_RESET_STATE_REG;
+	esp_riscv->print_reset_reason = &esp32c5_print_reset_reason;
 	esp_riscv->existent_csrs = esp32c5_csrs;
 	esp_riscv->existent_csr_size = ARRAY_SIZE(esp32c5_csrs);
 	esp_riscv->is_dram_address = esp32c5_is_idram_address;
