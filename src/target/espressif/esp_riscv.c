@@ -596,7 +596,7 @@ int esp_riscv_resume(struct target *target, int current, target_addr_t address,
 static int esp_riscv_on_halt(struct target *target)
 {
 	riscv_reg_t reg_value;
-	if (riscv_get_register(target, &reg_value, GDB_REGNO_PC) == ERROR_OK)
+	if (riscv_get_register(target, &reg_value, GDB_REGNO_DPC) == ERROR_OK)
 		LOG_TARGET_INFO(target, "Target halted, PC=0x%08" PRIX64 ", debug_reason=%08x",
 			reg_value, target->debug_reason);
 	esp_riscv_print_exception_reason(target);
