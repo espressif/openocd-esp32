@@ -261,7 +261,7 @@ tests_armhf_esp32c5:
     - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c5"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c5-builtin -p test_*.*Single -e test_special*.*Single"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c5-builtin -p test_*.*Single"
 
 tests_armhf_esp32c6:
   extends: .tests_armhf_master_riscv_template
