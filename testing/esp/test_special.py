@@ -44,7 +44,7 @@ class DebuggerSpecialTestsImpl:
         self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay0'])
         self.clear_bps()
 
-    @skip_for_chip(['esp32s3', 'esp32'])
+    @skip_for_chip(['esp32s3', 'esp32', 'esp32c5'])
     def test_debugging_works_after_hw_reset(self):
         """
             This test checks that debugging works after HW reset.
@@ -77,8 +77,9 @@ class DebuggerSpecialTestsImpl:
         self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func1', 'target_wp_var1_1')
         # watchpoint hit on read var in 'target_bp_func1'
         self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func1', 'target_wp_var1_2')
-        # esp32c2 has only 2 hw triggers
-        if testee_info.chip != "esp32c2":
+
+        # skip for targets not supporting 2 breakpoints + 2 watchpoints at the same time (for RISC-V 4 hardware triggers)
+        if testee_info.chip not in ["esp32c2", "esp32c5"]:
             # breakpoint at 'target_bp_func2' entry
             self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_bp_func2')
             # watchpoint hit on write var in 'target_bp_func2'
@@ -310,7 +311,7 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
         """
         # should fail for any new chip.
         # just to be sure that this test is revised when new chip support is added
-        self.fail_if_not_hw_id([r'esp32-[.]*', r'esp32s2-[.]*', r'esp32c2-[.]*', r'esp32c3-[.]*', r'esp32s3-[.]*', r'esp32c6-[.]*', r'esp32h2-[.]*'])
+        self.fail_if_not_hw_id([r'esp32-[.]*', r'esp32s2-[.]*', r'esp32c2-[.]*', r'esp32c3-[.]*', r'esp32s3-[.]*', r'esp32c6-[.]*', r'esp32h2-[.]*', r'esp32c5-[.]*'])
         regs = self.gdb.get_reg_names()
         i = 10
 
