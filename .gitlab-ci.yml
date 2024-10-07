@@ -308,6 +308,7 @@ create_coverage_reports:
     - job: tests_armhf_esp32c3_flash_encrypted
     - job: tests_armhf_esp32c5
     - job: tests_armhf_esp32c6
+    - job: tests_armhf_esp32c61
     - job: tests_armhf_esp32h2
     - job: tests_armhf_esp32p4
     - job: test_nuttx_esp32
