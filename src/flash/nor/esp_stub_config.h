@@ -20,6 +20,11 @@
 #define STUB_ARGS_FUNC_START            ESP_RISCV_STUB_ARGS_FUNC_START
 #define STUB_STACK_DATA_POOL_SIZE       ESP_RISCV_STACK_DATA_POOL_SIZE
 #define STUB_REVERSE_BINARY             false
+#elif defined(ESP_TARGET_ESP32C61)
+#include "../../../contrib/loaders/flash/espressif/esp32c61/stub_flasher_image.h"
+#define STUB_ARGS_FUNC_START            ESP_RISCV_STUB_ARGS_FUNC_START
+#define STUB_STACK_DATA_POOL_SIZE       ESP_RISCV_STACK_DATA_POOL_SIZE
+#define STUB_REVERSE_BINARY             false
 #elif defined(ESP_TARGET_ESP32P4)
 #include "../../../contrib/loaders/flash/espressif/esp32p4/stub_flasher_image.h"
 #define STUB_ARGS_FUNC_START            ESP_RISCV_STUB_ARGS_FUNC_START
