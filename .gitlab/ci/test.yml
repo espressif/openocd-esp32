@@ -275,6 +275,18 @@ tests_armhf_esp32c6:
     CHIP_NAME: "esp32c6"
     TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c6-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
 
+tests_armhf_esp32c61:
+  extends: .tests_arm64_master_riscv_template
+  tags:
+    - esp32c61
+    - usb_serial_jtag
+  needs:
+    - job: build_test_app_esp32c61
+    - job: build_linux_arm64_test
+  variables:
+    CHIP_NAME: "esp32c61"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32c61-builtin -p test_*.*Single"
+
 tests_armhf_esp32h2:
   extends: .tests_armhf_master_riscv_template
   tags:
