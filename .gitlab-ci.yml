@@ -33,6 +33,10 @@ stages:
 
 image: $CI_DOCKER_REGISTRY/openocd-ci-env:1
 
+default:
+  interruptible: true
+  retry: 2
+
 variables:
 
   #

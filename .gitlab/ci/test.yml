@@ -70,6 +70,11 @@
     ESP_GDB_TOOLCHAIN: "${ESP_V5_4X_XTENSA_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "xtensa-esp"
     ESP_TOOLCHAIN: "${ESP_V5_4X_TOOLCHAIN_VER}"
+  inherit:
+    default:
+      - interruptible
+      - image
+      # Dont retry
 
 .tests_armhf_master_riscv_template:
   extends: .tests_armhf_master_template
@@ -92,6 +97,11 @@
     ESP_GDB_TOOLCHAIN: "${ESP_V5_4X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_TOOLCHAIN: "${ESP_V5_4X_TOOLCHAIN_VER}"
+  inherit:
+    default:
+      - interruptible
+      - image
+      # Dont retry
 
 .tests_armhf_v5.2.x_template:
   extends: .tests_armhf_template
