@@ -169,6 +169,8 @@ static int esp32c6_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->print_reset_reason = &esp32c6_print_reset_reason;
 	esp_riscv->existent_csrs = esp32c6_csrs;
 	esp_riscv->existent_csr_size = ARRAY_SIZE(esp32c6_csrs);
+	esp_riscv->existent_ro_csrs = NULL;
+	esp_riscv->existent_ro_csr_size = 0;
 	esp_riscv->is_dram_address = esp32c6_is_idram_address;
 	esp_riscv->is_iram_address = esp32c6_is_idram_address;
 
