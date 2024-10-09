@@ -265,6 +265,7 @@ int esp_riscv_examine(struct target *target)
 		{ esp_riscv_fprs, ARRAY_SIZE(esp_riscv_fprs), false },
 		{ esp_riscv_csrs, ARRAY_SIZE(esp_riscv_csrs), true },
 		{ esp_riscv_ro_csrs, ARRAY_SIZE(esp_riscv_ro_csrs), false },
+		{ esp_riscv->existent_ro_csrs, esp_riscv->existent_ro_csr_size, false }, /* chip specific RO CSRs */
 		{ esp_riscv->existent_csrs, esp_riscv->existent_csr_size, true } /* chip specific CSRs */
 	};
 

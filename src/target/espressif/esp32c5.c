@@ -132,7 +132,29 @@ static const struct esp_flash_breakpoint_ops esp32c5_flash_brp_ops = {
 };
 
 static const char *esp32c5_csrs[] = {
-	"mideleg", "medeleg", "mie", "mip",
+	"mideleg", "medeleg", "mie", "mip", "jvt", "mtvt",
+	"mintthresh", "mnxti", "mscratchcsw", "mscratchcswl",
+	"mcycle", "mcycleh", "minstret", "minstreth",
+	"mhpmevent8", "mhpmevent9", "mhpmevent13",
+	"mhpmcounter8", "mhpmcounter9", "mhpmcounter13", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
+	"mcounteren", "mcountinhibit",
+	/* custom exposed CSRs will start with 'csr_' prefix*/
+	"csr_pma_cfg0", "csr_pma_cfg1", "csr_pma_cfg2", "csr_pma_cfg3", "csr_pma_cfg4", "csr_pma_cfg5",
+	"csr_pma_cfg6", "csr_pma_cfg7", "csr_pma_cfg8", "csr_pma_cfg9", "csr_pma_cfg10", "csr_pma_cfg11",
+	"csr_pma_cfg12", "csr_pma_cfg13", "csr_pma_cfg14", "csr_pma_cfg15", "csr_pma_addr0", "csr_pma_addr1",
+	"csr_pma_addr2", "csr_pma_addr3", "csr_pma_addr4", "csr_pma_addr5", "csr_pma_addr6", "csr_pma_addr7",
+	"csr_pma_addr8", "csr_pma_addr9", "csr_pma_addr10", "csr_pma_addr11", "csr_pma_addr12", "csr_pma_addr13",
+	"csr_pma_addr14", "csr_pma_addr15", "csr_mxstatus", "csr_mhcr", "csr_mhint", "csr_mexstatus",
+	"csr_mclicbase", "csr_mraddr", "csr_mnmicause",
+};
+
+static const char *esp32c5_ro_csrs[] = {
+	/* read-only CSRs, cannot be save/restored as the write would fail */
+	"cycle", "time", "instreth", "cycleh", "instret", "timeh",
+	"hpmcounter8", "hpmcounter9", "hpmcounter13", "hpmcounter8h", "hpmcounter9h", "hpmcounter13h",
+	"mintstatus",
+	/* custom exposed CSRs will start with 'csr_' prefix*/
+	"csr_mcpuid",
 };
 
 static int esp32c5_target_create(struct target *target, Jim_Interp *interp)
@@ -153,6 +175,8 @@ static int esp32c5_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->print_reset_reason = &esp32c5_print_reset_reason;
 	esp_riscv->existent_csrs = esp32c5_csrs;
 	esp_riscv->existent_csr_size = ARRAY_SIZE(esp32c5_csrs);
+	esp_riscv->existent_ro_csrs = esp32c5_ro_csrs;
+	esp_riscv->existent_ro_csr_size = ARRAY_SIZE(esp32c5_ro_csrs);
 	esp_riscv->is_dram_address = esp32c5_is_idram_address;
 	esp_riscv->is_iram_address = esp32c5_is_idram_address;
 
