@@ -60,6 +60,10 @@
 	(addr) < (ESP32P4_IRAM0_NON_CACHEABLE_ADDRESS_HIGH))
 #define ESP32P4_ADDRESS_IS_L2MEM(addr) (ESP32P4_ADDRESS_IS_NONCACHEABLE(addr) || ESP32P4_ADDRESS_IS_CACHEABLE(addr))
 
+#define ESP32P4_TCM_ADDRESS_LOW     0x30100000U
+#define ESP32P4_TCM_ADDRESS_HIGH    0x30102000U
+#define ESP32P4_ADDRESS_IS_TCMEM(addr) ((addr) >= ESP32P4_TCM_ADDRESS_LOW && (addr) < ESP32P4_TCM_ADDRESS_HIGH)
+
 #define ESP32P4_RESERVED_ADDRESS_LOW            0x00000000U
 #define ESP32P4_RESERVED_ADDRESS_HIGH           0x300FFFFFU
 
@@ -152,9 +156,9 @@ static void esp32p4_print_reset_reason(struct target *target, uint32_t reset_rea
 
 }
 
-static bool esp32p4_is_l2mem_address(target_addr_t addr)
+static bool esp32p4_is_idram_address(target_addr_t addr)
 {
-	return ESP32P4_ADDRESS_IS_L2MEM(addr);
+	return ESP32P4_ADDRESS_IS_L2MEM(addr) || ESP32P4_ADDRESS_IS_TCMEM(addr);
 }
 
 static bool esp32p4_is_reserved_address(target_addr_t addr)
@@ -210,8 +214,8 @@ static int esp32p4_target_create(struct target *target, Jim_Interp *interp)
 	esp_riscv->print_reset_reason = &esp32p4_print_reset_reason;
 	esp_riscv->existent_csrs = esp32p4_csrs;
 	esp_riscv->existent_csr_size = ARRAY_SIZE(esp32p4_csrs);
-	esp_riscv->is_dram_address = esp32p4_is_l2mem_address;
-	esp_riscv->is_iram_address = esp32p4_is_l2mem_address;
+	esp_riscv->is_dram_address = esp32p4_is_idram_address;
+	esp_riscv->is_iram_address = esp32p4_is_idram_address;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;
