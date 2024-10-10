@@ -1066,6 +1066,14 @@ static int esp32_apptrace_poll(void *priv)
 		return ERROR_FAIL;
 	}
 
+	/* Check if re-initialization is needed due to the target resetting between data transfers. */
+	if (ctx->hw->apptrace_is_inited) {
+		for (unsigned int i = 0; i < ctx->cores_num; i++) {
+			if (!ctx->hw->apptrace_is_inited(ctx->cpus[i]))
+				return ERROR_WAIT;
+		}
+	}
+
 	/*  Check for connection is alive.For some reason target and therefore host_connected flag
 	 *  might have been reset */
 	res = esp32_apptrace_check_connection(ctx);

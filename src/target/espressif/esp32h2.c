@@ -226,7 +226,7 @@ struct target_type esp32h2_target = {
 	.resume = esp_riscv_resume,
 	.step = riscv_openocd_step,
 
-	.assert_reset = riscv_assert_reset,
+	.assert_reset = esp_riscv_assert_reset,
 	.deassert_reset = riscv_deassert_reset,
 
 	.read_memory = esp_riscv_read_memory,
