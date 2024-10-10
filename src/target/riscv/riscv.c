@@ -1697,8 +1697,8 @@ int riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoi
 	return ERROR_FAIL;
 }
 
-static int oldriscv_step(struct target *target, int current, uint32_t address,
-		int handle_breakpoints)
+static int oldriscv_step(struct target *target, bool current, uint32_t address,
+		bool handle_breakpoints)
 {
 	struct target_type *tt = get_target_type(target);
 	if (!tt)
@@ -1706,8 +1706,8 @@ static int oldriscv_step(struct target *target, int current, uint32_t address,
 	return tt->step(target, current, address, handle_breakpoints);
 }
 
-static int old_or_new_riscv_step(struct target *target, int current,
-		target_addr_t address, int handle_breakpoints)
+static int old_or_new_riscv_step(struct target *target, bool current,
+		target_addr_t address, bool handle_breakpoints)
 {
 	RISCV_INFO(r);
 	LOG_TARGET_DEBUG(target, "handle_breakpoints=%d", handle_breakpoints);
@@ -2083,8 +2083,8 @@ static int enable_triggers(struct target *target, riscv_reg_t *state)
 /**
  * Get everything ready to resume.
  */
-static int resume_prep(struct target *target, int current,
-		target_addr_t address, int handle_breakpoints, int debug_execution)
+static int resume_prep(struct target *target, bool current,
+		target_addr_t address, bool handle_breakpoints, bool debug_execution)
 {
 	assert(target->state == TARGET_HALTED);
 	RISCV_INFO(r);
@@ -2115,8 +2115,8 @@ static int resume_prep(struct target *target, int current,
  * Resume all the harts that have been prepped, as close to instantaneous as
  * possible.
  */
-static int resume_go(struct target *target, int current,
-		target_addr_t address, int handle_breakpoints, int debug_execution)
+static int resume_go(struct target *target, bool current,
+		target_addr_t address, bool handle_breakpoints, bool debug_execution)
 {
 	assert(target->state == TARGET_HALTED);
 	RISCV_INFO(r);
@@ -2151,10 +2151,10 @@ static int resume_finish(struct target *target, int debug_execution)
  */
 int riscv_resume(
 		struct target *target,
-		int current,
+		bool current,
 		target_addr_t address,
-		int handle_breakpoints,
-		int debug_execution,
+		bool handle_breakpoints,
+		bool debug_execution,
 		bool single_hart)
 {
 	int result = ERROR_OK;
@@ -2215,8 +2215,8 @@ int riscv_resume(
 	return result;
 }
 
-int riscv_target_resume(struct target *target, int current,
-		target_addr_t address, int handle_breakpoints, int debug_execution)
+int riscv_target_resume(struct target *target, bool current,
+		target_addr_t address, bool handle_breakpoints, bool debug_execution)
 {
 	if (target->state != TARGET_HALTED) {
 		LOG_TARGET_ERROR(target, "Not halted.");
@@ -2808,7 +2808,7 @@ static int riscv_run_algorithm(struct target *target, int num_mem_params,
 
 	/* Run algorithm */
 	LOG_TARGET_DEBUG(target, "Resume at 0x%" TARGET_PRIxADDR, entry_point);
-	if (riscv_resume(target, 0, entry_point, 0, 1, true) != ERROR_OK)
+	if (riscv_resume(target, false, entry_point, false, true, true) != ERROR_OK)
 		return ERROR_FAIL;
 
 	int64_t start = timeval_ms();
@@ -3261,7 +3261,7 @@ int riscv_openocd_poll(struct target *target)
 		riscv_halt(target);
 	} else if (should_resume) {
 		LOG_TARGET_DEBUG(target, "resume all");
-		riscv_resume(target, true, 0, 0, 0, false);
+		riscv_resume(target, true, 0, false, false, false);
 	} else if (halted && running) {
 		LOG_TARGET_DEBUG(target, "halt all; halted=%d",
 			halted);
@@ -3303,8 +3303,8 @@ int riscv_openocd_poll(struct target *target)
 	return ERROR_OK;
 }
 
-int riscv_openocd_step(struct target *target, int current,
-	target_addr_t address, int handle_breakpoints)
+int riscv_openocd_step(struct target *target, bool current,
+		target_addr_t address, bool handle_breakpoints)
 {
 	LOG_TARGET_DEBUG(target, "stepping hart");
 

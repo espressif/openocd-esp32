@@ -1116,10 +1116,10 @@ static int dsp563xx_halt(struct target *target)
 }
 
 static int dsp563xx_resume(struct target *target,
-	int current,
+	bool current,
 	target_addr_t address,
-	int handle_breakpoints,
-	int debug_execution)
+	bool handle_breakpoints,
+	bool debug_execution)
 {
 	int err;
 	struct dsp563xx_common *dsp563xx = target_to_dsp563xx(target);
@@ -1133,7 +1133,7 @@ static int dsp563xx_resume(struct target *target,
 	if (current && dsp563xx->core_cache->reg_list[DSP563XX_REG_IDX_PC].dirty) {
 		dsp563xx_write_core_reg(target, DSP563XX_REG_IDX_PC);
 		address = dsp563xx->core_regs[DSP563XX_REG_IDX_PC];
-		current = 0;
+		current = false;
 	}
 
 	LOG_DEBUG("%s %08X %08" TARGET_PRIXADDR, __func__, current, address);
@@ -1173,9 +1173,9 @@ static int dsp563xx_resume(struct target *target,
 }
 
 static int dsp563xx_step_ex(struct target *target,
-	int current,
+	bool current,
 	uint32_t address,
-	int handle_breakpoints,
+	bool handle_breakpoints,
 	int steps)
 {
 	int err;
@@ -1197,7 +1197,7 @@ static int dsp563xx_step_ex(struct target *target,
 	if (current && dsp563xx->core_cache->reg_list[DSP563XX_REG_IDX_PC].dirty) {
 		dsp563xx_write_core_reg(target, DSP563XX_REG_IDX_PC);
 		address = dsp563xx->core_regs[DSP563XX_REG_IDX_PC];
-		current = 0;
+		current = false;
 	}
 
 	LOG_DEBUG("%s %08X %08" PRIX32, __func__, current, address);
@@ -1289,9 +1289,9 @@ static int dsp563xx_step_ex(struct target *target,
 }
 
 static int dsp563xx_step(struct target *target,
-	int current,
+	bool current,
 	target_addr_t address,
-	int handle_breakpoints)
+	bool handle_breakpoints)
 {
 	int err;
 	struct dsp563xx_common *dsp563xx = target_to_dsp563xx(target);
@@ -1360,7 +1360,7 @@ static int dsp563xx_deassert_reset(struct target *target)
 			 * reset vector and need 2 cycles to fill
 			 * the cache (fetch,decode,execute)
 			 */
-			err = dsp563xx_step_ex(target, 1, 0, 1, 1);
+			err = dsp563xx_step_ex(target, true, 0, true, 1);
 			if (err != ERROR_OK)
 				return err;
 		}
@@ -1420,7 +1420,7 @@ static int dsp563xx_run_algorithm(struct target *target,
 	}
 
 	/* exec */
-	retval = target_resume(target, 0, entry_point, 1, 1);
+	retval = target_resume(target, false, entry_point, true, true);
 	if (retval != ERROR_OK)
 		return retval;
 
@@ -1970,7 +1970,7 @@ static int dsp563xx_add_custom_watchpoint(struct target *target, uint32_t addres
 
 	if (err == ERROR_OK && was_running) {
 		/* Resume from current PC */
-		err = dsp563xx_resume(target, 1, 0x0, 0, 0);
+		err = dsp563xx_resume(target, true, 0x0, false, false);
 	}
 
 	return err;

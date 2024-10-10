@@ -1623,10 +1623,10 @@ int xtensa_halt(struct target *target)
 }
 
 int xtensa_prepare_resume(struct target *target,
-	int current,
+	bool current,
 	target_addr_t address,
-	int handle_breakpoints,
-	int debug_execution)
+	bool handle_breakpoints,
+	bool debug_execution)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
 	uint32_t bpena = 0;
@@ -1703,13 +1703,14 @@ int xtensa_do_resume(struct target *target)
 }
 
 int xtensa_resume(struct target *target,
-	int current,
+	bool current,
 	target_addr_t address,
-	int handle_breakpoints,
-	int debug_execution)
+	bool handle_breakpoints,
+	bool debug_execution)
 {
 	LOG_TARGET_DEBUG(target, "start");
-	int res = xtensa_prepare_resume(target, current, address, handle_breakpoints, debug_execution);
+	int res = xtensa_prepare_resume(target, current, address,
+		handle_breakpoints, debug_execution);
 	if (res != ERROR_OK) {
 		LOG_TARGET_ERROR(target, "Failed to prepare for resume!");
 		return res;
@@ -1756,7 +1757,8 @@ static bool xtensa_pc_in_winexc(struct target *target, target_addr_t pc)
     `xtensa maskisr auto` meaning IRQs are always enabled during stepping and resume, but debugger does not
     step into ISRs. We are leaving our fork as before until all modes (on|off|auto) supported in the upstream.
 */
-int xtensa_do_step(struct target *target, int current, target_addr_t address, int handle_breakpoints)
+int xtensa_do_step(struct target *target, bool current, target_addr_t address,
+		bool handle_breakpoints)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
 	int res;
@@ -1867,7 +1869,7 @@ int xtensa_do_step(struct target *target, int current, target_addr_t address, in
 		/* Now that ICOUNT (LX) or DCR.StepRequest (NX) is set,
 		 * we can resume as if we were going to run
 		 */
-		res = xtensa_prepare_resume(target, current, address, 0, 0);
+		res = xtensa_prepare_resume(target, current, address, false, false);
 		if (res != ERROR_OK) {
 			LOG_TARGET_ERROR(target, "Failed to prepare resume for single step");
 			return res;
@@ -1964,7 +1966,8 @@ int xtensa_do_step(struct target *target, int current, target_addr_t address, in
 	return res;
 }
 
-int xtensa_step(struct target *target, int current, target_addr_t address, int handle_breakpoints)
+int xtensa_step(struct target *target, bool current, target_addr_t address,
+		bool handle_breakpoints)
 {
 	int retval = xtensa_do_step(target, current, address, handle_breakpoints);
 	if (retval != ERROR_OK)
@@ -2863,7 +2866,7 @@ int xtensa_start_algorithm(struct target *target,
 		}
 	}
 
-	return xtensa_resume(target, 0, entry_point, 1, 1);
+	return xtensa_resume(target, false, entry_point, true, true);
 }
 
 /** Waits for an algorithm in the target. */

@@ -392,9 +392,9 @@ int riscv_halt(struct target *target);
 
 int riscv_openocd_step(
 	struct target *target,
-	int current,
+	bool current,
 	target_addr_t address,
-	int handle_breakpoints
+	bool handle_breakpoints
 );
 
 /*** RISC-V Interface ***/
@@ -455,8 +455,8 @@ int riscv_deassert_reset(struct target *target);
 int riscv_checksum_memory(struct target *target,
 		target_addr_t address, uint32_t count,
 		uint32_t *checksum);
-int riscv_target_resume(struct target *target, int current, target_addr_t address,
-		int handle_breakpoints, int debug_execution);
+int riscv_target_resume(struct target *target, bool current, target_addr_t address,
+		bool handle_breakpoints, bool debug_execution);
 int riscv_get_gdb_reg_list_noread(struct target *target,
 		struct reg **reg_list[], int *reg_list_size,
 		enum target_register_class reg_class);
@@ -473,10 +473,10 @@ int riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoi
 
 unsigned int riscv_xlen_nonconst(struct target *target);
 int riscv_resume(struct target *target,
-	int current,
+	bool current,
 	target_addr_t address,
-	int handle_breakpoints,
-	int debug_execution,
+	bool handle_breakpoints,
+	bool debug_execution,
 	bool single_hart);
 /************/
 
