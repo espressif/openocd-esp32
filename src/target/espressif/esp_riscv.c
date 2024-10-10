@@ -319,9 +319,6 @@ int esp_riscv_poll(struct target *target)
 			if (res != ERROR_OK)
 				LOG_WARNING("Failed to do rtos-specific cleanup (%d)", res);
 		}
-
-		/* clear previous apptrace ctrl_addr to avoid invalid tracing control block usage in the long run. */
-		esp_riscv->apptrace.ctrl_addr = 0;
 		esp_riscv->was_reset = false;
 	}
 
@@ -991,6 +988,14 @@ void esp_riscv_deinit_target(struct target *target)
 	free(esp_riscv->target_wp_addr);
 
 	riscv_target.deinit_target(target);
+}
+
+int esp_riscv_assert_reset(struct target *target)
+{
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	/* clear previous apptrace ctrl_addr to avoid invalid tracing control block usage during/after reset */
+	esp_riscv->apptrace.ctrl_addr = 0;
+	return riscv_assert_reset(target);
 }
 
 COMMAND_HANDLER(esp_riscv_halted_command)

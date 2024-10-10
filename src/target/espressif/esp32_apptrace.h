@@ -45,6 +45,7 @@ struct esp32_apptrace_hw {
 		bool data);
 	int (*leave_trace_crit_section_start)(struct target *target);
 	int (*leave_trace_crit_section_stop)(struct target *target);
+	bool (*apptrace_is_inited)(struct target *target);
 };
 
 struct esp_apptrace_host2target_hdr {

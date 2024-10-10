@@ -59,6 +59,7 @@ struct esp32_apptrace_hw esp_xtensa_apptrace_hw = {
 	.buffs_write = esp_xtensa_apptrace_buffs_write,
 	.leave_trace_crit_section_start = esp_xtensa_apptrace_leave_crit_section_start,
 	.leave_trace_crit_section_stop = esp_xtensa_apptrace_leave_crit_section_stop,
+	.apptrace_is_inited = NULL
 };
 
 uint32_t esp_xtensa_apptrace_block_max_size_get(struct target *target)

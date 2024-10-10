@@ -41,6 +41,7 @@ static int esp_riscv_apptrace_buffs_write(struct target *target,
 	uint32_t block_id,
 	bool ack,
 	bool data);
+static bool esp_riscv_apptrace_is_inited(struct target *target);
 
 struct esp32_apptrace_hw esp_riscv_apptrace_hw = {
 	.max_block_id = RISCV_APPTRACE_BLOCK_ID_MAX,
@@ -53,7 +54,8 @@ struct esp32_apptrace_hw esp_riscv_apptrace_hw = {
 	.usr_block_max_size_get = esp_riscv_apptrace_usr_block_max_size_get,
 	.buffs_write = esp_riscv_apptrace_buffs_write,
 	.leave_trace_crit_section_start = NULL,
-	.leave_trace_crit_section_stop = NULL
+	.leave_trace_crit_section_stop = NULL,
+	.apptrace_is_inited = esp_riscv_apptrace_is_inited
 };
 
 int esp_riscv_apptrace_info_init(struct target *target, target_addr_t ctrl_addr, target_addr_t *old_ctrl_addr)
@@ -197,4 +199,12 @@ static int esp_riscv_apptrace_buffs_write(struct target *target, uint32_t bufs_n
 			data);
 	}
 	return res;
+}
+
+static bool esp_riscv_apptrace_is_inited(struct target *target)
+{
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+
+	/* during the reset cycle, we are clearing `ctrl_addr` to its reset state. */
+	return esp_riscv->apptrace.ctrl_addr ? true : false;
 }

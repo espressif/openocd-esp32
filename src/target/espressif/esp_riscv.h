@@ -50,6 +50,8 @@ static inline int esp_riscv_on_reset(struct target *target)
 	LOG_TARGET_DEBUG(target, "on reset!");
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 	esp_riscv->was_reset = true;
+	/* clear previous apptrace ctrl_addr to avoid invalid tracing control block usage during/after reset */
+	esp_riscv->apptrace.ctrl_addr = 0;
 	return ERROR_OK;
 }
 
@@ -105,6 +107,7 @@ int esp_riscv_core_halt(struct target *target);
 int esp_riscv_core_resume(struct target *target);
 int esp_riscv_core_ebreaks_enable(struct target *target);
 void esp_riscv_deinit_target(struct target *target);
+int esp_riscv_assert_reset(struct target *target);
 
 extern const struct command_registration esp_riscv_command_handlers[];
 
