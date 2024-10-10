@@ -10,6 +10,7 @@
 #include "config.h"
 #endif
 
+#include <stdio.h>
 #include <string.h>
 
 #include <helper/log.h>
