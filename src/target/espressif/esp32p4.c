@@ -246,11 +246,6 @@ static int esp32p4_init_target(struct command_context *cmd_ctx,
 	return ERROR_OK;
 }
 
-static inline uint32_t esp32p4_make_non_cachable_addr(uint32_t address)
-{
-	return (address & ESP32P4_NON_CACHEABLE_OFFSET) ? (address + ESP32P4_NON_CACHEABLE_OFFSET) : address;
-}
-
 static int esp32p4_sync_cache(struct target *target, uint32_t op)
 {
 	int res;
@@ -275,12 +270,10 @@ static int esp32p4_sync_cache(struct target *target, uint32_t op)
 static int esp32p4_read_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
-	/* TODO: check that do we still need the cache related things */
 	if (ESP32P4_ADDRESS_IS_L2MEM(address)) {
 		int res = esp32p4_sync_cache(target, ESP32P4_CACHE_SYNC_WRITEBACK);
 		if (res != ERROR_OK)
 			LOG_TARGET_WARNING(target, "Cache writeback failed! Read main memory anyway.");
-		address = esp32p4_make_non_cachable_addr(address);
 	}
 
 	if (esp32p4_is_reserved_address(address)) {
@@ -297,11 +290,9 @@ static int esp32p4_write_memory(struct target *target, target_addr_t address,
 {
 	bool cache_invalidate = false;
 
-	/* TODO: check that do we still need the cache related things */
 	if (ESP32P4_ADDRESS_IS_L2MEM(address)) {
 		/* write to main memory and invalidate cache */
 		esp32p4_sync_cache(target, ESP32P4_CACHE_SYNC_WRITEBACK);
-		address = esp32p4_make_non_cachable_addr(address);
 		cache_invalidate = true;
 	}
 
