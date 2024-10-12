@@ -346,8 +346,6 @@ int esp_riscv_semihosting(struct target *target)
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 	struct semihosting *semihosting = target->semihosting;
 
-	LOG_DEBUG("op:(%x) param: (%" PRIx64 ")", semihosting->op, semihosting->param);
-
 	switch (semihosting->op) {
 	case ESP_SEMIHOSTING_SYS_APPTRACE_INIT:
 		res = esp_riscv_apptrace_info_init(target, semihosting->param, NULL);
