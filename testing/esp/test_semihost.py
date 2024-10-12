@@ -215,6 +215,8 @@ class SemihostTestsImpl:
             mtime = os.path.getmtime(self.fout_names[i])
             self.assertTrue(mtime == 456789)
 
+    # OCD-1006
+    @skip_for_chip(['esp32p4'])
     def test_semihost_with_fileio(self):
         """
         This test checks that gdb fileIO working as expected.
@@ -227,6 +229,8 @@ class SemihostTestsImpl:
             get_logger().info('Compare files [%s, %s]', self.gdb_io_out_names[i], self.gdb_io_in_names[i])
             self.assertTrue(filecmp.cmp(self.gdb_io_out_names[i], self.gdb_io_in_names[i]))
 
+    # OCD-1006
+    @skip_for_chip(['esp32p4'])
     def test_semihost_with_consoleio(self):
         """
         This test checks that gdb consoleIO working as expected.
