@@ -308,7 +308,7 @@ tests_armhf_esp32p4:
     - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32p4"
-    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32p4-ftdi -p test_apptrace*.*Dual test_bp*.*Dual test_step*.*Dual"
+    TEST_RUN_EXTRA_OPTS: "-i latest -b esp32p4-ftdi -p test_apptrace*.*Dual test_bp*.*Dual test_step*.*Dual test_sysview*.*Dual test_semihost*.*Dual"
 
 
 ##############

@@ -178,7 +178,7 @@ def skip_for_chip_and_ver(ver_str, chips_to_skip):
             v1 = repr(testee_info.idf_ver).split('.')
             v2 = ver_str.split('.')
             # check major and minor numbers only.
-            if v1[0] == v2[0] and v1[1] == v2[1]:
+            if v1 == v2 or (v1[0] == v2[0] and v1[1] == v2[1]):
                 skip = True
     return unittest.skipIf(skip, "for the '%s' for the IDF_VER='%s'" % (id, testee_info.idf_ver))
 
