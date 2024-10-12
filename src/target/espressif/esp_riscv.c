@@ -346,6 +346,26 @@ int esp_riscv_semihosting(struct target *target)
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 	struct semihosting *semihosting = target->semihosting;
 
+	/*
+		If a bp/wp set request comes from Core1, the other cores may continue running.
+		We need to ensure that all harts are in a halted state.
+	*/
+	if (target->smp && (semihosting->op == ESP_SEMIHOSTING_SYS_BREAKPOINT_SET ||
+		semihosting->op == ESP_SEMIHOSTING_SYS_WATCHPOINT_SET)) {
+		struct target_list *head;
+		foreach_smp_target(head, target->smp_targets) {
+			struct target *curr = head->target;
+			if (curr->state != TARGET_HALTED) {
+				LOG_TARGET_DEBUG(curr, "Target must be in halted state. Try to halt it");
+				res = riscv_halt(curr);
+				if (res != ERROR_OK)
+					return res;
+				/* Here all halts are in the halted state. Resume-all will be handled in riscv_semihosting() return */
+				break;
+			}
+		}
+	}
+
 	switch (semihosting->op) {
 	case ESP_SEMIHOSTING_SYS_APPTRACE_INIT:
 		res = esp_riscv_apptrace_info_init(target, semihosting->param, NULL);
@@ -374,7 +394,7 @@ int esp_riscv_semihosting(struct target *target)
 			return ERROR_FAIL;
 		}
 		int set = semihosting_get_field(target,
-				ESP_RISCV_SET_WATCHPOINT_ARG_SET,
+				ESP_RISCV_SET_BREAKPOINT_ARG_SET,
 				fields);
 		if (set) {
 			if (esp_riscv->target_bp_addr[id]) {
