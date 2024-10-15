@@ -179,7 +179,7 @@ static const struct esp_flash_breakpoint_ops esp32p4_flash_brp_ops = {
 
 static const char *esp32p4_csrs[] = {
 	"mie", "mcause", "mip", "mtvt", "mnxti",
-	"mintstatus", "mscratchcsw", "mscratchcswl",
+	"mscratchcsw", "mscratchcswl",
 	"mcycle", "minstret", "mcounteren", "mcountinhibit",
 	"mhpmcounter8", "mhpmcounter9", "mhpmcounter13", "mhpmevent8", "mhpmevent9", "mhpmevent13",
 	"mcycleh", "minstreth", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
@@ -194,6 +194,7 @@ static const char *esp32p4_csrs[] = {
 	"csr_pma_addr2", "csr_pma_addr3", "csr_pma_addr4", "csr_pma_addr5", "csr_pma_addr6", "csr_pma_addr7",
 	"csr_pma_addr8", "csr_pma_addr9", "csr_pma_addr10", "csr_pma_addr11", "csr_pma_addr12", "csr_pma_addr13",
 	"csr_pma_addr14", "csr_pma_addr15",
+	"csr_mintstatus",
 };
 
 static int esp32p4_target_create(struct target *target, Jim_Interp *interp)
