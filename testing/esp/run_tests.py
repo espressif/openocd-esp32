@@ -8,6 +8,7 @@ import unittest
 import tempfile
 import serial
 import threading
+import time
 import xmlrunner
 import cProfile, pstats
 import debug_backend as dbg
@@ -419,13 +420,18 @@ def main():
             print("===========================================")
             # restart debugger
             dbg_stop()
+            time.sleep(1)
             dbg_start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'],
-                                args.debug_oocd, board_tcl['chip_name'], log_lev, ch, fh)
+                                args.debug_oocd, board_tcl['chip_name'], board_tcl['target_triple'],
+                                log_lev, ch, fh, args.gdb_log_file)
             err_suite = debug_backend_tests.DebuggerTestsBunch()
             for e in res.errors:
                 err_suite.addTest(e[0])
             for f in res.failures:
                 err_suite.addTest(f[0])
+            err_suite.load_app_bins = not args.no_load
+            arg_list = [args.debug_oocd, log_lev, args.gdb_log_file, ch, fh]
+            err_suite.config_tests(_oocd_inst, _gdb_inst, args.toolchain, board_uart_reader, args.serial_port, arg_list)
             res = test_runner.run(err_suite)
     except:
         traceback.print_exc()
