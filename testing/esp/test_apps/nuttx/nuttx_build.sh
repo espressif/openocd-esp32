@@ -90,6 +90,16 @@ case "${chip}" in
       dbgboard=${dbgboard:-"esp32s3-builtin"}
       toolchain="xtensa-esp32s3-elf-"
   ;;
+  "esp32c6")
+      config="esp32c6-devkitc:nsh"
+      dbgboard=${dbgboard:-"esp32c6-builtin"}
+      toolchain="riscv32-esp-elf-"
+  ;;
+  "esp32h2")
+      config="esp32h2-devkit:nsh"
+      dbgboard=${dbgboard:-"esp32h2-builtin"}
+      toolchain="riscv32-esp-elf-"
+  ;;
   *)
       echo "ERROR: Invalid chip:${chip}"
       exit 1
@@ -108,8 +118,12 @@ cd ${topdir}/${nuttxdir}
 echo "Building ${config} with OpenOCD example additions..."
 ./tools/configure.sh -E ${config} ${MAKE_OPTS} 1>/dev/null
 
-kconfig-tweak -e DEBUG_SYMBOLS
-kconfig-tweak -e ESPAPPS_OPENOCD
+kconfig-tweak -d NDEBUG
+kconfig-tweak -e ESP32_MERGE_BINS
+kconfig-tweak -e ESP32S2_MERGE_BINS
+kconfig-tweak -e ESP32S3_MERGE_BINS
+kconfig-tweak -e ESP32C3_MERGE_BINS
+kconfig-tweak -e ESPRESSIF_MERGE_BINS
 kconfig-tweak --set-str USER_ENTRYPOINT openocd_main
 make olddefconfig ${MAKE_OPTS} 1>/dev/null
 make ${MAKE_OPTS} 1>/dev/null
@@ -118,11 +132,8 @@ echo "Copying files..."
 rm -rf ${exampledir}
 mkdir -p ${exampledir}
 cp nuttx ${exampledir}/nuttx_openocd.elf
-cp nuttx.bin ${exampledir}/nuttx_openocd.bin
-cp ${bindir}/bootloader-${chip}.bin ${exampledir}/bootloader.bin
-cp ${bindir}/partition-table-${chip}.bin ${exampledir}/partition-table.bin
+cp nuttx.merged.bin ${exampledir}/nuttx_openocd.bin
 
 echo "Running tests..."
 cd ${oocddir}
-./testing/esp/test_apps/nuttx/mkjson.sh ${testpath}/${TESTDIR} ${APPNAME} ${chip}
-PYTHONPATH=$PWD/testing/esp/py_debug_backend $PWD/testing/esp/run_tests.py -d 4 -b ${dbgboard} -i other -p 'test_nuttx' -l $PWD/oocd_tests.log -s $PWD/tcl -a ${testpath}/${TESTDIR} -t ${toolchain} -c "set ESP_RTOS NuttX"
+PYTHONPATH=$PWD/testing/esp/py_debug_backend $PWD/testing/esp/run_tests.py -d 4 -b ${dbgboard} -i other -p 'test_nuttx' -l $PWD/oocd_tests.log -s $PWD/tcl -a ${testpath}/${TESTDIR} -t ${toolchain} -c "set ESP_RTOS nuttx"

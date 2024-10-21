@@ -315,6 +315,8 @@ create_coverage_reports:
     - job: test_nuttx_esp32s2
     - job: test_nuttx_esp32s3
     - job: test_nuttx_esp32c3
+    - job: test_nuttx_esp32c6
+    - job: test_nuttx_esp32h2
 
   script:
     - mkdir -p cov_infos

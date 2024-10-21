@@ -57,8 +57,8 @@ class NuttxAppTests(DebuggerTestAppTests):
         # location.
         self.test_app_cfg.app_name = 'nuttx_openocd'
         self.test_app_cfg.entry_point = 'nx_start'
-        self.test_app_cfg.bld_path = 'bootloader.bin'
-        self.test_app_cfg.pt_path = 'partition-table.bin'
+        self.test_app_cfg.app_off = 0x10000
+        self.test_app_cfg.merged_bin = True
 
 @run_with_version('other')
 class NuttxAppTestsSingle(NuttxAppTests, DebuggerNuttxTestsImpl):

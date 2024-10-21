@@ -467,4 +467,4 @@ build_nuttx_app:
     - job: style_check
   parallel:
     matrix:
-      - TRIGGER_JOB: [openocd-esp32, openocd-esp32s2, openocd-esp32s3, openocd-esp32c3]
+      - TRIGGER_JOB: [openocd-esp32, openocd-esp32s2, openocd-esp32s3, openocd-esp32c3, openocd-esp32c6, openocd-esp32h2]

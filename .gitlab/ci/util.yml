@@ -40,10 +40,8 @@
     - *run_tests_linux_snippet
 
 .copy_nuttx_files_snippet: &copy_nuttx_files_snippet |
-  ./testing/esp/test_apps/nuttx/mkjson.sh $TEST_RUN_DIR $NUTTX_APP_NAME $CHIP
-  mv nuttx.bin $TEST_RUN_DIR/$NUTTX_APP_NAME/$NUTTX_APP_NAME.bin
+  mv nuttx.merged.bin $TEST_RUN_DIR/$NUTTX_APP_NAME/$NUTTX_APP_NAME.bin
   mv nuttx $TEST_RUN_DIR/$NUTTX_APP_NAME/$NUTTX_APP_NAME.elf
-  mv bootloader.bin partition-table.bin $TEST_RUN_DIR/$NUTTX_APP_NAME/
 
 .copy_nuttx_files:
   script:
