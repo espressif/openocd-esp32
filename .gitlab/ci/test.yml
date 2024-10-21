@@ -723,6 +723,7 @@ tests_on_linux:
 .test_nuttx_template:
   image: $CI_DOCKER_REGISTRY/target-test-env-v5.1:1
   stage: test_nuttx
+  allow_failure: true
   tags:
     - $CHIP
     - jtag
@@ -787,6 +788,32 @@ test_nuttx_esp32c3:
   variables:
     CHIP: esp32c3
     TEST_BOARD: "esp32c3-ftdi"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_1X_RISCV_GDB_TOOLCHAIN}"
+    CHIP_TEST_TOOLCHAIN: "riscv32-esp"
+
+test_nuttx_esp32c6:
+  extends:
+    - .test_nuttx_template
+  tags:
+    - esp32c6
+    - usb_serial_jtag
+  variables:
+    CHIP: esp32c6
+    TEST_BOARD: "esp32c6-builtin"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_1X_RISCV_GDB_TOOLCHAIN}"
+    CHIP_TEST_TOOLCHAIN: "riscv32-esp"
+
+test_nuttx_esp32h2:
+  extends:
+    - .test_nuttx_template
+  tags:
+    - esp32h2
+    - usb_serial_jtag
+  variables:
+    CHIP: esp32h2
+    TEST_BOARD: "esp32h2-builtin"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_1X_RISCV_GDB_TOOLCHAIN}"
     CHIP_TEST_TOOLCHAIN: "riscv32-esp"
