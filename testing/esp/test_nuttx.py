@@ -21,7 +21,7 @@ class DebuggerNuttxTestsImpl:
         NAME_START = 6
         NAME_LEN = 15
         tasks_level = [3, 4, 5]
-        self.add_bp('threadsbt')
+        self.add_bp('threadsbt', hw=True)
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'threadsbt', tmo=120)
         _,threads_info = self.gdb.get_thread_info()
         for ti in threads_info:
