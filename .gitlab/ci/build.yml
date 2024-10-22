@@ -105,7 +105,6 @@
     - job: style_check
   script:
     - *get_release_name
-    - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
     - ./bootstrap
     - mkdir _build && pushd _build/
@@ -133,7 +132,6 @@
     - job: style_check
   script:
     - *get_release_name
-    - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
     - *buildx_libusb
     - export OSXCROSS_PKG_CONFIG_PATH=$PWD/$LIBUSB_VER/dist/lib/pkgconfig
@@ -161,7 +159,6 @@ build_linux:
     - job: style_check
   script:
     - *get_release_name
-    - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
     - apt-get update || true
     - apt-get install systemd libudev-dev --force-yes -y # needed for hidapi build
@@ -187,7 +184,6 @@ build_linux_gcc_latest:
   needs:
     - job: style_check
   script:
-    - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
     - ./bootstrap
     - ./configure ${OPENOCD_CONFIGURE_OPTS}
@@ -258,7 +254,6 @@ build_linux_arm64_test:
     - job: style_check
   script:
     - *get_release_name
-    - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
     - *buildx_libusb
     - export PKG_CONFIG_PATH=$PWD/$LIBUSB_VER/dist/lib/pkgconfig
@@ -310,7 +305,6 @@ scan-build:
       - scanbuild_reference.html
     when: always
   script:
-    - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
     - ./bootstrap
     - mkdir build-scanbuild
@@ -342,7 +336,6 @@ sparse:
       - sparse_reference.log
     when: always
   script:
-    - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
     - ./bootstrap
     - mkdir build-sparse && pushd build-sparse
@@ -366,7 +359,6 @@ build_linux_cmake:
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
   script:
-    - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
     - mkdir build && cd build
     - cmake .. -G Ninja
@@ -384,7 +376,6 @@ build_linux_cmake:
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
   script:
-    - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
     - mkdir build && cd build
     - cmake .. -DCMAKE_TOOLCHAIN_FILE=cmake/cross/linux-armhf.cmake
@@ -402,7 +393,6 @@ build_linux_cmake:
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
   script:
-    - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
     - mkdir build && cd build
     - cmake .. -DCMAKE_TOOLCHAIN_FILE=cmake/cross/mingw32.cmake

@@ -1,22 +1,10 @@
-.add_gitlab_key_snippet: &add_gitlab_key_snippet |
-  command -v ssh-agent >/dev/null || exit 1
-  eval $(ssh-agent -s)
-  printf '%s\n' "${GITLAB_KEY}" | tr -d '\r' | ssh-add - > /dev/null
-  mkdir -p ~/.ssh && chmod 700 ~/.ssh
-  [[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config || true
-
-.add_gitlab_key:
-  script:
-    - *add_gitlab_key_snippet
-
-
 .submodules_mirror_update_snippet: &submodules_mirror_update_snippet |
   # Gitlab doesn't clean submodule contents
   git submodule foreach "git clean -d -x -f" || true
   # Use local mirror for submodules
-  git config submodule.tools/git2cl.url https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/idf/git2cl.git
-  git config submodule.jimtcl.url https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/idf/jimtcl.git
-  git config submodule.src/jtag/drivers/libjaylink.url https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/idf/libjaylink.git
+  git config submodule.tools/git2cl.url https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/idf/git2cl.git
+  git config submodule.jimtcl.url https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/idf/jimtcl.git
+  git config submodule.src/jtag/drivers/libjaylink.url https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/idf/libjaylink.git
   git submodule update --init
 
 .submodules_mirror_update:
