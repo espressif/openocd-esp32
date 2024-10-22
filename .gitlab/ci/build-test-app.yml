@@ -26,9 +26,8 @@
     if  [ -n "${TEST_APP_IDF_MASTER_BRANCH:-}" ]; then
       TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF_MASTER_BRANCH"
     else
-      # Use the same idf branch name if exists
-      git ls-remote https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git | grep "refs/heads/$CI_COMMIT_REF_NAME"
-      test $? -eq 0 && echo "Use IDF branch \"$CI_COMMIT_REF_NAME\"" && TEST_APP_CUSTOM_BRANCH=$CI_COMMIT_REF_NAME
+      # Checkout from gitlab master
+      TEST_APP_CUSTOM_BRANCH="master"
     fi
   elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_2_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_2_BRANCH:-}" ]; then
     TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF5_2_BRANCH"
@@ -166,7 +165,6 @@
     TEST_APP_CONFIGS: ""
     TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF_LATEST_DOCKER_IMAGE}"
     UT_GET_IDF_VER: "0"
-    TEST_APP_IDF_MASTER_BRANCH: master #checkout from gitlab master
   extends: .build_test_app_template
 
 ##############
