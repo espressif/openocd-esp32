@@ -3007,13 +3007,13 @@ static int xtensa_build_reg_cache(struct target *target)
 	/* Construct empty-register list for handling unknown register requests */
 	xtensa->empty_regs = calloc(xtensa->dbregs_num, sizeof(struct reg));
 	if (!xtensa->empty_regs) {
-		LOG_TARGET_ERROR(target, "ERROR: Out of memory");
+		LOG_TARGET_ERROR(target, "Out of memory");
 		goto fail;
 	}
 	for (unsigned int i = 0; i < xtensa->dbregs_num; i++) {
 		xtensa->empty_regs[i].name = calloc(8, sizeof(char));
 		if (!xtensa->empty_regs[i].name) {
-			LOG_TARGET_ERROR(target, "ERROR: Out of memory");
+			LOG_TARGET_ERROR(target, "Out of memory");
 			goto fail;
 		}
 		sprintf((char *)xtensa->empty_regs[i].name, "?0x%04x", i & 0x0000FFFF);
@@ -3031,7 +3031,7 @@ static int xtensa_build_reg_cache(struct target *target)
 	if (xtensa->regmap_contiguous && xtensa->contiguous_regs_desc) {
 		xtensa->contiguous_regs_list = calloc(xtensa->total_regs_num, sizeof(struct reg *));
 		if (!xtensa->contiguous_regs_list) {
-			LOG_TARGET_ERROR(target, "ERROR: Out of memory");
+			LOG_TARGET_ERROR(target, "Out of memory");
 			goto fail;
 		}
 		for (unsigned int i = 0; i < xtensa->total_regs_num; i++) {
