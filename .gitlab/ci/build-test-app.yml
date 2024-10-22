@@ -27,7 +27,7 @@
       TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF_MASTER_BRANCH"
     else
       # Use the same idf branch name if exists
-      git ls-remote https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git | grep "refs/heads/$CI_COMMIT_REF_NAME"
+      git ls-remote https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git | grep "refs/heads/$CI_COMMIT_REF_NAME"
       test $? -eq 0 && echo "Use IDF branch \"$CI_COMMIT_REF_NAME\"" && TEST_APP_CUSTOM_BRANCH=$CI_COMMIT_REF_NAME
     fi
   elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_2_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_2_BRANCH:-}" ]; then
@@ -43,7 +43,7 @@
     echo "TEST_APP_CUSTOM_BRANCH=$TEST_APP_CUSTOM_BRANCH"
     pushd $BUILD_TEST_APP_DIR
     # Clone esp-idf
-    git clone --shallow-submodules --recursive --single-branch --branch $TEST_APP_CUSTOM_BRANCH -- https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git esp-idf
+    git clone --shallow-submodules --recursive --single-branch --branch $TEST_APP_CUSTOM_BRANCH -- https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git esp-idf
     export IDF_PATH=$PWD/esp-idf
     # Activate pyenv
     if [ $(command -v pyenv) ]; then
@@ -126,7 +126,6 @@
       - $BUILD_TEST_APP_DIR/SYSVIEW_FreeRTOS.txt
     expire_in: 2 weeks
   script:
-    - !reference [.add_gitlab_key, script]
     - *prepare_test_app_build
     - *do_build_test_app
     - *finish_test_app_build

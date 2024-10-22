@@ -17,7 +17,6 @@
     - export GCOV_PREFIX=$PWD/$TEST_RUN_DIR
     - export GCOV_PREFIX_STRIP=2
   script:
-    - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
     - !reference [.export_toolchain, script]
     - !reference [.run_tests_linux, script]

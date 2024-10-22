@@ -15,7 +15,6 @@
   variables:
     PLATFORM_NAME: "linux-armhf-test"
   script:
-    - !reference [.add_gitlab_key, script]
     - !reference [.submodules_mirror_update, script]
     - !reference [.export_toolchain, script]
     - export ASAN_OPTIONS=detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1
