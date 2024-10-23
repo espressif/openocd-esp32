@@ -722,7 +722,9 @@ tests_on_linux:
   before_script:
     - pip install xmlrunner
     - pip install pygdbmi==0.9.0.2
+  timeout: 10m
   variables:
+    RUNNER_SCRIPT_TIMEOUT: 5m
     PLATFORM_NAME: "linux-armhf-test"
     ESP_TOOLCHAIN: "${ESP_V5_1X_TOOLCHAIN_VER}"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_1X_XTENSA_GDB_TOOLCHAIN}"
