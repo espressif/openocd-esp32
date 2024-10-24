@@ -72,6 +72,7 @@
 
 #define ESP_FLASH_RW_TMO                20000	/* ms */
 #define ESP_FLASH_ERASE_TMO             60000	/* ms */
+#define ESP_FLASH_VERIFY_TMO            30000	/* ms */
 #define ESP_FLASH_MAPS_MAX              2
 
 struct esp_flash_rw_args {
@@ -1358,6 +1359,7 @@ static int esp_algo_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 		PARAM_IN);
 	run.mem_args.params = &mp;
 	run.mem_args.count = 1;
+	run.timeout_ms = ESP_FLASH_VERIFY_TMO;
 
 	struct duration bench;
 	duration_start(&bench);
