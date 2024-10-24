@@ -19,7 +19,7 @@
   before_script:
     - export GCOV_PREFIX=$PWD/$TEST_RUN_DIR
     - export GCOV_PREFIX_STRIP=2
-    - pip install xmlrunner
+    - pip install unittest-xml-reporting --no-deps
     - pip install pygdbmi==0.9.0.2
   script:
     - !reference [.submodules_mirror_update, script]
@@ -720,7 +720,7 @@ tests_on_linux:
     when: always
     expire_in: 1 week
   before_script:
-    - pip install xmlrunner
+    - pip install unittest-xml-reporting --no-deps
     - pip install pygdbmi==0.9.0.2
   timeout: 10m
   variables:

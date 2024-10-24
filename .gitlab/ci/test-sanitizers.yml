@@ -12,6 +12,9 @@
     expire_in: 1 week
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "run_sanitizer_tests"
+  before_script:
+  - pip install unittest-xml-reporting --no-deps
+  - pip install pygdbmi==0.9.0.2
   variables:
     PLATFORM_NAME: "linux-armhf-test"
   script:
@@ -24,9 +27,6 @@
   extends: .tests_sanitizers_template
   stage: sanitizer_test_idf_master
   image: $CI_DOCKER_REGISTRY/target-test-env-v5.4:1
-  before_script:
-  - pip install xmlrunner
-  - pip install pygdbmi==0.9.0.2
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}"
@@ -45,9 +45,6 @@
   extends: .tests_sanitizers_template
   stage: sanitizer_test_idf5.2.x
   image: $CI_DOCKER_REGISTRY/target-test-env-v5.2:2
-  before_script:
-    - pip install xmlrunner
-    - pip install pygdbmi==0.9.0.2
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.2.x"
@@ -66,9 +63,6 @@
   extends: .tests_sanitizers_template
   stage: sanitizer_test_idf5.1.x
   image: $CI_DOCKER_REGISTRY/target-test-env-v5.1:1
-  before_script:
-    - pip install xmlrunner
-    - pip install pygdbmi==0.9.0.2
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.1.x"
@@ -89,9 +83,6 @@
   extends: .tests_sanitizers_template
   stage: sanitizer_test_idf5.0.x
   image: $CI_DOCKER_REGISTRY/target-test-env-v5.0:3
-  before_script:
-  - pip install xmlrunner
-  - pip install pygdbmi==0.9.0.2
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.0.x"
