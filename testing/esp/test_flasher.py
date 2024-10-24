@@ -67,7 +67,7 @@ class FlasherTestsImpl:
             4) Read written data to another file.
             5) Compare files.
         """
-        self.program_big_binary('encrypt' if self.ENCRYPTED else '', size=self.flash_sz)
+        self.program_big_binary('encrypt verify' if self.ENCRYPTED else 'verify', size=self.flash_sz)
         # restore flash contents with test app as it was overwritten by test
         # what can lead to the failures when preparing for the next tests
         self.gdb.target_program_bins(self.test_app_cfg.build_bins_dir())
