@@ -10,6 +10,8 @@
 #include "config.h"
 #endif
 
+#include <stdio.h>
+
 #include "log.h"
 #include "time_support.h"
 #include "util.h"
