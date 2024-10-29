@@ -56,16 +56,16 @@
   extends: .tests_armhf_template
   stage: test_idf_master
   allow_failure: true
-  image: $CI_DOCKER_REGISTRY/target-test-env-v5.4:1
+  image: $CI_DOCKER_REGISTRY/target-test-env-v5.5:1
   inherit:
     default:
       - interruptible
       # Dont retry
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
-    ESP_GDB_TOOLCHAIN: "${ESP_V5_4X_XTENSA_GDB_TOOLCHAIN}"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_5X_XTENSA_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "xtensa-esp"
-    ESP_TOOLCHAIN: "${ESP_V5_4X_TOOLCHAIN_VER}"
+    ESP_TOOLCHAIN: "${ESP_V5_5X_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}"
     IDF_RELEASE_TAG: "latest"
     TEST_RUN_RETRY: "" # Dont retry
@@ -74,7 +74,7 @@
   extends: .tests_armhf_master_template
   variables:
     CHIP_TEST_TOOLCHAIN: "riscv32-esp"
-    ESP_GDB_TOOLCHAIN: "${ESP_V5_4X_RISCV_GDB_TOOLCHAIN}"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_5X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
 
 .tests_arm64_master_riscv_template:
