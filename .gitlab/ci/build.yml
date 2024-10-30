@@ -113,6 +113,7 @@
       if [[ "${GCOV_BUILD_OPTS}" != "" ]]; then
         echo coverage enabled
         rsync -a --prune-empty-dirs --include '*/' --include '*.gcno' --exclude '*' _build/ ${DIST_INSTALLED_DIR}/_build
+        cp `which ${CONF_HOST}-gcov` ${DIST_INSTALLED_DIR}/bin/gcov
       fi
     - *dist_archive
 

@@ -10,7 +10,7 @@
   artifacts:
     paths:
       - $TEST_RUN_DIR/debug_backend_tests.log
-      - $TEST_RUN_DIR/${CI_JOB_NAME}.info
+      - $TEST_RUN_DIR/esp_cov_files
     reports:
       junit:
         - $TEST_RUN_DIR/results/*
@@ -47,9 +47,9 @@
           break;
         fi
       done < "$input"
-    - mkdir ${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}/esp_cov_files
-    - rsync -a --prune-empty-dirs --include '*/' ${command_arg} --exclude '*' ${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}/_build ${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}/esp_cov_files
-    - lcov --capture --directory ${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}/esp_cov_files --output-file ${TEST_RUN_DIR}/${CI_JOB_NAME}.info
+    - mkdir ${TEST_RUN_DIR}/esp_cov_files
+    - rsync -a --prune-empty-dirs --include '*/' ${command_arg} --exclude '*' ${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}/_build ${TEST_RUN_DIR}/esp_cov_files
+    - cp ${PWD}/${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}/bin/gcov ${TEST_RUN_DIR}/esp_cov_files
 
 .tests_armhf_master_template:
   extends: .tests_armhf_template
