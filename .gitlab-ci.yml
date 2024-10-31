@@ -331,8 +331,8 @@ create_coverage_reports:
       for each_folder in $folder_list ;
       do
       lcov --gcov-tool ${PWD}/${each_folder}/esp_cov_files/gcov --capture --directory ${each_folder}/esp_cov_files --output-file ${each_folder}/${each_folder}.info;
-      cp ${each_folder}/*.info cov_infos;
       done
+    - cp `find . -wholename "./build_test_app*/*.info" -size +0` cov_infos
     - ls -la cov_infos/
     # Creating a html report of coverage files.
     - genhtml --ignore-errors source cov_infos/*.info -o lcov_html_report/
