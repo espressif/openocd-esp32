@@ -1477,7 +1477,7 @@ static int esp_algo_flash_appimage_base_update(struct target *target,
 	return retval;
 }
 
-COMMAND_HELPER(esp_algo_flash_cmd_appimage_flashoff_do, struct target *target)
+static COMMAND_HELPER(esp_algo_flash_cmd_appimage_flashoff_do, struct target *target)
 {
 	if (CMD_ARGC != 1) {
 		command_print(CMD, "Flash offset not specified!");
@@ -1520,7 +1520,7 @@ static int esp_algo_flash_set_compression(struct target *target,
 	return ERROR_OK;
 }
 
-COMMAND_HELPER(esp_algo_flash_cmd_set_compression, struct target *target)
+static COMMAND_HELPER(esp_algo_flash_cmd_set_compression, struct target *target)
 {
 	if (CMD_ARGC != 1) {
 		command_print(CMD, "Compression not specified!");
@@ -1569,7 +1569,7 @@ static int esp_algo_flash_set_stub_log(struct target *target, char *bank_name_su
 	return ERROR_OK;
 }
 
-COMMAND_HELPER(esp_algo_flash_cmd_set_encryption, struct target *target)
+static COMMAND_HELPER(esp_algo_flash_cmd_set_encryption, struct target *target)
 {
 	if (CMD_ARGC != 1) {
 		command_print(CMD, "Encryption not specified!");
@@ -1673,7 +1673,7 @@ static int esp_flash_verify_bank_hash(struct target *target,
 	return differ ? ERROR_FAIL : ERROR_OK;
 }
 
-COMMAND_HELPER(esp_algo_flash_parse_cmd_verify_bank_hash, struct target *target)
+static COMMAND_HELPER(esp_algo_flash_parse_cmd_verify_bank_hash, struct target *target)
 {
 	if (CMD_ARGC < 2 || CMD_ARGC > 3)
 		return ERROR_COMMAND_SYNTAX_ERROR;
@@ -1686,7 +1686,7 @@ COMMAND_HELPER(esp_algo_flash_parse_cmd_verify_bank_hash, struct target *target)
 	return esp_flash_verify_bank_hash(target, offset, CMD_ARGV[1]);
 }
 
-COMMAND_HELPER(esp_algo_flash_parse_cmd_clock_boost, struct target *target)
+static COMMAND_HELPER(esp_algo_flash_parse_cmd_clock_boost, struct target *target)
 {
 	if (CMD_ARGC != 1) {
 		command_print(CMD, "Clock boost flag not specified!");
@@ -1714,7 +1714,7 @@ COMMAND_HELPER(esp_algo_flash_parse_cmd_clock_boost, struct target *target)
 	return esp_algo_flash_boost_clock_freq(bank, boost);
 }
 
-COMMAND_HELPER(esp_algo_flash_parse_cmd_stub_log, struct target *target)
+static COMMAND_HELPER(esp_algo_flash_parse_cmd_stub_log, struct target *target)
 {
 	if (CMD_ARGC != 1) {
 		LOG_TARGET_ERROR(target, "Stub log flag not specified!");

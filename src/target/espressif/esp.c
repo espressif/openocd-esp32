@@ -130,7 +130,7 @@ struct target *esp_common_get_halted_target(struct target *target, int32_t corei
 	return target;
 }
 
-void esp_common_dump_bp_slot(const char *caption, struct esp_flash_breakpoints *bps, size_t slot)
+static void esp_common_dump_bp_slot(const char *caption, struct esp_flash_breakpoints *bps, size_t slot)
 {
 	if (!LOG_LEVEL_IS(LOG_LVL_DEBUG))
 		return;
@@ -174,7 +174,7 @@ static int esp_common_flash_breakpoints_clear(struct target *target)
 	return ERROR_OK;
 }
 
-bool esp_common_any_pending_flash_breakpoint(struct esp_common *esp)
+static bool esp_common_any_pending_flash_breakpoint(struct esp_common *esp)
 {
 	for (uint32_t slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
 		if (esp->flash_brps.brps[slot].status == ESP_BP_STAT_PEND)
@@ -183,7 +183,7 @@ bool esp_common_any_pending_flash_breakpoint(struct esp_common *esp)
 	return false;
 }
 
-bool esp_common_any_added_flash_breakpoint(struct esp_common *esp)
+static bool esp_common_any_added_flash_breakpoint(struct esp_common *esp)
 {
 	for (uint32_t slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
 		if (esp->flash_brps.brps[slot].insn_sz > 0)
@@ -192,7 +192,7 @@ bool esp_common_any_added_flash_breakpoint(struct esp_common *esp)
 	return false;
 }
 
-void esp_common_flash_breakpoints_get_ready_to_remove(struct esp_common *esp)
+static void esp_common_flash_breakpoints_get_ready_to_remove(struct esp_common *esp)
 {
 	for (uint32_t slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
 		if (esp->flash_brps.brps[slot].insn_sz > 0) {
@@ -287,7 +287,7 @@ int esp_common_flash_breakpoint_remove(struct target *target, struct esp_common 
 	return esp->flash_brps.ops->breakpoint_remove(target, &esp->flash_brps.brps[slot], 1);
 }
 
-int esp_common_process_lazy_flash_breakpoints(struct target *target)
+static int esp_common_process_lazy_flash_breakpoints(struct target *target)
 {
 	struct esp_common *esp = target_to_esp_common(target);
 	struct esp_flash_breakpoint *flash_bps = esp->flash_brps.brps;
@@ -346,7 +346,7 @@ int esp_common_process_lazy_flash_breakpoints(struct target *target)
 	return ret;
 }
 
-int esp_common_halt_target(struct target *target, enum target_state *old_state)
+static int esp_common_halt_target(struct target *target, enum target_state *old_state)
 {
 	*old_state = target->state;
 	if (target->state != TARGET_HALTED) {
@@ -400,7 +400,7 @@ int esp_common_handle_gdb_detach(struct target *target)
 	return ERROR_OK;
 }
 
-int esp_common_handle_flash_breakpoints(struct target *target)
+static int esp_common_handle_flash_breakpoints(struct target *target)
 {
 	struct esp_common *esp = target_to_esp_common(target);
 
@@ -488,7 +488,7 @@ int esp_common_read_pseudo_ex_reason(struct target *target)
 
 /* Generic commands for xtensa and riscv */
 
-int esp_common_gdb_detach_handler(struct target *target)
+static int esp_common_gdb_detach_handler(struct target *target)
 {
 	if (target->smp) {
 		struct target_list *head;
@@ -502,7 +502,7 @@ int esp_common_gdb_detach_handler(struct target *target)
 	return esp_common_handle_gdb_detach(target);
 }
 
-int esp_common_process_flash_breakpoints_handler(struct target *target)
+static int esp_common_process_flash_breakpoints_handler(struct target *target)
 {
 	if (target->smp) {
 		struct target_list *head;
@@ -516,7 +516,7 @@ int esp_common_process_flash_breakpoints_handler(struct target *target)
 	return esp_common_handle_flash_breakpoints(target);
 }
 
-int esp_common_disable_lazy_breakpoints_handler(struct target *target)
+static int esp_common_disable_lazy_breakpoints_handler(struct target *target)
 {
 	/* Before disabling, add/remove pending breakpoints */
 	int ret = esp_common_process_flash_breakpoints_handler(target);

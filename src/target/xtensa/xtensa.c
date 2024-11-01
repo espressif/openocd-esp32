@@ -4277,7 +4277,7 @@ COMMAND_HANDLER(xtensa_cmd_smpbreak)
 		get_current_target(CMD_CTX));
 }
 
-COMMAND_HELPER(xtensa_cmd_dm_rw_do, struct xtensa *xtensa)
+static COMMAND_HELPER(xtensa_cmd_dm_rw_do, struct xtensa *xtensa)
 {
 	if (CMD_ARGC == 1) {
 		// read: xtensa dm addr
