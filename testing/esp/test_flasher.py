@@ -36,26 +36,29 @@ class FlasherTestsImpl:
             return mo.group("tgt_name"), int(mo.group("flash_sz"), 16)
         return "", 0
 
-    def program_big_binary(self, actions, size, off=0, truncate_size=0):
-        fhnd,fname1 = tempfile.mkstemp()
-        wr_fbin = os.fdopen(fhnd, 'wb')
-        size = int(size/1024)
-        get_logger().debug('Generate random file %dKB "%s"', size, fname1)
-        for i in range(size):
-            wr_fbin.write(os.urandom(1024))
-        wr_fbin.flush()
-        self.gdb.target_program(fname1, off, actions=actions, tmo=130)
+    def program_big_binary(self, actions, overflow=False):
+        size = 0x2000 if overflow else self.flash_sz
+        offset = self.flash_sz - 0x1000 if overflow else 0
+        truncate_size = 0x1000 if overflow else 0
+
+        fhnd, fname1 = tempfile.mkstemp()
+        get_logger().debug('Generate random file %dKB "%s"', size / 1024, fname1)
+        with os.fdopen(fhnd, 'wb') as fbin:
+            for i in range(int(size / 1024)):
+                fbin.write(os.urandom(1024))
+
+        self.gdb.target_program(fname1, offset, actions=actions, tmo=130)
+
         # since we can not get result from OpenOCD (output parsing seems not to be good idea),
         # we need to read written flash and compare data manually
-        fhnd,fname2 = tempfile.mkstemp()
-        fbin = os.fdopen(fhnd, 'wb')
-        fbin.close()
-        if truncate_size == 0:
-            self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (dbg.fixup_path(fname2), off, size*1024), tmo=120)
-        else:
-            self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (dbg.fixup_path(fname2), off, size*1024-truncate_size), tmo=120)
-            wr_fbin.truncate(size*1024-truncate_size)
-        wr_fbin.close()
+        _, fname2 = tempfile.mkstemp()
+        os.truncate(fname1, size - truncate_size)
+        self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (dbg.fixup_path(fname2), offset, size - truncate_size), tmo=120)
+
+        # restore flash contents with test app as it was overwritten by test
+        # what can lead to the failures when preparing for the next tests
+        self.gdb.target_program_bins(self.test_app_cfg.build_bins_dir())
+
         self.assertTrue(filecmp.cmp(fname1, fname2))
 
     def test_big_binary(self):
@@ -67,10 +70,7 @@ class FlasherTestsImpl:
             4) Read written data to another file.
             5) Compare files.
         """
-        self.program_big_binary('encrypt verify' if self.ENCRYPTED else 'verify', size=self.flash_sz)
-        # restore flash contents with test app as it was overwritten by test
-        # what can lead to the failures when preparing for the next tests
-        self.gdb.target_program_bins(self.test_app_cfg.build_bins_dir())
+        self.program_big_binary('encrypt verify' if self.ENCRYPTED else 'verify')
 
     def test_big_binary_compressed(self):
         """
@@ -81,10 +81,7 @@ class FlasherTestsImpl:
             4) Read written data to another file.
             5) Compare files.
         """
-        self.program_big_binary('encrypt compress' if self.ENCRYPTED else 'compress', size=self.flash_sz)
-        # restore flash contents with test app as it was overwritten by test
-        # what can lead to the failures when preparing for the next tests
-        self.gdb.target_program_bins(self.test_app_cfg.build_bins_dir())
+        self.program_big_binary('encrypt compress' if self.ENCRYPTED else 'compress')
 
     def test_flash_overflow(self):
         """
@@ -95,10 +92,7 @@ class FlasherTestsImpl:
             4) Read written data to another file.
             5) Compare files and ensure that written data size was truncated to fit flash.
         """
-        self.program_big_binary('encrypt' if self.ENCRYPTED else '', off=0x1000, size=self.flash_sz, truncate_size=0x1000)
-        # restore flash contents with test app as it was overwritten by test
-        # what can lead to the failures when preparing for the next tests
-        self.gdb.target_program_bins(self.test_app_cfg.build_bins_dir())
+        self.program_big_binary('encrypt' if self.ENCRYPTED else '', overflow=True)
 
     def test_flash_overflow_compressed(self):
         """
@@ -109,10 +103,7 @@ class FlasherTestsImpl:
             4) Read written data to another file.
             5) Compare files and ensure that written data size was truncated to fit flash.
         """
-        self.program_big_binary('encrypt compress' if self.ENCRYPTED else 'compress', off=0x1000, size=self.flash_sz, truncate_size=0x1000)
-        # restore flash contents with test app as it was overwritten by test
-        # what can lead to the failures when preparing for the next tests
-        self.gdb.target_program_bins(self.test_app_cfg.build_bins_dir())
+        self.program_big_binary('encrypt compress' if self.ENCRYPTED else 'compress', overflow=True)
 
     def test_cache_handling(self):
         """
