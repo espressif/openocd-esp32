@@ -794,6 +794,19 @@ static int dmstatus_read_timeout(struct target *target, uint32_t *dmstatus,
 			DM_DMSTATUS, 0, timeout_sec, false, true);
 	if (result != ERROR_OK)
 		return result;
+
+	/* ESPRESSIF */
+	if (*dmstatus == 0) {
+		uint32_t dmcontrol;
+		/* after unexpected resets on some targets, dmcontrol could be inactive. */
+		if (dm_read(target, &dmcontrol, DM_DMCONTROL) == ERROR_OK) {
+			if (!get_field(dmcontrol, DM_DMCONTROL_DMACTIVE)) {
+				LOG_TARGET_ERROR(target, "Debug Module is not active! dmcontrol=0x%" PRIx32, dmcontrol);
+				return dm_write(target, DM_DMCONTROL, DM_DMCONTROL_DMACTIVE);
+			}
+		}
+	}
+
 	int dmstatus_version = get_field(*dmstatus, DM_DMSTATUS_VERSION);
 	if (dmstatus_version != 2 && dmstatus_version != 3) {
 		LOG_ERROR("OpenOCD only supports Debug Module version 2 (0.13) and 3 (1.0), not "
