@@ -306,43 +306,60 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
     def test_gdb_regs_mapping(self):
         """
             This test checks that GDB and OpenOCD has identical registers mapping.
-            1) Cycles over registers and assigns them specific values using GDB command
-            2) Uses OpenOCD command to check that registers have expected values
+            1) Cycles over registers and assigns them specific values using OpenOCD command
+            2) Uses GDB command to check that registers have expected values
         """
         regs = self.gdb.get_reg_names()
-        i = 10
+        i = 0
 
         # GDB sets registers in current thread, here we assume that it always belongs to CPU0
         # select CPU0 as current target in OpenOCD for multi-core chips
         _, res_str = self.gdb.monitor_run('target names', output_type='stdout')
-        if res_str.endswith('\\n'):
-            res_str = res_str[:-2]
-        targets = res_str.split()
+        targets = res_str.strip().split()
         if len(targets) > 1:
             for t in targets:
                 if t.endswith('.cpu0'):
                     self.gdb.monitor_run('targets %s' % t, output_type='stdout')
                     break
 
+        def set_reg_and_check(reg, val):
+            self.oocd.set_reg(reg, val)
+            ocd_val = self.oocd.get_reg(reg)
+            ocd_val2 = self.oocd.get_reg(reg)
+
+            self.gdb.console_cmd_run('flushregs')
+            gdb_val = self.gdb.get_reg(reg)
+            if gdb_val < 0:
+                gdb_val += 0x100000000
+
+            if ocd_val == val:
+                # general purpose registers can be written with any value, and expected to contain the same
+                # value when read back, does not hold for control and status registers
+                get_logger().debug("Check reg value '%s': %d == %d", reg, val, gdb_val)
+                self.assertEqual(val, gdb_val)
+            elif ocd_val == ocd_val2:
+                # if the register value doesnt change, we can expect matching values read using OpenOCD and GDB.
+                # for counter like registers we can only check that the read does not fail (implicitly, no error)
+                get_logger().debug("Check reg value '%s': %d == %d", reg, ocd_val, gdb_val)
+                self.assertEqual(ocd_val, gdb_val)
+
         for reg in regs:
-            if (len(reg) == 0 or reg == 'zero'):
+            if (len(reg) == 0):
                 continue
 
-            # TODO: With the new gdb version (gdb9) privileged regs now can be set. So, break condition needs to be changed for each chip.
-            # eg. Now mmid is pass but it is failing at a0 for esp32
-            if reg == 'mmid' or reg == 'mstatus' or reg == 'q0':
+            if reg == 'pc':
+                # set to reasonable value, because GDB tries to read memory @ pc
+                set_reg_and_check(reg, 0x40000400)
+                continue
+
+            if reg == 'mmid' or reg == 'q0':
                 break
 
-            # set to reasonable value, because GDB tries to read memory @ pc
-            val = 0x40000400 if reg == 'pc' else i
-            self.gdb.set_reg(reg, val)
-            self.gdb.console_cmd_run('flushregs')
-            self.assertEqual(self.gdb.get_reg(reg), val)
-            _,res_str = self.gdb.monitor_run('reg %s' % reg, output_type='stdout')
-            read_val = self.oocd.parse_reg_val(reg, res_str)
-            get_logger().debug("Check reg value '%s': %d == %d", reg, read_val, val)
-            self.assertEqual(read_val, val)
+            set_reg_and_check(reg, 0)
+            set_reg_and_check(reg, 0xffffffff)
+            set_reg_and_check(reg, i)
             i += 1
+
         # reset chip to clear all changes in regs, otherwise the next test can fail
         self.gdb.target_reset()
 
