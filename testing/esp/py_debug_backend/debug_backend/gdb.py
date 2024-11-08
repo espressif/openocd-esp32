@@ -376,6 +376,9 @@ class Gdb(object):
 
     def get_reg(self, nm):
         sval = self.data_eval_expr('$%s' % nm)
+        if ' ' in sval:
+            # for priv we get something like "0 '\\000'"
+            sval = sval.split()[0]
         # for PC we'll get something like '0x400e0db8 <gpio_set_direction>'
         return self.extract_exec_addr(sval)
 
