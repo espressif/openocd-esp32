@@ -102,8 +102,8 @@
  * But it still needs memory for stub trampoline, stack, and memory arguments.
  * Working areas can not be used due to possible memory layout conflicts with on-board stub code and data.
  * Debug stubs functionality provided by ESP IDF allows OpenOCD to overcome the above problem.
- * It provides a special descriptor which provides info necessary to safely allocate memory on target.
- * @see struct esp_dbg_stubs_desc.
+ * It provides a special control block which provides info necessary to safely allocate memory on target.
+ * @see struct esp_dbg_stubs_ctl_data.
  * That info is also used to locate memory for stub trampoline code.
  * User can execute target function at any address, but @see ESP IDF debug stubs also provide a way to pass to the host
  * an entry address of pre-defined registered stub functions.

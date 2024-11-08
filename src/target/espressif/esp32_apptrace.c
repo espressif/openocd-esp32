@@ -2301,7 +2301,7 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 			return res;
 		}
 		struct esp_dbg_stubs *dbg_stubs = get_stubs_from_target(&run_target);
-		if (!dbg_stubs || dbg_stubs->entries_count < 1 || dbg_stubs->desc.data_alloc == 0) {
+		if (!dbg_stubs || dbg_stubs->entries_count < 1 || dbg_stubs->ctl_data.data_alloc == 0) {
 			command_print(CMD, "No dbg stubs found!");
 			esp_gcov_cmd_cleanup(&s_at_cmd_ctx);
 			return ERROR_FAIL;
@@ -2313,7 +2313,7 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 			esp_gcov_cmd_cleanup(&s_at_cmd_ctx);
 			return ERROR_FAIL;
 		}
-		stub_capabilites = dbg_stubs->entries[ESP_DBG_STUB_CAPABILITIES];
+		stub_capabilites = dbg_stubs->entries[ESP_DBG_STUB_ENTRY_CAPABILITIES];
 		gcov_idf_has_thread = stub_capabilites & ESP_DBG_STUB_CAP_GCOV_THREAD;
 		LOG_DEBUG("STUB_CAP = 0x%x", stub_capabilites);
 		memset(&run, 0, sizeof(run));
@@ -2323,9 +2323,9 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 			run.usr_func_arg = &s_at_cmd_ctx;
 			run.usr_func = esp_gcov_poll;
 		}
-		run.on_board.min_stack_addr = dbg_stubs->desc.min_stack_addr;
+		run.on_board.min_stack_addr = dbg_stubs->ctl_data.min_stack_addr;
 		run.on_board.min_stack_size = ESP_DBG_STUBS_STACK_MIN_SIZE;
-		run.on_board.code_buf_addr = dbg_stubs->desc.tramp_addr;
+		run.on_board.code_buf_addr = dbg_stubs->ctl_data.tramp_addr;
 		run.on_board.code_buf_size = ESP_DBG_STUBS_CODE_BUF_SIZE;
 		/* this function works for SMP and non-SMP targets
 		 * set num_args to 1 in order to read return code coming with "a2" reg */
