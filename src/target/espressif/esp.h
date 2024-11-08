@@ -20,24 +20,23 @@
 /* must be in sync with ESP-IDF version */
 /** Size of the pre-compiled target buffer for stub trampoline.
  * @note Must be in sync with ESP-IDF version */
-#define ESP_DBG_STUBS_CODE_BUF_SIZE         32	/* TODO: move this info to esp_dbg_stubs_desc */
+#define ESP_DBG_STUBS_CODE_BUF_SIZE         32	/* TODO: move this info to esp_dbg_stubs_ctl_data */
 /** Size of the pre-compiled target buffer for stack.
  * @note Must be in sync with ESP-IDF version */
-#define ESP_DBG_STUBS_STACK_MIN_SIZE        2048/* TODO: move this info to esp_dbg_stubs_desc */
+#define ESP_DBG_STUBS_STACK_MIN_SIZE        2048 /* TODO: move this info to esp_dbg_stubs_ctl_data */
 
 /**
  * Debug stubs table entries IDs
  *
- * @note Must be in sync with ESP-IDF version
+ * @note Must be in sync with ESP-IDF version in dbg_stubs.h
  */
 enum esp_dbg_stub_id {
-	ESP_DBG_STUB_ENTRY_MAGIC_NUM,
+	ESP_DBG_STUB_MAGIC_NUM,
 	ESP_DBG_STUB_TABLE_SIZE,
-	ESP_DBG_STUB_TABLE_START,
-	ESP_DBG_STUB_DESC = ESP_DBG_STUB_TABLE_START,	/*< Stubs descriptor ID */
-	ESP_DBG_STUB_ENTRY_FIRST,
-	ESP_DBG_STUB_ENTRY_GCOV = ESP_DBG_STUB_ENTRY_FIRST,	/*< GCOV stub ID */
-	ESP_DBG_STUB_CAPABILITIES,
+	ESP_DBG_STUB_CONTROL_DATA,
+	ESP_DBG_STUB_ENTRY_FIRST, /*< Stubs descriptor entry */
+	ESP_DBG_STUB_ENTRY_GCOV = ESP_DBG_STUB_ENTRY_FIRST,	/*< GCOV entry */
+	ESP_DBG_STUB_ENTRY_CAPABILITIES,
 	/* add new stub entries here */
 	ESP_DBG_STUB_ENTRY_MAX,
 };
@@ -47,11 +46,11 @@ enum esp_dbg_stub_id {
 
 
 /**
- * Debug stubs descriptor. ID: ESP_DBG_STUB_DESC
+ * Debug stubs control data. ID: ESP_DBG_STUB_CONTROL_DATA
  *
  * @note Must be in sync with ESP-IDF version
  */
-struct esp_dbg_stubs_desc {
+struct esp_dbg_stubs_ctl_data {
 	/** Address of pre-compiled target buffer for stub trampoline.
 	 * Size of the buffer is ESP_DBG_STUBS_CODE_BUF_SIZE
 	 */
@@ -79,8 +78,8 @@ struct esp_dbg_stubs {
 	uint32_t entries[ESP_DBG_STUB_ENTRY_MAX];
 	/** Number of table entries. */
 	uint32_t entries_count;
-	/** Debug stubs decsriptor. */
-	struct esp_dbg_stubs_desc desc;
+	/** Debug stubs control data. */
+	struct esp_dbg_stubs_ctl_data ctl_data;
 };
 
 struct esp_panic_reason {

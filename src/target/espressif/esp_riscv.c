@@ -494,7 +494,7 @@ static int esp_riscv_debug_stubs_info_init(struct target *target,
 {
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 
-	LOG_INFO("%s: Detected debug stubs @ " TARGET_ADDR_FMT, target_name(target), vec_addr);
+	LOG_TARGET_INFO(target, "Detected debug stubs entry @ " TARGET_ADDR_FMT, vec_addr);
 
 	memset(&esp_riscv->esp.dbg_stubs, 0, sizeof(esp_riscv->esp.dbg_stubs));
 
@@ -506,19 +506,17 @@ static int esp_riscv_debug_stubs_info_init(struct target *target,
 		return ERROR_OK;
 
 	/* read debug stubs descriptor */
-	ESP_RISCV_DBGSTUBS_UPDATE_DATA_ENTRY(esp_riscv->esp.dbg_stubs.entries[ESP_DBG_STUB_DESC]);
-	res =
-		target_read_buffer(target, esp_riscv->esp.dbg_stubs.entries[ESP_DBG_STUB_DESC],
-		sizeof(struct esp_dbg_stubs_desc),
-		(uint8_t *)&esp_riscv->esp.dbg_stubs.desc);
+	ESP_RISCV_DBGSTUBS_UPDATE_DATA_ENTRY(esp_riscv->esp.dbg_stubs.entries[ESP_DBG_STUB_CONTROL_DATA]);
+	res = target_read_buffer(target, esp_riscv->esp.dbg_stubs.entries[ESP_DBG_STUB_CONTROL_DATA],
+		sizeof(struct esp_dbg_stubs_ctl_data), (uint8_t *)&esp_riscv->esp.dbg_stubs.ctl_data);
 	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to read debug stubs descriptor (%d)!", res);
+		LOG_TARGET_ERROR(target, "Failed to read debug stubs descriptor (%d)!", res);
 		return res;
 	}
-	ESP_RISCV_DBGSTUBS_UPDATE_CODE_ENTRY(esp_riscv->esp.dbg_stubs.desc.tramp_addr);
-	ESP_RISCV_DBGSTUBS_UPDATE_DATA_ENTRY(esp_riscv->esp.dbg_stubs.desc.min_stack_addr);
-	ESP_RISCV_DBGSTUBS_UPDATE_CODE_ENTRY(esp_riscv->esp.dbg_stubs.desc.data_alloc);
-	ESP_RISCV_DBGSTUBS_UPDATE_CODE_ENTRY(esp_riscv->esp.dbg_stubs.desc.data_free);
+	ESP_RISCV_DBGSTUBS_UPDATE_CODE_ENTRY(esp_riscv->esp.dbg_stubs.ctl_data.tramp_addr);
+	ESP_RISCV_DBGSTUBS_UPDATE_DATA_ENTRY(esp_riscv->esp.dbg_stubs.ctl_data.min_stack_addr);
+	ESP_RISCV_DBGSTUBS_UPDATE_CODE_ENTRY(esp_riscv->esp.dbg_stubs.ctl_data.data_alloc);
+	ESP_RISCV_DBGSTUBS_UPDATE_CODE_ENTRY(esp_riscv->esp.dbg_stubs.ctl_data.data_free);
 
 	return ERROR_OK;
 }

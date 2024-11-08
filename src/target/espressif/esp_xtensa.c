@@ -305,14 +305,14 @@ static void esp_xtensa_dbgstubs_addr_check(struct target *target)
 
 	int res = esp_xtensa_apptrace_status_reg_read(target, &vec_addr);
 	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to read debug stubs address location (%d)!", res);
+		LOG_TARGET_ERROR(target, "Failed to read debug stubs address location (%d)!", res);
 		return;
 	}
 	if (xtensa_data_addr_valid(target, vec_addr)) {
-		LOG_INFO("%s: Detected debug stubs @ %x", target_name(target), vec_addr);
+		LOG_TARGET_INFO(target, "Detected debug stubs entry @ %x", vec_addr);
 		res = esp_xtensa_apptrace_status_reg_write(target, 0);
 		if (res != ERROR_OK)
-			LOG_ERROR("Failed to clear debug stubs address location (%d)!", res);
+			LOG_TARGET_ERROR(target, "Failed to clear debug stubs address location (%d)!", res);
 		esp_xtensa->esp.dbg_stubs.base = vec_addr;
 	}
 }
@@ -331,19 +331,17 @@ static void esp_xtensa_dbgstubs_info_update(struct target *target)
 		return;
 
 	/* read debug stubs descriptor */
-	ESP_XTENSA_DBGSTUBS_UPDATE_DATA_ENTRY(esp_xtensa->esp.dbg_stubs.entries[ESP_DBG_STUB_DESC]);
-	res =
-		target_read_buffer(target, esp_xtensa->esp.dbg_stubs.entries[ESP_DBG_STUB_DESC],
-		sizeof(struct esp_dbg_stubs_desc),
-		(uint8_t *)&esp_xtensa->esp.dbg_stubs.desc);
+	ESP_XTENSA_DBGSTUBS_UPDATE_DATA_ENTRY(esp_xtensa->esp.dbg_stubs.entries[ESP_DBG_STUB_CONTROL_DATA]);
+	res = target_read_buffer(target, esp_xtensa->esp.dbg_stubs.entries[ESP_DBG_STUB_CONTROL_DATA],
+		sizeof(struct esp_dbg_stubs_ctl_data), (uint8_t *)&esp_xtensa->esp.dbg_stubs.ctl_data);
 	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to read debug stubs descriptor (%d)!", res);
+		LOG_TARGET_ERROR(target, "Failed to read debug stubs descriptor (%d)!", res);
 		return;
 	}
-	ESP_XTENSA_DBGSTUBS_UPDATE_CODE_ENTRY(esp_xtensa->esp.dbg_stubs.desc.tramp_addr);
-	ESP_XTENSA_DBGSTUBS_UPDATE_DATA_ENTRY(esp_xtensa->esp.dbg_stubs.desc.min_stack_addr);
-	ESP_XTENSA_DBGSTUBS_UPDATE_CODE_ENTRY(esp_xtensa->esp.dbg_stubs.desc.data_alloc);
-	ESP_XTENSA_DBGSTUBS_UPDATE_CODE_ENTRY(esp_xtensa->esp.dbg_stubs.desc.data_free);
+	ESP_XTENSA_DBGSTUBS_UPDATE_CODE_ENTRY(esp_xtensa->esp.dbg_stubs.ctl_data.tramp_addr);
+	ESP_XTENSA_DBGSTUBS_UPDATE_DATA_ENTRY(esp_xtensa->esp.dbg_stubs.ctl_data.min_stack_addr);
+	ESP_XTENSA_DBGSTUBS_UPDATE_CODE_ENTRY(esp_xtensa->esp.dbg_stubs.ctl_data.data_alloc);
+	ESP_XTENSA_DBGSTUBS_UPDATE_CODE_ENTRY(esp_xtensa->esp.dbg_stubs.ctl_data.data_free);
 }
 
 int esp_xtensa_breakpoint_add(struct target *target, struct breakpoint *breakpoint)
