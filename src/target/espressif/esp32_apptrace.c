@@ -2338,7 +2338,7 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 		run.on_board.code_buf_size = ESP_DBG_STUBS_CODE_BUF_SIZE;
 		/* this function works for SMP and non-SMP targets
 		 * set num_args to 1 in order to read return code coming with "a2" reg */
-		esp_xtensa_smp_run_onboard_func(run_target, &run, func_addr, 1);
+		run.hw->run_onboard_func(run_target, &run, func_addr, 1);
 		LOG_DEBUG("FUNC RET = 0x%" PRIx32, run.ret_code);
 		if (run.ret_code == ERROR_OK && gcov_idf_has_thread) {
 			res = target_resume(target, 1, 0, 1, 0);
