@@ -2069,6 +2069,15 @@ static int esp_gcov_feof(struct target *target,
 	return ERROR_OK;
 }
 
+static const char *apptrace_file_cmd_to_str(const uint8_t cmd)
+{
+	static const char *const commands[] = {"FOPEN", "FCLOSE", "FWRITE", "FREAD", "FSEEK", "FTELL", "FSTOP", "FEOF"};
+
+	if (cmd > ESP_APPTRACE_FILE_CMD_FEOF)
+		return "<unknown>";
+	return commands[cmd];
+}
+
 /*TODO: support for multi-block data transfers */
 static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 	unsigned int core_id,
@@ -2080,14 +2089,14 @@ static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 	uint8_t *resp;
 	uint32_t resp_len = 0;
 
-	LOG_DEBUG("Got block %d bytes [%x %x]", data_len, data[0], data[1]);
+	LOG_TARGET_DEBUG(ctx->cpus[core_id], "Got block %d bytes [%x %x]", data_len, data[0], data[1]);
 
 	if (data_len < 1) {
 		LOG_ERROR("Too small data length %d!", data_len);
 		return ERROR_FAIL;
 	}
 
-	LOG_DEBUG("Apptrace FCMD: 0x%x", *data);
+	LOG_TARGET_DEBUG(ctx->cpus[core_id], "Apptrace FCMD=0x%x (%s)", *data, apptrace_file_cmd_to_str(*data));
 
 	switch (*data) {
 	case ESP_APPTRACE_FILE_CMD_FOPEN:
@@ -2115,7 +2124,7 @@ static int esp_gcov_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 		ret = esp_gcov_feof(ctx->cpus[core_id], cmd_data, data + 1, data_len - 1, &resp, &resp_len);
 		break;
 	default:
-		LOG_ERROR("Invalid FCMD 0x%x!", *data);
+		LOG_TARGET_ERROR(ctx->cpus[core_id], "Invalid FCMD 0x%x!", *data);
 		ret = ERROR_FAIL;
 	}
 	if (ret != ERROR_OK)
