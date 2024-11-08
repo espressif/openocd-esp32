@@ -253,6 +253,8 @@ struct esp_algorithm_hw {
 	int (*algo_init)(struct target *target, struct esp_algorithm_run_data *run, uint32_t num_args, va_list ap);
 	int (*algo_cleanup)(struct target *target, struct esp_algorithm_run_data *run);
 	const uint8_t *(*stub_tramp_get)(struct target *target, size_t *size);
+	int (*run_onboard_func)(struct target *target, struct esp_algorithm_run_data *run, uint32_t func_addr,
+		uint32_t num_args, ...);
 };
 
 /**
