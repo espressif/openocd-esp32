@@ -69,6 +69,7 @@ static const struct gpio_map {
 #ifdef HAVE_LIBUSB_GET_PORT_NUMBERS
 static void adapter_usb_set_location(const char *location);
 #endif
+static int adapter_config_khz(unsigned int khz);
 
 bool is_adapter_initialized(void)
 {
@@ -257,7 +258,8 @@ static int adapter_set_speed(int speed)
 	return is_adapter_initialized() ? adapter_driver->speed(speed) : ERROR_OK;
 }
 
-int adapter_config_khz(unsigned int khz)
+/** Attempt to configure the adapter for the specified kHz. */
+static int adapter_config_khz(unsigned int khz)
 {
 	LOG_DEBUG("handle adapter khz");
 	adapter_config.clock_mode = CLOCK_MODE_KHZ;
