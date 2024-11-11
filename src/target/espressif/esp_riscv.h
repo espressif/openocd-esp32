@@ -110,6 +110,9 @@ int esp_riscv_core_resume(struct target *target);
 int esp_riscv_core_ebreaks_enable(struct target *target);
 void esp_riscv_deinit_target(struct target *target);
 int esp_riscv_assert_reset(struct target *target);
+int esp_riscv_get_gdb_reg_list_noread(struct target *target,
+		struct reg **reg_list[], int *reg_list_size,
+		enum target_register_class reg_class);
 
 extern const struct command_registration esp_riscv_command_handlers[];
 

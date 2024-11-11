@@ -1171,7 +1171,7 @@ static int freertos_get_current_thread_registers(struct rtos *rtos, int64_t thre
 	/* registers for threads currently running on CPUs are not on task's stack and
 	 * should retrieved from reg caches via target_get_gdb_reg_list */
 	struct reg **gdb_reg_list;
-	retval = target_get_gdb_reg_list(current_target, &gdb_reg_list, num_regs,
+	retval = target_get_gdb_reg_list_noread(current_target, &gdb_reg_list, num_regs,
 		reg_class);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("target_get_gdb_reg_list failed %d", retval);

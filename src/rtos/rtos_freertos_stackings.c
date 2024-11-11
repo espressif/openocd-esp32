@@ -937,7 +937,7 @@ const struct freertos_tls_info *rtos_freertos_get_tls_info(struct target *target
 			return &s_xtensa_tls;
 		struct reg **reg_list;
 		int num_regs;
-		int retval = target_get_gdb_reg_list(target, &reg_list, &num_regs, REG_CLASS_GENERAL);
+		int retval = target_get_gdb_reg_list_noread(target, &reg_list, &num_regs, REG_CLASS_GENERAL);
 		if (retval != ERROR_OK)
 			return NULL;
 
