@@ -1015,6 +1015,21 @@ int esp_riscv_assert_reset(struct target *target)
 	return riscv_assert_reset(target);
 }
 
+int esp_riscv_get_gdb_reg_list_noread(struct target *target,
+		struct reg **reg_list[], int *reg_list_size,
+		enum target_register_class reg_class)
+{
+	if (target->state == TARGET_HALTED) {
+		return riscv_get_gdb_reg_list(target, reg_list, reg_list_size, reg_class);
+	} else if (target->state == TARGET_RUNNING) {
+		/* GDB can send 'g' packet when target is running. This is unexpected behavior explained in the OCD-749 */
+		return riscv_get_gdb_reg_list_noread(target, reg_list, reg_list_size, reg_class);
+	}
+
+	LOG_TARGET_ERROR(target, "Unexpected target state! (%d)", target->state);
+	return ERROR_FAIL;
+}
+
 COMMAND_HANDLER(esp_riscv_halted_command)
 {
 	if (CMD_ARGC != 0)
