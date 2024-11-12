@@ -11,4 +11,4 @@ git diff HEAD~${cnt} \
                 -x "a/testing/esp/*" \
 				-x "*/tools/scanbuild_reference.html" \
             | ./tools/scripts/checkpatch.pl --no-signoff \
-				--ignore FUNCTION_ARGUMENTS
+				--ignore FUNCTION_ARGUMENTS --ignore CAMELCASE
