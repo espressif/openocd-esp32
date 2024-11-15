@@ -3067,6 +3067,11 @@ static int riscv_poll_hart(struct target *target, enum riscv_next_action *next_a
 						case SEMIHOSTING_WAITING:
 							/* This hart should remain halted. */
 							*next_action = RPH_REMAIN_HALTED;
+							/* ESPRESSIF */
+							if (target->smp && target->gdb_service) {
+								target->gdb_service->target = target;
+								target_call_event_callbacks(target, TARGET_EVENT_HALTED);
+							}
 							break;
 						case SEMIHOSTING_HANDLED:
 							/* This hart should be resumed, along with any other

@@ -30,6 +30,7 @@
 
 #include <helper/log.h>
 
+#include <target/smp.h>
 #include "target/target.h"
 #include "riscv.h"
 
@@ -64,6 +65,20 @@ enum semihosting_result riscv_semihosting(struct target *target, int *retval)
 	if (!semihosting->is_active) {
 		LOG_TARGET_DEBUG(target, "   -> NONE (!semihosting->is_active)");
 		return SEMIHOSTING_NONE;
+	}
+
+	/* ESPRESSIF */
+	if (target->smp) {
+		struct target_list *tlist;
+		foreach_smp_target(tlist, target->smp_targets) {
+			struct target *t = tlist->target;
+			if (t->semihosting->hit_fileio) {
+				LOG_TARGET_DEBUG(target,
+					"semihosting->hit_fileio is already set for (%s). Skip semihosting for this target",
+					target_name(t));
+				return SEMIHOSTING_NONE;
+			}
+		}
 	}
 
 	riscv_reg_t pc;
