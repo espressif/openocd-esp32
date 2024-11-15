@@ -592,6 +592,16 @@ int esp_riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watc
 int esp_riscv_resume(struct target *target, int current, target_addr_t address,
 		int handle_breakpoints, int debug_execution)
 {
+	/* On Riscv targets we change gdb service target only for gdb fileio requests
+	 * After getting the fileio response it is ok to switch it to the default target which is core0
+	 * Resume request is sent in the gdb_fileio_response_packet() after fileio command processed
+	*/
+	if (target->smp && target->gdb_service) {
+		struct target_list *head;
+		head = list_first_entry(target->smp_targets, struct target_list, lh);
+		target->gdb_service->target = head->target;
+	}
+
 	/* If the target stopped due to breakpoint/watchpoint set by program,
 	 * we need to handle_breakpoints to make single step
 	 */
