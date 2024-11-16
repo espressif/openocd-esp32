@@ -3078,9 +3078,6 @@ static int riscv_poll_hart(struct target *target, enum riscv_next_action *next_a
 					}
 				}
 
-				/* TODO: Espressif: replace with handle_became_halted event. */
-				r->on_halt(target);
-
 				if (r->handle_became_halted &&
 						r->handle_became_halted(target, previous_riscv_state) != ERROR_OK)
 					return ERROR_FAIL;
@@ -5050,7 +5047,6 @@ static int riscv_step_rtos_hart(struct target *target)
 	r->on_step(target);
 	if (r->step_current_hart(target) != ERROR_OK)
 		return ERROR_FAIL;
-	r->on_halt(target); /* ESPRESSIF */
 	if (target->state != TARGET_HALTED) {
 		LOG_TARGET_ERROR(target, "Hart was not halted after single step!");
 		return ERROR_FAIL;

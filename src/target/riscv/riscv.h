@@ -220,8 +220,6 @@ struct riscv_info {
 	/* Called periodically (no guarantees about frequency), while there's
 	 * nothing else going on. */
 	int (*tick)(struct target *target);
-	/* ESPRESSIF */
-	int (*on_halt)(struct target *target);
 	/* Indicates that target was reset.*/
 	int (*on_reset)(struct target *target);
 	/****************/
