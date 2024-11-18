@@ -65,8 +65,8 @@ class GdbXtensa(Gdb):
     """
     chip_name = 'xtensa'
 
-    def __init__(self, gdb_path='gdb', remote_target=None, extended_remote_mode=False, gdb_log_file=None,
+    def __init__(self, gdb_path='gdb', remote_target=None, extended_remote_mode=False, gdb_log_folder=None,
                  log_level=None, log_stream_handler=None, log_file_handler=None):
         super(GdbXtensa, self).__init__(gdb_path=gdb_path, remote_target=remote_target, extended_remote_mode=extended_remote_mode,
-                                        gdb_log_file=gdb_log_file, log_level=log_level, log_stream_handler=log_stream_handler,
+                                        gdb_log_folder=gdb_log_folder, log_level=log_level, log_stream_handler=log_stream_handler,
                                         log_file_handler=log_file_handler)

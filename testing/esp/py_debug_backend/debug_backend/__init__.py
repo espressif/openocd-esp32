@@ -37,7 +37,7 @@ def create_gdb(chip_name=None,
                gdb_path=None,
                remote_target=None,
                extended_remote_mode=None,
-               gdb_log_file=None,
+               gdb_log_folder=None,
                log_level=None,
                log_stream_handler=None,
                log_file_handler=None,
@@ -61,8 +61,8 @@ def create_gdb(chip_name=None,
         gdb_init_args['remote_target'] = remote_target
     if extended_remote_mode is not None:
         gdb_init_args['extended_remote_mode'] = extended_remote_mode
-    if gdb_log_file is not None:
-        gdb_init_args['gdb_log_file'] = gdb_log_file
+    if gdb_log_folder is not None:
+        gdb_init_args['gdb_log_folder'] = gdb_log_folder
     if log_level is not None:
         gdb_init_args['log_level'] = log_level
     if log_stream_handler is not None:

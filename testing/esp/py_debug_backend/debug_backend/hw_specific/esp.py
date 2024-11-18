@@ -224,10 +224,10 @@ class GdbEspXtensa(GdbEspImpl, GdbXtensa):
         Class to communicate to GDB supporting ESP Xtensa-specific features
     """
 
-    def __init__(self, gdb_path, remote_target='127.0.0.1:3333', extended_remote_mode=False, gdb_log_file=None,
+    def __init__(self, gdb_path, remote_target='127.0.0.1:3333', extended_remote_mode=False, gdb_log_folder=None,
                  log_level=None, log_stream_handler=None, log_file_handler=None):
         GdbXtensa.__init__(self, gdb_path=gdb_path, remote_target=remote_target,
-                                           extended_remote_mode=extended_remote_mode, gdb_log_file=gdb_log_file,
+                                           extended_remote_mode=extended_remote_mode, gdb_log_folder=gdb_log_folder,
                                            log_level=log_level, log_stream_handler=log_stream_handler,
                                            log_file_handler=log_file_handler)
         GdbEspImpl.__init__(self)
@@ -290,10 +290,10 @@ class GdbEspRiscv(GdbEspImpl, GdbRiscv):
         Class to communicate to GDB supporting ESP RISCV-specific features
     """
 
-    def __init__(self, gdb_path, remote_target='127.0.0.1:3333', extended_remote_mode=False, gdb_log_file=None,
+    def __init__(self, gdb_path, remote_target='127.0.0.1:3333', extended_remote_mode=False, gdb_log_folder=None,
                  log_level=None, log_stream_handler=None, log_file_handler=None):
         GdbRiscv.__init__(self, gdb_path=gdb_path, remote_target=remote_target,
-                                           extended_remote_mode=extended_remote_mode, gdb_log_file=gdb_log_file,
+                                           extended_remote_mode=extended_remote_mode, gdb_log_folder=gdb_log_folder,
                                            log_level=log_level, log_stream_handler=log_stream_handler,
                                            log_file_handler=log_file_handler)
         GdbEspImpl.__init__(self)
@@ -301,10 +301,10 @@ class GdbEspRiscv(GdbEspImpl, GdbRiscv):
 class GdbEspRiscv32(GdbEspRiscv):
 
     def __init__(self, gdb_path='riscv32-esp-elf-gdb', remote_target='127.0.0.1:3333', extended_remote_mode=False,
-                 gdb_log_file=None, log_level=None, log_stream_handler=None, log_file_handler=None):
+                 gdb_log_folder=None, log_level=None, log_stream_handler=None, log_file_handler=None):
         GdbEspRiscv.__init__(self, gdb_path=gdb_path, remote_target=remote_target,
                                          extended_remote_mode=extended_remote_mode,
-                                         gdb_log_file=gdb_log_file, log_level=log_level,
+                                         gdb_log_folder=gdb_log_folder, log_level=log_level,
                                          log_stream_handler=log_stream_handler,
                                          log_file_handler=log_file_handler)
         self.gdb_set('arch', 'riscv:rv32')

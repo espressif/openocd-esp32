@@ -119,9 +119,9 @@ class GDBUtils:
                             extended_remote_mode='127.0.0.1:%d' % dbg.Oocd.GDB_PORT,
                             log_level=log_level,
                             log_stream_handler=log_stream,
-                            log_file_handler=log_file)
-        if len(gdb_log):
-            _gdb_inst.gdb_set('remotelogfile', gdb_log)
+                            log_file_handler=log_file,
+                            gdb_log_folder=gdb_log)
+
         if debug_oocd > 2:
             _gdb_inst.tmo_scale_factor = 5
         else:
@@ -133,13 +133,13 @@ class GDBUtils:
     def create_gdb_and_reconnect(self):
         debug_oocd = self.args[0]
         log_lev = self.args[1]
-        gdb_log_file = self.args[2]
+        gdb_log_folder = self.args[2]
         ch = self.args[3]
         fh = self.args[4]
         connect_tmo = 15
 
         _gdb_inst = self.create_gdb(testee_info.chip, self.toolchain[:-1], self.toolchain, log_lev,
-                                        ch, fh, gdb_log_file, debug_oocd)
+                                        ch, fh, gdb_log_folder, debug_oocd)
         _gdb_inst.connect(tmo=connect_tmo)
         _gdb_inst.exec_file_set(self.test_app_cfg.build_app_elf_path())
         self.gdb = _gdb_inst
