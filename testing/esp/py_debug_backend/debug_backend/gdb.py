@@ -3,6 +3,7 @@ from .defs import *
 import os
 import time
 import re
+import shutil
 import threading
 from pprint import pformat
 from pygdbmi.gdbcontroller import GdbController
@@ -17,7 +18,7 @@ class Gdb(object):
     def __init__(self, gdb_path='gdb',
                  remote_target=None,
                  extended_remote_mode=False,
-                 gdb_log_file=None,
+                 gdb_log_folder=None,
                  log_level=None,
                  log_stream_handler=None,
                  log_file_handler=None):
@@ -34,8 +35,8 @@ class Gdb(object):
                 Use ""  or None value to skip the connection stage.
             extended_remote_mode : bool
                 If True extended remote mode should be used.
-            gdb_log_file : string
-                path to GDB log file.
+            gdb_log_folder : string
+                path to GDB log folder.
             log_level : int
                 logging level for this object. See logging.CRITICAL etc
             log_stream_handler : logging.Handler
@@ -55,15 +56,16 @@ class Gdb(object):
         self.stream_handlers = {'console': [], 'target': [], 'log': []}
         self._curr_frame = None
         self._curr_wp_val = None
+        self._gdb_log_folder = gdb_log_folder
+        self._remote_log_count = 0
         # gdb config
         try:
             self.prog_startup_cmdfile = None
             self.gdb_set("mi-async", "on")
-            if gdb_log_file is not None:
-                pardirs = os.path.dirname(gdb_log_file)
-                if pardirs:
-                    os.makedirs(pardirs, exist_ok=True)  # create non-existing folders
-                self.gdb_set("logging", "file %s" % gdb_log_file)
+            if self._gdb_log_folder:
+                shutil.rmtree(self._gdb_log_folder, ignore_errors=True)
+                os.makedirs(self._gdb_log_folder)
+                self.gdb_set("logging file", os.path.join(self._gdb_log_folder, 'gdb.log'))
                 self.gdb_set("logging", "on")
         except Exception as e:
             self._logger.error('Failed to config GDB (%s)!', e)
@@ -554,6 +556,10 @@ class Gdb(object):
             return
         self._logger.debug('Connecting to %s', self._remote_target)
         remote_mode = 'extended-remote' if self._extended_remote_mode else 'remote'
+        if self._gdb_log_folder:
+            self.gdb_set('remotelogfile', os.path.join(self._gdb_log_folder, f'remote_{self._remote_log_count}.log'))
+            self._remote_log_count += 1
+
         self.target_select(remote_mode, self._remote_target, tmo=tmo)
 
     def disconnect(self):

@@ -381,7 +381,7 @@ def main():
     # start debugger, ideally we should run all tests w/o restarting it
     dbg_start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'],
                         args.debug_oocd, board_tcl['chip_name'], board_tcl['target_triple'],
-                        log_lev, ch, fh, args.gdb_log_file)
+                        log_lev, ch, fh, args.gdb_log_folder)
     res = None
     try:
         # run tests from the same directory this file is
@@ -410,7 +410,7 @@ def main():
             setup_logger(suite.modules[m].get_logger(), ch, fh, log_lev)
         suite.load_app_bins = not args.no_load
         global _oocd_inst, _gdb_inst
-        arg_list = [args.debug_oocd, log_lev, args.gdb_log_file, ch, fh]
+        arg_list = [args.debug_oocd, log_lev, args.gdb_log_folder, ch, fh]
         suite.config_tests(_oocd_inst, _gdb_inst, args.toolchain, board_uart_reader, args.serial_port, arg_list)
         # RUN TESTS
         res = test_runner.run(suite)
@@ -423,7 +423,7 @@ def main():
             time.sleep(1)
             dbg_start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'],
                                 args.debug_oocd, board_tcl['chip_name'], board_tcl['target_triple'],
-                                log_lev, ch, fh, args.gdb_log_file)
+                                log_lev, ch, fh, args.gdb_log_folder)
             err_suite = debug_backend_tests.DebuggerTestsBunch()
 
             ids = [x[0].id() for x in res.errors + res.failures]
@@ -431,7 +431,7 @@ def main():
                 if t.id() in ids:
                     err_suite.addTest(t)
             err_suite.load_app_bins = not args.no_load
-            arg_list = [args.debug_oocd, log_lev, args.gdb_log_file, ch, fh]
+            arg_list = [args.debug_oocd, log_lev, args.gdb_log_folder, ch, fh]
             err_suite.config_tests(_oocd_inst, _gdb_inst, args.toolchain, board_uart_reader, args.serial_port, arg_list)
 
             # to output new report instead of overwriting previous one
@@ -497,8 +497,8 @@ if __name__ == '__main__':
                         type=int, default=2)
     parser.add_argument('--log-file', '-l',
                         help='Path to log file. Use "stdout" to log to console.')
-    parser.add_argument('--gdb-log-file', '-gl',
-                        help='Path to GDB log file.', default='')
+    parser.add_argument('--gdb-log-folder', '-gl',
+                        help='Path to folder for GDB log files.', default='')
     parser.add_argument('--serial-port', '-u',
                         help='Name of serial port to grab board\'s UART output.')
     parser.add_argument('--log-uart', '-lu',
