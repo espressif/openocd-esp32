@@ -123,6 +123,26 @@ class FlasherTestsImpl:
         for i in range(5):
             self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_level', ['gpio_set_level'], outmost_func_name='cache_handling_task')
 
+    def test_stub_logs(self):
+        """
+            This test checks if stub logs are enabled successfully.
+        """
+        expected_strings = ["STUB_D: cmd 4:FLASH_MAP_GET",
+                            "STUB_D: stub_flash_get_size: ENTER",
+                            "STUB_I: Found app image: magic 0xe9"]
+
+        self.gdb.monitor_run("esp stub_log on", 5)
+        self.gdb.monitor_run("flash probe 0", 5)
+        self.gdb.monitor_run("esp stub_log off", 5)
+
+        log_path = get_logger().handlers[1].baseFilename  # 0:StreamHandler 1:FileHandler
+        target_output = ''
+        with open(log_path, 'r') as file:
+            target_output = file.read()
+
+        for expected_str in expected_strings:
+            self.assertIn(expected_str, target_output, f"Expected string '{expected_str}' not found in output")
+
     def program_esp_bins(self, actions):
         # Temp Folder where everything will be contained
         tmp = tempfile.mkdtemp(prefix="esp")
@@ -229,30 +249,6 @@ def generate_flasher_args_json():
     }
 
 
-class StubTestsImpl:
-
-    def test_stub_logs(self):
-        """
-            This test checks if stub logs are enabled successfully.
-        """
-        expected_strings = ["STUB_D: cmd 4:FLASH_MAP_GET",
-                            "STUB_D: stub_flash_get_size: ENTER"]
-
-        self.gdb.monitor_run("esp stub_log on", 5)
-        self.gdb.monitor_run("flash probe 0", 5)
-        self.gdb.monitor_run("esp stub_log off", 5)
-
-        log_path = get_logger().handlers[1].baseFilename # 0:StreamHandler 1:FileHandler
-        found_line_count = 0
-        with open(log_path) as file:
-            for line in file:
-                for s in expected_strings:
-                    if s in line:
-                        found_line_count += 1
-        # We expect at least len(expected_strings) for one core.
-        self.assertTrue(found_line_count >= len(expected_strings))
-
-
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
 ########################################################################
@@ -285,6 +281,32 @@ class FlasherTestsSingleEncrypted(DebuggerGenericTestAppTestsSingleEncrypted, Fl
         DebuggerGenericTestAppTestsSingleEncrypted.setUp(self)
         FlasherTestsImpl.setUp(self)
 
-class StubTestsSingle(DebuggerGenericTestAppTestsSingle, StubTestsImpl):
-    def setUp(self):
-        DebuggerGenericTestAppTestsSingle.setUp(self)
+@idf_ver_min('latest')
+@only_for_chip(['esp32c6', 'esp32h2'])
+class FlasherTestsPreloadedStubSingle(DebuggerGenericTestAppTestsSingle):
+
+    def __init__(self, methodName='runTest'):
+        super(FlasherTestsPreloadedStubSingle, self).__init__(methodName)
+        self.test_app_cfg.bin_dir = os.path.join('output', 'single_core_preloaded_stub')
+        self.test_app_cfg.build_dir = os.path.join('builds', 'single_core_preloaded_stub')
+
+    def test_preloaded_stub_binary(self):
+        """
+            This test checks if stub codes already loaded to the targets and functioning as expected
+        """
+        expected_strings = ["Stub flasher will be running from preloaded image (5C3A9F5A)",
+                            "Flash mapping 0:",
+                            "Flash mapping 1:"]
+
+        target_output = ''
+        def _target_stream_handler(type, stream, payload):
+            nonlocal target_output
+            target_output += payload
+        self.gdb.stream_handler_add('target', _target_stream_handler)
+
+        self.gdb.monitor_run("esp stub_log off", 5)
+        self.gdb.monitor_run("flash probe 0", 5)
+        self.gdb.stream_handler_remove('target', _target_stream_handler)
+
+        for expected_str in expected_strings:
+            self.assertIn(expected_str, target_output, f"Expected string '{expected_str}' not found in output")

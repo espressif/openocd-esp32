@@ -390,6 +390,8 @@ int esp_algorithm_check_preloaded_image(struct target *target, struct esp_algori
 		|| idf_key != ESP_STUB_FLASHER_IDF_KEY)
 		return ERROR_FAIL;
 
+	LOG_TARGET_INFO(target, "Stub flasher will be running from preloaded image (%" PRIX32 ")", idf_key);
+
 	/*  code and data is already loaded and we know code is at the beginning of iram_org.
 		data is at the begginning of dram_org
 	*/
