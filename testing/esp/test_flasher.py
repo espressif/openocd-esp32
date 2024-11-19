@@ -229,6 +229,30 @@ def generate_flasher_args_json():
     }
 
 
+class StubTestsImpl:
+
+    def test_stub_logs(self):
+        """
+            This test checks if stub logs are enabled successfully.
+        """
+        expected_strings = ["STUB_D: cmd 4:FLASH_MAP_GET",
+                            "STUB_D: stub_flash_get_size: ENTER"]
+
+        self.gdb.monitor_run("esp stub_log on", 5)
+        self.gdb.monitor_run("flash probe 0", 5)
+        self.gdb.monitor_run("esp stub_log off", 5)
+
+        log_path = get_logger().handlers[1].baseFilename # 0:StreamHandler 1:FileHandler
+        found_line_count = 0
+        with open(log_path) as file:
+            for line in file:
+                for s in expected_strings:
+                    if s in line:
+                        found_line_count += 1
+        # We expect at least len(expected_strings) for one core.
+        self.assertTrue(found_line_count >= len(expected_strings))
+
+
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
 ########################################################################
@@ -261,3 +285,6 @@ class FlasherTestsSingleEncrypted(DebuggerGenericTestAppTestsSingleEncrypted, Fl
         DebuggerGenericTestAppTestsSingleEncrypted.setUp(self)
         FlasherTestsImpl.setUp(self)
 
+class StubTestsSingle(DebuggerGenericTestAppTestsSingle, StubTestsImpl):
+    def setUp(self):
+        DebuggerGenericTestAppTestsSingle.setUp(self)
