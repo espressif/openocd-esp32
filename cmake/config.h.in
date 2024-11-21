@@ -92,7 +92,7 @@
 #cmakedefine01 BUILD_ESP_GPIO
 
 /* 0 if you don't want OpenOCD source code coverage support */
-#cmakedefine01 BUILD_GCOV
+#cmakedefine01 USE_GCOV
 
 /* 0 if you don't want MPSSE mode of FTDI based devices */
 #cmakedefine01 BUILD_FTDI

@@ -193,7 +193,7 @@ build_linux_armhf_test:
     CONF_HOST: "arm-linux-gnueabihf"
     PLATFORM_NAME: "linux-armhf-test"
     TEST_CFLAGS: ""
-    GCOV_BUILD_OPTS: "--enable-build-gcov"
+    GCOV_BUILD_OPTS: "--enable-gcov"
 
 build_linux_armhf_sanitizer_test:
   extends: .build_linux_arm_template
@@ -231,7 +231,7 @@ build_linux_arm64_test:
     CONF_HOST: "aarch64-linux-gnu"
     PLATFORM_NAME: "linux-arm64-test"
     TEST_CFLAGS: ""
-    GCOV_BUILD_OPTS: "--enable-build-gcov"
+    GCOV_BUILD_OPTS: "--enable-gcov"
 
 .build_windows_template: &build_windows_template
   stage: build_openocd
