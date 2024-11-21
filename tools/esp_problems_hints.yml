@@ -1,0 +1,157 @@
+#  -
+#     source: The source of error message this hint applies to. Currently supported values 'ocd' (OpenOCD log) or 'gdb' (GDB log). 'ocd' by default.
+#     re: Regular expression of error to search
+#     hint: The message of the hint. Optionally, it is possible to use '{}' at the place where the matched group from 're' should be inserted. This requires 'match_to_output: True'. You can use variables with hint messages. For this, you need to add variables and "{}" in a place where you want to put your hint variable, but you can't use 'match_to_output' with variables.
+#     ref: Reference URL with details describing possible reasons and solutions.
+#     match_to_output: (False by default) see the description of 'hint'.
+#     variables:
+#       -
+#           re_variables: [set variable for regular expression]
+#           hint_variables: [set variable for hint]
+#     configs: list of 'target + adapter' configs this hint applies to. By default hint applies to any config.
+#       -
+#           target: OpenOCD target name. Current target name can be retrieved by executing 'target current' OpenOCD command via Telnet/TCL server and dropping core suffix if any, e.g. 'esp32s3.cpu0' -> 'esp32s3'. It can also have special values meaning all chips of a certain architecture: 'esp_riscv' - Espressif RISCV chips, 'esp_xtensa' - Espressif Xtensa chips.
+#           interface: OpenOCD debug adapter interface name. Current interface name can be retrieved by executing 'adapter name' OpenOCD command via Telnet/TCL server.
+# Rules to write regex for hints on how to resolve errors
+# - Do not use more than one whitespace in a row. The script automatically merges several whitespaces into one when capturing output
+# - Do not use \n in your regex. They are all automatically deletes by the script when capturing output
+#
+# example of using hints:
+#    -
+#        re: "Error: header {} is missing" (you can use '{1} ... {1}' placeholders in 'hint' and 're', so that you don't have to repeat the same variables, you can use 'hint: 'The {0} (functions/types/macros prefixed with '{1}') has been made into a private API. If users still require usage of the {0} (though this is not recommended), it can be included via  #include "esp_private/{2}.h".' in this file as an example)
+#        hint: "header {} is missing, you need to add dependency on component {}"
+#        variables:
+#            -
+#               re_variables: [Q]
+#               hint_variables: [A, B]
+#            -
+#               re_variables: [W]
+#               hint_variables: [C, D]
+#            -
+#               re_variables: [R]
+#               hint_variables: [E, F]
+#
+#   that example will replace this :
+#   -
+#       re: "Error: header Q is missing"
+#       hint: "header A is missing, you need to add dependency on component B"
+#   -
+#       re: Error: header W is missing"
+#       hint: "header C is missing, you need to add dependency on component D"
+#   -
+#       re: Error: header R is missing"
+#       hint: "header E is missing, you need to add dependency on component F"
+
+
+####### Debug adapter is not properly connected cases
+
+-
+    # Concrete case of LIBUSB_ERROR_NOT_FOUND reported for FTDI device
+    re: "Error: unable to open ftdi device with( vid [0-9]+, pid [0-9]+,)? description '\\*', serial '\\*' at bus location '\\*'"
+    hint: "FTDI debug adapter not connected. Ensure debug adapter is connected to the host."
+    ref: "https://github.com/espressif/openocd-esp32/wiki/Troubleshooting-FAQ#usb-adapter-is-not-connected"
+    configs:
+        -
+            interface: ftdi
+
+-
+    # Concrete case of LIBUSB_ERROR_NOT_FOUND reported for Espressif USB_JTAG device
+    re: "Error: esp_usb_jtag: could not find or open device!"
+    hint: "Espressif USB debug adapter not connected. Ensure debug adapter is connected to the host."
+    ref: "https://github.com/espressif/openocd-esp32/wiki/Troubleshooting-FAQ#usb-adapter-is-not-connected"
+    configs:
+        -
+            interface: esp_usb_jtag
+
+-
+    # This message appears along with one of the above two messages related to FTDI or ESP USB_JTAG.
+    # But also it can appear for other USB debug adapters. This is a common message when USB debug adapter is not connected to the host.
+    re: "Error: libusb_open() failed with LIBUSB_ERROR_NOT_FOUND"
+    ref: "https://github.com/espressif/openocd-esp32/wiki/Troubleshooting-FAQ#usb-adapter-is-not-connected"
+    hint: "USB debug adapter not connected. Ensure debug adapter is connected to the host."
+
+-
+    re: "Error: JTAG scan chain interrogation failed"
+    hint: "JTAG communication problem. Check JTAG interface, timings, target power, etc."
+    ref: "https://github.com/espressif/openocd-esp32/wiki/Troubleshooting-FAQ#jtag-connection-is-bad"
+
+
+####### USB issues
+
+-
+    re: "Error: ([.]* )?libusb_get_string_descriptor_ascii\\(\\) failed with -9"
+    hint: "The error code '-9' corresponds to LIBUSB_ERROR_PIPE, which generally indicates that the target can not respond to the OpenOCD command."
+    ref: "https://github.com/espressif/openocd-esp32/wiki/Troubleshooting-FAQ#usb-communication-issue"
+
+
+####### GDB related issues
+
+-
+    source: gdb
+    # This warning does not necessarily lead to the problem. OpenOCD may function, but very slow.
+    # Avoid showing it every time the message below appears in GDB log. Showing notification once per debug session seems to ne OK.
+    re: "warning: unrecognized item \"timeout\" in \"qSupported\" response"
+    hint: "OpenOCD became unresponsive for some reason."
+    ref: "https://github.com/espressif/openocd-esp32/wiki/Troubleshooting-FAQ#gdb-communication-issue"
+
+
+####### Flash related issues
+
+-
+    re: "ESP flash programming is not supported"
+    hint: "Flash support is disabled."
+    ref: "https://github.com/espressif/openocd-esp32/wiki/Troubleshooting-FAQ#uploading-fw-not-working"
+
+-
+    re: "Warn : Invalid magic number in app image!"
+    hint: "Flasher stub can not locate application in flash."
+    ref: "https://github.com/espressif/openocd-esp32/wiki/Troubleshooting-FAQ#application-binary-image-problem"
+
+-
+    re: "Warn : Application image is invalid! Check configured binary flash offset 'appimage_offset'."
+    hint: "Flasher stub can not locate application in flash."
+    ref: "https://github.com/espressif/openocd-esp32/wiki/Troubleshooting-FAQ#application-binary-image-problem"
+
+-
+    re: "Error: Failed to probe flash"
+    hint: "Flasher stub can not detect flash chip type."
+    ref: "https://github.com/espressif/openocd-esp32/wiki/Troubleshooting-FAQ#flash-chip-detection-problem"
+
+-
+    re: "Error: Failed to run flasher stub"
+    hint: "Serious flasher stub problem. Please, enable stub logs and attach it to the issue on GitHub."
+    ref: "https://github.com/espressif/openocd-esp32/wiki/Troubleshooting-FAQ#flasher-stub-execution-problem"
+
+
+####### Chip specific issues
+
+-
+    re: "Error: Failed to get max trace block size!"
+    hint: "OpenOCD have not read apptrace control data from target yet."
+    ref: "https://github.com/espressif/openocd-esp32/wiki/Troubleshooting-FAQ#failed-to-start-application-level-tracing-on-riscv-chip"
+    configs:
+        -
+            # Specific to Espressif RISCV chips only
+            target: esp_riscv
+
+-
+    re: "Error: missing data from bitq interface"
+    hint: "ESP32-C3 and ESP32-S3 builtin USB_JTAG gets stuck after HW reset."
+    ref: "https://github.com/espressif/openocd-esp32/wiki/Troubleshooting-FAQ#esp32-c3-and-esp32-s3-builtin-usb_jtag-gets-stuck-after-hw-reset"
+    configs:
+        -
+            target: esp32c3
+            interface: esp_usb_jtag
+        -
+            target: esp32s3
+            interface: esp_usb_jtag
+
+-
+    re: "Error: missing data from bitq interface"
+    hint: "ESP32-S3 flash access problem using builtin USB_JTAG."
+    ref: "https://github.com/espressif/openocd-esp32/wiki/Troubleshooting-FAQ#esp32-s3-flash-access-problem-using-builtin-usb_jtag"
+    configs:
+        -
+            target: esp32s3
+            interface: esp_usb_jtag
+
