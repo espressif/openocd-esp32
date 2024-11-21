@@ -35,7 +35,7 @@ option(BUILD_REMOTE_BITBANG "Build support for the Remote Bitbang driver" ON)
 # Espressif additions
 option(BUILD_ESP_REMOTE "Build support for the ESP remote protocol over TCP or USB" ON)
 option(BUILD_ESP_COMPRESSION "Build support for the ESP flasher image compression" ON)
-option(BUILD_GCOV "Build support for the coverage" OFF)
+option(USE_GCOV "Build support for the coverage" OFF)
 option(BUILD_SANITIZERS "Build support with the sanitizer flags" OFF)
 
 # USB1 Adapters #TODO check default values

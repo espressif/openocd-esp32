@@ -33,7 +33,7 @@ if(BUILD_JLINK)
 endif()
 
 #TODO can be added to the ADDITIONAL_CLEAN_FILES properties
-if(BUILD_GCOV)
+if(USE_GCOV)
 	add_custom_target(gcov-clean
 		COMMAND ${CMAKE_MAKE_PROGRAM} clean
 		COMMAND find . -name "*.gcno" -type f -delete

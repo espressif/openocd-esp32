@@ -233,7 +233,7 @@ if(BUILD_ESP_COMPRESSION)
     check_include_files(zlib.h HAVE_ZLIB_H)
 endif()
 
-if(BUILD_GCOV)
+if(USE_GCOV)
     # CFLAGS+=" -fprofile-arcs -ftest-coverage"
 endif()
 
@@ -378,7 +378,7 @@ set(OPENOCD_COMMON_COMPILER_FLAGS
 
 # TODO: add sanitizers and gcov as custom target.
 # Check https://github.com/bilke/cmake-modules/blob/master/CodeCoverage.cmake
-if(BUILD_GCOV)
+if(USE_GCOV)
     set(OPENOCD_COMMON_COMPILER_FLAGS ${OPENOCD_COMMON_COMPILER_FLAGS} -fprofile-arcs -ftest-coverage)
     SET(CMAKE_EXE_LINKER_FLAGS "-fprofile-arcs -ftest-coverage")
 endif()
