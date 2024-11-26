@@ -22,7 +22,7 @@
 
 #if IS_MINGW
 #define mkdir(fname, mode) mkdir(fname)
-#define fsync(fd) FlushFileBuffers((HANDLE)fd)
+#define fsync(fd) FlushFileBuffers((HANDLE)(uintptr_t)(fd))
 #define link(src, dest) CreateHardLink(dest, src, NULL)
 #endif
 
@@ -726,10 +726,10 @@ int esp_semihosting_common(struct target *target)
 		}
 		retval = semihosting_read_fields(target, 1, fields);
 		if (retval == ERROR_OK) {
-			int fd = semihosting_get_field(target, 0, fields);
+			uint64_t fd = semihosting_get_field(target, 0, fields);
 			semihosting->result = fsync(fd);
 			semihosting->sys_errno = errno;
-			LOG_DEBUG("fsync('%d')=%" PRId64, fd, semihosting->result);
+			LOG_DEBUG("fsync('%'" PRIu64 "')=%" PRId64, fd, semihosting->result);
 		}
 		break;
 
