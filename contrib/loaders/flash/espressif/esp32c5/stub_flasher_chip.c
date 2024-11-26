@@ -28,6 +28,9 @@
 #include <stub_logger.h>
 #include "stub_flasher_chip.h"
 
+/* RTC related definitios */
+#define PCR_SOC_CLK_MAX                         3 // CPU_CLK frequency is 240 MHz (source is PLL_CLK)
+
 /* Cache MMU related definitions */
 #define STUB_CACHE_CTRL_REG                     CACHE_L1_CACHE_CTRL_REG
 #define STUB_CACHE_BUS                          (CACHE_BUS_IBUS1 | CACHE_BUS_IBUS2 | CACHE_BUS_DBUS1 | CACHE_BUS_DBUS2)
@@ -192,7 +195,22 @@ void stub_flash_state_restore(struct stub_flash_state *state)
 
 int stub_cpu_clock_configure(int conf_reg_val)
 {
-	return 0;
+	uint32_t pcr_sysclk_conf_reg = 0;
+
+	/* set to maximum possible value */
+	if (conf_reg_val == -1) {
+		pcr_sysclk_conf_reg = REG_READ(PCR_SYSCLK_CONF_REG);
+		REG_WRITE(PCR_SYSCLK_CONF_REG,
+			(pcr_sysclk_conf_reg & ~PCR_SOC_CLK_SEL_M) | (PCR_SOC_CLK_MAX << PCR_SOC_CLK_SEL_S));
+	} else { // restore old value
+		pcr_sysclk_conf_reg = conf_reg_val;
+		REG_WRITE(PCR_SYSCLK_CONF_REG,
+			(REG_READ(PCR_SYSCLK_CONF_REG) & ~PCR_SOC_CLK_SEL_M) | (pcr_sysclk_conf_reg & PCR_SOC_CLK_SEL_M));
+	}
+
+	STUB_LOGD("pcr_sysclk_conf_reg %x\n", pcr_sysclk_conf_reg);
+
+	return pcr_sysclk_conf_reg;
 }
 
 #if STUB_LOG_ENABLE == 1
