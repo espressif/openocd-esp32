@@ -15,6 +15,7 @@
 #include <soc/rtc.h>
 #include <soc/efuse_periph.h>
 #include <soc/gpio_reg.h>
+#include "soc/lp_clkrst_reg.h"
 #include <soc/system_reg.h>
 
 #include <hal/mmu_ll.h>
@@ -71,7 +72,24 @@ void stub_flash_state_restore(struct stub_flash_state *state)
 
 int stub_cpu_clock_configure(int conf_reg_val)
 {
-	return 0;
+	uint32_t hp_clk_ctrl_reg = 0;
+
+	/* set to maximum possible value */
+	if (conf_reg_val == -1) {
+		hp_clk_ctrl_reg = REG_READ(LP_CLKRST_HP_CLK_CTRL_REG);
+		REG_WRITE(LP_CLKRST_HP_CLK_CTRL_REG,
+			(hp_clk_ctrl_reg & ~LP_CLKRST_HP_ROOT_CLK_SRC_SEL_M)
+				| (PCR_SOC_CLK_MAX << LP_CLKRST_HP_ROOT_CLK_SRC_SEL_S));
+	} else { // restore old value
+		hp_clk_ctrl_reg = conf_reg_val;
+		REG_WRITE(LP_CLKRST_HP_CLK_CTRL_REG,
+			(REG_READ(LP_CLKRST_HP_CLK_CTRL_REG) & ~LP_CLKRST_HP_ROOT_CLK_SRC_SEL_M)
+				| (hp_clk_ctrl_reg & LP_CLKRST_HP_ROOT_CLK_SRC_SEL_M));
+	}
+
+	STUB_LOGD("hp_clk_ctrl_reg %x\n", hp_clk_ctrl_reg);
+
+	return hp_clk_ctrl_reg;
 }
 
 #if STUB_LOG_ENABLE == 1
