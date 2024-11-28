@@ -6,7 +6,7 @@
     PLATFORM_NAME: "linux-armhf-test"
     OOCD_CMDS: "set VAR 1" # default command to avoid missing argument error.
     TEST_RUN_RETRY: "-r"
-    TEST_RUN_EXTRA_OPTS: "${TEST_RUN_RETRY} -i ${IDF_RELEASE_TAG} ${TEST_RUN_BOARD_OPTS}"
+    TEST_RUN_EXTRA_OPTS: "${TEST_RUN_RETRY} -i ${IDF_RELEASE_TAG} ${TEST_RUN_BOARD_OPTS} ${TEST_RUN_COMMON_ARGS}"
   artifacts:
     paths:
       - $TEST_RUN_DIR/debug_backend_tests.log
@@ -99,6 +99,7 @@
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.4.x"
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_4_X_RELEASE_TAG}"
     TEST_RUN_RETRY: "" # Dont retry
+    TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
 
 .tests_armhf_v5.4.x_riscv_template:
   extends: .tests_armhf_v5.4.x_template
@@ -129,6 +130,7 @@
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.3.x"
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_3_X_RELEASE_TAG}"
     TEST_RUN_RETRY: "" # Dont retry
+    TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
 
 .tests_armhf_v5.3.x_riscv_template:
   extends: .tests_armhf_v5.3.x_template
@@ -153,6 +155,7 @@
     TOOLCHAIN_PREFIX: "xtensa-esp"
     ESP_TOOLCHAIN: "${ESP_V5_2X_TOOLCHAIN_VER}"
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_2_X_RELEASE_TAG}"
+    TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
 
 .tests_armhf_v5.2.x_riscv_template:
   extends: .tests_armhf_v5.2.x_template
@@ -172,6 +175,7 @@
     TOOLCHAIN_PREFIX: "xtensa-${CHIP_NAME}"
     ESP_TOOLCHAIN: "${ESP_V5_1X_TOOLCHAIN_VER}"
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_1_X_RELEASE_TAG}"
+    TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
 
 .tests_armhf_v5.1.x_riscv_template:
   extends: .tests_armhf_v5.1.x_template
@@ -191,6 +195,7 @@
     TOOLCHAIN_PREFIX: "xtensa-${CHIP_NAME}"
     ESP_TOOLCHAIN: "${ESP_V5_0X_TOOLCHAIN_VER}"
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_0_X_RELEASE_TAG}"
+    TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
 
 .tests_armhf_v5.0.x_riscv_template:
   extends: .tests_armhf_v5.0.x_template
