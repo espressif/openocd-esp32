@@ -388,23 +388,18 @@ def main():
         loader = unittest.TestLoader()
         loader.suiteClass = debug_backend_tests.DebuggerTestsBunch
         # load tests by patterns
-        if not isinstance(args.pattern, list):
-            tests_patterns = [args.pattern, ]
-        else:
-            tests_patterns = args.pattern
+        if not args.pattern:
+            args.pattern = ['test_*']
         suite = None
-        for pattern in tests_patterns:
+        for pattern in args.pattern:
             pattern_suite = load_tests_by_pattern(loader, os.path.dirname(__file__), pattern)
             if suite:
                 suite.addTest(pattern_suite)
             else:
                 suite = pattern_suite
         # exclude tests by patterns
-        if not isinstance(args.exclude, list):
-            tests_exclude = [args.exclude, ]
-        else:
-            tests_exclude = args.exclude
-        suite = exclude_tests_by_patterns(suite, tests_exclude)
+        if args.exclude:
+            suite = exclude_tests_by_patterns(suite, args.exclude)
         # setup loggers in test modules
         for m in suite.modules:
             setup_logger(suite.modules[m].get_logger(), ch, fh, log_lev)
@@ -450,8 +445,15 @@ def main():
     if not res or not res.wasSuccessful():
         sys.exit(-1)
 
+class ExtendAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        items = getattr(namespace, self.dest) or []
+        items.extend(values)
+        setattr(namespace, self.dest, items)
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run_tests.py - Run auto-tests', prog='run_tests')
+    parser.register('action', 'extend', ExtendAction)
 
     parser.add_argument('--toolchain', '-t',
                         help='Toolchain prefix',
@@ -475,11 +477,11 @@ if __name__ == '__main__':
     parser.add_argument('--pattern', '-p', nargs='*',
                         help="""Pattern of test cases to run. Format: <module>[.<test_case>[.<test_method>]].
                                 User can specify several strings separated by space. Wildcards (*) are supported in <module> and <test_case> parts""",
-                        default='test_*')
+                        action='extend', default=[])
     parser.add_argument('--exclude', '-e', nargs='*',
                         help="""Pattern of test cases to exclude. Format: <module>[.<test_case>[.<test_method>]].
                                 User can specify several strings separated by space. Wildcards (*) are supported in <module> and <test_case> parts""",
-                        default='')
+                        action='extend', default=[])
     parser.add_argument('--no-load', '-n',
                         help='Do not load test app binaries',
                         action='store_true', default=False)
