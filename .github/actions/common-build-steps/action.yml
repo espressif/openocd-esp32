@@ -1,0 +1,86 @@
+name: Common Build Steps for Windows, Linux and Macos
+inputs:
+  arch:
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: build
+      shell: bash
+      env:
+        ARCH: ${{ inputs.arch }}
+        BUILD_DIR: build
+        OPENOCD_CONFIGURE_OPTS: "--disable-doxygen-html --enable-remote-bitbang"
+      run: |
+        mkdir -p $BUILD_DIR
+        export PREFIX="$(realpath $BUILD_DIR)/opt"
+        export DL_DIR="$(realpath $BUILD_DIR)/dl"
+        mkdir -p $PREFIX $DL_DIR
+
+        if [[ "$ARCH" =~ macos ]]; then
+          export LDFLAGS="-Wl,-framework,CoreFoundation -Wl,-framework,IOKit -Wl,-framework,Security"
+        fi
+
+        # Set platform-specific variables
+        if [[ "$ARCH" == "windows" ]]; then
+          export CONF_HOST="i686-w64-mingw32"
+          export HOST_CC="${CONF_HOST}-gcc"
+        else
+          export CONF_HOST=""
+          export HOST_CC="gcc"
+        fi
+
+        # LIBUSB
+        export LIBUSB_VER=libusb-1.0.26
+        cd $DL_DIR && wget https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
+        tar xzf $LIBUSB_VER.tar.gz && rm $LIBUSB_VER.tar.gz && pushd $LIBUSB_VER && ./bootstrap.sh
+        ./configure --prefix="$PREFIX" --host=${CONF_HOST} --enable-shared=no --enable-static=yes CC=${HOST_CC}
+        make install
+        export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
+        popd
+
+        # HIDAPI
+        export HIDAPI_VER=hidapi-0.14.0
+        cd $DL_DIR && wget https://dl.espressif.com/dl/hidapi-$HIDAPI_VER.tar.gz -O $HIDAPI_VER.tar.gz
+        tar xzf $HIDAPI_VER.tar.gz && rm $HIDAPI_VER.tar.gz && pushd hidapi-$HIDAPI_VER && ./bootstrap
+        ./configure --prefix="$PREFIX" --host=${CONF_HOST} --enable-shared=no --enable-static=yes --disable-testgui CC=${HOST_CC} CFLAGS=-std=gnu99
+        make install
+        popd
+
+        # LIBJAYLINK
+        export LIBJAYLINK_VER=libjaylink-0.3.1
+        cd $DL_DIR && wget https://dl.espressif.com/dl/$LIBJAYLINK_VER.tar.gz -O $LIBJAYLINK_VER.tar.gz
+        tar xzf $LIBJAYLINK_VER.tar.gz && rm $LIBJAYLINK_VER.tar.gz && pushd $LIBJAYLINK_VER
+        ./autogen.sh
+        ./configure --prefix="$PREFIX" --host=${CONF_HOST} --disable-shared CC=${HOST_CC}
+        make install
+        popd
+
+        # ZLIB (Windows only)
+        if [[ $ARCH == "windows" ]]; then
+          export ZLIB_VER=zlib-1.2.11
+          cd $DL_DIR && wget https://dl.espressif.com/dl/$ZLIB_VER.tar.xz -O $ZLIB_VER.tar.xz
+          tar xf $ZLIB_VER.tar.xz && rm $ZLIB_VER.tar.xz && pushd $ZLIB_VER
+          make -f win32/Makefile.gcc BINARY_PATH=$PREFIX/lib INCLUDE_PATH=$PREFIX/include/zlib LIBRARY_PATH=$PREFIX/lib SHARED_MODE=1 PREFIX=${CONF_HOST}- install
+          export CPPFLAGS="-I$PREFIX/include/zlib"
+          export LDFLAGS="-L$PREFIX/lib"
+          popd
+        fi
+
+        cd $PREFIX/../..
+        ./bootstrap
+        ./configure --prefix="$PREFIX/openocd" --host=${CONF_HOST} $OPENOCD_CONFIGURE_OPTS CC=${HOST_CC}
+        make -j $(nproc)
+        make install-strip
+
+        if [[ $ARCH == "windows" ]]; then
+          cp $PREFIX/lib/zlib1.dll $PREFIX/openocd/bin
+        fi
+
+        echo "ARTIFACT_PATH=$PREFIX/openocd" >> $GITHUB_ENV
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: openocd-${{ inputs.arch }}
+        path: ${{ env.ARTIFACT_PATH }}/*

@@ -1,184 +1,62 @@
-name: Build OpenOCD for Windows, MacOS and Linux
+name: Build OpenOCD for Windows, MacOS, and Linux
 
 on:
   workflow_call: {}
   workflow_dispatch: {}
+
 jobs:
   build-macos-x86:
-    runs-on: macos-12
-    env:
-      BUILD_DIR: build
-      OPENOCD_CONFIGURE_OPTS: "--disable-doxygen-html --enable-remote-bitbang"
+    runs-on: macos-13
     steps:
+      - name: Ensure architecture is x86_64
+        run: |
+          if [[ "$(uname -m)" != "x86_64" ]]; then
+            echo "Error: Expected x86_64 architecture but got $(uname -m)" >&2
+            exit 1
+          fi
       - uses: actions/checkout@v4
       - name: install deps
         run: brew install automake texinfo coreutils
-      - name: build
-        run: |
-          export LDFLAGS="-Wl,-framework,CoreFoundation -Wl,-framework,IOKit -Wl,-framework,Security"
-
-          export PREFIX="$(realpath $BUILD_DIR)/opt"
-          export DL_DIR="$(realpath $BUILD_DIR)/dl"
-          mkdir -p $PREFIX $DL_DIR
-
-          #LIBUSB
-          export LIBUSB_VER=libusb-1.0.26
-          cd $DL_DIR && wget https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
-          tar xzf $LIBUSB_VER.tar.gz && rm $LIBUSB_VER.tar.gz && pushd $LIBUSB_VER && ./bootstrap.sh
-          ./configure --prefix="$PREFIX" --enable-shared=no --enable-static=yes
-          make install
-          export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
-          popd
-
-          #HIDAPI
-          export HIDAPI_VER=hidapi-0.14.0
-          cd $DL_DIR && wget https://dl.espressif.com/dl/hidapi-$HIDAPI_VER.tar.gz -O $HIDAPI_VER.tar.gz
-          tar xzf $HIDAPI_VER.tar.gz && rm $HIDAPI_VER.tar.gz && pushd hidapi-$HIDAPI_VER && ./bootstrap
-          ./configure --prefix="$PREFIX" --enable-shared=no --enable-static=yes --disable-testgui CFLAGS=-std=gnu99
-          make install
-          popd
-
-          #LIBJAYLINK
-          export LIBJAYLINK_VER=libjaylink-0.3.1
-          cd $DL_DIR && wget https://dl.espressif.com/dl/$LIBJAYLINK_VER.tar.gz -O $LIBJAYLINK_VER.tar.gz
-          tar xzf $LIBJAYLINK_VER.tar.gz && rm $LIBJAYLINK_VER.tar.gz && pushd $LIBJAYLINK_VER
-          ./autogen.sh
-          ./configure --prefix="$PREFIX" --disable-shared
-          make install
-          popd
-
-          cd $PREFIX/../..
-          ./bootstrap
-          ./configure --prefix="$PREFIX/openocd" $OPENOCD_CONFIGURE_OPTS
-          make -j `nproc`
-          make install-strip
-
-          echo "ARTIFACT_PATH=$PREFIX/openocd" >> $GITHUB_ENV
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Build and Upload OpenOCD artifact
+        uses: ./.github/actions/common-build-steps
         with:
-          name: openocd-macos-x86
-          path: ${{ env.ARTIFACT_PATH }}/*
+          arch: macos-x86
+
+  build-macos-arm64:
+    runs-on: macos-latest
+    steps:
+      - name: Ensure architecture is arm64
+        run: |
+          if [[ "$(uname -m)" != "arm64" ]]; then
+            echo "Error: Expected arm64 architecture but got $(uname -m)" >&2
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - name: install deps
+        run: brew install automake libtool texinfo coreutils
+      - name: Build and Upload OpenOCD artifact
+        uses: ./.github/actions/common-build-steps
+        with:
+          arch: macos-arm64
 
   build-linux:
     runs-on: ubuntu-20.04
-    env:
-      BUILD_DIR: build
     steps:
       - uses: actions/checkout@v4
       - name: install deps
         run: sudo apt-get install libudev-dev systemd --force-yes -y
-      - name: build
-        run: |
-          export PREFIX="$(realpath $BUILD_DIR)/opt"
-          export DL_DIR="$(realpath $BUILD_DIR)/dl"
-          mkdir -p $PREFIX $DL_DIR
-
-          #LIBUSB
-          export LIBUSB_VER=libusb-1.0.26
-          cd $DL_DIR && wget https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
-          tar xzf $LIBUSB_VER.tar.gz && rm $LIBUSB_VER.tar.gz && pushd $LIBUSB_VER && ./bootstrap.sh
-          ./configure --prefix="$PREFIX" --enable-shared=no --enable-static=yes
-          make install
-          export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
-          popd
-
-          #HIDAPI
-          export HIDAPI_VER=hidapi-0.14.0
-          cd $DL_DIR && wget https://dl.espressif.com/dl/hidapi-$HIDAPI_VER.tar.gz -O $HIDAPI_VER.tar.gz
-          tar xzf $HIDAPI_VER.tar.gz && rm $HIDAPI_VER.tar.gz && pushd hidapi-$HIDAPI_VER && ./bootstrap
-          ./configure --prefix="$PREFIX" --enable-shared=no --enable-static=yes --disable-testgui CFLAGS=-std=gnu99
-          make install
-          popd
-
-          #LIBJAYLINK
-          export LIBJAYLINK_VER=libjaylink-0.3.1
-          cd $DL_DIR && wget https://dl.espressif.com/dl/$LIBJAYLINK_VER.tar.gz -O $LIBJAYLINK_VER.tar.gz
-          tar xzf $LIBJAYLINK_VER.tar.gz && rm $LIBJAYLINK_VER.tar.gz && pushd $LIBJAYLINK_VER
-          ./autogen.sh
-          ./configure --prefix="$PREFIX" --disable-shared
-          make install
-          popd
-
-          cd $PREFIX/../..
-          ./bootstrap
-          ./configure --prefix="$PREFIX/openocd" $OPENOCD_CONFIGURE_OPTS
-          make -j `nproc`
-          make install-strip
-
-          echo "ARTIFACT_PATH=$PREFIX/openocd" >> $GITHUB_ENV
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Build and Upload OpenOCD artifact
+        uses: ./.github/actions/common-build-steps
         with:
-          name: openocd-linux
-          path: ${{ env.ARTIFACT_PATH }}/*
+          arch: linux
 
   build-windows:
     runs-on: ubuntu-20.04
-    env:
-      BUILD_DIR: build
     steps:
       - uses: actions/checkout@v4
       - name: install deps
-        run:  sudo apt-get install libtool-bin libudev-dev gcc-mingw-w64-i686
-      - name: build
-        run: |
-          export PREFIX="$(realpath $BUILD_DIR)/opt"
-          export DL_DIR="$(realpath $BUILD_DIR)/dl"
-          mkdir -p $PREFIX $DL_DIR
-
-          export CONF_HOST="i686-w64-mingw32"
-          export PLATFORM_NAME="win32"
-          export HOST_CC=${CONF_HOST}-gcc
-
-          #LIBUSB
-          export LIBUSB_VER=libusb-1.0.26
-          cd $DL_DIR && wget https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
-          tar xzf $LIBUSB_VER.tar.gz && rm $LIBUSB_VER.tar.gz && pushd $LIBUSB_VER && ./bootstrap.sh
-          ./configure --prefix="$PREFIX" --host=${CONF_HOST} --enable-shared=no --enable-static=yes CC=${HOST_CC}
-          make install
-          export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
-          popd
-
-          #HIDAPI
-          export HIDAPI_VER=hidapi-0.14.0
-          cd $DL_DIR && wget https://dl.espressif.com/dl/hidapi-$HIDAPI_VER.tar.gz -O $HIDAPI_VER.tar.gz
-          tar xzf $HIDAPI_VER.tar.gz && rm $HIDAPI_VER.tar.gz && pushd hidapi-$HIDAPI_VER && ./bootstrap
-          ./configure --prefix="$PREFIX" --host=${CONF_HOST} --enable-shared=no --enable-static=yes --disable-testgui CC=${HOST_CC} CFLAGS=-std=gnu99
-          make install
-          popd
-
-          #LIBJAYLINK
-          export LIBJAYLINK_VER=libjaylink-0.3.1
-          cd $DL_DIR && wget https://dl.espressif.com/dl/$LIBJAYLINK_VER.tar.gz -O $LIBJAYLINK_VER.tar.gz
-          tar xzf $LIBJAYLINK_VER.tar.gz && rm $LIBJAYLINK_VER.tar.gz && pushd $LIBJAYLINK_VER
-          ./autogen.sh
-          ./configure --prefix="$PREFIX" --host=${CONF_HOST} --disable-shared CC=${HOST_CC}
-          make install
-          popd
-
-          #ZLIB
-          export ZLIB_VER=zlib-1.2.11
-          cd $DL_DIR && wget https://dl.espressif.com/dl/$ZLIB_VER.tar.xz -O $ZLIB_VER.tar.xz
-          tar xf $ZLIB_VER.tar.xz && rm $ZLIB_VER.tar.xz && pushd $ZLIB_VER
-          make -f win32/Makefile.gcc BINARY_PATH=$PREFIX/lib INCLUDE_PATH=$PREFIX/include/zlib LIBRARY_PATH=$PREFIX/lib SHARED_MODE=1 PREFIX=${CONF_HOST}- install
-          export CPPFLAGS="-I$PREFIX/include/zlib"
-          export LDFLAGS="-L$PREFIX/lib"
-          popd
-
-          cd $PREFIX/../..
-          ./bootstrap
-          ./configure --prefix="$PREFIX/openocd" --host=${CONF_HOST} $OPENOCD_CONFIGURE_OPTS CC=${HOST_CC}
-          make -j `nproc`
-          make install-strip
-
-          cp $PREFIX/lib/zlib1.dll $PREFIX/openocd/bin
-          echo "ARTIFACT_PATH=$PREFIX/openocd" >> $GITHUB_ENV
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        run: sudo apt-get install libtool-bin libudev-dev gcc-mingw-w64-i686
+      - name: Build and Upload OpenOCD artifact
+        uses: ./.github/actions/common-build-steps
         with:
-          name: openocd-windows
-          path: ${{ env.ARTIFACT_PATH }}/*
+          arch: windows
