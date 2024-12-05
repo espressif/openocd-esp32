@@ -70,6 +70,11 @@
     IDF_RELEASE_TAG: "latest"
     TEST_RUN_RETRY: "" # Dont retry
 
+.tests_arm64_master_template:
+  extends: .tests_armhf_master_template
+  variables:
+    PLATFORM_NAME: "linux-arm64-test"
+
 .tests_armhf_master_riscv_template:
   extends: .tests_armhf_master_template
   variables:
@@ -100,6 +105,11 @@
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_4_X_RELEASE_TAG}"
     TEST_RUN_RETRY: "" # Dont retry
     TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
+
+.tests_arm64_v5.4.x_template:
+  extends: .tests_armhf_v5.4.x_template
+  variables:
+    PLATFORM_NAME: "linux-arm64-test"
 
 .tests_armhf_v5.4.x_riscv_template:
   extends: .tests_armhf_v5.4.x_template
@@ -132,6 +142,11 @@
     TEST_RUN_RETRY: "" # Dont retry
     TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
 
+.tests_arm64_v5.3.x_template:
+  extends: .tests_armhf_v5.3.x_template
+  variables:
+    PLATFORM_NAME: "linux-arm64-test"
+
 .tests_armhf_v5.3.x_riscv_template:
   extends: .tests_armhf_v5.3.x_template
   variables:
@@ -157,12 +172,22 @@
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_2_X_RELEASE_TAG}"
     TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
 
+.tests_arm64_v5.2.x_template:
+  extends: .tests_armhf_v5.2.x_template
+  variables:
+    PLATFORM_NAME: "linux-arm64-test"
+
 .tests_armhf_v5.2.x_riscv_template:
   extends: .tests_armhf_v5.2.x_template
   variables:
     CHIP_TEST_TOOLCHAIN: "riscv32-esp"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_2X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
+
+.tests_arm64_v5.2.x_riscv_template:
+  extends: .tests_armhf_v5.2.x_riscv_template
+  variables:
+    PLATFORM_NAME: "linux-arm64-test"
 
 .tests_armhf_v5.1.x_template:
   extends: .tests_armhf_template
@@ -177,12 +202,22 @@
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_1_X_RELEASE_TAG}"
     TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
 
+.tests_arm64_v5.1.x_template:
+  extends: .tests_armhf_v5.1.x_template
+  variables:
+    PLATFORM_NAME: "linux-arm64-test"
+
 .tests_armhf_v5.1.x_riscv_template:
   extends: .tests_armhf_v5.1.x_template
   variables:
     CHIP_TEST_TOOLCHAIN: "riscv32-esp"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_1X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
+
+.tests_arm64_v5.1.x_riscv_template:
+  extends: .tests_armhf_v5.1.x_riscv_template
+  variables:
+    PLATFORM_NAME: "linux-arm64-test"
 
 .tests_armhf_v5.0.x_template:
   extends: .tests_armhf_template
@@ -197,6 +232,11 @@
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_0_X_RELEASE_TAG}"
     TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
 
+.tests_arm64_v5.0.x_template:
+  extends: .tests_armhf_v5.0.x_template
+  variables:
+    PLATFORM_NAME: "linux-arm64-test"
+
 .tests_armhf_v5.0.x_riscv_template:
   extends: .tests_armhf_v5.0.x_template
   variables:
@@ -204,15 +244,24 @@
     ESP_GDB_TOOLCHAIN: "${ESP_V5_0X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
 
+.tests_arm64_v5.0.x_riscv_template:
+  extends: .tests_armhf_v5.0.x_riscv_template
+  variables:
+    PLATFORM_NAME: "linux-arm64-test"
+
 ##############
 # IDF master #
 ##############
 
 tests_armhf_esp32:
-  extends: .tests_armhf_master_template
+  extends: .tests_arm64_master_template
+  tags:
+    - esp32
+    - jtag
+    - arm64
   needs:
     - job: build_test_app_esp32
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e *.*Encrypted"
@@ -238,12 +287,12 @@ tests_armhf_esp32s2:
     TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*Single"
 
 tests_armhf_esp32s2_flash_encrypted:
-  extends: .tests_armhf_master_template
+  extends: .tests_arm64_master_template
   tags:
     - test_jtag_arm_flash_encryption_esp32s2
   needs:
     - job: build_test_app_esp32s2
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32s2"
     TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*SingleEncrypted"
@@ -270,10 +319,10 @@ tests_armhf_esp32s3_single:
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c2:
-  extends: .tests_armhf_master_riscv_template
+  extends: .tests_arm64_master_riscv_template
   needs:
     - job: build_test_app_esp32c2
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c2"
     TEST_RUN_BOARD_OPTS: "-b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
@@ -288,12 +337,12 @@ tests_armhf_esp32c3:
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c3_flash_encrypted:
-  extends: .tests_armhf_master_riscv_template
+  extends: .tests_arm64_master_riscv_template
   tags:
     - test_jtag_arm_flash_encryption_esp32c3
   needs:
     - job: build_test_app_esp32c3
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c3"
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*SingleEncrypted"
@@ -361,10 +410,14 @@ tests_arm64_esp32p4:
 ##############
 
 tests_armhf_esp32_idf5.4.x:
-  extends: .tests_armhf_v5.4.x_template
+  extends: .tests_arm64_v5.4.x_template
+  tags:
+    - esp32
+    - jtag
+    - arm64
   needs:
     - job: build_test_app_esp32_idf5.4.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e *.*Encrypted"
@@ -390,12 +443,12 @@ tests_armhf_esp32s2_idf5.4.x:
     TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*Single"
 
 tests_armhf_esp32s2_idf5.4.x_flash_encrypted:
-  extends: .tests_armhf_v5.4.x_template
+  extends: .tests_arm64_v5.4.x_template
   tags:
     - test_jtag_arm_flash_encryption_esp32s2
   needs:
     - job: build_test_app_esp32s2_idf5.4.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32s2"
     TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*SingleEncrypted"
@@ -422,10 +475,10 @@ tests_armhf_esp32s3_idf5.4.x_single:
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c2_idf5.4.x:
-  extends: .tests_armhf_v5.4.x_riscv_template
+  extends: .tests_arm64_v5.4.x_riscv_template
   needs:
     - job: build_test_app_esp32c2_idf5.4.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c2"
     TEST_RUN_BOARD_OPTS: "-b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
@@ -440,12 +493,12 @@ tests_armhf_esp32c3_idf5.4.x:
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c3_idf5.4.x_flash_encrypted:
-  extends: .tests_armhf_v5.4.x_riscv_template
+  extends: .tests_arm64_v5.4.x_riscv_template
   tags:
     - test_jtag_arm_flash_encryption_esp32c3
   needs:
     - job: build_test_app_esp32c3_idf5.4.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c3"
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*SingleEncrypted"
@@ -513,10 +566,14 @@ tests_arm64_esp32p4_idf5.4.x:
 ##############
 
 tests_armhf_esp32_idf5.3.x:
-  extends: .tests_armhf_v5.3.x_template
+  extends: .tests_arm64_v5.3.x_template
+  tags:
+    - esp32
+    - jtag
+    - arm64
   needs:
     - job: build_test_app_esp32_idf5.3.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e *.*Encrypted"
@@ -542,12 +599,12 @@ tests_armhf_esp32s2_idf5.3.x:
     TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*Single"
 
 tests_armhf_esp32s2_idf5.3.x_flash_encrypted:
-  extends: .tests_armhf_v5.3.x_template
+  extends: .tests_arm64_v5.3.x_template
   tags:
     - test_jtag_arm_flash_encryption_esp32s2
   needs:
     - job: build_test_app_esp32s2_idf5.3.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32s2"
     TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*SingleEncrypted"
@@ -574,10 +631,10 @@ tests_armhf_esp32s3_idf5.3.x_single:
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c2_idf5.3.x:
-  extends: .tests_armhf_v5.3.x_riscv_template
+  extends: .tests_arm64_v5.3.x_riscv_template
   needs:
     - job: build_test_app_esp32c2_idf5.3.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c2"
     TEST_RUN_BOARD_OPTS: "-b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
@@ -592,12 +649,12 @@ tests_armhf_esp32c3_idf5.3.x:
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c3_idf5.3.x_flash_encrypted:
-  extends: .tests_armhf_v5.3.x_riscv_template
+  extends: .tests_arm64_v5.3.x_riscv_template
   tags:
     - test_jtag_arm_flash_encryption_esp32c3
   needs:
     - job: build_test_app_esp32c3_idf5.3.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c3"
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*SingleEncrypted"
@@ -642,6 +699,10 @@ tests_arm64_esp32p4_idf5.3.x:
 
 tests_armhf_esp32_idf5.2.x:
   extends: .tests_armhf_v5.2.x_template
+  tags:
+    - esp32
+    - jtag
+    - arm
   needs:
     - job: build_test_app_esp32_idf5.2.x
     - job: build_linux_armhf_test
@@ -670,12 +731,12 @@ tests_armhf_esp32s2_idf5.2.x:
     TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*Single"
 
 tests_armhf_esp32s2_idf5.2.x_flash_encrypted:
-  extends: .tests_armhf_v5.2.x_template
+  extends: .tests_arm64_v5.2.x_template
   tags:
     - test_jtag_arm_flash_encryption_esp32s2
   needs:
     - job: build_test_app_esp32s2_idf5.2.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32s2"
     TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*SingleEncrypted"
@@ -702,10 +763,10 @@ tests_armhf_esp32s3_idf5.2.x_single:
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c2_idf5.2.x:
-  extends: .tests_armhf_v5.2.x_riscv_template
+  extends: .tests_arm64_v5.2.x_riscv_template
   needs:
     - job: build_test_app_esp32c2_idf5.2.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c2"
     TEST_RUN_BOARD_OPTS: "-b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
@@ -720,12 +781,12 @@ tests_armhf_esp32c3_idf5.2.x:
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c3_idf5.2.x_flash_encrypted:
-  extends: .tests_armhf_v5.2.x_riscv_template
+  extends: .tests_arm64_v5.2.x_riscv_template
   tags:
     - test_jtag_arm_flash_encryption_esp32c3
   needs:
     - job: build_test_app_esp32c3_idf5.2.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c3"
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*SingleEncrypted"
@@ -760,6 +821,10 @@ tests_armhf_esp32h2_idf5.2.x:
 
 tests_armhf_esp32_idf5.1.x:
   extends: .tests_armhf_v5.1.x_template
+  tags:
+    - esp32
+    - jtag
+    - arm
   needs:
     - job: build_test_app_esp32_idf5.1.x
     - job: build_linux_armhf_test
@@ -788,12 +853,12 @@ tests_armhf_esp32s2_idf5.1.x:
     TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*Single"
 
 tests_armhf_esp32s2_idf5.1.x_flash_encrypted:
-  extends: .tests_armhf_v5.1.x_template
+  extends: .tests_arm64_v5.1.x_template
   tags:
     - test_jtag_arm_flash_encryption_esp32s2
   needs:
     - job: build_test_app_esp32s2_idf5.1.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32s2"
     TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*SingleEncrypted"
@@ -820,10 +885,10 @@ tests_armhf_esp32s3_idf5.1.x_single:
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c2_idf5.1.x:
-  extends: .tests_armhf_v5.1.x_riscv_template
+  extends: .tests_arm64_v5.1.x_riscv_template
   needs:
     - job: build_test_app_esp32c2_idf5.1.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c2"
     TEST_RUN_BOARD_OPTS: "-b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
@@ -838,12 +903,12 @@ tests_armhf_esp32c3_idf5.1.x:
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c3_idf5.1.x_flash_encrypted:
-  extends: .tests_armhf_v5.1.x_riscv_template
+  extends: .tests_arm64_v5.1.x_riscv_template
   tags:
     - test_jtag_arm_flash_encryption_esp32c3
   needs:
     - job: build_test_app_esp32c3_idf5.1.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c3"
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*SingleEncrypted"
@@ -878,6 +943,10 @@ tests_armhf_esp32h2_idf5.1.x:
 
 tests_armhf_esp32_idf5.0.x:
   extends: .tests_armhf_v5.0.x_template
+  tags:
+    - esp32
+    - jtag
+    - arm
   needs:
     - job: build_test_app_esp32_idf5.0.x
     - job: build_linux_armhf_test
@@ -906,12 +975,12 @@ tests_armhf_esp32s2_idf5.0.x:
     TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*Single"
 
 tests_armhf_esp32s2_idf5.0.x_flash_encrypted:
-  extends: .tests_armhf_v5.0.x_template
+  extends: .tests_arm64_v5.0.x_template
   tags:
     - test_jtag_arm_flash_encryption_esp32s2
   needs:
     - job: build_test_app_esp32s2_idf5.0.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32s2"
     TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*SingleEncrypted"
@@ -938,10 +1007,10 @@ tests_armhf_esp32s3_idf5.0.x_single:
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c2_idf5.0.x:
-  extends: .tests_armhf_v5.0.x_riscv_template
+  extends: .tests_arm64_v5.0.x_riscv_template
   needs:
     - job: build_test_app_esp32c2_idf5.0.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c2"
     TEST_RUN_BOARD_OPTS: "-b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
@@ -956,12 +1025,12 @@ tests_armhf_esp32c3_idf5.0.x:
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*Single"
 
 tests_armhf_esp32c3_idf5.0.x_flash_encrypted:
-  extends: .tests_armhf_v5.0.x_riscv_template
+  extends: .tests_arm64_v5.0.x_riscv_template
   tags:
     - test_jtag_arm_flash_encryption_esp32c3
   needs:
     - job: build_test_app_esp32c3_idf5.0.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c3"
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*SingleEncrypted"
@@ -1081,6 +1150,10 @@ tests_on_linux:
 test_nuttx_esp32:
   extends:
     - .test_nuttx_template
+  tags:
+    - esp32
+    - jtag
+    - arm
   variables:
     CHIP_NAME: esp32
     TEST_BOARD: "esp32-wrover-kit-3.3v"
