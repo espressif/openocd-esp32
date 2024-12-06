@@ -56,7 +56,7 @@
   extends: .tests_armhf_template
   stage: test_idf_master
   allow_failure: true
-  image: $CI_DOCKER_REGISTRY/target-test-env-v5.5:1
+  image: $CI_DOCKER_REGISTRY/target-test-env-v5.5:2
   inherit:
     default:
       - interruptible
