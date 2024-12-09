@@ -1043,7 +1043,7 @@ tests_armhf_esp32c3_idf5.0.x_flash_encrypted:
   ARCHIVE_NAME=$(cat "$DIST_ART_DIR/dist_name_$PLATFORM_NAME")
   echo $ARCHIVE_NAME
   tar xzf $DIST_ART_DIR/$ARCHIVE_NAME openocd-esp32
-  ./openocd-esp32/bin/openocd --version
+  python tools/test_openocd.py openocd-esp32/bin/openocd
 
 test_on_windows:
   stage: test_host
@@ -1060,7 +1060,7 @@ test_on_windows:
   script:
     - $ARCHIVE_NAME=$(cat "$DIST_ART_DIR/dist_name_$PLATFORM_NAME")
     - Expand-Archive -DestinationPath . "$DIST_ART_DIR/$ARCHIVE_NAME"
-    - .\openocd-esp32\bin\openocd --version
+    - C:\\Users\\gitlab-runner\\AppData\\Local\\Programs\\Python\\Python312\\python.exe tools/test_openocd.py openocd-esp32\bin\openocd
 
 test_on_macos:
   stage: test_host
