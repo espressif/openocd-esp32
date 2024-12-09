@@ -492,7 +492,7 @@ class SysViewMcoreTracingTestsImpl(BaseTracingTestsImpl):
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
 ########################################################################
-@skip_for_chip(['esp32s3'])
+@skip_for_chip(['esp32s3'], "skipped - OCD-992")
 class SysViewTraceTestAppTestsDual(DebuggerGenericTestAppTests):
     """ Base class to run tests which use gcov test app in dual core mode
     """
