@@ -14,8 +14,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: openocd-macos-x86
-      - name: Run OpenOCD
-        run: chmod +x bin/openocd && ./bin/openocd --version
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Run and check OpenOCD
+        run: chmod +x bin/openocd && python tools/test_openocd.py bin/openocd
 
   run-macos-arm64-host:
     name: Test OpenOCD on MacOS-arm64
@@ -27,8 +31,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: openocd-macos-arm64
-      - name: Run OpenOCD
-        run: chmod +x bin/openocd && ./bin/openocd --version
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Run and check OpenOCD
+        run: chmod +x bin/openocd && python tools/test_openocd.py bin/openocd
 
   run-linux-host:
     name: Test OpenOCD on Linux
@@ -40,8 +48,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: openocd-linux
-      - name: Run OpenOCD
-        run: chmod +x bin/openocd && ./bin/openocd --version
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Run and check OpenOCD
+        run: chmod +x bin/openocd && python tools/test_openocd.py bin/openocd
 
   run-win-host:
     name: Test OpenOCD on Windows
@@ -53,5 +65,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: openocd-windows
-      - name: Run OpenOCD
-        run: .\bin\openocd --version
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Run and check OpenOCD
+        run: python tools/test_openocd.py bin\openocd
