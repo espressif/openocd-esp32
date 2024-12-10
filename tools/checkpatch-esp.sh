@@ -9,6 +9,5 @@ git diff HEAD~${cnt} \
                 -x "a/.gitlab/*" \
                 -x "a/HACKING" \
                 -x "a/testing/esp/*" \
-				-x "*/tools/scanbuild_reference.html" \
             | ./tools/scripts/checkpatch.pl --no-signoff \
-				--ignore FUNCTION_ARGUMENTS --ignore CAMELCASE
+            --ignore FUNCTION_ARGUMENTS --ignore CAMELCASE --ignore LONG_LINE_STRING
