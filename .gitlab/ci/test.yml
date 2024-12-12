@@ -69,11 +69,13 @@
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}"
     IDF_RELEASE_TAG: "latest"
     TEST_RUN_RETRY: "" # Dont retry
+    ESP_GCOV_TOOLCHAIN: "${ESP_V5_5X_XTENSA_GCOV_TOOLCHAIN}-arm-linux-gnueabihf"
 
 .tests_arm64_master_template:
   extends: .tests_armhf_master_template
   variables:
     PLATFORM_NAME: "linux-arm64-test"
+    ESP_GCOV_TOOLCHAIN: "${ESP_V5_5X_XTENSA_GCOV_TOOLCHAIN}-aarch64-linux-gnu"
 
 .tests_armhf_master_riscv_template:
   extends: .tests_armhf_master_template
@@ -81,11 +83,13 @@
     CHIP_TEST_TOOLCHAIN: "riscv32-esp"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_5X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_GCOV_TOOLCHAIN: "${ESP_V5_5X_RISCV_GCOV_TOOLCHAIN}-arm-linux-gnueabihf"
 
 .tests_arm64_master_riscv_template:
   extends: .tests_armhf_master_riscv_template
   variables:
     PLATFORM_NAME: "linux-arm64-test"
+    ESP_GCOV_TOOLCHAIN: "${ESP_V5_5X_RISCV_GCOV_TOOLCHAIN}-aarch64-linux-gnu"
 
 .tests_armhf_v5.4.x_template:
   extends: .tests_armhf_template
