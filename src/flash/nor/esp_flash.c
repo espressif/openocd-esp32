@@ -1328,7 +1328,7 @@ int esp_algo_flash_breakpoint_remove(struct target *target, struct esp_flash_bre
 }
 
 static int esp_algo_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
-	uint32_t offset, uint32_t count)
+	uint32_t offset, uint32_t count, bool verbose)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	struct esp_algorithm_run_data run;
@@ -1383,8 +1383,9 @@ static int esp_algo_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 	} else {
 		memcpy(hash, mp.value, 32);
 		duration_measure(&bench);
-		LOG_INFO("PROF: Flash verified in %g ms ",
-			duration_elapsed(&bench) * 1000);
+		if (verbose)
+			LOG_INFO("PROF: Flash verified in %g ms ",
+				duration_elapsed(&bench) * 1000);
 	}
 	destroy_mem_param(&mp);
 	return ret;
@@ -1584,7 +1585,8 @@ static COMMAND_HELPER(esp_algo_flash_cmd_set_encryption, struct target *target)
 
 static int esp_flash_verify_bank_hash(struct target *target,
 	uint32_t offset,
-	const char *file_name)
+	const char *file_name,
+	bool verbose)
 {
 	uint8_t file_hash[TC_SHA256_DIGEST_SIZE], target_hash[TC_SHA256_DIGEST_SIZE];
 	uint8_t *buffer_file;
@@ -1652,7 +1654,7 @@ static int esp_flash_verify_bank_hash(struct target *target,
 		return retval;
 	}
 
-	retval = esp_algo_flash_calc_hash(bank, target_hash, offset, length);
+	retval = esp_algo_flash_calc_hash(bank, target_hash, offset, length, verbose);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Flash sha256 calculation failure");
 		return retval;
@@ -1660,7 +1662,7 @@ static int esp_flash_verify_bank_hash(struct target *target,
 
 	differ = memcmp(file_hash, target_hash, TC_SHA256_DIGEST_SIZE);
 
-	if (differ) {
+	if (differ && verbose) {
 		LOG_ERROR("**** Verification failure! ****");
 		LOG_ERROR("target_hash %x%x%x...%x%x%x",
 			target_hash[0], target_hash[1], target_hash[2],
@@ -1675,15 +1677,20 @@ static int esp_flash_verify_bank_hash(struct target *target,
 
 static COMMAND_HELPER(esp_algo_flash_parse_cmd_verify_bank_hash, struct target *target)
 {
-	if (CMD_ARGC < 2 || CMD_ARGC > 3)
+	if (CMD_ARGC < 2 || CMD_ARGC > 4)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 
 	uint32_t offset = 0;
+	bool verbose = true;
 
-	if (CMD_ARGC > 2)
-		COMMAND_PARSE_NUMBER(u32, CMD_ARGV[2], offset);
+	for (unsigned int i = 2; i < CMD_ARGC; ++i) {
+		if (strcmp("quiet", CMD_ARGV[i]) == 0)
+			verbose = false;
+		else
+			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[i], offset);
+	}
 
-	return esp_flash_verify_bank_hash(target, offset, CMD_ARGV[1]);
+	return esp_flash_verify_bank_hash(target, offset, CMD_ARGV[1], verbose);
 }
 
 static COMMAND_HELPER(esp_algo_flash_parse_cmd_clock_boost, struct target *target)
