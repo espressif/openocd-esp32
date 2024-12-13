@@ -1391,7 +1391,7 @@ static int esp_algo_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 	return ret;
 }
 
-static int esp_algo_flash_boost_clock_freq(struct flash_bank *bank, int boost)
+static int esp_algo_flash_boost_clock_freq(struct flash_bank *bank, bool boost)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	struct esp_algorithm_run_data run;
@@ -1405,7 +1405,7 @@ static int esp_algo_flash_boost_clock_freq(struct flash_bank *bank, int boost)
 		return ret;
 
 	/* restore */
-	if (boost == 0)
+	if (!boost)
 		new_cpu_freq = esp_info->old_cpu_freq;
 
 	run.stack_size = stack_size;
@@ -1500,7 +1500,7 @@ static COMMAND_HELPER(esp_algo_flash_cmd_appimage_flashoff_do, struct target *ta
 
 static int esp_algo_flash_set_compression(struct target *target,
 	char *bank_name_suffix,
-	int compression)
+	bool compression)
 {
 	struct flash_bank *bank;
 	struct esp_flash_bank *esp_info;
@@ -1528,18 +1528,9 @@ static COMMAND_HELPER(esp_algo_flash_cmd_set_compression, struct target *target)
 		return ERROR_FAIL;
 	}
 
-	int compression = 0;
-
-	if (0 == strcmp("on", CMD_ARGV[0])) {
-		LOG_DEBUG("Flash compressed upload is on");
-		compression = 1;
-	} else if (0 == strcmp("off", CMD_ARGV[0])) {
-		LOG_DEBUG("Flash compressed upload is off");
-		compression = 0;
-	} else {
-		LOG_DEBUG("unknown flag");
-		return ERROR_FAIL;
-	}
+	bool compression = false;
+	COMMAND_PARSE_BOOL(CMD_ARGV[0], compression, "on", "off");
+	LOG_DEBUG("Flash compressed upload is %s", compression ? "on" : "off");
 
 	return esp_algo_flash_set_compression(target, "flash", compression);
 }
@@ -1700,18 +1691,9 @@ static COMMAND_HELPER(esp_algo_flash_parse_cmd_clock_boost, struct target *targe
 		return ERROR_FAIL;
 	}
 
-	int boost = 0;
-
-	if (0 == strcmp("on", CMD_ARGV[0])) {
-		LOG_DEBUG("Clock boost is on");
-		boost = 1;
-	} else if (0 == strcmp("off", CMD_ARGV[0])) {
-		LOG_DEBUG("Clock boost is off");
-		boost = 0;
-	} else {
-		LOG_DEBUG("unknown flag");
-		return ERROR_FAIL;
-	}
+	bool boost = 0;
+	COMMAND_PARSE_BOOL(CMD_ARGV[0], boost, "on", "off");
+	LOG_DEBUG("Clock boost is %s", boost ? "on" : "off");
 
 	struct flash_bank *bank;
 	int retval = esp_algo_target_to_flash_bank(target, &bank, "flash", true);
@@ -1729,17 +1711,8 @@ static COMMAND_HELPER(esp_algo_flash_parse_cmd_stub_log, struct target *target)
 	}
 
 	bool log_stat = false;
-
-	if (0 == strcmp("on", CMD_ARGV[0])) {
-		LOG_TARGET_INFO(target, "Stub logs enabled!");
-		log_stat = true;
-	} else if (0 == strcmp("off", CMD_ARGV[0])) {
-		LOG_TARGET_INFO(target, "Stub logs disabled");
-		log_stat = false;
-	} else {
-		LOG_TARGET_ERROR(target, "unknown flag");
-		return ERROR_FAIL;
-	}
+	COMMAND_PARSE_BOOL(CMD_ARGV[0], log_stat, "on", "off");
+	LOG_TARGET_INFO(target, "Stub logs %s!", log_stat ? "enabled" : "disabled");
 
 	int ret = esp_algo_flash_set_stub_log(target, "irom", log_stat);
 	if (ret != ERROR_OK)

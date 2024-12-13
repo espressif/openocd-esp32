@@ -86,7 +86,7 @@ struct esp_flash_bank {
 	const struct esp_flash_apptrace_hw *apptrace_hw;
 	const struct esp_algorithm_hw *stub_hw;
 	/* Upload compressed or uncompressed image */
-	int compression;
+	bool compression;
 	/* Stub cpu frequency before boost */
 	int old_cpu_freq;
 	/* Inform stub flasher if encryption requires before writing to flash.  */
