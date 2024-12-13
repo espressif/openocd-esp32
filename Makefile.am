@@ -21,7 +21,8 @@ nobase_dist_pkgdata_DATA = \
 
 esptoolsdir = $(pkgdatadir)/espressif/tools
 dist_esptools_DATA = \
-	tools/esp_detect_config.py
+	tools/esp_detect_config.py \
+	tools/esp_problems_hints.yml
 
 esp32c6stubsdir = $(pkgdatadir)/espressif/stub_bins/esp32c6
 dist_esp32c6stubs_DATA = \
