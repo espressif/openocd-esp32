@@ -149,7 +149,7 @@ class GdbEspImpl:
         tmo : int
 
         """
-        self.monitor_run('program_esp %s %s 0x%x' % (fixup_path(file_name), actions, int(off)), tmo)
+        self.monitor_run('program_esp %s %s 0x%x skip_loaded' % (fixup_path(file_name), actions, int(off)), tmo)
 
     def target_program_bins(self, build_dir, file_name='flasher_args.json', actions='verify', tmo=45):
         """
@@ -164,7 +164,7 @@ class GdbEspImpl:
         tmo : int
 
         """
-        self.monitor_run('program_esp_bins %s %s %s' % (fixup_path(build_dir), file_name, actions), tmo)
+        self.monitor_run('program_esp_bins %s %s %s skip_loaded' % (fixup_path(build_dir), file_name, actions), tmo)
 
     def _update_memory_map(self):
         self.monitor_run('esp appimage_offset 0x%x' % self.app_flash_offset, 5)
