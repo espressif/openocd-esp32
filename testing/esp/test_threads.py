@@ -14,6 +14,7 @@ def get_logger():
 
 class DebuggerThreadsTestsImpl:
 
+    @skip_for_chip(['esp32c5', 'esp32c61'], "skipped - OCD-1049")
     def test_threads_backtraces(self):
         """
             This test switches between threads and checks that their backtraces are as expected:
@@ -46,6 +47,7 @@ class DebuggerThreadsTestsImpl:
         for suf in test_tasks:
             self.assertEqual(test_tasks[suf][1], 1)
 
+    @skip_for_chip(['esp32c5', 'esp32c61'], "skipped - OCD-1049")
     def test_thread_switch(self):
         """
             This test switch a threads and check that expected thread id and current thread id are the same.
@@ -85,8 +87,10 @@ class DebuggerThreadsTestsImpl:
 class DebuggerThreadsTestsDual(DebuggerGenericTestAppTestsDual, DebuggerThreadsTestsImpl):
     """ Test cases in dual core mode
     """
-    # no special tests for dual core mode yet
-    pass
+
+    @skip_for_chip_and_ver(['5.3', '5.4', 'latest'], ['esp32', 'esp32s3'], "skipped - OCD-1050")
+    def test_threads_backtraces(self):
+        super(DebuggerGenericTestAppTestsDual, self).test_threads_backtraces()
 
 class DebuggerThreadsTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerThreadsTestsImpl):
     """ Test cases in single core mode
@@ -101,6 +105,10 @@ class DebuggerThreadsTestsAmazonFreeRTOSDual(DebuggerGenericTestAppTestsDual, De
         super(DebuggerGenericTestAppTestsDual, self).__init__(methodName)
         self.test_app_cfg.bin_dir = os.path.join('output', 'default_amazon_freertos')
         self.test_app_cfg.build_dir = os.path.join('builds', 'default_amazon_freertos')
+
+    @skip_for_chip(['esp32', 'esp32s3'], "skipped - OCD-1050")
+    def test_threads_backtraces(self):
+        super(DebuggerGenericTestAppTestsDual, self).test_threads_backtraces()
 
 @idf_ver_min('5.3')
 class DebuggerThreadsTestsAmazonFreeRTOSSingle(DebuggerGenericTestAppTestsSingle, DebuggerThreadsTestsImpl):

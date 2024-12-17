@@ -167,6 +167,7 @@ class SemihostTestsImpl:
             self.assertTrue(filecmp.cmp(self.fout_names[i], self.fin_names[i]))
 
     @only_for_arch(['xtensa'])
+    @skip_for_chip_and_ver(['5.3', '5.4', 'latest'], ['esp32'], "skipped - OCD-1051")
     def test_semihost_args(self):
         """
         This test checks that semihosting syscalls working properly with wrong argumented functions
