@@ -222,6 +222,7 @@ class GcovTestsImpl:
             if os.path.exists(f['data_path']):
                 os.remove(f['data_path'])
 
+    @skip_for_chip_and_ver(['5.4', 'latest'], ['esp32s3'], "skipped - OCD-1048")
     def test_simple_gdb(self):
         """
             This test checks that GCOV data can be dumped by means of GDB
