@@ -94,12 +94,7 @@
 .tests_armhf_v5.4.x_template:
   extends: .tests_armhf_template
   stage: test_idf5.4.x
-  allow_failure: true
   image: $CI_DOCKER_REGISTRY/target-test-env-v5.4:1
-  inherit:
-    default:
-      - interruptible
-      # Dont retry
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_4X_XTENSA_GDB_TOOLCHAIN}"
@@ -107,7 +102,6 @@
     ESP_TOOLCHAIN: "${ESP_V5_4X_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.4.x"
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_4_X_RELEASE_TAG}"
-    TEST_RUN_RETRY: "" # Dont retry
     TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
 
 .tests_arm64_v5.4.x_template:
@@ -130,12 +124,7 @@
 .tests_armhf_v5.3.x_template:
   extends: .tests_armhf_template
   stage: test_idf5.3.x
-  allow_failure: true
   image: $CI_DOCKER_REGISTRY/target-test-env-v5.3:1
-  inherit:
-    default:
-      - interruptible
-      # Dont retry
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_3X_XTENSA_GDB_TOOLCHAIN}"
@@ -143,7 +132,6 @@
     ESP_TOOLCHAIN: "${ESP_V5_3X_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.3.x"
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_3_X_RELEASE_TAG}"
-    TEST_RUN_RETRY: "" # Dont retry
     TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
 
 .tests_arm64_v5.3.x_template:
