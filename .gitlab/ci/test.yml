@@ -349,7 +349,7 @@ tests_arm64_esp32c5:
     - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c5"
-    TEST_RUN_BOARD_OPTS: "-b esp32c5-builtin -p test_*.*Single"
+    TEST_RUN_BOARD_OPTS: "-b esp32c5-builtin -p test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
 
 tests_armhf_esp32c6:
   extends: .tests_armhf_master_riscv_template
@@ -373,7 +373,7 @@ tests_arm64_esp32c61:
     - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c61"
-    TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p test_*.*Single"
+    TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
 
 tests_armhf_esp32h2:
   extends: .tests_armhf_master_riscv_template
@@ -505,7 +505,7 @@ tests_arm64_esp32c5_idf5.4.x:
     - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c5"
-    TEST_RUN_BOARD_OPTS: "-b esp32c5-builtin -p test_*.*Single"
+    TEST_RUN_BOARD_OPTS: "-b esp32c5-builtin -p test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
 
 tests_armhf_esp32c6_idf5.4.x:
   extends: .tests_armhf_v5.4.x_riscv_template
@@ -529,7 +529,7 @@ tests_arm64_esp32c61_idf5.4.x:
     - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32c61"
-    TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p test_*.*Single"
+    TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
 
 tests_armhf_esp32h2_idf5.4.x:
   extends: .tests_armhf_v5.4.x_riscv_template
