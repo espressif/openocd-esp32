@@ -19,7 +19,7 @@
 #include "jtag/interface.h"
 #include "jtag/adapter.h"
 
-static LIST_HEAD(all_dap);
+static OOCD_LIST_HEAD(all_dap);
 
 /* DAP command support */
 struct arm_dap_object {
