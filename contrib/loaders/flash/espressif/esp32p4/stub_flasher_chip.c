@@ -50,7 +50,7 @@ void *esp_apptrace_uart_hw_get(int num, void **data)
 void stub_flash_cache_flush(void)
 {
 	/* we do not know breakpoint program address here, so invalidate the whole ICache */
-	Cache_Invalidate_All(CACHE_MAP_L1_ICACHE_0 | CACHE_MAP_L1_ICACHE_1);
+	Cache_Invalidate_All(CACHE_MAP_L1_ICACHE_0 | CACHE_MAP_L1_ICACHE_1 | CACHE_MAP_L2_CACHE);
 }
 
 void stub_cache_configure(void) {}
