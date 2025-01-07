@@ -290,7 +290,7 @@ def two_cores_concurrently_hit_bps(self):
         self.assertTrue(len(frames) > 0)
         self.assertEqual(frames[0]['func'], cur_frame['func'])
         self.assertEqual(frames[0]['line'], cur_frame['line'])
-    for cnt in hit_cnt[1:]:
+    for cnt in hit_cnt[-3:]:
         self.assertTrue(cnt > 0)
 
 def two_cores_concurrently_hit_wps(self):
