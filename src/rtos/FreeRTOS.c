@@ -375,6 +375,9 @@ static int freertos_read_esp_symbol_table(struct rtos *rtos, int index, uint8_t 
 	assert(val);
 
 	if (!rtos_data->esp_symbols) {
+		if (rtos->symbols == NULL)
+			return ERROR_FAIL;
+
 		if (!rtos->symbols[FREERTOS_VAL_ESP_OPENOCD_PARAMS].address)
 			return ERROR_FAIL;
 
