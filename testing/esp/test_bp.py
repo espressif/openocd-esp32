@@ -51,12 +51,12 @@ class BreakpointTestsImpl:
             self.assertEqual(cur_frame['func'], 'app_main')
 
     def readd_bps(self):
-        # remove all BPs except the first one
-        for i in range(1, len(self.bpns)):
+        # remove all non-dummy BPs except the first one
+        for i in range(self.dummy_bp_count + 1, len(self.bpns)):
             self.gdb.delete_bp(self.bpns[i])
-        self.bpns = self.bpns[:1]
+        self.bpns = self.bpns[:self.dummy_bp_count + 1]
         # add removed BPs back
-        for i in range(1, len(self.bps)):
+        for i in range(self.dummy_bp_count + 1, len(self.bps)):
             self.add_bp(self.bps[i])
 
     def test_bp_add_remove_run(self):
