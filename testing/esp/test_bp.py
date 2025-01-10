@@ -20,14 +20,15 @@ class BreakpointTestsImpl:
     """
 
     def setUp(self):
-        self.bps = []
+        self.dummy_bp_count = 0
         if testee_info.arch == 'riscv32':
             info = self.oocd.cmd_exec('riscv info')
             hw_bps = int(info.split('\n')[1].split()[-1])
             self.assertTrue(hw_bps <= 8 and hw_bps >= 2)
-            # dummy HW breaks to fill in HW breaks slots and make OpenOCD using SW breakpoints in flash (seen as HW ones by GDB)
-            self.bps += ['unused_func0', 'unused_func1', 'unused_func2', 'unused_func3', 'unused_func4', 'unused_func5'][:hw_bps - 2]
-        self.bps += ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
+            self.dummy_bp_count = hw_bps - 2
+        # dummy HW breaks to fill in HW breaks slots and make OpenOCD using SW breakpoints in flash (seen as HW ones by GDB)
+        self.dummy_bps = ['unused_func0', 'unused_func1', 'unused_func2', 'unused_func3', 'unused_func4', 'unused_func5'][:self.dummy_bp_count]
+        self.bps = self.dummy_bps + ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
 
     def test_multi_reset_break(self):
         """
@@ -177,7 +178,7 @@ class BreakpointTestsImpl:
             5) Repeat steps 3-4 several times.
         """
         # 2 HW breaks + 1 flash SW break + RAM SW break
-        self.bps = ['app_main', 'test_timer_isr', 'test_timer_isr_func', 'test_timer_isr_ram_func']
+        self.bps = self.dummy_bps + ['app_main', 'test_timer_isr', 'test_timer_isr_func', 'test_timer_isr_ram_func']
         self.select_sub_test("blink")
         for f in self.bps:
             self.add_bp(f)
