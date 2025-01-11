@@ -731,51 +731,6 @@ static const struct rtos_register_stacking rtos_freertos_voluntary_esp32s3_stack
 	rtos_freertos_esp_xtensa_stack_read_voluntary		/* Custom stack frame read function */
 };
 
-static const struct stack_register_offset rtos_freertos_riscv_stack_offsets[] = {
-	{ GDB_REGNO_ZERO, -1, 32 },
-	{ GDB_REGNO_RA, 0x04, 32 },
-	{ GDB_REGNO_A0, 0x08, 32 },
-	{ GDB_REGNO_A1, 0x0C, 32 },
-	{ GDB_REGNO_A2, 0x10, 32 },
-	{ GDB_REGNO_A3, 0x14, 32 },
-	{ GDB_REGNO_A4, 0x18, 32 },
-	{ GDB_REGNO_A5, 0x1C, 32 },
-	{ GDB_REGNO_A6, 0x20, 32 },
-	{ GDB_REGNO_A7, 0x24, 32 },
-	{ GDB_REGNO_T0, 0x28, 32 },
-	{ GDB_REGNO_T1, 0x2C, 32 },
-	{ GDB_REGNO_T2, 0x30, 32 },
-	{ GDB_REGNO_T3, 0x34, 32 },
-	{ GDB_REGNO_T4, 0x38, 32 },
-	{ GDB_REGNO_T5, 0x3C, 32 },
-	{ GDB_REGNO_T6, 0x40, 32 },
-	{ GDB_REGNO_SP, 0x44, 32 },
-	{ GDB_REGNO_GP, 0x48, 32 },
-	{ GDB_REGNO_TP, 0x4C, 32 },
-	{ GDB_REGNO_FP, 0x50, 32 },
-	{ GDB_REGNO_S1, 0x54, 32 },
-	{ GDB_REGNO_S2, 0x58, 32 },
-	{ GDB_REGNO_S3, 0x5C, 32 },
-	{ GDB_REGNO_S4, 0x60, 32 },
-	{ GDB_REGNO_S5, 0x64, 32 },
-	{ GDB_REGNO_S6, 0x68, 32 },
-	{ GDB_REGNO_S7, 0x6C, 32 },
-	{ GDB_REGNO_S8, 0x70, 32 },
-	{ GDB_REGNO_S9, 0x74, 32 },
-	{ GDB_REGNO_S10, 0x78, 32 },
-	{ GDB_REGNO_S11, 0x7C, 32 },
-	{ GDB_REGNO_PC, 0x00, 32 },
-};
-
-static const struct rtos_register_stacking rtos_freertos_riscv_stacking = {
-	32 * 4,				/* stack_registers_size */
-	-1,					/* stack_growth_direction */
-	33,					/* num_output_registers */
-	rtos_generic_stack_align8,	/* stack_alignment */
-	rtos_freertos_riscv_stack_offsets,		/* register_offsets */
-	NULL		/* Custom stack frame read function */
-};
-
 /*
  This function uses the first word of the stack memory to see if the stack frame is from a
  voluntary or unvoluntary yield, and returns the correct stack frame info.
@@ -918,7 +873,7 @@ static int rtos_freertos_esp_xtensa_stack_read_voluntary(struct target *target,
 
 const struct rtos_register_stacking *rtos_freertos_riscv_pick_stacking_info(struct rtos *rtos, int64_t thread_id, int64_t stack_addr)
 {
-	return &rtos_freertos_riscv_stacking;
+	return &rtos_standard_riscv32_stacking;
 }
 
 // Chip-specific data for calculating Thread Local Storage (tls) address

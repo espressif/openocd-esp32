@@ -16,7 +16,6 @@ enum nuttx_symbol_vals {
 
 extern const struct rtos_register_stacking nuttx_stacking_cortex_m;
 extern const struct rtos_register_stacking nuttx_stacking_cortex_m_fpu;
-extern const struct rtos_register_stacking nuttx_riscv_stacking;
 extern const struct rtos_register_stacking nuttx_esp32_stacking;
 extern const struct rtos_register_stacking nuttx_esp32s2_stacking;
 extern const struct rtos_register_stacking nuttx_esp32s3_stacking;

@@ -11,6 +11,7 @@
 
 #include "rtos.h"
 #include "target/armv7m.h"
+#include <target/riscv/riscv.h>
 #include "rtos_standard_stackings.h"
 
 static const struct stack_register_offset rtos_standard_cortex_m3_stack_offsets[ARMV7M_NUM_CORE_REGS] = {
@@ -101,6 +102,42 @@ static const struct stack_register_offset rtos_standard_cortex_r4_stack_offsets[
 	{ 24, -1,   96 },		/* FPA8 */
 	{ 25, -1,   32 },		/* FPS  */
 	{ 26, 0x04, 32 },		/* CSPR */
+};
+
+static const struct stack_register_offset rtos_standard_riscv32_stack_offsets[] = {
+	{ GDB_REGNO_ZERO, -1, 32 },
+	{ GDB_REGNO_RA, 0x04, 32 },
+	{ GDB_REGNO_SP, 0x08, 32 },
+	{ GDB_REGNO_GP, 0x0c, 32 },
+	{ GDB_REGNO_TP, 0x10, 32 },
+	{ GDB_REGNO_T0, 0x14, 32 },
+	{ GDB_REGNO_T1, 0x18, 32 },
+	{ GDB_REGNO_T2, 0x1c, 32 },
+	{ GDB_REGNO_FP, 0x20, 32 },
+	{ GDB_REGNO_S1, 0x24, 32 },
+	{ GDB_REGNO_A0, 0x28, 32 },
+	{ GDB_REGNO_A1, 0x2c, 32 },
+	{ GDB_REGNO_A2, 0x30, 32 },
+	{ GDB_REGNO_A3, 0x34, 32 },
+	{ GDB_REGNO_A4, 0x38, 32 },
+	{ GDB_REGNO_A5, 0x3c, 32 },
+	{ GDB_REGNO_A6, 0x40, 32 },
+	{ GDB_REGNO_A7, 0x44, 32 },
+	{ GDB_REGNO_S2, 0x48, 32 },
+	{ GDB_REGNO_S3, 0x4c, 32 },
+	{ GDB_REGNO_S4, 0x50, 32 },
+	{ GDB_REGNO_S5, 0x54, 32 },
+	{ GDB_REGNO_S6, 0x58, 32 },
+	{ GDB_REGNO_S7, 0x5c, 32 },
+	{ GDB_REGNO_S8, 0x60, 32 },
+	{ GDB_REGNO_S9, 0x64, 32 },
+	{ GDB_REGNO_S10, 0x68, 32 },
+	{ GDB_REGNO_S11, 0x6c, 32 },
+	{ GDB_REGNO_T3, 0x70, 32 },
+	{ GDB_REGNO_T4, 0x74, 32 },
+	{ GDB_REGNO_T5, 0x78, 32 },
+	{ GDB_REGNO_T6, 0x7c, 32 },
+	{ GDB_REGNO_PC, 0x00, 32 },
 };
 
 static target_addr_t rtos_generic_stack_align(struct target *target,
@@ -227,4 +264,12 @@ const struct rtos_register_stacking rtos_standard_cortex_r4_stacking = {
 	.num_output_registers = 26,
 	.calculate_process_stack = rtos_generic_stack_align8,
 	.register_offsets = rtos_standard_cortex_r4_stack_offsets
+};
+
+const struct rtos_register_stacking rtos_standard_riscv32_stacking = {
+	.stack_registers_size = 33 * 4,
+	.stack_growth_direction = -1,
+	.num_output_registers = 33,
+	.calculate_process_stack = rtos_generic_stack_align8,
+	.register_offsets = rtos_standard_riscv32_stack_offsets,
 };
