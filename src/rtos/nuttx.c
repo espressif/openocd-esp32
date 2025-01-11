@@ -19,6 +19,7 @@
 #include "helper/types.h"
 #include "target/register.h"
 #include "rtos_nuttx_stackings.h"
+#include "rtos_standard_stackings.h"
 
 #define NAME_SIZE       32
 #define EXTRAINFO_SIZE  256
@@ -113,31 +114,31 @@ static const struct nuttx_params nuttx_params_list[] = {
 	},
 	{
 		.target_name = "esp32c2",
-		.stacking = &nuttx_riscv_stacking,
+		.stacking = &rtos_standard_riscv32_stacking,
 	},
 	{
 		.target_name = "esp32c3",
-		.stacking = &nuttx_riscv_stacking,
+		.stacking = &rtos_standard_riscv32_stacking,
 	},
 	{
 		.target_name = "esp32c6",
-		.stacking = &nuttx_riscv_stacking,
+		.stacking = &rtos_standard_riscv32_stacking,
 	},
 	{
 		.target_name = "esp32h2",
-		.stacking = &nuttx_riscv_stacking,
+		.stacking = &rtos_standard_riscv32_stacking,
 	},
 	{
 		.target_name = "esp32c5",
-		.stacking = &nuttx_riscv_stacking,
+		.stacking = &rtos_standard_riscv32_stacking,
 	},
 	{
 		.target_name = "esp32c61",
-		.stacking = &nuttx_riscv_stacking,
+		.stacking = &rtos_standard_riscv32_stacking,
 	},
 	{
 		.target_name = "esp32p4",
-		.stacking = &nuttx_riscv_stacking,
+		.stacking = &rtos_standard_riscv32_stacking,
 	},
 };
 
