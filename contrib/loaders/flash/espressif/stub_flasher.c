@@ -30,6 +30,46 @@
 
 #define STUB_BP_INSN_SECT_BUF_SIZE        (2 * STUB_FLASH_SECTOR_SIZE)
 
+#define CHECKSUM_ALIGN        16
+#define IS_PADD(addr) ((addr) == 0)
+#define IS_DRAM(addr) ((addr) >= SOC_DRAM_LOW && (addr) < SOC_DRAM_HIGH)
+#define IS_IRAM(addr) ((addr) >= SOC_IRAM_LOW && (addr) < SOC_IRAM_HIGH)
+#define IS_IROM(addr) ((addr) >= SOC_IROM_LOW && (addr) < SOC_IROM_HIGH)
+#define IS_DROM(addr) ((addr) >= SOC_DROM_LOW && (addr) < SOC_DROM_HIGH)
+#define IS_SRAM(addr) (IS_IRAM(addr) || IS_DRAM(addr))
+#define IS_MMAP(addr) (IS_IROM(addr) || IS_DROM(addr))
+#if SOC_RTC_FAST_MEM_SUPPORTED
+# define IS_RTC_FAST_IRAM(addr) \
+					((addr) >= SOC_RTC_IRAM_LOW && (addr) < SOC_RTC_IRAM_HIGH)
+#define IS_RTC_FAST_DRAM(addr) \
+					((addr) >= SOC_RTC_DRAM_LOW && (addr) < SOC_RTC_DRAM_HIGH)
+#else
+#define IS_RTC_FAST_IRAM(addr) 0
+#define IS_RTC_FAST_DRAM(addr) 0
+#endif
+#if SOC_RTC_SLOW_MEM_SUPPORTED
+#define IS_RTC_SLOW_DRAM(addr) \
+					((addr) >= SOC_RTC_DATA_LOW && (addr) < SOC_RTC_DATA_HIGH)
+#else
+#define IS_RTC_SLOW_DRAM(addr) 0
+#endif
+
+#if SOC_MEM_TCM_SUPPORTED
+#define IS_TCM(addr) ((addr) >= SOC_TCM_LOW && (addr) < SOC_TCM_HIGH)
+#else
+#define IS_TCM(addr) 0
+#endif
+
+#define IS_NONE(addr) (!IS_IROM(addr) && !IS_DROM(addr) \
+					&& !IS_IRAM(addr) && !IS_DRAM(addr) \
+					&& !IS_RTC_FAST_IRAM(addr) && !IS_RTC_FAST_DRAM(addr) \
+					&& !IS_RTC_SLOW_DRAM(addr) && !IS_TCM(addr) \
+					&& !IS_PADD(addr))
+
+#define IS_MAPPING(addr) IS_IROM(addr) || IS_DROM(addr)
+
+#define MAX_SEGMENT_COUNT 16
+
 extern void stub_sha256_start(void);
 extern void stub_sha256_data(const void *data, size_t data_len);
 extern void stub_sha256_finish(uint8_t *digest);
@@ -796,16 +836,16 @@ static uint32_t stub_flash_get_size(void)
 	return size;
 }
 
-static inline bool stub_flash_should_map(uint32_t load_addr)
-{
-	return (load_addr >= SOC_IROM_LOW && load_addr < SOC_IROM_HIGH)
-		|| (load_addr >= SOC_DROM_LOW && load_addr < SOC_DROM_HIGH);
-}
-
 static int stub_flash_get_app_mappings(uint32_t off, struct esp_flash_mapping *flash_map)
 {
 	esp_image_header_t img_hdr;
 	uint16_t maps_num = 0;
+	bool padding_checksum = false;
+	unsigned int ram_segments = 0;
+
+	/* clear the flash mappings */
+	for (int i = 0; i < ESP_STUB_FLASH_MAPPINGS_MAX_NUM; i++)
+		flash_map->maps[i].load_addr = 0;
 
 	esp_rom_spiflash_result_t rc =
 		stub_flash_read_buff(off, (uint32_t *)&img_hdr, sizeof(img_hdr));
@@ -822,8 +862,10 @@ static int stub_flash_get_app_mappings(uint32_t off, struct esp_flash_mapping *f
 		img_hdr.magic,
 		img_hdr.segment_count,
 		img_hdr.entry_addr);
+
 	uint32_t flash_addr = off + sizeof(img_hdr);
-	for (int k = 0; k < img_hdr.segment_count; k++) {
+
+	for (int k = 0; k < MAX_SEGMENT_COUNT; k++) {
 		esp_image_segment_header_t seg_hdr;
 		rc = stub_flash_read_buff(flash_addr, (uint32_t *)&seg_hdr, sizeof(seg_hdr));
 		if (rc != ESP_ROM_SPIFLASH_RESULT_OK) {
@@ -834,22 +876,44 @@ static int stub_flash_get_app_mappings(uint32_t off, struct esp_flash_mapping *f
 			k,
 			seg_hdr.data_len,
 			seg_hdr.load_addr);
-		if (stub_flash_should_map(seg_hdr.load_addr)) {
+
+		if (IS_NONE(seg_hdr.load_addr))
+			break;
+
+		if (IS_RTC_FAST_IRAM(seg_hdr.load_addr) || IS_RTC_FAST_DRAM(seg_hdr.load_addr) ||
+			IS_RTC_SLOW_DRAM(seg_hdr.load_addr) || IS_TCM(seg_hdr.load_addr))
+			ram_segments++;
+
+		if (IS_MMAP(seg_hdr.load_addr)) {
 			STUB_LOGI("Mapped segment %d: %d bytes @ 0x%x -> 0x%x\n",
 				maps_num,
 				seg_hdr.data_len,
 				flash_addr + sizeof(seg_hdr),
 				seg_hdr.load_addr);
-			if (maps_num < ESP_STUB_FLASH_MAPPINGS_MAX_NUM) {
-				flash_map->maps[maps_num].phy_addr = flash_addr + sizeof(seg_hdr);
-				flash_map->maps[maps_num].load_addr = seg_hdr.load_addr;
-				flash_map->maps[maps_num].size = seg_hdr.data_len;
-				maps_num++;
-			} else {
+
+			/*
+			 * Make sure DROM mapping will be at the first index. (OpenOCD expects DROM mapping at index 0)
+			 * Note: New targets have identical IROM/DROM address. Thats why additional check is needed.
+			 */
+			int index = IS_DROM(seg_hdr.load_addr) && !flash_map->maps[0].load_addr ? 0 : 1;
+			flash_map->maps[index].phy_addr = flash_addr + sizeof(seg_hdr);
+			flash_map->maps[index].load_addr = seg_hdr.load_addr;
+			flash_map->maps[index].size = seg_hdr.data_len;
+			maps_num++;
+
+			if (maps_num >= ESP_STUB_FLASH_MAPPINGS_MAX_NUM)
+				/* No need to read more. DROM, IROM mapping is done */
 				break;
-			}
 		}
+
+		if (IS_SRAM(seg_hdr.load_addr))
+			ram_segments++;
+
 		flash_addr += sizeof(seg_hdr) + seg_hdr.data_len;
+		if (ram_segments == img_hdr.segment_count && !padding_checksum) {
+			flash_addr += (CHECKSUM_ALIGN - 1) - (flash_addr % CHECKSUM_ALIGN) + 1;
+			padding_checksum = true;
+		}
 	}
 	flash_map->maps_num = maps_num;
 	return ESP_STUB_ERR_OK;
