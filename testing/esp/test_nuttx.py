@@ -35,7 +35,6 @@ class DebuggerNuttxTestsImpl:
                 for f in frames:
                     if f['func'] == "thread_frames":
                         extractedlvl += 1
-
                 self.assertEqual(expectedlvl, extractedlvl)
 
 ########################################################################
@@ -47,17 +46,21 @@ class NuttxAppTests(DebuggerTestAppTests):
     """
 
     def __init__(self, methodName='runTest'):
-        super(NuttxAppTests, self).__init__(methodName);
+        super(NuttxAppTests, self).__init__(methodName)
         # NuttX's blobs are copied from a different pipeline and are as follows:
         # test_app_dir = nuttx_test
         # app_name = nuttx_openocd
         # bin_dir = ''
         #   ==> bin_dir = nuttx_test/nuttx_openocd/
-        # bootloader and partition-table are supposed to be in the same
-        # location.
         self.test_app_cfg.app_name = 'nuttx_openocd'
-        self.test_app_cfg.entry_point = 'nx_start'
-        self.test_app_cfg.app_off = 0x10000
+        self.test_app_cfg.entry_point = 'openocd_main'
+        if testee_info.chip == 'esp32':
+            # ESP32 has still IDF bootloader
+            self.test_app_cfg.app_off = 0x10000
+        elif testee_info.chip == 'esp32s2':
+            self.test_app_cfg.app_off = 0x1000
+        else:
+            self.test_app_cfg.app_off = 0x0
         self.test_app_cfg.merged_bin = True
 
 @run_with_version('other')
