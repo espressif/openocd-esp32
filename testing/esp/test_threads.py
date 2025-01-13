@@ -14,7 +14,6 @@ def get_logger():
 
 class DebuggerThreadsTestsImpl:
 
-    @skip_for_chip(['esp32c5', 'esp32c61'], "skipped - OCD-1049")
     def test_threads_backtraces(self):
         """
             This test switches between threads and checks that their backtraces are as expected:
@@ -47,7 +46,6 @@ class DebuggerThreadsTestsImpl:
         for suf in test_tasks:
             self.assertEqual(test_tasks[suf][1], 1)
 
-    @skip_for_chip(['esp32c5', 'esp32c61'], "skipped - OCD-1049")
     def test_thread_switch(self):
         """
             This test switch a threads and check that expected thread id and current thread id are the same.
@@ -78,7 +76,53 @@ class DebuggerThreadsTestsImpl:
                     self.assertTrue(current_id == expected_id)
         get_logger().debug('test 2: DebuggerThreadsTestsImpl done')
 
+    @only_for_arch(['riscv'])
+    def test_thread_registers(self):
+        """
+            This test switches between threads and checks that their registers are as expected:
+            1) Selects the test case by setting a breakpoint at 'check_backtrace_test_done'
+            2) Resumes app execution until the breakpoint is hit
+            3) Waits for tasks to reach their predefined positions in the source code
+            4) Stops application execution at the breakpoint
+            5) Switches between passive tasks and reads their register values from the stack using the "g" packet
+            6) Compares g packet response with the corresponding values read individually using the "p" packet
+        """
+        self.add_bp('check_backtrace_test_done')
+        self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'check_backtrace_test_done', tmo=120)
+        _,threads_info = self.gdb.get_thread_info()
+        thread_ids = self.gdb.get_thread_ids()
+        current_thread_id = int(thread_ids['current-thread-id'], 10)
 
+        console_output = ''
+        def _console_stream_handler(type, stream, payload):
+            nonlocal console_output
+            console_output += payload
+
+        def parse_gp_packet(console_output):
+            match = re.search(r'received: \\"([0-9a-fA-F]+)\\"', console_output)
+            if not match:
+                raise ValueError("'received:' not found in gdb response")
+            all_regs = match.group(1)
+            reg_vals = [f"0x{all_regs[i+6:i+8]}{all_regs[i+4:i+6]}{all_regs[i+2:i+4]}{all_regs[i:i+2]}" for i in range(0, len(all_regs), 8)]
+            return reg_vals
+
+        try:
+            self.gdb.stream_handler_add('console', _console_stream_handler)
+            for thread in threads_info:
+                thread_id = int(thread['id'], 10)
+                if thread_id == current_thread_id:
+                    continue
+                self.gdb.set_thread(thread_id)
+                console_output = ''
+                self.gdb.console_cmd_run("maint packet g", 5)
+                all_regs = parse_gp_packet(console_output)
+                for reg_num in range(0, len(all_regs)):
+                    console_output = ''
+                    self.gdb.console_cmd_run(f"maint packet p {reg_num:x}", 5)
+                    reg = parse_gp_packet(console_output)
+                    self.assertEqual(all_regs[reg_num], reg[0])
+        finally:
+            self.gdb.stream_handler_remove('console', _console_stream_handler)
 
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
@@ -87,10 +131,8 @@ class DebuggerThreadsTestsImpl:
 class DebuggerThreadsTestsDual(DebuggerGenericTestAppTestsDual, DebuggerThreadsTestsImpl):
     """ Test cases in dual core mode
     """
-
-    @skip_for_chip_and_ver(['5.3', '5.4', 'latest'], ['esp32', 'esp32s3'], "skipped - OCD-1050")
-    def test_threads_backtraces(self):
-        super(DebuggerGenericTestAppTestsDual, self).test_threads_backtraces()
+    # no special tests for single core mode yet
+    pass
 
 class DebuggerThreadsTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerThreadsTestsImpl):
     """ Test cases in single core mode
@@ -111,6 +153,7 @@ class DebuggerThreadsTestsAmazonFreeRTOSDual(DebuggerGenericTestAppTestsDual, De
         super(DebuggerGenericTestAppTestsDual, self).test_threads_backtraces()
 
 @idf_ver_min('5.3')
+@skip_for_chip(['esp32c5', 'esp32c61'], "skipped - OCD-1049")
 class DebuggerThreadsTestsAmazonFreeRTOSSingle(DebuggerGenericTestAppTestsSingle, DebuggerThreadsTestsImpl):
 
     def __init__(self, methodName='runTest'):
