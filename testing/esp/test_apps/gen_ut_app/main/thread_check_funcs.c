@@ -95,7 +95,7 @@ static void check_backtrace_test_done(void)
     ESP_LOGI(TAG, "Backtrace Thread test is done");
 }
 
-TEST_DECL(threads_backtraces, "test_threads.DebuggerThreadsTests*.test_threads_backtraces")
+static void do_test_threads_backtraces(void)
 {
     xTaskCreatePinnedToCore(&check_backtrace_task1, "check_bt_task1", 2048, (void*)3, 5, NULL, 0);
     xTaskCreatePinnedToCore(&check_backtrace_task2, "check_bt_task2", 2048, (void*)7, 5, NULL, 0);
@@ -105,6 +105,11 @@ TEST_DECL(threads_backtraces, "test_threads.DebuggerThreadsTests*.test_threads_b
         vTaskDelay(10);
     }
     check_backtrace_test_done();
+}
+
+TEST_DECL(threads_backtraces, "test_threads.DebuggerThreadsTests*.test_threads_backtraces")
+{
+    do_test_threads_backtraces();
 }
 
 TEST_DECL(thread_switch, "test_threads.DebuggerThreadsTests*.test_thread_switch")
@@ -119,12 +124,19 @@ TEST_DECL(thread_switch, "test_threads.DebuggerThreadsTests*.test_thread_switch"
     }
 }
 
+TEST_DECL(thread_registers, "test_threads.DebuggerThreadsTests*.test_thread_registers")
+{
+    do_test_threads_backtraces();
+}
+
 ut_result_t thread_test_do(int test_num)
 {
     if (TEST_ID_MATCH(TEST_ID_PATTERN(threads_backtraces), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(threads_backtraces), "check_bt_ctrl_task", 2048, NULL, 5, NULL, 0);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(thread_switch), test_num)) {
         TEST_ENTRY(thread_switch)(NULL);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(thread_registers), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(thread_registers), "check_bt_ctrl_task", 2048, NULL, 5, NULL, 0);
     } else {
         return UT_UNSUPPORTED;
     }
