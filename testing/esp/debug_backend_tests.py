@@ -587,6 +587,10 @@ class DebuggerTestAppTests(DebuggerTestsBase):
     def select_sub_test(self, sub_test_id):
         """ Selects sub test in app running on target
         """
+        if self.test_app_cfg.test_select_var is None and self.test_app_cfg.test_id_var is None:
+            # Nuttx does not use test_select_var and test_id_var
+            return
+
         if type(sub_test_id) is str:
             self.gdb.data_eval_expr('%s=%d' % (self.test_app_cfg.test_select_var, -1))
             self.gdb.data_eval_expr('%s=\\"%s\\"' % (self.test_app_cfg.test_id_var, sub_test_id))
