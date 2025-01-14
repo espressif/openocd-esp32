@@ -267,7 +267,7 @@ const struct rtos_register_stacking rtos_standard_cortex_r4_stacking = {
 };
 
 const struct rtos_register_stacking rtos_standard_riscv32_stacking = {
-	.stack_registers_size = 33 * 4,
+	.stack_registers_size = 32 * 4,
 	.stack_growth_direction = -1,
 	.num_output_registers = 33,
 	.calculate_process_stack = rtos_generic_stack_align8,
