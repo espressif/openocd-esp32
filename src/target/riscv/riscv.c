@@ -3324,11 +3324,11 @@ int riscv_openocd_step(struct target *target, int current,
 
 	bool success = true;
 	uint64_t current_mstatus;
+	uint64_t irq_disabled_mask = MSTATUS_MIE | MSTATUS_HIE | MSTATUS_SIE | MSTATUS_UIE;
 	RISCV_INFO(info);
 
 	if (info->isrmask_mode == RISCV_ISRMASK_STEPONLY) {
 		/* Disable Interrupts before stepping. */
-		uint64_t irq_disabled_mask = MSTATUS_MIE | MSTATUS_HIE | MSTATUS_SIE | MSTATUS_UIE;
 		if (riscv_interrupts_disable(target, irq_disabled_mask,
 				&current_mstatus) != ERROR_OK) {
 			success = false;
@@ -3344,11 +3344,24 @@ int riscv_openocd_step(struct target *target, int current,
 
 	register_cache_invalidate(target->reg_cache);
 
-	if (info->isrmask_mode == RISCV_ISRMASK_STEPONLY)
+	if (info->isrmask_mode == RISCV_ISRMASK_STEPONLY) {
+		uint64_t new_mstatus;
+		if (riscv_get_register(target, &new_mstatus, GDB_REGNO_MSTATUS) != ERROR_OK) {
+			success = false;
+			LOG_TARGET_ERROR(target, "Unable to read mstatus after step");
+			goto _exit;
+		}
+		if (new_mstatus != (current_mstatus & ~irq_disabled_mask)) {
+			LOG_TARGET_DEBUG(target, "mstatus value changed while stepping, "
+					"only restoring interrupt enable bits.");
+			current_mstatus = new_mstatus | (current_mstatus & irq_disabled_mask);
+		}
+
 		if (riscv_interrupts_restore(target, current_mstatus) != ERROR_OK) {
 			success = false;
 			LOG_TARGET_ERROR(target, "Unable to restore interrupts.");
 		}
+	}
 
 _exit:
 	if (enable_triggers(target, trigger_state) != ERROR_OK) {
