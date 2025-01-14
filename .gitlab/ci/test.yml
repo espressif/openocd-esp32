@@ -3,10 +3,10 @@
     - $CHIP_NAME
     - jtag
   variables:
+    RUNNER_SCRIPT_TIMEOUT: 60m
     PLATFORM_NAME: "linux-armhf-test"
     OOCD_CMDS: "set VAR 1" # default command to avoid missing argument error.
-    TEST_RUN_RETRY: "-r"
-    TEST_RUN_EXTRA_OPTS: "${TEST_RUN_RETRY} -i ${IDF_RELEASE_TAG} ${TEST_RUN_BOARD_OPTS} ${TEST_RUN_COMMON_ARGS}"
+    TEST_RUN_EXTRA_OPTS: "-r -i ${IDF_RELEASE_TAG} ${TEST_RUN_BOARD_OPTS} ${TEST_RUN_COMMON_ARGS}"
   artifacts:
     paths:
       - $TEST_RUN_DIR/debug_backend_tests.log
@@ -55,12 +55,7 @@
 .tests_armhf_master_template:
   extends: .tests_armhf_template
   stage: test_idf_master
-  allow_failure: true
   image: $CI_DOCKER_REGISTRY/target-test-env-v5.5:2
-  inherit:
-    default:
-      - interruptible
-      # Dont retry
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_5X_XTENSA_GDB_TOOLCHAIN}"
@@ -68,7 +63,6 @@
     ESP_TOOLCHAIN: "${ESP_V5_5X_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}"
     IDF_RELEASE_TAG: "latest"
-    TEST_RUN_RETRY: "" # Dont retry
     ESP_GCOV_TOOLCHAIN: "${ESP_V5_5X_XTENSA_GCOV_TOOLCHAIN}-arm-linux-gnueabihf"
 
 .tests_arm64_master_template:
@@ -1111,10 +1105,6 @@ tests_on_linux:
   extends: .tests_armhf_v5.1.x_template
   stage: test_nuttx
   allow_failure: true
-  inherit:
-    default:
-      - interruptible
-      # Dont retry
   variables:
     RUNNER_SCRIPT_TIMEOUT: 5m
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_nuttx_test"
