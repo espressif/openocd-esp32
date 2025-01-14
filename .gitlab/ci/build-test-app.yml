@@ -134,9 +134,7 @@
     - *finish_test_app_build
     - *prepare_espytrace_package
     - *prepare_sysview_config
-  dependencies: []
-  needs:
-    - job: style_check
+  needs: []
 
 .build_idf50x_test_app_template: &build_idf50x_test_app_template
   stage: build_idf5.0.x
@@ -180,7 +178,6 @@
 
 .build_idf_master_test_app_template: &build_idf_master_test_app_template
   stage: build_idf_master
-  allow_failure: true
   variables:
     TEST_APP_CONFIGS: ""
     TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF_LATEST_DOCKER_IMAGE}"
@@ -655,8 +652,7 @@ build_nuttx_app:
     project: idf/apache/esp-nuttx-apps
     strategy: depend
   allow_failure: true
-  needs:
-    - job: style_check
+  needs: []
   parallel:
     matrix:
       - TRIGGER_JOB: [openocd-esp32, openocd-esp32s2, openocd-esp32s3, openocd-esp32c3, openocd-esp32c6, openocd-esp32h2]

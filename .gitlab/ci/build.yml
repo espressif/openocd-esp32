@@ -110,8 +110,7 @@
       - ${DIST_ART_DIR}
     when: always
     expire_in: 2 weeks
-  needs:
-    - job: style_check
+  needs: []
   script:
     - *get_release_name
     - export HOST_CC=${CONF_HOST}-gcc
@@ -140,8 +139,7 @@
     paths:
       - ${DIST_ART_DIR}
     expire_in: 2 weeks
-  needs:
-    - job: style_check
+  needs: []
   script:
     - *get_release_name
     - *buildx_libusb
@@ -167,8 +165,7 @@ build_linux:
     PLATFORM_NAME: "linux-amd64"
     CONF_HOST: "x86_64-linux-gnu"
     HOST_CC: ${CONF_HOST}-gcc
-  needs:
-    - job: style_check
+  needs: []
   script:
     - *get_release_name
     - apt-get update || true
@@ -192,9 +189,7 @@ build_linux_gcc_latest:
   stage: build_openocd
   tags:
     - build
-  allow_failure: true
-  needs:
-    - job: style_check
+  needs: []
   variables:
     CONF_HOST: ""
     HOST_CC: "gcc"
@@ -266,8 +261,7 @@ build_linux_arm64_test:
     CONF_HOST: "i686-w64-mingw32"
     INSTALL_TARGET: "install-strip"
     HOST_CC: ${CONF_HOST}-gcc
-  needs:
-    - job: style_check
+  needs: []
   script:
     - *get_release_name
     - *buildx_libusb
@@ -312,7 +306,6 @@ scan-build:
   stage: static_analyzers
   tags:
     - build
-  allow_failure: true
   variables:
     SCAN_BUILD_OUTPUT: "report"
     CONF_HOST: ""
@@ -342,7 +335,6 @@ sparse:
   stage: static_analyzers
   tags:
     - build
-  allow_failure: true
   variables:
     SPARSE_BUILD_OUTDIR: "sparse"
     SPARSE_BUILD_OUTFILE: "warnings.log"
@@ -373,9 +365,7 @@ build_linux_cmake:
   stage: build_openocd
   tags:
     - build
-  allow_failure: true
-  needs:
-    - job: style_check
+  needs: []
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
   script:
@@ -390,9 +380,7 @@ build_linux_cmake:
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross:3
   tags:
     - build
-  allow_failure: true
-  needs:
-    - job: style_check
+  needs: []
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
   script:
@@ -407,9 +395,7 @@ build_linux_cmake:
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-win-cross
   tags:
     - build
-  allow_failure: true
-  needs:
-    - job: style_check
+  needs: []
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
   script:
