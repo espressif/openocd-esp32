@@ -219,8 +219,10 @@ _cleanup:
 		}
 		free(mem_handles);
 	}
-	run->hw->algo_cleanup(target, run);
 
+	run->hw->algo_cleanup(target, run);
+	/* Clear the flag to ensure algo state is properly reset in case a timeout occurs */
+	target->running_alg = false;
 	return retval;
 }
 
