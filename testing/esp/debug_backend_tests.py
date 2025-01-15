@@ -15,6 +15,7 @@ ESP_XTENSA_BLD_FLASH_OFF = 0x1000
 ESP32_PT_FLASH_OFF = 0x8000
 # TODO: get from partition table
 ESP32_APP_FLASH_OFF = 0x10000
+ESP_XTENSA_HW_BP_CNT = 2
 
 test_apps_dir = ''
 
@@ -567,6 +568,12 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         self.assertEqual(frame['func'], self.test_app_cfg.entry_point)
         self.gdb.delete_bp(bp)
 
+    def get_hw_bp_count(self):
+        if testee_info.arch == 'riscv32':
+            info = self.oocd.cmd_exec('riscv info')
+            match = re.search(r'hart.trigger_count *([0-9]+)', info)
+            return int(match.group(1))
+        return ESP_XTENSA_HW_BP_CNT
 
     def add_bp(self, loc, ignore_count=0, cond='', hw=False, tmp=False):
         self.bpns.append(self.gdb.add_bp(loc, ignore_count=ignore_count, cond=cond, hw=hw, tmp=tmp))
