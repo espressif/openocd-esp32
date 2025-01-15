@@ -46,19 +46,13 @@ class GDBConnectTestsImpl:
             7) Run the test and check that will chip hit to the SW breakpoints. If it will, detach command is not working properly.
         """
         # Filling HW breakpoints to test SW breakpoints
-        bps = ['unused_func0', 'unused_func1']
-        if testee_info.chip == "esp32c3":
-            # esp32c3 has 8 HW breakpoint slots
-            # 6 dummy HW breaks to fill in HW breaks slots and make OpenOCD using SW breakpoints in flash (seen as HW ones by GDB)
-            bps += ['unused_func2', 'unused_func3', 'unused_func4', 'unused_func5', 'unused_func6', 'unused_func7']
-        elif testee_info.chip == "esp32c6" or testee_info.chip == "esp32h2":
-            # esp32c6 and esp32h2 has 4 HW breakpoint slots
-            # 2 dummy HW breaks to fill in HW breaks slots and make OpenOCD using SW breakpoints in flash (seen as HW ones by GDB)
-            bps += ['unused_func0', 'unused_func1']
-        elif testee_info.chip == "esp32c5":
-            # esp32c5 has 3 HW breakpoint slots
-            # 1 dummy HW break to fill in HW breaks slots and make OpenOCD using SW breakpoints in flash (seen as HW ones by GDB)
-            bps += ['unused_func0']
+        dummy_bp_count = self.get_hw_bp_count()
+        dummy_bps = [
+            'unused_func0', 'unused_func1', 'unused_func2', 'unused_func3',
+            'unused_func4', 'unused_func5', 'unused_func6', 'unused_func7'
+            ]
+        self.assertTrue(dummy_bp_count <= len(dummy_bps) and dummy_bp_count >= 0)
+        bps = dummy_bps[:dummy_bp_count]
         # flash SW breakpoints
         bps += ['gdb_detach0', 'gdb_detach1', 'gdb_detach2']
 
