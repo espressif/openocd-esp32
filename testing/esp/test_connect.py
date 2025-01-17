@@ -45,16 +45,10 @@ class GDBConnectTestsImpl:
             6) Add a breakpoints into latter line of SW breakpoints tagged as gdb_detach3.
             7) Run the test and check that will chip hit to the SW breakpoints. If it will, detach command is not working properly.
         """
-        # Filling HW breakpoints to test SW breakpoints
-        dummy_bp_count = self.get_hw_bp_count()
-        dummy_bps = [
-            'unused_func0', 'unused_func1', 'unused_func2', 'unused_func3',
-            'unused_func4', 'unused_func5', 'unused_func6', 'unused_func7'
-            ]
-        self.assertTrue(dummy_bp_count <= len(dummy_bps) and dummy_bp_count >= 0)
-        bps = dummy_bps[:dummy_bp_count]
+        # Filling HW breakpoints slots to make test using SW flash breakpoints
+        self.fill_hw_bps()
         # flash SW breakpoints
-        bps += ['gdb_detach0', 'gdb_detach1', 'gdb_detach2']
+        bps = ['gdb_detach0', 'gdb_detach1', 'gdb_detach2']
 
         for each_bp in bps:
             self.add_bp(each_bp)

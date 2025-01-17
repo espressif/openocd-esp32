@@ -63,6 +63,8 @@ class StepTestsImpl():
             6) Check that PC changed correctly.
             7) Repeat steps 3-6 several times for every type of breakpoints.
         """
+        # Filling HW breakpoints slots to make test using SW flash breakpoints
+        self.fill_hw_bps(keep_avail=2)
         bps = ['_step_over_bp_break1', '_step_over_bp_break2',  # HW BPs
             '_step_over_bp_break3', '_step_over_bp_break4',  # SW flash BPs
             '_step_over_bp_break5', '_step_over_bp_break6']  # SW RAM BPs

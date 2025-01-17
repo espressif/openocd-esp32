@@ -29,6 +29,8 @@ class MultiAppImagesTests(DebuggerGenericTestAppTests):
 
     def _debug_image(self, off):
         self.select_sub_test("blink")
+        # Filling HW breakpoints slots to make test using SW flash breakpoints
+        self.fill_hw_bps(keep_avail=2)
         for f in self.bps:
             self.add_bp(f)
         # break at gpio_set_direction

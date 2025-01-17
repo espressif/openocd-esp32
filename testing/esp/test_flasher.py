@@ -113,6 +113,8 @@ class FlasherTestsImpl:
             It is checked by the test code on target. This test method sets breakpoint and resumes execution several times.
             Before hiting the BP program save cache config and after resuming checks its value.
         """
+        # Filling HW breakpoints slots to make test using SW flash breakpoints
+        self.fill_hw_bps(keep_avail=2)
         # 2 HW + 1 SW flash BP
         self.bps = ['app_main', 'gpio_set_direction', 'gpio_set_level']
         for f in self.bps:
