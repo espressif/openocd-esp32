@@ -33,6 +33,8 @@ class DebuggerSpecialTestsImpl:
 
     def _debug_image(self):
         self.select_sub_test("blink")
+        # Filling HW breakpoints slots to make test using SW flash breakpoints
+        self.fill_hw_bps(keep_avail=2)
         bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
         for f in bps:
             self.add_bp(f)
@@ -231,6 +233,8 @@ class PsramTestsImpl:
             3) Target program checks PSRAM memory contents and calls 'assert()' in case of error,
             so test expects propgram to be stopped on breakpoints only. Stop at the call to 'assert()' is a failure.
         """
+        # Filling HW breakpoints slots to make test using SW flash breakpoints
+        self.fill_hw_bps(keep_avail=2)
         # 2 HW breaks + 1 flash SW break + RAM SW break
         bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
         for f in bps:
@@ -251,6 +255,8 @@ class PsramTestsImpl:
             3) Target program checks PSRAM memory contents and calls 'assert()' in case of error,
             so test expects propgram to be stopped on breakpoints only. Stop at the call to 'assert()' is a failure.
         """
+        # Filling HW breakpoints slots to make test using SW flash breakpoints
+        self.fill_hw_bps(keep_avail=2)
         # 2 HW breaks + 1 flash SW break + RAM SW break
         bps = ['gh264_psram_check_bp_1', 'gh264_psram_check_bp_2', 'gh264_psram_check_bp_3']
         for f in bps:

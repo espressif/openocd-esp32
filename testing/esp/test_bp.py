@@ -21,11 +21,8 @@ class BreakpointTestsImpl:
 
     def setUp(self):
         # dummy HW breaks to fill in HW breaks slots and make OpenOCD using SW breakpoints in flash (seen as HW ones by GDB)
-        self.dummy_bp_count = self.get_hw_bp_count() - 2
-        dummy_bps = ['unused_func0', 'unused_func1', 'unused_func2', 'unused_func3', 'unused_func4', 'unused_func5']
-        self.assertTrue(self.dummy_bp_count <= len(dummy_bps) and self.dummy_bp_count >= 0)
-        self.dummy_bps = dummy_bps[:self.dummy_bp_count]
-        self.bps = self.dummy_bps + ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
+        self.fill_hw_bps(keep_avail=2)
+        self.bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
 
     def test_multi_reset_break(self):
         """
@@ -49,12 +46,13 @@ class BreakpointTestsImpl:
 
     def readd_bps(self):
         # remove all non-dummy BPs except the first one
-        for i in range(self.dummy_bp_count + 1, len(self.bpns)):
+        dummy_bp_count = len(self.bpns) - len(self.bps) + 1
+        for i in range(dummy_bp_count + 1, len(self.bpns)):
             self.gdb.delete_bp(self.bpns[i])
-        self.bpns = self.bpns[:self.dummy_bp_count + 1]
+        self.bpns = self.bpns[:dummy_bp_count + 1]
         # add removed BPs back
-        for i in range(self.dummy_bp_count + 1, len(self.bps)):
-            self.add_bp(self.bps[i])
+        for f in self.bps:
+            self.add_bp(f)
 
     def test_bp_add_remove_run(self):
         """
@@ -175,7 +173,7 @@ class BreakpointTestsImpl:
             5) Repeat steps 3-4 several times.
         """
         # 2 HW breaks + 1 flash SW break + RAM SW break
-        self.bps = self.dummy_bps + ['app_main', 'test_timer_isr', 'test_timer_isr_func', 'test_timer_isr_ram_func']
+        self.bps = ['app_main', 'test_timer_isr', 'test_timer_isr_func', 'test_timer_isr_ram_func']
         self.select_sub_test("blink")
         for f in self.bps:
             self.add_bp(f)
@@ -288,7 +286,7 @@ def two_cores_concurrently_hit_bps(self):
         self.assertTrue(len(frames) > 0)
         self.assertEqual(frames[0]['func'], cur_frame['func'])
         self.assertEqual(frames[0]['line'], cur_frame['line'])
-    for cnt in hit_cnt[-3:]:
+    for cnt in hit_cnt[1:]:
         self.assertTrue(cnt > 0)
 
 def two_cores_concurrently_hit_wps(self):

@@ -575,6 +575,16 @@ class DebuggerTestAppTests(DebuggerTestsBase):
             return int(match.group(1))
         return ESP_XTENSA_HW_BP_CNT
 
+    def fill_hw_bps(self, keep_avail=0):
+        dummy_bps = [
+            'unused_func0', 'unused_func1', 'unused_func2', 'unused_func3',
+            'unused_func4', 'unused_func5', 'unused_func6', 'unused_func7'
+        ]
+        dummy_bp_count = self.get_hw_bp_count() - keep_avail
+        self.assertTrue(dummy_bp_count <= len(dummy_bps) and dummy_bp_count >= 0)
+        for i in range(dummy_bp_count):
+            self.add_bp(dummy_bps[i])
+
     def add_bp(self, loc, ignore_count=0, cond='', hw=False, tmp=False):
         self.bpns.append(self.gdb.add_bp(loc, ignore_count=ignore_count, cond=cond, hw=hw, tmp=tmp))
 
