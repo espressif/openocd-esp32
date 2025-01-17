@@ -150,8 +150,9 @@ static const char *esp32c5_csrs[] = {
 
 static const char *esp32c5_ro_csrs[] = {
 	/* read-only CSRs, cannot be save/restored as the write would fail */
-	"cycle", "time", "instreth", "cycleh", "instret", "timeh",
-	"hpmcounter8", "hpmcounter9", "hpmcounter13", "hpmcounter8h", "hpmcounter9h", "hpmcounter13h",
+	/* TODO: Workaround solution for OCD-1066. */
+	// "cycle", "time", "instreth", "cycleh", "instret", "timeh",
+	// "hpmcounter8", "hpmcounter9", "hpmcounter13", "hpmcounter8h", "hpmcounter9h", "hpmcounter13h",
 	"mintstatus",
 	/* custom exposed CSRs will start with 'csr_' prefix*/
 	"csr_mcpuid",
