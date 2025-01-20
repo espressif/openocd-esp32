@@ -363,6 +363,23 @@ TEST_DECL(step_over_inst_changing_intlevel, "test_step.DebuggerStepTests*.test_s
 }
 #endif
 
+#if CONFIG_IDF_TARGET_ARCH_RISCV
+TEST_DECL(step_isr_masking_check_mstatus, "test_step.DebuggerStepTests*.test_step_isr_masking_check_mstatus")
+{
+    while (1)
+    {
+        __asm__ volatile (
+            "csrc mstatus, a0\n"
+            "csrc mstatus, a0\n"
+            "csrs mstatus, a0\n"
+            "csrs mstatus, a0\n"
+            "csrw mstatus, a0\n"
+            "csrw mstatus, a0\n"
+        );
+    }
+}
+#endif
+
 // match test string ID with pattern. See fnmatch for wildcard format description.
 bool test_id_match(const char *pattern, const char *id)
 {
@@ -405,6 +422,10 @@ void app_main()
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(level5_int), s_run_test)) {
         xTaskCreate(TEST_ENTRY(level5_int), "level5_int_test", 2048, NULL, 5, NULL);
+#endif
+#if CONFIG_IDF_TARGET_ARCH_RISCV
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(step_isr_masking_check_mstatus), s_run_test)) {
+        xTaskCreate(TEST_ENTRY(step_isr_masking_check_mstatus), "step_isr_masking_check_mstatus", 2048, NULL, 5, NULL);
 #endif
     } else {
         ut_result_t res = UT_UNSUPPORTED;
