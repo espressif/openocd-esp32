@@ -50,7 +50,7 @@ class StepTestsImpl():
 
     def tearDown(self):
         # restore ISR masking
-        self.isr_masking(on=(self.old_masking == 'ON'))
+        self.isr_masking(on=self.old_masking)
 
     def test_step_over_bp(self):
         """
@@ -128,7 +128,7 @@ class StepTestsImpl():
             get_logger().info('Step in {}'.format(i))
             self.step_in()
         # restore ISR masking
-        self.isr_masking(on=(self.old_masking == 'ON'))
+        self.isr_masking(on=self.old_masking)
 
         # check that we have reached the end of recursion
         self.assertEqual(int(self.gdb.data_eval_expr('levels')), 1)
@@ -337,20 +337,24 @@ class StepTestsImpl():
             self.assertNotEqual(self.gdb.get_current_frame()['func'], 'xt_highint5')
 
     def isr_masking(self, on=True):
-        # This function is used for Xtensa only
-        if testee_info.arch != "xtensa":
-            return
-        if on:
-            self.gdb.monitor_run("xtensa maskisr on", 5)
-        else:
-            self.gdb.monitor_run("xtensa maskisr off", 5)
+        if testee_info.arch == "xtensa":
+            if on:
+                self.gdb.monitor_run("xtensa maskisr on", 5)
+            else:
+                self.gdb.monitor_run("xtensa maskisr off", 5)
+        else: #riscv32
+            if on:
+                self.oocd.cmd_exec("riscv set_maskisr steponly")
+            else:
+                self.oocd.cmd_exec("riscv set_maskisr off")
 
     def get_isr_masking(self):
-        # This function is used for Xtensa only
-        if testee_info.arch != "xtensa":
-            return ""
-        _, s = self.gdb.monitor_run("xtensa maskisr", 5, output_type='stdout')
-        return s.strip('\\n\\n').split("mode: ", 1)[1]
+        if testee_info.arch == "xtensa":
+            _, s = self.gdb.monitor_run("xtensa maskisr", 5, output_type='stdout')
+            return s.strip('\\n\\n').split("mode: ", 1)[1] == 'ON'
+        #riscv32
+        s = self.oocd.cmd_exec('riscv set_maskisr')
+        return s.strip() == 'riscv interrupt mask steponly'
 
     @only_for_arch(['xtensa'])
     @skip_for_chip(['esp32s3'], 'skipped - OCD-1006')
@@ -380,13 +384,53 @@ class StepTestsImpl():
             old_masking = self.get_isr_masking()
             self.isr_masking(on=True)
             self.step(insn=True)
-            self.isr_masking(on=(old_masking == 'ON'))
+            self.isr_masking(on=old_masking)
             new_ps = self.gdb.get_reg('ps')
             new_pc = self.gdb.get_reg('pc')
             self.assertTrue(((new_pc - old_pc) == 2) or ((new_pc - old_pc) == 3))
             get_logger().info('PS_old 0x%X', old_ps)
             get_logger().info('PS_new 0x%X', new_ps)
             self.assertEqual(old_ps & 0xF, new_ps & 0xF)
+
+    @only_for_arch(['riscv32'])
+    def test_step_isr_masking_check_mstatus(self):
+        """
+            This test checks that set_maskisr steponly setting does not change unrelated mstatus fields
+            1) Run to the start of the assembly loop with CSR instructions modifying mstatus
+            2) Setup relevant registers and step over each instruction both with masking disabled and enabled
+            3) Compare values in mstatus after stepping
+            4) Repeat for several values of mstatus
+        """
+        bp = self.add_bp('step_isr_masking_check_mstatus_task')
+        self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, "step_isr_masking_check_mstatus_task")
+        self.gdb.delete_bp(bp)
+
+        def get_csr_step_results(mstatus, src_val, mask_isr):
+            self.oocd.set_reg('mstatus', mstatus)
+            self.oocd.set_reg('a0', src_val)
+            self.isr_masking(on=mask_isr)
+            self.oocd.cmd_exec("step")
+            return self.oocd.get_reg('mstatus')
+
+        def test_step_results(mstatus, src_val):
+            check = get_csr_step_results(mstatus, src_val, True)
+            test = get_csr_step_results(mstatus, src_val, False)
+            self.assertEqual(check, test)
+
+        start = self.oocd.get_reg('pc')
+        for test_mstatus in (0x0, 0xf, 0xfffffff0, 0xffffffff):
+            # Check clearing bits other than *ie
+            test_step_results(test_mstatus, 0xfffffff0)
+
+            # Check setting all bits
+            test_step_results(test_mstatus, 0xffffffff)
+
+            # Check writing value not clearing *ie bits
+            test_step_results(test_mstatus, 0xf & test_mstatus)
+
+            # Return to the start of the loop
+            while self.oocd.get_reg('pc') != start:
+                self.oocd.cmd_exec("step")
 
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
