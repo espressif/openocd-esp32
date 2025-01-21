@@ -84,6 +84,7 @@ static inline long semihosting_call_noerrno_generic(long id, long *data)
 static inline int generic_syscall(int sys_nr, int arg1, int arg2, int arg3, int arg4,
                                   int *ret_errno)
 {
+    *ret_errno = 0;
     int core_id = xPortGetCoreID();
     if (!esp_cpu_in_ocd_debug_mode()) {
         *ret_errno = EIO;
@@ -94,7 +95,7 @@ static inline int generic_syscall(int sys_nr, int arg1, int arg2, int arg3, int 
     ESP_LOGI(TAG, "CPU[%d]: -> syscall 0x%x, args: 0x%x, 0x%x, 0x%x, 0x%x", core_id, sys_nr, arg1, arg2, arg3, arg4);
 
     long ret = semihosting_call_noerrno_generic(sys_nr, data);
-    if (ret < 0) {
+    if (ret == -1) {
         const int semihosting_sys_errno = SYS_ERRNO;
         *ret_errno = (int) semihosting_call_noerrno_generic(semihosting_sys_errno, NULL);
     }
