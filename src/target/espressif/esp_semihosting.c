@@ -206,13 +206,13 @@ int esp_semihosting_post_reset(struct target *target)
 	return clean_dir_map_list(target);
 }
 
-static int esp_semihosting_sys_seek(struct target *target, uint64_t fd, uint32_t pos, size_t whence)
+static int esp_semihosting_sys_seek(struct target *target, uint64_t fd, int pos, size_t whence)
 {
 	struct semihosting *semihosting = target->semihosting;
 
 	semihosting->result = lseek(fd, pos, whence);
 	semihosting->sys_errno = errno;
-	LOG_TARGET_DEBUG(target, "lseek(%" PRIx64 ", %" PRIu32 " %" PRId64 ")=%d", fd, pos, semihosting->result, errno);
+	LOG_TARGET_DEBUG(target, "lseek(%" PRIx64 ", %" PRId32 " %" PRId64 ")=%d", fd, pos, semihosting->result, errno);
 	return ERROR_OK;
 }
 
