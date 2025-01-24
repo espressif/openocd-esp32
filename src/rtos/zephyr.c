@@ -107,40 +107,59 @@ static const struct stack_register_offset arc_callee_saved[] = {
 	{ ARC_R30,  60,  32 }
 };
 
+/* RISC-V callee-saved register structure:
+ * struct _callee_saved {
+ *     unsigned long sp;    // Stack pointer, (x2 register) - offset 0
+ *     unsigned long ra;    // Return address (x1) - offset 4
+ *     unsigned long s0;    // Saved register/frame pointer (x8) - offset 8
+ *     unsigned long s1;    // Saved register (x9) - offset 12
+ *     unsigned long s2;    // Saved register (x18) - offset 16
+ *     unsigned long s3;    // Saved register (x19) - offset 20
+ *     unsigned long s4;    // Saved register (x20) - offset 24
+ *     unsigned long s5;    // Saved register (x21) - offset 28
+ *     unsigned long s6;    // Saved register (x22) - offset 32
+ *     unsigned long s7;    // Saved register (x23) - offset 36
+ *     unsigned long s8;    // Saved register (x24) - offset 40
+ *     unsigned long s9;    // Saved register (x25) - offset 44
+ *     unsigned long s10;   // Saved register (x26) - offset 48
+ *     unsigned long s11;   // Saved register (x27) - offset 52
+ * };
+ * Total size: 56 bytes (14 registers × 4 bytes)
+ */
 static struct stack_register_offset riscv_callee_saved[] = {
-	{ GDB_REGNO_ZERO, -1, 32 },
-	{ GDB_REGNO_RA, 4, 32 },
-	{ GDB_REGNO_SP, -2, 32 },
-	{ GDB_REGNO_GP, -1, 32 },
-	{ GDB_REGNO_TP, -1, 32 },
-	{ GDB_REGNO_T0, -1, 32 },
-	{ GDB_REGNO_T1, -1, 32 },
-	{ GDB_REGNO_T2, -1, 32 },
-	{ GDB_REGNO_FP, 8, 32 },
-	{ GDB_REGNO_S1, 12, 32 },
-	{ GDB_REGNO_A0, -1, 32 },
-	{ GDB_REGNO_A1, -1, 32 },
-	{ GDB_REGNO_A2, -1, 32 },
-	{ GDB_REGNO_A3, -1, 32 },
-	{ GDB_REGNO_A4, -1, 32 },
-	{ GDB_REGNO_A5, -1, 32 },
-	{ GDB_REGNO_A6, -1, 32 },
-	{ GDB_REGNO_A7, -1, 32 },
-	{ GDB_REGNO_S2, 16, 32 },
-	{ GDB_REGNO_S3, 20, 32 },
-	{ GDB_REGNO_S4, 24, 32 },
-	{ GDB_REGNO_S5, 28, 32 },
-	{ GDB_REGNO_S6, 32, 32 },
-	{ GDB_REGNO_S7, 36, 32 },
-	{ GDB_REGNO_S8, 40, 32 },
-	{ GDB_REGNO_S9, 44, 32 },
-	{ GDB_REGNO_S10, 48, 32 },
-	{ GDB_REGNO_S11, 52, 32 },
-	{ GDB_REGNO_T3, -1, 32 },
-	{ GDB_REGNO_T4, -1, 32 },
-	{ GDB_REGNO_T5, -1, 32 },
-	{ GDB_REGNO_T6, -1, 32 },
-	{ GDB_REGNO_PC, -1, 32 },
+	{ GDB_REGNO_ZERO, -1, 32 },  /* x0: Hard-wired zero */
+	{ GDB_REGNO_RA,    4, 32 },  /* x1: Return address */
+	{ GDB_REGNO_SP,    0, 32 },  /* x2: Stack pointer at offset 0 */
+	{ GDB_REGNO_GP,   -1, 32 },  /* x3: Global pointer (not saved) */
+	{ GDB_REGNO_TP,   -1, 32 },  /* x4: Thread pointer (not saved) */
+	{ GDB_REGNO_T0,   -1, 32 },  /* x5: Temporary (caller-saved) */
+	{ GDB_REGNO_T1,   -1, 32 },  /* x6: Temporary (caller-saved) */
+	{ GDB_REGNO_T2,   -1, 32 },  /* x7: Temporary (caller-saved) */
+	{ GDB_REGNO_FP,    8, 32 },  /* x8: s0/fp - Saved/Frame pointer */
+	{ GDB_REGNO_S1,   12, 32 },  /* x9: Saved register */
+	{ GDB_REGNO_A0,   -1, 32 },  /* x10: Argument/return (caller-saved) */
+	{ GDB_REGNO_A1,   -1, 32 },  /* x11: Argument/return (caller-saved) */
+	{ GDB_REGNO_A2,   -1, 32 },  /* x12: Argument (caller-saved) */
+	{ GDB_REGNO_A3,   -1, 32 },  /* x13: Argument (caller-saved) */
+	{ GDB_REGNO_A4,   -1, 32 },  /* x14: Argument (caller-saved) */
+	{ GDB_REGNO_A5,   -1, 32 },  /* x15: Argument (caller-saved) */
+	{ GDB_REGNO_A6,   -1, 32 },  /* x16: Argument (caller-saved) */
+	{ GDB_REGNO_A7,   -1, 32 },  /* x17: Argument (caller-saved) */
+	{ GDB_REGNO_S2,   16, 32 },  /* x18: Saved register */
+	{ GDB_REGNO_S3,   20, 32 },  /* x19: Saved register */
+	{ GDB_REGNO_S4,   24, 32 },  /* x20: Saved register */
+	{ GDB_REGNO_S5,   28, 32 },  /* x21: Saved register */
+	{ GDB_REGNO_S6,   32, 32 },  /* x22: Saved register */
+	{ GDB_REGNO_S7,   36, 32 },  /* x23: Saved register */
+	{ GDB_REGNO_S8,   40, 32 },  /* x24: Saved register */
+	{ GDB_REGNO_S9,   44, 32 },  /* x25: Saved register */
+	{ GDB_REGNO_S10,  48, 32 },  /* x26: Saved register */
+	{ GDB_REGNO_S11,  52, 32 },  /* x27: Saved register */
+	{ GDB_REGNO_T3,   -1, 32 },  /* x28: Temporary (caller-saved) */
+	{ GDB_REGNO_T4,   -1, 32 },  /* x29: Temporary (caller-saved) */
+	{ GDB_REGNO_T5,   -1, 32 },  /* x30: Temporary (caller-saved) */
+	{ GDB_REGNO_T6,   -1, 32 },  /* x31: Temporary (caller-saved) */
+	{ GDB_REGNO_PC,   -1, 32 },  /* PC: Set from RA */
 };
 
 static const struct stack_register_offset esp32_callee_saved[] = {
@@ -638,17 +657,65 @@ static int zephyr_get_arm_state(struct rtos *rtos, target_addr_t *addr,
 	return 0;
 }
 
-/* RiscV specific implementation */
+/* RISC-V specific implementation
+ *
+ * The callee-saved registers are stored in the thread's callee_saved structure:
+ *   - SP, RA, S0-S11
+ *
+ * The 'addr' parameter points to thread->callee_saved.sp:
+ *   - Calculated as: thread_base + OFFSET_T_STACK_POINTER
+ *   - OFFSET_T_STACK_POINTER = offsetof(struct k_thread, callee_saved.sp)
+ *     This offset is provided by Zephyr's thread_info.c
+ *
+ * For suspended threads:
+ *   - PC is set to RA (where the thread will resume)
+ *   - SP, RA, S0-S11 are read from callee_saved structure
+ *   - Caller-saved registers (T0-T6, A0-A7) are unavailable
+ */
 static int zephyr_get_riscv_state(struct rtos *rtos, target_addr_t *addr,
 			 struct zephyr_params *params,
 			 struct rtos_reg *callee_saved_reg_list,
 			 struct rtos_reg **reg_list, int *num_regs)
 {
-	/* Getting callee registers */
-	return rtos_generic_stack_read(rtos->target,
+	int retval;
+	uint32_t ra_value;
+
+	LOG_DEBUG("Zephyr RISC-V: Reading callee_saved from 0x%" PRIx64, *addr);
+
+	/* Read all callee-saved registers from the thread's callee_saved structure.
+	 * The riscv_callee_saved array maps GDB register numbers to offsets in
+	 * the callee_saved structure. This extracts SP, RA, S0-S11. */
+	retval = rtos_generic_stack_read(rtos->target,
 			params->callee_saved_stacking,
 			*addr, reg_list,
 			num_regs);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Zephyr RISC-V: Failed to read callee_saved registers");
+		return retval;
+	}
+
+	/* For a suspended thread, the PC should be set to RA (return address).
+	 * This is where the thread will resume execution when it's switched back in.
+	 * Find the RA register value and copy it to PC. */
+	ra_value = 0;
+	for (int i = 0; i < *num_regs; i++) {
+		if ((*reg_list)[i].number == GDB_REGNO_RA) {
+			ra_value = target_buffer_get_u32(rtos->target, (*reg_list)[i].value);
+			LOG_DEBUG("Zephyr RISC-V: RA = 0x%08" PRIx32, ra_value);
+			break;
+		}
+	}
+
+	/* Set PC = RA for proper backtrace in GDB */
+	for (int i = 0; i < *num_regs; i++) {
+		if ((*reg_list)[i].number == GDB_REGNO_PC) {
+			target_buffer_set_u32(rtos->target, (*reg_list)[i].value, ra_value);
+			LOG_DEBUG("Zephyr RISC-V: Set PC to 0x%08" PRIx32, ra_value);
+			break;
+		}
+	}
+
+	return ERROR_OK;
 }
 
 static int zephyr_get_xtensa_state(struct rtos *rtos, target_addr_t *addr,
@@ -1096,6 +1163,9 @@ static int zephyr_update_threads(struct rtos *rtos)
 			return retval;
 		}
 
+		LOG_DEBUG("Zephyr OpenOCD support version %" PRId32,
+			param->offsets[OFFSET_VERSION]);
+
 		if (param->offsets[OFFSET_VERSION] > 1) {
 			LOG_ERROR("Unexpected OpenOCD support version %" PRIu32,
 					param->offsets[OFFSET_VERSION]);
@@ -1137,6 +1207,8 @@ static int zephyr_update_threads(struct rtos *rtos)
 		LOG_ERROR("Could not obtain current thread ID");
 		return retval;
 	}
+
+	LOG_DEBUG("Zephyr: Current thread ID 0x%" PRIx32, current_thread);
 
 	retval = zephyr_fetch_thread_list(rtos, current_thread);
 	if (retval != ERROR_OK) {
@@ -1186,7 +1258,7 @@ static int zephyr_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 	target_addr_t addr;
 	int retval;
 
-	LOG_DEBUG("Getting thread %" PRId64 " reg list", thread_id);
+	LOG_DEBUG("Getting thread 0x%" PRIx64 " (%" PRId64 ") reg list", thread_id, thread_id);
 
 	if (!rtos)
 		return ERROR_FAIL;
@@ -1199,6 +1271,9 @@ static int zephyr_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 		return ERROR_FAIL;
 
 	addr = thread_id;
+
+	LOG_DEBUG("Zephyr OpenOCD stack offset %" PRId32, params->offsets[OFFSET_T_STACK_POINTER]);
+
 	if (params->offsets[OFFSET_T_STACK_POINTER] != UNIMPLEMENTED)
 		addr += params->offsets[OFFSET_T_STACK_POINTER];
 
