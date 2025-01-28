@@ -61,6 +61,7 @@ class FlasherTestsImpl:
 
         self.assertTrue(filecmp.cmp(fname1, fname2))
 
+    @skip_for_chip(['esp32p4'], 'skipped - OCD-1097')
     def test_big_binary(self):
         """
             This test checks flashing big binaries works.
@@ -72,6 +73,7 @@ class FlasherTestsImpl:
         """
         self.program_big_binary('encrypt verify' if self.ENCRYPTED else 'verify')
 
+    @skip_for_chip(['esp32p4'], 'skipped - OCD-1097')
     def test_big_binary_compressed(self):
         """
             This test checks flashing big compressed binaries works.

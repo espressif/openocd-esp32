@@ -20,6 +20,7 @@ class DebuggerSpecialTestsImpl:
     """ Special test cases generic for dual and single core modes
     """
 
+    @skip_for_chip(['esp32p4'], 'skipped - OCD-1090')
     def test_restart_debug_from_crash(self):
         """
             This test checks that debugger can operate correctly after SW reset with stalled CPU.
@@ -46,6 +47,7 @@ class DebuggerSpecialTestsImpl:
         self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay0'])
         self.clear_bps()
 
+    @skip_for_chip(['esp32p4'], 'skipped - OCD-1091')
     def test_debugging_works_after_hw_reset(self):
         """
             This test checks that debugging works after HW reset.
@@ -88,6 +90,7 @@ class DebuggerSpecialTestsImpl:
             # watchpoint hit on read var in 'target_bp_func2'
             self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_wp_var2_2')
 
+    @skip_for_chip(['esp32p4'], 'skipped - OCD-1092')
     def test_bp_and_wp_set_by_program(self):
         """
             This test checks that breakpoints and watchpoints set by program on target work.
@@ -96,6 +99,7 @@ class DebuggerSpecialTestsImpl:
         """
         self._do_test_bp_and_wp_set_by_program()
 
+    @skip_for_chip(['esp32p4'], 'skipped - OCD-1093')
     def test_wp_reconfigure_by_program(self):
         """
             This test checks that watchpoints can be reconfigured by target w/o removing them.
@@ -104,6 +108,7 @@ class DebuggerSpecialTestsImpl:
         """
         self._do_test_bp_and_wp_set_by_program()
 
+    @skip_for_chip(['esp32p4'], 'skipped - OCD-1094')
     def test_exception(self):
         """
         This test checks that expected exception cause string equal to the OpenOCD output.
@@ -271,7 +276,7 @@ class PsramTestsImpl:
 class DebuggerSpecialTestsDual(DebuggerGenericTestAppTestsDual, DebuggerSpecialTestsImpl):
     """ Test cases for dual core mode
     """
-    @skip_for_chip(['esp32s3', 'esp32'])
+    @skip_for_chip(['esp32s3', 'esp32', 'esp32p4'], 'skipped - OCD-1095')
     def test_cores_states_after_esptool_connection(self):
         """
             This test checks that cores are in running or halted state after esptool connection.
@@ -398,9 +403,6 @@ class PsramTestsDual(PsramTestAppTestsDual, PsramTestsImpl):
         PsramTestAppTestsDual.tearDown(self)
         PsramTestsImpl.tearDown(self)
 
-# to be skipped for any board with 'esp32-solo' module, but still needs to be ran
-# for dual-core version of ESP32 modules even in single-core mode
-@skip_for_chip(['esp32-solo'])
 class PsramTestsSingle(PsramTestAppTestsSingle, PsramTestsImpl):
     """ Test cases via GDB in single core mode
     """
