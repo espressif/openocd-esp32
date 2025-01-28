@@ -349,7 +349,7 @@ class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTes
     def test_2cores_concurrently_hit_bps(self):
         two_cores_concurrently_hit_bps(self)
 
-    @skip_for_chip(['esp32', 'esp32p4'], "skipped - OCD-773")
+    @skip_for_chip(['esp32', 'esp32p4'], "skipped - OCD-1088, OCD-1089")
     def test_appcpu_early_hw_bps(self):
         appcpu_early_hw_bps(self)
 
@@ -363,7 +363,7 @@ class DebuggerBreakpointTestsDualEncrypted(DebuggerGenericTestAppTestsDualEncryp
     def test_2cores_concurrently_hit_bps(self):
         two_cores_concurrently_hit_bps(self)
 
-    @skip_for_chip(['esp32'], "skipped - OCD-773, OCD-1006")
+    @skip_for_chip(['esp32'], "skipped - OCD-1088")
     def test_appcpu_early_hw_bps(self):
         appcpu_early_hw_bps(self)
 

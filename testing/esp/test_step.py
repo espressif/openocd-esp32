@@ -353,8 +353,7 @@ class StepTestsImpl():
         return s.strip('\\n\\n').split("mode: ", 1)[1]
 
     @only_for_arch(['xtensa'])
-    # TODO: Fails at esp32s3.Will be enabled after fix
-    @skip_for_chip(['esp32s3'])
+    @skip_for_chip(['esp32s3'], 'skipped - OCD-1006')
     def test_step_over_intlevel_disabled_isr(self):
         """
             This test checks ps.intlevel value after step instruction while ISRs are masked
