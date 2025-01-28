@@ -122,13 +122,11 @@ class DebuggerSpecialTestsImpl:
                                 "Halt cause (5) - (PMP Load access fault)",
                                 "Halt cause (7) - (PMP Store access fault)"]
 
-        #TODO: enable after IDF MR(25708) merged
-        if 0:
-        #if testee_info.idf_ver >= IdfVersion.fromstr('latest'):
-            # Pseudo exeption tests only implemented for xtensa
+        if testee_info.idf_ver >= IdfVersion.fromstr('5.1'):
+            # Pseudo exeption tests only implemented for xtensa after IDF v5.0
             if testee_info.arch == "xtensa":
-                bps.append("exception_bp_5");
-                bps.append("exception_bp_6");
+                bps.append("exception_bp_5")
+                bps.append("exception_bp_6")
                 sub_tests.append("pseudo_debug")
                 sub_tests.append("pseudo_coprocessor")
                 expected_strings.append("Halt cause (Unhandled debug exception)")
