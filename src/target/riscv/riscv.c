@@ -3217,11 +3217,13 @@ int riscv_openocd_poll(struct target *target)
 			continue;
 
 		enum riscv_next_action next_action;
-		if (riscv_poll_hart(t, &next_action) != ERROR_OK)
+		if (riscv_poll_hart(t, &next_action) != ERROR_OK) {
 			LOG_TARGET_ERROR(target, "polling failed!");
+			break;
+		}
 		/* If we return ERROR_FAIL as the upstream does, it will abort in the next dmi_scan
 		 * This will prevent recovery when the target resets unexpectedly.
-		 * We need to try more until target reset has been done
+		 * We need to try more until the target reset has been done. (First target in SMP mode)
 		 * Espressif: Be careful here when comparing this to the upstream repo. !!!
 		 */
 		switch (next_action) {
