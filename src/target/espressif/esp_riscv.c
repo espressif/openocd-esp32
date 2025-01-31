@@ -170,6 +170,9 @@ static void esp_riscv_print_exception_reason(struct target *target)
 
 static bool esp_riscv_is_wp_set_by_program(struct target *target)
 {
+	if (target->debug_reason != DBG_REASON_WATCHPOINT)
+		return false;
+
 	RISCV_INFO(r);
 
 	for (struct watchpoint *wp = target->watchpoints; wp; wp = wp->next) {
@@ -190,6 +193,9 @@ static bool esp_riscv_is_wp_set_by_program(struct target *target)
 
 static bool esp_riscv_is_bp_set_by_program(struct target *target)
 {
+	if (target->debug_reason != DBG_REASON_BREAKPOINT)
+		return false;
+
 	RISCV_INFO(r);
 
 	for (struct breakpoint *bp = target->breakpoints; bp; bp = bp->next) {
@@ -655,20 +661,22 @@ int esp_riscv_resume(struct target *target, int current, target_addr_t address,
 		target->gdb_service->target = head->target;
 	}
 
-	/* If the target stopped due to breakpoint/watchpoint set by program,
+	/* If one of the target stopped due to breakpoint/watchpoint set by program,
 	 * we need to handle_breakpoints to make single step
 	 */
-	if (!handle_breakpoints && target->debug_reason == DBG_REASON_BREAKPOINT) {
-		if (esp_riscv_is_bp_set_by_program(target))
-			handle_breakpoints = true;
+	if (!handle_breakpoints) {
+		if (target->smp) {
+			struct target_list *head;
+			foreach_smp_target(head, target->smp_targets) {
+				if (esp_riscv_is_bp_set_by_program(head->target) || esp_riscv_is_wp_set_by_program(head->target)) {
+					handle_breakpoints = true;
+					break;
+				}
+			}
+		} else {
+			handle_breakpoints = esp_riscv_is_bp_set_by_program(target) || esp_riscv_is_wp_set_by_program(target);
+		}
 	}
-	if (!handle_breakpoints && target->debug_reason == DBG_REASON_WATCHPOINT) {
-		if (esp_riscv_is_wp_set_by_program(target))
-			handle_breakpoints = true;
-	}
-
-	if (!(target->debug_reason == DBG_REASON_BREAKPOINT || target->debug_reason == DBG_REASON_WATCHPOINT))
-		handle_breakpoints = false;
 
 	return riscv_target_resume(target, current, address, handle_breakpoints, debug_execution);
 }
