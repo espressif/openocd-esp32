@@ -79,7 +79,7 @@ class DebuggerSpecialTestsImpl:
         self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func1', 'target_wp_var1_2')
 
         # skip for targets not supporting 2 breakpoints + 2 watchpoints at the same time (for RISC-V 4 hardware triggers)
-        if testee_info.chip not in ["esp32c2", "esp32c5", "esp32c61"]:
+        if testee_info.arch == "xtensa" or self.get_hw_bp_count() >= 4:
             # breakpoint at 'target_bp_func2' entry
             self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_bp_func2')
             # watchpoint hit on write var in 'target_bp_func2'
@@ -87,7 +87,6 @@ class DebuggerSpecialTestsImpl:
             # watchpoint hit on read var in 'target_bp_func2'
             self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_wp_var2_2')
 
-    @skip_for_chip(['esp32p4'], 'skipped - OCD-1092')
     def test_bp_and_wp_set_by_program(self):
         """
             This test checks that breakpoints and watchpoints set by program on target work.
@@ -96,7 +95,6 @@ class DebuggerSpecialTestsImpl:
         """
         self._do_test_bp_and_wp_set_by_program()
 
-    @skip_for_chip(['esp32p4'], 'skipped - OCD-1093')
     def test_wp_reconfigure_by_program(self):
         """
             This test checks that watchpoints can be reconfigured by target w/o removing them.
