@@ -177,7 +177,7 @@ class Oocd(threading.Thread):
 
     def targets(self):
         targets = self.tcl_cmd_exec('target names')
-        return targets.split(' ')
+        return targets.split()
 
     def target_state(self, target):
         return self.tcl_cmd_exec('%s curstate' % target)
