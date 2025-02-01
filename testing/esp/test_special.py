@@ -19,8 +19,6 @@ def get_logger():
 class DebuggerSpecialTestsImpl:
     """ Special test cases generic for dual and single core modes
     """
-
-    @skip_for_chip(['esp32p4'], 'skipped - OCD-1090')
     def test_restart_debug_from_crash(self):
         """
             This test checks that debugger can operate correctly after SW reset with stalled CPU.
