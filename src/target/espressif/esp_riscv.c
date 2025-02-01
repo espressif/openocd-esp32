@@ -557,16 +557,6 @@ int esp_riscv_breakpoint_remove(struct target *target, struct breakpoint *breakp
 {
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 
-	enum target_state prev_state = target->state;
-
-	/* TODO: Workaround solution for OCD-749. Remove below lines after it is done */
-	if (target->state != TARGET_HALTED) {
-		LOG_TARGET_DEBUG(target, "Target must be in halted state. Try to halt it");
-		if (esp_riscv_core_halt(target) != ERROR_OK)
-			return ERROR_FAIL;
-	}
-	/**************************************************/
-
 	int res = riscv_remove_breakpoint(target, breakpoint);
 	if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && breakpoint->type == BKPT_HARD) {
 		res = esp_common_flash_breakpoint_remove(target, &esp_riscv->esp, breakpoint);
@@ -576,12 +566,6 @@ int esp_riscv_breakpoint_remove(struct target *target, struct breakpoint *breakp
 			 *every core, since it treats flash breakpoints as HW ones */
 			res = ERROR_OK;
 		}
-	}
-
-	/* TODO: Workaround solution for OCD-749. Remove below lines after it is done */
-	if (res == ERROR_OK && prev_state == TARGET_RUNNING) {
-		LOG_TARGET_DEBUG(target, "Restore target state");
-		res = esp_riscv_core_resume(target);
 	}
 
 	return res;
@@ -991,82 +975,6 @@ int esp_riscv_write_memory(struct target *target, target_addr_t address,
 		return ret;
 	}
 	return riscv_target.write_memory(target, address, size, count, buffer);
-}
-
-static bool esp_riscv_core_is_halted(struct target *target)
-{
-	enum riscv_hart_state state;
-	if (riscv_get_hart_state(target, &state) != ERROR_OK)
-		return false;
-	return state == RISCV_STATE_HALTED;
-}
-
-int esp_riscv_core_halt(struct target *target)
-{
-	RISCV_INFO(r);
-
-	/* Issue the halt command, and then wait for the current hart to halt. */
-	uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE | DM_DMCONTROL_HALTREQ;
-	r->dmi_write(target, DM_DMCONTROL, dmcontrol);
-	for (size_t i = 0; i < 256; ++i)
-		if (esp_riscv_core_is_halted(target))
-			break;
-
-	if (!esp_riscv_core_is_halted(target)) {
-		uint32_t dmstatus;
-		if (r->dmi_read(target, &dmstatus, DM_DMSTATUS) != ERROR_OK)
-			return ERROR_FAIL;
-		if (r->dmi_read(target, &dmcontrol, DM_DMCONTROL) != ERROR_OK)
-			return ERROR_FAIL;
-
-		LOG_ERROR("unable to halt core");
-		LOG_ERROR("  dmcontrol=0x%08x", dmcontrol);
-		LOG_ERROR("  dmstatus =0x%08x", dmstatus);
-		return ERROR_FAIL;
-	}
-
-	dmcontrol = set_field(dmcontrol, DM_DMCONTROL_HALTREQ, 0);
-	r->dmi_write(target, DM_DMCONTROL, dmcontrol);
-	return ERROR_OK;
-}
-
-int esp_riscv_core_resume(struct target *target)
-{
-	RISCV_INFO(r);
-
-	/* Issue the resume command, and then wait for the current hart to resume. */
-	uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE | DM_DMCONTROL_RESUMEREQ;
-	r->dmi_write(target, DM_DMCONTROL, dmcontrol);
-
-	dmcontrol = set_field(dmcontrol, DM_DMCONTROL_HASEL, 0);
-	dmcontrol = set_field(dmcontrol, DM_DMCONTROL_RESUMEREQ, 0);
-
-	uint32_t dmstatus;
-	for (size_t i = 0; i < 256; ++i) {
-		usleep(10);
-		int res = r->dmi_read(target, &dmstatus, DM_DMSTATUS);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to read dmstatus!");
-			return res;
-		}
-		if (get_field(dmstatus, DM_DMSTATUS_ALLRESUMEACK) == 0)
-			continue;
-		res = r->dmi_write(target, DM_DMCONTROL, dmcontrol);
-		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to write dmcontrol!");
-			return res;
-		}
-		return ERROR_OK;
-	}
-
-	r->dmi_write(target, DM_DMCONTROL, dmcontrol);
-
-	LOG_ERROR("unable to resume core");
-	if (r->dmi_read(target, &dmstatus, DM_DMSTATUS) != ERROR_OK)
-		return ERROR_FAIL;
-	LOG_ERROR("  dmstatus =0x%08x", dmstatus);
-
-	return ERROR_FAIL;
 }
 
 void esp_riscv_deinit_target(struct target *target)
