@@ -364,7 +364,10 @@ int esp_riscv_semihosting(struct target *target)
 			struct target *curr = head->target;
 			if (curr->state != TARGET_HALTED) {
 				LOG_TARGET_DEBUG(curr, "Target must be in halted state. Try to halt it");
+				struct riscv_info *info = riscv_info(curr);
+				info->pause_gdb_callbacks = true;
 				res = riscv_halt(curr);
+				info->pause_gdb_callbacks = false;
 				if (res != ERROR_OK)
 					return res;
 				/* Here all halts are in the halted state. Resume-all will be handled in riscv_semihosting() return */
