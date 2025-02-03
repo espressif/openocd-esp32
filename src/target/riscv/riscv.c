@@ -1918,6 +1918,11 @@ static int halt_go(struct target *target)
 
 static int halt_finish(struct target *target)
 {
+	RISCV_INFO(r);
+
+	if (r->pause_gdb_callbacks)
+		return ERROR_OK;
+
 	return target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 }
 
