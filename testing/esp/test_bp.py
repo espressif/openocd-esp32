@@ -163,6 +163,7 @@ class BreakpointTestsImpl:
             sleep(0.1) #sleep 100ms
             self.gdb.connect()
 
+    @skip_for_chip_and_ver(['5.3'], ['esp32p4'], "skipped - OCD-1102")
     def test_bp_in_isr(self):
         """
             This test checks that the breakpoint's are handled in ISR properly:
