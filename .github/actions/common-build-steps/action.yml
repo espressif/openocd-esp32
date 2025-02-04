@@ -67,6 +67,17 @@ runs:
           popd
         fi
 
+        # JIMTCL
+        export JIMTCL_VER=jimtcl-0.83
+        cd $DL_DIR && wget https://dl.espressif.com/dl/$JIMTCL_VER.tar.gz -O $JIMTCL_VER.tar.gz
+        tar xzf $JIMTCL_VER.tar.gz && rm $JIMTCL_VER.tar.gz && pushd $JIMTCL_VER
+        ./configure --prefix="$PREFIX" --host=${CONF_HOST} --disable-shared CC=${HOST_CC}
+        make
+        # Running "make" does not create this file for static builds on Windows but "make install" still expects it
+        touch build-jim-ext
+        make install
+        popd
+
         cd $PREFIX/../..
         ./bootstrap
         ./configure --prefix="$PREFIX/openocd" --host=${CONF_HOST} $OPENOCD_CONFIGURE_OPTS CC=${HOST_CC}
@@ -75,6 +86,7 @@ runs:
 
         if [[ $ARCH == "windows" ]]; then
           cp $PREFIX/lib/zlib1.dll $PREFIX/openocd/bin
+          cp `$HOST_CC --print-file-name=libgcc_s_dw2-1.dll` $PREFIX/openocd/bin/
         fi
 
         echo "ARTIFACT_PATH=$PREFIX/openocd" >> $GITHUB_ENV
