@@ -5633,7 +5633,6 @@ static const char * const default_reg_names[GDB_REGNO_COUNT] = {
 	[GDB_REGNO_T5] = "t5",
 	[GDB_REGNO_T6] = "t6",
 	[GDB_REGNO_PC] = "pc",
-	[GDB_REGNO_CSR0] = "csr0",
 	[GDB_REGNO_PRIV] = "priv",
 	[GDB_REGNO_FT0] = "ft0",
 	[GDB_REGNO_FT1] = "ft1",
@@ -5732,7 +5731,8 @@ const char *gdb_regno_name(struct target *target, enum gdb_regno regno)
 	}
 	if (regno >= GDB_REGNO_CSR0 && regno <= GDB_REGNO_CSR4095) {
 		init_custom_csr_names(target);
-		info->reg_names[regno] = init_reg_name_with_prefix("csr", regno - GDB_REGNO_CSR0);
+		if (!info->reg_names[regno])
+			info->reg_names[regno] = init_reg_name_with_prefix("csr", regno - GDB_REGNO_CSR0);
 		return info->reg_names[regno];
 	}
 	assert(!"Encountered uninitialized entry in reg_names table");
