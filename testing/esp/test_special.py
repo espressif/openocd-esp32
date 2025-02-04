@@ -103,7 +103,6 @@ class DebuggerSpecialTestsImpl:
         """
         self._do_test_bp_and_wp_set_by_program()
 
-    @skip_for_chip(['esp32p4'], 'skipped - OCD-1094')
     def test_exception(self):
         """
         This test checks that expected exception cause string equal to the OpenOCD output.

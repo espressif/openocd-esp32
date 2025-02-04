@@ -535,21 +535,32 @@ int esp_riscv_breakpoint_add(struct target *target, struct breakpoint *breakpoin
 	struct esp_riscv_common *esp_riscv;
 
 	int res = riscv_add_breakpoint(target, breakpoint);
-	if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE && breakpoint->type == BKPT_HARD) {
-		/* For SMP target return OK if SW flash breakpoint is already set using another
-		 *core; GDB causes call to esp_algo_flash_breakpoint_add() for every core, since it
-		 *treats flash breakpoints as HW ones */
-		if (target->smp) {
-			struct target_list *curr;
-			foreach_smp_target(curr, target->smp_targets) {
-				esp_riscv = target_to_esp_riscv(curr->target);
-				if (esp_common_flash_breakpoint_exists(&esp_riscv->esp, breakpoint))
-					return ERROR_OK;
+
+	if (breakpoint->type == BKPT_HARD) {
+		if (res == ERROR_OK) {
+			RISCV_INFO(info);
+			/* manual_hwbp_set is required to be set for all harts.
+			 * Otherwise bps coming from hart1 will not be handled properly during step.
+			 * TODO: Check if needs to be set earlier in the first TDATA1 or TDATA2 modification.
+			*/
+			info->manual_hwbp_set = true;
+		} else if (res == ERROR_TARGET_RESOURCE_NOT_AVAILABLE) {
+			/* For SMP target return OK if SW flash breakpoint is already set using another
+			*core; GDB causes call to esp_algo_flash_breakpoint_add() for every core, since it
+			*treats flash breakpoints as HW ones */
+			if (target->smp) {
+				struct target_list *curr;
+				foreach_smp_target(curr, target->smp_targets) {
+					esp_riscv = target_to_esp_riscv(curr->target);
+					if (esp_common_flash_breakpoint_exists(&esp_riscv->esp, breakpoint))
+						return ERROR_OK;
+				}
 			}
+			esp_riscv = target_to_esp_riscv(target);
+			return esp_common_flash_breakpoint_add(target, &esp_riscv->esp, breakpoint);
 		}
-		esp_riscv = target_to_esp_riscv(target);
-		return esp_common_flash_breakpoint_add(target, &esp_riscv->esp, breakpoint);
 	}
+
 	return res;
 }
 
