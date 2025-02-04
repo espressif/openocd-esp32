@@ -80,6 +80,18 @@
   make install
   popd
 
+.buildx_jimtcl: &buildx_jimtcl |
+  export JIMTCL_VER=jimtcl-0.83
+  wget https://dl.espressif.com/dl/$JIMTCL_VER.tar.gz -O $JIMTCL_VER.tar.gz
+  tar xzf $JIMTCL_VER.tar.gz && rm $JIMTCL_VER.tar.gz
+  pushd $JIMTCL_VER
+  ./configure --prefix="$PWD/dist" --host=${CONF_HOST} --disable-shared CC=${HOST_CC}
+  make
+  # Running "make" does not create this file for static builds on Windows but "make install" still expects it
+  touch build-jim-ext
+  make install
+  popd
+
 .buildx_openocd: &buildx_openocd |
   ./bootstrap
   mkdir _build && pushd _build/
@@ -102,7 +114,9 @@
     - job: style_check
   script:
     - *get_release_name
-    - !reference [.submodules_mirror_update, script]
+    - export HOST_CC=${CONF_HOST}-gcc
+    - *buildx_jimtcl
+    - export PKG_CONFIG_PATH=$PWD/$JIMTCL_VER/dist/lib/pkgconfig
     - ./bootstrap
     - mkdir _build && pushd _build/
     - ../configure CFLAGS="${TEST_CFLAGS}" --prefix=$PWD/../$DIST_INSTALLED_DIR --host=${CONF_HOST}  $OPENOCD_CONFIGURE_OPTS $GCOV_BUILD_OPTS
@@ -130,12 +144,12 @@
     - job: style_check
   script:
     - *get_release_name
-    - !reference [.submodules_mirror_update, script]
     - *buildx_libusb
     - export OSXCROSS_PKG_CONFIG_PATH=$PWD/$LIBUSB_VER/dist/lib/pkgconfig
     - *buildx_hidapi
     - *buildx_libjaylink
-    - export OSXCROSS_PKG_CONFIG_PATH=$PWD/hidapi-$HIDAPI_VER/dist/lib/pkgconfig/:$PWD/$LIBJAYLINK_VER/dist/lib/pkgconfig:$OSXCROSS_PKG_CONFIG_PATH
+    - *buildx_jimtcl
+    - export OSXCROSS_PKG_CONFIG_PATH=$PWD/hidapi-$HIDAPI_VER/dist/lib/pkgconfig/:$PWD/$LIBJAYLINK_VER/dist/lib/pkgconfig:$PWD/$JIMTCL_VER/dist/lib/pkgconfig:$OSXCROSS_PKG_CONFIG_PATH
     - export LDFLAGS="-Wl,-framework,CoreFoundation -Wl,-framework,IOKit -Wl,-framework,Security"
     - *buildx_openocd
     - *dist_archive
@@ -157,12 +171,12 @@ build_linux:
     - job: style_check
   script:
     - *get_release_name
-    - !reference [.submodules_mirror_update, script]
     - apt-get update || true
     - apt-get install systemd libudev-dev --force-yes -y # needed for hidapi build
     - *buildx_hidapi
     - *buildx_libjaylink
-    - export PKG_CONFIG_PATH=$PWD/hidapi-$HIDAPI_VER/dist/lib/pkgconfig/:$PWD/$LIBJAYLINK_VER/dist/lib/pkgconfig
+    - *buildx_jimtcl
+    - export PKG_CONFIG_PATH=$PWD/hidapi-$HIDAPI_VER/dist/lib/pkgconfig/:$PWD/$LIBJAYLINK_VER/dist/lib/pkgconfig:$PWD/$JIMTCL_VER/dist/lib/pkgconfig
     - ./bootstrap
     - mkdir _build
     - pushd _build/
@@ -181,8 +195,12 @@ build_linux_gcc_latest:
   allow_failure: true
   needs:
     - job: style_check
+  variables:
+    CONF_HOST: ""
+    HOST_CC: "gcc"
   script:
-    - !reference [.submodules_mirror_update, script]
+    - *buildx_jimtcl
+    - export PKG_CONFIG_PATH=$PWD/$JIMTCL_VER/dist/lib/pkgconfig
     - ./bootstrap
     - ./configure ${OPENOCD_CONFIGURE_OPTS}
     - make -j`nproc`
@@ -252,13 +270,13 @@ build_linux_arm64_test:
     - job: style_check
   script:
     - *get_release_name
-    - !reference [.submodules_mirror_update, script]
     - *buildx_libusb
     - export PKG_CONFIG_PATH=$PWD/$LIBUSB_VER/dist/lib/pkgconfig
     - *buildx_hidapi
     - *buildx_libjaylink
+    - *buildx_jimtcl
     - *buildx_zlib
-    - export PKG_CONFIG_PATH=$PWD/hidapi-$HIDAPI_VER/dist/lib/pkgconfig/:$PWD/$LIBJAYLINK_VER/dist/lib/pkgconfig:$PKG_CONFIG_PATH
+    - export PKG_CONFIG_PATH=$PWD/hidapi-$HIDAPI_VER/dist/lib/pkgconfig/:$PWD/$LIBJAYLINK_VER/dist/lib/pkgconfig:$PWD/$JIMTCL_VER/dist/lib/pkgconfig:$PKG_CONFIG_PATH
     - export LDFLAGS=$ZLIB_LDFLAGS
     - *buildx_openocd
     - cp $PWD/${ZLIB_VER}/dist/bin/zlib1.dll $DIST_INSTALLED_DIR/bin/
@@ -297,6 +315,8 @@ scan-build:
   allow_failure: true
   variables:
     SCAN_BUILD_OUTPUT: "report"
+    CONF_HOST: ""
+    HOST_CC: "gcc"
   artifacts:
     reports:
       codequality:
@@ -305,12 +325,13 @@ scan-build:
       - ${SCAN_BUILD_OUTPUT}
     when: always
   script:
-    - !reference [.submodules_mirror_update, script]
+    - *buildx_jimtcl
+    - export PKG_CONFIG_PATH=$PWD/$JIMTCL_VER/dist/lib/pkgconfig
     - ./bootstrap
     - mkdir build-scanbuild
     - pushd build-scanbuild
     - scan-build ../configure
-    - scan-build -o out make -j`nproc` CFLAGS="-std=gnu99 -I. -I../../jimtcl"
+    - scan-build -o out make -j`nproc` CFLAGS="-std=gnu99 -I. -I../../${JIMTCL_VER}"
     - popd
     - ${ARCHIVE_TOOL} scan_build.${ARCHIVE_EXT} build-scanbuild/out
     - mkdir -p ${SCAN_BUILD_OUTPUT}
@@ -325,6 +346,8 @@ sparse:
   variables:
     SPARSE_BUILD_OUTDIR: "sparse"
     SPARSE_BUILD_OUTFILE: "warnings.log"
+    CONF_HOST: ""
+    HOST_CC: "gcc"
   artifacts:
     reports:
       codequality:
@@ -333,7 +356,8 @@ sparse:
       - ${SPARSE_BUILD_OUTDIR}
     when: always
   script:
-    - !reference [.submodules_mirror_update, script]
+    - *buildx_jimtcl
+    - export PKG_CONFIG_PATH=$PWD/$JIMTCL_VER/dist/lib/pkgconfig
     - ./bootstrap
     - mkdir build-sparse && pushd build-sparse
     - ../configure CC=cgcc CFLAGS="-Wsparse-all -Wno-declaration-after-statement -Wno-unknown-attribute -Wno-transparent-union -Wno-tautological-compare -Wno-vla -Wno-flexible-array-array -D__FLT_EVAL_METHOD__=0"
@@ -357,7 +381,7 @@ build_linux_cmake:
   script:
     - !reference [.submodules_mirror_update, script]
     - mkdir build && cd build
-    - cmake .. -G Ninja
+    - cmake .. -D use_internal_jimtcl=ON -G Ninja
     - ninja
 
 # TODO: enable after updating CMake version in the docker image
