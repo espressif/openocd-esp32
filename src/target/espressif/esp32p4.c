@@ -187,7 +187,7 @@ static const char *esp32p4_csrs[] = {
 	"mcycle", "minstret", "mcounteren", "mcountinhibit",
 	"mhpmcounter8", "mhpmcounter9", "mhpmcounter13", "mhpmevent8", "mhpmevent9", "mhpmevent13",
 	"mcycleh", "minstreth", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
-	"tdata3", "tinfo", "mcontext",
+	"tdata3", "tinfo", "mcontext", "mintstatus",
 	/* custom exposed CSRs will start with 'csr_' prefix*/
 	"csr_mclicbase", "csr_mxstatus", "csr_mhcr", "csr_mhint", "csr_mraddr", "csr_mexstatus",
 	"csr_mnmicause", "csr_mnmipc", "csr_mcpuid", "csr_cpu_testbus_ctrl", "csr_pm_user",
@@ -198,7 +198,6 @@ static const char *esp32p4_csrs[] = {
 	"csr_pma_addr2", "csr_pma_addr3", "csr_pma_addr4", "csr_pma_addr5", "csr_pma_addr6", "csr_pma_addr7",
 	"csr_pma_addr8", "csr_pma_addr9", "csr_pma_addr10", "csr_pma_addr11", "csr_pma_addr12", "csr_pma_addr13",
 	"csr_pma_addr14", "csr_pma_addr15",
-	"csr_mintstatus",
 };
 
 static int esp32p4_target_create(struct target *target, Jim_Interp *interp)
