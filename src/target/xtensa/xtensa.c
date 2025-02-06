@@ -2324,6 +2324,9 @@ int xtensa_poll(struct target *target)
 			"DSR has changed: was 0x%08" PRIx32 " now 0x%08" PRIx32,
 			prev_dsr,
 			xtensa->dbg_mod.core_status.dsr);
+	if (xtensa_dm_is_powered(&xtensa->dbg_mod))
+		/* Reset the powered-off counter */
+		xtensa->come_online_probes_num = 3;
 	if (xtensa->dbg_mod.power_status.stath & PWRSTAT_COREWASRESET(xtensa)) {
 		/* if RESET state is persitent  */
 		target->state = TARGET_RESET;
