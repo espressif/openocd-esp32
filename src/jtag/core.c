@@ -1546,6 +1546,8 @@ int jtag_init_inner(struct command_context *cmd_ctx)
 			/* complete success */
 			break;
 		default:
+			/* ESPRESSIF: Fail on ID mismatch */
+			return ERROR_FAIL;
 			/* For backward compatibility reasons, try coping with
 			 * configuration errors involving only ID mismatches.
 			 * We might be able to talk to the devices.
