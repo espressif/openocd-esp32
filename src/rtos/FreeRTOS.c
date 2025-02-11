@@ -39,11 +39,11 @@ struct freertos_params {
 	const char *target_name;
 	const unsigned char thread_count_width;
 	const unsigned char pointer_width;
-	const unsigned char list_next_offset;	/* offset of `xListEnd.pxPrevious` in List_t */
-	const unsigned char list_end_offset;	/* offset of `xListEnd` in List_t */
-	const unsigned char list_width;
-	const unsigned char list_elem_next_offset;	/* offset of `pxPrevious` in ListItem_t */
-	const unsigned char list_elem_content_offset;
+	const unsigned char list_next_offset;           /* offset of `xListEnd.pxPrevious` in List_t */
+	const unsigned char list_end_offset;            /* offset of `xListEnd` in List_t */
+	const unsigned char list_width;                 /* sizeof(List_t) */
+	const unsigned char list_elem_next_offset;      /* offset of `pxPrevious` in ListItem_t */
+	const unsigned char list_elem_content_offset;   /* offset of `pvOwner` in ListItem_t */
 	const unsigned char thread_stack_offset;
 	const unsigned char thread_name_offset;
 	const unsigned char thread_counter_width;
@@ -361,6 +361,12 @@ enum {
 	ESP_FREERTOS_DEBUG_UX_TOP_USED_PIORITY,
 	ESP_FREERTOS_DEBUG_PX_TOP_OF_STACK,
 	ESP_FREERTOS_DEBUG_PC_TASK_NAME,
+	ESP_FREERTOS_DEBUG_LIST_SIZE,
+	ESP_FREERTOS_DEBUG_LIST_NUM_ITEMS,
+	ESP_FREERTOS_DEBUG_LIST_END,
+	ESP_FREERTOS_DEBUG_LIST_END_PREV,
+	ESP_FREERTOS_DEBUG_LIST_ITEM_PREV,
+	ESP_FREERTOS_DEBUG_LIST_ITEM_OWNER,
 	/* New entries must be inserted here */
 	ESP_FREERTOS_DEBUG_TABLE_END,
 };
@@ -391,6 +397,8 @@ static int freertos_read_esp_symbol_table(struct rtos *rtos, int index, uint8_t 
 			&table_size);
 		if (retval != ERROR_OK)
 			return retval;
+
+		LOG_DEBUG("FreeRTOS: esp_symbols table size (%d) ", table_size);
 
 		if (table_size == 0 || table_size > ESP_FREERTOS_DEBUG_TABLE_END) {
 			LOG_WARNING("esp_symbols table size (%d) is not valid!", table_size);
@@ -425,28 +433,17 @@ static int freertos_read_esp_symbol_table(struct rtos *rtos, int index, uint8_t 
 	return ERROR_OK;
 }
 
-static uint8_t freertos_get_thread_name_offset(struct rtos *rtos)
+static uint8_t freertos_get_vals_from_esp_symtab(struct rtos *rtos, const uint8_t *param, int symbol)
 {
-	struct freertos_data *rtos_data = (struct freertos_data *)rtos->rtos_specific_params;
+	uint8_t value;
 
-	uint8_t thread_name_offset = rtos_data->params->thread_name_offset;
-
-	freertos_read_esp_symbol_table(rtos, ESP_FREERTOS_DEBUG_PC_TASK_NAME, &thread_name_offset);
-
-	return thread_name_offset;
-}
-
-static uint8_t freertos_get_thread_stack_offset(struct rtos *rtos)
-{
-	struct freertos_data *rtos_data = (struct freertos_data *)rtos->rtos_specific_params;
-
-	uint8_t thread_stack_offset = rtos_data->params->thread_stack_offset;
-
-	freertos_read_esp_symbol_table(rtos,
-		ESP_FREERTOS_DEBUG_PX_TOP_OF_STACK,
-		&thread_stack_offset);
-
-	return thread_stack_offset;
+	/* Attempt to read the value from the symbol table defined at the target */
+	if (freertos_read_esp_symbol_table(rtos, symbol, &value) == ERROR_OK)
+		return value;
+	/* If reading from the symbol table fails, use the backup value from param pointer.
+	 * If param is not provided, we can assume default value is zero.
+	 */
+	return param ? *param : 0;
 }
 
 static uint8_t freertos_get_ux_top_used_priority(struct rtos *rtos)
@@ -752,8 +749,10 @@ static int freertos_get_tasks_details(struct target *target,
 
 		/* Read the number of tasks in this list */
 		int64_t list_task_count = 0;
+		uint8_t list_num_items_offset = freertos_get_vals_from_esp_symtab(rtos,
+			NULL, ESP_FREERTOS_DEBUG_LIST_NUM_ITEMS);
 		retval = target_buffer_read_uint(target,
-			task_lists[i],
+			task_lists[i] + list_num_items_offset,
 			rtos_data->params->thread_count_width,
 			(uint64_t *)&list_task_count);
 
@@ -765,15 +764,17 @@ static int freertos_get_tasks_details(struct target *target,
 		LOG_DEBUG(
 			"FreeRTOS: Read thread count for list %d at 0x%" PRIx64 ", value %" PRId64,
 			i,
-			task_lists[i],
+			task_lists[i] + list_num_items_offset,
 			list_task_count);
 		if (list_task_count == 0)
 			continue;
 
 		/* Read the location of first list item */
 		uint64_t list_elem_ptr = 0;
+		uint8_t list_next_offset = freertos_get_vals_from_esp_symtab(rtos,
+			&rtos_data->params->list_next_offset, ESP_FREERTOS_DEBUG_LIST_END_PREV);
 		retval = target_buffer_read_uint(target,
-			task_lists[i] + rtos_data->params->list_next_offset,
+			task_lists[i] + list_next_offset,
 			rtos_data->params->pointer_width,
 			&list_elem_ptr);
 
@@ -786,10 +787,16 @@ static int freertos_get_tasks_details(struct target *target,
 		LOG_DEBUG(
 			"FreeRTOS: Read first item for list %d at 0x%" PRIx64 ", value 0x%" PRIx64,
 			i,
-			task_lists[i] + rtos_data->params->list_next_offset,
+			task_lists[i] + list_next_offset,
 			list_elem_ptr);
 
-		uint64_t list_end_ptr = task_lists[i] + rtos_data->params->list_end_offset;
+		uint8_t list_end_offset = freertos_get_vals_from_esp_symtab(rtos,
+			&rtos_data->params->list_end_offset, ESP_FREERTOS_DEBUG_LIST_END);
+		uint8_t list_elem_content_offset = freertos_get_vals_from_esp_symtab(rtos,
+			&rtos_data->params->list_elem_content_offset, ESP_FREERTOS_DEBUG_LIST_ITEM_OWNER);
+		uint8_t list_elem_next_offset = freertos_get_vals_from_esp_symtab(rtos,
+			&rtos_data->params->list_elem_next_offset, ESP_FREERTOS_DEBUG_LIST_ITEM_PREV);
+		uint64_t list_end_ptr = task_lists[i] + list_end_offset;
 		LOG_DEBUG("FreeRTOS: End list element at 0x%" PRIx64, list_end_ptr);
 
 		while ((list_task_count > 0) && (list_elem_ptr != 0) &&
@@ -797,7 +804,7 @@ static int freertos_get_tasks_details(struct target *target,
 			(index < current_num_of_tasks)) {
 			/* Get the location of the thread structure. */
 			retval = target_buffer_read_uint(target,
-				list_elem_ptr + rtos_data->params->list_elem_content_offset,
+				list_elem_ptr + list_elem_content_offset,
 				rtos_data->params->pointer_width,
 				(uint64_t *)&rtos->thread_details[index].threadid);
 
@@ -809,7 +816,7 @@ static int freertos_get_tasks_details(struct target *target,
 
 			LOG_DEBUG(
 				"FreeRTOS: Read Thread ID at 0x%" PRIx64 ", value 0x%" PRIx64 " %i",
-				list_elem_ptr + rtos_data->params->list_elem_content_offset,
+				list_elem_ptr + list_elem_content_offset,
 				rtos->thread_details[index].threadid,
 				(unsigned int)rtos->thread_details[index].threadid);
 
@@ -817,7 +824,8 @@ static int freertos_get_tasks_details(struct target *target,
 			#define FREERTOS_THREAD_NAME_STR_SIZE (64)
 			char tmp_str[FREERTOS_THREAD_NAME_STR_SIZE] = { 0 };
 
-			int thread_name_offset = freertos_get_thread_name_offset(rtos);
+			int thread_name_offset = freertos_get_vals_from_esp_symtab(rtos,
+				&rtos_data->params->thread_name_offset, ESP_FREERTOS_DEBUG_PC_TASK_NAME);
 
 			retval = target_read_buffer(
 				target,
@@ -898,7 +906,7 @@ static int freertos_get_tasks_details(struct target *target,
 			uint64_t cur_list_elem_ptr = list_elem_ptr;
 			list_elem_ptr = 0;
 			retval = target_buffer_read_uint(target,
-				cur_list_elem_ptr + rtos_data->params->list_elem_next_offset,
+				cur_list_elem_ptr + list_elem_next_offset,
 				rtos_data->params->pointer_width,
 				&list_elem_ptr);
 
@@ -911,7 +919,7 @@ static int freertos_get_tasks_details(struct target *target,
 			LOG_DEBUG(
 				"FreeRTOS: Read next thread location at 0x%" PRIx64 ", value 0x%"
 				PRIx64,
-				cur_list_elem_ptr + rtos_data->params->list_elem_next_offset,
+				cur_list_elem_ptr + list_elem_next_offset,
 				list_elem_ptr);
 		}
 
@@ -1123,10 +1131,12 @@ static int freertos_update_threads(struct rtos *rtos)
 
 	/* TODO: check!!! num_lists < top_used_priority or num_lists < config_max_priorities */
 	unsigned int num_lists;
+	uint8_t list_width = freertos_get_vals_from_esp_symtab(rtos,
+			&rtos_data->params->list_width, ESP_FREERTOS_DEBUG_LIST_SIZE);
 	for (num_lists = 0; num_lists < config_max_priorities; num_lists++)
 		list_of_lists[num_lists] =
 			rtos->symbols[FREERTOS_VAL_PX_READY_TASKS_LISTS].address +
-			num_lists * rtos_data->params->list_width;
+			num_lists * list_width;
 
 	list_of_lists[num_lists++] = rtos->symbols[FREERTOS_VAL_X_DELAYED_TASK_LIST1].address;
 	list_of_lists[num_lists++] = rtos->symbols[FREERTOS_VAL_X_DELAYED_TASK_LIST2].address;
@@ -1205,7 +1215,8 @@ static int freertos_get_thread_registers_from_stack(struct rtos *rtos, int64_t t
 		return -1;
 
 	/* Read the stack pointer */
-	int thread_stack_offset = freertos_get_thread_stack_offset(rtos);
+	int thread_stack_offset = freertos_get_vals_from_esp_symtab(rtos,
+		&rtos_data->params->thread_name_offset, ESP_FREERTOS_DEBUG_PX_TOP_OF_STACK);
 
 	int retval = target_read_buffer(rtos->target,
 		thread_id + thread_stack_offset,
