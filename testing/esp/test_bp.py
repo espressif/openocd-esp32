@@ -316,26 +316,28 @@ def appcpu_early_hw_bps(self):
     self.gdb.target_reset()
     rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
     self.add_bp('call_start_cpu1', hw=True)
+    for target in self.oocd.targets():
+        self.oocd.cmd_exec(f"{target} configure -rtos hwthread")
     self.resume_exec()
     self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
-    # We stopped when FreRTOS is not running yet, so GDB is connected to
-    # one core only (most probably core 0) and shows only one thread representing that core.
-    # Prepare to switch GDB to core 1.
-    self.gdb.monitor_run("esp32 smp_gdb 1", 5)
-    try:
-        # Switch GDB to core 1.
-        self.gdb.monitor_run("resume", 5)
-        # Invalidate register cache to re-read them and get proper backtrace
-        self.gdb.console_cmd_run("maint flush register-cache", 5)
-        # In this scenario we can not check stop reason for core 1,
-        # because GDB could be initially connected to core 0.
-        # So just check the function name we stopped in on core 1.
+    _,threads_info = self.gdb.get_thread_info()
+
+    def check_bp_hit_on_cpu(cpu_num):
+        for ti in threads_info:
+            if ti['name'].endswith(f".cpu{cpu_num}"):
+                self.gdb.console_cmd_run(f"thread {ti['id']}")
+                break
         frame = self.gdb.read_current_frame()
         self.assertEqual(frame['func'], 'call_start_cpu1')
-    finally:
-        # restore default GDB SMP handling to avoid other tests failures
-        self.gdb.monitor_run("esp32 smp_gdb -1", 5)
-        self.gdb.monitor_run("resume", 5)
+
+    try:
+        check_bp_hit_on_cpu(1)
+    except:
+        # The breakpoint can trigger on cpu0 first, before the bootloader code is loaded
+        check_bp_hit_on_cpu(0)
+        self.resume_exec()
+        self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
+        check_bp_hit_on_cpu(1)
 
 class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTestsImpl):
     """ Test cases for breakpoints in dual core mode
@@ -349,7 +351,6 @@ class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTes
     def test_2cores_concurrently_hit_bps(self):
         two_cores_concurrently_hit_bps(self)
 
-    @skip_for_chip(['esp32', 'esp32p4'], "skipped - OCD-1088, OCD-1089")
     def test_appcpu_early_hw_bps(self):
         appcpu_early_hw_bps(self)
 
@@ -363,7 +364,6 @@ class DebuggerBreakpointTestsDualEncrypted(DebuggerGenericTestAppTestsDualEncryp
     def test_2cores_concurrently_hit_bps(self):
         two_cores_concurrently_hit_bps(self)
 
-    @skip_for_chip(['esp32'], "skipped - OCD-1088")
     def test_appcpu_early_hw_bps(self):
         appcpu_early_hw_bps(self)
 
