@@ -444,6 +444,14 @@ static const struct stack_register_offset nuttx_stack_offsets_esp32s3[] = {
 	{ 117, -1, 32 },		/* ua_state_1 */
 	{ 118, -1, 32 },		/* ua_state_2 */
 	{ 119, -1, 32 },		/* ua_state_3 */
+	{ 120, -1, 32 },		/* q0 */
+	{ 121, -1, 32 },		/* q1 */
+	{ 122, -1, 32 },		/* q2 */
+	{ 123, -1, 32 },		/* q3 */
+	{ 124, -1, 32 },		/* q4 */
+	{ 125, -1, 32 },		/* q5 */
+	{ 126, -1, 32 },		/* q6 */
+	{ 127, -1, 32 },		/* q7 */
 };
 
 const struct rtos_register_stacking nuttx_esp32s3_stacking = {
