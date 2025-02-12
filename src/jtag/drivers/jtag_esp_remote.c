@@ -835,7 +835,8 @@ static struct jtag_interface esp_remote_jtag_interface = {
 struct adapter_driver esp_remote_adapter_driver = {
 	.name = "jtag_esp_remote",
 	.commands = jtag_esp_remote_command_handlers,
-	.transports = jtag_only,
+	.transport_ids = TRANSPORT_JTAG,
+	.transport_preferred_id = TRANSPORT_JTAG,
 
 	.init = jtag_esp_remote_init,
 	.quit = jtag_esp_remote_quit,
