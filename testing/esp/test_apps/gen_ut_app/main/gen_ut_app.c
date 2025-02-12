@@ -13,7 +13,11 @@
 #include "freertos/task.h"
 #include "gen_ut_app.h"
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
+#if (UT_IDF_VER_MAJOR == 5) && (UT_IDF_VER_MINOR <= 1)
 #include "freertos/xtensa_api.h"
+#else
+#include "xtensa_api.h"
+#endif
 #include "xtensa/core-macros.h"
 #endif
 
