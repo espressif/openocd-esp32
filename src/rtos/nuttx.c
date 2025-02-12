@@ -24,6 +24,7 @@
 #define NAME_SIZE       32
 #define EXTRAINFO_SIZE  256
 #define NUTTX_MAX_TASKS_NUM  512
+#define NUTTX_OSREADY	5
 
 /* Only 32-bit CPUs are supported by the current implementation.  Supporting
  * other CPUs will require reading this information from the target and
@@ -74,6 +75,7 @@ static const struct symbols nuttx_symbol_list[] = {
 	{ "g_npidhash", false },
 	{ "g_tcbinfo", false },
 	{ "g_reg_offs", false},
+	{ "g_nx_initstate", false},
 	{ NULL, false }
 };
 
@@ -194,7 +196,7 @@ static target_addr_t target_buffer_get_addr(struct target *target, const uint8_t
 static int nuttx_update_threads(struct rtos *rtos)
 {
 	struct tcbinfo tcbinfo;
-	uint32_t pidhashaddr, npidhash, tcbaddr;
+	uint32_t pidhashaddr, npidhash, tcbaddr, initstate;
 	uint16_t pid;
 	uint8_t state;
 
@@ -206,11 +208,24 @@ static int nuttx_update_threads(struct rtos *rtos)
 	/* Free previous thread details */
 	rtos_free_threadlist(rtos);
 
+	int ret = target_read_u32(rtos->target, rtos->symbols[NX_SYM_INIT_STATE].address, &initstate);
+	if (ret != ERROR_OK) {
+		LOG_ERROR("Failed to read g_nx_initstate: ret = %d", ret);
+		return ERROR_FAIL;
+	}
+
+	LOG_DEBUG("Nuttx initialization state = %" PRId32, initstate);
+
+	if (initstate < NUTTX_OSREADY) {
+		LOG_WARNING("NuttX scheduler is not ready yet!");
+		return ERROR_FAIL;
+	}
+
 	/* NuttX provides a hash table that keeps track of all the TCBs.
 	 * We first read its size from g_npidhash and its address from g_pidhash.
 	 * Its content is then read from these values.
 	 */
-	int ret = target_read_u32(rtos->target, rtos->symbols[NX_SYM_NPIDHASH].address, &npidhash);
+	ret = target_read_u32(rtos->target, rtos->symbols[NX_SYM_NPIDHASH].address, &npidhash);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to read g_npidhash: ret = %d", ret);
 		return ERROR_FAIL;

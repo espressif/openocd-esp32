@@ -12,6 +12,7 @@ enum nuttx_symbol_vals {
 	NX_SYM_NPIDHASH,
 	NX_SYM_TCB_INFO,
 	NX_SYM_REG_OFFSETS,
+	NX_SYM_INIT_STATE,
 };
 
 extern const struct rtos_register_stacking nuttx_stacking_cortex_m;
