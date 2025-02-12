@@ -1,1 +1,4 @@
-#define UT_IDF_VER		@UT_IDF_VER@
+#define UT_IDF_VER          @UT_IDF_VER@
+#define UT_IDF_VER_MAJOR    @UT_IDF_VER_MAJOR@
+#define UT_IDF_VER_MINOR    @UT_IDF_VER_MINOR@
+#define UT_IDF_VER_BUGFIX   @UT_IDF_VER_BUGFIX@
