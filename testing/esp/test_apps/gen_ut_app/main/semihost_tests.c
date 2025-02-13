@@ -8,6 +8,12 @@
 
 #include "esp_vfs_semihost.h"
 
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
+#include "xtensa/semihosting.h"
+#else
+#include "riscv/semihosting.h"
+#endif
+
 #include "esp_log.h"
 const static char *TAG = "semihost_test";
 
@@ -15,8 +21,6 @@ const static char *TAG = "semihost_test";
 #define ESP_ENOTSUP_WIN         129
 #define ESP_ENOTSUP_UNIX        95
 #define ESP_ENOTSUP_DARWIN      45
-
-#define SYSCALL_INSTR           "break 1,14\n"
 
 #define SYS_OPEN                0x01
 #define SYS_CLOSE               0x02
@@ -71,16 +75,6 @@ static inline bool esp_cpu_in_ocd_debug_mode(void)  //check
     return esp_cpu_dbgr_is_attached();
 }
 
-static inline long semihosting_call_noerrno_generic(long id, long *data)
-{
-    register long a2 asm ("a2") = id;
-    register long a3 asm ("a3") = (long)data;
-    __asm__ __volatile__ (
-        "break 1, 14\n"
-        : "+r"(a2) : "r"(a3)
-        : "memory");
-    return a2;
-}
 static inline int generic_syscall(int sys_nr, int arg1, int arg2, int arg3, int arg4,
                                   int *ret_errno)
 {
@@ -94,10 +88,10 @@ static inline int generic_syscall(int sys_nr, int arg1, int arg2, int arg3, int 
     long data[] = {arg1, arg2, arg3, arg4};
     ESP_LOGI(TAG, "CPU[%d]: -> syscall 0x%x, args: 0x%x, 0x%x, 0x%x, 0x%x", core_id, sys_nr, arg1, arg2, arg3, arg4);
 
-    long ret = semihosting_call_noerrno_generic(sys_nr, data);
+    long ret = semihosting_call_noerrno(sys_nr, data);
     if (ret == -1) {
         const int semihosting_sys_errno = SYS_ERRNO;
-        *ret_errno = (int) semihosting_call_noerrno_generic(semihosting_sys_errno, NULL);
+        *ret_errno = (int) semihosting_call_noerrno(semihosting_sys_errno, NULL);
     }
     ESP_LOGI(TAG, "CPU[%d]: -> syscall 0x%x, args: 0x%x, 0x%x, 0x%x, 0x%x, ret: 0x%x, errno: 0x%x", core_id, sys_nr, arg1, arg2, arg3, arg4, (int)ret, (int)*ret_errno);
     return ret;
@@ -112,10 +106,13 @@ static inline int semihosting_wrong_args(int wrong_arg)
     char fname[32];
     snprintf(fname, sizeof(fname) - 1, "/test_read.%d", core_id);
 
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
+    /* Invalid opcode halts the execution for RISC-V targets OCD-1113 */
     ESP_LOGI(TAG, "CPU[%d]:------ wrong SYSCALL -------", core_id);
     syscall_ret = generic_syscall(wrong_arg, 0, 0, 0, 0, &test_errno);
     assert(syscall_ret == -1);
     assert((test_errno == ESP_ENOTSUP_WIN) || (test_errno == ESP_ENOTSUP_UNIX) || (test_errno == ESP_ENOTSUP_DARWIN));
+#endif
 
     /**** SYS_DRVINFO ****/
     ESP_LOGI(TAG, "CPU[%d]:------ SYS_DRVINFO test -------", core_id);
@@ -794,7 +791,6 @@ static void semihost_task(void *pvParameter)
     done();
 }
 
-#if CONFIG_IDF_TARGET_ARCH_XTENSA
 TEST_DECL(semihost_args, "test_semihost.SemihostTests*.test_semihost_args")
 {
     int ret;
@@ -839,7 +835,6 @@ TEST_DECL(semihost_args, "test_semihost.SemihostTests*.test_semihost_args")
     }
     done();
 }
-#endif /* CONFIG_IDF_TARGET_ARCH_XTENSA */
 
 TEST_DECL(semihost_rw, "test_semihost.SemihostTests*.test_semihost_rw")
 {
@@ -959,7 +954,6 @@ ut_result_t semihost_test_do(int test_num)
         xTaskCreatePinnedToCore(TEST_ENTRY(gdb_consoleio), "gdb_consoleio_task", 4096, NULL, 5, NULL, 0);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(semihost_rw), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(semihost_rw), "semihost_task", 4096, NULL, 5, NULL, 0);
-#if CONFIG_IDF_TARGET_ARCH_XTENSA
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(semihost_args), test_num)) {
         /*
         * *** About the test ***
@@ -981,7 +975,6 @@ ut_result_t semihost_test_do(int test_num)
         * - Close the file
         */
         xTaskCreatePinnedToCore(TEST_ENTRY(semihost_args), "semihost_args_task0", 8000, NULL, 5, NULL, 0);
-#endif /* CONFIG_IDF_TARGET_ARCH_XTENSA  */
     /*
     * *** About the tests ***
     *
