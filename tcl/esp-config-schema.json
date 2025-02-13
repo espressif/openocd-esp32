@@ -80,7 +80,7 @@
                     "type": "string"
                 },
                 "config_file": {
-                    "description": "Config file of debug interface e.g. 'ftdi/esp32_devkitj_v1.cfg'. Path relative to 'interface' sub-dir.",
+                    "description": "Config file of debug interface e.g. 'ftdi/esp_ftdi.cfg'. Path relative to 'interface' sub-dir.",
                     "type": "string"
                 },
                 "command": {
