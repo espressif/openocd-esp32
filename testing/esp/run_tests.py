@@ -35,7 +35,7 @@ BOARD_TCL_CONFIG = {
     },
     'esp32-solo-devkitj' :  {
         'files' : [
-            os.path.join('interface', 'ftdi', 'esp32_devkitj_v1.cfg'),
+            os.path.join('interface', 'ftdi', 'esp_ftdi.cfg'),
             os.path.join('target', 'esp32-solo-1.cfg')
         ],
         'commands' : [],
@@ -44,7 +44,7 @@ BOARD_TCL_CONFIG = {
     },
     'esp32s2-devkitj' :  {
         'files' : [
-            os.path.join('interface', 'ftdi', 'esp32_devkitj_v1.cfg'),
+            os.path.join('interface', 'ftdi', 'esp_ftdi.cfg'),
             os.path.join('target', 'esp32s2.cfg')
         ],
         'commands' : [],
