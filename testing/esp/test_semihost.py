@@ -166,7 +166,6 @@ class SemihostTestsImpl:
             get_logger().info('Compare files [%s, %s]', self.fout_names[i], self.fin_names[i])
             self.assertTrue(filecmp.cmp(self.fout_names[i], self.fin_names[i]))
 
-    @only_for_arch(['xtensa'])
     def test_semihost_args(self):
         """
         This test checks that semihosting syscalls working properly with wrong argumented functions
