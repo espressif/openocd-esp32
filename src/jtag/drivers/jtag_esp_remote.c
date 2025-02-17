@@ -290,9 +290,9 @@ static int jtag_esp_remote_tms(struct tms_command *cmd)
 	return jtag_esp_remote_tms_seq(cmd->bits, cmd->num_bits);
 }
 
-static int jtag_esp_remote_state_move(tap_state_t state)
+static int jtag_esp_remote_state_move(enum tap_state state)
 {
-	const tap_state_t cur_state = tap_get_state();
+	enum tap_state cur_state = tap_get_state();
 	if (cur_state == state)
 		return ERROR_OK;
 
@@ -492,7 +492,7 @@ jtag_esp_remote_scan_read_exit:
 	return retval;
 }
 
-static int jtag_esp_remote_runtest(int cycles, tap_state_t end_state)
+static int jtag_esp_remote_runtest(int cycles, enum tap_state end_state)
 {
 	int retval;
 
