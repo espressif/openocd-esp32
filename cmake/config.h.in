@@ -79,6 +79,9 @@
 /* 0 if you don't want SysfsGPIO driver */
 #cmakedefine01 BUILD_SYSFSGPIO
 
+/* 0 if you don't want Linux SPI SWD adapter driver */
+#cmakedefine01 BUILD_LINUXSPIDEV
+
 /* 0 if you don't want Xilinx XVC/PCIe driver */
 #cmakedefine01 BUILD_XLNX_PCIE_XVC
 

@@ -3,7 +3,7 @@ include(ExternalProject)
 set(JIMTCL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/jimtcl)
 set(JIMTCL_BIN ${CMAKE_CURRENT_BINARY_DIR}/jimtcl)
 set(JIMTCL_STATIC_LIB ${JIMTCL_DIR}/libjim.a)
-set(JIMTCL_INCLUDES ${JIMTCL_BIN})
+set(JIMTCL_INCLUDES ${JIMTCL_DIR})
 
 if(${CMAKE_CROSSCOMPILING})
 set(CONF_HOST --host=${host})

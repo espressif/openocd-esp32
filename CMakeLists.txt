@@ -8,7 +8,17 @@ include(cmake/configure.cmake)
 
 add_executable(openocd)
 
-include(cmake/jimtcl.cmake)
+if(use_internal_jimtcl)
+	include(cmake/jimtcl.cmake)
+elseif(JIMTCL_FOUND)
+	add_library(libjimtcl INTERFACE)
+	target_include_directories(libjimtcl INTERFACE ${JIMTCL_INCLUDE_DIRS})
+	target_link_libraries(libjimtcl INTERFACE ${JIMTCL_LINK_LIBRARIES})
+elseif(have_jim_h)
+	add_library(libjimtcl INTERFACE)
+	target_link_libraries(libjimtcl INTERFACE jim)
+endif()
+
 add_subdirectory(src)
 
 # Propogate config.h which is auto-generated into the root directory.

@@ -59,7 +59,7 @@ list(APPEND openocd_targets
 
 foreach(target ${openocd_targets})
 	target_compile_options(${target} PUBLIC ${OPENOCD_COMMON_COMPILER_FLAGS})
-	target_include_directories(${target} PUBLIC ${JIMTCL_DIR})
+	target_include_directories(${target} BEFORE PUBLIC $<TARGET_PROPERTY:libjimtcl,INTERFACE_INCLUDE_DIRECTORIES>)
 	target_include_directories(${target} BEFORE PUBLIC $<TARGET_PROPERTY:openocd,INTERFACE_INCLUDE_DIRECTORIES>)
 	target_include_directories(${target} BEFORE PUBLIC $<TARGET_PROPERTY:openocd_main,INTERFACE_INCLUDE_DIRECTORIES>)
 endforeach()

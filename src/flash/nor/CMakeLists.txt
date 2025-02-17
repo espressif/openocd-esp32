@@ -22,6 +22,7 @@ target_sources(nor PRIVATE
 	cc26xx.c
 	cfi.c
 	dsp5680xx_flash.c
+	dw-spi.c
 	efm32.c
 	em357.c
 	eneispif.c
