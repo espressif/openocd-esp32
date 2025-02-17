@@ -85,7 +85,7 @@
   wget https://dl.espressif.com/dl/$JIMTCL_VER.tar.gz -O $JIMTCL_VER.tar.gz
   tar xzf $JIMTCL_VER.tar.gz && rm $JIMTCL_VER.tar.gz
   pushd $JIMTCL_VER
-  ./configure --prefix="$PWD/dist" --host=${CONF_HOST} --disable-shared CC=${HOST_CC}
+  ./configure --prefix="$PWD/dist" --host=${CONF_HOST} --disable-shared --with-ext=json --minimal --disable-ssl CC=${HOST_CC}
   make
   # Running "make" does not create this file for static builds on Windows but "make install" still expects it
   touch build-jim-ext

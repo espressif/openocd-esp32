@@ -141,6 +141,16 @@ if(ENABLE_CAPSTONE)
     endif()
 endif()
 
+pkg_check_modules(JIMTCL jimtcl>=0.79)
+if(NOT JIMTCL_FOUND AND NOT use_internal_jimtcl)
+    check_include_file(jim.h have_jim_h)
+    if(NOT have_jim_h)
+        message(FATAL_ERROR "Jim TCL package not found\n"
+            "Either configure to build version from submodule using 'cmake -D use_internal_jimtcl=ON', "
+            "or provide path to search for package configuration files in environment variable"
+            "'PKG_CONFIG_PATH' / 'OSXCROSS_PKG_CONFIG_PATH'")
+    endif()
+endif()
 
 # Process options
 if(doxygen_as_html)
