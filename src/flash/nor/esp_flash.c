@@ -597,8 +597,9 @@ static int esp_algo_flash_write_xfer(struct target *target, uint32_t block_id, u
 
 static int esp_algo_flash_write_state_init(struct target *target,
 	struct esp_algorithm_run_data *run,
-	struct esp_flash_write_state *state)
+	void *arg)
 {
+	struct esp_flash_write_state *state = (struct esp_flash_write_state *)arg;
 	struct duration algo_time;
 
 	/* clear control register, stub will set APPTRACE_HOST_CONNECT bit when it will be
@@ -660,8 +661,9 @@ static int esp_algo_flash_write_state_init(struct target *target,
 
 static void esp_algo_flash_write_state_cleanup(struct target *target,
 	struct esp_algorithm_run_data *run,
-	struct esp_flash_write_state *state)
+	void *arg)
 {
+	struct esp_flash_write_state *state = (struct esp_flash_write_state *)arg;
 	struct duration algo_time;
 
 	if (!state->target_buf)
@@ -756,8 +758,8 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	run.stack_size = stack_size + ESP_STUB_UNZIP_BUFF_SIZE + stub_cfg->stack_data_pool_sz;
 	run.usr_func = esp_algo_flash_rw_do;
 	run.usr_func_arg = &wr_state;
-	run.usr_func_init = (esp_algorithm_usr_func_init_t)esp_algo_flash_write_state_init;
-	run.usr_func_done = (esp_algorithm_usr_func_done_t)esp_algo_flash_write_state_cleanup;
+	run.usr_func_init = esp_algo_flash_write_state_init;
+	run.usr_func_done = esp_algo_flash_write_state_cleanup;
 	memset(&wr_state, 0, sizeof(struct esp_flash_write_state));
 	wr_state.rw.buffer = esp_info->compression ? compressed_buff : (uint8_t *)buffer;
 	wr_state.rw.count = esp_info->compression ? compressed_len : count;
@@ -864,8 +866,9 @@ static int esp_algo_flash_read_xfer(struct target *target, uint32_t block_id, ui
 
 static int esp_algo_flash_read_state_init(struct target *target,
 	struct esp_algorithm_run_data *run,
-	struct esp_flash_read_state *state)
+	void *arg)
 {
+	struct esp_flash_write_state *state = (struct esp_flash_write_state *)arg;
 	/* clear control register, stub will set APPTRACE_HOST_CONNECT bit when it will be
 	 * ready */
 	int ret = state->rw.apptrace->ctrl_reg_write(target,
@@ -919,7 +922,7 @@ int esp_algo_flash_read(struct flash_bank *bank, uint8_t *buffer,
 	}
 
 	run.stack_size = stack_size + stub_cfg->stack_data_pool_sz;
-	run.usr_func_init = (esp_algorithm_usr_func_init_t)esp_algo_flash_read_state_init;
+	run.usr_func_init = esp_algo_flash_read_state_init;
 	run.usr_func = esp_algo_flash_rw_do;
 	run.usr_func_arg = &rd_state;
 	memset(&rd_state, 0, sizeof(struct esp_flash_read_state));
@@ -1058,8 +1061,9 @@ int esp_algo_flash_auto_probe(struct flash_bank *bank)
 
 static int esp_algo_flash_bp_op_state_init(struct target *target,
 	struct esp_algorithm_run_data *run,
-	struct esp_flash_bp_op_state *state)
+	void *arg)
 {
+	struct esp_flash_bp_op_state *state = (struct esp_flash_bp_op_state *)arg;
 	struct xtensa *xtensa = target->arch_info;
 
 	LOG_DEBUG("SEC_SIZE %d", state->esp_info->sec_sz);
@@ -1118,8 +1122,9 @@ static int esp_algo_flash_bp_op_state_init(struct target *target,
 
 static void esp_algo_flash_bp_op_state_cleanup(struct target *target,
 	struct esp_algorithm_run_data *run,
-	struct esp_flash_bp_op_state *state)
+	void *arg)
 {
+	struct esp_flash_bp_op_state *state = (struct esp_flash_bp_op_state *)arg;
 	if (!state->target_buf)
 		return;
 	target_free_working_area(target, state->target_buf);
@@ -1183,8 +1188,8 @@ int esp_algo_flash_breakpoint_add(struct target *target, struct esp_flash_breakp
 
 	run.stack_size = stack_size;
 	run.usr_func_arg = &op_state;
-	run.usr_func_init = (esp_algorithm_usr_func_init_t)esp_algo_flash_bp_op_state_init;
-	run.usr_func_done = (esp_algorithm_usr_func_done_t)esp_algo_flash_bp_op_state_cleanup;
+	run.usr_func_init = esp_algo_flash_bp_op_state_init;
+	run.usr_func_done = esp_algo_flash_bp_op_state_cleanup;
 	run.check_preloaded_binary = esp_info->stub_log_enabled ? false : esp_info->check_preloaded_binary;
 
 	init_mem_param(&mp[0], 1 /* First user arg */, num_bps * size_bp_inst /* size in bytes */, PARAM_OUT);
@@ -1267,8 +1272,8 @@ int esp_algo_flash_breakpoint_remove(struct target *target, struct esp_flash_bre
 
 	run.stack_size = stack_size;
 	run.usr_func_arg = &op_state;
-	run.usr_func_init = (esp_algorithm_usr_func_init_t)esp_algo_flash_bp_op_state_init;
-	run.usr_func_done = (esp_algorithm_usr_func_done_t)esp_algo_flash_bp_op_state_cleanup;
+	run.usr_func_init = esp_algo_flash_bp_op_state_init;
+	run.usr_func_done = esp_algo_flash_bp_op_state_cleanup;
 	run.check_preloaded_binary = esp_info->stub_log_enabled ? false : esp_info->check_preloaded_binary;
 
 	init_mem_param(&mp[0], 1 /* First user arg */, 1 + num_bps * size_bp_inst /* size in bytes */, PARAM_OUT);
