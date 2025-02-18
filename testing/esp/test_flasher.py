@@ -53,7 +53,7 @@ class FlasherTestsImpl:
         # we need to read written flash and compare data manually
         _, fname2 = tempfile.mkstemp()
         os.truncate(fname1, size - truncate_size)
-        self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (dbg.fixup_path(fname2), offset, size - truncate_size), tmo=120)
+        self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (dbg.fixup_path(fname2), offset, size - truncate_size), tmo=180)
 
         # restore flash contents with test app as it was overwritten by test
         # what can lead to the failures when preparing for the next tests
@@ -61,7 +61,6 @@ class FlasherTestsImpl:
 
         self.assertTrue(filecmp.cmp(fname1, fname2))
 
-    @skip_for_chip(['esp32p4'], 'skipped - OCD-1097')
     def test_big_binary(self):
         """
             This test checks flashing big binaries works.
@@ -73,7 +72,6 @@ class FlasherTestsImpl:
         """
         self.program_big_binary('encrypt verify' if self.ENCRYPTED else 'verify')
 
-    @skip_for_chip(['esp32p4'], 'skipped - OCD-1097')
     def test_big_binary_compressed(self):
         """
             This test checks flashing big compressed binaries works.
