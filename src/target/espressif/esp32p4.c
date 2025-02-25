@@ -44,6 +44,7 @@
 #define ESP32P4_CACHE_MAP_L2_CACHE              BIT(5)
 #define ESP32P4_CACHE_SYNC_INVALIDATE           BIT(0)
 #define ESP32P4_CACHE_SYNC_WRITEBACK            BIT(2)
+#define ESP32P4_CACHE_SYNC_FLUSH                BIT(3) /* Writeback + invalidate */
 #define ESP32P4_CACHE_SYNC_DONE                 BIT(4)
 
 #define ESP32P4_CACHE_L1_LINE_SIZE              64
@@ -296,7 +297,8 @@ static int esp32p4_read_memory(struct target *target, target_addr_t address,
 	}
 
 	if (ESP32P4_ADDRESS_IS_L2MEM(address)) {
-		int res = esp32p4_sync_l1_cache(target, address, size * count, ESP32P4_CACHE_MAP_ALL,
+		/* Write-back is (for dcache and l2 cache only) */
+		int res = esp32p4_sync_l1_cache(target, address, size * count, ESP32P4_CACHE_MAP_L1_DCACHE,
 			ESP32P4_CACHE_SYNC_WRITEBACK);
 		if (res != ERROR_OK)
 			LOG_TARGET_WARNING(target, "Cache writeback failed! Read main memory anyway.");
@@ -308,22 +310,20 @@ static int esp32p4_read_memory(struct target *target, target_addr_t address,
 static int esp32p4_write_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, const uint8_t *buffer)
 {
-	bool cache_invalidate = false;
-
 	// TODO: check all valid/invalid memory regions
 
 	if (ESP32P4_ADDRESS_IS_L2MEM(address)) {
 		/* write to main memory and invalidate cache */
-		int res = esp32p4_sync_l1_cache(target, address, size * count, ESP32P4_CACHE_MAP_ALL,
+		/* Write-back is (for dcache and l2 cache only) */
+		int res = esp32p4_sync_l1_cache(target, address, size * count, ESP32P4_CACHE_MAP_L1_DCACHE,
 			ESP32P4_CACHE_SYNC_WRITEBACK);
 		if (res != ERROR_OK)
 			LOG_TARGET_WARNING(target, "Cache writeback failed! Write main memory anyway.");
-		cache_invalidate = true;
 	}
 
 	int res = esp_riscv_write_memory(target, address, size, count, buffer);
 
-	if (cache_invalidate &&
+	if (ESP32P4_ADDRESS_IS_L2MEM(address) &&
 		esp32p4_sync_l1_cache(target, address, size * count, ESP32P4_CACHE_MAP_ALL,
 			ESP32P4_CACHE_SYNC_INVALIDATE) != ERROR_OK)
 		LOG_TARGET_WARNING(target, "Cache invalidate failed!");
