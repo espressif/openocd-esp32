@@ -298,12 +298,8 @@ def load_tests_by_pattern(loader, search_dir, pattern):
         if not issubclass(type(test), debug_backend_tests.DebuggerTestsBase):
             continue
         if re.match(case_name_pattern, test.__class__.__name__):
-            if len(parts) == 2 or parts[2] == '*':
+            if len(parts) == 2 or parts[2] in ['*', test._testMethodName]:
                 suite.addTest(test)
-            elif hasattr(test, parts[2]):
-                test_method = getattr(test, parts[2])
-                test1 = type(test)(test_method.__name__)
-                suite.addTest(debug_backend_tests.DebuggerTestsBunch([test1]))
     return suite
 
 # excludes tests using pattern <module>[.<test_case>[.<test_method>]] with wildcards (*) in <module> and <test_case> parts
