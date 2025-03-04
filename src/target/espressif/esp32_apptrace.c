@@ -416,6 +416,8 @@ static int esp32_apptrace_wait_tracing_finished(struct esp32_apptrace_cmd_ctx *c
 			LOG_ERROR("Failed to wait for pended trace blocks!");
 			return ERROR_FAIL;
 		}
+		/* let registered timer callbacks to run */
+		target_call_timer_callbacks();
 	}
 	/* signal timer callback to stop */
 	ctx->running = 0;
