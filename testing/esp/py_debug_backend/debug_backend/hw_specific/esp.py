@@ -32,7 +32,10 @@ class OocdEspImpl:
     def sysview_stop(self):
         cmd_out = self.cmd_exec('esp sysview stop')
         if 'Targets disconnected.' not in cmd_out:
-            raise DebuggerError('Failed to stop sysview!')
+            self.sysview_wait_stop()
+
+    def sysview_wait_stop(self, tmo=10):
+        self._tracing_wait_stop('sysview', tmo)
 
     def apptrace_start(self, trace_args):
         cmd_out = self.cmd_exec("esp apptrace start %s" % trace_args)
@@ -42,21 +45,25 @@ class OocdEspImpl:
     def apptrace_stop(self):
         cmd_out = self.cmd_exec("esp apptrace stop")
         if 'Targets disconnected.' not in cmd_out:
-            raise DebuggerError('Failed to stop apptrace!')
+            self.apptrace_wait_stop()
 
     def apptrace_wait_stop(self, tmo=10):
+        self._tracing_wait_stop('apptrace', tmo)
+
+    def _tracing_wait_stop(self, type='apptrace', tmo=10):
         stopped = False
         end = time.time()
         if tmo:
             end += tmo
         while not stopped:
-            cmd_out = self.cmd_exec("esp apptrace status")
+            cmd_out = self.cmd_exec(f"esp {type} status")
             for line in cmd_out.splitlines():
                 if line.startswith("Tracing is STOPPED."):
                     stopped = True
                     break
             if not stopped and tmo and time.time() > end:
-                raise DebuggerError('Failed to wait for apptrace stop!')
+                raise DebuggerError(f"Failed to wait for {type} stop!")
+            time.sleep(0.1) # some systems can hang if we spam too much
 
     def process_lazy_bps(self):
         self.cmd_exec('esp process_lazy_breakpoints')
