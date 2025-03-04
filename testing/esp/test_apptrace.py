@@ -78,7 +78,6 @@ class ApptraceTestsImpl:
             self.assertEqual(line, "[%d %s]\n" % (i, " " * (i * 20)))
         os.remove(trace_file_name)
 
-    @skip_for_chip(['esp32'], "skipped - OCD-1047")
     def test_apptrace_reset(self):
         """
             This test checks that apptracing continue to work if target resets between start and stop
