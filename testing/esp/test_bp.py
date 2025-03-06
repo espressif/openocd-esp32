@@ -308,7 +308,6 @@ def two_cores_concurrently_hit_wps(self):
     for i in range(10):
         self.run_to_bp_and_check(wp_stop_reason, 'blink_task', ['s_count11', 's_count2'])
 
-
 def appcpu_early_hw_bps(self):
     """
         This test checks if breakpoints set on APP_CPU just after reset work well.
