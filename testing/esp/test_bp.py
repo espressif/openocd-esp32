@@ -316,20 +316,17 @@ def appcpu_early_hw_bps(self):
     self.gdb.target_reset()
     rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
     self.add_bp('call_start_cpu1', hw=True)
-    for target in self.oocd.targets():
-        self.oocd.cmd_exec(f"{target} configure -rtos hwthread")
-    self.resume_exec()
-    self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
-    _,threads_info = self.gdb.get_thread_info()
+    faddr = self.gdb.extract_exec_addr(self.gdb.data_eval_expr("&call_start_cpu1"))
+    targets = self.oocd.targets()
 
     def check_bp_hit_on_cpu(cpu_num):
-        for ti in threads_info:
-            if ti['name'].endswith(f".cpu{cpu_num}"):
-                self.gdb.console_cmd_run(f"thread {ti['id']}")
-                break
-        frame = self.gdb.read_current_frame()
-        self.assertEqual(frame['func'], 'call_start_cpu1')
+        self.oocd.cmd_exec(f"targets {targets[cpu_num]}")
+        pc = self.oocd.get_reg('pc')
+        self.oocd.cmd_exec(f"targets {targets[0]}")
+        self.assertEqual(pc, faddr)
 
+    self.resume_exec()
+    self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
     try:
         check_bp_hit_on_cpu(1)
     except:
