@@ -904,12 +904,15 @@ TEST_DECL(gdb_consoleio, "test_semihost.SemihostTests*.test_semihost_with_consol
 #endif
     }
 
-    FILE *f_out = freopen("/host/:tt", "w", stdout);
+    FILE *saved_out = stdout;
+    FILE *saved_err = stderr;
+    FILE *f_out = fopen("/host/:tt", "w");
     if (f_out == NULL) {
         ESP_LOGE(TAG, "CPU[%d]: Failed to open file for writing (%d)!", core_id, errno);
         assert(false);
     }
     stderr = f_out;
+    stdout = f_out;
 
 	fflush(stdout);
 	fflush(stderr);
@@ -924,10 +927,9 @@ TEST_DECL(gdb_consoleio, "test_semihost.SemihostTests*.test_semihost_with_consol
     }
 
     // restore std streams
-    char path[64] = { 0 };
-    snprintf(path, sizeof(path) - 1, "/dev/uart/%d", CONFIG_ESP_CONSOLE_UART_NUM);
-    stdout = freopen(path, "w", f_out);
-    stderr = stdout;
+    stdout = saved_out;
+    stderr = saved_err;
+    fclose(f_out);
 
     if (core_id == 0) {
 #if !CONFIG_FREERTOS_UNICORE
