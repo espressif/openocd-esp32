@@ -42,4 +42,7 @@
 #define CONFIG_FREERTOS_TASK_NOTIFICATION_ARRAY_ENTRIES 1
 #define CONFIG_ESP_SYSTEM_SINGLE_CORE_MODE              0
 
+#define CONFIG_LIBC_NEWLIB                              1
+#define CONFIG_LOG_VERSION                              1
+
 #endif	/* OPENOCD_LOADERS_FLASH_ESPRESSIF_ESP32P4_SDKCONFIG_H */
