@@ -56,6 +56,7 @@ INCLUDES += -I. -I$(STUB_COMMON_PATH) -I$(STUB_CHIP_PATH) -I$(STUB_CHIP_ARCH_PAT
           -I$(IDF_PATH)/components/freertos/port/$(STUB_ARCH)/include \
           -I$(IDF_PATH)/components/freertos/esp_additions/arch/$(STUB_ARCH)/include \
           -I$(IDF_PATH)/components/soc/include \
+          -I$(IDF_PATH)/components/soc/$(STUB_CHIP)/register \
           -I$(IDF_PATH)/components/driver/include \
           -I$(IDF_PATH)/components/log/include \
           -I$(IDF_PATH)/components/heap/include \
