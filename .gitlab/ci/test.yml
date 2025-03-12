@@ -259,12 +259,12 @@ tests_armhf_esp32:
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_armhf_esp32_flash_encrypted:
-  extends: .tests_armhf_master_template
+  extends: .tests_arm64_master_template
   tags:
     - test_jtag_arm_flash_encryption
   needs:
     - job: build_test_app_esp32
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
@@ -415,12 +415,12 @@ tests_armhf_esp32_idf5.4.x:
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_armhf_esp32_idf5.4.x_flash_encrypted:
-  extends: .tests_armhf_v5.4.x_template
+  extends: .tests_arm64_v5.4.x_template
   tags:
     - test_jtag_arm_flash_encryption
   needs:
     - job: build_test_app_esp32_idf5.4.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
@@ -571,12 +571,12 @@ tests_armhf_esp32_idf5.3.x:
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_armhf_esp32_idf5.3.x_flash_encrypted:
-  extends: .tests_armhf_v5.3.x_template
+  extends: .tests_arm64_v5.3.x_template
   tags:
     - test_jtag_arm_flash_encryption
   needs:
     - job: build_test_app_esp32_idf5.3.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
@@ -703,12 +703,12 @@ tests_armhf_esp32_idf5.2.x:
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_armhf_esp32_idf5.2.x_flash_encrypted:
-  extends: .tests_armhf_v5.2.x_template
+  extends: .tests_arm64_v5.2.x_template
   tags:
     - test_jtag_arm_flash_encryption
   needs:
     - job: build_test_app_esp32_idf5.2.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
@@ -825,12 +825,12 @@ tests_armhf_esp32_idf5.1.x:
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_armhf_esp32_idf5.1.x_flash_encrypted:
-  extends: .tests_armhf_v5.1.x_template
+  extends: .tests_arm64_v5.1.x_template
   tags:
     - test_jtag_arm_flash_encryption
   needs:
     - job: build_test_app_esp32_idf5.1.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
@@ -947,12 +947,12 @@ tests_armhf_esp32_idf5.0.x:
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
 tests_armhf_esp32_idf5.0.x_flash_encrypted:
-  extends: .tests_armhf_v5.0.x_template
+  extends: .tests_arm64_v5.0.x_template
   tags:
     - test_jtag_arm_flash_encryption
   needs:
     - job: build_test_app_esp32_idf5.0.x
-    - job: build_linux_armhf_test
+    - job: build_linux_arm64_test
   variables:
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
