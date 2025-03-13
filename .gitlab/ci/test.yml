@@ -1108,8 +1108,7 @@ tests_on_linux:
 
 # nuttx build environment is nuttx/build-env-v5.1
 .test_nuttx_template:
-  extends: .tests_armhf_template
-  image: $CI_DOCKER_REGISTRY/target-test-env-v5.1:1
+  extends: .tests_armhf_v5.1.x_template
   stage: test_nuttx
   allow_failure: true
   inherit:
@@ -1118,10 +1117,6 @@ tests_on_linux:
       # Dont retry
   variables:
     RUNNER_SCRIPT_TIMEOUT: 5m
-    ESP_TOOLCHAIN: "${ESP_V5_1X_TOOLCHAIN_VER}"
-    ESP_GDB_TOOLCHAIN: "${ESP_V5_1X_XTENSA_GDB_TOOLCHAIN}"
-    TOOLCHAIN_PREFIX: "xtensa-${CHIP_NAME}"
-    CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_nuttx_test"
     NUTTX_APP_NAME: "nuttx_openocd"
     OOCD_CMDS: "set ESP_RTOS nuttx,set ESP_ONLYCPU 1"
@@ -1139,6 +1134,18 @@ tests_on_linux:
     - !reference [.copy_nuttx_files, script]
     - !reference [.run_tests_linux, script]
 
+.test_nuttx_arm64_template:
+  extends: .test_nuttx_template
+  variables:
+    PLATFORM_NAME: "linux-arm64-test"
+  needs:
+    - job: build_linux_arm64_test
+    - job: build_nuttx_app
+      artifacts: false
+    - project: idf/apache/esp-nuttx-apps
+      job: build_openocd_${CHIP_NAME}
+      ref: master
+
 test_nuttx_esp32:
   extends:
     - .test_nuttx_template
@@ -1152,7 +1159,7 @@ test_nuttx_esp32:
 
 test_nuttx_esp32s2:
   extends:
-    - .test_nuttx_template
+    - .test_nuttx_arm64_template
   variables:
     CHIP_NAME: esp32s2
     TEST_BOARD: "esp32s2-devkitj"
