@@ -22,11 +22,22 @@
   if [ ! -z "$ESP_GDB_TOOLCHAIN" ]; then
     export PATH=${HOME}/.espressif/tools/${ESP_GDB_TOOLCHAIN}/bin:${PATH}
   fi
+  if [[ ! -z "$TRIGGERED_BY_GDB_PIPELINE_BRANCH" && -d "${CI_PROJECT_DIR}/gdb" ]]; then
+    if [[ "${PLATFORM_NAME:-unknown}" == "linux-armhf-test" ]]; then
+        export PATH=${CI_PROJECT_DIR}/gdb/riscv32-esp-elf-gdb_armhf/bin:${PATH}
+        export PATH=${CI_PROJECT_DIR}/gdb/xtensa-esp-elf-gdb_armhf/bin:${PATH}
+    elif [[ "${PLATFORM_NAME:-unknown}" == "linux-arm64-test" ]]; then
+        export PATH=${CI_PROJECT_DIR}/gdb/riscv32-esp-elf-gdb_arm64/bin:${PATH}
+        export PATH=${CI_PROJECT_DIR}/gdb/xtensa-esp-elf-gdb_arm64/bin:${PATH}
+    fi
+  fi
   if [ ! -z "$ESP_GCOV_TOOLCHAIN" ]; then
     wget --no-cache --no-verbose https://dl.espressif.com/dl/${ESP_TOOLCHAIN}-gcov.tar.gz
     tar -xvf ${ESP_TOOLCHAIN}-gcov.tar.gz
     export PATH=${ESP_GCOV_TOOLCHAIN}/${TOOLCHAIN_PREFIX}-elf/bin:${PATH}
   fi
+  echo "PATH: ${PATH}"
+
 .export_toolchain:
   script:
     - *export_toolchain_snippet

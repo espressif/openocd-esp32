@@ -1,4 +1,5 @@
 stages:
+  - fetch_gdb
   - pre_check
   - static_analyzers
   - build_openocd
@@ -111,6 +112,45 @@ variables:
 before_script:
   - set -o errexit; set -o pipefail; set -o nounset
   - test "${DEBUG_SHELL:-''}" = "1" && set -x
+
+fetch_gdb:
+  stage: fetch_gdb
+  variables:
+    GIT_STRATEGY: none
+  rules:
+      - if: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
+  needs:
+    - project: idf/binutils-gdb
+      job: pack-xtensa-arm-linux-gnueabihf
+      ref: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
+      artifacts: true
+    - project: idf/binutils-gdb
+      job: pack-riscv32-arm-linux-gnueabihf
+      ref: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
+      artifacts: true
+    - project: idf/binutils-gdb
+      job: pack-xtensa-aarch64-linux-gnu
+      ref: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
+      artifacts: true
+    - project: idf/binutils-gdb
+      job: pack-riscv32-aarch64-linux-gnu
+      ref: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
+      artifacts: true
+  script:
+    - mv dist gdb
+    - cd gdb
+    - tar -xzf xtensa-esp-elf-gdb*aarch64-linux-gnu.tar.gz
+    - tar -xzf riscv32-esp-elf-gdb*aarch64-linux-gnu.tar.gz
+    - mv xtensa-esp-elf-gdb xtensa-esp-elf-gdb_arm64
+    - mv riscv32-esp-elf-gdb riscv32-esp-elf-gdb_arm64
+    - tar -xzf xtensa-esp-elf-gdb*arm-linux-gnueabihf.tar.gz
+    - tar -xzf riscv32-esp-elf-gdb*arm-linux-gnueabihf.tar.gz
+    - mv xtensa-esp-elf-gdb xtensa-esp-elf-gdb_armhf
+    - mv riscv32-esp-elf-gdb riscv32-esp-elf-gdb_armhf
+    - rm -f riscv32-esp-elf-gdb*.tar.gz xtensa-esp-elf-gdb*.tar.gz
+  artifacts:
+    paths:
+      - gdb
 
 macos_codesign:
   stage: pre_release
@@ -349,15 +389,15 @@ create_coverage_reports:
     - job: tests_armhf_esp32h2_idf5.4.x
     - job: tests_arm64_esp32p4_idf5.4.x
     # idf master
-    - job: tests_armhf_esp32
-    - job: tests_armhf_esp32_flash_encrypted
-    - job: tests_armhf_esp32s2
-    - job: tests_armhf_esp32s2_flash_encrypted
+    - job: tests_arm64_esp32
+    - job: tests_arm64_esp32_flash_encrypted
+    - job: tests_arm64_esp32s2
+    - job: tests_arm64_esp32s2_flash_encrypted
     - job: tests_armhf_esp32s3_dual
     - job: tests_armhf_esp32s3_single
-    - job: tests_armhf_esp32c2
+    - job: tests_arm64_esp32c2
     - job: tests_armhf_esp32c3
-    - job: tests_armhf_esp32c3_flash_encrypted
+    - job: tests_arm64_esp32c3_flash_encrypted
     - job: tests_arm64_esp32c5
     - job: tests_armhf_esp32c6
     - job: tests_arm64_esp32c61

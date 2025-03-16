@@ -240,7 +240,7 @@
 # IDF master #
 ##############
 
-tests_armhf_esp32:
+tests_arm64_esp32:
   extends: .tests_arm64_master_template
   tags:
     - esp32
@@ -249,37 +249,45 @@ tests_armhf_esp32:
   needs:
     - job: build_test_app_esp32
     - job: build_linux_arm64_test
+    - job: fetch_gdb
+      optional: true
   variables:
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e *.*Encrypted"
 
-tests_armhf_esp32_flash_encrypted:
+tests_arm64_esp32_flash_encrypted:
   extends: .tests_arm64_master_template
   tags:
     - test_jtag_arm_flash_encryption
   needs:
     - job: build_test_app_esp32
     - job: build_linux_arm64_test
+    - job: fetch_gdb
+      optional: true
   variables:
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
 
-tests_armhf_esp32s2:
+tests_arm64_esp32s2:
   extends: .tests_arm64_master_template
   needs:
     - job: build_test_app_esp32s2
     - job: build_linux_arm64_test
+    - job: fetch_gdb
+      optional: true
   variables:
     CHIP_NAME: "esp32s2"
     TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*Single"
 
-tests_armhf_esp32s2_flash_encrypted:
+tests_arm64_esp32s2_flash_encrypted:
   extends: .tests_arm64_master_template
   tags:
     - test_jtag_arm_flash_encryption_esp32s2
   needs:
     - job: build_test_app_esp32s2
     - job: build_linux_arm64_test
+    - job: fetch_gdb
+      optional: true
   variables:
     CHIP_NAME: "esp32s2"
     TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*SingleEncrypted"
@@ -289,6 +297,8 @@ tests_armhf_esp32s3_dual:
   needs:
     - job: build_test_app_esp32s3_dual
     - job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
   variables:
     CHIP_NAME: "esp32s3"
     TEST_RUN_DIR: "build_test_app_esp32s3_dual"
@@ -299,17 +309,21 @@ tests_armhf_esp32s3_single:
   needs:
     - job: build_test_app_esp32s3_single
     - job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
   variables:
     CHIP_NAME: "esp32s3"
     TEST_RUN_DIR: "build_test_app_esp32s3_single"
     OOCD_CMDS: "set ESP_ONLYCPU 1"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
 
-tests_armhf_esp32c2:
+tests_arm64_esp32c2:
   extends: .tests_arm64_master_riscv_template
   needs:
     - job: build_test_app_esp32c2
     - job: build_linux_arm64_test
+    - job: fetch_gdb
+      optional: true
   variables:
     CHIP_NAME: "esp32c2"
     TEST_RUN_BOARD_OPTS: "-b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
@@ -319,17 +333,21 @@ tests_armhf_esp32c3:
   needs:
     - job: build_test_app_esp32c3
     - job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
   variables:
     CHIP_NAME: "esp32c3"
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*Single"
 
-tests_armhf_esp32c3_flash_encrypted:
+tests_arm64_esp32c3_flash_encrypted:
   extends: .tests_arm64_master_riscv_template
   tags:
     - test_jtag_arm_flash_encryption_esp32c3
   needs:
     - job: build_test_app_esp32c3
     - job: build_linux_arm64_test
+    - job: fetch_gdb
+      optional: true
   variables:
     CHIP_NAME: "esp32c3"
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*SingleEncrypted"
@@ -342,6 +360,8 @@ tests_arm64_esp32c5:
   needs:
     - job: build_test_app_esp32c5
     - job: build_linux_arm64_test
+    - job: fetch_gdb
+      optional: true
   variables:
     CHIP_NAME: "esp32c5"
     TEST_RUN_BOARD_OPTS: "-b esp32c5-builtin -p test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
@@ -354,6 +374,8 @@ tests_armhf_esp32c6:
   needs:
     - job: build_test_app_esp32c6
     - job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
   variables:
     CHIP_NAME: "esp32c6"
     TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
@@ -366,6 +388,8 @@ tests_arm64_esp32c61:
   needs:
     - job: build_test_app_esp32c61
     - job: build_linux_arm64_test
+    - job: fetch_gdb
+      optional: true
   variables:
     CHIP_NAME: "esp32c61"
     TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
@@ -378,6 +402,8 @@ tests_armhf_esp32h2:
   needs:
     - job: build_test_app_esp32h2
     - job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
   variables:
     CHIP_NAME: "esp32h2"
     TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
@@ -387,6 +413,8 @@ tests_arm64_esp32p4:
   needs:
     - job: build_test_app_esp32p4
     - job: build_linux_arm64_test
+    - job: fetch_gdb
+      optional: true
   variables:
     CHIP_NAME: "esp32p4"
     TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -p test_*.*Dual"
