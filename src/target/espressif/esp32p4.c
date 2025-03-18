@@ -50,27 +50,40 @@
 #define ESP32P4_CACHE_L1_LINE_SIZE              64
 
 #define ESP32P4_CACHE_MAP_L1_ICACHE (ESP32P4_CACHE_MAP_L1_ICACHE0 | ESP32P4_CACHE_MAP_L1_ICACHE1)
-#define ESP32P4_CACHE_MAP_ALL (ESP32P4_CACHE_MAP_L1_ICACHE | ESP32P4_CACHE_MAP_L1_DCACHE)
+#define ESP32P4_CACHE_MAP_L1_CACHE (ESP32P4_CACHE_MAP_L1_ICACHE | ESP32P4_CACHE_MAP_L1_DCACHE)
+#define ESP32P4_CACHE_MAP_ALL (ESP32P4_CACHE_MAP_L1_CACHE | ESP32P4_CACHE_MAP_L2_CACHE)
 
-#define ESP32P4_IRAM0_CACHEABLE_ADDRESS_LOW     0x4ff00000U
-#define ESP32P4_IRAM0_CACHEABLE_ADDRESS_HIGH    0x4ffc0000U
+#define ESP32P4_EXRAM_CACHEABLE_ADDR_LOW        0x48000000U
+#define ESP32P4_EXRAM_CACHEABLE_ADDR_HIGH       0x4BFFFFFFU
+#define ESP32P4_IRAM0_CACHEABLE_ADDR_LOW        0x4ff00000U
+#define ESP32P4_IRAM0_CACHEABLE_ADDR_HIGH       0x4ffc0000U
 #define ESP32P4_NON_CACHEABLE_OFFSET            0x40000000U
 #define ESP32P4_NON_CACHEABLE_ADDR(addr)        ((addr) + ESP32P4_NON_CACHEABLE_OFFSET)
-#define ESP32P4_IRAM0_NON_CACHEABLE_ADDRESS_LOW     ESP32P4_NON_CACHEABLE_ADDR(ESP32P4_IRAM0_CACHEABLE_ADDRESS_LOW)
-#define ESP32P4_IRAM0_NON_CACHEABLE_ADDRESS_HIGH    ESP32P4_NON_CACHEABLE_ADDR(ESP32P4_IRAM0_CACHEABLE_ADDRESS_HIGH)
+#define ESP32P4_EXRAM_NON_CACHEABLE_ADDR_LOW     ESP32P4_NON_CACHEABLE_ADDR(ESP32P4_EXRAM_CACHEABLE_ADDR_LOW)
+#define ESP32P4_EXRAM_NON_CACHEABLE_ADDR_HIGH    ESP32P4_NON_CACHEABLE_ADDR(ESP32P4_EXRAM_CACHEABLE_ADDR_HIGH)
+#define ESP32P4_IRAM0_NON_CACHEABLE_ADDR_LOW     ESP32P4_NON_CACHEABLE_ADDR(ESP32P4_IRAM0_CACHEABLE_ADDR_LOW)
+#define ESP32P4_IRAM0_NON_CACHEABLE_ADDR_HIGH    ESP32P4_NON_CACHEABLE_ADDR(ESP32P4_IRAM0_CACHEABLE_ADDR_HIGH)
 
-#define ESP32P4_ADDRESS_IS_CACHEABLE(addr)      ((addr) >= ESP32P4_IRAM0_CACHEABLE_ADDRESS_LOW && \
-	(addr) < ESP32P4_IRAM0_CACHEABLE_ADDRESS_HIGH)
-#define ESP32P4_ADDRESS_IS_NONCACHEABLE(addr)      ((addr) >= (ESP32P4_IRAM0_NON_CACHEABLE_ADDRESS_LOW) && \
-	(addr) < (ESP32P4_IRAM0_NON_CACHEABLE_ADDRESS_HIGH))
-#define ESP32P4_ADDRESS_IS_L2MEM(addr) (ESP32P4_ADDRESS_IS_NONCACHEABLE(addr) || ESP32P4_ADDRESS_IS_CACHEABLE(addr))
+#define ESP32P4_ADDR_IS_EXRAM_CACHEABLE(addr)    ((addr) >= ESP32P4_EXRAM_CACHEABLE_ADDR_LOW && \
+	(addr) < ESP32P4_EXRAM_CACHEABLE_ADDR_HIGH)
+#define ESP32P4_ADDR_IS_EXRAM_NONCACHEABLE(addr) ((addr) >= (ESP32P4_EXRAM_NON_CACHEABLE_ADDR_LOW) && \
+	(addr) < (ESP32P4_EXRAM_NON_CACHEABLE_ADDR_HIGH))
+#define ESP32P4_ADDR_IS_EXMEM(addr) (ESP32P4_ADDR_IS_EXRAM_NONCACHEABLE(addr) || ESP32P4_ADDR_IS_EXRAM_CACHEABLE(addr))
 
-#define ESP32P4_TCM_ADDRESS_LOW     0x30100000U
-#define ESP32P4_TCM_ADDRESS_HIGH    0x30102000U
-#define ESP32P4_ADDRESS_IS_TCMEM(addr) ((addr) >= ESP32P4_TCM_ADDRESS_LOW && (addr) < ESP32P4_TCM_ADDRESS_HIGH)
+#define ESP32P4_ADDR_IS_IRAM_CACHEABLE(addr)      ((addr) >= ESP32P4_IRAM0_CACHEABLE_ADDR_LOW && \
+	(addr) < ESP32P4_IRAM0_CACHEABLE_ADDR_HIGH)
+#define ESP32P4_ADDR_IS_IRAM_NONCACHEABLE(addr)   ((addr) >= (ESP32P4_IRAM0_NON_CACHEABLE_ADDR_LOW) && \
+	(addr) < (ESP32P4_IRAM0_NON_CACHEABLE_ADDR_HIGH))
+#define ESP32P4_ADDR_IS_L2MEM(addr) (ESP32P4_ADDR_IS_IRAM_NONCACHEABLE(addr) || ESP32P4_ADDR_IS_IRAM_CACHEABLE(addr))
 
-#define ESP32P4_RESERVED_ADDRESS_LOW            0x00000000U
-#define ESP32P4_RESERVED_ADDRESS_HIGH           0x300FFFFFU
+#define ESP32P4_ADDR_IS_CACHEABLE(addr) (ESP32P4_ADDR_IS_L2MEM(addr) || ESP32P4_ADDR_IS_EXMEM(addr))
+
+#define ESP32P4_TCM_ADDR_LOW                    0x30100000U
+#define ESP32P4_TCM_ADDR_HIGH                   0x30102000U
+#define ESP32P4_ADDR_IS_TCMEM(addr) ((addr) >= ESP32P4_TCM_ADDR_LOW && (addr) < ESP32P4_TCM_ADDR_HIGH)
+
+#define ESP32P4_RESERVED_ADDR_LOW               0x00000000U
+#define ESP32P4_RESERVED_ADDR_HIGH              0x300FFFFFU
 
 /* max supported hw breakpoint and watchpoint count */
 #define ESP32P4_BP_NUM                          3
@@ -163,12 +176,12 @@ static void esp32p4_print_reset_reason(struct target *target, uint32_t reset_rea
 
 static bool esp32p4_is_idram_address(target_addr_t addr)
 {
-	return ESP32P4_ADDRESS_IS_L2MEM(addr) || ESP32P4_ADDRESS_IS_TCMEM(addr);
+	return ESP32P4_ADDR_IS_L2MEM(addr) || ESP32P4_ADDR_IS_TCMEM(addr);
 }
 
 static bool esp32p4_is_reserved_address(target_addr_t addr)
 {
-	return addr < ESP32P4_RESERVED_ADDRESS_HIGH;
+	return addr < ESP32P4_RESERVED_ADDR_HIGH;
 }
 
 static const struct esp_semihost_ops esp32p4_semihost_ops = {
@@ -253,7 +266,7 @@ static int esp32p4_init_target(struct command_context *cmd_ctx,
 	return ERROR_OK;
 }
 
-static int esp32p4_sync_l1_cache(struct target *target, target_addr_t address, uint32_t size, uint32_t map,
+static int esp32p4_sync_cache(struct target *target, target_addr_t address, uint32_t size, uint32_t map,
 	uint32_t op)
 {
 	uint8_t value_buf[4];
@@ -288,17 +301,16 @@ static int esp32p4_sync_l1_cache(struct target *target, target_addr_t address, u
 static int esp32p4_read_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
-	// TODO: check all valid/invalid memory regions
-
 	if (esp32p4_is_reserved_address(address)) {
 		/* TODO: OCD-976 */
 		memset(buffer, 0, size * count);
 		return ERROR_OK;
 	}
 
-	if (ESP32P4_ADDRESS_IS_L2MEM(address)) {
-		/* Write-back is (for dcache and l2 cache only) */
-		int res = esp32p4_sync_l1_cache(target, address, size * count, ESP32P4_CACHE_MAP_L1_DCACHE,
+	if (ESP32P4_ADDR_IS_CACHEABLE(address)) {
+		/* Write-back is for dcache and l2 cache only */
+		int res = esp32p4_sync_cache(target, address, size * count,
+			ESP32P4_CACHE_MAP_L1_DCACHE | ESP32P4_CACHE_MAP_L2_CACHE,
 			ESP32P4_CACHE_SYNC_WRITEBACK);
 		if (res != ERROR_OK)
 			LOG_TARGET_WARNING(target, "Cache writeback failed! Read main memory anyway.");
@@ -310,24 +322,27 @@ static int esp32p4_read_memory(struct target *target, target_addr_t address,
 static int esp32p4_write_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, const uint8_t *buffer)
 {
-	// TODO: check all valid/invalid memory regions
+	int map = -1;
+	if (ESP32P4_ADDR_IS_CACHEABLE(address)) {
+		/* Write-back is for dcache and l2 cache only */
+		map = ESP32P4_CACHE_MAP_L1_DCACHE | ESP32P4_CACHE_MAP_L2_CACHE;
+	}
 
-	if (ESP32P4_ADDRESS_IS_L2MEM(address)) {
+	if (map > 0) {
 		/* write to main memory and invalidate cache */
-		/* Write-back is (for dcache and l2 cache only) */
-		int res = esp32p4_sync_l1_cache(target, address, size * count, ESP32P4_CACHE_MAP_L1_DCACHE,
-			ESP32P4_CACHE_SYNC_WRITEBACK);
+		int res = esp32p4_sync_cache(target, address, size * count, map, ESP32P4_CACHE_SYNC_WRITEBACK);
 		if (res != ERROR_OK)
 			LOG_TARGET_WARNING(target, "Cache writeback failed! Write main memory anyway.");
 	}
 
 	int res = esp_riscv_write_memory(target, address, size, count, buffer);
 
-	if (ESP32P4_ADDRESS_IS_L2MEM(address) &&
-		esp32p4_sync_l1_cache(target, address, size * count, ESP32P4_CACHE_MAP_ALL,
-			ESP32P4_CACHE_SYNC_INVALIDATE) != ERROR_OK)
-		LOG_TARGET_WARNING(target, "Cache invalidate failed!");
-
+	if (map > 0) {
+		/* Don't invalidate the L2CACHE here. We don't know if it has been written back to the PSRAM yet. */
+		map = ESP32P4_CACHE_MAP_L1_CACHE;
+		if (esp32p4_sync_cache(target, address, size * count, map, ESP32P4_CACHE_SYNC_INVALIDATE) != ERROR_OK)
+			LOG_TARGET_WARNING(target, "Cache invalidate failed!");
+	}
 	return res;
 }
 

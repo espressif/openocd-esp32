@@ -45,7 +45,6 @@ TEST_DECL(cache_handling, "test_flasher.FlasherTests*.test_cache_handling")
     }
 }
 
-#if CONFIG_IDF_TARGET_ARCH_XTENSA
 #define SPIRAM_TEST_ARRAY_SZ    100
 
 TEST_DECL(psram_with_flash_breakpoints, "test_special.PsramTests*.test_psram_with_flash_breakpoints")
@@ -79,6 +78,53 @@ TEST_DECL(psram_with_flash_breakpoints, "test_special.PsramTests*.test_psram_wit
     }
 }
 
+static bool mem_check(uint8_t *mem, uint32_t mem_sz)
+{
+    const uint8_t buf[256] = {0};
+
+    for (uint32_t i = 0; i < mem_sz;) {
+        uint32_t cmp_sz = mem_sz > sizeof(buf) ? sizeof(buf) : mem_sz;
+        if (memcmp(&mem[i], buf, cmp_sz)) {
+            return false;
+        }
+        i += cmp_sz;
+        mem_sz -= cmp_sz;
+    }
+    return true;
+}
+
+// GH issue reported for ESP32-S3. See https://github.com/espressif/openocd-esp32/issues/264
+TEST_DECL(gh264_psram_check, "test_special.PsramTests*.test_psram_with_flash_breakpoints_gh264")
+{
+    uint32_t alloc_sz = 100000;
+
+    while (1) {
+        // CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL == 16384, so any block larger than this
+        // will be forced into PSRAM.  The following shows an overwrite.
+        // 24540 works; 24541 begins to show overwrite; 1000000 is massive overwrite
+        uint8_t *obj = calloc(alloc_sz,sizeof(uint8_t));
+        assert(obj);
+        printf("Allocated %u bytes @ %p\n", (unsigned int)alloc_sz, obj);
+
+        // Test breakpoints, to be set when you are stopped at app_main.
+        // - if you only set "b 15" then "c", when it breaks do an "x/128xb obj" you'll see 0's as you should
+        // - but if you set "b 15" AND "b 16" AND "b 17" then "c", when it breaks you'll see bad values
+        assert(mem_check(obj, alloc_sz));
+        TEST_BREAK_LBL(gh264_psram_check_bp_1);
+        printf("breakpoint 1\n"); TEST_BREAK_LOC(gh264_psram_check_1);
+        assert(mem_check(obj, alloc_sz));
+        TEST_BREAK_LBL(gh264_psram_check_bp_2);
+        printf("breakpoint 2\n"); TEST_BREAK_LOC(gh264_psram_check_2);
+        assert(mem_check(obj, alloc_sz));
+        TEST_BREAK_LBL(gh264_psram_check_bp_3);
+        printf("breakpoint 3\n"); TEST_BREAK_LOC(gh264_psram_check_3);
+
+        free(obj);
+        alloc_sz /= 2;
+    }
+}
+
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
 TEST_DECL(illegal_instruction_ex, "test_special.DebuggerSpecialTests*.test_exception_illegal_instruction")
 {
     __asm__ __volatile__ (
@@ -150,50 +196,44 @@ TEST_DECL(pseudo_coprocessor_ex, "test_special.DebuggerSpecialTests*.test_except
     );
 }
 
-static bool mem_check(uint8_t *mem, uint32_t mem_sz)
-{
-    const uint8_t buf[256] = {0};
+#else /* CONFIG_IDF_TARGET_ARCH_RISCV */
 
-    for (uint32_t i = 0; i < mem_sz;) {
-        uint32_t cmp_sz = mem_sz > sizeof(buf) ? sizeof(buf) : mem_sz;
-        if (memcmp(&mem[i], buf, cmp_sz)) {
-            return false;
-        }
-        i += cmp_sz;
-        mem_sz -= cmp_sz;
-    }
-    return true;
+TEST_DECL(illegal_instruction_ex, "test_special.DebuggerSpecialTests*.test_exception_illegal_instruction")
+{
+    __asm__ __volatile__ (
+        ".global exception_bp\n" \
+        ".type   exception_bp,@function\n" \
+        "exception_bp_1:\n" \
+        "unimp\n" \
+    );
 }
 
-// GH issue reported for ESP32-S3. See https://github.com/espressif/openocd-esp32/issues/264
-TEST_DECL(gh264_psram_check, "test_special.PsramTests*.test_psram_with_flash_breakpoints_gh264")
+TEST_DECL(load_access_fault_ex, "test_special.DebuggerSpecialTests*.test_exception_load_access_fault")
 {
-    uint32_t alloc_sz = 100000;
+    int value;
 
-    while (1) {
-        // CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL == 16384, so any block larger than this
-        // will be forced into PSRAM.  The following shows an overwrite.
-        // 24540 works; 24541 begins to show overwrite; 1000000 is massive overwrite
-        uint8_t *obj = calloc(alloc_sz,sizeof(uint8_t));
-        assert(obj);
-        printf("Allocated %u bytes @ %p\n", (unsigned int)alloc_sz, obj);
+    __asm__ __volatile__ (
+		".global exception_bp_2\n" \
+        ".type   exception_bp_2,@function\n" \
+        "exception_bp_2:\n" \
+        "lw %0, 0(%1)\n" \
+        : "=r"(value) : "r"(0x1000)
+    );
+}
 
-        // Test breakpoints, to be set when you are stopped at app_main.
-        // - if you only set "b 15" then "c", when it breaks do an "x/128xb obj" you'll see 0's as you should
-        // - but if you set "b 15" AND "b 16" AND "b 17" then "c", when it breaks you'll see bad values
-        assert(mem_check(obj, alloc_sz));
-        TEST_BREAK_LBL(gh264_psram_check_bp_1);
-        printf("breakpoint 1\n"); TEST_BREAK_LOC(gh264_psram_check_1);
-        assert(mem_check(obj, alloc_sz));
-        TEST_BREAK_LBL(gh264_psram_check_bp_2);
-        printf("breakpoint 2\n"); TEST_BREAK_LOC(gh264_psram_check_2);
-        assert(mem_check(obj, alloc_sz));
-        TEST_BREAK_LBL(gh264_psram_check_bp_3);
-        printf("breakpoint 3\n"); TEST_BREAK_LOC(gh264_psram_check_3);
+TEST_DECL(store_access_fault_ex, "test_special.DebuggerSpecialTests*.test_exception_store_access_fault")
+{
+    int value = 42;
 
-        free(obj);
-        alloc_sz /= 2;
-    }
+    asm __volatile__ (
+		".global exception_bp_3\n" \
+		".type   exception_bp_3,@function\n" \
+		"exception_bp_3:\n" \
+        "sw %0, 0(%1)"
+        :
+        : "r"(0x1000),
+          "r"(value)
+    );
 }
 #endif
 
@@ -252,46 +292,6 @@ TEST_DECL(wp_reconfigure_by_program, "test_special.DebuggerSpecialTests*.test_wp
     target_bp_func1();
 }
 
-#if CONFIG_IDF_TARGET_ARCH_RISCV
-TEST_DECL(illegal_instruction_ex, "test_special.DebuggerSpecialTests*.test_exception_illegal_instruction")
-{
-    __asm__ __volatile__ (
-        ".global exception_bp\n" \
-        ".type   exception_bp,@function\n" \
-        "exception_bp_1:\n" \
-        "unimp\n" \
-    );
-}
-
-TEST_DECL(load_access_fault_ex, "test_special.DebuggerSpecialTests*.test_exception_load_access_fault")
-{
-    int value;
-
-    __asm__ __volatile__ (
-		".global exception_bp_2\n" \
-        ".type   exception_bp_2,@function\n" \
-        "exception_bp_2:\n" \
-        "lw %0, 0(%1)\n" \
-        : "=r"(value) : "r"(0x1000)
-    );
-}
-
-TEST_DECL(store_access_fault_ex, "test_special.DebuggerSpecialTests*.test_exception_store_access_fault")
-{
-    int value = 42;
-
-    asm __volatile__ (
-		".global exception_bp_3\n" \
-		".type   exception_bp_3,@function\n" \
-		"exception_bp_3:\n" \
-        "sw %0, 0(%1)"
-        :
-        : "r"(0x1000),
-          "r"(value)
-    );
-}
-#endif /* CONFIG_IDF_TARGET_ARCH_RISCV */
-
 TEST_DECL(assert_failure_ex, "test_special.DebuggerSpecialTests*.test_exception_assert_failure")
 {
 	TEST_BREAK_LBL(assert_failure_bp);
@@ -316,20 +316,18 @@ ut_result_t special_test_do(int test_num, int core_num)
         xTaskCreatePinnedToCore(TEST_ENTRY(cache_handling), "cache_check_task", 4096, NULL, 5, NULL, core_num);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(wp_reconfigure_by_program), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(wp_reconfigure_by_program), "target_wp_reconf_task", 2048, NULL, 5, NULL, core_num);
-#if CONFIG_IDF_TARGET_ARCH_RISCV
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(illegal_instruction_ex), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(illegal_instruction_ex), "illegal_instruction_ex", 2048, NULL, 5, NULL, core_num);
+	} else if (TEST_ID_MATCH(TEST_ID_PATTERN(assert_failure_ex), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(assert_failure_ex), "assert_failure_ex", 2048, NULL, 5, NULL, core_num);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(abort_ex), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(abort_ex), "abort_ex", 2048, NULL, 5, NULL, core_num);
+#if CONFIG_IDF_TARGET_ARCH_RISCV
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(load_access_fault_ex), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(load_access_fault_ex), "load_access_fault_ex", 2048, NULL, 5, NULL, core_num);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(store_access_fault_ex), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(store_access_fault_ex), "store_access_fault_ex", 2048, NULL, 5, NULL, core_num);
 #else /* CONFIG_IDF_TARGET_ARCH_XTENSA */
-    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(gh264_psram_check), test_num)) {
-        xTaskCreatePinnedToCore(TEST_ENTRY(gh264_psram_check), "gh264_psram_check_task", 4096, NULL, 5, NULL, core_num);
-    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(psram_with_flash_breakpoints), test_num)) {
-        xTaskCreatePinnedToCore(TEST_ENTRY(psram_with_flash_breakpoints), "psram_task", 4096, NULL, 5, NULL, core_num);
-    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(illegal_instruction_ex), test_num)) {
-        xTaskCreatePinnedToCore(TEST_ENTRY(illegal_instruction_ex), "illegal_instruction_ex", 2048, NULL, 5, NULL, core_num);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(load_prohibited_ex), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(load_prohibited_ex), "load_prohibited_ex", 2048, NULL, 5, NULL, core_num);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(store_prohibited_ex), test_num)) {
@@ -341,10 +339,10 @@ ut_result_t special_test_do(int test_num, int core_num)
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(pseudo_coprocessor_ex), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(pseudo_coprocessor_ex), "pseudo_coprocessor_ex", 2048, NULL, 5, NULL, core_num);
 #endif
-	} else if (TEST_ID_MATCH(TEST_ID_PATTERN(assert_failure_ex), test_num)) {
-        xTaskCreatePinnedToCore(TEST_ENTRY(assert_failure_ex), "assert_failure_ex", 2048, NULL, 5, NULL, core_num);
-    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(abort_ex), test_num)) {
-        xTaskCreatePinnedToCore(TEST_ENTRY(abort_ex), "abort_ex", 2048, NULL, 5, NULL, core_num);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(gh264_psram_check), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(gh264_psram_check), "gh264_psram_check_task", 4096, NULL, 5, NULL, core_num);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(psram_with_flash_breakpoints), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(psram_with_flash_breakpoints), "psram_task", 4096, NULL, 5, NULL, core_num);
     } else {
         return UT_UNSUPPORTED;
     }
