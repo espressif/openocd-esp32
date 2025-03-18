@@ -196,8 +196,7 @@ class DebuggerSpecialTestsImpl:
             self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
 
 
-# PSRAM is supported for Xtensa chips only
-@only_for_arch(['xtensa'])
+@only_for_chip(["esp32", "esp32s2", "esp32s3", "esp32p4"])
 class PsramTestsImpl:
     """ PSRAM specific test cases generic for dual and single core modes
     """
