@@ -494,7 +494,7 @@ class SysViewMcoreTracingTestsImpl(BaseTracingTestsImpl):
 ########################################################################
 @skip_for_chip(['esp32s3'], "skipped - OCD-992")
 class SysViewTraceTestAppTestsDual(DebuggerGenericTestAppTests):
-    """ Base class to run tests which use gcov test app in dual core mode
+    """ Base class to run tests which use sysview test app in dual core mode
     """
     def __init__(self, methodName='runTest'):
         super(SysViewTraceTestAppTestsDual, self).__init__(methodName)
@@ -503,9 +503,9 @@ class SysViewTraceTestAppTestsDual(DebuggerGenericTestAppTests):
         self.test_tasks_num = 2
         self.cores_num = 2
 
-
+@skip_for_chip_and_ver(['latest'], ['esp32s3'], "skipped - OCD-992")
 class SysViewTraceTestAppTestsSingle(DebuggerGenericTestAppTests):
-    """ Base class to run tests which use gcov test app in single core mode
+    """ Base class to run tests which use sysview test app in single core mode
     """
     def __init__(self, methodName='runTest'):
         super(SysViewTraceTestAppTestsSingle, self).__init__(methodName)
