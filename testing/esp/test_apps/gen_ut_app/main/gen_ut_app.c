@@ -35,16 +35,18 @@ const static char *TAG = "ut_app";
 // test app algorithm selector
 volatile static int s_run_test = CONFIG_GEN_UT_APP_RUNTEST;
 volatile static char s_run_test_str[256];
+volatile static int s_run_core = -1;
+
 // vars for WP tests
 volatile static int s_count1 = 0;
 volatile static int s_count2 = 100;
 volatile static int s_count3 = 200;
 
-extern ut_result_t gcov_test_do(int test_num);
-extern ut_result_t thread_test_do(int test_num);
-extern ut_result_t tracing_test_do(int test_num);
-extern ut_result_t semihost_test_do(int test_num);
-extern ut_result_t special_test_do(int test_num);
+extern ut_result_t gcov_test_do(int test_num, int core_num);
+extern ut_result_t thread_test_do(int test_num, int core_num);
+extern ut_result_t tracing_test_do(int test_num, int core_num);
+extern ut_result_t semihost_test_do(int test_num, int core_num);
+extern ut_result_t special_test_do(int test_num, int core_num);
 
 static test_func_t s_test_funcs[] = {
     gcov_test_do,
@@ -344,12 +346,6 @@ TEST_DECL(cores_concurrently_hit, "test_bp.Debugger*Tests*.test_2cores_concurren
     xTaskCreatePinnedToCore(&blink_task, "blink_task1", 4096, NULL, 5, NULL, 1);
 }
 
-TEST_DECL(test_blink, "blink")
-{
-    static struct timer_task_arg task_arg = { .tim_grp = TEST_TIMER_GROUP_1, .tim_id = TEST_TIMER_0, .tim_period = 500000UL, .isr_func = test_timer_isr};
-    xTaskCreate(&blink_task, "blink_task", 4096, &task_arg, 5, NULL);
-}
-
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
 TEST_DECL(step_over_inst_changing_intlevel, "test_step.DebuggerStepTests*.test_step_over_intlevel_disabled_isr")
 {
@@ -401,31 +397,34 @@ void app_main()
     } else {
         ESP_LOGI(TAG, "Run test %d\n", s_run_test);
     }
-    if (TEST_ID_MATCH(TEST_ID_PATTERN(test_blink), s_run_test)) {
-        TEST_ENTRY(test_blink)(NULL);
+    int core_num = s_run_core < 0 || s_run_core >= portNUM_PROCESSORS ? portNUM_PROCESSORS-1 : s_run_core;
+
+    if (TEST_ID_MATCH("blink", s_run_test)) {
+        static struct timer_task_arg task_arg = { .tim_grp = TEST_TIMER_GROUP_1, .tim_id = TEST_TIMER_0, .tim_period = 500000UL, .isr_func = test_timer_isr};
+        xTaskCreatePinnedToCore(&blink_task, "blink_task", 4096, &task_arg, 5, NULL, core_num);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(cores_concurrently_hit), s_run_test)) {
         TEST_ENTRY(cores_concurrently_hit)(NULL);
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(step_over_insn_using_scratch_reg), s_run_test)) {
-        xTaskCreatePinnedToCore(TEST_ENTRY(step_over_insn_using_scratch_reg), "sreg_task", 2048, NULL, 5, NULL, portNUM_PROCESSORS-1);
+        xTaskCreatePinnedToCore(TEST_ENTRY(step_over_insn_using_scratch_reg), "sreg_task", 2048, NULL, 5, NULL, core_num);
 #endif
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(step_over_bp), s_run_test)) {
-        xTaskCreate(TEST_ENTRY(step_over_bp), "step_over_bp_task", 2048, NULL, 5, NULL);
+        xTaskCreatePinnedToCore(TEST_ENTRY(step_over_bp), "step_over_bp_task", 2048, NULL, 5, NULL, core_num);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(fibonacci_calc), s_run_test)) {
-        xTaskCreate(TEST_ENTRY(fibonacci_calc), "fibonacci_calc", 2048, NULL, 5, NULL);
+        xTaskCreatePinnedToCore(TEST_ENTRY(fibonacci_calc), "fibonacci_calc", 2048, NULL, 5, NULL, core_num);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(gdb_detach), s_run_test)) {
-        xTaskCreate(TEST_ENTRY(gdb_detach), "gdb_detach_task", 4096, NULL, 5, NULL);
+        xTaskCreatePinnedToCore(TEST_ENTRY(gdb_detach), "gdb_detach_task", 4096, NULL, 5, NULL, core_num);
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(step_over_inst_changing_intlevel), s_run_test)) {
-        xTaskCreate(TEST_ENTRY(step_over_inst_changing_intlevel), "step_over_inst_changing_intlevel", 2048, NULL, 5, NULL);
+        xTaskCreatePinnedToCore(TEST_ENTRY(step_over_inst_changing_intlevel), "step_over_inst_changing_intlevel", 2048, NULL, 5, NULL, core_num);
 #endif
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(window_exception), s_run_test)) {
-        xTaskCreate(TEST_ENTRY(window_exception), "win_exc_task", 8192, NULL, 5, NULL);
+        xTaskCreatePinnedToCore(TEST_ENTRY(window_exception), "win_exc_task", 8192, NULL, 5, NULL, core_num);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(step_out_of_function), s_run_test)) {
-        xTaskCreate(TEST_ENTRY(step_out_of_function), "step_out_func", 2048, NULL, 5, NULL);
+        xTaskCreatePinnedToCore(TEST_ENTRY(step_out_of_function), "step_out_func", 2048, NULL, 5, NULL, core_num);
 #if CONFIG_IDF_TARGET_ARCH_XTENSA
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(level5_int), s_run_test)) {
-        xTaskCreate(TEST_ENTRY(level5_int), "level5_int_test", 2048, NULL, 5, NULL);
+        xTaskCreatePinnedToCore(TEST_ENTRY(level5_int), "level5_int_test", 2048, NULL, 5, NULL, core_num);
 #endif
 #if CONFIG_IDF_TARGET_ARCH_RISCV
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(step_isr_masking_check_mstatus), s_run_test)) {
@@ -434,7 +433,7 @@ void app_main()
     } else {
         ut_result_t res = UT_UNSUPPORTED;
         for (int i = 0; i < sizeof(s_test_funcs)/sizeof(s_test_funcs[0]); i++) {
-            res = s_test_funcs[i](s_run_test);
+            res = s_test_funcs[i](s_run_test, s_run_core);
             if (res != UT_UNSUPPORTED) {
                 break;
             }

@@ -129,7 +129,7 @@ TEST_DECL(thread_registers, "test_threads.DebuggerThreadsTests*.test_thread_regi
     do_test_threads_backtraces();
 }
 
-ut_result_t thread_test_do(int test_num)
+ut_result_t thread_test_do(int test_num, int core_num)
 {
     if (TEST_ID_MATCH(TEST_ID_PATTERN(threads_backtraces), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(threads_backtraces), "check_bt_ctrl_task", 2048, NULL, 5, NULL, 0);

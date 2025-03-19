@@ -57,7 +57,7 @@ typedef enum {
 	UT_UNSUPPORTED
 } ut_result_t;
 
-typedef ut_result_t (*test_func_t)(int test_num);
+typedef ut_result_t (*test_func_t)(int test_num, int core_num);
 
 /* Can run 'make menuconfig' to choose the GPIO to blink,
    or you can edit the following line and set a number here.

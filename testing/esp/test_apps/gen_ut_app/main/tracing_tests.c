@@ -360,7 +360,7 @@ TEST_DECL(log_continuous_tracing, "test_sysview.SysView*TracingTests*.test_log_f
 #endif
 }
 
-ut_result_t tracing_test_do(int test_num)
+ut_result_t tracing_test_do(int test_num, int core_num)
 {
     if (TEST_ID_MATCH(TEST_ID_PATTERN(os_tracing), test_num)) {
         TEST_ENTRY(os_tracing)(NULL);
