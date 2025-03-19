@@ -106,13 +106,10 @@ static inline int semihosting_wrong_args(int wrong_arg)
     char fname[32];
     snprintf(fname, sizeof(fname) - 1, "/test_read.%d", core_id);
 
-#if CONFIG_IDF_TARGET_ARCH_XTENSA
-    /* Invalid opcode halts the execution for RISC-V targets OCD-1113 */
     ESP_LOGI(TAG, "CPU[%d]:------ wrong SYSCALL -------", core_id);
     syscall_ret = generic_syscall(wrong_arg, 0, 0, 0, 0, &test_errno);
     assert(syscall_ret == -1);
     assert((test_errno == ESP_ENOTSUP_WIN) || (test_errno == ESP_ENOTSUP_UNIX) || (test_errno == ESP_ENOTSUP_DARWIN));
-#endif
 
     /**** SYS_DRVINFO ****/
     ESP_LOGI(TAG, "CPU[%d]:------ SYS_DRVINFO test -------", core_id);
