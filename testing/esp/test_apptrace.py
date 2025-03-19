@@ -133,7 +133,7 @@ class ApptraceTestsImpl:
 ########################################################################
 
 class ApptraceTestAppTestsDual(DebuggerGenericTestAppTests):
-    """ Base class to run tests which use gcov test app in dual core mode
+    """ Base class to run tests which use apptrace test app in dual core mode
     """
     def __init__(self, methodName='runTest'):
         super(ApptraceTestAppTestsDual, self).__init__(methodName)
@@ -142,7 +142,7 @@ class ApptraceTestAppTestsDual(DebuggerGenericTestAppTests):
 
 
 class ApptraceTestAppTestsSingle(DebuggerGenericTestAppTests):
-    """ Base class to run tests which use gcov test app in single core mode.
+    """ Base class to run tests which use apptrace test app in single core mode.
     """
     def __init__(self, methodName='runTest'):
         super(ApptraceTestAppTestsSingle, self).__init__(methodName)
