@@ -236,6 +236,10 @@ def idf_ver_min_for_chip(ver_str, chips_to_skip, reason=None):
     # do not skip if chip is not found
     return unittest.skipIf(False, "")
 
+def run_all_cores(func):
+    func._run_all_cores = True
+    return func
+
 class DebuggerTestError(RuntimeError):
     """ Base class for debugger's test errors
     """
@@ -274,6 +278,10 @@ class DebuggerTestAppConfig:
         # name of test app variable which holds sub-test string ID (name) to run
         # used for string-based tests selection
         self.test_id_var = None
+        # name of app variable used to indicate which core to use for test, if applicable
+        self.core_select_var = None
+        # currently tested core, if applicable
+        self.active_core = None
         # Program's entry point ("app_main" is IDF's default)
         self.entry_point = entry_point
         # File containing commands to execute at startup
@@ -614,6 +622,9 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         else:
             self.gdb.data_eval_expr('%s=%d' % (self.test_app_cfg.test_select_var, sub_test_id))
 
+        if self.test_app_cfg.active_core is not None:
+            self.gdb.data_eval_expr('%s=%d' % (self.test_app_cfg.core_select_var, self.test_app_cfg.active_core))
+
 
     def run_to_bp(self, exp_rsn, func_name, tmo=20):
         self.resume_exec()
@@ -693,6 +704,7 @@ class DebuggerGenericTestAppTests(DebuggerTestAppTests):
         self.test_app_cfg.pt_path = os.path.join('partition_table', 'partition-table.bin')
         self.test_app_cfg.test_select_var = 's_run_test'
         self.test_app_cfg.test_id_var = 's_run_test_str'
+        self.test_app_cfg.core_select_var = 's_run_core'
 
 
 class DebuggerGenericTestAppTestsDual(DebuggerGenericTestAppTests):
@@ -706,6 +718,24 @@ class DebuggerGenericTestAppTestsDual(DebuggerGenericTestAppTests):
         self.test_app_cfg.bin_dir = os.path.join('output', 'default')
         self.test_app_cfg.build_dir = os.path.join('builds', 'default')
         self.args = []
+
+    def __init_subclass__(cls):
+        for fname in dir(cls):
+            f = getattr(cls, fname)
+            if getattr(f, '_run_all_cores', False):
+                setattr(cls, fname, cls._runtest_all_cores(f))
+
+    def _runtest_all_cores(func):
+        def test_wrapper_dual(self):
+            # setup was already called
+            self.test_app_cfg.active_core = 0
+            func(self) # run on cpu0
+            self.tearDown()
+            self.setUp()
+            self.test_app_cfg.active_core = 1
+            func(self) # run on cpu1
+            # teaddown gets called after
+        return test_wrapper_dual
 
 
 class DebuggerGenericTestAppTestsSingle(DebuggerGenericTestAppTests):

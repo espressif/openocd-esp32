@@ -24,6 +24,7 @@ class BreakpointTestsImpl:
         self.fill_hw_bps(keep_avail=2)
         self.bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
 
+    @run_all_cores
     def test_multi_reset_break(self):
         """
             This test checks that breakpoint works just after the reset:
@@ -54,6 +55,7 @@ class BreakpointTestsImpl:
         for f in self.bps:
             self.add_bp(f)
 
+    @run_all_cores
     def test_bp_add_remove_run(self):
         """
             This simple test checks general breakpoints usage scenario.
@@ -80,6 +82,7 @@ class BreakpointTestsImpl:
             self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay%d' % (i % 2)])
             self.readd_bps()
 
+    @run_all_cores
     def test_bp_ignore_count(self):
         """
             This test checks that the first several breakpoint's hits can be ignored:
@@ -106,6 +109,7 @@ class BreakpointTestsImpl:
                 # break at vTaskDelay
                 self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay%d' % (i % 2)])
 
+    @run_all_cores
     def test_bp_cond_expr(self):
         """
             This test checks that conditional breakpoint using expression works:
@@ -133,6 +137,7 @@ class BreakpointTestsImpl:
                 # break at vTaskDelay
                 self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay%d' % (i % 2)])
 
+    @run_all_cores
     def test_bp_and_reconnect(self):
         """
             This test checks that breakpoints work after GDB re-connection.
@@ -163,6 +168,7 @@ class BreakpointTestsImpl:
             sleep(0.1) #sleep 100ms
             self.gdb.connect()
 
+    @run_all_cores
     def test_bp_in_isr(self):
         """
             This test checks that the breakpoint's are handled in ISR properly:
@@ -191,6 +197,7 @@ class WatchpointTestsImpl:
 
     wp_stop_reason = [dbg.TARGET_STOP_REASON_SIGTRAP, dbg.TARGET_STOP_REASON_WP]
 
+    @run_all_cores
     def test_wp_simple(self):
         """
             This simple test checks general watchpoints usage scenario.
@@ -222,6 +229,7 @@ class WatchpointTestsImpl:
             self.assertEqual(var_val, cnt+1)
             cnt += 1
 
+    @run_all_cores
     def test_wp_and_reconnect(self):
         """
             This test checks that watchpoints work after GDB re-connection.

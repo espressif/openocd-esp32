@@ -944,7 +944,7 @@ TEST_DECL(gdb_consoleio, "test_semihost.SemihostTests*.test_semihost_with_consol
     done();
 }
 
-ut_result_t semihost_test_do(int test_num)
+ut_result_t semihost_test_do(int test_num, int core_num)
 {
     if (TEST_ID_MATCH(TEST_ID_PATTERN(gdb_fileio), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(gdb_fileio), "gdb_fileio_task", 4096, NULL, 5, NULL, 0);

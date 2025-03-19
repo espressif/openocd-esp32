@@ -16,6 +16,7 @@ class GDBConnectTestsImpl:
     """ Test cases which are common for dual and single core modes
     """
 
+    @run_all_cores
     def test_connect_reset_load_symbols(self):
         """
             Check that we can connect and do "monitor reset" when
@@ -34,6 +35,7 @@ class GDBConnectTestsImpl:
         self.gdb.exec_file_set(self.test_app_cfg.build_app_elf_path())
         self.resume_exec()
 
+    @run_all_cores
     def test_gdb_detach(self):
         """
             Check that gdb detach command removes flash breakpoints

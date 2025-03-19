@@ -39,25 +39,17 @@ void gcov_task(void *pvParameter)
         }
     }
 }
-
-TEST_DECL(gcov_on_the_fly, "test_gcov.GcovTests*.test_on_the_fly*")
-{
-    xTaskCreatePinnedToCore(&gcov_task, "gcov_task", 8192, (void *)false, 5, NULL, portNUM_PROCESSORS-1);
-}
-
-TEST_DECL(gcov_simple, "test_gcov.GcovTests*.test_simple*")
-{
-    xTaskCreatePinnedToCore(&gcov_task, "gcov_task", 8192, (void *)true, 5, NULL, portNUM_PROCESSORS-1);
-}
 #endif //CONFIG_ESP32_GCOV_ENABLE
 
-ut_result_t gcov_test_do(int test_num)
+ut_result_t gcov_test_do(int test_num, int core_num)
 {
+    if (core_num < 0 || core_num >= portNUM_PROCESSORS)
+        core_num = portNUM_PROCESSORS-1;
 #if CONFIG_ESP32_GCOV_ENABLE
-    if (TEST_ID_MATCH(TEST_ID_PATTERN(gcov_on_the_fly), test_num)) {
-        TEST_ENTRY(gcov_on_the_fly)(NULL);
-    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(gcov_simple), test_num)) {
-        TEST_ENTRY(gcov_simple)(NULL);
+    if (TEST_ID_MATCH("test_gcov.GcovTests*.test_on_the_fly*", test_num)) {
+        xTaskCreatePinnedToCore(&gcov_task, "gcov_task", 8192, (void *)false, 5, NULL, core_num);
+    } else if (TEST_ID_MATCH("test_gcov.GcovTests*.test_simple*", test_num)) {
+        xTaskCreatePinnedToCore(&gcov_task, "gcov_task", 8192, (void *)true, 5, NULL, core_num);
     } else {
         return UT_UNSUPPORTED;
     }
