@@ -1139,7 +1139,7 @@ tests_on_linux:
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_nuttx_test"
     NUTTX_APP_NAME: "nuttx_openocd"
     OOCD_CMDS: "set ESP_RTOS nuttx,set ESP_ONLYCPU 1"
-    TEST_RUN_EXTRA_OPTS: "-i other -b ${TEST_BOARD} -p test_nuttx -e *.*Encrypted"
+    TEST_RUN_EXTRA_OPTS: "-r -i other -b ${TEST_BOARD} -p test_nuttx -e *.*Encrypted"
   needs:
     - job: build_linux_armhf_test
     - job: build_nuttx_app
