@@ -13,6 +13,7 @@ class OocdEspImpl:
 
     def set_appimage_offset(self, app_flash_off):
         self.cmd_exec('esp appimage_offset 0x%x' % app_flash_off)
+        time.sleep(0.5) # output contains characters mistaken for prompt, wait for command to finish
 
     def set_smp_semihosting_basedir(self, semi_dir):
         self.cmd_exec('esp_semihost_basedir %s' % (fixup_path(semi_dir))) 
