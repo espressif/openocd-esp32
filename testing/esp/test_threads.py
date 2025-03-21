@@ -153,7 +153,6 @@ class DebuggerThreadsTestsAmazonFreeRTOSDual(DebuggerGenericTestAppTestsDual, De
         super(DebuggerGenericTestAppTestsDual, self).test_threads_backtraces()
 
 @idf_ver_min('5.3')
-@skip_for_chip(['esp32c5', 'esp32c61'], "skipped - OCD-1049")
 class DebuggerThreadsTestsAmazonFreeRTOSSingle(DebuggerGenericTestAppTestsSingle, DebuggerThreadsTestsImpl):
 
     def __init__(self, methodName='runTest'):
