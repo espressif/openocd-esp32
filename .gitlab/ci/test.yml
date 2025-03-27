@@ -10,7 +10,6 @@
   artifacts:
     paths:
       - $TEST_RUN_DIR/debug_backend_tests.log
-      - $TEST_RUN_DIR/gdb_logs
       - $TEST_RUN_DIR/esp_cov_files
     reports:
       junit:
