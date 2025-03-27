@@ -111,7 +111,7 @@ void stub_flash_cache_flush(void)
 {
 	/* we do not know breakpoint program address here, so invalidate the
 	 * whole ICache */
-	Cache_Invalidate_All();
+	Cache_WriteBack_Invalidate_All();
 }
 
 void stub_cache_configure(void)
