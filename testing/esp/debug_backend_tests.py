@@ -720,6 +720,9 @@ class DebuggerGenericTestAppTestsDual(DebuggerGenericTestAppTests):
         self.args = []
 
     def __init_subclass__(cls):
+        # Only apply for esp32p4 to run tests also on cpu0, until single core tesets are enabled (OCD-1005)
+        if testee_info.chip != "esp32p4":
+            return
         for fname in dir(cls):
             f = getattr(cls, fname)
             if getattr(f, '_run_all_cores', False):
