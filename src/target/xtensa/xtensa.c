@@ -339,6 +339,61 @@ static const struct xtensa_keyval_info xt_qerr[XT_QERR_NUM] = {
 /* Set to true for extra debug logging */
 static const bool xtensa_extra_debug_log;
 
+static void xtensa_print_dsr_fields(struct target *target)
+{
+	struct xtensa *xtensa = target_to_xtensa(target);
+	xtensa_dsr_t dsr = xtensa->dbg_mod.core_status.dsr;
+	char fields[256] = "";
+
+	if (dsr & OCDDSR_EXECDONE)
+		strcat(fields, "ExecDone,");
+	if (dsr & OCDDSR_EXECEXCEPTION)
+		strcat(fields, "ExecException,");
+	if (dsr & OCDDSR_EXECBUSY)
+		strcat(fields, "ExecBusy,");
+	if (dsr & OCDDSR_EXECOVERRUN)
+		strcat(fields, "ExecOverrun,");
+	if (dsr & OCDDSR_STOPPED)
+		strcat(fields, "Stopped,");
+	if (dsr & OCDDSR_COREWROTEDDR)
+		strcat(fields, "CoreWroteDDR,");
+	if (dsr & OCDDSR_COREREADDDR)
+		strcat(fields, "CoreReadDDR,");
+	if (dsr & OCDDSR_HOSTWROTEDDR)
+		strcat(fields, "HostWroteDDR,");
+	if (dsr & OCDDSR_HOSTREADDDR)
+		strcat(fields, "HostReadDDR,");
+	if (dsr & OCDDSR_DEBUGPENDBREAK)
+		strcat(fields, "DebugPendBreak,");
+	if (dsr & OCDDSR_DEBUGPENDHOST)
+		strcat(fields, "DebugPendHost,");
+	if (dsr & OCDDSR_DEBUGPENDTRAX)
+		strcat(fields, "DebugPendTrax,");
+	if (dsr & OCDDSR_DEBUGINTBREAK)
+		strcat(fields, "DebugIntBreak,");
+	if (dsr & OCDDSR_DEBUGINTHOST)
+		strcat(fields, "DebugIntHost,");
+	if (dsr & OCDDSR_DEBUGINTTRAX)
+		strcat(fields, "DebugIntTrax,");
+	if (dsr & OCDDSR_RUNSTALLTOGGLE)
+		strcat(fields, "RunStallToggle,");
+	if (dsr & OCDDSR_RUNSTALLSAMPLE)
+		strcat(fields, "RunStallInputValue,");
+	if (dsr & OCDDSR_BREACKOUTACKITI)
+		strcat(fields, "BreakOutAckITI,");
+	if (dsr & OCDDSR_BREAKINITI)
+		strcat(fields, "BreakInITI,");
+	if (dsr & OCDDSR_DBGMODPOWERON)
+		strcat(fields, "PowerOn,");
+
+	// Remove trailing comma if any fields were set
+	if (fields[0] != '\0')
+		fields[strlen(fields) - 1] = '\0';
+
+	LOG_TARGET_DEBUG(target, "DSR(0x%08x):%s", (unsigned int)dsr, fields[0] ? fields : "No fields set");
+}
+
+
 /**
  * Gets a config for the specific mem type
  */
@@ -2319,11 +2374,13 @@ int xtensa_poll(struct target *target)
 	res = xtensa_dm_core_status_read(&xtensa->dbg_mod);
 	if (res != ERROR_OK)
 		return res;
-	if (prev_dsr != xtensa->dbg_mod.core_status.dsr)
+	if (prev_dsr != xtensa->dbg_mod.core_status.dsr) {
 		LOG_TARGET_DEBUG(target,
 			"DSR has changed: was 0x%08" PRIx32 " now 0x%08" PRIx32,
 			prev_dsr,
 			xtensa->dbg_mod.core_status.dsr);
+		xtensa_print_dsr_fields(target);
+	}
 	if (xtensa_dm_is_powered(&xtensa->dbg_mod))
 		/* Reset the powered-off counter */
 		xtensa->come_online_probes_num = 3;
