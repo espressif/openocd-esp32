@@ -90,7 +90,7 @@
 .tests_v5.4.x_template:
   extends: .tests_template
   stage: test_idf5.4.x
-  image: $CI_DOCKER_REGISTRY/target-test-env-v5.4:1
+  image: $CI_DOCKER_REGISTRY/target-test-env-v5.4:2
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_4X_XTENSA_GDB_TOOLCHAIN}"
@@ -99,6 +99,7 @@
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.4.x"
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_4_X_RELEASE_TAG}"
     TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
+    ESP_GCOV_TOOLCHAIN: "${ESP_V5_4X_XTENSA_GCOV_TOOLCHAIN}"
 
 .tests_v5.4.x_riscv_template:
   extends: .tests_v5.4.x_template
@@ -106,6 +107,7 @@
     CHIP_TEST_TOOLCHAIN: "riscv32-esp"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_4X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_GCOV_TOOLCHAIN: "${ESP_V5_4X_RISCV_GCOV_TOOLCHAIN}"
 
 .tests_v5.3.x_template:
   extends: .tests_template
