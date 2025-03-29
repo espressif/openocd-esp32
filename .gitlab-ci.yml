@@ -1,4 +1,5 @@
 stages:
+  - pre_check
   - static_analyzers
   - build_openocd
 
@@ -51,3 +52,4 @@ before_script:
 include:
   - '.gitlab/ci/util.yml'
   - '.gitlab/ci/build.yml'
+  - '.gitlab/ci/pre-check.yml'
