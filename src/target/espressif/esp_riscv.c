@@ -45,8 +45,6 @@ enum {
 	ESP_RISCV_SET_WATCHPOINT_ARG_MAX
 };
 
-#define ESP_RISCV_EXCEPTION_CAUSE(reg_val)  ((reg_val) & 0x1F)
-
 #define ESP_RISCV_LOAD_FP     0x07
 #define ESP_RISCV_STORE_FP    0x27
 #define ESP_RISCV_OP_FP       0x53
@@ -73,7 +71,7 @@ enum {
 static int esp_riscv_debug_stubs_info_init(struct target *target,
 	target_addr_t ctrl_addr);
 
-static const char *esp_riscv_get_exception_reason(uint32_t exception_code)
+const char *esp_riscv_get_exception_reason(uint32_t exception_code)
 {
 	switch (ESP_RISCV_EXCEPTION_CAUSE(exception_code)) {
 	case CAUSE_MISALIGNED_FETCH:
@@ -775,6 +773,29 @@ static int esp_riscv_single_hart_poll(struct target *target)
 	return res;
 }
 
+static bool esp_riscv_algo_should_save_reg(struct target *target, struct reg *r)
+{
+	static const uint32_t always_save_csrs[] = {
+		CSR_MTVEC, CSR_MEPC, CSR_MCAUSE, CSR_MTVAL,
+	};
+
+	if (!r->exist)
+		return false;
+
+	for (size_t i = 0; i < ARRAY_SIZE(always_save_csrs); i++) {
+		if (r->number == GDB_REGNO_CSR0 + always_save_csrs[i])
+			return true;
+	}
+
+	if (!r->caller_save)
+		return false;
+
+	if (r->number > GDB_REGNO_PC && target_to_esp_riscv(target)->minimal_save_restore)
+		return false;
+
+	return true;
+}
+
 int esp_riscv_start_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
@@ -795,8 +816,7 @@ int esp_riscv_start_algorithm(struct target *target,
 		struct reg *r = &target->reg_cache->reg_list[number];
 
 		algorithm_info->valid_saved_registers[r->number] = r->exist;
-		if (!r->exist || !r->caller_save
-				|| (r->number > GDB_REGNO_PC && target_to_esp_riscv(target)->minimal_save_restore))
+		if (!esp_riscv_algo_should_save_reg(target, r))
 			continue;
 
 		LOG_TARGET_DEBUG(target, "save %s", r->name);
@@ -819,9 +839,7 @@ int esp_riscv_start_algorithm(struct target *target,
 	/* write mem params */
 	for (int i = 0; i < num_mem_params; i++) {
 		if (mem_params[i].direction != PARAM_IN) {
-			int retval = target_write_buffer(target, mem_params[i].address,
-				mem_params[i].size,
-				mem_params[i].value);
+			int retval = target_write_buffer(target, mem_params[i].address, mem_params[i].size, mem_params[i].value);
 			if (retval != ERROR_OK)
 				return retval;
 		}
@@ -858,6 +876,14 @@ int esp_riscv_start_algorithm(struct target *target,
 	int retval = riscv_interrupts_disable(target, &algorithm_info->masked_mstatus);
 	if (retval != ERROR_OK)
 		return retval;
+
+	if (algorithm_info->trap_entry_addr) {
+		if (riscv_reg_set(target, GDB_REGNO_CSR0 + CSR_MTVEC, algorithm_info->trap_entry_addr) != ERROR_OK) {
+			LOG_TARGET_ERROR(target, "Failed to set mtvec to 0x%" TARGET_PRIxADDR,
+				algorithm_info->trap_entry_addr);
+			return ERROR_FAIL;
+		}
+	}
 
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 	if (esp_riscv->pre_algorithm) {
@@ -959,8 +985,7 @@ int esp_riscv_wait_algorithm(struct target *target,
 		number <= max_saved_reg && number < target->reg_cache->num_regs; number++) {
 		struct reg *r = &target->reg_cache->reg_list[number];
 
-		if (!algorithm_info->valid_saved_registers[r->number] || !r->caller_save || !r->exist
-				|| (r->number > GDB_REGNO_PC && target_to_esp_riscv(target)->minimal_save_restore))
+		if (!algorithm_info->valid_saved_registers[r->number] || !esp_riscv_algo_should_save_reg(target, r))
 			continue;
 
 		LOG_TARGET_DEBUG(target, "restore %s", r->name);

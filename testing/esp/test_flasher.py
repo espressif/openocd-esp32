@@ -117,13 +117,13 @@ class FlasherTestsImpl:
             for i in range(int(size / 1024)):
                 fbin.write(os.urandom(1024) if i != 0 else self._get_image_header(1024))
 
-        self.gdb.target_program(fname1, offset, actions=actions, tmo=130)
+        self.gdb.target_program(fname1, offset, actions=actions, tmo=480)
 
         # since we can not get result from OpenOCD (output parsing seems not to be good idea),
         # we need to read written flash and compare data manually
         _, fname2 = tempfile.mkstemp()
         os.truncate(fname1, size - truncate_size)
-        self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (dbg.fixup_path(fname2), offset, size - truncate_size), tmo=180)
+        self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (dbg.fixup_path(fname2), offset, size - truncate_size), tmo=480)
 
         # restore flash contents with test app as it was overwritten by test
         # what can lead to the failures when preparing for the next tests

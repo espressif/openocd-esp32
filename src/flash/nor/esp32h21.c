@@ -40,15 +40,11 @@ static bool esp32h21_is_drom_address(target_addr_t addr)
 	return addr >= ESP32H21_DROM_LOW && addr < ESP32H21_DROM_HIGH;
 }
 
-static const struct command_map s_cmd_map[ESP_STUB_CMD_FLASH_MAX_ID + 1] = {
-	MAKE_CMD_MAP_ENTRIES
-};
-
 static const struct esp_flasher_stub_config *esp32h21_get_stub(struct flash_bank *bank, int cmd)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	if (esp_info->stub_log_enabled)
-		return s_cmd_map[ESP_STUB_CMD_FLASH_WITH_LOG].config;
+		return s_cmd_map[ESP_STUB_CMD_TEST_ALL].config;
 	return s_cmd_map[cmd].config;
 }
 

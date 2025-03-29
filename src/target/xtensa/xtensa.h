@@ -233,6 +233,8 @@ struct xtensa_algorithm {
 	/** Used internally to backup and restore core state. */
 	enum target_debug_reason ctx_debug_reason;
 	xtensa_reg_val_t ctx_ps;
+	/** Stub exception entry address. */
+	target_addr_t trap_entry_addr;
 };
 
 #define XTENSA_COMMON_MAGIC 0x54E4E555U
@@ -364,6 +366,7 @@ static inline bool xtensa_is_stopped(struct target *target)
 }
 
 uint32_t xtensa_ins_rsr(struct xtensa *xtensa, unsigned int sr, unsigned int t);
+int xtensa_write_sr_by_num(struct target *target, unsigned int sr_num, uint32_t value);
 int xtensa_core_status_check(struct target *target);
 
 int xtensa_examine(struct target *target);

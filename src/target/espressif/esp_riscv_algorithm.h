@@ -28,6 +28,8 @@ struct esp_riscv_algorithm {
 	bool valid_saved_registers[ESP_RISCV_MAX_REGISTERS];
 	uint32_t saved_assist_debug_monitor_register;
 	uint64_t masked_mstatus;
+	/** Stub trap entry address for mtvec */
+	target_addr_t trap_entry_addr;
 };
 
 extern const struct esp_algorithm_hw riscv_algo_hw;
