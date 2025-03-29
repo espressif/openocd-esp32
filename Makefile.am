@@ -22,17 +22,18 @@ dist_esptools_DATA = \
 	tools/esp_detect_config.py \
 	tools/esp_problems_hints.yml
 
-esp32c6stubsdir = $(pkgdatadir)/espressif/stub_bins/esp32c6
-dist_esp32c6stubs_DATA = \
-	contrib/loaders/flash/espressif/esp32c6/inc/stub_flash_idf_binary_code.inc \
-	contrib/loaders/flash/espressif/esp32c6/inc/stub_flash_idf_binary_data.inc \
-	contrib/loaders/flash/espressif/esp32c6/stub_flash_idf_image.h
+#TODO: enable when the stub code is ready
+#esp32c6stubsdir = $(pkgdatadir)/espressif/stub_bins/esp32c6
+#dist_esp32c6stubs_DATA = \
+#	contrib/loaders/flash/espressif/esp32c6/inc/stub_flash_idf_binary_code.inc \
+#	contrib/loaders/flash/espressif/esp32c6/inc/stub_flash_idf_binary_data.inc \
+#	contrib/loaders/flash/espressif/esp32c6/stub_flash_idf_image.h
 
-esp32h2stubsdir = $(pkgdatadir)/espressif/stub_bins/esp32h2
-dist_esp32h2stubs_DATA = \
-	contrib/loaders/flash/espressif/esp32h2/inc/stub_flash_idf_binary_code.inc \
-	contrib/loaders/flash/espressif/esp32h2/inc/stub_flash_idf_binary_data.inc \
-	contrib/loaders/flash/espressif/esp32h2/stub_flash_idf_image.h
+#esp32h2stubsdir = $(pkgdatadir)/espressif/stub_bins/esp32h2
+#dist_esp32h2stubs_DATA = \
+#	contrib/loaders/flash/espressif/esp32h2/inc/stub_flash_idf_binary_code.inc \
+#	contrib/loaders/flash/espressif/esp32h2/inc/stub_flash_idf_binary_data.inc \
+#	contrib/loaders/flash/espressif/esp32h2/stub_flash_idf_image.h
 
 SUBDIRS =
 DIST_SUBDIRS =
