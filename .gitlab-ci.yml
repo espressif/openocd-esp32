@@ -2,6 +2,7 @@ stages:
   - pre_check
   - static_analyzers
   - build_openocd
+  - stub_build_test
   - run_test_pipelines
   - build_nuttx
   - test_host
@@ -54,6 +55,11 @@ variables:
   ARCHIVE_TOOL: "tar czf"
   ARCHIVE_EXT: "tar.gz"
   RELEASE_DESC: "New release"
+
+  # Set to "1" to run all test_stublib_* jobs,
+  # build_stub_images runs unconditionally regardless of this flag.
+  # Can be overridden from the GitLab "Run pipeline" UI.
+  RUN_STUB_TESTS: "0"
 
 # prefix should be like a $CI_PROJECT_NAME, but we cannot use variable here
 .release_tag_filter: &release_tag_filter

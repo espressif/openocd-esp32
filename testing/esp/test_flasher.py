@@ -179,6 +179,7 @@ class FlasherTestsImpl:
             5) Compare files.
         """
         size = 0x103
+        aligned_size = (size + 3) & ~3
         fhnd, fname1 = tempfile.mkstemp()
         get_logger().debug('Generate random file %dB "%s"', size, fname1)
         with os.fdopen(fhnd, 'wb') as fbin:
@@ -190,8 +191,9 @@ class FlasherTestsImpl:
             # since we can not get result from OpenOCD (output parsing seems not to be good idea),
             # we need to read written flash and compare data manually
             _, fname2 = tempfile.mkstemp()
-            self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (dbg.fixup_path(fname2), 0, size ))
-            self.assertTrue(filecmp.cmp(fname1, fname2))
+            self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (dbg.fixup_path(fname2), 0, aligned_size))
+            with open(fname1, 'rb') as expected_file, open(fname2, 'rb') as actual_file:
+                self.assertEqual(expected_file.read(size), actual_file.read(size))
         finally:
             # restore flash contents with test app as it was overwritten by test
             # what can lead to the failures when preparing for the next tests
@@ -215,31 +217,11 @@ class FlasherTestsImpl:
         for i in range(5):
             self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_level', ['gpio_set_level'], outmost_func_name='cache_handling_task')
 
-    def test_stub_logs(self):
-        """
-            This test checks if stub logs are enabled successfully.
-        """
-        expected_strings = ["STUB_D: cmd 4:FLASH_MAP_GET",
-                            "STUB_D: stub_flash_get_size: ENTER",
-                            "STUB_I: Found app image: magic 0xe9"]
-
-        self.gdb.monitor_run("esp stub_log on", 5)
-        self.gdb.monitor_run("flash probe 0", 5)
-        self.gdb.monitor_run("esp stub_log off", 5)
-
-        log_path = get_logger().handlers[1].baseFilename  # 0:StreamHandler 1:FileHandler
-        target_output = ''
-        with open(log_path, 'r') as file:
-            target_output = file.read()
-
-        for expected_str in expected_strings:
-            self.assertIn(expected_str, target_output, f"Expected string '{expected_str}' not found in output")
-
     def program_esp_bins(self, actions):
         # Temp Folder where everything will be contained
         tmp = tempfile.mkdtemp(prefix="esp")
 
-        obj = generate_flasher_args_json()
+        obj = generate_flasher_args_json(self.flash_sz)
         flash_files = obj["flash_files"]
 
         # Write dummy data to bin files
@@ -314,7 +296,21 @@ class FlasherTestsImpl:
         # what can lead to the failures when preparing for the next tests
         self.gdb.target_program_bins(self.test_app_cfg.build_bins_dir())
 
-def generate_flasher_args_json():
+def generate_flasher_args_json(flash_size_bytes):
+    chunk = 0x400
+    off_boot = 0x10000
+    off_part = 0x20000
+    off_app = flash_size_bytes - 0x2000
+    min_flash = off_part + chunk + 0x2000
+    if flash_size_bytes < min_flash:
+        raise ValueError(
+            f"flash size 0x{flash_size_bytes:x} too small for program_esp_bins test layout "
+            f"(need >= 0x{min_flash:x})"
+        )
+
+    def hx(n):
+        return f"0x{n:x}"
+
     return {
         "write_flash_args" : [ "--flash_mode", "dio",
                             "--flash_size", "detect",
@@ -325,13 +321,13 @@ def generate_flasher_args_json():
             "flash_freq": "40m"
         },
         "flash_files" : {
-            "0x118000" : "",
-            "0x110000" : "",
-            "0x210000" : ""
+            hx(off_part) : "",
+            hx(off_boot) : "",
+            hx(off_app) : ""
         },
-        "partition_table" : { "offset" : "0x118000", "file" : "", "encrypted" : "" },
-        "bootloader" : { "offset" : "0x110000", "file" : "", "encrypted" : "" },
-        "app" : { "offset" : "0x210000", "file" : "", "encrypted" : "" },
+        "partition_table" : { "offset" : hx(off_part), "file" : "", "encrypted" : "" },
+        "bootloader" : { "offset" : hx(off_boot), "file" : "", "encrypted" : "" },
+        "app" : { "offset" : hx(off_app), "file" : "", "encrypted" : "" },
         "extra_esptool_args" : {
             "after"  : "hard_reset",
             "before" : "default_reset",

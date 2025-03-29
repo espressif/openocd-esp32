@@ -23,7 +23,7 @@
 
 #define XTENSA_EXCCAUSE(reg_val)         ((reg_val) & 0x3F)
 
-static const char *xtensa_get_exception_reason(struct target *target, enum esp_xtensa_exception_cause exccause_code)
+const char *esp_xtensa_get_exception_reason(uint32_t exccause_code)
 {
 	switch (exccause_code) {
 	case ILLEGAL_INSTRUCTION:
@@ -148,7 +148,7 @@ static void esp_xtensa_print_exception_reason(struct target *target)
 	if (target_to_xtensa(target)->core_config->exceptions) {
 		int exccause_val = XTENSA_EXCCAUSE(xtensa_reg_get(target, XT_REG_IDX_EXCCAUSE));
 		LOG_TARGET_INFO(target, "Halt cause (%d) - (%s)", exccause_val,
-			xtensa_get_exception_reason(target, exccause_val));
+			esp_xtensa_get_exception_reason(exccause_val));
 	} else {
 		LOG_TARGET_ERROR(target, "Exception option is not enabled!");
 	}

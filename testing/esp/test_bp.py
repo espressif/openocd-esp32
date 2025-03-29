@@ -433,7 +433,7 @@ class DebuggerBreakpointTestsDualEncrypted(DebuggerGenericTestAppTestsDualEncryp
     """ Breakpoint test cases on encrypted flash in dual core mode
     """
     def setUp(self):
-        DebuggerGenericTestAppTestsDual.setUp(self)
+        DebuggerGenericTestAppTestsDualEncrypted.setUp(self)
         BreakpointTestsImpl.setUp(self)
 
     def test_2cores_concurrently_hit_bps(self):
@@ -454,7 +454,7 @@ class DebuggerBreakpointTestsSingleEncrypted(DebuggerGenericTestAppTestsSingleEn
     """ Breakpoint test cases on encrypted flash in single core mode
     """
     def setUp(self):
-        DebuggerGenericTestAppTestsSingle.setUp(self)
+        DebuggerGenericTestAppTestsSingleEncrypted.setUp(self)
         BreakpointTestsImpl.setUp(self)
 
 class DebuggerWatchpointTestsDual(DebuggerGenericTestAppTestsDual, WatchpointTestsImpl):
@@ -513,6 +513,40 @@ class DebuggerFlashBreakpointTestsDual(DebuggerBreakpointTestsDual):
     def test_appcpu_early_hw_bps(self):
         pass
 
+class DebuggerFlashBreakpointTestsSingleEncrypted(DebuggerBreakpointTestsSingleEncrypted):
+    """ Breakpoint tests with extra flash breakpoints on encrypted flash (single core)
+    """
+
+    def setUp(self):
+        DebuggerGenericTestAppTestsSingleEncrypted.setUp(self)
+        self.fill_hw_bps(keep_avail=0)
+        self.bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
+
+    @unittest.skip('not applicable')
+    def test_bp_in_rom(self):
+        pass
+
+    @unittest.skip('not applicable')
+    def test_appcpu_early_hw_bps(self):
+        pass
+
+class DebuggerFlashBreakpointTestsDualEncrypted(DebuggerBreakpointTestsDualEncrypted):
+    """ Breakpoint tests with extra flash breakpoints on encrypted flash (dual core)
+    """
+
+    def setUp(self):
+        DebuggerGenericTestAppTestsDualEncrypted.setUp(self)
+        self.fill_hw_bps(keep_avail=0)
+        self.bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
+
+    @unittest.skip('not applicable')
+    def test_bp_in_rom(self):
+        pass
+
+    @unittest.skip('not applicable')
+    def test_appcpu_early_hw_bps(self):
+        pass
+
 class DebuggerTestsSingle4MB(DebuggerGenericTestAppTestsSingle):
     """ Base class to run tests with a single core 4MB flash config
     """
@@ -522,11 +556,29 @@ class DebuggerTestsSingle4MB(DebuggerGenericTestAppTestsSingle):
         self.test_app_cfg.bin_dir = os.path.join('output', 'single_core_4MB')
         self.test_app_cfg.build_dir = os.path.join('builds', 'single_core_4MB')
 
-@only_for_chip(['esp32c2', 'esp32c6', 'esp32h2', 'esp32h21'])
+@only_for_chip(['esp32c2', 'esp32c6', 'esp32h2', 'esp32h21', 'esp32c61', 'esp32s31'])
 class FlashTestsSingle4MB(DebuggerTestsSingle4MB, BreakpointTestsImpl):
     """ Breakpoint test cases via GDB in single core mode with 4MB flash config
     """
 
     def setUp(self):
         DebuggerTestsSingle4MB.setUp(self)
+        BreakpointTestsImpl.setUp(self)
+
+class DebuggerTestsDual4MB(DebuggerGenericTestAppTestsDual):
+    """ Base class to run tests with a dual core 4MB flash config
+    """
+
+    def __init__(self, methodName='runTest'):
+        super(DebuggerTestsDual4MB, self).__init__(methodName)
+        self.test_app_cfg.bin_dir = os.path.join('output', 'default_4MB')
+        self.test_app_cfg.build_dir = os.path.join('builds', 'default_4MB')
+
+@only_for_chip(['esp32s31'])
+class FlashTestsDual4MB(DebuggerTestsDual4MB, BreakpointTestsImpl):
+    """ Breakpoint test cases via GDB in dual core mode with 4MB flash config
+    """
+
+    def setUp(self):
+        DebuggerTestsDual4MB.setUp(self)
         BreakpointTestsImpl.setUp(self)

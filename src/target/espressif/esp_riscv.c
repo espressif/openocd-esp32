@@ -22,6 +22,7 @@
 #include <rtos/rtos.h>
 #include <target/riscv/riscv.h>
 #include <target/riscv/riscv_reg.h>
+#include <target/riscv/encoding.h>
 
 #include "esp_riscv.h"
 #include "esp_semihosting.h"
@@ -43,25 +44,6 @@ enum {
 	ESP_RISCV_SET_WATCHPOINT_ARG_FLAGS,	/* missed if `set` is false */
 	ESP_RISCV_SET_WATCHPOINT_ARG_MAX
 };
-
-enum esp_riscv_exception_cause {
-	INSTR_ADDR_MISALIGNED = 0x0,
-	PMP_INSTRUCTION_ACCESS_FAULT = 0x1,
-	ILLEGAL_INSTRUCTION = 0x2,
-	HARDWARE_BREAKPOINT = 0x3,
-	LOAD_ADDR_MISALIGNED = 0x4,
-	PMP_LOAD_ACCESS_FAULT = 0x5,
-	STORE_ADDR_MISALIGNED = 0x6,
-	PMP_STORE_ACCESS_FAULT = 0x7,
-	ECALL_FROM_U_MODE = 0x8,
-	ECALL_FROM_S_MODE = 0x9,
-	ECALL_FROM_M_MODE = 0xb,
-	INSTR_PAGE_FAULT = 0xc,
-	LOAD_PAGE_FAULT = 0xd,
-	STORE_PAGE_FAULT = 0xf,
-};
-
-#define ESP_RISCV_EXCEPTION_CAUSE(reg_val)  ((reg_val) & 0x1F)
 
 #define ESP_RISCV_LOAD_FP     0x07
 #define ESP_RISCV_STORE_FP    0x27
@@ -89,36 +71,36 @@ enum esp_riscv_exception_cause {
 static int esp_riscv_debug_stubs_info_init(struct target *target,
 	target_addr_t ctrl_addr);
 
-static const char *esp_riscv_get_exception_reason(enum esp_riscv_exception_cause exception_code)
+const char *esp_riscv_get_exception_reason(uint32_t exception_code)
 {
 	switch (ESP_RISCV_EXCEPTION_CAUSE(exception_code)) {
-	case INSTR_ADDR_MISALIGNED:
+	case CAUSE_MISALIGNED_FETCH:
 		return "Instruction address misaligned";
-	case PMP_INSTRUCTION_ACCESS_FAULT:
+	case CAUSE_FETCH_ACCESS:
 		return "PMP Instruction access fault";
-	case ILLEGAL_INSTRUCTION:
-		return "Illegal Instruction";
-	case HARDWARE_BREAKPOINT:
+	case CAUSE_ILLEGAL_INSTRUCTION:
+		return "Illegal instruction";
+	case CAUSE_BREAKPOINT:
 		return "Hardware Breakpoint/Watchpoint or EBREAK";
-	case LOAD_ADDR_MISALIGNED:
+	case CAUSE_MISALIGNED_LOAD:
 		return "Load address misaligned";
-	case PMP_LOAD_ACCESS_FAULT:
+	case CAUSE_LOAD_ACCESS:
 		return "PMP Load access fault";
-	case STORE_ADDR_MISALIGNED:
-		return "Store address misaligned";
-	case PMP_STORE_ACCESS_FAULT:
-		return "PMP Store access fault";
-	case ECALL_FROM_U_MODE:
+	case CAUSE_MISALIGNED_STORE:
+		return "PMP Store address misaligned";
+	case CAUSE_STORE_ACCESS:
+		return "Store access fault";
+	case CAUSE_USER_ECALL:
 		return "ECALL from U-mode";
-	case ECALL_FROM_S_MODE:
+	case CAUSE_SUPERVISOR_ECALL:
 		return "ECALL from S-mode";
-	case ECALL_FROM_M_MODE:
+	case CAUSE_MACHINE_ECALL:
 		return "ECALL from M-mode";
-	case INSTR_PAGE_FAULT:
+	case CAUSE_FETCH_PAGE_FAULT:
 		return "Instruction page fault";
-	case LOAD_PAGE_FAULT:
+	case CAUSE_LOAD_PAGE_FAULT:
 		return "Load page fault";
-	case STORE_PAGE_FAULT:
+	case CAUSE_STORE_PAGE_FAULT:
 		return "Store page fault";
 	}
 	return "Unknown exception cause";
@@ -150,7 +132,7 @@ static void esp_riscv_print_exception_reason(struct target *target)
 	if (mcause & BIT(31) || ESP_RISCV_EXCEPTION_CAUSE(mcause) == 0)
 		return;
 
-	if (ESP_RISCV_EXCEPTION_CAUSE(mcause) == ILLEGAL_INSTRUCTION) {
+	if (ESP_RISCV_EXCEPTION_CAUSE(mcause) == CAUSE_ILLEGAL_INSTRUCTION) {
 		riscv_reg_t mtval;
 		result = riscv_reg_get(target, &mtval, CSR_MTVAL + GDB_REGNO_CSR0);
 		if (result != ERROR_OK) {
@@ -791,6 +773,29 @@ static int esp_riscv_single_hart_poll(struct target *target)
 	return res;
 }
 
+static bool esp_riscv_algo_should_save_reg(struct target *target, struct reg *r)
+{
+	static const uint32_t always_save_csrs[] = {
+		CSR_MTVEC, CSR_MEPC, CSR_MCAUSE, CSR_MTVAL,
+	};
+
+	if (!r->exist)
+		return false;
+
+	for (size_t i = 0; i < ARRAY_SIZE(always_save_csrs); i++) {
+		if (r->number == GDB_REGNO_CSR0 + always_save_csrs[i])
+			return true;
+	}
+
+	if (!r->caller_save)
+		return false;
+
+	if (r->number > GDB_REGNO_PC && target_to_esp_riscv(target)->minimal_save_restore)
+		return false;
+
+	return true;
+}
+
 int esp_riscv_start_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
@@ -811,8 +816,7 @@ int esp_riscv_start_algorithm(struct target *target,
 		struct reg *r = &target->reg_cache->reg_list[number];
 
 		algorithm_info->valid_saved_registers[r->number] = r->exist;
-		if (!r->exist || !r->caller_save
-				|| (r->number > GDB_REGNO_PC && target_to_esp_riscv(target)->minimal_save_restore))
+		if (!esp_riscv_algo_should_save_reg(target, r))
 			continue;
 
 		LOG_TARGET_DEBUG(target, "save %s", r->name);
@@ -835,9 +839,7 @@ int esp_riscv_start_algorithm(struct target *target,
 	/* write mem params */
 	for (int i = 0; i < num_mem_params; i++) {
 		if (mem_params[i].direction != PARAM_IN) {
-			int retval = target_write_buffer(target, mem_params[i].address,
-				mem_params[i].size,
-				mem_params[i].value);
+			int retval = target_write_buffer(target, mem_params[i].address, mem_params[i].size, mem_params[i].value);
 			if (retval != ERROR_OK)
 				return retval;
 		}
@@ -874,6 +876,14 @@ int esp_riscv_start_algorithm(struct target *target,
 	int retval = riscv_interrupts_disable(target, &algorithm_info->masked_mstatus);
 	if (retval != ERROR_OK)
 		return retval;
+
+	if (algorithm_info->trap_entry_addr) {
+		if (riscv_reg_set(target, GDB_REGNO_CSR0 + CSR_MTVEC, algorithm_info->trap_entry_addr) != ERROR_OK) {
+			LOG_TARGET_ERROR(target, "Failed to set mtvec to 0x%" TARGET_PRIxADDR,
+				algorithm_info->trap_entry_addr);
+			return ERROR_FAIL;
+		}
+	}
 
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 	if (esp_riscv->pre_algorithm) {
@@ -975,8 +985,7 @@ int esp_riscv_wait_algorithm(struct target *target,
 		number <= max_saved_reg && number < target->reg_cache->num_regs; number++) {
 		struct reg *r = &target->reg_cache->reg_list[number];
 
-		if (!algorithm_info->valid_saved_registers[r->number] || !r->caller_save || !r->exist
-				|| (r->number > GDB_REGNO_PC && target_to_esp_riscv(target)->minimal_save_restore))
+		if (!algorithm_info->valid_saved_registers[r->number] || !esp_riscv_algo_should_save_reg(target, r))
 			continue;
 
 		LOG_TARGET_DEBUG(target, "restore %s", r->name);

@@ -121,3 +121,20 @@ compile_commands.json
 
 # Created when running tests
 testing/esp/test_apps/gen_ut_app/*.gcov.json.gz
+
+# old Espressif stub source codes
+contrib/loaders/flash/espressif/esp32
+contrib/loaders/flash/espressif/esp32s2
+contrib/loaders/flash/espressif/esp32s3
+contrib/loaders/flash/espressif/esp32c2
+contrib/loaders/flash/espressif/esp32c3
+contrib/loaders/flash/espressif/esp32c5
+contrib/loaders/flash/espressif/esp32c6
+contrib/loaders/flash/espressif/esp32c61
+contrib/loaders/flash/espressif/esp32h2
+contrib/loaders/flash/espressif/esp32h21
+contrib/loaders/flash/espressif/esp32h4
+contrib/loaders/flash/espressif/esp32p4
+contrib/loaders/flash/espressif/esp32s31
+contrib/loaders/flash/espressif/riscv
+contrib/loaders/flash/espressif/xtensa
