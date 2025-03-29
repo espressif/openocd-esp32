@@ -5,3 +5,6 @@
 [submodule "src/jtag/drivers/libjaylink"]
 	path = src/jtag/drivers/libjaylink
 	url = https://gitlab.zapb.de/libjaylink/libjaylink.git
+[submodule "contrib/loaders/flash/espressif/esp-stub-lib"]
+	path = contrib/loaders/flash/espressif/esp-stub-lib
+	url = https://github.com/espressif/esp-stub-lib.git
