@@ -13,7 +13,7 @@
 #include <target/algorithm.h>
 #include <target/target.h>
 #include "esp_algorithm.h"
-#include "../../../contrib/loaders/flash/espressif/stub_flasher.h"
+#include "../../../contrib/loaders/flash/espressif/include/esp_stub.h"
 
 /* 3 sec will be enough for the regular commands. Flash erase will take time but it has another timer value */
 #define DEFAULT_ALGORITHM_TIMEOUT_MS    3000	/* ms */
