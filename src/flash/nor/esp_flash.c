@@ -66,7 +66,7 @@
 #include <helper/time_support.h>
 #include <helper/align.h>
 #include <target/smp.h>
-#include "contrib/loaders/flash/espressif/stub_flasher.h"
+#include "contrib/loaders/flash/espressif/include/esp_stub.h"
 #include <target/smp.h>
 #include "esp_flash.h"
 
@@ -215,7 +215,7 @@ static int esp_algo_flasher_algorithm_init(struct esp_algorithm_run_data *algo,
 
 	memset(algo, 0, sizeof(*algo));
 	algo->hw = stub_hw;
-	algo->reg_args.first_user_param = stub_cfg->first_user_reg_param;
+	algo->reg_args.first_user_param = stub_hw->first_user_param;
 	algo->image.code_size = stub_cfg->code_sz;
 	algo->image.data_size = stub_cfg->data_sz;
 	algo->image.bss_size = stub_cfg->bss_sz;
@@ -754,7 +754,7 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 		stack_size += ESP_STUB_IFLATOR_SIZE;
 	}
 
-	run.stack_size = stack_size + ESP_STUB_UNZIP_BUFF_SIZE + stub_cfg->stack_data_pool_sz;
+	run.stack_size = stack_size + ESP_STUB_UNZIP_BUFF_SIZE + esp_info->stub_hw->stack_data_pool_size;
 	run.usr_func = esp_algo_flash_rw_do;
 	run.usr_func_arg = &wr_state;
 	run.usr_func_init = esp_algo_flash_write_state_init;
@@ -920,7 +920,7 @@ int esp_algo_flash_read(struct flash_bank *bank, uint8_t *buffer,
 		return ret;
 	}
 
-	run.stack_size = stack_size + stub_cfg->stack_data_pool_sz;
+	run.stack_size = stack_size + esp_info->stub_hw->stack_data_pool_size;
 	run.usr_func_init = esp_algo_flash_read_state_init;
 	run.usr_func = esp_algo_flash_rw_do;
 	run.usr_func_arg = &rd_state;
@@ -1759,6 +1759,70 @@ COMMAND_HANDLER_SMP(esp_algo_flash_cmd_encryption, esp_algo_flash_cmd_set_encryp
 COMMAND_HANDLER_SMP(esp_algo_flash_cmd_compression, esp_algo_flash_cmd_set_compression)
 COMMAND_HANDLER_SMP(esp_algo_flash_cmd_appimage_flashoff, esp_algo_flash_cmd_appimage_flashoff_do)
 
+
+void esp_algo_flasher_stub_config_print(const struct esp_flasher_stub_config *config)
+{
+	LOG_INFO("Stub config:\n"
+		"\tcode size: %" PRIu32 ", data size: %" PRIu32 ", bss sz: %" PRIu32 ",\n"
+		"\tentry: " TARGET_ADDR_FMT ",\n"
+		"\tapptrace addr: " TARGET_ADDR_FMT ",\n"
+		"\tstack default sz: %" PRIu32 ",\n"
+		"\treverse: %d,\n"
+		"\tlog sz: %" PRIu32 ", log addr: " TARGET_ADDR_FMT ",\n"
+		"\tiram sz: %" PRIu32 ", iram addr: " TARGET_ADDR_FMT ",\n"
+		"\tdram sz: %" PRIu32 ", dram addr: " TARGET_ADDR_FMT ",\n",
+		config->code_sz, config->data_sz, config->bss_sz,
+		config->entry_addr,
+		config->apptrace_ctrl_addr,
+		config->stack_default_sz,
+		config->reverse,
+		config->log_buff_size, config->log_buff_addr,
+		config->iram_len, config->iram_org,
+		config->dram_len, config->dram_org
+	);
+}
+
+static int esp_algo_flash_cmd_stub_lib_test_do(struct target *target)
+{
+	struct flash_bank *bank;
+	int retval = esp_algo_target_to_flash_bank(target, &bank, "flash", false);
+	if (retval != ERROR_OK)
+		return ERROR_FAIL;
+
+	struct esp_flash_bank *esp_info = bank->driver_priv;
+	struct esp_algorithm_run_data run;
+
+	const struct esp_flasher_stub_config *stub_cfg = esp_info->get_stub(bank, ESP_STUB_CMD_TEST1);
+	const uint32_t stack_size = esp_info->stub_log_enabled ?
+		stub_cfg->stack_default_sz * 2 : stub_cfg->stack_default_sz;
+
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
+	if (ret != ERROR_OK)
+		return ret;
+
+	esp_algo_flasher_stub_config_print(stub_cfg);
+
+	run.stack_size = stack_size;
+	ret = esp_info->run_func_image(bank->target,
+		&run,
+		1,
+		ESP_STUB_CMD_TEST1);
+	image_close(&run.image.image);
+	if (ret != ERROR_OK) {
+		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
+		return ERROR_FAIL;
+	}
+
+	LOG_INFO("ret_code: %d", run.ret_code);
+
+	return ERROR_OK;
+}
+
+COMMAND_HANDLER(esp_algo_flash_cmd_stub_lib_test)
+{
+	return esp_algo_flash_cmd_stub_lib_test_do(get_current_target(CMD_CTX));
+}
+
 const struct command_registration esp_flash_exec_flash_command_handlers[] = {
 	{
 		.name = "appimage_offset",
@@ -1807,6 +1871,13 @@ const struct command_registration esp_flash_exec_flash_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "Enable stub flasher logs",
 		.usage = "['on'|'off']",
+	},
+	{
+		.name = "stub_lib_test",
+		.handler = esp_algo_flash_cmd_stub_lib_test,
+		.mode = COMMAND_ANY,
+		.help = "Test stub library",
+		.usage = "",
 	},
 	COMMAND_REGISTRATION_DONE
 };
