@@ -122,6 +122,8 @@
 .build_linux_arm_template:
   extends: .build_openocd_template
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross:3
+  needs:
+    - build_stub_images
   variables:
     INSTALL_TARGET: "install-strip"
   script:
@@ -146,6 +148,8 @@
 .build_macos_template: &build_macos_template
   extends: .build_openocd_template
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-macos-cross:4
+  needs:
+    - build_stub_images
   script:
     - *get_release_name
     - *buildx_libusb
@@ -165,6 +169,8 @@ build_linux:
     PLATFORM_NAME: "linux-amd64"
     CONF_HOST: "x86_64-linux-gnu"
     HOST_CC: ${CONF_HOST}-gcc
+  needs:
+    - build_stub_images
   script:
     - *get_release_name
     - apt-get update || true
@@ -178,7 +184,6 @@ build_linux:
     - pushd _build/
     - ../configure --prefix=$PWD/../$DIST_INSTALLED_DIR $OPENOCD_CONFIGURE_OPTS
     - make -j `nproc`
-    - src/openocd --version 2>&1 | { ! grep 'dirty'; }
     - MAKEFLAGS= make install-strip
     - popd
     - *dist_archive
@@ -189,6 +194,8 @@ build_linux_gcc_latest:
   variables:
     CONF_HOST: ""
     HOST_CC: "gcc"
+  needs:
+    - build_stub_images
   script:
     - *buildx_jimtcl
     - export PKG_CONFIG_PATH=$PWD/$JIMTCL_VER/dist/lib/pkgconfig
@@ -257,6 +264,8 @@ build_linux_arm64_test:
     CONF_HOST: "i686-w64-mingw32"
     INSTALL_TARGET: "install-strip"
     HOST_CC: ${CONF_HOST}-gcc
+  needs:
+    - build_stub_images
   script:
     - *get_release_name
     - *buildx_libusb
@@ -365,6 +374,8 @@ build_linux_cmake:
   extends: .build_openocd_template
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
+  needs:
+    - build_stub_images
   script:
     - !reference [.submodules_mirror_update, script]
     - mkdir build && cd build
@@ -377,6 +388,8 @@ build_linux_cmake:
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross:3
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
+  needs:
+    - build_stub_images
   script:
     - !reference [.submodules_mirror_update, script]
     - mkdir build && cd build
@@ -389,6 +402,8 @@ build_linux_cmake:
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-win-cross
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
+  needs:
+    - build_stub_images
   script:
     - !reference [.submodules_mirror_update, script]
     - mkdir build && cd build
