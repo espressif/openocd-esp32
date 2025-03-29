@@ -203,6 +203,8 @@ struct esp_algorithm_hw {
 	const uint8_t *(*stub_tramp_get)(struct target *target, size_t *size);
 	int (*run_onboard_func)(struct target *target, struct esp_algorithm_run_data *run, uint32_t func_addr,
 		uint32_t num_args, ...);
+	uint32_t first_user_param;
+	uint32_t stack_data_pool_size;
 };
 
 /**

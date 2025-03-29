@@ -316,7 +316,7 @@ class SerialPortReader(threading.Thread):
 
 
 def dbg_start(toolchain, oocd, oocd_tcl, oocd_cfg_files, oocd_cfg_cmds, debug_oocd,
-              chip_name, target_triple, log_level, log_stream, log_file, gdb_log):
+              chip_name, target_triple, log_level, log_stream, log_file, gdb_log, no_gdb):
     global _oocd_inst, _gdb_inst
     connect_tmo = 15
     remote_tmo = 10
@@ -332,6 +332,8 @@ def dbg_start(toolchain, oocd, oocd_tcl, oocd_cfg_files, oocd_cfg_cmds, debug_oo
                         log_stream_handler=log_stream,
                         log_file_handler=log_file)
     _oocd_inst.start()
+    if no_gdb:
+        return
     try:
         # reset the board if it is stuck from the previous test run
         _oocd_inst.cmd_exec('reset halt')
@@ -472,7 +474,7 @@ def main():
     try:
         dbg_start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'],
                             args.debug_oocd, board_tcl['chip_name'], board_tcl['target_triple'],
-                            log_lev, ch, fh, args.gdb_log_folder)
+                            log_lev, ch, fh, args.gdb_log_folder, args.no_gdb)
     except RuntimeError:
         # flash an app and try again
         import json, subprocess
@@ -532,7 +534,7 @@ def main():
             time.sleep(1)
             dbg_start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'],
                                 args.debug_oocd, board_tcl['chip_name'], board_tcl['target_triple'],
-                                log_lev, ch, fh, args.gdb_log_folder)
+                                log_lev, ch, fh, args.gdb_log_folder, args.no_gdb)
             err_suite = debug_backend_tests.DebuggerTestsBunch()
 
             if not board_uart_reader:
@@ -608,6 +610,9 @@ if __name__ == '__main__':
                         action='extend', default=[])
     parser.add_argument('--no-load', '-n',
                         help='Do not load test app binaries',
+                        action='store_true', default=False)
+    parser.add_argument('--no-gdb', '-ng',
+                        help='Do not connect GDB',
                         action='store_true', default=False)
     parser.add_argument('--retry', '-r',
                         help='Try to rerun failed tests',
