@@ -169,6 +169,7 @@
 #define XT_PC_REG_NUM_VIRTUAL       (0xffU)	/* Marker for computing PC (EPC[DBGLEVEL) */
 #define XT_PC_DBREG_NUM_BASE        (0x20U)	/* External (i.e., GDB) access */
 #define XT_NX_IBREAKC_BASE          (0xc0U)	/* (IBREAKC0..IBREAKC1) for NX */
+#define XT_VECBASE_REG_NUM          (0xe7U)
 
 #define XT_SW_BREAKPOINTS_MAX_NUM       32
 #define XT_HW_IBREAK_MAX_NUM            2
@@ -1016,6 +1017,16 @@ int xtensa_smpbreak_get(struct target *target, uint32_t *val)
 	struct xtensa *xtensa = target_to_xtensa(target);
 	*val = xtensa->smp_break;
 	return ERROR_OK;
+}
+
+int xtensa_write_sr_by_num(struct target *target, unsigned int sr_num, uint32_t value)
+{
+	struct xtensa *xtensa = target_to_xtensa(target);
+
+	xtensa_queue_dbg_reg_write(xtensa, XDMREG_DDR, value);
+	xtensa_queue_exec_ins(xtensa, XT_INS_RSR(xtensa, XT_SR_DDR, XT_REG_A3));
+	xtensa_queue_exec_ins(xtensa, XT_INS_WSR(xtensa, sr_num, XT_REG_A3));
+	return xtensa_dm_queue_execute(&xtensa->dbg_mod);
 }
 
 static inline xtensa_reg_val_t xtensa_reg_get_value(struct reg *reg)
@@ -2864,6 +2875,16 @@ int xtensa_start_algorithm(struct target *target,
 		xtensa_reg_set_value(reg, buf_get_u32(reg_params[i].value, 0, reg->size));
 		reg->valid = 1;
 	}
+
+	/* Set stub exception vector table */
+	if (algorithm_info->trap_entry_addr) {
+		retval = xtensa_write_sr_by_num(target, XT_VECBASE_REG_NUM, (uint32_t)algorithm_info->trap_entry_addr);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Failed to set vecbase to 0x%" TARGET_PRIxADDR, algorithm_info->trap_entry_addr);
+			return retval;
+		}
+	}
+
 	/* ignore custom core mode if custom PS value is specified */
 	if (!usr_ps && xtensa->core_config->core_type == XT_LX) {
 		unsigned int eps_reg_idx = xtensa->eps_dbglevel_idx;

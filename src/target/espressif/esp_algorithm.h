@@ -133,8 +133,6 @@ struct esp_algorithm_image {
 	uint32_t dram_org;
 	/** Total reserved DRAM size */
 	uint32_t dram_len;
-	/** IRAM DRAM address range reversed or not */
-	bool reverse;
 };
 
 //#define ESP_STACK_HIGH_WATER_MARK  /* Comment out to see the stack usage of each stub command */
@@ -144,6 +142,8 @@ struct esp_algorithm_image {
  * Algorithm stub data.
  */
 struct esp_algorithm_stub {
+	/** Stub command name. */
+	const char *name;
 	/** Entry addr. */
 	target_addr_t entry;
 	/** Working area for code segment. */
@@ -168,6 +168,10 @@ struct esp_algorithm_stub {
 	target_addr_t log_buff_addr;
 	/** Size of the log buffer */
 	uint32_t log_buff_size;
+	/** Address of the trap record */
+	target_addr_t trap_record_addr;
+	/** Stub trap entry (vecbase on Xtensa, mtvec on RISC-V) */
+	target_addr_t trap_entry_addr;
 	/** Algorithm's arch-specific info. */
 	void *ainfo;
 };
@@ -203,6 +207,8 @@ struct esp_algorithm_hw {
 	const uint8_t *(*stub_tramp_get)(struct target *target, size_t *size);
 	int (*run_onboard_func)(struct target *target, struct esp_algorithm_run_data *run, uint32_t func_addr,
 		uint32_t num_args, ...);
+	uint32_t first_user_param;
+	uint32_t stack_data_pool_size;
 };
 
 /**
