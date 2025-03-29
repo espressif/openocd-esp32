@@ -400,7 +400,8 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
                         for test in self._groupped_suites[app_cfg_id][1]:
                             result.addError(test, sys.exc_info())
                         continue
-                self.gdb.exec_file_set(self._groupped_suites[app_cfg_id][0].build_app_elf_path())
+                if self.gdb:
+                    self.gdb.exec_file_set(self._groupped_suites[app_cfg_id][0].build_app_elf_path())
 
                 if self._groupped_suites[app_cfg_id][0].startup_script != '':
                     self.gdb.set_prog_startup_script(self._groupped_suites[app_cfg_id][0].startup_script_path())

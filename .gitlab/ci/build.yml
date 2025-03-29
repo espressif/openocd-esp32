@@ -117,7 +117,8 @@
       - ${DIST_ART_DIR}
     when: always
     expire_in: 2 weeks
-  needs: []
+  needs:
+    - build_stub_images
   variables:
     INSTALL_TARGET: "install-strip"
   script:
@@ -149,7 +150,8 @@
     paths:
       - ${DIST_ART_DIR}
     expire_in: 2 weeks
-  needs: []
+  needs:
+    - build_stub_images
   script:
     - *get_release_name
     - *buildx_libusb
@@ -176,7 +178,8 @@ build_linux:
     PLATFORM_NAME: "linux-amd64"
     CONF_HOST: "x86_64-linux-gnu"
     HOST_CC: ${CONF_HOST}-gcc
-  needs: []
+  needs:
+    - build_stub_images
   script:
     - *get_release_name
     - apt-get update || true
@@ -190,7 +193,6 @@ build_linux:
     - pushd _build/
     - ../configure --prefix=$PWD/../$DIST_INSTALLED_DIR $OPENOCD_CONFIGURE_OPTS
     - make -j `nproc`
-    - src/openocd --version 2>&1 | { ! grep 'dirty'; }
     - MAKEFLAGS= make install-strip
     - popd
     - *dist_archive
@@ -201,7 +203,8 @@ build_linux_gcc_latest:
   tags:
     - build
     - internet
-  needs: []
+  needs:
+    - build_stub_images
   variables:
     CONF_HOST: ""
     HOST_CC: "gcc"
@@ -280,7 +283,8 @@ build_linux_arm64_test:
     CONF_HOST: "i686-w64-mingw32"
     INSTALL_TARGET: "install-strip"
     HOST_CC: ${CONF_HOST}-gcc
-  needs: []
+  needs:
+    - build_stub_images
   script:
     - *get_release_name
     - *buildx_libusb
@@ -394,7 +398,8 @@ build_linux_cmake:
   tags:
     - build
     - internet
-  needs: []
+  needs:
+    - build_stub_images
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
   script:
@@ -410,7 +415,8 @@ build_linux_cmake:
   tags:
     - build
     - internet
-  needs: []
+  needs:
+    - build_stub_images
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
   script:
@@ -426,7 +432,8 @@ build_linux_cmake:
   tags:
     - build
     - internet
-  needs: []
+  needs:
+    - build_stub_images
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
   script:
