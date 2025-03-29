@@ -23,6 +23,8 @@ const struct esp_algorithm_hw xtensa_algo_hw = {
 	.algo_cleanup = esp_xtensa_algo_cleanup,
 	.stub_tramp_get = esp_xtensa_stub_tramp_get,
 	.run_onboard_func = esp_xtensa_smp_run_onboard_func,
+	.first_user_param = ESP_XTENSA_STUB_ARGS_FUNC_START,
+	.stack_data_pool_size = 0,
 };
 
 /* Generated from contrib/loaders/trampoline/espressif/xtensa/esp_xtensa_stub_tramp_win.S */
