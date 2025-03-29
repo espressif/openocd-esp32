@@ -15,7 +15,7 @@
 #include <target/espressif/esp_riscv_apptrace.h>
 
 #define ESP_TARGET_ESP32C5
-#include "esp_stub_config.h"
+#include "esp_stub_ng_config.h"
 #undef ESP_TARGET_ESP32C5
 
 #define ESP32C5_FLASH_SECTOR_SIZE 4096
@@ -40,15 +40,11 @@ static bool esp32c5_is_drom_address(target_addr_t addr)
 	return addr >= ESP32C5_DROM_LOW && addr < ESP32C5_DROM_HIGH;
 }
 
-static const struct command_map s_cmd_map[ESP_STUB_CMD_FLASH_MAX_ID + 1] = {
-	MAKE_CMD_MAP_ENTRIES
-};
-
 static const struct esp_flasher_stub_config *esp32c5_get_stub(struct flash_bank *bank, int cmd)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	if (esp_info->stub_log_enabled)
-		return s_cmd_map[ESP_STUB_CMD_FLASH_WITH_LOG].config;
+		return s_cmd_map[ESP_STUB_CMD_ALL].config;
 	return s_cmd_map[cmd].config;
 }
 

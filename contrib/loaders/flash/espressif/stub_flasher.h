@@ -132,4 +132,9 @@ esp-idf/components/esp_system/openocd_stub_bins/ directory.
 */
 #define ESP_STUB_FLASHER_VERSION               1
 
+
+// Temporary test command
+#define ESP_STUB_CMD_TEST1                     0
+#define ESP_STUB_CMD_TEST2                     1
+
 #endif	/* OPENOCD_LOADERS_FLASH_ESPRESSIF_STUB_FLASHER_H */
