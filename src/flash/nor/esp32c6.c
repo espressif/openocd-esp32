@@ -40,21 +40,17 @@ static bool esp32c6_is_drom_address(target_addr_t addr)
 	return addr >= ESP32C6_DROM_LOW && addr < ESP32C6_DROM_HIGH;
 }
 
-static const struct command_map s_cmd_map[ESP_STUB_CMD_FLASH_MAX_ID + 1] = {
-	MAKE_CMD_MAP_ENTRIES
-};
-
 static const struct esp_flasher_stub_config *esp32c6_get_stub(struct flash_bank *bank, int cmd)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	if (esp_info->stub_log_enabled)
-		return s_cmd_map[ESP_STUB_CMD_FLASH_WITH_LOG].config;
+		return s_cmd_map[ESP_STUB_CMD_TEST_ALL].config;
 	switch (cmd) {
-		case ESP_STUB_CMD_FLASH_MAP_GET:
-		case ESP_STUB_CMD_FLASH_BP_SET:
-		case ESP_STUB_CMD_FLASH_BP_CLEAR:
+		//case ESP_STUB_CMD_FLASH_MAP_GET:
+		//case ESP_STUB_CMD_FLASH_BP_SET:
+		//case ESP_STUB_CMD_FLASH_BP_CLEAR:
 			/* TODO: return multi_command config only when stub preloaded code running */
-			return s_cmd_map[ESP_STUB_CMD_FLASH_MULTI_COMMAND].config;
+			//return s_cmd_map[ESP_STUB_CMD_FLASH_MULTI_COMMAND].config;
 		default:
 			return s_cmd_map[cmd].config;
 	}
