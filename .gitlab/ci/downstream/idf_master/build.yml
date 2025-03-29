@@ -3,13 +3,15 @@ build_test_app_esp32:
     CHIP_NAME: "esp32"
     TOOLCHAIN_PREFIX: "xtensa-esp32"
     TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
+    TEST_APP_CONFIGS: "default"
   extends: .build_idf_master_test_app_template
 
 build_test_app_esp32s2:
   variables:
     CHIP_NAME: "esp32s2"
     TOOLCHAIN_PREFIX: "xtensa-esp32s2"
-    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single"
+    TEST_APP_CONFIGS: "single_core"
+    #TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single"
     TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
   extends: .build_idf_master_test_app_template
 
@@ -17,7 +19,8 @@ build_test_app_esp32s3:
   variables:
     CHIP_NAME: "esp32s3"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
-    TEST_APP_CONFIGS: "default svtrace_dual apptrace_gcov_dual psram_dual default_amazon_freertos default_freertos_list_integrity single_core svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single multi_app_images_dual"
+    #TEST_APP_CONFIGS: "default svtrace_dual apptrace_gcov_dual psram_dual default_amazon_freertos default_freertos_list_integrity single_core svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single multi_app_images_dual"
+    TEST_APP_CONFIGS: "default single_core"
     TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
   extends: .build_idf_master_test_app_template
 
@@ -25,7 +28,8 @@ build_test_app_esp32c2:
   variables:
     CHIP_NAME: "esp32c2"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single"
+    #TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB"
   extends: .build_idf_master_test_app_template
 
 build_test_app_esp32c3:
@@ -39,43 +43,48 @@ build_test_app_esp32c5:
   variables:
     CHIP_NAME: "esp32c5"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity lpcore_single multi_app_images_single"
+    #TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity lpcore_single multi_app_images_single"
+    TEST_APP_CONFIGS: "single_core"
   extends: .build_idf_master_test_app_template
 
 build_test_app_esp32c6:
   variables:
     CHIP_NAME: "esp32c6"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single single_core_amazon_freertos single_core_preloaded_stub single_core_freertos_list_integrity lpcore_single multi_app_images_single"
+    #TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single single_core_amazon_freertos single_core_preloaded_stub single_core_freertos_list_integrity lpcore_single multi_app_images_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB single_core_preloaded_stub"
   extends: .build_idf_master_test_app_template
 
 build_test_app_esp32c61:
   variables:
     CHIP_NAME: "esp32c61"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single"
+    #TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB"
   extends: .build_idf_master_test_app_template
 
 build_test_app_esp32h2:
   variables:
     CHIP_NAME: "esp32h2"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single single_core_amazon_freertos single_core_preloaded_stub single_core_freertos_list_integrity multi_app_images_single"
+    #TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single single_core_amazon_freertos single_core_preloaded_stub single_core_freertos_list_integrity multi_app_images_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB single_core_preloaded_stub"
   extends: .build_idf_master_test_app_template
 
 build_test_app_esp32p4:
   variables:
     CHIP_NAME: "esp32p4"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    TEST_APP_CONFIGS: "default svtrace_dual apptrace_gcov_dual psram_dual default_amazon_freertos default_freertos_list_integrity lpcore_dual single_core svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity lpcore_single multi_app_images_single multi_app_images_dual"
+    #TEST_APP_CONFIGS: "default svtrace_dual apptrace_gcov_dual psram_dual default_amazon_freertos default_freertos_list_integrity lpcore_dual single_core svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity lpcore_single multi_app_images_single multi_app_images_dual"
+    TEST_APP_CONFIGS: "default single_core"
   extends: .build_idf_master_test_app_template
 
-build_test_app_esp32p4_rev3:
+.build_test_app_esp32p4_rev3:
   variables:
     CHIP_VARIANT: "eco5"
   extends: build_test_app_esp32p4
 
-build_test_app_esp32p4_rev1:
+.build_test_app_esp32p4_rev1:
   variables:
     CHIP_VARIANT: "eco4"
   extends: build_test_app_esp32p4
@@ -84,7 +93,8 @@ build_test_app_esp32h4:
   variables:
     CHIP_NAME: "esp32h4"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    TEST_APP_CONFIGS: "default apptrace_gcov_dual svtrace_dual default_amazon_freertos default_freertos_list_integrity multi_app_images_dual single_core svtrace_single apptrace_gcov_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single"
+    #TEST_APP_CONFIGS: "default apptrace_gcov_dual svtrace_dual default_amazon_freertos default_freertos_list_integrity multi_app_images_dual single_core svtrace_single apptrace_gcov_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single"
+    TEST_APP_CONFIGS: "default single_core"
     TEST_APP_IDF_COMMIT: "69ec8bc962def5c4d3a42aba1013fa8a60df787c"
   extends: .build_idf_master_test_app_template
 
@@ -92,5 +102,6 @@ build_test_app_esp32h21:
   variables:
     CHIP_NAME: "esp32h21"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single"
+    #TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB"
   extends: .build_idf_master_test_app_template

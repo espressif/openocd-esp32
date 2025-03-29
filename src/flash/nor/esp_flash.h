@@ -44,18 +44,19 @@ struct esp_flash_apptrace_hw {
 };
 
 struct esp_flasher_stub_config {
+	const char *name;
 	const uint8_t *code;
 	uint32_t code_sz;
 	const uint8_t *data;
 	uint32_t data_sz;
 	target_addr_t entry_addr;
 	uint32_t bss_sz;
-	uint32_t first_user_reg_param;
 	target_addr_t apptrace_ctrl_addr;
 	uint32_t stack_default_sz; /* chip based default stack usage amount */
-	uint32_t stack_data_pool_sz;
 	target_addr_t log_buff_addr;
 	uint32_t log_buff_size;	/* current_log_len + len(buff) */
+	target_addr_t trap_record_addr;
+	target_addr_t trap_entry_addr;
 	target_addr_t iram_org;
 	uint32_t iram_len;
 	target_addr_t dram_org;

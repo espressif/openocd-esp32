@@ -19,6 +19,10 @@
 #define get_field(reg, mask) (((reg) & (mask)) / ((mask) & ~((mask) << 1)))
 #define set_field(reg, mask, val) (((reg) & ~(mask)) | (((val) * ((mask) & ~((mask) << 1))) & (mask)))
 
+#define ESP_RISCV_EXCEPTION_CAUSE(reg_val)  ((reg_val) & 0x1F)
+
+const char *esp_riscv_get_exception_reason(uint32_t exception_code);
+
 struct esp_riscv_reg_class {
 	const char **reg_array;
 	size_t reg_array_size;

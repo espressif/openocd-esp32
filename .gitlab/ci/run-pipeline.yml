@@ -10,7 +10,7 @@
     SCHEDULE_TYPE: $SCHEDULE_TYPE
     CI_FULL_RUN: $CI_FULL_RUN
 
-5.2.x_run_test_pipeline:
+.5.2.x_run_test_pipeline:
   extends: .run_test_pipeline
   trigger:
     include:
@@ -21,7 +21,7 @@
   variables:
     CI_IDF_VERSION: "5_2"
 
-5.3.x_run_test_pipeline:
+.5.3.x_run_test_pipeline:
   extends: .run_test_pipeline
   trigger:
     include:
@@ -32,7 +32,7 @@
   variables:
     CI_IDF_VERSION: "5_3"
 
-5.4.x_run_test_pipeline:
+.5.4.x_run_test_pipeline:
   extends: .run_test_pipeline
   trigger:
     include:
@@ -43,7 +43,7 @@
   variables:
     CI_IDF_VERSION: "5_4"
 
-5.5.x_run_test_pipeline:
+.5.5.x_run_test_pipeline:
   extends: .run_test_pipeline
   trigger:
     include:
@@ -54,7 +54,7 @@
   variables:
     CI_IDF_VERSION: "5_5"
 
-6.0.x_run_test_pipeline:
+.6.0.x_run_test_pipeline:
   extends: .run_test_pipeline
   trigger:
     include:

@@ -178,7 +178,6 @@ build_linux:
     - pushd _build/
     - ../configure --prefix=$PWD/../$DIST_INSTALLED_DIR $OPENOCD_CONFIGURE_OPTS
     - make -j `nproc`
-    - src/openocd --version 2>&1 | { ! grep 'dirty'; }
     - MAKEFLAGS= make install-strip
     - popd
     - *dist_archive

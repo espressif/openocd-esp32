@@ -60,6 +60,7 @@ class BreakpointTestsImpl:
         # dummy HW breaks to fill in HW breaks slots and make OpenOCD using SW breakpoints in flash (seen as HW ones by GDB)
         self.fill_hw_bps(keep_avail=2)
         self.bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
+        #self.oocd.cmd_exec('esp stub_log on')
 
     def test_multi_reset_break(self):
         """

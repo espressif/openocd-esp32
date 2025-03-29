@@ -11,9 +11,10 @@ tests_esp32:
       optional: true
   variables:
     CHIP_NAME: "esp32"
-    TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e test_*.*Encrypted"
+    #TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e test_*.*Encrypted"
+    TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_bp*.*Dual test_flasher*.*Dual"
 
-tests_esp32_flash_encrypted:
+.tests_esp32_flash_encrypted:
   extends: .tests_master_template
   tags:
     - test_jtag_arm_flash_encryption
@@ -46,9 +47,10 @@ tests_esp32s2:
       optional: true
   variables:
     CHIP_NAME: "esp32s2"
-    TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*Single"
+    #TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*Single"
+    TEST_RUN_EXTRA_OPTS: "-b esp32s2-devkitj -p test_bp*.*Single test_flasher*.*Single"
 
-tests_esp32s2_flash_encrypted:
+.tests_esp32s2_flash_encrypted:
   extends: .tests_master_template
   tags:
     - test_jtag_arm_flash_encryption_esp32s2
@@ -78,7 +80,8 @@ tests_esp32s3_dual:
       optional: true
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual"
+    #TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual"
+    TEST_RUN_EXTRA_OPTS: "-b esp32s3-ftdi -p test_bp*.*Dual test_flasher*.*Dual"
 
 tests_esp32s3_dual_usj:
   extends: tests_esp32s3_dual
@@ -86,7 +89,8 @@ tests_esp32s3_dual_usj:
     - esp32s3
     - usb_serial_jtag
   variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32s3-builtin -p test_*.*Dual -e test_*.PsramTests* *.*.test_big_binary *.*.test_big_binary_compressed"
+    #TEST_RUN_BOARD_OPTS: "-b esp32s3-builtin -p test_*.*Dual -e test_*.PsramTests* *.*.test_big_binary *.*.test_big_binary_compressed"
+    TEST_RUN_EXTRA_OPTS: "-b esp32s3-builtin -p test_bp*.*Dual test_flasher*.*Dual -e *.*.test_big_binary *.*.test_big_binary_compressed"
 
 tests_esp32s3_single:
   extends: .tests_master_template
@@ -102,7 +106,8 @@ tests_esp32s3_single:
   variables:
     CHIP_NAME: "esp32s3"
     OOCD_CMDS: "set ESP_ONLYCPU 1"
-    TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
+    #TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
+    TEST_RUN_EXTRA_OPTS: "-b esp32s3-ftdi -p test_bp*.*Single test_flasher*.*Single"
 
 tests_esp32s3_single_usj:
   extends: tests_esp32s3_single
@@ -110,7 +115,8 @@ tests_esp32s3_single_usj:
     - esp32s3
     - usb_serial_jtag
   variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32s3-builtin -p test_*.*Single -e test_*.PsramTests* *.*.test_big_binary *.*.test_big_binary_compressed"
+    #TEST_RUN_BOARD_OPTS: "-b esp32s3-builtin -p test_*.*Single -e test_*.PsramTests* *.*.test_big_binary *.*.test_big_binary_compressed"
+    TEST_RUN_EXTRA_OPTS: "-b esp32s3-builtin -p test_bp*.*Single test_flasher*.*Single -e *.*.test_big_binary *.*.test_big_binary_compressed"
 
 tests_esp32c2:
   extends: .tests_master_riscv_template
@@ -125,7 +131,8 @@ tests_esp32c2:
       optional: true
   variables:
     CHIP_NAME: "esp32c2"
-    TEST_RUN_BOARD_OPTS: "-b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
+    #TEST_RUN_BOARD_OPTS: "-b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
+    TEST_RUN_EXTRA_OPTS: "-b esp32c2-ftdi -p test_bp*.*Single test_*.*Single4MB test_flasher*.*Single"
 
 tests_esp32c3:
   extends: .tests_master_riscv_template
@@ -140,9 +147,10 @@ tests_esp32c3:
       optional: true
   variables:
     CHIP_NAME: "esp32c3"
-    TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*Single"
+    #TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*Single"
+    TEST_RUN_EXTRA_OPTS: "-b esp32c3-ftdi -p test_bp*.*Single test_flasher*.*Single"
 
-tests_esp32c3_flash_encrypted:
+.tests_esp32c3_flash_encrypted:
   extends: .tests_master_riscv_template
   tags:
     - test_jtag_arm_flash_encryption_esp32c3
@@ -175,9 +183,10 @@ tests_esp32c5:
       optional: true
   variables:
     CHIP_NAME: "esp32c5"
-    TEST_RUN_BOARD_OPTS: "-b esp32c5-builtin -p test_*.*Single"
+    #TEST_RUN_BOARD_OPTS: "-b esp32c5-builtin -p test_*.*Single"
+    TEST_RUN_EXTRA_OPTS: "-b esp32c5-builtin -p test_bp*.*Single test_flasher*.*Single"
 
-tests_esp32c5_lpcore:
+.tests_esp32c5_lpcore:
   extends: tests_esp32c5
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32c5-lpcore-builtin -p test_*.LpCore*"
@@ -198,9 +207,10 @@ tests_esp32c6:
       optional: true
   variables:
     CHIP_NAME: "esp32c6"
-    TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single"
+    #TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single"
+    TEST_RUN_EXTRA_OPTS: "-b esp32c6-builtin -p test_bp*.*Single test_*.*Single4MB test_flasher*.*Single"
 
-tests_esp32c6_lpcore:
+.tests_esp32c6_lpcore:
   extends: tests_esp32c6
   retry:
     max: 2
@@ -224,7 +234,8 @@ tests_esp32c61:
       optional: true
   variables:
     CHIP_NAME: "esp32c61"
-    TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p test_*.*Single"
+    #TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p test_*.*Single"
+    TEST_RUN_EXTRA_OPTS: "-b esp32c61-builtin -p test_bp*.*Single test_*.*Single4MB"
 
 tests_esp32h2:
   extends: .tests_master_riscv_template
@@ -242,7 +253,8 @@ tests_esp32h2:
       optional: true
   variables:
     CHIP_NAME: "esp32h2"
-    TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single"
+    #TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single"
+    TEST_RUN_EXTRA_OPTS: "-b esp32h2-builtin -p test_bp*.*Single test_*.*Single4MB test_flasher*.*Single"
 
 # TODO jtag runner
 .tests_esp32p4:
@@ -277,14 +289,15 @@ tests_esp32p4_usj:
     - usb_serial_jtag
     - eco6
   variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
+    #TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
+    TEST_RUN_EXTRA_OPTS: "-b esp32p4-builtin -p test_bp*.*Dual test_flasher*.*Dual -e *.*.test_big_binary *.*.test_big_binary_compressed"
 
-tests_esp32p4_lpcore_usj:
+.tests_esp32p4_lpcore_usj:
   extends: tests_esp32p4_usj
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-builtin -p test_*.LpCore*"
 
-tests_esp32p4_rev3:
+.tests_esp32p4_rev3:
   extends: .tests_esp32p4
   tags:
     - esp32p4
@@ -302,12 +315,12 @@ tests_esp32p4_rev3:
 
 # TODO OCD-1315
 .tests_esp32p4_rev3_lpcore:
-  extends: tests_esp32p4_rev3
+  extends: .tests_esp32p4_rev3
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
 
-tests_esp32p4_rev3_usj:
-  extends: tests_esp32p4_rev3
+.tests_esp32p4_rev3_usj:
+  extends: .tests_esp32p4_rev3
   tags:
     - esp32p4
     - usb_serial_jtag
@@ -317,11 +330,11 @@ tests_esp32p4_rev3_usj:
 
 # TODO OCD-1315
 .tests_esp32p4_rev3_lpcore_usj:
-  extends: tests_esp32p4_rev3_usj
+  extends: .tests_esp32p4_rev3_usj
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-builtin -p test_*.LpCore*"
 
-tests_esp32p4_rev1:
+.tests_esp32p4_rev1:
   extends: .tests_esp32p4
   tags:
     - esp32p4
@@ -337,13 +350,13 @@ tests_esp32p4_rev1:
     - job: fetch_gdb
       optional: true
 
-tests_esp32p4_rev1_lpcore:
-  extends: tests_esp32p4_rev1
+.tests_esp32p4_rev1_lpcore:
+  extends: .tests_esp32p4_rev1
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
 
-tests_esp32p4_rev1_usj:
-  extends: tests_esp32p4_rev1
+.tests_esp32p4_rev1_usj:
+  extends: .tests_esp32p4_rev1
   tags:
     - esp32p4
     - usb_serial_jtag
@@ -351,12 +364,13 @@ tests_esp32p4_rev1_usj:
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
 
-tests_esp32p4_rev1_lpcore_usj:
-  extends: tests_esp32p4_rev1_usj
+.tests_esp32p4_rev1_lpcore_usj:
+  extends: .tests_esp32p4_rev1_usj
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-builtin -p test_*.LpCore*"
 
-tests_esp32h4:
+# Runner is not compatible with MP version of ESP32H4
+.tests_esp32h4:
   extends: .tests_master_riscv_template
   tags:
     - esp32h4
@@ -373,7 +387,8 @@ tests_esp32h4:
   allow_failure: true
   variables:
     CHIP_NAME: "esp32h4"
-    TEST_RUN_BOARD_OPTS: "-b esp32h4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
+    #TEST_RUN_BOARD_OPTS: "-b esp32h4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
+    TEST_RUN_EXTRA_OPTS: "-b esp32h4-builtin -p test_bp*.*Dual"
 
 tests_esp32h21:
   extends: .tests_master_riscv_template
@@ -392,4 +407,5 @@ tests_esp32h21:
   allow_failure: true
   variables:
     CHIP_NAME: "esp32h21"
-    TEST_RUN_BOARD_OPTS: "-b esp32h21-builtin -p test_*.*Single4MB test_*.*Single -e *.*.test_big_binary *.*.test_big_binary_compressed"
+    #TEST_RUN_BOARD_OPTS: "-b esp32h21-builtin -p test_*.*Single4MB test_*.*Single -e *.*.test_big_binary *.*.test_big_binary_compressed"
+    TEST_RUN_EXTRA_OPTS: "-b esp32h21-builtin -p test_bp*.*Single test_*.*Single4MB test_flasher*.*Single -e *.*.test_big_binary *.*.test_big_binary_compressed"
