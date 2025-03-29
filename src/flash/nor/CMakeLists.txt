@@ -42,7 +42,6 @@ target_sources(nor PRIVATE
 	esp32h21.c
 	esp32h4.c
 	esp32p4.c
-	esp32p4_hw_rev3.c
 	esirisc_flash.c
 	faux.c
 	fespi.c

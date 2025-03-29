@@ -220,10 +220,10 @@ static const char *esp32p4_csrs[] = {
 	"mcycle", "minstret", "mcounteren", "mcountinhibit",
 	"mhpmcounter8", "mhpmcounter9", "mhpmcounter13", "mhpmevent8", "mhpmevent9", "mhpmevent13",
 	"mcycleh", "minstreth", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
-	"tdata3", "tinfo", "mcontext", "mintstatus",
+	"tdata3", "tinfo", "mcontext",
 	"fflags", "frm", "fcsr",
 	"csr_mintstatus", "mclicbase", "mxstatus", "mhcr", "mhint", "mraddr", "mexstatus",
-	"mnmicause", "mnmipc", "mcpuid", "cpu_testbus_ctrl", "pm_user",
+	"mcpuid", "cpu_testbus_ctrl", "pm_user",
 	"gpio_oen_user", "gpio_in_user", "gpio_out_user",
 	"pma_cfg0", "pma_cfg1", "pma_cfg2", "pma_cfg3", "pma_cfg4", "pma_cfg5",
 	"pma_cfg6", "pma_cfg7", "pma_cfg8", "pma_cfg9", "pma_cfg10", "pma_cfg11",
@@ -283,56 +283,6 @@ static int esp32p4_hwloop_csr_set(struct reg *reg, uint8_t *buf)
 		HWLOOP_STATE_MASK, HWLOOP_STATE_OFF, HWLOOP_STATE_INIT);
 }
 
-static int esp32p4_read_hw_rev(struct target *target)
-{
-	static uint32_t hw_rev;
-
-	if (hw_rev != 0) {
-		target->hw_rev = hw_rev;
-		return ERROR_OK;
-	}
-
-	int ret = target_read_u32(target, ESP32P4_ROM_ECO_VERSION_REG, &hw_rev);
-	if (ret != ERROR_OK) {
-		LOG_TARGET_ERROR(target, "Failed to read HW rev (%d)", ret);
-		return ret;
-	}
-
-	target->hw_rev = hw_rev;
-	LOG_TARGET_INFO(target, "ROM ECO version %d", hw_rev);
-
-	return ERROR_OK;
-}
-
-static int esp32p4_examine_end(struct target *target)
-{
-	esp32p4_read_hw_rev(target);
-
-	if (target->hw_rev >= 5) {
-		target_free_all_working_areas(target); // Free the default working area
-		target->working_area_phys = ESP32P4_IRAM0_NON_CACHEABLE_ADDR_LOW + 0x80000;
-		target->working_area_virt = ESP32P4_IRAM0_NON_CACHEABLE_ADDR_LOW + 0x80000;
-		target->working_area_size = 0x24000;
-		target->backup_working_area = 1;
-		target->working_area_phys_spec = true;
-		target->working_area_virt_spec = true;
-		target_free_all_working_areas(target); // Free the new working area
-	}
-
-	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
-		const char *reg_name = target->reg_cache->reg_list[i].name;
-		if ((target->hw_rev < 5
-				&& !strcmp(reg_name, "csr_mintstatus")) ||
-			(target->hw_rev >= 5
-				&& (!strcmp(reg_name, "mnmicause")
-					|| !strcmp(reg_name, "mnmipc")
-					|| !strcmp(reg_name, "mintstatus"))))
-			target->reg_cache->reg_list[i].exist = false;
-	}
-
-	return ERROR_OK;
-}
-
 static struct reg_arch_type esp32p4_hwloop_reg_type = {
 	.get = esp32p4_hwloop_csr_get,
 	.set = esp32p4_hwloop_csr_set
@@ -363,28 +313,6 @@ ESP.[VLD|VST].128.IP q[0-7], s0, 0
 Can regenerate using tooolchain with xespv support e.g.:
 riscv32-esp-elf-as -march=rv32imac_xespv -mespv-spec=[2p1|2p2] tmp.S -o tmp.elf
 */
-
-static const struct pie_inst_table pie_v2p1_regs[] = {
-	{ "sar", 0x90b0005f, 0x80b0005f, false },
-	{ "sar_byte", 0x98b0005f, 0x88b0005f, false },
-	{ "fft_bit_width", 0x94d0005f, 0x84d0005f, false },
-	{ "cfg", 0x90d0005f, 0x80d0005f, false },
-	{ "ua_state", 0x2000413b, 0xa000413b, true },
-	{ "xacc", 0x2000433b, 0x200041bb, true },
-	{ "qacc_h_l", 0x6000403b, 0xe000403b, true },
-	{ "qacc_h_h", 0x4000403b, 0xc000403b, true },
-	{ "qacc_l_l", 0x2000403b, 0xa000403b, true },
-	{ "qacc_l_h", 0x0000403b, 0x8000403b, true },
-	{ "q0", 0x0200203b, 0x8200203b, true },
-	{ "q1", 0x0200243b, 0x8200243b, true },
-	{ "q2", 0x0200283b, 0x8200283b, true },
-	{ "q3", 0x02002c3b, 0x82002c3b, true },
-	{ "q4", 0x0200303b, 0x8200303b, true },
-	{ "q5", 0x0200343b, 0x8200343b, true },
-	{ "q6", 0x0200383b, 0x8200383b, true },
-	{ "q7", 0x02003c3b, 0x82003c3b, true },
-	{ 0 },
-};
 
 static const struct pie_inst_table pie_v2p2_regs[] = {
 	{ "sar", 0x90c0201b, 0x80c0201b, false },
@@ -464,7 +392,7 @@ static int pie_access(struct reg *reg, uint8_t *buf)
 {
 	struct target *target = ((riscv_reg_info_t *)(reg->arch_info))->target;
 
-	const struct pie_inst_table *pie_inst_table = target->hw_rev < 5 ? pie_v2p1_regs : pie_v2p2_regs;
+	const struct pie_inst_table *pie_inst_table = pie_v2p2_regs;
 	riscv_insn_t inst = 0;
 	bool is_ldst_inst = false;
 	for (size_t i = 0; pie_inst_table[i].name; i++) {
@@ -695,7 +623,6 @@ static int esp32p4_target_create(struct target *target)
 	esp_riscv->chip_specific_registers_size = ARRAY_SIZE(esp32p4_registers);
 	esp_riscv->is_dram_address = esp32p4_is_idram_address;
 	esp_riscv->is_iram_address = esp32p4_is_idram_address;
-	esp_riscv->examine_end = esp32p4_examine_end;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;

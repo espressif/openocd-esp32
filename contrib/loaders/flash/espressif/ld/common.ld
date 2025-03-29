@@ -1,0 +1,46 @@
+/* SPDX-License-Identifier: Apache-2.0 OR MIT */
+/* SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD */
+
+PHDRS
+{
+  text_phdr PT_LOAD;
+  data_phdr PT_LOAD;
+}
+
+ENTRY(stub_main)
+
+SECTIONS {
+  .iram_org = ORIGIN(iram);
+  .iram_len = ABSOLUTE(. + LENGTH(iram));
+
+  .dram_org = ORIGIN(dram);
+  .dram_len = ABSOLUTE(. + LENGTH(dram));
+
+  PROVIDE(apptrace_block0_org = ORIGIN(apptrace_block0));
+  PROVIDE(apptrace_block1_org = ORIGIN(apptrace_block1));
+
+  .text : ALIGN(4) {
+    *(.stub_desc)
+    *(.literal)
+    *(.text .text.*)
+  } > iram : text_phdr
+
+  .data : ALIGN(4) {
+    _data_start = ABSOLUTE(.);
+    *(.data)
+    *(.rodata .rodata.*)
+    *(.srodata .srodata.*)
+    *(.sdata .sdata.*)
+    *(.sdata2 .sdata2.*)
+    _data_end = ABSOLUTE(.);
+  } > dram : data_phdr
+
+  /* need to be put just after .data section, will be allocated in workspace area along with .data */
+  .bss (NOLOAD) : ALIGN(4) {
+    _bss_start = ABSOLUTE(.);
+    *(.bss)
+    *(.sbss .sbss.*)
+    *(.sbss2 .sbss2.*)
+    _bss_end = ABSOLUTE(.);
+  } > dram : data_phdr
+}

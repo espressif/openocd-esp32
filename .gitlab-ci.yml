@@ -1,7 +1,9 @@
 stages:
   - pre_check
   - static_analyzers
+  - stub_build
   - build_openocd
+  - test_stub_lib
 
 image: $CI_DOCKER_REGISTRY/openocd-ci-env:1
 
@@ -53,3 +55,4 @@ include:
   - '.gitlab/ci/util.yml'
   - '.gitlab/ci/build.yml'
   - '.gitlab/ci/pre-check.yml'
+  - '.gitlab/ci/stub-lib.yml'

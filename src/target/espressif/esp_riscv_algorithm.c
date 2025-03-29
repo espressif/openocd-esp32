@@ -27,6 +27,8 @@ const struct esp_algorithm_hw riscv_algo_hw = {
 	.algo_cleanup = esp_riscv_algo_cleanup,
 	.stub_tramp_get = esp_riscv_stub_tramp_get,
 	.run_onboard_func = esp_riscv_smp_run_onboard_func,
+	.first_user_param = ESP_RISCV_STUB_ARGS_FUNC_START,
+	.stack_data_pool_size = ESP_RISCV_STACK_DATA_POOL_SIZE,
 };
 
 static const uint8_t *esp_riscv_stub_tramp_get(struct target *target, size_t *size)

@@ -46,7 +46,6 @@ NOR_DRIVERS = \
 	%D%/esp32c6.c \
 	%D%/esp32c61.c \
 	%D%/esp32p4.c \
-	%D%/esp32p4_hw_rev3.c \
 	%D%/esirisc_flash.c \
 	%D%/faux.c \
 	%D%/fespi.c \
