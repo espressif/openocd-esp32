@@ -97,12 +97,21 @@ static void check_backtrace_test_done(void)
 
 static void do_test_threads_backtraces(void)
 {
+    TaskHandle_t handle;
     xTaskCreatePinnedToCore(&check_backtrace_task1, "check_bt_task1", 2048, (void*)3, 5, NULL, 0);
     xTaskCreatePinnedToCore(&check_backtrace_task2, "check_bt_task2", 2048, (void*)7, 5, NULL, 0);
-    xTaskCreatePinnedToCore(&check_backtrace_task3, "check_bt_task3", 2048, (void*)5, 5, NULL, portNUM_PROCESSORS-1);
+    xTaskCreatePinnedToCore(&check_backtrace_task3, "check_bt_task3", 2048, (void*)5, 5, &handle, portNUM_PROCESSORS-1);
     /* wait untill all tasks are in dedicated loops */
     while (s_task_flags < 0x7) {
         vTaskDelay(10);
+    }
+    /* only one task was running on cpu1, making it more likely to run into an interrupt routine when the breakpoint is hit,
+       suspend the task so that the backtrace is as expected */
+    if (portNUM_PROCESSORS > 1) {
+        vTaskSuspend(handle);
+        while (eTaskGetState(handle) != eSuspended)
+            ;
+        vTaskDelay(1);
     }
     check_backtrace_test_done();
 }

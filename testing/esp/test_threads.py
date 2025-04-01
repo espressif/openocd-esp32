@@ -148,10 +148,6 @@ class DebuggerThreadsTestsAmazonFreeRTOSDual(DebuggerGenericTestAppTestsDual, De
         self.test_app_cfg.bin_dir = os.path.join('output', 'default_amazon_freertos')
         self.test_app_cfg.build_dir = os.path.join('builds', 'default_amazon_freertos')
 
-    @skip_for_chip(['esp32', 'esp32s3'], "skipped - OCD-1050")
-    def test_threads_backtraces(self):
-        super(DebuggerGenericTestAppTestsDual, self).test_threads_backtraces()
-
 @idf_ver_min('5.3')
 class DebuggerThreadsTestsAmazonFreeRTOSSingle(DebuggerGenericTestAppTestsSingle, DebuggerThreadsTestsImpl):
 
@@ -168,9 +164,6 @@ class DebuggerThreadsTestsFreeRTOSListIntegrityDual(DebuggerGenericTestAppTestsD
         super(DebuggerGenericTestAppTestsDual, self).__init__(methodName)
         self.test_app_cfg.bin_dir = os.path.join('output', 'default_freertos_list_integrity')
         self.test_app_cfg.build_dir = os.path.join('builds', 'default_freertos_list_integrity')
-
-    def test_threads_backtraces(self):
-        super(DebuggerGenericTestAppTestsDual, self).test_threads_backtraces()
 
 @idf_ver_min('latest')
 class DebuggerThreadsTestsFreeRTOSListIntegritySingle(DebuggerGenericTestAppTestsSingle, DebuggerThreadsTestsImpl):
