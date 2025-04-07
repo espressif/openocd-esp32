@@ -144,17 +144,21 @@ int esp_xtensa_smp_poll(struct target *target)
 	struct target_list *head;
 	struct target *curr;
 	bool other_core_resume_req = false;
+	int ret;
 
 	if (target->state == TARGET_HALTED && target->smp && target->gdb_service && !target->gdb_service->target) {
 		target->gdb_service->target = esp_common_get_halted_target(target, target->gdb_service->core[1]);
 		LOG_INFO("Switch GDB target to '%s'", target_name(target->gdb_service->target));
-		if (esp_xtensa_smp->chip_ops->on_halt)
-			esp_xtensa_smp->chip_ops->on_halt(target);
+		if (esp_xtensa_smp->chip_ops->on_halt) {
+			ret = esp_xtensa_smp->chip_ops->on_halt(target);
+			if (ret != ERROR_OK)
+				return ret;
+		}
 		target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 		return ERROR_OK;
 	}
 
-	int ret = esp_xtensa_poll(target);
+	ret = esp_xtensa_poll(target);
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -275,8 +279,11 @@ int esp_xtensa_smp_poll(struct target *target)
 				}
 				return ERROR_OK;
 			}
-			if (esp_xtensa_smp->chip_ops->on_halt)
-				esp_xtensa_smp->chip_ops->on_halt(target);
+			if (esp_xtensa_smp->chip_ops->on_halt) {
+				ret = esp_xtensa_smp->chip_ops->on_halt(target);
+				if (ret != ERROR_OK)
+					return ret;
+			}
 			target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 		}
 	}
@@ -474,8 +481,11 @@ int esp_xtensa_smp_step(struct target *target,
 	res = xtensa_step(target, current, address, handle_breakpoints);
 
 	if (res == ERROR_OK) {
-		if (esp_xtensa_smp->chip_ops->on_halt)
-			esp_xtensa_smp->chip_ops->on_halt(target);
+		if (esp_xtensa_smp->chip_ops->on_halt) {
+			res = esp_xtensa_smp->chip_ops->on_halt(target);
+			if (res != ERROR_OK)
+				return res;
+		}
 		target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 	}
 
