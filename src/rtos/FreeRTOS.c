@@ -1396,42 +1396,42 @@ static int freertos_post_reset_cleanup(struct target *target)
 		(struct freertos_data *)target->rtos->rtos_specific_params;
 
 	if (target->rtos->symbols && target->rtos->symbols[FREERTOS_VAL_UX_CURRENT_NUMBER_OF_TASKS].address != 0) {
-		int ret = target_buffer_write_uint(target,
-			target->rtos->symbols[FREERTOS_VAL_UX_CURRENT_NUMBER_OF_TASKS].address,
-			rtos_data->params->thread_count_width,
-			0);
-		if (ret != ERROR_OK) {
-			LOG_ERROR("Failed to clear uxCurrentNumberOfTasks!");
-			return ret;
-		}
-		if (target->smp) {
-			/* clear pxCurrentTCB for all cores */
-			struct target_list *head;
-			foreach_smp_target(head, target->smp_targets) {
-				struct target *current_target = head->target;
-				if (!target_was_examined(current_target))
-					continue;
-				ret = target_buffer_write_uint(
-					target,
-					freertos_current_tcb_address(target->rtos)
-					+
-					current_target->coreid * rtos_data->params->pointer_width,
+		if (target->state == TARGET_HALTED) {
+			int ret = target_buffer_write_uint(target,
+				target->rtos->symbols[FREERTOS_VAL_UX_CURRENT_NUMBER_OF_TASKS].address,
+				rtos_data->params->thread_count_width,
+				0);
+			if (ret != ERROR_OK) {
+				LOG_ERROR("Failed to clear uxCurrentNumberOfTasks!");
+				return ret;
+			}
+			if (target->smp) {
+				/* clear pxCurrentTCB for all cores */
+				struct target_list *head;
+				foreach_smp_target(head, target->smp_targets) {
+					struct target *current_target = head->target;
+					if (!target_was_examined(current_target))
+						continue;
+					ret = target_buffer_write_uint(target,
+						freertos_current_tcb_address(target->rtos) +
+						current_target->coreid * rtos_data->params->pointer_width,
+						rtos_data->params->pointer_width,
+						0);
+					if (ret != ERROR_OK) {
+						LOG_ERROR("Failed to clear pxCurrentTCB for core %d!",
+							current_target->coreid);
+						return ret;
+					}
+				}
+			} else {
+				ret = target_buffer_write_uint(target,
+					freertos_current_tcb_address(target->rtos),
 					rtos_data->params->pointer_width,
 					0);
 				if (ret != ERROR_OK) {
-					LOG_ERROR("Failed to clear pxCurrentTCB for core %d!",
-						current_target->coreid);
+					LOG_ERROR("Failed to clear pxCurrentTCB!");
 					return ret;
 				}
-			}
-		} else {
-			ret = target_buffer_write_uint(target,
-				freertos_current_tcb_address(target->rtos),
-				rtos_data->params->pointer_width,
-				0);
-			if (ret != ERROR_OK) {
-				LOG_ERROR("Failed to clear pxCurrentTCB!");
-				return ret;
 			}
 		}
 		/* wipe out previous thread details if any */

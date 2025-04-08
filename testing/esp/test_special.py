@@ -47,7 +47,6 @@ class DebuggerSpecialTestsImpl:
         self.clear_bps()
 
     @run_all_cores
-    @skip_for_chip(["esp32p4"], 'skipped - OCD-1109')
     def test_debugging_works_after_hw_reset(self):
         """
             This test checks that debugging works after HW reset.
@@ -258,7 +257,6 @@ class DebuggerSpecialTestsDual(DebuggerGenericTestAppTestsDual, DebuggerSpecialT
     """ Test cases for dual core mode
     """
     @run_all_cores
-    @skip_for_chip(["esp32p4"], 'skipped - OCD-1109')
     def test_cores_states_after_esptool_connection(self):
         """
             This test checks that cores are in running or halted state after esptool connection.
