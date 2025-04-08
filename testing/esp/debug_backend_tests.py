@@ -562,6 +562,9 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         # TODO: chip dependent
         self.oocd.set_appimage_offset(app_flash_off)
         self.gdb.connect()
+        # reset to cleanup FreeRTOS data, otherwise rtos_data->esp_symbols can be initialized from previous appimage
+        self.gdb.target_reset()
+        rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
         bp = self.gdb.add_bp(self.test_app_cfg.entry_point, hw=True)
         self.resume_exec()
         try:
