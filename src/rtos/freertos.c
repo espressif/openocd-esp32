@@ -39,13 +39,13 @@ struct freertos_params {
 	const char *target_name;
 	const unsigned char thread_count_width;
 	const unsigned char pointer_width;
-	const unsigned char list_next_offset;           /* offset of `xListEnd.pxPrevious` in List_t */
-	const unsigned char list_end_offset;            /* offset of `xListEnd` in List_t */
-	const unsigned char list_width;                 /* sizeof(List_t) */
-	const unsigned char list_elem_next_offset;      /* offset of `pxPrevious` in ListItem_t */
-	const unsigned char list_elem_content_offset;   /* offset of `pvOwner` in ListItem_t */
-	const unsigned char thread_stack_offset;
-	const unsigned char thread_name_offset;
+	const unsigned char list_next_offset;			/* offsetof(List_t, xListEnd.pxNext) */
+	const unsigned char list_end_offset;            /* offsetof(List_t, xListEnd) */
+	const unsigned char list_width;					/* sizeof(List_t) */
+	const unsigned char list_elem_next_offset;		/* offsetof(ListItem_t, pxNext) */
+	const unsigned char list_elem_content_offset;	/* offsetof(ListItem_t, pvOwner) */
+	const unsigned char thread_stack_offset;		/* offsetof(TCB_t, pxTopOfStack) */
+	const unsigned char thread_name_offset;			/* offsetof(TCB_t, pcTaskName) */
 	const unsigned char thread_counter_width;
 	const struct rtos_register_stacking *stacking_info_cm3;
 	const struct rtos_register_stacking *stacking_info_cm4f;
@@ -59,10 +59,10 @@ static const struct freertos_params freertos_params_list[] = {
 		"cortex_m",				/* target_name */
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
-		16,						/* list_next_offset; */
+		12,						/* list_next_offset; */
 		8,						/* list_end_offset; */
 		20,						/* list_width; */
-		8,						/* list_elem_next_offset; */
+		4,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
 		0,						/* thread_stack_offset; */
 		52,						/* thread_name_offset; */
@@ -76,10 +76,10 @@ static const struct freertos_params freertos_params_list[] = {
 		"hla_target",			/* target_name */
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
-		16,						/* list_next_offset; */
+		12,						/* list_next_offset; */
 		8,						/* list_end_offset; */
 		20,						/* list_width; */
-		8,						/* list_elem_next_offset; */
+		4,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
 		0,						/* thread_stack_offset; */
 		52,						/* thread_name_offset; */
@@ -93,10 +93,10 @@ static const struct freertos_params freertos_params_list[] = {
 		"esp32",				/* target_name */
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
-		16,						/* list_next_offset; */
+		12,						/* list_next_offset; */
 		8,						/* list_end_offset; */
 		20,						/* list_width; */
-		8,						/* list_elem_next_offset; */
+		4,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
 		0,						/* thread_stack_offset; */
 		56,						/* thread_name_offset; */
@@ -110,10 +110,10 @@ static const struct freertos_params freertos_params_list[] = {
 		"esp32s2",				/* target_name */
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
-		16,						/* list_next_offset; */
+		12,						/* list_next_offset; */
 		8,						/* list_end_offset; */
 		20,						/* list_width; */
-		8,						/* list_elem_next_offset; */
+		4,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
 		0,						/* thread_stack_offset; */
 		52,						/* thread_name_offset; */
@@ -127,10 +127,10 @@ static const struct freertos_params freertos_params_list[] = {
 		"esp32s3",				/* target_name */
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
-		16,						/* list_next_offset; */
+		12,						/* list_next_offset; */
 		8,						/* list_end_offset; */
 		20,						/* list_width; */
-		8,						/* list_elem_next_offset; */
+		4,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
 		0,						/* thread_stack_offset; */
 		56,						/* thread_name_offset; */
@@ -144,10 +144,10 @@ static const struct freertos_params freertos_params_list[] = {
 		"esp32c2",				/* target_name */
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
-		16,						/* list_next_offset; */
+		12,						/* list_next_offset; */
 		8,						/* list_end_offset; */
 		20,						/* list_width; */
-		8,						/* list_elem_next_offset; */
+		4,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
 		0,						/* thread_stack_offset; */
 		52,						/* thread_name_offset; */
@@ -161,10 +161,10 @@ static const struct freertos_params freertos_params_list[] = {
 		"esp32h2",				/* target_name */
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
-		16,						/* list_next_offset; */
+		12,						/* list_next_offset; */
 		8,						/* list_end_offset; */
 		20,						/* list_width; */
-		8,						/* list_elem_next_offset; */
+		4,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
 		0,						/* thread_stack_offset; */
 		52,						/* thread_name_offset; */
@@ -178,10 +178,10 @@ static const struct freertos_params freertos_params_list[] = {
 		"esp32c3",				/* target_name */
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
-		16,						/* list_next_offset; */
+		12,						/* list_next_offset; */
 		8,						/* list_end_offset; */
 		20,						/* list_width; */
-		8,						/* list_elem_next_offset; */
+		4,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
 		0,						/* thread_stack_offset; */
 		52,						/* thread_name_offset; */
@@ -195,10 +195,10 @@ static const struct freertos_params freertos_params_list[] = {
 		"esp32c6",				/* target_name */
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
-		16,						/* list_next_offset; */
+		12,						/* list_next_offset; */
 		8,						/* list_end_offset; */
 		20,						/* list_width; */
-		8,						/* list_elem_next_offset; */
+		4,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
 		0,						/* thread_stack_offset; */
 		52,						/* thread_name_offset; */
@@ -212,10 +212,10 @@ static const struct freertos_params freertos_params_list[] = {
 		"esp32c61",				/* target_name */
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
-		16,						/* list_next_offset; */
+		12,						/* list_next_offset; */
 		8,						/* list_end_offset; */
 		20,						/* list_width; */
-		8,						/* list_elem_next_offset; */
+		4,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
 		0,						/* thread_stack_offset; */
 		52,						/* thread_name_offset; */
@@ -229,10 +229,10 @@ static const struct freertos_params freertos_params_list[] = {
 		"esp32p4",				/* target_name */
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
-		16,						/* list_next_offset; */
+		12,						/* list_next_offset; */
 		8,						/* list_end_offset; */
 		20,						/* list_width; */
-		8,						/* list_elem_next_offset; */
+		4,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
 		0,						/* thread_stack_offset; */
 		52,						/* thread_name_offset; */
@@ -246,10 +246,10 @@ static const struct freertos_params freertos_params_list[] = {
 		"esp32h4",				/* target_name */
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
-		16,						/* list_next_offset; */
+		12,						/* list_next_offset; */
 		8,						/* list_end_offset; */
 		20,						/* list_width; */
-		8,						/* list_elem_next_offset; */
+		4,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
 		0,						/* thread_stack_offset; */
 		52,						/* thread_name_offset; */
@@ -263,10 +263,10 @@ static const struct freertos_params freertos_params_list[] = {
 		"esp32c5",				/* target_name */
 		4,						/* thread_count_width; */
 		4,						/* pointer_width; */
-		16,						/* list_next_offset; */
+		12,						/* list_next_offset; */
 		8,						/* list_end_offset; */
 		20,						/* list_width; */
-		8,						/* list_elem_next_offset; */
+		4,						/* list_elem_next_offset; */
 		12,						/* list_elem_content_offset */
 		0,						/* thread_stack_offset; */
 		52,						/* thread_name_offset; */
