@@ -34,3 +34,24 @@ function(setup_toolchain ESP_TARGET XTENSA_TARGETS)
 
     set(TARGET_LINKER_FLAGS ${COMMON_LINKER_FLAGS} PARENT_SCOPE)
 endfunction()
+
+function(check_toolchain_version COMPILER EXPECTED_VERSION)
+    execute_process(
+        COMMAND ${COMPILER} --version
+        RESULT_VARIABLE result
+        OUTPUT_VARIABLE gcc_output
+        ERROR_VARIABLE gcc_error
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    if(result EQUAL 0)
+        string(REGEX MATCH "esp-[0-9]+\\.[0-9]+\\.[0-9]+_[0-9]+" toolchain_version ${gcc_output})
+        if(toolchain_version STREQUAL ${EXPECTED_VERSION})
+            message(STATUS "Found Toolchain version: ${toolchain_version} is OK")
+        else()
+            message(FATAL_ERROR "Toolchain version mismatch! Found: ${toolchain_version}, but expected: ${EXPECTED_VERSION}")
+        endif()
+    else()
+        message(FATAL_ERROR "Failed to run ${COMPILER} --version: ${gcc_error}")
+    endif()
+endfunction()

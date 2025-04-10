@@ -10,6 +10,8 @@ setup_toolchain(${ESP_TARGET} "${XTENSA_TARGETS}")
 
 project(openocd_stub LANGUAGES C CXX ASM)
 
+check_toolchain_version(${CMAKE_C_COMPILER} "esp-14.2.0_20241119")
+
 # Add compiler and linker flags to all targets
 add_compile_options(${TARGET_COMPILER_FLAGS})
 add_link_options(${COMMON_LINKER_FLAGS})
