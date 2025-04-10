@@ -1,0 +1,68 @@
+---
+name: Build Example
+
+on:
+  push:
+    branches-ignore: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        espidf_target: [esp32, esp32s2, esp32s3, esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2, esp32p4]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Build targets with ESP-IDF
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: "latest"
+          target: ${{ matrix.espidf_target }}
+          path: 'example'
+          command: |
+            mkdir -p build && cd build
+            cmake -DESP_TARGET=${{ matrix.espidf_target }} -GNinja ..
+            ninja
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: stub_${{ matrix.espidf_target }}_artifacts
+          path: |
+            example/build/stub_${{ matrix.espidf_target }}.elf
+            example/build/stub_${{ matrix.espidf_target }}.map
+            example/build/stub_${{ matrix.espidf_target }}.asm
+          if-no-files-found: error
+
+  build-esp8266:
+    name: Build (esp8266)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Build ESP8266 with custom toolchain
+        run: |
+          cd example
+          ./build.sh esp8266
+
+      - name: Upload ESP8266 build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: stub_esp8266_artifacts
+          path: |
+            example/build/esp8266/stub_esp8266.elf
+            example/build/esp8266/stub_esp8266.map
+            example/build/esp8266/stub_esp8266.asm
+          if-no-files-found: error

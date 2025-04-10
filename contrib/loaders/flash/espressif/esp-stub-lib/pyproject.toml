@@ -1,0 +1,20 @@
+[tool.yamlfix]
+    comments_min_spaces_from_content = 1            # Minimum number of spaces between comments and content
+    line_length                      = 120          # Maximum line length before wrapping
+    preserve_quotes                  = true         # Preserve quotes around string values if they are present
+    section_whitelines               = 1            # Number of blank lines before and after sections
+    sequence_style                   = "keep_style" # Determines how sequences (lists) are formatted: 'flow_style', 'block_style', or 'keep_style'
+    whitelines                       = 1            # Number of blank lines between elements, useful for separating items
+
+[tool.commitizen]
+    name = "czespressif"
+    version = "0.0.1"
+    update_changelog_on_bump = true
+    tag_format = "v$version"
+    changelog_start_rev = "v0.0.1"
+    changelog_merge_prerelease = true
+    annotated_tag = true
+    bump_message = "change: Update version to $new_version"
+
+[tool.codespell]
+    write-changes = false

@@ -1,0 +1,21 @@
+---
+DEFAULT:
+  perform_check: true
+  allowed_licenses:
+    - Apache-2.0
+    - MIT
+  license_for_new_files: Apache-2.0 OR MIT
+  new_notice_c: |
+    /*
+     * SPDX-FileCopyrightText: {years} Espressif Systems (Shanghai) CO LTD
+     *
+     * SPDX-License-Identifier: {license}
+     */
+
+  espressif_copyright: '{years} Espressif Systems (Shanghai) CO LTD'
+
+ignore:
+  perform_check: false
+  include:
+    - src/*/ld/*.ld
+    - example/ld/*.ld

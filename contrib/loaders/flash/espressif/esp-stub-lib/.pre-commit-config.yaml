@@ -1,0 +1,49 @@
+---
+minimum_pre_commit_version: 4.0.0
+default_install_hook_types: [pre-commit, commit-msg]
+
+ci:
+  autofix_commit_msg: |
+    Apply automatic fixes from pre-commit hooks
+  autofix_prs: true
+  autoupdate_commit_msg: 'ci: Bump pre-commit hooks'
+  autoupdate_schedule: quarterly
+
+repos:
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+
+  - repo: https://github.com/espressif/check-copyright/
+    rev: v1.1.1
+    hooks:
+      - id: check-copyright
+        args: ['--config', '.check_copyright_config.yaml']
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-executables-have-shebangs
+      - id: mixed-line-ending
+        args: ['-f=lf']
+      - id: double-quote-string-fixer
+
+  - repo: https://github.com/lyz-code/yamlfix/
+    rev: 1.17.0
+    hooks:
+      - id: yamlfix
+
+  - repo: https://github.com/espressif/conventional-precommit-linter
+    rev: v1.10.0
+    hooks:
+      - id: conventional-precommit-linter
+        stages: [commit-msg]
+
+  - repo: https://github.com/espressif/astyle_py.git
+    rev: v1.1.0
+    hooks:
+      - id: astyle_py
+        args: ['--astyle-version=3.4.7', '--rules=.astyle-rules.yml']
