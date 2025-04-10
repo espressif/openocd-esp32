@@ -162,10 +162,6 @@ class ApptraceTestsDual(ApptraceTestAppTestsDual, ApptraceTestsImpl):
         ApptraceTestAppTestsDual.tearDown(self)
         ApptraceTestsImpl.tearDown(self)
 
-    @skip_for_chip_and_ver(['5.3'], ['esp32p4'], "skipped - OCD-1052")
-    def test_apptrace_dest_tcp(self):
-        super(ApptraceTestAppTestsDual, self).test_apptrace_dest_tcp()
-
 class ApptraceTestsSingle(ApptraceTestAppTestsSingle, ApptraceTestsImpl):
     """ Test cases via GDB in single core mode
     """
