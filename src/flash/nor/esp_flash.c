@@ -66,8 +66,7 @@
 #include <helper/time_support.h>
 #include <helper/align.h>
 #include <target/smp.h>
-#include "contrib/loaders/flash/espressif/stub_flasher.h"
-//#include "contrib/loaders/flash/esp-stub-ng/include/esp_stub.h"
+#include "contrib/loaders/flash/espressif/include/esp_stub.h"
 #include <target/smp.h>
 #include "esp_flash.h"
 

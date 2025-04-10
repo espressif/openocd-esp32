@@ -17,7 +17,7 @@
 #include "esp_xtensa.h"
 
 #define ESP_TARGET_ESP32
-#include "esp_stub_ng_config.h"
+#include "esp_stub_config.h"
 #undef ESP_TARGET_ESP32
 
 #define ESP32_DROM_LOW            0x3F400000

@@ -16,7 +16,7 @@
 #include <target/espressif/esp_riscv.h>
 
 #define ESP_TARGET_ESP32P4
-#include "esp_stub_ng_config.h"
+#include "esp_stub_config.h"
 #undef ESP_TARGET_ESP32P4
 
 #define ESP32P4_FLASH_SECTOR_SIZE 4096
