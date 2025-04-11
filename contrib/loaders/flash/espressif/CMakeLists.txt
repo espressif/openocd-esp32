@@ -37,8 +37,6 @@ set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_test2 STUB_CMD_TEST2_ENABLED)
 set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_all 
     STUB_CMD_TEST1_ENABLED STUB_CMD_TEST2_ENABLED STUB_LOG_ENABLE)
 
-add_subdirectory(esp-stub-lib)
-
 # Create a list to hold all target names
 set(ALL_TARGETS)
 
@@ -47,6 +45,7 @@ foreach(COMMAND ${COMMANDS})
     string(TOUPPER ${COMMAND} COMMAND_UPPER)
     set(TARGET_NAME stub_${ESP_TARGET}_${COMMAND})
     set(TARGET_ELF ${TARGET_NAME}.elf)
+    set(LIB_NAME esp-stub-lib-${COMMAND})
 
     # Project setup for each command
     add_executable(${TARGET_ELF} ${SRC_FILES})
@@ -62,7 +61,12 @@ foreach(COMMAND ${COMMANDS})
     endif()
 
     get_property(COMMAND_MACROS GLOBAL PROPERTY COMMAND_MACROS:${COMMAND})
-    target_compile_definitions(${TARGET_ELF} PRIVATE asm=__asm__ ${COMMAND_MACROS})
+
+    set(STUB_COMPILE_DEFS "asm=__asm__;${COMMAND_MACROS}")
+
+    add_subdirectory(esp-stub-lib ${CMAKE_CURRENT_BINARY_DIR}/${LIB_NAME})
+
+    target_compile_definitions(${TARGET_ELF} PRIVATE ${STUB_COMPILE_DEFS})
 
     set(MAP_FILE ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.map)
     target_link_options(${TARGET_ELF} PRIVATE -Wl,-Map=${MAP_FILE})
@@ -74,7 +78,7 @@ foreach(COMMAND ${COMMANDS})
     )
 
     # Link each target with the built esp-stub-lib
-    target_link_libraries(${TARGET_ELF} PRIVATE esp-stub-lib)
+    target_link_libraries(${TARGET_ELF} PRIVATE ${LIB_NAME})
 
     list(APPEND ALL_TARGETS ${TARGET_ELF})
 
@@ -88,6 +92,7 @@ add_custom_target(generate_image_headers ALL
         -DCOMMANDS="${COMMANDS_LIST}"
         -DCMAKE_OBJCOPY=${CMAKE_OBJCOPY}
         -DCMAKE_READELF=${CMAKE_READELF}
+        -DCMAKE_CURRENT_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}
         -P ${CMAKE_CURRENT_LIST_DIR}/cmake/generate_header.cmake
     COMMENT "Generating stub image headers"
 )
