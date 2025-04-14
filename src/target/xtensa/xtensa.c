@@ -1073,7 +1073,11 @@ int xtensa_core_status_check(struct target *target)
 	struct xtensa *xtensa = target_to_xtensa(target);
 	int res, needclear = 0, needimprclear = 0;
 
-	xtensa_dm_core_status_read(&xtensa->dbg_mod);
+	res = xtensa_dm_core_status_read(&xtensa->dbg_mod);
+	if (res != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to read core status!");
+		return res;
+	}
 	xtensa_dsr_t dsr = xtensa_dm_core_status_get(&xtensa->dbg_mod);
 	LOG_TARGET_DEBUG(target, "DSR (%08" PRIX32 ")", dsr);
 	if (dsr & OCDDSR_EXECBUSY) {
@@ -2375,8 +2379,10 @@ int xtensa_poll(struct target *target)
 
 	uint32_t prev_dsr = xtensa->dbg_mod.core_status.dsr;
 	res = xtensa_dm_core_status_read(&xtensa->dbg_mod);
-	if (res != ERROR_OK)
+	if (res != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to read core status!");
 		return res;
+	}
 	if (prev_dsr != xtensa->dbg_mod.core_status.dsr) {
 		LOG_TARGET_DEBUG(target,
 			"DSR has changed: was 0x%08" PRIx32 " now 0x%08" PRIx32,

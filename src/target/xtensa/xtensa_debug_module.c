@@ -284,8 +284,12 @@ int xtensa_dm_core_status_read(struct xtensa_debug_module *dm)
 	int res = xtensa_dm_queue_execute(dm);
 	if (res != ERROR_OK)
 		return res;
-	dm->core_status.dsr = buf_get_u32(dsr_buf, 0, 32);
-	return res;
+	uint32_t dsr = buf_get_u32(dsr_buf, 0, 32);
+	/* sanity check */
+	if (dsr == 0xffffffff)
+		return ERROR_FAIL;
+	dm->core_status.dsr = dsr;
+	return ERROR_OK;
 }
 
 int xtensa_dm_core_status_clear(struct xtensa_debug_module *dm, xtensa_dsr_t bits)
