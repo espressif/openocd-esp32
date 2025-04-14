@@ -7,6 +7,8 @@ set(HEADER_FILE "${OUTPUT_DIR}/stub_image.h")
 string(REPLACE "," ";" COMMANDS "${COMMANDS}")
 
 set(BIN2C "${OPENOCD_SOURCE_DIR}/src/helper/bin2char.sh")
+file(RELATIVE_PATH BIN2C "${CMAKE_CURRENT_BINARY_DIR}" "${BIN2C}")
+
 if(NOT EXISTS ${BIN2C})
     message(FATAL_ERROR "bin2char.sh not found at ${BIN2C}")
 endif()
