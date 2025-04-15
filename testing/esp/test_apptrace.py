@@ -74,6 +74,7 @@ class ApptraceTestsImpl:
             except ReaderTimeoutError:
                 break
         reader.cleanup()
+        assert len(lines) > 0
         for i, line in enumerate(lines):
             self.assertEqual(line, "[%d %s]\n" % (i, " " * (i * 20)))
         os.remove(trace_file_name)
