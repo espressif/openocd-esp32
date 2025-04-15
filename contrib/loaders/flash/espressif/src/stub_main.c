@@ -9,9 +9,9 @@
 #include <stddef.h>
 
 #include <esp-stub-lib/flash.h>
+#include <esp-stub-lib/log.h>
 
 #include "esp_stub.h"
-#include "stub_log.h"
 
 extern uint32_t _bss_start;
 extern uint32_t _bss_end;
@@ -42,6 +42,15 @@ static __maybe_unused int handle_test1(va_list ap)
     STUB_LOG("stub command test:%s\n", "test");
     STUB_LOG("stub command test:%c\n", 'A');
     STUB_LOG("stub command test:%l\n", 'A');
+
+    STUB_LOGE("stub command test\n");
+    STUB_LOGW("stub command test\n");
+    STUB_LOGI("stub command test\n");
+    STUB_LOGD("stub command test\n");
+    STUB_LOGV("stub command test\n");
+    STUB_LOG_TRACE();
+    STUB_LOG_TRACEF("foo:%u\n", 0x2A);
+
     return 0;
 }
 
@@ -61,7 +70,7 @@ static const struct stub_cmd_handler cmd_handlers[] = {
     #ifdef STUB_CMD_TEST2_ENABLED
     {ESP_STUB_CMD_TEST2, "CMD_TEST2", handle_test2},
     #endif
-    {0, NULL, NULL} 
+    {0, NULL, NULL}
 };
 
 int stub_main(int cmd, ...) __attribute__((used));
@@ -89,7 +98,7 @@ int stub_main(int cmd, ...)
 
     va_start(ap, cmd);
 
-    STUB_LOG_INIT(0, 115200);
+    STUB_LOG_INIT();
 
     stub_lib_flash_init(&flash_state);
 

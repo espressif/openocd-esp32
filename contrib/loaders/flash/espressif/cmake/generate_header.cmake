@@ -124,7 +124,7 @@ foreach(COMMAND ${COMMANDS})
 
     execute_process(
         COMMAND ${CMAKE_READELF} -s ${STUB_ELF}
-        COMMAND grep -w s_stub_log_buff
+        COMMAND grep -w g_stub_lib_log_buf
         COMMAND awk "NR==1 {print $2} END {if (NR==0) print \"0\"}"
         OUTPUT_VARIABLE LOG_ADDR
         OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -132,7 +132,7 @@ foreach(COMMAND ${COMMANDS})
 
     execute_process(
         COMMAND ${CMAKE_READELF} -s ${STUB_ELF}
-        COMMAND grep -w s_stub_log_buff
+        COMMAND grep -w g_stub_lib_log_buf
         COMMAND awk "NR==1 {print $3} END {if (NR==0) print \"0\"}"
         OUTPUT_VARIABLE LOG_SIZE
         OUTPUT_STRIP_TRAILING_WHITESPACE
