@@ -43,5 +43,7 @@
 #define CONFIG_FREERTOS_TASK_NOTIFICATION_ARRAY_ENTRIES 1
 
 #define CONFIG_LOG_DEFAULT_LEVEL                        0
+#define CONFIG_LIBC_NEWLIB                              1
+#define CONFIG_LOG_VERSION                              1
 
 #endif	/* OPENOCD_LOADERS_FLASH_ESPRESSIF_ESP32C61_SDKCONFIG_H */

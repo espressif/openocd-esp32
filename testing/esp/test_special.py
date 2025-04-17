@@ -195,8 +195,7 @@ class DebuggerSpecialTestsImpl:
             self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
 
 
-# OCD-1154: fix for ESP32-P4
-@only_for_chip(["esp32", "esp32s2", "esp32s3", "esp32c5"])
+@only_for_chip(["esp32", "esp32s2", "esp32s3", "esp32c5", "esp32c61"], 'skipped - OCD-1154')
 class PsramTestsImpl:
     """ PSRAM specific test cases generic for dual and single core modes
     """
