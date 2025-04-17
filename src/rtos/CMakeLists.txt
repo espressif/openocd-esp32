@@ -13,15 +13,15 @@ target_sources(rtos PRIVATE
 	rtos_freertos_stackings.c
 	rtos_nuttx_stackings.c
 	rtos_riot_stackings.c
-	FreeRTOS.c
-	ThreadX.c
-	eCos.c
+	freertos.c
+	threadx.c
+	ecos.c
 	linux.c
 	chibios.c
 	chromium-ec.c
-	embKernel.c
+	embkernel.c
 	mqx.c
-	uCOS-III.c
+	ucos_iii.c
 	nuttx.c
 	rtkernel.c
 	hwthread.c

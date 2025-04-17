@@ -55,6 +55,7 @@ target_sources(nor PRIVATE
 	mdr.c
 	msp432.c
 	mrvlqspi.c
+	mspm0.c
 	niietcm4.c
 	non_cfi.c
 	npcx.c
