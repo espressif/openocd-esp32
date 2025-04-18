@@ -131,8 +131,10 @@ static const struct esp_flash_breakpoint_ops esp32c5_flash_brp_ops = {
 	.breakpoint_remove = esp_algo_flash_breakpoint_remove,
 };
 
+// TODO: OCD-1167 Why medeleg and csr_mnmicause cannot be read?
 static const char *esp32c5_csrs[] = {
-	"mideleg", "medeleg", "mie", "mip", "jvt", "mtvt",
+	//"medeleg",
+	"mideleg", "mie", "mip", "jvt", "mtvt",
 	"mnxti", "mscratchcsw", "mscratchcswl",
 	"mcycle", "mcycleh", "minstret", "minstreth",
 	"mhpmevent8", "mhpmevent9", "mhpmevent13",
@@ -145,7 +147,8 @@ static const char *esp32c5_csrs[] = {
 	"csr_pma_addr2", "csr_pma_addr3", "csr_pma_addr4", "csr_pma_addr5", "csr_pma_addr6", "csr_pma_addr7",
 	"csr_pma_addr8", "csr_pma_addr9", "csr_pma_addr10", "csr_pma_addr11", "csr_pma_addr12", "csr_pma_addr13",
 	"csr_pma_addr14", "csr_pma_addr15", "csr_mxstatus", "csr_mhcr", "csr_mhint", "csr_mexstatus",
-	"csr_mclicbase", "csr_mraddr", "csr_mnmicause", "csr_mintthresh",
+	"csr_mclicbase", "csr_mraddr", "csr_mintthresh",
+	//"csr_mnmicause"
 };
 
 static const char *esp32c5_ro_csrs[] = {

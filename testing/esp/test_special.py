@@ -291,6 +291,7 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
     """
 
     #@run_all_cores TODO enable for both cores after OCD-1132
+    @skip_for_chip(["esp32c5"], 'skipped - OCD-1167')
     def test_gdb_regs_mapping(self):
         """
             This test checks that GDB and OpenOCD has identical registers mapping.
