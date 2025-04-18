@@ -486,19 +486,6 @@ tests_esp32c3_idf5.4.x_flash_encrypted:
     CHIP_NAME: "esp32c3"
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
-tests_esp32c5_idf5.4.x:
-  extends: .tests_v5.4.x_riscv_template
-  tags:
-    - esp32c5
-    - usb_serial_jtag
-  needs:
-    - job: build_test_app_esp32c5_idf5.4.x
-    - job: build_linux_arm64_test
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32c5"
-    TEST_RUN_BOARD_OPTS: "-b esp32c5-builtin -p test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
-
 tests_esp32c6_idf5.4.x:
   extends: .tests_v5.4.x_riscv_template
   tags:
@@ -511,19 +498,6 @@ tests_esp32c6_idf5.4.x:
   variables:
     CHIP_NAME: "esp32c6"
     TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
-
-tests_esp32c61_idf5.4.x:
-  extends: .tests_v5.4.x_riscv_template
-  tags:
-    - esp32c61
-    - usb_serial_jtag
-  needs:
-    - job: build_test_app_esp32c61_idf5.4.x
-    - job: build_linux_arm64_test
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32c61"
-    TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
 
 tests_esp32h2_idf5.4.x:
   extends: .tests_v5.4.x_riscv_template

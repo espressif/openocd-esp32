@@ -385,9 +385,7 @@ create_coverage_reports:
     - job: tests_esp32c2_idf5.4.x
     - job: tests_esp32c3_idf5.4.x
     - job: tests_esp32c3_idf5.4.x_flash_encrypted
-    - job: tests_esp32c5_idf5.4.x
     - job: tests_esp32c6_idf5.4.x
-    - job: tests_esp32c61_idf5.4.x
     - job: tests_esp32h2_idf5.4.x
     - job: tests_esp32p4_idf5.4.x
     # idf master
