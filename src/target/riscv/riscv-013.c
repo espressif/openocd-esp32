@@ -5028,6 +5028,8 @@ static int riscv013_halt_go(struct target *target)
 	uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE | DM_DMCONTROL_HALTREQ;
 	dmcontrol = set_dmcontrol_hartsel(dmcontrol, dm->current_hartid);
 	dm_write(target, DM_DMCONTROL, dmcontrol);
+	RISCV_INFO(r);
+	usleep(r->halt_delay_us);
 	uint32_t dmstatus;
 	for (size_t i = 0; i < 256; ++i) {
 		if (dmstatus_read(target, &dmstatus, true) != ERROR_OK)

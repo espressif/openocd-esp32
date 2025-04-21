@@ -199,6 +199,8 @@ static int esp32c5_init_target(struct command_context *cmd_ctx,
 
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 
+	esp_riscv->riscv.halt_delay_us = 10000;
+
 	ret = esp_riscv_init_arch_info(target,
 		esp_riscv,
 		&esp32c5_flash_brp_ops,
