@@ -47,6 +47,7 @@ class DebuggerSpecialTestsImpl:
         self.clear_bps()
 
     @run_all_cores
+    @skip_for_chip(["esp32c5"], 'skipped - OCD-1172')
     def test_debugging_works_after_hw_reset(self):
         """
             This test checks that debugging works after HW reset.
