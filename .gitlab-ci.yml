@@ -47,6 +47,7 @@ default:
   retry:
     max: 2
     when: runner_system_failure
+    exit_codes: 75
 
 variables:
 
