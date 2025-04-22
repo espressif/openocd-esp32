@@ -152,7 +152,7 @@ static const char *esp32c6_csrs[] = {
 	"csr_pma_addr14", "csr_pma_addr15",
 };
 
-static int esp32c6_target_create(struct target *target, Jim_Interp *interp)
+static int esp32c6_target_create(struct target *target)
 {
 	struct esp_riscv_common *esp_riscv = calloc(1, sizeof(*esp_riscv));
 	if (!esp_riscv)

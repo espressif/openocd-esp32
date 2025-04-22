@@ -157,7 +157,7 @@ static const char *esp32c61_ro_csrs[] = {
 	"csr_mcpuid", "csr_mintstatus",
 };
 
-static int esp32c61_target_create(struct target *target, Jim_Interp *interp)
+static int esp32c61_target_create(struct target *target)
 {
 	struct esp_riscv_common *esp_riscv = calloc(1, sizeof(*esp_riscv));
 	if (!esp_riscv)

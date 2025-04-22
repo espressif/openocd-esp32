@@ -121,7 +121,7 @@ static const struct esp_flash_breakpoint_ops esp32c2_flash_brp_ops = {
 	.breakpoint_remove = esp_algo_flash_breakpoint_remove,
 };
 
-static int esp32c2_target_create(struct target *target, Jim_Interp *interp)
+static int esp32c2_target_create(struct target *target)
 {
 	struct esp_riscv_common *esp_riscv = calloc(1, sizeof(*esp_riscv));
 	if (!esp_riscv)
