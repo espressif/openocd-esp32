@@ -33,7 +33,7 @@
   fi
   if [ ! -z "$ESP_GCOV_TOOLCHAIN" ]; then
     wget --no-cache --no-verbose https://dl.espressif.com/dl/${ESP_TOOLCHAIN}-gcov.tar.gz
-    tar -xvf ${ESP_TOOLCHAIN}-gcov.tar.gz
+    tar -xf ${ESP_TOOLCHAIN}-gcov.tar.gz
     export PATH=${ESP_GCOV_TOOLCHAIN}/${TOOLCHAIN_PREFIX}-elf/bin:${PATH}
   fi
   echo "PATH: ${PATH}"
