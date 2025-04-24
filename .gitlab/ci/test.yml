@@ -6,6 +6,7 @@
     RUNNER_SCRIPT_TIMEOUT: 60m
     OOCD_CMDS: "set VAR 1" # default command to avoid missing argument error.
     TEST_RUN_EXTRA_OPTS: "-r -i ${IDF_RELEASE_TAG} ${TEST_RUN_BOARD_OPTS} ${TEST_RUN_COMMON_ARGS}"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyUSB-esp32"
   artifacts:
     paths:
       - $TEST_RUN_DIR/debug_backend_tests.log
@@ -323,7 +324,8 @@ tests_esp32c5:
       optional: true
   variables:
     CHIP_NAME: "esp32c5"
-    TEST_RUN_BOARD_OPTS: "-b esp32c5-builtin -p test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32c5-builtin -p test_*.*Single"
 
 tests_esp32c6:
   extends: .tests_master_riscv_template
@@ -338,7 +340,8 @@ tests_esp32c6:
       optional: true
   variables:
     CHIP_NAME: "esp32c6"
-    TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single"
 
 tests_esp32c61:
   extends: .tests_master_riscv_template
@@ -353,7 +356,8 @@ tests_esp32c61:
       optional: true
   variables:
     CHIP_NAME: "esp32c61"
-    TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p test_*.*Single"
 
 tests_esp32h2:
   extends: .tests_master_riscv_template
@@ -368,7 +372,8 @@ tests_esp32h2:
       optional: true
   variables:
     CHIP_NAME: "esp32h2"
-    TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single"
 
 tests_esp32p4:
   extends: .tests_master_riscv_template
@@ -497,7 +502,8 @@ tests_esp32c6_idf5.4.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c6"
-    TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single"
 
 tests_esp32h2_idf5.4.x:
   extends: .tests_v5.4.x_riscv_template
@@ -510,7 +516,8 @@ tests_esp32h2_idf5.4.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32h2"
-    TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single"
 
 tests_esp32p4_idf5.4.x:
   extends: .tests_v5.4.x_riscv_template
@@ -637,7 +644,8 @@ tests_esp32c6_idf5.3.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c6"
-    TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single"
 
 tests_esp32h2_idf5.3.x:
   extends: .tests_v5.3.x_riscv_template
@@ -650,7 +658,8 @@ tests_esp32h2_idf5.3.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32h2"
-    TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single"
 
 tests_esp32p4_idf5.3.x:
   extends: .tests_v5.3.x_riscv_template
@@ -777,7 +786,8 @@ tests_esp32c6_idf5.2.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c6"
-    TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single"
 
 tests_esp32h2_idf5.2.x:
   extends: .tests_v5.2.x_riscv_template
@@ -790,7 +800,8 @@ tests_esp32h2_idf5.2.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32h2"
-    TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single"
 
 #############
 # IDF 5.1.X #
@@ -906,7 +917,8 @@ tests_esp32c6_idf5.1.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32c6"
-    TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single"
 
 tests_esp32h2_idf5.1.x:
   extends: .tests_v5.1.x_riscv_template
@@ -919,7 +931,8 @@ tests_esp32h2_idf5.1.x:
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32h2"
-    TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single -u /dev/serial_ports/ttyACM-esp32"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single"
 
 #############
 # IDF 5.0.X #

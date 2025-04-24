@@ -47,7 +47,6 @@ class DebuggerSpecialTestsImpl:
         self.clear_bps()
 
     @run_all_cores
-    @skip_for_chip(["esp32c5"], 'skipped - OCD-1172')
     def test_debugging_works_after_hw_reset(self):
         """
             This test checks that debugging works after HW reset.
@@ -62,10 +61,8 @@ class DebuggerSpecialTestsImpl:
         self.select_sub_test("blink")
         self.resume_exec()
         time.sleep(2.0)
-        if self.port_name:
-            cmd = ['esptool.py', '-p', self.port_name, '-a', 'hard_reset', 'chip_id']
-        else:
-            cmd = ['esptool.py', '-a', 'hard_reset', 'chip_id']
+        assert self.port_name is not None
+        cmd = ['esptool.py', '-p', self.port_name, '--no-stub', 'chip_id']
         proc = subprocess.run(cmd)
         proc.check_returncode()
         time.sleep(2.0)
@@ -275,10 +272,8 @@ class DebuggerSpecialTestsDual(DebuggerGenericTestAppTestsDual, DebuggerSpecialT
         for target in self.oocd.targets():
             state = self.oocd.target_state(target)
             self.assertEqual(state, 'running')
-        if self.port_name:
-            cmd = ['esptool.py', '-p', self.port_name, 'chip_id']
-        else:
-            cmd = ['esptool.py', 'chip_id']
+        assert self.port_name is not None
+        cmd = ['esptool.py', '-p', self.port_name, '--no-stub', 'chip_id']
         proc = subprocess.run(cmd)
         proc.check_returncode()
         time.sleep(2.0)
