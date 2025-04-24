@@ -54,10 +54,7 @@ class NuttxAppTests(DebuggerTestAppTests):
         #   ==> bin_dir = nuttx_test/nuttx_openocd/
         self.test_app_cfg.app_name = 'nuttx_openocd'
         self.test_app_cfg.entry_point = 'openocd_main'
-        if testee_info.chip == 'esp32':
-            # ESP32 has still IDF bootloader
-            self.test_app_cfg.app_off = 0x10000
-        elif testee_info.chip == 'esp32s2':
+        if testee_info.chip == 'esp32' or testee_info.chip == 'esp32s2':
             self.test_app_cfg.app_off = 0x1000
         else:
             self.test_app_cfg.app_off = 0x0
