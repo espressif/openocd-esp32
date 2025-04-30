@@ -86,15 +86,15 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_test2_cfg = {
 };
 
 // cmd_test_all definitions
-#define ESP_STUB_CMD_TEST_ALL_BSS_SIZE 0x0UL
+#define ESP_STUB_CMD_TEST_ALL_BSS_SIZE 0x001004UL
 #define ESP_STUB_CMD_TEST_ALL_IRAM_ORG 0x400bc000UL
 #define ESP_STUB_CMD_TEST_ALL_IRAM_LEN 0x00004000UL
 #define ESP_STUB_CMD_TEST_ALL_DRAM_ORG 0x3ffe4000UL
 #define ESP_STUB_CMD_TEST_ALL_DRAM_LEN 0x00014000UL
-#define ESP_STUB_CMD_TEST_ALL_ENTRY_ADDR 0x400bc228UL
+#define ESP_STUB_CMD_TEST_ALL_ENTRY_ADDR 0x400bc26cUL
 #define ESP_STUB_CMD_TEST_ALL_APPTRACE_CTRL_ADDR 0x0UL
-#define ESP_STUB_CMD_TEST_ALL_LOG_ADDR 0x0UL
-#define ESP_STUB_CMD_TEST_ALL_LOG_SIZE 0x0UL
+#define ESP_STUB_CMD_TEST_ALL_LOG_ADDR 0x3ffe41ccUL
+#define ESP_STUB_CMD_TEST_ALL_LOG_SIZE 0x4100UL
 
 static const uint8_t s_esp_flasher_stub_cmd_test_all_code[] = {
 #include "contrib/loaders/flash/espressif/images/esp32/stub_cmd_test_all_code.inc"
