@@ -44,7 +44,8 @@ esp-idf/components/esp_system/openocd_stub_bins/ directory.
 // Define command numbers. Should be the same order as the commands in the root CMakeLists.txt
 enum esp_stub_cmd {
 	ESP_STUB_CMD_TEST1 = 0x00,
-	ESP_STUB_CMD_TEST2,
+	ESP_STUB_CMD_RECV_FROM_HOST,
+	ESP_STUB_CMD_SEND_TO_HOST,
 	ESP_STUB_CMD_TEST_ALL,
 	ESP_STUB_CMD_FLASH_MAX_ID = ESP_STUB_CMD_TEST_ALL,
 };
@@ -129,8 +130,8 @@ struct esp_stub_flash_map {
 struct esp_flash_stub_flash_write_args {
 	uint32_t start_addr;
 	uint32_t size;
-	uint32_t down_buf_addr;
-	uint32_t down_buf_size;
+	uint32_t ring_buf_addr;		/* used for downlink ring buffer address */
+	uint32_t ring_buf_size;		/* used for downlink ring buffer size */
 	uint32_t total_size;        /* uncompressed file size */
 	uint32_t extra_stack_addr;  /* extra stack for compression */
 	uint32_t options;           /* Write options. e.g. encrypted */

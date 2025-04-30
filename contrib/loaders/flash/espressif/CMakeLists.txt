@@ -17,31 +17,43 @@ add_compile_options(${TARGET_COMPILER_FLAGS})
 add_link_options(${COMMON_LINKER_FLAGS})
 add_compile_definitions(${COMMON_COMPILE_DEFS})
 
-set(SRC_DIR "${CMAKE_CURRENT_LIST_DIR}/src")
 set(LINKER_SCRIPTS
     ${CMAKE_CURRENT_LIST_DIR}/ld/${ESP_TARGET}.ld
     ${CMAKE_CURRENT_LIST_DIR}/ld/common.ld
 )
-file(GLOB SRC_FILES "${SRC_DIR}/*.c" "${SRC_DIR}/*.S")
+
+set(SRC_DIR "${CMAKE_CURRENT_LIST_DIR}/src")
+set(SRC_FILES
+    ${SRC_DIR}/stub_main.c
+    ${SRC_DIR}/apptrace/src/apptrace_mem_ctrl.c
+    ${SRC_DIR}/apptrace/src/stub_apptrace.c
+)
+if(ESP_TARGET IN_LIST XTENSA_TARGETS)
+    list(APPEND SRC_FILES ${SRC_DIR}/apptrace/src/apptrace_hw_xtensa.c)
+else()
+    list(APPEND SRC_FILES ${SRC_DIR}/apptrace/src/apptrace_hw_riscv.c)
+endif()
 
 # Define command names. Should be the same order as the commands in the esp_stub.h file
 set(COMMANDS
     "cmd_test1"
-    "cmd_test2"
+    "cmd_recv_from_host"
+    "cmd_send_to_host"
     "cmd_test_all"
 )
 
 # Define enabled macros for each command
 define_property(GLOBAL PROPERTY COMMAND_MACROS)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_test1 STUB_CMD_TEST1_ENABLED)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_test2 STUB_CMD_TEST2_ENABLED)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_test1 STUB_CMD_TEST1)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_recv_from_host STUB_CMD_RECV_FROM_HOST)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_send_to_host STUB_CMD_SEND_TO_HOST)
 set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_test_all
-    STUB_CMD_TEST1_ENABLED
-    STUB_CMD_TEST2_ENABLED
+    STUB_CMD_TEST1
+    STUB_CMD_RECV_FROM_HOST
+    STUB_CMD_SEND_TO_HOST
     STUB_LOG_ENABLED
+    STUB_LIB_LOG_BUF_SIZE=8192
 )
-
-add_subdirectory(esp-stub-lib)
 
 # Create a list to hold all target names
 set(ALL_TARGETS)
@@ -53,13 +65,20 @@ foreach(COMMAND ${COMMANDS})
     set(TARGET_ELF ${TARGET_NAME}.elf)
     set(ESP_STUB_LIB esp-stub-lib-${COMMAND})
     set(ESP_TARGET_LIB ${ESP_TARGET}-${COMMAND})
+    string(TOUPPER ${ESP_TARGET} ESP_TARGET_NAME)
 
-    # Project setup for each command
-    add_executable(${TARGET_ELF} ${SRC_FILES})
-    target_include_directories(${TARGET_ELF}
-        PRIVATE include
-        PRIVATE include/private
+    add_executable(${TARGET_ELF}  ${SRC_FILES})
+
+    set(PRIV_INCLUDE_DIRS
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/private
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/apptrace/include
     )
+
+    target_include_directories(${TARGET_ELF}
+        PRIVATE ${PRIV_INCLUDE_DIRS}
+    )
+
     foreach(script ${LINKER_SCRIPTS})
         target_link_options(${TARGET_ELF} PRIVATE -T${script})
     endforeach()
@@ -70,7 +89,7 @@ foreach(COMMAND ${COMMANDS})
 
     get_property(COMMAND_DEFINES GLOBAL PROPERTY COMMAND_MACROS:${COMMAND})
 
-    set(STUB_COMPILE_DEFS "${COMMAND_DEFINES}")
+    set(STUB_COMPILE_DEFS "${COMMAND_DEFINES}; ${ESP_TARGET_NAME}")
 
     add_subdirectory(esp-stub-lib ${ESP_STUB_LIB})
 
@@ -85,7 +104,6 @@ foreach(COMMAND ${COMMANDS})
         COMMAND ${CMAKE_OBJDUMP} -d $<TARGET_FILE:${TARGET_ELF}> -M no-aliases > ${CMAKE_BINARY_DIR}/${TARGET_NAME}.asm
     )
 
-    # Link each target with the built esp-stub-lib
     target_link_libraries(${TARGET_ELF} PRIVATE ${ESP_STUB_LIB})
 
     list(APPEND ALL_TARGETS ${TARGET_ELF})

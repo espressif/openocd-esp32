@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
- *
- * SPDX-License-Identifier: Apache-2.0 OR MIT
- */
-
 PHDRS
 {
   text_phdr PT_LOAD;
@@ -18,6 +12,9 @@ SECTIONS {
 
   .dram_org = ORIGIN(dram);
   .dram_len = ABSOLUTE(. + LENGTH(dram));
+
+  PROVIDE(apptrace_block0_org = ORIGIN(apptrace_block0));
+  PROVIDE(apptrace_block1_org = ORIGIN(apptrace_block1));
 
   .text : ALIGN(4) {
     *(.stub_desc)

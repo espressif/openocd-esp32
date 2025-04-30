@@ -116,7 +116,7 @@ foreach(COMMAND ${COMMANDS})
 
     execute_process(
         COMMAND ${CMAKE_READELF} -s ${STUB_ELF}
-        COMMAND grep -w s_tracing_ctrl
+        COMMAND grep -w s_apptrace_ctrl
         COMMAND awk "NR==1 {print $2} END {if (NR==0) print \"0\"}"
         OUTPUT_VARIABLE APPTRACE_CTRL_ADDR
         OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -159,21 +159,21 @@ foreach(COMMAND ${COMMANDS})
 
     file(APPEND ${HEADER_FILE}
         "static const struct esp_flasher_stub_config s_esp_stub_${COMMAND}_cfg = {\n"
-        "    .code = s_esp_flasher_stub_${COMMAND}_code,\n"
-        "    .code_sz = sizeof(s_esp_flasher_stub_${COMMAND}_code),\n"
-        "    .data = s_esp_flasher_stub_${COMMAND}_data,\n"
-        "    .data_sz = sizeof(s_esp_flasher_stub_${COMMAND}_data),\n"
-        "    .entry_addr = ESP_STUB_${COMMAND_UPPER}_ENTRY_ADDR,\n"
-        "    .bss_sz = ESP_STUB_${COMMAND_UPPER}_BSS_SIZE,\n"
-        "    .apptrace_ctrl_addr = ESP_STUB_${COMMAND_UPPER}_APPTRACE_CTRL_ADDR,\n"
-        "    .stack_default_sz = ESP_STUB_STACK_SIZE,\n"
-        "    .log_buff_addr = ESP_STUB_${COMMAND_UPPER}_LOG_ADDR,\n"
-        "    .log_buff_size = ESP_STUB_${COMMAND_UPPER}_LOG_SIZE,\n"
-        "    .iram_org = ESP_STUB_${COMMAND_UPPER}_IRAM_ORG,\n"
-        "    .iram_len = ESP_STUB_${COMMAND_UPPER}_IRAM_LEN,\n"
-        "    .dram_org = ESP_STUB_${COMMAND_UPPER}_DRAM_ORG,\n"
-        "    .dram_len = ESP_STUB_${COMMAND_UPPER}_DRAM_LEN,\n"
-        "    .reverse = ESP_STUB_REVERSE_BINARY,\n"
+        "	.code = s_esp_flasher_stub_${COMMAND}_code,\n"
+        "	.code_sz = sizeof(s_esp_flasher_stub_${COMMAND}_code),\n"
+        "	.data = s_esp_flasher_stub_${COMMAND}_data,\n"
+        "	.data_sz = sizeof(s_esp_flasher_stub_${COMMAND}_data),\n"
+        "	.entry_addr = ESP_STUB_${COMMAND_UPPER}_ENTRY_ADDR,\n"
+        "	.bss_sz = ESP_STUB_${COMMAND_UPPER}_BSS_SIZE,\n"
+        "	.apptrace_ctrl_addr = ESP_STUB_${COMMAND_UPPER}_APPTRACE_CTRL_ADDR,\n"
+        "	.stack_default_sz = ESP_STUB_STACK_SIZE,\n"
+        "	.log_buff_addr = ESP_STUB_${COMMAND_UPPER}_LOG_ADDR,\n"
+        "	.log_buff_size = ESP_STUB_${COMMAND_UPPER}_LOG_SIZE,\n"
+        "	.iram_org = ESP_STUB_${COMMAND_UPPER}_IRAM_ORG,\n"
+        "	.iram_len = ESP_STUB_${COMMAND_UPPER}_IRAM_LEN,\n"
+        "	.dram_org = ESP_STUB_${COMMAND_UPPER}_DRAM_ORG,\n"
+        "	.dram_len = ESP_STUB_${COMMAND_UPPER}_DRAM_LEN,\n"
+        "	.reverse = ESP_STUB_REVERSE_BINARY,\n"
         "};\n\n"
     )
 endforeach()
@@ -182,7 +182,7 @@ file(APPEND ${HEADER_FILE} "static const struct command_map s_cmd_map[ESP_STUB_C
 foreach(COMMAND ${COMMANDS})
     string(TOUPPER ${COMMAND} COMMAND_UPPER)
     file(APPEND ${HEADER_FILE}
-        "    {ESP_STUB_${COMMAND_UPPER}, &s_esp_stub_${COMMAND}_cfg},\n"
+        "	{ESP_STUB_${COMMAND_UPPER}, &s_esp_stub_${COMMAND}_cfg},\n"
     )
 endforeach()
 file(APPEND ${HEADER_FILE} "};\n")
