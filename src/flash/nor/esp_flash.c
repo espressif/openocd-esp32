@@ -431,7 +431,7 @@ int esp_algo_flash_erase(struct flash_bank *bank, unsigned int first, unsigned i
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
 	struct esp_algorithm_run_data run;
-	const struct esp_flasher_stub_config *stub_cfg = esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_READ);
+	const struct esp_flasher_stub_config *stub_cfg = esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_ERASE);
 	const uint32_t stack_size = esp_info->stub_log_enabled ?
 		stub_cfg->stack_default_sz * 2 : stub_cfg->stack_default_sz;
 
@@ -444,8 +444,7 @@ int esp_algo_flash_erase(struct flash_bank *bank, unsigned int first, unsigned i
 	struct duration bench;
 	duration_start(&bench);
 
-	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw,
-		esp_info->get_stub(bank, ESP_STUB_CMD_FLASH_ERASE));
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
 	if (ret != ERROR_OK)
 		return ret;
 
