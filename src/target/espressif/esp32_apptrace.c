@@ -774,7 +774,7 @@ static int esp32_apptrace_safe_halt_targets(struct esp32_apptrace_cmd_ctx *ctx,
 		}
 		res = ctx->hw->data_len_read(ctx->cpus[k], &targets[k].block_id, &targets[k].data_len);
 		if (res != ERROR_OK) {
-			LOG_ERROR("Failed to read trace status (%d)!", res);
+			LOG_ERROR("Failed to read data len (%d)!", res);
 			return res;
 		}
 	}
@@ -1412,6 +1412,7 @@ static int esp32_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx)
 		LOG_ERROR("Failed to start trace stop timeout measurement!");
 		return ERROR_FAIL;
 	}
+
 	/* we are waiting for the last data from tracing block and also there can be data in the pended
 	 * data buffer */
 	/* so we are expecting two TRX block switches at most or stopping due to timeout */

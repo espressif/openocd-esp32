@@ -7,6 +7,7 @@ target_sources(helper PRIVATE
 	options.c
 	time_support_common.c
 	configuration.c
+	crc16.c
 	crc32.c
 	log.c
 	time_support.c
@@ -25,6 +26,8 @@ target_sources(helper PRIVATE
 	types.h
 	log.h
 	command.h
+	crc16.h
+	crc32.h
 	time_support.h
 	replacements.h
 	fileio.h

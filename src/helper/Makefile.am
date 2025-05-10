@@ -9,6 +9,7 @@ noinst_LTLIBRARIES += %D%/libhelper.la
 	%D%/configuration.c \
 	%D%/log.c \
 	%D%/command.c \
+	%D%/crc16.c \
 	%D%/crc32.c \
 	%D%/time_support.c \
 	%D%/replacements.c \
@@ -26,6 +27,7 @@ noinst_LTLIBRARIES += %D%/libhelper.la
 	%D%/types.h \
 	%D%/log.h \
 	%D%/command.h \
+	%D%/crc16.h \
 	%D%/crc32.h \
 	%D%/time_support.h \
 	%D%/replacements.h \
