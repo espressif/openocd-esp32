@@ -9,6 +9,7 @@
 
 #include "apptrace_hw.h"
 #include "apptrace_err.h"
+
 struct apptrace_riscv_ctrl_block {
 	volatile uint32_t ctrl;
 	uint32_t stat;
@@ -90,9 +91,10 @@ int apptrace_hw_swap_start(uint32_t current_block_id)
 	return APPTRACE_ERR_OK;
 }
 
-int apptrace_hw_swap(int new_block_id)
+int apptrace_hw_swap(int new_block_id, uint32_t prev_block_len)
 {
 	(void)new_block_id;
+	(void)prev_block_len;
 
 	/* nothing to do */
 	return APPTRACE_ERR_OK;

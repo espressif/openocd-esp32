@@ -59,6 +59,6 @@ int apptrace_hw_connect(void);
 void apptrace_hw_set_trace_mem(uint8_t *trace_mem, uint16_t trace_mem_sz);
 int apptrace_hw_host_data_is_present(void);
 int apptrace_hw_swap_start(uint32_t current_block_id);
-int apptrace_hw_swap(int new_block_id);
+int apptrace_hw_swap(int new_block_id, uint32_t prev_block_len);
 int apptrace_hw_swap_end(uint32_t new_block_id, uint32_t prev_block_len);
 uint16_t apptrace_hw_get_buf_size(void);

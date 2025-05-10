@@ -1939,7 +1939,7 @@ static int esp_algo_flash_cmd_apptrace_rd_test_do(struct target *target)
 		return ret;
 
 	uint32_t rd_addr = 0x20000;
-	uint32_t buffer_size = 64 * 1024 + 10;
+	uint32_t buffer_size = 128 * 1024 + 10;
 	uint8_t *buffer = calloc(buffer_size, sizeof(uint8_t));
 	if (!buffer) {
 		LOG_ERROR("Out of memory");

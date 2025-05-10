@@ -7,15 +7,19 @@
 
 #include <esp-stub-lib/log.h>
 #include <esp-stub-lib/trax_mem.h>
+#include <esp-stub-lib/rom_wrappers.h>
 
 #include "apptrace_hw.h"
 #include "apptrace_err.h"
 
+/* Coming from the target linker script */
 extern uint8_t apptrace_block0_org;
 extern uint8_t apptrace_block1_org;
 
-#define APPTRACE_TRAX_CTRL_REG  (ERI_TRAX_DELAYCNT)
-#define APPTRACE_TRAX_STAT_REG  (ERI_TRAX_TRIGGERPC)
+#define APPTRACE_TRAX_CTRL_REG      (ERI_TRAX_DELAYCNT)
+#define APPTRACE_TRAX_STAT_REG      (ERI_TRAX_TRIGGERPC)
+#define APPTRACE_TRAX_CRC16_REG     (ERI_PERFMON_PM1)
+#define APPTRACE_CRC_INDICATOR      (0xA55AU << 16)
 
 #define TRAX_REG_READ(addr)       esp_stub_lib_trax_reg_read(addr)
 #define TRAX_REG_WRITE(addr, val) esp_stub_lib_trax_reg_write(addr, val)
@@ -27,13 +31,15 @@ static uint8_t * const s_trax_blocks[] = {
 	(uint8_t *)&apptrace_block1_org
 };
 
+static struct apptrace_mem_ctrl *s_mem_ctrl_ptr;
+
 static void apptrace_trax_hw_init(void)
 {
 	STUB_LOG_TRACE();
 
 	// Stop trace, if any (on the current CPU)
-	TRAX_REG_WRITE(ERI_TRAX_TRAXCTRL, TRAXCTRL_TRSTP);
-	TRAX_REG_WRITE(ERI_TRAX_TRAXCTRL, TRAXCTRL_TMEN);
+	TRAX_REG_WRITE(ERI_TRAX_TRAXCTRL, TRAXCTRL_TRSTP);	/* stop trace */
+	TRAX_REG_WRITE(ERI_TRAX_TRAXCTRL, TRAXCTRL_TMEN);	/* enable local trace memory */
 	TRAX_REG_WRITE(APPTRACE_TRAX_CTRL_REG, APPTRACE_BLOCK_ID(0));
 	// this is for OpenOCD to let him know where stub entries vector is resided
 	// must be read by host before any transfer using TRAX
@@ -63,7 +69,7 @@ int apptrace_hw_init(void)
 	STUB_LOGI("mem_blocks[0]: %x, %d\n", mem_blocks[0].start, mem_blocks[0].sz);
 	STUB_LOGI("mem_blocks[1]: %x, %d\n", mem_blocks[1].start, mem_blocks[1].sz);
 
-	apptrace_memory_init(mem_blocks);
+	s_mem_ctrl_ptr = apptrace_memory_init(mem_blocks);
 
 	TRAX_MEM_ENABLE();
 	TRAX_SEL_MEM_BLK(0);
@@ -109,9 +115,17 @@ int apptrace_hw_swap_start(uint32_t current_block_id)
 	return APPTRACE_ERR_OK;
 }
 
-int apptrace_hw_swap(int new_block_id)
+int apptrace_hw_swap(int new_block_id, uint32_t prev_block_len)
 {
-	STUB_LOG_TRACEF("to new block id: %d\n", new_block_id);
+	STUB_LOG_TRACEF("to new block id: %d, prev_block_len: %d\n", new_block_id, prev_block_len);
+
+	/* calculate CRC16 of the next block to be swapped */
+	if (prev_block_len > 0) {
+		const uint8_t *prev_block_start = s_trax_blocks[!((new_block_id % 2))];
+		uint16_t crc16 = esp_stub_lib_crc16_le(0, prev_block_start, prev_block_len);
+		TRAX_REG_WRITE(APPTRACE_TRAX_CRC16_REG, crc16 | APPTRACE_CRC_INDICATOR);
+		STUB_LOGI("CRC16:%x %d @%x", crc16, prev_block_len, prev_block_start);
+	}
 
 	TRAX_SEL_MEM_BLK(new_block_id);
 
@@ -124,6 +138,7 @@ int apptrace_hw_swap_end(uint32_t new_block_id, uint32_t prev_block_len)
 
 	uint32_t ctrl_reg = TRAX_REG_READ(APPTRACE_TRAX_CTRL_REG);
 	uint32_t host_connected = APPTRACE_HOST_CONNECT & ctrl_reg;
+
 	TRAX_REG_WRITE(APPTRACE_TRAX_CTRL_REG, APPTRACE_BLOCK_ID(new_block_id) |
 				host_connected | APPTRACE_BLOCK_LEN(prev_block_len));
 	return APPTRACE_ERR_OK;

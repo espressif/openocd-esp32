@@ -7,6 +7,7 @@
 
 #include <esp-stub-lib/log.h>
 #include <esp-stub-lib/bit_utils.h>
+#include <esp-stub-lib/rom_wrappers.h>
 
 #include "apptrace_mem_ctrl.h"
 #include "apptrace_hw.h"
@@ -244,7 +245,7 @@ static int apptrace_memory_swap_internal(void)
 	s_mem_ctrl.blocks[new_block_num].wr_pos = 0;
 	s_mem_ctrl.current_block++;
 
-	apptrace_hw_swap(new_block_num);
+	apptrace_hw_swap(new_block_num, s_mem_ctrl.blocks[prev_block_num].wr_pos);
 
 	// handle data from host
 	struct apptrace_host_header *host_data = (struct apptrace_host_header *)s_mem_ctrl.blocks[new_block_num].start;
@@ -270,8 +271,20 @@ static int apptrace_memory_swap(void)
 {
 	STUB_LOG_TRACE();
 
-	while (apptrace_memory_swap_internal() != 0)
-		;
+	while (apptrace_memory_swap_internal() != 0) {
+#if defined(ESP32S3)
+		/*
+		* ESP32S3 has a serious data corruption issue with the transferred data to host.
+		* This delay helps reduce the failure rate by temporarily reducing heavy memory writes
+		* from RTOS-level tracing and giving OpenOCD more time to read trace memory before
+		* the current thread continues execution. While this doesn't completely prevent
+		* memory access from other threads/cores/ISRs, it has shown to significantly improve
+		* reliability when combined with CRC checks in OpenOCD. In practice, this reduces the
+		* number of retries needed to read an entire block without corruption.
+		*/
+		esp_stub_lib_delay_us(100); /* avoid busy-loop and wait for OpenOCD to read data */
+#endif
+	}
 
 	return APPTRACE_ERR_OK;
 }
@@ -372,7 +385,7 @@ uint8_t *apptrace_memory_uplink_get(uint32_t size)
 		return NULL;
 	}
 
-	STUB_LOGV("curr pos:%d raw size:%d\n", apptrace_curr_block_pos(), apptrace_usr_block_raw_size(size));
+	STUB_LOGV("Block curr pos:%d total size:%d\n", apptrace_curr_block_pos(), apptrace_usr_block_raw_size(size));
 
 	if (apptrace_curr_block_pos() + apptrace_usr_block_raw_size(size) > apptrace_curr_block()->sz) {
 		int pended_buf;
@@ -390,6 +403,8 @@ uint8_t *apptrace_memory_uplink_get(uint32_t size)
 
 	if (buf_ptr)
 		buf_ptr = apptrace_memory_pkt_start(buf_ptr, (uint16_t)size);
+
+	STUB_LOGV("Reserved uplink buffer %d bytes @ 0x%x\n", size, buf_ptr);
 
 	return buf_ptr;
 }
