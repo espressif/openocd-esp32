@@ -131,24 +131,23 @@ static const struct esp_flash_breakpoint_ops esp32c5_flash_brp_ops = {
 	.breakpoint_remove = esp_algo_flash_breakpoint_remove,
 };
 
-// TODO: OCD-1167 Why medeleg and csr_mnmicause cannot be read?
 static const char *esp32c5_csrs[] = {
-	//"medeleg",
-	"mideleg", "mie", "mip", "jvt", "mtvt",
-	"mnxti", "mscratchcsw", "mscratchcswl",
+	"mie", "mip", "jvt", "mtvt",
+	"mnxti", "mscratchcsw", "mscratchcswl", "utvt", "unxti",
 	"mcycle", "mcycleh", "minstret", "minstreth",
 	"mhpmevent8", "mhpmevent9", "mhpmevent13",
 	"mhpmcounter8", "mhpmcounter9", "mhpmcounter13", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
 	"mcounteren", "mcountinhibit",
+	"csr_ustatus", "csr_utvec", "csr_uepc", "csr_ucause",
 	/* custom exposed CSRs will start with 'csr_' prefix*/
+	"csr_gpio_oen_user", "csr_gpio_in_user", "csr_gpio_out_user",
 	"csr_pma_cfg0", "csr_pma_cfg1", "csr_pma_cfg2", "csr_pma_cfg3", "csr_pma_cfg4", "csr_pma_cfg5",
 	"csr_pma_cfg6", "csr_pma_cfg7", "csr_pma_cfg8", "csr_pma_cfg9", "csr_pma_cfg10", "csr_pma_cfg11",
 	"csr_pma_cfg12", "csr_pma_cfg13", "csr_pma_cfg14", "csr_pma_cfg15", "csr_pma_addr0", "csr_pma_addr1",
 	"csr_pma_addr2", "csr_pma_addr3", "csr_pma_addr4", "csr_pma_addr5", "csr_pma_addr6", "csr_pma_addr7",
 	"csr_pma_addr8", "csr_pma_addr9", "csr_pma_addr10", "csr_pma_addr11", "csr_pma_addr12", "csr_pma_addr13",
 	"csr_pma_addr14", "csr_pma_addr15", "csr_mxstatus", "csr_mhcr", "csr_mhint", "csr_mexstatus",
-	"csr_mclicbase", "csr_mraddr", "csr_mintthresh",
-	//"csr_mnmicause"
+	"csr_mclicbase", "csr_mraddr", "csr_mintthresh", "csr_uscratch",  "csr_uintthresh", "csr_uclicbase",
 };
 
 static const char *esp32c5_ro_csrs[] = {
@@ -157,7 +156,7 @@ static const char *esp32c5_ro_csrs[] = {
 	// "cycle", "time", "instreth", "cycleh", "instret", "timeh",
 	// "hpmcounter8", "hpmcounter9", "hpmcounter13", "hpmcounter8h", "hpmcounter9h", "hpmcounter13h",
 	/* custom exposed CSRs will start with 'csr_' prefix*/
-	"csr_mintstatus", "csr_mcpuid",
+	"csr_mintstatus", "csr_mcpuid", "csr_uintstatus",
 };
 
 static int esp32c5_target_create(struct target *target)

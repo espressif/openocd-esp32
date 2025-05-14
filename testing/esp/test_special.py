@@ -287,7 +287,6 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
     """
 
     #@run_all_cores TODO enable for both cores after OCD-1132
-    @skip_for_chip(["esp32c5"], 'skipped - OCD-1167')
     def test_gdb_regs_mapping(self):
         """
             This test checks that GDB and OpenOCD has identical registers mapping.
@@ -308,7 +307,8 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
                     break
 
         def set_reg_and_check(reg, val):
-            self.oocd.set_reg(reg, val)
+            if val is not None:
+                self.oocd.set_reg(reg, val)
             ocd_val = self.oocd.get_reg(reg)
             ocd_val2 = self.oocd.get_reg(reg)
 
@@ -330,6 +330,11 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
 
         for reg in regs:
             if (len(reg) == 0):
+                continue
+
+            if reg == 'csr_mexstatus':
+                # this register is not safe to write
+                set_reg_and_check(reg, None)
                 continue
 
             if reg == 'pc':
