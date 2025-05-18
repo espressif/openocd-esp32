@@ -243,9 +243,8 @@ int esp_xtensa_reset_reason_read(struct target *target)
 				return ret;
 			}
 			if (timeval_ms() >= timeout) {
-				LOG_TARGET_ERROR(target,
-					"Timed out waiting for CPU to be reset, target state=%d",
-					target->state);
+				LOG_TARGET_ERROR(target, "Timed out waiting for CPU to be reset, target state %s",
+					target_state_name(target));
 				break;
 			}
 		}

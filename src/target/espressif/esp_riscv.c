@@ -1012,7 +1012,7 @@ int esp_riscv_get_gdb_reg_list_noread(struct target *target,
 		return riscv_get_gdb_reg_list_noread(target, reg_list, reg_list_size, reg_class);
 	}
 
-	LOG_TARGET_ERROR(target, "Unexpected target state! (%d)", target->state);
+	LOG_TARGET_ERROR(target, "Unexpected target state %s!", target_state_name(target));
 	return ERROR_FAIL;
 }
 
