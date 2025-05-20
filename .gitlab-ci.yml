@@ -7,12 +7,14 @@ stages:
   - build_idf5.2.x
   - build_idf5.3.x
   - build_idf5.4.x
+  - build_idf5.5.x
   - build_idf_master
   - build_nuttx
   - test_idf5.1.x
   - test_idf5.2.x
   - test_idf5.3.x
   - test_idf5.4.x
+  - test_idf5.5.x
   - test_idf_master
   - test_host
   - test_nuttx
@@ -21,12 +23,14 @@ stages:
   - sanitizer_test_idf5.2.x
   - sanitizer_test_idf5.3.x
   - sanitizer_test_idf5.4.x
+  - sanitizer_test_idf5.5.x
   - sanitizer_test_idf_master
   - sanitizer_test_nuttx
   - sanitizer_check_idf5.1.x
   - sanitizer_check_idf5.2.x
   - sanitizer_check_idf5.3.x
   - sanitizer_check_idf5.4.x
+  - sanitizer_check_idf5.5.x
   - sanitizer_check_idf_master
   - sanitizer_check_nuttx
   - deploy
@@ -277,6 +281,12 @@ test_idf_master_examples:
     BOT_LABEL_EXAMPLE_TEST: "1"
     IDF_TEST_BRANCH: "master"
 
+test_idf5.5.x_examples:
+  extends:
+    - .test_idf_examples
+  variables:
+    IDF_TEST_BRANCH: ${TEST_APP_IDF5_5_RELEASE_BRANCH}
+
 test_idf5.4.x_examples:
   extends:
     - .test_idf_examples
@@ -369,6 +379,21 @@ create_coverage_reports:
     - job: tests_esp32c6_idf5.4.x
     - job: tests_esp32h2_idf5.4.x
     - job: tests_esp32p4_idf5.4.x
+    # idf 5.5.x
+    - job: tests_esp32_idf5.5.x
+    - job: tests_esp32_idf5.5.x_flash_encrypted
+    - job: tests_esp32s2_idf5.5.x
+    - job: tests_esp32s2_idf5.5.x_flash_encrypted
+    - job: tests_esp32s3_idf5.5.x_dual
+    - job: tests_esp32s3_idf5.5.x_single
+    - job: tests_esp32c2_idf5.5.x
+    - job: tests_esp32c3_idf5.5.x
+    - job: tests_esp32c3_idf5.5.x_flash_encrypted
+    - job: tests_esp32c5_idf5.5.x
+    - job: tests_esp32c6_idf5.5.x
+    - job: tests_esp32c61_idf5.5.x
+    - job: tests_esp32h2_idf5.5.x
+    - job: tests_esp32p4_idf5.5.x
     # idf master
     - job: tests_esp32
     - job: tests_esp32_flash_encrypted
@@ -384,6 +409,7 @@ create_coverage_reports:
     - job: tests_esp32c61
     - job: tests_esp32h2
     - job: tests_esp32p4
+    # NuttX
     - job: test_nuttx_esp32
     - job: test_nuttx_esp32s2
     - job: test_nuttx_esp32s3
