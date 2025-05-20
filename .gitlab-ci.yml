@@ -3,14 +3,12 @@ stages:
   - pre_check
   - static_analyzers
   - build_openocd
-  - build_idf5.0.x
   - build_idf5.1.x
   - build_idf5.2.x
   - build_idf5.3.x
   - build_idf5.4.x
   - build_idf_master
   - build_nuttx
-  - test_idf5.0.x
   - test_idf5.1.x
   - test_idf5.2.x
   - test_idf5.3.x
@@ -19,14 +17,12 @@ stages:
   - test_host
   - test_nuttx
   - coverage
-  - sanitizer_test_idf5.0.x
   - sanitizer_test_idf5.1.x
   - sanitizer_test_idf5.2.x
   - sanitizer_test_idf5.3.x
   - sanitizer_test_idf5.4.x
   - sanitizer_test_idf_master
   - sanitizer_test_nuttx
-  - sanitizer_check_idf5.0.x
   - sanitizer_check_idf5.1.x
   - sanitizer_check_idf5.2.x
   - sanitizer_check_idf5.3.x
@@ -305,12 +301,6 @@ test_idf5.1.x_examples:
   variables:
     IDF_TEST_BRANCH: ${TEST_APP_IDF5_1_RELEASE_BRANCH}
 
-test_idf5.0.x_examples:
-  extends:
-    - .test_idf_examples
-  variables:
-    IDF_TEST_BRANCH: ${TEST_APP_IDF5_0_RELEASE_BRANCH}
-
 create_coverage_reports:
   stage: coverage
   tags:
@@ -329,16 +319,6 @@ create_coverage_reports:
     when: always
     expire_in: 1 week
   needs:
-    # idf 5.0.x
-    - job: tests_esp32_idf5.0.x
-    - job: tests_esp32_idf5.0.x_flash_encrypted
-    - job: tests_esp32s2_idf5.0.x
-    - job: tests_esp32s2_idf5.0.x_flash_encrypted
-    - job: tests_esp32s3_idf5.0.x_dual
-    - job: tests_esp32s3_idf5.0.x_single
-    - job: tests_esp32c2_idf5.0.x
-    - job: tests_esp32c3_idf5.0.x
-    - job: tests_esp32c3_idf5.0.x_flash_encrypted
     # idf 5.1.x
     - job: tests_esp32_idf5.1.x
     - job: tests_esp32_idf5.1.x_flash_encrypted

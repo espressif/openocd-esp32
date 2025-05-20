@@ -170,26 +170,6 @@
     ESP_GDB_TOOLCHAIN: "${ESP_V5_1X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
 
-.tests_v5.0.x_template:
-  extends: .tests_template
-  stage: test_idf5.0.x
-  image: $CI_DOCKER_REGISTRY/target-test-env-v5.0:3
-  variables:
-    CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
-    TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.0.x"
-    ESP_GDB_TOOLCHAIN: "${ESP_V5_0X_XTENSA_GDB_TOOLCHAIN}"
-    TOOLCHAIN_PREFIX: "xtensa-${CHIP_NAME}"
-    ESP_TOOLCHAIN: "${ESP_V5_0X_TOOLCHAIN_VER}"
-    IDF_RELEASE_TAG: "${TEST_APP_IDF5_0_X_RELEASE_TAG}"
-    TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
-
-.tests_v5.0.x_riscv_template:
-  extends: .tests_v5.0.x_template
-  variables:
-    CHIP_TEST_TOOLCHAIN: "riscv32-esp"
-    ESP_GDB_TOOLCHAIN: "${ESP_V5_0X_RISCV_GDB_TOOLCHAIN}"
-    TOOLCHAIN_PREFIX: "riscv32-esp"
-
 ##############
 # IDF master #
 ##############
@@ -933,109 +913,6 @@ tests_esp32h2_idf5.1.x:
     CHIP_NAME: "esp32h2"
     ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single"
-
-#############
-# IDF 5.0.X #
-#############
-
-tests_esp32_idf5.0.x:
-  extends: .tests_v5.0.x_template
-  needs:
-    - job: build_test_app_esp32_idf5.0.x
-    - job: build_linux_arm64_test
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32"
-    TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e *.*Encrypted"
-
-tests_esp32_idf5.0.x_flash_encrypted:
-  extends: .tests_v5.0.x_template
-  tags:
-    - test_jtag_arm_flash_encryption
-  needs:
-    - job: build_test_app_esp32_idf5.0.x
-    - job: build_linux_arm64_test
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32"
-    TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
-
-tests_esp32s2_idf5.0.x:
-  extends: .tests_v5.0.x_template
-  needs:
-    - job: build_test_app_esp32s2_idf5.0.x
-    - job: build_linux_arm64_test
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32s2"
-    TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*Single"
-
-tests_esp32s2_idf5.0.x_flash_encrypted:
-  extends: .tests_v5.0.x_template
-  tags:
-    - test_jtag_arm_flash_encryption_esp32s2
-  needs:
-    - job: build_test_app_esp32s2_idf5.0.x
-    - job: build_linux_arm64_test
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32s2"
-    TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*SingleEncrypted"
-
-tests_esp32s3_idf5.0.x_dual:
-  extends: .tests_v5.0.x_template
-  needs:
-    - job: build_test_app_esp32s3_idf5.0.x_dual
-    - job: build_linux_arm64_test
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.0.x_dual"
-    TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual"
-
-tests_esp32s3_idf5.0.x_single:
-  extends: .tests_v5.0.x_template
-  needs:
-    - job: build_test_app_esp32s3_idf5.0.x_single
-    - job: build_linux_arm64_test
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32s3"
-    OOCD_CMDS: "set ESP_ONLYCPU 1"
-    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.0.x_single"
-    TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
-
-tests_esp32c2_idf5.0.x:
-  extends: .tests_v5.0.x_riscv_template
-  needs:
-    - job: build_test_app_esp32c2_idf5.0.x
-    - job: build_linux_arm64_test
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32c2"
-    TEST_RUN_BOARD_OPTS: "-b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
-
-tests_esp32c3_idf5.0.x:
-  extends: .tests_v5.0.x_riscv_template
-  needs:
-    - job: build_test_app_esp32c3_idf5.0.x
-    - job: build_linux_arm64_test
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32c3"
-    TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*Single"
-
-tests_esp32c3_idf5.0.x_flash_encrypted:
-  extends: .tests_v5.0.x_riscv_template
-  tags:
-    - test_jtag_arm_flash_encryption_esp32c3
-  needs:
-    - job: build_test_app_esp32c3_idf5.0.x
-    - job: build_linux_arm64_test
-    - job: build_linux_armhf_test
-  variables:
-    CHIP_NAME: "esp32c3"
-    TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
 #############
 # HOST TEST #
