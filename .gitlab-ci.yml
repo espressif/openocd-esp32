@@ -34,7 +34,6 @@ stages:
   - sanitizer_check_idf_master
   - sanitizer_check_nuttx
   - deploy
-  - private_deploy
   - pre_release
   - release_stage1
   - release_submit
@@ -230,86 +229,22 @@ Delete_tag_release:
   script:
     - hub release delete ${GH_REL_TAG}
 
-.use_ci_tools: &use_ci_tools |
-  curl -sSL ${CIT_LOADER_URL} -o cit_loader.sh && sh cit_loader.sh
-  source citools/import_functions
-
-upload_to_http:
-  stage: private_deploy
-  when: manual
-  tags: [ "deploy", "shiny" ]
-  only:
-    - master
-  allow_failure: true
-  dependencies:
-    - build_linux_armhf
-  artifacts:
-    reports:
-      dotenv: build.env
-  before_script:
-    - *use_ci_tools
-  script:
-    - cit_add_ssh_key "${HTTP_UPLOAD_KEY}"
-    - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_linux-armhf)
-    - pushd ${DIST_ART_DIR}
-    - scp ${ARCHIVE_NAME} ${HTTP_UPLOAD_DIR}/openocd/
-    - popd
-    - OOCD_DISTRO_URL=${HTTP_PUBLIC_DIR}/openocd/${ARCHIVE_NAME}
-    - echo "Archive was published there '${OOCD_DISTRO_URL}'"
-    - echo "NEW_OOCD_DISTRO_URL=${OOCD_DISTRO_URL}" >> build.env
-
-.test_idf_examples:
+test_idf_examples:
   stage: pre_release
-  when: manual
-  only:
-    - master
   allow_failure: true
-  needs:
-    - job: upload_to_http
-      artifacts: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "run_idf_tests"
+      when: always
+    - if: $CI_COMMIT_BRANCH == "master"
+      when: manual
   variables:
-    OOCD_DISTRO_URL: ${NEW_OOCD_DISTRO_URL}
+    PARENT_PIPELINE_ID: $CI_PIPELINE_ID
   trigger:
-    project: espressif/esp-idf
+    include: .gitlab/ci/idf-examples.yml
     strategy: depend
-    branch: ${IDF_TEST_BRANCH}
-
-test_idf_master_examples:
-  extends:
-    - .test_idf_examples
-  variables:
-    BOT_LABEL_EXAMPLE_TEST: "1"
-    IDF_TEST_BRANCH: "master"
-
-test_idf5.5.x_examples:
-  extends:
-    - .test_idf_examples
-  variables:
-    IDF_TEST_BRANCH: ${TEST_APP_IDF5_5_RELEASE_BRANCH}
-
-test_idf5.4.x_examples:
-  extends:
-    - .test_idf_examples
-  variables:
-    IDF_TEST_BRANCH: ${TEST_APP_IDF5_4_RELEASE_BRANCH}
-
-test_idf5.3.x_examples:
-  extends:
-    - .test_idf_examples
-  variables:
-    IDF_TEST_BRANCH: ${TEST_APP_IDF5_3_RELEASE_BRANCH}
-
-test_idf5.2.x_examples:
-  extends:
-    - .test_idf_examples
-  variables:
-    IDF_TEST_BRANCH: ${TEST_APP_IDF5_2_RELEASE_BRANCH}
-
-test_idf5.1.x_examples:
-  extends:
-    - .test_idf_examples
-  variables:
-    IDF_TEST_BRANCH: ${TEST_APP_IDF5_1_RELEASE_BRANCH}
+  needs:
+    - build_linux_armhf
+    - build_linux_arm64
 
 create_coverage_reports:
   stage: coverage

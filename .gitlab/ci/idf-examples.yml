@@ -1,0 +1,117 @@
+stages:
+  - private_deploy
+  - esp_idf_examples
+
+image: $CI_DOCKER_REGISTRY/openocd-ci-env:1
+
+default:
+  interruptible: true
+
+variables:
+  IDF_TEMP_BRANCH_PREFIX: "tmp-openocd-ci-"
+
+.use_ci_tools: &use_ci_tools |
+  curl -sSL ${CIT_LOADER_URL} -o cit_loader.sh && sh cit_loader.sh
+  source citools/import_functions
+
+upload_to_http:
+  stage: private_deploy
+  tags: [ "deploy", "shiny" ]
+  allow_failure: true
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64
+  artifacts:
+    reports:
+      dotenv: build.env
+  before_script:
+    - *use_ci_tools
+  script:
+    - cit_add_ssh_key "${HTTP_UPLOAD_KEY}"
+    - ARCHIVE_NAME_ARMHF=$(cat ${DIST_ART_DIR}/dist_name_linux-armhf)
+    - ARCHIVE_NAME_ARM64=$(cat ${DIST_ART_DIR}/dist_name_linux-arm64)
+    - pushd ${DIST_ART_DIR}
+    - rsync ${ARCHIVE_NAME_ARMHF} ${HTTP_UPLOAD_DIR}/openocd/
+    - rsync ${ARCHIVE_NAME_ARM64} ${HTTP_UPLOAD_DIR}/openocd/
+    - popd
+    - OOCD_DISTRO_URL_ARMHF=${HTTP_PUBLIC_DIR}/openocd/${ARCHIVE_NAME_ARMHF}
+    - OOCD_DISTRO_URL_ARM64=${HTTP_PUBLIC_DIR}/openocd/${ARCHIVE_NAME_ARM64}
+    - echo "Archives were published there '${OOCD_DISTRO_URL_ARMHF}' '${OOCD_DISTRO_URL_ARM64}'"
+    - echo "NEW_OOCD_DISTRO_URL_ARMHF=${OOCD_DISTRO_URL_ARMHF}" >> build.env
+    - echo "NEW_OOCD_DISTRO_URL_ARM64=${OOCD_DISTRO_URL_ARM64}" >> build.env
+
+create_target_branches:
+  stage: private_deploy
+  tags: [ "build", "shiny" ]
+  script:
+    - >
+      for branch in "master" "${TEST_APP_IDF5_1_RELEASE_BRANCH}" "${TEST_APP_IDF5_2_RELEASE_BRANCH}" "${TEST_APP_IDF5_3_RELEASE_BRANCH}" "${TEST_APP_IDF5_4_RELEASE_BRANCH}" "${TEST_APP_IDF5_5_RELEASE_BRANCH}"; do
+        encoded_branch="${IDF_TEMP_BRANCH_PREFIX}${branch//\//%2F}"
+        api_call_delete="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/103/repository/branches/${encoded_branch}"
+        echo "${api_call_delete}"
+        curl --request DELETE --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call_delete}"
+        api_call_create="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/103/repository/branches?branch=${IDF_TEMP_BRANCH_PREFIX}${branch}&ref=${branch}"
+        echo "${api_call_create}"
+        curl --request POST --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call_create}"
+      done
+
+.test_idf_examples:
+  stage: esp_idf_examples
+  allow_failure: true
+  needs:
+    - job: upload_to_http
+      artifacts: true
+    - job: create_target_branches
+  variables:
+    OOCD_DISTRO_URL_ARMHF: ${NEW_OOCD_DISTRO_URL_ARMHF}
+    OOCD_DISTRO_URL_ARM64: ${NEW_OOCD_DISTRO_URL_ARM64}
+    BOT_LABEL_EXAMPLE_TEST: "1"
+
+.trigger_esp_idf: &trigger_esp_idf
+  project: espressif/esp-idf
+  strategy: depend
+
+test_idf_master_examples:
+  extends:
+    - .test_idf_examples
+  trigger:
+    <<: *trigger_esp_idf
+    branch: "${IDF_TEMP_BRANCH_PREFIX}master"
+
+test_idf5.5.x_examples:
+  extends:
+    - .test_idf_examples
+  trigger:
+    <<: *trigger_esp_idf
+    branch: ${IDF_TEMP_BRANCH_PREFIX}${TEST_APP_IDF5_5_RELEASE_BRANCH}
+
+test_idf5.4.x_examples:
+  extends:
+    - .test_idf_examples
+  trigger:
+    <<: *trigger_esp_idf
+    branch: ${IDF_TEMP_BRANCH_PREFIX}${TEST_APP_IDF5_4_RELEASE_BRANCH}
+
+test_idf5.3.x_examples:
+  extends:
+    - .test_idf_examples
+  trigger:
+    <<: *trigger_esp_idf
+    branch: ${IDF_TEMP_BRANCH_PREFIX}${TEST_APP_IDF5_3_RELEASE_BRANCH}
+
+test_idf5.2.x_examples:
+  extends:
+    - .test_idf_examples
+  trigger:
+    <<: *trigger_esp_idf
+    branch: ${IDF_TEMP_BRANCH_PREFIX}${TEST_APP_IDF5_2_RELEASE_BRANCH}
+
+test_idf5.1.x_examples:
+  extends:
+    - .test_idf_examples
+  trigger:
+    <<: *trigger_esp_idf
+    branch: ${IDF_TEMP_BRANCH_PREFIX}${TEST_APP_IDF5_1_RELEASE_BRANCH}
+
