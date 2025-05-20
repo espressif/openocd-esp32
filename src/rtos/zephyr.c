@@ -763,6 +763,12 @@ static struct zephyr_params zephyr_params_list[] = {
 		.get_cpu_state = &zephyr_get_riscv_state,
 	},
 	{
+		.target_name = "esp32h4",
+		.pointer_width = 4,
+		.callee_saved_stacking = &riscv_callee_saved_stacking,
+		.get_cpu_state = &zephyr_get_riscv_state,
+	},
+	{
 		.target_name = NULL
 	}
 };

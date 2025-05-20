@@ -17,6 +17,7 @@ target_sources(espressif PRIVATE
 	esp32c6.c
 	esp32h2.c
 	esp32p4.c
+	esp32h4.c
 	esp32c5.c
 	esp32c61.c
 	esp.c

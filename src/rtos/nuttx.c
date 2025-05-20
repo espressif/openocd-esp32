@@ -142,6 +142,10 @@ static const struct nuttx_params nuttx_params_list[] = {
 		.target_name = "esp32p4",
 		.stacking = &rtos_standard_riscv32_stacking,
 	},
+	{
+		.target_name = "esp32h4",
+		.stacking = &rtos_standard_riscv32_stacking,
+	},
 };
 
 static bool nuttx_detect_rtos(struct target *target)
