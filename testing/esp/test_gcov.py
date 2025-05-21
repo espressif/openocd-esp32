@@ -68,11 +68,7 @@ class GcovDataFile:
         else:
             out = subprocess.check_output(['%sgcov' % toolchain, '-j', path], stderr=subprocess.STDOUT)
             get_logger().debug('GCOV: %s', out)
-            #TODO check toolchain version, not IDF
-            if testee_info.idf_ver < IdfVersion.fromstr('5.1'):
-                gcov_gz_file = file_name
-            else:
-                gcov_gz_file = os.path.splitext(file_name)[0] # remove .gcda extension.
+            gcov_gz_file = os.path.splitext(file_name)[0] # remove .gcda extension.
             gcov_name = '%s.gcov.json.gz' % gcov_gz_file
             f = gzip.open(gcov_name, 'rb')
         json_file = json.load(f)
@@ -186,11 +182,7 @@ class GcovTestsImpl:
         for file in files:
             if file.endswith(".gcda"):
                 os.remove(os.path.join(stripped_data_dir, file))
-        # TODO check toolchain version, not IDF
-        if testee_info.idf_ver < IdfVersion.fromstr('5.1'):
-            ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.c.gcda.gcov.json')
-        else:
-            ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.c.gcov.json')
+        ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.c.gcov.json')
         ref_data = GcovDataFile(self.toolchain, ref_data_path, self.src_dirs, self.proj_path)
         self.gcov_files.append({
             'src_path' : src_path,
@@ -203,10 +195,7 @@ class GcovTestsImpl:
             })
         src_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.c')
         data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', MAIN_COMP_BUILD_DIR_NAME, 'helper_funcs.c.gcda')
-        if testee_info.idf_ver < IdfVersion.fromstr('5.1'):
-            ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.c.gcda.gcov.json')
-        else:
-            ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.c.gcov.json')
+        ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.c.gcov.json')
         ref_data = GcovDataFile(self.toolchain, ref_data_path, self.src_dirs, self.proj_path)
         self.gcov_files.append({
             'src_path' : src_path,
@@ -298,19 +287,13 @@ class GcovTestsImpl:
         self.oocd.gcov_dump(False)
         # parse and check gcov data
         data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', MAIN_COMP_BUILD_DIR_NAME, 'gcov_tests.c.gcda')
-        if testee_info.idf_ver < IdfVersion.fromstr('5.1'):
-            ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.c.gcda.gcov.json')
-        else:
-            ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.c.gcov.json')
+        ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'gcov_tests.c.gcov.json')
         f = GcovDataFile(self.toolchain, os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path)), self.src_dirs,
                         self.proj_path, self.test_app_cfg.build_obj_dir())
         f2 = GcovDataFile(self.toolchain, ref_data_path, self.src_dirs, self.proj_path)
         self.assertEqual(f, f2)
         data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', MAIN_COMP_BUILD_DIR_NAME, 'helper_funcs.c.gcda')
-        if testee_info.idf_ver < IdfVersion.fromstr('5.1'):
-            ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.c.gcda.gcov.json')
-        else:
-            ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.c.gcov.json')
+        ref_data_path = os.path.join(self.test_app_cfg.build_src_dir(), 'main', 'helper_funcs.c.gcov.json')
         f = GcovDataFile(self.toolchain, os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path)), self.src_dirs,
                         self.proj_path, self.test_app_cfg.build_obj_dir())
         f2 = GcovDataFile(self.toolchain, ref_data_path, self.src_dirs, self.proj_path)

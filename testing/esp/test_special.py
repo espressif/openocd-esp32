@@ -124,23 +124,21 @@ class DebuggerSpecialTestsImpl:
                                 "Halt cause (5) - (PMP Load access fault)",
                                 "Halt cause (7) - (PMP Store access fault)"]
 
-        if testee_info.idf_ver >= IdfVersion.fromstr('5.1'):
-            # Pseudo exeption tests only implemented for xtensa after IDF v5.0
-            if testee_info.arch == "xtensa":
-                bps.append("exception_bp_5")
-                bps.append("exception_bp_6")
-                sub_tests.append("pseudo_debug")
-                sub_tests.append("pseudo_coprocessor")
-                expected_strings.append("Halt cause (Unhandled debug exception)")
-                expected_strings.append("Halt cause (Coprocessor exception)")
+        if testee_info.arch == "xtensa":
+            bps.append("exception_bp_5")
+            bps.append("exception_bp_6")
+            sub_tests.append("pseudo_debug")
+            sub_tests.append("pseudo_coprocessor")
+            expected_strings.append("Halt cause (Unhandled debug exception)")
+            expected_strings.append("Halt cause (Coprocessor exception)")
 
-            bps.append("assert_failure_bp")
-            sub_tests.append("assert_failure")
-            expected_strings.append("Halt cause \(assert failed: assert_failure_ex_task special_tests.c:[^\n]+\)")
+        bps.append("assert_failure_bp")
+        sub_tests.append("assert_failure")
+        expected_strings.append("Halt cause \(assert failed: assert_failure_ex_task special_tests.c:[^\n]+\)")
 
-            bps.append("abort_bp")
-            sub_tests.append("abort")
-            expected_strings.append("Halt cause \(abort\(\) was called at PC 0x[0-9a-fA-F]+ on core [0-9]+\)")
+        bps.append("abort_bp")
+        sub_tests.append("abort")
+        expected_strings.append("Halt cause \(abort\(\) was called at PC 0x[0-9a-fA-F]+ on core [0-9]+\)")
 
         for i in range (len(bps)):
             self.add_bp(bps[i])

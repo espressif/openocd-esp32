@@ -310,11 +310,8 @@ def two_cores_concurrently_hit_wps(self):
     self.wps = {'s_count1': None, 's_count2': None}
     for e in self.wps:
         self.add_wp(e, 'w')
-    wp_stop_reason = [dbg.TARGET_STOP_REASON_SIGTRAP]
-    if testee_info.arch == "xtensa" or testee_info.idf_ver > IdfVersion.fromstr('5.0'):
-        wp_stop_reason.append(dbg.TARGET_STOP_REASON_WP)
     for i in range(10):
-        self.run_to_bp_and_check(wp_stop_reason, 'blink_task', ['s_count11', 's_count2'])
+        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_WP, 'blink_task', ['s_count11', 's_count2'])
 
 def appcpu_early_hw_bps(self):
     """
