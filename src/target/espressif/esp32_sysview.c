@@ -26,14 +26,15 @@ struct esp_sysview_target2host_hdr {
 #define SYSVIEW_BLOCK_SIZE_OFFSET       0
 #define SYSVIEW_WR_SIZE_OFFSET          1
 
-static int esp_sysview_trace_header_write(struct esp32_apptrace_cmd_ctx *ctx, bool mcore_format);
+#define SYNC_BYTES_COUNT                10
+
+static int esp_sysview_trace_header_write(struct esp32_apptrace_cmd_ctx *ctx);
 static int esp32_sysview_core_id_get(struct target *target, uint8_t *hdr_buf);
 static uint32_t esp32_sysview_usr_block_len_get(struct target *target, uint8_t *hdr_buf, uint32_t *wr_len);
 
 int esp32_sysview_cmd_init(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 	struct command_invocation *cmd,
 	int mode,
-	bool mcore_format,
 	const char **argv,
 	int argc)
 {
@@ -50,7 +51,7 @@ int esp32_sysview_cmd_init(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 
 	int core_num = cmd_ctx->cores_num;
 
-	if (!mcore_format && argc < core_num) {
+	if (argc < core_num) {
 		command_print(cmd, "Not enough args! Need %d trace data destinations!", core_num);
 		res = ERROR_FAIL;
 		goto on_error;
@@ -63,11 +64,10 @@ int esp32_sysview_cmd_init(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 		goto on_error;
 	}
 	cmd_ctx->cmd_priv = cmd_data;
-	cmd_data->mcore_format = mcore_format;
 
 	/*outfile1 [outfile2] [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]] */
-	int dests_num = esp32_apptrace_dest_init(cmd_data->data_dests, argv, !mcore_format ? core_num : 1);
-	if (!mcore_format && dests_num < core_num) {
+	int dests_num = esp32_apptrace_dest_init(cmd_data->data_dests, argv, core_num);
+	if (dests_num < core_num) {
 		command_print(cmd, "Not enough args! Need %d trace data destinations!", core_num);
 		free(cmd_data);
 		res = ERROR_FAIL;
@@ -96,7 +96,7 @@ int esp32_sysview_cmd_init(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 	cmd_ctx->trace_format.core_id_get = esp32_sysview_core_id_get;
 	cmd_ctx->trace_format.usr_block_len_get = esp32_sysview_usr_block_len_get;
 
-	res = esp_sysview_trace_header_write(cmd_ctx, mcore_format);
+	res = esp_sysview_trace_header_write(cmd_ctx);
 	if (res != ERROR_OK) {
 		command_print(cmd, "Failed to write trace header (%d)!", res);
 		esp32_apptrace_dest_cleanup(cmd_data->data_dests, core_num);
@@ -133,26 +133,17 @@ static uint32_t esp32_sysview_usr_block_len_get(struct target *target, uint8_t *
 	return ESP32_SYSVIEW_USER_BLOCK_LEN(hdr_buf[SYSVIEW_BLOCK_SIZE_OFFSET]);
 }
 
-static int esp_sysview_trace_header_write(struct esp32_apptrace_cmd_ctx *ctx, bool mcore_format)
+static int esp_sysview_trace_header_write(struct esp32_apptrace_cmd_ctx *ctx)
 {
 	struct esp32_sysview_cmd_data *cmd_data = ctx->cmd_priv;
 	char *hdr_str;
 	int dests_num;
 
-	if (!mcore_format) {
-		hdr_str = ";\n"
-			"; Version     " SYSVIEW_MIN_VER_STRING "\n"
-			"; Author      Espressif Inc\n"
-			";\n";
-		dests_num = ctx->cores_num;
-	} else {
-		hdr_str = ";\n"
-			"; Version     " SYSVIEW_MIN_VER_STRING "\n"
-			"; Author      Espressif Inc\n"
-			"; ESP_Extension\n"
-			";\n";
-		dests_num = 1;
-	}
+	hdr_str = ";\n"
+		"; Version     " SYSVIEW_MIN_VER_STRING "\n"
+		"; Author      Espressif Inc\n"
+		";\n";
+	dests_num = ctx->cores_num;
 
 	int hdr_len = strlen(hdr_str);
 	for (int i = 0; i < dests_num; i++) {
@@ -279,8 +270,7 @@ static uint16_t esp_sysview_parse_packet(uint8_t *pkt_buf,
 	uint32_t *pkt_len,
 	unsigned int *pkt_core_id,
 	uint32_t *delta,
-	uint32_t *delta_len,
-	bool clear_core_bit)
+	uint32_t *delta_len)
 {
 	uint8_t *pkt = pkt_buf;
 	uint16_t event_id = 0, payload_len = 0;
@@ -290,8 +280,7 @@ static uint16_t esp_sysview_parse_packet(uint8_t *pkt_buf,
 	/* 1-2 byte of message type, 0-2  byte of payload length, payload, 1-5 bytes of timestamp. */
 	if (*pkt & 0x80) {
 		if (*(pkt + 1) & (1 << 6)) {
-			if (clear_core_bit)
-				*(pkt + 1) &= ~(1 << 6);	/* clear core_id bit */
+			*(pkt + 1) &= ~(1 << 6);	/* clear core_id bit */
 			*pkt_core_id = 1;
 		}
 		event_id = *(pkt + 1) & ~(1 << 6);	/* higher part */
@@ -301,8 +290,7 @@ static uint16_t esp_sysview_parse_packet(uint8_t *pkt_buf,
 		payload_len = esp_sysview_decode_plen(&pkt);
 	} else {
 		if (*pkt & (1 << 6)) {
-			if (clear_core_bit)
-				*pkt &= ~(1 << 6);	/* clear core_id bit */
+			*pkt &= ~(1 << 6);	/* clear core_id bit */
 			*pkt_core_id = 1;
 		}
 		/* event_id (1 byte) */
@@ -347,6 +335,21 @@ static int esp32_sysview_write_packet(struct esp32_sysview_cmd_data *cmd_data,
 		}
 	}
 	return ERROR_OK;
+}
+
+static void sysview_find_and_replace_str(uint8_t *buffer, int buffer_len,
+				const char *search_str, const char *replace_str, int length)
+{
+	if (!buffer || !search_str || !replace_str || buffer_len == 0)
+		return;
+
+	for (int i = 0; i + length <= buffer_len; i++) {
+		/* If we found a match replace the string */
+		if (!memcmp(buffer + i, search_str, length)) {
+			memcpy(buffer + i, replace_str, length);
+			break;
+		}
+	}
 }
 
 static int esp32_sysview_process_packet(struct esp32_apptrace_cmd_ctx *ctx,
@@ -418,6 +421,11 @@ static int esp32_sysview_process_packet(struct esp32_apptrace_cmd_ctx *ctx,
 				wr_len -= delta_len;
 				new_delta_len = delta_ptr - new_delta_buf;
 			}
+			if (event_id == SYSVIEW_EVTID_SYSDESC && i == 1) {
+				/* Replace C=core0 with C=core1 */
+				sysview_find_and_replace_str(pkt_buf, wr_len, "C=core0", "C=core1", 7);
+			}
+
 			LOG_DEBUG("sysview: Redirect %d bytes of event %d to dest %d", wr_len, event_id, i);
 			res = esp32_sysview_write_packet(cmd_data,
 				i,
@@ -458,8 +466,7 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 		LOG_ERROR("sysview: Invalid core id %d in user block!", core_id);
 		return ERROR_FAIL;
 	}
-	if (cmd_data->mcore_format)
-		core_id = 0;
+
 	if (ctx->tot_len == 0) {
 		/* handle sync seq */
 		if (data_len < SYSVIEW_SYNC_LEN) {
@@ -467,7 +474,7 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 			return ERROR_FAIL;
 		}
 		LOG_DEBUG("sysview: Process %d sync bytes", SYSVIEW_SYNC_LEN);
-		uint8_t sync_seq[SYSVIEW_SYNC_LEN] = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 };
+		uint8_t sync_seq[SYSVIEW_SYNC_LEN] = { 0x0 }; // All zeros
 		if (memcmp(data, sync_seq, SYSVIEW_SYNC_LEN) != 0) {
 			LOG_ERROR("sysview: Invalid init seq [%x %x %x %x %x %x %x %x %x %x]",
 				data[0], data[1], data[2], data[3], data[4], data[5], data[6],
@@ -483,18 +490,16 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 				core_id);
 			return res;
 		}
-		if (!cmd_data->mcore_format) {
-			for (unsigned int i = 0; i < ctx->cores_num; i++) {
-				if (core_id == i)
-					continue;
-				res =
-					cmd_data->data_dests[i].write(cmd_data->data_dests[i].priv,
-					data,
-					SYSVIEW_SYNC_LEN);
-				if (res != ERROR_OK) {
-					LOG_ERROR("sysview: Failed to write %u sync bytes to dest %d!", SYSVIEW_SYNC_LEN, core_id ? 0 : 1);
-					return res;
-				}
+		for (unsigned int i = 0; i < ctx->cores_num; i++) {
+			if (core_id == i)
+				continue;
+			res =
+				cmd_data->data_dests[i].write(cmd_data->data_dests[i].priv,
+				data,
+				SYSVIEW_SYNC_LEN);
+			if (res != ERROR_OK) {
+				LOG_ERROR("sysview: Failed to write %u sync bytes to dest %d!", SYSVIEW_SYNC_LEN, core_id ? 0 : 1);
+				return res;
 			}
 		}
 		ctx->tot_len += SYSVIEW_SYNC_LEN;
@@ -508,8 +513,7 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 			&pkt_len,
 			&pkt_core_id,
 			&delta,
-			&delta_len,
-			!cmd_data->mcore_format);
+			&delta_len);
 		LOG_DEBUG("sysview: Process packet: core %d, %d id, %d bytes [%x %x %x %x]",
 			pkt_core_id,
 			event_id,
@@ -518,23 +522,15 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 			data[processed + 1],
 			data[processed + 2],
 			data[processed + 3]);
-		if (!cmd_data->mcore_format) {
-			res = esp32_sysview_process_packet(ctx,
-				pkt_core_id,
-				event_id,
-				delta,
-				delta_len,
-				pkt_len,
-				data + processed);
-			if (res != ERROR_OK)
-				return res;
-		} else {
-			res = cmd_data->data_dests[0].write(cmd_data->data_dests[0].priv, data + processed, pkt_len);
-			if (res != ERROR_OK) {
-				LOG_ERROR("sysview: Failed to write %u bytes to dest %d!", pkt_len, 0);
-				return res;
-			}
-		}
+		res = esp32_sysview_process_packet(ctx,
+			pkt_core_id,
+			event_id,
+			delta,
+			delta_len,
+			pkt_len,
+			data + processed);
+		if (res != ERROR_OK)
+			return res;
 		if (event_id == SYSVIEW_EVTID_TRACE_STOP)
 			cmd_data->sv_trace_running = 0;
 		ctx->tot_len += pkt_len;
@@ -551,4 +547,90 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 		}
 	}
 	return ERROR_OK;
+}
+
+static int esp32_sysview_get_header_len(int fd, long *header_len)
+{
+	int zero_count = 0;
+	uint8_t c;
+
+	lseek(fd, 0, SEEK_SET);
+
+	*header_len = 0;
+
+	while (read(fd, &c, 1) == 1) {
+		if (c == 0x00) {
+			if (++zero_count == SYNC_BYTES_COUNT)
+				return ERROR_OK;
+		} else {
+			zero_count = 0;
+			(*header_len)++;
+		}
+	}
+	return ERROR_FAIL;
+}
+
+static long esp32_sysview_get_data_size(int fd)
+{
+	assert(fd > 0);
+
+	long header_len;
+	if (esp32_sysview_get_header_len(fd, &header_len) != ERROR_OK)
+		return ERROR_FAIL;
+
+	return lseek(fd, 0, SEEK_END) - header_len; /* File size - header length */
+}
+
+static int esp32_sysview_copy_file_content(int fdout, int fdsrc)
+{
+	assert(fdout > 0 && fdsrc > 0);
+
+	long header_len;
+	if (esp32_sysview_get_header_len(fdsrc, &header_len) != ERROR_OK)
+		return ERROR_FAIL;
+
+	/*
+	* File pointer is at the end of the (header + sync) bytes
+	* We will write the sync bytes again. So move the location to start of the sync bytes
+	*/
+	lseek(fdsrc, header_len, SEEK_SET);
+
+	char buffer[4096];
+	ssize_t bytes_read;
+	while ((bytes_read = read(fdsrc, buffer, sizeof(buffer))) > 0) {
+		if (write(fdout, buffer, bytes_read) != bytes_read) {
+			LOG_ERROR("sysview: Failed to write to output file");
+			return ERROR_FAIL;
+		}
+	}
+
+	return ERROR_OK;
+}
+
+int esp32_sysview_combine_files(int fdout, int fd_core0, int fd_core1)
+{
+	assert(fdout > 0 && fd_core0 > 0 && fd_core1 > 0);
+
+	long data_size = esp32_sysview_get_data_size(fd_core0);
+	if (data_size < 0)
+		return ERROR_FAIL;
+
+	char header[256] = {0};
+	snprintf(header, sizeof(header),
+		";\n"
+		"; Version     SEGGER SystemViewer V3.60\n"
+		"; Author      Espressif Inc\n"
+		"; Offset Core0 0\n"
+		"; Offset Core1 %ld\n"
+		";\n", data_size);
+
+	if (write(fdout, header, strlen(header)) != (ssize_t)strlen(header)) {
+		LOG_ERROR("sysview: Failed to write header to output file");
+		return ERROR_FAIL;
+	}
+
+	if (esp32_sysview_copy_file_content(fdout, fd_core0) != ERROR_OK)
+		return ERROR_FAIL;
+
+	return esp32_sysview_copy_file_content(fdout, fd_core1);
 }

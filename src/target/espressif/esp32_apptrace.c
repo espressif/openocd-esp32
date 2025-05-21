@@ -150,7 +150,7 @@ static int esp32_apptrace_file_dest_init(struct esp32_apptrace_dest *dest, const
 	}
 
 	LOG_INFO("Open file %s", dest_name);
-	dest_data->fout = open(dest_name, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0666);
+	dest_data->fout = open(dest_name, O_RDWR | O_CREAT | O_TRUNC | O_BINARY, 0666);
 	if (dest_data->fout <= 0) {
 		LOG_ERROR("Failed to open file %s", dest_name);
 		free(dest_data);
@@ -1264,7 +1264,7 @@ static int esp32_apptrace_poll(void *priv)
 
 static inline bool is_sysview_mode(int mode)
 {
-	return mode == ESP_APPTRACE_CMD_MODE_SYSVIEW || mode ==	ESP_APPTRACE_CMD_MODE_SYSVIEW_MCORE;
+	return mode == ESP_APPTRACE_CMD_MODE_SYSVIEW;
 }
 
 static void esp32_apptrace_cmd_stop(struct esp32_apptrace_cmd_ctx *ctx)
@@ -1475,6 +1475,15 @@ static int esp32_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx)
 			break;
 		}
 	}
+
+	if (cmd_data->multicore_fd > 0) {
+		res = esp32_sysview_combine_files(cmd_data->multicore_fd,
+			((struct esp32_apptrace_dest_file_data *)cmd_data->data_dests[0].priv)->fout,
+			((struct esp32_apptrace_dest_file_data *)cmd_data->data_dests[1].priv)->fout);
+		close(cmd_data->multicore_fd);
+		cmd_data->multicore_fd = -1;
+	}
+
 	return res;
 }
 
@@ -1485,9 +1494,22 @@ static int esp32_cmd_apptrace_generic(struct command_invocation *cmd, int mode, 
 	int res = ERROR_FAIL;
 	enum target_state old_state;
 	struct target *target = get_current_target(CMD_CTX);
+	int multicore_fd = -1;
 
 	if (argc < 1)
 		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	if (mode == ESP_APPTRACE_CMD_MODE_SYSVIEW_MCORE) {
+		/* Save the files in the sysview mode. At the end we will combine them */
+		mode = ESP_APPTRACE_CMD_MODE_SYSVIEW;
+		argc--;
+		LOG_INFO("sysview: Open multicore file %s", argv[argc]);
+		multicore_fd = open(argv[argc], O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0666);
+		if (multicore_fd < 0) {
+			LOG_ERROR("Error: Cannot create %s", argv[argc]);
+			return ERROR_FAIL;
+		}
+	}
 
 	/* command can be invoked on unexamined core, if so find examined one */
 	if (target->smp && !target_was_examined(target)) {
@@ -1511,21 +1533,22 @@ static int esp32_cmd_apptrace_generic(struct command_invocation *cmd, int mode, 
 			res = esp32_sysview_cmd_init(&s_at_cmd_ctx,
 				cmd,
 				mode,
-				mode == ESP_APPTRACE_CMD_MODE_SYSVIEW_MCORE,
 				&argv[1],
 				argc - 1);
 			if (res != ERROR_OK) {
 				command_print(cmd, "Failed to init cmd ctx (%d)!", res);
 				return res;
 			}
-			cmd_data = s_at_cmd_ctx.cmd_priv;
-			if (cmd_data->skip_len != 0) {
+			struct esp32_sysview_cmd_data *sysview_cmd_data = s_at_cmd_ctx.cmd_priv;
+			sysview_cmd_data->multicore_fd = multicore_fd;
+			if (sysview_cmd_data->apptrace.skip_len != 0) {
 				s_at_cmd_ctx.running = 0;
 				esp32_sysview_cmd_cleanup(&s_at_cmd_ctx);
 				command_print(cmd, "Data skipping not supported!");
 				return ERROR_FAIL;
 			}
 			s_at_cmd_ctx.process_data = esp32_sysview_process_data;
+			cmd_data = &sysview_cmd_data->apptrace;
 		} else {
 			res = esp32_apptrace_cmd_init(&s_at_cmd_ctx,
 				cmd,
@@ -1647,7 +1670,64 @@ COMMAND_HANDLER(esp32_cmd_sysview)
 
 COMMAND_HANDLER(esp32_cmd_sysview_mcore)
 {
-	return esp32_cmd_apptrace_generic(CMD, ESP_APPTRACE_CMD_MODE_SYSVIEW_MCORE, CMD_ARGV, CMD_ARGC);
+	if (CMD_ARGC > 0 && strcmp(CMD_ARGV[0], "start") == 0) {
+		const char *temp_argv[CMD_ARGC + 1];  /* +1 to keep the output file */
+		unsigned int temp_argc = 0;
+
+		if (CMD_ARGC < 2) {
+			command_print(CMD, "Missing output file argument!");
+			return ERROR_COMMAND_SYNTAX_ERROR;
+		}
+
+		if (strncmp(CMD_ARGV[1], "file://", 6)) {
+			command_print(CMD, "Multicore format is supported only to FILE destination!");
+			return ERROR_COMMAND_ARGUMENT_INVALID;
+		}
+
+		struct target *target = get_current_target(CMD_CTX);
+		if (!target->smp)
+			goto _run_sysview_mode;
+
+		struct target_list *head;
+		foreach_smp_target(head, target->smp_targets) {
+			if (!target_was_examined(head->target))
+				goto _run_sysview_mode;
+		}
+
+		/* Generate temp file names based on the output file */
+		const char *output_file = CMD_ARGV[1];
+		char *temp_file_core0 = malloc(strlen(output_file) + 10); /* Extra space for suffix */
+		char *temp_file_core1 = malloc(strlen(output_file) + 10);
+
+		if (!temp_file_core0 || !temp_file_core1) {
+			command_print(CMD, "Failed to allocate memory for temp file names!");
+			return ERROR_FAIL;
+		}
+
+		sprintf(temp_file_core0, "%s_core0", output_file);
+		sprintf(temp_file_core1, "%s_core1", output_file);
+
+		temp_argv[temp_argc++] = CMD_ARGV[0]; /* start command */
+		temp_argv[temp_argc++] = temp_file_core0;
+		temp_argv[temp_argc++] = temp_file_core1;
+
+		/* Copy remaining arguments */
+		for (unsigned int arg_idx = 2; arg_idx < CMD_ARGC; arg_idx++)
+			temp_argv[temp_argc++] = CMD_ARGV[arg_idx];
+
+		/* Copy the output file to save in the context */
+		temp_argv[temp_argc++] = output_file + 7; /* Strip "file://" prefix */
+
+		int result = esp32_cmd_apptrace_generic(CMD, ESP_APPTRACE_CMD_MODE_SYSVIEW_MCORE, temp_argv, temp_argc);
+
+		free(temp_file_core0);
+		free(temp_file_core1);
+
+		return result;
+	}
+
+_run_sysview_mode:
+	return esp32_cmd_apptrace_generic(CMD, ESP_APPTRACE_CMD_MODE_SYSVIEW, CMD_ARGV, CMD_ARGC);
 }
 
 static int esp_gcov_cmd_init(struct esp32_apptrace_cmd_ctx *cmd_ctx,
@@ -2386,7 +2466,7 @@ const struct command_registration esp32_apptrace_command_handlers[] = {
 		.handler = esp32_cmd_sysview_mcore,
 		.mode = COMMAND_EXEC,
 		.help =
-			"App Tracing: Espressif multi-core SystemView trace control. Starts, stops or queries tracing process status.",
+			"App Tracing: SEGGER SystemView compatible multi-core trace control. Starts, stops or queries tracing process status.",
 		.usage =
 			"(start file://<outfile> [poll_period [trace_size [stop_tmo [wait4halt [skip_size]]]]) | (stop) | (status)",
 	},

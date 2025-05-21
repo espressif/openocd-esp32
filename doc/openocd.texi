@@ -12076,10 +12076,8 @@ Requests ongoing SystremView compatible tracing status.
 @end deffn
 
 @deffn {Command} {esp sysview_mcore} (start file://<outfile> [<poll_period> [<trace_size> [<stop_tmo> [<wait4halt> [<skip_size>]]]]])
-This command is identical to @command{esp sysview start}, but uses Espressif multi-core extension to
-@uref{https://www.segger.com/products/development-tools/systemview/, SEGGER SystemView} data format.
-Data will be stored to specified destination. Tracing data from all cores are saved in the same file.
-The meaning of the arguments is identical to @command{esp sysview start}.
+This command is identical to @command{esp sysview start}, but uses the official SEGGER SystemView multi-core format.
+Tracing data from all cores are saved in the same file. Resulting file can be opened in "SEGGER SystemView" v3.60 or later.
 @end deffn
 
 @deffn {Command} {esp sysview_mcore} (stop)
