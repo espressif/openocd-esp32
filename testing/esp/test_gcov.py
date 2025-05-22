@@ -212,6 +212,7 @@ class GcovTestsImpl:
                 os.remove(f['data_path'])
 
     @run_all_cores
+    @skip_for_chip(['esp32s2'], "skipped - OCD-1190")
     @skip_for_chip_and_ver(['5.4', '5.5', 'latest'], ['esp32s3'], "skipped - OCD-1048")
     def test_simple_gdb(self):
         """
@@ -268,6 +269,7 @@ class GcovTestsImpl:
         self.gdb.delete_bp(bp)
 
     @run_all_cores
+    @skip_for_chip(['esp32s2'], "skipped - OCD-1190")
     @skip_for_chip_and_ver(['5.5'], ['esp32s3'], "skipped - OCD-1048")
     def test_simple_oocd(self):
         """
