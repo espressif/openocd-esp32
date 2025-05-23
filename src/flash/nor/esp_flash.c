@@ -328,7 +328,7 @@ int esp_algo_flash_blank_check(struct flash_bank *bank)
 		destroy_mem_param(&mp);
 		return ret;
 	}
-	if (run.ret_code != ESP_STUB_ERR_OK) {
+	if (run.ret_code != ESP_STUB_OK) {
 		LOG_ERROR("Failed to check erase flash (%" PRId32 ")!", run.ret_code);
 		ret = ERROR_FAIL;
 	} else {
@@ -380,7 +380,7 @@ static int esp_algo_flash_get_mappings(struct flash_bank *bank,
 	flash_map->flash_size = target_buffer_get_u32(bank->target, mp.value + ESP_STUB_FLASHMAP_FLASH_SIZE);
 	flash_map->retcode = target_buffer_get_u32(bank->target, mp.value + ESP_STUB_FLASHMAP_RETCODE);
 
-	if (flash_map->retcode != ESP_STUB_ERR_OK) {
+	if (flash_map->retcode != ESP_STUB_OK) {
 		LOG_WARNING("Failed to get flash maps (%" PRId32 ")!", flash_map->retcode);
 		if (flash_map->retcode == ESP_STUB_ERR_INVALID_IMAGE)
 			LOG_WARNING(
@@ -463,7 +463,7 @@ int esp_algo_flash_erase(struct flash_bank *bank, unsigned int first, unsigned i
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
 		return ret;
 	}
-	if (run.ret_code != ESP_STUB_ERR_OK) {
+	if (run.ret_code != ESP_STUB_OK) {
 		LOG_ERROR("Failed to erase flash (%" PRId32 ")!", run.ret_code);
 		ret = ERROR_FAIL;
 	} else {
@@ -781,7 +781,7 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
 		return ret;
 	}
-	if (run.ret_code != ESP_STUB_ERR_OK) {
+	if (run.ret_code != ESP_STUB_OK) {
 		LOG_ERROR("Failed to write flash (%" PRId32 ")!", run.ret_code);
 		ret = ERROR_FAIL;
 	} else {
@@ -933,7 +933,7 @@ int esp_algo_flash_read(struct flash_bank *bank, uint8_t *buffer,
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
 		return ret;
 	}
-	if (run.ret_code != ESP_STUB_ERR_OK) {
+	if (run.ret_code != ESP_STUB_OK) {
 		LOG_ERROR("Failed to read flash (%" PRId32 ")!", run.ret_code);
 		ret = ERROR_FAIL;
 	}
@@ -1300,7 +1300,7 @@ int esp_algo_flash_breakpoint_remove(struct target *target, struct esp_flash_bre
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
 		return ret;
 	}
-	if (run.ret_code != ESP_STUB_ERR_OK) {
+	if (run.ret_code != ESP_STUB_OK) {
 		LOG_ERROR("Failed to clear bp (%" PRId32 ")!", run.ret_code);
 		return ERROR_FAIL;
 	}
@@ -1367,7 +1367,7 @@ static int esp_algo_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 		destroy_mem_param(&mp);
 		return ret;
 	}
-	if (run.ret_code != ESP_STUB_ERR_OK) {
+	if (run.ret_code != ESP_STUB_OK) {
 		LOG_ERROR("Failed to get hash value (%" PRId32 ")!", run.ret_code);
 		ret = ERROR_FAIL;
 	} else {

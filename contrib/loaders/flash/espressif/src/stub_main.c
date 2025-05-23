@@ -8,6 +8,7 @@
 #include <esp-stub-lib/flash.h>
 #include <esp-stub-lib/log.h>
 #include <esp-stub-lib/bit_utils.h>
+#include <esp-stub-lib/err.h>
 
 #include "esp_stub.h"
 #include "stub_apptrace.h"
@@ -49,7 +50,7 @@ static __maybe_unused int handle_test1(va_list ap)
 	STUB_LOG_TRACE();
 	STUB_LOG_TRACEF("foo:%u\n", 0x2A);
 
-	return ESP_STUB_ERR_OK;
+	return ESP_STUB_OK;
 }
 
 static int stub_apptrace_process_recvd_data(const uint8_t *buf, uint32_t size)
@@ -64,7 +65,7 @@ static int stub_apptrace_process_recvd_data(const uint8_t *buf, uint32_t size)
 
 	STUB_LOG("\n");
 
-	return ESP_STUB_ERR_OK;
+	return ESP_STUB_OK;
 }
 
 static __maybe_unused int handle_apptrace_read_from_host(va_list ap)
@@ -90,7 +91,7 @@ static  __maybe_unused int stub_apptrace_process_write_data(uint32_t addr, uint8
 	for (uint32_t i = 0; i < size; i++)
 		buf[i] = data++;
 
-	return ESP_STUB_ERR_OK;
+	return ESP_STUB_OK;
 }
 
 static __maybe_unused int handle_apptrace_write_to_host(va_list ap)
@@ -122,6 +123,7 @@ int stub_main(int cmd, ...)
 	va_list ap;
 	void *flash_state = NULL;
 	int ret = ESP_STUB_ERR_NOT_SUPPORTED;
+	stub_lib_err_t rc = STUB_LIB_FAIL;
 
 	/* zero bss */
 	for (uint32_t *p = &_bss_start; p < &_bss_end; p++)
@@ -131,23 +133,32 @@ int stub_main(int cmd, ...)
 
 	STUB_LOG_INIT();
 
-	stub_lib_flash_init(&flash_state);
+	rc = stub_lib_flash_init(&flash_state);
+	if (rc != STUB_LIB_OK) {
+		STUB_LOGE("Flash initialization failed\n");
+		return ESP_STUB_FAIL;
+	}
 
-	STUB_LOGD("Command: %x\n", cmd);
+	STUB_LOGD("Command: 0x%x\n", cmd);
 
 	const struct stub_cmd_handler *handler = cmd_handlers;
 	while (handler->handler) {
 		if (handler->cmd == cmd) {
-			STUB_LOGI("Executing command: %s\n", handler->name);
+			STUB_LOGI("Executing command: %s (0x%x)\n", handler->name, handler->cmd);
 			ret = handler->handler(ap);
+			if (ret != ESP_STUB_OK) {
+				STUB_LOGE("Command %s (0x%x) failed\n", handler->name, handler->cmd);
+				goto flash_va_end;
+			}
 			break;
 		}
 		handler++;
 	}
 
 	if (!handler->handler)
-		STUB_LOG("Unknown command!\n");
+		STUB_LOGE("Unknown command: 0x%x\n", cmd);
 
+flash_va_end:
 	va_end(ap);
 
 	if (flash_state)

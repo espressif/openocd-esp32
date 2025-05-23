@@ -52,8 +52,8 @@ enum esp_stub_cmd {
 
 // TODO: remove or move upper when they are completely ready to replace the old ones
 /****************************************************************************************/
-#define ESP_STUB_ERR_OK                         0
-#define ESP_STUB_ERR_FAIL                       (-1)
+#define ESP_STUB_OK                             0
+#define ESP_STUB_FAIL                           (-1)
 #define ESP_STUB_ERR_NOT_SUPPORTED              (-2)
 #define ESP_STUB_ERR_INFLATE                    (-3)
 #define ESP_STUB_ERR_NOT_ENOUGH_DATA            (-4)
