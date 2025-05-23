@@ -1075,7 +1075,8 @@ int xtensa_core_status_check(struct target *target)
 
 	res = xtensa_dm_core_status_read(&xtensa->dbg_mod);
 	if (res != ERROR_OK) {
-		LOG_TARGET_ERROR(target, "Failed to read core status!");
+		/* After openocd 'reset', we can see this failure, so don't log it as error */
+		LOG_TARGET_DEBUG(target, "Couldn't read core status");
 		return res;
 	}
 	xtensa_dsr_t dsr = xtensa_dm_core_status_get(&xtensa->dbg_mod);
