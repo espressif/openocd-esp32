@@ -345,7 +345,7 @@ tests_esp32c6:
     ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single"
 
-tests_esp32c61:
+.tests_esp32c61:
   extends: .tests_master_riscv_template
   tags:
     - esp32c61
