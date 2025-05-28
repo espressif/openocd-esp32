@@ -477,7 +477,6 @@ class SysViewMcoreTracingTestsImpl(BaseTracingTestsImpl):
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
 ########################################################################
-@idf_ver_min_for_chip('latest', ['esp32s3'])
 class SysViewTraceTestAppTestsDual(DebuggerGenericTestAppTests):
     """ Base class to run tests which use sysview test app in dual core mode
     """
@@ -488,7 +487,6 @@ class SysViewTraceTestAppTestsDual(DebuggerGenericTestAppTests):
         self.test_tasks_num = 2
         self.cores_num = 2
 
-@idf_ver_min_for_chip('latest', ['esp32s3'])
 class SysViewTraceTestAppTestsSingle(DebuggerGenericTestAppTests):
     """ Base class to run tests which use sysview test app in single core mode
     """
