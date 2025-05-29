@@ -1483,6 +1483,30 @@ unsigned int target_data_bits(struct target *target)
 	return 32;
 }
 
+int target_add_memory_region(struct target_memory_map *map, const struct target_memory_region *region)
+{
+	/* Reallocate if needed */
+	if (map->num_regions >= map->capacity) {
+		unsigned int new_capacity = map->capacity + 8;  /* Grow by 8 regions at a time */
+		struct target_memory_region *new_regions = realloc(map->regions, new_capacity * sizeof(*new_regions));
+		if (!new_regions)
+			return ERROR_FAIL;
+
+		map->regions = new_regions;
+		map->capacity = new_capacity;
+	}
+
+	/* Add the new region */
+	map->regions[map->num_regions].type = region->type;
+	map->regions[map->num_regions].start = region->start;
+	map->regions[map->num_regions].length = region->length;
+	map->regions[map->num_regions].block_size = region->block_size;
+	map->num_regions++;
+
+	return ERROR_OK;
+}
+
+
 static int target_profiling(struct target *target, uint32_t *samples,
 			uint32_t max_num_samples, uint32_t *num_samples, uint32_t seconds)
 {

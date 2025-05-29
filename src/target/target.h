@@ -116,6 +116,27 @@ enum target_register_class {
 	REG_CLASS_GENERAL,
 };
 
+/* memory types supported by gdb */
+enum target_memory_type {
+	MEMORY_TYPE_RAM,
+	MEMORY_TYPE_FLASH,
+	MEMORY_TYPE_ROM
+};
+struct target_memory_region {
+	enum target_memory_type type;
+	target_addr_t start;
+	unsigned int length;
+	unsigned int block_size;  /* For flash region only */
+};
+
+struct target_memory_map {
+	struct target_memory_region *regions;
+	unsigned int num_regions;
+	unsigned int capacity;
+};
+
+int target_add_memory_region(struct target_memory_map *map, const struct target_memory_region *region);
+
 /* target_type.h contains the full definition of struct target_type */
 struct target {
 	struct target_type *type;			/* target type definition (name, access functions) */
