@@ -1931,9 +1931,6 @@ static int generate_memory_map_xml(struct target_memory_map *memory_map, char **
 
 static void print_memory_map(const struct target_memory_map *memory_map)
 {
-	if (!LOG_LEVEL_IS(LOG_LVL_DEBUG))
-		return;
-
 	if (!memory_map || !memory_map->regions) {
 		LOG_ERROR("Invalid memory map");
 		return;
@@ -2083,6 +2080,7 @@ static int gdb_memory_map(struct connection *connection, char const *packet, int
 
 	/* Sort all regions by start address in ascending order */
 	qsort(memory_map.regions, memory_map.num_regions, sizeof(struct target_memory_region), compare_memory_regions);
+	print_memory_map(&memory_map);
 
 	/* We need to report non-flash memory as ram (or rather read/write) by default for GDB,
 	 * since it has no concept of non-cacheable read/write memory (i/o etc).
@@ -2111,10 +2109,6 @@ static int gdb_memory_map(struct connection *connection, char const *packet, int
 		region.block_size = 0;
 		target_add_memory_region(&memory_map, &region);
 	}
-
-	/* No need to sort again. Remove later */
-	qsort(memory_map.regions, memory_map.num_regions, sizeof(struct target_memory_region), compare_memory_regions);
-	print_memory_map(&memory_map);
 
 	if (memory_map.num_regions > 0) {
 		retval = generate_memory_map_xml(&memory_map, &xml, &pos, &size);

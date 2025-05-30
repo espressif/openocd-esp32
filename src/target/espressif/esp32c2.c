@@ -36,10 +36,12 @@
 #define ESP32C2_ASSIST_DEBUG_CPU0_MON_REG       0x600CE000
 
 /* memory map */
-#define ESP32C2_IRAM_LOW    0x4037C000
-#define ESP32C2_IRAM_HIGH   0x403C0000
-#define ESP32C2_DRAM_LOW    0x3FCA0000
-#define ESP32C2_DRAM_HIGH   0x3FCE0000
+#define ESP32C2_IROM_MASK_LOW                   0x40000000
+#define ESP32C2_IROM_MASK_HIGH                  0x40090000
+#define ESP32C2_IRAM_LOW                        0x4037C000
+#define ESP32C2_IRAM_HIGH                       0x403C0000
+#define ESP32C2_DRAM_LOW                        0x3FCA0000
+#define ESP32C2_DRAM_HIGH                       0x3FCE0000
 
 enum esp32c2_reset_reason {
 	ESP32C2_CHIP_POWER_ON_RESET      = 0x01,	/* Power on reset */
@@ -173,6 +175,16 @@ static int esp32c2_init_target(struct command_context *cmd_ctx,
 	return ERROR_OK;
 }
 
+static int esp32c2_get_gdb_memory_map(struct target *target, struct target_memory_map *memory_map)
+{
+	struct target_memory_region region = { 0 };
+
+	region.type = MEMORY_TYPE_ROM;
+	region.start = ESP32C2_IROM_MASK_LOW;
+	region.length = ESP32C2_IROM_MASK_HIGH - ESP32C2_IROM_MASK_LOW;
+	return target_add_memory_region(memory_map, &region);
+}
+
 static const struct command_registration esp32c2_command_handlers[] = {
 	{
 		.usage = "",
@@ -217,6 +229,7 @@ struct target_type esp32c2_target = {
 	.get_gdb_arch = riscv_get_gdb_arch,
 	.get_gdb_reg_list = riscv_get_gdb_reg_list,
 	.get_gdb_reg_list_noread = riscv_get_gdb_reg_list_noread,
+	.get_gdb_memory_map = esp32c2_get_gdb_memory_map,
 
 	.add_breakpoint = esp_riscv_breakpoint_add,
 	.remove_breakpoint = esp_riscv_breakpoint_remove,

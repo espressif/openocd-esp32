@@ -106,12 +106,17 @@ struct target_type {
 			struct reg **reg_list[], int *reg_list_size,
 			enum target_register_class reg_class);
 
+	/**
+	 * Function to get target-specific memory map for GDB.
+	 * Maps memory regions (ROM, RAM, etc.) with their start addresses and lengths.
+	 * Used by GDB to understand the target's memory layout for debugging operations.
+	 */
+	int (*get_gdb_memory_map)(struct target *target, struct target_memory_map *memory_map);
+
 	/* target memory access
 	* size: 1 = byte (8bit), 2 = half-word (16bit), 4 = word (32bit)
 	* count: number of items of <size>
 	*/
-
-	int (*get_gdb_memory_map)(struct target *target, struct target_memory_map *memory_map);
 
 	/**
 	 * Target memory read callback.  Do @b not call this function

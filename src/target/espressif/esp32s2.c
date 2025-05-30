@@ -20,12 +20,12 @@
 #include "esp_xtensa.h"
 #include "esp_semihosting.h"
 
+#define ESP32_S2_IROM_MASK_LOW          0x40000000
+#define ESP32_S2_IROM_MASK_HIGH         0x40020000
 #define ESP32_S2_RTC_DATA_LOW           0x50000000
 #define ESP32_S2_RTC_DATA_HIGH          0x50002000
 #define ESP32_S2_DR_REG_LOW             0x3f400000
 #define ESP32_S2_DR_REG_HIGH            0x3f4d3FFC
-#define ESP32_S2_SYS_RAM_LOW            0x60000000UL
-#define ESP32_S2_SYS_RAM_HIGH           (ESP32_S2_SYS_RAM_LOW + 0x20000000UL)
 
 /* ESP32 WDT */
 #define ESP32_S2_WDT_WKEY_VALUE         0x50d83aa1
@@ -596,6 +596,16 @@ static int esp32s2_target_create(struct target *target)
 	return ERROR_OK;
 }
 
+static int esp32s2_get_gdb_memory_map(struct target *target, struct target_memory_map *memory_map)
+{
+	struct target_memory_region region = { 0 };
+
+	region.type = MEMORY_TYPE_ROM;
+	region.start = ESP32_S2_IROM_MASK_LOW;
+	region.length = ESP32_S2_IROM_MASK_HIGH - ESP32_S2_IROM_MASK_LOW;
+	return target_add_memory_region(memory_map, &region);
+}
+
 static const struct command_registration esp_any_command_handlers[] = {
 	{
 		.mode = COMMAND_ANY,
@@ -658,6 +668,7 @@ struct target_type esp32s2_target = {
 
 	.get_gdb_arch = xtensa_get_gdb_arch,
 	.get_gdb_reg_list = xtensa_get_gdb_reg_list,
+	.get_gdb_memory_map = esp32s2_get_gdb_memory_map,
 
 	.run_algorithm = xtensa_run_algorithm,
 	.start_algorithm = xtensa_start_algorithm,

@@ -519,6 +519,16 @@ static int esp32s3_target_create(struct target *target)
 	return ERROR_OK;
 }
 
+static int esp32s3_get_gdb_memory_map(struct target *target, struct target_memory_map *memory_map)
+{
+	struct target_memory_region region = { 0 };
+
+	region.type = MEMORY_TYPE_ROM;
+	region.start = ESP32_S3_IROM_MASK_LOW;
+	region.length = ESP32_S3_IROM_MASK_HIGH - ESP32_S3_IROM_MASK_LOW;
+	return target_add_memory_region(memory_map, &region);
+}
+
 static const struct command_registration esp32s3_command_handlers[] = {
 	{
 		.usage = "",
@@ -571,6 +581,7 @@ struct target_type esp32s3_target = {
 
 	.get_gdb_arch = xtensa_get_gdb_arch,
 	.get_gdb_reg_list = xtensa_get_gdb_reg_list,
+	.get_gdb_memory_map = esp32s3_get_gdb_memory_map,
 
 	.run_algorithm = xtensa_run_algorithm,
 	.start_algorithm = xtensa_start_algorithm,

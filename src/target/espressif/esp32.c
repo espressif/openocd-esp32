@@ -28,12 +28,12 @@ implementation.
 */
 
 /* ESP32 memory map */
+#define ESP32_IROM_MASK_LOW       0x40000000
+#define ESP32_IROM_MASK_HIGH      0x40070000
 #define ESP32_RTC_DATA_LOW        0x50000000
 #define ESP32_RTC_DATA_HIGH       0x50002000
 #define ESP32_DR_REG_LOW          0x3ff00000
 #define ESP32_DR_REG_HIGH         0x3ff71000
-#define ESP32_SYS_RAM_LOW         0x60000000UL
-#define ESP32_SYS_RAM_HIGH        (ESP32_SYS_RAM_LOW + 0x20000000UL)
 #define ESP32_RTC_SLOW_MEM_BASE   ESP32_RTC_DATA_LOW
 
 /* ESP32 WDT */
@@ -494,6 +494,16 @@ static int esp32_target_create(struct target *target)
 	return ERROR_OK;
 }
 
+static int esp32_get_gdb_memory_map(struct target *target, struct target_memory_map *memory_map)
+{
+	struct target_memory_region region = { 0 };
+
+	region.type = MEMORY_TYPE_ROM;
+	region.start = ESP32_IROM_MASK_LOW;
+	region.length = ESP32_IROM_MASK_HIGH - ESP32_IROM_MASK_LOW;
+	return target_add_memory_region(memory_map, &region);
+}
+
 static COMMAND_HELPER(esp32_cmd_flashbootstrap_do, struct esp32_common *esp32)
 {
 	int state = -1;
@@ -657,6 +667,7 @@ struct target_type esp32_target = {
 
 	.get_gdb_arch = xtensa_get_gdb_arch,
 	.get_gdb_reg_list = xtensa_get_gdb_reg_list,
+	.get_gdb_memory_map = esp32_get_gdb_memory_map,
 
 	.run_algorithm = xtensa_run_algorithm,
 	.start_algorithm = xtensa_start_algorithm,

@@ -96,6 +96,11 @@
 #define ESP32P4_RESERVED_ADDR_LOW               0x00000000U
 #define ESP32P4_RESERVED_ADDR_HIGH              0x300FFFFFU
 
+#define ESP32P4_IROM_MASK_LOW                   0x4fc00000
+#define ESP32P4_IROM_MASK_HIGH                  0x4fc20000
+#define ESP32P4_LP_ROM_LOW                      0x50100000
+#define ESP32P4_LP_ROM_HIGH                     0x50104000
+
 /* max supported hw breakpoint and watchpoint count */
 #define ESP32P4_BP_NUM                          3
 #define ESP32P4_WP_NUM                          3
@@ -357,6 +362,23 @@ static int esp32p4_write_memory(struct target *target, target_addr_t address,
 	return res;
 }
 
+static int esp32p4_get_gdb_memory_map(struct target *target, struct target_memory_map *memory_map)
+{
+	struct target_memory_region region = { 0 };
+
+	region.type = MEMORY_TYPE_ROM;
+	region.start = ESP32P4_IROM_MASK_LOW;
+	region.length = ESP32P4_IROM_MASK_HIGH - ESP32P4_IROM_MASK_LOW;
+	int ret = target_add_memory_region(memory_map, &region);
+	if (ret != ERROR_OK)
+		return ret;
+
+	region.type = MEMORY_TYPE_ROM;
+	region.start = ESP32P4_LP_ROM_LOW;
+	region.length = ESP32P4_LP_ROM_HIGH - ESP32P4_LP_ROM_LOW;
+	return target_add_memory_region(memory_map, &region);
+}
+
 static const struct command_registration esp32p4_command_handlers[] = {
 	{
 		.usage = "",
@@ -401,6 +423,7 @@ struct target_type esp32p4_target = {
 	.get_gdb_arch = riscv_get_gdb_arch,
 	.get_gdb_reg_list = riscv_get_gdb_reg_list,
 	.get_gdb_reg_list_noread = esp_riscv_get_gdb_reg_list_noread,
+	.get_gdb_memory_map = esp32p4_get_gdb_memory_map,
 
 	.add_breakpoint = esp_riscv_breakpoint_add,
 	.remove_breakpoint = esp_riscv_breakpoint_remove,
