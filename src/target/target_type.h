@@ -111,6 +111,8 @@ struct target_type {
 	* count: number of items of <size>
 	*/
 
+	int (*get_gdb_memory_map)(struct target *target, struct target_memory_map *memory_map);
+
 	/**
 	 * Target memory read callback.  Do @b not call this function
 	 * directly, use target_read_memory() instead.

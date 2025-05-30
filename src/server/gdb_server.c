@@ -1889,20 +1889,6 @@ static int decode_xfer_read(char const *buf, char **annex, int *ofs, unsigned in
 	return ERROR_OK;
 }
 
-static int compare_bank(const void *a, const void *b)
-{
-	struct flash_bank *b1, *b2;
-	b1 = *((struct flash_bank **)a);
-	b2 = *((struct flash_bank **)b);
-
-	if (b1->base == b2->base)
-		return 0;
-	else if (b1->base > b2->base)
-		return 1;
-	else
-		return -1;
-}
-
 static int generate_memory_map_xml(struct target_memory_map *memory_map, char **xml, int *pos, int *size)
 {
 	int retval = ERROR_OK;
@@ -1943,8 +1929,63 @@ static int generate_memory_map_xml(struct target_memory_map *memory_map, char **
 	return retval;
 }
 
-static int gdb_memory_map(struct connection *connection,
-		char const *packet, int packet_size)
+static void print_memory_map(const struct target_memory_map *memory_map)
+{
+	if (!LOG_LEVEL_IS(LOG_LVL_DEBUG))
+		return;
+
+	if (!memory_map || !memory_map->regions) {
+		LOG_ERROR("Invalid memory map");
+		return;
+	}
+
+	LOG_USER("Memory Map (%d regions):", memory_map->num_regions);
+	LOG_USER("----------------------------------------");
+	LOG_USER("Type    Start Addr    Length    BlockSize");
+	LOG_USER("----------------------------------------");
+
+	for (unsigned int i = 0; i < memory_map->num_regions; i++) {
+		const struct target_memory_region *region = &memory_map->regions[i];
+		const char *type_str;
+
+		switch (region->type) {
+			case MEMORY_TYPE_RAM:
+				type_str = "RAM";
+				break;
+			case MEMORY_TYPE_FLASH:
+				type_str = "FLASH";
+				break;
+			case MEMORY_TYPE_ROM:
+				type_str = "ROM";
+				break;
+			default:
+				type_str = "?";
+				break;
+		}
+
+		LOG_USER("%-7s 0x%08" PRIx64 "  0x%08x  0x%08x",
+			type_str,
+			region->start,
+			region->length,
+			region->block_size);
+	}
+	LOG_USER("----------------------------------------");
+}
+
+static int compare_memory_regions(const void *a, const void *b)
+{
+	const struct target_memory_region *r1 = a;
+	const struct target_memory_region *r2 = b;
+
+	if (r1->start == r2->start)
+		return 0;
+	else if (r1->start > r2->start)
+		return 1;
+	else
+		return -1;
+}
+
+static int gdb_memory_map(struct connection *connection, char const *packet, int packet_size)
 {
 	/* We get away with only specifying flash here. Regions that are not
 	 * specified are treated as if we provided no memory map(if not we
@@ -1963,7 +2004,6 @@ static int gdb_memory_map(struct connection *connection,
 	int offset;
 	int length;
 	char *separator;
-	target_addr_t ram_start = 0;
 	unsigned int target_flash_banks = 0;
 	struct target_memory_map memory_map = { 0 };
 	struct target_memory_region region = { 0 };
@@ -1974,10 +2014,9 @@ static int gdb_memory_map(struct connection *connection,
 	offset = strtoul(packet, &separator, 16);
 	length = strtoul(separator + 1, &separator, 16);
 
-	/* Sort banks in ascending order.  We need to report non-flash
-	 * memory as ram (or rather read/write) by default for GDB, since
-	 * it has no concept of non-cacheable read/write memory (i/o etc).
-	 */
+	if (target->type->get_gdb_memory_map)
+		target->type->get_gdb_memory_map(target, &memory_map);
+
 	banks = malloc(sizeof(struct flash_bank *)*flash_get_bank_count());
 
 	for (unsigned int i = 0; i < flash_get_bank_count(); i++) {
@@ -1993,21 +2032,11 @@ static int gdb_memory_map(struct connection *connection,
 		banks[target_flash_banks++] = p;
 	}
 
-	qsort(banks, target_flash_banks, sizeof(struct flash_bank *), compare_bank);
-
 	for (unsigned int i = 0; i < target_flash_banks; i++) {
 		unsigned int sector_size = 0;
 		unsigned int group_len = 0;
 
 		p = banks[i];
-
-		if (ram_start < p->base) {
-			region.type = MEMORY_TYPE_RAM;
-			region.start = ram_start;
-			region.length = p->base - ram_start;
-			region.block_size = 0;
-			target_add_memory_region(&memory_map, &region);
-		}
 
 		/* Report adjacent groups of same-size sectors.  So for
 		 * example top boot CFI flash will list an initial region
@@ -2048,21 +2077,44 @@ static int gdb_memory_map(struct connection *connection,
 			target_add_memory_region(&memory_map, &region);
 			sector_size = 0;
 		}
-
-		ram_start = p->base + p->size;
 	}
 
-	if (ram_start != 0) {
+	free(banks);
+
+	/* Sort all regions by start address in ascending order */
+	qsort(memory_map.regions, memory_map.num_regions, sizeof(struct target_memory_region), compare_memory_regions);
+
+	/* We need to report non-flash memory as ram (or rather read/write) by default for GDB,
+	 * since it has no concept of non-cacheable read/write memory (i/o etc).
+	 */
+	target_addr_t current_addr = 0;
+	unsigned int num_regions = memory_map.num_regions;
+	for (unsigned int i = 0; i < num_regions; i++) {
+		struct target_memory_region *existing = &memory_map.regions[i];
+
+		if (current_addr < existing->start) {
+			region.type = MEMORY_TYPE_RAM;
+			region.start = current_addr;
+			region.length = existing->start - current_addr;
+			region.block_size = 0;
+			target_add_memory_region(&memory_map, &region);
+		}
+
+		current_addr = existing->start + existing->length;
+	}
+
+	/* Add final RAM region if needed */
+	if (current_addr < target_address_max(target)) {
 		region.type = MEMORY_TYPE_RAM;
-		region.start = ram_start;
-		region.length = target_address_max(target) - ram_start + 1;
+		region.start = current_addr;
+		region.length = target_address_max(target) - current_addr + 1;
 		region.block_size = 0;
 		target_add_memory_region(&memory_map, &region);
 	}
-	/* ELSE a flash chip could be at the very end of the address space, in
-	 * which case ram_start will be precisely 0 */
 
-	free(banks);
+	/* No need to sort again. Remove later */
+	qsort(memory_map.regions, memory_map.num_regions, sizeof(struct target_memory_region), compare_memory_regions);
+	print_memory_map(&memory_map);
 
 	if (memory_map.num_regions > 0) {
 		retval = generate_memory_map_xml(&memory_map, &xml, &pos, &size);
