@@ -1506,7 +1506,6 @@ int target_add_memory_region(struct target_memory_map *map, const struct target_
 	return ERROR_OK;
 }
 
-
 static int target_profiling(struct target *target, uint32_t *samples,
 			uint32_t max_num_samples, uint32_t *num_samples, uint32_t seconds)
 {

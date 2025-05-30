@@ -21,6 +21,7 @@
     - export GCOV_PREFIX_STRIP=2
     - pip install unittest-xml-reporting --no-deps
     - pip install pygdbmi==0.9.0.2
+    - ./tools/install-rom-elfs.sh
     - >
       machine="$(uname -m)";
       if [[ "$machine" == "armv7l" ]] ; then

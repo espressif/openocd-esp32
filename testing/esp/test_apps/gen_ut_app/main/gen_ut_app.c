@@ -91,6 +91,15 @@ static void blink_task(void *pvParameter)
     }
 }
 
+TEST_DECL(rom_bp_test, "test_bp.*.test_bp_in_rom")
+{
+    while(1) {
+        esp_rom_printf("Hello, world!\n");
+        esp_rom_delay_us(100000);
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+    }
+}
+
 TEST_DECL(gdb_detach, "test_connect.GDBConnectTests*.test_gdb_detach")
 {
     ESP_LOGI(TAG, "Detach test started");
@@ -402,6 +411,8 @@ void app_main()
     if (TEST_ID_MATCH("blink", s_run_test)) {
         static struct timer_task_arg task_arg = { .tim_grp = TEST_TIMER_GROUP_1, .tim_id = TEST_TIMER_0, .tim_period = 500000UL, .isr_func = test_timer_isr};
         xTaskCreatePinnedToCore(&blink_task, "blink_task", 4096, &task_arg, 5, NULL, core_num);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(rom_bp_test), s_run_test)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(rom_bp_test), "rom_bp_test_task", 2048, NULL, 5, NULL, core_num);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(cores_concurrently_hit), s_run_test)) {
         TEST_ENTRY(cores_concurrently_hit)(NULL);
 #if CONFIG_IDF_TARGET_ARCH_XTENSA

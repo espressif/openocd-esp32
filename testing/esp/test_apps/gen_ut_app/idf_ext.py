@@ -162,6 +162,13 @@ def action_extensions(base_actions, project_path=os.getcwd()):
             for binary in binaries:
                 shutil.copyfile(os.path.join(src, binary), os.path.join(dest, binary))
 
+            gdbinit_src = os.path.join(src, "gdbinit")
+            if os.path.exists(gdbinit_src):
+                gdbinit_dest = os.path.join(dest, "gdbinit")
+                if os.path.exists(gdbinit_dest):
+                    shutil.rmtree(gdbinit_dest)
+                shutil.copytree(gdbinit_src, gdbinit_dest)
+
     def ut_clean(ut_clean_name, ctx, args):
         config_name = re.match(r"ut-clean-(.*)", ut_clean_name).group(1)
         if config_name in CONFIG_NAMES:
@@ -385,6 +392,13 @@ def add_action_extensions(base_functions, base_actions):
 
             for binary in binaries:
                 shutil.copyfile(os.path.join(src, binary), os.path.join(dest, binary))
+
+            gdbinit_src = os.path.join(src, "gdbinit")
+            if os.path.exists(gdbinit_src):
+                gdbinit_dest = os.path.join(dest, "gdbinit")
+                if os.path.exists(gdbinit_dest):
+                    shutil.rmtree(gdbinit_dest)
+                shutil.copytree(gdbinit_src, gdbinit_dest)
 
         else:
             if not config_name == "all-configs":

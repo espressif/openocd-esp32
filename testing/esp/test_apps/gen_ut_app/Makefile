@@ -100,7 +100,6 @@ $(BINARIES_DIR)/%/$(PROJECT_NAME).bin: configs/%
 	cp $(BUILDS_DIR)/$*/partitions_*.bin $(BINARIES_DIR)/$*/
 	cp $(BUILDS_DIR)/$*/sdkconfig $(BINARIES_DIR)/$*/
 
-
 ut-help:
 	@echo "Additional unit-test-app specific targets:"
 	@echo ""
