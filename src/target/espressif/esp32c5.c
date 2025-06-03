@@ -132,14 +132,14 @@ static const struct esp_flash_breakpoint_ops esp32c5_flash_brp_ops = {
 };
 
 static const char *esp32c5_csrs[] = {
-	"mie", "mip", "jvt", "mtvt",
+	"mie", "mip", "jvt", "mtvt", "mcontext", "tdata3",
 	"mnxti", "mscratchcsw", "mscratchcswl", "utvt", "unxti",
 	"mcycle", "mcycleh", "minstret", "minstreth",
 	"mhpmevent8", "mhpmevent9", "mhpmevent13",
 	"mhpmcounter8", "mhpmcounter9", "mhpmcounter13", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
 	"mcounteren", "mcountinhibit",
-	"csr_ustatus", "csr_utvec", "csr_uepc", "csr_ucause",
 	/* custom exposed CSRs will start with 'csr_' prefix*/
+	"csr_ustatus", "csr_utvec", "csr_uepc", "csr_ucause",
 	"csr_gpio_oen_user", "csr_gpio_in_user", "csr_gpio_out_user",
 	"csr_pma_cfg0", "csr_pma_cfg1", "csr_pma_cfg2", "csr_pma_cfg3", "csr_pma_cfg4", "csr_pma_cfg5",
 	"csr_pma_cfg6", "csr_pma_cfg7", "csr_pma_cfg8", "csr_pma_cfg9", "csr_pma_cfg10", "csr_pma_cfg11",
