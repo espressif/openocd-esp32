@@ -53,6 +53,8 @@
       source /opt/pyenv/activate
       pyenv global $(pyenv versions --bare)
     fi
+    # Workaround for OCD-1198
+    pip install idf-component-manager==2.2.1
     # Install tools
     ${IDF_PATH}/tools/idf_tools.py install-python-env
     if [ -n "${TEST_APP_BUILD_TOOLCHAIN_PREFIX:-}" ]; then
