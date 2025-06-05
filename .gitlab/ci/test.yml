@@ -313,7 +313,7 @@ tests_esp32c3_flash_encrypted:
     CHIP_NAME: "esp32c3"
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
-tests_esp32c5:
+.tests_esp32c5:
   extends: .tests_master_riscv_template
   tags:
     - esp32c5

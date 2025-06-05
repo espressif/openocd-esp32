@@ -404,7 +404,7 @@ create_coverage_reports:
     - job: tests_esp32c2
     - job: tests_esp32c3
     - job: tests_esp32c3_flash_encrypted
-    - job: tests_esp32c5
+    #- job: tests_esp32c5 #disabled until esp-idf !39677
     - job: tests_esp32c6
     - job: tests_esp32c61
     - job: tests_esp32h2
