@@ -118,7 +118,7 @@
     - export PKG_CONFIG_PATH=$PWD/$JIMTCL_VER/dist/lib/pkgconfig
     - ./bootstrap
     - mkdir _build && pushd _build/
-    - ../configure CFLAGS="${TEST_CFLAGS}" --prefix=$PWD/../$DIST_INSTALLED_DIR --host=${CONF_HOST}  $OPENOCD_CONFIGURE_OPTS $GCOV_BUILD_OPTS
+    - ../configure CFLAGS="${TEST_CFLAGS:-}" --prefix=$PWD/../$DIST_INSTALLED_DIR --host=${CONF_HOST}  $OPENOCD_CONFIGURE_OPTS $GCOV_BUILD_OPTS
     - make -j `nproc`
     - MAKEFLAGS= make install-strip
     - popd
@@ -205,15 +205,12 @@ build_linux_armhf_test:
   variables:
     CONF_HOST: "arm-linux-gnueabihf"
     PLATFORM_NAME: "linux-armhf-test"
-    TEST_CFLAGS: ""
     GCOV_BUILD_OPTS: "--enable-gcov"
-
-build_linux_armhf_sanitizer_test:
-  extends: .build_linux_arm_template
-  variables:
-    CONF_HOST: "arm-linux-gnueabihf"
-    PLATFORM_NAME: "linux-armhf-test"
-    TEST_CFLAGS: "-Wl,--no-as-needed -ldl -fsanitize=address -fsanitize=undefined -fsanitize-recover=address -ggdb3"
+  before_script:
+    - >
+      if [[ $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "run_sanitizer_tests" ]] ; then
+        export TEST_CFLAGS="-Wl,--no-as-needed -ldl -fsanitize=address -fsanitize=undefined -fsanitize-recover=address -ggdb3"
+      fi
   after_script:
     - >
       if [[ $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "run_sanitizer_tests" ]] ; then
@@ -235,32 +232,21 @@ build_linux_armhf:
   variables:
     CONF_HOST: "arm-linux-gnueabihf"
     PLATFORM_NAME: "linux-armhf"
-    TEST_CFLAGS: ""
 
 build_linux_armel:
   extends: .build_linux_arm_template
   variables:
     CONF_HOST: "arm-linux-gnueabi"
     PLATFORM_NAME: "linux-armel"
-    TEST_CFLAGS: ""
 
 build_linux_arm64:
   extends: .build_linux_arm_template
   variables:
     CONF_HOST: "aarch64-linux-gnu"
     PLATFORM_NAME: "linux-arm64"
-    TEST_CFLAGS: ""
 
 build_linux_arm64_test:
-  extends: .build_linux_arm_template
-  variables:
-    CONF_HOST: "aarch64-linux-gnu"
-    PLATFORM_NAME: "linux-arm64-test"
-    TEST_CFLAGS: ""
-    GCOV_BUILD_OPTS: "--enable-gcov"
-
-build_linux_arm64_sanitizer_test:
-  extends: build_linux_armhf_sanitizer_test
+  extends: build_linux_armhf_test
   variables:
     CONF_HOST: "aarch64-linux-gnu"
     PLATFORM_NAME: "linux-arm64-test"

@@ -11,6 +11,7 @@
     paths:
       - $TEST_RUN_DIR/debug_backend_tests.log
       - $TEST_RUN_DIR/esp_cov_files
+      - $TEST_RUN_DIR/sanitizer_errors.log
     reports:
       junit:
         - $TEST_RUN_DIR/results/*
@@ -25,16 +26,21 @@
     - >
       machine="$(uname -m)";
       if [[ "$machine" == "armv7l" ]] ; then
+        export CONF_HOST="arm-linux-gnueabihf";
         export PLATFORM_NAME="linux-armhf-test";
-        export GCOV_TOOLCHAIN_SUFFIX="-arm-linux-gnueabihf";
       elif [[ "$machine" == "aarch64" ]] ; then
+        export CONF_HOST="aarch64-linux-gnu";
         export PLATFORM_NAME="linux-arm64-test";
-        export GCOV_TOOLCHAIN_SUFFIX="-aarch64-linux-gnu";
       fi;
       echo "PLATFORM_NAME: ${PLATFORM_NAME}";
       if [ ! -z "$ESP_GCOV_TOOLCHAIN" ] ; then
-        export ESP_GCOV_TOOLCHAIN="${ESP_GCOV_TOOLCHAIN}${GCOV_TOOLCHAIN_SUFFIX}";
+        export ESP_GCOV_TOOLCHAIN="${ESP_GCOV_TOOLCHAIN}-${CONF_HOST}";
         echo "ESP_GCOV_TOOLCHAIN: ${ESP_GCOV_TOOLCHAIN}";
+      fi;
+      if [[ $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "run_sanitizer_tests" ]] ; then
+        export ASAN_OPTIONS="detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1";
+        export TEST_SANITIZERS=1;
+        cp ${CONF_HOST}/lib* /usr/lib;
       fi
   script:
     - !reference [.submodules_mirror_update, script]
