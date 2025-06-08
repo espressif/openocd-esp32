@@ -123,7 +123,7 @@ class GDBUtils:
                             log_file_handler=log_file,
                             gdb_log_folder=gdb_log)
 
-        if debug_oocd > 2:
+        if debug_oocd > 2 or os.getenv('TEST_SANITIZERS'):
             _gdb_inst.tmo_scale_factor = 5
         else:
             _gdb_inst.tmo_scale_factor = 3

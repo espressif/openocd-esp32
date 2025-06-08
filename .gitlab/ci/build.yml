@@ -210,12 +210,25 @@ build_linux_armhf_test:
 
 build_linux_armhf_sanitizer_test:
   extends: .build_linux_arm_template
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "run_sanitizer_tests"
   variables:
     CONF_HOST: "arm-linux-gnueabihf"
     PLATFORM_NAME: "linux-armhf-test"
     TEST_CFLAGS: "-Wl,--no-as-needed -ldl -fsanitize=address -fsanitize=undefined -fsanitize-recover=address -ggdb3"
+  after_script:
+    - >
+      if [[ $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "run_sanitizer_tests" ]] ; then
+        libasan=$(${CONF_HOST}-gcc -print-file-name=libasan.so);
+        libubsan=$(${CONF_HOST}-gcc -print-file-name=libubsan.so);
+        mkdir ${CONF_HOST};
+        cp $(dirname $libasan)/$(readlink $libasan) ${CONF_HOST};
+        cp $(dirname $libubsan)/$(readlink $libubsan) ${CONF_HOST};
+      fi
+  artifacts:
+    paths:
+      - ${DIST_ART_DIR}
+      - ${CONF_HOST}/lib*
+    when: always
+    expire_in: 2 weeks
 
 build_linux_armhf:
   extends: .build_linux_arm_template
@@ -245,6 +258,12 @@ build_linux_arm64_test:
     PLATFORM_NAME: "linux-arm64-test"
     TEST_CFLAGS: ""
     GCOV_BUILD_OPTS: "--enable-gcov"
+
+build_linux_arm64_sanitizer_test:
+  extends: build_linux_armhf_sanitizer_test
+  variables:
+    CONF_HOST: "aarch64-linux-gnu"
+    PLATFORM_NAME: "linux-arm64-test"
 
 .build_windows_template: &build_windows_template
   stage: build_openocd

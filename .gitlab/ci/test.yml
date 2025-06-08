@@ -36,7 +36,6 @@
         export ESP_GCOV_TOOLCHAIN="${ESP_GCOV_TOOLCHAIN}${GCOV_TOOLCHAIN_SUFFIX}";
         echo "ESP_GCOV_TOOLCHAIN: ${ESP_GCOV_TOOLCHAIN}";
       fi
-  needs:
   script:
     - !reference [.submodules_mirror_update, script]
     - !reference [.export_toolchain, script]
@@ -1222,7 +1221,8 @@ tests_on_linux:
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_nuttx_test"
     NUTTX_APP_NAME: "nuttx_openocd"
     OOCD_CMDS: "set ESP_RTOS nuttx,set ESP_ONLYCPU 1"
-    TEST_RUN_EXTRA_OPTS: "-r -i other -b ${TEST_BOARD} -p test_nuttx -e *.*Encrypted"
+    IDF_RELEASE_TAG: "other"
+    TEST_RUN_BOARD_OPTS: "-b ${TEST_BOARD} -p test_nuttx -e *.*Encrypted"
   needs:
     - job: build_linux_arm64_test
     - job: build_linux_armhf_test
