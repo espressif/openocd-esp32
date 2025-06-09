@@ -406,7 +406,7 @@ create_coverage_reports:
     - job: tests_esp32c3_flash_encrypted
     #- job: tests_esp32c5 #disabled until esp-idf !39677
     - job: tests_esp32c6
-    - job: tests_esp32c61
+    #- job: tests_esp32c61 #disabled until eco3 runner installed
     - job: tests_esp32h2
     - job: tests_esp32p4
     # NuttX
