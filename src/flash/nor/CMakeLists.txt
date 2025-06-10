@@ -68,7 +68,7 @@ target_sources(nor PRIVATE
 	psoc6.c
 	qn908x.c
 	renesas_rpchf.c
-	rp2040.c
+	rp2xxx.c
 	rsl10.c
 	sfdp.c
 	sh_qspi.c

@@ -224,7 +224,6 @@ target_sources(target PRIVATE
 	avr32_mem.h
 	avr32_regs.h
 	semihosting_common.h
-	stm8.h
 	lakemont.h
 	x86_32_common.h
 	arm_cti.h
