@@ -515,28 +515,41 @@ static int esp_xtensa_apptrace_buffs_write(struct target *target,
 	bool data)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
+	const int MAX_TRIES = 10;
 	int res = ERROR_OK;
 	uint32_t tmp = XTENSA_APPTRACE_HOST_CONNECT |
 		(data ? XTENSA_APPTRACE_HOST_DATA : 0) | XTENSA_APPTRACE_BLOCK_ID(block_id) |
 		XTENSA_APPTRACE_BLOCK_LEN(0);
 
-	if (xtensa->core_config->trace.reversed_mem_access)
-		res = esp_xtensa_apptrace_queue_reverse_write(target, bufs_num, buf_sz, bufs);
-	else
-		res = esp_xtensa_apptrace_queue_normal_write(target, bufs_num, buf_sz, bufs);
-	if (res != ERROR_OK)
-		return res;
-	if (ack) {
-		LOG_DEBUG("Ack block %" PRId32 " on target (%s)!", block_id, target_name(target));
-		res = xtensa_queue_dbg_reg_write(xtensa, XTENSA_APPTRACE_CTRL_REG, tmp);
+	uint32_t sz_all = 0;
+	for (uint32_t i = 0; i < bufs_num; ++i)
+		sz_all += buf_sz[i];
+	sz_all = (sz_all + 3) / 4;
+
+	for (int i = 1; i <= MAX_TRIES; ++i) {
+		if (xtensa->core_config->trace.reversed_mem_access)
+			res = esp_xtensa_apptrace_queue_reverse_write(target, bufs_num, buf_sz, bufs);
+		else
+			res = esp_xtensa_apptrace_queue_normal_write(target, bufs_num, buf_sz, bufs);
 		if (res != ERROR_OK)
 			return res;
+		xtensa_dm_queue_tdi_idle(&xtensa->dbg_mod);
+		res = xtensa_dm_queue_execute(&xtensa->dbg_mod);
+		if (res != ERROR_OK) {
+			LOG_ERROR("Failed to exec JTAG queue!");
+			return res;
+		}
+
+		uint32_t end_addr;
+		esp_xtensa_apptrace_debug_reg_read(target, XDMREG_TRAXADDR, &end_addr);
+		if (end_addr >= sz_all)
+			break;
+		LOG_WARNING("[%d/%d] Failed to write buffs, sent: 0x%" PRId32 " received: 0x%" PRId32 " words",
+			i, MAX_TRIES, sz_all, end_addr);
 	}
-	xtensa_dm_queue_tdi_idle(&xtensa->dbg_mod);
-	res = xtensa_dm_queue_execute(&xtensa->dbg_mod);
-	if (res != ERROR_OK) {
-		LOG_ERROR("Failed to exec JTAG queue!");
-		return res;
+	if (ack) {
+		LOG_TARGET_DEBUG(target, "Ack block %" PRIu32 " write 0x%" PRIx32 " to control reg", block_id, tmp);
+		res = esp_xtensa_apptrace_debug_reg_write(target, XTENSA_APPTRACE_CTRL_REG, tmp);
 	}
-	return ERROR_OK;
+	return res;
 }
