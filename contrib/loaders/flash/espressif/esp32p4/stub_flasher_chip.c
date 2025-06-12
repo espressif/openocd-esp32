@@ -161,6 +161,11 @@ static void stub_cache_init(void)
 
 void stub_flash_state_prepare(struct stub_flash_state *state)
 {
+	if (stub_get_flash_encryption_mode() == ESP_FLASH_ENC_MODE_DISABLED) {
+		esp_rom_spiflash_attach(0, false);
+		return;
+	}
+
 	state->cache_enabled = stub_is_cache_enabled();
 	if (!state->cache_enabled) {
 		STUB_LOGI("Cache needs to be enabled\n");
@@ -319,6 +324,9 @@ static void stub_flash_ummap(const struct spiflash_map_req *req)
 
 int stub_flash_read_buff(uint32_t addr, void *buffer, uint32_t size)
 {
+	if (stub_get_flash_encryption_mode() == ESP_FLASH_ENC_MODE_DISABLED)
+		return esp_rom_spiflash_read(addr, buffer, size);
+
 	struct spiflash_map_req req = {
 		.src_addr = addr,
 		.size = size,
