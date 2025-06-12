@@ -257,27 +257,25 @@ tests_esp32s2_flash_encrypted:
 tests_esp32s3_dual:
   extends: .tests_master_template
   needs:
-    - job: build_test_app_esp32s3_dual
+    - job: build_test_app_esp32s3
     - job: build_linux_arm64_test
     - job: build_linux_armhf_test
     - job: fetch_gdb
       optional: true
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3_dual"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual"
 
 tests_esp32s3_single:
   extends: .tests_master_template
   needs:
-    - job: build_test_app_esp32s3_single
+    - job: build_test_app_esp32s3
     - job: build_linux_arm64_test
     - job: build_linux_armhf_test
     - job: fetch_gdb
       optional: true
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3_single"
     OOCD_CMDS: "set ESP_ONLYCPU 1"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
 
@@ -454,27 +452,25 @@ tests_esp32s2_idf5.5.x_flash_encrypted:
 tests_esp32s3_idf5.5.x_dual:
   extends: .tests_v5.5.x_template
   needs:
-    - job: build_test_app_esp32s3_idf5.5.x_dual
+    - job: build_test_app_esp32s3_idf5.5.x
     - job: build_linux_arm64_test
     - job: build_linux_armhf_test
     - job: fetch_gdb
       optional: true
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.5.x_dual"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual"
 
 tests_esp32s3_idf5.5.x_single:
   extends: .tests_v5.5.x_template
   needs:
-    - job: build_test_app_esp32s3_idf5.5.x_single
+    - job: build_test_app_esp32s3_idf5.5.x
     - job: build_linux_arm64_test
     - job: build_linux_armhf_test
     - job: fetch_gdb
       optional: true
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.5.x_single"
     OOCD_CMDS: "set ESP_ONLYCPU 1"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
 
@@ -627,23 +623,21 @@ tests_esp32s2_idf5.4.x_flash_encrypted:
 tests_esp32s3_idf5.4.x_dual:
   extends: .tests_v5.4.x_template
   needs:
-    - job: build_test_app_esp32s3_idf5.4.x_dual
+    - job: build_test_app_esp32s3_idf5.4.x
     - job: build_linux_arm64_test
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.4.x_dual"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual"
 
 tests_esp32s3_idf5.4.x_single:
   extends: .tests_v5.4.x_template
   needs:
-    - job: build_test_app_esp32s3_idf5.4.x_single
+    - job: build_test_app_esp32s3_idf5.4.x
     - job: build_linux_arm64_test
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.4.x_single"
     OOCD_CMDS: "set ESP_ONLYCPU 1"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
 
@@ -769,23 +763,21 @@ tests_esp32s2_idf5.3.x_flash_encrypted:
 tests_esp32s3_idf5.3.x_dual:
   extends: .tests_v5.3.x_template
   needs:
-    - job: build_test_app_esp32s3_idf5.3.x_dual
+    - job: build_test_app_esp32s3_idf5.3.x
     - job: build_linux_arm64_test
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.3.x_dual"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual"
 
 tests_esp32s3_idf5.3.x_single:
   extends: .tests_v5.3.x_template
   needs:
-    - job: build_test_app_esp32s3_idf5.3.x_single
+    - job: build_test_app_esp32s3_idf5.3.x
     - job: build_linux_arm64_test
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.3.x_single"
     OOCD_CMDS: "set ESP_ONLYCPU 1"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
 
@@ -911,24 +903,22 @@ tests_esp32s2_idf5.2.x_flash_encrypted:
 tests_esp32s3_idf5.2.x_dual:
   extends: .tests_v5.2.x_template
   needs:
-    - job: build_test_app_esp32s3_idf5.2.x_dual
+    - job: build_test_app_esp32s3_idf5.2.x
     - job: build_linux_arm64_test
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.2.x_dual"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual"
 
 tests_esp32s3_idf5.2.x_single:
   extends: .tests_v5.2.x_template
   needs:
-    - job: build_test_app_esp32s3_idf5.2.x_single
+    - job: build_test_app_esp32s3_idf5.2.x
     - job: build_linux_arm64_test
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
     OOCD_CMDS: "set ESP_ONLYCPU 1"
-    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.2.x_single"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
 
 tests_esp32c2_idf5.2.x:
@@ -1042,23 +1032,21 @@ tests_esp32s2_idf5.1.x_flash_encrypted:
 tests_esp32s3_idf5.1.x_dual:
   extends: .tests_v5.1.x_template
   needs:
-    - job: build_test_app_esp32s3_idf5.1.x_dual
+    - job: build_test_app_esp32s3_idf5.1.x
     - job: build_linux_arm64_test
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.1.x_dual"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual"
 
 tests_esp32s3_idf5.1.x_single:
   extends: .tests_v5.1.x_template
   needs:
-    - job: build_test_app_esp32s3_idf5.1.x_single
+    - job: build_test_app_esp32s3_idf5.1.x
     - job: build_linux_arm64_test
     - job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32s3"
-    TEST_RUN_DIR: "build_test_app_esp32s3_idf5.1.x_single"
     OOCD_CMDS: "set ESP_ONLYCPU 1"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
 
