@@ -1900,6 +1900,7 @@ static int generate_memory_map_xml(struct target_memory_map *memory_map, char **
 
 		switch (region->type) {
 			case MEMORY_TYPE_RAM:
+			case MEMORY_TYPE_RW:
 				xml_printf(&retval, xml, pos, size,
 					"<memory type=\"ram\" start=\"" TARGET_ADDR_FMT "\" "
 					"length=\"0x%x\"/>\n",
@@ -1948,6 +1949,9 @@ static void print_memory_map(const struct target_memory_map *memory_map)
 		switch (region->type) {
 			case MEMORY_TYPE_RAM:
 				type_str = "RAM";
+				break;
+			case MEMORY_TYPE_RW:
+				type_str = "R/W";
 				break;
 			case MEMORY_TYPE_FLASH:
 				type_str = "FLASH";
@@ -2003,7 +2007,6 @@ static int gdb_memory_map(struct connection *connection, char const *packet, int
 	char *separator;
 	unsigned int target_flash_banks = 0;
 	struct target_memory_map memory_map = { 0 };
-	struct target_memory_region region = { 0 };
 
 	/* skip command character */
 	packet += 23;
@@ -2032,6 +2035,7 @@ static int gdb_memory_map(struct connection *connection, char const *packet, int
 	for (unsigned int i = 0; i < target_flash_banks; i++) {
 		unsigned int sector_size = 0;
 		unsigned int group_len = 0;
+		struct target_memory_region region = { 0 };
 
 		p = banks[i];
 
@@ -2080,22 +2084,23 @@ static int gdb_memory_map(struct connection *connection, char const *packet, int
 
 	/* Sort all regions by start address in ascending order */
 	qsort(memory_map.regions, memory_map.num_regions, sizeof(struct target_memory_region), compare_memory_regions);
-	print_memory_map(&memory_map);
 
 	/* We need to report non-flash memory as ram (or rather read/write) by default for GDB,
 	 * since it has no concept of non-cacheable read/write memory (i/o etc).
 	 */
 	target_addr_t current_addr = 0;
-	unsigned int num_regions = memory_map.num_regions;
-	for (unsigned int i = 0; i < num_regions; i++) {
+	struct target_memory_region ram_regions[memory_map.num_regions + 1]; /* max gap count between added regions */
+	unsigned int ram_region_cnt = 0;
+
+	for (unsigned int i = 0; i < memory_map.num_regions; i++) {
 		struct target_memory_region *existing = &memory_map.regions[i];
 
 		if (current_addr < existing->start) {
-			region.type = MEMORY_TYPE_RAM;
-			region.start = current_addr;
-			region.length = existing->start - current_addr;
-			region.block_size = 0;
-			target_add_memory_region(&memory_map, &region);
+			ram_regions[ram_region_cnt].type = MEMORY_TYPE_RW;
+			ram_regions[ram_region_cnt].start = current_addr;
+			ram_regions[ram_region_cnt].length = existing->start - current_addr;
+			ram_regions[ram_region_cnt].block_size = 0;
+			ram_region_cnt++;
 		}
 
 		current_addr = existing->start + existing->length;
@@ -2103,12 +2108,19 @@ static int gdb_memory_map(struct connection *connection, char const *packet, int
 
 	/* Add final RAM region if needed */
 	if (current_addr < target_address_max(target)) {
-		region.type = MEMORY_TYPE_RAM;
-		region.start = current_addr;
-		region.length = target_address_max(target) - current_addr + 1;
-		region.block_size = 0;
-		target_add_memory_region(&memory_map, &region);
+		ram_regions[ram_region_cnt].type = MEMORY_TYPE_RW;
+		ram_regions[ram_region_cnt].start = current_addr;
+		ram_regions[ram_region_cnt].length = target_address_max(target) - current_addr + 1;
+		ram_regions[ram_region_cnt].block_size = 0;
+		ram_region_cnt++;
 	}
+
+	for (unsigned int i = 0; i < ram_region_cnt; i++)
+		target_add_memory_region(&memory_map, &ram_regions[i]);
+
+	/* Sort is not needed here, but for the pretty print we do it anyway */
+	qsort(memory_map.regions, memory_map.num_regions, sizeof(struct target_memory_region), compare_memory_regions);
+	print_memory_map(&memory_map);
 
 	if (memory_map.num_regions > 0) {
 		retval = generate_memory_map_xml(&memory_map, &xml, &pos, &size);

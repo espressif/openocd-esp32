@@ -120,7 +120,10 @@ enum target_register_class {
 enum target_memory_type {
 	MEMORY_TYPE_RAM,
 	MEMORY_TYPE_FLASH,
-	MEMORY_TYPE_ROM
+	MEMORY_TYPE_ROM,
+	/* Undefined memory regions will be filled automatically as R/W. Same as RAM.
+	 * To see the difference in the print, we use this type. */
+	MEMORY_TYPE_RW,
 };
 struct target_memory_region {
 	enum target_memory_type type;
