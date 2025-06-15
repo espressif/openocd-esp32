@@ -9338,7 +9338,7 @@ the default log output channel is stderr.
 This command can be used when there is a desire to change the default channel for non-error messages.
 @end deffn
 
-@deffn {Command} {add_script_search_dir} [directory]
+@deffn {Command} {add_script_search_dir} directory
 Add @var{directory} to the file/script search path.
 @end deffn
 
