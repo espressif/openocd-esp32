@@ -155,10 +155,8 @@ static int esp32c3_target_create(struct target *target)
 
 	esp_riscv->rtccntl_reset_state_reg = ESP32C3_RTCCNTL_RESET_STATE_REG;
 	esp_riscv->print_reset_reason = &esp32c3_print_reset_reason;
-	esp_riscv->existent_csrs = NULL;
-	esp_riscv->existent_csr_size = 0;
-	esp_riscv->existent_ro_csrs = NULL;
-	esp_riscv->existent_ro_csr_size = 0;
+	esp_riscv->chip_specific_registers = NULL;
+	esp_riscv->chip_specific_registers_size = 0;
 	esp_riscv->is_dram_address = esp32c3_is_dram_address;
 	esp_riscv->is_iram_address = esp32c3_is_iram_address;
 

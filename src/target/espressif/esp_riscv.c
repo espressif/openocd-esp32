@@ -247,6 +247,16 @@ static const char *esp_riscv_ro_csrs[] = {
 	"mvendorid", "marchid", "mimpid", "mhartid",
 };
 
+static const struct esp_riscv_reg_class *esp_riscv_find_reg_class(const char *reg_name,
+	const struct esp_riscv_reg_class *classes, unsigned int num_classes)
+{
+	for (unsigned int i = 0; i < num_classes; i++)
+		for (unsigned int j = 0; j < classes[i].reg_array_size; j++)
+			if (!strcmp(reg_name, classes[i].reg_array[j]))
+				return &classes[i];
+	return NULL;
+}
+
 int esp_riscv_examine(struct target *target)
 {
 	int ret = riscv_target.examine(target);
@@ -261,39 +271,70 @@ int esp_riscv_examine(struct target *target)
 		Disable not supported registers and avoid writing to read only registers during algorithm run
 	*/
 
-	struct {
-		const char **reg_array;
-		size_t reg_array_size;
-		bool save_restore;
-	} esp_riscv_registers[] = {
-		{ esp_riscv_gprs, ARRAY_SIZE(esp_riscv_gprs), true },
+	struct esp_riscv_reg_class esp_riscv_registers[] = {
+		{ esp_riscv_gprs, ARRAY_SIZE(esp_riscv_gprs), true, NULL },
 		/* FPRs can't be read via abstract command in ESP32-P4 ECO version */
-		{ esp_riscv_fprs, ARRAY_SIZE(esp_riscv_fprs), false },
-		{ esp_riscv_csrs, ARRAY_SIZE(esp_riscv_csrs), true },
-		{ esp_riscv_ro_csrs, ARRAY_SIZE(esp_riscv_ro_csrs), false },
-		{ esp_riscv->existent_ro_csrs, esp_riscv->existent_ro_csr_size, false }, /* chip specific RO CSRs */
-		{ esp_riscv->existent_csrs, esp_riscv->existent_csr_size, true } /* chip specific CSRs */
+		{ esp_riscv_fprs, ARRAY_SIZE(esp_riscv_fprs), false, NULL },
+		{ esp_riscv_csrs, ARRAY_SIZE(esp_riscv_csrs), true, NULL },
+		{ esp_riscv_ro_csrs, ARRAY_SIZE(esp_riscv_ro_csrs), false, NULL },
 	};
 
 	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
 		if (target->reg_cache->reg_list[i].exist) {
-			target->reg_cache->reg_list[i].exist = false;
-			for (unsigned int j = 0; j < ARRAY_SIZE(esp_riscv_registers); j++) {
-				for (unsigned int k = 0; k < esp_riscv_registers[j].reg_array_size; k++) {
-					if (!strcmp(target->reg_cache->reg_list[i].name, esp_riscv_registers[j].reg_array[k])) {
-						target->reg_cache->reg_list[i].exist = true;
-						target->reg_cache->reg_list[i].caller_save = esp_riscv_registers[j].save_restore;
-						break;
-					}
-				}
-				if (target->reg_cache->reg_list[i].exist)
-					break;
-			}
+			struct reg *reg = &target->reg_cache->reg_list[i];
+			reg->exist = false;
+			const struct esp_riscv_reg_class *reg_class = esp_riscv_find_reg_class(reg->name,
+				esp_riscv_registers, ARRAY_SIZE(esp_riscv_registers));
+			if (!reg_class)
+				reg_class = esp_riscv_find_reg_class(reg->name,
+					esp_riscv->chip_specific_registers, esp_riscv->chip_specific_registers_size);
+			if (!reg_class)
+				continue;
+			reg->exist = true;
+			reg->caller_save = reg_class->save_restore;
+			if (reg_class->arch_type)
+				reg->type = reg_class->arch_type;
 		}
 	}
 
 	return ERROR_OK;
 }
+
+int esp_riscv_csr_access_enable(struct reg *reg, uint8_t *buf, enum gdb_regno enable_reg,
+	riscv_reg_t enable_field_mask, riscv_reg_t enable_field_off, riscv_reg_t enable_field_on)
+{
+	struct target *target = ((riscv_reg_info_t *)(reg->arch_info))->target;
+	riscv_reg_t reg_val;
+	riscv_get_register(target, &reg_val, enable_reg);
+	riscv_reg_t state = get_field(reg_val, enable_field_mask);
+	if (state == enable_field_off)
+		riscv_set_register(target, enable_reg, set_field(reg_val, enable_field_mask, enable_field_on));
+	int ret;
+	if (buf)
+		ret = target->reg_cache->reg_list[GDB_REGNO_A0].type->set(reg, buf);
+	else
+		ret = target->reg_cache->reg_list[GDB_REGNO_A0].type->get(reg);
+	if (state == enable_field_off)
+		riscv_set_register(target, enable_reg, reg_val);
+	return ret;
+}
+
+static int esp_riscv_user_counter_get(struct reg *reg)
+{
+	unsigned int mcounteren_bit = 1 << ((reg->number - GDB_REGNO_CSR0) & 0x1f);
+	return esp_riscv_csr_access_enable(reg, NULL, GDB_REGNO_CSR0 + CSR_MCOUNTEREN, mcounteren_bit, 0, 1);
+}
+
+static int esp_riscv_user_counter_set(struct reg *reg, uint8_t *buf)
+{
+	unsigned int mcounteren_bit = 1 << ((reg->number - GDB_REGNO_CSR0) & 0x1f);
+	return esp_riscv_csr_access_enable(reg, buf, GDB_REGNO_CSR0 + CSR_MCOUNTEREN, mcounteren_bit, 0, 1);
+}
+
+struct reg_arch_type esp_riscv_user_counter_type = {
+	.get = esp_riscv_user_counter_get,
+	.set = esp_riscv_user_counter_set
+};
 
 int esp_riscv_poll(struct target *target)
 {

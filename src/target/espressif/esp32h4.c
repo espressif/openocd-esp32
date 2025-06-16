@@ -164,6 +164,10 @@ static const char *esp32h4_csrs[] = {
 	"csr_pma_addr14", "csr_pma_addr15",
 };
 
+static struct esp_riscv_reg_class esp32h4_registers[] = {
+	{ esp32h4_csrs, ARRAY_SIZE(esp32h4_csrs), true, NULL },
+};
+
 static int esp32h4_target_create(struct target *target)
 {
 	struct esp_riscv_common *esp_riscv = calloc(1, sizeof(*esp_riscv));
@@ -181,10 +185,8 @@ static int esp32h4_target_create(struct target *target)
 	// ESP32H4 records reset reasons in 2 different registers. We will handle core1 in esp32h4_print_reset_reason
 	esp_riscv->rtccntl_reset_state_reg = ESP32H4_LP_CLKRST_RESET_CORE0_CAUSE_REG;
 	esp_riscv->print_reset_reason = &esp32h4_print_reset_reason;
-	esp_riscv->existent_csrs = esp32h4_csrs;
-	esp_riscv->existent_csr_size = ARRAY_SIZE(esp32h4_csrs);
-	esp_riscv->existent_ro_csrs = NULL;
-	esp_riscv->existent_ro_csr_size = 0;
+	esp_riscv->chip_specific_registers = esp32h4_registers;
+	esp_riscv->chip_specific_registers_size = ARRAY_SIZE(esp32h4_registers);
 	esp_riscv->is_dram_address = esp32h4_is_idram_address;
 	esp_riscv->is_iram_address = esp32h4_is_idram_address;
 

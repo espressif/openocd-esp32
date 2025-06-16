@@ -154,11 +154,20 @@ static const char *esp32c61_csrs[] = {
 
 static const char *esp32c61_ro_csrs[] = {
 	/* read-only CSRs, cannot be save/restored as the write would fail */
-	/* TODO: Workaround solution for OCD-1066. */
-	// "cycle", "time", "instreth", "cycleh", "instret", "timeh",
-	// "hpmcounter8", "hpmcounter9", "hpmcounter13", "hpmcounter8h", "hpmcounter9h", "hpmcounter13h",
 	/* custom exposed CSRs will start with 'csr_' prefix*/
 	"csr_mintstatus", "csr_mcpuid", "csr_uintstatus",
+};
+
+static const char *esp32c61_user_counter_csrs[] = {
+	/* user counters cannot be accessed in user mode unless corresponding mcounteren bit is set */
+	"cycle", "time", "instreth", "cycleh", "instret", "timeh",
+	"hpmcounter8", "hpmcounter9", "hpmcounter13", "hpmcounter8h", "hpmcounter9h", "hpmcounter13h",
+};
+
+static struct esp_riscv_reg_class esp32c61_registers[] = {
+	{ esp32c61_csrs, ARRAY_SIZE(esp32c61_csrs), true, NULL },
+	{ esp32c61_ro_csrs, ARRAY_SIZE(esp32c61_ro_csrs), false, NULL },
+	{ esp32c61_user_counter_csrs, ARRAY_SIZE(esp32c61_user_counter_csrs), false, &esp_riscv_user_counter_type },
 };
 
 static int esp32c61_target_create(struct target *target)
@@ -177,10 +186,8 @@ static int esp32c61_target_create(struct target *target)
 
 	esp_riscv->rtccntl_reset_state_reg = ESP32C61_RTCCNTL_RESET_STATE_REG;
 	esp_riscv->print_reset_reason = &esp32c61_print_reset_reason;
-	esp_riscv->existent_csrs = esp32c61_csrs;
-	esp_riscv->existent_csr_size = ARRAY_SIZE(esp32c61_csrs);
-	esp_riscv->existent_ro_csrs = esp32c61_ro_csrs;
-	esp_riscv->existent_ro_csr_size = ARRAY_SIZE(esp32c61_ro_csrs);
+	esp_riscv->chip_specific_registers = esp32c61_registers;
+	esp_riscv->chip_specific_registers_size = ARRAY_SIZE(esp32c61_registers);
 	esp_riscv->is_dram_address = esp32c61_is_idram_address;
 	esp_riscv->is_iram_address = esp32c61_is_idram_address;
 

@@ -146,6 +146,10 @@ static const char *esp32h2_csrs[] = {
 	"csr_pma_addr14", "csr_pma_addr15",
 };
 
+static struct esp_riscv_reg_class esp32h2_registers[] = {
+	{ esp32h2_csrs, ARRAY_SIZE(esp32h2_csrs), true, NULL },
+};
+
 static int esp32h2_target_create(struct target *target)
 {
 	struct esp_riscv_common *esp_riscv = calloc(1, sizeof(*esp_riscv));
@@ -162,10 +166,8 @@ static int esp32h2_target_create(struct target *target)
 
 	esp_riscv->rtccntl_reset_state_reg = ESP32H2_RTCCNTL_RESET_STATE_REG;
 	esp_riscv->print_reset_reason = &esp32h2_print_reset_reason;
-	esp_riscv->existent_csrs = esp32h2_csrs;
-	esp_riscv->existent_csr_size = ARRAY_SIZE(esp32h2_csrs);
-	esp_riscv->existent_ro_csrs = NULL;
-	esp_riscv->existent_ro_csr_size = 0;
+	esp_riscv->chip_specific_registers = esp32h2_registers;
+	esp_riscv->chip_specific_registers_size = ARRAY_SIZE(esp32h2_registers);
 	esp_riscv->is_dram_address = esp32h2_is_idram_address;
 	esp_riscv->is_iram_address = esp32h2_is_idram_address;
 

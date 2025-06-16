@@ -18,6 +18,15 @@
 #define get_field(reg, mask) (((reg) & (mask)) / ((mask) & ~((mask) << 1)))
 #define set_field(reg, mask, val) (((reg) & ~(mask)) | (((val) * ((mask) & ~((mask) << 1))) & (mask)))
 
+struct esp_riscv_reg_class {
+	const char **reg_array;
+	size_t reg_array_size;
+	bool save_restore;
+	struct reg_arch_type *arch_type;
+};
+
+extern struct reg_arch_type esp_riscv_user_counter_type;
+
 struct esp_riscv_common {
 	/* should be first, will be accessed by riscv generic code */
 	struct riscv_info riscv;
@@ -34,10 +43,8 @@ struct esp_riscv_common {
 	target_addr_t rtccntl_reset_state_reg;	/* to read reset cause */
 	void (*print_reset_reason)(struct target *target, uint32_t reset_reason_reg_val);
 	bool was_reset;
-	const char **existent_csrs;
-	size_t existent_csr_size;
-	const char **existent_ro_csrs;
-	size_t existent_ro_csr_size;
+	const struct esp_riscv_reg_class *chip_specific_registers;
+	size_t chip_specific_registers_size;
 	bool (*is_iram_address)(target_addr_t addr);
 	bool (*is_dram_address)(target_addr_t addr);
 };
@@ -106,6 +113,8 @@ int esp_riscv_read_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer);
 int esp_riscv_write_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, const uint8_t *buffer);
+int esp_riscv_csr_access_enable(struct reg *reg, uint8_t *buf, enum gdb_regno enable_reg,
+	riscv_reg_t enable_field_mask, riscv_reg_t enable_field_off, riscv_reg_t enable_field_on);
 
 int esp_riscv_core_ebreaks_enable(struct target *target);
 void esp_riscv_deinit_target(struct target *target);
