@@ -336,6 +336,21 @@ struct reg_arch_type esp_riscv_user_counter_type = {
 	.set = esp_riscv_user_counter_set
 };
 
+static int esp_riscv_fpu_csr_get(struct reg *reg)
+{
+	return esp_riscv_csr_access_enable(reg, NULL, GDB_REGNO_MSTATUS, MSTATUS_FS, 0, 1);
+}
+
+static int esp_riscv_fpu_csr_set(struct reg *reg, uint8_t *buf)
+{
+	return esp_riscv_csr_access_enable(reg, buf, GDB_REGNO_MSTATUS, MSTATUS_FS, 0, 1);
+}
+
+struct reg_arch_type esp_riscv_fpu_csr_type = {
+	.get = esp_riscv_fpu_csr_get,
+	.set = esp_riscv_fpu_csr_set
+};
+
 int esp_riscv_poll(struct target *target)
 {
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);

@@ -25,6 +25,7 @@ struct esp_riscv_reg_class {
 	struct reg_arch_type *arch_type;
 };
 
+extern struct reg_arch_type esp_riscv_fpu_csr_type;
 extern struct reg_arch_type esp_riscv_user_counter_type;
 
 struct esp_riscv_common {

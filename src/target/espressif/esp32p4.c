@@ -212,12 +212,13 @@ static const struct esp_flash_breakpoint_ops esp32p4_flash_brp_ops = {
 };
 
 static const char *esp32p4_csrs[] = {
-	"mie", "mcause", "mip", "mtvt", "mnxti",
+	"mie", "mcause", "mip", "mtvt", "mnxti", "jvt",
 	"mscratchcsw", "mscratchcswl",
 	"mcycle", "minstret", "mcounteren", "mcountinhibit",
 	"mhpmcounter8", "mhpmcounter9", "mhpmcounter13", "mhpmevent8", "mhpmevent9", "mhpmevent13",
 	"mcycleh", "minstreth", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
 	"tdata3", "tinfo", "mcontext", "mintstatus",
+	"fflags", "frm", "fcsr",
 	/* custom exposed CSRs will start with 'csr_' prefix*/
 	"csr_mclicbase", "csr_mxstatus", "csr_mhcr", "csr_mhint", "csr_mraddr", "csr_mexstatus",
 	"csr_mnmicause", "csr_mnmipc", "csr_mcpuid", "csr_cpu_testbus_ctrl", "csr_pm_user",
@@ -228,10 +229,55 @@ static const char *esp32p4_csrs[] = {
 	"csr_pma_addr2", "csr_pma_addr3", "csr_pma_addr4", "csr_pma_addr5", "csr_pma_addr6", "csr_pma_addr7",
 	"csr_pma_addr8", "csr_pma_addr9", "csr_pma_addr10", "csr_pma_addr11", "csr_pma_addr12", "csr_pma_addr13",
 	"csr_pma_addr14", "csr_pma_addr15",
+	"csr_mext_ill_reg", "csr_mhwloop_state_reg", "csr_mext_pie_status",
+	"csr_ldpc0", "csr_ldpc1", "csr_stpc0", "csr_stpc1", "csr_stpc2",
+	"csr_ldtval0", "csr_ldtval1", "csr_sttval0", "csr_sttval1", "csr_sttval2",
+};
+
+static const char *esp32p4_user_counter_csrs[] = {
+	/* user counters cannot be accessed in user mode unless corresponding mcounteren bit is set */
+	"cycle", "time", "instreth", "cycleh", "instret", "timeh",
+	"hpmcounter8", "hpmcounter9", "hpmcounter13", "hpmcounter8h", "hpmcounter9h", "hpmcounter13h",
+};
+
+static const char *esp32p4_hwloop_csrs[] = {
+	"csr_uhwloop0_start_addr", "csr_uhwloop0_end_addr", "csr_uhwloop0_count",
+	"csr_uhwloop1_start_addr", "csr_uhwloop1_end_addr", "csr_uhwloop1_count",
+	"csr_mhwloop0_start_addr", "csr_mhwloop0_end_addr", "csr_mhwloop0_count",
+	"csr_mhwloop1_start_addr", "csr_mhwloop1_end_addr", "csr_mhwloop1_count",
+};
+
+static const char *esp32p4_fpu_csrs[] = {
+	"csr_fxcr",
+};
+
+#define HWLOOP_STATE_OFF      0
+#define HWLOOP_STATE_INIT     1
+#define HWLOOP_STATE_MASK     3
+#define CSR_MHWLOOP_STATE_REG 2033
+
+static int esp32p4_hwloop_csr_get(struct reg *reg)
+{
+	return esp_riscv_csr_access_enable(reg, NULL, GDB_REGNO_CSR0 + CSR_MHWLOOP_STATE_REG,
+		HWLOOP_STATE_MASK, HWLOOP_STATE_OFF, HWLOOP_STATE_INIT);
+}
+
+static int esp32p4_hwloop_csr_set(struct reg *reg, uint8_t *buf)
+{
+	return esp_riscv_csr_access_enable(reg, buf, GDB_REGNO_CSR0 + CSR_MHWLOOP_STATE_REG,
+		HWLOOP_STATE_MASK, HWLOOP_STATE_OFF, HWLOOP_STATE_INIT);
+}
+
+static struct reg_arch_type esp32p4_hwloop_reg_type = {
+	.get = esp32p4_hwloop_csr_get,
+	.set = esp32p4_hwloop_csr_set
 };
 
 static struct esp_riscv_reg_class esp32p4_registers[] = {
 	{ esp32p4_csrs, ARRAY_SIZE(esp32p4_csrs), true, NULL },
+	{ esp32p4_user_counter_csrs, ARRAY_SIZE(esp32p4_user_counter_csrs), false, &esp_riscv_user_counter_type },
+	{ esp32p4_fpu_csrs, ARRAY_SIZE(esp32p4_fpu_csrs), false, &esp_riscv_fpu_csr_type },
+	{ esp32p4_hwloop_csrs, ARRAY_SIZE(esp32p4_hwloop_csrs), false, &esp32p4_hwloop_reg_type },
 };
 
 static int esp32p4_target_create(struct target *target)
