@@ -1,3 +1,4 @@
+import json
 import logging
 import unittest
 import subprocess
@@ -89,6 +90,42 @@ class DebuggerSpecialTestsImpl:
             self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_wp_var2_1')
             # watchpoint hit on read var in 'target_bp_func2'
             self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_wp_var2_2')
+
+    @skip_for_chip(['esp32', 'esp32s3'], "skipped - OCD-868")
+    def test_debugging_works_after_esptool_flash(self):
+        """
+            This test checks that debugging works after flashing with esptool.
+            1) Select appropriate sub-test number on target.
+            2) Resume target and wait some time.
+            4) Run `esptool.py` to re-flash the application.
+            5) Wait some time.
+            6) Run simple debug session.
+        """
+        self.select_sub_test("blink")
+        self.resume_exec()
+        time.sleep(2.0)
+        assert self.port_name is not None
+        tested_args = [
+            ('-p', self.port_name, '--no-stub'),
+        ]
+        with open(os.path.join(self.test_app_cfg.build_bins_dir(), 'flasher_args.json'), 'rb') as f:
+            args = json.load(f)
+            flasher_args = args['write_flash_args']
+            for addr, bin in args['flash_files'].items():
+                flasher_args += [addr, bin]
+        for esptool_args in tested_args:
+            # avoid simultaneous access to UART with SerialReader
+            if self.uart_reader:
+                self.uart_reader.pause()
+            cmd = ['esptool.py', *esptool_args, 'write_flash', *flasher_args]
+            proc = subprocess.run(cmd, cwd=self.test_app_cfg.build_bins_dir())
+            proc.check_returncode()
+            if self.uart_reader:
+                self.uart_reader.resume()
+            time.sleep(2.0)
+            self.stop_exec()
+            self.prepare_app_for_debugging(self.test_app_cfg.app_off)
+            self._debug_image()
 
     @run_all_cores
     def test_bp_and_wp_set_by_program(self):
