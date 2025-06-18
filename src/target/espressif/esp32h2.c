@@ -147,7 +147,11 @@ static const char *esp32h2_csrs[] = {
 };
 
 static struct esp_riscv_reg_class esp32h2_registers[] = {
-	{ esp32h2_csrs, ARRAY_SIZE(esp32h2_csrs), true, NULL },
+	{
+		.reg_array = esp32h2_csrs,
+		.reg_array_size = ARRAY_SIZE(esp32h2_csrs),
+		.save_restore = true
+	},
 };
 
 static int esp32h2_target_create(struct target *target)

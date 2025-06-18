@@ -165,9 +165,20 @@ static const char *esp32c61_user_counter_csrs[] = {
 };
 
 static struct esp_riscv_reg_class esp32c61_registers[] = {
-	{ esp32c61_csrs, ARRAY_SIZE(esp32c61_csrs), true, NULL },
-	{ esp32c61_ro_csrs, ARRAY_SIZE(esp32c61_ro_csrs), false, NULL },
-	{ esp32c61_user_counter_csrs, ARRAY_SIZE(esp32c61_user_counter_csrs), false, &esp_riscv_user_counter_type },
+	{
+		.reg_array = esp32c61_csrs,
+		.reg_array_size = ARRAY_SIZE(esp32c61_csrs),
+		.save_restore = true
+	},
+	{
+		.reg_array = esp32c61_ro_csrs,
+		.reg_array_size = ARRAY_SIZE(esp32c61_ro_csrs)
+	},
+	{
+		.reg_array = esp32c61_user_counter_csrs,
+		.reg_array_size = ARRAY_SIZE(esp32c61_user_counter_csrs),
+		.reg_arch_type =  &esp_riscv_user_counter_type
+	},
 };
 
 static int esp32c61_target_create(struct target *target)

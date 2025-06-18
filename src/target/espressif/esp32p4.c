@@ -17,6 +17,7 @@
 #include <target/register.h>
 #include <target/semihosting_common.h>
 #include <target/riscv/debug_defines.h>
+#include <target/riscv/program.h>
 
 #include "esp_semihosting.h"
 #include "esp_riscv_apptrace.h"
@@ -253,6 +254,22 @@ static const char *esp32p4_fpu_csrs[] = {
 	"csr_fxcr",
 };
 
+static const char *esp32p4_pie_movx_regs[] = {
+	/* custom exposed registers will start with 'custom_' prefix*/
+	"custom_sar", "custom_sar_byte", "custom_fft_bit_width", "custom_cfg",
+};
+
+static const char *esp32p4_pie_vec_regs[] = {
+	/* custom exposed registers will start with 'custom_' prefix*/
+	"custom_qacc_l_l", "custom_qacc_l_h", "custom_qacc_h_l", "custom_qacc_h_h", "custom_ua_state",
+	"custom_q0", "custom_q1", "custom_q2", "custom_q3", "custom_q4", "custom_q5", "custom_q6", "custom_q7",
+};
+
+static const char *esp32p4_pie_xacc_regs[] = {
+	/* custom exposed registers will start with 'custom_' prefix*/
+	"custom_xacc",
+};
+
 #define HWLOOP_STATE_OFF      0
 #define HWLOOP_STATE_INIT     1
 #define HWLOOP_STATE_MASK     3
@@ -325,11 +342,289 @@ static struct reg_arch_type esp32p4_hwloop_reg_type = {
 	.set = esp32p4_hwloop_csr_set
 };
 
+#define PIE_STATE_OFF		0
+#define PIE_STATE_INIT		1
+#define PIE_STATE_MASK		3
+#define CSR_MEXT_PIE_STATUS 2034
+
+struct pie_inst_table {
+	const char *name;
+	riscv_insn_t write_inst;
+	riscv_insn_t read_inst;
+	bool is_ldst_inst;
+};
+
+/*
+Bellow tables contain instruction values for PIE register access.
+Instructions using register s0 were selected:
+
+ESP.MOVX.[W|R].[CFG|SAR|SAR.BYTES|FFT.BIT.WIDTH] s0
+ESP.[LD|ST].UA.STATE.IP s0, 0
+ESP.[LD|ST].QACC.[H|L].[H|L].128.IP s0, 0
+ESP.[ST.U.XACC|LD.XACC].IP s0, 0
+ESP.[VLD|VST].128.IP q[0-7], s0, 0
+
+Can regenerate using tooolchain with xespv support e.g.:
+riscv32-esp-elf-as -march=rv32imac_xespv -mespv-spec=[2p1|2p2] tmp.S -o tmp.elf
+*/
+
+static const struct pie_inst_table pie_v2p1_regs[] = {
+	{ "custom_sar", 0x90b0005f, 0x80b0005f, false },
+	{ "custom_sar_byte", 0x98b0005f, 0x88b0005f, false },
+	{ "custom_fft_bit_width", 0x94d0005f, 0x84d0005f, false },
+	{ "custom_cfg", 0x90d0005f, 0x80d0005f, false },
+	{ "custom_ua_state", 0x2000413b, 0xa000413b, true },
+	{ "custom_xacc", 0x2000433b, 0x200041bb, true },
+	{ "custom_qacc_h_l", 0x6000403b, 0xe000403b, true },
+	{ "custom_qacc_h_h", 0x4000403b, 0xc000403b, true },
+	{ "custom_qacc_l_l", 0x2000403b, 0xa000403b, true },
+	{ "custom_qacc_l_h", 0x0000403b, 0x8000403b, true },
+	{ "custom_q0", 0x0200203b, 0x8200203b, true },
+	{ "custom_q1", 0x0200243b, 0x8200243b, true },
+	{ "custom_q2", 0x0200283b, 0x8200283b, true },
+	{ "custom_q3", 0x02002c3b, 0x82002c3b, true },
+	{ "custom_q4", 0x0200303b, 0x8200303b, true },
+	{ "custom_q5", 0x0200343b, 0x8200343b, true },
+	{ "custom_q6", 0x0200383b, 0x8200383b, true },
+	{ "custom_q7", 0x02003c3b, 0x82003c3b, true },
+	{ 0 },
+};
+
+static const struct pie_inst_table pie_v2p2_regs[] = {
+	{ "custom_sar", 0x90c0201b, 0x80c0201b, false },
+	{ "custom_sar_byte", 0x98c0201b, 0x88c0201b, false },
+	{ "custom_fft_bit_width", 0x9480201b, 0x8480201b, false },
+	{ "custom_cfg", 0x9080201b, 0x8080201b, false },
+	{ "custom_ua_state", 0x0010011f, 0x1010011f, true },
+	{ "custom_xacc", 0x0010031f, 0x0010019f, true },
+	{ "custom_qacc_h_l", 0x0810001f, 0x1810001f, true },
+	{ "custom_qacc_h_h", 0x0800001f, 0x1800001f, true },
+	{ "custom_qacc_l_l", 0x0010001f, 0x1010001f, true },
+	{ "custom_qacc_l_h", 0x0000001f, 0x1000001f, true },
+	{ "custom_q0", 0x0310001f, 0x8310001f, true },
+	{ "custom_q1", 0x0310041f, 0x8310041f, true },
+	{ "custom_q2", 0x0310081f, 0x8310081f, true },
+	{ "custom_q3", 0x03100c1f, 0x83100c1f, true },
+	{ "custom_q4", 0x0310101f, 0x8310101f, true },
+	{ "custom_q5", 0x0310141f, 0x8310141f, true },
+	{ "custom_q6", 0x0310181f, 0x8310181f, true },
+	{ "custom_q7", 0x03101c1f, 0x83101c1f, true },
+	{ 0 },
+};
+
+static int esp32p4_read_memory(struct target *target, target_addr_t address,
+	uint32_t size, uint32_t count, uint8_t *buffer);
+static int esp32p4_write_memory(struct target *target, target_addr_t address,
+	uint32_t size, uint32_t count, const uint8_t *buffer);
+
+static int execute_pie_inst(struct target *target, riscv_insn_t inst)
+{
+	struct riscv_program program;
+	riscv_program_init(&program, target);
+	if (riscv_program_insert(&program, inst) != ERROR_OK)
+		return ERROR_FAIL;
+	return riscv_program_exec(&program, target);
+}
+
+static int pie_movx_access(struct target *target, struct reg *reg, uint8_t *buf, riscv_insn_t inst)
+{
+	riscv_reg_t reg_val;
+	if (buf) {
+		reg_val = buf_get_u64(buf, 0, riscv_xlen(target));
+		riscv_set_register(target, GDB_REGNO_S0, reg_val);
+		riscv_flush_registers(target);
+	}
+	int ret = execute_pie_inst(target, inst);
+	if (ret != ERROR_OK)
+		return ret;
+	if (!buf) {
+		target->reg_cache->reg_list[GDB_REGNO_S0].valid = false;
+		target->reg_cache->reg_list[GDB_REGNO_S0].dirty = false;
+		riscv_get_register(target, &reg_val, GDB_REGNO_S0);
+	}
+	buf_set_u64(reg->value, 0, reg->size, reg_val);
+	return ERROR_OK;
+}
+
+static int pie_ldst_access(struct target *target, struct reg *reg, uint8_t *buf, riscv_insn_t inst)
+{
+	uint8_t saved_mem[16];
+	target_addr_t temp_mem = target->working_area_phys - ESP32P4_NON_CACHEABLE_OFFSET;
+	riscv_set_register(target, GDB_REGNO_S0, temp_mem);
+	riscv_flush_registers(target);
+	esp32p4_read_memory(target, temp_mem, 4, 4, saved_mem);
+	if (buf)
+		esp32p4_write_memory(target, temp_mem, 1, DIV_ROUND_UP(reg->size, 8), buf);
+	int ret = execute_pie_inst(target, inst);
+	if (ret == ERROR_OK) {
+		esp32p4_read_memory(target, temp_mem, 1, DIV_ROUND_UP(reg->size, 8), reg->value);
+		reg->valid = true; // these can be set cacheable
+	}
+	esp32p4_write_memory(target, temp_mem, 4, 4, saved_mem);
+	return ret;
+}
+
+static int pie_access(struct reg *reg, uint8_t *buf)
+{
+	struct target *target = ((riscv_reg_info_t *)(reg->arch_info))->target;
+
+	const struct pie_inst_table *pie_inst_table = target->hw_rev < 5 ? pie_v2p1_regs : pie_v2p2_regs;
+	riscv_insn_t inst = 0;
+	bool is_ldst_inst = false;
+	for (size_t i = 0; pie_inst_table[i].name; i++) {
+		if (!strcmp(reg->name, pie_inst_table[i].name)) {
+			inst = buf ? pie_inst_table[i].write_inst : pie_inst_table[i].read_inst;
+			is_ldst_inst = pie_inst_table[i].is_ldst_inst;
+			break;
+		}
+	}
+	if (inst == 0)
+		return ERROR_FAIL;
+
+	riscv_reg_t reg_val_s0, reg_val_pie;
+	riscv_get_register(target, &reg_val_s0, GDB_REGNO_S0);
+	riscv_get_register(target, &reg_val_pie, GDB_REGNO_CSR0 + CSR_MEXT_PIE_STATUS);
+	int state = get_field(reg_val_pie, PIE_STATE_MASK);
+	if (state == PIE_STATE_OFF)
+		riscv_set_register(target, GDB_REGNO_CSR0 + CSR_MEXT_PIE_STATUS, reg_val_pie | PIE_STATE_INIT);
+
+	int ret = (is_ldst_inst ? pie_ldst_access : pie_movx_access) (target, reg, buf, inst);
+
+	riscv_set_register(target, GDB_REGNO_S0, reg_val_s0);
+	if (state == PIE_STATE_OFF)
+		riscv_set_register(target, GDB_REGNO_CSR0 + CSR_MEXT_PIE_STATUS, reg_val_pie);
+	return ret;
+}
+
+static int pie_get(struct reg *reg)
+{
+	return pie_access(reg, NULL);
+}
+
+static int pie_set(struct reg *reg, uint8_t *buf)
+{
+	return pie_access(reg, buf);
+}
+
+static struct reg_arch_type esp32p4_pie_reg_type = {
+	.get = pie_get,
+	.set = pie_set
+};
+
+static struct reg_data_type type_int8 = { .type = REG_TYPE_INT8, .id = "int8" };
+static struct reg_data_type type_int32 = { .type = REG_TYPE_INT32, .id = "int32" };
+static struct reg_data_type type_int64 = { .type = REG_TYPE_INT64, .id = "int64" };
+static struct reg_data_type type_uint128 = { .type = REG_TYPE_UINT128, .id = "uint128" };
+
+static struct reg_data_type_vector type_v5i8 = {
+	.type = &type_int8,
+	.count = 5
+};
+
+static struct reg_data_type_vector type_v4i32 = {
+	.type = &type_int32,
+	.count = 4
+};
+
+static struct reg_data_type_vector type_v2i64 = {
+	.type = &type_int64,
+	.count = 2
+};
+
+static struct reg_data_type type_esp32p4_v5i8 = {
+	.type = REG_TYPE_ARCH_DEFINED,
+	.id = "v5_int8",
+	.type_class = REG_TYPE_CLASS_VECTOR,
+	.reg_type_vector = &type_v5i8,
+};
+
+static struct reg_data_type type_esp32p4_v4i32 = {
+	.type = REG_TYPE_ARCH_DEFINED,
+	.id = "v4_int32",
+	.type_class = REG_TYPE_CLASS_VECTOR,
+	.reg_type_vector = &type_v4i32,
+};
+
+static struct reg_data_type type_esp32p4_v2i64 = {
+	.type = REG_TYPE_ARCH_DEFINED,
+	.id = "v2_int64",
+	.type_class = REG_TYPE_CLASS_VECTOR,
+	.reg_type_vector = &type_v2i64,
+};
+
+static struct reg_data_type_union_field type_vec40[] = {
+	{"v5_int8", &type_esp32p4_v5i8, type_vec40 + 1},
+	{"int64", &type_int64, NULL},
+};
+
+static struct reg_data_type_union_field type_vec128[] = {
+	{"v4_int32", &type_esp32p4_v4i32, type_vec128 + 1},
+	{"v2_int64", &type_esp32p4_v2i64, type_vec128 + 2},
+	{"uint128", &type_uint128, NULL},
+};
+
+static struct reg_data_type_union type_vec40_union = {
+	.fields = type_vec40
+};
+
+static struct reg_data_type_union type_vec128_union = {
+	.fields = type_vec128
+};
+
+static struct reg_data_type type_esp32p4_vector40 = {
+	.type = REG_TYPE_ARCH_DEFINED,
+	.id = "vector40",
+	.type_class = REG_TYPE_CLASS_UNION,
+	.reg_type_union = &type_vec40_union,
+};
+
+static struct reg_data_type type_esp32p4_vector128 = {
+	.type = REG_TYPE_ARCH_DEFINED,
+	.id = "vector128",
+	.type_class = REG_TYPE_CLASS_UNION,
+	.reg_type_union = &type_vec128_union,
+};
+
 static struct esp_riscv_reg_class esp32p4_registers[] = {
-	{ esp32p4_csrs, ARRAY_SIZE(esp32p4_csrs), true, NULL },
-	{ esp32p4_user_counter_csrs, ARRAY_SIZE(esp32p4_user_counter_csrs), false, &esp_riscv_user_counter_type },
-	{ esp32p4_fpu_csrs, ARRAY_SIZE(esp32p4_fpu_csrs), false, &esp_riscv_fpu_csr_type },
-	{ esp32p4_hwloop_csrs, ARRAY_SIZE(esp32p4_hwloop_csrs), false, &esp32p4_hwloop_reg_type },
+	{
+		.reg_array = esp32p4_csrs,
+		.reg_array_size = ARRAY_SIZE(esp32p4_csrs),
+		.save_restore = true
+	},
+	{
+		.reg_array = esp32p4_user_counter_csrs,
+		.reg_array_size = ARRAY_SIZE(esp32p4_user_counter_csrs),
+		.reg_arch_type = &esp_riscv_user_counter_type
+	},
+	{
+		.reg_array = esp32p4_fpu_csrs,
+		.reg_array_size = ARRAY_SIZE(esp32p4_fpu_csrs),
+		.reg_arch_type = &esp_riscv_fpu_csr_type
+	},
+	{
+		.reg_array = esp32p4_hwloop_csrs,
+		.reg_array_size = ARRAY_SIZE(esp32p4_hwloop_csrs),
+		.reg_arch_type = &esp32p4_hwloop_reg_type
+	},
+	{
+		.reg_array = esp32p4_pie_movx_regs,
+		.reg_array_size = ARRAY_SIZE(esp32p4_pie_movx_regs),
+		.reg_arch_type = &esp32p4_pie_reg_type
+	},
+	{
+		.reg_array = esp32p4_pie_xacc_regs,
+		.reg_array_size = ARRAY_SIZE(esp32p4_pie_xacc_regs),
+		.reg_width = 64,
+		.reg_arch_type = &esp32p4_pie_reg_type,
+		.reg_data_type = &type_esp32p4_vector40
+	},
+	{
+		.reg_array = esp32p4_pie_vec_regs,
+		.reg_array_size = ARRAY_SIZE(esp32p4_pie_vec_regs),
+		.reg_width = 128,
+		.reg_arch_type = &esp32p4_pie_reg_type,
+		.reg_data_type = &type_esp32p4_vector128
+	},
 };
 
 static int esp32p4_target_create(struct target *target)

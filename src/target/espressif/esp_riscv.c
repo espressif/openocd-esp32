@@ -105,11 +105,11 @@ static const char *esp_riscv_get_exception_reason(enum esp_riscv_exception_cause
 	case PMP_STORE_ACCESS_FAULT:
 		return "PMP Store access fault";
 	case ECALL_FROM_U_MODE:
-		return "ECALL from U mode";
+		return "ECALL from U-mode";
 	case ECALL_FROM_S_MODE:
 		return "ECALL from S-mode";
 	case ECALL_FROM_M_MODE:
-		return "ECALL from M mode";
+		return "ECALL from M-mode";
 	case INSTR_PAGE_FAULT:
 		return "Instruction page fault";
 	case LOAD_PAGE_FAULT:
@@ -272,10 +272,25 @@ int esp_riscv_examine(struct target *target)
 	*/
 
 	struct esp_riscv_reg_class esp_riscv_registers[] = {
-		{ esp_riscv_gprs, ARRAY_SIZE(esp_riscv_gprs), true, NULL },
-		{ esp_riscv_fprs, ARRAY_SIZE(esp_riscv_fprs), true, NULL },
-		{ esp_riscv_csrs, ARRAY_SIZE(esp_riscv_csrs), true, NULL },
-		{ esp_riscv_ro_csrs, ARRAY_SIZE(esp_riscv_ro_csrs), false, NULL },
+		{
+			.reg_array = esp_riscv_gprs,
+			.reg_array_size = ARRAY_SIZE(esp_riscv_gprs),
+			.save_restore = true
+		},
+		{
+			.reg_array = esp_riscv_fprs,
+			.reg_array_size = ARRAY_SIZE(esp_riscv_fprs),
+			.save_restore = true
+		},
+		{
+			.reg_array = esp_riscv_csrs,
+			.reg_array_size = ARRAY_SIZE(esp_riscv_csrs),
+			.save_restore = true
+		},
+		{
+			.reg_array = esp_riscv_ro_csrs,
+			.reg_array_size = ARRAY_SIZE(esp_riscv_ro_csrs)
+		},
 	};
 
 	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
@@ -291,8 +306,15 @@ int esp_riscv_examine(struct target *target)
 				continue;
 			reg->exist = true;
 			reg->caller_save = reg_class->save_restore;
-			if (reg_class->arch_type)
-				reg->type = reg_class->arch_type;
+			if (reg_class->reg_arch_type)
+				reg->type = reg_class->reg_arch_type;
+			if (reg_class->reg_width) {
+				reg->size = reg_class->reg_width;
+				free(reg->value);
+				reg->value = calloc(1, DIV_ROUND_UP(reg->size, 8));
+			}
+			if (reg_class->reg_data_type)
+				reg->reg_data_type = reg_class->reg_data_type;
 		}
 	}
 
