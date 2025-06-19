@@ -869,7 +869,7 @@ int esp_riscv_wait_algorithm(struct target *target,
 		number <= max_saved_reg && number < target->reg_cache->num_regs; number++) {
 		struct reg *r = &target->reg_cache->reg_list[number];
 
-		if (!algorithm_info->valid_saved_registers[r->number] || !r->caller_save)
+		if (!algorithm_info->valid_saved_registers[r->number] || !r->caller_save || !r->exist)
 			continue;
 
 		LOG_TARGET_DEBUG(target, "restore %s", r->name);
