@@ -65,7 +65,7 @@ foreach(COMMAND ${COMMANDS})
     set(TARGET_NAME stub_${ESP_TARGET}_${COMMAND})
     set(TARGET_ELF ${TARGET_NAME}.elf)
     set(ESP_STUB_LIB esp-stub-lib-${COMMAND})
-    set(ESP_TARGET_LIB ${ESP_TARGET}-${COMMAND})
+    set(STUB_COMMAND ${COMMAND})
     string(TOUPPER ${ESP_TARGET} ESP_TARGET_NAME)
 
     add_executable(${TARGET_ELF}  ${SRC_FILES})
