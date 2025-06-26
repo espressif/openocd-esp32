@@ -56,15 +56,18 @@ class DebuggerSpecialTestsImpl:
             5) Wait some time.
             6) Run simple debug session.
         """
-        # avoid simultaneous access to UART with SerialReader
-        self.assertIsNone(self.uart_reader, "Can not run this test with UART logging enabled!")
         self.select_sub_test("blink")
         self.resume_exec()
         time.sleep(2.0)
         assert self.port_name is not None
+        # avoid simultaneous access to UART with SerialReader
+        if self.uart_reader:
+            self.uart_reader.pause()
         cmd = ['esptool.py', '-p', self.port_name, '--no-stub', 'chip_id']
         proc = subprocess.run(cmd)
         proc.check_returncode()
+        if self.uart_reader:
+            self.uart_reader.resume()
         time.sleep(2.0)
         self.stop_exec()
         self.prepare_app_for_debugging(self.test_app_cfg.app_off)
@@ -262,8 +265,6 @@ class DebuggerSpecialTestsDual(DebuggerGenericTestAppTestsDual, DebuggerSpecialT
             5) Wait some time.
             6) Check that all targets are in state 'running'.
         """
-        # avoid simultaneous access to UART with SerialReader
-        self.assertIsNone(self.uart_reader, "Can not run this test with UART logging enabled!")
         self.select_sub_test("blink")
         self.resume_exec()
         time.sleep(2.0)
@@ -271,9 +272,14 @@ class DebuggerSpecialTestsDual(DebuggerGenericTestAppTestsDual, DebuggerSpecialT
             state = self.oocd.target_state(target)
             self.assertEqual(state, 'running')
         assert self.port_name is not None
+        # avoid simultaneous access to UART with SerialReader
+        if self.uart_reader:
+            self.uart_reader.pause()
         cmd = ['esptool.py', '-p', self.port_name, '--no-stub', 'chip_id']
         proc = subprocess.run(cmd)
         proc.check_returncode()
+        if self.uart_reader:
+            self.uart_reader.resume()
         time.sleep(2.0)
         for target in self.oocd.targets():
             state = self.oocd.target_state(target)

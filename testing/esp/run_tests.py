@@ -205,6 +205,7 @@ class SerialPortReader(threading.Thread):
     def start(self):
         self.ser.open()
         self.do_work = True
+        self.paused = False
         threading.Thread.start(self)
 
     def stop(self):
@@ -214,14 +215,24 @@ class SerialPortReader(threading.Thread):
         self.ser.close()
         self._logger.debug('Reader thread to finished')
 
+    def pause(self):
+        self.paused = True
+
+    def resume(self):
+        self.paused = False
+
     def run(self):
         self._logger.debug('Start reading from "{}"'.format(self.ser.name))
         line = b''
         while self.do_work:
-            line += self.ser.read(1)
-            if line.endswith(b'\n'):
-                self._logger.info(line.rstrip(b'\r\n'))
-                line = b''
+            if not self.paused:
+                try:
+                    line += self.ser.read(1)
+                except serial.SerialException:
+                    line += b'<exc>'
+                if line.endswith(b'\n'):
+                    self._logger.info(line.rstrip(b'\r\n'))
+                    line = b''
 
 
 def dbg_start(toolchain, oocd, oocd_tcl, oocd_cfg_files, oocd_cfg_cmds, debug_oocd,
@@ -358,6 +369,7 @@ def main():
     if board_uart_reader:
         setup_logger(board_uart_reader.get_logger(), ch, fh, log_lev)
         board_uart_reader.start()
+        time.sleep(1)
     board_tcl = BOARD_TCL_CONFIG[args.board_type]
     board_tcl['commands'] = args.oocd_cmds.split(",")
 
