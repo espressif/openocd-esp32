@@ -1153,7 +1153,7 @@ static int zephyr_get_current_thread_reg_list(struct rtos *rtos,
 
 	/* Registers for currently running thread are not on task's stack and
 	 * should be retrieved from reg caches via target_get_gdb_reg_list */
-	int ret = target_get_gdb_reg_list_noread(rtos->target, &gdb_reg_list, num_regs,
+	int ret = target_get_gdb_reg_list(rtos->target, &gdb_reg_list, num_regs,
 		REG_CLASS_GENERAL);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("target_get_gdb_reg_list failed %d", ret);

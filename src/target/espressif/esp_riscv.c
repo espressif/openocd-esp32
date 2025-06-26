@@ -1057,7 +1057,7 @@ int esp_riscv_assert_reset(struct target *target)
 	return riscv_assert_reset(target);
 }
 
-int esp_riscv_get_gdb_reg_list_noread(struct target *target,
+int esp_riscv_get_gdb_reg_list(struct target *target,
 		struct reg **reg_list[], int *reg_list_size,
 		enum target_register_class reg_class)
 {

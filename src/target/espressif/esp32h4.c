@@ -261,8 +261,8 @@ struct target_type esp32h4_target = {
 	.checksum_memory = riscv_checksum_memory,
 
 	.get_gdb_arch = riscv_get_gdb_arch,
-	.get_gdb_reg_list = riscv_get_gdb_reg_list,
-	.get_gdb_reg_list_noread = esp_riscv_get_gdb_reg_list_noread,
+	.get_gdb_reg_list = esp_riscv_get_gdb_reg_list,
+	.get_gdb_reg_list_noread = riscv_get_gdb_reg_list_noread,
 
 	.add_breakpoint = esp_riscv_breakpoint_add,
 	.remove_breakpoint = esp_riscv_breakpoint_remove,
