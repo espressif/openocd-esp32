@@ -1,0 +1,197 @@
+.tests_template:
+  tags:
+    - $CHIP_NAME
+    - jtag
+  stage: test
+  variables:
+    RUNNER_SCRIPT_TIMEOUT: 60m
+    OOCD_CMDS: "set VAR 1" # default command to avoid missing argument error.
+    TEST_RUN_EXTRA_OPTS: "-r -i ${IDF_RELEASE_TAG} ${TEST_RUN_BOARD_OPTS} ${TEST_RUN_COMMON_ARGS}"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyUSB-esp32"
+  artifacts:
+    paths:
+      - $TEST_RUN_DIR/debug_backend_tests.log
+      - $TEST_RUN_DIR/esp_cov_files
+      - $TEST_RUN_DIR/sanitizer_errors.log
+      - $TEST_RUN_DIR/results
+    reports:
+      junit:
+        - $TEST_RUN_DIR/results/*
+    when: always
+    expire_in: 1 week
+  before_script:
+    - export GCOV_PREFIX=$PWD/$TEST_RUN_DIR
+    - export GCOV_PREFIX_STRIP=2
+    - pip install unittest-xml-reporting --no-deps
+    - pip install pygdbmi==0.9.0.2
+    - ./tools/install-rom-elfs.sh
+    - >
+      machine="$(uname -m)";
+      if [[ "$machine" == "armv7l" ]] ; then
+        export CONF_HOST="arm-linux-gnueabihf";
+        export PLATFORM_NAME="linux-armhf-test";
+      elif [[ "$machine" == "aarch64" ]] ; then
+        export CONF_HOST="aarch64-linux-gnu";
+        export PLATFORM_NAME="linux-arm64-test";
+      fi;
+      echo "PLATFORM_NAME: ${PLATFORM_NAME}";
+      if [ ! -z "$ESP_GCOV_TOOLCHAIN" ] ; then
+        export ESP_GCOV_TOOLCHAIN="${ESP_GCOV_TOOLCHAIN}-${CONF_HOST}";
+        echo "ESP_GCOV_TOOLCHAIN: ${ESP_GCOV_TOOLCHAIN}";
+      fi;
+      if [[ $SCHEDULE_TYPE == "run_sanitizer_tests" ]] ; then
+        export ASAN_OPTIONS="detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1";
+        export TEST_SANITIZERS=1;
+        cp ${CONF_HOST}/lib* /usr/lib;
+      fi
+  script:
+    - !reference [.submodules_mirror_update, script]
+    - !reference [.export_toolchain, script]
+    - . $PWD/${TEST_RUN_DIR}/gen_ut_app/gcov_data/gcov_env.sh
+    - !reference [.run_tests_linux, script]
+  after_script:
+    # Below lines gets esp related file paths from tools/format-esp.sh
+    # and change file extension as .gcno and .gcda
+    - >
+      input="tools/format-esp.sh";
+      file_full_path="";
+      dir_path="";
+      file_name="";
+      command_arg="";
+      splitter_line="# Stub flasher related files";
+      while IFS= read -r line ; do
+        if [[ ${line:0:2} == "./" ]] ; then
+          file_full_path=${line##*.sh };
+          file_name=${file_full_path##*/} ;
+          dir_path=${file_full_path%$file_name} ;
+          command_arg+="--include "${dir_path}"*"${file_name:0:-2}".gcno ";
+          command_arg+="--include "${dir_path}"*"${file_name:0:-2}".gcda ";
+        fi
+        if [[ $line == ${splitter_line}* ]] ; then
+          break;
+        fi
+      done < "$input"
+    - mkdir ${TEST_RUN_DIR}/esp_cov_files
+    - rsync -a --prune-empty-dirs --include '*/' ${command_arg} --exclude '*' ${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}/_build ${TEST_RUN_DIR}/esp_cov_files
+    - cp ${PWD}/${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}/bin/gcov ${TEST_RUN_DIR}/esp_cov_files
+    # Patch up test reports to include IDF_RELEASE_TAG and CHIP_NAME in the test name
+    - sed ${TEST_RUN_DIR}/results/*.xml -i -e "s/testcase classname=\"/testcase classname=\"${IDF_RELEASE_TAG}-${CHIP_NAME}./g"
+
+.tests_master_template:
+  extends: .tests_template
+  image: $CI_DOCKER_REGISTRY/target-test-env-v6.0:1
+  variables:
+    CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
+    ESP_GDB_TOOLCHAIN: "${ESP_V6_0X_XTENSA_GDB_TOOLCHAIN}"
+    TOOLCHAIN_PREFIX: "xtensa-esp"
+    ESP_TOOLCHAIN: "${ESP_V6_0X_TOOLCHAIN_VER}"
+    TEST_RUN_DIR: "build_test_app_${CHIP_NAME}"
+    IDF_RELEASE_TAG: "latest"
+    ESP_GCOV_TOOLCHAIN: "${ESP_V6_0X_XTENSA_GCOV_TOOLCHAIN}"
+
+.tests_master_riscv_template:
+  extends: .tests_master_template
+  variables:
+    CHIP_TEST_TOOLCHAIN: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V6_0X_RISCV_GDB_TOOLCHAIN}"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_GCOV_TOOLCHAIN: "${ESP_V6_0X_RISCV_GCOV_TOOLCHAIN}"
+
+.tests_v5.5.x_template:
+  extends: .tests_template
+  image: $CI_DOCKER_REGISTRY/target-test-env-v5.5:2
+  variables:
+    CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_5X_XTENSA_GDB_TOOLCHAIN}"
+    TOOLCHAIN_PREFIX: "xtensa-esp"
+    ESP_TOOLCHAIN: "${ESP_V5_5X_TOOLCHAIN_VER}"
+    TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.5.x"
+    IDF_RELEASE_TAG: "${TEST_APP_IDF5_5_X_RELEASE_TAG}"
+    TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
+    ESP_GCOV_TOOLCHAIN: "${ESP_V5_5X_XTENSA_GCOV_TOOLCHAIN}"
+
+.tests_v5.5.x_riscv_template:
+  extends: .tests_v5.5.x_template
+  variables:
+    CHIP_TEST_TOOLCHAIN: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_5X_RISCV_GDB_TOOLCHAIN}"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_GCOV_TOOLCHAIN: "${ESP_V5_5X_RISCV_GCOV_TOOLCHAIN}"
+
+.tests_v5.4.x_template:
+  extends: .tests_template
+  image: $CI_DOCKER_REGISTRY/target-test-env-v5.4:2
+  variables:
+    CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_4X_XTENSA_GDB_TOOLCHAIN}"
+    TOOLCHAIN_PREFIX: "xtensa-esp"
+    ESP_TOOLCHAIN: "${ESP_V5_4X_TOOLCHAIN_VER}"
+    TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.4.x"
+    IDF_RELEASE_TAG: "${TEST_APP_IDF5_4_X_RELEASE_TAG}"
+    TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
+    ESP_GCOV_TOOLCHAIN: "${ESP_V5_4X_XTENSA_GCOV_TOOLCHAIN}"
+
+.tests_v5.4.x_riscv_template:
+  extends: .tests_v5.4.x_template
+  variables:
+    CHIP_TEST_TOOLCHAIN: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_4X_RISCV_GDB_TOOLCHAIN}"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    ESP_GCOV_TOOLCHAIN: "${ESP_V5_4X_RISCV_GCOV_TOOLCHAIN}"
+
+.tests_v5.3.x_template:
+  extends: .tests_template
+  image: $CI_DOCKER_REGISTRY/target-test-env-v5.3:1
+  variables:
+    CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_3X_XTENSA_GDB_TOOLCHAIN}"
+    TOOLCHAIN_PREFIX: "xtensa-esp"
+    ESP_TOOLCHAIN: "${ESP_V5_3X_TOOLCHAIN_VER}"
+    TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.3.x"
+    IDF_RELEASE_TAG: "${TEST_APP_IDF5_3_X_RELEASE_TAG}"
+    TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
+
+.tests_v5.3.x_riscv_template:
+  extends: .tests_v5.3.x_template
+  variables:
+    CHIP_TEST_TOOLCHAIN: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_3X_RISCV_GDB_TOOLCHAIN}"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+
+.tests_v5.2.x_template:
+  extends: .tests_template
+  image: $CI_DOCKER_REGISTRY/target-test-env-v5.2:2
+  variables:
+    CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
+    TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.2.x"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_2X_XTENSA_GDB_TOOLCHAIN}"
+    TOOLCHAIN_PREFIX: "xtensa-esp"
+    ESP_TOOLCHAIN: "${ESP_V5_2X_TOOLCHAIN_VER}"
+    IDF_RELEASE_TAG: "${TEST_APP_IDF5_2_X_RELEASE_TAG}"
+    TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
+
+.tests_v5.2.x_riscv_template:
+  extends: .tests_v5.2.x_template
+  variables:
+    CHIP_TEST_TOOLCHAIN: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_2X_RISCV_GDB_TOOLCHAIN}"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+
+.tests_v5.1.x_template:
+  extends: .tests_template
+  image: $CI_DOCKER_REGISTRY/target-test-env-v5.1:1
+  variables:
+    CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
+    TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.1.x"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_1X_XTENSA_GDB_TOOLCHAIN}"
+    TOOLCHAIN_PREFIX: "xtensa-${CHIP_NAME}"
+    ESP_TOOLCHAIN: "${ESP_V5_1X_TOOLCHAIN_VER}"
+    IDF_RELEASE_TAG: "${TEST_APP_IDF5_1_X_RELEASE_TAG}"
+    TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
+
+.tests_v5.1.x_riscv_template:
+  extends: .tests_v5.1.x_template
+  variables:
+    CHIP_TEST_TOOLCHAIN: "riscv32-esp"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_1X_RISCV_GDB_TOOLCHAIN}"
+    TOOLCHAIN_PREFIX: "riscv32-esp"

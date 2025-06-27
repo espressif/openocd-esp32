@@ -1,0 +1,218 @@
+tests_esp32:
+  extends: .tests_master_template
+  needs:
+    - job: build_test_app_esp32
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
+  variables:
+    CHIP_NAME: "esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e *.*Encrypted"
+
+tests_esp32_flash_encrypted:
+  extends: .tests_master_template
+  tags:
+    - test_jtag_arm_flash_encryption
+  needs:
+    - job: build_test_app_esp32
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
+  variables:
+    CHIP_NAME: "esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
+
+tests_esp32s2:
+  extends: .tests_master_template
+  needs:
+    - job: build_test_app_esp32s2
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
+  variables:
+    CHIP_NAME: "esp32s2"
+    TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*Single"
+
+tests_esp32s2_flash_encrypted:
+  extends: .tests_master_template
+  tags:
+    - test_jtag_arm_flash_encryption_esp32s2
+  needs:
+    - job: build_test_app_esp32s2
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
+  variables:
+    CHIP_NAME: "esp32s2"
+    TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*SingleEncrypted"
+
+tests_esp32s3_dual:
+  extends: .tests_master_template
+  needs:
+    - job: build_test_app_esp32s3
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
+  variables:
+    CHIP_NAME: "esp32s3"
+    TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual"
+
+tests_esp32s3_single:
+  extends: .tests_master_template
+  needs:
+    - job: build_test_app_esp32s3
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
+  variables:
+    CHIP_NAME: "esp32s3"
+    OOCD_CMDS: "set ESP_ONLYCPU 1"
+    TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
+
+tests_esp32c2:
+  extends: .tests_master_riscv_template
+  needs:
+    - job: build_test_app_esp32c2
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
+  variables:
+    CHIP_NAME: "esp32c2"
+    TEST_RUN_BOARD_OPTS: "-b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
+
+tests_esp32c3:
+  extends: .tests_master_riscv_template
+  needs:
+    - job: build_test_app_esp32c3
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
+  variables:
+    CHIP_NAME: "esp32c3"
+    TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*Single"
+
+tests_esp32c3_flash_encrypted:
+  extends: .tests_master_riscv_template
+  tags:
+    - test_jtag_arm_flash_encryption_esp32c3
+  needs:
+    - job: build_test_app_esp32c3
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
+  variables:
+    CHIP_NAME: "esp32c3"
+    TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*SingleEncrypted"
+
+.tests_esp32c5:
+  extends: .tests_master_riscv_template
+  tags:
+    - esp32c5
+    - usb_serial_jtag
+  needs:
+    - job: build_test_app_esp32c5
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
+  variables:
+    CHIP_NAME: "esp32c5"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32c5-builtin -p test_*.*Single"
+
+tests_esp32c6:
+  extends: .tests_master_riscv_template
+  tags:
+    - esp32c6
+    - usb_serial_jtag
+  needs:
+    - job: build_test_app_esp32c6
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
+  variables:
+    CHIP_NAME: "esp32c6"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single"
+
+tests_esp32c61:
+  extends: .tests_master_riscv_template
+  tags:
+    - esp32c61
+    - usb_serial_jtag
+  needs:
+    - job: build_test_app_esp32c61
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
+  variables:
+    CHIP_NAME: "esp32c61"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p test_*.*Single"
+
+tests_esp32h2:
+  extends: .tests_master_riscv_template
+  tags:
+    - esp32h2
+    - usb_serial_jtag
+  needs:
+    - job: build_test_app_esp32h2
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
+  variables:
+    CHIP_NAME: "esp32h2"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single"
+
+tests_esp32p4:
+  extends: .tests_master_riscv_template
+  needs:
+    - job: build_test_app_esp32p4
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gdb
+      optional: true
+  variables:
+    CHIP_NAME: "esp32p4"
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -p test_*.*Dual"

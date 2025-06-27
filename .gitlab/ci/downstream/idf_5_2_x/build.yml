@@ -1,0 +1,50 @@
+build_test_app_esp32_idf5.2.x:
+  variables:
+    CHIP_NAME: "esp32"
+    TOOLCHAIN_PREFIX: "xtensa-esp32"
+    TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
+  extends: .build_idf52x_test_app_template
+
+build_test_app_esp32s2_idf5.2.x:
+  variables:
+    CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
+    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single psram_single"
+  extends: .build_idf52x_test_app_template
+
+build_test_app_esp32s3_idf5.2.x:
+  variables:
+    CHIP_NAME: "esp32s3"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s3"
+    TEST_APP_CONFIGS: "default svtrace_dual apptrace_gcov_dual psram_dual single_core svtrace_single apptrace_gcov_single psram_single"
+    TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
+  extends: .build_idf52x_test_app_template
+
+build_test_app_esp32c2_idf5.2.x:
+  variables:
+    CHIP_NAME: "esp32c2"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single"
+  extends: .build_idf52x_test_app_template
+
+build_test_app_esp32c3_idf5.2.x:
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single"
+  extends: .build_idf52x_test_app_template
+
+build_test_app_esp32c6_idf5.2.x:
+  variables:
+    CHIP_NAME: "esp32c6"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single"
+  extends: .build_idf52x_test_app_template
+
+build_test_app_esp32h2_idf5.2.x:
+  variables:
+    CHIP_NAME: "esp32h2"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single"
+  extends: .build_idf52x_test_app_template

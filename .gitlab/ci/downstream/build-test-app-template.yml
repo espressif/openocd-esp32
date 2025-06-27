@@ -1,0 +1,176 @@
+.prepare_espytrace_package: &prepare_espytrace_package |
+  IDF_ESPYTRACE_DIR=$IDF_PATH/tools/esp_app_trace/espytrace
+  if [ -d "$IDF_ESPYTRACE_DIR" ]; then
+    cp -rv $IDF_ESPYTRACE_DIR $BUILD_TEST_APP_DIR/
+  else
+    cp -rv testing/esp/extra/espytrace $BUILD_TEST_APP_DIR/
+  fi
+
+.prepare_sysview_config: &prepare_sysview_config |
+  SYSVIEW_CONFIG=$IDF_PATH/tools/esp_app_trace/SYSVIEW_FreeRTOS.txt
+  if [ -f "$SYSVIEW_CONFIG" ]; then
+    cp -v $SYSVIEW_CONFIG $BUILD_TEST_APP_DIR/
+  else
+    echo "ERROR: SytemView config not found" >&2
+    exit 1
+  fi
+
+.prepare_test_app_build: &prepare_test_app_build |
+  mkdir -p $BUILD_TEST_APP_DIR
+  cp -rv testing/esp/test_apps/gen_ut_app $BUILD_TEST_APP_DIR/
+  export BATCH_BUILD=1
+  export V=0
+
+  # Check if having custom idf branch
+  if [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF_LATEST_DOCKER_IMAGE}" ]; then
+    if  [ -n "${TEST_APP_IDF_MASTER_BRANCH:-}" ]; then
+      TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF_MASTER_BRANCH"
+    else
+      # Checkout from gitlab master
+      TEST_APP_CUSTOM_BRANCH="master"
+    fi
+  elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_5_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_5_BRANCH:-}" ]; then
+    TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF5_5_BRANCH"
+  elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_4_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_4_BRANCH:-}" ]; then
+    TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF5_4_BRANCH"
+  elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_3_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_3_BRANCH:-}" ]; then
+    TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF5_3_BRANCH"
+  elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_2_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_2_BRANCH:-}" ]; then
+    TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF5_2_BRANCH"
+  elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_1_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_1_BRANCH:-}" ]; then
+    TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF5_1_BRANCH"
+  fi
+
+  # Use custom idf in case custom branch is present
+  if [ -n "${TEST_APP_CUSTOM_BRANCH:-}" ]; then
+    echo "TEST_APP_CUSTOM_BRANCH=$TEST_APP_CUSTOM_BRANCH"
+    pushd $BUILD_TEST_APP_DIR
+    # Clone esp-idf
+    git clone --shallow-submodules --recursive --single-branch --branch $TEST_APP_CUSTOM_BRANCH -- https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git esp-idf
+    export IDF_PATH=$PWD/esp-idf
+    # Activate pyenv
+    if [ $(command -v pyenv) ]; then
+      source /opt/pyenv/activate
+      pyenv global $(pyenv versions --bare)
+    fi
+    # Install tools
+    ${IDF_PATH}/tools/idf_tools.py install-python-env
+    if [ -n "${TEST_APP_BUILD_TOOLCHAIN_PREFIX:-}" ]; then
+      echo "TEST_APP_BUILD_TOOLCHAIN_PREFIX=$TEST_APP_BUILD_TOOLCHAIN_PREFIX"
+      ${IDF_PATH}/tools/idf_tools.py install ${TEST_APP_BUILD_TOOLCHAIN_PREFIX}-elf
+    else
+      ${IDF_PATH}/tools/idf_tools.py install ${TOOLCHAIN_PREFIX}-elf
+    fi
+    # cannot exec '. ${IDF_PATH}/export.sh' here because not all tools distros are presented
+    # in the image and `export.sh` fails w/o adding tools to $PATH
+    idf_exports=$(${IDF_PATH}/tools/idf_tools.py export) || true
+    eval "${idf_exports}"
+    popd
+  fi
+  idf.py --version || true
+  pushd $BUILD_TEST_APP_DIR/gen_ut_app
+
+.finish_test_app_build: &finish_test_app_build |
+  export UT_APP_DIR=$PWD
+  mkdir -p $UT_APP_DIR/gcov_data
+  if [ -d "$UT_APP_DIR/builds/apptrace_gcov_dual" ]; then
+    pushd $UT_APP_DIR/builds/apptrace_gcov_dual
+    find . -type d -exec mkdir -p $UT_APP_DIR/gcov_data/apptrace_gcov_dual/\{\} \;
+    find . -name "*.gcno" -exec cp "{}" $UT_APP_DIR/gcov_data/apptrace_gcov_dual/esp-idf/main/CMakeFiles/__idf_main.dir \;
+    popd
+  fi
+  if [ -d "$UT_APP_DIR/builds/apptrace_gcov_single" ]; then
+    pushd $UT_APP_DIR/builds/apptrace_gcov_single
+    find . -type d -exec mkdir -p $UT_APP_DIR/gcov_data/apptrace_gcov_single/\{\} \;
+    find . -name "*.gcno" -exec cp "{}" $UT_APP_DIR/gcov_data/apptrace_gcov_single/esp-idf/main/CMakeFiles/__idf_main.dir \;
+    popd
+  fi
+  echo "export OPENOCD_GCOV_PREFIX=$UT_APP_DIR/gcov_data" > $UT_APP_DIR/gcov_data/gcov_env.sh
+  export PREFIX_STRIP=$(awk -F"/" '{print NF-1}' <<< $UT_APP_DIR/builds)
+  echo "export OPENOCD_GCOV_PREFIX_STRIP=$PREFIX_STRIP" >> $UT_APP_DIR/gcov_data/gcov_env.sh
+  popd
+
+.do_build_test_app: &do_build_test_app |
+  if [ -z "$TEST_APP_CONFIGS" ]; then
+    echo "Build ALL"
+    IDF_TARGET=${CHIP_NAME} $IDF_PATH/tools/idf.py ut-build-all-configs
+  else
+    for cfg_name in $TEST_APP_CONFIGS
+    do
+      echo "Build <${cfg_name}>"
+      IDF_TARGET=${CHIP_NAME} $IDF_PATH/tools/idf.py ut-apply-config-$cfg_name
+      IDF_TARGET=${CHIP_NAME} $IDF_PATH/tools/idf.py ut-build-$cfg_name
+    done
+  fi
+
+.build_test_app_template:
+  image: ${TEST_APP_IDF_DOCKER_IMAGE}
+  tags:
+    - build
+  stage: build
+  variables:
+    UT_GET_IDF_VER: "1"
+    TEST_APP_CONFIGS: ""
+  artifacts:
+    paths:
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gen_ut_app.elf
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gen_ut_app.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/partition_table/partition-table.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/bootloader/bootloader.bin
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/flasher_args.json
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gdbinit/symbols
+      # Needed to run tests
+      # gcc-12
+      - $BUILD_TEST_APP_DIR/gen_ut_app/main/gcov_tests.c.gcov.json
+      - $BUILD_TEST_APP_DIR/gen_ut_app/main/helper_funcs.c.gcov.json
+      # For all gcc version
+      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/apptrace_gcov_dual
+      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/apptrace_gcov_single
+      - $BUILD_TEST_APP_DIR/gen_ut_app/gcov_data/gcov_env.sh
+      - $BUILD_TEST_APP_DIR/espytrace
+      - $BUILD_TEST_APP_DIR/SYSVIEW_FreeRTOS.txt
+    expire_in: 2 weeks
+  script:
+    - *prepare_test_app_build
+    - *do_build_test_app
+    - *finish_test_app_build
+    - *prepare_espytrace_package
+    - *prepare_sysview_config
+  needs: []
+
+.build_idf51x_test_app_template:
+  variables:
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF5_1_RELEASE_DOCKER_IMAGE}"
+    BUILD_TEST_APP_DIR: "build_test_app_${CHIP_NAME}_idf5.1.x"
+  extends: .build_test_app_template
+
+.build_idf52x_test_app_template:
+  variables:
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF5_2_RELEASE_DOCKER_IMAGE}"
+    BUILD_TEST_APP_DIR: "build_test_app_${CHIP_NAME}_idf5.2.x"
+  extends: .build_test_app_template
+
+.build_idf53x_test_app_template:
+  variables:
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF5_3_RELEASE_DOCKER_IMAGE}"
+    BUILD_TEST_APP_DIR: "build_test_app_${CHIP_NAME}_idf5.3.x"
+  extends: .build_test_app_template
+
+.build_idf54x_test_app_template:
+  variables:
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF5_4_RELEASE_DOCKER_IMAGE}"
+    BUILD_TEST_APP_DIR: "build_test_app_${CHIP_NAME}_idf5.4.x"
+  extends: .build_test_app_template
+
+.build_idf55x_test_app_template:
+  variables:
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF5_5_RELEASE_DOCKER_IMAGE}"
+    BUILD_TEST_APP_DIR: "build_test_app_${CHIP_NAME}_idf5.5.x"
+  extends: .build_test_app_template
+
+.build_idf_master_test_app_template:
+  variables:
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF_LATEST_DOCKER_IMAGE}"
+    BUILD_TEST_APP_DIR: "build_test_app_${CHIP_NAME}"
+    UT_GET_IDF_VER: "0"
+  extends: .build_test_app_template

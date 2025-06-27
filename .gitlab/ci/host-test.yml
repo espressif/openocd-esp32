@@ -1,0 +1,151 @@
+#############
+# HOST TEST #
+#############
+
+.run_openocd_unix: &run_openocd_unix |
+  ARCHIVE_NAME=$(cat "$DIST_ART_DIR/dist_name_$PLATFORM_NAME")
+  echo $ARCHIVE_NAME
+  tar xzf $DIST_ART_DIR/$ARCHIVE_NAME openocd-esp32
+  python tools/test_openocd.py openocd-esp32/bin/openocd
+
+test_on_windows:
+  stage: test_host
+  tags:
+    - test_jtag_win
+  needs:
+    - job: build_windows_win32
+  variables:
+    # actually we don't need the project sources, but we need the `git clean` gitlab-runner's stage.
+    # It's possible only for `fetch` or `clone`.
+    GIT_STRATEGY: fetch
+    PLATFORM_NAME: "win32"
+  before_script: []
+  script:
+    - $ARCHIVE_NAME=$(cat "$DIST_ART_DIR/dist_name_$PLATFORM_NAME")
+    - Expand-Archive -DestinationPath . "$DIST_ART_DIR/$ARCHIVE_NAME"
+    - python tools/test_openocd.py openocd-esp32\bin\openocd
+
+test_on_macos:
+  stage: test_host
+  tags:
+    - darwin
+    - amd64
+  needs:
+    - job: build_macos
+  variables:
+    # actually we don't need the project sources, but we need the `git clean` gitlab-runner's stage.
+    # It's possible only for `fetch` or `clone`.
+    GIT_STRATEGY: fetch
+    PLATFORM_NAME: "macos"
+  before_script: []
+  script:
+    - *run_openocd_unix
+
+tests_on_macos_arm64:
+  stage: test_host
+  tags:
+    - darwin
+    - aarch64
+  needs:
+    - job: build_macos_arm64
+  variables:
+    # actually we don't need the project sources, but we need the `git clean` gitlab-runner's stage.
+    # It's possible only for `fetch` or `clone`.
+    GIT_STRATEGY: fetch
+    PLATFORM_NAME: "macos-arm64"
+  before_script: []
+  script:
+    - *run_openocd_unix
+
+tests_on_linux:
+  stage: test_host
+  image: $CI_DOCKER_REGISTRY/esp-env-v5.1:1
+  tags:
+    - build
+  needs:
+    - job: build_linux
+  variables:
+    # actually we don't need the project sources, but we need the `git clean` gitlab-runner's stage.
+    # It's possible only for `fetch` or `clone`.
+    GIT_STRATEGY: fetch
+    PLATFORM_NAME: "linux-amd64"
+  before_script: []
+  script:
+    - *run_openocd_unix
+
+####################
+#  Board Detector  #
+####################
+
+.test_board_detector_template:
+  stage: test_host
+  image: $CI_DOCKER_REGISTRY/target-test-env-v5.5:2
+  tags:
+    - $CHIP_NAME
+    - $JTAG_IFACE
+  needs:
+    - job: build_linux_arm64
+    - job: build_linux_armhf
+  variables:
+    GIT_STRATEGY: fetch
+  artifacts:
+    paths:
+      - artifacts/esp-config.json
+    when: always
+    expire_in: 1 day
+  before_script:
+    - >
+      machine="$(uname -m)";
+      if [[ "$machine" == "armv7l" ]] ; then
+        export PLATFORM_NAME="linux-armhf";
+      elif [[ "$machine" == "aarch64" ]] ; then
+        export PLATFORM_NAME="linux-arm64";
+      fi;
+      echo "PLATFORM_NAME: ${PLATFORM_NAME}";
+  script:
+    - OUTPUT_DIR=$PWD/artifacts
+    - mkdir -p $OUTPUT_DIR
+    - ARCHIVE_NAME=$(cat "$DIST_ART_DIR/dist_name_$PLATFORM_NAME")
+    - echo $ARCHIVE_NAME
+    - tar xzf $DIST_ART_DIR/$ARCHIVE_NAME openocd-esp32
+    - OOCD_DIR=$PWD/openocd-esp32
+    - OOCD_SCRIPTS_DIR=$OOCD_DIR/share/openocd/scripts
+    - OOCD_TOOLS_DIR=$OOCD_DIR/share/openocd/espressif/tools
+    - python $OOCD_TOOLS_DIR/esp_detect_config.py -b $OOCD_DIR/bin/openocd -s $OOCD_SCRIPTS_DIR -c $OOCD_SCRIPTS_DIR/esp-config.json -o $OUTPUT_DIR/esp-config.json -d 4
+    - python $PWD/testing/esp/check_esp_config.py $OUTPUT_DIR/esp-config.json -c $CHIP_NAME -i $JTAG_IFACE -d 4
+
+test_board_detector_esp32_jtag:
+  extends: .test_board_detector_template
+  variables:
+    CHIP_NAME: "esp32"
+    JTAG_IFACE: "jtag"
+
+test_board_detector_esp32s3_jtag:
+  extends: .test_board_detector_template
+  variables:
+    CHIP_NAME: "esp32s3"
+    JTAG_IFACE: "jtag"
+
+test_board_detector_esp32c3_jtag:
+  extends: .test_board_detector_template
+  variables:
+    CHIP_NAME: "esp32c3"
+    JTAG_IFACE: "jtag"
+
+test_board_detector_esp32c5_usj:
+  extends: .test_board_detector_template
+  variables:
+    CHIP_NAME: "esp32c5"
+    JTAG_IFACE: "usb_serial_jtag"
+
+test_board_detector_esp32c6_usj:
+  extends: .test_board_detector_template
+  variables:
+    CHIP_NAME: "esp32c6"
+    JTAG_IFACE: "usb_serial_jtag"
+
+test_board_detector_esp32p4_jtag:
+  extends: .test_board_detector_template
+  variables:
+    CHIP_NAME: "esp32p4"
+    JTAG_IFACE: "jtag"
