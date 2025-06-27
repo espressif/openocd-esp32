@@ -1,0 +1,62 @@
+stages:
+  - fetch_gdb
+  - build
+  - test
+  - results
+
+image: $CI_DOCKER_REGISTRY/openocd-ci-env:1
+
+default:
+  interruptible: true
+  retry:
+    max: 2
+    when: runner_system_failure
+    exit_codes: 75
+
+variables:
+  DIST_ART_DIR: "dist"
+  DIST_INSTALLED_DIR: "${CI_PROJECT_NAME}"
+
+fetch_gdb:
+  stage: fetch_gdb
+  variables:
+    GIT_STRATEGY: none
+  needs:
+    - project: idf/binutils-gdb
+      job: pack-xtensa-arm-linux-gnueabihf
+      ref: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
+      artifacts: true
+    - project: idf/binutils-gdb
+      job: pack-riscv32-arm-linux-gnueabihf
+      ref: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
+      artifacts: true
+    - project: idf/binutils-gdb
+      job: pack-xtensa-aarch64-linux-gnu
+      ref: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
+      artifacts: true
+    - project: idf/binutils-gdb
+      job: pack-riscv32-aarch64-linux-gnu
+      ref: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
+      artifacts: true
+  rules:
+    - if: '$TRIGGERED_BY_GDB_PIPELINE_BRANCH != "" && $IDF_MASTER_RUN == "1"'
+  script:
+    - mv dist gdb
+    - cd gdb
+    - tar -xzf xtensa-esp-elf-gdb*aarch64-linux-gnu.tar.gz
+    - tar -xzf riscv32-esp-elf-gdb*aarch64-linux-gnu.tar.gz
+    - mv xtensa-esp-elf-gdb xtensa-esp-elf-gdb_arm64
+    - mv riscv32-esp-elf-gdb riscv32-esp-elf-gdb_arm64
+    - tar -xzf xtensa-esp-elf-gdb*arm-linux-gnueabihf.tar.gz
+    - tar -xzf riscv32-esp-elf-gdb*arm-linux-gnueabihf.tar.gz
+    - mv xtensa-esp-elf-gdb xtensa-esp-elf-gdb_armhf
+    - mv riscv32-esp-elf-gdb riscv32-esp-elf-gdb_armhf
+    - rm -f riscv32-esp-elf-gdb*.tar.gz xtensa-esp-elf-gdb*.tar.gz
+  artifacts:
+    paths:
+      - gdb
+
+include:
+  - '.gitlab/ci/downstream/build-test-app-template.yml'
+  - '.gitlab/ci/util.yml'
+  - '.gitlab/ci/test-template.yml'

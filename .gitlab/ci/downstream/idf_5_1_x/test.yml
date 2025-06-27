@@ -1,0 +1,146 @@
+tests_esp32_idf5.1.x:
+  extends: .tests_v5.1.x_template
+  needs:
+    - job: build_test_app_esp32_idf5.1.x
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e *.*Encrypted"
+
+tests_esp32_idf5.1.x_flash_encrypted:
+  extends: .tests_v5.1.x_template
+  tags:
+    - test_jtag_arm_flash_encryption
+  needs:
+    - job: build_test_app_esp32_idf5.1.x
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
+
+tests_esp32s2_idf5.1.x:
+  extends: .tests_v5.1.x_template
+  needs:
+    - job: build_test_app_esp32s2_idf5.1.x
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32s2"
+    TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*Single"
+
+tests_esp32s2_idf5.1.x_flash_encrypted:
+  extends: .tests_v5.1.x_template
+  tags:
+    - test_jtag_arm_flash_encryption_esp32s2
+  needs:
+    - job: build_test_app_esp32s2_idf5.1.x
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32s2"
+    TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*SingleEncrypted"
+
+tests_esp32s3_idf5.1.x_dual:
+  extends: .tests_v5.1.x_template
+  needs:
+    - job: build_test_app_esp32s3_idf5.1.x
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32s3"
+    TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual"
+
+tests_esp32s3_idf5.1.x_single:
+  extends: .tests_v5.1.x_template
+  needs:
+    - job: build_test_app_esp32s3_idf5.1.x
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32s3"
+    OOCD_CMDS: "set ESP_ONLYCPU 1"
+    TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
+
+tests_esp32c2_idf5.1.x:
+  extends: .tests_v5.1.x_riscv_template
+  needs:
+    - job: build_test_app_esp32c2_idf5.1.x
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32c2"
+    TEST_RUN_BOARD_OPTS: "-b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
+
+tests_esp32c3_idf5.1.x:
+  extends: .tests_v5.1.x_riscv_template
+  needs:
+    - job: build_test_app_esp32c3_idf5.1.x
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32c3"
+    TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*Single"
+
+tests_esp32c3_idf5.1.x_flash_encrypted:
+  extends: .tests_v5.1.x_riscv_template
+  tags:
+    - test_jtag_arm_flash_encryption_esp32c3
+  needs:
+    - job: build_test_app_esp32c3_idf5.1.x
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32c3"
+    TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*SingleEncrypted"
+
+tests_esp32c6_idf5.1.x:
+  extends: .tests_v5.1.x_riscv_template
+  tags:
+    - esp32c6
+    - usb_serial_jtag
+  needs:
+    - job: build_test_app_esp32c6_idf5.1.x
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32c6"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single"
+
+tests_esp32h2_idf5.1.x:
+  extends: .tests_v5.1.x_riscv_template
+  tags:
+    - esp32h2
+    - usb_serial_jtag
+  needs:
+    - job: build_test_app_esp32h2_idf5.1.x
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+  variables:
+    CHIP_NAME: "esp32h2"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single"

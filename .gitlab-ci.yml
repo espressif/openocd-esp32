@@ -1,21 +1,9 @@
 stages:
-  - fetch_gdb
   - pre_check
   - static_analyzers
   - build_openocd
-  - build_idf5.1.x
-  - build_idf5.2.x
-  - build_idf5.3.x
-  - build_idf5.4.x
-  - build_idf5.5.x
-  - build_idf_master
+  - run_test_pipelines
   - build_nuttx
-  - test_idf5.1.x
-  - test_idf5.2.x
-  - test_idf5.3.x
-  - test_idf5.4.x
-  - test_idf5.5.x
-  - test_idf_master
   - test_host
   - test_nuttx
   - coverage
@@ -101,44 +89,17 @@ before_script:
   - set -o errexit; set -o pipefail; set -o nounset
   - test "${DEBUG_SHELL:-''}" = "1" && set -x
 
-fetch_gdb:
-  stage: fetch_gdb
+pipeline_variables:
+  stage: pre_check
+  tags:
+    - build
   variables:
     GIT_STRATEGY: none
-  rules:
-      - if: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
-  needs:
-    - project: idf/binutils-gdb
-      job: pack-xtensa-arm-linux-gnueabihf
-      ref: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
-      artifacts: true
-    - project: idf/binutils-gdb
-      job: pack-riscv32-arm-linux-gnueabihf
-      ref: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
-      artifacts: true
-    - project: idf/binutils-gdb
-      job: pack-xtensa-aarch64-linux-gnu
-      ref: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
-      artifacts: true
-    - project: idf/binutils-gdb
-      job: pack-riscv32-aarch64-linux-gnu
-      ref: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
-      artifacts: true
   script:
-    - mv dist gdb
-    - cd gdb
-    - tar -xzf xtensa-esp-elf-gdb*aarch64-linux-gnu.tar.gz
-    - tar -xzf riscv32-esp-elf-gdb*aarch64-linux-gnu.tar.gz
-    - mv xtensa-esp-elf-gdb xtensa-esp-elf-gdb_arm64
-    - mv riscv32-esp-elf-gdb riscv32-esp-elf-gdb_arm64
-    - tar -xzf xtensa-esp-elf-gdb*arm-linux-gnueabihf.tar.gz
-    - tar -xzf riscv32-esp-elf-gdb*arm-linux-gnueabihf.tar.gz
-    - mv xtensa-esp-elf-gdb xtensa-esp-elf-gdb_armhf
-    - mv riscv32-esp-elf-gdb riscv32-esp-elf-gdb_armhf
-    - rm -f riscv32-esp-elf-gdb*.tar.gz xtensa-esp-elf-gdb*.tar.gz
+    - echo "TRIGGERED_BY_GDB_PIPELINE_BRANCH=${TRIGGERED_BY_GDB_PIPELINE_BRANCH:-}" >> variables.env
   artifacts:
-    paths:
-      - gdb
+    reports:
+      dotenv: variables.env
 
 macos_codesign:
   stage: pre_release
@@ -229,14 +190,13 @@ test_idf_examples:
     include: .gitlab/ci/idf-examples.yml
     strategy: depend
   needs:
-    - build_linux_armhf
-    - build_linux_arm64
+    - job: build_linux_armhf
+    - job: build_linux_arm64
 
 create_coverage_reports:
   stage: coverage
   tags:
     - build
-  allow_failure: true
   artifacts:
     paths:
       - dist/lcov_all_report.tar.gz
@@ -247,88 +207,19 @@ create_coverage_reports:
       coverage_report:
         coverage_format: cobertura
         path: cov_infos/cobertura.xml
+      junit:
+        - "*/results/*.xml"
+    when: always
+    expire_in: 1 week
     when: always
     expire_in: 1 week
   needs:
-    # idf 5.1.x
-    - job: tests_esp32_idf5.1.x
-    - job: tests_esp32_idf5.1.x_flash_encrypted
-    - job: tests_esp32s2_idf5.1.x
-    - job: tests_esp32s2_idf5.1.x_flash_encrypted
-    - job: tests_esp32s3_idf5.1.x_dual
-    - job: tests_esp32s3_idf5.1.x_single
-    - job: tests_esp32c2_idf5.1.x
-    - job: tests_esp32c3_idf5.1.x
-    - job: tests_esp32c3_idf5.1.x_flash_encrypted
-    - job: tests_esp32c6_idf5.1.x
-    - job: tests_esp32h2_idf5.1.x
-    # idf 5.2.x
-    - job: tests_esp32_idf5.2.x
-    - job: tests_esp32_idf5.2.x_flash_encrypted
-    - job: tests_esp32s2_idf5.2.x
-    - job: tests_esp32s2_idf5.2.x_flash_encrypted
-    - job: tests_esp32s3_idf5.2.x_dual
-    - job: tests_esp32s3_idf5.2.x_single
-    - job: tests_esp32c2_idf5.2.x
-    - job: tests_esp32c3_idf5.2.x
-    - job: tests_esp32c3_idf5.2.x_flash_encrypted
-    - job: tests_esp32c6_idf5.2.x
-    - job: tests_esp32h2_idf5.2.x
-    # idf 5.3.x
-    - job: tests_esp32_idf5.3.x
-    - job: tests_esp32_idf5.3.x_flash_encrypted
-    - job: tests_esp32s2_idf5.3.x
-    - job: tests_esp32s2_idf5.3.x_flash_encrypted
-    - job: tests_esp32s3_idf5.3.x_dual
-    - job: tests_esp32s3_idf5.3.x_single
-    - job: tests_esp32c2_idf5.3.x
-    - job: tests_esp32c3_idf5.3.x
-    - job: tests_esp32c3_idf5.3.x_flash_encrypted
-    - job: tests_esp32c6_idf5.3.x
-    - job: tests_esp32h2_idf5.3.x
-    - job: tests_esp32p4_idf5.3.x
-    # idf 5.4.x
-    - job: tests_esp32_idf5.4.x
-    - job: tests_esp32_idf5.4.x_flash_encrypted
-    - job: tests_esp32s2_idf5.4.x
-    - job: tests_esp32s2_idf5.4.x_flash_encrypted
-    - job: tests_esp32s3_idf5.4.x_dual
-    - job: tests_esp32s3_idf5.4.x_single
-    - job: tests_esp32c2_idf5.4.x
-    - job: tests_esp32c3_idf5.4.x
-    - job: tests_esp32c3_idf5.4.x_flash_encrypted
-    - job: tests_esp32c6_idf5.4.x
-    - job: tests_esp32h2_idf5.4.x
-    - job: tests_esp32p4_idf5.4.x
-    # idf 5.5.x
-    - job: tests_esp32_idf5.5.x
-    - job: tests_esp32_idf5.5.x_flash_encrypted
-    - job: tests_esp32s2_idf5.5.x
-    - job: tests_esp32s2_idf5.5.x_flash_encrypted
-    - job: tests_esp32s3_idf5.5.x_dual
-    - job: tests_esp32s3_idf5.5.x_single
-    - job: tests_esp32c2_idf5.5.x
-    - job: tests_esp32c3_idf5.5.x
-    - job: tests_esp32c3_idf5.5.x_flash_encrypted
-    - job: tests_esp32c5_idf5.5.x
-    - job: tests_esp32c6_idf5.5.x
-    - job: tests_esp32h2_idf5.5.x
-    - job: tests_esp32p4_idf5.5.x
-    # idf master
-    - job: tests_esp32
-    - job: tests_esp32_flash_encrypted
-    - job: tests_esp32s2
-    - job: tests_esp32s2_flash_encrypted
-    - job: tests_esp32s3_dual
-    - job: tests_esp32s3_single
-    - job: tests_esp32c2
-    - job: tests_esp32c3
-    - job: tests_esp32c3_flash_encrypted
-    #- job: tests_esp32c5 #disabled until esp-idf !39677
-    - job: tests_esp32c6
-    - job: tests_esp32c61
-    - job: tests_esp32h2
-    - job: tests_esp32p4
+    - job: 5.1.x_run_test_pipeline
+    - job: 5.2.x_run_test_pipeline
+    - job: 5.3.x_run_test_pipeline
+    - job: 5.4.x_run_test_pipeline
+    - job: 5.5.x_run_test_pipeline
+    - job: master_run_test_pipeline
     # NuttX
     - job: test_nuttx_esp32
     - job: test_nuttx_esp32s2
@@ -336,8 +227,26 @@ create_coverage_reports:
     - job: test_nuttx_esp32c3
     - job: test_nuttx_esp32c6
     - job: test_nuttx_esp32h2
-
+  when: always
   script:
+    # Fetch artifacts from downstream
+    - >
+      api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/pipelines/${CI_PIPELINE_ID}/bridges";
+      echo "${api_call}";
+      BRIDGES=$(curl --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}");
+      CHILD_IDS=$(echo "$BRIDGES" | python3 -c "import json; x=json.loads(input()); print(' '.join(str(y['downstream_pipeline']['id']) for y in x if y['name'].endswith('_run_test_pipeline')))");
+      for child in $CHILD_IDS; do
+        api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/pipelines/${child}/jobs";
+        echo "${api_call}";
+        JOBS=$(curl --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}");
+        TEST_IDS=$(echo "$JOBS" | python3 -c "import json; x=json.loads(input()); print(' '.join(str(y['id']) for y in x if y['name'].startswith('tests_') and y['status'] != 'skipped'))");
+        for test in $TEST_IDS; do
+          api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/jobs/${test}/artifacts";
+          echo "${api_call}";
+          curl --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}" -o artifacts.zip;
+          unzip artifacts.zip || echo "No valid artifacts for ${test}";
+        done;
+      done;
     - mkdir -p cov_infos
     - mkdir -p dist
     # Below lines copies all .info files into cov_infos folder
@@ -382,6 +291,8 @@ update_idf_tools:
 include:
   - '.gitlab/ci/util.yml'
   - '.gitlab/ci/build.yml'
-  - '.gitlab/ci/build-test-app.yml'
-  - '.gitlab/ci/test.yml'
+  - '.gitlab/ci/test-template.yml'
   - '.gitlab/ci/pre-check.yml'
+  - '.gitlab/ci/nuttx.yml'
+  - '.gitlab/ci/host-test.yml'
+  - '.gitlab/ci/run-pipeline.yml'

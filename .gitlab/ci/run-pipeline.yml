@@ -1,0 +1,66 @@
+.run_test_pipeline:
+  stage: run_test_pipelines
+  needs:
+    - job: build_linux_arm64_test
+    - job: build_linux_armhf_test
+  variables:
+    PARENT_PIPELINE_ID: $CI_PIPELINE_ID
+    TRIGGERED_BY_GDB_PIPELINE_BRANCH: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
+    SCHEDULE_TYPE: $SCHEDULE_TYPE
+    IDF_MASTER_RUN: "0"
+
+5.1.x_run_test_pipeline:
+  extends: .run_test_pipeline
+  trigger:
+    include:
+      - local: '.gitlab/ci/downstream/child-pipeline-template.yml'
+      - local: '.gitlab/ci/downstream/idf_5_1_x/build.yml'
+      - local: '.gitlab/ci/downstream/idf_5_1_x/test.yml'
+    strategy: depend
+
+5.2.x_run_test_pipeline:
+  extends: .run_test_pipeline
+  trigger:
+    include:
+      - local: '.gitlab/ci/downstream/child-pipeline-template.yml'
+      - local: '.gitlab/ci/downstream/idf_5_2_x/build.yml'
+      - local: '.gitlab/ci/downstream/idf_5_2_x/test.yml'
+    strategy: depend
+
+5.3.x_run_test_pipeline:
+  extends: .run_test_pipeline
+  trigger:
+    include:
+      - local: '.gitlab/ci/downstream/child-pipeline-template.yml'
+      - local: '.gitlab/ci/downstream/idf_5_3_x/build.yml'
+      - local: '.gitlab/ci/downstream/idf_5_3_x/test.yml'
+    strategy: depend
+
+5.4.x_run_test_pipeline:
+  extends: .run_test_pipeline
+  trigger:
+    include:
+      - local: '.gitlab/ci/downstream/child-pipeline-template.yml'
+      - local: '.gitlab/ci/downstream/idf_5_4_x/build.yml'
+      - local: '.gitlab/ci/downstream/idf_5_4_x/test.yml'
+    strategy: depend
+
+5.5.x_run_test_pipeline:
+  extends: .run_test_pipeline
+  trigger:
+    include:
+      - local: '.gitlab/ci/downstream/child-pipeline-template.yml'
+      - local: '.gitlab/ci/downstream/idf_5_5_x/build.yml'
+      - local: '.gitlab/ci/downstream/idf_5_5_x/test.yml'
+    strategy: depend
+
+master_run_test_pipeline:
+  extends: .run_test_pipeline
+  variables:
+    IDF_MASTER_RUN: "1"
+  trigger:
+    include:
+      - local: '.gitlab/ci/downstream/child-pipeline-template.yml'
+      - local: '.gitlab/ci/downstream/idf_master/build.yml'
+      - local: '.gitlab/ci/downstream/idf_master/test.yml'
+    strategy: depend
