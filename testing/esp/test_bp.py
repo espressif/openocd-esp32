@@ -344,6 +344,7 @@ class WatchpointTestsImpl:
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
 ########################################################################
+@skip_for_chip_and_ver(['5.5'], ['esp32p4'], 'OCD-1214')
 def two_cores_concurrently_hit_bps(self):
     """
         This test checks that 2 cores can concurrently hit the same set of breakpoints.
