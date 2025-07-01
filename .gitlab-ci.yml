@@ -312,7 +312,6 @@ create_coverage_reports:
     - job: tests_esp32c3_idf5.5.x_flash_encrypted
     - job: tests_esp32c5_idf5.5.x
     - job: tests_esp32c6_idf5.5.x
-    #- job: tests_esp32c61_idf5.5.x #disabled until eco3 supported in idf5.5
     - job: tests_esp32h2_idf5.5.x
     - job: tests_esp32p4_idf5.5.x
     # idf master
@@ -327,7 +326,7 @@ create_coverage_reports:
     - job: tests_esp32c3_flash_encrypted
     #- job: tests_esp32c5 #disabled until esp-idf !39677
     - job: tests_esp32c6
-    #- job: tests_esp32c61 #disabled until eco3 runner installed
+    - job: tests_esp32c61
     - job: tests_esp32h2
     - job: tests_esp32p4
     # NuttX
