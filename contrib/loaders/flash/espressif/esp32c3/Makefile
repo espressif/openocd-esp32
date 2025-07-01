@@ -21,8 +21,7 @@ STUB_CHIP := esp32c3
 
 SRCS := $(IDF_PATH)/components/esp_hw_support/port/esp32c3/rtc_clk_init.c \
 		$(IDF_PATH)/components/esp_hw_support/port/esp32c3/rtc_clk.c \
-		$(IDF_PATH)/components/esp_hw_support/port/esp32c3/rtc_time.c \
-		$(IDF_PATH)/components/app_trace/port/$(STUB_ARCH)/port.c
+		$(IDF_PATH)/components/esp_hw_support/port/esp32c3/rtc_time.c
 
 CFLAGS := -std=gnu99
 

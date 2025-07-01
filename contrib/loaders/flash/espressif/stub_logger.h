@@ -54,6 +54,7 @@ void stub_log_init(enum stub_log_levels level, enum stub_log_destination dest);
 		} \
 	} while (0)
 
+#define STUB_PRINTF(format, ...)  STUB_LOG(STUB_LOG_LEVEL_ERROR, format, ## __VA_ARGS__)
 #define STUB_LOGE(format, ...)  STUB_LOG(STUB_LOG_LEVEL_ERROR, "STUB_E: " format, ## __VA_ARGS__)
 #define STUB_LOGW(format, ...)  STUB_LOG(STUB_LOG_LEVEL_WARN, "STUB_W: "format, ## __VA_ARGS__)
 #define STUB_LOGI(format, ...)  STUB_LOG(STUB_LOG_LEVEL_INFO, "STUB_I: "format, ## __VA_ARGS__)
@@ -62,6 +63,7 @@ void stub_log_init(enum stub_log_levels level, enum stub_log_destination dest);
 
 #else /* !STUB_LOG_ENABLE */
 
+#define STUB_PRINTF(format, ...)  do {} while (0)
 #define STUB_LOGE(format, ...)  do {} while (0)
 #define STUB_LOGW(format, ...)  do {} while (0)
 #define STUB_LOGI(format, ...)  do {} while (0)

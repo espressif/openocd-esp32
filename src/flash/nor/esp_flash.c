@@ -642,8 +642,8 @@ static int esp_algo_flash_write_state_init(struct target *target,
 		buffer_size,
 		duration_elapsed(&algo_time) * 1000);
 
-	state->stub_wargs.down_buf_addr = state->target_buf->address;
-	state->stub_wargs.down_buf_size = state->target_buf->size;
+	state->stub_wargs.ring_buf_addr = state->target_buf->address;
+	state->stub_wargs.ring_buf_size = state->target_buf->size;
 
 	ret = target_write_buffer(target, state->stub_wargs_area->address,
 		sizeof(state->stub_wargs), (uint8_t *)&state->stub_wargs);
@@ -770,8 +770,8 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	wr_state.stub_wargs.size = wr_state.rw.count;
 	wr_state.stub_wargs.total_size = count;
 	wr_state.stub_wargs.start_addr = esp_info->hw_flash_base + offset;
-	wr_state.stub_wargs.down_buf_addr = 0;
-	wr_state.stub_wargs.down_buf_size = 0;
+	wr_state.stub_wargs.ring_buf_addr = 0;
+	wr_state.stub_wargs.ring_buf_size = 0;
 	wr_state.stub_wargs.options = ESP_STUB_FLASH_WR_RAW;
 	if (esp_info->encryption_needed_on_chip)
 		wr_state.stub_wargs.options |= ESP_STUB_FLASH_ENCRYPT_BINARY;

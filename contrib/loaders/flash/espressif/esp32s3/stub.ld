@@ -11,8 +11,10 @@ MEMORY {
      0x3FC9C000 - code (OpenOCD workarea address)
 	 0x3FCA0000 - data
   */
-  iram : org = 0x4038C000, len = 0x4000
-  dram : org = 0x3FCA0000, len = 0x20000
+  iram            : org = 0x4038C000, len = 0x4000
+  dram            : org = 0x3FCA0000, len = 0x20000
+  apptrace_block0 : org = 0x3FCD0000, len = 0x4000
+  apptrace_block1 : org = 0x3FCD4000, len = 0x4000
 }
 
 INCLUDE stub_common.ld

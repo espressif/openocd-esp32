@@ -39,9 +39,25 @@
 #define STUB_MMU_TABLE                      ((volatile uint32_t *)DR_REG_MMU_TABLE)
 #define STUB_MMU_INVALID_ENTRY_VAL          MMU_TABLE_INVALID_VAL       /* 0x400 */
 
+/* TRAX memory related definitions */
+#define PMS_OCCUPY_3_REG                    (DR_REG_SENSITIVE_BASE + 0x0E0)
+
+#define TRACEMEM_MUX_BLK0_NUM               19
+#define TRACEMEM_MUX_BLK1_NUM               20
+
 extern esp_rom_spiflash_chip_t g_rom_spiflash_chip;
 
 uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32S2_DEFAULT_CPU_FREQ_MHZ * MHZ;
+
+void stub_target_trax_mem_enable(void)
+{
+	/* nothing to do for ESP32S2 */
+}
+
+void stub_target_trax_select_mem_block(int block)
+{
+	WRITE_PERI_REG(PMS_OCCUPY_3_REG, block ? BIT(TRACEMEM_MUX_BLK0_NUM - 4) : BIT(TRACEMEM_MUX_BLK1_NUM - 4));
+}
 
 uint32_t stub_flash_get_id(void)
 {

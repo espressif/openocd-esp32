@@ -22,7 +22,6 @@ STUB_CHIP := esp32c61
 SRCS := $(IDF_PATH)/components/esp_hw_support/port/esp32c61/rtc_clk_init.c \
 		$(IDF_PATH)/components/esp_hw_support/port/esp32c61/rtc_clk.c \
 		$(IDF_PATH)/components/esp_hw_support/port/esp32c61/rtc_time.c \
-		$(IDF_PATH)/components/app_trace/port/$(STUB_ARCH)/port.c \
 		$(IDF_PATH)/components/esp_rom/patches/esp_rom_cache_esp32c61.c
 
 CFLAGS := -std=gnu17

@@ -19,11 +19,9 @@ STUB_IDF_BIN_LD_SCRIPT := stub.ld
 STUB_STACK_SIZE := 512
 STUB_CHIP := esp32
 
-SRCS := $(IDF_PATH)/components/app_trace/port/$(STUB_ARCH)/port.c \
-	$(IDF_PATH)/components/esp_hw_support/port/esp32/rtc_clk.c \
+SRCS := $(IDF_PATH)/components/esp_hw_support/port/esp32/rtc_clk.c \
 	$(IDF_PATH)/components/esp_hw_support/port/esp32/rtc_clk_init.c \
 	$(IDF_PATH)/components/esp_hw_support/port/esp32/rtc_time.c \
-	$(IDF_PATH)/components/xtensa/eri.c \
 	$(STUB_CHIP_PATH)/stub_sha_chip.c \
 	$(STUB_CHIP_PATH)/stub_spiflash_rom_patch.c
 

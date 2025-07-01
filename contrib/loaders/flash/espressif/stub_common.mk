@@ -21,9 +21,9 @@ SRCS += $(STUB_COMMON_PATH)/stub_flasher.c \
         $(STUB_COMMON_PATH)/stub_logger.c \
         $(STUB_COMMON_PATH)/stub_sha.c \
         $(STUB_COMMON_PATH)/$(STUB_ARCH)/stub_$(STUB_ARCH)_common.c \
-        $(IDF_PATH)/components/app_trace/app_trace.c \
-        $(IDF_PATH)/components/app_trace/app_trace_util.c \
-        $(IDF_PATH)/components/app_trace/app_trace_membufs_proto.c \
+        $(STUB_COMMON_PATH)/apptrace/src/apptrace_hw_$(STUB_ARCH).c \
+		$(STUB_COMMON_PATH)/apptrace/src/apptrace_mem_ctrl.c \
+		$(STUB_COMMON_PATH)/apptrace/src/stub_apptrace.c \
         $(IDF_PATH)/components/esp_hw_support/regi2c_ctrl.c
 
 STUB_IMAGE_HDR = $(STUB)_flasher_image.h
@@ -81,9 +81,7 @@ INCLUDES += -I. -I$(STUB_COMMON_PATH) -I$(STUB_CHIP_PATH) -I$(STUB_CHIP_ARCH_PAT
           -I$(IDF_PATH)/components/spi_flash/include \
           -I$(IDF_PATH)/components/spi_flash/private_include \
           -I$(IDF_PATH)/components/esp_system/port/include/private \
-          -I$(IDF_PATH)/components/app_trace/include \
-          -I$(IDF_PATH)/components/app_trace/private_include \
-          -I$(IDF_PATH)/components/app_trace/port/include \
+		  -I$(STUB_COMMON_PATH)/apptrace/include \
           -I$(IDF_PATH)/components/freertos/config/include \
           -I$(IDF_PATH)/components/freertos/config/include/freertos \
           -I$(IDF_PATH)/components/freertos/config/$(STUB_ARCH)/include \
@@ -177,7 +175,7 @@ $(STUB_IMAGE_HDR): $(ELF_OUTPUTS)
 		printf "#define ESP_STUB_$(CMD_NAME)_ENTRY_ADDR 0x0" >> $(STUB_IMAGE_HDR) ; \
 		$(READELF) -s $(ELF_FILE) | fgrep stub_main | awk '{print $$2"UL"}' >> $(STUB_IMAGE_HDR) ; \
 		printf "#define ESP_STUB_$(CMD_NAME)_APPTRACE_CTRL_ADDR 0x0" >> $(STUB_IMAGE_HDR) ; \
-		$(READELF) -s $(ELF_FILE) | fgrep s_tracing_ctrl | awk 'NR==1 {print ($$2 "UL"); exit} END {if (NR==0) print "0UL"}' >> $(STUB_IMAGE_HDR) ; \
+		$(READELF) -s $(ELF_FILE) | fgrep s_apptrace_ctrl | awk 'NR==1 {print ($$2 "UL"); exit} END {if (NR==0) print "0UL"}' >> $(STUB_IMAGE_HDR) ; \
 		printf "#define ESP_STUB_$(CMD_NAME)_LOG_ADDR 0x0" >> $(STUB_IMAGE_HDR) ; \
 		$(READELF) -s $(ELF_FILE) | fgrep s_stub_log_buff | awk 'NR==1 {print ($$2 "UL"); exit} END {if (NR==0) print "0UL"}' >> $(STUB_IMAGE_HDR) ; \
 		printf "#define ESP_STUB_$(CMD_NAME)_LOG_SIZE " >> $(STUB_IMAGE_HDR) ; \

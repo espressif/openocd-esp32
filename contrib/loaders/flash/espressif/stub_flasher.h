@@ -87,8 +87,8 @@ struct esp_stub_flash_map {
 struct esp_flash_stub_flash_write_args {
 	uint32_t start_addr;
 	uint32_t size;
-	uint32_t down_buf_addr;
-	uint32_t down_buf_size;
+	uint32_t ring_buf_addr;
+	uint32_t ring_buf_size;
 	uint32_t total_size;        /* uncompressed file size */
 	uint32_t extra_stack_addr;  /* extra stack for compression */
 	uint32_t options;           /* Write options. e.g. encrypted */
@@ -130,6 +130,6 @@ In other words, if the binary generated for the `ESP_STUB_CMD_FLASH_IDF_BINARY` 
 we need to increase the version and update the related .inc files in the
 esp-idf/components/esp_system/openocd_stub_bins/ directory.
 */
-#define ESP_STUB_FLASHER_VERSION               1
+#define ESP_STUB_FLASHER_VERSION               2
 
 #endif	/* OPENOCD_LOADERS_FLASH_ESPRESSIF_STUB_FLASHER_H */

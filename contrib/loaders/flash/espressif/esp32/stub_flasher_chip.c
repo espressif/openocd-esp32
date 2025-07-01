@@ -53,6 +53,14 @@ uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * MHZ;
 #define STUB_APP_MMU_TABLE                          ((volatile uint32_t *)0x3FF12000)
 #define STUB_MMU_INVALID_ENTRY_VAL                  SOC_MMU_INVALID_ENTRY_VAL   /* 0x100 */
 
+/* TRAX memory related definitions */
+#define TRACEMEM_MUX_MODE_REG                       (DR_REG_DPORT_BASE + 0x070)
+#define TRACEMEM_ENA_REG                            (DR_REG_DPORT_BASE + 0x074)
+#define TRACEMEM_ENA_M                              (0x1)
+
+#define TRACEMEM_MUX_BLK0_ONLY                      1
+#define TRACEMEM_MUX_BLK1_ONLY                      2
+
 static volatile uint32_t *mmu_table_s[2] = { STUB_PRO_MMU_TABLE, STUB_APP_MMU_TABLE };
 
 extern esp_rom_spiflash_chip_t g_rom_spiflash_chip;
@@ -61,6 +69,16 @@ extern uint8_t g_rom_spiflash_dummy_len_plus[];
 static const uint32_t cache_mask = DPORT_APP_CACHE_MASK_OPSDRAM | DPORT_APP_CACHE_MASK_DROM0 |
 	DPORT_APP_CACHE_MASK_DRAM1 | DPORT_APP_CACHE_MASK_IROM0 |
 	DPORT_APP_CACHE_MASK_IRAM1 | DPORT_APP_CACHE_MASK_IRAM0;
+
+void stub_target_trax_mem_enable(void)
+{
+	WRITE_PERI_REG(TRACEMEM_ENA_REG, TRACEMEM_ENA_M);
+}
+
+void stub_target_trax_select_mem_block(int block)
+{
+	WRITE_PERI_REG(TRACEMEM_MUX_MODE_REG, block ? TRACEMEM_MUX_BLK0_ONLY : TRACEMEM_MUX_BLK1_ONLY);
+}
 
 static void esp32_flash_disable_cache_for_cpu(uint32_t cpuid, uint32_t *saved_state)
 {

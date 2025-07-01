@@ -24,7 +24,6 @@
 
 #include <systimer.h>
 #include <esp_rom_efuse.h>
-#include <esp_app_trace_membufs_proto.h>
 
 #include <stub_flasher_int.h>
 #include <stub_logger.h>
@@ -56,11 +55,6 @@ uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32C2_DEFAULT_CPU_FREQ_MHZ * MHZ;
 int xPortInIsrContext(void)
 {
 	return 0;
-}
-
-void *esp_apptrace_uart_hw_get(int num, void **data)
-{
-	return NULL;
 }
 
 void stub_flash_cache_flush(void)
@@ -231,12 +225,6 @@ uint64_t stub_get_time(void)
 	} while (lo_start != lo);
 
 	return systimer_ticks_to_us(((uint64_t)hi << 32) | lo);
-}
-
-/* this function is used by apptrace code to implement timeouts */
-int64_t esp_timer_get_time(void)
-{
-	return (int64_t)stub_get_time();
 }
 
 static inline bool esp_flash_encryption_enabled(void)

@@ -56,11 +56,6 @@ int xPortInIsrContext(void)
 	return 0;
 }
 
-void *esp_apptrace_uart_hw_get(int num, void **data)
-{
-	return NULL;
-}
-
 static inline uint32_t __attribute__((always_inline)) stub_mmu_hal_pages_to_bytes(uint32_t page_num)
 {
 	return page_num << s_cache_mmu_config.shift_count;
@@ -233,19 +228,6 @@ void stub_uart_console_configure(int dest)
 	ets_install_uart_printf();
 }
 #endif
-
-int64_t esp_timer_get_time(void)
-{
-	/*
-		This function is used by apptrace code to implement timeouts.
-		unfortunately esp32c5 does not support CPU cycle counter, so we have two options:
-		1) Use some HW timer. It can be hard, because we need to ensure that it is initialized and
-		possibly restore its state.
-		2) Emulate timer by incrementing some var on every call.
-		Stub flasher uses ESP_APPTRACE_TMO_INFINITE only, so this function won't be called by apptrace at all.
-	*/
-	return 0;
-}
 
 uint64_t stub_get_time(void)
 {

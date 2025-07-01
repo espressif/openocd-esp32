@@ -48,11 +48,34 @@
 #define STUB_MMU_TABLE                  SOC_MMU_DPORT_PRO_FLASH_MMU_TABLE /* 0x600c5000 */
 #define STUB_MMU_INVALID_ENTRY_VAL      SOC_MMU_INVALID_ENTRY_VAL         /* 0x4000 */
 
+/* TRAX memory related definitions */
+#define SENSITIVE_INTERNAL_SRAM_USAGE_2_REG (DR_REG_SENSITIVE_BASE + 0x18)
+
+#define TRACEMEM_MUX_BLK0_NUM               22
+#define TRACEMEM_MUX_BLK1_NUM               23
+#define TRACEMEM_MUX_BLK_ALLOC(_n_)         (((_n_) - 2UL) % 4UL)
+#define TRACEMEM_CORE0_MUX_BLK_BITS(_n_)    (BIT(((_n_) - 2UL) / 4UL) | (TRACEMEM_MUX_BLK_ALLOC(_n_) << 14))
+#define TRACEMEM_CORE1_MUX_BLK_BITS(_n_)    (BIT(7UL + ((_n_) - 2UL) / 4UL) | (TRACEMEM_MUX_BLK_ALLOC(_n_) << 16))
+
 uint32_t g_stub_cpu_freq_hz = CONFIG_ESP32S3_DEFAULT_CPU_FREQ_MHZ * MHZ;
 
 extern bool ets_efuse_flash_octal_mode(void);
 extern void spi_cache_mode_switch(uint32_t  modebit);
 extern void spi_common_set_flash_cs_timing(void);
+
+void stub_target_trax_mem_enable(void)
+{
+    /* nothing to do for ESP32S3 */
+}
+
+void stub_target_trax_select_mem_block(int block)
+{
+	uint32_t block_bits = block ? TRACEMEM_CORE0_MUX_BLK_BITS(TRACEMEM_MUX_BLK0_NUM)
+					: TRACEMEM_CORE0_MUX_BLK_BITS(TRACEMEM_MUX_BLK1_NUM);
+	block_bits |= block ? TRACEMEM_CORE1_MUX_BLK_BITS(TRACEMEM_MUX_BLK0_NUM)
+					: TRACEMEM_CORE1_MUX_BLK_BITS(TRACEMEM_MUX_BLK1_NUM);
+	WRITE_PERI_REG(SENSITIVE_INTERNAL_SRAM_USAGE_2_REG, block_bits);
+}
 
 static void stub_spi_read_mode_config(void)
 {

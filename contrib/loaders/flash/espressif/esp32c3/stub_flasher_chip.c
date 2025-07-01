@@ -15,6 +15,7 @@
 #include <soc/rtc.h>
 #include <soc/efuse_periph.h>
 #include <soc/extmem_reg.h>
+#include <soc/system_reg.h>
 #include <soc/gpio_reg.h>
 #include <soc/mmu.h>
 
@@ -214,19 +215,6 @@ void stub_uart_console_configure(int dest)
 	ets_install_uart_printf();
 }
 #endif
-
-int64_t esp_timer_get_time(void)
-{
-	/*
-	This function is used by apptrace code to implement timeouts.
-	unfortunately esp32c3 does not support CPU cycle counter, so we have two options:
-	1) Use some HW timer. It can be hard, because we need to ensure that it is initialized and
-	possibly restore its state.
-	2) Emulate timer by incrementing some var on every call.
-	Stub flasher uses ESP_APPTRACE_TMO_INFINITE only, so this function won't be called by apptrace at all.
-	*/
-	return 0;
-}
 
 uint64_t stub_get_time(void)
 {
