@@ -6,7 +6,7 @@
   variables:
     RUNNER_SCRIPT_TIMEOUT: 60m
     OOCD_CMDS: "set VAR 1" # default command to avoid missing argument error.
-    TEST_RUN_EXTRA_OPTS: "-r -i ${IDF_RELEASE_TAG} ${TEST_RUN_BOARD_OPTS} ${TEST_RUN_COMMON_ARGS}"
+    TEST_RUN_EXTRA_OPTS: "-r -i ${IDF_RELEASE_TAG} ${TEST_RUN_BOARD_OPTS}"
     ESPTOOL_PORT: "/dev/serial_ports/ttyUSB-esp32"
   artifacts:
     paths:
@@ -43,6 +43,9 @@
         export ASAN_OPTIONS="detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1";
         export TEST_SANITIZERS=1;
         cp ${CONF_HOST}/lib* /usr/lib;
+      fi;
+      if [[ $IDF_RELEASE_TAG != "latest" || $CI_FULL_RUN != "1" ]] ; then
+        export TEST_RUN_EXTRA_OPTS="${TEST_RUN_EXTRA_OPTS} -e *.*.test_big_binary *.*.test_big_binary_compressed";
       fi
   script:
     - !reference [.submodules_mirror_update, script]
@@ -107,7 +110,6 @@
     ESP_TOOLCHAIN: "${ESP_V5_5X_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.5.x"
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_5_X_RELEASE_TAG}"
-    TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
     ESP_GCOV_TOOLCHAIN: "${ESP_V5_5X_XTENSA_GCOV_TOOLCHAIN}"
 
 .tests_v5.5.x_riscv_template:
@@ -128,7 +130,6 @@
     ESP_TOOLCHAIN: "${ESP_V5_4X_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.4.x"
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_4_X_RELEASE_TAG}"
-    TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
     ESP_GCOV_TOOLCHAIN: "${ESP_V5_4X_XTENSA_GCOV_TOOLCHAIN}"
 
 .tests_v5.4.x_riscv_template:
@@ -149,7 +150,6 @@
     ESP_TOOLCHAIN: "${ESP_V5_3X_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.3.x"
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_3_X_RELEASE_TAG}"
-    TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
 
 .tests_v5.3.x_riscv_template:
   extends: .tests_v5.3.x_template
@@ -168,7 +168,6 @@
     TOOLCHAIN_PREFIX: "xtensa-esp"
     ESP_TOOLCHAIN: "${ESP_V5_2X_TOOLCHAIN_VER}"
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_2_X_RELEASE_TAG}"
-    TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
 
 .tests_v5.2.x_riscv_template:
   extends: .tests_v5.2.x_template
@@ -187,7 +186,6 @@
     TOOLCHAIN_PREFIX: "xtensa-${CHIP_NAME}"
     ESP_TOOLCHAIN: "${ESP_V5_1X_TOOLCHAIN_VER}"
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_1_X_RELEASE_TAG}"
-    TEST_RUN_COMMON_ARGS: "-e *.*.test_big_binary *.*.test_big_binary_compressed"
 
 .tests_v5.1.x_riscv_template:
   extends: .tests_v5.1.x_template
