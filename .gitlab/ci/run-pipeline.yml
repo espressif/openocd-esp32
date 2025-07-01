@@ -1,6 +1,7 @@
 .run_test_pipeline:
   stage: run_test_pipelines
   needs:
+    - job: pipeline_variables
     - job: build_linux_arm64_test
     - job: build_linux_armhf_test
   variables:
@@ -8,6 +9,7 @@
     TRIGGERED_BY_GDB_PIPELINE_BRANCH: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
     SCHEDULE_TYPE: $SCHEDULE_TYPE
     IDF_MASTER_RUN: "0"
+    CI_FULL_RUN: $CI_FULL_RUN
 
 5.1.x_run_test_pipeline:
   extends: .run_test_pipeline

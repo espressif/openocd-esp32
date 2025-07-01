@@ -56,6 +56,11 @@ fetch_gdb:
     paths:
       - gdb
 
+dummy_job:
+  script: echo "Pipeline skipped"
+  rules:
+    - if: '$CI_FULL_RUN == "0" && $IDF_MASTER_RUN == "0"'
+
 include:
   - '.gitlab/ci/downstream/build-test-app-template.yml'
   - '.gitlab/ci/util.yml'

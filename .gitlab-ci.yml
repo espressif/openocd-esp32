@@ -96,7 +96,20 @@ pipeline_variables:
   variables:
     GIT_STRATEGY: none
   script:
-    - echo "TRIGGERED_BY_GDB_PIPELINE_BRANCH=${TRIGGERED_BY_GDB_PIPELINE_BRANCH:-}" >> variables.env
+    - >
+      echo "TRIGGERED_BY_GDB_PIPELINE_BRANCH=${TRIGGERED_BY_GDB_PIPELINE_BRANCH:-}" >> variables.env;
+      if [[ ! -z ${TRIGGERED_BY_GDB_PIPELINE_BRANCH:-} ]]; then
+        echo "CI_FULL_RUN=0" >> variables.env;
+      elif [[ $CI_PIPELINE_SOURCE != "push" || $CI_COMMIT_BRANCH == "master" ]]; then
+        echo "CI_FULL_RUN=1" >> variables.env;
+      else
+        api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/merge_requests?source_branch=${CI_COMMIT_REF_NAME}&state=opened";
+        echo "${api_call}";
+        OPEN_MR=$(curl --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}");
+        echo $OPEN_MR;
+        ready=$(echo "$OPEN_MR" | python3 -c "import json; x=json.loads(input()); print(1 if len(x) and 'labels' in x[0] and 'ready_to_merge' in x[0]['labels'] else 0)");
+        echo "CI_FULL_RUN=${ready}" >> variables.env;
+      fi
   artifacts:
     reports:
       dotenv: variables.env

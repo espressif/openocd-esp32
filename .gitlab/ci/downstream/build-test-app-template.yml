@@ -137,6 +137,11 @@
     - *prepare_espytrace_package
     - *prepare_sysview_config
   needs: []
+  rules:
+    - if: '$CI_FULL_RUN == "1" || $UT_GET_IDF_VER == "0"'
+      when: always
+    - when: manual
+      allow_failure: true
 
 .build_idf51x_test_app_template:
   variables:
