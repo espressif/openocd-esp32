@@ -431,6 +431,15 @@ def main():
                                 log_lev, ch, fh, args.gdb_log_folder)
             err_suite = debug_backend_tests.DebuggerTestsBunch()
 
+            if not board_uart_reader:
+                try:
+                    board_uart_reader = SerialPortReader(args.serial_port)
+                    setup_logger(board_uart_reader.get_logger(), ch, fh, log_lev)
+                    board_uart_reader.start()
+                    time.sleep(1)
+                except serial.SerialException as e:
+                    sys.stderr.write('Could not start reader for serial port {}: {}\n'.format(args.serial_port, e))
+
             ids = [x[0].id() for x in res.errors + res.failures]
             for t in suite._tests:
                 if t.id() in ids:
