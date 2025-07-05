@@ -477,7 +477,6 @@ class SysViewMcoreTracingTestsImpl(BaseTracingTestsImpl):
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
 ########################################################################
-@skip_for_chip_and_ver(['5.5'], ['esp32p4'], 'OCD-1216')
 class SysViewTraceTestAppTestsDual(DebuggerGenericTestAppTests):
     """ Base class to run tests which use sysview test app in dual core mode
     """
