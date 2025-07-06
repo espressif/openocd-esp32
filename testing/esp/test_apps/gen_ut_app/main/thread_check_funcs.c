@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
 #include "gen_ut_app.h"
@@ -26,6 +27,8 @@ static void test_check_nops(int param)
     asm("   nop;");
 }
 
+SemaphoreHandle_t s_task_flags_mutex;
+
 void thread_check_task(void *pvParameter)
 {
     int arg = (int)pvParameter;
@@ -44,10 +47,13 @@ static void __attribute__((noinline, noreturn)) go_to_level_task1(int frame_leve
     if (--frame_level > 0) {
         go_to_level_task1(frame_level);
     }
+    while (xSemaphoreTake(s_task_flags_mutex, portMAX_DELAY) != pdTRUE)
+        ;
+    s_task_flags |= (1 << 0);
+    xSemaphoreGive(s_task_flags_mutex);
     TEST_BREAK_LOC(go_to_level_task1);
-    while(1) {
-        s_task_flags |= (1 << 0);
-    }
+    while(1)
+        ;
 }
 
 static void __attribute__((noinline, noreturn)) go_to_level_task2(int frame_level)
@@ -55,10 +61,13 @@ static void __attribute__((noinline, noreturn)) go_to_level_task2(int frame_leve
     if (--frame_level > 0) {
         go_to_level_task2(frame_level);
     }
+    while (xSemaphoreTake(s_task_flags_mutex, portMAX_DELAY) != pdTRUE)
+        ;
+    s_task_flags |= (1 << 1);
+    xSemaphoreGive(s_task_flags_mutex);
     TEST_BREAK_LOC(go_to_level_task2);
-    while(1) {
-        s_task_flags |= (1 << 1);
-    }
+    while(1)
+        ;
 }
 
 static void __attribute__((noinline, noreturn)) go_to_level_task3(int frame_level)
@@ -66,10 +75,13 @@ static void __attribute__((noinline, noreturn)) go_to_level_task3(int frame_leve
     if (--frame_level > 0) {
         go_to_level_task3(frame_level);
     }
+    while (xSemaphoreTake(s_task_flags_mutex, portMAX_DELAY) != pdTRUE)
+        ;
+    s_task_flags |= (1 << 2);
+    xSemaphoreGive(s_task_flags_mutex);
     TEST_BREAK_LOC(go_to_level_task3);
-    while(1) {
-        s_task_flags |= (1 << 2);
-    }
+    while(1)
+        ;
 }
 
 static void check_backtrace_task3(void *pvParameter)
@@ -97,6 +109,7 @@ static void check_backtrace_test_done(void)
 
 static void do_test_threads_backtraces(void)
 {
+    s_task_flags_mutex = xSemaphoreCreateMutex();
     TaskHandle_t handle;
     xTaskCreatePinnedToCore(&check_backtrace_task1, "check_bt_task1", 2048, (void*)3, 5, NULL, 0);
     xTaskCreatePinnedToCore(&check_backtrace_task2, "check_bt_task2", 2048, (void*)7, 5, NULL, 0);
