@@ -357,7 +357,7 @@ class StepTestsImpl():
         return s.strip() == 'riscv interrupt mask steponly'
 
     @only_for_arch(['xtensa'])
-    @skip_for_chip(['esp32s3'], 'skipped - OCD-1006')
+    @skip_for_chip(['esp32s3'], 'skipped - OCD-1096')
     def test_step_over_intlevel_disabled_isr(self):
         """
             This test checks ps.intlevel value after step instruction while ISRs are masked
