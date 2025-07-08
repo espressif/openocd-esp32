@@ -767,7 +767,8 @@ int esp_riscv_start_algorithm(struct target *target,
 		struct reg *r = &target->reg_cache->reg_list[number];
 
 		algorithm_info->valid_saved_registers[r->number] = r->exist;
-		if (!r->exist || !r->caller_save)
+		if (!r->exist || !r->caller_save
+				|| (r->number > GDB_REGNO_PC && target_to_esp_riscv(target)->minimal_save_restore))
 			continue;
 
 		LOG_TARGET_DEBUG(target, "save %s", r->name);
@@ -925,7 +926,8 @@ int esp_riscv_wait_algorithm(struct target *target,
 		number <= max_saved_reg && number < target->reg_cache->num_regs; number++) {
 		struct reg *r = &target->reg_cache->reg_list[number];
 
-		if (!algorithm_info->valid_saved_registers[r->number] || !r->caller_save || !r->exist)
+		if (!algorithm_info->valid_saved_registers[r->number] || !r->caller_save || !r->exist
+				|| (r->number > GDB_REGNO_PC && target_to_esp_riscv(target)->minimal_save_restore))
 			continue;
 
 		LOG_TARGET_DEBUG(target, "restore %s", r->name);
@@ -1072,6 +1074,23 @@ int esp_riscv_get_gdb_reg_list(struct target *target,
 	return ERROR_FAIL;
 }
 
+static COMMAND_HELPER(esp_riscv_parse_cmd_minimal_save_restore, struct target *target)
+{
+	if (CMD_ARGC != 1)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	COMMAND_PARSE_BOOL(CMD_ARGV[0], esp_riscv->minimal_save_restore, "on", "off");
+	LOG_DEBUG("Algorithm save/restare configuration: %s",  esp_riscv->minimal_save_restore ? "minimal" : "full");
+
+	return ERROR_OK;
+}
+
+COMMAND_HANDLER(esp_riscv_minimal_save_restore)
+{
+	return CALL_COMMAND_HANDLER(esp_riscv_parse_cmd_minimal_save_restore, get_current_target(CMD_CTX));
+}
+
 COMMAND_HANDLER(esp_riscv_halted_command)
 {
 	if (CMD_ARGC != 0)
@@ -1107,6 +1126,13 @@ const struct command_registration esp_riscv_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "Handles halted event and prints exception reason",
 		.usage = "",
+	},
+	{
+		.name = "minimal_save_restore",
+		.handler = esp_riscv_minimal_save_restore,
+		.mode = COMMAND_ANY,
+		.help = "Only save/restore GPRs when running algorithms",
+		.usage = "<'on'|'off'>",
 	},
 	COMMAND_REGISTRATION_DONE
 };

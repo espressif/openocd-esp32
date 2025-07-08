@@ -48,6 +48,7 @@ struct esp_riscv_common {
 	size_t chip_specific_registers_size;
 	bool (*is_iram_address)(target_addr_t addr);
 	bool (*is_dram_address)(target_addr_t addr);
+	bool minimal_save_restore;
 };
 
 static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *target)
