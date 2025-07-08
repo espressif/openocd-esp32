@@ -2098,9 +2098,6 @@ int xtensa_read_memory(struct target *target, target_addr_t address, uint32_t si
 		if (xtensa->probe_lsddr32p == -1)
 			xtensa->probe_lsddr32p = 1;
 		xtensa->suppress_dsr_errors = prev_suppress;
-		if (bswap)
-			buf_bswap32(albuff, albuff, addrend_al - addrstart_al);
-		memcpy(buffer, albuff + (address & 3), (size * count));
 	}
 	if (res != ERROR_OK) {
 		if (xtensa->probe_lsddr32p != 0) {
@@ -2114,8 +2111,11 @@ int xtensa_read_memory(struct target *target, target_addr_t address, uint32_t si
 			LOG_TARGET_WARNING(target, "Failed reading %d bytes at address "TARGET_ADDR_FMT,
 				count * size, address);
 		}
+	} else {
+		if (bswap)
+			buf_bswap32(albuff, albuff, addrend_al - addrstart_al);
+		memcpy(buffer, albuff + (address & 3), (size * count));
 	}
-
 	free(albuff);
 	return res;
 }
