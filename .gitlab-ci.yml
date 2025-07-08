@@ -170,6 +170,7 @@ Release_tag_submit:
   tags: [ "amd64", "internet" ]
   <<: *release_tag_filter
   <<: *release_submit_action
+  dependencies: []
   script:
     - hub release create -m "${RELEASE_DESC}" ${GH_REL_TAG}
 
@@ -178,6 +179,7 @@ Pre-Release_tag_submit:
   tags: [ "amd64", "internet" ]
   <<: *release_tag_filter
   <<: *release_submit_action
+  dependencies: []
   script:
     - hub release create --prerelease -m "${RELEASE_DESC}" ${GH_REL_TAG}
 
@@ -186,6 +188,7 @@ Delete_tag_release:
   tags: [ "amd64", "internet" ]
   <<: *release_tag_filter
   <<: *release_submit_action
+  dependencies: []
   script:
     - hub release delete ${GH_REL_TAG}
 
