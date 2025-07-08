@@ -24,18 +24,19 @@ class DebuggerNuttxTestsImpl:
         self.add_bp('threadsbt', hw=True)
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'threadsbt', tmo=120)
         _,threads_info = self.gdb.get_thread_info()
-        for ti in threads_info:
-            if ti['details'].startswith("Name: openocd_thread"):
-                name = ti['details'][NAME_START:NAME_START+NAME_LEN]
-                expectedlvl = tasks_level[int(name[-1:])]
-                self.gdb.set_thread(int(ti['id']))
-                frames = self.gdb.get_backtrace()
-                extractedlvl = 0
+        ocd_threads = [ti for ti in threads_info if ti['details'].startswith("Name: openocd_thread")]
+        self.assertEqual(len(ocd_threads), 3)
+        for ti in ocd_threads:
+            name = ti['details'][NAME_START:NAME_START+NAME_LEN]
+            expectedlvl = tasks_level[int(name[-1:])]
+            self.gdb.set_thread(int(ti['id']))
+            frames = self.gdb.get_backtrace()
+            extractedlvl = 0
 
-                for f in frames:
-                    if f['func'] == "thread_frames":
-                        extractedlvl += 1
-                self.assertEqual(expectedlvl, extractedlvl)
+            for f in frames:
+                if f['func'] == "thread_frames":
+                    extractedlvl += 1
+            self.assertEqual(expectedlvl, extractedlvl)
 
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
