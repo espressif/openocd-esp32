@@ -20,6 +20,45 @@ def get_logger():
 class DebuggerSpecialTestsImpl:
     """ Special test cases generic for dual and single core modes
     """
+
+    @only_for_arch(['xtensa'])
+    def test_sample(self):
+        """
+            This test checks PC samples captured using OpenOCD's profile commands
+            1) Select appropriate sub-test number on target.
+            2) Execute the command while the target is running.
+            3) Check program continues uninterrupted.
+            4) Interpret profiled samples using gprof and check results.
+        """
+        profile_time = 3
+
+        self.select_sub_test("blink")
+        self.resume_exec()
+        self.oocd.cmd_exec(f"profile {profile_time} test_sample.gprof")
+
+        # Check execution continues uninterrupted
+        state, _ = self.gdb.get_target_state()
+        self.assertTrue(state == dbg.TARGET_STATE_RUNNING)
+        self.stop_exec()
+        bps = ['gpio_set_level', 'vTaskDelay']
+        for f in bps:
+            self.add_bp(f)
+            self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, f, run_bt=False)
+
+        cmd = ['gprof', self.test_app_cfg.build_app_elf_path() + '.gprof', 'test_sample.gprof']
+        proc = subprocess.run(cmd, capture_output=True)
+        proc.check_returncode()
+
+        def parse_gprof_line(line):
+            items = line.split()
+            return (float(items[0]), float(items[1]), float(items[2]), items[3])
+
+        # Check results
+        lines = proc.stdout.decode('UTF-8').split('\n')
+        top_perc, _, top_t, top_f = parse_gprof_line(lines[5])
+        self.assertTrue(abs(top_t / top_perc * 100 - profile_time) < profile_time / 10)
+        self.assertEqual(top_f, "esp_cpu_wait_for_intr")
+
     @run_all_cores
     def test_restart_debug_from_crash(self):
         """

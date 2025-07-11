@@ -103,6 +103,12 @@
     done
   fi
 
+.prepare_gprof_compatible_elfs: &prepare_gprof_compatible_elfs |
+  for elf_path in $(ls $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gen_ut_app.elf)
+  do
+    ${TOOLCHAIN_PREFIX}-elf-objcopy --rename-section .flash.text=.text ${elf_path} ${elf_path}.gprof
+  done
+
 .build_test_app_template:
   image: ${TEST_APP_IDF_DOCKER_IMAGE}
   tags:
@@ -114,6 +120,7 @@
   artifacts:
     paths:
       - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gen_ut_app.elf
+      - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gen_ut_app.elf.gprof
       - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gen_ut_app.bin
       - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/partition_table/partition-table.bin
       - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/bootloader/bootloader.bin
@@ -136,6 +143,7 @@
     - *finish_test_app_build
     - *prepare_espytrace_package
     - *prepare_sysview_config
+    - *prepare_gprof_compatible_elfs
   needs: []
   rules:
     - if: '$CI_FULL_RUN == "1" || $UT_GET_IDF_VER == "0"'
