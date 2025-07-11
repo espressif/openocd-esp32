@@ -444,6 +444,7 @@ int esp_xtensa_profiling(struct target *target, uint32_t *samples,
 			LOG_TARGET_INFO(target, "Profiling completed. %" PRIu32 " samples.", sample_count);
 			break;
 		}
+		keep_alive();
 	}
 
 	*num_samples = sample_count;

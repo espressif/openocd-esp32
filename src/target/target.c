@@ -4298,7 +4298,7 @@ static void write_gmon(uint32_t *samples, uint32_t sample_num, const char *filen
 
 	/* FIXME: What is the reasonable number of buckets?
 	 * The profiling result will be more accurate if there are enough buckets. */
-	static const uint32_t max_buckets = 128 * 1024; /* maximum buckets. */
+	static const uint32_t max_buckets = 128 * 1024 * 1024; /* maximum buckets. */
 	uint32_t num_buckets = address_space / sizeof(UNIT);
 	if (num_buckets > max_buckets)
 		num_buckets = max_buckets;
@@ -4325,6 +4325,28 @@ static void write_gmon(uint32_t *samples, uint32_t sample_num, const char *filen
 	write_long(f, min, target);			/* low_pc */
 	write_long(f, max, target);			/* high_pc */
 	write_long(f, num_buckets, target);	/* # of buckets */
+
+	/*append binary memory gmon.out profile_hist_data (profile_hist_data + profile_hist_hdr.hist_size) */
+
+	char *data = malloc(2 * num_buckets);
+	if (!data) {
+		free(buckets);
+		fclose(f);
+		return;
+	}
+
+	for (i = 0; i < num_buckets; i++) {
+		int val;
+		val = buckets[i];
+		if (val > UINT16_MAX) {
+			LOG_WARNING("profiler bucket saturated, will read as %d, dropped %d samples", UINT16_MAX, val - UINT16_MAX);
+			sample_num -= (val - UINT16_MAX);
+			val = UINT16_MAX;
+		}
+		data[i * 2] = val & 0xff;
+		data[i * 2 + 1] = (val >> 8) & 0xff;
+	}
+
 	float sample_rate = sample_num / (duration_ms / 1000.0);
 	write_long(f, sample_rate, target);
 	write_string(f, "seconds");
@@ -4332,23 +4354,9 @@ static void write_gmon(uint32_t *samples, uint32_t sample_num, const char *filen
 		write_data(f, &zero, 1);
 	write_string(f, "s");
 
-	/*append binary memory gmon.out profile_hist_data (profile_hist_data + profile_hist_hdr.hist_size) */
-
-	char *data = malloc(2 * num_buckets);
-	if (data) {
-		for (i = 0; i < num_buckets; i++) {
-			int val;
-			val = buckets[i];
-			if (val > 65535)
-				val = 65535;
-			data[i * 2] = val&0xff;
-			data[i * 2 + 1] = (val >> 8) & 0xff;
-		}
-		free(buckets);
-		write_data(f, data, num_buckets * 2);
-		free(data);
-	} else
-		free(buckets);
+	free(buckets);
+	write_data(f, data, num_buckets * 2);
+	free(data);
 
 	fclose(f);
 }
