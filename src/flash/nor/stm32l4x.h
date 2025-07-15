@@ -121,7 +121,8 @@
 #define DEVID_STM32WB5XX		0x495
 #define DEVID_STM32WB3XX		0x496
 #define DEVID_STM32WLE_WL5XX	0x497
-#define DEVID_STM32WBA6X		0x4B0
+#define DEVID_STM32WBA6X        0x4B0
+#define DEVID_STM32WBA2X        0x4B2
 
 /* known Flash base addresses */
 #define STM32_FLASH_BANK_BASE	0x08000000

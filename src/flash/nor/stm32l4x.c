@@ -408,6 +408,10 @@ static const struct stm32l4_rev stm32wba6x_revs[] = {
 	{ 0x1000, "A" }, { 0x1001, "Z" },
 };
 
+static const struct stm32l4_rev stm32wba2x_revs[] = {
+	{ 0x1000, "A" },
+};
+
 static const struct stm32l4_rev stm32wb1xx_revs[] = {
 	{ 0x1000, "A" }, { 0x2000, "B" },
 };
@@ -789,6 +793,18 @@ static const struct stm32l4_part_info stm32l4_parts[] = {
 	  .flash_regs_base       = 0x40022000,
 	  .fsize_addr            = 0x0BFA07A0,
 	  .otp_base              = 0x0BFA0000,
+	  .otp_size              = 512,
+	},
+	{
+	  .id                    = DEVID_STM32WBA2X,
+	  .revs                  = stm32wba2x_revs,
+	  .num_revs              = ARRAY_SIZE(stm32wba2x_revs),
+	  .device_str            = "STM32WBA2x",
+	  .max_flash_size_kb     = 512,
+	  .flags                 = F_HAS_TZ | F_HAS_L5_FLASH_REGS | F_WRP_HAS_LOCK,
+	  .flash_regs_base       = 0x40022000,
+	  .fsize_addr            = 0x0BF8D7A0,
+	  .otp_base              = 0x0BF8D000,
 	  .otp_size              = 512,
 	},
 	{
@@ -2262,6 +2278,7 @@ static int stm32l4_probe(struct flash_bank *bank)
 		break;
 	case DEVID_STM32WB5XX:
 	case DEVID_STM32WB3XX:
+	case DEVID_STM32WBA2X:
 		/* single bank flash */
 		page_size_kb = 4;
 		num_pages = flash_size_kb / page_size_kb;
