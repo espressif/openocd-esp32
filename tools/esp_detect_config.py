@@ -12,6 +12,7 @@ import time
 import copy
 import tempfile
 import sys
+import shutil
 
 class OpenOcdRunError(RuntimeError):
     pass
@@ -34,6 +35,8 @@ class OpenOcd:
         self.sock       = None
         self.iface_cmd  = iface_cmd
         self.data_tmo   = data_tmo
+        if not shutil.which(oocd_path):
+            raise FileNotFoundError(f"OpenOCD executable not found in PATH: {oocd_path}")
         # check for running instance, it can be due to active debug session
         pid = self._instance_is_running(oocd_path)
         if pid:
@@ -220,6 +223,11 @@ def detect_and_populate_config(oocd, scripts, log_lvl, data_tmo, config_file, ho
         # no need to call cleanup()
         # Check for OpenOCD running instance is done before any things which need cleanup
         raise
+    except (FileNotFoundError, ValueError, PermissionError) as e:
+        # Re-raise path validation errors with original message
+        if ocd:
+            ocd.cleanup()
+        raise OpenOcdRunError(str(e))
     except:
         if ocd:
             ocd.cleanup()
@@ -314,8 +322,8 @@ def main():  # type: () -> None
                                                                  os.path.join("interface", iface["config_file"]),
                                                                  args.host, args.port,
                                                                  iface["id"], iface["command"], None, esp_cfg)
-        except OpenOcdRunError:
-            logging.info("Skip interface %s", iface)
+        except OpenOcdRunError as e:
+            logging.info("Skip interface %s: %s", iface["id"], str(e) if str(e) else "OpenOCD run error")
             continue
         except OpenOcdInstanceConflictError:
             # error message is already printed
@@ -329,8 +337,8 @@ def main():  # type: () -> None
                                                             os.path.join("interface", iface["config_file"]),
                                                             args.host, args.port,
                                                             iface["id"], iface["command"], dev, esp_cfg)
-            except OpenOcdRunError:
-                logging.info("Skip interface %s @ %s", iface, dev)
+            except OpenOcdRunError as e:
+                logging.info("Skip interface %s @ %s: %s", iface["id"], dev, str(e) if str(e) else "OpenOCD run error")
                 continue
             except OpenOcdInstanceConflictError:
                 # error message is already printed
