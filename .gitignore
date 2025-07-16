@@ -104,15 +104,12 @@ GPATH
 GRTAGS
 GTAGS
 
-#gcov files
-*.gcda
-*.gcno
-
 # checkpatch script files
 .checkpatch-camelcase.*
 
 # Reduced tcl files
 tcl-lite/*
+
 # clangd (e.g. for advanced code completion and linting) generates cache files
 # into .cache
 .cache

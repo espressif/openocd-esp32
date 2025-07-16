@@ -2245,7 +2245,6 @@ static void target_destroy(struct target *target)
 
 	target_free_all_working_areas(target);
 
-    //TODO-UPS -- create a patch
 	rtos_destroy(target);
 
 	/* release the targets SMP list */

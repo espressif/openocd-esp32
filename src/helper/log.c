@@ -239,31 +239,28 @@ COMMAND_HANDLER(handle_debug_level_command)
 
 COMMAND_HANDLER(handle_log_output_command)
 {
-	if (CMD_ARGC == 0 || (CMD_ARGC == 1 && strcmp(CMD_ARGV[0], "default") == 0)) {
-		if (log_output != DEFAULT_LOG_OUTPUT && log_output) {
-			/* Close previous log file, if it was open and wasn't DEFAULT_LOG_OUTPUT. */
-			fclose(log_output);
-		}
-		log_output = DEFAULT_LOG_OUTPUT;
-		LOG_DEBUG("set log_output to default");
-		return ERROR_OK;
-	}
-	if (CMD_ARGC == 1) {
-		FILE *file = fopen(CMD_ARGV[0], "w");
+	if (CMD_ARGC > 1)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	FILE *file;
+	if (CMD_ARGC == 1 && strcmp(CMD_ARGV[0], "default") != 0) {
+		file = fopen(CMD_ARGV[0], "w");
 		if (!file) {
-			LOG_ERROR("failed to open output log '%s'", CMD_ARGV[0]);
+			command_print(CMD, "failed to open output log \"%s\"", CMD_ARGV[0]);
 			return ERROR_FAIL;
 		}
-		if (log_output != DEFAULT_LOG_OUTPUT && log_output) {
-			/* Close previous log file, if it was open and wasn't DEFAULT_LOG_OUTPUT. */
-			fclose(log_output);
-		}
-		log_output = file;
-		LOG_DEBUG("set log_output to \"%s\"", CMD_ARGV[0]);
-		return ERROR_OK;
+		command_print(CMD, "set log_output to \"%s\"", CMD_ARGV[0]);
+	} else {
+		file = DEFAULT_LOG_OUTPUT;
+		command_print(CMD, "set log_output to default");
 	}
 
-	return ERROR_COMMAND_SYNTAX_ERROR;
+	if (log_output != DEFAULT_LOG_OUTPUT && log_output) {
+		/* Close previous log file, if it was open and wasn't DEFAULT_LOG_OUTPUT. */
+		fclose(log_output);
+	}
+	log_output = file;
+	return ERROR_OK;
 }
 
 COMMAND_HANDLER(handle_log_non_error_levels_to_stdout)
@@ -285,7 +282,7 @@ static const struct command_registration log_command_handlers[] = {
 		.handler = handle_log_output_command,
 		.mode = COMMAND_ANY,
 		.help = "redirect logging to a file (default: stderr)",
-		.usage = "[file_name | \"default\"]",
+		.usage = "[file_name | 'default']",
 	},
 	{
 		.name = "debug_level",

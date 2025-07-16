@@ -119,7 +119,8 @@ Xverve.
 ARM: AArch64, ARM11, ARM7, ARM9, Cortex-A/R (v7-A/R), Cortex-M (ARMv{6/7/8}-M),
 FA526, Feroceon/Dragonite, XScale.
 ARCv2, AVR32, DSP563xx, DSP5680xx, EnSilica eSi-RISC, EJTAG (MIPS32, MIPS64),
-Intel Quark, LS102x-SAP, RISC-V, ST STM8, Xtensa.
+ESP32, ESP32-S2, ESP32-S3, Intel Quark, LS102x-SAP, RISC-V, ST STM8,
+Xtensa.
 
 ## Flash drivers
 

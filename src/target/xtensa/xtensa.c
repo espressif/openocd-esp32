@@ -4,7 +4,6 @@
  *   Generic Xtensa target API for OpenOCD                                 *
  *   Copyright (C) 2020-2022 Cadence Design Systems, Inc.                  *
  *   Copyright (C) 2016-2019 Espressif Systems Ltd.                        *
- *   Derived from esp108.c                                                 *
  *   Author: Angus Gratton gus@projectgus.com                              *
  ***************************************************************************/
 

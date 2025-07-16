@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-AC_PREREQ(2.69)
+AC_PREREQ([2.69])
 AC_INIT([openocd], [v0.12.0],
   [OpenOCD Mailing List <openocd-devel@lists.sourceforge.net>])
 AC_CONFIG_SRCDIR([src/openocd.c])
-AC_CONFIG_AUX_DIR([.])
+AC_CONFIG_AUX_DIR([build-aux])
 
 m4_include([config_subdir.m4])dnl
 
@@ -77,7 +77,7 @@ AC_CHECK_HEADERS([sys/sysctl.h])
 AC_CHECK_HEADERS([sys/time.h])
 AC_CHECK_HEADERS([sys/types.h])
 AC_CHECK_HEADERS([unistd.h])
-AC_CHECK_HEADERS([arpa/inet.h ifaddrs.h netinet/in.h netinet/tcp.h net/if.h], [], [], [dnl
+AC_CHECK_HEADERS([arpa/inet.h netinet/in.h netinet/tcp.h], [], [], [dnl
 #include <stdio.h>
 #ifdef STDC_HEADERS
 # include <stdlib.h>

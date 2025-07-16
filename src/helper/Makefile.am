@@ -3,6 +3,7 @@
 noinst_LTLIBRARIES += %D%/libhelper.la
 
 %C%_libhelper_la_SOURCES = \
+	%D%/base64.c \
 	%D%/binarybuffer.c \
 	%D%/options.c \
 	%D%/time_support_common.c \
@@ -11,6 +12,7 @@ noinst_LTLIBRARIES += %D%/libhelper.la
 	%D%/command.c \
 	%D%/crc16.c \
 	%D%/crc32.c \
+	%D%/sha256.c \
 	%D%/time_support.c \
 	%D%/replacements.c \
 	%D%/fileio.c \
@@ -19,6 +21,7 @@ noinst_LTLIBRARIES += %D%/libhelper.la
 	%D%/jim-nvp.c \
 	%D%/nvp.c \
 	%D%/align.h \
+	%D%/base64.h \
 	%D%/binarybuffer.h \
 	%D%/bitfield.h \
 	%D%/bits.h \
@@ -30,6 +33,7 @@ noinst_LTLIBRARIES += %D%/libhelper.la
 	%D%/command.h \
 	%D%/crc16.h \
 	%D%/crc32.h \
+	%D%/sha256.h \
 	%D%/time_support.h \
 	%D%/replacements.h \
 	%D%/fileio.h \
@@ -38,11 +42,7 @@ noinst_LTLIBRARIES += %D%/libhelper.la
 	%D%/jep106.inc \
 	%D%/jim-nvp.h \
 	%D%/nvp.h \
-	%D%/sha256.c \
-	%D%/sha256.h \
-	%D%/compiler.h \
-	%D%/base64.c \
-	%D%/base64.h
+	%D%/compiler.h
 
 STARTUP_TCL_SRCS += %D%/startup.tcl
 EXTRA_DIST += \
