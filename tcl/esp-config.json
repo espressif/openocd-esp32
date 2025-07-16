@@ -8,6 +8,7 @@
         { "id": "esp32c3", "name": "ESP32-C3", "idcode": "0x00005c25" },
         { "id": "esp32c5", "name": "ESP32-C5", "idcode": "0x00017c25" },
         { "id": "esp32c6", "name": "ESP32-C6", "idcode": "0x0000dc25" },
+        { "id": "esp32c61", "name": "ESP32-C61", "idcode": "0x00014c25" },
         { "id": "esp32h2", "name": "ESP32-H2", "idcode": "0x00010c25" },
         { "id": "esp32p4", "name": "ESP32-P4", "idcode": "0x00012c25" },
         { "id": "esp32h4", "name": "ESP32-H4", "idcode": "0x0001cc25"}
@@ -252,6 +253,7 @@
             "name": "ESP32-C61 chip (via builtin USB-JTAG)",
             "description": "ESP32-C61 debugging via builtin USB-JTAG",
             "target": "esp32c61",
+            "interface": "esp_usb_jtag",
             "config_files": [
                 "board/esp32c61-builtin.cfg"
             ]
@@ -260,6 +262,7 @@
             "name": "ESP32-C61 chip (via ESP-PROG)",
             "description": "ESP32-C61 debugging via ESP-PROG board",
             "target": "esp32c61",
+            "interface": "ftdi",
             "config_files": [
                 "board/esp32c61-ftdi.cfg"
             ]
@@ -268,6 +271,7 @@
             "name": "ESP32-C61 chip (via ESP-PROG-2)",
             "description": "ESP32-C61 debugging via ESP-PROG-2 board",
             "target": "esp32c61",
+            "interface": "esp_usb_bridge",
             "config_files": [
                 "board/esp32c61-bridge.cfg"
             ]
