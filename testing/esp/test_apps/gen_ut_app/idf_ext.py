@@ -7,6 +7,12 @@ import shutil
 import tempfile
 
 
+def get_config_names(config_dir):
+    config_names = os.listdir(config_dir)
+    if os.getenv('IDF_TARGET') not in ['esp32p4', 'esp32c5', 'esp32c6']:
+        config_names = [cfg for cfg in config_names if 'lpcore' not in cfg]
+    return config_names
+
 def action_extensions(base_actions, project_path=os.getcwd()):
     """ Describes extensions for unit tests. This function expects that actions "all" and "reconfigure" """
 
@@ -16,7 +22,7 @@ def action_extensions(base_actions, project_path=os.getcwd()):
     # Each file in configs/ directory defines a configuration. The format is the
     # same as sdkconfig file. Configuration is applied on top of sdkconfig.defaults
     # file from the project directory
-    CONFIG_NAMES = os.listdir(os.path.join(project_path, "configs"))
+    CONFIG_NAMES = get_config_names(os.path.join(project_path, "configs"))
 
     # Build (intermediate) and output (artifact) directories
     BUILDS_DIR = os.path.join(project_path, "builds")
@@ -252,7 +258,7 @@ def add_action_extensions(base_functions, base_actions):
     # Each file in configs/ directory defines a configuration. The format is the
     # same as sdkconfig file. Configuration is applied on top of sdkconfig.defaults
     # file from the project directory
-    CONFIG_NAMES = os.listdir(os.path.join(PROJECT_PATH, "configs"))
+    CONFIG_NAMES = get_config_names(os.path.join(PROJECT_PATH, "configs"))
 
     # Build (intermediate) and output (artifact) directories
     BUILDS_DIR = os.path.join(PROJECT_PATH, "builds")

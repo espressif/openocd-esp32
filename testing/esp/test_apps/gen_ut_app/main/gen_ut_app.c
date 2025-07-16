@@ -47,13 +47,15 @@ extern ut_result_t thread_test_do(int test_num, int core_num);
 extern ut_result_t tracing_test_do(int test_num, int core_num);
 extern ut_result_t semihost_test_do(int test_num, int core_num);
 extern ut_result_t special_test_do(int test_num, int core_num);
+extern ut_result_t lpcore_test_do(int test_num,  int core_num);
 
 static test_func_t s_test_funcs[] = {
     gcov_test_do,
     thread_test_do,
     tracing_test_do,
     semihost_test_do,
-    special_test_do // test num start from 800
+    special_test_do, // test num start from 800
+    lpcore_test_do
     //TODO: auto-manage test numbers and addition of new tests
 };
 

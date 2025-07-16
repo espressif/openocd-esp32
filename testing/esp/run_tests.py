@@ -99,6 +99,22 @@ BOARD_TCL_CONFIG = {
         'chip_name' : 'esp32c5',
         'target_triple' : 'riscv32-esp-elf'
     },
+    'esp32c5-lpcore-ftdi' :  {
+        'files' : [
+            os.path.join('board', 'esp32c5-lpcore-ftdi.cfg')
+        ],
+        'commands' : [],
+        'chip_name' : 'esp32c5',
+        'target_triple' : 'riscv32-esp-elf'
+    },
+    'esp32c5-lpcore-builtin' :  {
+        'files' : [
+            os.path.join('board', 'esp32c5-lpcore-builtin.cfg')
+        ],
+        'commands' : [],
+        'chip_name' : 'esp32c5',
+        'target_triple' : 'riscv32-esp-elf'
+    },
     'esp32c6-ftdi' :  {
         'files' : [
             os.path.join('board', 'esp32c6-ftdi.cfg')
@@ -110,6 +126,22 @@ BOARD_TCL_CONFIG = {
     'esp32c6-builtin' :  {
         'files' : [
             os.path.join('board', 'esp32c6-builtin.cfg')
+        ],
+        'commands' : [],
+        'chip_name' : 'esp32c6',
+        'target_triple' : 'riscv32-esp-elf'
+    },
+    'esp32c6-lpcore-ftdi' :  {
+        'files' : [
+            os.path.join('board', 'esp32c6-lpcore-ftdi.cfg')
+        ],
+        'commands' : [],
+        'chip_name' : 'esp32c6',
+        'target_triple' : 'riscv32-esp-elf'
+    },
+    'esp32c6-lpcore-builtin' :  {
+        'files' : [
+            os.path.join('board', 'esp32c6-lpcore-builtin.cfg')
         ],
         'commands' : [],
         'chip_name' : 'esp32c6',
@@ -174,6 +206,22 @@ BOARD_TCL_CONFIG = {
     'esp32p4-builtin' :  {
         'files' : [
             os.path.join('board', 'esp32p4-builtin.cfg')
+        ],
+        'commands' : [],
+        'chip_name' : 'esp32p4',
+        'target_triple' : 'riscv32-esp-elf'
+    },
+    'esp32p4-lpcore-ftdi' :  {
+        'files' : [
+            os.path.join('board', 'esp32p4-lpcore-ftdi.cfg')
+        ],
+        'commands' : [],
+        'chip_name' : 'esp32p4',
+        'target_triple' : 'riscv32-esp-elf'
+    },
+    'esp32p4-lpcore-builtin' :  {
+        'files' : [
+            os.path.join('board', 'esp32p4-lpcore-builtin.cfg')
         ],
         'commands' : [],
         'chip_name' : 'esp32p4',

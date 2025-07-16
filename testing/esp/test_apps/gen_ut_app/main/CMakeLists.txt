@@ -73,3 +73,11 @@ target_link_libraries(${COMPONENT_LIB} INTERFACE "-u unused_func5")
 target_link_libraries(${COMPONENT_LIB} INTERFACE "-u unused_func6")
 target_link_libraries(${COMPONENT_LIB} INTERFACE "-u unused_func7")
 
+if(CONFIG_ULP_COPROC_ENABLED)
+	if(NOT (CONFIG_IDF_TARGET_ESP32P4 OR CONFIG_IDF_TARGET_ESP32C5 OR CONFIG_IDF_TARGET_ESP32C6))
+		message(FATAL_ERROR "ULP not supported for this target")
+	endif()
+	ulp_add_project("lp_core_${COMPONENT_NAME}" "${CMAKE_SOURCE_DIR}/main/lp_core/")
+	add_custom_command(TARGET ${COMPONENT_LIB} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
+		${CMAKE_BINARY_DIR}/esp-idf/main/lp_core_main/lp_core_main.elf ${CMAKE_BINARY_DIR}/lp_core_main.elf)
+endif()
