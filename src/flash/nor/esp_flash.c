@@ -1751,6 +1751,8 @@ COMMAND_HANDLER(name) \
 	if (target->smp) { \
 		struct target_list *head; \
 		foreach_smp_target(head, target->smp_targets) { \
+			if (strstr(head->target->cmd_name, ".lp.cpu")) \
+				continue; \
 			int ret = CALL_COMMAND_HANDLER(handler, head->target); \
 			if (ret != ERROR_OK) \
 				return ret; \
