@@ -6,7 +6,7 @@ stages:
   - build_nuttx
   - test_host
   - test_nuttx
-  - coverage
+  - results
   - deploy
   - pre_release
   - release_stage1
@@ -209,8 +209,8 @@ test_idf_examples:
     - job: build_linux_armhf
     - job: build_linux_arm64
 
-create_coverage_reports:
-  stage: coverage
+create_reports:
+  stage: results
   tags:
     - build
   artifacts:
@@ -289,6 +289,29 @@ create_coverage_reports:
     - lcov --rc lcov_list_width=150 --list cov_infos/merged.info > cov_infos/metrics_input.txt
     - python3 tools/list_to_metrics.py --file cov_infos/metrics_input.txt
     - lcov_cobertura cov_infos/merged.info -o cov_infos/cobertura.xml
+
+mr_auto_approve:
+  stage: results
+  tags:
+    - build
+  dependencies:
+    - pipeline_variables
+  when: on_success
+  script:
+    - >
+      if [[ -z ${TRIGGERED_BY_GDB_PIPELINE_BRANCH:-} &&  $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH != "master" && $CI_FULL_RUN == "1" ]]; then
+        api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/merge_requests?source_branch=${CI_COMMIT_REF_NAME}&state=opened";
+        echo "${api_call}";
+        OPEN_MR=$(curl --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}");
+        echo $OPEN_MR;
+        iid=$(echo "$OPEN_MR" | python3 -c "import json; x=json.loads(input()); print(x[0]['iid'] if len(x) and 'iid' in x[0] else 0)");
+        target=$(echo "$OPEN_MR" | python3 -c "import json; x=json.loads(input()); print(x[0]['target_branch'] if len(x) and 'target_branch' in x[0] else '')");
+        if [[ $iid != "0" && $target == "master" ]]; then
+          api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/merge_requests/${iid}/approve";
+          echo "${api_call}";
+          curl --request POST --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}";
+        fi
+      fi
 
 update_idf_tools:
   stage: update_idf_tools
