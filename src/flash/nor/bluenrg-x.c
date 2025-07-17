@@ -95,7 +95,7 @@ static const struct flash_ctrl_priv_data flash_priv_data_spirit3 = {
 	.flash_regs_base = 0x40001000,
 	.flash_page_size = 2048,
 	.jtag_idcode = 0x02027041,
-	.part_name = "STM32WL33 (SPIRIT3)",
+	.part_name = "STM32WL33/WL3R (SPIRIT3/3R)",
 };
 
 struct bluenrgx_flash_bank {
