@@ -259,7 +259,7 @@ TEST_DECL(os_tracing, "test_sysview.SysView*TracingTests*.test_os_tracing")
 
 static int apptrace_writefn(void* cookie, const char* data, int size)
 {
-    int res = esp_apptrace_write(ESP_APPTRACE_DEST_TRAX, data, size, 1000);
+    int res = esp_apptrace_write(ESP_APPTRACE_DEST_JTAG, data, size, 1000);
     if (res != ESP_OK) {
         return 0;
     }
@@ -268,7 +268,7 @@ static int apptrace_writefn(void* cookie, const char* data, int size)
     vTaskDelay(1);
 
     /* this function may fail if host is busy and is not able to read data (flushed previously) within 1 ms  */
-    esp_apptrace_flush(ESP_APPTRACE_DEST_TRAX, 1000);
+    esp_apptrace_flush(ESP_APPTRACE_DEST_JTAG, 1000);
     return size;
 }
 
@@ -288,7 +288,7 @@ static void raw_trace_log(void* arg)
         printf("[%d %*.s]\n", i, i * 20, "test");
     }
     /* ensure that all data are gone to the host in case the last call to esp_apptrace_flush() from apptrace_writefn() failed */
-    esp_apptrace_flush(ESP_APPTRACE_DEST_TRAX, ESP_APPTRACE_TMO_INFINITE);
+    esp_apptrace_flush(ESP_APPTRACE_DEST_JTAG, ESP_APPTRACE_TMO_INFINITE);
     raw_trace_log_done();
     vTaskDelete(NULL);
 }
@@ -300,7 +300,7 @@ TEST_DECL(apptrace_reset, "test_apptrace.ApptraceTests*.test_apptrace_reset")
     static char stdout_buf[128];
     setvbuf(stdout, stdout_buf, _IOLBF, sizeof(stdout_buf));
 
-    while (!esp_apptrace_host_is_connected(ESP_APPTRACE_DEST_TRAX))
+    while (!esp_apptrace_host_is_connected(ESP_APPTRACE_DEST_JTAG))
         vTaskDelay(1);
 
     int cnt = 0;
