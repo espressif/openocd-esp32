@@ -36,6 +36,7 @@ noinst_LTLIBRARIES += %D%/libhelper.la
 	%D%/sha256.h \
 	%D%/time_support.h \
 	%D%/replacements.h \
+	%D%/string_choices.h \
 	%D%/fileio.h \
 	%D%/system.h \
 	%D%/jep106.h \
