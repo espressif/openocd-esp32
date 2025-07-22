@@ -220,7 +220,7 @@ static int check_pending(struct connection *connection,
 	}
 
 	FD_ZERO(&read_fds);
-	FD_SET(connection->fd, &read_fds);
+	PORTABLE_FD_SET(connection->fd, &read_fds);
 
 	tv.tv_sec = timeout_s;
 	tv.tv_usec = 0;

@@ -448,7 +448,7 @@ int server_loop(struct command_context *command_context)
 		for (service = services; service; service = service->next) {
 			if (service->fd != -1) {
 				/* listen for new connections */
-				FD_SET(service->fd, &read_fds);
+				PORTABLE_FD_SET(service->fd, &read_fds);
 
 				if (service->fd > fd_max)
 					fd_max = service->fd;
@@ -459,7 +459,7 @@ int server_loop(struct command_context *command_context)
 
 				for (c = service->connections; c; c = c->next) {
 					/* check for activity on the connection */
-					FD_SET(c->fd, &read_fds);
+					PORTABLE_FD_SET(c->fd, &read_fds);
 					if (c->fd > fd_max)
 						fd_max = c->fd;
 				}

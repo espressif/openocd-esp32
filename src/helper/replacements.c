@@ -160,11 +160,11 @@ int win_select(int max_fd, fd_set *rfds, fd_set *wfds, fd_set *efds, struct time
 			if (handles[n_handles] == INVALID_HANDLE_VALUE) {
 				/* socket */
 				if (SAFE_FD_ISSET(i, rfds))
-					FD_SET(i, &sock_read);
+					PORTABLE_FD_SET(i, &sock_read);
 				if (SAFE_FD_ISSET(i, wfds))
-					FD_SET(i, &sock_write);
+					PORTABLE_FD_SET(i, &sock_write);
 				if (SAFE_FD_ISSET(i, efds))
-					FD_SET(i, &sock_except);
+					PORTABLE_FD_SET(i, &sock_except);
 				if (i > sock_max_fd)
 					sock_max_fd = i;
 			} else {
@@ -236,20 +236,20 @@ int win_select(int max_fd, fd_set *rfds, fd_set *wfds, fd_set *efds, struct time
 								    NULL, &bytes, NULL)) {
 								/* check to see if gdb pipe has data available */
 								if (bytes) {
-									FD_SET(handle_slot_to_fd[i], &aread);
+									PORTABLE_FD_SET(handle_slot_to_fd[i], &aread);
 									retcode++;
 								}
 							} else {
-								FD_SET(handle_slot_to_fd[i], &aread);
+								PORTABLE_FD_SET(handle_slot_to_fd[i], &aread);
 								retcode++;
 							}
 						}
 						if (SAFE_FD_ISSET(handle_slot_to_fd[i], wfds)) {
-							FD_SET(handle_slot_to_fd[i], &awrite);
+							PORTABLE_FD_SET(handle_slot_to_fd[i], &awrite);
 							retcode++;
 						}
 						if (SAFE_FD_ISSET(handle_slot_to_fd[i], efds)) {
-							FD_SET(handle_slot_to_fd[i], &aexcept);
+							PORTABLE_FD_SET(handle_slot_to_fd[i], &aexcept);
 							retcode++;
 						}
 					}
