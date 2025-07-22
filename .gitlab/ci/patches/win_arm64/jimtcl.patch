@@ -1,0 +1,11 @@
+--- jimtcl-0.83/jim.c
++++ jimtcl-0.83/jim.c
+@@ -16290,7 +16290,7 @@
+     extern char **environ;
+     #endif
+ 
+-    environ = env;
++    //environ = env;
+ #endif
+ }
+ 

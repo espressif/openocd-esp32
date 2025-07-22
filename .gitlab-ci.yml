@@ -70,6 +70,7 @@ variables:
     - job: build_windows_win32
     - job: build_windows_win64
     - job: macos_codesign
+    #- job: build_windows_arm64
 
 .release_submit_action: &release_submit_action
   image: espressif/github-hub:2

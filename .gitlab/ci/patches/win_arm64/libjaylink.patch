@@ -1,0 +1,28 @@
+--- libjaylink-0.3.1/libjaylink/discovery_tcp.c
++++ libjaylink-0.3.1/libjaylink/discovery_tcp.c
+@@ -301,7 +301,11 @@
+ 
+ 	while (true) {
+ 		FD_ZERO(&rfds);
++#ifdef _WIN32
++		FD_SET((SOCKET)sock, &rfds);
++#else
+ 		FD_SET(sock, &rfds);
++#endif
+ 
+ 		ret = select(sock + 1, &rfds, NULL, NULL, &timeout);
+ 
+--- libjaylink-0.3.1/libjaylink/socket.c
++++ libjaylink-0.3.1/libjaylink/socket.c
+@@ -79,7 +79,11 @@
+ 		return JAYLINK_OK;
+ 
+ 	FD_ZERO(&fds);
++#ifdef _WIN32
++	FD_SET((SOCKET)sock, &fds);
++#else
+ 	FD_SET(sock, &fds);
++#endif
+ 
+ 	tv.tv_sec = timeout / 1000;
+ 	tv.tv_usec = (timeout % 1000) * 1000;

@@ -22,7 +22,7 @@
   echo "${ARCHIVE_NAME}" > ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME}
 
 .buildx_libusb: &buildx_libusb |
-  export LIBUSB_VER=libusb-1.0.26
+  export LIBUSB_VER=libusb-1.0.29
   wget https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
   tar xzf $LIBUSB_VER.tar.gz && rm $LIBUSB_VER.tar.gz
   pushd $LIBUSB_VER
@@ -74,6 +74,9 @@
   wget https://dl.espressif.com/dl/$LIBJAYLINK_VER.tar.gz -O $LIBJAYLINK_VER.tar.gz
   tar xzf $LIBJAYLINK_VER.tar.gz && rm $LIBJAYLINK_VER.tar.gz
   pushd $LIBJAYLINK_VER
+  if [ $PLATFORM_NAME == "windows-arm64" ]; then
+    patch -p1 < ../.gitlab/ci/patches/win_arm64/libjaylink.patch
+  fi
   ./autogen.sh
   ./configure --prefix=$PWD/dist --host=${CONF_HOST} --disable-shared CC=${HOST_CC}
   make
@@ -85,6 +88,9 @@
   wget https://dl.espressif.com/dl/$JIMTCL_VER.tar.gz -O $JIMTCL_VER.tar.gz
   tar xzf $JIMTCL_VER.tar.gz && rm $JIMTCL_VER.tar.gz
   pushd $JIMTCL_VER
+  if [ ${PLATFORM_NAME:-} == "windows-arm64" ]; then
+    patch -p1 < ../.gitlab/ci/patches/win_arm64/jimtcl.patch
+  fi
   ./configure --prefix="$PWD/dist" --host=${CONF_HOST} --disable-shared --with-ext=json --minimal --disable-ssl CC=${HOST_CC}
   make
   # Running "make" does not create this file for static builds on Windows but "make install" still expects it
@@ -293,6 +299,14 @@ build_windows_win64:
   extends: .build_windows_template
   variables:
     PLATFORM_NAME: "win64"
+
+build_windows_arm64:
+  extends: .build_windows_template
+  image: dockcross/windows-arm64:20250808-0415f78
+  variables:
+    CONF_HOST: "aarch64-w64-mingw32"
+    HOST_CC: ${CONF_HOST}-gcc
+    PLATFORM_NAME: "windows-arm64"
 
 build_macos:
   <<: *build_macos_template

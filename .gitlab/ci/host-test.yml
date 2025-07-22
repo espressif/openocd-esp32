@@ -25,6 +25,15 @@ test_on_windows:
     - Expand-Archive -DestinationPath . "$DIST_ART_DIR/$ARCHIVE_NAME"
     - python tools/test_openocd.py openocd-esp32\bin\openocd
 
+test_on_windows_arm64:
+  extends: test_on_windows
+  tags:
+    - windows-arm
+  needs:
+    - job: build_windows_arm64
+  variables:
+    PLATFORM_NAME: "windows-arm64"
+
 test_on_macos:
   stage: test_host
   tags:
