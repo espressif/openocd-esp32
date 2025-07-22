@@ -58,6 +58,8 @@ fetch_gdb:
 
 dummy_job:
   script: echo "Pipeline skipped"
+  tags:
+    - build
   rules:
     - if: '$CI_FULL_RUN == "0" && $IDF_MASTER_RUN == "0"'
 
