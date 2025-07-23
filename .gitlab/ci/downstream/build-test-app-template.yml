@@ -119,6 +119,7 @@
     TEST_APP_CONFIGS: ""
   artifacts:
     paths:
+      - $BUILD_TEST_APP_DIR/gen_ut_app/builds/*/lp_core_main.elf
       - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gen_ut_app.elf
       - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gen_ut_app.elf.gprof
       - $BUILD_TEST_APP_DIR/gen_ut_app/output/*/gen_ut_app.bin

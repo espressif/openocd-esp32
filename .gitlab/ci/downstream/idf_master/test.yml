@@ -147,7 +147,12 @@ tests_esp32c5:
   variables:
     CHIP_NAME: "esp32c5"
     ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
-    TEST_RUN_BOARD_OPTS: "-b esp32c5-builtin -p test_*.*Single"
+    TEST_RUN_BOARD_OPTS: "-b esp32c5-builtin -e test_*.LpCore* -p test_*.*Single"
+
+tests_esp32c5_lpcore:
+  extends: tests_esp32c5
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32c5-lpcore-builtin -p test_*.LpCore*"
 
 tests_esp32c6:
   extends: .tests_master_riscv_template
@@ -165,7 +170,13 @@ tests_esp32c6:
   variables:
     CHIP_NAME: "esp32c6"
     ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
-    TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single"
+    TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -e test_*.LpCore* -p test_*.*Single4MB test_*.*Single"
+
+# TODO OCD-1227
+.tests_esp32c6_lpcore:
+  extends: tests_esp32c6
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32c6-lpcore-builtin -p test_*.LpCore*"
 
 tests_esp32c61:
   extends: .tests_master_riscv_template
@@ -215,4 +226,9 @@ tests_esp32p4:
       optional: true
   variables:
     CHIP_NAME: "esp32p4"
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -p test_*.*Dual"
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.LpCore* -p test_*.*Dual"
+
+tests_esp32p4_lpcore:
+  extends: tests_esp32p4
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
