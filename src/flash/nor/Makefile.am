@@ -37,6 +37,7 @@ NOR_DRIVERS = \
 	%D%/esp32s2.c \
 	%D%/esp32c2.c \
 	%D%/esp32h2.c \
+	%D%/esp32h4.c \
 	%D%/esp32c3.c \
 	%D%/esp32s3.c \
 	%D%/esp32c5.c \

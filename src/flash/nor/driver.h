@@ -264,6 +264,7 @@ extern const struct flash_driver esp32_flash;
 extern const struct flash_driver esp32s2_flash;
 extern const struct flash_driver esp32c2_flash;
 extern const struct flash_driver esp32h2_flash;
+extern const struct flash_driver esp32h4_flash;
 extern const struct flash_driver esp32c3_flash;
 extern const struct flash_driver esp32c5_flash;
 extern const struct flash_driver esp32c6_flash;
