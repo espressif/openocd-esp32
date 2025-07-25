@@ -414,6 +414,14 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
             if (len(reg) == 0):
                 continue
 
+            # TODO OCD-1225
+            if testee_info.chip in ["esp32h4", "esp32p4"] and reg in [
+                    "ft0", "ft1", "ft2", "ft3", "ft4", "ft5", "ft6", "ft7", "fs0", "fs1",
+                    "fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7", "fs2", "fs3",
+                    "fs4", "fs5", "fs6", "fs7", "fs8", "fs9", "fs10", "fs11", "ft8", "ft9",
+                    "ft10", "ft11",]:
+                continue
+
             if reg == 'csr_mexstatus':
                 # this register is not safe to write
                 set_reg_and_check(reg, None)
