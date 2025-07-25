@@ -66,6 +66,7 @@ enum esp32h4_reset_reason {
 	RESET_REASON_CORE_USB_UART   = 0x15,// USB UART resets the digital core (hp system)
 	RESET_REASON_CORE_USB_JTAG   = 0x16,// USB JTAG resets the digital core (hp system)
 	RESET_REASON_CPU0_JTAG       = 0x18,// JTAG resets the CPU 0
+	RESET_REASON_CPU_LOCKUP      = 0x1A,// Cpu lockup resets the chip
 };
 
 static const char *esp32h4_get_reset_reason(uint32_t reset_reason_reg_val, int shift_val)
@@ -105,6 +106,8 @@ static const char *esp32h4_get_reset_reason(uint32_t reset_reason_reg_val, int s
 		return "USB JTAG core reset";
 	case RESET_REASON_CPU0_JTAG:
 		return "JTAG cpu reset";
+	case RESET_REASON_CPU_LOCKUP:
+		return "CPU lockup reset";
 	}
 	return "Unknown reset cause";
 }
