@@ -356,10 +356,8 @@ COMMAND_HANDLER(handle_xsvf_command)
 				LOG_DEBUG("XCOMPLETE");
 
 				result = jtag_execute_queue();
-				if (result != ERROR_OK) {
+				if (result != ERROR_OK)
 					tdo_mismatch = 1;
-					break;
-				}
 				break;
 
 			case XTDOMASK:
@@ -387,9 +385,9 @@ COMMAND_HANDLER(handle_xsvf_command)
 			{
 				uint8_t myrepeat;
 
-				if (read(xsvf_fd, &myrepeat, 1) < 0)
+				if (read(xsvf_fd, &myrepeat, 1) < 0) {
 					do_abort = 1;
-				else {
+				} else {
 					xrepeat = myrepeat;
 					LOG_DEBUG("XREPEAT %d", xrepeat);
 				}
@@ -621,11 +619,11 @@ COMMAND_HANDLER(handle_xsvf_command)
 				}
 
 				/* see page 22 of XSVF spec */
-				if (uc == 0)
+				if (uc == 0) {
 					xendir = TAP_IDLE;
-				else if (uc == 1)
+				} else if (uc == 1) {
 					xendir = TAP_IRPAUSE;
-				else {
+				} else {
 					LOG_ERROR("illegial XENDIR argument: 0x%02X", uc);
 					unsupported = 1;
 					break;
@@ -642,11 +640,11 @@ COMMAND_HANDLER(handle_xsvf_command)
 				}
 
 				/* see page 22 of XSVF spec */
-				if (uc == 0)
+				if (uc == 0) {
 					xenddr = TAP_IDLE;
-				else if (uc == 1)
+				} else if (uc == 1) {
 					xenddr = TAP_DRPAUSE;
-				else {
+				} else {
 					LOG_ERROR("illegial XENDDR argument: 0x%02X", uc);
 					unsupported = 1;
 					break;
@@ -682,9 +680,9 @@ COMMAND_HANDLER(handle_xsvf_command)
 
 				ir_buf = malloc((bitcount + 7) / 8);
 
-				if (xsvf_read_buffer(bitcount, xsvf_fd, ir_buf) != ERROR_OK)
+				if (xsvf_read_buffer(bitcount, xsvf_fd, ir_buf) != ERROR_OK) {
 					do_abort = 1;
-				else {
+				} else {
 					struct scan_field field;
 
 					field.num_bits = bitcount;
@@ -769,9 +767,9 @@ COMMAND_HANDLER(handle_xsvf_command)
 				LOG_DEBUG("XWAIT %s %s usecs:%d", tap_state_name(
 						wait_state), tap_state_name(end_state), delay);
 
-				if (runtest_requires_tck && wait_state == TAP_IDLE)
+				if (runtest_requires_tck && wait_state == TAP_IDLE) {
 					jtag_add_runtest(delay, end_state);
-				else {
+				} else {
 					/* FIXME handle statemove errors ... */
 					result = svf_add_statemove(wait_state);
 					if (result != ERROR_OK)
