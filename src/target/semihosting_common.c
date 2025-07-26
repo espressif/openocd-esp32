@@ -452,7 +452,8 @@ int semihosting_common(struct target *target)
 			retval = semihosting_read_fields(target, 1, fields);
 			if (retval != ERROR_OK)
 				return retval;
-			else {
+
+			{
 				int fd = semihosting_get_field(target, 0, fields);
 				/* Do not allow to close OpenOCD's own standard streams */
 				if (fd == 0 || fd == 1 || fd == 2) {
@@ -554,49 +555,43 @@ int semihosting_common(struct target *target)
 				retval = semihosting_read_fields(target, 2, fields);
 				if (retval != ERROR_OK)
 					return retval;
-				else {
-					int type = semihosting_get_field(target, 0, fields);
-					int code = semihosting_get_field(target, 1, fields);
 
-					if (type == ADP_STOPPED_APPLICATION_EXIT) {
-						if (!gdb_get_actual_connections())
-							exit(code);
-						else {
-							fprintf(stderr,
-								"semihosting: *** application exited with %d ***\n",
-								code);
-						}
-					} else {
-						fprintf(stderr,
-							"semihosting: application exception %#x\n",
-							type);
-					}
+				int type = semihosting_get_field(target, 0, fields);
+				int code = semihosting_get_field(target, 1, fields);
+
+				if (type == ADP_STOPPED_APPLICATION_EXIT) {
+					if (!gdb_get_actual_connections())
+						exit(code);
+
+					fprintf(stderr,
+						"semihosting: *** application exited with %d ***\n",
+						code);
+				} else {
+					fprintf(stderr,
+						"semihosting: application exception %#x\n", type);
 				}
 			} else {
 				if (semihosting->param == ADP_STOPPED_APPLICATION_EXIT) {
 					if (!gdb_get_actual_connections())
 						exit(0);
-					else {
-						fprintf(stderr,
-							"semihosting: *** application exited normally ***\n");
-					}
+
+					fprintf(stderr,
+						"semihosting: *** application exited normally ***\n");
 				} else if (semihosting->param == ADP_STOPPED_RUN_TIME_ERROR) {
 					/* Chosen more or less arbitrarily to have a nicer message,
 					 * otherwise all other return the same exit code 1. */
 					if (!gdb_get_actual_connections())
 						exit(1);
-					else {
-						fprintf(stderr,
-							"semihosting: *** application exited with error ***\n");
-					}
+
+					fprintf(stderr,
+						"semihosting: *** application exited with error ***\n");
 				} else {
 					if (!gdb_get_actual_connections())
 						exit(1);
-					else {
-						fprintf(stderr,
-							"semihosting: application exception %#x\n",
-							(unsigned) semihosting->param);
-					}
+
+					fprintf(stderr,
+						"semihosting: application exception %#x\n",
+						(unsigned int)semihosting->param);
 				}
 			}
 			if (!semihosting->has_resumable_exit) {
@@ -645,21 +640,20 @@ int semihosting_common(struct target *target)
 			retval = semihosting_read_fields(target, 2, fields);
 			if (retval != ERROR_OK)
 				return retval;
-			else {
+
+			{
 				int type = semihosting_get_field(target, 0, fields);
 				int code = semihosting_get_field(target, 1, fields);
 
 				if (type == ADP_STOPPED_APPLICATION_EXIT) {
 					if (!gdb_get_actual_connections())
 						exit(code);
-					else {
-						fprintf(stderr,
-							"semihosting: *** application exited with %d ***\n",
-							code);
-					}
+
+					fprintf(stderr,
+						"semihosting: *** application exited with %d ***\n",
+						code);
 				} else {
-					fprintf(stderr, "semihosting: exception %#x\n",
-						type);
+					fprintf(stderr, "semihosting: exception %#x\n", type);
 				}
 			}
 			if (!semihosting->has_resumable_exit) {
@@ -691,7 +685,8 @@ int semihosting_common(struct target *target)
 			retval = semihosting_read_fields(target, 1, fields);
 			if (retval != ERROR_OK)
 				return retval;
-			else {
+
+			{
 				int fd = semihosting_get_field(target, 0, fields);
 				struct stat buf;
 				semihosting->result = fstat(fd, &buf);
@@ -736,16 +731,16 @@ int semihosting_common(struct target *target)
 			retval = semihosting_read_fields(target, 2, fields);
 			if (retval != ERROR_OK)
 				return retval;
-			else {
+
+			{
 				uint64_t addr = semihosting_get_field(target, 0, fields);
 				size_t size = semihosting_get_field(target, 1, fields);
 
-				char *arg = semihosting->cmdline ?
-					semihosting->cmdline : "";
+				char *arg = semihosting->cmdline ? semihosting->cmdline : "";
 				uint32_t len = strlen(arg) + 1;
-				if (len > size)
+				if (len > size) {
 					semihosting->result = -1;
-				else {
+				} else {
 					semihosting_set_field(target, len, 1, fields);
 					retval = target_write_buffer(target, addr, len,
 							(uint8_t *)arg);
@@ -784,7 +779,8 @@ int semihosting_common(struct target *target)
 			retval = semihosting_read_fields(target, 1, fields);
 			if (retval != ERROR_OK)
 				return retval;
-			else {
+
+			{
 				uint64_t addr = semihosting_get_field(target, 0, fields);
 				/* tell the remote we have no idea */
 				memset(fields, 0, 4 * semihosting->word_size_bytes);
@@ -908,7 +904,8 @@ int semihosting_common(struct target *target)
 			retval = semihosting_read_fields(target, 3, fields);
 			if (retval != ERROR_OK)
 				return retval;
-			else {
+
+			{
 				uint64_t addr = semihosting_get_field(target, 0, fields);
 				uint32_t mode = semihosting_get_field(target, 1, fields);
 				size_t len = semihosting_get_field(target, 2, fields);
@@ -1029,7 +1026,8 @@ int semihosting_common(struct target *target)
 			retval = semihosting_read_fields(target, 3, fields);
 			if (retval != ERROR_OK)
 				return retval;
-			else {
+
+			{
 				int fd = semihosting_get_field(target, 0, fields);
 				uint64_t addr = semihosting_get_field(target, 1, fields);
 				size_t len = semihosting_get_field(target, 2, fields);
@@ -1108,7 +1106,8 @@ int semihosting_common(struct target *target)
 			retval = semihosting_read_fields(target, 2, fields);
 			if (retval != ERROR_OK)
 				return retval;
-			else {
+
+			{
 				uint64_t addr = semihosting_get_field(target, 0, fields);
 				size_t len = semihosting_get_field(target, 1, fields);
 				if (semihosting->is_fileio) {
@@ -1122,9 +1121,7 @@ int semihosting_common(struct target *target)
 						semihosting->result = -1;
 						semihosting->sys_errno = ENOMEM;
 					} else {
-						retval =
-							target_read_memory(target, addr, 1, len,
-								fn);
+						retval = target_read_memory(target, addr, 1, len, fn);
 						if (retval != ERROR_OK) {
 							free(fn);
 							return retval;
@@ -1162,7 +1159,8 @@ int semihosting_common(struct target *target)
 			retval = semihosting_read_fields(target, 4, fields);
 			if (retval != ERROR_OK)
 				return retval;
-			else {
+
+			{
 				uint64_t addr1 = semihosting_get_field(target, 0, fields);
 				size_t len1 = semihosting_get_field(target, 1, fields);
 				uint64_t addr2 = semihosting_get_field(target, 2, fields);
@@ -1224,7 +1222,8 @@ int semihosting_common(struct target *target)
 			retval = semihosting_read_fields(target, 2, fields);
 			if (retval != ERROR_OK)
 				return retval;
-			else {
+
+			{
 				int fd = semihosting_get_field(target, 0, fields);
 				off_t pos = semihosting_get_field(target, 1, fields);
 				if (semihosting->is_fileio) {
@@ -1270,7 +1269,8 @@ int semihosting_common(struct target *target)
 			retval = semihosting_read_fields(target, 2, fields);
 			if (retval != ERROR_OK)
 				return retval;
-			else {
+
+			{
 				uint64_t addr = semihosting_get_field(target, 0, fields);
 				size_t len = semihosting_get_field(target, 1, fields);
 				if (semihosting->is_fileio) {
@@ -1292,12 +1292,10 @@ int semihosting_common(struct target *target)
 						if (retval != ERROR_OK) {
 							free(cmd);
 							return retval;
-						} else {
-							cmd[len] = 0;
-							semihosting->result = system(
-									(const char *)cmd);
-							LOG_DEBUG("system('%s')=%" PRId64, cmd, semihosting->result);
 						}
+						cmd[len] = 0;
+						semihosting->result = system((const char *)cmd);
+						LOG_DEBUG("system('%s')=%" PRId64, cmd, semihosting->result);
 
 						free(cmd);
 					}
@@ -1352,7 +1350,8 @@ int semihosting_common(struct target *target)
 			retval = semihosting_read_fields(target, 3, fields);
 			if (retval != ERROR_OK)
 				return retval;
-			else {
+
+			{
 				int fd = semihosting_get_field(target, 0, fields);
 				uint64_t addr = semihosting_get_field(target, 1, fields);
 				size_t len = semihosting_get_field(target, 2, fields);
@@ -1612,7 +1611,7 @@ int semihosting_common(struct target *target)
 
 		default:
 			fprintf(stderr, "semihosting: unsupported call %#x\n",
-				(unsigned) semihosting->op);
+				(unsigned int)semihosting->op);
 			semihosting->result = -1;
 			semihosting->sys_errno = ENOTSUP;
 	}
