@@ -24,8 +24,6 @@ void stub_sha256_start(void)
 
 void stub_sha256_data(const void *data, size_t data_len)
 {
-	if (data_len % 4 != 0)
-		return;
 	ets_sha_update(&ctx, data, data_len, false);
 }
 

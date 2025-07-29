@@ -65,9 +65,9 @@
 #include <target/espressif/esp.h>
 #include <helper/time_support.h>
 #include <helper/align.h>
-#include <target/smp.h>
 #include "contrib/loaders/flash/espressif/stub_flasher.h"
 #include <target/smp.h>
+#include <target/target_type.h>
 #include "esp_flash.h"
 
 #define ESP_FLASH_RW_TMO                20000	/* ms */
@@ -1623,6 +1623,12 @@ static int esp_flash_verify_bank_hash(struct target *target,
 	if (length != filesize)
 		LOG_WARNING("File content exceeds flash bank size. Only comparing the "
 			"first %zu bytes of the file", length);
+
+	if (!strcmp(target->type->name, "esp32") && (length & 0x3)) {
+		LOG_WARNING("File size not divisible by 4. Not comparing the "
+			"last %zu bytes of the file", length & 0x3);
+		length = length & ~0x3;
+	}
 
 	LOG_DEBUG("File size: %zu bank_size: %u offset: %u",
 		filesize, bank->size, offset);
