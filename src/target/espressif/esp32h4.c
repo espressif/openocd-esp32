@@ -222,6 +222,16 @@ static int esp32h4_init_target(struct command_context *cmd_ctx,
 	return ERROR_OK;
 }
 
+static int esp32h4_get_gdb_memory_map(struct target *target, struct target_memory_map *memory_map)
+{
+	struct target_memory_region region = { 0 };
+
+	region.type = MEMORY_TYPE_ROM;
+	region.start = ESP32H4_IROM_MASK_LOW;
+	region.length = ESP32H4_IROM_MASK_HIGH - ESP32H4_IROM_MASK_LOW;
+	return target_add_memory_region(memory_map, &region);
+}
+
 static const struct command_registration esp32h4_command_handlers[] = {
 	{
 		.usage = "",
@@ -266,6 +276,7 @@ struct target_type esp32h4_target = {
 	.get_gdb_arch = riscv_get_gdb_arch,
 	.get_gdb_reg_list = esp_riscv_get_gdb_reg_list,
 	.get_gdb_reg_list_noread = riscv_get_gdb_reg_list_noread,
+	.get_gdb_memory_map = esp32h4_get_gdb_memory_map,
 
 	.add_breakpoint = esp_riscv_breakpoint_add,
 	.remove_breakpoint = esp_riscv_breakpoint_remove,
