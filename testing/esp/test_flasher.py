@@ -105,6 +105,34 @@ class FlasherTestsImpl:
         """
         self.program_big_binary('encrypt compress' if self.ENCRYPTED else 'compress', overflow=True)
 
+    def test_flash_verify_uneven_binary(self):
+        """
+            This test checks that binaries of uneven size can be sucessfully flashed and verified.
+            1) Create test binary file.
+            2) Fill it with random data.
+            3) Write the file to the flash.
+            4) Read written data to another file.
+            5) Compare files.
+        """
+        size = 0x103
+        fhnd, fname1 = tempfile.mkstemp()
+        get_logger().debug('Generate random file %dB "%s"', size, fname1)
+        with os.fdopen(fhnd, 'wb') as fbin:
+            fbin.write(os.urandom(size))
+
+        try:
+            self.gdb.target_program(fname1, 0, actions='encrypt verify' if self.ENCRYPTED else 'verify')
+
+            # since we can not get result from OpenOCD (output parsing seems not to be good idea),
+            # we need to read written flash and compare data manually
+            _, fname2 = tempfile.mkstemp()
+            self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (dbg.fixup_path(fname2), 0, size ))
+            self.assertTrue(filecmp.cmp(fname1, fname2))
+        finally:
+            # restore flash contents with test app as it was overwritten by test
+            # what can lead to the failures when preparing for the next tests
+            self.gdb.target_program_bins(self.test_app_cfg.build_bins_dir())
+
     def test_cache_handling(self):
         """
             This test checks that flasher does not corrupts cache config registers when setting breakpoints.
