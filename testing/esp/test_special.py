@@ -48,6 +48,7 @@ class DebuggerSpecialTestsImpl:
         self.clear_bps()
 
     @run_all_cores
+    @skip_for_chip(['esp32c5'], "skipped - OCD-1224")
     def test_debugging_works_after_hw_reset(self):
         """
             This test checks that debugging works after HW reset.
@@ -91,7 +92,8 @@ class DebuggerSpecialTestsImpl:
             # watchpoint hit on read var in 'target_bp_func2'
             self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_wp_var2_2')
 
-    @skip_for_chip(['esp32', 'esp32s3', 'esp32c5'], "skipped - OCD-868")
+    @skip_for_chip(['esp32', 'esp32s3'], "skipped - OCD-868")
+    @skip_for_chip(['esp32c5'], "skipped - OCD-1224")
     def test_debugging_works_after_esptool_flash(self):
         """
             This test checks that debugging works after flashing with esptool.
