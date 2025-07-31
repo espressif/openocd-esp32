@@ -7,6 +7,7 @@ import unittest
 import importlib
 import sys
 import re
+import subprocess
 import debug_backend as dbg
 
 # TODO: fixed???
@@ -538,6 +539,7 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         self.test_app_cfg = DebuggerTestAppConfig()
         self.bpns = []
         self.wps = {}
+        self.main_reached = False
 
     def setUp(self):
         """ Setup test.
@@ -564,7 +566,17 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         self.gdb.connect()
         bp = self.gdb.add_bp(self.test_app_cfg.entry_point, hw=True)
         self.resume_exec()
-        rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
+        try:
+            rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
+        except:
+            if not self.main_reached:
+                self.gdb.disconnect()
+                self.oocd.stop()
+                cmd = ['esptool.py', '-p', self.port_name, '--no-stub', 'chip_id']
+                subprocess.run(cmd)
+                os._exit(os.EX_TEMPFAIL)
+            raise
+        self.main_reached = True
         # workarounds for strange debugger's behaviour
         if rsn == dbg.TARGET_STOP_REASON_SIGINT:
             get_logger().warning('Unexpected SIGINT during setup! Apply workaround...')
