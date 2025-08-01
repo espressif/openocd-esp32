@@ -1515,7 +1515,7 @@ static int dsp563xx_read_memory_core(struct target *target,
 	uint8_t *b;
 
 	LOG_DEBUG(
-		"memtype: %d address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32 "",
+		"memtype: %d address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32,
 		mem_type,
 		address,
 		size,
@@ -1696,7 +1696,7 @@ static int dsp563xx_write_memory_core(struct target *target,
 	const uint8_t *b;
 
 	LOG_DEBUG(
-		"memtype: %d address: 0x%8.8" TARGET_PRIxADDR ", size: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32 "",
+		"memtype: %d address: 0x%8.8" TARGET_PRIxADDR ", size: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32,
 		mem_type,
 		address,
 		size,

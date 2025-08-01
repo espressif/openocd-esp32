@@ -2577,7 +2577,7 @@ int target_read_u64(struct target *target, target_addr_t address, uint64_t *valu
 
 	if (retval == ERROR_OK) {
 		*value = target_buffer_get_u64(target, value_buf);
-		LOG_DEBUG("address: " TARGET_ADDR_FMT ", value: 0x%16.16" PRIx64 "",
+		LOG_DEBUG("address: " TARGET_ADDR_FMT ", value: 0x%16.16" PRIx64,
 				  address,
 				  *value);
 	} else {
@@ -2601,7 +2601,7 @@ int target_read_u32(struct target *target, target_addr_t address, uint32_t *valu
 
 	if (retval == ERROR_OK) {
 		*value = target_buffer_get_u32(target, value_buf);
-		LOG_DEBUG("address: " TARGET_ADDR_FMT ", value: 0x%8.8" PRIx32 "",
+		LOG_DEBUG("address: " TARGET_ADDR_FMT ", value: 0x%8.8" PRIx32,
 				  address,
 				  *value);
 	} else {
@@ -2668,7 +2668,7 @@ int target_write_u64(struct target *target, target_addr_t address, uint64_t valu
 		return ERROR_FAIL;
 	}
 
-	LOG_DEBUG("address: " TARGET_ADDR_FMT ", value: 0x%16.16" PRIx64 "",
+	LOG_DEBUG("address: " TARGET_ADDR_FMT ", value: 0x%16.16" PRIx64,
 			  address,
 			  value);
 
@@ -2689,7 +2689,7 @@ int target_write_u32(struct target *target, target_addr_t address, uint32_t valu
 		return ERROR_FAIL;
 	}
 
-	LOG_DEBUG("address: " TARGET_ADDR_FMT ", value: 0x%8.8" PRIx32 "",
+	LOG_DEBUG("address: " TARGET_ADDR_FMT ", value: 0x%8.8" PRIx32,
 			  address,
 			  value);
 
@@ -2749,7 +2749,7 @@ int target_write_phys_u64(struct target *target, target_addr_t address, uint64_t
 		return ERROR_FAIL;
 	}
 
-	LOG_DEBUG("address: " TARGET_ADDR_FMT ", value: 0x%16.16" PRIx64 "",
+	LOG_DEBUG("address: " TARGET_ADDR_FMT ", value: 0x%16.16" PRIx64,
 			  address,
 			  value);
 
@@ -2770,7 +2770,7 @@ int target_write_phys_u32(struct target *target, target_addr_t address, uint32_t
 		return ERROR_FAIL;
 	}
 
-	LOG_DEBUG("address: " TARGET_ADDR_FMT ", value: 0x%8.8" PRIx32 "",
+	LOG_DEBUG("address: " TARGET_ADDR_FMT ", value: 0x%8.8" PRIx32,
 			  address,
 			  value);
 
@@ -4008,7 +4008,7 @@ static int handle_bp_command_set(struct command_invocation *cmd,
 		retval = context_breakpoint_add(target, asid, length, hw);
 		/* error is always logged in context_breakpoint_add(), do not print it again */
 		if (retval == ERROR_OK)
-			command_print(cmd, "Context breakpoint set at 0x%8.8" PRIx32 "", asid);
+			command_print(cmd, "Context breakpoint set at 0x%8.8" PRIx32, asid);
 
 	} else {
 		if (!target->type->add_hybrid_breakpoint) {
@@ -4018,7 +4018,7 @@ static int handle_bp_command_set(struct command_invocation *cmd,
 		retval = hybrid_breakpoint_add(target, addr, asid, length, hw);
 		/* error is always logged in hybrid_breakpoint_add(), do not print it again */
 		if (retval == ERROR_OK)
-			command_print(cmd, "Hybrid breakpoint set at 0x%8.8" PRIx32 "", asid);
+			command_print(cmd, "Hybrid breakpoint set at 0x%8.8" PRIx32, asid);
 	}
 	return retval;
 }
