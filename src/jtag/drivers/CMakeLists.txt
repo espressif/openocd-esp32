@@ -188,8 +188,8 @@ if(BUILD_SYSFSGPIO)
     target_sources(ocdjtagdrivers PRIVATE sysfsgpio.c)
 endif()
 
-if(BUILD_XLNX_PCIE_XVC)
-    target_sources(ocdjtagdrivers PRIVATE xlnx-pcie-xvc.c)
+if(BUILD_XLNX_XVC)
+    target_sources(ocdjtagdrivers PRIVATE xlnx-xvc.c)
 endif()
 
 if(BUILD_BCM2835GPIO)

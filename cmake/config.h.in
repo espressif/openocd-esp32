@@ -19,9 +19,6 @@
 /* Print verbose USB communication messages */
 #cmakedefine _DEBUG_USB_COMMS_ 1
 
-/* Print verbose USB I/O messages */
-#cmakedefine _DEBUG_USB_IO_ 1
-
 /* 0 if you don't want parport */
 #cmakedefine01 BUILD_PARPORT
 
@@ -82,8 +79,8 @@
 /* 0 if you don't want Linux SPI SWD adapter driver */
 #cmakedefine01 BUILD_LINUXSPIDEV
 
-/* 0 if you don't want Xilinx XVC/PCIe driver */
-#cmakedefine01 BUILD_XLNX_PCIE_XVC
+/* 0 if you don't want Xilinx XVC driver */
+#cmakedefine01 BUILD_XLNX_XVC
 
 /* 0 if you don't want ESP remote protocol driver */
 #cmakedefine01 BUILD_ESP_REMOTE
@@ -175,8 +172,8 @@
 /* 0 if you don't want SEGGER J-Link Programmer */
 #cmakedefine01 BUILD_JLINK
 
-/* 0 if you don't want Xilinx XVC/PCIe */
-#cmakedefine01 BUILD_XLNX_PCIE_XVC
+/* 0 if you don't want Xilinx XVC */
+#cmakedefine01 BUILD_XLNX_XVC
 
 /* 0 if you don't want Bus Pirate */
 #cmakedefine01 BUILD_BUS_PIRATE

@@ -6,7 +6,6 @@ option(GCC_WARNINGS "Default compiler warnings" ON)
 option(GCC_WEXTRA "Some extra warning flags that are not enabled by -Wall" ON)
 option(GCC_WERROR "Make all warnings into errors" ON)
 option(VERBOSE_JTAG_IO "Verbose JTAG I/O messages (for debugging)" OFF)
-option(VERBOSE_USB_IO "Verbose USB I/O messages (for debugging)" OFF)
 option(VERBOSE_USB_COMM "Verbose USB communication messages (for debugging)" OFF)
 option(MALLOC_LOGGING "Include free space in logging messages (requires malloc.h)" OFF)
 option(BUILD_DUMMY "Build the dummy port driver" ON)
@@ -27,7 +26,7 @@ option(BUILD_AT91RM9200 "Build support for AT91RM9200 based SBCs" OFF)
 option(BUILD_GW16012 "Build support for the Gateworks GW16012 JTAG Programmer" OFF)
 option(BUILD_SYSFSGPIO "Build support for programming driven via sysfs gpios" OFF)
 option(BUILD_LINUXSPIDEV "Build support for Linux SPI device SWD adapter" OFF)
-option(BUILD_XLNX_PCIE_XVC "Build support for Xilinx XVC/PCIe" OFF)
+option(BUILD_XLNX_XVC "Build support for Xilinx XVC" OFF)
 option(use_internal_jimtcl "Build internal jimtcl" OFF)
 option(use_internal_jimtcl_maintainer "Maintainer mode when building internal jimtcl" OFF)
 option(use_internal_libjaylink "Build internal libjaylink" OFF)
@@ -80,8 +79,8 @@ option(BUILD_LINUXGPIOD "Linux GPIO bitbang through libgpiod" OFF)
 # LibJAYLINK Adapters
 option(BUILD_JLINK "SEGGER J-Link Programmer" ON)
 
-# PCIE Adapters
-option(BUILD_XLNX_PCIE_XVC "Xilinx XVC/PCIe" ON)
+# XVC Adapters
+option(BUILD_XLNX_XVC "Xilinx XVC" ON)
 
 # Serial Port Adapters
 option(BUILD_BUS_PIRATE "Bus Pirate" ON)
