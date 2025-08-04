@@ -239,10 +239,6 @@ def idf_ver_min_for_chip(ver_str, chips_to_skip, reason=None):
     # do not skip if chip is not found
     return unittest.skipIf(False, "")
 
-def run_all_cores(func):
-    func._run_all_cores = True
-    return func
-
 class DebuggerTestError(RuntimeError):
     """ Base class for debugger's test errors
     """
@@ -733,27 +729,6 @@ class DebuggerGenericTestAppTestsDual(DebuggerGenericTestAppTests):
         self.test_app_cfg.bin_dir = os.path.join('output', 'default')
         self.test_app_cfg.build_dir = os.path.join('builds', 'default')
         self.args = []
-
-    def __init_subclass__(cls):
-        # Only apply for esp32p4 to run tests also on cpu0, until single core tesets are enabled (OCD-1005)
-        if testee_info.chip != "esp32p4":
-            return
-        for fname in dir(cls):
-            f = getattr(cls, fname)
-            if getattr(f, '_run_all_cores', False):
-                setattr(cls, fname, cls._runtest_all_cores(f))
-
-    def _runtest_all_cores(func):
-        def test_wrapper_dual(self):
-            # setup was already called
-            self.test_app_cfg.active_core = 0
-            func(self) # run on cpu0
-            self.tearDown()
-            self.setUp()
-            self.test_app_cfg.active_core = 1
-            func(self) # run on cpu1
-            # teaddown gets called after
-        return test_wrapper_dual
 
 
 class DebuggerGenericTestAppTestsSingle(DebuggerGenericTestAppTests):

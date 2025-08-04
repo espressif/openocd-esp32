@@ -59,7 +59,6 @@ class DebuggerSpecialTestsImpl:
         self.assertTrue(abs(top_t / top_perc * 100 - profile_time) < profile_time / 10)
         self.assertEqual(top_f, "esp_cpu_wait_for_intr")
 
-    @run_all_cores
     def test_restart_debug_from_crash(self):
         """
             This test checks that debugger can operate correctly after SW reset with stalled CPU.
@@ -86,7 +85,6 @@ class DebuggerSpecialTestsImpl:
         self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay0'])
         self.clear_bps()
 
-    @run_all_cores
     @skip_for_chip(['esp32c5'], "skipped - OCD-1224")
     def test_debugging_works_after_hw_reset(self):
         """
@@ -168,7 +166,6 @@ class DebuggerSpecialTestsImpl:
             self.prepare_app_for_debugging(self.test_app_cfg.app_off)
             self._debug_image()
 
-    @run_all_cores
     def test_bp_and_wp_set_by_program(self):
         """
             This test checks that breakpoints and watchpoints set by program on target work.
@@ -177,7 +174,6 @@ class DebuggerSpecialTestsImpl:
         """
         self._do_test_bp_and_wp_set_by_program()
 
-    @run_all_cores
     def test_wp_reconfigure_by_program(self):
         """
             This test checks that watchpoints can be reconfigured by target w/o removing them.
@@ -186,7 +182,6 @@ class DebuggerSpecialTestsImpl:
         """
         self._do_test_bp_and_wp_set_by_program()
 
-    @run_all_cores
     def test_exception(self):
         """
         This test checks that expected exception cause string equal to the OpenOCD output.
@@ -282,7 +277,6 @@ class PsramTestsImpl:
     def tearDown(self):
         pass
 
-    @run_all_cores
     def test_psram_with_flash_breakpoints(self):
         """
             This test checks that PSRAM memory contents are not corrupted when using flash SW breakpoints.
@@ -304,7 +298,6 @@ class PsramTestsImpl:
             # break at vTaskDelay
             self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay%d' % (i % 2)], outmost_func_name='psram_with_flash_breakpoints_task')
 
-    @run_all_cores
     def test_psram_with_flash_breakpoints_gh264(self):
         """
             GH issue reported for ESP32-S3. See https://github.com/espressif/openocd-esp32/issues/264
@@ -332,7 +325,6 @@ class PsramTestsImpl:
 class DebuggerSpecialTestsDual(DebuggerGenericTestAppTestsDual, DebuggerSpecialTestsImpl):
     """ Test cases for dual core mode
     """
-    @run_all_cores
     def test_cores_states_after_esptool_connection(self):
         """
             This test checks that cores are in running or halted state after esptool connection.
@@ -368,7 +360,6 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
     """ Test cases for single core mode
     """
 
-    #@run_all_cores TODO enable for both cores after OCD-1132
     def test_gdb_regs_mapping(self):
         """
             This test checks that GDB and OpenOCD has identical registers mapping.

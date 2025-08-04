@@ -211,7 +211,6 @@ class GcovTestsImpl:
             if os.path.exists(f['data_path']):
                 os.remove(f['data_path'])
 
-    @run_all_cores
     @skip_for_chip(['esp32s2'], "skipped - OCD-1190")
     def test_simple_gdb(self):
         """
@@ -267,7 +266,6 @@ class GcovTestsImpl:
 
         self.gdb.delete_bp(bp)
 
-    @run_all_cores
     @skip_for_chip(['esp32s2'], "skipped - OCD-1190")
     def test_simple_oocd(self):
         """
@@ -299,7 +297,6 @@ class GcovTestsImpl:
         f2 = GcovDataFile(self.toolchain, ref_data_path, self.src_dirs, self.proj_path)
         self.assertEqual(f, f2)
 
-    @run_all_cores
     def test_on_the_fly_gdb(self):
         """
             This test checks that GCOV data can be dumped by means of GDB
@@ -326,7 +323,6 @@ class GcovTestsImpl:
         data_path = os.path.join(self.test_app_cfg.build_obj_dir(), 'esp-idf', 'main', 'CMakeFiles', MAIN_COMP_BUILD_DIR_NAME, 'helper_funcs.c.gcda')
         self.assertTrue(os.path.exists(os.path.join(self.gcov_prefix, self.strip_gcov_path(data_path))))
 
-    @run_all_cores
     def test_on_the_fly_oocd(self):
         """
             This test checks that GCOV data can be dumped by means of OpenOCD

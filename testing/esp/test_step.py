@@ -52,7 +52,6 @@ class StepTestsImpl():
         # restore ISR masking
         self.isr_masking(on=self.old_masking)
 
-    @run_all_cores
     def test_step_over_bp(self):
         """
             This test checks that debugger can step over breakpoint.
@@ -90,7 +89,6 @@ class StepTestsImpl():
         new_pc = self.gdb.get_reg('pc')
         self.compare_pc_diffs(new_pc, old_pc)
 
-    @run_all_cores
     def test_step_over_wp(self):
         """
             This test checks that debugger can step over triggered watchpoint.
@@ -114,7 +112,6 @@ class StepTestsImpl():
             # 'count' write
             self.do_step_over_wp_check('blink_task')
 
-    @run_all_cores
     @only_for_arch(['xtensa'])
     def test_step_window_exception(self):
         # start the test, stopping at the window_exception_test function
@@ -144,7 +141,6 @@ class StepTestsImpl():
         cur_frame = self.gdb.get_current_frame()
         self.assertEqual(cur_frame['func'], 'window_exception_task')
 
-    @run_all_cores
     @only_for_arch(['xtensa'])
     def test_step_in_window_exception_handler(self):
         """
@@ -174,7 +170,6 @@ class StepTestsImpl():
             if cur_frame['func'] != '_WindowOverflow8':
                 break
 
-    @run_all_cores
     @only_for_arch(['xtensa'])
     def test_step_over_insn_using_scratch_reg(self):
         """
@@ -207,7 +202,6 @@ class StepTestsImpl():
             self.assertEqual(reg_val, val)
             val += 1
 
-    @run_all_cores
     def test_step_multimode(self):
         """
         Checks that sources line level and instruction level stepping can be mixed.
@@ -281,7 +275,6 @@ class StepTestsImpl():
             get_logger().info("done")
             self.add_bp("fib_while") #  restore bp
 
-    @run_all_cores
     def test_step_out_of_function(self):
         """
             Checks that stepping out of function works.
@@ -317,7 +310,6 @@ class StepTestsImpl():
             cur_frame = self.gdb.get_current_frame()
             self.assertEqual(cur_frame['func'], 'step_out_of_function_task')
 
-    @run_all_cores
     @only_for_arch(['xtensa'])
     def test_step_level5_int(self):
         """
@@ -364,7 +356,6 @@ class StepTestsImpl():
         s = self.oocd.cmd_exec('riscv set_maskisr')
         return s.strip() == 'riscv interrupt mask steponly'
 
-    @run_all_cores
     @only_for_arch(['xtensa'])
     @skip_for_chip(['esp32s3'], 'skipped - OCD-1006')
     def test_step_over_intlevel_disabled_isr(self):
@@ -401,7 +392,6 @@ class StepTestsImpl():
             get_logger().info('PS_new 0x%X', new_ps)
             self.assertEqual(old_ps & 0xF, new_ps & 0xF)
 
-    #@run_all_cores TODO enable for both cores after OCD-1132
     @only_for_arch(['riscv32'])
     def test_step_isr_masking_check_mstatus(self):
         """
