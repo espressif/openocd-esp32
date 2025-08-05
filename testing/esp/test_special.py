@@ -45,7 +45,14 @@ class DebuggerSpecialTestsImpl:
             self.add_bp(f)
             self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, f, run_bt=False)
 
-        cmd = ['gprof', self.test_app_cfg.build_app_elf_path() + '.gprof', 'test_sample.gprof']
+        orig_elf = self.test_app_cfg.build_app_elf_path()
+        patched_elf = orig_elf + '.gprof'
+        if not os.path.isfile(patched_elf):
+            cmd = [f"{self.toolchain}objcopy", '--rename-section', '.flash.text=.text', orig_elf, patched_elf]
+            proc = subprocess.run(cmd, capture_output=True)
+            proc.check_returncode()
+
+        cmd = ['gprof', patched_elf, 'test_sample.gprof']
         proc = subprocess.run(cmd, capture_output=True)
         proc.check_returncode()
 
