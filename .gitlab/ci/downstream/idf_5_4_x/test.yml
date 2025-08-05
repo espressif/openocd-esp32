@@ -8,7 +8,7 @@ tests_esp32_idf5.4.x:
       job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32"
-    TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e *.*Encrypted"
+    TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e test_*.*Encrypted"
 
 tests_esp32_idf5.4.x_flash_encrypted:
   extends: .tests_v5.4.x_template
@@ -161,7 +161,7 @@ tests_esp32p4_idf5.4.x:
       job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32p4"
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.LpCore* -p test_*.*Dual"
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.LpCore* -e test_*.*Encrypted"
 
 .tests_esp32p4_lpcore_idf5.4.x:
   extends: tests_esp32p4_idf5.4.x

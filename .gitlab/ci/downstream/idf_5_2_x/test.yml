@@ -8,7 +8,7 @@ tests_esp32_idf5.2.x:
       job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32"
-    TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e *.*Encrypted"
+    TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e test_*.*Encrypted"
 
 tests_esp32_idf5.2.x_flash_encrypted:
   extends: .tests_v5.2.x_template

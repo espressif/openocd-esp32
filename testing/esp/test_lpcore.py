@@ -100,7 +100,7 @@ class LpCoreTestsDual(LpCoreTestAppTestsDual, LpCoreTestsImpl):
         LpCoreTestsImpl.setUp(self)
 
 @idf_ver_min('5.4')
-@only_for_chip(['esp32c6', 'esp32c5'])
+@only_for_chip(['esp32c6', 'esp32c5', 'esp32p4'])
 class LpCoreTestsSingle(LpCoreTestAppTestsSingle, LpCoreTestsImpl):
     """ Test cases via GDB in single core mode
     """

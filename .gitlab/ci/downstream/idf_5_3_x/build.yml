@@ -53,5 +53,5 @@ build_test_app_esp32p4_idf5.3.x:
   variables:
     CHIP_NAME: "esp32p4"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    TEST_APP_CONFIGS: "default svtrace_dual apptrace_gcov_dual psram_dual default_amazon_freertos"
+    TEST_APP_CONFIGS: "default svtrace_dual apptrace_gcov_dual psram_dual default_amazon_freertos single_core svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos"
   extends: .build_idf53x_test_app_template

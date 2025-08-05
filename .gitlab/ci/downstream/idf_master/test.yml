@@ -10,7 +10,7 @@ tests_esp32:
       optional: true
   variables:
     CHIP_NAME: "esp32"
-    TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e *.*Encrypted"
+    TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e test_*.*Encrypted"
 
 tests_esp32_flash_encrypted:
   extends: .tests_master_template
@@ -226,7 +226,7 @@ tests_esp32p4:
       optional: true
   variables:
     CHIP_NAME: "esp32p4"
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.LpCore* -p test_*.*Dual"
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.LpCore* -e test_*.*Encrypted"
 
 tests_esp32p4_lpcore:
   extends: tests_esp32p4
