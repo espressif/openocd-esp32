@@ -288,6 +288,10 @@ class FlasherTestsDual(DebuggerGenericTestAppTestsDual, FlasherTestsImpl):
         DebuggerGenericTestAppTestsDual.setUp(self)
         FlasherTestsImpl.setUp(self)
 
+    @skip_for_chip(['esp32p4'], "skipped - slow test")
+    def test_big_binary_compressed(self):
+        super(DebuggerGenericTestAppTestsDual, self).test_big_binary_compressed()
+
 class FlasherTestsDualEncrypted(DebuggerGenericTestAppTestsDualEncrypted, FlasherTestsImpl):
     """ Encrypted flash test cases in dual core mode
     """
@@ -301,6 +305,10 @@ class FlasherTestsSingle(DebuggerGenericTestAppTestsSingle, FlasherTestsImpl):
     def setUp(self):
         DebuggerGenericTestAppTestsSingle.setUp(self)
         FlasherTestsImpl.setUp(self)
+
+    @skip_for_chip(['esp32p4'], "skipped - slow test")
+    def test_big_binary(self):
+        super(DebuggerGenericTestAppTestsSingle, self).test_big_binary()
 
 class FlasherTestsSingleEncrypted(DebuggerGenericTestAppTestsSingleEncrypted, FlasherTestsImpl):
     """ Encrypted flash test cases in single core mode
