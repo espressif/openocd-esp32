@@ -1462,10 +1462,30 @@ static int remove_trigger(struct target *target, int unique_id)
 	return ERROR_OK;
 }
 
+static int remove_trigger_from_unavailable_target(struct target *target, int unique_id)
+{
+	RISCV_INFO(r);
+
+	for (unsigned int i = 0; i < r->trigger_count; i++) {
+		if (r->trigger_unique_id[i] == unique_id) {
+			r->trigger_unique_id[i] = -1;
+			LOG_TARGET_DEBUG(target, "Stop using resource %d for bp %d",
+				i, unique_id);
+		}
+	}
+	return ERROR_OK;
+}
+
 int riscv_remove_breakpoint(struct target *target,
 		struct breakpoint *breakpoint)
 {
 	if (breakpoint->type == BKPT_SOFT) {
+		/* ESPRESSIF */
+		if (target->state == TARGET_UNAVAILABLE) {
+			LOG_TARGET_WARNING(target, "Target unavailable, breakpoint may not be removed!");
+			breakpoint->is_set = false;
+			return ERROR_OK;
+		}
 		/* Write the original instruction. */
 		if (riscv_write_by_any_size(
 				target, breakpoint->address, breakpoint->length, breakpoint->orig_instr) != ERROR_OK) {
@@ -1477,6 +1497,13 @@ int riscv_remove_breakpoint(struct target *target,
 	} else if (breakpoint->type == BKPT_HARD) {
 		struct trigger trigger;
 		trigger_from_breakpoint(&trigger, breakpoint);
+		/* ESPRESSIF */
+		if (target->state == TARGET_UNAVAILABLE) {
+			LOG_TARGET_WARNING(target, "Target unavailable, breakpoint may not be removed!");
+			remove_trigger_from_unavailable_target(target, trigger.unique_id);
+			breakpoint->is_set = false;
+			return ERROR_OK;
+		}
 		int result = remove_trigger(target, trigger.unique_id);
 		if (result != ERROR_OK)
 			return result;
@@ -1527,9 +1554,16 @@ int riscv_remove_watchpoint(struct target *target,
 		struct watchpoint *watchpoint)
 {
 	LOG_TARGET_DEBUG(target, "Removing watchpoint @0x%" TARGET_PRIxADDR, watchpoint->address);
-
 	struct trigger trigger;
 	trigger_from_watchpoint(&trigger, watchpoint);
+
+	/* ESPRESSIF */
+	if (target->state == TARGET_UNAVAILABLE) {
+		LOG_TARGET_WARNING(target, "Target unavailable, watchpoint may not be removed!");
+		remove_trigger_from_unavailable_target(target, trigger.unique_id);
+		watchpoint->is_set = false;
+		return ERROR_OK;
+	}
 
 	int result = remove_trigger(target, trigger.unique_id);
 	if (result != ERROR_OK)
