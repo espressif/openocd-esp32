@@ -653,16 +653,23 @@ int watchpoint_clear_target(struct target *target)
 {
 	LOG_TARGET_DEBUG(target, "Delete all watchpoints");
 
-	struct watchpoint *watchpoint = target->watchpoints;
 	int retval = ERROR_OK;
 
-	while (watchpoint) {
-		struct watchpoint *tmp = watchpoint;
-		watchpoint = watchpoint->next;
-		int status = watchpoint_free(target, tmp);
-		if (status != ERROR_OK)
-			retval = status;
+	/* ESPRESSIF */
+	if (target->smp) {
+		struct target_list *head;
+
+		foreach_smp_target(head, target->smp_targets) {
+			struct target *curr = head->target;
+			int status = watchpoint_remove_all_internal(curr);
+
+			if (status != ERROR_OK)
+				retval = status;
+		}
+	} else {
+		retval = watchpoint_remove_all_internal(target);
 	}
+
 	return retval;
 }
 
