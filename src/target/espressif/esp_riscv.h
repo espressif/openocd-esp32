@@ -91,8 +91,6 @@ int esp_riscv_alloc_trigger_addr(struct target *target);
 int esp_riscv_semihosting(struct target *target);
 int esp_riscv_breakpoint_add(struct target *target, struct breakpoint *breakpoint);
 int esp_riscv_breakpoint_remove(struct target *target, struct breakpoint *breakpoint);
-int esp_riscv_smp_watchpoint_add(struct target *target, struct watchpoint *watchpoint);
-int esp_riscv_smp_watchpoint_remove(struct target *target, struct watchpoint *watchpoint);
 int esp_riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint);
 int esp_riscv_resume(struct target *target, bool current, target_addr_t address,
 		bool handle_breakpoints, bool debug_execution);

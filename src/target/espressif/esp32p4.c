@@ -476,8 +476,8 @@ struct target_type esp32p4_target = {
 	.add_breakpoint = esp_riscv_breakpoint_add,
 	.remove_breakpoint = esp_riscv_breakpoint_remove,
 
-	.add_watchpoint = esp_riscv_smp_watchpoint_add,
-	.remove_watchpoint = esp_riscv_smp_watchpoint_remove,
+	.add_watchpoint = riscv_add_watchpoint,
+	.remove_watchpoint = riscv_remove_watchpoint,
 	.hit_watchpoint = esp_riscv_hit_watchpoint,
 
 	.arch_state = riscv_arch_state,

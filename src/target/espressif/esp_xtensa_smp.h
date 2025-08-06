@@ -39,8 +39,6 @@ int esp_xtensa_smp_assert_reset(struct target *target);
 int esp_xtensa_smp_deassert_reset(struct target *target);
 int esp_xtensa_smp_soft_reset_halt(struct target *target);
 int esp_xtensa_smp_on_halt(struct target *target);
-int esp_xtensa_smp_watchpoint_add(struct target *target, struct watchpoint *watchpoint);
-int esp_xtensa_smp_watchpoint_remove(struct target *target, struct watchpoint *watchpoint);
 int esp_xtensa_smp_target_init(struct command_context *cmd_ctx, struct target *target);
 int esp_xtensa_smp_init_arch_info(struct target *target,
 	struct esp_xtensa_smp_common *esp_xtensa_smp,

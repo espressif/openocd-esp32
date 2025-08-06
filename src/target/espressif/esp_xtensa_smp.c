@@ -498,55 +498,6 @@ int esp_xtensa_smp_step(struct target *target,
 	return res;
 }
 
-int esp_xtensa_smp_watchpoint_add(struct target *target, struct watchpoint *watchpoint)
-{
-	int res = xtensa_watchpoint_add(target, watchpoint);
-	if (res != ERROR_OK)
-		return res;
-
-	if (!target->smp)
-		return ERROR_OK;
-
-	struct target_list *head;
-	foreach_smp_target(head, target->smp_targets) {
-		struct target *curr = head->target;
-		if (curr == target || !target_was_examined(curr))
-			continue;
-		/* Need to use high level API here because every target for core contains list of watchpoints.
-		 * GDB works with active core only, so we need to duplicate every watchpoint on other cores,
-		 * otherwise watchpoint_free() on active core can fail if WP has been initially added on another core. */
-		curr->smp = 0;
-		res = watchpoint_add(curr, watchpoint->address, watchpoint->length,
-			watchpoint->rw, watchpoint->value, watchpoint->mask);
-		curr->smp = 1;
-		if (res != ERROR_OK)
-			return res;
-	}
-	return ERROR_OK;
-}
-
-int esp_xtensa_smp_watchpoint_remove(struct target *target, struct watchpoint *watchpoint)
-{
-	int res = xtensa_watchpoint_remove(target, watchpoint);
-	if (res != ERROR_OK)
-		return res;
-
-	if (!target->smp)
-		return ERROR_OK;
-
-	struct target_list *head;
-	foreach_smp_target(head, target->smp_targets) {
-		struct target *curr = head->target;
-		if (curr == target)
-			continue;
-		/* see big comment in esp_xtensa_smp_watchpoint_add() */
-		curr->smp = 0;
-		watchpoint_remove(curr, watchpoint->address);
-		curr->smp = 1;
-	}
-	return ERROR_OK;
-}
-
 int esp_xtensa_smp_run_func_image(struct target *target, struct esp_algorithm_run_data *run, uint32_t num_args, ...)
 {
 	struct target *run_target = target;
