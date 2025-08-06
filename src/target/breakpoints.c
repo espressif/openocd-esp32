@@ -218,14 +218,18 @@ int breakpoint_add(struct target *target,
 			return breakpoint_add_internal(head->target, address, length, type);
 		}
 
+		int retval = ERROR_FAIL;
 		foreach_smp_target(head, target->smp_targets) {
 			struct target *curr = head->target;
-			int retval = breakpoint_add_internal(curr, address, length, type);
+			/* ESPRESSIF */
+			if (curr->state == TARGET_UNAVAILABLE)
+				continue;
+			retval = breakpoint_add_internal(curr, address, length, type);
 			if (retval != ERROR_OK)
 				return retval;
 		}
 
-		return ERROR_OK;
+		return retval;
 	} else {
 		return breakpoint_add_internal(target, address, length, type);
 	}
@@ -239,14 +243,18 @@ int context_breakpoint_add(struct target *target,
 	if (target->smp) {
 		struct target_list *head;
 
+		int retval = ERROR_FAIL;
 		foreach_smp_target(head, target->smp_targets) {
 			struct target *curr = head->target;
-			int retval = context_breakpoint_add_internal(curr, asid, length, type);
+			/* ESPRESSIF */
+			if (curr->state == TARGET_UNAVAILABLE)
+				continue;
+			retval = context_breakpoint_add_internal(curr, asid, length, type);
 			if (retval != ERROR_OK)
 				return retval;
 		}
 
-		return ERROR_OK;
+		return retval;
 	} else {
 		return context_breakpoint_add_internal(target, asid, length, type);
 	}
@@ -261,14 +269,18 @@ int hybrid_breakpoint_add(struct target *target,
 	if (target->smp) {
 		struct target_list *head;
 
+		int retval = ERROR_FAIL;
 		foreach_smp_target(head, target->smp_targets) {
 			struct target *curr = head->target;
-			int retval = hybrid_breakpoint_add_internal(curr, address, asid, length, type);
+			/* ESPRESSIF */
+			if (curr->state == TARGET_UNAVAILABLE)
+				continue;
+			retval = hybrid_breakpoint_add_internal(curr, address, asid, length, type);
 			if (retval != ERROR_OK)
 				return retval;
 		}
 
-		return ERROR_OK;
+		return retval;
 	} else
 		return hybrid_breakpoint_add_internal(target, address, asid, length, type);
 }
@@ -568,14 +580,15 @@ bye:
 int watchpoint_add(struct target *target, target_addr_t address,
 		unsigned int length, enum watchpoint_rw rw, uint64_t value, uint64_t mask)
 {
-	int retval = ERROR_OK;
+	int retval = ERROR_FAIL;
 
 	if (target->smp) {
 		struct target_list *head;
 		bool wp_set = false;
 		foreach_smp_target(head, target->smp_targets) {
 			struct target *curr = head->target;
-			if (target_was_examined(curr)) {
+			/* ESPRESSIF */
+			if (target_was_examined(curr) && curr->state != TARGET_UNAVAILABLE) {
 				retval = watchpoint_add_internal(curr, address, length, rw, value, mask);
 				if (retval != ERROR_OK)
 					return retval;
