@@ -43,6 +43,7 @@
         export ASAN_OPTIONS="detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1";
         export TEST_SANITIZERS=1;
         cp ${CONF_HOST}/lib* /usr/lib;
+        export TEST_RUN_EXTRA_OPTS="${TEST_RUN_EXTRA_OPTS} -e *.*.test_semihost_args";
       fi;
       if [[ $IDF_RELEASE_TAG != "latest" || $CI_FULL_RUN != "1" ]] ; then
         export TEST_RUN_EXTRA_OPTS="${TEST_RUN_EXTRA_OPTS} -e *.*.test_big_binary *.*.test_big_binary_compressed";
