@@ -417,7 +417,7 @@ static int freertos_read_esp_symbol_table(struct rtos *rtos, int index, uint8_t 
 
 		LOG_DEBUG("FreeRTOS: esp_symbols table size (%d) ", table_size);
 
-		if (table_size == 0 || table_size > ESP_FREERTOS_DEBUG_TABLE_END) {
+		if (table_size <= ESP_FREERTOS_DEBUG_KERNEL_VER_BUILD || table_size > ESP_FREERTOS_DEBUG_TABLE_END) {
 			LOG_WARNING("esp_symbols table size (%d) is not valid!", table_size);
 			return ERROR_FAIL;
 		}
