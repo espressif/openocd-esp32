@@ -1671,7 +1671,7 @@ COMMAND_HANDLER(esp32_cmd_sysview)
 COMMAND_HANDLER(esp32_cmd_sysview_mcore)
 {
 	if (CMD_ARGC > 0 && strcmp(CMD_ARGV[0], "start") == 0) {
-		const char *temp_argv[CMD_ARGC + 1];  /* +1 to keep the output file */
+		const char *temp_argv[CMD_ARGC + 2];  /* +2 to keep temp files */
 		unsigned int temp_argc = 0;
 
 		if (CMD_ARGC < 2) {
