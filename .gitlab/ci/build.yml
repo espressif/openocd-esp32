@@ -111,6 +111,8 @@
     when: always
     expire_in: 2 weeks
   needs: []
+  variables:
+    INSTALL_TARGET: "install-strip"
   script:
     - *get_release_name
     - export HOST_CC=${CONF_HOST}-gcc
@@ -120,7 +122,7 @@
     - mkdir _build && pushd _build/
     - ../configure CFLAGS="${TEST_CFLAGS:-}" --prefix=$PWD/../$DIST_INSTALLED_DIR --host=${CONF_HOST}  $OPENOCD_CONFIGURE_OPTS $GCOV_BUILD_OPTS
     - make -j `nproc`
-    - MAKEFLAGS= make install-strip
+    - MAKEFLAGS= make ${INSTALL_TARGET}
     - popd
     - >
       if [[ "${GCOV_BUILD_OPTS}" != "" ]]; then
@@ -206,10 +208,11 @@ build_linux_armhf_test:
     CONF_HOST: "arm-linux-gnueabihf"
     PLATFORM_NAME: "linux-armhf-test"
     GCOV_BUILD_OPTS: "--enable-gcov"
+    INSTALL_TARGET: "install"
   before_script:
     - >
       if [[ $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "run_sanitizer_tests" ]] ; then
-        export TEST_CFLAGS="-Wl,--no-as-needed -ldl -fsanitize=address -fsanitize=undefined -fsanitize-recover=address -ggdb3"
+        export TEST_CFLAGS="-Wl,--no-as-needed -ldl -fsanitize=address -fsanitize=undefined -fsanitize-recover=address -ggdb3 -fno-omit-frame-pointer"
       fi
   after_script:
     - >
