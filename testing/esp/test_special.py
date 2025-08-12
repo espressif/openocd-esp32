@@ -393,9 +393,8 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
             ocd_val2 = self.oocd.get_reg(reg)
 
             self.gdb.console_cmd_run('flushregs')
-            gdb_val = self.gdb.get_reg(reg)
-            if gdb_val < 0:
-                gdb_val += 0x100000000
+
+            gdb_val = int(self.gdb.get_reg_values(fmt='u',reg_no=[regs.index(reg)])[0]['value'])
 
             if ocd_val == val:
                 # general purpose registers can be written with any value, and expected to contain the same
@@ -412,12 +411,10 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
             if (len(reg) == 0):
                 continue
 
-            # TODO OCD-1225
-            if testee_info.chip in ["esp32h4", "esp32p4"] and reg in [
-                    "ft0", "ft1", "ft2", "ft3", "ft4", "ft5", "ft6", "ft7", "fs0", "fs1",
-                    "fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7", "fs2", "fs3",
-                    "fs4", "fs5", "fs6", "fs7", "fs8", "fs9", "fs10", "fs11", "ft8", "ft9",
-                    "ft10", "ft11", "csr_fxcr"]:
+            if reg == "csr_mext_ill_reg":
+                # GDB requests all regs, reading hwloop regs can change value of bit 1 here
+                set_reg_and_check(reg, 0)
+                set_reg_and_check(reg, 1)
                 continue
 
             # slow counters are not suitable for this test
