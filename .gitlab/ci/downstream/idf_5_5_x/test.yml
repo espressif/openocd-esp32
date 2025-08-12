@@ -182,7 +182,7 @@ tests_esp32p4_idf5.5.x:
       job: build_linux_armhf_test
   variables:
     CHIP_NAME: "esp32p4"
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.LpCore* -e test_*.*Encrypted"
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.LpCore* test_*.*Encrypted"
 
 .tests_esp32p4_lpcore_idf5.5.x:
   extends: tests_esp32p4_idf5.5.x
