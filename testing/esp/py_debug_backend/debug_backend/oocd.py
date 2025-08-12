@@ -190,7 +190,10 @@ class Oocd(threading.Thread):
         cmd_sent = cmd + '\n'
         cmd_sent = cmd_sent.encode('utf-8')
         self._tn.write(cmd_sent)
-        resp = self._tn.read_until(b'>')
+        resp = b''
+        while not resp.endswith(b'> '):
+            resp += self._tn.read_until(b'>')
+            resp += self._tn.read_very_eager()
         # remove all '\r' first
         resp = resp.replace(b'\r', b'')
         # command we sent will be echoed back - remove it
