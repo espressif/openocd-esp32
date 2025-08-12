@@ -2035,7 +2035,7 @@ static int gdb_memory_map(struct connection *connection, char const *packet, int
 	int length;
 	char *separator;
 	unsigned int target_flash_banks = 0;
-	struct target_memory_map memory_map = { 0 };
+	struct target_memory_map memory_map = { .regions = NULL, .num_regions = 0, .capacity = 0 };
 
 	/* skip command character */
 	packet += 23;
@@ -2110,6 +2110,8 @@ static int gdb_memory_map(struct connection *connection, char const *packet, int
 	}
 
 	free(banks);
+
+	assert(memory_map.regions);
 
 	/* Sort all regions by start address in ascending order */
 	qsort(memory_map.regions, memory_map.num_regions, sizeof(struct target_memory_region), compare_memory_regions);

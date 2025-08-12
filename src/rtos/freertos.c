@@ -452,7 +452,7 @@ static int freertos_read_esp_symbol_table(struct rtos *rtos, int index, uint8_t 
 
 static uint8_t freertos_get_vals_from_esp_symtab(struct rtos *rtos, const uint8_t *param, int symbol)
 {
-	uint8_t value;
+	uint8_t value = 0;
 
 	/* Attempt to read the value from the symbol table defined at the target */
 	if (freertos_read_esp_symbol_table(rtos, symbol, &value) == ERROR_OK)

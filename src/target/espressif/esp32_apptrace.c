@@ -1700,6 +1700,8 @@ COMMAND_HANDLER(esp32_cmd_sysview_mcore)
 		char *temp_file_core1 = malloc(strlen(output_file) + 10);
 
 		if (!temp_file_core0 || !temp_file_core1) {
+			free(temp_file_core0);
+			free(temp_file_core1);
 			command_print(CMD, "Failed to allocate memory for temp file names!");
 			return ERROR_FAIL;
 		}

@@ -540,9 +540,9 @@ static int esp_xtensa_apptrace_buffs_write(struct target *target,
 			return res;
 		}
 
-		uint32_t end_addr;
-		esp_xtensa_apptrace_debug_reg_read(target, XDMREG_TRAXADDR, &end_addr);
-		if (end_addr >= sz_all)
+		uint32_t end_addr = 0;
+		res = esp_xtensa_apptrace_debug_reg_read(target, XDMREG_TRAXADDR, &end_addr);
+		if (res == ERROR_OK && end_addr >= sz_all)
 			break;
 		LOG_WARNING("[%d/%d] Failed to write buffs, sent: 0x%" PRId32 " received: 0x%" PRId32 " words",
 			i, MAX_TRIES, sz_all, end_addr);
