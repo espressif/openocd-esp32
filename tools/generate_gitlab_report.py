@@ -14,7 +14,7 @@ def process_scanbuild_row(row):
     tds = row.find_all('td')
     td_values = [td.get_text(strip=True) for td in tds]
     description = td_values[1]
-    path = td_values[2]
+    path = 'src/' + td_values[2]
     row_num = int(td_values[4])
     return description, path, row_num
 
