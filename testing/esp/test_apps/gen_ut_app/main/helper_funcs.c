@@ -2,7 +2,7 @@
 #include "sdkconfig.h"
 
 
-#if CONFIG_ESP32_GCOV_ENABLE
+#if CONFIG_ESP32_GCOV_ENABLE || CONFIG_ESP_GCOV_ENABLE
 void gcov_dummy_func(void)
 {
     static int i;

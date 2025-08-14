@@ -13,6 +13,10 @@ ifdef CONFIG_ESP32_GCOV_ENABLE
 CFLAGS += --coverage
 endif
 
+ifdef CONFIG_ESP_GCOV_ENABLE
+CFLAGS += --coverage
+endif
+
 
 ifneq ($(CONFIG_GEN_UT_APP_CUSTOM_LD_FILENAME),"")
 GEN_UT_APP_CUSTOM_LD_ROOT := $(call dequote,$(COMPONENT_PATH))

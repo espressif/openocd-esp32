@@ -1,0 +1,10 @@
+## IDF Component Manager Manifest File
+dependencies:
+  ## Required IDF version
+  idf:
+    version: '>=5.1'
+  # # Put list of dependencies here
+  espressif/esp_gcov:
+    version: ^1
+    matches:
+      - if: "idf_version >=6.0"

@@ -47,7 +47,7 @@ configure_file(ut_idf_ver.h.in ${idf_ver_header_path} @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 message("IDF version is ${UT_IDF_VER}")
-if(CONFIG_ESP32_GCOV_ENABLE)
+if(CONFIG_ESP32_GCOV_ENABLE OR CONFIG_ESP_GCOV_ENABLE)
 	target_compile_options(${COMPONENT_LIB} PRIVATE --coverage)
 endif()
 
