@@ -3,6 +3,8 @@
 test_apps/gen_ut_app/builds
 test_apps/gen_ut_app/output
 test_apps/gen_ut_app/sdkconfig
+test_apps/gen_ut_app/dependencies.lock
+test_apps/gen_ut_app/managed_components
 *.gcov
 results/
 build/
