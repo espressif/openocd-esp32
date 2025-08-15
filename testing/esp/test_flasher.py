@@ -317,7 +317,7 @@ class FlasherTestsSingleEncrypted(DebuggerGenericTestAppTestsSingleEncrypted, Fl
         DebuggerGenericTestAppTestsSingleEncrypted.setUp(self)
         FlasherTestsImpl.setUp(self)
 
-@idf_ver_min('latest')
+@run_with_version('latest')
 @only_for_chip(['esp32c6', 'esp32h2'])
 class FlasherTestsPreloadedStubSingle(DebuggerGenericTestAppTestsSingle):
 

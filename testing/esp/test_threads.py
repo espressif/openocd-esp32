@@ -140,7 +140,7 @@ class DebuggerThreadsTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerThre
     # no special tests for single core mode yet
     pass
 
-@idf_ver_min('5.3')
+@run_with_version('latest')
 class DebuggerThreadsTestsAmazonFreeRTOSDual(DebuggerGenericTestAppTestsDual, DebuggerThreadsTestsImpl):
 
     def __init__(self, methodName='runTest'):
@@ -148,7 +148,7 @@ class DebuggerThreadsTestsAmazonFreeRTOSDual(DebuggerGenericTestAppTestsDual, De
         self.test_app_cfg.bin_dir = os.path.join('output', 'default_amazon_freertos')
         self.test_app_cfg.build_dir = os.path.join('builds', 'default_amazon_freertos')
 
-@idf_ver_min('5.3')
+@run_with_version('latest')
 class DebuggerThreadsTestsAmazonFreeRTOSSingle(DebuggerGenericTestAppTestsSingle, DebuggerThreadsTestsImpl):
 
     def __init__(self, methodName='runTest'):
@@ -157,7 +157,7 @@ class DebuggerThreadsTestsAmazonFreeRTOSSingle(DebuggerGenericTestAppTestsSingle
         self.test_app_cfg.build_dir = os.path.join('builds', 'single_core_amazon_freertos')
 
 
-@idf_ver_min('latest')
+@run_with_version('latest')
 class DebuggerThreadsTestsFreeRTOSListIntegrityDual(DebuggerGenericTestAppTestsDual, DebuggerThreadsTestsImpl):
 
     def __init__(self, methodName='runTest'):
@@ -165,7 +165,7 @@ class DebuggerThreadsTestsFreeRTOSListIntegrityDual(DebuggerGenericTestAppTestsD
         self.test_app_cfg.bin_dir = os.path.join('output', 'default_freertos_list_integrity')
         self.test_app_cfg.build_dir = os.path.join('builds', 'default_freertos_list_integrity')
 
-@idf_ver_min('latest')
+@run_with_version('latest')
 class DebuggerThreadsTestsFreeRTOSListIntegritySingle(DebuggerGenericTestAppTestsSingle, DebuggerThreadsTestsImpl):
 
     def __init__(self, methodName='runTest'):
