@@ -1,7 +1,6 @@
 import logging
 import debug_backend as dbg
 from debug_backend_tests import *
-import test_bp
 
 
 def get_logger():
@@ -12,18 +11,8 @@ def get_logger():
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
 ########################################################################
 
-class MultiAppImagesTests(DebuggerGenericTestAppTests):
-
-    def __init__(self, methodName):
-        DebuggerGenericTestAppTests.__init__(self, methodName)
-        self.test_app_cfg.pt_path = os.path.join('partition_table', 'partition-table.bin')
-        self.test_app_cfg.bin_dir = os.path.join('output', 'multi_app_images')
-        self.test_app_cfg.build_dir = os.path.join('builds', 'multi_app_images')
-        # this is very specific and unusual test scenario, the offsets must be in sync with OTA ones from 'partitions_multi_apps.csv'
-        self.extra_app_image_offs = [self.test_app_cfg.app_off+1*1024*1024, self.test_app_cfg.app_off+2*1024*1024]
-
+class MultiAppImagesTestsImpl:
     def setUp(self):
-        DebuggerGenericTestAppTests.setUp(self)
         # 2 HW breaks + 1 flash SW break + RAM SW break
         self.bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
 
@@ -43,6 +32,7 @@ class MultiAppImagesTests(DebuggerGenericTestAppTests):
         # erase current image to allow bootloader to start one from the next app partition after reset
         self.oocd.cmd_exec('flash erase_address 0x%x 4096' % off)
 
+    @skip_for_chip(['esp32c2', 'esp32h2', 'esp32p4'], "skipped - OCD-1238")
     def test_debug_images(self):
         """
             This test checks that it is possible to debug applications from the various locations in flash.
@@ -56,11 +46,44 @@ class MultiAppImagesTests(DebuggerGenericTestAppTests):
         """
         # at first debug factory image and erase it to allow bootloader to run the first OTA image next time
         self._debug_image(self.test_app_cfg.app_off)
-        bin_dir = os.path.join(test_apps_dir, self.test_app_cfg.app_name, 'output', 'default')
+        if 'multi_app_images_single' in self.test_app_cfg.bin_dir:
+            bin_dir = os.path.join(test_apps_dir, self.test_app_cfg.app_name, 'output', 'single_core')
+        else:
+            bin_dir = os.path.join(test_apps_dir, self.test_app_cfg.app_name, 'output', 'default')
         for off in self.extra_app_image_offs:
-            # program and debug the same app (from default dual core config) with different flash mappings
+            # program and debug the same app (from default config) with different flash mappings
             self.gdb.target_program(os.path.join(bin_dir, '%s.bin' % self.test_app_cfg.app_name), off)
             self.gdb.exec_file_set(os.path.join(bin_dir, '%s.elf' % self.test_app_cfg.app_name))
             self.prepare_app_for_debugging(off)
             # debug OTA image and erase it to allow bootloader to run the next OTA image after reset
             self._debug_image(off)
+
+class MultiAppImagesTestAppTestsDual(DebuggerGenericTestAppTests):
+
+    def __init__(self, methodName):
+        super(MultiAppImagesTestAppTestsDual, self).__init__(methodName)
+        self.test_app_cfg.bin_dir = os.path.join('output', 'multi_app_images_dual')
+        self.test_app_cfg.build_dir = os.path.join('builds', 'multi_app_images_dual')
+        # this is very specific and unusual test scenario, the offsets must be in sync with OTA ones from 'partitions_multi_apps.csv'
+        self.extra_app_image_offs = [self.test_app_cfg.app_off+1*1024*1024, self.test_app_cfg.app_off+2*1024*1024]
+
+class MultiAppImagesTestAppTestsSingle(DebuggerGenericTestAppTests):
+
+    def __init__(self, methodName='runTest'):
+        super(MultiAppImagesTestAppTestsSingle, self).__init__(methodName)
+        self.test_app_cfg.bin_dir = os.path.join('output', 'multi_app_images_single')
+        self.test_app_cfg.build_dir = os.path.join('builds', 'multi_app_images_single')
+        # this is very specific and unusual test scenario, the offsets must be in sync with OTA ones from 'partitions_multi_apps.csv'
+        self.extra_app_image_offs = [self.test_app_cfg.app_off+1*1024*1024, self.test_app_cfg.app_off+2*1024*1024]
+
+class MultiAppImagesTestsDual(MultiAppImagesTestAppTestsDual, MultiAppImagesTestsImpl):
+
+    def setUp(self):
+        MultiAppImagesTestAppTestsDual.setUp(self)
+        MultiAppImagesTestsImpl.setUp(self)
+
+class MultiAppImagesTestsSingle(MultiAppImagesTestAppTestsSingle, MultiAppImagesTestsImpl):
+
+    def setUp(self):
+        MultiAppImagesTestAppTestsSingle.setUp(self)
+        MultiAppImagesTestsImpl.setUp(self)
