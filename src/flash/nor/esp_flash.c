@@ -1275,7 +1275,7 @@ int esp_algo_flash_breakpoint_remove(struct target *target, struct esp_flash_bre
 	run.usr_func_done = esp_algo_flash_bp_op_state_cleanup;
 	run.check_preloaded_binary = esp_info->stub_log_enabled ? false : esp_info->check_preloaded_binary;
 
-	init_mem_param(&mp[0], 1 /* First user arg */, 1 + num_bps * size_bp_inst /* size in bytes */, PARAM_OUT);
+	init_mem_param(&mp[0], 1 /* First user arg */, num_bps * size_bp_inst /* size in bytes */, PARAM_OUT);
 	/* bp0_flash_addr + bp1_flash_addr + bp2_flash_addr + ... bpn_flash_addr */
 	for (size_t slot = 0; slot < num_bps; ++slot)
 		target_buffer_set_u32(target, &mp[0].value[slot * size_bp_inst], sw_bp[slot].bp_flash_addr);
