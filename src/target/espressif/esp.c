@@ -186,7 +186,8 @@ static void esp_common_flash_breakpoints_get_ready_to_remove(struct esp_common *
 bool esp_common_flash_breakpoint_exists(struct esp_common *esp, struct breakpoint *breakpoint)
 {
 	for (uint32_t slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
-		if (esp->flash_brps.brps[slot].bp_address == breakpoint->address)
+		if (esp->flash_brps.brps[slot].bp_address == breakpoint->address
+				&& esp->flash_brps.brps[slot].action == ESP_BP_ACT_ADD)
 			return true;
 	}
 	return false;
