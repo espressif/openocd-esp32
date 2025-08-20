@@ -471,6 +471,40 @@ class DebuggerWatchpointTestsSingleEncrypted(DebuggerGenericTestAppTestsSingleEn
     """
     pass
 
+class DebuggerFlashBreakpointTestsSingle(DebuggerBreakpointTestsSingle):
+    """ Breakpoint tests with extra flash breakpoints
+    """
+
+    def setUp(self):
+        DebuggerGenericTestAppTestsSingle.setUp(self)
+        self.fill_hw_bps(keep_avail=0)
+        self.bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
+
+    @unittest.skip('not applicable')
+    def test_bp_in_rom(self):
+        pass
+
+    @unittest.skip('not applicable')
+    def test_appcpu_early_hw_bps(self):
+        pass
+
+class DebuggerFlashBreakpointTestsDual(DebuggerBreakpointTestsDual):
+    """ Breakpoint tests with extra flash breakpoints
+    """
+
+    def setUp(self):
+        DebuggerGenericTestAppTestsDual.setUp(self)
+        self.fill_hw_bps(keep_avail=0)
+        self.bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
+
+    @unittest.skip('not applicable')
+    def test_bp_in_rom(self):
+        pass
+
+    @unittest.skip('not applicable')
+    def test_appcpu_early_hw_bps(self):
+        pass
+
 class DebuggerTestsSingle4MB(DebuggerGenericTestAppTestsSingle):
     """ Base class to run tests with a single core 4MB flash config
     """
