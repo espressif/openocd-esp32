@@ -81,6 +81,11 @@ static void os_free(struct target *target)
 	if (!target->rtos)
 		return;
 
+	if (target->rtos->type->clean) {
+		target->rtos_auto_detect = true;
+		target->rtos->type->clean(target);
+	}
+
 	free(target->rtos->symbols);
 	rtos_free_threadlist(target->rtos);
 	free(target->rtos);

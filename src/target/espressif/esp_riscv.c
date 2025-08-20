@@ -994,6 +994,7 @@ void esp_riscv_deinit_target(struct target *target)
 
 	free(esp_riscv->target_bp_addr);
 	free(esp_riscv->target_wp_addr);
+	free(esp_riscv->esp.flash_brps.brps);
 
 	riscv_target.deinit_target(target);
 }
