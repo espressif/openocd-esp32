@@ -37,7 +37,7 @@ In other words, if the binary generated for the `ESP_STUB_CMD_FLASH_IDF_BINARY` 
 we need to increase the version and update the related .inc files in the
 esp-idf/components/esp_system/openocd_stub_bins/ directory.
 */
-#define ESP_STUB_FLASHER_VERSION               2
+#define ESP_STUB_FLASHER_VERSION               3
 
 // Define command numbers. Should be the same order as the commands in the root CMakeLists.txt
 enum {
@@ -95,6 +95,27 @@ struct esp_flash_mapping {
 	(ESP_STUB_FLASHMAP_MAPS_OFF(_i_) + offsetof(struct esp_flash_region_mapping, load_addr))
 #define ESP_STUB_FLASHMAP_SIZE_OFF(_i_) \
 	(ESP_STUB_FLASHMAP_MAPS_OFF(_i_) + offsetof(struct esp_flash_region_mapping, size))
+
+enum esp_stub_flash_map_retcode {
+	ESP_STUB_MAP_RES_OK = 0,
+	ESP_STUB_MAP_RES_INVALID_FLASH_SIZE,
+
+	ESP_STUB_MAP_RES_INVALID_PARTITION,
+	ESP_STUB_MAP_RES_READ_PARTITION,
+	ESP_STUB_MAP_RES_UNKNOWN_PARTITION_MAGIC,
+
+	ESP_STUB_MAP_RES_INVALID_PROBE,
+	ESP_STUB_MAP_RES_READ_PROBE,
+	ESP_STUB_MAP_RES_UNKNOWN_PROBE_MAGIC,
+
+	ESP_STUB_MAP_RES_INVALID_MCUBOOT,
+	ESP_STUB_MAP_RES_READ_MCUBOOT,
+	ESP_STUB_MAP_RES_UNKNOWN_MCUBOOT_MAGIC,
+	ESP_STUB_MAP_RES_MCUBOOT_VADDR,
+
+	ESP_STUB_MAP_RES_INVALID_SEGMENT,
+	ESP_STUB_MAP_RES_READ_SEGMENT
+};
 
 struct esp_stub_flash_map {
 	struct esp_flash_mapping map; /* must be at the beginning */

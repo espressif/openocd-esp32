@@ -129,21 +129,11 @@ static const char *esp_stub_err_str(int ret_code)
 		case ESP_STUB_ERR_TOO_MUCH_DATA:
 			return "ESP_STUB_ERR_TOO_MUCH_DATA";
 
-		case ESP_STUB_ERR_INVALID_IMAGE:
-			return "ESP_STUB_ERR_INVALID_IMAGE";
-		case ESP_STUB_ERR_INVALID_PARTITION:
-			return "ESP_STUB_ERR_INVALID_PARTITION";
-		case ESP_STUB_ERR_INVALID_APP_MAGIC:
-			return "ESP_STUB_ERR_INVALID_APP_MAGIC";
-		case ESP_STUB_ERR_READ_PARTITION:
-			return "ESP_STUB_ERR_READ_PARTITION";
-		case ESP_STUB_ERR_READ_APP_SEGMENT:
-			return "ESP_STUB_ERR_READ_APP_SEGMENT";
-		case ESP_STUB_ERR_READ_APP_IMAGE_HEADER:
-			return "ESP_STUB_ERR_READ_APP_IMAGE_HEADER";
+		case ESP_STUB_ERR_PARTITION_NOT_FOUND:
+			return "No IDF partition found";
 
-		case ESP_STUB_ERR_FLASH_SIZE:
-			return "Unknown flash size";
+		case ESP_STUB_ERR_FLASH_ID:
+			return "Unknown flash ID or size";
 		case ESP_STUB_ERR_FLASH_READ_UNALIGNED:
 			return "Cannot read unaligned data";
 		case ESP_STUB_ERR_FLASH_READ:
@@ -179,6 +169,47 @@ static void esp_stub_test_print(const char *prefix, int cmd, int ret_code)
 	if (ret_code != ESP_STUB_OK)
 		return esp_stub_err_print(prefix, cmd, ret_code);
 	LOG_INFO("[stub cmd 0x%X] %s: test passed", cmd, prefix);
+}
+
+static const char *esp_stub_flash_map_retcode_str(int retcode)
+{
+	switch (retcode) {
+		case ESP_STUB_MAP_RES_OK:
+			return "Success";
+		case ESP_STUB_MAP_RES_INVALID_FLASH_SIZE:
+			return "Failed to read flash size!";
+
+		case ESP_STUB_MAP_RES_INVALID_PARTITION:
+			return "Invalid partition. Size exceeds flash chip size!";
+		case ESP_STUB_MAP_RES_READ_PARTITION:
+			return "Failed to read partition table!";
+		case ESP_STUB_MAP_RES_UNKNOWN_PARTITION_MAGIC:
+			return "Unknown magic number in partition table!";
+
+		case ESP_STUB_MAP_RES_INVALID_PROBE:
+			return "Invalid probe header. Size exceeds flash chip size!";
+		case ESP_STUB_MAP_RES_READ_PROBE:
+			return "Failed to read probe header!";
+		case ESP_STUB_MAP_RES_UNKNOWN_PROBE_MAGIC:
+			return "Unknown magic number in probe header!";
+
+		case ESP_STUB_MAP_RES_INVALID_MCUBOOT:
+			return "Invalid MCUboot program header. Size exceeds the flash chip size!";
+		case ESP_STUB_MAP_RES_READ_MCUBOOT:
+			return "Failed to read MCUboot program header!";
+		case ESP_STUB_MAP_RES_UNKNOWN_MCUBOOT_MAGIC:
+			return "Unknown magic number in MCUboot program header!";
+		case ESP_STUB_MAP_RES_MCUBOOT_VADDR:
+			return "Invalid DROM/IROM address in MCUboot program header!";
+
+		case ESP_STUB_MAP_RES_INVALID_SEGMENT:
+			return "Invalid app segment header. Size exceeds flash chip size!";
+		case ESP_STUB_MAP_RES_READ_SEGMENT:
+			return "Failed to read app segment header!";
+
+		default:
+			return "Unknown flash mapping result";
+	}
 }
 
 #if BUILD_ESP_COMPRESSION
@@ -410,7 +441,7 @@ int esp_algo_flash_blank_check(struct flash_bank *bank)
 	return ret;
 }
 
-static int esp_algo_flash_get_mappings(struct flash_bank *bank,
+static int esp_algo_flash_mapping(struct flash_bank *bank,
 	struct esp_flash_bank *esp_info,
 	struct esp_stub_flash_map *flash_map,
 	uint32_t appimage_flash_base)
@@ -456,23 +487,10 @@ static int esp_algo_flash_get_mappings(struct flash_bank *bank,
 	flash_map->flash_size = target_buffer_get_u32(bank->target, mp.value + ESP_STUB_FLASHMAP_FLASH_SIZE);
 	flash_map->retcode = target_buffer_get_u32(bank->target, mp.value + ESP_STUB_FLASHMAP_RETCODE);
 
-	if (flash_map->retcode != ESP_STUB_OK) {
-		LOG_WARNING("Failed to get flash maps (%" PRId32 ")!", flash_map->retcode);
-		if (flash_map->retcode == ESP_STUB_ERR_INVALID_IMAGE)
-			LOG_WARNING(
-				"Application image is invalid! Check configured binary flash offset 'appimage_offset'.");
-		else if (flash_map->retcode == ESP_STUB_ERR_INVALID_PARTITION)
-			LOG_WARNING("Invalid partition! One of the partition size exceeds the flash chip size!");
-		else if (flash_map->retcode == ESP_STUB_ERR_INVALID_APP_MAGIC)
-			LOG_WARNING("Invalid magic number in app image!");
-		else if (flash_map->retcode == ESP_STUB_ERR_FLASH_SIZE)
-			LOG_WARNING("Failed to read flash size!");
-		else if (flash_map->retcode == ESP_STUB_ERR_READ_PARTITION)
-			LOG_WARNING("Failed to read partititon table!");
-		else if (flash_map->retcode == ESP_STUB_ERR_READ_APP_SEGMENT)
-			LOG_WARNING("Failed to read app segment header!");
-		else if (flash_map->retcode == ESP_STUB_ERR_READ_APP_IMAGE_HEADER)
-			LOG_WARNING("Failed to read app image header!");
+	if (flash_map->retcode != ESP_STUB_MAP_RES_OK) {
+		LOG_WARNING("Failed to get flash maps, result code 0x%x!", flash_map->retcode);
+		LOG_WARNING("%s", esp_stub_flash_map_retcode_str(flash_map->retcode));
+		LOG_WARNING("Please adjust 'appimage_offset', it may help.");
 		ret = ERROR_FAIL;
 	} else {
 		flash_map->map.maps_num = target_buffer_get_u32(bank->target, mp.value + ESP_STUB_FLASHMAP_MAPSNUM_OFF);
@@ -482,7 +500,7 @@ static int esp_algo_flash_get_mappings(struct flash_bank *bank,
 				ESP_FLASH_MAPS_MAX);
 			ret = ERROR_FAIL;
 		} else if (flash_map->map.maps_num == 0) {
-			LOG_WARNING("Empty flash mapping!");
+			LOG_WARNING("No flash mapping");
 		} else {
 			for (uint32_t i = 0; i < flash_map->map.maps_num; i++) {
 				flash_map->map.maps[i].phy_addr =
@@ -1045,12 +1063,12 @@ int esp_algo_flash_probe(struct flash_bank *bank)
 		bank->num_sectors = 0;
 	}
 
-	int ret = esp_algo_flash_get_mappings(bank,
+	int ret = esp_algo_flash_mapping(bank,
 		esp_info,
 		&flash_map,
 		esp_info->appimage_flash_base);
 	if (ret != ERROR_OK || flash_map.map.maps_num == 0) {
-		LOG_WARNING("Failed to get flash mappings (%d)!", ret);
+		LOG_WARNING("Could not get flash mapping (%d)", ret);
 		/* if no DROM/IROM mappings so pretend they are at the end of the HW flash bank and
 		 * have zero size to allow correct memory map with non zero RAM region */
 		irom_base = flash_map.flash_size;
@@ -2108,7 +2126,9 @@ const struct command_registration esp_flash_exec_flash_command_handlers[] = {
 		.handler = esp_algo_flash_cmd_appimage_flashoff,
 		.mode = COMMAND_ANY,
 		.help =
-			"Set offset of application image in flash. Use -1 to debug the first application image from partition table.",
+			"Set the flash offset of the application to debug. "
+			"Supports ESP-IDF applications or custom bootloaders, MCUboot images, and Simple Boot layouts. "
+			"Use -1 to find the first application image from the IDF partition table.",
 		.usage = "offset",
 	},
 	{

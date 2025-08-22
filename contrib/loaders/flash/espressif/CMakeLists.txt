@@ -29,6 +29,7 @@ set(SRC_FILES
     ${SRC_DIR}/stub_main.c
     ${SRC_DIR}/apptrace/src/apptrace_mem_ctrl.c
     ${SRC_DIR}/apptrace/src/stub_apptrace.c
+    ${SRC_DIR}/mapping/src/flash_mapping.c
 )
 if(ESP_TARGET IN_LIST XTENSA_TARGETS)
     list(APPEND SRC_FILES ${SRC_DIR}/apptrace/src/apptrace_hw_xtensa.c)
@@ -119,6 +120,7 @@ foreach(COMMAND ${COMMANDS})
         ${CMAKE_CURRENT_SOURCE_DIR}/include/private
         ${CMAKE_CURRENT_SOURCE_DIR}/src/apptrace/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src/test/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/mapping/include
     )
 
     target_include_directories(${TARGET_ELF}

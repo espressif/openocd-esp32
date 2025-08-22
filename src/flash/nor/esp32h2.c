@@ -46,11 +46,11 @@ static const struct esp_flasher_stub_config *esp32h2_get_stub(struct flash_bank 
 	if (esp_info->stub_log_enabled)
 		return s_cmd_map[ESP_STUB_CMD_TEST_ALL].config;
 	switch (cmd) {
-		//case ESP_STUB_CMD_FLASH_MAP_GET:
-		//case ESP_STUB_CMD_FLASH_BP_SET:
-		//case ESP_STUB_CMD_FLASH_BP_CLEAR:
+		case ESP_STUB_CMD_FLASH_MAP_GET:
+		case ESP_STUB_CMD_FLASH_BP_SET:
+		case ESP_STUB_CMD_FLASH_BP_CLEAR:
 			/* TODO: return multi_command config only when stub preloaded code running. */
-			//return s_cmd_map[ESP_STUB_CMD_FLASH_MULTI_COMMAND].config;
+			return s_cmd_map[ESP_STUB_CMD_FLASH_MULTI_COMMAND].config;
 		default:
 			return s_cmd_map[cmd].config;
 	}

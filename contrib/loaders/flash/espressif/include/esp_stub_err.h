@@ -10,14 +10,10 @@
 #define ESP_STUB_ERR_INFLATE                            0x3
 #define ESP_STUB_ERR_NOT_ENOUGH_DATA                    0x4
 #define ESP_STUB_ERR_TOO_MUCH_DATA                      0x5
-#define ESP_STUB_ERR_INVALID_IMAGE                      0x6
-#define ESP_STUB_ERR_INVALID_PARTITION                  0x7
-#define ESP_STUB_ERR_INVALID_APP_MAGIC                  0x8
-#define ESP_STUB_ERR_READ_PARTITION                     0x10
-#define ESP_STUB_ERR_READ_APP_SEGMENT                   0x11
-#define ESP_STUB_ERR_READ_APP_IMAGE_HEADER              0x12
 
-#define ESP_STUB_ERR_FLASH_SIZE                         0x100
+#define ESP_STUB_ERR_PARTITION_NOT_FOUND                0x50
+
+#define ESP_STUB_ERR_FLASH_ID                           0x100
 #define ESP_STUB_ERR_FLASH_READ_UNALIGNED               0x101
 #define ESP_STUB_ERR_FLASH_READ                         0x102
 

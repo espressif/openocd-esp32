@@ -14,6 +14,7 @@
 
 #include "esp_stub.h"
 #include "stub_apptrace.h"
+#include "flash_mapping.h"
 
 extern uint32_t _bss_start;
 extern uint32_t _bss_end;
@@ -23,7 +24,11 @@ extern uint32_t _bss_end;
 const struct esp_stub_desc __attribute__((section(".stub_desc")))  s_esp_stub_desc = {
 	.magic = ESP_STUB_FLASHER_MAGIC_NUM,
 	.stub_version = ESP_STUB_FLASHER_VERSION,
+#ifdef STUB_CMD_FLASH_IDF_BINARY
+	.idf_key = ESP_STUB_FLASHER_IDF_KEY,
+#else
 	.idf_key = 0x00,
+#endif
 };
 
 struct stub_cmd_handler {
@@ -161,10 +166,11 @@ static __maybe_unused int handle_flash_erase_check(va_list ap)
 
 static __maybe_unused int handle_flash_map_get(va_list ap)
 {
-	uint32_t __maybe_unused start_addr = va_arg(ap, uint32_t);
-	STUB_LOGD("flash map get addr: %x\n", start_addr);
+	uint32_t app_offset_hint = va_arg(ap, uint32_t);
+	struct esp_stub_flash_map *out_param = va_arg(ap, struct esp_stub_flash_map *);
+	STUB_LOGD("flash mapping, app_offset:0x%x, out_param:0x%x\n", app_offset_hint, out_param);
 
-	return ESP_STUB_OK;
+	return stub_flash_mapping(app_offset_hint, out_param);
 }
 
 static __maybe_unused int handle_flash_bp_set(va_list ap)
@@ -252,7 +258,13 @@ static const struct stub_cmd_handler cmd_handlers[] = {
 	{0, NULL, NULL}
 };
 
-/* Expose all error codes to OOCD without stub-lib header dependency */
+/**
+ * @brief Map error codes for use in OpenOCD
+ *
+ * Exposes all error codes to OpenOCD without depending on the stub-lib header.
+ * - Converts codes from esp-stub-lib/err.h to esp_stub_err.h.
+ * - Keeps codes from esp_stub_err.h unchanged.
+ */
 static int map_stub_error(int ret)
 {
 	switch (ret) {
@@ -260,8 +272,9 @@ static int map_stub_error(int ret)
 			return ESP_STUB_FAIL;
 		case STUB_LIB_OK:
 			return ESP_STUB_OK;
+
 		case STUB_LIB_ERR_UNKNOWN_FLASH_ID:
-			return ESP_STUB_ERR_FLASH_SIZE;
+			return ESP_STUB_ERR_FLASH_ID;
 		case STUB_LIB_ERR_FLASH_READ_UNALIGNED:
 			return ESP_STUB_ERR_FLASH_READ_UNALIGNED;
 		case STUB_LIB_ERR_FLASH_READ:
