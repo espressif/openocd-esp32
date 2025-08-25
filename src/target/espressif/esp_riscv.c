@@ -596,15 +596,9 @@ int esp_riscv_breakpoint_add(struct target *target, struct breakpoint *breakpoin
 			/* For SMP target return OK if SW flash breakpoint is already set using another
 			*core; GDB causes call to esp_algo_flash_breakpoint_add() for every core, since it
 			*treats flash breakpoints as HW ones */
-			if (target->smp) {
-				struct target_list *curr;
-				foreach_smp_target(curr, target->smp_targets) {
-					esp_riscv = target_to_esp_riscv(curr->target);
-					if (esp_common_flash_breakpoint_exists(&esp_riscv->esp, breakpoint))
-						return ERROR_OK;
-				}
-			}
 			esp_riscv = target_to_esp_riscv(target);
+			if (target->smp && esp_common_flash_breakpoint_exists(&esp_riscv->esp, breakpoint))
+				return ERROR_OK;
 			return esp_common_flash_breakpoint_add(target, &esp_riscv->esp, breakpoint);
 		}
 	}
@@ -993,7 +987,15 @@ void esp_riscv_deinit_target(struct target *target)
 
 	free(esp_riscv->target_bp_addr);
 	free(esp_riscv->target_wp_addr);
-	free(esp_riscv->esp.flash_brps.brps);
+	if (esp_riscv->esp.flash_brps.brps) {
+		free(esp_riscv->esp.flash_brps.brps);
+		if (target->smp) {
+			struct target_list *head;
+			foreach_smp_target(head, target->smp_targets) {
+				target_to_esp_common(head->target)->flash_brps.brps = NULL;
+			}
+		}
+	}
 
 	riscv_target.deinit_target(target);
 }

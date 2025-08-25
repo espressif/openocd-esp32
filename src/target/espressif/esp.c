@@ -39,7 +39,19 @@ int esp_common_init(struct target *target, struct esp_common *esp,
 {
 	esp->algo_hw = algo_hw;
 	esp->flash_brps.ops = flash_brps_ops;
-	esp->flash_brps.brps = calloc(ESP_FLASH_BREAKPOINTS_MAX_NUM, sizeof(struct esp_flash_breakpoint));
+	if (target->smp) {
+		/* For xtensa esp_common_init is called from target_create, not target_init.
+		   Therefore SMP is not yet set up. TODO OCD-1244
+		   For riscv a single array is used for whole SMP group. */
+		struct target_list *head;
+		foreach_smp_target(head, target->smp_targets) {
+			struct esp_common *curr_esp = target_to_esp_common(head->target);
+			if (curr_esp->flash_brps.brps)
+				esp->flash_brps.brps = curr_esp->flash_brps.brps;
+		}
+	}
+	if (!esp->flash_brps.brps)
+		esp->flash_brps.brps = calloc(ESP_FLASH_BREAKPOINTS_MAX_NUM, sizeof(struct esp_flash_breakpoint));
 	if (!esp->flash_brps.brps)
 		return ERROR_FAIL;
 	esp->breakpoint_lazy_process = true;
