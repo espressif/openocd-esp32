@@ -816,6 +816,8 @@ static void gdb_signal_reply(struct target *target, struct connection *connectio
 		if (target->rtos) {
 			target->rtos->current_threadid = target->rtos->current_thread;
 			target->rtos->gdb_target_for_threadid(connection, target->rtos->current_threadid, &ct);
+			/* Espressif - workaround for esp32p4, check whether this is ok or remove in OCD-1132 */
+			target->gdb_service->target = ct;
 		} else {
 			ct = target;
 		}
