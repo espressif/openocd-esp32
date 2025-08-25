@@ -3355,8 +3355,10 @@ int riscv_openocd_step(struct target *target, bool current,
 				return ERROR_FAIL;
 		}
 		breakpoint = breakpoint_find(target, address);
-		if (breakpoint && (riscv_remove_breakpoint(target, breakpoint) != ERROR_OK))
-			return ERROR_FAIL;
+		if (breakpoint && (riscv_remove_breakpoint(target, breakpoint) != ERROR_OK)) {
+			/* Espressif - this is not an error because of flash bps */
+			breakpoint = NULL;
+		}
 	}
 
 	riscv_reg_t trigger_state[RISCV_MAX_HWBPS] = {0};

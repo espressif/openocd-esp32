@@ -94,6 +94,7 @@ int esp_riscv_breakpoint_remove(struct target *target, struct breakpoint *breakp
 int esp_riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint);
 int esp_riscv_resume(struct target *target, bool current, target_addr_t address,
 		bool handle_breakpoints, bool debug_execution);
+int esp_riscv_step(struct target *target, bool current, target_addr_t address, bool handle_breakpoints);
 int esp_riscv_start_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,

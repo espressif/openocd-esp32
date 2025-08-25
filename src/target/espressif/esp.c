@@ -17,7 +17,6 @@
 #include "esp_xtensa.h"
 #include "esp.h"
 
-#define ESP_FLASH_BREAKPOINTS_MAX_NUM  32
 #define ESP_ASSIST_DEBUG_INVALID_VALUE 0xFFFFFFFF
 
 static int esp_callback_event_handler(struct target *target, enum target_event event, void *priv);
@@ -29,7 +28,7 @@ struct esp_common *target_to_esp_common(struct target *target)
 		return &(target_to_esp_riscv(target)->esp);
 	else if (xtensa->common_magic == XTENSA_COMMON_MAGIC)
 		return &(target_to_esp_xtensa(target)->esp);
-	LOG_ERROR("Unknown target arch!");
+	assert(0 && "Unknown target arch!");
 	return NULL;
 }
 
@@ -195,10 +194,10 @@ static void esp_common_flash_breakpoints_get_ready_to_remove(struct esp_common *
 	}
 }
 
-bool esp_common_flash_breakpoint_exists(struct esp_common *esp, struct breakpoint *breakpoint)
+bool esp_common_flash_breakpoint_exists(struct esp_common *esp, target_addr_t address)
 {
 	for (unsigned int slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
-		if (esp->flash_brps.brps[slot].bp_address == breakpoint->address
+		if (esp->flash_brps.brps[slot].bp_address == address
 				&& esp->flash_brps.brps[slot].action == ESP_BP_ACT_ADD)
 			return true;
 	}
@@ -284,7 +283,7 @@ int esp_common_flash_breakpoint_remove(struct target *target, struct esp_common 
 	return esp->flash_brps.ops->breakpoint_remove(target, &esp->flash_brps.brps[slot], 1);
 }
 
-static int esp_common_process_lazy_flash_breakpoints(struct target *target)
+int esp_common_process_lazy_flash_breakpoints(struct target *target)
 {
 	struct esp_common *esp = target_to_esp_common(target);
 	struct esp_flash_breakpoint *flash_bps = esp->flash_brps.brps;
@@ -523,7 +522,8 @@ static int esp_common_disable_lazy_breakpoints_handler(struct target *target)
 	if (target->smp) {
 		struct target_list *head;
 		foreach_smp_target(head, target->smp_targets) {
-			target_to_esp_common(target)->breakpoint_lazy_process = false;
+			struct target *curr = head->target;
+			target_to_esp_common(curr)->breakpoint_lazy_process = false;
 		}
 		return ERROR_OK;
 	}
@@ -562,9 +562,16 @@ int esp_common_disable_lazy_breakpoints_command(struct command_invocation *cmd)
 
 static int esp_callback_event_handler(struct target *target, enum target_event event, void *priv)
 {
+	struct xtensa *xtensa = target->arch_info;
 	switch (event) {
 		case TARGET_EVENT_STEP_START:
 		case TARGET_EVENT_RESUME_START:
+			/* For riscv targets, flash breakpoints are processed in step/resume functions,
+			   because the targets already support stepping over and resuming from breakpoints.
+			   For xtensa targets, we handle here instead, as the functionality is not supported
+			   by OpenOCD yet. Instead, GDB is assumed fully responsible for handling breakpoints. */
+			if (xtensa->common_magic != XTENSA_COMMON_MAGIC)
+				return ERROR_OK;
 			return esp_common_process_flash_breakpoints_handler(target);
 		case TARGET_EVENT_GDB_DETACH:
 			return esp_common_gdb_detach_handler(target);

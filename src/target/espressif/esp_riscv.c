@@ -597,7 +597,7 @@ int esp_riscv_breakpoint_add(struct target *target, struct breakpoint *breakpoin
 			*core; GDB causes call to esp_algo_flash_breakpoint_add() for every core, since it
 			*treats flash breakpoints as HW ones */
 			esp_riscv = target_to_esp_riscv(target);
-			if (target->smp && esp_common_flash_breakpoint_exists(&esp_riscv->esp, breakpoint))
+			if (target->smp && esp_common_flash_breakpoint_exists(&esp_riscv->esp, breakpoint->address))
 				return ERROR_OK;
 			return esp_common_flash_breakpoint_add(target, &esp_riscv->esp, breakpoint);
 		}
@@ -635,6 +635,16 @@ int esp_riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watc
 	return riscv_hit_watchpoint(target, hit_watchpoint);
 }
 
+static bool esp_riscv_is_bp_set_in_flash(struct target *target, struct esp_common *esp)
+{
+	riscv_reg_t pc;
+	if (riscv_get_register(target, &pc, GDB_REGNO_PC) != ERROR_OK) {
+		LOG_TARGET_WARNING(target, "Failed to read pc register!");
+		return false;
+	}
+	return esp_common_flash_breakpoint_exists(esp, pc);
+}
+
 int esp_riscv_resume(struct target *target, bool current, target_addr_t address,
 		bool handle_breakpoints, bool debug_execution)
 {
@@ -665,7 +675,64 @@ int esp_riscv_resume(struct target *target, bool current, target_addr_t address,
 		}
 	}
 
+	struct esp_common *esp = target_to_esp_common(target);
+	if (target->smp) {
+		struct target_list *head;
+		foreach_smp_target(head, target->smp_targets) {
+			struct target *curr = head->target;
+			if (esp_riscv_is_bp_set_in_flash(curr, esp)) {
+				esp_riscv_step(curr, true, 0, handle_breakpoints);
+				handle_breakpoints = false;
+				break;
+			}
+		}
+	} else  {
+		if (esp_riscv_is_bp_set_in_flash(target, esp)) {
+			esp_riscv_step(target, true, 0, handle_breakpoints);
+			handle_breakpoints = false;
+		}
+	}
+	if (esp->breakpoint_lazy_process && esp_common_process_lazy_flash_breakpoints(target) != ERROR_OK)
+		LOG_TARGET_WARNING(target, "Failed to process pending breakpoints before resume!");
 	return riscv_target_resume(target, current, address, handle_breakpoints, debug_execution);
+}
+
+int esp_riscv_step(struct target *target, bool current, target_addr_t address, bool handle_breakpoints)
+{
+	struct esp_common *esp = target_to_esp_common(target);
+	struct esp_flash_breakpoint *flash_bps = esp->flash_brps.brps;
+
+	riscv_reg_t pc = 0;
+	if (riscv_get_register(target, &pc, GDB_REGNO_PC) != ERROR_OK) {
+		LOG_TARGET_WARNING(target, "Failed to read pc register, stepping may fail!");
+		return riscv_openocd_step(target, current, address, handle_breakpoints);
+	}
+
+	for (unsigned int slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
+		if (flash_bps[slot].bp_address != pc
+				|| (flash_bps[slot].action == ESP_BP_ACT_REM && flash_bps[slot].status == ESP_BP_STAT_DONE))
+			continue;
+		/* Check for pending breakpoint removal */
+		if (flash_bps[slot].action == ESP_BP_ACT_REM && flash_bps[slot].status == ESP_BP_STAT_PEND) {
+			if (esp_common_process_lazy_flash_breakpoints(target) != ERROR_OK)
+				LOG_TARGET_WARNING(target, "Failed to process pending breakpoints before step!");
+			break;
+		}
+		/* Check for pending breakpoint addition */
+		if (flash_bps[slot].action == ESP_BP_ACT_ADD && flash_bps[slot].status == ESP_BP_STAT_PEND)
+			break;
+		/* Breakpoint is already set */
+		struct breakpoint *bp = breakpoint_find(target, pc);
+		if (esp_common_flash_breakpoint_remove(target, esp, bp) != ERROR_OK)
+			LOG_TARGET_WARNING(target, "Failed to remove breakpoint before step!");
+		if (esp->breakpoint_lazy_process && esp_common_process_lazy_flash_breakpoints(target) != ERROR_OK)
+			LOG_TARGET_WARNING(target, "Failed to process pending breakpoints before step!");
+		int ret = riscv_openocd_step(target, current, address, handle_breakpoints);
+		if (esp_common_flash_breakpoint_add(target, esp, bp) != ERROR_OK)
+			LOG_TARGET_WARNING(target, "Failed to re-add breakpoint after step!");
+		return ret;
+	}
+	return riscv_openocd_step(target, current, address, handle_breakpoints);
 }
 
 static int esp_riscv_on_halt(struct target *target)

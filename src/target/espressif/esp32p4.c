@@ -458,7 +458,7 @@ struct target_type esp32p4_target = {
 
 	.halt = riscv_halt,
 	.resume = esp_riscv_resume,
-	.step = riscv_openocd_step,
+	.step = esp_riscv_step,
 
 	.assert_reset = esp_riscv_assert_reset,
 	.deassert_reset = riscv_deassert_reset,

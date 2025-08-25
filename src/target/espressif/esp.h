@@ -12,6 +12,8 @@
 #include "flash/nor/esp_flash.h"
 #include <helper/bits.h>
 
+#define ESP_FLASH_BREAKPOINTS_MAX_NUM  32
+
 #define IS_1XXX(v)		(((v) & 0x08) == 0x08)
 #define IS_0100(v)      (((v) & 0x0f) == 0x04)
 
@@ -146,8 +148,8 @@ int esp_common_flash_breakpoint_add(struct target *target,
 int esp_common_flash_breakpoint_remove(struct target *target,
 	struct esp_common *esp,
 	struct breakpoint *breakpoint);
-bool esp_common_flash_breakpoint_exists(struct esp_common *esp,
-	struct breakpoint *breakpoint);
+bool esp_common_flash_breakpoint_exists(struct esp_common *esp, target_addr_t address);
+int esp_common_process_lazy_flash_breakpoints(struct target *target);
 int esp_common_handle_gdb_detach(struct target *target);
 int esp_common_process_flash_breakpoints_command(struct command_invocation *cmd);
 int esp_common_disable_lazy_breakpoints_command(struct command_invocation *cmd);

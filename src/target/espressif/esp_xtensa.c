@@ -355,7 +355,7 @@ int esp_xtensa_breakpoint_add(struct target *target, struct breakpoint *breakpoi
 			struct target_list *curr;
 			foreach_smp_target(curr, target->smp_targets) {
 				esp_xtensa = target_to_esp_xtensa(curr->target);
-				if (esp_common_flash_breakpoint_exists(&esp_xtensa->esp, breakpoint))
+				if (esp_common_flash_breakpoint_exists(&esp_xtensa->esp, breakpoint->address))
 					return ERROR_OK;
 			}
 		}
