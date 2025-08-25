@@ -244,16 +244,19 @@ int esp_common_flash_breakpoint_remove(struct target *target, struct esp_common 
 	unsigned int slot;
 
 	for (slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
-		if (flash_bps[slot].action == ESP_BP_ACT_ADD && flash_bps[slot].status == ESP_BP_STAT_DONE &&
-			flash_bps[slot].bp_address == breakpoint->address)
-			break;
+		if (flash_bps[slot].bp_address == breakpoint->address) {
+			if (flash_bps[slot].action == ESP_BP_ACT_ADD && flash_bps[slot].status == ESP_BP_STAT_PEND) {
+				flash_bps[slot].action = ESP_BP_ACT_REM;
+				flash_bps[slot].status = ESP_BP_STAT_DONE;
+				esp_common_dump_bp_slot("BP-REMOVE(fake)", &esp->flash_brps, slot);
+				return ERROR_OK;
+			}
+			if (flash_bps[slot].action == ESP_BP_ACT_ADD && flash_bps[slot].status == ESP_BP_STAT_DONE)
+				break;
+		}
 	}
 
 	if (slot == ESP_FLASH_BREAKPOINTS_MAX_NUM) {
-		if (esp->breakpoint_lazy_process) {
-			/* This is not an error since breakpoints are already removed inside qxfer-thread-read-end event */
-			return ERROR_OK;
-		}
 		LOG_TARGET_DEBUG(target, "max SW flash slot reached, slot=%u", slot);
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
