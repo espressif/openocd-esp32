@@ -113,6 +113,10 @@ if(BUILD_PRESTO)
     target_sources(ocdjtagdrivers PRIVATE presto.c)
 endif()
 
+if(BUILD_CH347)
+    target_sources(ocdjtagdrivers PRIVATE ch347.c)
+endif()
+
 if(BUILD_ESP_USB_JTAG)
     target_sources(ocdjtagdrivers PRIVATE esp_usb_jtag.c)
 endif()

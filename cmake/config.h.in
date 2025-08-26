@@ -148,6 +148,9 @@
 /* 0 if you don't want Andes JTAG Programmer */
 #cmakedefine01 BUILD_AICE
 
+/* 0 if you don't want CH347-based Programmer */
+#cmakedefine01 BUILD_CH347
+
 /* 0 if you don't want CMSIS-DAP Compliant Debugger */
 #cmakedefine01 BUILD_CMSIS_DAP_HID
 

@@ -323,6 +323,7 @@ if(NOT use_libusb1)
     set(BUILD_USBPROG OFF CACHE BOOL "" FORCE)
     set(BUILD_ESP_USB_JTAG OFF CACHE BOOL "" FORCE)
     set(BUILD_AICE OFF CACHE BOOL "" FORCE)
+    set(BUILD_CH347 OFF CACHE BOOL "" FORCE)
 endif()
 
 if(NOT use_hidapi)

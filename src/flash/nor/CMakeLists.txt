@@ -8,6 +8,7 @@ target_sources(nor PRIVATE
 	aduc702x.c
 	aducm360.c
 	ambiqmicro.c
+	artery.c
 	at91sam4.c
 	at91sam4l.c
 	at91samd.c
@@ -94,6 +95,7 @@ target_sources(nor PRIVATE
 	xmc1xxx.c
 	xmc4xxx.c
 	drivers.c
+	artery.h
 	core.h
 	cc3220sf.h
 	bluenrg-x.h
