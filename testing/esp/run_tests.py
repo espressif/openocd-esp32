@@ -453,9 +453,32 @@ def main():
         return
 
     # start debugger, ideally we should run all tests w/o restarting it
-    dbg_start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'],
-                        args.debug_oocd, board_tcl['chip_name'], board_tcl['target_triple'],
-                        log_lev, ch, fh, args.gdb_log_folder)
+    try:
+        dbg_start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'],
+                            args.debug_oocd, board_tcl['chip_name'], board_tcl['target_triple'],
+                            log_lev, ch, fh, args.gdb_log_folder)
+    except RuntimeError:
+        # flash an app and try again
+        import json, subprocess
+        output_dir = None
+        for dir, _, files in os.walk(os.getcwd()):
+            if dir.endswith('single_core') and 'flasher_args.json' in files:
+                output_dir = dir
+                break
+        if output_dir is None:
+            raise
+        with open(os.path.join(output_dir, 'flasher_args.json'), 'rb') as f:
+            json_args = json.load(f)
+            flasher_args = json_args['write_flash_args']
+            for addr, bin in json_args['flash_files'].items():
+                flasher_args += [addr, bin]
+        if board_uart_reader:
+            board_uart_reader.stop()
+        cmd = ['esptool.py', '-p', args.serial_port, '--no-stub', 'write_flash', *flasher_args]
+        proc = subprocess.run(cmd, cwd=output_dir)
+        proc.check_returncode()
+        # flashing succeeded, return special code EX_TEMPFAIL (75), configured in CI to retry the job
+        sys.exit(os.EX_TEMPFAIL)
     res = None
     try:
         # run tests from the same directory this file is
