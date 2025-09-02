@@ -28,6 +28,8 @@ struct command_map {
 #include "../../../contrib/loaders/flash/espressif/images/esp32c61/stub_image.h"
 #elif defined(ESP_TARGET_ESP32H2)
 #include "../../../contrib/loaders/flash/espressif/images/esp32h2/stub_image.h"
+#elif defined(ESP_TARGET_ESP32H4)
+#include "../../../contrib/loaders/flash/espressif/images/esp32h4/stub_image.h"
 #elif defined(ESP_TARGET_ESP32P4)
 #include "../../../contrib/loaders/flash/espressif/images/esp32p4/stub_image.h"
 #endif
