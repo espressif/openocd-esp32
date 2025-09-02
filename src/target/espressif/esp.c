@@ -550,7 +550,6 @@ static int esp_callback_event_handler(struct target *target, enum target_event e
 	switch (event) {
 		case TARGET_EVENT_STEP_START:
 		case TARGET_EVENT_RESUME_START:
-		case TARGET_EVENT_QXFER_THREAD_READ_END:
 			return esp_common_process_flash_breakpoints_handler(target);
 		case TARGET_EVENT_GDB_DETACH:
 			return esp_common_gdb_detach_handler(target);
