@@ -111,7 +111,7 @@ struct target *esp_common_get_halted_target(struct target *target, int32_t corei
 	return target;
 }
 
-static void esp_common_dump_bp_slot(const char *caption, struct esp_flash_breakpoints *bps, size_t slot)
+static void esp_common_dump_bp_slot(const char *caption, struct esp_flash_breakpoints *bps, unsigned int slot)
 {
 	if (!LOG_LEVEL_IS(LOG_LVL_DEBUG))
 		return;
@@ -121,7 +121,7 @@ static void esp_common_dump_bp_slot(const char *caption, struct esp_flash_breakp
 	if (curr) {
 		if (caption && strlen(caption))
 			LOG_OUTPUT("=========== %s ===============\n", caption);
-		LOG_OUTPUT("Slot: %zu\n", slot);
+		LOG_OUTPUT("Slot: %u\n", slot);
 		LOG_OUTPUT(" \toriginal inst : ");
 		struct esp_flash_breakpoint *brps = &bps->brps[slot];
 		for (int i = 0; i < brps->insn_sz; i++)
@@ -137,7 +137,7 @@ static int esp_common_flash_breakpoints_clear(struct target *target)
 {
 	struct esp_common *esp = target_to_esp_common(target);
 
-	for (size_t slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
+	for (unsigned int slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
 		struct esp_flash_breakpoint *flash_bp = &esp->flash_brps.brps[slot];
 		if (flash_bp->insn_sz > 0) {
 			int ret = esp->flash_brps.ops->breakpoint_remove(target, flash_bp, 1);
@@ -157,7 +157,7 @@ static int esp_common_flash_breakpoints_clear(struct target *target)
 
 static bool esp_common_any_pending_flash_breakpoint(struct esp_common *esp)
 {
-	for (uint32_t slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
+	for (unsigned int slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
 		if (esp->flash_brps.brps[slot].status == ESP_BP_STAT_PEND)
 			return true;
 	}
@@ -166,7 +166,7 @@ static bool esp_common_any_pending_flash_breakpoint(struct esp_common *esp)
 
 static bool esp_common_any_added_flash_breakpoint(struct esp_common *esp)
 {
-	for (uint32_t slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
+	for (unsigned int slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
 		if (esp->flash_brps.brps[slot].insn_sz > 0)
 			return true;
 	}
@@ -175,7 +175,7 @@ static bool esp_common_any_added_flash_breakpoint(struct esp_common *esp)
 
 static void esp_common_flash_breakpoints_get_ready_to_remove(struct esp_common *esp)
 {
-	for (uint32_t slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
+	for (unsigned int slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
 		if (esp->flash_brps.brps[slot].insn_sz > 0) {
 			esp->flash_brps.brps[slot].action = ESP_BP_ACT_REM;
 			esp->flash_brps.brps[slot].status = ESP_BP_STAT_PEND;
@@ -185,7 +185,7 @@ static void esp_common_flash_breakpoints_get_ready_to_remove(struct esp_common *
 
 bool esp_common_flash_breakpoint_exists(struct esp_common *esp, struct breakpoint *breakpoint)
 {
-	for (uint32_t slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
+	for (unsigned int slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
 		if (esp->flash_brps.brps[slot].bp_address == breakpoint->address
 				&& esp->flash_brps.brps[slot].action == ESP_BP_ACT_ADD)
 			return true;
@@ -195,7 +195,7 @@ bool esp_common_flash_breakpoint_exists(struct esp_common *esp, struct breakpoin
 
 int esp_common_flash_breakpoint_add(struct target *target, struct esp_common *esp, struct breakpoint *breakpoint)
 {
-	size_t slot;
+	unsigned int slot;
 	struct esp_flash_breakpoints *flash_bps = &esp->flash_brps;
 
 	/*
@@ -220,7 +220,7 @@ int esp_common_flash_breakpoint_add(struct target *target, struct esp_common *es
 			break;
 	}
 	if (slot == ESP_FLASH_BREAKPOINTS_MAX_NUM) {
-		LOG_TARGET_WARNING(target, "max SW flash slot reached, slot=%zu", slot);
+		LOG_TARGET_WARNING(target, "max SW flash slot reached, slot=%u", slot);
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
@@ -241,7 +241,7 @@ int esp_common_flash_breakpoint_add(struct target *target, struct esp_common *es
 int esp_common_flash_breakpoint_remove(struct target *target, struct esp_common *esp, struct breakpoint *breakpoint)
 {
 	struct esp_flash_breakpoint *flash_bps = esp->flash_brps.brps;
-	size_t slot;
+	unsigned int slot;
 
 	for (slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
 		if (flash_bps[slot].action == ESP_BP_ACT_ADD && flash_bps[slot].status == ESP_BP_STAT_DONE &&
@@ -254,7 +254,7 @@ int esp_common_flash_breakpoint_remove(struct target *target, struct esp_common 
 			/* This is not an error since breakpoints are already removed inside qxfer-thread-read-end event */
 			return ERROR_OK;
 		}
-		LOG_TARGET_DEBUG(target, "max SW flash slot reached, slot=%zu", slot);
+		LOG_TARGET_DEBUG(target, "max SW flash slot reached, slot=%u", slot);
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
@@ -275,18 +275,18 @@ static int esp_common_process_lazy_flash_breakpoints(struct target *target)
 	struct esp_flash_breakpoint *flash_bps = esp->flash_brps.brps;
 	int ret;
 
-	for (size_t i = 0; i < ESP_FLASH_BREAKPOINTS_MAX_NUM; ++i)
-		esp_common_dump_bp_slot("BP-PROCESS", &esp->flash_brps, i);
+	for (unsigned int slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; ++slot)
+		esp_common_dump_bp_slot("BP-PROCESS", &esp->flash_brps, slot);
 
-	size_t add_num_bps = 0;
-	size_t remove_num_bps = 0;
-	size_t first_pending_off = ESP_FLASH_BREAKPOINTS_MAX_NUM;
-	for (size_t i = 0; i < ESP_FLASH_BREAKPOINTS_MAX_NUM; ++i) {
-		if (flash_bps[i].status != ESP_BP_STAT_PEND)
+	unsigned int add_num_bps = 0;
+	unsigned int remove_num_bps = 0;
+	unsigned int first_pending_off = ESP_FLASH_BREAKPOINTS_MAX_NUM;
+	for (unsigned int slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; ++slot) {
+		if (flash_bps[slot].status != ESP_BP_STAT_PEND)
 			continue;
 		if (first_pending_off == ESP_FLASH_BREAKPOINTS_MAX_NUM)
-			first_pending_off = i;
-		flash_bps[i].action == ESP_BP_ACT_ADD ?  ++add_num_bps : ++remove_num_bps;
+			first_pending_off = slot;
+		flash_bps[slot].action == ESP_BP_ACT_ADD ?  ++add_num_bps : ++remove_num_bps;
 	}
 
 	if (add_num_bps + remove_num_bps == 0) {
@@ -294,19 +294,19 @@ static int esp_common_process_lazy_flash_breakpoints(struct target *target)
 		return ERROR_OK;
 	}
 
-	LOG_TARGET_DEBUG(target, "BP num in the cache: add(%zu) + rem(%zu) from off(%zu)",
+	LOG_TARGET_DEBUG(target, "BP num in the cache: add(%u) + rem(%u) from off(%u)",
 		add_num_bps, remove_num_bps, first_pending_off);
 
 	/* If both possible pending states in the cache, add them one by one in the order they were added */
 	if (add_num_bps && remove_num_bps) {
-		for (size_t slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; ++slot) {
+		for (unsigned int slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; ++slot) {
 			if (flash_bps[slot].status == ESP_BP_STAT_PEND) {
 				if (flash_bps[slot].action == ESP_BP_ACT_ADD)
 					ret = esp->flash_brps.ops->breakpoint_add(target, &flash_bps[slot], 1);
 				else
 					ret = esp->flash_brps.ops->breakpoint_remove(target, &flash_bps[slot], 1);
 				if (ret != ERROR_OK) {
-					LOG_TARGET_ERROR(target, "Breakpoints couldn't be processed at slot (%zu)", slot);
+					LOG_TARGET_ERROR(target, "Breakpoints couldn't be processed at slot (%u)", slot);
 					return ret;
 				}
 			}
