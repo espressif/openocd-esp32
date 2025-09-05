@@ -497,19 +497,17 @@ static int freertos_smp_init(struct target *target)
 
 	/* use one of rtos instance for both target */
 	foreach_smp_target(head, target->smp_targets) {
-		if (head->target->rtos != rtos) {
-			struct freertos_data *smp_rtos_data =
-				(struct freertos_data *)head->target->rtos->rtos_specific_params;
+		struct target *curr = head->target;
+		struct freertos_data *smp_rtos_data = (struct freertos_data *)curr->rtos->rtos_specific_params;
+		free(smp_rtos_data->curr_threads_handles_buff);
+		if (curr->rtos != rtos) {
 			/*  remap smp target on rtos  */
-			free(head->target->rtos);
-			head->target->rtos = rtos;
+			free(curr->rtos);
+			curr->rtos = rtos;
 			free(smp_rtos_data);
 			rtos_data->nr_cpus++;
 		}
 	}
-
-	if (rtos_data->curr_threads_handles_buff)
-		free(rtos_data->curr_threads_handles_buff);
 
 	rtos_data->curr_threads_handles_buff = calloc(rtos_data->nr_cpus,
 		rtos_data->params->pointer_width);
@@ -1476,6 +1474,7 @@ static int freertos_clean(struct target *target)
 	if (!target->rtos_auto_detect)
 		return ERROR_OK;
 	free(rtos_data->curr_threads_handles_buff);
+	free(rtos_data->esp_symbols);
 	free(rtos_data);
 	target->rtos->rtos_specific_params = NULL;
 	return ERROR_OK;
