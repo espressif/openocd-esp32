@@ -422,7 +422,11 @@ static int esp32_reset_reason_fetch(struct target *target, int *rsn_id, const ch
 
 static int esp32_target_init(struct command_context *cmd_ctx, struct target *target)
 {
-	return esp_xtensa_smp_target_init(cmd_ctx, target);
+	int ret = esp_xtensa_target_init(cmd_ctx, target);
+	if (ret != ERROR_OK)
+		return ret;
+
+	return esp_xtensa_semihosting_init(target);
 }
 
 static const struct xtensa_debug_ops esp32_dbg_ops = {

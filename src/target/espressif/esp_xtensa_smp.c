@@ -600,28 +600,6 @@ int esp_xtensa_smp_init_arch_info(struct target *target,
 	return ERROR_OK;
 }
 
-int esp_xtensa_smp_target_init(struct command_context *cmd_ctx, struct target *target)
-{
-	int ret = esp_xtensa_target_init(cmd_ctx, target);
-	if (ret != ERROR_OK)
-		return ret;
-
-	if (target->smp) {
-		struct target_list *head;
-		foreach_smp_target(head, target->smp_targets) {
-			struct target *curr = head->target;
-			ret = esp_xtensa_semihosting_init(curr);
-			if (ret != ERROR_OK)
-				return ret;
-		}
-	} else {
-		ret = esp_xtensa_semihosting_init(target);
-		if (ret != ERROR_OK)
-			return ret;
-	}
-	return ERROR_OK;
-}
-
 COMMAND_HANDLER(esp_xtensa_smp_cmd_xtdef)
 {
 	struct target *target = get_current_target(CMD_CTX);
