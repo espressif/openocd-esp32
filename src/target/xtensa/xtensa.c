@@ -3556,6 +3556,14 @@ static void xtensa_free_reg_cache(struct target *target)
 		free(xtensa->optregs);
 	}
 	xtensa->optregs = NULL;
+	if (xtensa->contiguous_regs_desc) {
+		free(xtensa->contiguous_regs_desc);
+		xtensa->contiguous_regs_desc = NULL;
+	}
+	if (xtensa->contiguous_regs_list) {
+		free(xtensa->contiguous_regs_list);
+		xtensa->contiguous_regs_list = NULL;
+	}
 }
 
 void xtensa_target_deinit(struct target *target)
