@@ -19,6 +19,8 @@ variables:
 
 fetch_gdb:
   stage: fetch_gdb
+  tags:
+    - build
   variables:
     GIT_STRATEGY: none
   needs:
