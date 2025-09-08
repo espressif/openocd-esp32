@@ -64,6 +64,9 @@ option(BUILD_AICE "Andes JTAG Programmer" OFF)
 option(BUILD_CMSIS_DAP_HID "CMSIS-DAP Compliant Debugger" ON)
 option(BUILD_HLADAPTER_NULINK "Nu-Link Programmer" OFF)
 
+# CMSIS-DAP TCP Adapters
+option(BUILD_CMSIS_DAP_TCP "CMSIS-DAP v2 (TCP) Compliant Debugger" ON)
+
 # Hidapi USB1 Adapters
 option(BUILD_KITPROG "Cypress KitProg Programmer" ON)
 

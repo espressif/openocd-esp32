@@ -127,6 +127,9 @@
 /* 0 if you don't want CMSIS-DAP v2 Compliant Debugger */
 #cmakedefine01 BUILD_CMSIS_DAP_USB
 
+/* 0 if you don't want CMSIS-DAP v2 (TCP) Compliant Debugger */
+#cmakedefine01 BUILD_CMSIS_DAP_TCP
+
 /* 0 if you don't want OSBDM (JTAG only) Programmer */
 #cmakedefine01 BUILD_OSBDM
 

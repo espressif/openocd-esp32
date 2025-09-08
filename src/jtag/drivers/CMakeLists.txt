@@ -215,6 +215,10 @@ if(BUILD_CMSIS_DAP_USB)
     endif()
 endif()
 
+if(BUILD_CMSIS_DAP_TCP)
+    target_sources(ocdjtagdrivers PRIVATE cmsis_dap_tcp.c cmsis_dap.c)
+endif()
+
 if(BUILD_IMX_GPIO)
     target_sources(ocdjtagdrivers PRIVATE imx_gpio.c)
 endif()
