@@ -15,6 +15,7 @@ def main():  # type: () -> None
     parser.add_argument('--debug', '-d', help='Debug level: 0-4', type=int, default=1)
     parser.add_argument('--chip', '-c', help='Chip', type=str)
     parser.add_argument('--interface', '-i', help='Interface', type=str)
+    parser.add_argument('--count', '-n', help='Number of devices', type=int, default=1)
 
     args = parser.parse_args()
 
@@ -37,12 +38,17 @@ def main():  # type: () -> None
         args.interface = "ftdi"
     elif args.interface == "usb_serial_jtag":
         args.interface = "esp_usb_jtag"
+    found = set()
     for board in esp_cfg["boards"]:
-        if board["target"] == args.chip and board["interface"] == args.interface:
+        if board["target"] == args.chip and board["interface"] == args.interface and board["location"] not in found:
             logging.info("Found target entry: %s", board)
             assert board["location"]
-            sys.exit(0)
+            found.add(board["location"])
+            if args.count == len(found):
+                sys.exit(0)
     logging.critical("Target entry for \"%s/%s\" was not found", args.chip, args.interface)
+    if args.count > 1:
+        logging.critical("Found %d/%d expected devices", len(found), args.count)
     sys.exit(1)
 
 
