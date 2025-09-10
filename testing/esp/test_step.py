@@ -28,21 +28,36 @@ class StepTestsImpl():
         else: #riscv32
             self.assertTrue(pc_diff == 2 or pc_diff == 4)
 
-    def do_step_over_bp_check(self, funcs):
+    def do_step_over_bp_check(self, faddrs):
         self.resume_exec()
         rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
         self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
         old_pc = self.gdb.get_reg('pc')
-        faddr = self.gdb.extract_exec_addr(self.gdb.data_eval_expr('&%s' % funcs[0]))
-        self.assertEqual(old_pc, faddr)
+        self.assertEqual(old_pc, faddrs[0])
         self.step(insn=True) # step over movi
         new_pc = self.gdb.get_reg('pc')
         self.compare_pc_diffs(new_pc, old_pc)
         old_pc = new_pc
         self.step(insn=True, stop_rsn=dbg.TARGET_STOP_REASON_BP) # step over nop
         new_pc = self.gdb.get_reg('pc')
-        faddr = self.gdb.extract_exec_addr(self.gdb.data_eval_expr('&%s' % funcs[1]))
-        self.assertEqual(new_pc, faddr)
+        self.assertEqual(new_pc, faddrs[1])
+        self.compare_pc_diffs(new_pc, old_pc)
+
+    def do_oocd_step_over_bp_check(self, faddrs):
+        self.oocd.cmd_exec('resume')
+        time.sleep(1)
+        for target in self.oocd.targets():
+            state = self.oocd.target_state(target)
+            self.assertTrue(state != 'running')
+        old_pc = self.oocd.get_reg('pc')
+        self.assertEqual(old_pc, faddrs[0])
+        self.oocd.cmd_exec('step') # step over movi
+        new_pc = self.oocd.get_reg('pc')
+        self.compare_pc_diffs(new_pc, old_pc)
+        old_pc = new_pc
+        self.oocd.cmd_exec('step') # step over nop
+        new_pc = self.oocd.get_reg('pc')
+        self.assertEqual(new_pc, faddrs[1])
         self.compare_pc_diffs(new_pc, old_pc)
 
     def setUp(self):
@@ -51,6 +66,49 @@ class StepTestsImpl():
     def tearDown(self):
         # restore ISR masking
         self.isr_masking(on=self.old_masking)
+
+    @only_for_arch(['riscv32'])
+    def test_oocd_step_over_bp(self):
+        """
+            This test checks that OpenOCD can step over breakpoint.
+            1) Select appropriate sub-test number on target.
+            2) Set several breakpoints to cover all types of them (HW, SW). Two BPs of every type.
+            3) Resume target and wait for the first breakpoint to hit.
+            4) Check that target has stopped in the right place.
+            5) Performs step from stop point (to the second breakpoint of that type).
+            6) Check that PC changed correctly.
+            7) Repeat steps 3-6 several times for every type of breakpoints.
+        """
+        for target in reversed(self.oocd.targets()):
+            state = self.oocd.target_state(target)
+            if state == 'halted':
+                # find the last available target, for dual-core tests we run on cpu1 for single-core on cpu0
+                self.oocd.cmd_exec(f"targets {target}")
+                break
+        self.select_sub_test(self.id().replace('test_oocd_step_over_bp', 'test_step_over_bp'))
+        # Filling HW breakpoints slots to make test using SW flash breakpoints
+        self.fill_hw_bps(keep_avail=2)
+        bps = ['_step_over_bp_break1', '_step_over_bp_break2',  # HW BPs
+            '_step_over_bp_break3', '_step_over_bp_break4',  # SW flash BPs
+            '_step_over_bp_break5', '_step_over_bp_break6']  # SW RAM BPs
+        faddrs = [self.gdb.extract_exec_addr(self.gdb.data_eval_expr('&%s' % f)) for f in bps]
+        for faddr in faddrs[:4]:
+            self.oocd.cmd_exec(f"bp {faddr} 2 hw")
+        # TODO fix for sw breaks in OCD-1247
+        #for faddr in faddrs[4:]:
+        #    self.oocd.cmd_exec(f"bp {faddr} 2")
+        try:
+            for i in range(2):
+                # step from and over HW BPs
+                self.do_oocd_step_over_bp_check(faddrs[0:2])
+                # step from and over SW flash BPs
+                self.do_oocd_step_over_bp_check(faddrs[2:4])
+                # step from and over SW RAM BPs
+                #self.do_oocd_step_over_bp_check(faddrs[4:6])
+        finally:
+            # select first target again to avoid issues in other tests
+            self.oocd.cmd_exec(f"targets {self.oocd.targets()[0]}")
+            self.oocd.cmd_exec("rbp all")
 
     def test_step_over_bp(self):
         """
@@ -68,15 +126,16 @@ class StepTestsImpl():
         bps = ['_step_over_bp_break1', '_step_over_bp_break2',  # HW BPs
             '_step_over_bp_break3', '_step_over_bp_break4',  # SW flash BPs
             '_step_over_bp_break5', '_step_over_bp_break6']  # SW RAM BPs
+        faddrs = [self.gdb.extract_exec_addr(self.gdb.data_eval_expr('&%s' % f)) for f in bps]
         for f in bps:
             self.add_bp(f)
         for i in range(2):
             # step from and over HW BPs
-            self.do_step_over_bp_check(['_step_over_bp_break1', '_step_over_bp_break2'])
+            self.do_step_over_bp_check(faddrs[0:2])
             # step from and over SW flash BPs
-            self.do_step_over_bp_check(['_step_over_bp_break3', '_step_over_bp_break4'])
+            self.do_step_over_bp_check(faddrs[2:4])
             # step from and over SW RAM BPs
-            self.do_step_over_bp_check(['_step_over_bp_break5', '_step_over_bp_break6'])
+            self.do_step_over_bp_check(faddrs[4:6])
 
     def do_step_over_wp_check(self, func):
         self.resume_exec()
