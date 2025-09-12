@@ -94,9 +94,8 @@ class StepTestsImpl():
         faddrs = [self.gdb.extract_exec_addr(self.gdb.data_eval_expr('&%s' % f)) for f in bps]
         for faddr in faddrs[:4]:
             self.oocd.cmd_exec(f"bp {faddr} 2 hw")
-        # TODO fix for sw breaks in OCD-1247
-        #for faddr in faddrs[4:]:
-        #    self.oocd.cmd_exec(f"bp {faddr} 2")
+        for faddr in faddrs[4:]:
+            self.oocd.cmd_exec(f"bp {faddr} 2")
         try:
             for i in range(2):
                 # step from and over HW BPs
@@ -104,7 +103,7 @@ class StepTestsImpl():
                 # step from and over SW flash BPs
                 self.do_oocd_step_over_bp_check(faddrs[2:4])
                 # step from and over SW RAM BPs
-                #self.do_oocd_step_over_bp_check(faddrs[4:6])
+                self.do_oocd_step_over_bp_check(faddrs[4:6])
         finally:
             # select first target again to avoid issues in other tests
             self.oocd.cmd_exec(f"targets {self.oocd.targets()[0]}")
