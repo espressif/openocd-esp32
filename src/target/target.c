@@ -3956,15 +3956,7 @@ static int handle_bp_command_list(struct command_invocation *cmd)
 	struct target *target = get_current_target(cmd->ctx);
 	struct breakpoint *breakpoint = target->breakpoints;
 	while (breakpoint) {
-		if (breakpoint->type == BKPT_SOFT) {
-			char *buf = buf_to_hex_str(breakpoint->orig_instr,
-					breakpoint->length * 8);
-			command_print(cmd, "Software breakpoint(IVA): addr=" TARGET_ADDR_FMT ", len=0x%x, orig_instr=0x%s",
-					breakpoint->address,
-					breakpoint->length,
-					buf);
-			free(buf);
-		} else {
+		if (breakpoint->type == BKPT_HARD) {
 			if ((breakpoint->address == 0) && (breakpoint->asid != 0))
 				command_print(cmd, "Context breakpoint: asid=0x%8.8" PRIx32 ", len=0x%x, num=%u",
 							breakpoint->asid,
@@ -3979,6 +3971,25 @@ static int handle_bp_command_list(struct command_invocation *cmd)
 				command_print(cmd, "Hardware breakpoint(IVA): addr=" TARGET_ADDR_FMT ", len=0x%x, num=%u",
 							breakpoint->address,
 							breakpoint->length, breakpoint->number);
+		}
+
+		breakpoint = breakpoint->next;
+	}
+	struct target *first_target = target;
+	if (target->smp) {
+		struct target_list *head;
+		head = list_first_entry(target->smp_targets, struct target_list, lh);
+		first_target = head->target;
+	}
+	breakpoint = first_target->breakpoints;
+	while (breakpoint) {
+		if (breakpoint->type == BKPT_SOFT) {
+			char *buf = buf_to_hex_str(breakpoint->orig_instr, breakpoint->length * 8);
+			command_print(cmd, "Software breakpoint(IVA): addr=" TARGET_ADDR_FMT ", len=0x%x, orig_instr=0x%s",
+						breakpoint->address,
+						breakpoint->length,
+						buf);
+			free(buf);
 		}
 
 		breakpoint = breakpoint->next;
