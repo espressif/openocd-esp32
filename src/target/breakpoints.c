@@ -507,6 +507,20 @@ struct breakpoint *breakpoint_find(struct target *target, target_addr_t address)
 			return breakpoint;
 		breakpoint = breakpoint->next;
 	}
+	if (target->smp) {
+		/* Check for SW breakpoints on the first target in an SMP group. */
+		struct target_list *head;
+		head = list_first_entry(target->smp_targets, struct target_list, lh);
+		/* Nothing to do if current target is the first one. */
+		if (target == head->target)
+			return NULL;
+		breakpoint = head->target->breakpoints;
+		while (breakpoint) {
+			if (breakpoint->type == BKPT_SOFT && breakpoint->address == address)
+				return breakpoint;
+			breakpoint = breakpoint->next;
+		}
+	}
 
 	return NULL;
 }
