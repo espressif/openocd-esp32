@@ -488,7 +488,10 @@ class StepTestsImpl():
             test_step_results(test_mstatus, 0xf & test_mstatus)
 
             # Return to the start of the loop
+            timeout = 100
             while self.oocd.get_reg('pc') != start:
+                timeout -= 1
+                self.assertTrue(timeout > 0)
                 self.oocd.cmd_exec("step")
 
 ########################################################################
