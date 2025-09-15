@@ -522,7 +522,7 @@ def main():
     finally:
         # stop debugger
         dbg_stop()
-        if board_uart_reader:
+        if board_uart_reader and board_uart_reader.do_work:
            board_uart_reader.stop()
     # check results
     if not res or not res.wasSuccessful():
