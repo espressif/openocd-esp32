@@ -273,8 +273,7 @@ int esp_riscv_examine(struct target *target)
 
 	struct esp_riscv_reg_class esp_riscv_registers[] = {
 		{ esp_riscv_gprs, ARRAY_SIZE(esp_riscv_gprs), true, NULL },
-		/* FPRs can't be read via abstract command in ESP32-P4 ECO version */
-		{ esp_riscv_fprs, ARRAY_SIZE(esp_riscv_fprs), false, NULL },
+		{ esp_riscv_fprs, ARRAY_SIZE(esp_riscv_fprs), true, NULL },
 		{ esp_riscv_csrs, ARRAY_SIZE(esp_riscv_csrs), true, NULL },
 		{ esp_riscv_ro_csrs, ARRAY_SIZE(esp_riscv_ro_csrs), false, NULL },
 	};
