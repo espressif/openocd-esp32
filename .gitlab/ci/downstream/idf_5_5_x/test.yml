@@ -129,7 +129,7 @@ tests_esp32c5_idf5.5.x:
     ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32c5-builtin -e test_*.LpCore* -p test_*.*Single"
 
-.tests_esp32c5_lpcore_idf5.5.x:
+tests_esp32c5_lpcore_idf5.5.x:
   extends: tests_esp32c5_idf5.5.x
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32c5-lpcore-builtin -p test_*.LpCore*"
@@ -184,7 +184,7 @@ tests_esp32p4_idf5.5.x:
     CHIP_NAME: "esp32p4"
     TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.LpCore* test_*.*Encrypted"
 
-.tests_esp32p4_lpcore_idf5.5.x:
+tests_esp32p4_lpcore_idf5.5.x:
   extends: tests_esp32p4_idf5.5.x
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
