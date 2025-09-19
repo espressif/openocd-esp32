@@ -503,6 +503,7 @@ def main():
                     time.sleep(1)
                 except serial.SerialException as e:
                     sys.stderr.write('Could not start reader for serial port {}: {}\n'.format(args.serial_port, e))
+                    board_uart_reader = None
 
             ids = [x[0].id() for x in res.errors + res.failures]
             for t in suite._tests:
@@ -522,7 +523,7 @@ def main():
     finally:
         # stop debugger
         dbg_stop()
-        if board_uart_reader and board_uart_reader.do_work:
+        if board_uart_reader:
            board_uart_reader.stop()
     # check results
     if not res or not res.wasSuccessful():
