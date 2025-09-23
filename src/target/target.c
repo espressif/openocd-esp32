@@ -2258,6 +2258,22 @@ uint32_t target_get_working_area_avail(struct target *target)
 	return max_size;
 }
 
+static void free_smp_target_list(struct list_head *smp_targets)
+{
+	assert(smp_targets);
+	if (smp_targets == &empty_smp_targets)
+		return;
+
+	struct target_list *head, *tmp;
+	list_for_each_entry_safe(head, tmp, smp_targets, lh) {
+		list_del(&head->lh);
+		head->target->smp = 0;
+		head->target->smp_targets = &empty_smp_targets;
+		free(head);
+	}
+	free(smp_targets);
+}
+
 static void target_destroy(struct target *target)
 {
 	breakpoint_remove_all(target);
@@ -2283,19 +2299,7 @@ static void target_destroy(struct target *target)
 
 	rtos_destroy(target);
 
-	/* release the targets SMP list */
-	if (target->smp) {
-		struct target_list *head, *tmp;
-
-		list_for_each_entry_safe(head, tmp, target->smp_targets, lh) {
-			list_del(&head->lh);
-			head->target->smp = 0;
-			free(head);
-		}
-		if (target->smp_targets != &empty_smp_targets)
-			free(target->smp_targets);
-		target->smp = 0;
-	}
+	free_smp_target_list(target->smp_targets);
 
 	free(target->gdb_port_override);
 	free(target->type);
@@ -6186,8 +6190,11 @@ COMMAND_HANDLER(handle_target_smp)
 		if (new)
 			list_add_tail(&new->lh, lh);
 	}
-	/*  now parse the list of cpu and put the target in smp mode*/
 	struct target_list *curr;
+	foreach_smp_target(curr, lh) {
+		struct target *target = curr->target;
+		free_smp_target_list(target->smp_targets);
+	}
 	foreach_smp_target(curr, lh) {
 		struct target *target = curr->target;
 		target->smp = smp_group;
@@ -6199,6 +6206,9 @@ COMMAND_HANDLER(handle_target_smp)
 	int retval = get_target_with_common_rtos_type(CMD, lh, &rtos_target);
 	if (retval == ERROR_OK && rtos_target)
 		retval = rtos_smp_init(rtos_target);
+
+	if (retval != ERROR_OK)
+		free_smp_target_list(lh);
 
 	return retval;
 }
