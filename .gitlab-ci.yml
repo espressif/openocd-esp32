@@ -214,6 +214,7 @@ create_reports:
   stage: results
   tags:
     - build
+  coverage: '/lines\.*:.*.*\s+(\d+\.\d+%)/'
   artifacts:
     paths:
       - dist/lcov_all_report.tar.gz
