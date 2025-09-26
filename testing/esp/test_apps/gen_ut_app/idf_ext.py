@@ -183,6 +183,7 @@ def action_extensions(base_actions, project_path=os.getcwd()):
 
     # Add global options
     extensions = {
+        "version" : "unknown",
         "global_options": [{
             "names": ["-T", "--test-components"],
             "help": "Specify the components to test.",
