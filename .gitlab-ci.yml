@@ -115,6 +115,30 @@ pipeline_variables:
     reports:
       dotenv: variables.env
 
+build_macos_strip:
+  stage: build_openocd
+  tags: [ "darwin" ]
+  needs: [build_macos, build_macos_arm64]
+  artifacts:
+    paths:
+      - dist
+  script:
+    - cd dist
+    - dist_names="dist_name_macos dist_name_macos-arm64"
+    - ocd_bin=tmp/openocd-esp32/bin/openocd
+    - >
+      for dist_file in $dist_names; do
+        mkdir tmp;
+        tar -xzf `cat $dist_file` -C tmp;
+        otool -l $ocd_bin | grep -A 5 LC_SYMTAB;
+        ls -lh $ocd_bin;
+        strip -S $ocd_bin;
+        otool -l $ocd_bin | grep -A 5 LC_SYMTAB;
+        ls -lh $ocd_bin;
+        tar -czf `cat $dist_file` -C tmp .;
+        rm -rf tmp;
+      done
+
 macos_codesign:
   stage: pre_release
   <<: *release_tag_filter
@@ -122,7 +146,7 @@ macos_codesign:
   resource_group: macos_codesign
   tags: [ "darwin", "codesign" ]
   # list all jobs that produces macos distros
-  needs: [build_macos, build_macos_arm64]
+  needs: [build_macos_strip]
   artifacts:
     paths:
       - ${DIST_ART_DIR}

@@ -313,7 +313,7 @@ build_macos:
   variables:
     PLATFORM_NAME: "macos"
     CONF_HOST: "x86_64-apple-darwin21.1"
-    INSTALL_TARGET: "install-strip"
+    INSTALL_TARGET: "install"
     HOST_CC: ${CONF_HOST}-cc
 
 build_macos_arm64:

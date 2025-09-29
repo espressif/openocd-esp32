@@ -40,7 +40,7 @@ test_on_macos:
     - darwin
     - amd64
   needs:
-    - job: build_macos
+    - job: build_macos_strip
   variables:
     # actually we don't need the project sources, but we need the `git clean` gitlab-runner's stage.
     # It's possible only for `fetch` or `clone`.
@@ -56,7 +56,7 @@ tests_on_macos_arm64:
     - darwin
     - aarch64
   needs:
-    - job: build_macos_arm64
+    - job: build_macos_strip
   variables:
     # actually we don't need the project sources, but we need the `git clean` gitlab-runner's stage.
     # It's possible only for `fetch` or `clone`.
