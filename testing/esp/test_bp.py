@@ -488,6 +488,10 @@ class DebuggerFlashBreakpointTestsSingle(DebuggerBreakpointTestsSingle):
     def test_appcpu_early_hw_bps(self):
         pass
 
+    @skip_for_chip(['esp32c5', 'esp32c61'], "skipped - OCD-1256")
+    def test_bp_add_remove_run(self):
+        super().test_bp_add_remove_run()
+
 class DebuggerFlashBreakpointTestsDual(DebuggerBreakpointTestsDual):
     """ Breakpoint tests with extra flash breakpoints
     """
