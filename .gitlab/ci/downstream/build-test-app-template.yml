@@ -25,9 +25,10 @@
   if [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF_LATEST_DOCKER_IMAGE}" ]; then
     if  [ -n "${TEST_APP_IDF_MASTER_BRANCH:-}" ]; then
       TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF_MASTER_BRANCH"
-    else
-      # Checkout from gitlab master
-      TEST_APP_CUSTOM_BRANCH="master"
+    # TODO reenable when toolchain is updated in docker image
+    #else
+    #  # Checkout from gitlab master
+    #  TEST_APP_CUSTOM_BRANCH="master"
     fi
   elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_5_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_5_BRANCH:-}" ]; then
     TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF5_5_BRANCH"
