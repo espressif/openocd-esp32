@@ -469,7 +469,8 @@ def main():
             raise
         with open(os.path.join(output_dir, 'flasher_args.json'), 'rb') as f:
             json_args = json.load(f)
-            flasher_args = json_args['write_flash_args']
+            # replace all arguments with'-' with '_', for compatibility with both esptool v4/v5
+            flasher_args = [x.replace('-','_').replace('__','--') for x in json_args['write_flash_args']]
             for addr, bin in json_args['flash_files'].items():
                 flasher_args += [addr, bin]
         if board_uart_reader:

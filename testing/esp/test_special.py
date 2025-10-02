@@ -156,7 +156,8 @@ class DebuggerSpecialTestsImpl:
         ]
         with open(os.path.join(self.test_app_cfg.build_bins_dir(), 'flasher_args.json'), 'rb') as f:
             args = json.load(f)
-            flasher_args = args['write_flash_args']
+            # replace all arguments with'-' with '_', for compatibility with both esptool v4/v5
+            flasher_args = [x.replace('-','_').replace('__','--') for x in args['write_flash_args']]
             for addr, bin in args['flash_files'].items():
                 flasher_args += [addr, bin]
         for esptool_args in tested_args:
