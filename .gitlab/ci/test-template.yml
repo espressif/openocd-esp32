@@ -83,7 +83,7 @@
 
 .tests_master_template:
   extends: .tests_template
-  image: $CI_DOCKER_REGISTRY/target-test-env-v6.0:1
+  image: $CI_DOCKER_REGISTRY/target-test-env-v6.0:2
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     ESP_GDB_TOOLCHAIN: "${ESP_V6_0X_XTENSA_GDB_TOOLCHAIN}"
