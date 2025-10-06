@@ -1,10 +1,10 @@
 import os
 import subprocess
-import telnetlib
 import socket
 import threading
 import time
 import re
+from pytest_embedded_jtag._telnetlib.telnetlib import Telnet # python 3.13 removed telnetlib, use this instead
 from .defs import *
 from . import log
 
@@ -97,7 +97,7 @@ class Oocd(threading.Thread):
         # Open telnet connection to it
         self._logger.debug('Open telnet conn to "%s"...', host)
         try:
-            self._tn = telnetlib.Telnet(host, self.TELNET_PORT, 5)
+            self._tn = Telnet(host, self.TELNET_PORT, 5)
             self._tn.read_until(b'>', 5)
         except Exception as e:
             self._logger.error('Failed to open Telnet connection with OpenOCD (%s)!', e)
