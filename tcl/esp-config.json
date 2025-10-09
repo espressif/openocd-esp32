@@ -378,5 +378,8 @@
             "description": "Flash size",
             "type": "choice_edit"
         }
-    ]
+    ],
+    "openocd_feature_flags_ide": {
+        "supports_new_port_syntax": true
+    }
 }

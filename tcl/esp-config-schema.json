@@ -36,6 +36,9 @@
             "items": {
                 "$ref": "#/definitions/optionsInfo"
             }
+        },
+        "openocd_feature_flags_ide": {
+            "$ref": "#/definitions/featureFlagsIde"
         }
     },
     "required": [
@@ -191,6 +194,17 @@
                 "choice",
                 "choice_edit"
             ]
+        },
+        "featureFlagsIde": {
+            "description": "Defines the OpenOCD features available in this release impacting IDE integration (e.g. Espressif IDE or VSCode extension).",
+            "type": "object",
+            "properties": {
+                "supports_new_port_syntax": {
+                    "type": "boolean",
+                    "description": "If true, IDEs should use 'gdb port' / 'telnet port' / 'tcl port' instead of legacy '*_port' options.",
+                    "default": false
+                }
+            }
         }
     }
 }
