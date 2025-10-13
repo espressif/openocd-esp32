@@ -190,7 +190,8 @@ static bool esp_common_any_pending_flash_breakpoint(struct esp_common *esp)
 static bool esp_common_any_added_flash_breakpoint(struct esp_common *esp)
 {
 	for (unsigned int slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
-		if (esp->flash_brps.brps[slot].insn_sz > 0)
+		if (esp->flash_brps.brps[slot].action == ESP_BP_ACT_ADD
+				&& esp->flash_brps.brps[slot].status == ESP_BP_STAT_DONE)
 			return true;
 	}
 	return false;
@@ -199,7 +200,8 @@ static bool esp_common_any_added_flash_breakpoint(struct esp_common *esp)
 static void esp_common_flash_breakpoints_get_ready_to_remove(struct esp_common *esp)
 {
 	for (unsigned int slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
-		if (esp->flash_brps.brps[slot].insn_sz > 0) {
+		if (esp->flash_brps.brps[slot].action == ESP_BP_ACT_ADD
+				&& esp->flash_brps.brps[slot].status == ESP_BP_STAT_DONE) {
 			esp->flash_brps.brps[slot].action = ESP_BP_ACT_REM;
 			esp->flash_brps.brps[slot].status = ESP_BP_STAT_PEND;
 		}
@@ -545,6 +547,56 @@ static int esp_common_disable_lazy_breakpoints_handler(struct target *target)
 	return ERROR_OK;
 }
 
+static int esp_common_clear_flash_breakpoints_on_address(struct target *target, target_addr_t address)
+{
+	struct esp_common *esp = target_to_esp_common(target);
+	for (unsigned int slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
+		if (esp->flash_brps.brps[slot].bp_address == address
+				&& esp->flash_brps.brps[slot].action == ESP_BP_ACT_ADD
+				&& esp->flash_brps.brps[slot].status == ESP_BP_STAT_DONE) {
+			struct breakpoint *bp = breakpoint_find(target, address);
+			if (esp_common_flash_breakpoint_remove(target, esp, bp) != ERROR_OK) {
+				LOG_TARGET_ERROR(target, "Failed to remove breakpoint!");
+				return ERROR_FAIL;
+			}
+			if (esp->breakpoint_lazy_process && esp_common_process_lazy_flash_breakpoints(target) != ERROR_OK) {
+				LOG_TARGET_ERROR(target, "Failed to process pending breakpoints!");
+				return ERROR_FAIL;
+			}
+			if (esp_common_flash_breakpoint_add(target, esp, bp) != ERROR_OK) {
+				LOG_TARGET_ERROR(target, "Failed to re-add breakpoint!");
+				return ERROR_FAIL;
+			}
+			return ERROR_OK;
+		}
+	}
+	return ERROR_OK;
+}
+
+static int esp_common_clear_flash_breakpoints_on_hit(struct target *target)
+{
+	target_addr_t pc;
+	struct xtensa *xtensa = target->arch_info;
+	if (xtensa->common_magic == XTENSA_COMMON_MAGIC) {
+		pc = xtensa_reg_get(target, XT_REG_IDX_PC);
+		// TODO cleanup in OCD-1244
+		if (target->smp) {
+			struct target_list *head;
+			foreach_smp_target(head, target->smp_targets) {
+				if (esp_common_clear_flash_breakpoints_on_address(head->target, pc) != ERROR_OK)
+					return ERROR_FAIL;
+			}
+			return ERROR_OK;
+		}
+	} else {
+		if (riscv_get_register(target, &pc, GDB_REGNO_PC) != ERROR_OK) {
+			LOG_TARGET_WARNING(target, "Failed to read pc register!");
+			return ERROR_FAIL;
+		}
+	}
+	return esp_common_clear_flash_breakpoints_on_address(target, pc);
+}
+
 int esp_common_process_flash_breakpoints_command(struct command_invocation *cmd)
 {
 	if (CMD_ARGC != 0)
@@ -576,6 +628,14 @@ static int esp_callback_event_handler(struct target *target, enum target_event e
 {
 	struct xtensa *xtensa = target->arch_info;
 	switch (event) {
+		case TARGET_EVENT_HALTED:
+			if (target->debug_reason != DBG_REASON_BREAKPOINT || !target_to_esp_common(target)->breakpoint_lazy_process)
+				return ERROR_OK;
+			/* GDB checks the memory when placing breakpoint back, and in case it finds an ebreak,
+			   it may decide not to step the target but instead skip the instruction by advancing PC.
+			   Make sure to clear hit flash breakpoints to prevent this behavior when flash breakpoint
+			   lazy process is enabled. */
+			return esp_common_clear_flash_breakpoints_on_hit(target);
 		case TARGET_EVENT_STEP_START:
 		case TARGET_EVENT_RESUME_START:
 			/* For riscv targets, flash breakpoints are processed in step/resume functions,
