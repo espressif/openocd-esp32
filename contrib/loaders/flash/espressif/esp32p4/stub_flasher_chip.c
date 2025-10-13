@@ -27,7 +27,7 @@
 #include <stub_logger.h>
 #include "stub_flasher_chip.h"
 
-/* RTC related definitios */
+/* RTC related definitions */
 #define PCR_SOC_CLK_MAX                 1 //CPU_CLK frequency is 160 MHz (source is PLL_CLK)
 
 /* Cache MMU related definitions */
@@ -35,6 +35,9 @@
 #define STUB_DROM_LOW                   SOC_DROM_LOW
 #define STUB_MMU_DROM_PAGES_END         SOC_MMU_ENTRY_NUM
 #define STUB_MMU_DROM_PAGES_START       (STUB_MMU_DROM_PAGES_END - 8) /* 8 pages will be more than enough */
+
+#define BOOT_MODE_GET()                 (REG_READ(GPIO_STRAP_REG))
+#define BOOT_MODE_IS_DOWNLOAD()         IS_01XX(BOOT_MODE_GET())
 
 struct cache_mmu_config {
 	uint32_t page_size;
@@ -155,6 +158,15 @@ static void stub_cache_init(void)
 
 void stub_flash_state_prepare(struct stub_flash_state *state)
 {
+	/* in download mode, cache is not enabled yet in rom. We can not enable it here without help of rom code
+	 * TODO: Investigate what is missing to enable cache. OCD-1263
+	 */
+	if (BOOT_MODE_IS_DOWNLOAD()) {
+		STUB_LOGD("Download mode, cache is disabled\n");
+		esp_rom_spiflash_attach(0, false);
+		return;
+	}
+
 	state->cache_enabled = stub_is_cache_enabled();
 	if (!state->cache_enabled) {
 		STUB_LOGI("Cache needs to be enabled\n");
@@ -300,6 +312,10 @@ static void stub_flash_ummap(const struct spiflash_map_req *req)
 
 int stub_flash_read_buff(uint32_t addr, void *buffer, uint32_t size)
 {
+	/* in download mode, cache is disabled. OCD-1263 */
+	if (BOOT_MODE_IS_DOWNLOAD())
+		return esp_rom_spiflash_read(addr, buffer, size);
+
 	struct spiflash_map_req req = {
 		.src_addr = addr,
 		.size = size,

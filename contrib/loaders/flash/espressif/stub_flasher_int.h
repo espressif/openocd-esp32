@@ -25,6 +25,8 @@
 #define MHZ                             (1000000)
 #endif
 
+#define IS_01XX(v) (((v) & 0x0c) == 0x04)
+
 #define __maybe_unused  __attribute__((unused))
 
 /* Flash geometry constants */
