@@ -65,6 +65,7 @@ target_sources(target PRIVATE
 # ARMV7_SRC
 target_sources(target PRIVATE
 	armv7m.c
+	armv7m_cache.c
 	armv7m_trace.c
 	cortex_m.c
 	armv7a.c
@@ -183,6 +184,7 @@ target_sources(target PRIVATE
 	armv4_5_cache.h
 	armv7a.h
 	armv7m.h
+	armv7m_cache.h
 	armv7m_trace.h
 	armv8.h
 	armv8_dpm.h
