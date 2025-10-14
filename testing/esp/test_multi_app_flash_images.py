@@ -32,7 +32,6 @@ class MultiAppImagesTestsImpl:
         # erase current image to allow bootloader to start one from the next app partition after reset
         self.oocd.cmd_exec('flash erase_address 0x%x 4096' % off)
 
-    @skip_for_chip(['esp32c2', 'esp32h2', 'esp32p4'], "skipped - OCD-1238")
     def test_debug_images(self):
         """
             This test checks that it is possible to debug applications from the various locations in flash.
@@ -47,7 +46,9 @@ class MultiAppImagesTestsImpl:
         # at first debug factory image and erase it to allow bootloader to run the first OTA image next time
         self._debug_image(self.test_app_cfg.app_off)
         if 'multi_app_images_single' in self.test_app_cfg.bin_dir:
-            bin_dir = os.path.join(test_apps_dir, self.test_app_cfg.app_name, 'output', 'single_core')
+            bin_dir = os.path.join(test_apps_dir, self.test_app_cfg.app_name, 'output', 'single_core_4MB')
+            if not os.path.isdir(bin_dir):
+                bin_dir = os.path.join(test_apps_dir, self.test_app_cfg.app_name, 'output', 'single_core')
         else:
             bin_dir = os.path.join(test_apps_dir, self.test_app_cfg.app_name, 'output', 'default')
         for off in self.extra_app_image_offs:
