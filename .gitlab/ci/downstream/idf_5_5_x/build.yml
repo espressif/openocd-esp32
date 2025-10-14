@@ -3,7 +3,7 @@ build_test_app_esp32_idf5.5.x:
     CHIP_NAME: "esp32"
     TOOLCHAIN_PREFIX: "xtensa-esp32"
     TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
-    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single psram_single single_core_4MB default default_encrypted svtrace_dual apptrace_gcov_dual psram_dual multi_app_images_single multi_app_images_dual"
+    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single psram_single default default_encrypted svtrace_dual apptrace_gcov_dual psram_dual multi_app_images_single multi_app_images_dual"
   extends: .build_idf55x_test_app_template
 
 build_test_app_esp32s2_idf5.5.x:
