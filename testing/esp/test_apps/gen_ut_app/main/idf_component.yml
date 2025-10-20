@@ -3,8 +3,15 @@ dependencies:
   ## Required IDF version
   idf:
     version: '>=5.1'
-  # # Put list of dependencies here
-  espressif/esp_gcov:
-    version: ^1
+  # Put list of dependencies here
+  #espressif/esp_gcov:
+  #  version: ^1
+  #  matches:
+  #    - if: "idf_version >=6.0"
+  # Temporary solution to use the forked esp_gcov component until the changes are merged into the main branch
+  esp_gcov:
+    git: https://github.com/erhankur/idf-extra-components.git
+    path: esp_gcov
+    version: fix/gcov_build
     matches:
       - if: "idf_version >=6.0"

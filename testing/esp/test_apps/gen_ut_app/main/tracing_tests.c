@@ -254,12 +254,40 @@ TEST_DECL(os_tracing, "test_sysview.SysView*TracingTests*.test_os_tracing")
 #endif
 }
 
-/* CONFIG_ESP32_APPTRACE_ENABLE is for IDF <= 4.0 */
-#if defined(CONFIG_APPTRACE_ENABLE) || defined(CONFIG_ESP32_APPTRACE_ENABLE)
+#if CONFIG_APPTRACE_ENABLE
+
+// Wrapper functions to handle ESP-IDF version differences
+// In ESP-IDF v6.0.0+ , destination parameter was removed from esp_apptrace functions
+static inline int esp_trace_write(const char* data, int size, uint32_t timeout_ms)
+{
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0)
+    return esp_apptrace_write(data, size, timeout_ms);
+#else
+    return esp_apptrace_write(ESP_APPTRACE_DEST_JTAG, data, size, timeout_ms);
+#endif
+}
+
+static inline esp_err_t esp_trace_flush(uint32_t timeout_ms)
+{
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0)
+    return esp_apptrace_flush(timeout_ms);
+#else
+    return esp_apptrace_flush(ESP_APPTRACE_DEST_JTAG, timeout_ms);
+#endif
+}
+
+static inline bool esp_trace_host_is_connected(void)
+{
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0)
+    return esp_apptrace_host_is_connected();
+#else
+    return esp_apptrace_host_is_connected(ESP_APPTRACE_DEST_JTAG);
+#endif
+}
 
 static int apptrace_writefn(void* cookie, const char* data, int size)
 {
-    int res = esp_apptrace_write(ESP_APPTRACE_DEST_JTAG, data, size, 1000);
+    int res = esp_trace_write(data, size, 1000);
     if (res != ESP_OK) {
         return 0;
     }
@@ -268,7 +296,7 @@ static int apptrace_writefn(void* cookie, const char* data, int size)
     vTaskDelay(1);
 
     /* this function may fail if host is busy and is not able to read data (flushed previously) within 1 ms  */
-    esp_apptrace_flush(ESP_APPTRACE_DEST_JTAG, 1000);
+    esp_trace_flush(1000);
     return size;
 }
 
@@ -288,7 +316,7 @@ static void raw_trace_log(void* arg)
         printf("[%d %*.s]\n", i, i * 20, "test");
     }
     /* ensure that all data are gone to the host in case the last call to esp_apptrace_flush() from apptrace_writefn() failed */
-    esp_apptrace_flush(ESP_APPTRACE_DEST_JTAG, ESP_APPTRACE_TMO_INFINITE);
+    esp_trace_flush(ESP_APPTRACE_TMO_INFINITE);
     raw_trace_log_done();
     vTaskDelete(NULL);
 }
@@ -300,7 +328,7 @@ TEST_DECL(apptrace_reset, "test_apptrace.ApptraceTests*.test_apptrace_reset")
     static char stdout_buf[128];
     setvbuf(stdout, stdout_buf, _IOLBF, sizeof(stdout_buf));
 
-    while (!esp_apptrace_host_is_connected(ESP_APPTRACE_DEST_JTAG))
+    while (!esp_trace_host_is_connected())
         vTaskDelay(1);
 
     int cnt = 0;
@@ -370,14 +398,14 @@ ut_result_t tracing_test_do(int test_num, int core_num)
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(log_heap_tracing), test_num)) {
         TEST_ENTRY(log_heap_tracing)(NULL);
 #endif //CONFIG_HEAP_TRACING
-#if defined(CONFIG_APPTRACE_ENABLE) || defined(CONFIG_ESP32_APPTRACE_ENABLE)
+#if CONFIG_APPTRACE_ENABLE
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(apptrace_dest_tcp), test_num)) {
         TEST_ENTRY(apptrace_dest_tcp)(NULL);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(apptrace_autostop), test_num)) {
         TEST_ENTRY(apptrace_autostop)(NULL);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(apptrace_reset), test_num)) {
         xTaskCreate(TEST_ENTRY(apptrace_reset), "raw_trace_log_periodic", 4096, (void *)100, 5, NULL);
-#endif // defined(CONFIG_APPTRACE_ENABLE) || defined(CONFIG_ESP32_APPTRACE_ENABLE)
+#endif // CONFIG_APPTRACE_ENABLE
     } else {
         return UT_UNSUPPORTED;
     }
