@@ -170,6 +170,7 @@ class BreakpointTestsImpl:
                 # break at vTaskDelay
                 self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay%d' % (i % 2)])
 
+    @idf_ver_min('5.2', "skipped - OCD-1270")
     def test_bp_and_reconnect(self):
         """
             This test checks that breakpoints work after GDB re-connection.
@@ -191,7 +192,10 @@ class BreakpointTestsImpl:
             rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
             self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
             cur_frame = self.gdb.get_current_frame()
-            self.assertTrue(cur_frame['func'] in self.bps)
+            if i == 0:
+                self.assertEqual(cur_frame['func'], 'gpio_set_direction')
+            else:
+                self.assertEqual(cur_frame['func'], self.bps[2 + (i + 1) % 2])
             frames = self.gdb.get_backtrace()
             self.assertTrue(len(frames) > 0)
             self.assertEqual(frames[0]['func'], cur_frame['func'])
