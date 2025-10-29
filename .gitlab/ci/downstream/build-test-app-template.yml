@@ -29,6 +29,8 @@
       # Checkout from gitlab master
       TEST_APP_CUSTOM_BRANCH="master"
     fi
+  elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF6_0_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF6_0_BRANCH:-}" ]; then
+    TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF6_0_BRANCH"
   elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_5_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_5_BRANCH:-}" ]; then
     TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF5_5_BRANCH"
   elif [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF5_4_RELEASE_DOCKER_IMAGE}" ] && [ -n "${TEST_APP_IDF5_4_BRANCH:-}" ]; then
@@ -180,6 +182,12 @@
   variables:
     TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF5_5_RELEASE_DOCKER_IMAGE}"
     BUILD_TEST_APP_DIR: "build_test_app_${CHIP_NAME}_idf5.5.x"
+  extends: .build_test_app_template
+
+.build_idf60x_test_app_template:
+  variables:
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF6_0_RELEASE_DOCKER_IMAGE}"
+    BUILD_TEST_APP_DIR: "build_test_app_${CHIP_NAME}_idf6.0.x"
   extends: .build_test_app_template
 
 .build_idf_master_test_app_template:

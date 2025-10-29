@@ -56,6 +56,15 @@
       - local: '.gitlab/ci/downstream/idf_5_5_x/test.yml'
     strategy: depend
 
+6.0.x_run_test_pipeline:
+  extends: .run_test_pipeline
+  trigger:
+    include:
+      - local: '.gitlab/ci/downstream/child-pipeline-template.yml'
+      - local: '.gitlab/ci/downstream/idf_6_0_x/build.yml'
+      - local: '.gitlab/ci/downstream/idf_6_0_x/test.yml'
+    strategy: depend
+
 master_run_test_pipeline:
   extends: .run_test_pipeline
   variables:
