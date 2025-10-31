@@ -12,6 +12,11 @@ dependencies:
   esp_gcov:
     git: https://github.com/erhankur/idf-extra-components.git
     path: esp_gcov
-    version: fix/gcov_build
     matches:
-      - if: "idf_version >=6.0"
+      # will be >= after backporting to v6.0.0
+      # https://gitlab.espressif.cn:6688/espressif/esp-idf/-/merge_requests/41755
+      - if: "idf_version == 6.0"
+        version: fix_gcov_build_6_0
+
+      - if: "idf_version > 6.0"
+        version: fix/gcov_build

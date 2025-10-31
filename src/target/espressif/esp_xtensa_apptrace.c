@@ -263,11 +263,13 @@ int esp_xtensa_apptrace_data_read(struct target *target,
 		if (crc16 == target_crc16)
 			break;
 
+		res = ERROR_FAIL;
+
 		LOG_WARNING("[%d/%d] CRC mismatch! calculated: 0x%" PRIx16 " read: 0x%" PRIx32,
 			i, MAX_TRIES, crc16, target_crc16);
 	}
 
-	if (ack) {
+	if (res == ERROR_OK && ack) {
 		LOG_TARGET_DEBUG(target, "Ack block %" PRIu32 " write 0x%" PRIx32 " to control reg", block_id, tmp);
 		res = esp_xtensa_apptrace_debug_reg_write(target, XTENSA_APPTRACE_CTRL_REG, tmp);
 	}

@@ -44,7 +44,13 @@ int do_trace_printf(const char *fmt, ...)
 
 static int do_trace_flush(uint32_t tmo)
 {
+    // will be >= after backporting to v6.0.0
+    // https://gitlab.espressif.cn:6688/espressif/esp-idf/-/merge_requests/41755
+#if ESP_IDF_VERSION > ESP_IDF_VERSION_VAL(6, 0, 0)
+    return esp_sysview_flush();
+#else
     return esp_sysview_flush(tmo);
+#endif
 }
 
 static bool do_trace_is_started(void)
@@ -254,7 +260,7 @@ TEST_DECL(os_tracing, "test_sysview.SysView*TracingTests*.test_os_tracing")
 #endif
 }
 
-#if CONFIG_APPTRACE_ENABLE
+#if CONFIG_APPTRACE_ENABLE || CONFIG_ESP_TRACE_TRANSPORT_APPTRACE
 
 // Wrapper functions to handle ESP-IDF version differences
 // In ESP-IDF v6.0.0+ , destination parameter was removed from esp_apptrace functions
@@ -398,7 +404,7 @@ ut_result_t tracing_test_do(int test_num, int core_num)
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(log_heap_tracing), test_num)) {
         TEST_ENTRY(log_heap_tracing)(NULL);
 #endif //CONFIG_HEAP_TRACING
-#if CONFIG_APPTRACE_ENABLE
+#if CONFIG_APPTRACE_ENABLE || CONFIG_ESP_TRACE_TRANSPORT_APPTRACE
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(apptrace_dest_tcp), test_num)) {
         TEST_ENTRY(apptrace_dest_tcp)(NULL);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(apptrace_autostop), test_num)) {

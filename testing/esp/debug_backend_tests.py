@@ -183,13 +183,16 @@ def skip_for_chip(chips_to_skip, reason=None):
             break
     return unittest.skipIf(skip, reason)
 
-def skip_for_chip_and_ver(ver_strs, chips_to_skip, reason=None):
+def skip_for_chip_and_ver(chips_to_skip, ver_strs, reason=None):
     if reason is None:
         reason = "for the '%s' for the IDF_VER='%s'" % (id, testee_info.idf_ver)
-    # check major and minor numbers only.
-    v1 = repr(testee_info.idf_ver).split('.')[:2]
-    v2 = [ver_str.split('.')[:2] for ver_str in ver_strs]
-    skip = testee_info.chip in chips_to_skip and v1 in v2
+    skip = False
+    if testee_info.chip in chips_to_skip:
+        # Convert version strings to IdfVersion objects and compare
+        for ver_str in ver_strs:
+            if testee_info.idf_ver == IdfVersion.fromstr(ver_str):
+                skip = True
+                break
     return unittest.skipIf(skip, reason)
 
 def skip_for_arch(archs_to_skip, reason=None):

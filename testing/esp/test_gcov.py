@@ -348,7 +348,6 @@ class GcovTestsImpl:
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #
 ########################################################################
-
 class GcovTestAppTestsDual(DebuggerGenericTestAppTests):
     """ Base class to run tests which use gcov test app in dual core mode
     """
