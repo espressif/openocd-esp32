@@ -1807,7 +1807,7 @@ int target_call_event_callbacks(struct target *target, enum target_event event)
 	struct target_event_callback *callback = target_event_callbacks;
 	struct target_event_callback *next_callback;
 
-	if (event == TARGET_EVENT_HALTED) {
+	if (event == TARGET_EVENT_HALTED && !target->pause_gdb_event_callbacks) {
 		/* execute early halted first */
 		target_call_event_callbacks(target, TARGET_EVENT_GDB_HALT);
 	}

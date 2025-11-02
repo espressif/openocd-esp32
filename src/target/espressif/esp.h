@@ -159,6 +159,7 @@ void esp_common_assist_debug_monitor_disable(struct target *target, uint32_t add
 void esp_common_assist_debug_monitor_restore(struct target *target, uint32_t address, uint32_t value);
 int esp_common_read_pseudo_ex_reason(struct target *target);
 struct target *esp_common_get_halted_target(struct target *target, int32_t coreid);
+void esp_common_pause_gdb_event_callbacks(struct target *target, bool pause);
 
 static inline bool esp_is_flash_boot(uint32_t strap_reg)
 {

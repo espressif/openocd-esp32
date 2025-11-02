@@ -415,11 +415,11 @@ int esp_riscv_semihosting(struct target *target)
 	if (target->smp && (semihosting->op == ESP_SEMIHOSTING_SYS_BREAKPOINT_SET ||
 		semihosting->op == ESP_SEMIHOSTING_SYS_WATCHPOINT_SET)) {
 		/* Do not report internal halt, set flag for target with active GDB service (keep in mind for OCD-1132) */
-		struct riscv_info *info = riscv_info(target->gdb_service ? target->gdb_service->target : target);
-		info->pause_gdb_callbacks = true;
+		struct target *curr_target = target->gdb_service ? target->gdb_service->target : target;
+		curr_target->pause_gdb_event_callbacks = true;
 		/* Halt all harts in the SMP group. Resume-all will be handled in riscv_semihosting() return */
 		res = riscv_halt(target);
-		info->pause_gdb_callbacks = false;
+		curr_target->pause_gdb_event_callbacks = false;
 		if (res != ERROR_OK)
 			return res;
 	}

@@ -122,6 +122,18 @@ struct target *esp_common_get_halted_target(struct target *target, int32_t corei
 	return target;
 }
 
+void esp_common_pause_gdb_event_callbacks(struct target *target, bool pause)
+{
+	if (target->smp) {
+		struct target_list *head;
+		foreach_smp_target(head, target->smp_targets) {
+			head->target->pause_gdb_event_callbacks = pause;
+		}
+	} else {
+		target->pause_gdb_event_callbacks = pause;
+	}
+}
+
 static void esp_common_dump_bp_slot(const char *caption, struct esp_flash_breakpoints *bps, unsigned int slot)
 {
 	if (!LOG_LEVEL_IS(LOG_LVL_DEBUG))

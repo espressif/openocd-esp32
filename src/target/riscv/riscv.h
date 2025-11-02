@@ -321,7 +321,6 @@ struct riscv_info {
 	bool enable_ge_lt_trigger;
 
 	/* ESPRESSIF */
-	bool pause_gdb_callbacks; /* We use this flag to avoid sending internal halt events to GDB. OCD-749 */
 	void (*trigger_match_result_fixup)(struct target *target, riscv_reg_t *tdata1_ignore_mask, bool t6);
 	uint32_t halt_delay_us; /* Delay is needed for C5-ECO2. Check with the next revisions and remove if it is fixed */
 };

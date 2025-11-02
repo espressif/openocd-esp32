@@ -235,6 +235,9 @@ struct target {
 
 	/* The semihosting information, extracted from the target. */
 	struct semihosting *semihosting;
+
+	/* Espressif: Flag to avoid sending internal halt events to GDB. OCD-749 */
+	bool pause_gdb_event_callbacks;
 };
 
 struct target_list {
