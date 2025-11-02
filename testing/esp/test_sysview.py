@@ -508,7 +508,6 @@ class SysViewTracingTestsDual(SysViewTraceTestAppTestsDual, SysViewTracingTestsI
         SysViewTraceTestAppTestsDual.tearDown(self)
         SysViewTracingTestsImpl.tearDown(self)
 
-    @skip_for_chip_and_ver(['esp32s3'], ['latest'], 'skipped due to trace data corruption issue')
     def test_log_from_file(self):
         trace_src = [self.trace_ctrl[0]['src']]
         if self.cores_num > 1:
@@ -538,7 +537,6 @@ class SysViewMcoreTracingTestsDual(SysViewTraceTestAppTestsDual, SysViewMcoreTra
         SysViewTraceTestAppTestsDual.tearDown(self)
         SysViewMcoreTracingTestsImpl.tearDown(self)
 
-    @skip_for_chip_and_ver(['esp32s3'], ['latest'], 'skipped due to trace data corruption issue')
     def test_log_from_file(self):
         trace_src = [self.trace_ctrl['src']]
         self._do_test_log_continuous(trace_src)
