@@ -13,10 +13,18 @@ dependencies:
     git: https://github.com/erhankur/idf-extra-components.git
     path: esp_gcov
     matches:
-      # will be >= after backporting to v6.0.0
+      # will be >= after backporting to v6.0
       # https://gitlab.espressif.cn:6688/espressif/esp-idf/-/merge_requests/41755
       - if: "idf_version == 6.0"
         version: fix_gcov_build_6_0
 
       - if: "idf_version > 6.0"
         version: fix/gcov_build
+
+  # Temporary solution to use the forked esp_sysview component until the changes are merged into the main branch
+  esp_sysview:
+    git: https://github.com/espressif/idf-extra-components.git
+    path: esp_sysview
+    version: "refs/pull/600/head"
+    matches:
+      - if: "idf_version > 6.0"
