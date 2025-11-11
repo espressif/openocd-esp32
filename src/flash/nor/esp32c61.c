@@ -71,7 +71,7 @@ FLASH_BANK_COMMAND_HANDLER(esp32c61_flash_bank_command)
 		esp32c61_is_irom_address,
 		esp32c61_is_drom_address,
 		esp32c61_get_stub,
-		true);
+		false);
 	if (ret != ERROR_OK) {
 		free(esp32c61_info);
 		return ret;

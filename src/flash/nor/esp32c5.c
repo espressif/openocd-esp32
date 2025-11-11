@@ -71,7 +71,7 @@ FLASH_BANK_COMMAND_HANDLER(esp32c5_flash_bank_command)
 		esp32c5_is_irom_address,
 		esp32c5_is_drom_address,
 		esp32c5_get_stub,
-		true);
+		false);
 	if (ret != ERROR_OK) {
 		free(esp32c5_info);
 		return ret;
