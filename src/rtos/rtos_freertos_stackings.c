@@ -678,7 +678,7 @@ static const struct stack_register_offset rtos_freertos_esp32_s3_voluntary_stack
 };
 
 static const struct rtos_register_stacking rtos_freertos_esp32_stacking = {
-	40 * 4,				/* stack_registers_size */
+	0xa0,				/* stack_registers_size: 0x9c (f64s) + 4 bytes = 160 bytes */
 	-1,					/* stack_growth_direction */
 	ARRAY_SIZE(rtos_freertos_esp32_stack_offsets),	/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
@@ -687,7 +687,7 @@ static const struct rtos_register_stacking rtos_freertos_esp32_stacking = {
 };
 
 static const struct rtos_register_stacking rtos_freertos_esp32s2_stacking = {
-	30 * 4,				/* stack_registers_size */
+	0x68,				/* stack_registers_size: 0x64 (threadptr) + 4 bytes = 104 bytes */
 	-1,					/* stack_growth_direction */
 	ARRAY_SIZE(rtos_freertos_esp32s2_stack_offsets),					/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
@@ -696,7 +696,7 @@ static const struct rtos_register_stacking rtos_freertos_esp32s2_stacking = {
 };
 
 static const struct rtos_register_stacking rtos_freertos_esp32s3_stacking = {
-	40 * 4,				/* stack_registers_size */
+	0x94,				/* stack_registers_size: 0x90 (m3) + 4 bytes = 148 bytes */
 	-1,					/* stack_growth_direction */
 	ARRAY_SIZE(rtos_freertos_esp32_s3_stack_offsets),	/* num_output_registers */
 	rtos_generic_stack_align8,	/* stack_alignment */
