@@ -228,7 +228,7 @@ static const struct stack_register_offset nuttx_stack_offsets_esp32[] = {
 };
 
 const struct rtos_register_stacking nuttx_esp32_stacking = {
-	.stack_registers_size = 26 * 4,
+	.stack_registers_size = 0x64,	/* 0x60 (lcount) + 4 bytes = 100 bytes */
 	.stack_growth_direction = -1,
 	.num_output_registers = ARRAY_SIZE(nuttx_stack_offsets_esp32),
 	.calculate_process_stack = rtos_generic_stack_align8,
@@ -314,7 +314,7 @@ static const struct stack_register_offset nuttx_stack_offsets_esp32s2[] = {
 };
 
 const struct rtos_register_stacking nuttx_esp32s2_stacking = {
-	.stack_registers_size = 25 * 4,
+	.stack_registers_size = 0x4c,	/* 0x48 (SAR) + 4 bytes = 76 bytes */
 	.stack_growth_direction = -1,
 	.num_output_registers = ARRAY_SIZE(nuttx_stack_offsets_esp32s2),
 	.calculate_process_stack = rtos_generic_stack_align8,
@@ -455,7 +455,7 @@ static const struct stack_register_offset nuttx_stack_offsets_esp32s3[] = {
 };
 
 const struct rtos_register_stacking nuttx_esp32s3_stacking = {
-	.stack_registers_size = 26 * 4,
+	.stack_registers_size = 0x64,	/* 0x60 (lcount) + 4 bytes = 100 bytes */
 	.stack_growth_direction = -1,
 	.num_output_registers = ARRAY_SIZE(nuttx_stack_offsets_esp32s3),
 	.calculate_process_stack = rtos_generic_stack_align8,
