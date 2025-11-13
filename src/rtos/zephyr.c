@@ -23,6 +23,8 @@
 #include "target/armv7m.h"
 #include "target/arc.h"
 #include "target/riscv/riscv.h"
+#include "target/register.h"
+#include "target/xtensa/xtensa.h"
 
 #define UNIMPLEMENTED 0xFFFFFFFFU
 
@@ -162,247 +164,6 @@ static struct stack_register_offset riscv_callee_saved[] = {
 	{ GDB_REGNO_PC,   -1, 32 },  /* PC: Set from RA */
 };
 
-static const struct stack_register_offset esp32_callee_saved[] = {
-	{ 0, 32, 32 },			/* PC */
-	{ 1, 36, 32 },			/* A0 */
-	{ 2, 40, 32 },			/* A1 */
-	{ 3, 44, 32 },			/* A2 */
-	{ 4, 48, 32 },			/* A3 */
-	{ 5, 52, 32 },			/* A4 */
-	{ 6, 56, 32 },			/* A5 */
-	{ 7, 60, 32 },			/* A6 */
-	{ 8, 64, 32 },			/* A7 */
-	{ 9, 68, 32 },			/* A8 */
-	{ 10, 72, 32 },			/* A9 */
-	{ 11, 76, 32 },			/* A10 */
-	{ 12, 80, 32 },			/* A11 */
-	{ 13, 84, 32 },			/* A12 */
-	{ 14, 88, 32 },			/* A13 */
-	{ 15, 92, 32 },			/* A14 */
-	{ 16, 96, 32 },			/* A15 */
-	/* A16-A63 aren't in the stack frame because they've been flushed to the stack earlier */
-	{ 17, -1, 32 },			/* A16 */
-	{ 18, -1, 32 },			/* A17 */
-	{ 19, -1, 32 },			/* A18 */
-	{ 20, -1, 32 },			/* A19 */
-	{ 21, -1, 32 },			/* A20 */
-	{ 22, -1, 32 },			/* A21 */
-	{ 23, -1, 32 },			/* A22 */
-	{ 24, -1, 32 },			/* A23 */
-	{ 25, -1, 32 },			/* A24 */
-	{ 26, -1, 32 },			/* A25 */
-	{ 27, -1, 32 },			/* A26 */
-	{ 28, -1, 32 },			/* A27 */
-	{ 29, -1, 32 },			/* A28 */
-	{ 30, -1, 32 },			/* A29 */
-	{ 31, -1, 32 },			/* A30 */
-	{ 32, -1, 32 },			/* A31 */
-	{ 33, -1, 32 },			/* A32 */
-	{ 34, -1, 32 },			/* A33 */
-	{ 35, -1, 32 },			/* A34 */
-	{ 36, -1, 32 },			/* A35 */
-	{ 37, -1, 32 },			/* A36 */
-	{ 38, -1, 32 },			/* A37 */
-	{ 39, -1, 32 },			/* A38 */
-	{ 40, -1, 32 },			/* A39 */
-	{ 41, -1, 32 },			/* A40 */
-	{ 42, -1, 32 },			/* A41 */
-	{ 43, -1, 32 },			/* A42 */
-	{ 44, -1, 32 },			/* A43 */
-	{ 45, -1, 32 },			/* A44 */
-	{ 46, -1, 32 },			/* A45 */
-	{ 47, -1, 32 },			/* A46 */
-	{ 48, -1, 32 },			/* A47 */
-	{ 49, -1, 32 },			/* A48 */
-	{ 50, -1, 32 },			/* A49 */
-	{ 51, -1, 32 },			/* A50 */
-	{ 52, -1, 32 },			/* A51 */
-	{ 53, -1, 32 },			/* A52 */
-	{ 54, -1, 32 },			/* A53 */
-	{ 55, -1, 32 },			/* A54 */
-	{ 56, -1, 32 },			/* A55 */
-	{ 57, -1, 32 },			/* A56 */
-	{ 58, -1, 32 },			/* A57 */
-	{ 59, -1, 32 },			/* A58 */
-	{ 60, -1, 32 },			/* A59 */
-	{ 61, -1, 32 },			/* A60 */
-	{ 62, -1, 32 },			/* A61 */
-	{ 63, -1, 32 },			/* A62 */
-	{ 64, -1, 32 },			/* A63 */
-	{ 65, 20, 32 },			/* lbeg */
-	{ 66, 16, 32 },			/* lend */
-	{ 67, 12, 32 },			/* lcount */
-	{ 68, 24, 32 },			/* SAR */
-	{ 69, -1, 32 },			/* windowbase */
-	{ 70, -1, 32 },			/* windowstart */
-	{ 71, -1, 32 },			/* configid0 */
-	{ 72, -1, 32 },			/* configid1 */
-	{ 73, 28, 32 },			/* PS */
-	{ 74,  0, 32 },			/* threadptr */
-	{ 75, -1, 32 },			/* br */
-	{ 76,  4, 32 },			/* scompare1 */
-	{ 77, -1, 32 },			/* acclo */
-	{ 78, -1, 32 },			/* acchi */
-	{ 79, -1, 32 },			/* m0 */
-	{ 80, -1, 32 },			/* m1 */
-	{ 81, -1, 32 },			/* m2 */
-	{ 82, -1, 32 },			/* m3 */
-	{ 83, -1, 32 },			/* expstate */
-	{ 84, -1, 32 },			/* f64r_lo */
-	{ 85, -1, 32 },			/* f64r_hi */
-	{ 86, -1, 32 },			/* f64s */
-	{ 87, -1, 32 },			/* f0 */
-	{ 88, -1, 32 },			/* f1 */
-	{ 89, -1, 32 },			/* f2 */
-	{ 90, -1, 32 },			/* f3 */
-	{ 91, -1, 32 },			/* f4 */
-	{ 92, -1, 32 },			/* f5 */
-	{ 93, -1, 32 },			/* f6 */
-	{ 94, -1, 32 },			/* f7 */
-	{ 95, -1, 32 },			/* f8 */
-	{ 96, -1, 32 },			/* f9 */
-	{ 97, -1, 32 },			/* f10 */
-	{ 98, -1, 32 },			/* f11 */
-	{ 99, -1, 32 },			/* f12 */
-	{ 100, -1, 32 },		/* f13 */
-	{ 101, -1, 32 },		/* f14 */
-	{ 102, -1, 32 },		/* f15 */
-	{ 103, -1, 32 },		/* fcr */
-	{ 104, -1, 32 },		/* fsr */
-};
-
-static const struct stack_register_offset esp32s3_callee_saved[] = {
-	{ 0, 32, 32 },			/* PC */
-	{ 1, 36, 32 },			/* A0 */
-	{ 2, 40, 32 },			/* A1 */
-	{ 3, 44, 32 },			/* A2 */
-	{ 4, 48, 32 },			/* A3 */
-	{ 5, 52, 32 },			/* A4 */
-	{ 6, 56, 32 },			/* A5 */
-	{ 7, 60, 32 },			/* A6 */
-	{ 8, 64, 32 },			/* A7 */
-	{ 9, 68, 32 },			/* A8 */
-	{ 10, 72, 32 },			/* A9 */
-	{ 11, 76, 32 },			/* A10 */
-	{ 12, 80, 32 },			/* A11 */
-	{ 13, 84, 32 },			/* A12 */
-	{ 14, 88, 32 },			/* A13 */
-	{ 15, 92, 32 },			/* A14 */
-	{ 16, 96, 32 },			/* A15 */
-	/* A16-A63 aren't in the stack frame because they've been flushed to the stack earlier */
-	{ 17, -1, 32 },			/* A16 */
-	{ 18, -1, 32 },			/* A17 */
-	{ 19, -1, 32 },			/* A18 */
-	{ 20, -1, 32 },			/* A19 */
-	{ 21, -1, 32 },			/* A20 */
-	{ 22, -1, 32 },			/* A21 */
-	{ 23, -1, 32 },			/* A22 */
-	{ 24, -1, 32 },			/* A23 */
-	{ 25, -1, 32 },			/* A24 */
-	{ 26, -1, 32 },			/* A25 */
-	{ 27, -1, 32 },			/* A26 */
-	{ 28, -1, 32 },			/* A27 */
-	{ 29, -1, 32 },			/* A28 */
-	{ 30, -1, 32 },			/* A29 */
-	{ 31, -1, 32 },			/* A30 */
-	{ 32, -1, 32 },			/* A31 */
-	{ 33, -1, 32 },			/* A32 */
-	{ 34, -1, 32 },			/* A33 */
-	{ 35, -1, 32 },			/* A34 */
-	{ 36, -1, 32 },			/* A35 */
-	{ 37, -1, 32 },			/* A36 */
-	{ 38, -1, 32 },			/* A37 */
-	{ 39, -1, 32 },			/* A38 */
-	{ 40, -1, 32 },			/* A39 */
-	{ 41, -1, 32 },			/* A40 */
-	{ 42, -1, 32 },			/* A41 */
-	{ 43, -1, 32 },			/* A42 */
-	{ 44, -1, 32 },			/* A43 */
-	{ 45, -1, 32 },			/* A44 */
-	{ 46, -1, 32 },			/* A45 */
-	{ 47, -1, 32 },			/* A46 */
-	{ 48, -1, 32 },			/* A47 */
-	{ 49, -1, 32 },			/* A48 */
-	{ 50, -1, 32 },			/* A49 */
-	{ 51, -1, 32 },			/* A50 */
-	{ 52, -1, 32 },			/* A51 */
-	{ 53, -1, 32 },			/* A52 */
-	{ 54, -1, 32 },			/* A53 */
-	{ 55, -1, 32 },			/* A54 */
-	{ 56, -1, 32 },			/* A55 */
-	{ 57, -1, 32 },			/* A56 */
-	{ 58, -1, 32 },			/* A57 */
-	{ 59, -1, 32 },			/* A58 */
-	{ 60, -1, 32 },			/* A59 */
-	{ 61, -1, 32 },			/* A60 */
-	{ 62, -1, 32 },			/* A61 */
-	{ 63, -1, 32 },			/* A62 */
-	{ 64, -1, 32 },			/* A63 */
-	{ 65, 20, 32 },			/* lbeg */
-	{ 66, 16, 32 },			/* lend */
-	{ 67, 12, 32 },			/* lcount */
-	{ 68, 24, 32 },			/* SAR */
-	{ 69, -1, 32 },			/* windowbase */
-	{ 70, -1, 32 },			/* windowstart */
-	{ 71, -1, 32 },			/* configid0 */
-	{ 72, -1, 32 },			/* configid1 */
-	{ 73, 24, 32 },			/* PS */
-	{ 74,  0, 32 },			/* threadptr */
-	{ 75, -1, 32 },			/* br */
-	{ 76,  4, 32 },			/* scompare1 */
-	{ 77, -1, 32 },			/* acclo */
-	{ 78, -1, 32 },			/* acchi */
-	{ 79, -1, 32 },			/* m0 */
-	{ 80, -1, 32 },			/* m1 */
-	{ 81, -1, 32 },			/* m2 */
-	{ 82, -1, 32 },			/* m3 */
-	{ 83, -1, 32 },			/* gpio_out */
-	{ 84, -1, 32 },			/* f0 */
-	{ 85, -1, 32 },			/* f1 */
-	{ 86, -1, 32 },			/* f2 */
-	{ 87, -1, 32 },			/* f3 */
-	{ 88, -1, 32 },			/* f4 */
-	{ 89, -1, 32 },			/* f5 */
-	{ 90, -1, 32 },			/* f6 */
-	{ 91, -1, 32 },			/* f7 */
-	{ 92, -1, 32 },			/* f8 */
-	{ 93, -1, 32 },			/* f9 */
-	{ 94, -1, 32 },			/* f10 */
-	{ 95, -1, 32 },			/* f11 */
-	{ 96, -1, 32 },			/* f12 */
-	{ 97, -1, 32 },			/* f13 */
-	{ 98, -1, 32 },			/* f14 */
-	{ 99, -1, 32 },			/* f15 */
-	{ 100, -1, 32 },		/* fcr */
-	{ 101, -1, 32 },		/* fsr */
-	{ 102, -1, 32 },		/* accx_0 */
-	{ 103, -1, 32 },		/* accx_1 */
-	{ 104, -1, 32 },		/* qacc_h_0 */
-	{ 105, -1, 32 },		/* qacc_h_1 */
-	{ 106, -1, 32 },		/* qacc_h_2 */
-	{ 107, -1, 32 },		/* qacc_h_3 */
-	{ 108, -1, 32 },		/* qacc_h_4 */
-	{ 109, -1, 32 },		/* qacc_l_0 */
-	{ 110, -1, 32 },		/* qacc_l_1 */
-	{ 111, -1, 32 },		/* qacc_l_2 */
-	{ 112, -1, 32 },		/* qacc_l_3 */
-	{ 113, -1, 32 },		/* qacc_l_4 */
-	{ 114, -1, 32 },		/* sar_byte */
-	{ 115, -1, 32 },		/* fft_bit_width */
-	{ 116, -1, 32 },		/* ua_state_0 */
-	{ 117, -1, 32 },		/* ua_state_1 */
-	{ 118, -1, 32 },		/* ua_state_2 */
-	{ 119, -1, 32 },		/* ua_state_3 */
-	{ 120, -1, 128 },		/* q0 */
-	{ 121, -1, 128 },		/* q1 */
-	{ 122, -1, 128 },		/* q2 */
-	{ 123, -1, 128 },		/* q3 */
-	{ 124, -1, 128 },		/* q4 */
-	{ 125, -1, 128 },		/* q5 */
-	{ 126, -1, 128 },		/* q6 */
-	{ 127, -1, 128 },		/* q7 */
-};
-
 static const struct rtos_register_stacking arm_callee_saved_stacking = {
 	.stack_registers_size = 36,
 	.stack_growth_direction = -1,
@@ -423,22 +184,6 @@ static const struct rtos_register_stacking riscv_callee_saved_stacking = {
 	.num_output_registers = ARRAY_SIZE(riscv_callee_saved),
 	.calculate_process_stack = rtos_generic_stack_align8,
 	.register_offsets = riscv_callee_saved,
-};
-
-static const struct rtos_register_stacking esp32_callee_saved_stacking = {
-	.stack_registers_size = 96,
-	.stack_growth_direction = -1,
-	.num_output_registers = ARRAY_SIZE(esp32_callee_saved),
-	.calculate_process_stack = rtos_generic_stack_align8,
-	.register_offsets = esp32_callee_saved,
-};
-
-static const struct rtos_register_stacking esp32s3_callee_saved_stacking = {
-	.stack_registers_size = 96,
-	.stack_growth_direction = -1,
-	.num_output_registers = ARRAY_SIZE(esp32s3_callee_saved),
-	.calculate_process_stack = rtos_generic_stack_align8,
-	.register_offsets = esp32s3_callee_saved,
 };
 
 static const struct stack_register_offset arm_cpu_saved[] = {
@@ -508,6 +253,8 @@ enum zephyr_symbol_values {
 	ZEPHYR_VAL__KERNEL_OPENOCD_OFFSETS,
 	ZEPHYR_VAL__KERNEL_OPENOCD_SIZE_T_SIZE,
 	ZEPHYR_VAL__KERNEL_OPENOCD_NUM_OFFSETS,
+	ZEPHYR_VAL__KERNEL_XT_PS_OFFSET, /* optional */
+	ZEPHYR_VAL__KERNEL_XT_BSA_SIZEOF, /* optional */
 	ZEPHYR_VAL_COUNT
 };
 
@@ -718,28 +465,211 @@ static int zephyr_get_riscv_state(struct rtos *rtos, target_addr_t *addr,
 	return ERROR_OK;
 }
 
+/* Xtensa specific implementation
+ *
+ * The saved registers are stored in the Base Save Area (BSA) structure on the stack:
+ *   - PC, PS, A0-A3, SAR, LBEG, LEND, LCOUNT, and other special registers
+ *   - Caller's A0-A3 spill slots are at the end of BSA (BSA_SIZE - 16, -12, -8, -4)
+ *
+ * The 'addr' parameter points to thread->switch_handle:
+ *   - Calculated as: thread_base + OFFSET_T_SWITCH_HANDLE
+ *   - OFFSET_T_SWITCH_HANDLE = offsetof(struct k_thread, switch_handle)
+ *
+ * Double indirection to access BSA:
+ *   - thread->switch_handle contains address of ptr_to_bsa (points to BSA)
+ *   - Read *ptr_to_bsa to get bsa_addr
+ *   - BSA structure is located at bsa_addr
+ *
+ * For suspended threads:
+ *   - PC, PS are read from BSA at offsets provided by Zephyr symbols
+ *   - Caller's A0-A3 are read from end of BSA (spill slots)
+ *   - BSA size and register offsets are read dynamically from Zephyr ELF symbols
+ *   - High registers (A4-A15) are saved above BSA
+ */
 static int zephyr_get_xtensa_state(struct rtos *rtos, target_addr_t *addr,
 			 struct zephyr_params *params,
 			 struct rtos_reg *callee_saved_reg_list,
 			 struct rtos_reg **reg_list, int *num_regs)
 {
-	uint32_t switch_handle, bsa;
+	uint32_t ptr_to_bsa, ptr_to_bsa_value;
 
-	/* Getting real stack address from Kernel thread struct */
-	int retval = target_read_u32(rtos->target, *addr, &switch_handle);
+	/* Read address of ptr_to_bsa from thread->switch_handle */
+	int retval = target_read_u32(rtos->target, *addr, &ptr_to_bsa);
 	if (retval != ERROR_OK)
 		return retval;
 
-	/* thread->switch_handle keeps the address of stack pointer */
-	retval = target_read_u32(rtos->target, switch_handle, &bsa);
+	/* Read *ptr_to_bsa: contains BSA address (if thread not switched) or final SP (if switched) */
+	retval = target_read_u32(rtos->target, ptr_to_bsa, &ptr_to_bsa_value);
 	if (retval != ERROR_OK)
 		return retval;
 
-	/* Getting callee registers */
-	return rtos_generic_stack_read(rtos->target,
-			params->callee_saved_stacking,
-			bsa, reg_list,
-			num_regs);
+	LOG_DEBUG("Zephyr Xtensa: ptr_to_bsa = 0x%08" PRIx32, ptr_to_bsa);
+	LOG_DEBUG("Zephyr Xtensa: ptr_to_bsa_value = 0x%08" PRIx32, ptr_to_bsa_value);
+
+	uint32_t bsa_addr = ptr_to_bsa_value;
+
+	/* Read configured BSA offsets from Zephyr symbols */
+	uint32_t bsa_size = 0;
+	uint32_t ps_offset = 0;
+
+	if (rtos->symbols && rtos->symbols[ZEPHYR_VAL__KERNEL_XT_BSA_SIZEOF].address != 0) {
+		bsa_size = rtos->symbols[ZEPHYR_VAL__KERNEL_XT_BSA_SIZEOF].address;
+		LOG_DEBUG("Zephyr Xtensa: Symbol ___xtensa_irq_bsa_t_SIZEOF value = %d", bsa_size);
+	} else {
+		LOG_ERROR("Zephyr Xtensa: Symbol ___xtensa_irq_bsa_t_SIZEOF not found or address is 0");
+		return ERROR_FAIL;
+	}
+
+	if (rtos->symbols && rtos->symbols[ZEPHYR_VAL__KERNEL_XT_PS_OFFSET].address != 0) {
+		ps_offset = rtos->symbols[ZEPHYR_VAL__KERNEL_XT_PS_OFFSET].address;
+		LOG_DEBUG("Zephyr Xtensa: Symbol ___xtensa_irq_bsa_t_ps_OFFSET value = %d", ps_offset);
+	} else {
+		LOG_ERROR("Zephyr Xtensa: Symbol ___xtensa_irq_bsa_t_ps_OFFSET not found or address is 0");
+		return ERROR_FAIL;
+	}
+
+	/* Sanity check */
+	if (bsa_size <= 0 || ps_offset >= bsa_size) {
+		LOG_ERROR("Zephyr Xtensa: Invalid BSA size or PS offset");
+		return ERROR_FAIL;
+	}
+
+	/* Read all registers from BSA */
+	uint8_t bsa_data[bsa_size];
+	retval = target_read_buffer(rtos->target, bsa_addr, bsa_size, bsa_data);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("Zephyr Xtensa: Failed to read BSA");
+		return retval;
+	}
+
+	/* Read PS, PC, and caller's A0-A3 from BSA directly into array */
+	uint32_t reg_values[6];
+	reg_values[0] = target_buffer_get_u32(rtos->target, &bsa_data[ps_offset + 0]); /* PS */
+	reg_values[1] = target_buffer_get_u32(rtos->target, &bsa_data[ps_offset + 4]); /* PC */
+	reg_values[2] = target_buffer_get_u32(rtos->target, &bsa_data[bsa_size - 16]); /* caller_a0 */
+	reg_values[3] = target_buffer_get_u32(rtos->target, &bsa_data[bsa_size - 12]); /* caller_a1 */
+	reg_values[4] = target_buffer_get_u32(rtos->target, &bsa_data[bsa_size - 8]);  /* caller_a2 */
+	reg_values[5] = target_buffer_get_u32(rtos->target, &bsa_data[bsa_size - 4]);  /* caller_a3 */
+
+	struct xtensa *xtensa = target_to_xtensa(rtos->target);
+	LOG_DEBUG("Zephyr Xtensa: num_output_registers = %u", xtensa->genpkt_regs_num);
+
+	/* Allocate register list directly - no need for rtos_generic_stack_read since
+	 * all offsets are -1 and we already have bsa_data */
+	*num_regs = xtensa->genpkt_regs_num;
+	*reg_list = calloc(*num_regs, sizeof(struct rtos_reg));
+	if (!*reg_list) {
+		LOG_ERROR("Zephyr Xtensa: Failed to allocate register list");
+		return ERROR_FAIL;
+	}
+
+	/* Initialize register numbers and sizes */
+	for (int i = 0; i < *num_regs; i++) {
+		(*reg_list)[i].number = i;
+		(*reg_list)[i].size = 32;  /* All Xtensa registers are 32-bit */
+	}
+
+	/* Update reg_list with PC, PS, and caller's A0-A3 from BSA
+	 * Registers A0-A3 are sequential, so we can calculate their numbers from A0
+	 */
+	struct reg *reg_ps = register_get_by_name(rtos->target->reg_cache, "ps", 1);
+	struct reg *reg_pc = register_get_by_name(rtos->target->reg_cache, "pc", 1);
+	struct reg *reg_a0 = register_get_by_name(rtos->target->reg_cache, "ar0", 1);
+	uint32_t reg_numbers[6];
+
+	reg_numbers[0] = reg_ps->number;
+	reg_numbers[1] = reg_pc->number;
+	reg_numbers[2] = reg_a0->number;
+	reg_numbers[3] = reg_a0->number + 1;
+	reg_numbers[4] = reg_a0->number + 2;
+	reg_numbers[5] = reg_a0->number + 3;
+
+	/* Update reg_list with values from BSA */
+	for (int i = 0; i < *num_regs; i++) {
+		for (int j = 0; j < 6; j++) {
+			if ((*reg_list)[i].number == reg_numbers[j]) {
+				struct reg *reg = register_get_by_number(rtos->target->reg_cache, reg_numbers[j], true);
+				target_buffer_set_u32(rtos->target, (*reg_list)[i].value, reg_values[j]);
+				LOG_DEBUG("Zephyr Xtensa: %s = 0x%08" PRIx32, reg->name, reg_values[j]);
+				break;
+			}
+		}
+	}
+
+	/* Read high registers (A4-A15) from stack if spilled
+	 * Check which quads are saved by reading marker values at known offsets
+	 */
+	uint8_t high_regs_data[48] = {0};  /* A4-A15: 12 registers */
+	uint8_t quads_saved = 0;  /* Bitmask */
+
+	/* Check A4-A7 quad: read marker at bsa_addr - 4 (A7 location) */
+	uint32_t marker;
+	retval = target_read_u32(rtos->target, bsa_addr - 4, &marker);
+	if (retval == ERROR_OK && marker != bsa_addr) {
+		retval = target_read_buffer(rtos->target, bsa_addr - 16, 16, &high_regs_data[0]);
+		if (retval == ERROR_OK)
+			quads_saved |= 0x01;  /* A4-A7 saved */
+	}
+
+	/* Check A8-A11 quad: read marker at bsa_addr - 20 (A11 location) */
+	if (quads_saved & 0x01) {
+		retval = target_read_u32(rtos->target, bsa_addr - 20, &marker);
+		if (retval == ERROR_OK && marker != bsa_addr) {
+			retval = target_read_buffer(rtos->target, bsa_addr - 32, 16, &high_regs_data[16]);
+			if (retval == ERROR_OK)
+				quads_saved |= 0x02;  /* A8-A11 saved */
+		}
+	}
+
+	/* Check A12-A15 quad: read marker at bsa_addr - 36 (A15 location) */
+	if (quads_saved & 0x02) {
+		retval = target_read_u32(rtos->target, bsa_addr - 36, &marker);
+		if (retval == ERROR_OK && marker != bsa_addr) {
+			retval = target_read_buffer(rtos->target, bsa_addr - 48, 16, &high_regs_data[32]);
+			if (retval == ERROR_OK)
+				quads_saved |= 0x04;  /* A12-A15 saved */
+
+			/* Sanity check: verify end marker at bsa_addr - 52 */
+			if (retval == ERROR_OK) {
+				retval = target_read_u32(rtos->target, bsa_addr - 52, &marker);
+				if (retval == ERROR_OK && marker != bsa_addr) {
+					LOG_WARNING("Zephyr Xtensa: High registers end marker mismatch!");
+					/* Reset quads_saved to 0 to indicate no quads were saved */
+					quads_saved = 0;
+				}
+			}
+		}
+	}
+
+	/* Update reg_list with high register values
+	 * Registers A4-A15 are sequential, so we can calculate their numbers from A4
+	 */
+	if (quads_saved != 0) {
+		if (reg_a0) {
+			/* A0-A15 are sequential, calculate register numbers from A0 */
+			for (int i = 0; i < 12; i++) {
+				/* Check if this register quad was saved */
+				int quad_bit = 1 << (i / 4);
+				if (!(quads_saved & quad_bit))
+					break;
+
+				uint32_t reg_num = reg_a0->number + 4 + i;
+				/* Find and update register in reg_list */
+				for (int r = 0; r < *num_regs; r++) {
+					if ((*reg_list)[r].number == reg_num) {
+						struct reg *reg = register_get_by_number(rtos->target->reg_cache, reg_num, true);
+						uint32_t value = target_buffer_get_u32(rtos->target, &high_regs_data[i * 4]);
+						target_buffer_set_u32(rtos->target, (*reg_list)[r].value, value);
+						LOG_DEBUG("Zephyr Xtensa: %s = 0x%08" PRIx32, reg->name, value);
+						break;
+					}
+				}
+			}
+		}
+	}
+
+
+	return ERROR_OK;
 }
 
 static struct zephyr_params zephyr_params_list[] = {
@@ -778,13 +708,19 @@ static struct zephyr_params zephyr_params_list[] = {
 	{
 		.target_name = "esp32",
 		.pointer_width = 4,
-		.callee_saved_stacking = &esp32_callee_saved_stacking,
+		.callee_saved_stacking = NULL,
+		.get_cpu_state = &zephyr_get_xtensa_state,
+	},
+	{
+		.target_name = "esp32s2",
+		.pointer_width = 4,
+		.callee_saved_stacking = NULL,
 		.get_cpu_state = &zephyr_get_xtensa_state,
 	},
 	{
 		.target_name = "esp32s3",
 		.pointer_width = 4,
-		.callee_saved_stacking = &esp32s3_callee_saved_stacking,
+		.callee_saved_stacking = NULL,
 		.get_cpu_state = &zephyr_get_xtensa_state,
 	},
 	{
@@ -855,6 +791,14 @@ static const struct symbol_table_elem zephyr_symbol_list[] = {
 	},
 	{
 		.symbol_name = "_kernel_thread_info_num_offsets",
+		.optional = true
+	},
+	{
+		.symbol_name = "___xtensa_irq_bsa_t_ps_OFFSET",
+		.optional = true
+	},
+	{
+		.symbol_name = "___xtensa_irq_bsa_t_SIZEOF",
 		.optional = true
 	},
 	{
@@ -1124,7 +1068,7 @@ static int zephyr_update_threads(struct rtos *rtos)
 	}
 
 	if (rtos->symbols[ZEPHYR_VAL__KERNEL_OPENOCD_OFFSETS].address == 0) {
-		LOG_ERROR("Please build Zephyr with CONFIG_OPENOCD option set");
+		LOG_ERROR("Please build Zephyr with CONFIG_DEBUG_THREAD_INFO option set");
 		return ERROR_FAIL;
 	}
 
@@ -1199,6 +1143,14 @@ static int zephyr_update_threads(struct rtos *rtos)
 
 	LOG_DEBUG("Zephyr OpenOCD support version %" PRId32,
 			  param->offsets[OFFSET_VERSION]);
+
+	LOG_DEBUG("Zephyr OpenOCD stack offset %" PRId32,
+			  param->offsets[OFFSET_T_STACK_POINTER]);
+
+	if (param->offsets[OFFSET_T_STACK_POINTER] == UNIMPLEMENTED) {
+		LOG_ERROR("Stack pointer offset is not implemented");
+		return ERROR_FAIL;
+	}
 
 	uint32_t current_thread;
 	retval = target_read_u32(rtos->target,
