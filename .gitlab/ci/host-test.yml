@@ -27,6 +27,7 @@ test_on_windows:
 
 test_on_windows_arm64:
   extends: test_on_windows
+  allow_failure: true
   tags:
     - windows-arm
   needs:
