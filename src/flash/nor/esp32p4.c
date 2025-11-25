@@ -41,16 +41,20 @@ static bool esp32p4_is_drom_address(target_addr_t addr)
 	return addr >= ESP32P4_DROM_LOW && addr < ESP32P4_DROM_HIGH;
 }
 
-static const struct command_map s_cmd_map[ESP_STUB_CMD_FLASH_MAX_ID + 1] = {
+static const struct command_map s_cmd_map_hw_rev1[ESP_STUB_CMD_FLASH_MAX_ID + 1] = {
 	MAKE_CMD_MAP_ENTRIES
 };
+
+extern const struct command_map s_cmd_map_hw_rev3[ESP_STUB_CMD_FLASH_MAX_ID + 1];
 
 static const struct esp_flasher_stub_config *esp32p4_get_stub(struct flash_bank *bank, int cmd)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
+	const struct command_map *map = (bank->target->hw_rev >= 5) ? s_cmd_map_hw_rev3 : s_cmd_map_hw_rev1;
+
 	if (esp_info->stub_log_enabled)
-		return s_cmd_map[ESP_STUB_CMD_FLASH_WITH_LOG].config;
-	return s_cmd_map[cmd].config;
+		return map[ESP_STUB_CMD_FLASH_WITH_LOG].config;
+	return map[cmd].config;
 }
 
 /* flash bank <bank_name> esp32 <base> <size> 0 0 <target#>

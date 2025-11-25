@@ -13,8 +13,8 @@ OBJCOPY = $(CROSS)objcopy
 READELF = $(CROSS)readelf
 BIN2C = ../../../../../src/helper/bin2char.sh
 
-BUILD_DIR = build
-INC_DIR = inc
+BUILD_DIR ?= build
+INC_DIR ?= inc
 STUB = stub
 SRCS += $(STUB_COMMON_PATH)/stub_flasher.c \
         $(STUB_CHIP_PATH)/stub_flasher_chip.c \
@@ -26,7 +26,11 @@ SRCS += $(STUB_COMMON_PATH)/stub_flasher.c \
 		$(STUB_COMMON_PATH)/apptrace/src/stub_apptrace.c \
         $(IDF_PATH)/components/esp_hw_support/regi2c_ctrl.c
 
+ifeq ($(HW_REV),3)
+STUB_IMAGE_HDR = $(STUB)_flasher_image_v3.h
+else
 STUB_IMAGE_HDR = $(STUB)_flasher_image.h
+endif
 STUB_IDF_IMAGE_HDR = $(STUB)_flash_idf_image.h
 
 # Command list

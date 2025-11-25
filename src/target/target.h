@@ -238,6 +238,9 @@ struct target {
 
 	/* Espressif: Flag to avoid sending internal halt events to GDB. OCD-749 */
 	bool pause_gdb_event_callbacks;
+
+	/* Espressif: HW revision */
+	uint32_t hw_rev;
 };
 
 struct target_list {

@@ -108,6 +108,8 @@
 #define ESP32P4_ASSIST_DEBUG_CPU0_MON_REG       0x3FF06000
 #define ESP32P4_ASSIST_DEBUG_CPU_OFFSET         0x80
 
+#define ESP32P4_ROM_ECO_VERSION_REG             0x4fc00014
+
 /* components/soc/esp32p4/include/soc/reset_reasons.h */
 enum esp32p4_reset_reason {
 	ESP32P4_CHIP_POWER_ON_RESET   = 0x01,	/* Power on reset */
@@ -268,6 +270,45 @@ static int esp32p4_hwloop_csr_set(struct reg *reg, uint8_t *buf)
 		HWLOOP_STATE_MASK, HWLOOP_STATE_OFF, HWLOOP_STATE_INIT);
 }
 
+static int esp32p4_read_hw_rev(struct target *target)
+{
+	static uint32_t hw_rev;
+
+	if (hw_rev != 0) {
+		target->hw_rev = hw_rev;
+		return ERROR_OK;
+	}
+
+	int ret = target_read_u32(target, ESP32P4_ROM_ECO_VERSION_REG, &hw_rev);
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to read HW rev (%d)", ret);
+		return ret;
+	}
+
+	target->hw_rev = hw_rev;
+	LOG_TARGET_INFO(target, "ROM ECO version %d", hw_rev);
+
+	return ERROR_OK;
+}
+
+static int esp32p4_examine_end(struct target *target)
+{
+	esp32p4_read_hw_rev(target);
+
+	if (target->hw_rev >= 5) {
+		target_free_all_working_areas(target); // Free the default working area
+		target->working_area_phys = ESP32P4_IRAM0_NON_CACHEABLE_ADDR_LOW + 0x80000;
+		target->working_area_virt = ESP32P4_IRAM0_NON_CACHEABLE_ADDR_LOW + 0x80000;
+		target->working_area_size = 0x24000;
+		target->backup_working_area = 1;
+		target->working_area_phys_spec = true;
+		target->working_area_virt_spec = true;
+		target_free_all_working_areas(target); // Free the new working area
+	}
+
+	return ERROR_OK;
+}
+
 static struct reg_arch_type esp32p4_hwloop_reg_type = {
 	.get = esp32p4_hwloop_csr_get,
 	.set = esp32p4_hwloop_csr_set
@@ -300,6 +341,7 @@ static int esp32p4_target_create(struct target *target)
 	esp_riscv->chip_specific_registers_size = ARRAY_SIZE(esp32p4_registers);
 	esp_riscv->is_dram_address = esp32p4_is_idram_address;
 	esp_riscv->is_iram_address = esp32p4_is_idram_address;
+	esp_riscv->examine_end = esp32p4_examine_end;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;
@@ -378,6 +420,9 @@ static int esp32p4_read_memory(struct target *target, target_addr_t address,
 			ESP32P4_CACHE_SYNC_WRITEBACK);
 		if (res != ERROR_OK)
 			LOG_TARGET_WARNING(target, "Cache writeback failed! Read main memory anyway.");
+		/* OpenOCD can not read from cacheable address through sysbus on ECO5. */
+		if (target->state == TARGET_RUNNING)
+			address = ESP32P4_NON_CACHEABLE_ADDR(address);
 	}
 
 	return esp_riscv_read_memory(target, address, size, count, buffer);
@@ -387,6 +432,7 @@ static int esp32p4_write_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, const uint8_t *buffer)
 {
 	int map = -1;
+
 	if (ESP32P4_ADDR_IS_CACHEABLE(address)) {
 		/* Write-back is for dcache and l2 cache only */
 		map = ESP32P4_CACHE_MAP_L1_DCACHE | ESP32P4_CACHE_MAP_L2_CACHE;

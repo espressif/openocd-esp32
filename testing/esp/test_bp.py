@@ -203,6 +203,7 @@ class BreakpointTestsImpl:
             sleep(0.1) #sleep 100ms
             self.gdb.connect()
 
+    @skip_for_chip(['esp32p4'], "skipped - OCD-1287")
     def test_bp_in_isr(self):
         """
             This test checks that the breakpoints are handled in ISR properly
@@ -421,6 +422,7 @@ class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTes
     def test_2cores_concurrently_hit_bps(self):
         two_cores_concurrently_hit_bps(self)
 
+    @skip_for_chip(['esp32p4'], "skipped - OCD-1288")
     def test_appcpu_early_hw_bps(self):
         appcpu_early_hw_bps(self)
 

@@ -592,6 +592,13 @@ static int esp_callback_event_handler(struct target *target, enum target_event e
 			extern int examine_failed_ui_handler(struct command_invocation *cmd);
 			return examine_failed_ui_handler;
 #endif
+		case TARGET_EVENT_EXAMINE_END:
+			if (xtensa->common_magic != XTENSA_COMMON_MAGIC) {
+				struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+				if (esp_riscv->examine_end)
+					esp_riscv->examine_end(target);
+			}
+			return ERROR_OK;
 		default:
 			break;
 	}

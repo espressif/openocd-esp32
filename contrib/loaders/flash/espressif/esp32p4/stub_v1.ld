@@ -6,7 +6,7 @@
  ***************************************************************************/
 
 MEMORY {
-  /* Place sections by starting from the HP-L2MEM.
+  /* Place sections by starting from the HP-L2MEM
      ESP32-P4 has unified i/d bus and mapped into below non-cacheable address
      0x8FF00000 - code (OpenOCD workarea address)
      0x8FF04000 - data

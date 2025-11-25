@@ -49,6 +49,7 @@ struct esp_riscv_common {
 	bool (*is_iram_address)(target_addr_t addr);
 	bool (*is_dram_address)(target_addr_t addr);
 	bool minimal_save_restore;
+	int (*examine_end)(struct target *target);
 };
 
 static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *target)
