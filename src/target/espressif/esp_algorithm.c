@@ -181,15 +181,25 @@ static int esp_algorithm_run_image(struct target *target,
 		if (retval != ERROR_OK)
 			LOG_ERROR("Failed to exec algorithm user func (%d)!", retval);
 	}
+	struct duration wait_time;
 	uint32_t timeout_ms = 0;	/* do not wait if 'usr_func' returned error */
 	if (retval == ERROR_OK)
 		timeout_ms = run->timeout_ms ? run->timeout_ms : DEFAULT_ALGORITHM_TIMEOUT_MS;
-	LOG_DEBUG("Wait algorithm completion");
+	LOG_DEBUG("Wait algorithm completion (timeout %d ms)", timeout_ms);
+	if (duration_start(&wait_time) != 0) {
+		LOG_ERROR("Failed to start wait time measurement!");
+		return ERROR_FAIL;
+	}
 	retval = target_wait_algorithm(target,
 		run->mem_args.count, run->mem_args.params,
 		run->reg_args.count, run->reg_args.params,
 		0, timeout_ms,
 		run->stub.ainfo);
+	if (duration_measure(&wait_time) != 0) {
+		LOG_ERROR("Failed to stop wait time measurement!");
+		return ERROR_FAIL;
+	}
+	LOG_DEBUG("Wait algorithm completion took %g ms", duration_elapsed(&wait_time));
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Failed to wait algorithm (%d)!", retval);
 		/* target has been forced to stop in target_wait_algorithm() */

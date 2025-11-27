@@ -73,6 +73,7 @@
 #define ESP_FLASH_RW_TMO                20000	/* ms */
 #define ESP_FLASH_ERASE_TMO             60000	/* ms */
 #define ESP_FLASH_VERIFY_TMO            30000	/* ms */
+#define ESP_FLASH_WR_DEFLATE_TMO        60000	/* ms */
 #define ESP_FLASH_MAPS_MAX              2
 
 struct esp_flash_rw_args {
@@ -754,6 +755,7 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 		stack_size += ESP_STUB_IFLATOR_SIZE;
 	}
 
+	run.timeout_ms = esp_info->compression ? ESP_FLASH_WR_DEFLATE_TMO : 0;
 	run.stack_size = stack_size + ESP_STUB_UNZIP_BUFF_SIZE + stub_cfg->stack_data_pool_sz;
 	run.usr_func = esp_algo_flash_rw_do;
 	run.usr_func_arg = &wr_state;
