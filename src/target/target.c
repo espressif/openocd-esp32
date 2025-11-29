@@ -502,7 +502,7 @@ int target_poll(struct target *target)
 	/* We can't poll until after examine */
 	if (!target_was_examined(target)) {
 		/* Fail silently lest we pollute the log */
-		return ERROR_FAIL;
+		return ERROR_TARGET_NOT_EXAMINED;
 	}
 
 	retval = target->type->poll(target);
@@ -528,10 +528,10 @@ int target_poll(struct target *target)
 int target_halt(struct target *target)
 {
 	int retval;
-	/* We can't poll until after examine */
+
 	if (!target_was_examined(target)) {
-		LOG_ERROR("Target not examined yet");
-		return ERROR_FAIL;
+		LOG_TARGET_ERROR(target, "not examined");
+		return ERROR_TARGET_NOT_EXAMINED;
 	}
 
 	retval = target->type->halt(target);
@@ -579,10 +579,9 @@ int target_resume(struct target *target, bool current, target_addr_t address,
 {
 	int retval;
 
-	/* We can't poll until after examine */
 	if (!target_was_examined(target)) {
-		LOG_ERROR("Target not examined yet");
-		return ERROR_FAIL;
+		LOG_TARGET_ERROR(target, "not examined");
+		return ERROR_TARGET_NOT_EXAMINED;
 	}
 
 	target_call_event_callbacks(target, TARGET_EVENT_RESUME_START);
@@ -763,8 +762,8 @@ const char *target_type_name(const struct target *target)
 static int target_soft_reset_halt(struct target *target)
 {
 	if (!target_was_examined(target)) {
-		LOG_ERROR("Target not examined yet");
-		return ERROR_FAIL;
+		LOG_TARGET_ERROR(target, "not examined");
+		return ERROR_TARGET_NOT_EXAMINED;
 	}
 	if (!target->type->soft_reset_halt) {
 		LOG_ERROR("Target %s does not support soft_reset_halt",
@@ -801,7 +800,8 @@ int target_run_algorithm(struct target *target,
 	int retval = ERROR_FAIL;
 
 	if (!target_was_examined(target)) {
-		LOG_ERROR("Target not examined yet");
+		LOG_TARGET_ERROR(target, "not examined");
+		retval = ERROR_TARGET_NOT_EXAMINED;
 		goto done;
 	}
 	if (!target->type->run_algorithm) {
@@ -842,7 +842,8 @@ int target_start_algorithm(struct target *target,
 	int retval = ERROR_FAIL;
 
 	if (!target_was_examined(target)) {
-		LOG_ERROR("Target not examined yet");
+		LOG_TARGET_ERROR(target, "not examined");
+		retval = ERROR_TARGET_NOT_EXAMINED;
 		goto done;
 	}
 	if (!target->type->start_algorithm) {
@@ -1402,7 +1403,8 @@ int target_get_gdb_reg_list(struct target *target,
 	int result = ERROR_FAIL;
 
 	if (!target_was_examined(target)) {
-		LOG_ERROR("Target not examined yet");
+		LOG_TARGET_ERROR(target, "not examined");
+		result = ERROR_TARGET_NOT_EXAMINED;
 		goto done;
 	}
 
@@ -2530,8 +2532,8 @@ int target_checksum_memory(struct target *target, target_addr_t address, uint32_
 {
 	int retval;
 	if (!target_was_examined(target)) {
-		LOG_ERROR("Target not examined yet");
-		return ERROR_FAIL;
+		LOG_TARGET_ERROR(target, "not examined");
+		return ERROR_TARGET_NOT_EXAMINED;
 	}
 
 	if (target->type->checksum_memory) {
@@ -2562,8 +2564,8 @@ int target_blank_check_memory(struct target *target,
 	uint8_t erased_value, unsigned int *checked)
 {
 	if (!target_was_examined(target)) {
-		LOG_ERROR("Target not examined yet");
-		return ERROR_FAIL;
+		LOG_TARGET_ERROR(target, "not examined");
+		return ERROR_TARGET_NOT_EXAMINED;
 	}
 
 	if (!target->type->blank_check_memory)
@@ -3026,7 +3028,7 @@ COMMAND_HANDLER(handle_reg_command)
 
 	struct target *target = get_current_target(CMD_CTX);
 	if (!target_was_examined(target)) {
-		LOG_ERROR("Target not examined yet");
+		command_print(CMD, "Error: [%s] not examined", target_name(target));
 		return ERROR_TARGET_NOT_EXAMINED;
 	}
 	struct reg *reg = NULL;
