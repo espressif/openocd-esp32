@@ -5078,6 +5078,11 @@ COMMAND_HANDLER(riscv_itrigger)
 	struct target *target = get_current_target(CMD_CTX);
 	const int ITRIGGER_UNIQUE_ID = -CSR_TDATA1_TYPE_ITRIGGER;
 
+	if (!target_was_examined(target)) {
+		LOG_TARGET_ERROR(target, "not examined");
+		return ERROR_TARGET_NOT_EXAMINED;
+	}
+
 	if (riscv_enumerate_triggers(target) != ERROR_OK)
 		return ERROR_FAIL;
 
@@ -5142,6 +5147,11 @@ COMMAND_HANDLER(riscv_icount)
 
 	struct target *target = get_current_target(CMD_CTX);
 	const int ICOUNT_UNIQUE_ID = -CSR_TDATA1_TYPE_ICOUNT;
+
+	if (!target_was_examined(target)) {
+		LOG_TARGET_ERROR(target, "not examined");
+		return ERROR_TARGET_NOT_EXAMINED;
+	}
 
 	if (riscv_enumerate_triggers(target) != ERROR_OK)
 		return ERROR_FAIL;
@@ -5208,6 +5218,11 @@ COMMAND_HANDLER(riscv_etrigger)
 	struct target *target = get_current_target(CMD_CTX);
 	const int ETRIGGER_UNIQUE_ID = -CSR_TDATA1_TYPE_ETRIGGER;
 
+	if (!target_was_examined(target)) {
+		LOG_TARGET_ERROR(target, "not examined");
+		return ERROR_TARGET_NOT_EXAMINED;
+	}
+
 	if (riscv_enumerate_triggers(target) != ERROR_OK)
 		return ERROR_FAIL;
 
@@ -5265,6 +5280,11 @@ COMMAND_HANDLER(riscv_etrigger)
 COMMAND_HANDLER(handle_repeat_read)
 {
 	struct target *target = get_current_target(CMD_CTX);
+	if (!target_was_examined(target)) {
+		LOG_TARGET_ERROR(target, "not examined");
+		return ERROR_TARGET_NOT_EXAMINED;
+	}
+
 	RISCV_INFO(r);
 
 	if (CMD_ARGC < 2 || CMD_ARGC > 3)
@@ -5479,6 +5499,11 @@ COMMAND_HANDLER(riscv_exec_progbuf)
 
 	struct target *target = get_current_target(CMD_CTX);
 
+	if (!target_was_examined(target)) {
+		LOG_TARGET_ERROR(target, "not examined");
+		return ERROR_TARGET_NOT_EXAMINED;
+	}
+
 	RISCV_INFO(r);
 	if (r->dtm_version != DTM_DTMCS_VERSION_1_0) {
 		LOG_TARGET_ERROR(target, "exec_progbuf: Program buffer is "
@@ -5585,6 +5610,11 @@ static COMMAND_HELPER(report_reserved_triggers, struct target *target)
 COMMAND_HANDLER(handle_reserve_trigger)
 {
 	struct target *target = get_current_target(CMD_CTX);
+	if (!target_was_examined(target)) {
+		command_print(CMD, "Error: Target not examined");
+		return ERROR_TARGET_NOT_EXAMINED;
+	}
+
 	if (CMD_ARGC == 0)
 		return CALL_COMMAND_HANDLER(report_reserved_triggers, target);
 
