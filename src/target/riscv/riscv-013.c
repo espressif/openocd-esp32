@@ -2730,9 +2730,12 @@ static int riscv013_get_hart_state(struct target *target, enum riscv_hart_state 
 	if (dmstatus_read(target, &dmstatus, true) != ERROR_OK)
 		return ERROR_FAIL;
 	if (get_field(dmstatus, DM_DMSTATUS_ANYHAVERESET)) {
-		if (target->state != TARGET_RESET)
+		if (target->state != TARGET_RESET) {
+			if (target->reg_cache)
+				register_cache_invalidate(target->reg_cache);
 			/* warn for "unexpected" reset when it is not requested by user ESPRESSIF */
 			LOG_TARGET_INFO(target, "Hart unexpectedly reset!");
+		}
 		info->dcsr_ebreak_is_set = false;
 		/* TODO: Can we make this more obvious to eg. a gdb user? */
 		uint32_t dmcontrol = DM_DMCONTROL_DMACTIVE |
