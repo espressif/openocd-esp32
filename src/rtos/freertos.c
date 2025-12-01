@@ -384,6 +384,8 @@ enum {
 	ESP_FREERTOS_DEBUG_LIST_END_PREV,
 	ESP_FREERTOS_DEBUG_LIST_ITEM_PREV,
 	ESP_FREERTOS_DEBUG_LIST_ITEM_OWNER,
+	ESP_FREERTOS_DEBUG_TASK_COUNT_WIDTH,
+	ESP_FREERTOS_DEBUG_PTR_WIDTH,
 	/* New entries must be inserted here */
 	ESP_FREERTOS_DEBUG_TABLE_END,
 };
@@ -417,9 +419,15 @@ static int freertos_read_esp_symbol_table(struct rtos *rtos, int index, uint8_t 
 
 		LOG_DEBUG("FreeRTOS: esp_symbols table size (%d) ", table_size);
 
-		if (table_size <= ESP_FREERTOS_DEBUG_KERNEL_VER_BUILD || table_size > ESP_FREERTOS_DEBUG_TABLE_END) {
-			LOG_WARNING("esp_symbols table size (%d) is not valid!", table_size);
+		if (table_size <= ESP_FREERTOS_DEBUG_KERNEL_VER_BUILD) {
+			LOG_ERROR("esp_symbols table size (%d) is not valid!", table_size);
 			return ERROR_FAIL;
+		}
+
+		if (table_size > ESP_FREERTOS_DEBUG_TABLE_END) {
+			LOG_WARNING("esp_symbols table size (%d) is bigger than expected (%d)",
+						table_size, ESP_FREERTOS_DEBUG_TABLE_END);
+			table_size = ESP_FREERTOS_DEBUG_TABLE_END;
 		}
 
 		rtos_data->esp_symbols = (uint8_t *)calloc(table_size, sizeof(table_size));
