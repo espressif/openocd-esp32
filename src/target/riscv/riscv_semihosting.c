@@ -138,6 +138,10 @@ enum semihosting_result riscv_semihosting(struct target *target, int *retval)
 		semihosting->param = r1;
 		semihosting->word_size_bytes = riscv_xlen(target) / 8;
 
+		/* Espressif: notify the target that a semihosting call is about to be processed
+		so that the target can prepare for it (e.g. disable watchdogs) */
+		target_call_event_callbacks(target, TARGET_EVENT_SEMIHOSTING_START);
+
 		/* Espressif: do not check opcodes here, handled in semihosting_common */
 		*retval = semihosting_common(target);
 		if (*retval != ERROR_OK) {
