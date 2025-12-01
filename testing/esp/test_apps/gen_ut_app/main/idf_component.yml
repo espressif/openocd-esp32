@@ -4,27 +4,11 @@ dependencies:
   idf:
     version: '>=5.1'
   # Put list of dependencies here
-  #espressif/esp_gcov:
-  #  version: ^1
-  #  matches:
-  #    - if: "idf_version >=6.0"
-  # Temporary solution to use the forked esp_gcov component until the changes are merged into the main branch
-  esp_gcov:
-    git: https://github.com/erhankur/idf-extra-components.git
-    path: esp_gcov
+  espressif/esp_gcov:
+    version: ^1
     matches:
-      # will be >= after backporting to v6.0
-      # https://gitlab.espressif.cn:6688/espressif/esp-idf/-/merge_requests/41755
-      - if: "idf_version == 6.0"
-        version: fix_gcov_build_6_0
-
-      - if: "idf_version > 6.0"
-        version: fix/gcov_build
-
-  # Temporary solution to use the forked esp_sysview component until the changes are merged into the main branch
-  esp_sysview:
-    git: https://github.com/espressif/idf-extra-components.git
-    path: esp_sysview
-    version: "refs/pull/600/head"
+      - if: "idf_version >=6.0"
+  espressif/esp_sysview:
+    version: ^1
     matches:
-      - if: "idf_version > 6.0"
+      - if: "idf_version >=6.0"
