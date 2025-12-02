@@ -66,6 +66,7 @@ build_test_app_esp32h2:
 build_test_app_esp32p4:
   variables:
     CHIP_NAME: "esp32p4"
+    CHIP_VARIANT: "eco4"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     TEST_APP_CONFIGS: "default svtrace_dual apptrace_gcov_dual psram_dual default_amazon_freertos default_freertos_list_integrity lpcore_dual single_core svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity lpcore_single multi_app_images_single multi_app_images_dual"
   extends: .build_idf_master_test_app_template

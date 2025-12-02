@@ -13,6 +13,52 @@ def get_config_names(config_dir):
         config_names = [cfg for cfg in config_names if 'lpcore' not in cfg]
     return config_names
 
+
+def create_temp_sdkconfig(project_path, config_name):
+    """
+    Create a temporary sdkconfig file combining defaults, chip-specific config, and the specific config.
+    Supports chip variants via CHIP_VARIANT environment variable.
+
+    Args:
+        project_path: Path to the project directory
+        config_name: Name of the config file in configs/ directory
+
+    Returns:
+        Path to the temporary sdkconfig file (caller is responsible for cleanup)
+    """
+    sdkconfig_temp = tempfile.NamedTemporaryFile(delete=False)
+
+    # Use values from the combined defaults, chip config defaults and the values from
+    # config folder to build config
+    sdkconfig_default = os.path.join(project_path, "sdkconfig.defaults")
+    with open(sdkconfig_default, "rb") as sdkconfig_default_file:
+        sdkconfig_temp.write(sdkconfig_default_file.read())
+
+    # Support chip variants (e.g., esp32p4.eco4)
+    # Start with default chip config, override if variant-specific config exists
+    idf_target = os.getenv('IDF_TARGET')
+    chip_variant = os.getenv('CHIP_VARIANT', '')
+
+    sdkconfig_chip_default = os.path.join(project_path, "sdkconfig.defaults." + idf_target)
+    if chip_variant:
+        variant_config = os.path.join(project_path, f"sdkconfig.defaults.{idf_target}.{chip_variant}")
+        if os.path.exists(variant_config):
+            sdkconfig_chip_default = variant_config
+
+    if os.path.exists(sdkconfig_chip_default):
+        with open(sdkconfig_chip_default, "rb") as sdkconfig_chip_default_file:
+            sdkconfig_temp.write(sdkconfig_chip_default_file.read())
+
+    sdkconfig_config = os.path.join(project_path, "configs", config_name)
+    with open(sdkconfig_config, "rb") as sdkconfig_config_file:
+        sdkconfig_temp.write(b"\n")
+        sdkconfig_temp.write(sdkconfig_config_file.read())
+
+    sdkconfig_temp.flush()
+    sdkconfig_temp.close()
+    
+    return sdkconfig_temp.name
+
 def action_extensions(base_actions, project_path=os.getcwd()):
     """ Describes extensions for unit tests. This function expects that actions "all" and "reconfigure" """
 
@@ -72,30 +118,13 @@ def action_extensions(base_actions, project_path=os.getcwd()):
             config_path = os.path.join(project_path, "configs", config_name)
             config = parse_config(config_path)
 
-            with tempfile.NamedTemporaryFile() as sdkconfig_temp:
-                # Use values from the combined defaults, chip config defaults and the values from
-                # config folder to build config
-                sdkconfig_default = os.path.join(project_path, "sdkconfig.defaults")
-                with open(sdkconfig_default, "rb") as sdkconfig_default_file:
-                    sdkconfig_temp.write(sdkconfig_default_file.read())
+            temp_config_path = create_temp_sdkconfig(project_path, config_name)
+            new_cache_values["SDKCONFIG_DEFAULTS"] = temp_config_path
 
-                sdkconfig_chip_default = os.path.join(project_path, "sdkconfig.defaults." + os.getenv('IDF_TARGET'))
-                if os.path.exists(sdkconfig_chip_default):
-                    with open(sdkconfig_chip_default, "rb") as sdkconfig_chip_default_file:
-                        sdkconfig_temp.write(sdkconfig_chip_default_file.read())
+            args.define_cache_entry.extend(["%s=%s" % (k, v) for k, v in new_cache_values.items()])
 
-                sdkconfig_config = os.path.join(project_path, "configs", config_name)
-                with open(sdkconfig_config, "rb") as sdkconfig_config_file:
-                    sdkconfig_temp.write(b"\n")
-                    sdkconfig_temp.write(sdkconfig_config_file.read())
-
-                sdkconfig_temp.flush()
-                new_cache_values["SDKCONFIG_DEFAULTS"] = sdkconfig_temp.name
-
-                args.define_cache_entry.extend(["%s=%s" % (k, v) for k, v in new_cache_values.items()])
-
-                reconfigure = base_actions["actions"]["reconfigure"]["callback"]
-                reconfigure(None, ctx, args)
+            reconfigure = base_actions["actions"]["reconfigure"]["callback"]
+            reconfigure(None, ctx, args)
 
     # This target builds the configuration. It does not currently track dependencies,
     # but is good enough for CI builds if used together with clean-all-configs.
@@ -312,29 +341,19 @@ def add_action_extensions(base_functions, base_actions):
 
                 set_config_build_variables("TEST_EXCLUDE_COMPONENTS","''")
 
-            with tempfile.NamedTemporaryFile(delete=False) as sdkconfig_temp:
-                # Use values from the combined defaults and the values from
-                # config folder to build config
-                sdkconfig_default = os.path.join(PROJECT_PATH, "sdkconfig.defaults")
+            temp_config_path = create_temp_sdkconfig(PROJECT_PATH, config_name)
 
-                with open(sdkconfig_default, "rb") as sdkconfig_default_file:
-                    sdkconfig_temp.write(sdkconfig_default_file.read())
-
-                sdkconfig_config = os.path.join(PROJECT_PATH, "configs", config_name)
-                with open(sdkconfig_config, "rb") as sdkconfig_config_file:
-                    sdkconfig_temp.write(b"\n")
-                    sdkconfig_temp.write(sdkconfig_config_file.read())
             try:
                 try:
-                    args.define_cache_entry.append("SDKCONFIG_DEFAULTS=" + sdkconfig_temp.name)
+                    args.define_cache_entry.append("SDKCONFIG_DEFAULTS=" + temp_config_path)
                 except AttributeError:
-                    args.define_cache_entry = ["SDKCONFIG_DEFAULTS=" + sdkconfig_temp.name]
+                    args.define_cache_entry = ["SDKCONFIG_DEFAULTS=" + temp_config_path]
 
                 reconfigure = base_functions["reconfigure"]
                 reconfigure(None, args)
             finally:
                 try:
-                    os.unlink(sdkconfig_temp.name)
+                    os.unlink(temp_config_path)
                 except OSError:
                     pass
         else:
