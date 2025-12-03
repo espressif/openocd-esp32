@@ -107,11 +107,3 @@ test_idf5.2.x_examples:
   trigger:
     <<: *trigger_esp_idf
     branch: ${IDF_TEMP_BRANCH_PREFIX}${TEST_APP_IDF5_2_RELEASE_BRANCH}
-
-test_idf5.1.x_examples:
-  extends:
-    - .test_idf_examples
-  trigger:
-    <<: *trigger_esp_idf
-    branch: ${IDF_TEMP_BRANCH_PREFIX}${TEST_APP_IDF5_1_RELEASE_BRANCH}
-

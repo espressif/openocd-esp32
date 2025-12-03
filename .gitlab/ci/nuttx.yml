@@ -14,10 +14,14 @@ build_nuttx_app:
 
 # nuttx build environment is nuttx/build-env-v5.1
 .test_nuttx_template:
-  extends: .tests_v5.1.x_template
+  image: $CI_DOCKER_REGISTRY/target-test-env-v5.1:1
+  extends: .tests_template
   stage: test_nuttx
   allow_failure: true
   variables:
+    CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
+    ESP_GDB_TOOLCHAIN: "${ESP_V5_1X_XTENSA_GDB_TOOLCHAIN}"
+    TOOLCHAIN_PREFIX: "xtensa-${CHIP_NAME}"
     RUNNER_SCRIPT_TIMEOUT: 5m
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_nuttx_test"
     NUTTX_APP_NAME: "nuttx_openocd"

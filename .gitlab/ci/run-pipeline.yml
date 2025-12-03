@@ -11,15 +11,6 @@
     IDF_MASTER_RUN: "0"
     CI_FULL_RUN: $CI_FULL_RUN
 
-5.1.x_run_test_pipeline:
-  extends: .run_test_pipeline
-  trigger:
-    include:
-      - local: '.gitlab/ci/downstream/child-pipeline-template.yml'
-      - local: '.gitlab/ci/downstream/idf_5_1_x/build.yml'
-      - local: '.gitlab/ci/downstream/idf_5_1_x/test.yml'
-    strategy: depend
-
 5.2.x_run_test_pipeline:
   extends: .run_test_pipeline
   trigger:

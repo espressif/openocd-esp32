@@ -170,7 +170,6 @@ class BreakpointTestsImpl:
                 # break at vTaskDelay
                 self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay%d' % (i % 2)])
 
-    @idf_ver_min('5.2', "skipped - OCD-1270")
     def test_bp_and_reconnect(self):
         """
             This test checks that breakpoints work after GDB re-connection.
