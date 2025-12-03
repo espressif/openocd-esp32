@@ -12,7 +12,7 @@ tests_esp32:
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e test_*.*Encrypted"
 
-tests_esp32_flash_encrypted:
+.tests_esp32_flash_encrypted:
   extends: .tests_master_template
   tags:
     - test_jtag_arm_flash_encryption
