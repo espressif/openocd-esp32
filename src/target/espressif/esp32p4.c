@@ -222,7 +222,7 @@ static const char *esp32p4_csrs[] = {
 	"tdata3", "tinfo", "mcontext", "mintstatus",
 	"fflags", "frm", "fcsr",
 	/* custom exposed CSRs will start with 'csr_' prefix*/
-	"csr_mclicbase", "csr_mxstatus", "csr_mhcr", "csr_mhint", "csr_mraddr", "csr_mexstatus",
+	"csr_mintstatus", "csr_mclicbase", "csr_mxstatus", "csr_mhcr", "csr_mhint", "csr_mraddr", "csr_mexstatus",
 	"csr_mnmicause", "csr_mnmipc", "csr_mcpuid", "csr_cpu_testbus_ctrl", "csr_pm_user",
 	"csr_gpio_oen_user", "csr_gpio_in_user", "csr_gpio_out_user",
 	"csr_pma_cfg0", "csr_pma_cfg1", "csr_pma_cfg2", "csr_pma_cfg3", "csr_pma_cfg4", "csr_pma_cfg5",
@@ -304,6 +304,17 @@ static int esp32p4_examine_end(struct target *target)
 		target->working_area_phys_spec = true;
 		target->working_area_virt_spec = true;
 		target_free_all_working_areas(target); // Free the new working area
+	}
+
+	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
+		const char *reg_name = target->reg_cache->reg_list[i].name;
+		if ((target->hw_rev < 5
+				&& !strcmp(reg_name, "csr_mintstatus")) ||
+			(target->hw_rev >= 5
+				&& (!strcmp(reg_name, "csr_mnmicause")
+					|| !strcmp(reg_name, "csr_mnmipc")
+					|| !strcmp(reg_name, "mintstatus"))))
+			target->reg_cache->reg_list[i].exist = false;
 	}
 
 	return ERROR_OK;
