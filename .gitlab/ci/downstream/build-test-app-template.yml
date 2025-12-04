@@ -56,17 +56,8 @@
       pyenv global $(pyenv versions --bare)
     fi
     # Install tools
-    ${IDF_PATH}/tools/idf_tools.py install-python-env
-    if [ -n "${TEST_APP_BUILD_TOOLCHAIN_PREFIX:-}" ]; then
-      echo "TEST_APP_BUILD_TOOLCHAIN_PREFIX=$TEST_APP_BUILD_TOOLCHAIN_PREFIX"
-      ${IDF_PATH}/tools/idf_tools.py install ${TEST_APP_BUILD_TOOLCHAIN_PREFIX}-elf
-    else
-      ${IDF_PATH}/tools/idf_tools.py install ${TOOLCHAIN_PREFIX}-elf
-    fi
-    # cannot exec '. ${IDF_PATH}/export.sh' here because not all tools distros are presented
-    # in the image and `export.sh` fails w/o adding tools to $PATH
-    idf_exports=$(${IDF_PATH}/tools/idf_tools.py export) || true
-    eval "${idf_exports}"
+    ${IDF_PATH}/install.sh
+    . ${IDF_PATH}/export.sh
     popd
   fi
   idf.py --version || true
