@@ -17,7 +17,8 @@ test_on_windows:
   variables:
     # actually we don't need the project sources, but we need the `git clean` gitlab-runner's stage.
     # It's possible only for `fetch` or `clone`.
-    GIT_STRATEGY: fetch
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "1"
     PLATFORM_NAME: "win32"
   before_script: []
   script:
@@ -45,7 +46,8 @@ test_on_macos:
   variables:
     # actually we don't need the project sources, but we need the `git clean` gitlab-runner's stage.
     # It's possible only for `fetch` or `clone`.
-    GIT_STRATEGY: fetch
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "1"
     PLATFORM_NAME: "macos"
   before_script: []
   script:
@@ -61,7 +63,8 @@ tests_on_macos_arm64:
   variables:
     # actually we don't need the project sources, but we need the `git clean` gitlab-runner's stage.
     # It's possible only for `fetch` or `clone`.
-    GIT_STRATEGY: fetch
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "1"
     PLATFORM_NAME: "macos-arm64"
   before_script: []
   script:
@@ -77,7 +80,8 @@ tests_on_linux:
   variables:
     # actually we don't need the project sources, but we need the `git clean` gitlab-runner's stage.
     # It's possible only for `fetch` or `clone`.
-    GIT_STRATEGY: fetch
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "1"
     PLATFORM_NAME: "linux-amd64"
   before_script: []
   script:
