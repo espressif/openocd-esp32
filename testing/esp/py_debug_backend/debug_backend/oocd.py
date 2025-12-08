@@ -211,7 +211,7 @@ class Oocd(threading.Thread):
     # also can be used to parse output of the 'reg' command executed via GDB's 'monitor'
     def parse_reg_val(self, nm, res_str):
         # format: pc (/32): 0x400E4E72
-        tokens = re.match(r'%s[ \t]+\(/\d+\):[ \t]+(?P<val>0x[0-9a-fA-F]+)' % nm, res_str)
+        tokens = re.search(r'%s[ \t]+\(/\d+\):[ \t]+(?P<val>0x[0-9a-fA-F]+)' % nm, res_str)
         return int(tokens.group('val'), 0)
 
     def get_reg(self, nm):

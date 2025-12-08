@@ -398,7 +398,12 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
 
             self.gdb.console_cmd_run('flushregs')
 
-            gdb_val = int(self.gdb.get_reg_values(fmt='u',reg_no=[regs.index(reg)])[0]['value'])
+            val = self.gdb.get_reg_values(fmt='u',reg_no=[regs.index(reg)])[0]['value']
+            try:
+                gdb_val = int(val)
+            except ValueError:
+                # in case of vector, last element in the union should be an integer
+                gdb_val = int(val.split()[-1][:-1])
 
             if ocd_val == val:
                 # general purpose registers can be written with any value, and expected to contain the same
@@ -413,12 +418,6 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
 
         for reg in regs:
             if (len(reg) == 0):
-                continue
-
-            if reg == "csr_mext_ill_reg":
-                # GDB requests all regs, reading hwloop regs can change value of bit 1 here
-                set_reg_and_check(reg, 0)
-                set_reg_and_check(reg, 1)
                 continue
 
             # slow counters are not suitable for this test
