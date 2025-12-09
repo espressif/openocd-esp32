@@ -46,7 +46,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_test1_cfg = {
 };
 
 // cmd_recv_from_host definitions
-#define ESP_STUB_CMD_RECV_FROM_HOST_BSS_SIZE 0x00002cUL
+#define ESP_STUB_CMD_RECV_FROM_HOST_BSS_SIZE 0x000030UL
 #define ESP_STUB_CMD_RECV_FROM_HOST_IRAM_ORG 0x4038c000UL
 #define ESP_STUB_CMD_RECV_FROM_HOST_IRAM_LEN 0x00004000UL
 #define ESP_STUB_CMD_RECV_FROM_HOST_DRAM_ORG 0x3fca0000UL
@@ -83,7 +83,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_recv_from_host_cfg = 
 };
 
 // cmd_send_to_host definitions
-#define ESP_STUB_CMD_SEND_TO_HOST_BSS_SIZE 0x00002dUL
+#define ESP_STUB_CMD_SEND_TO_HOST_BSS_SIZE 0x000031UL
 #define ESP_STUB_CMD_SEND_TO_HOST_IRAM_ORG 0x4038c000UL
 #define ESP_STUB_CMD_SEND_TO_HOST_IRAM_LEN 0x00004000UL
 #define ESP_STUB_CMD_SEND_TO_HOST_DRAM_ORG 0x3fca0000UL
@@ -157,7 +157,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_info_cfg = {
 };
 
 // cmd_flash_test definitions
-#define ESP_STUB_CMD_FLASH_TEST_BSS_SIZE 0x000400UL
+#define ESP_STUB_CMD_FLASH_TEST_BSS_SIZE 0x000401UL
 #define ESP_STUB_CMD_FLASH_TEST_IRAM_ORG 0x4038c000UL
 #define ESP_STUB_CMD_FLASH_TEST_IRAM_LEN 0x00004000UL
 #define ESP_STUB_CMD_FLASH_TEST_DRAM_ORG 0x3fca0000UL
@@ -194,14 +194,14 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_test_cfg = {
 };
 
 // cmd_test_all definitions
-#define ESP_STUB_CMD_TEST_ALL_BSS_SIZE 0x002434UL
+#define ESP_STUB_CMD_TEST_ALL_BSS_SIZE 0x002438UL
 #define ESP_STUB_CMD_TEST_ALL_IRAM_ORG 0x4038c000UL
 #define ESP_STUB_CMD_TEST_ALL_IRAM_LEN 0x00004000UL
 #define ESP_STUB_CMD_TEST_ALL_DRAM_ORG 0x3fca0000UL
 #define ESP_STUB_CMD_TEST_ALL_DRAM_LEN 0x00020000UL
-#define ESP_STUB_CMD_TEST_ALL_ENTRY_ADDR 0x4038cb88UL
+#define ESP_STUB_CMD_TEST_ALL_ENTRY_ADDR 0x4038cb8cUL
 #define ESP_STUB_CMD_TEST_ALL_APPTRACE_CTRL_ADDR 0x0UL
-#define ESP_STUB_CMD_TEST_ALL_LOG_ADDR 0x3fca0b1cUL
+#define ESP_STUB_CMD_TEST_ALL_LOG_ADDR 0x3fca0b4cUL
 #define ESP_STUB_CMD_TEST_ALL_LOG_SIZE 0x8196UL
 
 static const uint8_t s_esp_flasher_stub_cmd_test_all_code[] = {

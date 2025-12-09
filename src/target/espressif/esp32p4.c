@@ -219,11 +219,11 @@ static const char *esp32p4_csrs[] = {
 	"mcycle", "minstret", "mcounteren", "mcountinhibit",
 	"mhpmcounter8", "mhpmcounter9", "mhpmcounter13", "mhpmevent8", "mhpmevent9", "mhpmevent13",
 	"mcycleh", "minstreth", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
-	"tdata3", "tinfo", "mcontext", "mintstatus",
+	"tdata3", "tinfo", "mcontext",
 	"fflags", "frm", "fcsr",
 	/* custom exposed CSRs will start with 'csr_' prefix*/
 	"csr_mintstatus", "csr_mclicbase", "csr_mxstatus", "csr_mhcr", "csr_mhint", "csr_mraddr", "csr_mexstatus",
-	"csr_mnmicause", "csr_mnmipc", "csr_mcpuid", "csr_cpu_testbus_ctrl", "csr_pm_user",
+	"csr_mcpuid", "csr_cpu_testbus_ctrl", "csr_pm_user",
 	"csr_gpio_oen_user", "csr_gpio_in_user", "csr_gpio_out_user",
 	"csr_pma_cfg0", "csr_pma_cfg1", "csr_pma_cfg2", "csr_pma_cfg3", "csr_pma_cfg4", "csr_pma_cfg5",
 	"csr_pma_cfg6", "csr_pma_cfg7", "csr_pma_cfg8", "csr_pma_cfg9", "csr_pma_cfg10", "csr_pma_cfg11",
@@ -270,56 +270,6 @@ static int esp32p4_hwloop_csr_set(struct reg *reg, uint8_t *buf)
 		HWLOOP_STATE_MASK, HWLOOP_STATE_OFF, HWLOOP_STATE_INIT);
 }
 
-static int esp32p4_read_hw_rev(struct target *target)
-{
-	static uint32_t hw_rev;
-
-	if (hw_rev != 0) {
-		target->hw_rev = hw_rev;
-		return ERROR_OK;
-	}
-
-	int ret = target_read_u32(target, ESP32P4_ROM_ECO_VERSION_REG, &hw_rev);
-	if (ret != ERROR_OK) {
-		LOG_TARGET_ERROR(target, "Failed to read HW rev (%d)", ret);
-		return ret;
-	}
-
-	target->hw_rev = hw_rev;
-	LOG_TARGET_INFO(target, "ROM ECO version %d", hw_rev);
-
-	return ERROR_OK;
-}
-
-static int esp32p4_examine_end(struct target *target)
-{
-	esp32p4_read_hw_rev(target);
-
-	if (target->hw_rev >= 5) {
-		target_free_all_working_areas(target); // Free the default working area
-		target->working_area_phys = ESP32P4_IRAM0_NON_CACHEABLE_ADDR_LOW + 0x80000;
-		target->working_area_virt = ESP32P4_IRAM0_NON_CACHEABLE_ADDR_LOW + 0x80000;
-		target->working_area_size = 0x24000;
-		target->backup_working_area = 1;
-		target->working_area_phys_spec = true;
-		target->working_area_virt_spec = true;
-		target_free_all_working_areas(target); // Free the new working area
-	}
-
-	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
-		const char *reg_name = target->reg_cache->reg_list[i].name;
-		if ((target->hw_rev < 5
-				&& !strcmp(reg_name, "csr_mintstatus")) ||
-			(target->hw_rev >= 5
-				&& (!strcmp(reg_name, "csr_mnmicause")
-					|| !strcmp(reg_name, "csr_mnmipc")
-					|| !strcmp(reg_name, "mintstatus"))))
-			target->reg_cache->reg_list[i].exist = false;
-	}
-
-	return ERROR_OK;
-}
-
 static struct reg_arch_type esp32p4_hwloop_reg_type = {
 	.get = esp32p4_hwloop_csr_get,
 	.set = esp32p4_hwloop_csr_set
@@ -352,7 +302,6 @@ static int esp32p4_target_create(struct target *target)
 	esp_riscv->chip_specific_registers_size = ARRAY_SIZE(esp32p4_registers);
 	esp_riscv->is_dram_address = esp32p4_is_idram_address;
 	esp_riscv->is_iram_address = esp32p4_is_idram_address;
-	esp_riscv->examine_end = esp32p4_examine_end;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;
