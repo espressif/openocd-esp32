@@ -6,7 +6,7 @@ on:
 
 jobs:
   build-macos-x86:
-    runs-on: macos-13
+    runs-on: macos-15-intel
     steps:
       - name: Ensure architecture is x86_64
         run: |
