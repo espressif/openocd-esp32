@@ -101,7 +101,7 @@ pipeline_variables:
       echo "TRIGGERED_BY_GDB_PIPELINE_BRANCH=${TRIGGERED_BY_GDB_PIPELINE_BRANCH:-}" >> variables.env;
       if [[ ! -z ${TRIGGERED_BY_GDB_PIPELINE_BRANCH:-} ]]; then
         echo "CI_FULL_RUN=0" >> variables.env;
-      elif [[ $CI_PIPELINE_SOURCE != "push" || $CI_COMMIT_BRANCH == "master" ]]; then
+      elif [[ $CI_PIPELINE_SOURCE != "push" || ${CI_COMMIT_BRANCH:-} == "master" ]]; then
         echo "CI_FULL_RUN=1" >> variables.env;
       else
         api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/merge_requests?source_branch=${CI_COMMIT_REF_NAME}&state=opened";
@@ -324,7 +324,7 @@ mr_auto_approve:
   when: always
   script:
     - >
-      if [[ -z ${TRIGGERED_BY_GDB_PIPELINE_BRANCH:-} &&  $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH != "master" ]]; then
+      if [[ -z ${TRIGGERED_BY_GDB_PIPELINE_BRANCH:-} &&  $CI_PIPELINE_SOURCE == "push" && ${CI_COMMIT_BRANCH:-} != "master" ]]; then
         api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/merge_requests?source_branch=${CI_COMMIT_REF_NAME}&state=opened";
         echo "${api_call}";
         OPEN_MR=$(curl --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}");
