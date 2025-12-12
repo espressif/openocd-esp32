@@ -106,6 +106,7 @@
   image: ${TEST_APP_IDF_DOCKER_IMAGE}
   tags:
     - build
+    - internet
   stage: build
   variables:
     UT_GET_IDF_VER: "1"

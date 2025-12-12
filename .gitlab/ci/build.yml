@@ -111,6 +111,7 @@
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross:3
   tags:
     - build
+    - internet
   artifacts:
     paths:
       - ${DIST_ART_DIR}
@@ -143,6 +144,7 @@
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-macos-cross:4
   tags:
     - build
+    - internet
   artifacts:
     paths:
       - ${DIST_ART_DIR}
@@ -165,6 +167,7 @@ build_linux:
   image: $CI_DOCKER_REGISTRY/esp32-toolchain
   tags:
     - build
+    - internet
   artifacts:
     paths:
       - ${DIST_ART_DIR}
@@ -197,6 +200,7 @@ build_linux_gcc_latest:
   stage: build_openocd
   tags:
     - build
+    - internet
   needs: []
   variables:
     CONF_HOST: ""
@@ -265,6 +269,7 @@ build_linux_arm64_test:
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-win-cross
   tags:
     - build
+    - internet
   artifacts:
     paths:
       - ${DIST_ART_DIR}
@@ -328,6 +333,7 @@ scan-build:
   stage: static_analyzers
   tags:
     - build
+    - internet
   variables:
     SCAN_BUILD_OUTPUT: "report"
     CONF_HOST: ""
@@ -357,6 +363,7 @@ sparse:
   stage: static_analyzers
   tags:
     - build
+    - internet
   variables:
     SPARSE_BUILD_OUTDIR: "sparse"
     SPARSE_BUILD_OUTFILE: "warnings.log"
@@ -387,6 +394,7 @@ build_linux_cmake:
   stage: build_openocd
   tags:
     - build
+    - internet
   needs: []
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
@@ -402,6 +410,7 @@ build_linux_cmake:
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross:3
   tags:
     - build
+    - internet
   needs: []
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
@@ -417,6 +426,7 @@ build_linux_cmake:
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-win-cross
   tags:
     - build
+    - internet
   needs: []
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
