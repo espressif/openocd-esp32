@@ -47,7 +47,7 @@ create_target_branches:
   tags: [ "build", "shiny" ]
   script:
     - >
-      for branch in "master" "${TEST_APP_IDF5_1_RELEASE_BRANCH}" "${TEST_APP_IDF5_2_RELEASE_BRANCH}" "${TEST_APP_IDF5_3_RELEASE_BRANCH}" "${TEST_APP_IDF5_4_RELEASE_BRANCH}" "${TEST_APP_IDF5_5_RELEASE_BRANCH}"; do
+      for branch in "master" "${TEST_APP_IDF5_2_RELEASE_BRANCH}" "${TEST_APP_IDF5_3_RELEASE_BRANCH}" "${TEST_APP_IDF5_4_RELEASE_BRANCH}" "${TEST_APP_IDF5_5_RELEASE_BRANCH}" ${TEST_APP_IDF6_0_RELEASE_BRANCH}; do
         encoded_branch="${IDF_TEMP_BRANCH_PREFIX}${branch//\//%2F}"
         api_call_delete="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/103/repository/branches/${encoded_branch}"
         echo "${api_call_delete}"
@@ -79,6 +79,13 @@ test_idf_master_examples:
   trigger:
     <<: *trigger_esp_idf
     branch: "${IDF_TEMP_BRANCH_PREFIX}master"
+
+test_idf6.0.x_examples:
+  extends:
+    - .test_idf_examples
+  trigger:
+    <<: *trigger_esp_idf
+    branch: ${IDF_TEMP_BRANCH_PREFIX}${TEST_APP_IDF6_0_RELEASE_BRANCH}
 
 test_idf5.5.x_examples:
   extends:

@@ -101,7 +101,7 @@ pipeline_variables:
       echo "TRIGGERED_BY_GDB_PIPELINE_BRANCH=${TRIGGERED_BY_GDB_PIPELINE_BRANCH:-}" >> variables.env;
       if [[ ! -z ${TRIGGERED_BY_GDB_PIPELINE_BRANCH:-} ]]; then
         echo "CI_FULL_RUN=0" >> variables.env;
-      elif [[ $CI_PIPELINE_SOURCE != "push" || ${CI_COMMIT_BRANCH:-} == "master" ]]; then
+      elif [[ $CI_PIPELINE_SOURCE != "push" || ${CI_COMMIT_BRANCH:-} == "master" || ! -z ${CI_COMMIT_TAG:-} ]]; then
         echo "CI_FULL_RUN=1" >> variables.env;
       else
         api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/merge_requests?source_branch=${CI_COMMIT_REF_NAME}&state=opened";
@@ -221,6 +221,8 @@ test_idf_examples:
   stage: pre_release
   allow_failure: true
   rules:
+    - if: $CI_COMMIT_TAG
+      when: always
     - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "run_idf_tests"
       when: always
     - if: $CI_COMMIT_BRANCH == "master"
@@ -260,6 +262,7 @@ create_reports:
     - job: 5.3.x_run_test_pipeline
     - job: 5.4.x_run_test_pipeline
     - job: 5.5.x_run_test_pipeline
+    - job: 6.0.x_run_test_pipeline
     - job: master_run_test_pipeline
     # NuttX
     - job: test_nuttx_esp32
