@@ -324,7 +324,7 @@ mr_auto_approve:
     - build
   dependencies:
     - pipeline_variables
-  when: always
+  when: on_success
   script:
     - >
       if [[ -z ${TRIGGERED_BY_GDB_PIPELINE_BRANCH:-} &&  $CI_PIPELINE_SOURCE == "push" && ${CI_COMMIT_BRANCH:-} != "master" ]]; then
@@ -337,13 +337,7 @@ mr_auto_approve:
         if [[ $iid != "0" && $target == "master" ]]; then
           action="unapprove"
           if [[ $CI_FULL_RUN == "1" ]]; then
-            api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/pipelines/${CI_PIPELINE_ID}/jobs?scope[]=failed";
-            echo "${api_call}";
-            FAILED_JOBS=$(curl --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}");
-            echo $FAILED_JOBS
-            if [[ $FAILED_JOBS == "[]" ]]; then
-              action="approve"
-            fi
+            action="approve"
           fi
           api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/merge_requests/${iid}/${action}";
           echo "${api_call}";
