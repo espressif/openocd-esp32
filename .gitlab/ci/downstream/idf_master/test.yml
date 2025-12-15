@@ -6,6 +6,7 @@ tests_esp32:
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
+    - job: fetch_gcov
     - job: fetch_gdb
       optional: true
   variables:
@@ -22,6 +23,7 @@ tests_esp32:
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
+    - job: fetch_gcov
     - job: fetch_gdb
       optional: true
   variables:
@@ -36,6 +38,7 @@ tests_esp32s2:
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
+    - job: fetch_gcov
     - job: fetch_gdb
       optional: true
   variables:
@@ -52,6 +55,7 @@ tests_esp32s2_flash_encrypted:
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
+    - job: fetch_gcov
     - job: fetch_gdb
       optional: true
   variables:
@@ -66,6 +70,7 @@ tests_esp32s3_dual:
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
+    - job: fetch_gcov
     - job: fetch_gdb
       optional: true
   variables:
@@ -88,6 +93,7 @@ tests_esp32s3_single:
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
+    - job: fetch_gcov
     - job: fetch_gdb
       optional: true
   variables:
@@ -111,6 +117,7 @@ tests_esp32c2:
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
+    - job: fetch_gcov
     - job: fetch_gdb
       optional: true
   variables:
@@ -125,6 +132,7 @@ tests_esp32c3:
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
+    - job: fetch_gcov
     - job: fetch_gdb
       optional: true
   variables:
@@ -141,6 +149,7 @@ tests_esp32c3_flash_encrypted:
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
+    - job: fetch_gcov
     - job: fetch_gdb
       optional: true
   variables:
@@ -158,6 +167,7 @@ tests_esp32c5:
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
+    - job: fetch_gcov
     - job: fetch_gdb
       optional: true
   variables:
@@ -181,6 +191,7 @@ tests_esp32c6:
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
+    - job: fetch_gcov
     - job: fetch_gdb
       optional: true
   variables:
@@ -205,6 +216,7 @@ tests_esp32c61:
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
+    - job: fetch_gcov
     - job: fetch_gdb
       optional: true
   variables:
@@ -223,6 +235,7 @@ tests_esp32h2:
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
+    - job: fetch_gcov
     - job: fetch_gdb
       optional: true
   variables:
@@ -238,6 +251,7 @@ tests_esp32p4:
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
+    - job: fetch_gcov
     - job: fetch_gdb
       optional: true
   variables:

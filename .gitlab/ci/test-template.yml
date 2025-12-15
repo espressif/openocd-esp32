@@ -35,10 +35,6 @@
         export PLATFORM_NAME="linux-arm64-test";
       fi;
       echo "PLATFORM_NAME: ${PLATFORM_NAME}";
-      if [ ! -z "$ESP_GCOV_TOOLCHAIN" ] ; then
-        export ESP_GCOV_TOOLCHAIN="${ESP_GCOV_TOOLCHAIN}-${CONF_HOST}";
-        echo "ESP_GCOV_TOOLCHAIN: ${ESP_GCOV_TOOLCHAIN}";
-      fi;
       if [[ $SCHEDULE_TYPE == "run_sanitizer_tests" ]] ; then
         export ASAN_OPTIONS="detect_invalid_pointer_pairs=2:print_stacktrace=1:strict_string_checks=1:halt_on_error=0:allocator_may_return_null=1";
         export TEST_SANITIZERS=1;
@@ -86,20 +82,18 @@
   image: $CI_DOCKER_REGISTRY/target-test-env-v6.1:1
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
-    ESP_GDB_TOOLCHAIN: "${ESP_V6_0X_XTENSA_GDB_TOOLCHAIN}"
+    ESP_GDB_TOOLCHAIN: "${ESP_V6_1X_XTENSA_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "xtensa-esp"
-    ESP_TOOLCHAIN: "${ESP_V6_0X_TOOLCHAIN_VER}"
+    ESP_TOOLCHAIN: "${ESP_V6_1X_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}"
     IDF_RELEASE_TAG: "latest"
-    ESP_GCOV_TOOLCHAIN: "${ESP_V6_0X_XTENSA_GCOV_TOOLCHAIN}"
 
 .tests_master_riscv_template:
   extends: .tests_master_template
   variables:
     CHIP_TEST_TOOLCHAIN: "riscv32-esp"
-    ESP_GDB_TOOLCHAIN: "${ESP_V6_0X_RISCV_GDB_TOOLCHAIN}"
+    ESP_GDB_TOOLCHAIN: "${ESP_V6_1X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    ESP_GCOV_TOOLCHAIN: "${ESP_V6_0X_RISCV_GCOV_TOOLCHAIN}"
 
 .tests_v6.0.x_template:
   extends: .tests_template
@@ -111,7 +105,6 @@
     ESP_TOOLCHAIN: "${ESP_V6_0X_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf6.0.x"
     IDF_RELEASE_TAG: "${TEST_APP_IDF6_0_X_RELEASE_TAG}"
-    ESP_GCOV_TOOLCHAIN: "${ESP_V6_0X_XTENSA_GCOV_TOOLCHAIN}"
 
 .tests_v6.0.x_riscv_template:
   extends: .tests_v6.0.x_template
@@ -119,7 +112,6 @@
     CHIP_TEST_TOOLCHAIN: "riscv32-esp"
     ESP_GDB_TOOLCHAIN: "${ESP_V6_0X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    ESP_GCOV_TOOLCHAIN: "${ESP_V6_0X_RISCV_GCOV_TOOLCHAIN}"
 
 .tests_v5.5.x_template:
   extends: .tests_template
@@ -131,7 +123,6 @@
     ESP_TOOLCHAIN: "${ESP_V5_5X_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.5.x"
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_5_X_RELEASE_TAG}"
-    ESP_GCOV_TOOLCHAIN: "${ESP_V5_5X_XTENSA_GCOV_TOOLCHAIN}"
 
 .tests_v5.5.x_riscv_template:
   extends: .tests_v5.5.x_template
@@ -139,7 +130,6 @@
     CHIP_TEST_TOOLCHAIN: "riscv32-esp"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_5X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    ESP_GCOV_TOOLCHAIN: "${ESP_V5_5X_RISCV_GCOV_TOOLCHAIN}"
 
 .tests_v5.4.x_template:
   extends: .tests_template
@@ -151,7 +141,6 @@
     ESP_TOOLCHAIN: "${ESP_V5_4X_TOOLCHAIN_VER}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.4.x"
     IDF_RELEASE_TAG: "${TEST_APP_IDF5_4_X_RELEASE_TAG}"
-    ESP_GCOV_TOOLCHAIN: "${ESP_V5_4X_XTENSA_GCOV_TOOLCHAIN}"
 
 .tests_v5.4.x_riscv_template:
   extends: .tests_v5.4.x_template
@@ -159,7 +148,6 @@
     CHIP_TEST_TOOLCHAIN: "riscv32-esp"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_4X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    ESP_GCOV_TOOLCHAIN: "${ESP_V5_4X_RISCV_GCOV_TOOLCHAIN}"
 
 .tests_v5.3.x_template:
   extends: .tests_template

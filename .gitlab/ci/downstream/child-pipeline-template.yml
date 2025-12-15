@@ -1,5 +1,5 @@
 stages:
-  - fetch_gdb
+  - fetch_tools
   - build
   - test
   - results
@@ -18,7 +18,7 @@ variables:
   DIST_INSTALLED_DIR: "${CI_PROJECT_NAME}"
 
 fetch_gdb:
-  stage: fetch_gdb
+  stage: fetch_tools
   tags:
     - build
   variables:
@@ -41,7 +41,7 @@ fetch_gdb:
       ref: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
       artifacts: true
   rules:
-    - if: '$TRIGGERED_BY_GDB_PIPELINE_BRANCH != "" && $IDF_MASTER_RUN == "1"'
+    - if: '$TRIGGERED_BY_GDB_PIPELINE_BRANCH != "" && $CI_IDF_VERSION == "6_1"'
   script:
     - mv dist gdb
     - cd gdb
@@ -58,12 +58,47 @@ fetch_gdb:
     paths:
       - gdb
 
+fetch_gcov:
+  stage: fetch_tools
+  tags:
+    - build
+    - internet
+  variables:
+    GIT_STRATEGY: none
+  rules:
+    - if: '$CI_IDF_VERSION != "5_2" && $CI_IDF_VERSION != "5_3"'
+  script:
+    - eval "toolchain_version=\$ESP_V${CI_IDF_VERSION}X_TOOLCHAIN_VER"
+    - toolchain_suffix=${toolchain_version#esp-}
+    - gcc_version=${toolchain_suffix%%_*}
+    - >
+      for platform in arm-linux-gnueabihf aarch64-linux-gnu; do
+        dest=gcov/${toolchain_version}-gcov/${platform};
+        mkdir -p ${dest}/bin;
+        for arch in riscv32 xtensa; do
+          wget https://github.com/espressif/crosstool-NG/releases/download/${toolchain_version}/${arch}-esp-elf-${toolchain_suffix}-${platform}.tar.gz -O toolchain.tar.gz;
+          tar -xzf toolchain.tar.gz;
+          cp ${arch}-esp-elf/bin/${arch}-esp*-elf-gcov ${dest}/bin;
+          mkdir -p ${dest}/lib/gcc/${arch}-esp-elf/${gcc_version};
+          cp ${arch}-esp-elf/lib/gcc/${arch}-esp-elf/${gcc_version}/libgcov.a ${dest}/lib/gcc/${arch}-esp-elf/${gcc_version};
+        done
+        for _chip in esp32 esp32s2 esp32s3; do
+          mkdir -p ${dest}/lib/gcc/xtensa-esp-elf/${gcc_version}/${_chip};
+          cp xtensa-esp-elf/lib/gcc/xtensa-esp-elf/${gcc_version}/${_chip}/libgcov.a ${dest}/lib/gcc/xtensa-esp-elf/${gcc_version}/${_chip}/;
+        done;
+        cp xtensa-esp-elf/lib/xtensa_esp*.so ${dest}/lib;
+      done
+    - rm -rf riscv32-esp-elf xtensa-esp-elf *.tar.gz;
+  artifacts:
+    paths:
+      - gcov
+
 dummy_job:
   script: echo "Pipeline skipped"
   tags:
     - build
   rules:
-    - if: '$CI_FULL_RUN == "0" && $IDF_MASTER_RUN == "0"'
+    - if: '$CI_FULL_RUN == "0" && $CI_IDF_VERSION != "6_1"'
 
 include:
   - '.gitlab/ci/downstream/build-test-app-template.yml'
