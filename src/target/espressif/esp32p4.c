@@ -443,6 +443,7 @@ static int esp32p4_write_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, const uint8_t *buffer)
 {
 	int map = -1;
+	target_addr_t non_cacheable_address = address;
 
 	if (ESP32P4_ADDR_IS_CACHEABLE(address)) {
 		/* Write-back is for dcache and l2 cache only */
@@ -454,9 +455,11 @@ static int esp32p4_write_memory(struct target *target, target_addr_t address,
 		int res = esp32p4_sync_cache(target, address, size * count, map, ESP32P4_CACHE_SYNC_WRITEBACK);
 		if (res != ERROR_OK)
 			LOG_TARGET_WARNING(target, "Cache writeback failed! Write main memory anyway.");
+		if (target->state == TARGET_RUNNING)
+			non_cacheable_address = ESP32P4_NON_CACHEABLE_ADDR(address);
 	}
 
-	int res = esp_riscv_write_memory(target, address, size, count, buffer);
+	int res = esp_riscv_write_memory(target, non_cacheable_address, size, count, buffer);
 
 	if (map > 0) {
 		/* Don't invalidate the L2CACHE here. We don't know if it has been written back to the PSRAM yet. */
