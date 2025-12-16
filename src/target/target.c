@@ -1809,16 +1809,21 @@ int target_call_event_callbacks(struct target *target, enum target_event event)
 	struct target_event_callback *callback = target_event_callbacks;
 	struct target_event_callback *next_callback;
 
-	if (event == TARGET_EVENT_HALTED && !target->pause_gdb_event_callbacks) {
-		/* execute early halted first */
-		target_call_event_callbacks(target, TARGET_EVENT_GDB_HALT);
-	}
-
 	LOG_DEBUG("target event %i (%s) for core %s", event,
 			target_event_name(event),
 			target_name(target));
 
 	target_handle_event(target, event);
+
+	/* ESPRESSIF
+	 * TARGET_EVENT_GDB_HALT callback moved after target_handle_event to make sure wdts are disabled.
+	 * This is necessary when TARGET_EVENT_GDB_HALT takes too much time to be handled,
+	 * can be e.g. due to slower host system or with extra custom registers for esp32p4.
+	 */
+	if (event == TARGET_EVENT_HALTED && !target->pause_gdb_event_callbacks) {
+		/* execute early halted first */
+		target_call_event_callbacks(target, TARGET_EVENT_GDB_HALT);
+	}
 
 	while (callback) {
 		next_callback = callback->next;
