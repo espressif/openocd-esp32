@@ -74,3 +74,10 @@ build_test_app_esp32p4_rev1:
   variables:
     CHIP_VARIANT: "eco4"
   extends: build_test_app_esp32p4
+
+build_test_app_esp32h4:
+  variables:
+    CHIP_NAME: "esp32h4"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    TEST_APP_CONFIGS: "default apptrace_gcov_dual"
+  extends: .build_idf_master_test_app_template
