@@ -274,7 +274,7 @@ tests_esp32p4_usj:
     - usb_serial_jtag
     - eco_default
   variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -p test_*.*Single -e test_*.LpCore* *.*.test_big_binary *.*.test_big_binary_compressed"
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.LpCore* test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
 
 .tests_esp32p4_lpcore_usj:
   extends: tests_esp32p4_usj
@@ -309,7 +309,7 @@ tests_esp32p4_rev1_usj:
     - usb_serial_jtag
     - eco4
   variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -p test_*.*Single -e test_*.LpCore* *.*.test_big_binary *.*.test_big_binary_compressed"
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.LpCore* test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
 
 tests_esp32p4_rev1_lpcore_usj:
   extends: tests_esp32p4_rev1_usj
