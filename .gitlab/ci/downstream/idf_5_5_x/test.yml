@@ -186,6 +186,10 @@ tests_esp32h2_idf5.5.x:
 
 tests_esp32p4_idf5.5.x:
   extends: .tests_v5.5.x_riscv_template
+  tags:
+    - esp32p4
+    - jtag
+    - eco_default
   needs:
     - job: build_test_app_esp32p4_idf5.5.x
     - pipeline: $PARENT_PIPELINE_ID
@@ -197,7 +201,28 @@ tests_esp32p4_idf5.5.x:
     CHIP_NAME: "esp32p4"
     TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.LpCore* test_*.*Encrypted"
 
-tests_esp32p4_lpcore_idf5.5.x:
+.tests_esp32p4_lpcore_idf5.5.x:
   extends: tests_esp32p4_idf5.5.x
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
+
+tests_esp32p4_rev1_idf5.5.x:
+  extends: tests_esp32p4_idf5.5.x
+  tags:
+    - esp32p4
+    - jtag
+    - eco4
+  needs:
+    - job: build_test_app_esp32p4_rev1_idf5.5.x
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gcov
+    - job: fetch_gdb
+      optional: true
+
+tests_esp32p4_rev1_lpcore_idf5.5.x:
+  extends: tests_esp32p4_rev1_idf5.5.x
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"

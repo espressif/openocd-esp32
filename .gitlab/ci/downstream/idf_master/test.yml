@@ -245,6 +245,10 @@ tests_esp32h2:
 
 tests_esp32p4:
   extends: .tests_master_riscv_template
+  tags:
+    - esp32p4
+    - jtag
+    - eco_default
   needs:
     - job: build_test_app_esp32p4
     - pipeline: $PARENT_PIPELINE_ID
@@ -258,7 +262,7 @@ tests_esp32p4:
     CHIP_NAME: "esp32p4"
     TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.LpCore* test_*.*Encrypted"
 
-tests_esp32p4_lpcore:
+.tests_esp32p4_lpcore:
   extends: tests_esp32p4
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
@@ -268,10 +272,46 @@ tests_esp32p4_usj:
   tags:
     - esp32p4
     - usb_serial_jtag
+    - eco_default
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -p test_*.*Single -e test_*.LpCore* *.*.test_big_binary *.*.test_big_binary_compressed"
 
-tests_esp32p4_lpcore_usj:
+.tests_esp32p4_lpcore_usj:
   extends: tests_esp32p4_usj
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-builtin -p test_*.LpCore*"
+
+tests_esp32p4_rev1:
+  extends: tests_esp32p4
+  tags:
+    - esp32p4
+    - jtag
+    - eco4
+  needs:
+    - job: build_test_app_esp32p4_rev1
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gcov
+    - job: fetch_gdb
+      optional: true
+
+tests_esp32p4_rev1_lpcore:
+  extends: tests_esp32p4_rev1
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
+
+tests_esp32p4_rev1_usj:
+  extends: tests_esp32p4_rev1
+  tags:
+    - esp32p4
+    - usb_serial_jtag
+    - eco4
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -p test_*.*Single -e test_*.LpCore* *.*.test_big_binary *.*.test_big_binary_compressed"
+
+tests_esp32p4_rev1_lpcore_usj:
+  extends: tests_esp32p4_rev1_usj
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-builtin -p test_*.LpCore*"

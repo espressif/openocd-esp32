@@ -164,6 +164,10 @@ tests_esp32h2_idf5.4.x:
 
 tests_esp32p4_idf5.4.x:
   extends: .tests_v5.4.x_riscv_template
+  tags:
+    - esp32p4
+    - jtag
+    - eco4
   needs:
     - job: build_test_app_esp32p4_idf5.4.x
     - pipeline: $PARENT_PIPELINE_ID
