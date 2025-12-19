@@ -11,6 +11,7 @@ Example:
 """
 
 import argparse
+import re
 import shutil
 import subprocess
 import sys
@@ -54,8 +55,36 @@ def extract_archive(archive_path: Path, dest_dir: Path) -> Path:
     return dest_dir
 
 
+def normalize_version(version: str) -> str:
+    """
+    Convert version string to PEP 440 format.
+
+    PyPI rejects local version segments (PEP 440 `+label`), so the project
+    label (e.g. "esp32") in the upstream tag is dropped. The post-release
+    date already disambiguates builds.
+
+    Examples:
+        0.12.0-esp32-20260424 -> 0.12.0.post20260424
+        0.12.0-20260424       -> 0.12.0.post20260424
+        v0.12.0               -> 0.12.0
+    """
+    version = version.lstrip("v")
+
+    match = re.match(r"^(\d+\.\d+\.\d+)-\w+-(\d+)$", version)
+    if match:
+        base, date = match.groups()
+        return f"{base}.post{date}"
+
+    match = re.match(r"^(\d+\.\d+\.\d+)-(\d+)$", version)
+    if match:
+        base, date = match.groups()
+        return f"{base}.post{date}"
+
+    return version
+
+
 def parse_archive_name(archive_path: Path, project_prefix: str) -> tuple:
-    """Extract platform name and version from archive filename."""
+    """Extract platform name and PEP 440 version from archive filename."""
     name = archive_path.name
 
     if name.endswith(".tar.gz"):
@@ -83,8 +112,8 @@ def parse_archive_name(archive_path: Path, project_prefix: str) -> tuple:
         raise ValueError(f"Could not parse platform/version from {archive_path.name}")
 
     platform_name = "-".join(parts[:version_idx])
-    version = "-".join(parts[version_idx:])
-    return platform_name, version
+    raw_version = "-".join(parts[version_idx:])
+    return platform_name, normalize_version(raw_version)
 
 
 def stage_package(staging_dir: Path, extracted: Path, version: str) -> None:
