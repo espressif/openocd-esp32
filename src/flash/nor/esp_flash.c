@@ -981,6 +981,7 @@ int esp_algo_flash_probe(struct flash_bank *bank)
 	if (bank->sectors) {
 		free(bank->sectors);
 		bank->sectors = NULL;
+		bank->num_sectors = 0;
 	}
 
 	int ret = esp_algo_flash_get_mappings(bank,
