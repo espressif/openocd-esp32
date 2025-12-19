@@ -1,0 +1,91 @@
+# Python wheel building and publishing
+
+.build_wheel_template:
+  stage: pre_release
+  image: python:3.12-slim
+  tags:
+    - build
+    - internet
+  variables:
+    DIST_ART_DIR: dist
+  script:
+    - python -m pip install --upgrade "pip>=24,<26"
+    - pip install "setuptools>=64,<77" "wheel>=0.42"
+    - bash tools/build_wheels_ci.sh
+  artifacts:
+    paths:
+      - wheelhouse/
+    expire_in: 2 weeks
+
+build_wheels:
+  extends: .build_wheel_template
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: on_success
+  needs:
+    - job: build_linux
+      artifacts: true
+    - job: build_linux_armhf
+      artifacts: true
+    - job: build_linux_armel
+      artifacts: true
+    - job: build_linux_arm64
+      artifacts: true
+    - job: build_windows_win32
+      artifacts: true
+    - job: build_windows_win64
+      artifacts: true
+    - job: macos_codesign
+      artifacts: true
+
+# PyPI uploads currently authenticate via API tokens (TESTPYPI_TOKEN /
+# PYPI_TOKEN, set as masked CI/CD variables). Once the project is first
+# published, migrate to Trusted Publishers (OIDC) by:
+#   1. Configuring this GitLab project as a trusted publisher on PyPI
+#      (https://pypi.org/manage/project/openocd-esp32/settings/publishing/)
+#   2. Replacing TWINE_USERNAME/TWINE_PASSWORD with an id_tokens block:
+#        id_tokens:
+#          PYPI_ID_TOKEN:
+#            aud: pypi
+#      Twine >= 5.1 picks up the OIDC token automatically.
+
+publish_pypi_test:
+  stage: release_stage1
+  image: python:3.12-slim
+  tags:
+    - build
+    - internet
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: manual
+  needs:
+    - job: build_wheels
+      artifacts: true
+  variables:
+    TWINE_USERNAME: __token__
+    TWINE_PASSWORD: ${TESTPYPI_TOKEN}
+  script:
+    - pip install --upgrade "twine>=5.1"
+    - twine check wheelhouse/*.whl
+    - twine upload --skip-existing --repository testpypi wheelhouse/*.whl
+
+publish_pypi:
+  stage: release_submit
+  image: python:3.12-slim
+  tags:
+    - build
+    - internet
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: manual
+  needs:
+    - job: build_wheels
+      artifacts: true
+    - job: release_tag_draft
+  variables:
+    TWINE_USERNAME: __token__
+    TWINE_PASSWORD: ${PYPI_TOKEN}
+  script:
+    - pip install --upgrade "twine>=5.1"
+    - twine check wheelhouse/*.whl
+    - twine upload --skip-existing wheelhouse/*.whl

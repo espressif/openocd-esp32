@@ -121,3 +121,10 @@ compile_commands.json
 
 # Created when running tests
 testing/esp/test_apps/gen_ut_app/*.gcov.json.gz
+
+# Python build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+wheelhouse/

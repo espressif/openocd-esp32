@@ -414,6 +414,7 @@ update_idf_tools:
 include:
   - '.gitlab/ci/util.yml'
   - '.gitlab/ci/build.yml'
+  - '.gitlab/ci/wheels.yml'
   - '.gitlab/ci/test-stub.yml'
   - '.gitlab/ci/test-template.yml'
   - '.gitlab/ci/pre-check.yml'
