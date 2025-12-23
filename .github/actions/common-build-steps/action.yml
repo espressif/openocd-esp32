@@ -61,7 +61,7 @@ runs:
           export ZLIB_VER=zlib-1.2.11
           cd $DL_DIR && wget https://dl.espressif.com/dl/$ZLIB_VER.tar.xz -O $ZLIB_VER.tar.xz
           tar xf $ZLIB_VER.tar.xz && rm $ZLIB_VER.tar.xz && pushd $ZLIB_VER
-          make -f win32/Makefile.gcc BINARY_PATH=$PREFIX/lib INCLUDE_PATH=$PREFIX/include/zlib LIBRARY_PATH=$PREFIX/lib SHARED_MODE=1 PREFIX=${CONF_HOST}- install
+          make -f win32/Makefile.gcc BINARY_PATH=$PREFIX/lib INCLUDE_PATH=$PREFIX/include/zlib LIBRARY_PATH=$PREFIX/lib SHARED_MODE=0 PREFIX=${CONF_HOST}- install
           export CPPFLAGS="-I$PREFIX/include/zlib"
           export LDFLAGS="-L$PREFIX/lib"
           popd
@@ -85,7 +85,6 @@ runs:
         make install-strip
 
         if [[ $ARCH == "windows" ]]; then
-          cp $PREFIX/lib/zlib1.dll $PREFIX/openocd/bin
           cp `$HOST_CC --print-file-name=libgcc_s_dw2-1.dll` $PREFIX/openocd/bin/
         fi
 

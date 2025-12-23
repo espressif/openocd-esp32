@@ -64,7 +64,7 @@
   wget https://dl.espressif.com/dl/$ZLIB_VER.tar.xz -O $ZLIB_VER.tar.xz
   tar xf $ZLIB_VER.tar.xz && rm $ZLIB_VER.tar.xz
   pushd $ZLIB_VER
-  make -f win32/Makefile.gcc BINARY_PATH=$PWD/dist/bin INCLUDE_PATH=$PWD/dist/include LIBRARY_PATH=$PWD/dist/lib SHARED_MODE=1 PREFIX=${CONF_HOST}- install
+  make -f win32/Makefile.gcc BINARY_PATH=$PWD/dist/bin INCLUDE_PATH=$PWD/dist/include LIBRARY_PATH=$PWD/dist/lib SHARED_MODE=0 PREFIX=${CONF_HOST}- install
   export CPPFLAGS="-I$PWD/dist/include"
   export ZLIB_LDFLAGS="-L$PWD/dist/lib"
   popd
@@ -292,7 +292,6 @@ build_linux_arm64_test:
     - export PKG_CONFIG_PATH=$PWD/hidapi-$HIDAPI_VER/dist/lib/pkgconfig/:$PWD/$LIBJAYLINK_VER/dist/lib/pkgconfig:$PWD/$JIMTCL_VER/dist/lib/pkgconfig:$PKG_CONFIG_PATH
     - export LDFLAGS=$ZLIB_LDFLAGS
     - *buildx_openocd
-    - cp $PWD/${ZLIB_VER}/dist/bin/zlib1.dll $DIST_INSTALLED_DIR/bin/
     - *dist_archive
 
 build_windows_win32:
