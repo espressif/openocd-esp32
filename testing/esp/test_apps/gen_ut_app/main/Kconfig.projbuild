@@ -5,6 +5,7 @@ config BLINK_GPIO
     default 5 if IDF_TARGET_ESP32
     default 18 if IDF_TARGET_ESP32S2
     default 48 if IDF_TARGET_ESP32S3
+    default 19 if IDF_TARGET_ESP32H4
     default 8
 	help
 		GPIO number (IOxx) to blink on and off.

@@ -184,3 +184,9 @@ KiB
 
 # Espressif
 Uart_Init
+Cache_Invalidate_All
+Cache_Enable_Cache
+Cache_Disable_Cache
+Cache_Invalidate_Addr
+Cache_Suspend_Cache
+Cache_Resume_Cache

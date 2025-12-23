@@ -34,6 +34,7 @@ SECTIONS {
     _data_start = ABSOLUTE(.);
     *(.data)
     *(.rodata .rodata.*)
+    *(.srodata .srodata.*)
     *(.sdata .sdata.*)
     *(.sdata2 .sdata2.*)
     _data_end = ABSOLUTE(.);

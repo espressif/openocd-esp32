@@ -35,7 +35,7 @@
 #define CONFIG_ESP32H4_DEFAULT_CPU_FREQ_MHZ             96
 /* Unused by stub, just for compilation of IDF */
 #define CONFIG_PARTITION_TABLE_OFFSET                   0x8000
-#define CONFIG_MMU_PAGE_SIZE                            0x10000	/* 64KB */
+#define CONFIG_MMU_PAGE_SIZE                            0x8000	/* 32KB */
 #define CONFIG_HAL_DEFAULT_ASSERTION_LEVEL              0 /* no assert in the hal functions */
 #define CONFIG_LOG_DEFAULT_LEVEL                        0
 

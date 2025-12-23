@@ -336,7 +336,6 @@ tests_esp32h4:
       optional: true
   allow_failure: true
   variables:
-    RUNNER_SCRIPT_TIMEOUT: 5m
     CHIP_NAME: "esp32h4"
     ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
-    TEST_RUN_BOARD_OPTS: "-b esp32h4-builtin -p test_apptrace*.*Dual test_semihost*.*Dual"
+    TEST_RUN_BOARD_OPTS: "-b esp32h4-builtin -p test_*.*Dual -e *.*.test_big_binary *.*.test_big_binary_compressed"

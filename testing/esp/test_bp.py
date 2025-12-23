@@ -117,6 +117,7 @@ class BreakpointTestsImpl:
             self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay%d' % (i % 2)])
             self.readd_bps()
 
+    @skip_for_chip(['esp32h4'], "skipped - OCD-1332")
     def test_bp_ignore_count(self):
         """
             This test checks that the first several breakpoint's hits can be ignored:
@@ -226,7 +227,7 @@ class BreakpointTestsImpl:
             self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, 'test_timer_isr_func', run_bt=run_bt)
             self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, 'test_timer_isr_ram_func', run_bt=run_bt)
 
-    @skip_for_chip(['esp32c5', 'esp32c61', 'esp32p4'], 'rom-elf files are not released yet')
+    @skip_for_chip(['esp32c5', 'esp32c61', 'esp32p4', 'esp32h4'], 'rom-elf files are not released yet')
     @idf_ver_min('5.3') # idf < 5.3: gdbinit files are not generated in build time.
     def test_bp_in_rom(self):
         """
@@ -419,10 +420,12 @@ class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTes
         DebuggerGenericTestAppTestsDual.setUp(self)
         BreakpointTestsImpl.setUp(self)
 
+    @skip_for_chip(['esp32h4'], "skipped - OCD-1332")
     def test_2cores_concurrently_hit_bps(self):
         two_cores_concurrently_hit_bps(self)
 
     @skip_for_chip(['esp32p4'], "skipped - OCD-1288")
+    @skip_for_chip(['esp32h4'], "skipped - OCD-1332")
     def test_appcpu_early_hw_bps(self):
         appcpu_early_hw_bps(self)
 
@@ -509,6 +512,14 @@ class DebuggerFlashBreakpointTestsDual(DebuggerBreakpointTestsDual):
     @unittest.skip('not applicable')
     def test_appcpu_early_hw_bps(self):
         pass
+
+    @skip_for_chip(['esp32h4'], "skipped - OCD-1332")
+    def test_bp_cond_expr(self):
+        DebuggerBreakpointTestsDual.test_bp_cond_expr(self)
+
+    @skip_for_chip(['esp32h4'], "skipped - OCD-1332")
+    def test_bp_in_isr(self):
+        DebuggerBreakpointTestsDual.test_bp_in_isr(self)
 
 class DebuggerTestsSingle4MB(DebuggerGenericTestAppTestsSingle):
     """ Base class to run tests with a single core 4MB flash config

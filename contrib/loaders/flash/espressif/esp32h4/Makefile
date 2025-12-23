@@ -33,10 +33,15 @@ INCLUDES := -I$(IDF_PATH)/components/soc/esp32h4/include -I$(IDF_PATH)/component
 	-I$(IDF_PATH)/components/esp_rom/include/esp32h4 \
 	-I$(IDF_PATH)/components/esp_hw_support/port/esp32h4 \
 	-I$(IDF_PATH)/components/esp_hw_support/port/esp32h4/include \
-	-I$(IDF_PATH)/components/spi_flash/include \
 	-I$(IDF_PATH)/components/esp_rom/esp32h4 \
 	-I$(IDF_PATH)/components/esp_rom/esp32h4/include \
-	-I$(IDF_PATH)/components/esp_rom/esp32h4/include/esp32h4
+	-I$(IDF_PATH)/components/esp_rom/esp32h4/include/esp32h4 \
+	-I$(IDF_PATH)/components/soc/esp32h4/register/hw_ver_beta5 \
+	-I$(IDF_PATH)/components/soc/esp32h4/include/hw_ver_beta5 \
+	-I$(IDF_PATH)/components/esp_hal_gpio/esp32h4/include \
+	-I$(IDF_PATH)/components/esp_hal_timg/esp32h4/include \
+	-I$(IDF_PATH)/components/esp_hal_pmu/esp32h4/include \
+	-I$(IDF_PATH)/components/esp_hal_rtc_timer/esp32h4/include
 
 DEFINES :=
 

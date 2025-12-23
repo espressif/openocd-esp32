@@ -288,7 +288,7 @@ class FlasherTestsDual(DebuggerGenericTestAppTestsDual, FlasherTestsImpl):
         DebuggerGenericTestAppTestsDual.setUp(self)
         FlasherTestsImpl.setUp(self)
 
-    @skip_for_chip(['esp32p4'], "skipped - slow test")
+    @skip_for_chip(['esp32p4' ,'esp32h4'], "skipped - slow test")
     def test_big_binary_compressed(self):
         super(DebuggerGenericTestAppTestsDual, self).test_big_binary_compressed()
 
@@ -306,7 +306,7 @@ class FlasherTestsSingle(DebuggerGenericTestAppTestsSingle, FlasherTestsImpl):
         DebuggerGenericTestAppTestsSingle.setUp(self)
         FlasherTestsImpl.setUp(self)
 
-    @skip_for_chip(['esp32p4'], "skipped - slow test")
+    @skip_for_chip(['esp32p4', 'esp32h4'], "skipped - slow test")
     def test_big_binary(self):
         super(DebuggerGenericTestAppTestsSingle, self).test_big_binary()
 
