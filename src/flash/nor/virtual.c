@@ -93,34 +93,24 @@ static int virtual_erase(struct flash_bank *bank, unsigned int first,
 		unsigned int last)
 {
 	struct flash_bank *master_bank = virtual_get_master_bank(bank);
-	int retval;
 
 	if (!master_bank)
 		return ERROR_FLASH_OPERATION_FAILED;
 
 	/* call master handler */
-	retval = master_bank->driver->erase(master_bank, first, last);
-	if (retval != ERROR_OK)
-		return retval;
-
-	return ERROR_OK;
+	return master_bank->driver->erase(master_bank, first, last);
 }
 
 static int virtual_write(struct flash_bank *bank, const uint8_t *buffer,
 		uint32_t offset, uint32_t count)
 {
 	struct flash_bank *master_bank = virtual_get_master_bank(bank);
-	int retval;
 
 	if (!master_bank)
 		return ERROR_FLASH_OPERATION_FAILED;
 
 	/* call master handler */
-	retval = master_bank->driver->write(master_bank, buffer, offset, count);
-	if (retval != ERROR_OK)
-		return retval;
-
-	return ERROR_OK;
+	return master_bank->driver->write(master_bank, buffer, offset, count);
 }
 
 static int virtual_probe(struct flash_bank *bank)
@@ -177,34 +167,24 @@ static int virtual_info(struct flash_bank *bank, struct command_invocation *cmd)
 static int virtual_blank_check(struct flash_bank *bank)
 {
 	struct flash_bank *master_bank = virtual_get_master_bank(bank);
-	int retval;
 
 	if (!master_bank)
 		return ERROR_FLASH_OPERATION_FAILED;
 
 	/* call master handler */
-	retval = master_bank->driver->erase_check(master_bank);
-	if (retval != ERROR_OK)
-		return retval;
-
-	return ERROR_OK;
+	return master_bank->driver->erase_check(master_bank);
 }
 
 static int virtual_flash_read(struct flash_bank *bank,
 		uint8_t *buffer, uint32_t offset, uint32_t count)
 {
 	struct flash_bank *master_bank = virtual_get_master_bank(bank);
-	int retval;
 
 	if (!master_bank)
 		return ERROR_FLASH_OPERATION_FAILED;
 
 	/* call master handler */
-	retval = master_bank->driver->read(master_bank, buffer, offset, count);
-	if (retval != ERROR_OK)
-		return retval;
-
-	return ERROR_OK;
+	return master_bank->driver->read(master_bank, buffer, offset, count);
 }
 
 const struct flash_driver virtual_flash = {
