@@ -1310,8 +1310,8 @@ int mips32_checksum_memory(struct target *target, target_addr_t address,
 
 /** Checks whether a memory region is erased. */
 int mips32_blank_check_memory(struct target *target,
-		struct target_memory_check_block *blocks, int num_blocks,
-		uint8_t erased_value)
+		struct target_memory_check_block *blocks, unsigned int num_blocks,
+		uint8_t erased_value, unsigned int *checked)
 {
 	struct working_area *erase_check_algorithm;
 	struct reg_param reg_params[3];
@@ -1367,8 +1367,10 @@ int mips32_blank_check_memory(struct target *target,
 	retval = target_run_algorithm(target, 0, NULL, 3, reg_params, erase_check_algorithm->address,
 			erase_check_algorithm->address + (sizeof(erase_check_code) - 4), 10000, &mips32_info);
 
-	if (retval == ERROR_OK)
+	if (retval == ERROR_OK) {
 		blocks[0].result = buf_get_u32(reg_params[2].value, 0, 32);
+		*checked = 1;	/* only one block has been checked */
+	}
 
 	destroy_reg_param(&reg_params[0]);
 	destroy_reg_param(&reg_params[1]);
@@ -1377,10 +1379,7 @@ int mips32_blank_check_memory(struct target *target,
 cleanup:
 	target_free_working_area(target, erase_check_algorithm);
 
-	if (retval != ERROR_OK)
-		return retval;
-
-	return 1;       /* only one block has been checked */
+	return retval;
 }
 
 static int mips32_verify_pointer(struct command_invocation *cmd,

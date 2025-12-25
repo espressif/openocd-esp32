@@ -400,17 +400,18 @@ int default_flash_blank_check(struct flash_bank *bank)
 
 	bool fast_check = true;
 	for (unsigned int i = 0; i < bank->num_sectors; ) {
+		unsigned int checked;
 		retval = target_blank_check_memory(target,
 				block_array + i, bank->num_sectors - i,
-				bank->erased_value);
-		if (retval < 1) {
+				bank->erased_value, &checked);
+		if (retval != ERROR_OK) {
 			/* Run slow fallback if the first run gives no result
 			 * otherwise use possibly incomplete results */
 			if (i == 0)
 				fast_check = false;
 			break;
 		}
-		i += retval; /* add number of blocks done this round */
+		i += checked; /* add number of blocks done this round */
 	}
 
 	if (fast_check) {

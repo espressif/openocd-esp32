@@ -323,7 +323,8 @@ int armv4_5_run_algorithm_inner(struct target *target,
 int arm_checksum_memory(struct target *target,
 		target_addr_t address, uint32_t count, uint32_t *checksum);
 int arm_blank_check_memory(struct target *target,
-		struct target_memory_check_block *blocks, int num_blocks, uint8_t erased_value);
+		struct target_memory_check_block *blocks, unsigned int num_blocks,
+		uint8_t erased_value, unsigned int *checked);
 
 void arm_set_cpsr(struct arm *arm, uint32_t cpsr);
 struct reg *arm_reg_current(struct arm *arm, unsigned int regnum);

@@ -695,8 +695,8 @@ int target_read_buffer(struct target *target,
 int target_checksum_memory(struct target *target,
 		target_addr_t address, uint32_t size, uint32_t *crc);
 int target_blank_check_memory(struct target *target,
-		struct target_memory_check_block *blocks, int num_blocks,
-		uint8_t erased_value);
+		struct target_memory_check_block *blocks, unsigned int num_blocks,
+		uint8_t erased_value, unsigned int *checked);
 int target_wait_state(struct target *target, enum target_state state, unsigned int ms);
 
 /**

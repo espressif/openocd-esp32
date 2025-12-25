@@ -148,8 +148,8 @@ struct target_type {
 	int (*checksum_memory)(struct target *target, target_addr_t address,
 			uint32_t count, uint32_t *checksum);
 	int (*blank_check_memory)(struct target *target,
-			struct target_memory_check_block *blocks, int num_blocks,
-			uint8_t erased_value);
+			struct target_memory_check_block *blocks, unsigned int num_blocks,
+			uint8_t erased_value, unsigned int *checked);
 
 	/*
 	 * target break-/watchpoint control

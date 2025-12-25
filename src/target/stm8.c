@@ -1757,7 +1757,8 @@ static int stm8_examine(struct target *target)
 
 /** Checks whether a memory region is erased. */
 static int stm8_blank_check_memory(struct target *target,
-		struct target_memory_check_block *blocks, int num_blocks, uint8_t erased_value)
+		struct target_memory_check_block *blocks, unsigned int num_blocks,
+		uint8_t erased_value, unsigned int *checked)
 {
 	struct working_area *erase_check_algorithm;
 	struct reg_param reg_params[2];
@@ -1801,8 +1802,10 @@ static int stm8_blank_check_memory(struct target *target,
 			erase_check_algorithm->address + (sizeof(stm8_erase_check_code) - 1),
 			10000, &stm8_info);
 
-	if (retval == ERROR_OK)
+	if (retval == ERROR_OK) {
 		blocks[0].result = (*(reg_params[0].value) == 0xff);
+		*checked = 1;	/* only one block has been checked */
+	}
 
 	destroy_mem_param(&mem_params[0]);
 	destroy_mem_param(&mem_params[1]);
@@ -1811,10 +1814,7 @@ static int stm8_blank_check_memory(struct target *target,
 
 	target_free_working_area(target, erase_check_algorithm);
 
-	if (retval != ERROR_OK)
-		return retval;
-
-	return 1;	/* only one block has been checked */
+	return retval;
 }
 
 static int stm8_checksum_memory(struct target *target, target_addr_t address,

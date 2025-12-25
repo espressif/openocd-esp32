@@ -2552,8 +2552,8 @@ int target_checksum_memory(struct target *target, target_addr_t address, uint32_
 }
 
 int target_blank_check_memory(struct target *target,
-	struct target_memory_check_block *blocks, int num_blocks,
-	uint8_t erased_value)
+	struct target_memory_check_block *blocks, unsigned int num_blocks,
+	uint8_t erased_value, unsigned int *checked)
 {
 	if (!target_was_examined(target)) {
 		LOG_ERROR("Target not examined yet");
@@ -2563,7 +2563,8 @@ int target_blank_check_memory(struct target *target,
 	if (!target->type->blank_check_memory)
 		return ERROR_NOT_IMPLEMENTED;
 
-	return target->type->blank_check_memory(target, blocks, num_blocks, erased_value);
+	return target->type->blank_check_memory(target, blocks, num_blocks,
+			erased_value, checked);
 }
 
 int target_read_u64(struct target *target, target_addr_t address, uint64_t *value)

@@ -1686,7 +1686,8 @@ int arm_checksum_memory(struct target *target,
  *
  */
 int arm_blank_check_memory(struct target *target,
-	struct target_memory_check_block *blocks, int num_blocks, uint8_t erased_value)
+	struct target_memory_check_block *blocks, unsigned int num_blocks,
+	uint8_t erased_value, unsigned int *checked)
 {
 	struct working_area *check_algorithm;
 	struct reg_param reg_params[3];
@@ -1748,8 +1749,10 @@ int arm_blank_check_memory(struct target *target,
 			exit_var,
 			10000, &arm_algo);
 
-	if (retval == ERROR_OK)
+	if (retval == ERROR_OK) {
 		blocks[0].result = buf_get_u32(reg_params[2].value, 0, 32);
+		*checked = 1;	/* only one block has been checked */
+	}
 
 	destroy_reg_param(&reg_params[0]);
 	destroy_reg_param(&reg_params[1]);
@@ -1757,10 +1760,7 @@ int arm_blank_check_memory(struct target *target,
 
 	target_free_working_area(target, check_algorithm);
 
-	if (retval != ERROR_OK)
-		return retval;
-
-	return 1;       /* only one block has been checked */
+	return retval;
 }
 
 static int arm_full_context(struct target *target)
