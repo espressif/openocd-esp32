@@ -913,8 +913,8 @@ TEST_DECL(gdb_consoleio, "test_semihost.SemihostTests*.test_semihost_with_consol
 
 	fflush(stdout);
 	fflush(stderr);
-	setvbuf(stdout, NULL, _IONBF, 0);
-	setvbuf(stderr, NULL, _IONBF, 0);
+	setvbuf(stdout, NULL, _IOLBF, 0);
+	setvbuf(stderr, NULL, _IOLBF, 0);
     for (int i = 0; i < 10; i++) {
         xSemaphoreTake(g_console_mutex, pdMS_TO_TICKS(1000));
         fprintf(stdout, "CPU[%d]: Semihosted stdout write %d\n", core_id, i);
