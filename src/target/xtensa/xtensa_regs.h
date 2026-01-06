@@ -96,8 +96,8 @@ enum xtensa_reg_type {
 	XT_REG_RELGEN_VAL               = 0x0000,
 	XT_REG_FR_MASK                  = 0xFFF0,
 	XT_REG_FR_VAL                   = 0x0030,
-	XT_REG_TIE_MASK                 = 0xF000,
-	XT_REG_TIE_VAL                  = 0xF000,	/* unused */
+	XT_REG_TIE_MASK                 = 0xFFF0,
+	XT_REG_TIE_VAL                  = 0x1000,
 	XT_REG_OTHER_MASK               = 0xFFFF,
 	XT_REG_OTHER_VAL                = 0xF000,	/* unused */
 

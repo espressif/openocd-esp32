@@ -450,6 +450,15 @@ static int esp32s3_target_init(struct command_context *cmd_ctx, struct target *t
 	if (ret != ERROR_OK)
 		return ret;
 
+	struct xtensa *xtensa = target_to_xtensa(target);
+	xtensa->spill_loc = ESP32_S3_DRAM_LOW;
+	xtensa->spill_bytes = 16;
+	xtensa->spill_buf = calloc(1, xtensa->spill_bytes);
+	if (!xtensa->spill_buf) {
+		LOG_TARGET_ERROR(target, "Failed to alloc memory for spill_buf!");
+		return ERROR_FAIL;
+	}
+
 	return esp_xtensa_semihosting_init(target);
 }
 

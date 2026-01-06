@@ -343,15 +343,14 @@ static const struct stack_register_offset rtos_freertos_esp32_s3_stack_offsets[]
 	{ 117, -1, 32 },		/* ua_state_1 */
 	{ 118, -1, 32 },		/* ua_state_2 */
 	{ 119, -1, 32 },		/* ua_state_3 */
-	/* TODO fails if these are 128. Need to define user reg size during config? */
-	{ 120, -1, 32 },		/* q0 */
-	{ 121, -1, 32 },		/* q1 */
-	{ 122, -1, 32 },		/* q2 */
-	{ 123, -1, 32 },		/* q3 */
-	{ 124, -1, 32 },		/* q4 */
-	{ 125, -1, 32 },		/* q5 */
-	{ 126, -1, 32 },		/* q6 */
-	{ 127, -1, 32 },		/* q7 */
+	{ 120, -1, 128 },		/* q0 */
+	{ 121, -1, 128 },		/* q1 */
+	{ 122, -1, 128 },		/* q2 */
+	{ 123, -1, 128 },		/* q3 */
+	{ 124, -1, 128 },		/* q4 */
+	{ 125, -1, 128 },		/* q5 */
+	{ 126, -1, 128 },		/* q6 */
+	{ 127, -1, 128 },		/* q7 */
 };
 
 /* WARNING: There's some deeper magic going on when reading this. Please
@@ -666,15 +665,14 @@ static const struct stack_register_offset rtos_freertos_esp32_s3_voluntary_stack
 	{ 117, -1, 32 },		/* ua_state_1 */
 	{ 118, -1, 32 },		/* ua_state_2 */
 	{ 119, -1, 32 },		/* ua_state_3 */
-	/* TODO fails if these are 128. Need to define user reg size during config? */
-	{ 120, -1, 32 },		/* q0 */
-	{ 121, -1, 32 },		/* q1 */
-	{ 122, -1, 32 },		/* q2 */
-	{ 123, -1, 32 },		/* q3 */
-	{ 124, -1, 32 },		/* q4 */
-	{ 125, -1, 32 },		/* q5 */
-	{ 126, -1, 32 },		/* q6 */
-	{ 127, -1, 32 },		/* q7 */
+	{ 120, -1, 128 },		/* q0 */
+	{ 121, -1, 128 },		/* q1 */
+	{ 122, -1, 128 },		/* q2 */
+	{ 123, -1, 128 },		/* q3 */
+	{ 124, -1, 128 },		/* q4 */
+	{ 125, -1, 128 },		/* q5 */
+	{ 126, -1, 128 },		/* q6 */
+	{ 127, -1, 128 },		/* q7 */
 };
 
 static const struct rtos_register_stacking rtos_freertos_esp32_stacking = {

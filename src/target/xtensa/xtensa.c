@@ -504,7 +504,6 @@ static int xtensa_core_reg_set(struct reg *reg, uint8_t *buf)
 	struct xtensa *xtensa = (struct xtensa *)reg->arch_info;
 	struct target *target = xtensa->target;
 
-	assert(reg->size <= 64 && "up to 64-bit regs are supported only!");
 	if (target->state != TARGET_HALTED)
 		return ERROR_TARGET_NOT_HALTED;
 
@@ -712,6 +711,72 @@ static bool xtensa_scratch_regs_fixup(struct xtensa *xtensa, struct reg *reg_lis
 	return xtensa->scratch_ars[a_idx].intval && xtensa->scratch_ars[ar_idx].intval;
 }
 
+/*
+Bellow tables contain instruction values for TIE register access.
+Instructions using register a3 were selected:
+
+[LD|ST].QR q[0-7], a3, 0
+
+Can regenerate using tooolchain targeted for esp32s3 e.g.:
+xtensa-esp32s3-elf-as tmp.S -o test.elf
+*/
+
+static const unsigned int inst_table_r[] = {
+	0xcd6034, 0xcde034, 0xdd6034, 0xdde034, 0xed6034, 0xede034, 0xfd6034, 0xfde034
+};
+
+static const unsigned int inst_table_w[] = {
+	0xcd2034, 0xcda034, 0xdd2034, 0xdda034, 0xed2034, 0xeda034, 0xfd2034, 0xfda034
+};
+
+static int xtensa_tie_access(struct xtensa *xtensa, unsigned int regid, bool iswrite)
+{
+	assert((regid < xtensa->target->reg_cache->num_regs) && "invalid register number!");
+	struct reg *reg = &xtensa->target->reg_cache->reg_list[regid];
+	int status = xtensa_read_memory(xtensa->target, xtensa->spill_loc, 1, xtensa->spill_bytes, xtensa->spill_buf);
+	if (status != ERROR_OK) {
+		LOG_TARGET_ERROR(xtensa->target, "Failed to save spill memory");
+		return ERROR_FAIL;
+	}
+
+	if (iswrite) {
+		status = xtensa_write_memory(xtensa->target, xtensa->spill_loc, 1, reg->size / 8, reg->value);
+		if (status != ERROR_OK) {
+			LOG_TARGET_ERROR(xtensa->target, "Failed to store TIE value");
+			return status;
+		}
+	}
+	xtensa_queue_dbg_reg_write(xtensa, XDMREG_DDR, xtensa->spill_loc);
+	xtensa_queue_exec_ins(xtensa, XT_INS_RSR(xtensa, XT_SR_DDR, XT_REG_A3));
+	xtensa_queue_exec_ins(xtensa, (iswrite ? inst_table_w : inst_table_r)[(reg->number & 0xf) - 8]);
+
+	status = xtensa_dm_queue_execute(&xtensa->dbg_mod);
+	if (status != ERROR_OK) {
+		LOG_TARGET_ERROR(xtensa->target, "Failed to execute TIE queue: %d\n", status);
+		return status;
+	}
+	status = xtensa_core_status_check(xtensa->target);
+	if (status != ERROR_OK) {
+		LOG_TARGET_ERROR(xtensa->target, "Failed to execute TIE instr: %d\n", status);
+		return status;
+	}
+
+	if (!iswrite) {
+		status = xtensa_read_memory(xtensa->target, xtensa->spill_loc, 1, reg->size / 8, reg->value);
+		if (status != ERROR_OK) {
+			LOG_TARGET_ERROR(xtensa->target, "Failed to read TIE result");
+			return status;
+		}
+	}
+
+	status = xtensa_write_memory(xtensa->target, xtensa->spill_loc, 1, xtensa->spill_bytes, xtensa->spill_buf);
+	if (status != ERROR_OK) {
+		LOG_TARGET_ERROR(xtensa->target, "Failed to restore spill memory");
+		return status;
+	}
+	return ERROR_OK;
+}
+
 static int xtensa_write_dirty_registers(struct target *target)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
@@ -738,7 +803,8 @@ static int xtensa_write_dirty_registers(struct target *target)
 		if (reg_list[i].dirty) {
 			if (rlist[ridx].type == XT_REG_SPECIAL ||
 				rlist[ridx].type == XT_REG_USER ||
-				rlist[ridx].type == XT_REG_FR) {
+				rlist[ridx].type == XT_REG_FR ||
+				rlist[ridx].type == XT_REG_TIE) {
 				scratch_reg_dirty = true;
 				if (i == XT_REG_IDX_CPENABLE) {
 					delay_cpenable = true;
@@ -757,6 +823,10 @@ static int xtensa_write_dirty_registers(struct target *target)
 						xtensa_queue_exec_ins(xtensa, XT_INS_WUR(xtensa, reg_num, XT_REG_A3));
 					} else if (rlist[ridx].type == XT_REG_FR) {
 						xtensa_queue_exec_ins(xtensa, XT_INS_WFR(xtensa, reg_num, XT_REG_A3));
+					} else if (rlist[ridx].type == XT_REG_TIE) {
+						res = xtensa_tie_access(xtensa, i, true);
+						if (res != ERROR_OK)
+							return res;
 					} else {/*SFR */
 						if (reg_num == XT_PC_REG_NUM_VIRTUAL) {
 							if (xtensa->core_config->core_type == XT_LX) {
@@ -1386,6 +1456,12 @@ int xtensa_fetch_all_regs(struct target *target)
 			case XT_REG_FR:
 				xtensa_queue_exec_ins(xtensa, XT_INS_RFR(xtensa, reg_num, XT_REG_A3));
 				break;
+			case XT_REG_TIE:
+				res = xtensa_tie_access(xtensa, i, false);
+				if (res != ERROR_OK)
+					return res;
+				reg_fetched = false;
+				break;
 			case XT_REG_SPECIAL:
 				if (reg_num == XT_PC_REG_NUM_VIRTUAL) {
 					if (xtensa->core_config->core_type == XT_LX) {
@@ -1478,7 +1554,7 @@ int xtensa_fetch_all_regs(struct target *target)
 					xtensa_reg_val_t regval = buf_get_u32(regvals[rlist[ridx].reg_num].buf, 0, 32);
 					LOG_DEBUG("%s = 0x%x", rlist[ridx].name, regval);
 				}
-			} else {
+			} else if (rlist[ridx].type != XT_REG_TIE) {
 				xtensa_reg_val_t regval = buf_get_u32(regvals[i].buf, 0, 32);
 				bool is_dirty = (i == XT_REG_IDX_CPENABLE);
 				if (xtensa_extra_debug_log)
@@ -3040,8 +3116,8 @@ static int xtensa_build_reg_cache(struct target *target)
 		for (unsigned int i = 0; i < listsize; i++, didx++) {
 			reg_list[didx].exist = rlist[i].exist;
 			reg_list[didx].name = rlist[i].name;
-			reg_list[didx].size = 32;
-			reg_list[didx].value = calloc(1, 4 /*XT_REG_LEN*/);	/* make Clang Static Analyzer happy */
+			reg_list[didx].size = rlist[i].type == XT_REG_TIE ? 128 : 32;
+			reg_list[didx].value = calloc(1, reg_list[didx].size / 8);
 			if (!reg_list[didx].value) {
 				LOG_ERROR("Failed to alloc reg list value!");
 				goto fail;
@@ -4044,7 +4120,7 @@ COMMAND_HELPER(xtensa_cmd_xtreg_do, struct xtensa *xtensa)
 			rptr->type = XT_REG_RELGEN;
 			rptr->reg_num += XT_REG_IDX_ARFIRST;
 			rptr->dbreg_num += XT_REG_IDX_ARFIRST;
-		} else if ((regnum & XT_REG_TIE_MASK) != 0) {
+		} else if ((regnum & XT_REG_TIE_MASK) == XT_REG_TIE_VAL) {
 			rptr->type = XT_REG_TIE;
 		} else {
 			rptr->type = XT_REG_OTHER;
