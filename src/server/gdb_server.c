@@ -1432,8 +1432,14 @@ static int gdb_get_register_packet(struct connection *connection,
 
 	if ((reg_list_size <= reg_num) || !reg_list[reg_num] ||
 		!reg_list[reg_num]->exist || reg_list[reg_num]->hidden) {
-		LOG_ERROR("gdb requested a non-existing register (reg_num=%d)", reg_num);
-		return ERROR_SERVER_REMOTE_CLOSED;
+		free(reg_list);
+		/* Espressif - do not return ERROR_SERVER_REMOTE_CLOSED here.
+		 * We have to handle case with different register sets within a SMP group for LP cores.
+		 * As GDB only gets a single register description, it can ask for non-existent registers.
+		 */
+		LOG_DEBUG("gdb requested a non-existing register (reg_num=%d)", reg_num);
+		gdb_put_packet(connection, "E01", 3);
+		return ERROR_OK;
 	}
 
 	reg_packet = calloc(DIV_ROUND_UP(reg_list[reg_num]->size, 8) * 2 + 1, 1); /* plus one for string termination null */

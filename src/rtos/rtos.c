@@ -576,6 +576,7 @@ int rtos_get_gdb_reg(struct connection *connection, int reg_num)
 			retval = target->rtos->type->get_thread_reg(target->rtos,
 					current_threadid, reg_num, &reg_list[0]);
 			if (retval != ERROR_OK) {
+				free(reg_list);
 				LOG_ERROR("RTOS: failed to get register %d", reg_num);
 				return retval;
 			}
