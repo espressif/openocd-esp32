@@ -44,7 +44,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: install deps
-        run: sudo apt-get install libudev-dev systemd --force-yes -y
+        run: |
+          sudo apt update
+          sudo apt-get install libudev-dev systemd --force-yes -y
       - name: Build and Upload OpenOCD artifact
         uses: ./.github/actions/common-build-steps
         with:
@@ -55,7 +57,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: install deps
-        run: sudo apt-get install libtool-bin libudev-dev gcc-mingw-w64-i686
+        run: |
+          sudo apt update
+          sudo apt-get install libtool-bin libudev-dev gcc-mingw-w64-i686
       - name: Build and Upload OpenOCD artifact
         uses: ./.github/actions/common-build-steps
         with:
