@@ -13,7 +13,6 @@
       - $TEST_RUN_DIR/debug_backend_tests.log
       - $TEST_RUN_DIR/esp_cov_files
       - $TEST_RUN_DIR/sanitizer_errors.log
-      - $TEST_RUN_DIR/results
     reports:
       junit:
         - $TEST_RUN_DIR/results/*
@@ -74,8 +73,6 @@
     - mkdir ${TEST_RUN_DIR}/esp_cov_files
     - rsync -a --prune-empty-dirs --include '*/' ${command_arg} --exclude '*' ${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}/_build ${TEST_RUN_DIR}/esp_cov_files
     - cp ${PWD}/${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}/bin/gcov ${TEST_RUN_DIR}/esp_cov_files
-    # Patch up test reports to include IDF_RELEASE_TAG and CHIP_NAME in the test name
-    - sed ${TEST_RUN_DIR}/results/*.xml -i -e "s/testcase classname=\"/testcase classname=\"${IDF_RELEASE_TAG}-${CHIP_NAME}./g"
 
 .tests_master_template:
   extends: .tests_template
