@@ -378,6 +378,12 @@ class Gdb(object):
 
     def get_reg(self, nm):
         sval = self.data_eval_expr('$%s' % nm)
+        if sval.count('{') == 1:
+            # in case of simple vector return list of integers
+            return list(map(int, sval[1:-1].split(', ')))
+        if '{' in sval:
+            # in case of union-vector type, last element in the union should be an integer
+            sval = sval.split()[-1][:-1]
         if ' ' in sval:
             # for priv we get something like "0 '\\000'"
             sval = sval.split()[0]

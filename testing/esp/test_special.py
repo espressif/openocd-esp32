@@ -2,6 +2,7 @@ import json
 import logging
 import unittest
 import subprocess
+import random
 import re
 import debug_backend as dbg
 from debug_backend_tests import *
@@ -275,6 +276,65 @@ class DebuggerSpecialTestsImpl:
             self.gdb.target_reset()
             self.add_bp('app_main')
             self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
+
+    @only_for_chip(['esp32p4'])
+    def test_pie_registers(self):
+        """
+            This test checks that PIE registers are accessed correctly.
+            1) Select appropriate sub-test number on target.
+            2) Check expected value of registers set by program after a PIE multiplication instruction executes.
+            3) Set new register values from debugger.
+            4) Check again after a PIE multiplication instruction executes, that the registers were updated correctly.
+        """
+        def int128_to_v8_int16(n):
+            return [(n >> (16 * i)) & 0xFFFF for i in reversed(range(8))]
+
+        def get_quacc():
+            qacc = self.gdb.get_reg('custom_qacc_l_l.v2_int64') + self.gdb.get_reg('custom_qacc_l_h.v2_int64') \
+                + self.gdb.get_reg('custom_qacc_h_l.v2_int64') + self.gdb.get_reg('custom_qacc_h_h.v2_int64')
+            return list(reversed(qacc))
+
+        def clear_quacc():
+            self.gdb.set_reg('custom_qacc_l_l.uint128', '0')
+            self.gdb.set_reg('custom_qacc_l_h.uint128', '0')
+            self.gdb.set_reg('custom_qacc_h_l.uint128', '0')
+            self.gdb.set_reg('custom_qacc_h_h.uint128', '0')
+            self.assertEqual(sum(get_quacc()), 0)
+
+        def set_q0(val):
+            hex_str = format(val,'032x')
+            self.gdb.set_reg('custom_q0.v2_int64', '{0x' + hex_str[16:] + ', 0x' + hex_str[:16] + '}')
+            self.assertEqual(self.gdb.get_reg('custom_q0.uint128'), val)
+
+        def set_q1(val):
+            hex_str = format(val,'032x')
+            self.gdb.set_reg('custom_q1.v2_int64', '{0x' + hex_str[16:] + ', 0x' + hex_str[:16] + '}')
+            self.assertEqual(self.gdb.get_reg('custom_q1.uint128'), val)
+
+
+        def check_mul(src1, src2):
+            src_vec1 = int128_to_v8_int16(src1)
+            src_vec2 = int128_to_v8_int16(src2)
+            qacc = get_quacc()
+            for i in range(8):
+                self.assertEqual(src_vec1[i] * src_vec2[i], qacc[i])
+
+        self.add_bp('pie_multiply')
+        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'pie_multiply', ['pie_multiply'], outmost_func_name='pie_registers_task')
+
+        # Multiply with q0, q1 set by program ({0, 1, 2, ...}, {4, 5, 6, ...})
+        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'pie_multiply', ['pie_multiply'], outmost_func_name='pie_registers_task')
+        check_mul(0x70006000500040003000200010000, 0xf000e000d000c000b000a00090008)
+
+        a = random.getrandbits(128)
+        b = random.getrandbits(128)
+        set_q0(a)
+        set_q1(b)
+        clear_quacc()
+
+        # Multiply random numbers set from debugger
+        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'pie_multiply', ['pie_multiply'], outmost_func_name='pie_registers_task')
+        check_mul(a, b)
 
 
 @only_for_chip(["esp32", "esp32s2", "esp32s3", "esp32c5", "esp32c61"], 'skipped - OCD-1154')

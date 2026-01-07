@@ -304,6 +304,28 @@ TEST_DECL(abort_ex, "test_special.DebuggerSpecialTests*.test_exception_abort")
 	abort();
 }
 
+#if CONFIG_IDF_TARGET_ESP32P4
+static void pie_multiply() {
+    __asm__ __volatile__ ("esp.vmulas.u16.qacc q0,q1");
+}
+
+TEST_DECL(pie_registers, "test_special.DebuggerSpecialTests*.test_pie_registers")
+{
+    uint16_t reg_val0[] = {0, 1, 2, 3, 4, 5, 6, 7};
+    uint16_t reg_val1[] = {8, 9, 10, 11, 12, 13, 14, 15};
+    __asm__ __volatile__ (
+        "csrsi 0x7F2, 0x1\n" // mext_pie_status.STATE = INITIAL
+        "mv a0, %0\n"
+        "mv a1, %1\n"
+        "esp.vld.128.ip q0, a0, 0\n"
+        "esp.vld.128.ip q1, a1, 0" :: "r"(&reg_val0), "r"(&reg_val1) : "a0", "a1"
+    );
+    while (1) {
+        pie_multiply(); TEST_BREAK_LOC(pie_multiply);
+    }
+}
+#endif
+
 ut_result_t special_test_do(int test_num, int core_num)
 {
     if (core_num < 0 || core_num >= portNUM_PROCESSORS)
@@ -343,6 +365,10 @@ ut_result_t special_test_do(int test_num, int core_num)
         xTaskCreatePinnedToCore(TEST_ENTRY(gh264_psram_check), "gh264_psram_check_task", 4096, NULL, 5, NULL, core_num);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(psram_with_flash_breakpoints), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(psram_with_flash_breakpoints), "psram_task", 4096, NULL, 5, NULL, core_num);
+#if CONFIG_IDF_TARGET_ESP32P4
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(pie_registers), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(pie_registers), "pie_registers", 4096, NULL, 5, NULL, core_num);
+#endif
     } else {
         return UT_UNSUPPORTED;
     }
