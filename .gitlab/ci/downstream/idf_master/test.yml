@@ -13,7 +13,7 @@ tests_esp32:
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e test_*.*Encrypted"
 
-.tests_esp32_flash_encrypted:
+tests_esp32_flash_encrypted:
   extends: .tests_master_template
   tags:
     - test_jtag_arm_flash_encryption
@@ -26,7 +26,9 @@ tests_esp32:
     - job: fetch_gcov
     - job: fetch_gdb
       optional: true
+  allow_failure: true
   variables:
+    RUNNER_SCRIPT_TIMEOUT: 10m
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
 
@@ -262,6 +264,7 @@ tests_esp32p4:
     CHIP_NAME: "esp32p4"
     TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.LpCore* test_*.*Encrypted"
 
+# TODO OCD-1315
 .tests_esp32p4_lpcore:
   extends: tests_esp32p4
   variables:
@@ -276,6 +279,7 @@ tests_esp32p4_usj:
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.LpCore* test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
 
+# TODO OCD-1315
 .tests_esp32p4_lpcore_usj:
   extends: tests_esp32p4_usj
   variables:
@@ -330,7 +334,9 @@ tests_esp32h4:
     - job: fetch_gcov
     - job: fetch_gdb
       optional: true
+  allow_failure: true
   variables:
+    RUNNER_SCRIPT_TIMEOUT: 5m
     CHIP_NAME: "esp32h4"
     ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32h4-builtin -p test_apptrace*.*Dual test_semihost*.*Dual"

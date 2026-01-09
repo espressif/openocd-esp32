@@ -10,7 +10,7 @@ tests_esp32_idf5.3.x:
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e test_*.*Encrypted"
 
-.tests_esp32_idf5.3.x_flash_encrypted:
+tests_esp32_idf5.3.x_flash_encrypted:
   extends: .tests_v5.3.x_template
   tags:
     - test_jtag_arm_flash_encryption
@@ -20,7 +20,9 @@ tests_esp32_idf5.3.x:
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
+  allow_failure: true
   variables:
+    RUNNER_SCRIPT_TIMEOUT: 10m
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
 

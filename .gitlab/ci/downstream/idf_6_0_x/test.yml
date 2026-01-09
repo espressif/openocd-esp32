@@ -11,7 +11,7 @@ tests_esp32_idf6.0.x:
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e test_*.*Encrypted"
 
-.tests_esp32_idf6.0.x_flash_encrypted:
+tests_esp32_idf6.0.x_flash_encrypted:
   extends: .tests_v6.0.x_template
   tags:
     - test_jtag_arm_flash_encryption
@@ -22,7 +22,9 @@ tests_esp32_idf6.0.x:
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
     - job: fetch_gcov
+  allow_failure: true
   variables:
+    RUNNER_SCRIPT_TIMEOUT: 10m
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
 
@@ -218,6 +220,7 @@ tests_esp32p4_idf6.0.x:
     CHIP_NAME: "esp32p4"
     TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.LpCore* test_*.*Encrypted"
 
+# TODO OCD-1315
 .tests_esp32p4_idf6.0.x_lpcore:
   extends: tests_esp32p4_idf6.0.x
   variables:
