@@ -324,6 +324,30 @@ TEST_DECL(pie_registers, "test_special.DebuggerSpecialTests*.test_pie_registers"
         pie_multiply(); TEST_BREAK_LOC(pie_multiply);
     }
 }
+#elif CONFIG_IDF_TARGET_ESP32S3
+static void pie_multiply() {
+    __asm__ __volatile__ ("EE.VMULAS.U16.QACC q0,q1");
+}
+
+TEST_DECL(pie_registers, "test_special.DebuggerSpecialTests*.test_pie_registers")
+{
+    asm volatile (
+        "rsr.cpenable a4\n"
+        "movi a0, 2\n"
+        "or a4, a4, a0\n"
+        "wsr.cpenable a4\n"
+        "rsync\n":::"a0", "a4"
+    );
+    uint16_t reg_val0[] = {0, 1, 2, 3, 4, 5, 6, 7};
+    uint16_t reg_val1[] = {8, 9, 10, 11, 12, 13, 14, 15};
+    __asm__ __volatile__ (
+        "LD.QR q0, %0, 0\n"
+        "LD.QR q1, %1, 0" :: "r"(&reg_val0), "r"(&reg_val1)
+    );
+    while (1) {
+        pie_multiply(); TEST_BREAK_LOC(pie_multiply);
+    }
+}
 #endif
 
 ut_result_t special_test_do(int test_num, int core_num)
@@ -365,7 +389,7 @@ ut_result_t special_test_do(int test_num, int core_num)
         xTaskCreatePinnedToCore(TEST_ENTRY(gh264_psram_check), "gh264_psram_check_task", 4096, NULL, 5, NULL, core_num);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(psram_with_flash_breakpoints), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(psram_with_flash_breakpoints), "psram_task", 4096, NULL, 5, NULL, core_num);
-#if CONFIG_IDF_TARGET_ESP32P4
+#if CONFIG_IDF_TARGET_ESP32P4 || CONFIG_IDF_TARGET_ESP32S3
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(pie_registers), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(pie_registers), "pie_registers", 4096, NULL, 5, NULL, core_num);
 #endif

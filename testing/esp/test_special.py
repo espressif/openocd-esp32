@@ -277,7 +277,7 @@ class DebuggerSpecialTestsImpl:
             self.add_bp('app_main')
             self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
 
-    @only_for_chip(['esp32p4'])
+    @only_for_chip(['esp32p4', 'esp32s3'])
     def test_pie_registers(self):
         """
             This test checks that PIE registers are accessed correctly.
@@ -289,27 +289,49 @@ class DebuggerSpecialTestsImpl:
         def int128_to_v8_int16(n):
             return [(n >> (16 * i)) & 0xFFFF for i in reversed(range(8))]
 
-        def get_quacc():
-            qacc = self.gdb.get_reg('qacc_l_l.v2_int64') + self.gdb.get_reg('qacc_l_h.v2_int64') \
-                + self.gdb.get_reg('qacc_h_l.v2_int64') + self.gdb.get_reg('qacc_h_h.v2_int64')
-            return list(reversed(qacc))
+        def int160_to_v4_int40(n):
+            return [(n >> (40 * i)) & 0xFFFFFFFFFF for i in reversed(range(4))]
 
-        def clear_quacc():
-            self.gdb.set_reg('qacc_l_l.uint128', '0')
-            self.gdb.set_reg('qacc_l_h.uint128', '0')
-            self.gdb.set_reg('qacc_h_l.uint128', '0')
-            self.gdb.set_reg('qacc_h_h.uint128', '0')
-            self.assertEqual(sum(get_quacc()), 0)
+        reg_len = 128
+        if testee_info.arch == "xtensa":
+            reg_len = 64 # test lower 64bits only as we cannot set higher values from GDB yet
+            def get_quacc():
+                return int160_to_v4_int40(self.gdb.get_reg('qacc_h')) + int160_to_v4_int40(self.gdb.get_reg('qacc_l'))
 
-        def set_q0(val):
-            hex_str = format(val,'032x')
-            self.gdb.set_reg('q0.v2_int64', '{0x' + hex_str[16:] + ', 0x' + hex_str[:16] + '}')
-            self.assertEqual(self.gdb.get_reg('q0.uint128'), val)
+            def clear_quacc():
+                self.gdb.set_reg('qacc_h', '0')
+                self.gdb.set_reg('qacc_l', '0')
+                self.assertEqual(sum(get_quacc()), 0)
 
-        def set_q1(val):
-            hex_str = format(val,'032x')
-            self.gdb.set_reg('q1.v2_int64', '{0x' + hex_str[16:] + ', 0x' + hex_str[:16] + '}')
-            self.assertEqual(self.gdb.get_reg('q1.uint128'), val)
+            def set_q0(val):
+                self.gdb.set_reg('q0', hex(val))
+                self.assertEqual(self.gdb.get_reg('q0'), val)
+
+            def set_q1(val):
+                self.gdb.set_reg('q1', hex(val))
+                self.assertEqual(self.gdb.get_reg('q1'), val)
+        else:
+            def get_quacc():
+                qacc = self.gdb.get_reg('qacc_l_l.v2_int64') + self.gdb.get_reg('qacc_l_h.v2_int64') \
+                    + self.gdb.get_reg('qacc_h_l.v2_int64') + self.gdb.get_reg('qacc_h_h.v2_int64')
+                return list(reversed(qacc))
+
+            def clear_quacc():
+                self.gdb.set_reg('qacc_l_l.uint128', '0')
+                self.gdb.set_reg('qacc_l_h.uint128', '0')
+                self.gdb.set_reg('qacc_h_l.uint128', '0')
+                self.gdb.set_reg('qacc_h_h.uint128', '0')
+                self.assertEqual(sum(get_quacc()), 0)
+
+            def set_q0(val):
+                hex_str = format(val,'032x')
+                self.gdb.set_reg('q0.v2_int64', '{0x' + hex_str[16:] + ', 0x' + hex_str[:16] + '}')
+                self.assertEqual(self.gdb.get_reg('q0.uint128'), val)
+
+            def set_q1(val):
+                hex_str = format(val,'032x')
+                self.gdb.set_reg('q1.v2_int64', '{0x' + hex_str[16:] + ', 0x' + hex_str[:16] + '}')
+                self.assertEqual(self.gdb.get_reg('q1.uint128'), val)
 
 
         def check_mul(src1, src2):
@@ -326,8 +348,8 @@ class DebuggerSpecialTestsImpl:
         self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'pie_multiply', ['pie_multiply'], outmost_func_name='pie_registers_task')
         check_mul(0x70006000500040003000200010000, 0xf000e000d000c000b000a00090008)
 
-        a = random.getrandbits(128)
-        b = random.getrandbits(128)
+        a = random.getrandbits(reg_len)
+        b = random.getrandbits(reg_len)
         set_q0(a)
         set_q1(b)
         clear_quacc()
