@@ -460,6 +460,7 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
             2) Uses GDB command to check that registers have expected values
         """
         regs = self.gdb.get_reg_names()
+        ocd_regs = [x.split()[1] for x in self.oocd.cmd_exec("reg").strip().split('\n')]
         i = 0
 
         # GDB sets registers in current thread, here we assume that it always belongs to CPU0
@@ -499,7 +500,10 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
                 self.assertEqual(ocd_val, gdb_val)
 
         for reg in regs:
-            if (len(reg) == 0):
+            if len(reg) == 0:
+                continue
+
+            if testee_info.arch == "xtensa" and (reg not in ocd_regs or reg in [f'a{i}' for i in range(16)]):
                 continue
 
             # slow counters are not suitable for this test
@@ -515,9 +519,6 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
                 # set to reasonable value, because GDB tries to read memory @ pc
                 set_reg_and_check(reg, 0x40000400)
                 continue
-
-            if reg == 'mmid' or reg == 'q0':
-                break
 
             set_reg_and_check(reg, 0)
             set_reg_and_check(reg, 0xffffffff)
