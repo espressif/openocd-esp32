@@ -23,7 +23,7 @@
 
 .buildx_libusb: &buildx_libusb |
   export LIBUSB_VER=libusb-1.0.29
-  wget https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
+  wget -nv https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
   tar xzf $LIBUSB_VER.tar.gz && rm $LIBUSB_VER.tar.gz
   pushd $LIBUSB_VER
   ./bootstrap.sh
@@ -36,7 +36,7 @@
 
 .buildx_hidapi: &buildx_hidapi |
   export HIDAPI_VER=hidapi-0.14.0
-  wget https://dl.espressif.com/dl/hidapi-$HIDAPI_VER.tar.gz -O $HIDAPI_VER.tar.gz
+  wget -nv https://dl.espressif.com/dl/hidapi-$HIDAPI_VER.tar.gz -O $HIDAPI_VER.tar.gz
   tar xzf $HIDAPI_VER.tar.gz && rm $HIDAPI_VER.tar.gz
   pushd hidapi-$HIDAPI_VER
   ./bootstrap
@@ -48,7 +48,7 @@
 # TODO: just for boilerplate. Not tested on windows and macos yet.
 .buildx_libftdi: &buildx_libftdi |
   export LIBFTDI_VER=libftdi1-1.5
-  wget https://dl.espressif.com/dl/${LIBFTDI_VER}.tar.bz2
+  wget -nv https://dl.espressif.com/dl/${LIBFTDI_VER}.tar.bz2
   tar -xjf ${LIBFTDI_VER}.tar.bz2 && rm ${LIBFTDI_VER}.tar.bz2
   pushd $LIBFTDI_VER
   DIST_PATH=$(printf '%s\n' "$PWD/dist" | sed -e 's/[\/&]/\\&/g')
@@ -61,7 +61,7 @@
 
 .buildx_zlib: &buildx_zlib |
   export ZLIB_VER=zlib-1.2.11
-  wget https://dl.espressif.com/dl/$ZLIB_VER.tar.xz -O $ZLIB_VER.tar.xz
+  wget -nv https://dl.espressif.com/dl/$ZLIB_VER.tar.xz -O $ZLIB_VER.tar.xz
   tar xf $ZLIB_VER.tar.xz && rm $ZLIB_VER.tar.xz
   pushd $ZLIB_VER
   make -f win32/Makefile.gcc BINARY_PATH=$PWD/dist/bin INCLUDE_PATH=$PWD/dist/include LIBRARY_PATH=$PWD/dist/lib SHARED_MODE=0 PREFIX=${CONF_HOST}- install
@@ -71,7 +71,7 @@
 
 .buildx_libjaylink: &buildx_libjaylink |
   export LIBJAYLINK_VER=libjaylink-0.3.1
-  wget https://dl.espressif.com/dl/$LIBJAYLINK_VER.tar.gz -O $LIBJAYLINK_VER.tar.gz
+  wget -nv https://dl.espressif.com/dl/$LIBJAYLINK_VER.tar.gz -O $LIBJAYLINK_VER.tar.gz
   tar xzf $LIBJAYLINK_VER.tar.gz && rm $LIBJAYLINK_VER.tar.gz
   pushd $LIBJAYLINK_VER
   if [ $PLATFORM_NAME == "windows-arm64" ]; then
@@ -85,7 +85,7 @@
 
 .buildx_jimtcl: &buildx_jimtcl |
   export JIMTCL_VER=jimtcl-0.83
-  wget https://dl.espressif.com/dl/$JIMTCL_VER.tar.gz -O $JIMTCL_VER.tar.gz
+  wget -nv https://dl.espressif.com/dl/$JIMTCL_VER.tar.gz -O $JIMTCL_VER.tar.gz
   tar xzf $JIMTCL_VER.tar.gz && rm $JIMTCL_VER.tar.gz
   pushd $JIMTCL_VER
   if [ ${PLATFORM_NAME:-} == "windows-arm64" ]; then

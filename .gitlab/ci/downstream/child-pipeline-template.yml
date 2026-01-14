@@ -76,7 +76,7 @@ fetch_gcov:
         dest=gcov/${toolchain_version}-gcov/${platform};
         mkdir -p ${dest}/bin;
         for arch in riscv32 xtensa; do
-          wget https://github.com/espressif/crosstool-NG/releases/download/${toolchain_version}/${arch}-esp-elf-${toolchain_suffix}-${platform}.tar.gz -O toolchain.tar.gz;
+          wget -nv https://github.com/espressif/crosstool-NG/releases/download/${toolchain_version}/${arch}-esp-elf-${toolchain_suffix}-${platform}.tar.gz -O toolchain.tar.gz;
           tar -xzf toolchain.tar.gz;
           cp ${arch}-esp-elf/bin/${arch}-esp*-elf-gcov ${dest}/bin;
           mkdir -p ${dest}/lib/gcc/${arch}-esp-elf/${gcc_version};

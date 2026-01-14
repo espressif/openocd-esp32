@@ -32,7 +32,7 @@ runs:
 
         # LIBUSB
         export LIBUSB_VER=libusb-1.0.26
-        cd $DL_DIR && wget https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
+        cd $DL_DIR && wget -nv https://dl.espressif.com/dl/$LIBUSB_VER.tar.gz -O $LIBUSB_VER.tar.gz
         tar xzf $LIBUSB_VER.tar.gz && rm $LIBUSB_VER.tar.gz && pushd $LIBUSB_VER && ./bootstrap.sh
         ./configure --prefix="$PREFIX" --host=${CONF_HOST} --enable-shared=no --enable-static=yes CC=${HOST_CC}
         make install
@@ -41,7 +41,7 @@ runs:
 
         # HIDAPI
         export HIDAPI_VER=hidapi-0.14.0
-        cd $DL_DIR && wget https://dl.espressif.com/dl/hidapi-$HIDAPI_VER.tar.gz -O $HIDAPI_VER.tar.gz
+        cd $DL_DIR && wget -nv https://dl.espressif.com/dl/hidapi-$HIDAPI_VER.tar.gz -O $HIDAPI_VER.tar.gz
         tar xzf $HIDAPI_VER.tar.gz && rm $HIDAPI_VER.tar.gz && pushd hidapi-$HIDAPI_VER && ./bootstrap
         ./configure --prefix="$PREFIX" --host=${CONF_HOST} --enable-shared=no --enable-static=yes --disable-testgui CC=${HOST_CC} CFLAGS=-std=gnu99
         make install
@@ -49,7 +49,7 @@ runs:
 
         # LIBJAYLINK
         export LIBJAYLINK_VER=libjaylink-0.3.1
-        cd $DL_DIR && wget https://dl.espressif.com/dl/$LIBJAYLINK_VER.tar.gz -O $LIBJAYLINK_VER.tar.gz
+        cd $DL_DIR && wget -nv https://dl.espressif.com/dl/$LIBJAYLINK_VER.tar.gz -O $LIBJAYLINK_VER.tar.gz
         tar xzf $LIBJAYLINK_VER.tar.gz && rm $LIBJAYLINK_VER.tar.gz && pushd $LIBJAYLINK_VER
         ./autogen.sh
         ./configure --prefix="$PREFIX" --host=${CONF_HOST} --disable-shared CC=${HOST_CC}
@@ -59,7 +59,7 @@ runs:
         # ZLIB (Windows only)
         if [[ $ARCH == "windows" ]]; then
           export ZLIB_VER=zlib-1.2.11
-          cd $DL_DIR && wget https://dl.espressif.com/dl/$ZLIB_VER.tar.xz -O $ZLIB_VER.tar.xz
+          cd $DL_DIR && wget -nv https://dl.espressif.com/dl/$ZLIB_VER.tar.xz -O $ZLIB_VER.tar.xz
           tar xf $ZLIB_VER.tar.xz && rm $ZLIB_VER.tar.xz && pushd $ZLIB_VER
           make -f win32/Makefile.gcc BINARY_PATH=$PREFIX/lib INCLUDE_PATH=$PREFIX/include/zlib LIBRARY_PATH=$PREFIX/lib SHARED_MODE=0 PREFIX=${CONF_HOST}- install
           export CPPFLAGS="-I$PREFIX/include/zlib"
@@ -69,7 +69,7 @@ runs:
 
         # JIMTCL
         export JIMTCL_VER=jimtcl-0.83
-        cd $DL_DIR && wget https://dl.espressif.com/dl/$JIMTCL_VER.tar.gz -O $JIMTCL_VER.tar.gz
+        cd $DL_DIR && wget -nv https://dl.espressif.com/dl/$JIMTCL_VER.tar.gz -O $JIMTCL_VER.tar.gz
         tar xzf $JIMTCL_VER.tar.gz && rm $JIMTCL_VER.tar.gz && pushd $JIMTCL_VER
         ./configure --prefix="$PREFIX" --host=${CONF_HOST} --disable-shared CC=${HOST_CC}
         make
