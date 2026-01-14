@@ -21,7 +21,13 @@
   export BATCH_BUILD=1
   export V=0
 
-  # Check if having custom idf branch
+  IDF_REPO_URL="https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git"
+
+  # -----------------------------
+  # Decide custom IDF branch (based on docker image + vars)
+  # -----------------------------
+  TEST_APP_CUSTOM_BRANCH=""
+
   if [ "${TEST_APP_IDF_DOCKER_IMAGE}" = "${TEST_APP_IDF_LATEST_DOCKER_IMAGE}" ]; then
     if  [ -n "${TEST_APP_IDF_MASTER_BRANCH:-}" ]; then
       TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF_MASTER_BRANCH"
@@ -43,23 +49,56 @@
     TEST_APP_CUSTOM_BRANCH="$TEST_APP_IDF5_1_BRANCH"
   fi
 
-  # Use custom idf in case custom branch is present
-  if [ -n "${TEST_APP_CUSTOM_BRANCH:-}" ]; then
-    echo "TEST_APP_CUSTOM_BRANCH=$TEST_APP_CUSTOM_BRANCH"
-    pushd $BUILD_TEST_APP_DIR
-    # Clone esp-idf
-    git clone --shallow-submodules --recursive --single-branch --branch $TEST_APP_CUSTOM_BRANCH -- https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git esp-idf
+  # -----------------------------
+  # Decide IDF ref to checkout (commit wins over branch)
+  # -----------------------------
+  IDF_REF=""
+  if [ -n "${TEST_APP_IDF_COMMIT:-}" ]; then
+    IDF_REF="${TEST_APP_IDF_COMMIT}"
+  elif [ -n "${TEST_APP_CUSTOM_BRANCH:-}" ]; then
+    IDF_REF="${TEST_APP_CUSTOM_BRANCH}"
+  fi
+
+  # -----------------------------
+  # Use custom IDF if ref is present
+  # -----------------------------
+  if [ -n "${IDF_REF:-}" ]; then
+    pushd "$BUILD_TEST_APP_DIR"
+
+    echo "Using custom esp-idf ref: ${IDF_REF}"
+    echo "TEST_APP_CUSTOM_BRANCH=${TEST_APP_CUSTOM_BRANCH:-<none>}"
+    echo "TEST_APP_IDF_COMMIT=${TEST_APP_IDF_COMMIT:-<none>}"
+
+    if [ -n "${TEST_APP_IDF_COMMIT:-}" ]; then
+      # Commit path: clone without submodules, checkout commit, then init submodules once
+      git clone --no-checkout --filter=blob:none "$IDF_REPO_URL" esp-idf
+      pushd esp-idf
+      git fetch --depth=1 origin "${TEST_APP_IDF_COMMIT}"
+      git checkout -q "${TEST_APP_IDF_COMMIT}"
+      git submodule update --init --recursive --depth=1
+      popd
+    else
+      # Branch path: clone branch + submodules in one go
+      git clone --single-branch --branch "${TEST_APP_CUSTOM_BRANCH}" \
+        --shallow-submodules --recursive \
+        "$IDF_REPO_URL" esp-idf
+    fi
+
     export IDF_PATH=$PWD/esp-idf
+
     # Activate pyenv
     if [ $(command -v pyenv) ]; then
       source /opt/pyenv/activate
       pyenv global $(pyenv versions --bare)
     fi
+
     # Install tools
     ${IDF_PATH}/install.sh
     . ${IDF_PATH}/export.sh
+
     popd
   fi
+
   idf.py --version || true
   pushd $BUILD_TEST_APP_DIR/gen_ut_app
 
