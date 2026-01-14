@@ -91,7 +91,7 @@ class LpCoreTestAppTestsSingle(DebuggerGenericTestAppTests):
 
 
 @idf_ver_min('5.4')
-@only_for_chip(['esp32p4'])
+@only_for_hw_id([r'esp32p4-lpcore-(builtin|ftdi)'])
 class LpCoreTestsDual(LpCoreTestAppTestsDual, LpCoreTestsImpl):
     """ Test cases via GDB in dual core mode
     """
@@ -100,7 +100,7 @@ class LpCoreTestsDual(LpCoreTestAppTestsDual, LpCoreTestsImpl):
         LpCoreTestsImpl.setUp(self)
 
 @idf_ver_min('5.4')
-@only_for_chip(['esp32c6', 'esp32c5', 'esp32p4'])
+@only_for_hw_id([r'esp32(p4|c5|c6)-lpcore-(builtin|ftdi)'])
 class LpCoreTestsSingle(LpCoreTestAppTestsSingle, LpCoreTestsImpl):
     """ Test cases via GDB in single core mode
     """

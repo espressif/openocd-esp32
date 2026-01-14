@@ -209,7 +209,7 @@ def skip_for_arch(archs_to_skip, reason=None):
 
 def only_for_arch(archs_to_run, reason=None):
     if reason is None:
-        reason = "skipped due to arch '%s' does not match to '%s'" % (testee_info.arch, archs_to_run)
+        reason = "skipped for arch '%s'" % (testee_info.arch)
     skip = True
     for id in archs_to_run:
         if re.match(id, testee_info.arch):
@@ -223,6 +223,16 @@ def only_for_chip(chips_to_run, reason=None):
     skip = True
     for id in chips_to_run:
         if id == testee_info.chip:
+            skip = False
+            break
+    return unittest.skipIf(skip, reason)
+
+def only_for_hw_id(hw_ids_to_run, reason=None):
+    if reason is None:
+        reason = "skipped for HW ID '%s'" % (testee_info.hw_id)
+    skip = True
+    for id in hw_ids_to_run:
+        if re.match(id, testee_info.hw_id):
             skip = False
             break
     return unittest.skipIf(skip, reason)
