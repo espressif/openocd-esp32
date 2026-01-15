@@ -554,17 +554,21 @@ static int zephyr_get_xtensa_state(struct rtos *rtos, target_addr_t *addr,
 	struct xtensa *xtensa = target_to_xtensa(rtos->target);
 	LOG_DEBUG("Zephyr Xtensa: num_output_registers = %u", xtensa->genpkt_regs_num);
 
-	/* Allocate register list directly - no need for rtos_generic_stack_read since
-	 * all offsets are -1 and we already have bsa_data */
-	*num_regs = xtensa->genpkt_regs_num;
+	/* Allocate register list with extra space for a0-a15 entries.
+	 * The contiguous g-packet has registers 0-127, but a0-a15 are at higher indices (212+).
+	 * We need to include a0-a15 separately so GDB can find them when switching threads.
+	 */
+	int base_regs = xtensa->genpkt_regs_num;
+	int extra_regs = 16;  /* a0-a15 */
+	*num_regs = base_regs + extra_regs;
 	*reg_list = calloc(*num_regs, sizeof(struct rtos_reg));
 	if (!*reg_list) {
 		LOG_ERROR("Zephyr Xtensa: Failed to allocate register list");
 		return ERROR_FAIL;
 	}
 
-	/* Initialize register numbers and sizes */
-	for (int i = 0; i < *num_regs; i++) {
+	/* Initialize base register numbers and sizes (0 to base_regs-1) */
+	for (int i = 0; i < base_regs; i++) {
 		(*reg_list)[i].number = i;
 		(*reg_list)[i].size = 32;  /* All Xtensa registers are 32-bit */
 	}
@@ -585,7 +589,7 @@ static int zephyr_get_xtensa_state(struct rtos *rtos, target_addr_t *addr,
 	reg_numbers[5] = reg_a0->number + 3;
 
 	/* Update reg_list with values from BSA */
-	for (int i = 0; i < *num_regs; i++) {
+	for (int i = 0; i < base_regs; i++) {
 		for (int j = 0; j < 6; j++) {
 			if ((*reg_list)[i].number == reg_numbers[j]) {
 				struct reg *reg = register_get_by_number(rtos->target->reg_cache, reg_numbers[j], true);
@@ -595,6 +599,20 @@ static int zephyr_get_xtensa_state(struct rtos *rtos, target_addr_t *addr,
 			}
 		}
 	}
+
+	/* Set WindowBase=0 and WindowStart=1 for non-current threads.
+	 * This is critical because GDB computes windowed registers (a0-a15) from
+	 * physical registers (ar0-ar63) using WindowBase: a[n] = ar[(WindowBase*4 + n) % 64]
+	 * The BSA values we loaded above are for ar0-ar3 (physical), so we need
+	 * WindowBase=0 for GDB to correctly map a0-a3 to ar0-ar3.
+	 * WindowStart=1 indicates that window 0 is valid.
+	 */
+	struct reg *reg_wb = register_get_by_name(rtos->target->reg_cache, "windowbase", 1);
+	struct reg *reg_ws = register_get_by_name(rtos->target->reg_cache, "windowstart", 1);
+	if (reg_wb && reg_wb->number < base_regs)
+		target_buffer_set_u32(rtos->target, (*reg_list)[reg_wb->number].value, 0);
+	if (reg_ws && reg_ws->number < base_regs)
+		target_buffer_set_u32(rtos->target, (*reg_list)[reg_ws->number].value, 1);
 
 	/* Read high registers (A4-A15) from stack if spilled
 	 * Check which quads are saved by reading marker values at known offsets
@@ -654,8 +672,8 @@ static int zephyr_get_xtensa_state(struct rtos *rtos, target_addr_t *addr,
 					break;
 
 				uint32_t reg_num = reg_a0->number + 4 + i;
-				/* Find and update register in reg_list */
-				for (int r = 0; r < *num_regs; r++) {
+				/* Find and update register in reg_list (only search base registers) */
+				for (int r = 0; r < base_regs; r++) {
 					if ((*reg_list)[r].number == reg_num) {
 						struct reg *reg = register_get_by_number(rtos->target->reg_cache, reg_num, true);
 						uint32_t value = target_buffer_get_u32(rtos->target, &high_regs_data[i * 4]);
@@ -668,6 +686,23 @@ static int zephyr_get_xtensa_state(struct rtos *rtos, target_addr_t *addr,
 		}
 	}
 
+	/* Populate a0-a15 entries at the end of the reg_list.
+	 * Since we forced WindowBase=0, a0-a15 should map to ar0-ar15.
+	 * GDB queries individual registers by number, and a0-a15 have numbers 212-227.
+	 * We need these entries so GDB can find a0-a15 when switching threads.
+	 */
+	struct reg *reg_a0_windowed = register_get_by_name(rtos->target->reg_cache, "a0", 1);
+	if (reg_a0_windowed && reg_a0) {
+		for (int i = 0; i < 16; i++) {
+			int list_idx = base_regs + i;
+			(*reg_list)[list_idx].number = reg_a0_windowed->number + i;
+			(*reg_list)[list_idx].size = 32;
+			/* Copy value from ar[i] which we already populated */
+			int ar_idx = reg_a0->number + i;
+			if (ar_idx < base_regs)
+				memcpy((*reg_list)[list_idx].value, (*reg_list)[ar_idx].value, 4);
+		}
+	}
 
 	return ERROR_OK;
 }
