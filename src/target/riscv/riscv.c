@@ -3571,18 +3571,15 @@ static int parse_ranges(struct list_head *ranges, const char *tcl_arg, const cha
 				return ERROR_COMMAND_SYNTAX_ERROR;
 			}
 
-			name = calloc(1, strlen(equals) + strlen(reg_type) + 2);
+			/* ESPRESSIF - drop register prefix from the names */
+			name = calloc(1, strlen(equals) + 1);
 			if (!name) {
 				LOG_ERROR("Failed to allocate register name.");
 				free(args);
 				return ERROR_FAIL;
 			}
 
-			/* Register prefix: "csr_" or "custom_" */
-			strcpy(name, reg_type);
-			name[strlen(reg_type)] = '_';
-
-			if (sscanf(equals, "%[_a-zA-Z0-9]%n", name + strlen(reg_type) + 1, &pos) != 1 || pos != strlen(equals)) {
+			if (sscanf(equals, "%[_a-zA-Z0-9]%n", name, &pos) != 1 || pos != strlen(equals)) {
 				LOG_ERROR("Failed to parse register name from '%s'.", equals);
 				free(args);
 				free(name);

@@ -238,8 +238,8 @@ static const char *esp_riscv_csrs[] = {
 	"pmpaddr8", "pmpaddr9", "pmpaddr10", "pmpaddr11", "pmpaddr12", "pmpaddr13", "pmpaddr14", "pmpaddr15",
 	"tselect", "tdata1", "tdata2", "tcontrol",
 	"dcsr", "dpc", "dscratch0", "dscratch1",
-	"csr_mpcer",  "csr_mpcmr", "csr_mpccr",
-	"csr_cpu_gpio_oen", "csr_cpu_gpio_in", "csr_cpu_gpio_out",
+	"mpcer",  "mpcmr", "mpccr",
+	"cpu_gpio_oen", "cpu_gpio_in", "cpu_gpio_out",
 };
 
 /* Read only registers */

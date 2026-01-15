@@ -222,19 +222,18 @@ static const char *esp32p4_csrs[] = {
 	"mcycleh", "minstreth", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
 	"tdata3", "tinfo", "mcontext", "mintstatus",
 	"fflags", "frm", "fcsr",
-	/* custom exposed CSRs will start with 'csr_' prefix*/
-	"csr_mintstatus", "csr_mclicbase", "csr_mxstatus", "csr_mhcr", "csr_mhint", "csr_mraddr", "csr_mexstatus",
-	"csr_mnmicause", "csr_mnmipc", "csr_mcpuid", "csr_cpu_testbus_ctrl", "csr_pm_user",
-	"csr_gpio_oen_user", "csr_gpio_in_user", "csr_gpio_out_user",
-	"csr_pma_cfg0", "csr_pma_cfg1", "csr_pma_cfg2", "csr_pma_cfg3", "csr_pma_cfg4", "csr_pma_cfg5",
-	"csr_pma_cfg6", "csr_pma_cfg7", "csr_pma_cfg8", "csr_pma_cfg9", "csr_pma_cfg10", "csr_pma_cfg11",
-	"csr_pma_cfg12", "csr_pma_cfg13", "csr_pma_cfg14", "csr_pma_cfg15", "csr_pma_addr0", "csr_pma_addr1",
-	"csr_pma_addr2", "csr_pma_addr3", "csr_pma_addr4", "csr_pma_addr5", "csr_pma_addr6", "csr_pma_addr7",
-	"csr_pma_addr8", "csr_pma_addr9", "csr_pma_addr10", "csr_pma_addr11", "csr_pma_addr12", "csr_pma_addr13",
-	"csr_pma_addr14", "csr_pma_addr15",
-	"csr_mext_ill_reg", "csr_mhwloop_state_reg", "csr_mext_pie_status",
-	"csr_ldpc0", "csr_ldpc1", "csr_stpc0", "csr_stpc1", "csr_stpc2",
-	"csr_ldtval0", "csr_ldtval1", "csr_sttval0", "csr_sttval1", "csr_sttval2",
+	"csr_mintstatus", "mclicbase", "mxstatus", "mhcr", "mhint", "mraddr", "mexstatus",
+	"mnmicause", "mnmipc", "mcpuid", "cpu_testbus_ctrl", "pm_user",
+	"gpio_oen_user", "gpio_in_user", "gpio_out_user",
+	"pma_cfg0", "pma_cfg1", "pma_cfg2", "pma_cfg3", "pma_cfg4", "pma_cfg5",
+	"pma_cfg6", "pma_cfg7", "pma_cfg8", "pma_cfg9", "pma_cfg10", "pma_cfg11",
+	"pma_cfg12", "pma_cfg13", "pma_cfg14", "pma_cfg15", "pma_addr0", "pma_addr1",
+	"pma_addr2", "pma_addr3", "pma_addr4", "pma_addr5", "pma_addr6", "pma_addr7",
+	"pma_addr8", "pma_addr9", "pma_addr10", "pma_addr11", "pma_addr12", "pma_addr13",
+	"pma_addr14", "pma_addr15",
+	"mext_ill_reg", "mhwloop_state_reg", "mext_pie_status",
+	"ldpc0", "ldpc1", "stpc0", "stpc1", "stpc2",
+	"ldtval0", "ldtval1", "sttval0", "sttval1", "sttval2",
 };
 
 static const char *esp32p4_user_counter_csrs[] = {
@@ -244,30 +243,27 @@ static const char *esp32p4_user_counter_csrs[] = {
 };
 
 static const char *esp32p4_hwloop_csrs[] = {
-	"csr_uhwloop0_start_addr", "csr_uhwloop0_end_addr", "csr_uhwloop0_count",
-	"csr_uhwloop1_start_addr", "csr_uhwloop1_end_addr", "csr_uhwloop1_count",
-	"csr_mhwloop0_start_addr", "csr_mhwloop0_end_addr", "csr_mhwloop0_count",
-	"csr_mhwloop1_start_addr", "csr_mhwloop1_end_addr", "csr_mhwloop1_count",
+	"uhwloop0_start_addr", "uhwloop0_end_addr", "uhwloop0_count",
+	"uhwloop1_start_addr", "uhwloop1_end_addr", "uhwloop1_count",
+	"mhwloop0_start_addr", "mhwloop0_end_addr", "mhwloop0_count",
+	"mhwloop1_start_addr", "mhwloop1_end_addr", "mhwloop1_count",
 };
 
 static const char *esp32p4_fpu_csrs[] = {
-	"csr_fxcr",
+	"fxcr",
 };
 
 static const char *esp32p4_pie_movx_regs[] = {
-	/* custom exposed registers will start with 'custom_' prefix*/
-	"custom_sar", "custom_sar_byte", "custom_fft_bit_width", "custom_cfg",
+	"sar", "sar_byte", "fft_bit_width", "cfg",
 };
 
 static const char *esp32p4_pie_vec_regs[] = {
-	/* custom exposed registers will start with 'custom_' prefix*/
-	"custom_qacc_l_l", "custom_qacc_l_h", "custom_qacc_h_l", "custom_qacc_h_h", "custom_ua_state",
-	"custom_q0", "custom_q1", "custom_q2", "custom_q3", "custom_q4", "custom_q5", "custom_q6", "custom_q7",
+	"qacc_l_l", "qacc_l_h", "qacc_h_l", "qacc_h_h", "ua_state",
+	"q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7",
 };
 
 static const char *esp32p4_pie_xacc_regs[] = {
-	/* custom exposed registers will start with 'custom_' prefix*/
-	"custom_xacc",
+	"xacc",
 };
 
 #define HWLOOP_STATE_OFF      0
@@ -328,8 +324,8 @@ static int esp32p4_examine_end(struct target *target)
 		if ((target->hw_rev < 5
 				&& !strcmp(reg_name, "csr_mintstatus")) ||
 			(target->hw_rev >= 5
-				&& (!strcmp(reg_name, "csr_mnmicause")
-					|| !strcmp(reg_name, "csr_mnmipc")
+				&& (!strcmp(reg_name, "mnmicause")
+					|| !strcmp(reg_name, "mnmipc")
 					|| !strcmp(reg_name, "mintstatus"))))
 			target->reg_cache->reg_list[i].exist = false;
 	}
@@ -369,46 +365,46 @@ riscv32-esp-elf-as -march=rv32imac_xespv -mespv-spec=[2p1|2p2] tmp.S -o tmp.elf
 */
 
 static const struct pie_inst_table pie_v2p1_regs[] = {
-	{ "custom_sar", 0x90b0005f, 0x80b0005f, false },
-	{ "custom_sar_byte", 0x98b0005f, 0x88b0005f, false },
-	{ "custom_fft_bit_width", 0x94d0005f, 0x84d0005f, false },
-	{ "custom_cfg", 0x90d0005f, 0x80d0005f, false },
-	{ "custom_ua_state", 0x2000413b, 0xa000413b, true },
-	{ "custom_xacc", 0x2000433b, 0x200041bb, true },
-	{ "custom_qacc_h_l", 0x6000403b, 0xe000403b, true },
-	{ "custom_qacc_h_h", 0x4000403b, 0xc000403b, true },
-	{ "custom_qacc_l_l", 0x2000403b, 0xa000403b, true },
-	{ "custom_qacc_l_h", 0x0000403b, 0x8000403b, true },
-	{ "custom_q0", 0x0200203b, 0x8200203b, true },
-	{ "custom_q1", 0x0200243b, 0x8200243b, true },
-	{ "custom_q2", 0x0200283b, 0x8200283b, true },
-	{ "custom_q3", 0x02002c3b, 0x82002c3b, true },
-	{ "custom_q4", 0x0200303b, 0x8200303b, true },
-	{ "custom_q5", 0x0200343b, 0x8200343b, true },
-	{ "custom_q6", 0x0200383b, 0x8200383b, true },
-	{ "custom_q7", 0x02003c3b, 0x82003c3b, true },
+	{ "sar", 0x90b0005f, 0x80b0005f, false },
+	{ "sar_byte", 0x98b0005f, 0x88b0005f, false },
+	{ "fft_bit_width", 0x94d0005f, 0x84d0005f, false },
+	{ "cfg", 0x90d0005f, 0x80d0005f, false },
+	{ "ua_state", 0x2000413b, 0xa000413b, true },
+	{ "xacc", 0x2000433b, 0x200041bb, true },
+	{ "qacc_h_l", 0x6000403b, 0xe000403b, true },
+	{ "qacc_h_h", 0x4000403b, 0xc000403b, true },
+	{ "qacc_l_l", 0x2000403b, 0xa000403b, true },
+	{ "qacc_l_h", 0x0000403b, 0x8000403b, true },
+	{ "q0", 0x0200203b, 0x8200203b, true },
+	{ "q1", 0x0200243b, 0x8200243b, true },
+	{ "q2", 0x0200283b, 0x8200283b, true },
+	{ "q3", 0x02002c3b, 0x82002c3b, true },
+	{ "q4", 0x0200303b, 0x8200303b, true },
+	{ "q5", 0x0200343b, 0x8200343b, true },
+	{ "q6", 0x0200383b, 0x8200383b, true },
+	{ "q7", 0x02003c3b, 0x82003c3b, true },
 	{ 0 },
 };
 
 static const struct pie_inst_table pie_v2p2_regs[] = {
-	{ "custom_sar", 0x90c0201b, 0x80c0201b, false },
-	{ "custom_sar_byte", 0x98c0201b, 0x88c0201b, false },
-	{ "custom_fft_bit_width", 0x9480201b, 0x8480201b, false },
-	{ "custom_cfg", 0x9080201b, 0x8080201b, false },
-	{ "custom_ua_state", 0x0010011f, 0x1010011f, true },
-	{ "custom_xacc", 0x0010031f, 0x0010019f, true },
-	{ "custom_qacc_h_l", 0x0810001f, 0x1810001f, true },
-	{ "custom_qacc_h_h", 0x0800001f, 0x1800001f, true },
-	{ "custom_qacc_l_l", 0x0010001f, 0x1010001f, true },
-	{ "custom_qacc_l_h", 0x0000001f, 0x1000001f, true },
-	{ "custom_q0", 0x0310001f, 0x8310001f, true },
-	{ "custom_q1", 0x0310041f, 0x8310041f, true },
-	{ "custom_q2", 0x0310081f, 0x8310081f, true },
-	{ "custom_q3", 0x03100c1f, 0x83100c1f, true },
-	{ "custom_q4", 0x0310101f, 0x8310101f, true },
-	{ "custom_q5", 0x0310141f, 0x8310141f, true },
-	{ "custom_q6", 0x0310181f, 0x8310181f, true },
-	{ "custom_q7", 0x03101c1f, 0x83101c1f, true },
+	{ "sar", 0x90c0201b, 0x80c0201b, false },
+	{ "sar_byte", 0x98c0201b, 0x88c0201b, false },
+	{ "fft_bit_width", 0x9480201b, 0x8480201b, false },
+	{ "cfg", 0x9080201b, 0x8080201b, false },
+	{ "ua_state", 0x0010011f, 0x1010011f, true },
+	{ "xacc", 0x0010031f, 0x0010019f, true },
+	{ "qacc_h_l", 0x0810001f, 0x1810001f, true },
+	{ "qacc_h_h", 0x0800001f, 0x1800001f, true },
+	{ "qacc_l_l", 0x0010001f, 0x1010001f, true },
+	{ "qacc_l_h", 0x0000001f, 0x1000001f, true },
+	{ "q0", 0x0310001f, 0x8310001f, true },
+	{ "q1", 0x0310041f, 0x8310041f, true },
+	{ "q2", 0x0310081f, 0x8310081f, true },
+	{ "q3", 0x03100c1f, 0x83100c1f, true },
+	{ "q4", 0x0310101f, 0x8310101f, true },
+	{ "q5", 0x0310141f, 0x8310141f, true },
+	{ "q6", 0x0310181f, 0x8310181f, true },
+	{ "q7", 0x03101c1f, 0x83101c1f, true },
 	{ 0 },
 };
 

@@ -290,26 +290,26 @@ class DebuggerSpecialTestsImpl:
             return [(n >> (16 * i)) & 0xFFFF for i in reversed(range(8))]
 
         def get_quacc():
-            qacc = self.gdb.get_reg('custom_qacc_l_l.v2_int64') + self.gdb.get_reg('custom_qacc_l_h.v2_int64') \
-                + self.gdb.get_reg('custom_qacc_h_l.v2_int64') + self.gdb.get_reg('custom_qacc_h_h.v2_int64')
+            qacc = self.gdb.get_reg('qacc_l_l.v2_int64') + self.gdb.get_reg('qacc_l_h.v2_int64') \
+                + self.gdb.get_reg('qacc_h_l.v2_int64') + self.gdb.get_reg('qacc_h_h.v2_int64')
             return list(reversed(qacc))
 
         def clear_quacc():
-            self.gdb.set_reg('custom_qacc_l_l.uint128', '0')
-            self.gdb.set_reg('custom_qacc_l_h.uint128', '0')
-            self.gdb.set_reg('custom_qacc_h_l.uint128', '0')
-            self.gdb.set_reg('custom_qacc_h_h.uint128', '0')
+            self.gdb.set_reg('qacc_l_l.uint128', '0')
+            self.gdb.set_reg('qacc_l_h.uint128', '0')
+            self.gdb.set_reg('qacc_h_l.uint128', '0')
+            self.gdb.set_reg('qacc_h_h.uint128', '0')
             self.assertEqual(sum(get_quacc()), 0)
 
         def set_q0(val):
             hex_str = format(val,'032x')
-            self.gdb.set_reg('custom_q0.v2_int64', '{0x' + hex_str[16:] + ', 0x' + hex_str[:16] + '}')
-            self.assertEqual(self.gdb.get_reg('custom_q0.uint128'), val)
+            self.gdb.set_reg('q0.v2_int64', '{0x' + hex_str[16:] + ', 0x' + hex_str[:16] + '}')
+            self.assertEqual(self.gdb.get_reg('q0.uint128'), val)
 
         def set_q1(val):
             hex_str = format(val,'032x')
-            self.gdb.set_reg('custom_q1.v2_int64', '{0x' + hex_str[16:] + ', 0x' + hex_str[:16] + '}')
-            self.assertEqual(self.gdb.get_reg('custom_q1.uint128'), val)
+            self.gdb.set_reg('q1.v2_int64', '{0x' + hex_str[16:] + ', 0x' + hex_str[:16] + '}')
+            self.assertEqual(self.gdb.get_reg('q1.uint128'), val)
 
 
         def check_mul(src1, src2):
@@ -484,7 +484,7 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
             if reg == "timeh":
                 continue
 
-            if reg == 'csr_mexstatus':
+            if reg == 'mexstatus':
                 # this register is not safe to write
                 set_reg_and_check(reg, None)
                 continue

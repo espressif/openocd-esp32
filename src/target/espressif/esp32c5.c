@@ -140,22 +140,20 @@ static const char *esp32c5_csrs[] = {
 	"mhpmevent8", "mhpmevent9", "mhpmevent13",
 	"mhpmcounter8", "mhpmcounter9", "mhpmcounter13", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
 	"mcounteren", "mcountinhibit",
-	/* custom exposed CSRs will start with 'csr_' prefix*/
-	"csr_ustatus", "csr_utvec", "csr_uepc", "csr_ucause",
-	"csr_gpio_oen_user", "csr_gpio_in_user", "csr_gpio_out_user",
-	"csr_pma_cfg0", "csr_pma_cfg1", "csr_pma_cfg2", "csr_pma_cfg3", "csr_pma_cfg4", "csr_pma_cfg5",
-	"csr_pma_cfg6", "csr_pma_cfg7", "csr_pma_cfg8", "csr_pma_cfg9", "csr_pma_cfg10", "csr_pma_cfg11",
-	"csr_pma_cfg12", "csr_pma_cfg13", "csr_pma_cfg14", "csr_pma_cfg15", "csr_pma_addr0", "csr_pma_addr1",
-	"csr_pma_addr2", "csr_pma_addr3", "csr_pma_addr4", "csr_pma_addr5", "csr_pma_addr6", "csr_pma_addr7",
-	"csr_pma_addr8", "csr_pma_addr9", "csr_pma_addr10", "csr_pma_addr11", "csr_pma_addr12", "csr_pma_addr13",
-	"csr_pma_addr14", "csr_pma_addr15", "csr_mxstatus", "csr_mhcr", "csr_mhint", "csr_mexstatus",
-	"csr_mclicbase", "csr_mraddr", "csr_mintthresh", "csr_uscratch",  "csr_uintthresh", "csr_uclicbase",
+	"ustatus", "utvec", "uepc", "ucause",
+	"gpio_oen_user", "gpio_in_user", "gpio_out_user",
+	"pma_cfg0", "pma_cfg1", "pma_cfg2", "pma_cfg3", "pma_cfg4", "pma_cfg5",
+	"pma_cfg6", "pma_cfg7", "pma_cfg8", "pma_cfg9", "pma_cfg10", "pma_cfg11",
+	"pma_cfg12", "pma_cfg13", "pma_cfg14", "pma_cfg15", "pma_addr0", "pma_addr1",
+	"pma_addr2", "pma_addr3", "pma_addr4", "pma_addr5", "pma_addr6", "pma_addr7",
+	"pma_addr8", "pma_addr9", "pma_addr10", "pma_addr11", "pma_addr12", "pma_addr13",
+	"pma_addr14", "pma_addr15", "mxstatus", "mhcr", "mhint", "mexstatus",
+	"mclicbase", "mraddr", "mintthresh", "uscratch",  "uintthresh", "uclicbase",
 };
 
 static const char *esp32c5_ro_csrs[] = {
 	/* read-only CSRs, cannot be save/restored as the write would fail */
-	/* custom exposed CSRs will start with 'csr_' prefix*/
-	"csr_mintstatus", "csr_mcpuid", "csr_uintstatus",
+	"csr_mintstatus", "mcpuid", "csr_uintstatus",
 };
 
 static const char *esp32c5_user_counter_csrs[] = {
