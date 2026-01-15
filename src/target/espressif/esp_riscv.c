@@ -637,6 +637,10 @@ int esp_riscv_hit_watchpoint(struct target *target, struct watchpoint **hit_watc
 
 static bool esp_riscv_is_bp_set_in_flash(struct target *target, struct esp_common *esp)
 {
+	/* State can be UNAVAILABLE in single core config */
+	if (target->state != TARGET_HALTED)
+		return false;
+
 	riscv_reg_t pc;
 	if (riscv_get_register(target, &pc, GDB_REGNO_PC) != ERROR_OK) {
 		LOG_TARGET_WARNING(target, "Failed to read pc register!");

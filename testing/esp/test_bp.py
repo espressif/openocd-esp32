@@ -117,7 +117,6 @@ class BreakpointTestsImpl:
             self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay%d' % (i % 2)])
             self.readd_bps()
 
-    @skip_for_chip(['esp32h4'], "skipped - OCD-1332")
     def test_bp_ignore_count(self):
         """
             This test checks that the first several breakpoint's hits can be ignored:
@@ -428,6 +427,10 @@ class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTes
     @skip_for_chip(['esp32h4'], "skipped - OCD-1332")
     def test_appcpu_early_hw_bps(self):
         appcpu_early_hw_bps(self)
+
+    @skip_for_chip(['esp32h4'], "skipped - OCD-1332")
+    def test_bp_ignore_count(self):
+        BreakpointTestsImpl.test_bp_ignore_count(self)
 
 class DebuggerBreakpointTestsDualEncrypted(DebuggerGenericTestAppTestsDualEncrypted, BreakpointTestsImpl):
     """ Breakpoint test cases on encrypted flash in dual core mode

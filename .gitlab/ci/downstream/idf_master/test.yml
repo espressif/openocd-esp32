@@ -338,4 +338,4 @@ tests_esp32h4:
   variables:
     CHIP_NAME: "esp32h4"
     ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
-    TEST_RUN_BOARD_OPTS: "-b esp32h4-builtin -p test_*.*Dual -e *.*.test_big_binary *.*.test_big_binary_compressed"
+    TEST_RUN_BOARD_OPTS: "-b esp32h4-builtin -e test_*.LpCore* test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
