@@ -556,15 +556,15 @@ static int zephyr_get_xtensa_state(struct rtos *rtos, target_addr_t *addr,
 
 	/* Allocate register list directly - no need for rtos_generic_stack_read since
 	 * all offsets are -1 and we already have bsa_data */
-	*num_regs = xtensa->genpkt_regs_num;
-	*reg_list = calloc(*num_regs, sizeof(struct rtos_reg));
+	unsigned int base_regs_num = xtensa->genpkt_regs_num;
+	*reg_list = calloc(base_regs_num, sizeof(struct rtos_reg));
 	if (!*reg_list) {
 		LOG_ERROR("Zephyr Xtensa: Failed to allocate register list");
 		return ERROR_FAIL;
 	}
 
 	/* Initialize register numbers and sizes */
-	for (int i = 0; i < *num_regs; i++) {
+	for (unsigned int i = 0; i < base_regs_num; i++) {
 		(*reg_list)[i].number = i;
 		(*reg_list)[i].size = 32;  /* All Xtensa registers are 32-bit */
 	}
@@ -575,8 +575,15 @@ static int zephyr_get_xtensa_state(struct rtos *rtos, target_addr_t *addr,
 	struct reg *reg_ps = register_get_by_name(rtos->target->reg_cache, "ps", 1);
 	struct reg *reg_pc = register_get_by_name(rtos->target->reg_cache, "pc", 1);
 	struct reg *reg_a0 = register_get_by_name(rtos->target->reg_cache, "ar0", 1);
-	uint32_t reg_numbers[6];
+	struct reg *reg_wb = register_get_by_name(rtos->target->reg_cache, "windowbase", 1);
+	struct reg *reg_ws = register_get_by_name(rtos->target->reg_cache, "windowstart", 1);
 
+	if (!reg_ps || !reg_pc || !reg_a0 || !reg_wb || !reg_ws) {
+		LOG_ERROR("Zephyr Xtensa: Failed to get registers");
+		return ERROR_FAIL;
+	}
+
+	uint32_t reg_numbers[6];
 	reg_numbers[0] = reg_ps->number;
 	reg_numbers[1] = reg_pc->number;
 	reg_numbers[2] = reg_a0->number;
@@ -585,7 +592,7 @@ static int zephyr_get_xtensa_state(struct rtos *rtos, target_addr_t *addr,
 	reg_numbers[5] = reg_a0->number + 3;
 
 	/* Update reg_list with values from BSA */
-	for (int i = 0; i < *num_regs; i++) {
+	for (unsigned int i = 0; i < base_regs_num; i++) {
 		for (int j = 0; j < 6; j++) {
 			if ((*reg_list)[i].number == reg_numbers[j]) {
 				struct reg *reg = register_get_by_number(rtos->target->reg_cache, reg_numbers[j], true);
@@ -595,6 +602,21 @@ static int zephyr_get_xtensa_state(struct rtos *rtos, target_addr_t *addr,
 			}
 		}
 	}
+
+	/*
+     * Returning 0 for WINDOWBASE and 1 for WINDOWSTART. This is
+     * effectively telling GDB that only A0-A3 and AR0-AR3 contain
+     * active data and other physical registers do not. GDB then
+     * must rely on spilled values on stack. Otherwise, GDB will try
+     * to look at all AR* registers for previous frame(s). Since we
+     * do not save all AR* register values, there is nothing for
+     * GDB to look at, and thus failing to unwind stack.
+     */
+	if (reg_wb->number < base_regs_num)
+		target_buffer_set_u32(rtos->target, (*reg_list)[reg_wb->number].value, 0x00000000);
+	if (reg_ws->number < base_regs_num)
+		target_buffer_set_u32(rtos->target, (*reg_list)[reg_ws->number].value, 0x00000001);
+
 
 	/* Read high registers (A4-A15) from stack if spilled
 	 * Check which quads are saved by reading marker values at known offsets
@@ -655,7 +677,7 @@ static int zephyr_get_xtensa_state(struct rtos *rtos, target_addr_t *addr,
 
 				uint32_t reg_num = reg_a0->number + 4 + i;
 				/* Find and update register in reg_list */
-				for (int r = 0; r < *num_regs; r++) {
+				for (unsigned int r = 0; r < base_regs_num; r++) {
 					if ((*reg_list)[r].number == reg_num) {
 						struct reg *reg = register_get_by_number(rtos->target->reg_cache, reg_num, true);
 						uint32_t value = target_buffer_get_u32(rtos->target, &high_regs_data[i * 4]);
@@ -668,6 +690,7 @@ static int zephyr_get_xtensa_state(struct rtos *rtos, target_addr_t *addr,
 		}
 	}
 
+	*num_regs = base_regs_num;
 
 	return ERROR_OK;
 }
