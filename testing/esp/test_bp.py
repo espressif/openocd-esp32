@@ -419,7 +419,6 @@ class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTes
         DebuggerGenericTestAppTestsDual.setUp(self)
         BreakpointTestsImpl.setUp(self)
 
-    @skip_for_chip(['esp32h4'], "skipped - OCD-1332")
     def test_2cores_concurrently_hit_bps(self):
         two_cores_concurrently_hit_bps(self)
 
@@ -516,11 +515,9 @@ class DebuggerFlashBreakpointTestsDual(DebuggerBreakpointTestsDual):
     def test_appcpu_early_hw_bps(self):
         pass
 
-    @skip_for_chip(['esp32h4'], "skipped - OCD-1332")
     def test_bp_cond_expr(self):
         DebuggerBreakpointTestsDual.test_bp_cond_expr(self)
 
-    @skip_for_chip(['esp32h4'], "skipped - OCD-1332")
     def test_bp_in_isr(self):
         DebuggerBreakpointTestsDual.test_bp_in_isr(self)
 
