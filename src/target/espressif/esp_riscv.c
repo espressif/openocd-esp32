@@ -1075,7 +1075,7 @@ int esp_riscv_write_memory(struct target *target, target_addr_t address,
 void esp_riscv_deinit_target(struct target *target)
 {
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
-	if (esp_riscv->semi_ops->post_reset)
+	if (esp_riscv->semi_ops && esp_riscv->semi_ops->post_reset)
 		esp_riscv->semi_ops->post_reset(target);
 
 	free(esp_riscv->target_bp_addr);
