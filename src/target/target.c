@@ -98,6 +98,7 @@ static struct target_type *target_types[] = {
 	&esp32c6_target,
 	&esp32c61_target,
 	&esp32h2_target,
+	&esp32h21_target,
 	&esp32h4_target,
 	&esp32p4_target,
 	&esp32s2_target,

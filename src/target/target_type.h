@@ -340,6 +340,7 @@ extern struct target_type esp32s3_target;
 extern struct target_type esp32_target;
 extern struct target_type esp32c2_target;
 extern struct target_type esp32h2_target;
+extern struct target_type esp32h21_target;
 extern struct target_type esp32c3_target;
 extern struct target_type esp32c6_target;
 extern struct target_type esp32p4_target;

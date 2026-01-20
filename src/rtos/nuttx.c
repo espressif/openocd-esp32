@@ -131,6 +131,10 @@ static const struct nuttx_params nuttx_params_list[] = {
 		.stacking = &rtos_standard_riscv32_stacking,
 	},
 	{
+		.target_name = "esp32h21",
+		.stacking = &rtos_standard_riscv32_stacking,
+	},
+	{
 		.target_name = "esp32c5",
 		.stacking = &rtos_standard_riscv32_stacking,
 	},
