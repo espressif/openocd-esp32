@@ -83,3 +83,11 @@ build_test_app_esp32h4:
     TEST_APP_CONFIGS: "default apptrace_gcov_dual svtrace_dual default_amazon_freertos default_freertos_list_integrity multi_app_images_dual single_core svtrace_single apptrace_gcov_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single"
     TEST_APP_IDF_COMMIT: "69ec8bc962def5c4d3a42aba1013fa8a60df787c"
   extends: .build_idf_master_test_app_template
+
+build_test_app_esp32h21:
+  variables:
+    CHIP_NAME: "esp32h21"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single"
+    TEST_APP_IDF_COMMIT: "9014eade4fc00c31c7ee8c09b751b946ba9525f8"
+  extends: .build_idf_master_test_app_template

@@ -339,3 +339,23 @@ tests_esp32h4:
     CHIP_NAME: "esp32h4"
     ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32h4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
+
+tests_esp32h21:
+  extends: .tests_master_riscv_template
+  tags:
+    - esp32h21
+    - usb_serial_jtag
+  needs:
+    - job: build_test_app_esp32h21
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gcov
+    - job: fetch_gdb
+      optional: true
+  allow_failure: true
+  variables:
+    CHIP_NAME: "esp32h21"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32h21-builtin -p test_*.*Single4MB test_*.*Single -e *.*.test_big_binary *.*.test_big_binary_compressed"
