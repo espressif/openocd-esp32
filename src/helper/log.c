@@ -50,7 +50,7 @@ static const char * const log_strings[7] = {
 	"Debug: ",  /* corresponds to LOG_LVL_DEBUG_USB */
 };
 
-static int count;
+static unsigned int count;
 
 /* forward the log to the listeners */
 static void log_forward(const char *file, unsigned int line, const char *function, const char *string)
@@ -124,7 +124,7 @@ static void log_puts(enum log_levels level,
 #error "Configuration error: Neither mallinfo() nor mallinfo2() are available."
 #endif
 #endif
-		fprintf(current_log_output, "%s%d %" PRId64 " %s:%d %s()"
+		fprintf(current_log_output, "%s%u %" PRId64 " %s:%d %s()"
 #ifdef _DEBUG_FREE_SPACE_
 #ifdef HAVE_MALLINFO2
 			" %zu"
