@@ -84,7 +84,8 @@ class Oocd(threading.Thread):
                 self._oocd_proc = subprocess.Popen(
                     bufsize=0, args=[oocd_exec] + oocd_full_args,
                     stdin=None, stdout=self.STDOUT_DEST, stderr=subprocess.STDOUT,
-                    creationflags=self.CREATION_FLAGS, universal_newlines=True
+                    creationflags=self.CREATION_FLAGS, universal_newlines=True,
+                    errors="backslashreplace"
                 )
                 time.sleep(1)
             except FileNotFoundError:

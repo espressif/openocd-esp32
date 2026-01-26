@@ -251,7 +251,7 @@ class Gdb(object):
         self._mi_cmd_run('-target-disconnect')
 
     def target_reset(self, action='halt', tmo=5):
-        self.monitor_run('reset %s' % action)
+        self.monitor_run('reset %s' % action, tmo=tmo)
         if action == 'halt':
             self.wait_target_state(TARGET_STATE_STOPPED, tmo=tmo)
             self.console_cmd_run('flushregs')
