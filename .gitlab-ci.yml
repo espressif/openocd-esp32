@@ -119,6 +119,8 @@ build_macos_strip:
   stage: build_openocd
   tags: [ "darwin" ]
   needs: [build_macos, build_macos_arm64]
+  variables:
+    GIT_STRATEGY: none
   artifacts:
     paths:
       - dist

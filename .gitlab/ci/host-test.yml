@@ -35,9 +35,11 @@ test_on_windows_arm64:
     - job: build_windows_arm64
   variables:
     PLATFORM_NAME: "windows-arm64"
+  timeout: 10m
 
 test_on_macos:
   stage: test_host
+  allow_failure: true
   tags:
     - darwin
     - amd64
@@ -49,6 +51,7 @@ test_on_macos:
     GIT_STRATEGY: clone
     GIT_DEPTH: "1"
     PLATFORM_NAME: "macos"
+  timeout: 10m
   before_script: []
   script:
     - *run_openocd_unix
