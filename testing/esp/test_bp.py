@@ -423,11 +423,9 @@ class DebuggerBreakpointTestsDual(DebuggerGenericTestAppTestsDual, BreakpointTes
         two_cores_concurrently_hit_bps(self)
 
     @skip_for_chip(['esp32p4'], "skipped - OCD-1288")
-    @skip_for_chip(['esp32h4'], "skipped - OCD-1332")
     def test_appcpu_early_hw_bps(self):
         appcpu_early_hw_bps(self)
 
-    @skip_for_chip(['esp32h4'], "skipped - OCD-1332")
     def test_bp_ignore_count(self):
         BreakpointTestsImpl.test_bp_ignore_count(self)
 
@@ -514,12 +512,6 @@ class DebuggerFlashBreakpointTestsDual(DebuggerBreakpointTestsDual):
     @unittest.skip('not applicable')
     def test_appcpu_early_hw_bps(self):
         pass
-
-    def test_bp_cond_expr(self):
-        DebuggerBreakpointTestsDual.test_bp_cond_expr(self)
-
-    def test_bp_in_isr(self):
-        DebuggerBreakpointTestsDual.test_bp_in_isr(self)
 
 class DebuggerTestsSingle4MB(DebuggerGenericTestAppTestsSingle):
     """ Base class to run tests with a single core 4MB flash config

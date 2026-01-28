@@ -109,7 +109,6 @@ class StepTestsImpl():
             self.oocd.cmd_exec(f"targets {self.oocd.targets()[0]}")
             self.oocd.cmd_exec("rbp all")
 
-    @skip_for_chip(['esp32h4'], "skipped - OCD-1332")
     def test_step_over_bp(self):
         """
             This test checks that debugger can step over breakpoint.
