@@ -1412,8 +1412,8 @@ int esp_riscv_read_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
 	RISCV_INFO(r);
+	int ret;
 	uint32_t sba_access_size = r->data_bits(target) / 8;
-
 	if (size < sba_access_size || !IS_ALIGNED(address, sba_access_size)) {
 		LOG_DEBUG("Use %d-bit access: size: %d\tcount:%d\tstart address: 0x%08"
 			TARGET_PRIxADDR, sba_access_size * 8, size, count, address);
@@ -1421,13 +1421,34 @@ int esp_riscv_read_memory(struct target *target, target_addr_t address,
 		uint32_t al_len = (size * count) + address - al_addr;
 		uint32_t al_cnt = ALIGN_UP(al_len, sba_access_size);
 		uint8_t al_buf[al_cnt];
-		int ret = riscv_target.read_memory(target, al_addr, sba_access_size, al_cnt / sba_access_size, al_buf);
+		ret = riscv_target.read_memory(target, al_addr, sba_access_size, al_cnt / sba_access_size, al_buf);
 		if (ret == ERROR_OK)
 			memcpy(buffer, &al_buf[address & (sba_access_size - 1)], size * count);
-		return ret;
+	} else {
+		ret = riscv_target.read_memory(target, address, size, count, buffer);
 	}
+	if (ret == ERROR_OK) {
+		struct esp_common *esp = target_to_esp_common(target);
+		struct esp_flash_breakpoint *flash_bps = esp->flash_brps.brps;
+		static const uint8_t riscv_ebreak[] = { 0x02, 0x90 };
+		target_addr_t address_end = address + size * count;
+		for (unsigned int slot = 0; slot < ESP_FLASH_BREAKPOINTS_MAX_NUM; slot++) {
+			target_addr_t bp_address = flash_bps[slot].bp_address;
+			target_addr_t overlap_address = MAX(address, bp_address);
+			target_addr_t overlap_address_end = MIN(address_end, bp_address + flash_bps[slot].insn_sz);
+			size_t overlap_size = overlap_address_end - overlap_address;
+			size_t insn_off = overlap_address - bp_address;
 
-	return riscv_target.read_memory(target, address, size, count, buffer);
+			if (flash_bps[slot].insn_sz > 0
+					&& overlap_address < overlap_address_end
+					&& !memcmp(buffer - address + overlap_address, &riscv_ebreak[insn_off], overlap_size)) {
+				LOG_TARGET_DEBUG(target, "Hide %zu byte(s) of flash breakpoint at " TARGET_ADDR_FMT,
+					overlap_size, bp_address);
+				memcpy(buffer - address + overlap_address, &flash_bps[slot].insn[insn_off], overlap_size);
+			}
+		}
+	}
+	return ret;
 }
 
 int esp_riscv_write_memory(struct target *target, target_addr_t address,
