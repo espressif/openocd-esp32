@@ -191,7 +191,7 @@ static const struct mspm0_part_info mspm0l_parts[] = {
 };
 
 /* https://www.ti.com/lit/ds/symlink/mspm0g3506.pdf Table 8-22 */
-static const struct mspm0_part_info mspm0g_parts[] = {
+static const struct mspm0_part_info mspm0g_parts_bb88[] = {
 	/* MSPM0G110x */
 	{ "MSPM0G1105TPTR", 0x8934, 0xD },
 	{ "MSPM0G1105TRGZR", 0x8934, 0xFE },
@@ -297,6 +297,68 @@ static const struct mspm0_part_info mspm0g_parts[] = {
 	{ "M0G3507QSPTRQ1", 0x34E0, 0xE3 },
 };
 
+/* https://www.ti.com/lit/gpn/mspm0g1518 Table 8-21 and so on */
+static const struct mspm0_part_info mspm0g_parts_bba9[] = {
+	/* MSPM0Gx51x */
+	{ "MSPM0G1518SPMR", 0x2120, 0x13 },
+	{ "MSPM0G1518SPNR", 0x2120, 0x16 },
+	{ "MSPM0G1518SPTR", 0x2120, 0x12 },
+	{ "MSPM0G1518SPZR", 0x2120, 0x18 },
+	{ "MSPM0G1518SRGZR", 0x2120, 0x11 },
+	{ "MSPM0G1518SRHBR", 0x2120, 0x10 },
+	{ "MSPM0G1518SZAWR", 0x2120, 0x19 },
+	{ "MSPM0G1519SPMR", 0x2407, 0x13 },
+	{ "MSPM0G1519SPNR", 0x2407, 0x16 },
+	{ "MSPM0G1519SPTR", 0x2407, 0x12 },
+	{ "MSPM0G1519SPZR", 0x2407, 0x18 },
+	{ "MSPM0G1519SRGZR", 0x2407, 0x11 },
+	{ "MSPM0G1519SRHBR", 0x2407, 0x10 },
+	{ "MSPM0G1519SZAWR", 0x2407, 0x19 },
+	{ "MSPM0G3518SPMR", 0x1205, 0x13 },
+	{ "MSPM0G3518SPNR", 0x1205, 0x15 },
+	{ "MSPM0G3518SPTR", 0x1205, 0x12 },
+	{ "MSPM0G3518SPZR", 0x1205, 0x16 },
+	{ "MSPM0G3518SRGZR", 0x1205, 0x11 },
+	{ "MSPM0G3518SRHBR", 0x1205, 0x10 },
+	{ "MSPM0G3518SZAWR", 0x1205, 0x19 },
+	{ "MSPM0G3519SPMR", 0x1508, 0x13 },
+	{ "MSPM0G3519SPNR", 0x1508, 0x15 },
+	{ "MSPM0G3519SPTR", 0x1508, 0x12 },
+	{ "MSPM0G3519SPZR", 0x1508, 0x16 },
+	{ "MSPM0G3519SRGZR", 0x1508, 0x11 },
+	{ "MSPM0G3519SRHBR", 0x1508, 0x10 },
+	{ "MSPM0G3519SZAWR", 0x1508, 0x19 },
+	/* MSPM0G351x-Q1 */
+	{ "M0G3518QPMRQ1", 0x4009, 0x13 },
+	{ "M0G3518QPNRQ1", 0x4009, 0x14 },
+	{ "M0G3518QPTRQ1", 0x4009, 0x12 },
+	{ "M0G3518QPZRQ1", 0x4009, 0x15 },
+	{ "M0G3518QRGZRQ1", 0x4009, 0x11 },
+	{ "M0G3518QRHBRQ1", 0x4009, 0x10 },
+	{ "M0G3519QPMRQ1", 0x3512, 0x13 },
+	{ "M0G3519AQPMRQ1", 0x3512, 0x16 },
+	{ "M0G3519QPNRQ1", 0x3512, 0x14 },
+	{ "M0G3519QPTRQ1", 0x3512, 0x12 },
+	{ "M0G3519QPZRQ1", 0x3512, 0x15 },
+	{ "M0G3519QRGZRQ1", 0x3512, 0x11 },
+	{ "M0G3519QRHBRQ1", 0x3512, 0x10 },
+	/* MSPM0G352x-Q1 */
+	{ "M0G3529QPMRQ1", 0xF8D1, 0x13 },
+};
+
+/* https://www.ti.com/lit/gpn/mspm0g5187 Table 8-24*/
+static const struct mspm0_part_info mspm0g_parts_bbbc[] = {
+	/* MSPM0G5187 */
+	{ "MSPM0G5187S28YCJR", 0x5610, 0x18 },
+	{ "MSPM0G5187SDGS20R", 0x5610, 0x16 },
+	{ "MSPM0G5187SPMR", 0x5610, 0x10 },
+	{ "MSPM0G5187SPTR", 0x5610, 0x11 },
+	{ "MSPM0G5187SRHBR", 0x5610, 0x13 },
+	{ "MSPM0G5187SRGER", 0x5610, 0x14 },
+	{ "MSPM0G5187SRGZR", 0x5610, 0x12 },
+	{ "MSPM0G5187SRUYR", 0x5610, 0x17 },
+};
+
 /* https://www.ti.com/lit/gpn/mspm0c1104 Table 8-12 and so on */
 static const struct mspm0_part_info mspm0c_parts[] = {
 	{ "MSPS003F4SPW20R", 0x57b3, 0x70},
@@ -336,7 +398,9 @@ static const struct mspm0_part_info mspm0lx22x_parts[] = {
 static const struct mspm0_family_info mspm0_finf[] = {
 	{ "MSPM0L", 0xbb82, ARRAY_SIZE(mspm0l_parts), mspm0l_parts },
 	{ "MSPM0Lx22x", 0xbb9f, ARRAY_SIZE(mspm0lx22x_parts), mspm0lx22x_parts },
-	{ "MSPM0G", 0xbb88, ARRAY_SIZE(mspm0g_parts), mspm0g_parts },
+	{ "MSPM0G", 0xbb88, ARRAY_SIZE(mspm0g_parts_bb88), mspm0g_parts_bb88 },
+	{ "MSPM0G", 0xbba9, ARRAY_SIZE(mspm0g_parts_bba9), mspm0g_parts_bba9 },
+	{ "MSPM0G", 0xbbbc, ARRAY_SIZE(mspm0g_parts_bbbc), mspm0g_parts_bbbc },
 	{ "MSPM0C", 0xbba1, ARRAY_SIZE(mspm0c_parts), mspm0c_parts },
 };
 
