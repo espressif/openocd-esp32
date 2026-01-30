@@ -106,18 +106,22 @@
   MAKEFLAGS= make ${INSTALL_TARGET}
   popd
 
-.build_linux_arm_template:
+.build_openocd_template:
   stage: build_openocd
-  image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross:3
   tags:
     - build
     - internet
+    - brew
   artifacts:
     paths:
       - ${DIST_ART_DIR}
     when: always
     expire_in: 2 weeks
   needs: []
+
+.build_linux_arm_template:
+  extends: .build_openocd_template
+  image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross:3
   variables:
     INSTALL_TARGET: "install-strip"
   script:
@@ -140,16 +144,8 @@
     - *dist_archive
 
 .build_macos_template: &build_macos_template
-  stage: build_openocd
+  extends: .build_openocd_template
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-macos-cross:4
-  tags:
-    - build
-    - internet
-  artifacts:
-    paths:
-      - ${DIST_ART_DIR}
-    expire_in: 2 weeks
-  needs: []
   script:
     - *get_release_name
     - *buildx_libusb
@@ -163,20 +159,12 @@
     - *dist_archive
 
 build_linux:
-  stage: build_openocd
+  extends: .build_openocd_template
   image: $CI_DOCKER_REGISTRY/esp32-toolchain
-  tags:
-    - build
-    - internet
-  artifacts:
-    paths:
-      - ${DIST_ART_DIR}
-    expire_in: 2 weeks
   variables:
     PLATFORM_NAME: "linux-amd64"
     CONF_HOST: "x86_64-linux-gnu"
     HOST_CC: ${CONF_HOST}-gcc
-  needs: []
   script:
     - *get_release_name
     - apt-get update || true
@@ -197,11 +185,7 @@ build_linux:
 
 # Just to test build with latest gcc.
 build_linux_gcc_latest:
-  stage: build_openocd
-  tags:
-    - build
-    - internet
-  needs: []
+  extends: .build_openocd_template
   variables:
     CONF_HOST: ""
     HOST_CC: "gcc"
@@ -265,22 +249,14 @@ build_linux_arm64_test:
     PLATFORM_NAME: "linux-arm64-test"
 
 .build_windows_template: &build_windows_template
-  stage: build_openocd
+  extends: .build_openocd_template
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-win-cross
-  tags:
-    - build
-    - internet
-  artifacts:
-    paths:
-      - ${DIST_ART_DIR}
-    expire_in: 2 weeks
   variables:
     ARCHIVE_TOOL: "zip -r"
     ARCHIVE_EXT: "zip"
     CONF_HOST: "i686-w64-mingw32"
     INSTALL_TARGET: "install-strip"
     HOST_CC: ${CONF_HOST}-gcc
-  needs: []
   script:
     - *get_release_name
     - *buildx_libusb
@@ -329,10 +305,8 @@ build_macos_arm64:
     HOST_CC: ${CONF_HOST}-cc
 
 scan-build:
+  extends: .build_openocd_template
   stage: static_analyzers
-  tags:
-    - build
-    - internet
   variables:
     SCAN_BUILD_OUTPUT: "report"
     CONF_HOST: ""
@@ -359,10 +333,8 @@ scan-build:
     - python3 tools/generate_gitlab_report.py -t scanbuild -i build-scanbuild/out/*/index.html -o scanbuild.json
 
 sparse:
+  extends: .build_openocd_template
   stage: static_analyzers
-  tags:
-    - build
-    - internet
   variables:
     SPARSE_BUILD_OUTDIR: "sparse"
     SPARSE_BUILD_OUTFILE: "warnings.log"
@@ -390,11 +362,7 @@ sparse:
     - python3 tools/generate_gitlab_report.py -t sparse -i build-sparse/${SPARSE_BUILD_OUTFILE} -o sparse.json
 
 build_linux_cmake:
-  stage: build_openocd
-  tags:
-    - build
-    - internet
-  needs: []
+  extends: .build_openocd_template
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
   script:
@@ -405,12 +373,8 @@ build_linux_cmake:
 
 # TODO: enable after updating CMake version in the docker image
 .build_linux_armhf_cmake:
-  stage: build_openocd
+  extends: .build_openocd_template
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-arm-cross:3
-  tags:
-    - build
-    - internet
-  needs: []
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
   script:
@@ -421,12 +385,8 @@ build_linux_cmake:
 
 # TODO: enable after updating CMake version in the docker image
 .build_windows_cmake:
-  stage: build_openocd
+  extends: .build_openocd_template
   image: $CI_DOCKER_REGISTRY/esp32-toolchain-win-cross
-  tags:
-    - build
-    - internet
-  needs: []
   variables:
     OPENOCD_CMAKE_CONFIGURE_OPTS: ""
   script:

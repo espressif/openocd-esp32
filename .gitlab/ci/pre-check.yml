@@ -2,6 +2,7 @@ style_check:
   stage: pre_check
   tags:
     - build
+    - brew
   script:
     - tools/check-line-endings.sh $PWD
     - tools/checkpatch-esp.sh
@@ -11,5 +12,6 @@ esp_config_check:
   image: $CI_DOCKER_REGISTRY/esp32-ci-env
   tags:
     - build
+    - brew
   script:
     - python3 tools/esp-config-validator.py --json tcl/esp-config.json --schema tcl/esp-config-schema.json

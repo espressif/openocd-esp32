@@ -21,6 +21,8 @@ fetch_gdb:
   stage: fetch_tools
   tags:
     - build
+    - internet
+    - brew
   variables:
     GIT_STRATEGY: none
   needs:
@@ -63,6 +65,7 @@ fetch_gcov:
   tags:
     - build
     - internet
+    - brew
   variables:
     GIT_STRATEGY: none
   rules:
@@ -97,6 +100,7 @@ dummy_job:
   script: echo "Pipeline skipped"
   tags:
     - build
+    - brew
   rules:
     - if: '$CI_FULL_RUN == "0" && $CI_IDF_VERSION != "6_1"'
 

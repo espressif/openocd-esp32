@@ -146,6 +146,7 @@
   tags:
     - build
     - internet
+    - brew
   stage: build
   variables:
     UT_GET_IDF_VER: "1"
