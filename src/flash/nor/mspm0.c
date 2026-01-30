@@ -238,7 +238,6 @@ static const struct mspm0_part_info mspm0g_parts[] = {
 	{ "MSPM0G3505SPTR", 0xc504, 0x93 },
 	{ "MSPM0G3505SRGZR", 0xc504, 0xc7 },
 	{ "MSPM0G3505SRHBR", 0xc504, 0xe7 },
-	{ "MSPM0G3505TDGS28R", 0xc504, 0xdf },
 	{ "MSPM0G3506SDGS28R", 0x151f, 0x8 },
 	{ "MSPM0G3506SPMR", 0x151f, 0xd4 },
 	{ "MSPM0G3506SPTR", 0x151f, 0x39 },
