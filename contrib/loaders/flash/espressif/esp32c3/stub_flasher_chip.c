@@ -72,12 +72,7 @@ bool stub_is_cache_enabled(void)
 void stub_flash_state_prepare(struct stub_flash_state *state)
 {
 	uint32_t spiconfig = ets_efuse_get_spiconfig();
-	uint32_t strapping = REG_READ(GPIO_STRAP_REG);
-	/* If GPIO1 (U0TXD) is pulled low and flash pin configuration is not set in efuse, assume
-	 * HSPI flash mode (same as normal boot) */
-	if (spiconfig == 0 && (strapping & 0x1c) == 0x08)
-		spiconfig = 1; /* HSPI flash mode */
-
+	STUB_LOGD("spiconfig: %u\n", spiconfig);
 	esp_rom_spiflash_attach(spiconfig, 0);
 
 	state->cache_enabled = stub_is_cache_enabled();
