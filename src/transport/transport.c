@@ -351,7 +351,7 @@ COMMAND_HANDLER(handle_transport_select)
 				transport_single_is_autoselected = false;
 				return ERROR_OK;
 			}
-			LOG_WARNING("Transport \"%s\" was already selected", CMD_ARGV[0]);
+			LOG_DEBUG("Transport \"%s\" was already selected", CMD_ARGV[0]);
 			return ERROR_OK;
 		}
 		command_print(CMD, "Can't change session's transport after the initial selection was made");
