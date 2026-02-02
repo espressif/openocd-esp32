@@ -97,8 +97,8 @@ AC_CHECK_FUNCS([strnlen])
 AC_CHECK_FUNCS([gettimeofday])
 AC_CHECK_FUNCS([usleep])
 AC_CHECK_FUNCS([realpath])
-AC_CHECK_FUNCS([mallinfo],  [has_at_least_one_mallinfo=yes])
-AC_CHECK_FUNCS([mallinfo2], [has_at_least_one_mallinfo=yes])
+AC_CHECK_FUNCS([mallinfo])
+AC_CHECK_FUNCS([mallinfo2])
 
 # guess-rev.sh only exists in the repository, not in the released archives
 AC_MSG_CHECKING([whether to build a release])
@@ -263,21 +263,6 @@ AS_IF([test "x$enable_gcov" = "xyes"], [
   CFLAGS+=" -O0"
 ], [
   AC_DEFINE([USE_GCOV], [0], [0 to leave coverage collection disabled.])
-])
-
-debug_malloc=no
-AC_ARG_ENABLE([malloc_logging],
-  AS_HELP_STRING([--enable-malloc-logging],
-      [Include free space in logging messages (requires malloc.h).]),
-  [debug_malloc=$enableval], [])
-
-AC_MSG_CHECKING([whether to enable malloc free space logging]);
-AC_MSG_RESULT([$debug_malloc])
-AS_IF([test "x$debug_malloc" = "xyes"], [
-	AS_IF([test "x$has_at_least_one_mallinfo" != "xyes"], [
-		AC_MSG_ERROR([Option --enable-malloc-logging needs a libc with mallinfo or mallinfo2.])
-	])
-  AC_DEFINE([_DEBUG_FREE_SPACE_],[1], [Include malloc free space in logging])
 ])
 
 m4_define([AC_ARG_ADAPTERS], [

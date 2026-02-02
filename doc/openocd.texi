@@ -9563,7 +9563,8 @@ level 1 adds warnings;
 level 2 adds informational messages;
 level 3 adds debugging messages;
 level 4 adds verbose low-level debug messages;
-and level 5 adds USB communication messages.
+and level 5 adds USB communication messages
+and amount of free heap space if mallinfo is available.
 The default is level 2, but that can be overridden on
 the command line along with the location of that log
 file (which is normally the server's standard output).

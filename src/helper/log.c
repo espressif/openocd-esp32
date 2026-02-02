@@ -24,8 +24,8 @@
 
 #include <stdarg.h>
 
-#ifdef _DEBUG_FREE_SPACE_
-#include <malloc.h>  // For mallinfo/mallinfo2.
+#if defined(HAVE_MALLINFO) || defined(HAVE_MALLINFO2)
+#include <malloc.h>
 #endif
 
 #define DEFAULT_LOG_OUTPUT	stderr
@@ -115,30 +115,34 @@ static void log_puts(enum log_levels level,
 	if (LOG_LEVEL_IS(LOG_LVL_DEBUG)) {
 		/* print with count and time information */
 		int64_t t = timeval_ms() - start;
-#ifdef _DEBUG_FREE_SPACE_
+
+#if defined(HAVE_MALLINFO) || defined(HAVE_MALLINFO2)
+		const int should_use_mallinfo = LOG_LEVEL_IS(LOG_LVL_DEBUG_MALLOC);
+
+		if (should_use_mallinfo) {
 #ifdef HAVE_MALLINFO2
-		struct mallinfo2 info = mallinfo2();
-#elif defined(HAVE_MALLINFO)
-		struct mallinfo info = mallinfo();
+			struct mallinfo2 info = mallinfo2();
 #else
-#error "Configuration error: Neither mallinfo() nor mallinfo2() are available."
+			struct mallinfo info = mallinfo();
 #endif
-#endif
-		fprintf(current_log_output, "%s%u %" PRId64 " %s:%d %s()"
-#ifdef _DEBUG_FREE_SPACE_
+			fprintf(current_log_output, "%s%u %" PRId64 " %s:%d %s()"
 #ifdef HAVE_MALLINFO2
-			" %zu"
-#elif defined(HAVE_MALLINFO)
-			" %d"
+					" %zu"
 #else
-#error "Configuration error: Neither mallinfo() nor mallinfo2() are available."
+					" %d"
 #endif
+					": %s", log_strings[level + 1], count, t, file, line, function,
+					info.fordblks,
+					string);
+		}
+#else
+		const int should_use_mallinfo = 0;
 #endif
-			": %s", log_strings[level + 1], count, t, file, line, function,
-#ifdef _DEBUG_FREE_SPACE_
-			info.fordblks,
-#endif
-			string);
+		if (!should_use_mallinfo) {
+			fprintf(log_output, "%s%u %" PRId64 " %s:%d %s()"
+					": %s", log_strings[level + 1], count, t, file, line, function,
+					string);
+		}
 	} else {
 		/* if we are using gdb through pipes then we do not want any output
 		 * to the pipe otherwise we get repeated strings */
@@ -225,7 +229,7 @@ COMMAND_HANDLER(handle_debug_level_command)
 		int new_level;
 		COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], new_level);
 		if (new_level > LOG_LVL_DEBUG_USB || new_level < LOG_LVL_SILENT) {
-			command_print(CMD, "level must be between %d and %d", LOG_LVL_SILENT, LOG_LVL_DEBUG_IO);
+			command_print(CMD, "level must be between %d and %d", LOG_LVL_SILENT, LOG_LVL_DEBUG_USB);
 			return ERROR_COMMAND_ARGUMENT_INVALID;
 		}
 		debug_level = new_level;

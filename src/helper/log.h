@@ -40,6 +40,10 @@
  * LOG_LVL_DEBUG_USB - verbose USB trace
  *                     In the past this corresponded to build configuration options
 					   --enable-verbose and --enable-verbose-usb-comms.
+ * LOG_LVL_DEBUG_MALLOC - log messages will include the amount of free heap space
+ *                        maintained by malloc in its free list, if mallinfo is available.
+ *                        In the past this corresponded to build configuration
+ *                        option --enable-malloc-logging.
  */
 enum log_levels {
 	LOG_LVL_SILENT = -3,
@@ -50,7 +54,10 @@ enum log_levels {
 	LOG_LVL_INFO = 2,
 	LOG_LVL_DEBUG = 3,
 	LOG_LVL_DEBUG_IO = 4,
+	// LOG_LVL_DEBUG_USB and LOG_LVL_DEBUG_MALLOC have the same value at the moment.
+	// In the future, these logging categories will be individually switchable.
 	LOG_LVL_DEBUG_USB = 5,
+	LOG_LVL_DEBUG_MALLOC = 5,
 };
 
 void log_printf(enum log_levels level, const char *file, unsigned int line,
@@ -109,7 +116,7 @@ extern int debug_level;
 #define LOG_DEBUG_IO(expr ...) \
 	do { \
 		if (LOG_LEVEL_IS(LOG_LVL_DEBUG_IO)) \
-			log_printf_lf(LOG_LVL_DEBUG, \
+			log_printf_lf(LOG_LVL_DEBUG_IO, \
 				__FILE__, __LINE__, __func__, \
 				expr); \
 	} while (0)
