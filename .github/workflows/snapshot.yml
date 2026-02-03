@@ -1,0 +1,38 @@
+name: OpenOCD Snapshot
+
+on:
+  workflow_call: {}
+  workflow_dispatch: {}
+jobs:
+  package:
+    runs-on: [ubuntu-latest]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Download files / artifacts from build job
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "openocd*"
+      - name: Pack artifacts
+        run: |
+          for dir in openocd-*; do
+            if [[ $dir != "openocd-windows" ]]; then
+              chmod +x $dir/bin/openocd
+            fi
+            zip -r "${dir}.zip" "$dir"
+          done
+      - name: Delete 'latest' Release
+        uses: dev-drprasad/delete-tag-and-release@v1.1
+        with:
+          delete_release: true
+          tag_name: "latest"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: "latest"
+          commit: ${{ github.sha }}
+          draft: false
+          artifacts: "openocd*.zip"
+          prerelease: true
+          token: ${{ secrets.GITHUB_TOKEN }}

@@ -13,3 +13,8 @@ jobs:
     name: Test OpenOCD
     uses: ./.github/workflows/test_openocd.yml
     needs: build-openocd
+
+  snapshot:
+    name: Package OpenOCD
+    uses: ./.github/workflows/snapshot.yml
+    needs: build-openocd
