@@ -695,6 +695,8 @@ static bool xtensa_reg_is_readable(int flags, int cpenable)
 		return false;
 	if ((flags & XT_REGF_COPROC0) && (cpenable & BIT(0)) == 0)
 		return false;
+	if ((flags & XT_REGF_COPROC1) && (cpenable & BIT(1)) == 0)
+		return false;
 	return true;
 }
 
@@ -4131,6 +4133,10 @@ COMMAND_HELPER(xtensa_cmd_xtreg_do, struct xtensa *xtensa)
 			(strcmp(rptr->name, "ddr") == 0) || (strncmp(rptr->name, "intset", 6) == 0) ||
 			(strncmp(rptr->name, "intclear", 8) == 0) || (strcmp(rptr->name, "mesrclr") == 0))
 			rptr->flags = XT_REGF_NOREAD;
+		else if ((strcmp(rptr->name, "q0") == 0) || (strcmp(rptr->name, "q1") == 0) || (strcmp(rptr->name, "q2") == 0)
+				|| (strcmp(rptr->name, "q3") == 0) || (strcmp(rptr->name, "q4") == 0) || (strcmp(rptr->name, "q5") == 0)
+				|| (strcmp(rptr->name, "q6") == 0) || (strcmp(rptr->name, "q7") == 0))
+			rptr->flags = XT_REGF_COPROC1;
 		else
 			rptr->flags = 0;
 

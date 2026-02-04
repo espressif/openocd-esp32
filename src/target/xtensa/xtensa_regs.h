@@ -107,7 +107,8 @@ enum xtensa_reg_type {
 enum xtensa_reg_flags {
 	XT_REGF_NOREAD = 0x01,	/* Register is write-only */
 	XT_REGF_COPROC0 = 0x02,	/* Can't be read if coproc0 isn't enabled */
-	XT_REGF_MASK = 0x03
+	XT_REGF_COPROC1 = 0x04,	/* Can't be read if coproc1 isn't enabled */
+	XT_REGF_MASK = 0x07
 };
 
 struct xtensa_reg_desc {
