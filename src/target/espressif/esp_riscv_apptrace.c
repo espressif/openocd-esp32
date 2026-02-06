@@ -183,14 +183,31 @@ static int esp_riscv_apptrace_buffs_write(struct target *target, uint32_t bufs_n
 	int res = ERROR_OK;
 	int blk_idx = block_id % 2 ? 0 : 1;
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	uint32_t start_address = esp_riscv->apptrace.mem_blocks[blk_idx].start;
+	uint32_t curr_addr = start_address;
 
-	LOG_DEBUG("Block ID %d block @ 0x%x", block_id, esp_riscv->apptrace.mem_blocks[blk_idx].start);
-	for (uint32_t i = 0, curr_addr = esp_riscv->apptrace.mem_blocks[blk_idx].start; i < bufs_num; i++) {
+	LOG_DEBUG("Block ID %d block @ 0x%x", block_id, start_address);
+
+	/* Prevent invalidation/writeback on each of the accesses */
+	RISCV_INFO(info);
+	bool invalidate_cache = info->mem_access_sysbus_cache_sync;
+	info->mem_access_sysbus_cache_sync = false;
+
+	for (unsigned int i = 0; i < bufs_num; i++) {
 		res = target_write_buffer(target, curr_addr, buf_sz[i], bufs[i]);
 		if (res != ERROR_OK)
-			return res;
+			break;
 		curr_addr += buf_sz[i];
 	}
+
+	/* Invalidate whole buffer at once */
+	info->mem_access_sysbus_cache_sync = invalidate_cache;
+	if (invalidate_cache && info->cache_invalidate)
+		info->cache_invalidate(target, start_address, curr_addr - start_address);
+
+	if (res != ERROR_OK)
+		return res;
+
 	if (ack) {
 		res = esp_riscv_apptrace_ctrl_reg_write(target,
 			block_id,
