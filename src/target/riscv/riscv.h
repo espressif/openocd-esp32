@@ -323,6 +323,11 @@ struct riscv_info {
 	/* ESPRESSIF */
 	void (*trigger_match_result_fixup)(struct target *target, riscv_reg_t *tdata1_ignore_mask, bool t6);
 	uint32_t halt_delay_us; /* Delay is needed for C5-ECO2. Check with the next revisions and remove if it is fixed */
+	bool mem_access_sysbus_cache_sync; /* On P4 we have to handle caches when accessing memory from system bus */
+	/* Writeback is needed before sysbus access */
+	void (*cache_writeback)(struct target *target, target_addr_t address, uint32_t size);
+	/* Invalidate is needed after sysbus access */
+	void (*cache_invalidate)(struct target *target, target_addr_t address, uint32_t size);
 };
 
 COMMAND_HELPER(riscv_print_info_line, const char *section, const char *key,

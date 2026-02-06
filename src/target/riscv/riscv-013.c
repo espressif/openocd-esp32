@@ -4302,6 +4302,10 @@ static int read_memory(struct target *target, target_addr_t address,
 			if (mem_should_skip_sysbus(target, address, size, increment, true, &sysbus_result))
 				continue;
 
+			/* Espressif */
+			if (r->mem_access_sysbus_cache_sync && r->cache_writeback)
+				r->cache_writeback(target, address, size * count);
+
 			if (get_field(info->sbcs, DM_SBCS_SBVERSION) == 0)
 				ret = read_memory_bus_v0(target, address, size, count, buffer, increment);
 			else if (get_field(info->sbcs, DM_SBCS_SBVERSION) == 1)
@@ -4847,10 +4851,18 @@ static int write_memory(struct target *target, target_addr_t address,
 			if (mem_should_skip_sysbus(target, address, size, 0, false, &sysbus_result))
 				continue;
 
+			/* Espressif */
+			if (r->mem_access_sysbus_cache_sync && r->cache_writeback)
+				r->cache_writeback(target, address, size * count);
+
 			if (get_field(info->sbcs, DM_SBCS_SBVERSION) == 0)
 				ret = write_memory_bus_v0(target, address, size, count, buffer);
 			else if (get_field(info->sbcs, DM_SBCS_SBVERSION) == 1)
 				ret = write_memory_bus_v1(target, address, size, count, buffer);
+
+			/* Espressif */
+			if (r->mem_access_sysbus_cache_sync && r->cache_invalidate)
+				r->cache_invalidate(target, address, size * count);
 
 			if (ret != ERROR_OK)
 				sysbus_result = "failed";

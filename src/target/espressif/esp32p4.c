@@ -623,6 +623,58 @@ static struct esp_riscv_reg_class esp32p4_registers[] = {
 	},
 };
 
+static int esp32p4_sync_cache(struct target *target, target_addr_t address, uint32_t size, uint32_t map,
+	uint32_t op)
+{
+	uint8_t value_buf[4];
+	target_addr_t start_aligned_addr = ALIGN_DOWN(address, ESP32P4_CACHE_L1_LINE_SIZE);
+	target_addr_t end_aligned_addr = ALIGN_DOWN(address + size + ESP32P4_CACHE_L1_LINE_SIZE - 1,
+		ESP32P4_CACHE_L1_LINE_SIZE);
+	uint32_t aligned_size = end_aligned_addr - start_aligned_addr;
+
+	// TODO: what if cache is disabled! No way to understand from the OpenOCD point of view.
+
+	target_buffer_set_u32(target, value_buf, map);
+	int res = esp_riscv_write_memory(target, ESP32P4_CACHE_SYNC_MAP_REG, 4, 1, value_buf);
+	if (res != ERROR_OK)
+		return res;
+
+	target_buffer_set_u32(target, value_buf, start_aligned_addr);
+	res = esp_riscv_write_memory(target, ESP32P4_CACHE_SYNC_ADDR_REG, 4, 1, value_buf);
+	if (res != ERROR_OK)
+		return res;
+
+	target_buffer_set_u32(target, value_buf, aligned_size);
+	res = esp_riscv_write_memory(target, ESP32P4_CACHE_SYNC_SIZE_REG, 4, 1, value_buf);
+	if (res != ERROR_OK)
+		return res;
+
+	target_buffer_set_u32(target, value_buf, op);
+	return esp_riscv_write_memory(target, ESP32P4_CACHE_SYNC_CTRL_REG, 4, 1, value_buf);
+
+	/* Looks like no need to wait for sync done. Everytime ESP32P4_CACHE_SYNC_CTRL_REG read as 0x10 at first try */
+}
+
+static void esp32p4_cache_writeback(struct target *target, target_addr_t address, uint32_t size)
+{
+	if (ESP32P4_ADDR_IS_CACHEABLE(address)) {
+		/* Write-back is for dcache and l2 cache only */
+		if (esp32p4_sync_cache(target, address, size,
+				ESP32P4_CACHE_MAP_L1_DCACHE | ESP32P4_CACHE_MAP_L2_CACHE, ESP32P4_CACHE_SYNC_WRITEBACK) != ERROR_OK)
+			LOG_TARGET_WARNING(target, "Cache writeback failed! Read main memory anyway.");
+	}
+}
+
+static void esp32p4_cache_invalidate(struct target *target, target_addr_t address, uint32_t size)
+{
+	if (ESP32P4_ADDR_IS_CACHEABLE(address)) {
+		/* Don't invalidate the L2CACHE here. We don't know if it has been written back to the PSRAM yet. */
+		if (esp32p4_sync_cache(target, address, size,
+				ESP32P4_CACHE_MAP_L1_CACHE, ESP32P4_CACHE_SYNC_INVALIDATE) != ERROR_OK)
+			LOG_TARGET_WARNING(target, "Cache invalidate failed!");
+	}
+}
+
 static int esp32p4_target_create(struct target *target)
 {
 	struct esp_riscv_common *esp_riscv = calloc(1, sizeof(*esp_riscv));
@@ -660,6 +712,11 @@ static int esp32p4_init_target(struct command_context *cmd_ctx,
 	if (ret != ERROR_OK)
 		return ret;
 
+	RISCV_INFO(info);
+	info->mem_access_sysbus_cache_sync = true;
+	info->cache_writeback = esp32p4_cache_writeback;
+	info->cache_invalidate = esp32p4_cache_invalidate;
+
 	target->semihosting->user_command_extension = esp_semihosting_common;
 
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
@@ -674,38 +731,6 @@ static int esp32p4_init_target(struct command_context *cmd_ctx,
 	return ERROR_OK;
 }
 
-static int esp32p4_sync_cache(struct target *target, target_addr_t address, uint32_t size, uint32_t map,
-	uint32_t op)
-{
-	uint8_t value_buf[4];
-	target_addr_t start_aligned_addr = ALIGN_DOWN(address, ESP32P4_CACHE_L1_LINE_SIZE);
-	target_addr_t end_aligned_addr = ALIGN_DOWN(address + size + ESP32P4_CACHE_L1_LINE_SIZE - 1,
-		ESP32P4_CACHE_L1_LINE_SIZE);
-	uint32_t aligned_size = end_aligned_addr - start_aligned_addr;
-
-	// TODO: what if cache is disabled! No way to understand from the OpenOCD point of view.
-
-	target_buffer_set_u32(target, value_buf, map);
-	int res = esp_riscv_write_memory(target, ESP32P4_CACHE_SYNC_MAP_REG, 4, 1, value_buf);
-	if (res != ERROR_OK)
-		return res;
-
-	target_buffer_set_u32(target, value_buf, start_aligned_addr);
-	res = esp_riscv_write_memory(target, ESP32P4_CACHE_SYNC_ADDR_REG, 4, 1, value_buf);
-	if (res != ERROR_OK)
-		return res;
-
-	target_buffer_set_u32(target, value_buf, aligned_size);
-	res = esp_riscv_write_memory(target, ESP32P4_CACHE_SYNC_SIZE_REG, 4, 1, value_buf);
-	if (res != ERROR_OK)
-		return res;
-
-	target_buffer_set_u32(target, value_buf, op);
-	return esp_riscv_write_memory(target, ESP32P4_CACHE_SYNC_CTRL_REG, 4, 1, value_buf);
-
-	/* Looks like no need to wait for sync done. Everytime ESP32P4_CACHE_SYNC_CTRL_REG read as 0x10 at first try */
-}
-
 static int esp32p4_read_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
@@ -715,17 +740,9 @@ static int esp32p4_read_memory(struct target *target, target_addr_t address,
 		return ERROR_OK;
 	}
 
-	if (ESP32P4_ADDR_IS_CACHEABLE(address)) {
-		/* Write-back is for dcache and l2 cache only */
-		int res = esp32p4_sync_cache(target, address, size * count,
-			ESP32P4_CACHE_MAP_L1_DCACHE | ESP32P4_CACHE_MAP_L2_CACHE,
-			ESP32P4_CACHE_SYNC_WRITEBACK);
-		if (res != ERROR_OK)
-			LOG_TARGET_WARNING(target, "Cache writeback failed! Read main memory anyway.");
-		/* OpenOCD can not read from cacheable address through sysbus on ECO5. */
-		if (target->state == TARGET_RUNNING)
-			address = ESP32P4_NON_CACHEABLE_ADDR(address);
-	}
+	/* OpenOCD can not read from cacheable address through sysbus on ECO5. */
+	if (ESP32P4_ADDR_IS_CACHEABLE(address) && target->state == TARGET_RUNNING)
+		address = ESP32P4_NON_CACHEABLE_ADDR(address);
 
 	return esp_riscv_read_memory(target, address, size, count, buffer);
 }
@@ -733,32 +750,10 @@ static int esp32p4_read_memory(struct target *target, target_addr_t address,
 static int esp32p4_write_memory(struct target *target, target_addr_t address,
 	uint32_t size, uint32_t count, const uint8_t *buffer)
 {
-	int map = -1;
-	target_addr_t non_cacheable_address = address;
+	if (ESP32P4_ADDR_IS_CACHEABLE(address) && target->state == TARGET_RUNNING)
+		address = ESP32P4_NON_CACHEABLE_ADDR(address);
 
-	if (ESP32P4_ADDR_IS_CACHEABLE(address)) {
-		/* Write-back is for dcache and l2 cache only */
-		map = ESP32P4_CACHE_MAP_L1_DCACHE | ESP32P4_CACHE_MAP_L2_CACHE;
-	}
-
-	if (map > 0) {
-		/* write to main memory and invalidate cache */
-		int res = esp32p4_sync_cache(target, address, size * count, map, ESP32P4_CACHE_SYNC_WRITEBACK);
-		if (res != ERROR_OK)
-			LOG_TARGET_WARNING(target, "Cache writeback failed! Write main memory anyway.");
-		if (target->state == TARGET_RUNNING)
-			non_cacheable_address = ESP32P4_NON_CACHEABLE_ADDR(address);
-	}
-
-	int res = esp_riscv_write_memory(target, non_cacheable_address, size, count, buffer);
-
-	if (map > 0) {
-		/* Don't invalidate the L2CACHE here. We don't know if it has been written back to the PSRAM yet. */
-		map = ESP32P4_CACHE_MAP_L1_CACHE;
-		if (esp32p4_sync_cache(target, address, size * count, map, ESP32P4_CACHE_SYNC_INVALIDATE) != ERROR_OK)
-			LOG_TARGET_WARNING(target, "Cache invalidate failed!");
-	}
-	return res;
+	return esp_riscv_write_memory(target, address, size, count, buffer);
 }
 
 static int esp32p4_get_gdb_memory_map(struct target *target, struct target_memory_map *memory_map)
