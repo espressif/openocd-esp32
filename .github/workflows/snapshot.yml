@@ -22,13 +22,15 @@ jobs:
             zip -r "${dir}.zip" "$dir"
           done
       - name: Delete 'latest' Release
-        uses: dev-drprasad/delete-tag-and-release@v1.1
-        with:
-          delete_release: true
-          tag_name: "latest"
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release list --limit 100 --json tagName,name \
+            --jq '.[] | select(.name=="latest") | .tagName' \
+            | xargs -r -n1 gh release delete --yes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Release
         uses: ncipollo/release-action@v1
+        if: "${{ github.ref == 'refs/tags/latest' }}"
         with:
           tag: "latest"
           commit: ${{ github.sha }}
