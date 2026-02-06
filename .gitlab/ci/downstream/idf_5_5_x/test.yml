@@ -27,6 +27,7 @@ tests_esp32_idf5.5.x_flash_encrypted:
     RUNNER_SCRIPT_TIMEOUT: 10m
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
+  timeout: 15m
 
 tests_esp32s2_idf5.5.x:
   extends: .tests_v5.5.x_template
