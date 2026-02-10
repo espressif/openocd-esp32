@@ -1060,6 +1060,20 @@ static int zephyr_fetch_thread_list(struct rtos *rtos, uint32_t current_thread)
 	rtos->thread_count = (int)thread_array.elements;
 	rtos->thread_details = zephyr_array_detach_ptr(&thread_array);
 
+	/* Reorder thread list so current thread is first (Thread 1 in GDB).
+	 * This fixes the issue where GDB caches live CPU registers for Thread 1
+	 * before the thread list is populated, causing incorrect backtraces. */
+	td = rtos->thread_details;
+	for (size_t i = 1; i < (size_t)rtos->thread_count; i++) {
+		if (td[i].threadid == current_thread) {
+			struct thread_detail tmp = td[0];
+			td[0] = td[i];
+			td[i] = tmp;
+			LOG_DEBUG("Zephyr: moved current thread to position 0");
+			break;
+		}
+	}
+
 	rtos->current_thread = current_thread;
 
 	return ERROR_OK;
