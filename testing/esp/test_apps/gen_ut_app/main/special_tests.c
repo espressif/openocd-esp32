@@ -333,7 +333,7 @@ TEST_DECL(pie_registers, "test_special.DebuggerSpecialTests*.test_pie_registers"
 {
     asm volatile (
         "rsr.cpenable a4\n"
-        "movi a0, 2\n"
+        "movi a0, 8\n"
         "or a4, a4, a0\n"
         "wsr.cpenable a4\n"
         "rsync\n":::"a0", "a4"

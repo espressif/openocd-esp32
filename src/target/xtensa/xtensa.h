@@ -188,6 +188,8 @@ struct xtensa_config {
 };
 
 typedef uint32_t xtensa_insn_t;
+typedef int (*xtensa_tie_reg_access_fn)(struct target *target, unsigned int regid, bool iswrite);
+
 
 enum xtensa_stepping_isr_mode {
 	XT_STEPPING_ISR_OFF,	/* interrupts are disabled during stepping */
@@ -285,6 +287,7 @@ struct xtensa {
 	uint32_t nx_reg_idx[XT_NX_REG_IDX_NUM];
 	struct xtensa_keyval_info scratch_ars[XT_AR_SCRATCH_NUM];
 	bool regs_fetched;	/* true after first register fetch completed successfully */
+	xtensa_tie_reg_access_fn tie_reg_access;
 };
 
 static inline struct xtensa *target_to_xtensa(struct target *target)
@@ -354,6 +357,13 @@ static inline int xtensa_core_status_clear(struct target *target, uint32_t bits)
 	return xtensa_dm_core_status_clear(&xtensa->dbg_mod, bits);
 }
 
+static inline bool xtensa_is_stopped(struct target *target)
+{
+	struct xtensa *xtensa = target_to_xtensa(target);
+	return xtensa->dbg_mod.core_status.dsr & OCDDSR_STOPPED;
+}
+
+uint32_t xtensa_ins_rsr(struct xtensa *xtensa, unsigned int sr, unsigned int t);
 int xtensa_core_status_check(struct target *target);
 
 int xtensa_examine(struct target *target);

@@ -163,16 +163,6 @@
 
 #define XT_WATCHPOINTS_NUM_MAX  2
 
-/* Special register number macro for DDR, PS, WB, A3, A4 registers.
- * These get used a lot so making a shortcut is useful.
- */
-#define XT_SR_DDR         (xtensa_regs[XT_REG_IDX_DDR].reg_num)
-#define XT_SR_PS          (xtensa_regs[XT_REG_IDX_PS].reg_num)
-#define XT_SR_WB          (xtensa_regs[XT_REG_IDX_WINDOWBASE].reg_num)
-#define XT_REG_A0         (xtensa_regs[XT_REG_IDX_AR0].reg_num)
-#define XT_REG_A3         (xtensa_regs[XT_REG_IDX_AR3].reg_num)
-#define XT_REG_A4         (xtensa_regs[XT_REG_IDX_AR4].reg_num)
-
 #define XT_PS_REG_NUM               (0xe6U)
 #define XT_EPS_REG_NUM_BASE         (0xc0U)	/* (EPS2 - 2), for adding DBGLEVEL */
 #define XT_EPC_REG_NUM_BASE         (0xb0U)	/* (EPC1 - 1), for adding DBGLEVEL */
@@ -695,8 +685,6 @@ static bool xtensa_reg_is_readable(int flags, int cpenable)
 		return false;
 	if ((flags & XT_REGF_COPROC0) && (cpenable & BIT(0)) == 0)
 		return false;
-	if ((flags & XT_REGF_COPROC1) && (cpenable & BIT(1)) == 0)
-		return false;
 	return true;
 }
 
@@ -711,72 +699,6 @@ static bool xtensa_scratch_regs_fixup(struct xtensa *xtensa, struct reg *reg_lis
 		memcpy(reg_list[i].value, reg_list[j].value, sizeof(xtensa_reg_val_t));
 	}
 	return xtensa->scratch_ars[a_idx].intval && xtensa->scratch_ars[ar_idx].intval;
-}
-
-/*
-Bellow tables contain instruction values for TIE register access.
-Instructions using register a3 were selected:
-
-[LD|ST].QR q[0-7], a3, 0
-
-Can regenerate using tooolchain targeted for esp32s3 e.g.:
-xtensa-esp32s3-elf-as tmp.S -o test.elf
-*/
-
-static const unsigned int inst_table_r[] = {
-	0xcd6034, 0xcde034, 0xdd6034, 0xdde034, 0xed6034, 0xede034, 0xfd6034, 0xfde034
-};
-
-static const unsigned int inst_table_w[] = {
-	0xcd2034, 0xcda034, 0xdd2034, 0xdda034, 0xed2034, 0xeda034, 0xfd2034, 0xfda034
-};
-
-static int xtensa_tie_access(struct xtensa *xtensa, unsigned int regid, bool iswrite)
-{
-	assert((regid < xtensa->target->reg_cache->num_regs) && "invalid register number!");
-	struct reg *reg = &xtensa->target->reg_cache->reg_list[regid];
-	int status = xtensa_read_memory(xtensa->target, xtensa->spill_loc, 1, xtensa->spill_bytes, xtensa->spill_buf);
-	if (status != ERROR_OK) {
-		LOG_TARGET_ERROR(xtensa->target, "Failed to save spill memory");
-		return ERROR_FAIL;
-	}
-
-	if (iswrite) {
-		status = xtensa_write_memory(xtensa->target, xtensa->spill_loc, 1, reg->size / 8, reg->value);
-		if (status != ERROR_OK) {
-			LOG_TARGET_ERROR(xtensa->target, "Failed to store TIE value");
-			return status;
-		}
-	}
-	xtensa_queue_dbg_reg_write(xtensa, XDMREG_DDR, xtensa->spill_loc);
-	xtensa_queue_exec_ins(xtensa, XT_INS_RSR(xtensa, XT_SR_DDR, XT_REG_A3));
-	xtensa_queue_exec_ins(xtensa, (iswrite ? inst_table_w : inst_table_r)[(reg->number & 0xf) - 8]);
-
-	status = xtensa_dm_queue_execute(&xtensa->dbg_mod);
-	if (status != ERROR_OK) {
-		LOG_TARGET_ERROR(xtensa->target, "Failed to execute TIE queue: %d\n", status);
-		return status;
-	}
-	status = xtensa_core_status_check(xtensa->target);
-	if (status != ERROR_OK) {
-		LOG_TARGET_ERROR(xtensa->target, "Failed to execute TIE instr: %d\n", status);
-		return status;
-	}
-
-	if (!iswrite) {
-		status = xtensa_read_memory(xtensa->target, xtensa->spill_loc, 1, reg->size / 8, reg->value);
-		if (status != ERROR_OK) {
-			LOG_TARGET_ERROR(xtensa->target, "Failed to read TIE result");
-			return status;
-		}
-	}
-
-	status = xtensa_write_memory(xtensa->target, xtensa->spill_loc, 1, xtensa->spill_bytes, xtensa->spill_buf);
-	if (status != ERROR_OK) {
-		LOG_TARGET_ERROR(xtensa->target, "Failed to restore spill memory");
-		return status;
-	}
-	return ERROR_OK;
 }
 
 static int xtensa_write_dirty_registers(struct target *target)
@@ -826,9 +748,13 @@ static int xtensa_write_dirty_registers(struct target *target)
 					} else if (rlist[ridx].type == XT_REG_FR) {
 						xtensa_queue_exec_ins(xtensa, XT_INS_WFR(xtensa, reg_num, XT_REG_A3));
 					} else if (rlist[ridx].type == XT_REG_TIE) {
-						res = xtensa_tie_access(xtensa, i, true);
-						if (res != ERROR_OK)
-							return res;
+						if (xtensa->tie_reg_access) {
+							/* No need to check return value, any errors are already logged */
+							xtensa->tie_reg_access(target, i, true);
+						} else {
+							LOG_TARGET_WARNING(target,
+								"TIE register (regid=%u) found but target missing an access function", i);
+						}
 					} else {/*SFR */
 						if (reg_num == XT_PC_REG_NUM_VIRTUAL) {
 							if (xtensa->core_config->core_type == XT_LX) {
@@ -1002,12 +928,6 @@ static int xtensa_write_dirty_registers(struct target *target)
 	return res;
 }
 
-static inline bool xtensa_is_stopped(struct target *target)
-{
-	struct xtensa *xtensa = target_to_xtensa(target);
-	return xtensa->dbg_mod.core_status.dsr & OCDDSR_STOPPED;
-}
-
 int xtensa_examine(struct target *target)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
@@ -1138,6 +1058,11 @@ static void xtensa_imprecise_exception_clear(struct target *target)
 				xtensa->core_cache->reg_list[ridx].name, value);
 		}
 	}
+}
+
+uint32_t xtensa_ins_rsr(struct xtensa *xtensa, unsigned int sr, unsigned int t)
+{
+	return XT_INS_RSR(xtensa, sr, t);
 }
 
 int xtensa_core_status_check(struct target *target)
@@ -1459,9 +1384,14 @@ int xtensa_fetch_all_regs(struct target *target)
 				xtensa_queue_exec_ins(xtensa, XT_INS_RFR(xtensa, reg_num, XT_REG_A3));
 				break;
 			case XT_REG_TIE:
-				res = xtensa_tie_access(xtensa, i, false);
-				if (res != ERROR_OK)
-					return res;
+				if (xtensa->tie_reg_access) {
+					/* No need to check return value, any errors are already logged */
+					if (xtensa->tie_reg_access(target, i, false) != ERROR_OK)
+						memset(reg_list[i].value, 0, reg_list[i].size / 8);
+				} else {
+					LOG_TARGET_WARNING(target,
+						"TIE register (regid=%u) found but target missing an access function", i);
+				}
 				reg_fetched = false;
 				break;
 			case XT_REG_SPECIAL:
@@ -4133,10 +4063,6 @@ COMMAND_HELPER(xtensa_cmd_xtreg_do, struct xtensa *xtensa)
 			(strcmp(rptr->name, "ddr") == 0) || (strncmp(rptr->name, "intset", 6) == 0) ||
 			(strncmp(rptr->name, "intclear", 8) == 0) || (strcmp(rptr->name, "mesrclr") == 0))
 			rptr->flags = XT_REGF_NOREAD;
-		else if ((strcmp(rptr->name, "q0") == 0) || (strcmp(rptr->name, "q1") == 0) || (strcmp(rptr->name, "q2") == 0)
-				|| (strcmp(rptr->name, "q3") == 0) || (strcmp(rptr->name, "q4") == 0) || (strcmp(rptr->name, "q5") == 0)
-				|| (strcmp(rptr->name, "q6") == 0) || (strcmp(rptr->name, "q7") == 0))
-			rptr->flags = XT_REGF_COPROC1;
 		else
 			rptr->flags = 0;
 

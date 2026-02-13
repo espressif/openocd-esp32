@@ -10,6 +10,7 @@
 #endif
 
 #include <helper/time_support.h>
+#include <target/register.h>
 #include <target/target.h>
 #include <target/target_type.h>
 #include <target/smp.h>
@@ -444,20 +445,104 @@ static int esp32s3_reset_reason_fetch(struct target *target, int *rsn_id, const 
 	return ERROR_OK;
 }
 
+/*
+Bellow tables contain instruction values for PIE register access.
+Instructions using register a3 were selected:
+
+[LD|ST].QR q[0-7], a3, 0
+
+Can regenerate using tooolchain targeted for esp32s3 e.g.:
+xtensa-esp32s3-elf-as tmp.S -o test.elf
+
+Memory location with allowed load/store access must be configured
+in target->working_area_phys, this location is used as source/destination
+address for the PIE instructions.
+*/
+
+static const unsigned int pie_inst_table_r[] = {
+	0xcd6034, 0xcde034, 0xdd6034, 0xdde034, 0xed6034, 0xede034, 0xfd6034, 0xfde034
+};
+
+static const unsigned int pie_inst_table_w[] = {
+	0xcd2034, 0xcda034, 0xdd2034, 0xdda034, 0xed2034, 0xeda034, 0xfd2034, 0xfda034
+};
+
+static int esp32s3_tie_reg_access(struct target *target, unsigned int regid, bool iswrite)
+{
+	assert((regid < target->reg_cache->num_regs) && "invalid register number!");
+	int ret;
+	struct xtensa *xtensa;
+	/* First, check other target state to prevent execution with corrupted memory */
+	if (target->smp) {
+		struct target_list *head;
+		foreach_smp_target(head, target->smp_targets) {
+			xtensa = target_to_xtensa(head->target);
+			if (!xtensa_is_stopped(head->target)) {
+				/* Assume registers are always accessed in order to minimize warnings */
+				if (strcmp(target->reg_cache->reg_list[regid].name, "q0"))
+					return ERROR_FAIL;
+				LOG_TARGET_DEBUG(target, "Polling target %s to check it is halted", head->target->cmd_name);
+				ret = xtensa_dm_poll(&xtensa->dbg_mod);
+				if (ret == ERROR_OK)
+					ret = xtensa_dm_core_status_read(&xtensa->dbg_mod);
+				if (ret != ERROR_OK || !xtensa_is_stopped(head->target)) {
+					LOG_TARGET_DEBUG(target,
+						"Skipping access to PIE registers - all targets need to be halted for safe access.");
+					return ERROR_FAIL;
+				}
+			}
+		}
+	}
+	struct reg *reg = &target->reg_cache->reg_list[regid];
+	uint8_t working_area_backup[reg->size / 8];
+	if (xtensa_read_memory(target, target->working_area_phys, 1, reg->size / 8, working_area_backup) != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to save original working area memory contents");
+		return ERROR_FAIL;
+	}
+
+	if (iswrite) {
+		ret = xtensa_write_memory(target, target->working_area_phys, 1, reg->size / 8, reg->value);
+		if (ret != ERROR_OK) {
+			LOG_TARGET_ERROR(target, "Failed to store PIE value");
+			goto xtensa_tie_access_cleanup;
+		}
+	}
+	xtensa = target_to_xtensa(target);
+	xtensa_queue_dbg_reg_write(xtensa, XDMREG_DDR, target->working_area_phys);
+	xtensa_queue_dbg_reg_write(xtensa, XDMREG_DIR0EXEC, xtensa_ins_rsr(xtensa, XT_SR_DDR, XT_REG_A3));
+	xtensa_queue_dbg_reg_write(xtensa, XDMREG_DIR0EXEC,
+		(iswrite ? pie_inst_table_w : pie_inst_table_r)[(reg->number & 0xf) - 8]);
+
+	ret = xtensa_dm_queue_execute(&xtensa->dbg_mod);
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to execute PIE queue: %d\n", ret);
+		goto xtensa_tie_access_cleanup;
+	}
+	ret = xtensa_core_status_check(target);
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to execute PIE instr: %d\n", ret);
+		goto xtensa_tie_access_cleanup;
+	}
+
+	if (!iswrite) {
+		ret = xtensa_read_memory(target, target->working_area_phys, 1, reg->size / 8, reg->value);
+		if (ret != ERROR_OK)
+			LOG_TARGET_ERROR(target, "Failed to read PIE result");
+	}
+
+xtensa_tie_access_cleanup:
+	if (xtensa_write_memory(target, target->working_area_phys, 1, reg->size / 8, working_area_backup) != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to restore original working area memory contents");
+		return ERROR_FAIL;
+	}
+	return ret;
+}
+
 static int esp32s3_target_init(struct command_context *cmd_ctx, struct target *target)
 {
 	int ret = esp_xtensa_target_init(cmd_ctx, target);
 	if (ret != ERROR_OK)
 		return ret;
-
-	struct xtensa *xtensa = target_to_xtensa(target);
-	xtensa->spill_loc = ESP32_S3_DRAM_LOW;
-	xtensa->spill_bytes = 16;
-	xtensa->spill_buf = calloc(1, xtensa->spill_bytes);
-	if (!xtensa->spill_buf) {
-		LOG_TARGET_ERROR(target, "Failed to alloc memory for spill_buf!");
-		return ERROR_FAIL;
-	}
 
 	return esp_xtensa_semihosting_init(target);
 }
@@ -525,6 +610,9 @@ static int esp32s3_target_create(struct target *target)
 		free(esp32s3);
 		return ret;
 	}
+
+	struct xtensa *xtensa = target_to_xtensa(target);
+	xtensa->tie_reg_access = esp32s3_tie_reg_access;
 
 	/* Assume running target. If different, the first poll will fix this. */
 	target->state = TARGET_RUNNING;
