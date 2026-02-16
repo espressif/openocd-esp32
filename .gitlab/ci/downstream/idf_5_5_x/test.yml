@@ -170,6 +170,23 @@ tests_esp32c6_idf5.5.x:
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32c6-lpcore-builtin -p test_*.LpCore*"
 
+tests_esp32c61_idf5.5.x:
+  extends: .tests_v5.5.x_riscv_template
+  tags:
+    - esp32c61
+    - usb_serial_jtag
+  needs:
+    - job: build_test_app_esp32c61_idf5.5.x
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gcov
+  variables:
+    CHIP_NAME: "esp32c61"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
+    TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p test_*.*Single"
+
 tests_esp32h2_idf5.5.x:
   extends: .tests_v5.5.x_riscv_template
   tags:
