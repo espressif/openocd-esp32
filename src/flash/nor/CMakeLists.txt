@@ -18,6 +18,7 @@ target_sources(nor PRIVATE
 	atsamv.c
 	atsame5.c
 	avrf.c
+	bl602.c
 	bluenrg-x.c
 	cc3220sf.c
 	cc26xx.c
@@ -48,6 +49,7 @@ target_sources(nor PRIVATE
 	fespi.c
 	fm3.c
 	fm4.c
+	hpm_xpi.c
 	jtagspi.c
 	kinetis.c
 	kinetis_ke.c
@@ -71,6 +73,7 @@ target_sources(nor PRIVATE
 	psoc5lp.c
 	psoc6.c
 	qn908x.c
+	read_only.c
 	renesas_rpchf.c
 	rp2xxx.c
 	rsl10.c
