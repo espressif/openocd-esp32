@@ -220,12 +220,13 @@ tests_esp32h2_idf6.0.x:
     ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single"
 
-tests_esp32p4_idf6.0.x:
+# TODO jtag runner
+.tests_esp32p4_idf6.0.x:
   extends: .tests_v6.0.x_riscv_template
   tags:
     - esp32p4
     - jtag
-    - eco_default
+    - eco6
   needs:
     - job: build_test_app_esp32p4_idf6.0.x
     - pipeline: $PARENT_PIPELINE_ID
@@ -237,29 +238,65 @@ tests_esp32p4_idf6.0.x:
     CHIP_NAME: "esp32p4"
     TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.*Encrypted"
 
-# TODO OCD-1315
+# TODO jtag runner
 .tests_esp32p4_idf6.0.x_lpcore:
-  extends: tests_esp32p4_idf6.0.x
+  extends: .tests_esp32p4_idf6.0.x
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
 
 tests_esp32p4_idf6.0.x_usj:
-  extends: tests_esp32p4_idf6.0.x
+  extends: .tests_esp32p4_idf6.0.x
   tags:
     - esp32p4
     - usb_serial_jtag
-    - eco_default
+    - eco6
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
 
-# TODO OCD-1315
-.tests_esp32p4_idf6.0.x_lpcore_usj:
+tests_esp32p4_idf6.0.x_lpcore_usj:
   extends: tests_esp32p4_idf6.0.x_usj
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-builtin -p test_*.LpCore*"
 
+tests_esp32p4_rev3_idf6.0.x:
+  extends: .tests_esp32p4_idf6.0.x
+  tags:
+    - esp32p4
+    - jtag
+    - eco5
+  needs:
+    - job: build_test_app_esp32p4_rev3_idf6.0.x
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gcov
+    - job: fetch_gdb
+      optional: true
+
+# TODO OCD-1315
+.tests_esp32p4_rev3_lpcore_idf6.0.x:
+  extends: tests_esp32p4_rev3_idf6.0.x
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
+
+tests_esp32p4_rev3_idf6.0.x_usj:
+  extends: tests_esp32p4_rev3_idf6.0.x
+  tags:
+    - esp32p4
+    - usb_serial_jtag
+    - eco5
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
+
+# TODO OCD-1315
+.tests_esp32p4_rev3_idf6.0.x_lpcore_usj:
+  extends: tests_esp32p4_rev3_idf6.0.x_usj
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-builtin -p test_*.LpCore*"
+
 tests_esp32p4_rev1_idf6.0.x:
-  extends: tests_esp32p4_idf6.0.x
+  extends: .tests_esp32p4_idf6.0.x
   tags:
     - esp32p4
     - jtag

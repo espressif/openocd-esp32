@@ -209,7 +209,7 @@ tests_esp32p4_idf5.5.x:
   tags:
     - esp32p4
     - jtag
-    - eco_default
+    - eco5
   needs:
     - job: build_test_app_esp32p4_idf5.5.x
     - pipeline: $PARENT_PIPELINE_ID

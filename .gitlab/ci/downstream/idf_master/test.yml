@@ -246,12 +246,13 @@ tests_esp32h2:
     ESPTOOL_PORT: "/dev/serial_ports/ttyACM-esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single"
 
-tests_esp32p4:
+# TODO jtag runner
+.tests_esp32p4:
   extends: .tests_master_riscv_template
   tags:
     - esp32p4
     - jtag
-    - eco_default
+    - eco6
   needs:
     - job: build_test_app_esp32p4
     - pipeline: $PARENT_PIPELINE_ID
@@ -265,29 +266,65 @@ tests_esp32p4:
     CHIP_NAME: "esp32p4"
     TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.*Encrypted"
 
-# TODO OCD-1315
+# TODO jtag runner
 .tests_esp32p4_lpcore:
-  extends: tests_esp32p4
+  extends: .tests_esp32p4
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
 
 tests_esp32p4_usj:
-  extends: tests_esp32p4
+  extends: .tests_esp32p4
   tags:
     - esp32p4
     - usb_serial_jtag
-    - eco_default
+    - eco6
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
 
-# TODO OCD-1315
-.tests_esp32p4_lpcore_usj:
+tests_esp32p4_lpcore_usj:
   extends: tests_esp32p4_usj
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-builtin -p test_*.LpCore*"
 
+tests_esp32p4_rev3:
+  extends: .tests_esp32p4
+  tags:
+    - esp32p4
+    - jtag
+    - eco5
+  needs:
+    - job: build_test_app_esp32p4_rev3
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gcov
+    - job: fetch_gdb
+      optional: true
+
+# TODO OCD-1315
+.tests_esp32p4_rev3_lpcore:
+  extends: tests_esp32p4_rev3
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
+
+tests_esp32p4_rev3_usj:
+  extends: tests_esp32p4_rev3
+  tags:
+    - esp32p4
+    - usb_serial_jtag
+    - eco5
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
+
+# TODO OCD-1315
+.tests_esp32p4_rev3_lpcore_usj:
+  extends: tests_esp32p4_rev3_usj
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-builtin -p test_*.LpCore*"
+
 tests_esp32p4_rev1:
-  extends: tests_esp32p4
+  extends: .tests_esp32p4
   tags:
     - esp32p4
     - jtag
