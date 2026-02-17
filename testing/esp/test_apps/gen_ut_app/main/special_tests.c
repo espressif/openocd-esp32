@@ -304,48 +304,58 @@ TEST_DECL(abort_ex, "test_special.DebuggerSpecialTests*.test_exception_abort")
 	abort();
 }
 
-#if CONFIG_IDF_TARGET_ESP32P4
-static void pie_multiply() {
-    __asm__ __volatile__ ("esp.vmulas.u16.qacc q0,q1");
+#if CONFIG_IDF_TARGET_ESP32P4 || CONFIG_IDF_TARGET_ESP32S3
+#if CONFIG_IDF_TARGET_ARCH_RISCV
+static inline void pie_multiply() {
+    __asm__ __volatile__ ("esp.vmulas.u16.qacc q0, q1");
 }
 
-TEST_DECL(pie_registers, "test_special.DebuggerSpecialTests*.test_pie_registers")
-{
-    uint16_t reg_val0[] = {0, 1, 2, 3, 4, 5, 6, 7};
-    uint16_t reg_val1[] = {8, 9, 10, 11, 12, 13, 14, 15};
+static inline void pie_disable() {
     __asm__ __volatile__ (
-        "csrsi 0x7F2, 0x1\n" // mext_pie_status.STATE = INITIAL
+        "csrci 0x7F2, 0x1\n" // mext_pie_status.STATE = OFF
+    );
+}
+
+static inline void pie_write(uint16_t q0[], uint16_t q1[]) {
+    __asm__ __volatile__ (
         "mv a0, %0\n"
         "mv a1, %1\n"
         "esp.vld.128.ip q0, a0, 0\n"
-        "esp.vld.128.ip q1, a1, 0" :: "r"(&reg_val0), "r"(&reg_val1) : "a0", "a1"
+        "esp.vld.128.ip q1, a1, 0" :: "r"(q0), "r"(q1) : "a0", "a1"
     );
-    while (1) {
-        pie_multiply(); TEST_BREAK_LOC(pie_multiply);
-    }
 }
-#elif CONFIG_IDF_TARGET_ESP32S3
-static void pie_multiply() {
-    __asm__ __volatile__ ("EE.VMULAS.U16.QACC q0,q1");
+#else /* CONFIG_IDF_TARGET_ARCH_XTENSA */
+static inline void pie_multiply() {
+    __asm__ __volatile__ ("EE.VMULAS.U16.QACC q0, q1");
 }
 
-TEST_DECL(pie_registers, "test_special.DebuggerSpecialTests*.test_pie_registers")
-{
-    asm volatile (
+static inline void pie_disable() {
+    __asm__ __volatile__ (
         "rsr.cpenable a4\n"
-        "movi a0, 8\n"
-        "or a4, a4, a0\n"
+        "movi a0, ~8\n"
+        "and a4, a4, a0\n"
         "wsr.cpenable a4\n"
         "rsync\n":::"a0", "a4"
     );
-    uint16_t reg_val0[] = {0, 1, 2, 3, 4, 5, 6, 7};
-    uint16_t reg_val1[] = {8, 9, 10, 11, 12, 13, 14, 15};
+}
+
+static inline void pie_write(uint16_t q0[], uint16_t q1[]) {
     __asm__ __volatile__ (
         "LD.QR q0, %0, 0\n"
-        "LD.QR q1, %1, 0" :: "r"(&reg_val0), "r"(&reg_val1)
+        "LD.QR q1, %1, 0" :: "r"(q0), "r"(q1)
     );
+}
+#endif
+
+TEST_DECL(pie_registers, "test_special.DebuggerSpecialTests*.test_pie_registers")
+{
+    uint16_t reg_val0[] = {0, 1, 2, 3, 4, 5, 6, 7};
+    uint16_t reg_val1[] = {8, 9, 10, 11, 12, 13, 14, 15};
+    pie_write(reg_val0, reg_val1);
     while (1) {
         pie_multiply(); TEST_BREAK_LOC(pie_multiply);
+        // to test openocd access while disabled
+        pie_disable(); TEST_BREAK_LOC(pie_disable);
     }
 }
 #endif

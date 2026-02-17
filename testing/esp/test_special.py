@@ -295,13 +295,13 @@ class DebuggerSpecialTestsImpl:
         reg_len = 128
         if testee_info.arch == "xtensa":
             reg_len = 64 # test lower 64bits only as we cannot set higher values from GDB yet
-            def get_quacc():
+            def get_qacc():
                 return int160_to_v4_int40(self.gdb.get_reg('qacc_h')) + int160_to_v4_int40(self.gdb.get_reg('qacc_l'))
 
-            def clear_quacc():
+            def clear_qacc():
                 self.gdb.set_reg('qacc_h', '0')
                 self.gdb.set_reg('qacc_l', '0')
-                self.assertEqual(sum(get_quacc()), 0)
+                self.assertEqual(sum(get_qacc()), 0)
 
             def set_q0(val):
                 self.gdb.set_reg('q0', hex(val))
@@ -311,17 +311,17 @@ class DebuggerSpecialTestsImpl:
                 self.gdb.set_reg('q1', hex(val))
                 self.assertEqual(self.gdb.get_reg('q1'), val)
         else:
-            def get_quacc():
+            def get_qacc():
                 qacc = self.gdb.get_reg('qacc_l_l.v2_int64') + self.gdb.get_reg('qacc_l_h.v2_int64') \
                     + self.gdb.get_reg('qacc_h_l.v2_int64') + self.gdb.get_reg('qacc_h_h.v2_int64')
                 return list(reversed(qacc))
 
-            def clear_quacc():
+            def clear_qacc():
                 self.gdb.set_reg('qacc_l_l.uint128', '0')
                 self.gdb.set_reg('qacc_l_h.uint128', '0')
                 self.gdb.set_reg('qacc_h_l.uint128', '0')
                 self.gdb.set_reg('qacc_h_h.uint128', '0')
-                self.assertEqual(sum(get_quacc()), 0)
+                self.assertEqual(sum(get_qacc()), 0)
 
             def set_q0(val):
                 hex_str = format(val,'032x')
@@ -337,7 +337,7 @@ class DebuggerSpecialTestsImpl:
         def check_mul(src1, src2):
             src_vec1 = int128_to_v8_int16(src1)
             src_vec2 = int128_to_v8_int16(src2)
-            qacc = get_quacc()
+            qacc = get_qacc()
             for i in range(8):
                 self.assertEqual(src_vec1[i] * src_vec2[i], qacc[i])
 
@@ -352,10 +352,14 @@ class DebuggerSpecialTestsImpl:
         b = random.getrandbits(reg_len)
         set_q0(a)
         set_q1(b)
-        clear_quacc()
+        clear_qacc()
+
+        # Move breakpoint to make sure we dont hit again after handling coproc-disabled interrupt
+        self.clear_bps()
+        self.add_bp('pie_disable')
 
         # Multiply random numbers set from debugger
-        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'pie_multiply', ['pie_multiply'], outmost_func_name='pie_registers_task')
+        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'pie_disable', ['pie_disable'], outmost_func_name='pie_registers_task')
         check_mul(a, b)
 
 
