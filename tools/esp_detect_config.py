@@ -208,6 +208,11 @@ class OpenOcd:
         logging.debug(dev_path)
         return dev_path
 
+    def serial_number(self):
+        dev_serial = self.send(self.iface_cmd + " get_serial")
+        logging.debug(dev_serial)
+        return dev_serial
+
 
 def detect_and_populate_config(oocd, scripts, log_lvl, data_tmo, config_file, host, port,
                                iface_id, iface_cmd, usb_location, esp_cfg):
@@ -236,6 +241,7 @@ def detect_and_populate_config(oocd, scripts, log_lvl, data_tmo, config_file, ho
     try:
         devices = ocd.usb_devices()
         curr_dev = ocd.default_usb_device()
+        serial = ocd.serial_number()
         logging.info("Default device %s", curr_dev)
         devices.remove(curr_dev)
         logging.info("Found other devices %s", devices)
@@ -267,6 +273,8 @@ def detect_and_populate_config(oocd, scripts, log_lvl, data_tmo, config_file, ho
                             logging.info("Found board %s @ %s", cfg_board["name"], loc)
                             board_entry = copy.deepcopy(cfg_board)
                             board_entry["location"] = f"usb://{loc}"
+                            if serial:
+                                board_entry["serial_number"] = serial
                             iface_boards.append(board_entry)
                 if not found:
                     logging.debug("No board entry found for idcode %s target %s @ iface %s!",
