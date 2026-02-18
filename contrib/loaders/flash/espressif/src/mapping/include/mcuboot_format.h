@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 OR MIT */
-/* SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD */
+/* SPDX-FileCopyrightText: 2026 Espressif Systems (Shanghai) CO LTD */
 
 #pragma once
 
@@ -8,11 +8,11 @@
 #include <stdint.h>
 #include <assert.h>
 
-#define MCUBOOT_HEADER_MAGIC 0x96f3b83d
-#define MCUBOOT_HEADER_SIZE  0x20
+#define MCUBOOT_HEADER_MAGIC            (0x96f3b83d)
+#define MCUBOOT_HEADER_SIZE             (0x20)
 
-#define MCUBOOT_PROGRAM_HEADER_MAGIC 0xace637d3
-#define MCUBOOT_PROGRAM_HEADER_SIZE  0x60
+#define MCUBOOT_PROGRAM_HEADER_MAGIC    (0xace637d3)
+#define MCUBOOT_PROGRAM_HEADER_SIZE     (0x60)
 
 // https://github.com/mcu-tools/mcuboot/blob/v2.2.0/boot/bootutil/include/bootutil/image.h#L164
 struct mcuboot_header {

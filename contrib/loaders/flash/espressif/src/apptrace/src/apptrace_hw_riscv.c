@@ -71,7 +71,7 @@ int apptrace_hw_downlink_put(uint8_t *buf)
 
 int apptrace_hw_swap_start(uint32_t current_block_id)
 {
-	STUB_LOG_TRACEF("from current block id: %d (%d)\n", current_block_id % 2, current_block_id);
+	STUB_LOGV("swap start from current block id: %d (%d)\n", current_block_id % 2, current_block_id);
 
 	uint32_t ctrl_reg = s_apptrace_ctrl.ctrl;
 	uint32_t host_connected = APPTRACE_HOST_CONNECT & ctrl_reg;
@@ -80,7 +80,7 @@ int apptrace_hw_swap_start(uint32_t current_block_id)
 		uint32_t block_len = APPTRACE_BLOCK_LEN_GET(ctrl_reg);
 		/* When host finishes reading, block_len should be 0 and block_id should match the latest exposed block */
 		if (block_len != 0 || block_id != (current_block_id & APPTRACE_BLOCK_ID_MSK)) {
-			STUB_LOGW("Can not swap %x %d %d/%d\n", ctrl_reg, block_len, block_id, current_block_id);
+			STUB_LOGV("Can not swap %x %d %d/%d\n", ctrl_reg, block_len, block_id, current_block_id);
 			return ESP_STUB_ERR_APPTRACE_CANNOT_SWAP;
 		}
 	}
@@ -98,7 +98,7 @@ int apptrace_hw_swap(int new_block_id, uint32_t prev_block_len)
 
 int apptrace_hw_swap_end(uint32_t new_block_id, uint32_t prev_block_len)
 {
-	STUB_LOG_TRACEF("new_block_id: %d, prev_block_len: %d\n", new_block_id, prev_block_len);
+	STUB_LOGV("swap end new_block_id: %d, prev_block_len: %d\n", new_block_id, prev_block_len);
 
 	uint32_t ctrl_reg = s_apptrace_ctrl.ctrl;
 	uint32_t host_connected = APPTRACE_HOST_CONNECT & ctrl_reg;

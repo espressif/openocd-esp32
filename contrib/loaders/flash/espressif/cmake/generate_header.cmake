@@ -17,14 +17,10 @@ file(MAKE_DIRECTORY ${OUTPUT_DIR})
 
 # Set defaults
 set(ESP_STUB_REVERSE_BINARY 0)
-set(ESP_STUB_STACK_SIZE 512)
+set(ESP_STUB_STACK_SIZE 1024)
 
 if(${ESP_TARGET} STREQUAL "esp32")
     set(ESP_STUB_REVERSE_BINARY 1)
-elseif(${ESP_TARGET} STREQUAL "esp32p4")
-    set(ESP_STUB_STACK_SIZE 1024)
-elseif(${ESP_TARGET} STREQUAL "esp32s3")
-    set(ESP_STUB_STACK_SIZE 768)
 endif()
 
 file(WRITE ${HEADER_FILE} "/* SPDX-License-Identifier: Apache-2.0 OR MIT */

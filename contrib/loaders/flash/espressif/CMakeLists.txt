@@ -99,6 +99,7 @@ set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_test_all
     STUB_LOG_ENABLED
     STUB_LIB_LOG_BUF
     STUB_LIB_LOG_BUF_SIZE=8192
+    STUB_LIB_LOG_LEVEL=STUB_LOG_LEVEL_T
 )
 
 # Create a list to hold all target names

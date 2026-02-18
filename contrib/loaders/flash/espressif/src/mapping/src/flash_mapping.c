@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
-// SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+// SPDX-FileCopyrightText: 2026 Espressif Systems (Shanghai) CO LTD
 
 #include <stdbool.h>
 #include <stdint.h>

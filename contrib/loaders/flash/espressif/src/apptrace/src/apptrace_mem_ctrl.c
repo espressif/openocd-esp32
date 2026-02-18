@@ -269,8 +269,6 @@ static int apptrace_memory_swap_internal(void)
 
 static int apptrace_memory_swap(void)
 {
-	STUB_LOG_TRACE();
-
 	while (apptrace_memory_swap_internal() != ESP_STUB_OK) {
 #if defined(ESP32S3)
 		/*
@@ -378,8 +376,6 @@ uint8_t *apptrace_memory_uplink_get(uint32_t size)
 
 void apptrace_memory_uplink_put(uint8_t *buf)
 {
-	STUB_LOG_TRACE();
-
 	apptrace_memory_pkt_end(buf);
 }
 

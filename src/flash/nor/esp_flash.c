@@ -57,6 +57,8 @@
 #include "config.h"
 #endif
 
+#include <stdint.h>
+#include <stddef.h>
 #include "imp.h"
 #include <helper/sha256.h>
 #include <helper/binarybuffer.h>
@@ -71,10 +73,12 @@
 #include <target/target_type.h>
 #include "esp_flash.h"
 
-#define ESP_FLASH_RW_TMO                20000	/* ms */
-#define ESP_FLASH_ERASE_TMO             60000	/* ms */
-#define ESP_FLASH_VERIFY_TMO            30000	/* ms */
-#define ESP_FLASH_WR_DEFLATE_TMO        60000	/* ms */
+#define ESP_FLASH_RW_TMO                20000   /* ms */
+#define ESP_FLASH_BASE_TMO              2000    /* ms */
+#define ESP_FLASH_ERASE_PER_SECTOR_TMO  16      /* ms */
+#define ESP_FLASH_READ_PER_SECTOR_TMO   32      /* ms */
+#define ESP_FLASH_VERIFY_TMO            30000   /* ms */
+#define ESP_FLASH_WR_DEFLATE_TMO        60000   /* ms */
 #define ESP_FLASH_MAPS_MAX              2
 
 struct esp_flash_rw_args {
@@ -128,6 +132,10 @@ static const char *esp_stub_err_str(int ret_code)
 			return "ESP_STUB_ERR_NOT_ENOUGH_DATA";
 		case ESP_STUB_ERR_TOO_MUCH_DATA:
 			return "ESP_STUB_ERR_TOO_MUCH_DATA";
+		case ESP_STUB_ERR_TIMEOUT:
+			return "Command timeout";
+		case ESP_STUB_ERR_FLASH_ENCRYPTION_NOT_ENABLED:
+			return "Flash encryption is not enabled";
 
 		case ESP_STUB_ERR_PARTITION_NOT_FOUND:
 			return "No IDF partition found";
@@ -137,7 +145,11 @@ static const char *esp_stub_err_str(int ret_code)
 		case ESP_STUB_ERR_FLASH_READ_UNALIGNED:
 			return "Cannot read unaligned data";
 		case ESP_STUB_ERR_FLASH_READ:
-			return "Failed to read flash data";
+			return "Failed to read from flash";
+		case ESP_STUB_ERR_FLASH_WRITE_UNALIGNED:
+			return "Cannot write unaligned data";
+		case ESP_STUB_ERR_FLASH_WRITE:
+			return "Failed to write to flash";
 
 		case ESP_STUB_ERR_APPTRACE_CANNOT_SWAP:
 			return "ESP_STUB_ERR_APPTRACE_CANNOT_SWAP";
@@ -407,11 +419,15 @@ int esp_algo_flash_blank_check(struct flash_bank *bank)
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
+	struct duration bench;
+	duration_start(&bench);
+
 	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
 	if (ret != ERROR_OK)
 		return ret;
 
-	run.stack_size = stack_size;
+	run.timeout_ms = ESP_FLASH_BASE_TMO + bank->num_sectors * ESP_FLASH_READ_PER_SECTOR_TMO;
+	run.stack_size = stack_size + esp_info->sec_sz; /* extra stack for the flash read buffer with the sector size */
 	struct mem_param mp;
 	init_mem_param(&mp, 3 /*3rd usr arg*/, bank->num_sectors /*size in bytes*/, PARAM_IN);
 	run.mem_args.params = &mp;
@@ -436,6 +452,8 @@ int esp_algo_flash_blank_check(struct flash_bank *bank)
 	} else {
 		for (unsigned int i = 0; i < bank->num_sectors; i++)
 			bank->sectors[i].is_erased = mp.value[i];
+		duration_measure(&bench);
+		LOG_INFO("PROF: Erased check %d sectors in %g ms", bank->num_sectors, duration_elapsed(&bench) * 1000);
 	}
 	destroy_mem_param(&mp);
 	return ret;
@@ -535,6 +553,10 @@ int esp_algo_flash_erase(struct flash_bank *bank, unsigned int first, unsigned i
 	}
 	assert((first <= last) && (last < bank->num_sectors));
 
+	uint32_t num_sectors = last - first + 1;
+	uint32_t erase_tmo = ESP_FLASH_BASE_TMO + num_sectors * ESP_FLASH_ERASE_PER_SECTOR_TMO;
+	LOG_INFO("Sectors to be erased: %d, timeout: %d ms", num_sectors, erase_tmo);
+
 	struct duration bench;
 	duration_start(&bench);
 
@@ -543,15 +565,13 @@ int esp_algo_flash_erase(struct flash_bank *bank, unsigned int first, unsigned i
 		return ret;
 
 	run.stack_size = stack_size;
-	run.timeout_ms = ESP_FLASH_ERASE_TMO;
+	run.timeout_ms = erase_tmo;
 	ret = esp_info->run_func_image(bank->target,
 		&run,
 		3,
-		ESP_STUB_CMD_FLASH_ERASE,
-		/* cmd */
-		esp_info->hw_flash_base + first * esp_info->sec_sz,
-		/* start addr */
-		(last - first + 1) * esp_info->sec_sz);			/* size */
+		ESP_STUB_CMD_FLASH_ERASE, /* cmd */
+		esp_info->hw_flash_base + first * esp_info->sec_sz, /* start addr */
+		(last - first + 1) * esp_info->sec_sz);	/* size */
 	image_close(&run.image.image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
@@ -647,8 +667,7 @@ static int esp_algo_flash_write_xfer(struct target *target, uint32_t block_id, u
 
 	/* check for target to get connected */
 	if (!state->rw.connected) {
-		retval =
-			state->rw.apptrace->ctrl_reg_read(target, NULL, NULL, &state->rw.connected);
+		retval = state->rw.apptrace->ctrl_reg_read(target, NULL, NULL, &state->rw.connected);
 		if (retval != ERROR_OK) {
 			LOG_ERROR("Failed to read apptrace control reg (%d)!", retval);
 			return retval;
@@ -658,9 +677,7 @@ static int esp_algo_flash_write_xfer(struct target *target, uint32_t block_id, u
 		/* got connected, apptrace is initied on target, call `info_init` once more to
 		 * update control block info */
 		if (state->rw.apptrace->info_init) {
-			retval = state->rw.apptrace->info_init(target,
-				state->rw.apptrace_ctrl_addr,
-				NULL);
+			retval = state->rw.apptrace->info_init(target, state->rw.apptrace_ctrl_addr, NULL);
 			if (retval != ERROR_OK)
 				return retval;
 		}
@@ -2078,6 +2095,7 @@ static int esp_algo_flash_cmd_apptrace_rd_test_do(struct target *target)
 		/* size */
 		buffer_size);
 	image_close(&run.image.image);
+	free(rd_state.rd_buf);
 	esp_algo_flash_apptrace_info_restore(bank->target, esp_info, old_addr);
 	if (ret != ERROR_OK) {
 		free(buffer);

@@ -28,7 +28,6 @@ int stub_apptrace_recv_data(const void *arg, stub_apptrace_recv_cb_t process_cb)
 	}
 
 	struct esp_flash_stub_flash_write_args *wargs = (struct esp_flash_stub_flash_write_args *)arg;
-	STUB_LOGD("flash_write: start_addr: %x size: %d", wargs->start_addr, wargs->size);
 
 	/* For RISCV, we need to set the trace memory blocks */
 	const uint16_t buf_size = apptrace_hw_get_buf_size();

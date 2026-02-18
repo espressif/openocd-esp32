@@ -24,9 +24,10 @@ build_stub_images:
     - jtag
   allow_failure: true
   variables:
-    RUNNER_SCRIPT_TIMEOUT: 5m
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_stublib_test"
-    TEST_RUN_EXTRA_OPTS: "-r --no-load --no-gdb -b ${TEST_BOARD} -p test_oocd.StubTestsSimple"
+    TEST_RUN_EXTRA_OPTS: "--no-load --no-gdb -b ${TEST_BOARD} -p test_oocd.StubTests*"
+    ESPTOOL_PORT: "/dev/serial_ports/ttyUSB-esp32"
+    MERGED_BIN: "/cache/merged-binary.bin"
   artifacts:
     paths:
       - $TEST_RUN_DIR/debug_backend_tests.log
@@ -48,6 +49,13 @@ build_stub_images:
         export PLATFORM_NAME="linux-arm64-test";
       fi;
       echo "PLATFORM_NAME: ${PLATFORM_NAME}";
+    - >
+      if [[ -n "${MERGED_BIN}" && -f "${MERGED_BIN}" ]]; then
+        echo "Flashing ${MERGED_BIN} to target via ${ESPTOOL_PORT}";
+        esptool -s -p ${ESPTOOL_PORT} --chip ${CHIP_NAME} write-flash 0x0 ${MERGED_BIN};
+        echo "Waiting for target to boot...";
+        sleep 1;
+      fi
   script:
     - mkdir ${TEST_RUN_DIR}
     - ARCHIVE_NAME=$(cat ${DIST_ART_DIR}/dist_name_${PLATFORM_NAME})
@@ -76,6 +84,16 @@ test_stublib_esp32s3:
   variables:
     CHIP_NAME: esp32s3
     TEST_BOARD: "esp32s3-ftdi"
+
+test_stublib_esp32s3_usj:
+  extends:
+    - .test_stublib_template
+  tags:
+    - esp32s3
+    - usb_serial_jtag
+  variables:
+    CHIP_NAME: esp32s3
+    TEST_BOARD: "esp32s3-builtin"
 
 test_stublib_esp32c2:
   extends:
@@ -141,9 +159,13 @@ test_stublib_esp32h21:
     CHIP_NAME: esp32h21
     TEST_BOARD: "esp32h21-builtin"
 
-test_stublib_esp32p4:
+test_stublib_esp32p4_usj:
   extends:
     - .test_stublib_template
+  tags:
+    - esp32p4
+    - usb_serial_jtag
+    - eco6
   variables:
     CHIP_NAME: esp32p4
-    TEST_BOARD: "esp32p4-ftdi"
+    TEST_BOARD: "esp32p4-builtin"

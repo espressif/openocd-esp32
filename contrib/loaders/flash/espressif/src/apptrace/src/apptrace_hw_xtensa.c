@@ -92,7 +92,7 @@ void apptrace_hw_set_trace_mem(uint8_t *trace_mem, uint16_t trace_mem_sz)
 
 int apptrace_hw_swap_start(uint32_t current_block_id)
 {
-	STUB_LOG_TRACEF("from current block id: %d\n", current_block_id);
+	STUB_LOGV("swap start from current block id: %d\n", current_block_id);
 
 	uint32_t ctrl_reg = TRAX_REG_READ(APPTRACE_TRAX_CTRL_REG);
 	uint32_t host_connected = APPTRACE_HOST_CONNECT & ctrl_reg;
@@ -101,7 +101,7 @@ int apptrace_hw_swap_start(uint32_t current_block_id)
 		uint32_t block_len = APPTRACE_BLOCK_LEN_GET(ctrl_reg);
 		/* When host finishes reading, block_len should be 0 and block_id should match the latest exposed block */
 		if (block_len != 0 || block_id != (current_block_id & APPTRACE_BLOCK_ID_MSK)) {
-			STUB_LOGW("Can not swap %x %d %d/%d\n", ctrl_reg, block_len, block_id, current_block_id);
+			STUB_LOGV("Can not swap %x %d %d/%d\n", ctrl_reg, block_len, block_id, current_block_id);
 			return ESP_STUB_ERR_APPTRACE_CANNOT_SWAP;
 		}
 	}
@@ -110,14 +110,14 @@ int apptrace_hw_swap_start(uint32_t current_block_id)
 
 int apptrace_hw_swap(int new_block_id, uint32_t prev_block_len)
 {
-	STUB_LOG_TRACEF("to new block id: %d, prev_block_len: %d\n", new_block_id, prev_block_len);
+	STUB_LOGV("to new block id: %d, prev_block_len: %d\n", new_block_id, prev_block_len);
 
 	/* calculate CRC16 of the next block to be swapped */
 	if (prev_block_len > 0) {
 		const uint8_t *prev_block_start = s_trax_blocks[!new_block_id];
 		uint16_t crc16 = stub_lib_crc16_le(0, prev_block_start, prev_block_len);
 		TRAX_REG_WRITE(APPTRACE_TRAX_CRC16_REG, crc16 | APPTRACE_CRC_INDICATOR);
-		STUB_LOGI("CRC16:%x %d @%x\n", crc16, prev_block_len, prev_block_start);
+		STUB_LOGV("CRC16:0x%x len:%d @%x\n", crc16, prev_block_len, prev_block_start);
 	}
 
 	TRAX_SEL_MEM_BLK(new_block_id);
@@ -127,7 +127,7 @@ int apptrace_hw_swap(int new_block_id, uint32_t prev_block_len)
 
 int apptrace_hw_swap_end(uint32_t new_block_id, uint32_t prev_block_len)
 {
-	STUB_LOG_TRACEF("new_block_id: %d, prev_block_len: %d\n", new_block_id, prev_block_len);
+	STUB_LOGV("swap end new_block_id: %d, prev_block_len: %d\n", new_block_id, prev_block_len);
 
 	uint32_t ctrl_reg = TRAX_REG_READ(APPTRACE_TRAX_CTRL_REG);
 	uint32_t host_connected = APPTRACE_HOST_CONNECT & ctrl_reg;

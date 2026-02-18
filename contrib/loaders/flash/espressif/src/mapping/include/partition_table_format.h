@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 OR MIT */
-/* SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD */
+/* SPDX-FileCopyrightText: 2026 Espressif Systems (Shanghai) CO LTD */
 
 #pragma once
 
@@ -8,10 +8,10 @@
 #include <stdint.h>
 #include <assert.h>
 
-#define ESP_PARTITION_TABLE_OFFSET 0x8000
-#define ESP_PARTITION_MAGIC 0x50AA
-#define ESP_PARTITION_TYPE_APP 0x00
-#define ESP_PARTITION_INFO_SIZE 32
+#define ESP_PARTITION_TABLE_OFFSET  (0x8000)
+#define ESP_PARTITION_MAGIC         (0x50AA)
+#define ESP_PARTITION_TYPE_APP      (0x00)
+#define ESP_PARTITION_INFO_SIZE     (0x20)
 
 // Partition Table entry
 struct esp_partition_info {
