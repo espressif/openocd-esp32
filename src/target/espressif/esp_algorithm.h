@@ -170,6 +170,10 @@ struct esp_algorithm_stub {
 	target_addr_t log_buff_addr;
 	/** Size of the log buffer */
 	uint32_t log_buff_size;
+	/** Address of the trap record */
+	target_addr_t trap_record_addr;
+	/** Stub trap entry (vecbase on Xtensa, mtvec on RISC-V) */
+	target_addr_t trap_entry_addr;
 	/** Algorithm's arch-specific info. */
 	void *ainfo;
 };

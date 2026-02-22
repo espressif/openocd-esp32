@@ -29,27 +29,31 @@ class StubTestsSimple(OocdTestsSimple):
     def tearDown(self):
         OocdTestsSimple.tearDown(self)
 
-    def run_stub_test(self, test):
-        res = self.oocd.cmd_exec(f'esp {test}')
-        self.assertTrue(f'Called {test}: test passed' in res)
-
     def test_stub_lib(self):
         """
-            This test simply calls `esp stub_lib_test` command and checks the return code.
+            This test runs `esp stub_lib_test` command for exception handling and checks the return code.
         """
-        self.run_stub_test('stub_lib_test')
+        # TODO: check why xtensa fails to handle exceptions after 'reset halt'
+        self.oocd.cmd_exec('reset')
+        time.sleep(1)
+        self.oocd.cmd_exec('halt')
+        res = self.oocd.cmd_exec(f'esp stub_lib_test')
+        self.assertRegex(res, r'Stub exception on hart \d+ @ 0x[0-9a-fA-F]+: \w+')
+        self.assertTrue(f'Failed to run stub test1: (0x2000) Exception happened during stub execution' in res)
 
     def test_apptrace_wr(self):
         """
-            This test simply calls `esp stub_apptrace_wr_test` command and checks the return code.
+            This test runs `esp stub_apptrace_wr_test` command and checks the return code.
         """
-        self.run_stub_test('stub_apptrace_wr_test')
+        res = self.oocd.cmd_exec(f'esp stub_apptrace_wr_test')
+        self.assertTrue(f'Apptrace write test passed' in res)
 
     def test_apptrace_rd(self):
         """
-            This test simply calls `esp stub_apptrace_rd_test` command and checks the return code.
+            This test runs `esp stub_apptrace_rd_test` command and checks the return code.
         """
-        self.run_stub_test('stub_apptrace_rd_test')
+        res = self.oocd.cmd_exec(f'esp stub_apptrace_rd_test')
+        self.assertTrue(f'Apptrace read test passed' in res)
 
     def test_flash_read_bank(self):
         """

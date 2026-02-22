@@ -26,3 +26,5 @@
 #define ESP_STUB_ERR_APPTRACE_SEND_INVALID_ARG          0x1002
 #define ESP_STUB_ERR_APPTRACE_DOWN_BUF_FAIL             0x1003
 #define ESP_STUB_ERR_APPTRACE_UP_BUF_FAIL               0x1004
+
+#define ESP_STUB_ERR_EXCEPTION                          0x2000

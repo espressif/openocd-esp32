@@ -131,6 +131,22 @@ foreach(COMMAND ${COMMANDS})
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
 
+    execute_process(
+        COMMAND ${CMAKE_READELF} -s ${STUB_ELF}
+        COMMAND grep -w g_stub_trap_record
+        COMMAND awk "NR==1 {print $2} END {if (NR==0) print \"0\"}"
+        OUTPUT_VARIABLE TRAP_RECORD_ADDR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    execute_process(
+        COMMAND ${CMAKE_READELF} -s ${STUB_ELF}
+        COMMAND grep -w stub_trap_entry
+        COMMAND awk "NR==1 {print $2} END {if (NR==0) print \"0\"}"
+        OUTPUT_VARIABLE TRAP_ENTRY_ADDR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
     file(APPEND ${HEADER_FILE}
         "// ${COMMAND} definitions\n"
         "#define ESP_STUB_${COMMAND_UPPER}_BSS_SIZE 0x${BSS_SIZE}UL\n"
@@ -141,7 +157,9 @@ foreach(COMMAND ${COMMANDS})
         "#define ESP_STUB_${COMMAND_UPPER}_ENTRY_ADDR 0x${ENTRY_ADDR}UL\n"
         "#define ESP_STUB_${COMMAND_UPPER}_APPTRACE_CTRL_ADDR 0x${APPTRACE_CTRL_ADDR}UL\n"
         "#define ESP_STUB_${COMMAND_UPPER}_LOG_ADDR 0x${LOG_ADDR}UL\n"
-        "#define ESP_STUB_${COMMAND_UPPER}_LOG_SIZE 0x${LOG_SIZE}UL\n\n"
+        "#define ESP_STUB_${COMMAND_UPPER}_LOG_SIZE 0x${LOG_SIZE}UL\n"
+        "#define ESP_STUB_${COMMAND_UPPER}_TRAP_RECORD_ADDR 0x${TRAP_RECORD_ADDR}UL\n"
+        "#define ESP_STUB_${COMMAND_UPPER}_TRAP_ENTRY_ADDR 0x${TRAP_ENTRY_ADDR}UL\n\n"
         "static const uint8_t s_esp_flasher_stub_${COMMAND}_code[] = {\n"
         "#include \"contrib/loaders/flash/espressif/${IMAGE_DIR}/${ESP_TARGET}/stub_${COMMAND}_code.inc\"\n"
         "};\n\n"
@@ -163,6 +181,8 @@ foreach(COMMAND ${COMMANDS})
         "	.stack_default_sz = ESP_STUB_STACK_SIZE,\n"
         "	.log_buff_addr = ESP_STUB_${COMMAND_UPPER}_LOG_ADDR,\n"
         "	.log_buff_size = ESP_STUB_${COMMAND_UPPER}_LOG_SIZE,\n"
+        "	.trap_record_addr = ESP_STUB_${COMMAND_UPPER}_TRAP_RECORD_ADDR,\n"
+        "	.trap_entry_addr = ESP_STUB_${COMMAND_UPPER}_TRAP_ENTRY_ADDR,\n"
         "	.iram_org = ESP_STUB_${COMMAND_UPPER}_IRAM_ORG,\n"
         "	.iram_len = ESP_STUB_${COMMAND_UPPER}_IRAM_LEN,\n"
         "	.dram_org = ESP_STUB_${COMMAND_UPPER}_DRAM_ORG,\n"

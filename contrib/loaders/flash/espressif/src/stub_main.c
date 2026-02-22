@@ -23,6 +23,9 @@
 extern uint32_t _bss_start;
 extern uint32_t _bss_end;
 
+/* Filled by stub_trap_handler */
+volatile union esp_stub_trap_record g_stub_trap_record;
+
 #define __maybe_unused __attribute__((unused))
 
 const struct esp_stub_desc __attribute__((section(".stub_desc")))  s_esp_stub_desc = {
@@ -77,6 +80,13 @@ static __maybe_unused int handle_test1(va_list ap)
 	STUB_LOGV("stub command test\n");
 	STUB_LOG_TRACE();
 	STUB_LOG_TRACEF("foo:%u\n", 0x2A);
+
+#if defined(STUB_ARCH_XTENSA)
+	int *ptr = NULL;
+	*ptr = 147; /* store prohibited exception, exccause=29 */
+#else
+	__asm__ volatile ("unimp"); /* illegal instruction exception, mcause=2 */
+#endif
 
 	return ESP_STUB_OK;
 }

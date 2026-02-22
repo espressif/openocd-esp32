@@ -111,6 +111,8 @@ static int esp_riscv_algo_init(struct target *target, struct esp_algorithm_run_d
 	uint32_t *ad_mon_saved_val = &ainfo->saved_assist_debug_monitor_register;
 	esp_common_assist_debug_monitor_disable(target, ad_mon_reg, ad_mon_saved_val);
 
+	ainfo->trap_entry_addr = run->stub.trap_entry_addr;
+
 	run->stub.ainfo = ainfo;
 	return ERROR_OK;
 }

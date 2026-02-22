@@ -3,8 +3,33 @@
 
 #pragma once
 
-#include <stdint.h>
 #include "esp_stub_err.h"
+
+#define ESP_STUB_TRAP_RECORD_MAGIC   0x54524150 /* 'TRAP' */
+#define ESP_STUB_TRAP_RECORD_SIZE    128
+#define ESP_STUB_TRAP_RECORD_VERSION 1
+#define ESP_STUB_TRAP_RECORD_RISCV   1
+#define ESP_STUB_TRAP_RECORD_XTENSA  2
+
+#ifndef __ASSEMBLER__
+
+#include <stdint.h>
+
+union esp_stub_trap_record {
+	struct {
+		uint32_t magic;
+		uint32_t version;
+		uint32_t flags;
+		uint32_t mcause;
+		uint32_t mepc;
+		uint32_t mtval;
+		uint32_t mstatus;
+		uint32_t sp;
+		uint32_t ra;
+		uint32_t hartid;
+	};
+	uint8_t _pad[ESP_STUB_TRAP_RECORD_SIZE];
+};
 
 struct esp_stub_desc {
 	uint32_t magic;
@@ -151,3 +176,5 @@ struct stub_flash_info {
 	uint32_t mode; // SPI, Octal, Dual, Quad
 	uint32_t encrypted;
 };
+
+#endif /* __ASSEMBLER__ */

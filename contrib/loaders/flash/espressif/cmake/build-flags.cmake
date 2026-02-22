@@ -22,13 +22,6 @@ set(XTENSA_COMPILER_FLAGS
     -flto
 )
 
-set(ESP8266_COMPILER_FLAGS
-    ${COMMON_COMPILER_FLAGS}
-    -mlongcalls
-    -mtext-section-literals
-    -DESP8266
-)
-
 set(RISCV_COMPILER_FLAGS
     ${COMMON_COMPILER_FLAGS}
     -flto
@@ -43,7 +36,16 @@ set(COMMON_LINKER_FLAGS
     "-lc"
     "-Wl,--end-group"
     "-Wl,--undefined=s_esp_stub_desc"
+    "-Wl,--undefined=stub_trap_entry"
     "-Werror=lto-type-mismatch"
+)
+
+set(XTENSA_LINKER_FLAGS
+    ${COMMON_LINKER_FLAGS}
+)
+
+set(RISCV_LINKER_FLAGS
+    ${COMMON_LINKER_FLAGS}
 )
 
 set(COMMON_COMPILE_DEFS "asm=__asm__")

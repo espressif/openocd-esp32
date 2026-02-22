@@ -162,26 +162,14 @@ static const char *esp_stub_err_str(int ret_code)
 		case ESP_STUB_ERR_APPTRACE_UP_BUF_FAIL:
 			return "Failed to get trace up buf";
 
+		case ESP_STUB_ERR_EXCEPTION:
+			return "Exception happened during stub execution";
+
 		default:
 			return "Unknown stub error";
 	}
 }
 
-static void esp_stub_err_print(const char *prefix, int cmd, int ret_code)
-{
-	const char *str = esp_stub_err_str(ret_code);
-	if (str)
-		LOG_ERROR("[stub cmd 0x%X] %s: (0x%" PRIX32 ") %s", cmd, prefix, ret_code, str);
-	else
-		LOG_ERROR("[stub cmd 0x%X] %s: (0x%" PRIX32 ")", cmd, prefix, ret_code);
-}
-
-static void esp_stub_test_print(const char *prefix, int cmd, int ret_code)
-{
-	if (ret_code != ESP_STUB_OK)
-		return esp_stub_err_print(prefix, cmd, ret_code);
-	LOG_INFO("[stub cmd 0x%X] %s: test passed", cmd, prefix);
-}
 
 static const char *esp_stub_flash_map_retcode_str(int retcode)
 {
@@ -349,6 +337,8 @@ static int esp_algo_flasher_algorithm_init(struct esp_algorithm_run_data *algo,
 	algo->stub.name = stub_cfg->name;
 	algo->stub.log_buff_addr = stub_cfg->log_buff_addr;
 	algo->stub.log_buff_size = stub_cfg->log_buff_size;
+	algo->stub.trap_record_addr = stub_cfg->trap_record_addr;
+	algo->stub.trap_entry_addr = stub_cfg->trap_entry_addr;
 	memset(&algo->image.image, 0, sizeof(algo->image.image));
 	int ret = image_open(&algo->image.image, NULL, "build");
 	if (ret != ERROR_OK) {
@@ -456,7 +446,7 @@ int esp_algo_flash_blank_check(struct flash_bank *bank)
 		return ret;
 	}
 	if (run.ret_code != ESP_STUB_OK) {
-		esp_stub_err_print("Failed to check erase flash", ESP_STUB_CMD_FLASH_ERASE_CHECK, run.ret_code);
+		LOG_ERROR("Failed to check erase flash: (0x%X) %s", run.ret_code, esp_stub_err_str(run.ret_code));
 		ret = ERROR_FAIL;
 	} else {
 		for (unsigned int i = 0; i < bank->num_sectors; i++)
@@ -506,7 +496,7 @@ static int esp_algo_flash_mapping(struct flash_bank *bank,
 		return ret;
 	}
 	if (run.ret_code != ESP_STUB_OK) {
-		esp_stub_err_print("Failed to call flash maps", ESP_STUB_CMD_FLASH_MAP_GET, run.ret_code);
+		LOG_ERROR("Failed to get flash maps: (0x%X) %s", run.ret_code, esp_stub_err_str(run.ret_code));
 		destroy_mem_param(&mp);
 		return ERROR_FAIL;
 	}
@@ -587,7 +577,7 @@ int esp_algo_flash_erase(struct flash_bank *bank, unsigned int first, unsigned i
 		return ret;
 	}
 	if (run.ret_code != ESP_STUB_OK) {
-		esp_stub_err_print("Failed to erase flash", ESP_STUB_CMD_FLASH_ERASE, run.ret_code);
+		LOG_ERROR("Failed to erase flash: (0x%X) %s", run.ret_code, esp_stub_err_str(run.ret_code));
 		ret = ERROR_FAIL;
 	} else {
 		duration_measure(&bench);
@@ -899,7 +889,7 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 		return ret;
 	}
 	if (run.ret_code != ESP_STUB_OK) {
-		esp_stub_err_print("Failed to write flash", ESP_STUB_CMD_FLASH_WRITE, run.ret_code);
+		LOG_ERROR("Failed to write flash: (0x%X) %s", run.ret_code, esp_stub_err_str(run.ret_code));
 		ret = ERROR_FAIL;
 	} else {
 		duration_measure(&wr_time);
@@ -1051,7 +1041,7 @@ int esp_algo_flash_read(struct flash_bank *bank, uint8_t *buffer,
 		return ret;
 	}
 	if (run.ret_code != ESP_STUB_OK) {
-		esp_stub_err_print("Failed to read flash", ESP_STUB_CMD_FLASH_READ, run.ret_code);
+		LOG_ERROR("Failed to read flash: (0x%X) %s", run.ret_code, esp_stub_err_str(run.ret_code));
 		ret = ERROR_FAIL;
 	}
 	return ret;
@@ -1420,7 +1410,7 @@ int esp_algo_flash_breakpoint_remove(struct target *target, struct esp_flash_bre
 		return ret;
 	}
 	if (run.ret_code != ESP_STUB_OK) {
-		esp_stub_err_print("Failed to clear bp", ESP_STUB_CMD_FLASH_BP_CLEAR, run.ret_code);
+		LOG_ERROR("Failed to clear bp: (0x%X) %s", run.ret_code, esp_stub_err_str(run.ret_code));
 		return ERROR_FAIL;
 	}
 
@@ -1487,14 +1477,13 @@ static int esp_algo_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 		return ret;
 	}
 	if (run.ret_code != ESP_STUB_OK) {
-		esp_stub_err_print("Failed to get hash value", ESP_STUB_CMD_FLASH_CALC_HASH, run.ret_code);
+		LOG_ERROR("Failed to get hash value: (0x%X) %s", run.ret_code, esp_stub_err_str(run.ret_code));
 		ret = ERROR_FAIL;
 	} else {
 		memcpy(hash, mp.value, 32);
 		duration_measure(&bench);
 		if (verbose)
-			LOG_INFO("PROF: Flash verified in %g ms ",
-				duration_elapsed(&bench) * 1000);
+			LOG_INFO("PROF: Flash verified in %g ms ", duration_elapsed(&bench) * 1000);
 	}
 	destroy_mem_param(&mp);
 	return ret;
@@ -1883,6 +1872,8 @@ void esp_algo_flasher_stub_config_print(const struct esp_flasher_stub_config *co
 		"\tstack default sz: %" PRIu32 ",\n"
 		"\treverse: %d,\n"
 		"\tlog sz: %" PRIu32 ", log addr: " TARGET_ADDR_FMT ",\n"
+		"\ttrap record addr: " TARGET_ADDR_FMT ",\n"
+		"\ttrap_entry: " TARGET_ADDR_FMT ",\n"
 		"\tiram sz: %" PRIu32 ", iram addr: " TARGET_ADDR_FMT ",\n"
 		"\tdram sz: %" PRIu32 ", dram addr: " TARGET_ADDR_FMT ",\n"
 		"\tstack_pool_sz: %" PRIu32 "\n",
@@ -1892,6 +1883,8 @@ void esp_algo_flasher_stub_config_print(const struct esp_flasher_stub_config *co
 		config->stack_default_sz,
 		config->reverse,
 		config->log_buff_size, config->log_buff_addr,
+		config->trap_record_addr,
+		config->trap_entry_addr,
 		config->iram_len, config->iram_org,
 		config->dram_len, config->dram_org,
 		esp_info->stub_hw->stack_data_pool_size
@@ -1912,6 +1905,11 @@ static int esp_algo_flash_cmd_stub_lib_test_do(struct target *target)
 	const uint32_t stack_size = esp_info->stub_log_enabled ?
 		stub_cfg->stack_default_sz * 2 : stub_cfg->stack_default_sz;
 
+	if (bank->target->state != TARGET_HALTED) {
+		LOG_ERROR("Target not halted!");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
 	int ret = esp_algo_flasher_algorithm_init(&run, esp_info, stub_cfg);
 	if (ret != ERROR_OK)
 		return ret;
@@ -1929,10 +1927,11 @@ static int esp_algo_flash_cmd_stub_lib_test_do(struct target *target)
 		return ret;
 	}
 
-	esp_stub_test_print("Called stub_lib_test", ESP_STUB_CMD_TEST1, run.ret_code);
-
-	if (run.ret_code != ESP_STUB_OK)
+	if (run.ret_code != ESP_STUB_OK) {
+		LOG_ERROR("Failed to run stub test1: (0x%X) %s", run.ret_code, esp_stub_err_str(run.ret_code));
 		ret = ERROR_FAIL;
+	}
+
 	return ret;
 }
 
@@ -2021,10 +2020,14 @@ static int esp_algo_flash_cmd_apptrace_wr_test_do(struct target *target)
 		return ret;
 	}
 
-	esp_stub_test_print("Called stub_apptrace_wr_test", ESP_STUB_CMD_RECV_FROM_HOST, run.ret_code);
-
-	if (run.ret_code != ESP_STUB_OK)
+	if (run.ret_code != ESP_STUB_OK) {
+		LOG_ERROR("Failed to run apptrace write test: (0x%X) %s",
+				run.ret_code, esp_stub_err_str(run.ret_code));
 		ret = ERROR_FAIL;
+	}
+
+	LOG_INFO("Apptrace write test passed");
+
 	return ret;
 }
 
@@ -2103,38 +2106,38 @@ static int esp_algo_flash_cmd_apptrace_rd_test_do(struct target *target)
 	free(rd_state.rd_buf);
 	esp_algo_flash_apptrace_info_restore(bank->target, esp_info, old_addr);
 	if (ret != ERROR_OK) {
-		free(buffer);
 		LOG_ERROR("Failed to run flasher stub (%d)!", ret);
-		return ret;
+		ret = ERROR_FAIL;
+		goto exit;
 	}
 
-	esp_stub_test_print("Called stub_apptrace_rd_test", ESP_STUB_CMD_SEND_TO_HOST, run.ret_code);
+	if (run.ret_code != ESP_STUB_OK) {
+		LOG_ERROR("Failed to run apptrace read test: (0x%X) %s",
+			run.ret_code, esp_stub_err_str(run.ret_code));
+		ret = ERROR_FAIL;
+		goto exit;
+	}
 
 	if (debug_level >= LOG_LVL_DEBUG) {
-		if (run.ret_code == ERROR_OK) {
-			LOG_OUTPUT("Read Data :");
-			for (size_t i = 0; i < buffer_size; i++)
-				LOG_OUTPUT("%02X", buffer[i]);
-			LOG_OUTPUT("\r\n");
-		}
+		LOG_OUTPUT("Read Data :");
+		for (size_t i = 0; i < buffer_size; i++)
+			LOG_OUTPUT("%02X", buffer[i]);
+		LOG_OUTPUT("\r\n");
 	}
 
-	// Check if the data is correct
 	for (size_t i = 0; i < buffer_size; i++) {
 		if (buffer[i] != (uint8_t)(i)) {
-			LOG_ERROR("Data is incorrect at position %zu, expected %02X, got %02X",
+			LOG_ERROR("Data mismatch at offset %zu: expected 0x%02X, got 0x%02X",
 				i, (uint8_t)(i), buffer[i]);
-			free(buffer);
-			return ERROR_FAIL;
+			ret = ERROR_FAIL;
+			goto exit;
 		}
 	}
 
-	LOG_INFO("Read Data is correct");
+	LOG_INFO("Apptrace read test passed");
 
+exit:
 	free(buffer);
-
-	if (run.ret_code != ESP_STUB_OK)
-		ret = ERROR_FAIL;
 	return ret;
 }
 

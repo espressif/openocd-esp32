@@ -206,7 +206,7 @@ COMMAND_HANDLER(handle_flash_erase_check_command)
 		else if (p->sectors[j].is_erased == 1)
 			continue;
 		else
-			break;//erase_state = "erase state unknown";
+			erase_state = "erase state unknown";
 
 		blank = false;
 		command_print(CMD,

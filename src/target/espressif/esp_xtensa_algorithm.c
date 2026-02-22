@@ -130,6 +130,7 @@ static int esp_xtensa_algo_init(struct target *target, struct esp_algorithm_run_
 	}
 
 	ainfo->core_mode = core_mode;
+	ainfo->trap_entry_addr = run->stub.trap_entry_addr;
 	run->stub.ainfo = ainfo;
 	return ERROR_OK;
 }

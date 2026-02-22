@@ -13,6 +13,8 @@
 #include <target/algorithm.h>
 #include <target/target.h>
 #include "esp_algorithm.h"
+#include "esp_riscv.h"
+#include "esp_xtensa.h"
 #include "../../../contrib/loaders/flash/espressif/include/esp_stub.h"
 
 /* 3 sec will be enough for the regular commands. Flash erase will take time but it has another timer value */
@@ -42,6 +44,48 @@ static int esp_algorithm_read_stub_logs(struct target *target, struct esp_algori
 		LOG_OUTPUT("%*.*s", len, len, log_buff);
 	free(log_buff);
 	return retval;
+}
+
+
+static bool esp_algorithm_read_stub_trap(struct target *target, struct esp_algorithm_run_data *run)
+{
+	if (!run || !run->stub.trap_record_addr)
+		return false;
+
+	uint32_t trap_addr = run->stub.trap_record_addr;
+	union esp_stub_trap_record rec = { ._pad = { 0 } };
+
+	int retval = target_read_memory(target, trap_addr, 4, ESP_STUB_TRAP_RECORD_SIZE / 4, rec._pad);
+	if (retval != ERROR_OK) {
+		LOG_WARNING("Failed to read stub trap record @ 0x%" PRIx32, trap_addr);
+		return false;
+	}
+
+	if (rec.magic != ESP_STUB_TRAP_RECORD_MAGIC)
+		return false;
+
+	if (rec.flags == ESP_STUB_TRAP_RECORD_XTENSA) {
+		LOG_ERROR("Stub exception on hart %" PRIu32 " @ 0x%08" PRIx32 ": %s",
+			rec.hartid, rec.mepc, esp_xtensa_get_exception_reason(rec.mcause));
+		LOG_ERROR("  exccause  : 0x%08" PRIx32, rec.mcause);
+		LOG_ERROR("  excvaddr  : 0x%08" PRIx32, rec.mtval);
+		LOG_ERROR("  epc1      : 0x%08" PRIx32, rec.mepc);
+		LOG_ERROR("  ps        : 0x%08" PRIx32, rec.mstatus);
+		LOG_ERROR("  a0 (ra)   : 0x%08" PRIx32, rec.ra);
+		LOG_ERROR("  a1 (sp)   : 0x%08" PRIx32, rec.sp);
+	} else {
+		/* RISC-V */
+		LOG_ERROR("Stub exception on hart %" PRIu32 " @ 0x%08" PRIx32 ": %s",
+			rec.hartid, rec.mepc, esp_riscv_get_exception_reason(rec.mcause));
+		LOG_ERROR("  mcause    : 0x%08" PRIx32, rec.mcause);
+		LOG_ERROR("  mepc      : 0x%08" PRIx32, rec.mepc);
+		LOG_ERROR("  mtval     : 0x%08" PRIx32, rec.mtval);
+		LOG_ERROR("  mstatus   : 0x%08" PRIx32, rec.mstatus);
+		LOG_ERROR("  ra        : 0x%08" PRIx32, rec.ra);
+		LOG_ERROR("  sp        : 0x%08" PRIx32, rec.sp);
+	}
+
+	return true;
 }
 
 #ifdef ESP_STACK_HIGH_WATER_MARK
@@ -208,6 +252,7 @@ static int esp_algorithm_run_image(struct target *target,
 		/* target has been forced to stop in target_wait_algorithm() */
 	}
 	esp_algorithm_read_stub_logs(target, &run->stub);
+	esp_algorithm_read_stub_trap(target, run);
 
 #ifdef ESP_STACK_HIGH_WATER_MARK
 	esp_algorithm_calculate_stack_usage(target, &run->stub);

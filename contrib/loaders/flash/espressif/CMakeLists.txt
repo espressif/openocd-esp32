@@ -16,7 +16,7 @@ check_toolchain_version(${CMAKE_C_COMPILER} "esp-15.2.0_20250929")
 
 # Add common flags and definitions to all targets
 add_compile_options(${TARGET_COMPILER_FLAGS})
-add_link_options(${COMMON_LINKER_FLAGS})
+add_link_options(${TARGET_LINKER_FLAGS})
 add_compile_definitions(${COMMON_COMPILE_DEFS})
 
 set(LINKER_SCRIPTS
@@ -32,9 +32,16 @@ set(SRC_FILES
     ${SRC_DIR}/mapping/src/flash_mapping.c
 )
 if(ESP_TARGET IN_LIST XTENSA_TARGETS)
-    list(APPEND SRC_FILES ${SRC_DIR}/apptrace/src/apptrace_hw_xtensa.c)
+    list(APPEND SRC_FILES
+        ${SRC_DIR}/apptrace/src/apptrace_hw_xtensa.c
+        ${SRC_DIR}/exception/stub_trap_xtensa_vectors.S
+    )
 else()
-    list(APPEND SRC_FILES ${SRC_DIR}/apptrace/src/apptrace_hw_riscv.c)
+    list(APPEND SRC_FILES
+        ${SRC_DIR}/apptrace/src/apptrace_hw_riscv.c
+        ${SRC_DIR}/exception/stub_trap_riscv.c
+        ${SRC_DIR}/exception/stub_trap_riscv_entry.S
+    )
 endif()
 
 # Define command names. Should be the same order as the commands in the esp_stub.h file
@@ -132,13 +139,14 @@ foreach(COMMAND ${COMMANDS})
         target_link_options(${TARGET_ELF} PRIVATE -T${script})
     endforeach()
 
-    if(${ESP_TARGET} STREQUAL "esp8266")
-        target_link_options(${TARGET_ELF} PRIVATE -Wl,--entry=stub_main_esp8266)
-    endif()
-
     get_property(COMMAND_DEFINES GLOBAL PROPERTY COMMAND_MACROS:${COMMAND})
 
     set(STUB_COMPILE_DEFS "${COMMAND_DEFINES}; ${ESP_TARGET_NAME}")
+    if(ESP_TARGET IN_LIST RISCV_TARGETS)
+        set(STUB_COMPILE_DEFS "${STUB_COMPILE_DEFS}; STUB_ARCH_RISCV")
+    elseif(ESP_TARGET IN_LIST XTENSA_TARGETS)
+        set(STUB_COMPILE_DEFS "${STUB_COMPILE_DEFS}; STUB_ARCH_XTENSA")
+    endif()
 
     add_subdirectory(esp-stub-lib ${ESP_STUB_LIB})
 

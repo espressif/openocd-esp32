@@ -80,6 +80,7 @@ int esp_xtensa_profiling(struct target *target, uint32_t *samples,
 	uint32_t max_num_samples, uint32_t *num_samples, uint32_t seconds);
 
 int esp_xtensa_on_halt(struct target *target);
+const char *esp_xtensa_get_exception_reason(uint32_t exccause_code);
 
 extern const struct command_registration esp_command_handlers[];
 
