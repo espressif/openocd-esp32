@@ -878,7 +878,10 @@ static int set_trigger(struct target *target, unsigned int idx, riscv_reg_t tdat
 	 * For mcontrol triggers, we don't care about
 	 * the value in the read-only "maskmax" field.
 	 */
-	const riscv_reg_t tdata1_ignore_mask = is_mcontrol ? CSR_MCONTROL_MASKMAX(riscv_xlen(target)) : 0;
+	riscv_reg_t tdata1_ignore_mask = is_mcontrol ? CSR_MCONTROL_MASKMAX(riscv_xlen(target)) : 0;
+	/* ESPRESSIF */
+	if (r->trigger_match_result_fixup)
+		r->trigger_match_result_fixup(target, &tdata1_ignore_mask, false);
 	const bool tdata1_config_denied = (tdata1 & ~tdata1_ignore_mask) != (tdata1_rb & ~tdata1_ignore_mask);
 
 	/* Determine if tdata1.maxmask is sufficient
