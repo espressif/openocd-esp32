@@ -953,7 +953,6 @@ int xtensa_examine(struct target *target)
 		return ERROR_TARGET_FAILURE;
 	}
 	LOG_TARGET_DEBUG(target, "OCD_ID = %08" PRIx32, xtensa->dbg_mod.device_id);
-	target_set_examined(target);
 	xtensa_smpbreak_write(xtensa, xtensa->smp_break);
 	return ERROR_OK;
 }
