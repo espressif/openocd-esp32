@@ -63,9 +63,9 @@ class StubTestsSimple(OocdTestsSimple):
         tmp.close()
         try:
             res = self.oocd.cmd_exec(f'flash read_bank {bank} {tmp.name} {offset} {size}')
-            expected = (f'wrote {size} bytes to file {tmp.name} '
-                        f'from flash bank {bank} at offset {offset:#010x}')
-            self.assertIn(expected, res, f"Expected '{expected}' in output:\n{res}")
+            self.assertRegex(res,
+                r'wrote \d+ bytes to file .+ from flash bank 0 at offset 0x[0-9a-fA-F]+',
+                f"Read failed:\n{res}")
             self.assertTrue(os.path.isfile(tmp.name), f"Output file {tmp.name} was not created")
             actual_size = os.path.getsize(tmp.name)
             self.assertEqual(actual_size, size, f"Expected file size {size}, got {actual_size}")
@@ -73,39 +73,56 @@ class StubTestsSimple(OocdTestsSimple):
             if os.path.exists(tmp.name):
                 os.unlink(tmp.name)
 
-    def test_flash_write_bank(self):
+    def _flash_write_bank(self, compressed, size=0x100000, offset=0x20000):
         """
-            This test reads a flash region, erases it, writes back, reads again
-            and compares to verify the write was successful.
+            Reads a flash region, erases it, writes back (with compression
+            on or off), reads again and compares to verify the write was successful.
         """
-        size = 0x20000
-        offset = 0x2000
-        bank = 0
         tmp_orig = tempfile.NamedTemporaryFile(suffix='_orig.bin', delete=False)
         tmp_orig.close()
         tmp_verify = tempfile.NamedTemporaryFile(suffix='_verify.bin', delete=False)
         tmp_verify.close()
 
         try:
-            res = self.oocd.cmd_exec(f'flash read_bank {bank} {tmp_orig.name} {offset} {size}')
-            self.assertIn(f'wrote {size} bytes to file', res, f"Read original failed:\n{res}")
+            res = self.oocd.cmd_exec(f'flash read_bank 0 {tmp_orig.name} {offset} {size}')
+            self.assertRegex(res,
+                r'wrote \d+ bytes to file .+ from flash bank 0 at offset 0x[0-9a-fA-F]+',
+                f"Read original failed:\n{res}")
 
             res = self.oocd.cmd_exec(f'flash erase_address {offset} {size}')
             self.assertIn('erased address', res, f"Erase failed:\n{res}")
 
-            self.oocd.cmd_exec('esp compression off')
-            res = self.oocd.cmd_exec(f'flash write_bank {bank} {tmp_orig.name} {offset}')
-            self.assertIn(f'wrote', res, f"Write back failed:\n{res}")
+            self.oocd.cmd_exec(f'esp compression {compressed}')
+            res = self.oocd.cmd_exec(f'flash write_bank 0 {tmp_orig.name} {offset}')
+            self.assertRegex(res,
+                r'wrote \d+ bytes from file .+ to flash bank 0 at offset 0x[0-9a-fA-F]+',
+                f"Write back failed (compression {compressed}):\n{res}")
 
-            res = self.oocd.cmd_exec(f'flash read_bank {bank} {tmp_verify.name} {offset} {size}')
-            self.assertIn(f'wrote {size} bytes to file', res, f"Read verify failed:\n{res}")
+            res = self.oocd.cmd_exec(f'flash read_bank 0 {tmp_verify.name} {offset} {size}')
+            self.assertRegex(res,
+                r'wrote \d+ bytes to file .+ from flash bank 0 at offset 0x[0-9a-fA-F]+',
+                f"Read verify failed:\n{res}")
 
             self.assertTrue(filecmp.cmp(tmp_orig.name, tmp_verify.name, shallow=False),
-                "Verification failed: written data does not match original")
+                f"Verification failed (compression {compressed}): "
+                "written data does not match original")
         finally:
+            self.oocd.cmd_exec('esp compression on') # default compression mode
             for path in (tmp_orig.name, tmp_verify.name):
                 if os.path.exists(path):
                     os.unlink(path)
+
+    def test_flash_write_bank_compressed(self):
+        """
+            Test flash write_bank with compression enabled.
+        """
+        self._flash_write_bank(compressed='on', offset=0x0)
+
+    def test_flash_write_bank(self):
+        """
+            Test flash write_bank with compression disabled.
+        """
+        self._flash_write_bank(compressed='off')
 
     def test_flash_erase_check(self):
         """

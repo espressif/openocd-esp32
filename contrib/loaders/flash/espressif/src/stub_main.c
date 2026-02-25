@@ -193,11 +193,10 @@ static int stub_spiflash_write(uint32_t spi_flash_addr, uint32_t *data, uint32_t
 	//TODO: measure the write time
 	int rc = stub_lib_flash_write_buff(spi_flash_addr, data, len, encrypt);
 
-	STUB_LOGD("Write %sflash @ 0x%x sz %d in %d us\n",
+	STUB_LOGD("Write %sflash @ 0x%x sz %d\n",
 		encrypt ? "encrypted-" : "",
 		spi_flash_addr,
-		len,
-		/* end - start */ 0);
+		len);
 
 	return rc;
 }
@@ -347,13 +346,116 @@ static __maybe_unused int handle_flash_bp_clear(va_list ap)
 	return ESP_STUB_OK;
 }
 
-static __maybe_unused int handle_flash_write_deflated(va_list ap)
+static __maybe_unused int stub_write_inflated_data(void *data_buf, uint32_t length)
 {
-	uint32_t __maybe_unused start_addr = va_arg(ap, uint32_t);
-	uint32_t __maybe_unused data_size = va_arg(ap, uint32_t);
-	STUB_LOGD("flash write deflated addr: %x, size: %d\n", start_addr, data_size);
+	if (length > s_fs.remaining_uncompressed) {
+		/* Trim the final block, as it may have padding beyond
+		    the length we are writing */
+		length = s_fs.remaining_uncompressed;
+	}
+
+	if (length == 0)
+		return ESP_STUB_OK;
+
+	/* if this is the last package */
+	if (length < ESP_STUB_UNZIP_BUFF_SIZE) {
+		/* stub_spiflash_write() expects length to be aligned to 4 bytes.
+		   If this is the last package we do not need to care about it here because OpenOCD flash driver
+		   ensures that address and size are always aligned to sector size which is multiple of 4 */
+		if (s_fs.remaining_uncompressed - length != 0) {
+			STUB_LOGE("Unaligned offset! %d-%d\n", length, s_fs.remaining_uncompressed);
+			return ESP_STUB_FAIL;
+		}
+	}
+
+	/* write buffer with aligned size */
+	int rc = stub_spiflash_write(s_fs.next_write, (uint32_t *)data_buf, length, s_encrypt_binary);
+	if (rc != STUB_LIB_OK) {
+		STUB_LOGE("Failed to write flash (%d)\n", rc);
+		return ESP_STUB_FAIL;
+	}
 
 	return ESP_STUB_OK;
+}
+
+static __maybe_unused int stub_run_inflator(const void *data_buf, uint32_t length)
+{
+	int status = TINFL_STATUS_NEEDS_MORE_INPUT;
+
+	while (length > 0 && s_fs.remaining_uncompressed > 0 && status > TINFL_STATUS_DONE) {
+		/* input remaining */
+		size_t in_bytes = length;
+		/* output space remaining */
+		size_t out_bytes = (size_t)(s_fs.out_buf + ESP_STUB_UNZIP_BUFF_SIZE - s_fs.next_out);
+		mz_uint32 flags = 0;
+
+		if (s_fs.remaining_compressed > length)
+			flags |= TINFL_FLAG_HAS_MORE_INPUT;
+
+		status = tinfl_decompress(s_fs.inflator, data_buf, &in_bytes,
+			s_fs.out_buf, s_fs.next_out, &out_bytes,
+			flags);
+		STUB_LOGV("tinfl_decompress in(%d) out(%d)\n", in_bytes, out_bytes);
+
+		s_fs.remaining_compressed -= in_bytes;
+		length -= in_bytes;
+		data_buf += in_bytes;
+		s_fs.next_out += out_bytes;
+		size_t bytes_in_out_buf = (size_t)(s_fs.next_out - s_fs.out_buf);
+
+		if (status <= TINFL_STATUS_DONE ||
+			bytes_in_out_buf == ESP_STUB_UNZIP_BUFF_SIZE) {
+			/* Output buffer full, or done */
+			if (stub_write_inflated_data(s_fs.out_buf, bytes_in_out_buf) != ESP_STUB_OK)
+				return ESP_STUB_FAIL;
+
+			s_fs.next_write += bytes_in_out_buf;
+			s_fs.remaining_uncompressed -= bytes_in_out_buf;
+			s_fs.next_out = s_fs.out_buf;
+		}
+	}	/* while */
+
+	if (status < TINFL_STATUS_DONE) {
+		STUB_LOGE("Failed to inflate data (%d)\n", status);
+		return ESP_STUB_ERR_INFLATE;
+	}
+	if (status == TINFL_STATUS_DONE && s_fs.remaining_uncompressed > 0) {
+		STUB_LOGE("Not enough compressed data (%d)\n", s_fs.remaining_uncompressed);
+		return ESP_STUB_ERR_NOT_ENOUGH_DATA;
+	}
+	if (status != TINFL_STATUS_DONE && s_fs.remaining_uncompressed == 0) {
+		STUB_LOGE("Too much compressed data (%d)\n", length);
+		return ESP_STUB_ERR_TOO_MUCH_DATA;
+	}
+	return ESP_STUB_OK;
+}
+
+static __maybe_unused int stub_apptrace_process_recvd_data_deflated(const uint8_t *buf, uint32_t size)
+{
+	STUB_LOGD("Write zipped data size: %d\n", size);
+
+	return stub_run_inflator(buf, size);
+}
+
+static __maybe_unused int handle_flash_write_deflated(va_list ap)
+{
+	struct esp_flash_stub_flash_write_args *wargs = va_arg(ap, struct esp_flash_stub_flash_write_args *);
+
+	s_encrypt_binary = wargs->options & ESP_STUB_FLASH_ENCRYPT_BINARY ? 1 : 0;
+
+	/* Both of them must be in stack! */
+	tinfl_decompressor inflator;
+	uint8_t out_buf[ESP_STUB_UNZIP_BUFF_SIZE];
+
+	s_fs.next_write = wargs->start_addr;
+	s_fs.remaining_uncompressed = wargs->total_size;
+	s_fs.remaining_compressed = wargs->size;
+	s_fs.inflator = &inflator;
+	s_fs.out_buf = out_buf;
+	s_fs.next_out = out_buf;
+	tinfl_init(s_fs.inflator);
+
+	return stub_apptrace_recv_data(wargs, stub_apptrace_process_recvd_data_deflated);
 }
 
 static __maybe_unused int handle_flash_calc_hash(va_list ap)

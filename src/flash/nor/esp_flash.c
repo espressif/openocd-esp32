@@ -126,12 +126,6 @@ static const char *esp_stub_err_str(int ret_code)
 
 		case ESP_STUB_ERR_NOT_SUPPORTED:
 			return "Command not supported";
-		case ESP_STUB_ERR_INFLATE:
-			return "ESP_STUB_ERR_INFLATE";
-		case ESP_STUB_ERR_NOT_ENOUGH_DATA:
-			return "ESP_STUB_ERR_NOT_ENOUGH_DATA";
-		case ESP_STUB_ERR_TOO_MUCH_DATA:
-			return "ESP_STUB_ERR_TOO_MUCH_DATA";
 		case ESP_STUB_ERR_TIMEOUT:
 			return "Command timeout";
 		case ESP_STUB_ERR_FLASH_ENCRYPTION_NOT_ENABLED:
@@ -150,6 +144,12 @@ static const char *esp_stub_err_str(int ret_code)
 			return "Cannot write unaligned data";
 		case ESP_STUB_ERR_FLASH_WRITE:
 			return "Failed to write to flash";
+		case ESP_STUB_ERR_INFLATE:
+			return "Failed to decompress data";
+		case ESP_STUB_ERR_NOT_ENOUGH_DATA:
+			return "Not enough data to decompress";
+		case ESP_STUB_ERR_TOO_MUCH_DATA:
+			return "Too much data to decompress";
 
 		case ESP_STUB_ERR_APPTRACE_CANNOT_SWAP:
 			return "ESP_STUB_ERR_APPTRACE_CANNOT_SWAP";
@@ -835,8 +835,7 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	if (esp_info->compression) {
 		struct duration bench;
 		duration_start(&bench);
-		if (esp_algo_flash_compress(buffer, count, &compressed_buff,
-				&compressed_len) != ERROR_OK) {
+		if (esp_algo_flash_compress(buffer, count, &compressed_buff, &compressed_len) != ERROR_OK) {
 			LOG_ERROR("Compression failed!");
 			image_close(&run.image.image);
 			return ERROR_FAIL;
@@ -880,11 +879,8 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	ret = esp_info->run_func_image(bank->target,
 		&run,
 		2,
-		esp_info->compression ? ESP_STUB_CMD_FLASH_WRITE_DEFLATED :
-		ESP_STUB_CMD_FLASH_WRITE,
-		/* cmd */
-		0
-		/* esp_stub_flash_write_args */);
+		esp_info->compression ? ESP_STUB_CMD_FLASH_WRITE_DEFLATED : ESP_STUB_CMD_FLASH_WRITE, /* cmd */
+		0 /* esp_stub_flash_write_args */);
 	image_close(&run.image.image);
 	if (compressed_buff)
 		free(compressed_buff);
