@@ -13,6 +13,7 @@
 #include <esp-stub-lib/err.h>
 #include <esp-stub-lib/miniz.h>
 #include <esp-stub-lib/security.h>
+#include <esp-stub-lib/sha.h>
 
 #include "esp_stub.h"
 #include "stub_apptrace.h"
@@ -95,8 +96,6 @@ static __maybe_unused int handle_apptrace_read_from_host(va_list ap)
 {
 	void *arg1 = va_arg(ap, void *);
 
-	//TODO: check address is valid
-
 	STUB_LOGD("apptrace read from host arg ptr: %x\n", (uint32_t)arg1);
 
 	return stub_apptrace_recv_data(arg1, stub_apptrace_process_recvd_data);
@@ -119,7 +118,6 @@ static __maybe_unused int handle_apptrace_write_to_host(va_list ap)
 {
 	uint32_t arg1 = va_arg(ap, uint32_t);   //address
 	uint32_t arg2 = va_arg(ap, uint32_t);   //size
-	//TODO: check address is valid
 
 	STUB_LOGD("apptrace read from host arg ptr: %x\n", arg1);
 
@@ -190,13 +188,9 @@ static int stub_spiflash_write(uint32_t spi_flash_addr, uint32_t *data, uint32_t
 	if (encrypt && !stub_encryption_is_enabled())
 		return ESP_STUB_ERR_FLASH_ENCRYPTION_NOT_ENABLED;
 
-	//TODO: measure the write time
 	int rc = stub_lib_flash_write_buff(spi_flash_addr, data, len, encrypt);
 
-	STUB_LOGD("Write %sflash @ 0x%x sz %d\n",
-		encrypt ? "encrypted-" : "",
-		spi_flash_addr,
-		len);
+	STUB_LOGV("Write %sflash @ 0x%x sz %d\n", encrypt ? "encrypted-" : "", spi_flash_addr, len);
 
 	return rc;
 }
@@ -460,9 +454,33 @@ static __maybe_unused int handle_flash_write_deflated(va_list ap)
 
 static __maybe_unused int handle_flash_calc_hash(va_list ap)
 {
-	uint32_t __maybe_unused start_addr = va_arg(ap, uint32_t);
-	uint32_t __maybe_unused data_size = va_arg(ap, uint32_t);
-	STUB_LOGD("flash calc hash addr: %x, size: %d\n", start_addr, data_size);
+	uint32_t addr = va_arg(ap, uint32_t);
+	uint32_t size = va_arg(ap, uint32_t);
+	uint8_t *hash = va_arg(ap, uint8_t *);
+	uint32_t rd_cnt = 0, rd_sz = 0;
+	uint8_t read_buf[ESP_STUB_RDWR_BUFF_SIZE];
+
+	STUB_LOGD("flash calc hash addr: %x, size: %d\n", addr, size);
+
+	stub_lib_sha256_start();
+
+	while (size > 0) {
+		rd_sz = ALIGN_DOWN(MIN(ESP_STUB_RDWR_BUFF_SIZE, size), 4);
+		int rc = stub_lib_flash_read_buff(addr + rd_cnt, (uint32_t *)read_buf, rd_sz);
+		if (rc != STUB_LIB_OK) {
+			STUB_LOGE("Failed to read flash (%d)!\n", rc);
+			return ESP_STUB_FAIL;
+		}
+		stub_lib_sha256_data(read_buf, rd_sz);
+		size -= rd_sz;
+		rd_cnt += rd_sz;
+	}
+
+	stub_lib_sha256_finish(hash);
+
+	STUB_LOGD("hash: %x%x%x...%x%x%x\n",
+		hash[0], hash[1], hash[2],
+		hash[29], hash[30], hash[31]);
 
 	return ESP_STUB_OK;
 }

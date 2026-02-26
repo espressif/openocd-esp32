@@ -1,4 +1,3 @@
-import filecmp
 import logging
 import os
 import re
@@ -76,12 +75,10 @@ class StubTestsSimple(OocdTestsSimple):
     def _flash_write_bank(self, compressed, size=0x100000, offset=0x20000):
         """
             Reads a flash region, erases it, writes back (with compression
-            on or off), reads again and compares to verify the write was successful.
+            on or off), then verifies via SHA256 hash comparison on the target.
         """
         tmp_orig = tempfile.NamedTemporaryFile(suffix='_orig.bin', delete=False)
         tmp_orig.close()
-        tmp_verify = tempfile.NamedTemporaryFile(suffix='_verify.bin', delete=False)
-        tmp_verify.close()
 
         try:
             res = self.oocd.cmd_exec(f'flash read_bank 0 {tmp_orig.name} {offset} {size}')
@@ -98,29 +95,26 @@ class StubTestsSimple(OocdTestsSimple):
                 r'wrote \d+ bytes from file .+ to flash bank 0 at offset 0x[0-9a-fA-F]+',
                 f"Write back failed (compression {compressed}):\n{res}")
 
-            res = self.oocd.cmd_exec(f'flash read_bank 0 {tmp_verify.name} {offset} {size}')
+            res = self.oocd.cmd_exec(f'esp verify_bank_hash 0 {tmp_orig.name} {offset}')
             self.assertRegex(res,
-                r'wrote \d+ bytes to file .+ from flash bank 0 at offset 0x[0-9a-fA-F]+',
-                f"Read verify failed:\n{res}")
-
-            self.assertTrue(filecmp.cmp(tmp_orig.name, tmp_verify.name, shallow=False),
-                f"Verification failed (compression {compressed}): "
-                "written data does not match original")
+                r'PROF: Flash verified in [\d.]+ ms',
+                f"Hash verification failed (compression {compressed}):\n{res}")
+            self.assertNotIn('Verification failure', res,
+                f"Hash verification failed (compression {compressed}):\n{res}")
         finally:
             self.oocd.cmd_exec('esp compression on') # default compression mode
-            for path in (tmp_orig.name, tmp_verify.name):
-                if os.path.exists(path):
-                    os.unlink(path)
+            if os.path.exists(tmp_orig.name):
+                os.unlink(tmp_orig.name)
 
     def test_flash_write_bank_compressed(self):
         """
-            Test flash write_bank with compression enabled.
+            Test flash write_bank and verify_bank_hash with compression enabled.
         """
         self._flash_write_bank(compressed='on', offset=0x0)
 
     def test_flash_write_bank(self):
         """
-            Test flash write_bank with compression disabled.
+            Test flash write_bank and verify_bank_hash with compression disabled.
         """
         self._flash_write_bank(compressed='off')
 
