@@ -2077,18 +2077,18 @@ static int gdb_memory_map(struct connection *connection, char const *packet, int
 		p = banks[i];
 
 		if (p->read_only) {
-			xml_printf(&retval, &xml, &pos, &size,
-				"<memory type=\"rom\" start=\"" TARGET_ADDR_FMT "\" "
-				"length=\"0x%x\"/>\n",
-				p->base, p->size);
+			region.type = MEMORY_TYPE_ROM;
+			region.start = p->base;
+			region.length = p->size;
+			region.block_size = 0;
+			target_add_memory_region(&memory_map, &region);
 		} else {
 			if (p->num_sectors == 0) {
-				xml_printf(&retval, &xml, &pos, &size,
-					"<memory type=\"flash\" "
-						"start=\"" TARGET_ADDR_FMT "\" "
-						"length=\"0x%x\">"
-						"<property name=\"blocksize\">0x%x</property>\n"
-					"</memory>\n", p->base, p->size, p->size);
+				region.type = MEMORY_TYPE_FLASH;
+				region.start = p->base;
+				region.length = p->size;
+				region.block_size = p->size;
+				target_add_memory_region(&memory_map, &region);
 			}
 
 			/* Report adjacent groups of same-size sectors.  So for
