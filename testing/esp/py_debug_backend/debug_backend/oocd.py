@@ -139,13 +139,18 @@ class Oocd(threading.Thread):
         self._logger.debug('Close TCL conn')
         try:
             self._tcl_send("exit")
-        finally:
             self._tcl_sock.close()
+        except:
+            self._tcl_sock.shutdown(socket.SHUT_RDWR)
         self._logger.debug('Close Telnet conn')
         self._tn.close()
         self._logger.debug('Stop OpenOCD')
         self.do_work = False
         self._oocd_proc.terminate()
+        try:
+            self._oocd_proc.wait(timeout=60)
+        except:
+            self._oocd_proc.kill()
         self._logger.debug('Join thread')
         self.join()
         self._logger.debug('Close stdout')
