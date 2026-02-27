@@ -14,6 +14,7 @@
 #include <esp-stub-lib/miniz.h>
 #include <esp-stub-lib/security.h>
 #include <esp-stub-lib/sha.h>
+#include <esp-stub-lib/clock.h>
 
 #include "esp_stub.h"
 #include "stub_apptrace.h"
@@ -487,10 +488,18 @@ static __maybe_unused int handle_flash_calc_hash(va_list ap)
 
 static __maybe_unused int handle_flash_clock_configure(va_list ap)
 {
-	uint32_t __maybe_unused start_addr = va_arg(ap, uint32_t);
-	STUB_LOGD("flash clock configure addr: %x\n", start_addr);
+	int new_cpu_freq = va_arg(ap, int);
 
-	return ESP_STUB_OK;
+	STUB_LOGD("flash clock configure new_cpu_freq: %d\n", new_cpu_freq);
+
+	if (new_cpu_freq == -1) {
+		// set to max frequency
+		stub_lib_clock_init();
+	}
+
+	// TODO: return the previous frequency before boost
+	// TODO: uart-logger might needs to be reconfigured
+	return 0;
 }
 
 static const struct stub_cmd_handler cmd_handlers[] = {
