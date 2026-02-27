@@ -3046,7 +3046,8 @@ static int deassert_reset(struct target *target)
 					get_field(dmstatus, DM_DMSTATUS_ALLHAVERESET) ? "true" : "false");
 			return ERROR_TIMEOUT_REACHED;
 		}
-	} while (!get_field(dmstatus, DM_DMSTATUS_ALLHAVERESET));
+	} while (get_field(dmstatus, DM_DMSTATUS_ALLUNAVAIL) &&
+			!get_field(dmstatus, DM_DMSTATUS_ALLHAVERESET));
 
 	riscv_scan_set_delay(&info->learned_delays, RISCV_DELAY_BASE,
 			orig_base_delay);
