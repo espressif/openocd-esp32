@@ -37,9 +37,10 @@ class LpCoreTestsImpl:
             2) Resume target, wait for the program to crash (in dual core mode one CPU will be stalled).
             3) Re-start debugging (SW reset, set break to app_main(), resume and wait for the stop).
         """
-        self.add_bp('do_crash')
-        self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, 'do_crash')
-        self.clear_bps()
+        for f in ['do_things', 'ulp_lp_core_delay_us', 'do_crash']:
+            self.add_bp(f)
+            self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, f)
+            self.clear_bps()
 
         # Call to abort() is optimised to 'ebreak' instruction
         # Force an exception by disabling SW breakpoints in OpenOCD
