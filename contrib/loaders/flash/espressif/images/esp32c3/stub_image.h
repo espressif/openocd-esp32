@@ -28,6 +28,7 @@ static const uint8_t s_esp_flasher_stub_cmd_test1_data[] = {
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_cmd_test1_cfg = {
+	.name = "cmd_test1",
 	.code = s_esp_flasher_stub_cmd_test1_code,
 	.code_sz = sizeof(s_esp_flasher_stub_cmd_test1_code),
 	.data = s_esp_flasher_stub_cmd_test1_data,
@@ -65,6 +66,7 @@ static const uint8_t s_esp_flasher_stub_cmd_recv_from_host_data[] = {
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_cmd_recv_from_host_cfg = {
+	.name = "cmd_recv_from_host",
 	.code = s_esp_flasher_stub_cmd_recv_from_host_code,
 	.code_sz = sizeof(s_esp_flasher_stub_cmd_recv_from_host_code),
 	.data = s_esp_flasher_stub_cmd_recv_from_host_data,
@@ -102,6 +104,7 @@ static const uint8_t s_esp_flasher_stub_cmd_send_to_host_data[] = {
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_cmd_send_to_host_cfg = {
+	.name = "cmd_send_to_host",
 	.code = s_esp_flasher_stub_cmd_send_to_host_code,
 	.code_sz = sizeof(s_esp_flasher_stub_cmd_send_to_host_code),
 	.data = s_esp_flasher_stub_cmd_send_to_host_data,
@@ -139,6 +142,7 @@ static const uint8_t s_esp_flasher_stub_cmd_flash_read_data[] = {
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_read_cfg = {
+	.name = "cmd_flash_read",
 	.code = s_esp_flasher_stub_cmd_flash_read_code,
 	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_read_code),
 	.data = s_esp_flasher_stub_cmd_flash_read_data,
@@ -176,6 +180,7 @@ static const uint8_t s_esp_flasher_stub_cmd_flash_write_data[] = {
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_write_cfg = {
+	.name = "cmd_flash_write",
 	.code = s_esp_flasher_stub_cmd_flash_write_code,
 	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_write_code),
 	.data = s_esp_flasher_stub_cmd_flash_write_data,
@@ -213,6 +218,7 @@ static const uint8_t s_esp_flasher_stub_cmd_flash_erase_data[] = {
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_erase_cfg = {
+	.name = "cmd_flash_erase",
 	.code = s_esp_flasher_stub_cmd_flash_erase_code,
 	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_erase_code),
 	.data = s_esp_flasher_stub_cmd_flash_erase_data,
@@ -250,6 +256,7 @@ static const uint8_t s_esp_flasher_stub_cmd_flash_erase_check_data[] = {
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_erase_check_cfg = {
+	.name = "cmd_flash_erase_check",
 	.code = s_esp_flasher_stub_cmd_flash_erase_check_code,
 	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_erase_check_code),
 	.data = s_esp_flasher_stub_cmd_flash_erase_check_data,
@@ -287,6 +294,7 @@ static const uint8_t s_esp_flasher_stub_cmd_flash_map_get_data[] = {
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_map_get_cfg = {
+	.name = "cmd_flash_map_get",
 	.code = s_esp_flasher_stub_cmd_flash_map_get_code,
 	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_map_get_code),
 	.data = s_esp_flasher_stub_cmd_flash_map_get_data,
@@ -324,6 +332,7 @@ static const uint8_t s_esp_flasher_stub_cmd_flash_bp_set_data[] = {
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_bp_set_cfg = {
+	.name = "cmd_flash_bp_set",
 	.code = s_esp_flasher_stub_cmd_flash_bp_set_code,
 	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_bp_set_code),
 	.data = s_esp_flasher_stub_cmd_flash_bp_set_data,
@@ -361,6 +370,7 @@ static const uint8_t s_esp_flasher_stub_cmd_flash_bp_clear_data[] = {
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_bp_clear_cfg = {
+	.name = "cmd_flash_bp_clear",
 	.code = s_esp_flasher_stub_cmd_flash_bp_clear_code,
 	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_bp_clear_code),
 	.data = s_esp_flasher_stub_cmd_flash_bp_clear_data,
@@ -398,6 +408,7 @@ static const uint8_t s_esp_flasher_stub_cmd_flash_write_deflated_data[] = {
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_write_deflated_cfg = {
+	.name = "cmd_flash_write_deflated",
 	.code = s_esp_flasher_stub_cmd_flash_write_deflated_code,
 	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_write_deflated_code),
 	.data = s_esp_flasher_stub_cmd_flash_write_deflated_data,
@@ -435,6 +446,7 @@ static const uint8_t s_esp_flasher_stub_cmd_flash_calc_hash_data[] = {
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_calc_hash_cfg = {
+	.name = "cmd_flash_calc_hash",
 	.code = s_esp_flasher_stub_cmd_flash_calc_hash_code,
 	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_calc_hash_code),
 	.data = s_esp_flasher_stub_cmd_flash_calc_hash_data,
@@ -472,6 +484,7 @@ static const uint8_t s_esp_flasher_stub_cmd_flash_clock_configure_data[] = {
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_clock_configure_cfg = {
+	.name = "cmd_flash_clock_configure",
 	.code = s_esp_flasher_stub_cmd_flash_clock_configure_code,
 	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_clock_configure_code),
 	.data = s_esp_flasher_stub_cmd_flash_clock_configure_data,
@@ -509,6 +522,7 @@ static const uint8_t s_esp_flasher_stub_cmd_flash_multi_command_data[] = {
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_multi_command_cfg = {
+	.name = "cmd_flash_multi_command",
 	.code = s_esp_flasher_stub_cmd_flash_multi_command_code,
 	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_multi_command_code),
 	.data = s_esp_flasher_stub_cmd_flash_multi_command_data,
@@ -546,6 +560,7 @@ static const uint8_t s_esp_flasher_stub_cmd_flash_idf_binary_data[] = {
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_idf_binary_cfg = {
+	.name = "cmd_flash_idf_binary",
 	.code = s_esp_flasher_stub_cmd_flash_idf_binary_code,
 	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_idf_binary_code),
 	.data = s_esp_flasher_stub_cmd_flash_idf_binary_data,
@@ -583,6 +598,7 @@ static const uint8_t s_esp_flasher_stub_cmd_test_all_data[] = {
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_cmd_test_all_cfg = {
+	.name = "cmd_test_all",
 	.code = s_esp_flasher_stub_cmd_test_all_code,
 	.code_sz = sizeof(s_esp_flasher_stub_cmd_test_all_code),
 	.data = s_esp_flasher_stub_cmd_test_all_data,

@@ -152,6 +152,7 @@ foreach(COMMAND ${COMMANDS})
 
     file(APPEND ${HEADER_FILE}
         "static const struct esp_flasher_stub_config s_esp_stub_${COMMAND}_cfg = {\n"
+        "	.name = \"${COMMAND}\",\n"
         "	.code = s_esp_flasher_stub_${COMMAND}_code,\n"
         "	.code_sz = sizeof(s_esp_flasher_stub_${COMMAND}_code),\n"
         "	.data = s_esp_flasher_stub_${COMMAND}_data,\n"

@@ -44,6 +44,7 @@ struct esp_flash_apptrace_hw {
 };
 
 struct esp_flasher_stub_config {
+	const char *name;
 	const uint8_t *code;
 	uint32_t code_sz;
 	const uint8_t *data;

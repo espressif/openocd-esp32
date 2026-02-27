@@ -81,13 +81,14 @@ static int esp_algorithm_calculate_stack_usage(struct target *target, struct esp
 	}
 	int retval = target_read_memory(target, stub->stack->address, 1, stub->stack->size, stack_content);
 	if (retval == ERROR_OK) {
-		LOG_OUTPUT("=================================================\n");
+		LOG_OUTPUT("=======================================================================\n");
 		//LOG_OUTPUT("%s", hexdump(stack_content, stub->stack->size));
 		/* find first non 0xA5 address */
 		for (size_t i = 0; i < stub->stack->size; ++i) {
 			if (stack_content[i] != 0xA5) {
-				LOG_OUTPUT("(%zu) bytes used in (%d) bytes stack\n", stub->stack->size - i, stub->stack->size);
-				LOG_OUTPUT("=================================================\n");
+				LOG_OUTPUT("(%zu) bytes used in (%d) bytes stack for %s\n",
+					stub->stack->size - i, stub->stack->size, stub->name);
+				LOG_OUTPUT("=======================================================================\n");
 				break;
 			}
 		}
