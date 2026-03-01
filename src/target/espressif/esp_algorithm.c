@@ -188,7 +188,8 @@ static int esp_algorithm_run_image(struct target *target,
 	LOG_DEBUG("Wait algorithm completion (timeout %d ms)", timeout_ms);
 	if (duration_start(&wait_time) != 0) {
 		LOG_ERROR("Failed to start wait time measurement!");
-		return ERROR_FAIL;
+		retval = ERROR_FAIL;
+		goto _cleanup;
 	}
 	retval = target_wait_algorithm(target,
 		run->mem_args.count, run->mem_args.params,
@@ -197,7 +198,8 @@ static int esp_algorithm_run_image(struct target *target,
 		run->stub.ainfo);
 	if (duration_measure(&wait_time) != 0) {
 		LOG_ERROR("Failed to stop wait time measurement!");
-		return ERROR_FAIL;
+		retval = ERROR_FAIL;
+		goto _cleanup;
 	}
 	LOG_DEBUG("Wait algorithm completion took %g ms", duration_elapsed(&wait_time));
 	if (retval != ERROR_OK) {
