@@ -119,6 +119,7 @@ tests_on_linux:
         export PLATFORM_NAME="linux-arm64";
       fi;
       echo "PLATFORM_NAME: ${PLATFORM_NAME}";
+    - pip install pyusb
   script:
     - OUTPUT_DIR=$PWD/artifacts
     - mkdir -p $OUTPUT_DIR

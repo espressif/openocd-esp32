@@ -5,6 +5,7 @@ import sys
 import json
 import argparse
 import logging
+import usb
 
 
 def main():  # type: () -> None
@@ -43,6 +44,18 @@ def main():  # type: () -> None
         if board["target"] == args.chip and board["interface"] == args.interface and board["location"] not in found:
             logging.info("Found target entry: %s", board)
             assert board["location"]
+            if board["interface"] == "esp_usb_jtag":
+                assert board["serial_number"]
+                devices = usb.core.find(find_all=True)
+                found_usb = False
+                for dev in devices:
+                    if not dev.bus or not dev.port_numbers:
+                        continue
+                    if f"usb://{dev.bus}-{'.'.join(str(x) for x in dev.port_numbers)}" == board["location"] \
+                            and board["serial_number"] == usb.util.get_string(dev, dev.iSerialNumber):
+                        found_usb = True
+                        break
+                assert(found_usb)
             found.add(board["location"])
             if args.count == len(found):
                 sys.exit(0)
