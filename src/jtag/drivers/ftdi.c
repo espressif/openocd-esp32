@@ -1301,16 +1301,33 @@ COMMAND_HANDLER(ftdi_handle_get_location)
 
 	struct libusb_device_handle *usb_dev = mpsse_get_usb_device(mpsse_ctx);
 	if (!usb_dev) {
-		command_print(CMD, "Can not get device location! No open device.");
+		LOG_ERROR("Can not get device location! No open device.");
 		return ERROR_FAIL;
 	}
 
 	if (jtag_libusb_get_dev_location_by_handle(usb_dev, dev_loc, sizeof(dev_loc)) != ERROR_OK) {
-		command_print(CMD, "Cannot get location for open usb device!");
+		LOG_ERROR("Cannot get location for open usb device!");
 		return ERROR_FAIL;
 	}
 
 	command_print(CMD, "%s", dev_loc);
+	return ERROR_OK;
+}
+
+COMMAND_HANDLER(ftdi_handle_get_serial)
+{
+	const char *jtag_dev_serial;
+	struct libusb_device_handle *usb_dev = mpsse_get_usb_device(mpsse_ctx);
+	if (!usb_dev) {
+		LOG_ERROR("Can not get serial number! No open device.");
+		return ERROR_FAIL;
+	}
+	if (jtag_libusb_get_serial(usb_dev, &jtag_dev_serial) != ERROR_OK) {
+		LOG_ERROR("Cannot get serial number for open usb device!");
+		return ERROR_FAIL;
+	}
+	command_print(CMD, "%s", jtag_dev_serial);
+	free((void *)jtag_dev_serial);
 	return ERROR_OK;
 }
 
@@ -1420,14 +1437,21 @@ static const struct command_registration ftdi_subcommand_handlers[] = {
 		.handler = &ftdi_handle_dev_list,
 		.mode = COMMAND_ANY,
 		.help = "list devices",
-		.usage = "list_devs",
+		.usage = "",
 	},
 	{
 		.name = "get_location",
 		.handler = &ftdi_handle_get_location,
 		.mode = COMMAND_ANY,
 		.help = "get device location",
-		.usage = "get_location",
+		.usage = "",
+	},
+	{
+		.name = "get_serial",
+		.handler = &ftdi_handle_get_serial,
+		.mode = COMMAND_ANY,
+		.help = "get device serial number",
+		.usage = "",
 	},
 #if BUILD_FTDI_CJTAG == 1
 	{

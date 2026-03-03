@@ -920,16 +920,22 @@ COMMAND_HANDLER(esp_usb_jtag_get_location)
 	char dev_loc[128];
 
 	if (!priv->usb_device) {
-		command_print(CMD, "Can not get device location! No open device.");
+		LOG_ERROR("Can not get device location! No open device.");
 		return ERROR_FAIL;
 	}
 
 	if (jtag_libusb_get_dev_location_by_handle(priv->usb_device, dev_loc, sizeof(dev_loc)) != ERROR_OK) {
-		command_print(CMD, "Cannot get location for open usb device!");
+		LOG_ERROR("Cannot get location for open usb device!");
 		return ERROR_FAIL;
 	}
 
 	command_print(CMD, "%s", dev_loc);
+	return ERROR_OK;
+}
+
+COMMAND_HANDLER(esp_usb_jtag_get_serial)
+{
+	command_print(CMD, "%s", esp_usb_jtag_serial);
 	return ERROR_OK;
 }
 
@@ -997,15 +1003,23 @@ static const struct command_registration esp_usb_jtag_subcommands[] = {
 		.handler = &esp_usb_jtag_dev_list,
 		.mode = COMMAND_ANY,
 		.help = "list devices",
-		.usage = "list_devs",
+		.usage = "",
 	},
 	{
 		.name = "get_location",
 		.handler = &esp_usb_jtag_get_location,
 		.mode = COMMAND_ANY,
 		.help = "get device location",
-		.usage = "get_location",
+		.usage = "",
 	},
+	{
+		.name = "get_serial",
+		.handler = &esp_usb_jtag_get_serial,
+		.mode = COMMAND_ANY,
+		.help = "get device serial number",
+		.usage = "",
+	},
+
 	COMMAND_REGISTRATION_DONE
 };
 
