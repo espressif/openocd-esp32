@@ -319,7 +319,7 @@ static int esp_algo_calc_hash(const uint8_t *data, size_t datalen, uint8_t *hash
 }
 
 static int esp_algo_flasher_algorithm_init(struct esp_algorithm_run_data *algo,
-	const struct esp_algorithm_hw *stub_hw,
+	const struct esp_flash_bank *esp_info,
 	const struct esp_flasher_stub_config *stub_cfg)
 {
 	if (!stub_cfg) {
@@ -327,11 +327,17 @@ static int esp_algo_flasher_algorithm_init(struct esp_algorithm_run_data *algo,
 		return ERROR_FAIL;
 	}
 
-	LOG_INFO("Initializing flasher algorithm for %s", stub_cfg->name);
+	if (!esp_info) {
+		LOG_ERROR("Invalid esp_info!");
+		return ERROR_FAIL;
+	}
+
+	if (!esp_info->stub_log_enabled)
+		LOG_INFO("Initializing flasher algorithm for %s", stub_cfg->name);
 
 	memset(algo, 0, sizeof(*algo));
-	algo->hw = stub_hw;
-	algo->reg_args.first_user_param = stub_hw->first_user_param;
+	algo->hw = esp_info->stub_hw;
+	algo->reg_args.first_user_param = esp_info->stub_hw->first_user_param;
 	algo->image.code_size = stub_cfg->code_sz;
 	algo->image.data_size = stub_cfg->data_sz;
 	algo->image.bss_size = stub_cfg->bss_sz;
@@ -425,7 +431,7 @@ int esp_algo_flash_blank_check(struct flash_bank *bank)
 	struct duration bench;
 	duration_start(&bench);
 
-	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info, stub_cfg);
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -472,7 +478,7 @@ static int esp_algo_flash_mapping(struct flash_bank *bank,
 	const uint32_t stack_size = esp_info->stub_log_enabled ?
 		stub_cfg->stack_default_sz * 2 : stub_cfg->stack_default_sz;
 
-	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info, stub_cfg);
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -563,7 +569,7 @@ int esp_algo_flash_erase(struct flash_bank *bank, unsigned int first, unsigned i
 	struct duration bench;
 	duration_start(&bench);
 
-	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info, stub_cfg);
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -829,7 +835,7 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 	if (ret != ERROR_OK)
 		return ret;
 
-	ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
+	ret = esp_algo_flasher_algorithm_init(&run, esp_info, stub_cfg);
 	if (ret != ERROR_OK) {
 		esp_algo_flash_apptrace_info_restore(bank->target, esp_info, old_addr);
 		return ret;
@@ -1011,7 +1017,7 @@ int esp_algo_flash_read(struct flash_bank *bank, uint8_t *buffer,
 	if (ret != ERROR_OK)
 		return ret;
 
-	ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
+	ret = esp_algo_flasher_algorithm_init(&run, esp_info, stub_cfg);
 	if (ret != ERROR_OK) {
 		esp_algo_flash_apptrace_info_restore(bank->target, esp_info, old_addr);
 		return ret;
@@ -1279,7 +1285,7 @@ int esp_algo_flash_breakpoint_add(struct target *target, struct esp_flash_breakp
 
 	LOG_DEBUG("SEC_SIZE % " PRId32 " num_bps:(%zu)", esp_info->sec_sz, num_bps);
 
-	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info, stub_cfg);
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -1358,7 +1364,7 @@ int esp_algo_flash_breakpoint_remove(struct target *target, struct esp_flash_bre
 	const uint32_t stack_size = esp_info->stub_log_enabled ?
 		stub_cfg->stack_default_sz * 2 : stub_cfg->stack_default_sz;
 
-	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info, stub_cfg);
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -1449,7 +1455,7 @@ static int esp_algo_flash_calc_hash(struct flash_bank *bank, uint8_t *hash,
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info, stub_cfg);
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -1503,7 +1509,7 @@ static int esp_algo_flash_boost_clock_freq(struct flash_bank *bank, bool boost)
 	const uint32_t stack_size = esp_info->stub_log_enabled ?
 		stub_cfg->stack_default_sz * 2 : stub_cfg->stack_default_sz;
 
-	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info, stub_cfg);
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -1906,7 +1912,7 @@ static int esp_algo_flash_cmd_stub_lib_test_do(struct target *target)
 	const uint32_t stack_size = esp_info->stub_log_enabled ?
 		stub_cfg->stack_default_sz * 2 : stub_cfg->stack_default_sz;
 
-	int ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
+	int ret = esp_algo_flasher_algorithm_init(&run, esp_info, stub_cfg);
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -1967,7 +1973,7 @@ static int esp_algo_flash_cmd_apptrace_wr_test_do(struct target *target)
 	if (ret != ERROR_OK)
 		return ret;
 
-	ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
+	ret = esp_algo_flasher_algorithm_init(&run, esp_info, stub_cfg);
 	if (ret != ERROR_OK)
 		return ret;
 
@@ -2059,7 +2065,7 @@ static int esp_algo_flash_cmd_apptrace_rd_test_do(struct target *target)
 	if (ret != ERROR_OK)
 		return ret;
 
-	ret = esp_algo_flasher_algorithm_init(&run, esp_info->stub_hw, stub_cfg);
+	ret = esp_algo_flasher_algorithm_init(&run, esp_info, stub_cfg);
 	if (ret != ERROR_OK)
 		return ret;
 

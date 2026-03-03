@@ -392,7 +392,7 @@ int apptrace_memory_flush(uint32_t min_sz)
 	}
 
 	while (apptrace_curr_block_pos() > min_sz) {
-		STUB_LOGD("Try to flush %d bytes\n", apptrace_curr_block_pos());
+		STUB_LOGV("Try to flush %d bytes\n", apptrace_curr_block_pos());
 		res = apptrace_memory_swap();
 		if (res != ESP_STUB_OK) {
 			STUB_LOGW("Failed to switch to another block!\n");

@@ -13,7 +13,7 @@
 #include <esp-stub-lib/err.h>
 #include <esp-stub-lib/miniz.h>
 #include <esp-stub-lib/security.h>
-#include <esp-stub-lib/sha.h>
+#include <esp-stub-lib/sha256.h>
 #include <esp-stub-lib/clock.h>
 
 #include "esp_stub.h"
@@ -104,7 +104,7 @@ static __maybe_unused int handle_apptrace_read_from_host(va_list ap)
 
 static  int stub_apptrace_process_write_data(uint32_t __maybe_unused addr, uint8_t *buf, uint32_t size)
 {
-	STUB_LOGD("apptrace write to host addr: %x, size: %d\n", addr, size);
+	STUB_LOGV("apptrace write to host addr: %x, size: %d\n", addr, size);
 
 	static uint8_t data;
 
@@ -120,7 +120,7 @@ static __maybe_unused int handle_apptrace_write_to_host(va_list ap)
 	uint32_t arg1 = va_arg(ap, uint32_t);   //address
 	uint32_t arg2 = va_arg(ap, uint32_t);   //size
 
-	STUB_LOGD("apptrace read from host arg ptr: %x\n", arg1);
+	STUB_LOGV("apptrace read from host arg ptr: %x\n", arg1);
 
 	return stub_apptrace_send_data(arg1, arg2, stub_apptrace_process_write_data);
 }
@@ -373,11 +373,11 @@ static __maybe_unused int stub_write_inflated_data(void *data_buf, uint32_t leng
 	return ESP_STUB_OK;
 }
 
-static __maybe_unused int stub_run_inflator(const void *data_buf, uint32_t length)
+static __maybe_unused int stub_run_inflator(const uint8_t *data_buf, uint32_t length)
 {
 	int status = TINFL_STATUS_NEEDS_MORE_INPUT;
 
-	while (length > 0 && s_fs.remaining_uncompressed > 0 && status > TINFL_STATUS_DONE) {
+	while (length > 0 && s_fs.remaining_uncompressed > 0) {
 		/* input remaining */
 		size_t in_bytes = length;
 		/* output space remaining */
@@ -390,7 +390,12 @@ static __maybe_unused int stub_run_inflator(const void *data_buf, uint32_t lengt
 		status = tinfl_decompress(s_fs.inflator, data_buf, &in_bytes,
 			s_fs.out_buf, s_fs.next_out, &out_bytes,
 			flags);
-		STUB_LOGV("tinfl_decompress in(%d) out(%d)\n", in_bytes, out_bytes);
+		STUB_LOGD("decompress status:%d, in(%d) out(%d)\n", status, in_bytes, out_bytes);
+
+		if (status < TINFL_STATUS_DONE) {
+			STUB_LOGE("Failed to decompress data!\n");
+			return ESP_STUB_ERR_INFLATE;
+		}
 
 		s_fs.remaining_compressed -= in_bytes;
 		length -= in_bytes;
@@ -398,8 +403,7 @@ static __maybe_unused int stub_run_inflator(const void *data_buf, uint32_t lengt
 		s_fs.next_out += out_bytes;
 		size_t bytes_in_out_buf = (size_t)(s_fs.next_out - s_fs.out_buf);
 
-		if (status <= TINFL_STATUS_DONE ||
-			bytes_in_out_buf == ESP_STUB_UNZIP_BUFF_SIZE) {
+		if (status == TINFL_STATUS_DONE || bytes_in_out_buf == ESP_STUB_UNZIP_BUFF_SIZE) {
 			/* Output buffer full, or done */
 			if (stub_write_inflated_data(s_fs.out_buf, bytes_in_out_buf) != ESP_STUB_OK)
 				return ESP_STUB_FAIL;
@@ -410,18 +414,21 @@ static __maybe_unused int stub_run_inflator(const void *data_buf, uint32_t lengt
 		}
 	}	/* while */
 
-	if (status < TINFL_STATUS_DONE) {
-		STUB_LOGE("Failed to inflate data (%d)\n", status);
-		return ESP_STUB_ERR_INFLATE;
-	}
-	if (status == TINFL_STATUS_DONE && s_fs.remaining_uncompressed > 0) {
+	STUB_LOGD("run_inflator rem_uncomp:%d, length:%d\n", s_fs.remaining_uncompressed, length);
+
+	if (s_fs.remaining_uncompressed > 0) {
+		if (length == 0)
+			return ESP_STUB_OK; /* Need more compressed data */
+
 		STUB_LOGE("Not enough compressed data (%d)\n", s_fs.remaining_uncompressed);
 		return ESP_STUB_ERR_NOT_ENOUGH_DATA;
 	}
-	if (status != TINFL_STATUS_DONE && s_fs.remaining_uncompressed == 0) {
+
+	if (s_fs.remaining_uncompressed == 0 && length > 0) {
 		STUB_LOGE("Too much compressed data (%d)\n", length);
 		return ESP_STUB_ERR_TOO_MUCH_DATA;
 	}
+
 	return ESP_STUB_OK;
 }
 
@@ -466,7 +473,7 @@ static __maybe_unused int handle_flash_calc_hash(va_list ap)
 	stub_lib_sha256_start();
 
 	while (size > 0) {
-		rd_sz = ALIGN_DOWN(MIN(ESP_STUB_RDWR_BUFF_SIZE, size), 4);
+		rd_sz = MIN(ESP_STUB_RDWR_BUFF_SIZE, size);
 		int rc = stub_lib_flash_read_buff(addr + rd_cnt, (uint32_t *)read_buf, rd_sz);
 		if (rc != STUB_LIB_OK) {
 			STUB_LOGE("Failed to read flash (%d)!\n", rc);

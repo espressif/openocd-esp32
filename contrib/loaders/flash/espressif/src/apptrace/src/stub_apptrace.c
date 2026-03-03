@@ -49,7 +49,7 @@ int stub_apptrace_recv_data(const void *arg, stub_apptrace_recv_cb_t process_cb)
 			return ESP_STUB_ERR_APPTRACE_DOWN_BUF_FAIL;
 		}
 
-		STUB_LOGD("Got trace down buf %d bytes @ 0x%x\n", wr_sz, buf);
+		STUB_LOGV("Got trace down buf %d bytes @ 0x%x\n", wr_sz, buf);
 
 		int ret = process_cb(buf, wr_sz);
 		/* check the process result */
@@ -93,7 +93,7 @@ int stub_apptrace_send_data(uint32_t addr, uint32_t size, stub_apptrace_send_cb_
 		if (!buf) {
 			return ESP_STUB_ERR_APPTRACE_UP_BUF_FAIL;
 		}
-		STUB_LOGD("Got trace uplink buf %d bytes @ 0x%x\n", rd_sz, buf);
+		STUB_LOGV("Got trace uplink buf %d bytes @ 0x%x\n", rd_sz, buf);
 
 		int ret = process_cb(addr + total_cnt, buf, rd_sz);
 
@@ -108,7 +108,7 @@ int stub_apptrace_send_data(uint32_t addr, uint32_t size, stub_apptrace_send_cb_
 
 		total_cnt += rd_sz;
 
-		STUB_LOGD("Flush trace uplink buf %d bytes @ 0x%x [%x %x %x %x %x %x %x %x]\n",
+		STUB_LOGV("Flush trace uplink buf %d bytes @ 0x%x [%x %x %x %x %x %x %x %x]\n",
 			rd_sz, buf, buf[-4], buf[-3], buf[-2], buf[-1],
 			buf[0], buf[1], buf[2], buf[3]);
 
@@ -117,7 +117,7 @@ int stub_apptrace_send_data(uint32_t addr, uint32_t size, stub_apptrace_send_cb_
 			STUB_LOGE("Failed to flush trace buf!\n");
 			return ret;
 		}
-		STUB_LOGD("Sent trace buf %d bytes @ 0x%x\n", rd_sz, buf);
+		STUB_LOGV("Sent trace buf %d bytes @ 0x%x\n", rd_sz, buf);
 	}
 
 	STUB_LOGD("Total sent %d/%d bytes\n", total_cnt, size);
