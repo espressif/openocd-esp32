@@ -244,5 +244,5 @@ static const uint8_t s_esp_flasher_stub_flash_with_log_data[] = {
 };
 
 /*
-#define esp32h4_STUB_BUILD_IDF_REV 44aeff13199
+#define esp32h4_STUB_BUILD_IDF_REV 7b09685987d
 */

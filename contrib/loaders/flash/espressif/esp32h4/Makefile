@@ -41,7 +41,8 @@ INCLUDES := -I$(IDF_PATH)/components/soc/esp32h4/include -I$(IDF_PATH)/component
 	-I$(IDF_PATH)/components/esp_hal_gpio/esp32h4/include \
 	-I$(IDF_PATH)/components/esp_hal_timg/esp32h4/include \
 	-I$(IDF_PATH)/components/esp_hal_pmu/esp32h4/include \
-	-I$(IDF_PATH)/components/esp_hal_rtc_timer/esp32h4/include
+	-I$(IDF_PATH)/components/esp_hal_rtc_timer/esp32h4/include \
+	-I$(IDF_PATH)/components/esp_hal_clock/esp32h4/include
 
 DEFINES :=
 
