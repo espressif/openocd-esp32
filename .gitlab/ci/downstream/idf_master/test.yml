@@ -306,21 +306,6 @@ tests_esp32p4_rev3:
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
 
-tests_esp32p4_rev3_usj:
-  extends: tests_esp32p4_rev3
-  tags:
-    - esp32p4
-    - usb_serial_jtag
-    - eco5
-  variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
-
-# TODO OCD-1315
-.tests_esp32p4_rev3_lpcore_usj:
-  extends: tests_esp32p4_rev3_usj
-  variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-builtin -p test_*.LpCore*"
-
 tests_esp32p4_rev1:
   extends: .tests_esp32p4
   tags:
