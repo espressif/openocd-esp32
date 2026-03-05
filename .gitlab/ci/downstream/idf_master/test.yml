@@ -358,7 +358,7 @@ tests_esp32h4:
   allow_failure: true
   variables:
     CHIP_NAME: "esp32h4"
-    TEST_RUN_BOARD_OPTS: "-b esp32h4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
+    TEST_RUN_BOARD_OPTS: "-b esp32h4-ftdi -e test_*.*Encrypted"
 
 tests_esp32h21:
   extends: .tests_master_riscv_template
