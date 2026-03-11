@@ -32,6 +32,7 @@
  *   Cortex-A9(tm) TRM, ARM DDI 0407F                                      *
  *   Cortex-A4(tm) TRM, ARM DDI 0363E                                      *
  *   Cortex-A15(tm)TRM, ARM DDI 0438C                                      *
+ *   Architecture Reference Manual, ARMv7-A and ARMv7-R, ARM DDI 0406C.d   *
  *                                                                         *
  ***************************************************************************/
 
@@ -1060,18 +1061,6 @@ static int cortex_a_debug_entry(struct target *target)
 	/* Examine debug reason */
 	arm_dpm_report_dscr(&armv7a->dpm, cortex_a->cpudbg_dscr);
 
-	/* save address of instruction that triggered the watchpoint? */
-	if (target->debug_reason == DBG_REASON_WATCHPOINT) {
-		uint32_t wfar;
-
-		retval = mem_ap_read_atomic_u32(armv7a->debug_ap,
-				armv7a->debug_base + CPUDBG_WFAR,
-				&wfar);
-		if (retval != ERROR_OK)
-			return retval;
-		arm_dpm_report_wfar(&armv7a->dpm, wfar);
-	}
-
 	/* First load register accessible through core debug port */
 	retval = arm_dpm_read_current_registers(&armv7a->dpm);
 	if (retval != ERROR_OK)
@@ -1082,6 +1071,29 @@ static int cortex_a_debug_entry(struct target *target)
 		retval = arm_dpm_read_reg(&armv7a->dpm, arm->spsr, 17);
 		if (retval != ERROR_OK)
 			return retval;
+	}
+
+	/* save address of instruction that triggered the watchpoint? */
+	if (target->debug_reason == DBG_REASON_WATCHPOINT) {
+		/*
+		 * On v7.1 Debug architecture or on synchronous (precise) watchpoints,
+		 * WFAR is not used. Take the instruction address from halted PC.
+		 * See ARM DDI 0406C.d chapter C5.2.2 "Effect of entering Debug state
+		 * on CP15 registers and the DBGWFAR".
+		 */
+		if (((armv7a->dpm.didr >> 16) & 0xf) > 4 ||
+				DSCR_ENTRY(cortex_a->cpudbg_dscr) == DSCR_ENTRY_PRECISE_WATCHPT) {
+			armv7a->dpm.wp_addr = buf_get_u32(arm->pc->value, 0, 32);
+		} else {
+			uint32_t wfar;
+
+			retval = mem_ap_read_atomic_u32(armv7a->debug_ap,
+					armv7a->debug_base + CPUDBG_WFAR,
+					&wfar);
+			if (retval != ERROR_OK)
+				return retval;
+			arm_dpm_report_wfar(&armv7a->dpm, wfar);
+		}
 	}
 
 #if 0
