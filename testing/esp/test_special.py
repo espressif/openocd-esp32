@@ -105,18 +105,7 @@ class DebuggerSpecialTestsImpl:
         self.select_sub_test("blink")
         self.resume_exec()
         time.sleep(2.0)
-        assert self.port_name is not None
-        # avoid simultaneous access to UART with SerialReader
-        if self.uart_reader:
-            self.uart_reader.pause()
-        cmd = ['esptool.py', '-p', self.port_name, 'chip_id']
-        # TODO OCD-868
-        if testee_info.hw_id == 'esp32s3-builtin':
-            cmd = ['esptool.py', '-p', self.port_name, '--no-stub', 'chip_id']
-        proc = subprocess.run(cmd)
-        proc.check_returncode()
-        if self.uart_reader:
-            self.uart_reader.resume()
+        self.esptool_reset()
         time.sleep(2.0)
         self.stop_exec()
         self.prepare_app_for_debugging(self.test_app_cfg.app_off)
@@ -362,6 +351,47 @@ class DebuggerSpecialTestsImpl:
         self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'pie_disable', ['pie_disable'], outmost_func_name='pie_registers_task')
         check_mul(a, b)
 
+    def _check_target_running(self):
+        targets = self.oocd.targets()
+        for i in range(self.CORES_NUM):
+            state = self.oocd.target_state(targets[i])
+            self.assertEqual(state, 'running')
+
+    def test_cores_states_after_esptool_connection(self):
+        """
+            This test checks that cores are in running or halted state after esptool connection.
+            1) Select appropriate sub-test number on target.
+            2) Resume target and wait some time.
+            3) Check that all targets are in state 'running'.
+            4) Run `esptool.py` to get chip ID and reset target.
+            5) Wait some time.
+            6) Check that all targets are in state 'running'.
+        """
+        self.select_sub_test("blink")
+        self.resume_exec()
+        time.sleep(2.0)
+        self._check_target_running()
+        self.esptool_reset()
+        time.sleep(2.0)
+        self._check_target_running()
+
+    def test_cores_states_after_reset(self):
+        """
+            This test checks execution after reset run.
+            1) Pre-select appropriate sub-test to run after reset.
+            2) Reset target and wait some time.
+            3) Check that all targets are in state 'running'.
+            4) Check that program is running by hitting breakpoints in the code.
+        """
+        self.pre_select_sub_test('blink')
+        self.gdb.target_reset(action='run')
+        time.sleep(3)
+        self._check_target_running()
+        self.gdb.exec_interrupt()
+        bps = ['gpio_set_level', 'vTaskDelay']
+        for f in bps:
+            self.add_bp(f)
+            self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, f, run_bt=False)
 
 @only_for_chip(["esp32", "esp32s2", "esp32s3", "esp32c5", "esp32c61", "esp32p4"])
 @idf_ver_min_for_chip("latest", ["esp32p4"])
@@ -422,38 +452,7 @@ class PsramTestsImpl:
 class DebuggerSpecialTestsDual(DebuggerGenericTestAppTestsDual, DebuggerSpecialTestsImpl):
     """ Test cases for dual core mode
     """
-    def test_cores_states_after_esptool_connection(self):
-        """
-            This test checks that cores are in running or halted state after esptool connection.
-            1) Select appropriate sub-test number on target.
-            2) Resume target and wait some time.
-            3) Check that all targets are in state 'running'.
-            4) Run `esptool.py` to get chip ID and reset target.
-            5) Wait some time.
-            6) Check that all targets are in state 'running'.
-        """
-        self.select_sub_test("blink")
-        self.resume_exec()
-        time.sleep(2.0)
-        for target in self.oocd.targets():
-            state = self.oocd.target_state(target)
-            self.assertEqual(state, 'running')
-        assert self.port_name is not None
-        # avoid simultaneous access to UART with SerialReader
-        if self.uart_reader:
-            self.uart_reader.pause()
-        cmd = ['esptool.py', '-p', self.port_name, 'chip_id']
-        # TODO OCD-868
-        if testee_info.hw_id == 'esp32s3-builtin':
-            cmd = ['esptool.py', '-p', self.port_name, '--no-stub', 'chip_id']
-        proc = subprocess.run(cmd)
-        proc.check_returncode()
-        if self.uart_reader:
-            self.uart_reader.resume()
-        time.sleep(2.0)
-        for target in self.oocd.targets():
-            state = self.oocd.target_state(target)
-            self.assertEqual(state, 'running')
+    pass
 
 
 class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpecialTestsImpl):
