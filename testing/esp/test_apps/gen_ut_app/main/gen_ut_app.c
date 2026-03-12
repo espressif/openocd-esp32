@@ -32,6 +32,8 @@ const static char *TAG = "ut_app";
 volatile static int s_run_test = CONFIG_GEN_UT_APP_RUNTEST;
 volatile static char s_run_test_str[256];
 volatile static int s_run_core = -1;
+volatile static const int s_next_test = 0;
+volatile static const char s_next_test_str[256];
 
 // vars for WP tests
 volatile static int s_count1 = 0;
@@ -388,7 +390,7 @@ TEST_DECL(step_isr_masking_check_mstatus, "test_step.DebuggerStepTests*.test_ste
 #endif
 
 // match test string ID with pattern. See fnmatch for wildcard format description.
-bool test_id_match(const char *pattern, const char *id)
+bool test_id_match_safe(const char *pattern, const char *id)
 {
     if (esp_ptr_internal(id) && esp_ptr_byte_accessible(id)) {
         return fnmatch(pattern, id, 0) == 0;
@@ -396,11 +398,22 @@ bool test_id_match(const char *pattern, const char *id)
     return false;
 }
 
+bool test_id_match_no_check(const char *pattern, const char *id)
+{
+    return fnmatch(pattern, id, 0) == 0;
+}
+
+bool (*test_id_match)(const char *pattern, const char *id) = test_id_match_safe;
+
 void app_main()
 {
     if (s_run_test == -1) {
         ESP_LOGI(TAG, "Run test '%s'\n", s_run_test_str);
         s_run_test = (int)s_run_test_str;
+    } else if (s_next_test == -1 && s_run_test == 0) {
+        ESP_LOGI(TAG, "Run test '%s'\n", s_next_test_str);
+        s_run_test = (int)s_next_test_str;
+        test_id_match = test_id_match_no_check;
     } else {
         ESP_LOGI(TAG, "Run test %d\n", s_run_test);
     }

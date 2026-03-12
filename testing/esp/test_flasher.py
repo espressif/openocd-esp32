@@ -22,19 +22,7 @@ class FlasherTestsImpl:
 
     def setUp(self):
         self.gdb.monitor_run('flash probe 0', tmo=10)
-        _, self.flash_sz = self.get_flash_size(0)
-
-    def get_flash_size(self, bank_num):
-        _,target_output = self.gdb.monitor_run('flash banks', tmo=10, output_type='stdout')
-        for bank_desc in target_output.split('\\n'):
-            # #0 : esp32.cpu0.flash (esp32) at 0x00000000, size 0x00400000, buswidth 0, chipwidth 0
-            mo = re.match(r'#(?P<bank_num>\d)+\s*:\s*(?P<tgt_name>\S+).flash\s+\(\w+\)\s+at\s+0x[0-9A-Fa-f]+,\s*size\s+(?P<flash_sz>0x[0-9A-Fa-f]+)', bank_desc)
-            if not mo or len(mo.groups()) != 3:
-                continue
-            if int(mo.group("bank_num")) != bank_num:
-                continue
-            return mo.group("tgt_name"), int(mo.group("flash_sz"), 16)
-        return "", 0
+        self.flash_sz = self.get_flash_banks()[0][1]
 
     def program_big_binary(self, actions, overflow=False):
         size = 0x2000 if overflow else self.flash_sz

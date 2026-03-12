@@ -8,6 +8,7 @@ import importlib
 import sys
 import re
 import subprocess
+import tempfile
 import debug_backend as dbg
 
 # TODO: fixed???
@@ -653,6 +654,54 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         if self.test_app_cfg.active_core is not None:
             self.gdb.data_eval_expr('%s=%d' % (self.test_app_cfg.core_select_var, self.test_app_cfg.active_core))
 
+    def get_flash_banks(self):
+        flash_banks = {}
+        _, target_output = self.gdb.monitor_run('flash banks', tmo=10, output_type='stdout')
+        for bank_desc in target_output.split('\\n'):
+            # #0 : esp32.cpu0.flash (esp32) at 0x00000000, size 0x00400000, buswidth 0, chipwidth 0
+            mo = re.match(r'#(?P<bank_num>\d)+\s*:\s*(?P<tgt_name>\S+).(?:flash|drom|irom)\s+\(\w+\)\s+at\s+(?P<address>0x[0-9A-Fa-f]+),\s*size\s+(?P<flash_sz>0x[0-9A-Fa-f]+)', bank_desc)
+            if not mo or len(mo.groups()) != 4:
+                continue
+            bank_num = int(mo.group("bank_num"))
+            bank_start = int(mo.group("address"), 16)
+            bank_size = int(mo.group("flash_sz"), 16)
+            flash_banks[bank_num] = (bank_start, bank_size)
+        return flash_banks
+
+    def update_in_flash(self, address, size, values):
+        found = False
+        for bank_num, (bank_start, bank_size) in self.get_flash_banks().items():
+            bank_end = bank_start + bank_size
+            if bank_start <= address < bank_end:
+                found = True
+                break
+        self.assertTrue(found)
+
+        sec_size = 0x1000
+        flash_offset = address - bank_start
+        read_offset = flash_offset % sec_size
+        sec_offset = flash_offset - read_offset
+        sec_num = sec_offset // sec_size
+        fhnd, read_fname = tempfile.mkstemp(suffix='.bin')
+        os.close(fhnd)
+        self.gdb.monitor_run(f'flash read_bank {bank_num} {dbg.fixup_path(read_fname)} 0x{sec_offset:08x} {sec_size}', tmo=60)
+
+        with open(read_fname, 'rb') as f:
+            data = bytearray(f.read())
+            self.assertTrue(len(data) == sec_size)
+            data[read_offset:read_offset + size] = values
+        with open(read_fname, 'wb') as f:
+            f.write(data)
+
+        self.gdb.monitor_run(f'flash erase_sector {bank_num} {sec_num} {sec_num}', tmo=60)
+        self.gdb.monitor_run(f'flash write_bank {bank_num} {dbg.fixup_path(read_fname)} 0x{sec_offset:08x}', tmo=60)
+
+    def pre_select_sub_test(self, sub_test_id):
+        s_next_test_addr = int(self.gdb.data_eval_expr('&s_next_test').split()[0], 16)
+        s_next_test_str_addr = int(self.gdb.data_eval_expr('&s_next_test_str').split()[0], 16)
+        self.assertTrue(type(sub_test_id) is str)
+        self.update_in_flash(s_next_test_addr, 4, b'\xff\xff\xff\xff')
+        self.update_in_flash(s_next_test_str_addr, len(sub_test_id) + 1, sub_test_id.encode('ascii') + b'\x00')
 
     def run_to_bp(self, exp_rsn, func_name, tmo=20):
         self.resume_exec()

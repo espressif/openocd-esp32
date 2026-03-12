@@ -71,7 +71,7 @@ typedef ut_result_t (*test_func_t)(int test_num, int core_num);
 static const char _name_##_id_pattern[] = _exp_; \
 static void _name_##_task(void *pvParameter)
 
-bool test_id_match(const char *exp, const char *id);
+extern bool (*test_id_match)(const char *exp, const char *id);
 
 #endif
 
