@@ -5141,10 +5141,6 @@ static unsigned int riscv013_get_progbufsize(const struct target *target)
 	return r->progbufsize;
 }
 
-static int arch_state(struct target *target)
-{
-	return ERROR_OK;
-}
 
 struct target_type riscv013_target = {
 	.name = "riscv",
@@ -5159,8 +5155,6 @@ struct target_type riscv013_target = {
 
 	.assert_reset = assert_reset,
 	.deassert_reset = deassert_reset,
-
-	.arch_state = arch_state
 };
 
 /*** 0.13-specific implementations of various RISC-V helper functions. ***/
