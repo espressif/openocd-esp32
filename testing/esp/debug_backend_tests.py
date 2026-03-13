@@ -777,9 +777,6 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         if self.uart_reader:
             self.uart_reader.pause()
         cmd = ['esptool.py', '-p', self.port_name, 'chip_id']
-        # TODO OCD-868
-        if testee_info.hw_id == 'esp32s3-builtin':
-            cmd = ['esptool.py', '-p', self.port_name, '--no-stub', 'chip_id']
         proc = subprocess.run(cmd)
         proc.check_returncode()
         if self.uart_reader:

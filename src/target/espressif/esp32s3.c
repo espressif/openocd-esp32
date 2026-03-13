@@ -347,6 +347,13 @@ static int esp32s3_disable_wdts(struct target *target)
 
 static int esp32s3_on_halt(struct target *target)
 {
+	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
+	if (esp_xtensa->reset_reason == ESP_XTENSA_RESET_RSN_DEFERRED) {
+		const char *rsn_str;
+		int ret = esp_xtensa->reset_reason_fetch(target, &esp_xtensa->reset_reason, &rsn_str);
+		if (ret == ERROR_OK)
+			LOG_TARGET_INFO(target, "Reset cause (%d) - (%s)", esp_xtensa->reset_reason, rsn_str);
+	}
 	int ret = esp32s3_disable_wdts(target);
 	if (ret == ERROR_OK)
 		ret = esp_xtensa_smp_on_halt(target);

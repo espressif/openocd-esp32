@@ -16,6 +16,7 @@
 #include "esp_xtensa_semihosting.h"
 
 #define ESP_XTENSA_RESET_RSN_UNKNOWN    (-1)
+#define ESP_XTENSA_RESET_RSN_DEFERRED   (-2)
 
 enum esp_xtensa_exception_cause {
 	ILLEGAL_INSTRUCTION = 0,

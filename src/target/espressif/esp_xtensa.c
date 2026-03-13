@@ -13,6 +13,8 @@
 #include <stdint.h>
 #include <target/smp.h>
 #include <target/register.h>
+#include <target/target.h>
+#include <target/target_type.h>
 #include "esp_semihosting.h"
 #include "esp_xtensa_algorithm.h"
 #include "esp_xtensa.h"
@@ -222,6 +224,14 @@ int esp_xtensa_reset_reason_read(struct target *target)
 		return ERROR_OK;
 
 	if (orig_state != TARGET_HALTED) {
+		if (!strcmp(target->type->name, "esp32s3")) {
+			/* TODO - workaround needed for esp32s3.
+			   Seems halting can interrupt esptool handshake and esptool fails with
+			   "A fatal error occurred: The chip stopped responding." */
+			esp_xtensa->reset_reason = ESP_XTENSA_RESET_RSN_DEFERRED;
+			LOG_TARGET_WARNING(target, "Reset reason read deferred, will be read on next halt");
+			return ERROR_OK;
+		}
 		/* call `xtensa_halt` instead of `target_halt` to avoid timedout HALT warnings */
 		ret = xtensa_halt(target);
 		if (ret != ERROR_OK) {
