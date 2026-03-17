@@ -68,9 +68,6 @@ static const struct gpio_map {
 	[ADAPTER_GPIO_IDX_USER0] = { "user0", ADAPTER_GPIO_DIRECTION_BIDIRECTIONAL, true, true, true },
 };
 
-#ifdef HAVE_LIBUSB_GET_PORT_NUMBERS
-static void adapter_usb_set_location(const char *location);
-#endif
 static int adapter_config_khz(unsigned int khz);
 
 bool is_adapter_initialized(void)
@@ -152,14 +149,6 @@ int adapter_init(struct command_context *cmd_ctx)
 		if (retval != ERROR_OK)
 			return ERROR_JTAG_INIT_FAILED;
 	}
-
-#ifdef HAVE_LIBUSB_GET_PORT_NUMBERS
-	char *loc = getenv("OPENOCD_USB_ADAPTER_LOCATION");
-	if (loc) {
-		LOG_INFO("use USB location specified via env var '%s'", loc);
-		adapter_usb_set_location(loc);
-	}
-#endif
 
 	retval = adapter_driver->init();
 	if (retval != ERROR_OK)

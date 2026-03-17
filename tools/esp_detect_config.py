@@ -28,7 +28,7 @@ class OpenOcd:
     TAPINS_NARSEL_DATALEN   = 32
     XDMREG_OCDID_NAR        = 0x40
 
-    def __init__(self, oocd_path, scripts_dir, iface_config, host="127.0.0.1", port=10677, iface_cmd="", env=None, log_lvl=2, data_tmo=2.0):
+    def __init__(self, oocd_path, scripts_dir, iface_config, host="127.0.0.1", port=10677, iface_cmd="", usb_location=None, log_lvl=2, data_tmo=2.0):
         self.host       = host
         self.port       = port
         self.buf_size   = 4096
@@ -50,10 +50,12 @@ class OpenOcd:
         run_args = [oocd_path]
         if len(scripts_dir):
             run_args += ["-s", scripts_dir]
-        run_args += ["-f", iface_config, f"-d{log_lvl}", "-l", self.logfilename,
-                     "-c", f'gdb port disabled; telnet port disabled; tcl port {self.port}; init']
+        run_args += ["-f", iface_config, f"-d{log_lvl}", "-l", self.logfilename]
+        if usb_location:
+            run_args += ["-c", f"adapter usb location {usb_location}"]
+        run_args += ["-c", f'gdb port disabled; telnet port disabled; tcl port {self.port}; init']
         logging.debug("Run OpenOCD with args: %s", run_args)
-        self.proc = subprocess.Popen(args=run_args, stdout=subprocess.PIPE, stdin=None, stderr=subprocess.STDOUT, env=env)
+        self.proc = subprocess.Popen(args=run_args, stdout=subprocess.PIPE, stdin=None, stderr=subprocess.STDOUT)
         if self.proc.poll():
             logging.error("Failed to start OpenOCD %d!", self.proc.returncode)
             self.readout_all_output()
@@ -216,13 +218,9 @@ class OpenOcd:
 
 def detect_and_populate_config(oocd, scripts, log_lvl, data_tmo, config_file, host, port,
                                iface_id, iface_cmd, usb_location, esp_cfg):
-    my_env = os.environ.copy()
-    if usb_location:
-        my_env["OPENOCD_USB_ADAPTER_LOCATION"] = usb_location
-
     ocd = None
     try:
-        ocd = OpenOcd(oocd, scripts, config_file, host, port, iface_cmd, env=my_env, log_lvl=log_lvl, data_tmo=data_tmo)
+        ocd = OpenOcd(oocd, scripts, config_file, host, port, iface_cmd, usb_location, log_lvl, data_tmo)
         ocd.connect(tmo=5)
     except OpenOcdInstanceConflictError:
         # no need to call cleanup()
