@@ -16,8 +16,8 @@
 #include "helper/list.h"
 #include "helper/command.h"
 #include "transport/transport.h"
-#include "jtag/interface.h"
 #include "jtag/adapter.h"
+#include "jtag/interface.h"
 
 static OOCD_LIST_HEAD(all_dap);
 

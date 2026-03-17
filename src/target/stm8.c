@@ -13,13 +13,13 @@
 #include <helper/log.h>
 #include "target.h"
 #include "target_type.h"
+#include "jtag/adapter.h"
 #include "jtag/interface.h"
 #include "jtag/jtag.h"
 #include "jtag/swim.h"
 #include "register.h"
 #include "breakpoints.h"
 #include "algorithm.h"
-#include "jtag/adapter.h"
 
 static struct reg_cache *stm8_build_reg_cache(struct target *target);
 static int stm8_read_core_reg(struct target *target, unsigned int num);

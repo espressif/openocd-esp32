@@ -75,7 +75,6 @@ struct adapter_gpio_config {
 	enum adapter_gpio_pull pull;
 };
 
-extern struct adapter_driver *adapter_driver;
 struct command_context;
 
 /** Register the adapter's commands */
@@ -129,6 +128,8 @@ const char *adapter_gpio_get_name(enum adapter_gpio_config_index idx);
  * Retrieves gpio configuration set with command "adapter gpio <signal_name>"
  */
 const struct adapter_gpio_config *adapter_gpio_get_config(void);
+
+extern struct adapter_driver *adapter_driver;
 
 #define ADAPTER_GPIO_NOT_SET UINT_MAX
 
