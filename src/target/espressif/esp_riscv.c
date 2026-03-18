@@ -20,6 +20,7 @@
 #include <target/smp.h>
 #include <target/semihosting_common.h>
 #include <rtos/rtos.h>
+#include <target/riscv/riscv.h>
 #include <target/riscv/riscv_reg.h>
 
 #include "esp_riscv.h"

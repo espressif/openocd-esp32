@@ -6,9 +6,6 @@
 #include "target/target.h"
 #include "target/register.h"
 
-/* ESPRESSIF */
-#include "riscv.h"
-#include "gdb_regs.h"
 /**
  * This file describes the register cache interface available to the RISC-V
  * target. Functions declared here should be safe to use once register cache is

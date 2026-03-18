@@ -18,6 +18,4 @@
  */
 int openocd_main(int argc, char *argv[]);
 
-extern struct command_context *global_cmd_ctx;
-
 #endif /* OPENOCD_OPENOCD_H */

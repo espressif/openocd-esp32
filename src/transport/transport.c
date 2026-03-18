@@ -36,7 +36,8 @@
 #include <helper/log.h>
 #include <helper/replacements.h>
 #include <transport/transport.h>
-#include "openocd.h"
+
+extern struct command_context *global_cmd_ctx;
 
 /*-----------------------------------------------------------------------*/
 

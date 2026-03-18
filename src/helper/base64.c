@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: BSD-3-Clause
 
 /*
  * Base64 encoding/decoding (RFC1341)
  * Copyright (c) 2005-2011, Jouni Malinen <j@w1.fi>
  *
- * This software may be distributed under the terms of the BSD license.
- * See README for more details.
+ * Original file from FreeBSD code
+ * https://cgit.freebsd.org/src/tree/contrib/wpa/src/utils/base64.c?id=f05cddf940db
  */
 
 
@@ -124,6 +124,7 @@ unsigned char *base64_decode(const unsigned char *src, size_t len,
 	if (!out)
 		return NULL;
 	pos = out;
+
 	count = 0;
 	for (i = 0; i < len; i++) {
 		tmp = dtable[src[i]];
