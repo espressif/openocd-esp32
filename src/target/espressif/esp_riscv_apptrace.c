@@ -190,8 +190,16 @@ static int esp_riscv_apptrace_buffs_write(struct target *target, uint32_t bufs_n
 
 	/* Prevent invalidation/writeback on each of the accesses */
 	RISCV_INFO(info);
-	bool invalidate_cache = info->mem_access_sysbus_cache_sync;
+	bool sync_cache = info->mem_access_sysbus_cache_sync;
 	info->mem_access_sysbus_cache_sync = false;
+
+	/* Writeback whole buffer at once */
+	if (sync_cache && info->cache_writeback) {
+		uint32_t total_size = 0;
+		for (unsigned int i = 0; i < bufs_num; i++)
+			total_size += buf_sz[i];
+		info->cache_writeback(target, start_address, total_size);
+	}
 
 	for (unsigned int i = 0; i < bufs_num; i++) {
 		res = target_write_buffer(target, curr_addr, buf_sz[i], bufs[i]);
@@ -201,8 +209,8 @@ static int esp_riscv_apptrace_buffs_write(struct target *target, uint32_t bufs_n
 	}
 
 	/* Invalidate whole buffer at once */
-	info->mem_access_sysbus_cache_sync = invalidate_cache;
-	if (invalidate_cache && info->cache_invalidate)
+	info->mem_access_sysbus_cache_sync = sync_cache;
+	if (sync_cache && info->cache_invalidate)
 		info->cache_invalidate(target, start_address, curr_addr - start_address);
 
 	if (res != ERROR_OK)
