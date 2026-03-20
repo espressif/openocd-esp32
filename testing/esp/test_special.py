@@ -363,7 +363,8 @@ class DebuggerSpecialTestsImpl:
         check_mul(a, b)
 
 
-@only_for_chip(["esp32", "esp32s2", "esp32s3", "esp32c5", "esp32c61"], 'skipped - OCD-1154')
+@only_for_chip(["esp32", "esp32s2", "esp32s3", "esp32c5", "esp32c61", "esp32p4"])
+@idf_ver_min_for_chip("latest", ["esp32p4"])
 class PsramTestsImpl:
     """ PSRAM specific test cases generic for dual and single core modes
     """
