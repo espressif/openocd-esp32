@@ -125,7 +125,7 @@ build_macos_strip:
     paths:
       - dist
   script:
-    - cd dist
+    - rm -rf dist_tmp && mv dist dist_tmp && mkdir dist && cd dist_tmp
     - dist_names="dist_name_macos dist_name_macos-arm64"
     - ocd_bin=tmp/openocd-esp32/bin/openocd
     - >
@@ -137,8 +137,9 @@ build_macos_strip:
         strip -S $ocd_bin;
         otool -l $ocd_bin | grep -A 5 LC_SYMTAB;
         ls -lh $ocd_bin;
-        tar -czf `cat $dist_file` -C tmp .;
+        tar -czf ../dist/`cat $dist_file` -C tmp .;
         rm -rf tmp;
+        mv $dist_file ../dist;
       done
 
 macos_codesign:
