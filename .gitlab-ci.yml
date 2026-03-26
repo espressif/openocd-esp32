@@ -299,7 +299,9 @@ create_reports:
       folder_list=$(ls -d build_test_app*);
       for each_folder in $folder_list ;
       do
-      lcov --gcov-tool ${PWD}/${each_folder}/esp_cov_files/gcov --capture --directory ${each_folder}/esp_cov_files --output-file ${each_folder}/${each_folder}.info;
+        if [[ -e ${PWD}/${each_folder}/esp_cov_files/gcov && -d ${each_folder}/esp_cov_files ]]; then
+          lcov --gcov-tool ${PWD}/${each_folder}/esp_cov_files/gcov --capture --directory ${each_folder}/esp_cov_files --output-file ${each_folder}/${each_folder}.info;
+        fi
       done
     - cp `find . -wholename "./build_test_app*/*.info" -size +0` cov_infos
     - ls -la cov_infos/
