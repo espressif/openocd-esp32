@@ -2326,7 +2326,6 @@ void target_quit(void)
 
 int target_arch_state(struct target *target)
 {
-	int retval;
 	if (!target) {
 		LOG_WARNING("No target has been configured");
 		return ERROR_OK;
@@ -2335,8 +2334,7 @@ int target_arch_state(struct target *target)
 	if (target->state != TARGET_HALTED)
 		return ERROR_OK;
 
-	retval = target->type->arch_state(target);
-	return retval;
+	return target->type->arch_state(target);
 }
 
 static int target_get_gdb_fileio_info_default(struct target *target,
