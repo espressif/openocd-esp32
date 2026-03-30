@@ -249,6 +249,37 @@ class SemihostTestsImpl:
                 self.assertTrue(stdout_expected_strings in target_output)
                 self.assertTrue(stderr_expected_strings in target_output)
 
+    def test_semihost_with_consoleio_halt_resume(self):
+        """
+        This test checks that gdb consoleIO does not interfere with halt/resume requests.
+        """
+        self.set_semihosting_fileio(True)
+        get_logger().info('Files %s, %s', self.fout_names, self.fin_names)
+        target_output = ''
+        def _target_stream_handler(type, stream, payload):
+            nonlocal target_output
+            target_output += payload
+        self.gdb.stream_handler_add('target', _target_stream_handler)
+        try:
+            for i in range(10):
+                self.resume_exec()
+                # Do not interrupt too often to get at least some calls processed
+                time.sleep(1)
+                self.stop_exec()
+        finally:
+            self.gdb.stream_handler_remove('target', _target_stream_handler)
+
+        # Check we get some outputs, expecting some get skipped because of CTRL-C from GDB,
+        # see GDB response in logs: "File-I/O response, retcode: 0xffffffff, errno: 0x4, ctrl-c: true"
+        for each_core in range(self.CORES_NUM):
+            count = 0
+            for i in range(10):
+                stdout_expected_strings = "CPU[{}]: Semihosted stdout write {}".format(each_core, i)
+                stderr_expected_strings = "CPU[{}]: Semihosted stderr write {}".format(each_core, i)
+                if stdout_expected_strings in target_output or stderr_expected_strings in target_output:
+                    count += 1
+            self.assertTrue(count >= 5)
+
 
 ########################################################################
 #              TESTS DEFINITION WITH SPECIAL TESTS                     #

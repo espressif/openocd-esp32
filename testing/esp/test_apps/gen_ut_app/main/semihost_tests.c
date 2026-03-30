@@ -873,7 +873,7 @@ TEST_DECL(gdb_fileio, "test_semihost.SemihostTests*.test_semihost_with_fileio")
     semihost_task(NULL);
 }
 
-TEST_DECL(gdb_consoleio, "test_semihost.SemihostTests*.test_semihost_with_consoleio")
+TEST_DECL(gdb_consoleio, "test_semihost.SemihostTests*.test_semihost_with_consoleio*")
 {
     /*
     * *** About the test ***
@@ -919,7 +919,7 @@ TEST_DECL(gdb_consoleio, "test_semihost.SemihostTests*.test_semihost_with_consol
 	setvbuf(stderr, stderr_buffer, _IOLBF, sizeof(stderr_buffer));
 
     for (int i = 0; i < 10; i++) {
-        xSemaphoreTake(g_console_mutex, pdMS_TO_TICKS(1000));
+        xSemaphoreTake(g_console_mutex, portMAX_DELAY);
         fprintf(stdout, "CPU[%d]: Semihosted stdout write %d\n", core_id, i);
         fprintf(stderr, "CPU[%d]: Semihosted stderr write %d\n", core_id, i);
         xSemaphoreGive(g_console_mutex);
