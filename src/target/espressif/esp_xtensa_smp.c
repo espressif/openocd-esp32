@@ -316,6 +316,8 @@ static int esp_xtensa_smp_update_halt_gdb(struct target *target, bool *need_resu
 	/* due to smpbreak config other cores can also go to HALTED state */
 	foreach_smp_target(head, target->smp_targets) {
 		curr = head->target;
+		if (target->halt_issued)
+			curr->halt_issued = true;
 		LOG_DEBUG("Check target '%s'", target_name(curr));
 		/* skip calling context */
 		if (curr == target)

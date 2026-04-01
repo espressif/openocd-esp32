@@ -52,12 +52,22 @@ static int esp_xtensa_semihosting_post_result(struct target *target)
  */
 int esp_xtensa_semihosting(struct target *target, int *retval)
 {
+	/* Do not process semihosting if semihosting was not the halt cause.
+	 * For example, if Ctrl-C is sent from GDB, this prevents incorrectly resumed target
+	 * in case a semihosting request is detected.
+	 * The semihosting call will be processed on next resume. */
+	if (target->halt_issued) {
+		*retval = ERROR_OK;
+		return SEMIHOSTING_NONE;
+	}
 	struct xtensa *xtensa = target_to_xtensa(target);
 	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
 
 	xtensa_reg_val_t dbg_cause = xtensa_reg_get(target, XT_REG_IDX_DEBUGCAUSE);
-	if ((dbg_cause & (DEBUGCAUSE_BI | DEBUGCAUSE_BN)) == 0)
+	if ((dbg_cause & (DEBUGCAUSE_BI | DEBUGCAUSE_BN)) == 0) {
+		*retval = ERROR_OK;
 		return SEMIHOSTING_NONE;
+	}
 
 	uint8_t brk_insn_buf[sizeof(uint32_t)] = { 0 };
 	xtensa_reg_val_t pc = xtensa_reg_get(target, XT_REG_IDX_PC);
