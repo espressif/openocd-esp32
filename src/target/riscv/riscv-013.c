@@ -736,6 +736,14 @@ clear_cmderr:
 	/* TODO: can we add a more substantial recovery if the clear operation fails? */
 	if (dm_write(target, DM_ABSTRACTCS, DM_ABSTRACTCS_CMDERR) != ERROR_OK)
 		LOG_TARGET_ERROR(target, "could not clear abstractcs error");
+	/* ESPRESSIF */
+	if (dm_read(target, &abstractcs, DM_ABSTRACTCS) == ERROR_OK
+			&& get_field(abstractcs, DM_ABSTRACTCS_BUSY)) {
+		LOG_TARGET_WARNING(target, "Abstractct.busy appears stuck, issue haltreq in attempt to clear it");
+		uint32_t dmcontrol;
+		dm_read(target, &dmcontrol, DM_DMCONTROL);
+		dm_write(target, DM_DMCONTROL, dmcontrol | DM_DMCONTROL_HALTREQ);
+	}
 	return res;
 }
 
@@ -2835,7 +2843,9 @@ static int riscv013_get_hart_state(struct target *target, enum riscv_hart_state 
 		 * message that a reset happened, that the target is running, and then
 		 * that it is halted again once the request goes through.
 		 */
-		if (target->state == TARGET_HALTED) {
+		/* Espressif - keep running after external reset */
+		RISCV_INFO(r);
+		if (!r->on_reset && target->state == TARGET_HALTED) {
 			dmcontrol |= DM_DMCONTROL_HALTREQ;
 			/* `haltreq` should not be issued if `abstractcs.busy`
 			 * is set. */
@@ -2846,9 +2856,13 @@ static int riscv013_get_hart_state(struct target *target, enum riscv_hart_state 
 		dm_write(target, DM_DMCONTROL, dmcontrol);
 
 		/* ESPRESSIF OCD-1018 */
-		RISCV_INFO(r);
 		if (r->on_reset)
 			r->on_reset(target);
+		if (strcmp(target->cmd_name, "esp32p4.lp.cpu")) {
+			/* assume target running after reset, causes issue for p4 lpcore */
+			*state = RISCV_STATE_RUNNING;
+			return ERROR_OK;
+		}
 		/*************/
 	}
 	if (get_field(dmstatus, DM_DMSTATUS_ALLNONEXISTENT)) {
