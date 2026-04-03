@@ -225,7 +225,7 @@ class BreakpointTestsImpl:
             self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, 'test_timer_isr_func', run_bt=run_bt)
             self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, 'test_timer_isr_ram_func', run_bt=run_bt)
 
-    @skip_for_chip(['esp32c5', 'esp32c61', 'esp32p4', 'esp32h4', 'esp32h21'], 'rom-elf files are not released yet')
+    @skip_for_chip(['esp32c5', 'esp32c61', 'esp32p4', 'esp32h4', 'esp32h21', 'esp32s31'], 'rom-elf files are not released yet')
     @idf_ver_min('5.3') # idf < 5.3: gdbinit files are not generated in build time.
     def test_bp_in_rom(self):
         """

@@ -343,6 +343,7 @@ extern struct target_type dsp5680xx_target;
 extern struct target_type esirisc_target;
 extern struct target_type esp32s2_target;
 extern struct target_type esp32s3_target;
+extern struct target_type esp32s31_target;
 extern struct target_type esp32_target;
 extern struct target_type esp32c2_target;
 extern struct target_type esp32h2_target;

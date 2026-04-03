@@ -259,6 +259,39 @@ BOARD_TCL_CONFIG = {
         'chip_name' : 'esp32s3',
         'target_triple' : 'xtensa-esp32s3-elf'
     },
+
+    'esp32s31-ftdi' :  {
+        'files' : [
+            os.path.join('board', 'esp32s31-ftdi.cfg')
+        ],
+        'commands' : [],
+        'chip_name' : 'esp32s31',
+        'target_triple' : 'riscv32-esp-elf'
+    },
+    'esp32s31-builtin' :  {
+        'files' : [
+            os.path.join('board', 'esp32s31-builtin.cfg')
+        ],
+        'commands' : [],
+        'chip_name' : 'esp32s31',
+        'target_triple' : 'riscv32-esp-elf'
+    },
+    'esp32s31-lpcore-ftdi' :  {
+        'files' : [
+            os.path.join('board', 'esp32s31-lpcore-ftdi.cfg')
+        ],
+        'commands' : [],
+        'chip_name' : 'esp32s31',
+        'target_triple' : 'riscv32-esp-elf'
+    },
+    'esp32s31-lpcore-builtin' :  {
+        'files' : [
+            os.path.join('board', 'esp32s31-lpcore-builtin.cfg')
+        ],
+        'commands' : [],
+        'chip_name' : 'esp32s31',
+        'target_triple' : 'riscv32-esp-elf'
+    },
 }
 
 class SerialPortReader(threading.Thread):

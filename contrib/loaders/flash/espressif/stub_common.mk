@@ -94,7 +94,8 @@ INCLUDES += -I. -I$(STUB_COMMON_PATH) -I$(STUB_CHIP_PATH) -I$(STUB_CHIP_ARCH_PAT
 		  -I$(IDF_PATH)/components/esp_hal_gpio/include \
 		  -I$(IDF_PATH)/components/spi_flash/private_include \
 		  -I$(IDF_PATH)/components/esp_libc/platform_include \
-		  -I$(IDF_PATH)/components/esp_hal_rtc_timer/include
+		  -I$(IDF_PATH)/components/esp_hal_rtc_timer/include \
+		  -I$(IDF_PATH)/components/esp_hal_regi2c/include
 
 DEFINES += -Dasm=__asm__
 

@@ -1,45 +1,119 @@
 {
-    "version" : "1.0",
-    "targets" : [
-        { "id": "esp32", "name": "ESP32", "idcode": "0x120034e5", "ocdid": "0x0733bff2"},
-        { "id": "esp32s2", "name": "ESP32-S2", "idcode": "0x120034e5", "ocdid": "0x03339fd2" },
-        { "id": "esp32s3", "name": "ESP32-S3", "idcode": "0x120034e5", "ocdid": "0x0b339fd2" },
-        { "id": "esp32c2", "name": "ESP32-C2", "idcode": "0x0000cc25" },
-        { "id": "esp32c3", "name": "ESP32-C3", "idcode": "0x00005c25" },
-        { "id": "esp32c5", "name": "ESP32-C5", "idcode": "0x00017c25" },
-        { "id": "esp32c6", "name": "ESP32-C6", "idcode": "0x0000dc25" },
-        { "id": "esp32c61", "name": "ESP32-C61", "idcode": "0x00014c25" },
-        { "id": "esp32h2", "name": "ESP32-H2", "idcode": "0x00010c25" },
-        { "id": "esp32h21", "name": "ESP32-H21", "idcode": "0x00019c25" },
-        { "id": "esp32p4", "name": "ESP32-P4", "idcode": "0x00012c25" },
-        { "id": "esp32h4", "name": "ESP32-H4", "idcode": "0x0001cc25"}
+    "version": "1.0",
+    "targets": [
+        {
+            "id": "esp32",
+            "name": "ESP32",
+            "idcode": "0x120034e5",
+            "ocdid": "0x0733bff2"
+        },
+        {
+            "id": "esp32s2",
+            "name": "ESP32-S2",
+            "idcode": "0x120034e5",
+            "ocdid": "0x03339fd2"
+        },
+        {
+            "id": "esp32s3",
+            "name": "ESP32-S3",
+            "idcode": "0x120034e5",
+            "ocdid": "0x0b339fd2"
+        },
+        {
+            "id": "esp32c2",
+            "name": "ESP32-C2",
+            "idcode": "0x0000cc25"
+        },
+        {
+            "id": "esp32c3",
+            "name": "ESP32-C3",
+            "idcode": "0x00005c25"
+        },
+        {
+            "id": "esp32c5",
+            "name": "ESP32-C5",
+            "idcode": "0x00017c25"
+        },
+        {
+            "id": "esp32c6",
+            "name": "ESP32-C6",
+            "idcode": "0x0000dc25"
+        },
+        {
+            "id": "esp32c61",
+            "name": "ESP32-C61",
+            "idcode": "0x00014c25"
+        },
+        {
+            "id": "esp32h2",
+            "name": "ESP32-H2",
+            "idcode": "0x00010c25"
+        },
+        {
+            "id": "esp32h21",
+            "name": "ESP32-H21",
+            "idcode": "0x00019c25"
+        },
+        {
+            "id": "esp32p4",
+            "name": "ESP32-P4",
+            "idcode": "0x00012c25"
+        },
+        {
+            "id": "esp32h4",
+            "name": "ESP32-H4",
+            "idcode": "0x0001cc25"
+        },
+        {
+            "id": "esp32s31",
+            "name": "ESP32-S31",
+            "idcode": "0x00020C25"
+        }
     ],
-    "interfaces" : [
-        { "id": "ftdi", "config_file": "ftdi/esp_ftdi.cfg", "command": "ftdi" },
-        { "id": "esp_usb_jtag", "config_file": "esp_usb_jtag.cfg", "command": "espusbjtag" },
-        { "id": "esp_usb_bridge", "config_file": "esp_usb_bridge.cfg", "command": "espusbjtag" }
+    "interfaces": [
+        {
+            "id": "ftdi",
+            "config_file": "ftdi/esp_ftdi.cfg",
+            "command": "ftdi"
+        },
+        {
+            "id": "esp_usb_jtag",
+            "config_file": "esp_usb_jtag.cfg",
+            "command": "espusbjtag"
+        },
+        {
+            "id": "esp_usb_bridge",
+            "config_file": "esp_usb_bridge.cfg",
+            "command": "espusbjtag"
+        }
     ],
-    "boards" : [
+    "boards": [
         {
             "name": "ESP-WROVER-KIT 3.3V",
             "description": "ESP-WROVER-KIT with 3.3V ESP32-WROVER-B module",
             "target": "esp32",
             "interface": "ftdi",
-            "config_files": ["board/esp32-wrover-kit-3.3v.cfg"]
+            "config_files": [
+                "board/esp32-wrover-kit-3.3v.cfg"
+            ]
         },
         {
             "name": "ESP-WROVER-KIT 1.8V",
             "description": "ESP-WROVER-KIT with 1.8V ESP32-WROVER-B module",
             "target": "esp32",
             "interface": "ftdi",
-            "config_files": ["board/esp32-wrover-kit-1.8v.cfg"]
+            "config_files": [
+                "board/esp32-wrover-kit-1.8v.cfg"
+            ]
         },
         {
             "name": "ESP32-ETHERNET-KIT",
             "description": "ESP32-ETHERNET-KIT with ESP32-WROVER-E module",
             "target": "esp32",
             "interface": "ftdi",
-            "config_files": ["board/esp32-ethernet-kit-3.3v.cfg"]
+            "config_files": [
+                "board/esp32-ethernet-kit-3.3v.cfg"
+            ]
         },
         {
             "name": "ESP32 chip (via ESP-PROG)",
@@ -75,7 +149,9 @@
             "description": "ESP32-S2-KALUGA-1 kit",
             "target": "esp32s2",
             "interface": "ftdi",
-            "config_files": ["board/esp32s2-kaluga-1.cfg"]
+            "config_files": [
+                "board/esp32s2-kaluga-1.cfg"
+            ]
         },
         {
             "name": "ESP32-S2 chip (via ESP-PROG)",
@@ -304,7 +380,7 @@
                 "board/esp32h2-bridge.cfg"
             ]
         },
-                {
+        {
             "name": "ESP32-H21 chip (via builtin USB-JTAG)",
             "description": "ESP32-H21 debugging via builtin USB-JTAG",
             "target": "esp32h21",
@@ -384,25 +460,93 @@
             "config_files": [
                 "board/esp32p4-bridge.cfg"
             ]
+        },
+        {
+            "name": "ESP32-S31 chip (via builtin USB-JTAG)",
+            "description": "ESP32-S31 debugging via builtin USB-JTAG",
+            "target": "esp32s31",
+            "interface": "esp_usb_jtag",
+            "config_files": [
+                "board/esp32s31-builtin.cfg"
+            ]
+        },
+        {
+            "name": "ESP32-S31 chip (via ESP-PROG)",
+            "description": "ESP32-S31 debugging via ESP-PROG board",
+            "target": "esp32s31",
+            "interface": "ftdi",
+            "config_files": [
+                "board/esp32s31-ftdi.cfg"
+            ]
+        },
+        {
+            "name": "ESP32-S31 chip (via ESP-PROG-2)",
+            "description": "ESP32-S31 debugging via ESP-PROG-2 board",
+            "target": "esp32s31",
+            "interface": "esp_usb_bridge",
+            "config_files": [
+                "board/esp32s31-bridge.cfg"
+            ]
+        },
+        {
+            "name": "ESP32-S31 LP core (via esp_usb_jtag)",
+            "description": "ESP32-S31 LP core debugging via esp_usb_jtag",
+            "target": "esp32s31",
+            "interface": "esp_usb_jtag",
+            "config_files": [
+                "board/esp32s31-lpcore-builtin.cfg"
+            ]
+        },
+        {
+            "name": "ESP32-S31 LP core (via ftdi)",
+            "description": "ESP32-S31 LP core debugging via ftdi",
+            "target": "esp32s31",
+            "interface": "ftdi",
+            "config_files": [
+                "board/esp32s31-lpcore-ftdi.cfg"
+            ]
+        },
+        {
+            "name": "ESP32-S31 LP core (via esp_usb_bridge)",
+            "description": "ESP32-S31 LP core debugging via esp_usb_bridge",
+            "target": "esp32s31",
+            "interface": "esp_usb_bridge",
+            "config_files": [
+                "board/esp32s31-lpcore-bridge.cfg"
+            ]
         }
     ],
     "options": [
         {
             "name": "ESP_FLASH_VOLTAGE",
-            "values": ["default", "3.3", "1.8"],
+            "values": [
+                "default",
+                "3.3",
+                "1.8"
+            ],
             "description": "Flash voltage",
             "type": "choice",
-            "targets": ["esp32"]
+            "targets": [
+                "esp32"
+            ]
         },
         {
             "name": "ESP_RTOS",
-            "values": ["default", "none", "FreeRTOS"],
+            "values": [
+                "default",
+                "none",
+                "FreeRTOS"
+            ],
             "description": "RTOS support",
             "type": "choice"
         },
         {
             "name": "ESP_FLASH_SIZE",
-            "values": ["default", "0", "auto"],
+            "values": [
+                "default",
+                "0",
+                "auto"
+            ],
             "description": "Flash size",
             "type": "choice_edit"
         }

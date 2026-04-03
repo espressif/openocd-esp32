@@ -70,6 +70,11 @@
 #define STUB_ARGS_FUNC_START            ESP_XTENSA_STUB_ARGS_FUNC_START
 #define STUB_STACK_DATA_POOL_SIZE       0
 #define STUB_REVERSE_BINARY             false
+#elif defined(ESP_TARGET_ESP32S31)
+#include "../../../contrib/loaders/flash/espressif/esp32s31/stub_flasher_image.h"
+#define STUB_ARGS_FUNC_START            ESP_RISCV_STUB_ARGS_FUNC_START
+#define STUB_STACK_DATA_POOL_SIZE       ESP_RISCV_STACK_DATA_POOL_SIZE
+#define STUB_REVERSE_BINARY             false
 #endif
 
 #define MAKE_ESP_STUB_CFG(name, code_array, data_array, entry, bss, apptrace, log_addr, log_size, \
