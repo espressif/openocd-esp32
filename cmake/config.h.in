@@ -187,9 +187,6 @@
 /* 0 if you don't want Bus Pirate */
 #cmakedefine01 BUILD_BUS_PIRATE
 
-/* 0 if you don't want to use Capstone disassembly framework */
-#cmakedefine01 HAVE_CAPSTONE
-
 /* Define if you have the <stdint.h> header file */
 #cmakedefine HAVE_STDINT_H
 
