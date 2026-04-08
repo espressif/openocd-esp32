@@ -451,9 +451,9 @@ def main():
     board_uart_reader = None
     if args.log_uart:
         try:
-            board_uart_reader = SerialPortReader(args.serial_port)
+            board_uart_reader = SerialPortReader(args.serial_ports[0])
         except serial.SerialException as e:
-            sys.stderr.write('Could not start reader for serial port {}: {}\n'.format(args.serial_port, e))
+            sys.stderr.write('Could not start reader for serial port {}: {}\n'.format(args.serial_ports[0], e))
             sys.exit(1)
     log_formatter = logging.Formatter('%(asctime)-15s %(name)s: %(levelname)s - %(message)s')
     ch = logging.StreamHandler()
@@ -524,7 +524,7 @@ def main():
                 flasher_args += [addr, bin]
         if board_uart_reader:
             board_uart_reader.stop()
-        cmd = ['esptool.py', '-p', args.serial_port, '--no-stub', 'write_flash', *flasher_args]
+        cmd = ['esptool.py', '-p', args.serial_ports[0], '--no-stub', 'write_flash', *flasher_args]
         proc = subprocess.run(cmd, cwd=output_dir)
         proc.check_returncode()
         # flashing succeeded, return special code EX_TEMPFAIL (75), configured in CI to retry the job
@@ -553,7 +553,7 @@ def main():
         suite.load_app_bins = not args.no_load
         global _oocd_inst, _gdb_inst
         arg_list = [args.debug_oocd, log_lev, args.gdb_log_folder, ch, fh]
-        suite.config_tests(_oocd_inst, _gdb_inst, args.toolchain, board_uart_reader, args.serial_port, arg_list)
+        suite.config_tests(_oocd_inst, _gdb_inst, args.toolchain, board_uart_reader, args.serial_ports, arg_list)
         # RUN TESTS
         res = test_runner.run(suite)
         if not res.wasSuccessful() and args.retry:
@@ -570,12 +570,12 @@ def main():
 
             if not board_uart_reader:
                 try:
-                    board_uart_reader = SerialPortReader(args.serial_port)
+                    board_uart_reader = SerialPortReader(args.serial_ports[0])
                     setup_logger(board_uart_reader.get_logger(), ch, fh, log_lev)
                     board_uart_reader.start()
                     time.sleep(1)
                 except serial.SerialException as e:
-                    sys.stderr.write('Could not start reader for serial port {}: {}\n'.format(args.serial_port, e))
+                    sys.stderr.write('Could not start reader for serial port {}: {}\n'.format(args.serial_ports[0], e))
                     board_uart_reader = None
 
             ids = [x[0].id() for x in res.errors + res.failures]
@@ -584,7 +584,7 @@ def main():
                     err_suite.addTest(t)
             err_suite.load_app_bins = not args.no_load
             arg_list = [args.debug_oocd, log_lev, args.gdb_log_folder, ch, fh]
-            err_suite.config_tests(_oocd_inst, _gdb_inst, args.toolchain, board_uart_reader, args.serial_port, arg_list)
+            err_suite.config_tests(_oocd_inst, _gdb_inst, args.toolchain, board_uart_reader, args.serial_ports, arg_list)
 
             # to output new report instead of overwriting previous one
             if args.test_runner == 'x':
@@ -658,8 +658,8 @@ if __name__ == '__main__':
                         help='Path to log file. Use "stdout" to log to console.')
     parser.add_argument('--gdb-log-folder', '-gl',
                         help='Path to folder for GDB log files.', default='')
-    parser.add_argument('--serial-port', '-u',
-                        help='Name of serial port to grab board\'s UART output.')
+    parser.add_argument('--serial-ports', '-u',
+                        help='Name of serial ports to use for testing, grab board\'s UART output from first one.', nargs='*')
     parser.add_argument('--log-uart', '-lu',
                         help='Connect to UART and log data from it.',
                         action='store_true', default=False)
@@ -672,6 +672,9 @@ if __name__ == '__main__':
                         help='Output dir for runners needed to it',
                         type=str, default='./results')
     args = parser.parse_args()
+    if args.serial_ports is None:
+        args.serial_ports = ['/dev/serial_ports/ttyUSB-esp32', '/dev/serial_ports/ttyACM-esp32'] \
+            if 'builtin' in args.board_type else ['/dev/serial_ports/ttyUSB-esp32']
     if len(args.stats_file) > 0:
         if args.stats_file == 'stdout':
             fhnd,fname = tempfile.mkstemp()

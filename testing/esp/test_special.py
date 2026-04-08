@@ -27,11 +27,10 @@ class DebuggerSpecialTestsImpl:
             This test checks that the chip revision read from the target using esptool matches the revision obtained from OpenOCD
         """
         rev = int(self.oocd.cmd_exec("[target current] cget -revision").strip())
-        assert self.port_name is not None
         # avoid simultaneous access to UART with SerialReader
         if self.uart_reader:
             self.uart_reader.pause()
-        cmd = ['esptool.py', '-p', self.port_name, 'chip_id']
+        cmd = ['esptool.py', '-p', self.port_names[0], 'chip_id']
         proc = subprocess.run(cmd, capture_output=True)
         proc.check_returncode()
         if self.uart_reader:
@@ -120,14 +119,15 @@ class DebuggerSpecialTestsImpl:
             5) Wait some time.
             6) Run simple debug session.
         """
-        self.select_sub_test("blink")
-        self.resume_exec()
-        time.sleep(2.0)
-        self.esptool_reset()
-        time.sleep(2.0)
-        self.stop_exec()
-        self.prepare_app_for_debugging(self.test_app_cfg.app_off)
-        self._debug_image()
+        for port in self.port_names:
+            self.select_sub_test("blink")
+            self.resume_exec()
+            time.sleep(2.0)
+            self.esptool_reset(port=port)
+            time.sleep(2.0)
+            self.stop_exec()
+            self.prepare_app_for_debugging(self.test_app_cfg.app_off)
+            self._debug_image()
 
     def _do_test_bp_and_wp_set_by_program(self):
         # breakpoint at 'target_bp_func1' entry
@@ -158,10 +158,7 @@ class DebuggerSpecialTestsImpl:
         self.select_sub_test("blink")
         self.resume_exec()
         time.sleep(2.0)
-        assert self.port_name is not None
-        tested_args = [
-            ('-p', self.port_name),
-        ]
+        tested_args = [('-p', port) for port in self.port_names]
         with open(os.path.join(self.test_app_cfg.build_bins_dir(), 'flasher_args.json'), 'rb') as f:
             args = json.load(f)
             # replace all arguments with'-' with '_', for compatibility with both esptool v4/v5
@@ -388,9 +385,14 @@ class DebuggerSpecialTestsImpl:
         self.resume_exec()
         time.sleep(2.0)
         self._check_target_running()
-        self.esptool_reset()
-        time.sleep(2.0)
-        self._check_target_running()
+        for port in self.port_names:
+            self.esptool_reset(port=port)
+            time.sleep(2.0)
+            self._check_target_running()
+            self.stop_exec()
+            self.esptool_reset(port=port)
+            time.sleep(2.0)
+            self._check_target_running()
 
     def test_cores_states_after_reset(self):
         """

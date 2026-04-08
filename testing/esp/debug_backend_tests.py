@@ -360,7 +360,7 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
             self.modules[test.__module__] = importlib.import_module(test.__module__)
             # get_logger().debug('Modules: %s', self.modules)
 
-    def config_tests(self, oocd, gdb, toolchain, uart_reader, port_name, arg_list):
+    def config_tests(self, oocd, gdb, toolchain, uart_reader, port_names, arg_list):
         self.oocd = oocd
         self.gdb = gdb
         for test in self:
@@ -370,7 +370,7 @@ class DebuggerTestsBunch(unittest.BaseTestSuite):
             test.gdb = gdb
             test.toolchain = toolchain
             test.uart_reader = uart_reader
-            test.port_name = port_name
+            test.port_names = port_names
             test.args = arg_list
 
     def change_gdb_in_tests(self, gdb):
@@ -589,7 +589,7 @@ class DebuggerTestAppTests(DebuggerTestsBase):
                 self.oocd.stop()
                 if self.uart_reader:
                     self.uart_reader.stop()
-                cmd = ['esptool.py', '-p', self.port_name, '--no-stub', 'chip_id']
+                cmd = ['esptool.py', '-p', self.port_names[0], '--no-stub', 'chip_id']
                 subprocess.run(cmd)
                 os._exit(os.EX_TEMPFAIL)
             raise
@@ -771,12 +771,13 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         faddr = self.gdb.extract_exec_addr(self.gdb.data_eval_expr('&%s' % label))
         self.assertEqual(pc, faddr)
 
-    def esptool_reset(self):
-        assert self.port_name is not None
+    def esptool_reset(self, port=None):
+        if not port:
+            port = self.port_names[0]
         # avoid simultaneous access to UART with SerialReader
         if self.uart_reader:
             self.uart_reader.pause()
-        cmd = ['esptool.py', '-p', self.port_name, 'chip_id']
+        cmd = ['esptool.py', '-p', port, 'chip_id']
         proc = subprocess.run(cmd)
         proc.check_returncode()
         if self.uart_reader:

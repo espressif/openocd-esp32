@@ -7,7 +7,6 @@
     RUNNER_SCRIPT_TIMEOUT: 60m
     OOCD_CMDS: "set VAR 1" # default command to avoid missing argument error.
     TEST_RUN_EXTRA_OPTS: "-r -i ${IDF_RELEASE_TAG} ${TEST_RUN_BOARD_OPTS}"
-    ESPTOOL_PORT: "/dev/serial_ports/ttyUSB-esp32"
   artifacts:
     paths:
       - $TEST_RUN_DIR/debug_backend_tests.log
