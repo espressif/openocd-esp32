@@ -50,7 +50,7 @@ extern const struct command_map s_cmd_map_hw_rev3[ESP_STUB_CMD_FLASH_MAX_ID + 1]
 static const struct esp_flasher_stub_config *esp32p4_get_stub(struct flash_bank *bank, int cmd)
 {
 	struct esp_flash_bank *esp_info = bank->driver_priv;
-	const struct command_map *map = (bank->target->hw_rev >= 5) ? s_cmd_map_hw_rev3 : s_cmd_map_hw_rev1;
+	const struct command_map *map = (bank->target->hw_rev >= 300) ? s_cmd_map_hw_rev3 : s_cmd_map_hw_rev1;
 
 	if (esp_info->stub_log_enabled)
 		return map[ESP_STUB_CMD_FLASH_WITH_LOG].config;

@@ -114,7 +114,7 @@
 #define ESP32P4_ASSIST_DEBUG_CPU0_MON_REG       0x3FF06000
 #define ESP32P4_ASSIST_DEBUG_CPU_OFFSET         0x80
 
-#define ESP32P4_ROM_ECO_VERSION_REG             0x4fc00014
+#define ESP32P4_EFUSE_HW_REV_ADDR               0x5012D04c
 
 /* components/soc/esp32p4/include/soc/reset_reasons.h */
 enum esp32p4_reset_reason {
@@ -297,14 +297,18 @@ static int esp32p4_read_hw_rev(struct target *target)
 		return ERROR_OK;
 	}
 
-	int ret = target_read_u32(target, ESP32P4_ROM_ECO_VERSION_REG, &hw_rev);
+	int ret = target_read_u32(target, ESP32P4_EFUSE_HW_REV_ADDR, &hw_rev);
 	if (ret != ERROR_OK) {
 		LOG_TARGET_ERROR(target, "Failed to read HW rev (%d)", ret);
 		return ret;
 	}
 
+	unsigned int major = ((hw_rev >> 23) & 1) << 2 | ((hw_rev >> 4) & 0x03);
+	unsigned int minor = hw_rev & 0x0F;
+
+	hw_rev = 100 * major + minor;
 	target->hw_rev = hw_rev;
-	LOG_TARGET_INFO(target, "ROM ECO version %d", hw_rev);
+	LOG_TARGET_INFO(target, "Chip revision v%u.%u", major, minor);
 
 	return ERROR_OK;
 }
@@ -313,7 +317,7 @@ static int esp32p4_examine_end(struct target *target)
 {
 	esp32p4_read_hw_rev(target);
 
-	if (target->hw_rev >= 5) {
+	if (target->hw_rev >= 300) {
 		target_free_all_working_areas(target); // Free the default working area
 		target->working_area_phys = ESP32P4_IRAM0_NON_CACHEABLE_ADDR_LOW + 0x80000;
 		target->working_area_virt = ESP32P4_IRAM0_NON_CACHEABLE_ADDR_LOW + 0x80000;
@@ -326,9 +330,9 @@ static int esp32p4_examine_end(struct target *target)
 
 	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
 		const char *reg_name = target->reg_cache->reg_list[i].name;
-		if ((target->hw_rev < 5
+		if ((target->hw_rev < 300
 				&& !strcmp(reg_name, "csr_mintstatus")) ||
-			(target->hw_rev >= 5
+			(target->hw_rev >= 300
 				&& (!strcmp(reg_name, "mnmicause")
 					|| !strcmp(reg_name, "mnmipc")
 					|| !strcmp(reg_name, "mintstatus")))) {
@@ -472,7 +476,7 @@ static int pie_access(struct reg *reg, uint8_t *buf)
 {
 	struct target *target = ((riscv_reg_info_t *)(reg->arch_info))->target;
 
-	const struct pie_inst_table *pie_inst_table = target->hw_rev < 5 ? pie_v2p1_regs : pie_v2p2_regs;
+	const struct pie_inst_table *pie_inst_table = target->hw_rev < 300 ? pie_v2p1_regs : pie_v2p2_regs;
 	riscv_insn_t inst = 0;
 	bool is_ldst_inst = false;
 	for (size_t i = 0; pie_inst_table[i].name; i++) {
