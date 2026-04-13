@@ -4872,6 +4872,7 @@ enum target_cfg_param {
 	TCFG_DEFER_EXAMINE,
 	TCFG_GDB_PORT,
 	TCFG_GDB_MAX_CONNECTIONS,
+	TCFG_REVISION, /* ESPRESSIF */
 };
 
 static struct nvp nvp_config_opts[] = {
@@ -4889,6 +4890,7 @@ static struct nvp nvp_config_opts[] = {
 	{ .name = "-defer-examine",    .value = TCFG_DEFER_EXAMINE },
 	{ .name = "-gdb-port",         .value = TCFG_GDB_PORT },
 	{ .name = "-gdb-max-connections",   .value = TCFG_GDB_MAX_CONNECTIONS },
+	{ .name = "-revision",          .value = TCFG_REVISION }, /* ESPRESSIF */
 	{ .name = NULL, .value = -1 }
 };
 
@@ -5269,6 +5271,18 @@ static COMMAND_HELPER(target_configure, struct target *target, unsigned int inde
 					return ERROR_COMMAND_SYNTAX_ERROR;
 				command_print(CMD, "%d", target->gdb_max_connections);
 			}
+			/* loop for more */
+			break;
+		/* ESPRESSIF */
+		case TCFG_REVISION:
+			/* not settable */
+			if (is_configure) {
+				command_print(CMD, "not settable: %s", n->name);
+				return ERROR_COMMAND_ARGUMENT_INVALID;
+			}
+			if (index != CMD_ARGC)
+				return ERROR_COMMAND_SYNTAX_ERROR;
+			command_print(CMD, "%u", target->hw_rev);
 			/* loop for more */
 			break;
 		}
