@@ -16,6 +16,7 @@
 #include <target/register.h>
 #include <target/semihosting_common.h>
 #include <target/riscv/debug_defines.h>
+#include <target/riscv/riscv.h>
 
 #include "esp_semihosting.h"
 #include "esp_riscv_apptrace.h"
@@ -228,6 +229,7 @@ struct target_type esp32c3_target = {
 	.name = "esp32c3",
 
 	.target_create = esp32c3_target_create,
+	.target_jim_configure = riscv_jim_configure,
 	.init_target = esp32c3_init_target,
 	.deinit_target = esp_riscv_deinit_target,
 	.examine = esp_riscv_examine,

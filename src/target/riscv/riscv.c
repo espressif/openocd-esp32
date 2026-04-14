@@ -620,7 +620,7 @@ static struct jim_nvp nvp_config_opts[] = {
 	{ .name = NULL, .value = RISCV_CFG_INVALID }
 };
 
-static int riscv_jim_configure(struct target *target,
+int riscv_jim_configure(struct target *target,
 		struct jim_getopt_info *goi)
 {
 	struct riscv_private_config *config = target->private_config;

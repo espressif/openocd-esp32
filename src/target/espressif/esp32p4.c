@@ -18,6 +18,7 @@
 #include <target/semihosting_common.h>
 #include <target/riscv/debug_defines.h>
 #include <target/riscv/program.h>
+#include <target/riscv/riscv.h>
 #include <target/riscv/riscv_reg.h>
 
 #include "esp_semihosting.h"
@@ -814,6 +815,7 @@ struct target_type esp32p4_target = {
 	.name = "esp32p4",
 
 	.target_create = esp32p4_target_create,
+	.target_jim_configure = riscv_jim_configure,
 	.init_target = esp32p4_init_target,
 	.deinit_target = esp_riscv_deinit_target,
 	.examine = esp_riscv_examine,

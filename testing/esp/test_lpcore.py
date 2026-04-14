@@ -45,13 +45,13 @@ class LpCoreTestsImpl:
         # Call to abort() is optimised to 'ebreak' instruction
         # Force an exception by disabling SW breakpoints in OpenOCD
         lp_target = [t for t in self.oocd.targets() if t.endswith('lp.cpu')][0]
-        self.oocd.cmd_exec(f"{lp_target} riscv set_ebreakm off")
+        self.oocd.cmd_exec(f"{lp_target} configure -ebreak exception")
 
         self.add_bp('_panic_handler', hw=True)
         self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, '_panic_handler')
         self.clear_bps()
 
-        self.oocd.cmd_exec(f"{lp_target} riscv set_ebreakm on")
+        self.oocd.cmd_exec(f"{lp_target} configure -ebreak halt")
 
         # Let the panic handler finish
         self.resume_exec()

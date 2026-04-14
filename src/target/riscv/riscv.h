@@ -552,6 +552,8 @@ int riscv_interrupts_disable(struct target *target, riscv_reg_t *old_mstatus);
 int riscv_interrupts_restore(struct target *target, riscv_reg_t old_mstatus);
 
 extern const struct command_registration riscv_command_handlers[];
+
+int riscv_jim_configure(struct target *target, struct jim_getopt_info *goi);
 /************/
 
 #endif /* OPENOCD_TARGET_RISCV_RISCV_H */
