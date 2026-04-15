@@ -49,6 +49,10 @@ implementation.
 #define ESP32_S3_SYS_RAM_HIGH           (ESP32_S3_SYS_RAM_LOW + 0x10000000UL)
 #define ESP32_S3_RTC_SLOW_MEM_BASE      ESP32_S3_RTC_DATA_LOW
 
+#define ESP32_S3_EFUSE_BLOCK1_WORD3_ADDR 0x60007050
+#define ESP32_S3_EFUSE_BLOCK1_WORD5_ADDR 0x60007058
+#define ESP32_S3_EFUSE_BLOCK2_WORD4_ADDR 0x6000706C
+
 /* ESP32_S3 WDT */
 #define ESP32_S3_WDT_WKEY_VALUE       0x50D83AA1
 #define ESP32_S3_TIMG0_BASE           0x6001F000
@@ -345,6 +349,47 @@ static int esp32s3_disable_wdts(struct target *target)
 	return ERROR_OK;
 }
 
+static int esp32s3_read_hw_rev(struct target *target)
+{
+	static uint32_t hw_rev;
+
+	if (hw_rev != 0) {
+		target->hw_rev = hw_rev;
+		return ERROR_OK;
+	}
+
+	uint32_t word3, word5, block2_word4;
+	int ret = target_read_u32(target, ESP32_S3_EFUSE_BLOCK1_WORD3_ADDR, &word3);
+	if (ret == ERROR_OK)
+		ret = target_read_u32(target, ESP32_S3_EFUSE_BLOCK1_WORD5_ADDR, &word5);
+	if (ret == ERROR_OK)
+		ret = target_read_u32(target, ESP32_S3_EFUSE_BLOCK2_WORD4_ADDR, &block2_word4);
+
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to read HW rev (%d)", ret);
+		return ret;
+	}
+
+	unsigned int hi_minor = (word5 >> 23) & 0x01;
+	unsigned int low_minor = (word3 >> 18) & 0x07;
+	unsigned int minor = (hi_minor << 3) + low_minor;
+	unsigned int major = (word5 >> 24) & 0x03;
+	unsigned int blk_version_major = block2_word4 & 0x03;
+	unsigned int blk_version_minor = (word3 >> 24) & 0x07;
+
+	/* check for eco0 first */
+	if (((minor & 0x7) == 0) && blk_version_major == 1 && blk_version_minor == 1) {
+		major = 0;
+		minor = 0;
+	}
+
+	hw_rev = 100 * major + minor;
+	target->hw_rev = hw_rev;
+	LOG_TARGET_INFO(target, "Chip revision v%u.%u", major, minor);
+
+	return ERROR_OK;
+}
+
 static int esp32s3_on_halt(struct target *target)
 {
 	struct esp_xtensa_common *esp_xtensa = target_to_esp_xtensa(target);
@@ -357,6 +402,8 @@ static int esp32s3_on_halt(struct target *target)
 	int ret = esp32s3_disable_wdts(target);
 	if (ret == ERROR_OK)
 		ret = esp_xtensa_smp_on_halt(target);
+	if (ret == ERROR_OK)
+		ret = esp32s3_read_hw_rev(target);
 	return ret;
 }
 

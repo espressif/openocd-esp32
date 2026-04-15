@@ -37,12 +37,14 @@
 #define ESP32S31_ASSIST_DEBUG_CPU0_MON_REG            0x2D002000
 #define ESP32S31_ASSIST_DEBUG_CPU_OFFSET              0x88
 
-#define ESP32S31_IROM_MASK_LOW    0x2F800000
-#define ESP32S31_IROM_MASK_HIGH   0x2F850000
-#define ESP32S31_DRAM_LOW         0x2F000000
-#define ESP32S31_DRAM_HIGH        0x2F080000
-#define ESP32S31_IRAM_LOW         0x2F000000
-#define ESP32S31_IRAM_HIGH        0x2F080000
+#define ESP32S31_IROM_MASK_LOW                        0x2F800000
+#define ESP32S31_IROM_MASK_HIGH                       0x2F850000
+#define ESP32S31_DRAM_LOW                             0x2F000000
+#define ESP32S31_DRAM_HIGH                            0x2F080000
+#define ESP32S31_IRAM_LOW                             0x2F000000
+#define ESP32S31_IRAM_HIGH                            0x2F080000
+
+#define ESP32S31_EFUSE_HW_REV_ADDR                    0x2071504c
 
 /* components/soc/esp32s31/include/soc/reset_reasons.h */
 enum esp32s31_reset_reason {
@@ -121,6 +123,37 @@ static void esp32s31_print_reset_reason(struct target *target, uint32_t reset_re
 		esp32s31_get_reset_reason(reset_reason_reg_val));
 }
 
+static int esp32s31_read_hw_rev(struct target *target)
+{
+	static uint32_t hw_rev;
+
+	if (hw_rev != 0) {
+		target->hw_rev = hw_rev;
+		return ERROR_OK;
+	}
+
+	int ret = target_read_u32(target, ESP32S31_EFUSE_HW_REV_ADDR, &hw_rev);
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to read HW rev (%d)", ret);
+		return ret;
+	}
+
+	unsigned int major = (hw_rev >> 4) & 0x03;
+	unsigned int minor = hw_rev & 0x0F;
+
+	hw_rev = 100 * major + minor;
+	target->hw_rev = hw_rev;
+	LOG_TARGET_INFO(target, "Chip revision v%u.%u", major, minor);
+
+	return ERROR_OK;
+}
+
+static int esp32s31_examine_end(struct target *target)
+{
+	esp32s31_read_hw_rev(target);
+	return ERROR_OK;
+}
+
 static bool esp32s31_is_dram_address(target_addr_t addr)
 {
 	return addr >= ESP32S31_DRAM_LOW && addr < ESP32S31_DRAM_HIGH;
@@ -187,6 +220,7 @@ static int esp32s31_target_create(struct target *target)
 	esp_riscv->chip_specific_registers_size = ARRAY_SIZE(esp32s31_registers);
 	esp_riscv->is_dram_address = esp32s31_is_dram_address;
 	esp_riscv->is_iram_address = esp32s31_is_iram_address;
+	esp_riscv->examine_end = esp32s31_examine_end;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;

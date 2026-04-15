@@ -64,6 +64,10 @@ implementation.
 #define ESP32_RTC_CNTL_SW_CPU_STALL_DEF 0x0
 #define ESP32_RTC_CNTL_RESET_STATE_REG  (ESP32_RTCCNTL_BASE + 0x34)
 
+#define ESP32_EFUSE_BLK0_RDATA3_REG_OFFS 0x3FF5A00C
+#define ESP32_EFUSE_BLK0_RDATA5_REG_OFFS 0x3FF5A014
+#define ESP32_APB_CTL_DATE_ADDR          0x3FF6607C
+
 /* RTC_CNTL_RESET_CAUSE_APPCPU : RO ;bitpos:[11:6] ;default: 0 ;
  *description: reset cause of APP CPU*/
 #define ESP32_RTC_CNTL_RESET_CAUSE_APPCPU       0x0000003F
@@ -307,11 +311,70 @@ static int esp32_disable_wdts(struct target *target)
 	return ERROR_OK;
 }
 
+static int esp32_read_hw_rev(struct target *target)
+{
+	static uint32_t hw_rev;
+
+	if (hw_rev != 0) {
+		target->hw_rev = hw_rev;
+		return ERROR_OK;
+	}
+
+	uint32_t word3;
+	uint32_t word5;
+	uint32_t apb_ctl_date;
+
+	int ret = target_read_u32(target, ESP32_EFUSE_BLK0_RDATA3_REG_OFFS, &word3);
+	if (ret == ERROR_OK)
+		ret = target_read_u32(target, ESP32_EFUSE_BLK0_RDATA5_REG_OFFS, &word5);
+	if (ret == ERROR_OK)
+		ret = target_read_u32(target, ESP32_APB_CTL_DATE_ADDR, &apb_ctl_date);
+
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to read HW rev (%d)", ret);
+		return ret;
+	}
+
+	unsigned int rev_bit0 = (word3 >> 15) & 0x1;
+	unsigned int rev_bit1 = (word5 >> 20) & 0x1;
+	unsigned int rev_bit2 = (apb_ctl_date >> 31) & 0x1;
+	unsigned int combine_value = (rev_bit2 << 2) | (rev_bit1 << 1) | rev_bit0;
+	unsigned int major_rev;
+
+	switch (combine_value) {
+	case 0:
+		major_rev = 0;
+		break;
+	case 1:
+		major_rev = 1;
+		break;
+	case 3:
+		major_rev = 2;
+		break;
+	case 7:
+		major_rev = 3;
+		break;
+	default:
+		major_rev = 0;
+		break;
+	}
+
+	unsigned int minor_rev = (word5 >> 24) & 0x3;
+
+	hw_rev = 100 * major_rev + minor_rev;
+	target->hw_rev = hw_rev;
+	LOG_TARGET_INFO(target, "Chip revision v%u.%u", major_rev, minor_rev);
+
+	return ERROR_OK;
+}
+
 static int esp32_on_halt(struct target *target)
 {
 	int ret = esp32_disable_wdts(target);
 	if (ret == ERROR_OK)
 		ret = esp_xtensa_smp_on_halt(target);
+	if (ret == ERROR_OK)
+		ret = esp32_read_hw_rev(target);
 	return ret;
 }
 

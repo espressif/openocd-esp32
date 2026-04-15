@@ -47,6 +47,8 @@
 #define ESP32H4_ASSIST_DEBUG_CPU0_MON_REG       0x60002000
 #define ESP32H4_ASSIST_DEBUG_CPU_OFFSET         0x88
 
+#define ESP32H4_EFUSE_HW_REV_ADDR               0x600B184c
+
 /* components/soc/esp32H4/include/soc/reset_reasons.h */
 enum esp32h4_reset_reason {
 	RESET_REASON_CHIP_POWER_ON   = 0x01,// Power on reset
@@ -131,7 +133,36 @@ static void esp32h4_print_reset_reason(struct target *target, uint32_t reset_rea
 				esp32h4_get_reset_reason(reset_reason_core1, ESP32H4_HP_CORE1_RESET_CAUSE_SHIFT));
 	}
 }
+static int esp32h4_read_hw_rev(struct target *target)
+{
+	static uint32_t hw_rev;
 
+	if (hw_rev != 0) {
+		target->hw_rev = hw_rev;
+		return ERROR_OK;
+	}
+
+	int ret = target_read_u32(target, ESP32H4_EFUSE_HW_REV_ADDR, &hw_rev);
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to read HW rev (%d)", ret);
+		return ret;
+	}
+
+	unsigned int major = (hw_rev >> 22) & 0x03;
+	unsigned int minor = (hw_rev >> 18) & 0x0F;
+
+	hw_rev = 100 * major + minor;
+	target->hw_rev = hw_rev;
+	LOG_TARGET_INFO(target, "Chip revision v%u.%u", major, minor);
+
+	return ERROR_OK;
+}
+
+static int esp32h4_examine_end(struct target *target)
+{
+	esp32h4_read_hw_rev(target);
+	return ERROR_OK;
+}
 static bool esp32h4_is_idram_address(target_addr_t addr)
 {
 	return ESP32H4_ADDR_IS_DRAM(addr);
@@ -196,6 +227,7 @@ static int esp32h4_target_create(struct target *target)
 	esp_riscv->chip_specific_registers_size = ARRAY_SIZE(esp32h4_registers);
 	esp_riscv->is_dram_address = esp32h4_is_idram_address;
 	esp_riscv->is_iram_address = esp32h4_is_idram_address;
+	esp_riscv->examine_end = esp32h4_examine_end;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;

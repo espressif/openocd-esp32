@@ -41,6 +41,8 @@
 #define ESP32H2_DRAM_LOW        0x40800000
 #define ESP32H2_DRAM_HIGH       0x40850000
 
+#define ESP32H2_EFUSE_HW_REV_ADDR               0x600B0850
+
 enum esp32h2_reset_reason {
 	ESP32H2_CHIP_POWER_ON_RESET     = 0x01,	/* Vbat power on reset */
 	ESP32H2_RTC_SW_SYS_RESET        = 0x03,	/* Software reset digital core */
@@ -119,6 +121,37 @@ static void esp32h2_print_reset_reason(struct target *target, uint32_t reset_rea
 		esp32h2_get_reset_reason(reset_reason_reg_val));
 }
 
+static int esp32h2_read_hw_rev(struct target *target)
+{
+	static uint32_t hw_rev;
+
+	if (hw_rev != 0) {
+		target->hw_rev = hw_rev;
+		return ERROR_OK;
+	}
+
+	int ret = target_read_u32(target, ESP32H2_EFUSE_HW_REV_ADDR, &hw_rev);
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to read HW rev (%d)", ret);
+		return ret;
+	}
+
+	unsigned int major = (hw_rev >> 21) & 0x03;
+	unsigned int minor = (hw_rev >> 18) & 0x07;
+
+	hw_rev = 100 * major + minor;
+	target->hw_rev = hw_rev;
+	LOG_TARGET_INFO(target, "Chip revision v%u.%u", major, minor);
+
+	return ERROR_OK;
+}
+
+static int esp32h2_examine_end(struct target *target)
+{
+	esp32h2_read_hw_rev(target);
+	return ERROR_OK;
+}
+
 static bool esp32h2_is_idram_address(target_addr_t addr)
 {
 	return addr >= ESP32H2_DRAM_LOW && addr < ESP32H2_DRAM_HIGH;
@@ -174,6 +207,7 @@ static int esp32h2_target_create(struct target *target)
 	esp_riscv->chip_specific_registers_size = ARRAY_SIZE(esp32h2_registers);
 	esp_riscv->is_dram_address = esp32h2_is_idram_address;
 	esp_riscv->is_iram_address = esp32h2_is_idram_address;
+	esp_riscv->examine_end = esp32h2_examine_end;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;

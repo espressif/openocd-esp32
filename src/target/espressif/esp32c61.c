@@ -41,6 +41,8 @@
 #define ESP32C61_DRAM_LOW                        0x40800000
 #define ESP32C61_DRAM_HIGH                       0x40860000
 
+#define ESP32C61_EFUSE_HW_REV_ADDR               0x600B484c
+
 enum esp32c61_reset_reason {
 	ESP32C61_CHIP_POWER_ON_RESET   = 0x01, /* Power on reset */
 	ESP32C61_CHIP_BROWN_OUT_RESET  = 0x01, /* VDD voltage is not stable and resets the chip */
@@ -116,6 +118,37 @@ static void esp32c61_print_reset_reason(struct target *target, uint32_t reset_re
 	LOG_TARGET_INFO(target, "Reset cause (%ld) - (%s)",
 		ESP32C61_RESET_CAUSE(reset_reason_reg_val),
 		esp32c61_get_reset_reason(reset_reason_reg_val));
+}
+
+static int esp32c61_read_hw_rev(struct target *target)
+{
+	static uint32_t hw_rev;
+
+	if (hw_rev != 0) {
+		target->hw_rev = hw_rev;
+		return ERROR_OK;
+	}
+
+	int ret = target_read_u32(target, ESP32C61_EFUSE_HW_REV_ADDR, &hw_rev);
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to read HW rev (%d)", ret);
+		return ret;
+	}
+
+	unsigned int major = (hw_rev >> 4) & 0x03;
+	unsigned int minor = hw_rev & 0x0F;
+
+	hw_rev = 100 * major + minor;
+	target->hw_rev = hw_rev;
+	LOG_TARGET_INFO(target, "Chip revision v%u.%u", major, minor);
+
+	return ERROR_OK;
+}
+
+static int esp32c61_examine_end(struct target *target)
+{
+	esp32c61_read_hw_rev(target);
+	return ERROR_OK;
 }
 
 static bool esp32c61_is_idram_address(target_addr_t addr)
@@ -200,6 +233,7 @@ static int esp32c61_target_create(struct target *target)
 	esp_riscv->chip_specific_registers_size = ARRAY_SIZE(esp32c61_registers);
 	esp_riscv->is_dram_address = esp32c61_is_idram_address;
 	esp_riscv->is_iram_address = esp32c61_is_idram_address;
+	esp_riscv->examine_end = esp32c61_examine_end;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;

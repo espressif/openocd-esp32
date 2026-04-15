@@ -229,7 +229,7 @@ int esp_xtensa_reset_reason_read(struct target *target)
 			   Seems halting can interrupt esptool handshake and esptool fails with
 			   "A fatal error occurred: The chip stopped responding." */
 			esp_xtensa->reset_reason = ESP_XTENSA_RESET_RSN_DEFERRED;
-			LOG_TARGET_WARNING(target, "Reset reason read deferred, will be read on next halt");
+			LOG_TARGET_DEBUG(target, "Reset reason read deferred, will be read on next halt");
 			return ERROR_OK;
 		}
 		/* call `xtensa_halt` instead of `target_halt` to avoid timedout HALT warnings */

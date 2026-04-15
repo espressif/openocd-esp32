@@ -119,6 +119,32 @@ static void esp32h21_print_reset_reason(struct target *target, uint32_t reset_re
 		esp32h21_get_reset_reason(reset_reason_reg_val));
 }
 
+static int esp32h21_read_hw_rev(struct target *target)
+{
+	static uint32_t hw_rev;
+
+	if (hw_rev != 0) {
+		target->hw_rev = hw_rev;
+		return ERROR_OK;
+	}
+
+	// Fixed to 0 for now
+	unsigned int major = 0;
+	unsigned int minor = 0;
+
+	hw_rev = 100 * major + minor;
+	target->hw_rev = hw_rev;
+	LOG_TARGET_INFO(target, "Chip revision v%u.%u", major, minor);
+
+	return ERROR_OK;
+}
+
+static int esp32h21_examine_end(struct target *target)
+{
+	esp32h21_read_hw_rev(target);
+	return ERROR_OK;
+}
+
 static bool esp32h21_is_idram_address(target_addr_t addr)
 {
 	return addr >= ESP32H21_DRAM_LOW && addr < ESP32H21_DRAM_HIGH;
@@ -174,6 +200,7 @@ static int esp32h21_target_create(struct target *target)
 	esp_riscv->chip_specific_registers_size = ARRAY_SIZE(esp32h21_registers);
 	esp_riscv->is_dram_address = esp32h21_is_idram_address;
 	esp_riscv->is_iram_address = esp32h21_is_idram_address;
+	esp_riscv->examine_end = esp32h21_examine_end;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;
