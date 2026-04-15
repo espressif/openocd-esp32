@@ -22,6 +22,24 @@ class DebuggerSpecialTestsImpl:
     """ Special test cases generic for dual and single core modes
     """
 
+    def test_hw_rev(self):
+        """
+            This test checks that the chip revision read from the target using esptool matches the revision obtained from OpenOCD
+        """
+        rev = int(self.oocd.cmd_exec("[target current] cget -revision").strip())
+        assert self.port_name is not None
+        # avoid simultaneous access to UART with SerialReader
+        if self.uart_reader:
+            self.uart_reader.pause()
+        cmd = ['esptool.py', '-p', self.port_name, 'chip_id']
+        proc = subprocess.run(cmd, capture_output=True)
+        proc.check_returncode()
+        if self.uart_reader:
+            self.uart_reader.resume()
+        match = re.search(r'\(revision v(\d+).(\d+)\)', proc.stdout.decode('UTF-8'))
+        rev2 = int(match.group(1)) * 100 + int(match.group(2))
+        self.assertEqual(rev, rev2)
+
     @only_for_arch(['xtensa'])
     def test_sample(self):
         """
