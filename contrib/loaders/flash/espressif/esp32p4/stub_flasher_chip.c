@@ -20,6 +20,7 @@
 #include <soc/spi_mem_c_reg.h>
 #include <soc/cache_reg.h>
 #include <soc/ext_mem_defs.h>
+#include <soc/pmu_reg.h>
 
 #include <esp_rom_efuse.h>
 
@@ -163,6 +164,8 @@ void stub_flash_state_prepare(struct stub_flash_state *state)
 	 */
 	if (BOOT_MODE_IS_DOWNLOAD()) {
 		STUB_LOGD("Download mode, cache is disabled\n");
+		uint32_t pmu_date_reg = REG_READ(PMU_DATE_REG);
+		REG_WRITE(PMU_DATE_REG, pmu_date_reg | (3 << 0));
 		esp_rom_spiflash_attach(0, false);
 		return;
 	}
