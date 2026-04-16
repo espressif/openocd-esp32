@@ -60,7 +60,7 @@ class FlasherTestsImpl:
         test_cases = [
             # magic, chip_id, min_rev, max_rev, should_pass
             (None, None, None, None, True),  # default values should pass
-            (0xff, None, None, None, True),  # wrong magic should be ignored
+            (0xEE, None, None, None, True),  # wrong magic should be ignored
             (None, 0xFFFF, None, None, False),  # unknown chip_id
             (None, None, rev + 1, None, False),  # min_rev too high
             (None, None, None, rev - 1, False),  # max_rev too low
