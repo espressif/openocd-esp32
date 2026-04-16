@@ -443,7 +443,7 @@ class Gdb(object):
             # this is a workaround until get a proper fix in the gdb
 
             # we do not check the response, In some cases we may get an error RESULT: error {'msg': 'PC not saved'}
-            self._mi_cmd_run('bt',tmo=0.1)
+            self._mi_cmd_run('bt',tmo=0.5)
         res, res_body = self._mi_cmd_run('-stack-list-frames')
         if res != 'done' or not res_body or 'stack' not in res_body:
             raise DebuggerError('Failed to get backtrace! (%s / %s)' % (res, res_body))
