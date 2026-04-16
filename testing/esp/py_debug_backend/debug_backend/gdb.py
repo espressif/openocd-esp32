@@ -166,9 +166,9 @@ class Gdb(object):
         def _mi_cmd_isdone(response, response_on_success):
             if not len(response_on_success):
                 return True
-            if len(response) < len(response_on_success):
-                return False
             r_list = [str(i.get('message')) for i in response]
+            if ("error" in r_list):
+                return True
             return is_sublist(response_on_success, r_list)
 
         with self._gdbmi_lock:
