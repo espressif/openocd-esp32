@@ -24,6 +24,82 @@ class FlasherTestsImpl:
         self.gdb.monitor_run('flash probe 0', tmo=10)
         self.flash_sz = self.get_flash_banks()[0][1]
 
+    def _get_image_header(self, len, magic=0xe9, chip_id=None, min_rev=0, max_rev=0xffff):
+        if chip_id is None:
+            chip_id = {
+                'esp32': 0,
+                'esp32s2': 2,
+                'esp32s3': 9,
+                'esp32c2': 12,
+                'esp32c3': 5,
+                'esp32c5': 23,
+                'esp32c6': 13,
+                'esp32c61': 20,
+                'esp32h2': 16,
+                'esp32h21': 25,
+                'esp32h4': 28,
+                'esp32p4': 18,
+                'esp32s31': 32
+            }[testee_info.chip]
+        data = bytearray(os.urandom(len))
+        data[0] = magic
+        data[12] = chip_id & 0xFF
+        data[13] = (chip_id >> 8) & 0xFF
+        data[15] = min_rev & 0xFF
+        data[16] = (min_rev >> 8) & 0xFF
+        data[17] = max_rev & 0xFF
+        data[18] = (max_rev >> 8) & 0xFF
+        return data
+
+    def test_rev_checks(self):
+        """
+            This test checks that flasher correctly handles chip revision checks.
+        """
+        rev = int(self.oocd.cmd_exec("[target current] cget -revision").strip())
+
+        test_cases = [
+            # magic, chip_id, min_rev, max_rev, should_pass
+            (None, None, None, None, True),  # default values should pass
+            (0xff, None, None, None, True),  # wrong magic should be ignored
+            (None, 0xFFFF, None, None, False),  # unknown chip_id
+            (None, None, rev + 1, None, False),  # min_rev too high
+            (None, None, None, rev - 1, False),  # max_rev too low
+            (None, None, rev, rev, True),  # exact match
+            (None, None, rev - 1, rev + 1, True),
+        ]
+
+        try:
+            for magic, chip_id, min_rev, max_rev, should_pass in test_cases:
+                if rev == 0 and (min_rev is not None or max_rev is not None):
+                    # dont check revision for v0.0, 'cget -revision' can be unimplemented
+                    continue
+                kwargs = {}
+                if magic is not None:
+                    kwargs['magic'] = magic
+                if chip_id is not None:
+                    kwargs['chip_id'] = chip_id
+                if min_rev is not None:
+                    kwargs['min_rev'] = min_rev
+                if max_rev is not None:
+                    kwargs['max_rev'] = max_rev
+                data = self._get_image_header(1024, **kwargs)
+                fhnd, fname = tempfile.mkstemp()
+                with os.fdopen(fhnd, 'wb') as fbin:
+                    fbin.write(data)
+                actions='encrypt verify' if self.ENCRYPTED else 'verify'
+                try:
+                    self.gdb.target_program(fname, 0, actions=actions)
+                    self.assertTrue(should_pass)
+                except dbg.DebuggerError:
+                    if should_pass:
+                        raise
+                    else:
+                        self.gdb.target_program(fname, 0, actions=actions + ' force')
+        finally:
+            # restore flash contents with test app as it was overwritten by test
+            # what can lead to the failures when preparing for the next tests
+            self.gdb.target_program_bins(self.test_app_cfg.build_bins_dir())
+
     def program_big_binary(self, actions, overflow=False):
         size = 0x2000 if overflow else self.flash_sz
         offset = self.flash_sz - 0x1000 if overflow else 0
@@ -33,7 +109,7 @@ class FlasherTestsImpl:
         get_logger().debug('Generate random file %dKB "%s"', size / 1024, fname1)
         with os.fdopen(fhnd, 'wb') as fbin:
             for i in range(int(size / 1024)):
-                fbin.write(os.urandom(1024))
+                fbin.write(os.urandom(1024) if i != 0 else self._get_image_header(1024))
 
         self.gdb.target_program(fname1, offset, actions=actions, tmo=130)
 
@@ -106,7 +182,7 @@ class FlasherTestsImpl:
         fhnd, fname1 = tempfile.mkstemp()
         get_logger().debug('Generate random file %dB "%s"', size, fname1)
         with os.fdopen(fhnd, 'wb') as fbin:
-            fbin.write(os.urandom(size))
+            fbin.write(self._get_image_header(size))
 
         try:
             self.gdb.target_program(fname1, 0, actions='encrypt verify' if self.ENCRYPTED else 'verify')
@@ -174,7 +250,7 @@ class FlasherTestsImpl:
             flash_files[offset] = fname
 
             fbin = open(fpath, 'wb')
-            fbin.write(os.urandom(1024))
+            fbin.write(self._get_image_header(1024))
             fbin.close()
 
         encrypted = "true" if self.ENCRYPTED else "false"
