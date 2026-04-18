@@ -133,8 +133,8 @@ static int xvc_flush(void)
 	unsigned int number_of_bytes = xvc_bits_to_bytes(xvc_used_bits);
 	// Creates the header.
 	const char *shift = "shift:";
-	int shift_len = strlen(shift);
-	int cp_offset = 0;
+	size_t shift_len = strlen(shift);
+	size_t cp_offset = 0;
 	// Copies the header.
 	memcpy(xvc_send_buf + cp_offset, shift, shift_len);
 	// Updates the offset.
@@ -149,11 +149,11 @@ static int xvc_flush(void)
 	memcpy(xvc_send_buf + cp_offset, xvc_tdi_buf, number_of_bytes);
 	cp_offset += number_of_bytes;
 	// Updates the number of bytes used.
-	LOG_DEBUG("XVC flush: cp_offset: %d", cp_offset);
+	LOG_DEBUG("XVC flush: cp_offset: %zu", cp_offset);
 	LOG_DEBUG("XVC flush: used_bits: %d", xvc_used_bits);
 
 	int written = write_socket(xvc_fd, xvc_send_buf, cp_offset);
-	if (written != cp_offset) {
+	if (written != (int)cp_offset) {
 		LOG_ERROR("Error writing socket in %s", __func__);
 		return ERROR_FAIL;
 	}
@@ -205,9 +205,10 @@ static int xvc_queue(const uint8_t *tms, unsigned int tms_offset, const uint8_t 
 static int xvc_getinfo(void)
 {
 	const char *getinfo = "getinfo:";
-	int len = strlen(getinfo);
+	size_t len = strlen(getinfo);
 	int written = write_socket(xvc_fd, getinfo, len);
-	if (written != len) {
+
+	if (written != (int)len) {
 		LOG_ERROR("%s: write", __func__);
 		return ERROR_FAIL;
 	}
@@ -559,11 +560,11 @@ static int xvc_tap_path_move(struct pathmove_command *cmd)
 	return ERROR_OK;
 }
 
-static unsigned int xvc_tap_stableclocks(int num_cycles)
+static unsigned int xvc_tap_stableclocks(unsigned int num_cycles)
 {
 	uint8_t tms = (tap_get_state() == TAP_RESET ? 0xff : 0);
 
-	for (int i = 0; i < num_cycles; i++)
+	for (unsigned int i = 0; i < num_cycles; i++)
 		xvc_queue(&tms, 0, NULL, 0, NULL, 0, 1);
 
 	return ERROR_OK;
