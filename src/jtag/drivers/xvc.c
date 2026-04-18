@@ -462,16 +462,23 @@ static int xvc_init(void)
 	xvc_tck = 1000;
 
 	LOG_DEBUG("Initializing XVC driver");
-	int err = ERROR_OK;
-	if (!xvc_port)
-		err = xvc_init_unix(&xvc_fd);
-	else
-		err = xvc_init_tcp(&xvc_fd);
-	if (err != ERROR_OK)
-		return err;
+	int ret;
 
-	xvc_getinfo();
-	xvc_set_tck();
+	if (!xvc_port)
+		ret = xvc_init_unix(&xvc_fd);
+	else
+		ret = xvc_init_tcp(&xvc_fd);
+
+	if (ret != ERROR_OK)
+		return ret;
+
+	ret = xvc_getinfo();
+	if (ret != ERROR_OK)
+		return ret;
+
+	ret = xvc_set_tck();
+	if (ret != ERROR_OK)
+		return ret;
 
 	LOG_DEBUG("XVC driver initialized");
 
