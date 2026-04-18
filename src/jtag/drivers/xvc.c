@@ -324,9 +324,12 @@ static int xvc_reset(int trst, int srst)
 
 static int xvc_init_tcp(int *fd)
 {
-	struct addrinfo hints = {.ai_family = AF_UNSPEC, .ai_socktype = SOCK_STREAM};
-
 	LOG_INFO("Connecting to %s:%s", xvc_host ? xvc_host : "localhost", xvc_port);
+
+	const struct addrinfo hints = {
+		.ai_family = AF_UNSPEC,
+		.ai_socktype = SOCK_STREAM
+	};
 
 	struct addrinfo *result;
 	// Obtain address(es) matching host/port.
@@ -350,11 +353,17 @@ static int xvc_init_tcp(int *fd)
 		if (*fd ==  (int)INVALID_SOCKET)
 			continue;
 #endif
-
 		if (connect(*fd, rp->ai_addr, rp->ai_addrlen) != -1)
 			break;
 
 		close_socket(*fd);
+	}
+
+	freeaddrinfo(result);
+
+	if (!rp) {
+		LOG_ERROR("Failed to connect");
+		return ERROR_FAIL;
 	}
 
 	/* We work hard to collapse the writes into the minimum number, so when
@@ -363,13 +372,6 @@ static int xvc_init_tcp(int *fd)
 	int one = 1;
 	// On Windows optval has to be a const char *.
 	setsockopt(*fd, IPPROTO_TCP, TCP_NODELAY, (const char *)&one, sizeof(one));
-
-	freeaddrinfo(result);
-
-	if (!rp) {
-		LOG_ERROR("Failed to connect");
-		return ERROR_FAIL;
-	}
 
 	return ERROR_OK;
 }
