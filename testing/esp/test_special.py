@@ -314,22 +314,13 @@ class DebuggerSpecialTestsImpl:
 				# On assert and abort panics, file line numbers or PC value can be vary.
                 # Therefore, we will use regex pattern for the matching expected strings.
                 pattern = re.compile(expected_strings[i])
-                if testee_info.arch == "xtensa":
-                    match = re.search(pattern, target_output)
-                    self.assertTrue(match)
-                # On RISC-V, when the SIGTRAP signal is received from GDB, there is no corresponding MI response from the target.
-                # As a result, the OpenOCD output is not visible in the gdb logs.
-                # Therefore, we will need to search for the expected strings in the OpenOCD log file instead.
-                else:
-                    log_path = get_logger().handlers[1].baseFilename
-                    found_line_count = 0
-                    with open(log_path) as file:
-                        for line in file:
-                            match = re.search(pattern, line)
-                            if match:
-                                found_line_count += 1
-                                break
-                    self.assertTrue(found_line_count)
+                if testee_info.arch == "riscv32":
+                    # On RISC-V, when the SIGTRAP signal is received from GDB, there is no corresponding MI response from the target.
+                    # As a result, the OpenOCD output is not visible in the gdb logs.
+                    # Therefore, we will need to search for the expected strings in the telnet console output instead.
+                    target_output = self.oocd._tn.read_very_eager().decode('UTF-8')
+                match = re.search(pattern, target_output)
+                self.assertTrue(match)
             else:
                 self.assertTrue(expected_strings[i] in target_output)
             self.gdb.target_reset()

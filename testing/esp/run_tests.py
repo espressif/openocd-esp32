@@ -349,7 +349,7 @@ class SerialPortReader(threading.Thread):
 
 
 def dbg_start(toolchain, oocd, oocd_tcl, oocd_cfg_files, oocd_cfg_cmds, debug_oocd,
-              chip_name, target_triple, log_level, log_stream, log_file, gdb_log, no_gdb):
+              chip_name, target_triple, log_level, log_stream, log_file, gdb_log, no_gdb, oocd_log):
     global _oocd_inst, _gdb_inst
     connect_tmo = 15
     remote_tmo = 10
@@ -363,7 +363,8 @@ def dbg_start(toolchain, oocd, oocd_tcl, oocd_cfg_files, oocd_cfg_cmds, debug_oo
                         oocd_debug=debug_oocd,
                         log_level=log_level,
                         log_stream_handler=log_stream,
-                        log_file_handler=log_file)
+                        log_file_handler=log_file,
+                        log_file=oocd_log)
     _oocd_inst.start()
     if no_gdb:
         return
@@ -507,7 +508,7 @@ def main():
     try:
         dbg_start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'],
                             args.debug_oocd, board_tcl['chip_name'], board_tcl['target_triple'],
-                            log_lev, ch, fh, args.gdb_log_folder, args.no_gdb)
+                            log_lev, ch, fh, args.gdb_log_folder, args.no_gdb, args.oocd_log_file)
     except RuntimeError:
         # flash an app and try again
         import json, subprocess
@@ -565,9 +566,13 @@ def main():
             # restart debugger
             dbg_stop()
             time.sleep(1)
+            if args.gdb_log_folder:
+                args.gdb_log_folder += "_retry"
+            if args.oocd_log_file:
+                args.oocd_log_file += "_retry"
             dbg_start(args.toolchain, args.oocd, args.oocd_tcl, board_tcl['files'], board_tcl['commands'],
                                 args.debug_oocd, board_tcl['chip_name'], board_tcl['target_triple'],
-                                log_lev, ch, fh, args.gdb_log_folder, args.no_gdb)
+                                log_lev, ch, fh, args.gdb_log_folder, args.no_gdb, args.oocd_log_file)
             err_suite = debug_backend_tests.DebuggerTestsBunch()
 
             if not board_uart_reader:
@@ -661,6 +666,8 @@ if __name__ == '__main__':
                         type=int, default=2)
     parser.add_argument('--log-file', '-l',
                         help='Path to log file. Use "stdout" to log to console.')
+    parser.add_argument('--oocd-log-file', '-ol',
+                        help='Path to OpenOCD log file.')
     parser.add_argument('--gdb-log-folder', '-gl',
                         help='Path to folder for GDB log files.', default='')
     parser.add_argument('--serial-ports', '-u',

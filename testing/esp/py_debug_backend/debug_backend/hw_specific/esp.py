@@ -78,11 +78,11 @@ class OocdEspXtensa(OocdXtensa, OocdEspImpl):
 
     def __init__(self, cores_num=1, oocd_exec=None, oocd_scripts=None, oocd_cfg_files=[], oocd_cfg_cmds=[],
                  oocd_debug=2, oocd_args=[], host='127.0.0.1', log_level=None, log_stream_handler=None,
-                 log_file_handler=None):
+                 log_file_handler=None, log_file=None):
         super(OocdEspXtensa, self).__init__(oocd_exec=oocd_exec, oocd_scripts=oocd_scripts,
                                             oocd_cfg_files=oocd_cfg_files, oocd_cfg_cmds=oocd_cfg_cmds,
                                             oocd_debug=oocd_debug, oocd_args=oocd_args, host=host, log_level=log_level,
-                                            log_stream_handler=log_stream_handler, log_file_handler=log_file_handler)
+                                            log_stream_handler=log_stream_handler, log_file_handler=log_file_handler, log_file=log_file)
         self.cores_num = cores_num
 
     def perfmon_dump(self, counter = None):
@@ -126,11 +126,11 @@ class OocdEspRiscv(OocdRiscv, OocdEspImpl):
 
     def __init__(self, cores_num=1, oocd_exec=None, oocd_scripts=None, oocd_cfg_files=[], oocd_cfg_cmds=[],
                  oocd_debug=2, oocd_args=[], host='127.0.0.1', log_level=None, log_stream_handler=None,
-                 log_file_handler=None):
+                 log_file_handler=None, log_file=None):
         super(OocdEspRiscv, self).__init__(oocd_exec=oocd_exec, oocd_scripts=oocd_scripts,
                                             oocd_cfg_files=oocd_cfg_files, oocd_cfg_cmds=oocd_cfg_cmds,
                                             oocd_debug=oocd_debug, oocd_args=oocd_args, host=host, log_level=log_level,
-                                            log_stream_handler=log_stream_handler, log_file_handler=log_file_handler)
+                                            log_stream_handler=log_stream_handler, log_file_handler=log_file_handler, log_file=log_file)
         self.cores_num = cores_num
 
 

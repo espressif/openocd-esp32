@@ -96,6 +96,7 @@ def create_oocd(chip_name=None,
                 log_level=None,
                 log_stream_handler=None,
                 log_file_handler=None,
+                log_file=None,
                 scope=None):
     """
         Creates OOCD instance for specified chip name.
@@ -131,6 +132,8 @@ def create_oocd(chip_name=None,
         oocd_init_args['log_stream_handler'] = log_stream_handler
     if log_file_handler is not None:
         oocd_init_args['log_file_handler'] = log_file_handler
+    if log_file is not None:
+        oocd_init_args['log_file'] = log_file
     if target_triple:
         # interpret `target_triple` as normal target triple like `xtensa-esp32s2-elf`
         arch,vendor,sys,_ = _parse_target_triple(target_triple)

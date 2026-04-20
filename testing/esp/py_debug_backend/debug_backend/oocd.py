@@ -32,7 +32,8 @@ class Oocd(threading.Thread):
                  host='127.0.0.1',
                  log_level=None,
                  log_stream_handler=None,
-                 log_file_handler=None):
+                 log_file_handler=None,
+                 log_file=None):
         """
             Constructor.
 
@@ -59,6 +60,7 @@ class Oocd(threading.Thread):
                 Logging stream handler for this object.
             log_file_handler : logging.Handler
                 Logging file handler for this object.
+            log_file : file to use for OpenOCD log_output.
         """
         if oocd_exec is None:
             oocd_exec = os.environ.get("OPENOCD_BIN", "openocd"),
@@ -72,6 +74,8 @@ class Oocd(threading.Thread):
         for f in oocd_cfg_files:
             oocd_full_args += ['-f', '%s' % f]
         oocd_full_args += ['-d%d' % oocd_debug]
+        if log_file:
+            oocd_full_args += ['-l', log_file]
         oocd_full_args += oocd_args
 
         super(Oocd, self).__init__()
