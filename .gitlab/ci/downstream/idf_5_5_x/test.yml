@@ -207,7 +207,7 @@ tests_esp32p4_idf5.5.x:
   tags:
     - esp32p4
     - jtag
-    - eco5
+    - eco6
   needs:
     - job: build_test_app_esp32p4_idf5.5.x
     - pipeline: $PARENT_PIPELINE_ID
@@ -219,8 +219,7 @@ tests_esp32p4_idf5.5.x:
     CHIP_NAME: "esp32p4"
     TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.*Encrypted"
 
-# TODO OCD-1315
-.tests_esp32p4_lpcore_idf5.5.x:
+tests_esp32p4_lpcore_idf5.5.x:
   extends: tests_esp32p4_idf5.5.x
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
