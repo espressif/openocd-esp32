@@ -873,6 +873,13 @@ int esp_riscv_start_algorithm(struct target *target,
 	if (retval != ERROR_OK)
 		return retval;
 
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	if (esp_riscv->pre_algorithm) {
+		retval = esp_riscv->pre_algorithm(target);
+		if (retval != ERROR_OK)
+			return retval;
+	}
+
 	/* Run algorithm */
 	LOG_TARGET_DEBUG(target, "resume at 0x%" TARGET_PRIxADDR, entry_point);
 	return riscv_resume(target, 0, entry_point, 0, 1, true);

@@ -46,6 +46,29 @@
 
 #define ESP32S31_EFUSE_HW_REV_ADDR                    0x2071504c
 
+/* PMA entry 14 covers the HP RAM region (0x2F000000..0x2F080000, 512 KB).
+ * ROM's riscv_pma_init_cfg() programs it as NAPOT RW (no X); the X bit is only
+ * added later by riscv_pma_flash_boot_cfg(). If the debugger halts the CPU
+ * before that second step runs, the RAM entry still has X cleared and the
+ * flasher stub (loaded into the work area at 0x2F000000) cannot be fetched,
+ * producing mcause=1 (PMP Instruction access fault).
+ *
+ * NAPOT encoding of 0x2F000000..0x2F080000 (size 0x80000, power of 2):
+ *   pmaaddr14 = (base | (size/2 - 1)) >> 2
+ *             = (0x2F000000 | 0x3FFFF) >> 2
+ *             = 0x0BC0FFFF
+ *   pmacfg14  = PMA_NAPOT | PMA_EN | PMA_R | PMA_W | PMA_X
+ *             = 0xC0000000 | BIT(0) | BIT(4) | BIT(3) | BIT(2)
+ *             = 0xC000001D
+ */
+#define ESP32S31_PMA_ENTRY_NUM                        16
+#define ESP32S31_PMA_ENTRY_RAM                        (ESP32S31_PMA_ENTRY_NUM - 2)
+#define ESP32S31_CSR_PMACFG0                          0xBC0
+#define ESP32S31_CSR_PMAADDR0                         0xBD0
+#define ESP32S31_PMA_CFG_X                            BIT(2)
+#define ESP32S31_PMA_RAM_NAPOT_ADDR                   0x0BC0FFFFUL
+#define ESP32S31_PMA_RAM_NAPOT_CFG_RWX                0xC000001DUL
+
 /* components/soc/esp32s31/include/soc/reset_reasons.h */
 enum esp32s31_reset_reason {
 	ESP32S31_CHIP_POWER_ON_RESET   = 0x01,  /* Power on reset */
@@ -154,6 +177,36 @@ static int esp32s31_examine_end(struct target *target)
 	return ERROR_OK;
 }
 
+static int esp32s31_pre_algorithm(struct target *target)
+{
+	enum gdb_regno cfg_regno = GDB_REGNO_CSR0 + ESP32S31_CSR_PMACFG0 + ESP32S31_PMA_ENTRY_RAM;
+	enum gdb_regno addr_regno = GDB_REGNO_CSR0 + ESP32S31_CSR_PMAADDR0 + ESP32S31_PMA_ENTRY_RAM;
+
+	riscv_reg_t cfg_val;
+	int ret = riscv_reg_get(target, &cfg_val, cfg_regno);
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to read pma_cfg%u (%d)", ESP32S31_PMA_ENTRY_RAM, ret);
+		return ret;
+	}
+	if (cfg_val & ESP32S31_PMA_CFG_X) {
+		LOG_TARGET_DEBUG(target, "pma_cfg%u already grants X, skipping override", ESP32S31_PMA_ENTRY_RAM);
+		return ERROR_OK;
+	}
+
+	ret = riscv_reg_set(target, addr_regno, ESP32S31_PMA_RAM_NAPOT_ADDR);
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to set pma_addr%u (%d)", ESP32S31_PMA_ENTRY_RAM, ret);
+		return ret;
+	}
+	ret = riscv_reg_set(target, cfg_regno, ESP32S31_PMA_RAM_NAPOT_CFG_RWX);
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to set pma_cfg%u (%d)", ESP32S31_PMA_ENTRY_RAM, ret);
+		return ret;
+	}
+	LOG_TARGET_DEBUG(target, "PMA entry %u forced to NAPOT RWX for RAM region", ESP32S31_PMA_ENTRY_RAM);
+	return ERROR_OK;
+}
+
 static bool esp32s31_is_dram_address(target_addr_t addr)
 {
 	return addr >= ESP32S31_DRAM_LOW && addr < ESP32S31_DRAM_HIGH;
@@ -221,6 +274,7 @@ static int esp32s31_target_create(struct target *target)
 	esp_riscv->is_dram_address = esp32s31_is_dram_address;
 	esp_riscv->is_iram_address = esp32s31_is_iram_address;
 	esp_riscv->examine_end = esp32s31_examine_end;
+	esp_riscv->pre_algorithm = esp32s31_pre_algorithm;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;
