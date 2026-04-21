@@ -146,10 +146,34 @@ static bool stub_is_cache_enabled(void)
 
 static void stub_cache_configure(void)
 {
-	s_cache_mmu_config.page_size = CONFIG_MMU_PAGE_SIZE;
+	s_cache_mmu_config.page_size = mmu_ll_get_page_size(0);
 	s_cache_mmu_config.drom_page_start = STUB_MMU_DROM_PAGES_START;
 	s_cache_mmu_config.drom_page_end = STUB_MMU_DROM_PAGES_END;
-	s_cache_mmu_config.shift_count = 16;
+
+	switch (s_cache_mmu_config.page_size) {
+	case MMU_PAGE_256KB:
+		s_cache_mmu_config.shift_count = 18;
+		break;
+	case MMU_PAGE_128KB:
+		s_cache_mmu_config.shift_count = 17;
+		break;
+	case MMU_PAGE_64KB:
+		s_cache_mmu_config.shift_count = 16;
+		break;
+	case MMU_PAGE_32KB:
+		s_cache_mmu_config.shift_count = 15;
+		break;
+	case MMU_PAGE_16KB:
+		s_cache_mmu_config.shift_count = 14;
+		break;
+	case MMU_PAGE_8KB:
+		s_cache_mmu_config.shift_count = 13;
+		break;
+	default:
+		STUB_LOGE("Unknown page size!");
+		return;
+	}
+
 	s_cache_mmu_config.vaddr_base_addr = STUB_DROM_LOW +
 		(s_cache_mmu_config.drom_page_start * s_cache_mmu_config.page_size);
 
