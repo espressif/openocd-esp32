@@ -2497,6 +2497,14 @@ mapping may not support all of the listed options.
 Returns the name of the debug adapter driver being used.
 @end deffn
 
+@deffn {Config Command} {adapter usb vid_pid} (vid pid)+
+Specifies the USB vendor and product IDs of the adapter to use.
+Currently, up to 16 [@var{vid}, @var{pid}] pairs may be given, e.g.
+@example
+adapter usb vid_pid 0xc251 0xf001 0x0d28 0x0204
+@end example
+@end deffn
+
 @deffn {Config Command} {adapter usb location} [<bus>-<port>[.<port>]...]
 Displays or specifies the physical USB port of the adapter to use. The path
 roots at @var{bus} and walks down the physical ports, with each
