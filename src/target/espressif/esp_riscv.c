@@ -104,6 +104,8 @@ static const char *esp_riscv_get_exception_reason(enum esp_riscv_exception_cause
 		return "Load address misaligned";
 	case PMP_LOAD_ACCESS_FAULT:
 		return "PMP Load access fault";
+	case STORE_ADDR_MISALIGNED:
+		return "Store address misaligned";
 	case PMP_STORE_ACCESS_FAULT:
 		return "PMP Store access fault";
 	case ECALL_FROM_U_MODE:

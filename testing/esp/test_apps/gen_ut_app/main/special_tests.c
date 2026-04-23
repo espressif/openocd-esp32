@@ -229,7 +229,7 @@ TEST_DECL(store_access_fault_ex, "test_special.DebuggerSpecialTests*.test_except
 		".global exception_bp_3\n" \
 		".type   exception_bp_3,@function\n" \
 		"exception_bp_3:\n" \
-        "sw %0, 0(%1)"
+        "sw %1, 0(%0)"
         :
         : "r"(0x1000),
           "r"(value)
