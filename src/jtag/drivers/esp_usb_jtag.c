@@ -227,8 +227,6 @@ static struct esp_usb_jtag esp_usb_jtag_priv;
 static struct esp_usb_jtag *priv = &esp_usb_jtag_priv;
 static const char *esp_usb_jtag_serial;
 
-static int esp_usb_vid;
-static int esp_usb_pid;
 static int esp_usb_jtag_caps;
 static int esp_usb_target_chip_id;
 
@@ -314,8 +312,8 @@ static bool esp_usb_jtag_libusb_location_equal(libusb_device *dev1, libusb_devic
 
 static int esp_usb_jtag_revive_device(struct libusb_device_handle *usb_device)
 {
-	const uint16_t vids[] = { esp_usb_vid, 0 };		/* must be null terminated */
-	const uint16_t pids[] = { esp_usb_pid, 0 };		/* must be null terminated */
+	const uint16_t *vids = adapter_usb_get_vids();
+	const uint16_t *pids = adapter_usb_get_pids();
 	libusb_device *cur_dev = libusb_get_device(usb_device);
 	libusb_device *new_dev = NULL;
 	int ret, tries = 5;
@@ -620,9 +618,6 @@ static int esp_usb_jtag_init(void)
 {
 	memset(priv, 0, sizeof(struct esp_usb_jtag));
 
-	const uint16_t vids[] = { esp_usb_vid, 0 };		/* must be null terminated */
-	const uint16_t pids[] = { esp_usb_pid, 0 };		/* must be null terminated */
-
 	bitq_interface = &priv->bitq_interface;
 	bitq_interface->out = esp_usb_jtag_out;
 	bitq_interface->flush = esp_usb_jtag_flush;
@@ -631,7 +626,8 @@ static int esp_usb_jtag_init(void)
 	bitq_interface->in_rdy = esp_usb_jtag_in_rdy;
 	bitq_interface->in = esp_usb_jtag_in;
 
-	int r = jtag_libusb_open(vids, pids, NULL, &priv->usb_device, NULL);
+	int r = jtag_libusb_open(adapter_usb_get_vids(), adapter_usb_get_pids(),
+		NULL, &priv->usb_device, NULL);
 	if (r != ERROR_OK) {
 		LOG_ERROR("esp_usb_jtag: could not find or open device!");
 		goto out;
@@ -881,18 +877,6 @@ COMMAND_HANDLER(esp_usb_jtag_log_cmd)
 	return ERROR_OK;
 }
 
-COMMAND_HANDLER(esp_usb_jtag_vid_pid)
-{
-	if (CMD_ARGC != 2)
-		return ERROR_COMMAND_SYNTAX_ERROR;
-
-	COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], esp_usb_vid);
-	COMMAND_PARSE_NUMBER(int, CMD_ARGV[1], esp_usb_pid);
-	LOG_INFO("esp_usb_jtag: VID set to 0x%x and PID to 0x%x", esp_usb_vid, esp_usb_pid);
-
-	return ERROR_OK;
-}
-
 COMMAND_HANDLER(esp_usb_jtag_caps_descriptor)
 {
 	if (CMD_ARGC != 1)
@@ -941,8 +925,8 @@ COMMAND_HANDLER(esp_usb_jtag_get_serial)
 
 COMMAND_HANDLER(esp_usb_jtag_dev_list)
 {
-	const uint16_t vids[] = { esp_usb_vid, 0 };		/* must be null terminated */
-	const uint16_t pids[] = { esp_usb_pid, 0 };		/* must be null terminated */
+	const uint16_t *vids = adapter_usb_get_vids();
+	const uint16_t *pids = adapter_usb_get_pids();
 	int cnt, i;
 	char **locations;
 
@@ -976,13 +960,6 @@ static const struct command_registration esp_usb_jtag_subcommands[] = {
 		.mode = COMMAND_EXEC,
 		.help = "Log USB comms to file",
 		.usage = "logfile.txt"
-	},
-	{
-		.name = "vid_pid",
-		.handler = &esp_usb_jtag_vid_pid,
-		.mode = COMMAND_CONFIG,
-		.help = "set vendor ID and product ID for ESP usb jtag driver",
-		.usage = "vid pid",
 	},
 	{
 		.name = "caps_descriptor",
