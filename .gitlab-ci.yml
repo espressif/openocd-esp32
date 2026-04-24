@@ -55,6 +55,8 @@ variables:
   ARCHIVE_EXT: "tar.gz"
   RELEASE_DESC: "New release"
 
+  GITLAB_API_URL: "https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/${CI_PROJECT_ID}"
+
 # prefix should be like a $CI_PROJECT_NAME, but we cannot use variable here
 .release_tag_filter: &release_tag_filter
   only:
@@ -104,7 +106,7 @@ pipeline_variables:
       elif [[ $CI_PIPELINE_SOURCE != "push" || ${CI_COMMIT_BRANCH:-} == "master" || ! -z ${CI_COMMIT_TAG:-} ]]; then
         echo "CI_FULL_RUN=1" >> variables.env;
       else
-        api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/merge_requests?source_branch=${CI_COMMIT_REF_NAME}&state=opened";
+        api_call="${GITLAB_API_URL}/merge_requests?source_branch=${CI_COMMIT_REF_NAME}&state=opened";
         echo "${api_call}";
         OPEN_MR=$(curl --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}");
         echo $OPEN_MR;
@@ -239,7 +241,7 @@ test_idf_examples:
     - job: build_linux_armhf
     - job: build_linux_arm64
 
-create_reports:
+coverage_reports:
   stage: results
   tags:
     - build
@@ -276,17 +278,17 @@ create_reports:
   script:
     # Fetch artifacts from downstream
     - >
-      api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/pipelines/${CI_PIPELINE_ID}/bridges";
+      api_call="${GITLAB_API_URL}/pipelines/${CI_PIPELINE_ID}/bridges";
       echo "${api_call}";
       BRIDGES=$(curl --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}");
       CHILD_IDS=$(echo "$BRIDGES" | python3 -c "import json; x=json.loads(input()); print(' '.join(str(y['downstream_pipeline']['id']) for y in x if y['name'].endswith('_run_test_pipeline')))");
       for child in $CHILD_IDS; do
-        api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/pipelines/${child}/jobs";
+        api_call="${GITLAB_API_URL}/pipelines/${child}/jobs";
         echo "${api_call}";
         JOBS=$(curl --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}");
         TEST_IDS=$(echo "$JOBS" | python3 -c "import json; x=json.loads(input()); print(' '.join(str(y['id']) for y in x if y['name'].startswith('tests_') and y['status'] != 'skipped'))");
         for test in $TEST_IDS; do
-          api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/jobs/${test}/artifacts";
+          api_call="${GITLAB_API_URL}/jobs/${test}/artifacts";
           echo "${api_call}";
           curl --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}" -o artifacts.zip;
           unzip artifacts.zip || echo "No valid artifacts for ${test}";
@@ -321,6 +323,47 @@ create_reports:
     - python3 tools/list_to_metrics.py --file cov_infos/metrics_input.txt
     - lcov_cobertura cov_infos/merged.info -o cov_infos/cobertura.xml
 
+runtime_reports:
+  stage: results
+  tags:
+    - build
+  needs:
+    - job: 5.2.x_run_test_pipeline
+    - job: 5.3.x_run_test_pipeline
+    - job: 5.4.x_run_test_pipeline
+    - job: 5.5.x_run_test_pipeline
+    - job: 6.0.x_run_test_pipeline
+    - job: master_run_test_pipeline
+  when: always
+  artifacts:
+    reports:
+      metrics: runtime_metrics/total_test_runtime_metrics.txt
+    expire_in: 1 week
+  script:
+    - >
+      api_call="${GITLAB_API_URL}/pipelines/${CI_PIPELINE_ID}/bridges";
+      echo "${api_call}";
+      BRIDGES=$(curl -sS --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}");
+      CHILD_IDS=$(echo "$BRIDGES" | python3 -c "import json,sys; x=json.loads(sys.stdin.read()); print(' '.join(str(y['downstream_pipeline']['id']) for y in x if y.get('name','').endswith('_run_test_pipeline')))" );
+      echo "child pipelines: $CHILD_IDS";
+      TOTAL_RUNTIME=0;
+      for child in $CHILD_IDS; do
+        page=1;
+        while true; do
+          api_call="${GITLAB_API_URL}/pipelines/${child}/jobs?per_page=100&page=${page}";
+          echo "${api_call}";
+          JOBS=$(curl -sS --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}");
+          DURATION=$(echo "$JOBS" | python3 -c "import json,sys; x=json.loads(sys.stdin.read()); print(sum(int(j.get('duration') or 0) for j in x if j.get('name','').startswith('tests_')))" );
+          TOTAL_RUNTIME=$((TOTAL_RUNTIME + DURATION));
+          LENGTH=$(echo "$JOBS" | python3 -c "import json,sys; x=json.loads(sys.stdin.read()); print(len(x))" );
+          if [ "$LENGTH" -lt 100 ]; then break; fi
+          page=$((page + 1));
+        done;
+      done;
+      mkdir -p runtime_metrics;
+      printf "total_test_runtime_seconds %s\n" "$TOTAL_RUNTIME" > runtime_metrics/total_test_runtime_metrics.txt;
+      echo "Total test runtime: $TOTAL_RUNTIME seconds";
+
 mr_auto_approve:
   stage: results
   tags:
@@ -331,7 +374,7 @@ mr_auto_approve:
   script:
     - >
       if [[ -z ${TRIGGERED_BY_GDB_PIPELINE_BRANCH:-} &&  $CI_PIPELINE_SOURCE == "push" && ${CI_COMMIT_BRANCH:-} != "master" ]]; then
-        api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/merge_requests?source_branch=${CI_COMMIT_REF_NAME}&state=opened";
+        api_call="${GITLAB_API_URL}/merge_requests?source_branch=${CI_COMMIT_REF_NAME}&state=opened";
         echo "${api_call}";
         OPEN_MR=$(curl --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}");
         echo $OPEN_MR;
@@ -342,7 +385,7 @@ mr_auto_approve:
           if [[ $CI_FULL_RUN == "1" ]]; then
             action="approve"
           fi
-          api_call="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/67/merge_requests/${iid}/${action}";
+          api_call="${GITLAB_API_URL}/merge_requests/${iid}/${action}";
           echo "${api_call}";
           curl --request POST --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}";
         fi
