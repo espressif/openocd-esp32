@@ -88,3 +88,10 @@ build_test_app_esp32h21:
     TOOLCHAIN_PREFIX: "riscv32-esp"
     TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single"
   extends: .build_idf_master_test_app_template
+
+build_test_app_esp32s31:
+  variables:
+    CHIP_NAME: "esp32s31"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    TEST_APP_CONFIGS: "default default_4MB svtrace_dual apptrace_gcov_dual psram_dual default_amazon_freertos default_freertos_list_integrity lpcore_dual single_core single_core_4MB svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity lpcore_single multi_app_images_single multi_app_images_dual"
+  extends: .build_idf_master_test_app_template
