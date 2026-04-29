@@ -22,6 +22,7 @@
 #include <rtos/rtos.h>
 #include <target/riscv/riscv.h>
 #include <target/riscv/riscv_reg.h>
+#include <target/riscv/encoding.h>
 
 #include "esp_riscv.h"
 #include "esp_semihosting.h"
@@ -42,23 +43,6 @@ enum {
 	ESP_RISCV_SET_WATCHPOINT_ARG_SIZE,	/* missed if `set` is false */
 	ESP_RISCV_SET_WATCHPOINT_ARG_FLAGS,	/* missed if `set` is false */
 	ESP_RISCV_SET_WATCHPOINT_ARG_MAX
-};
-
-enum esp_riscv_exception_cause {
-	INSTR_ADDR_MISALIGNED = 0x0,
-	PMP_INSTRUCTION_ACCESS_FAULT = 0x1,
-	ILLEGAL_INSTRUCTION = 0x2,
-	HARDWARE_BREAKPOINT = 0x3,
-	LOAD_ADDR_MISALIGNED = 0x4,
-	PMP_LOAD_ACCESS_FAULT = 0x5,
-	STORE_ADDR_MISALIGNED = 0x6,
-	PMP_STORE_ACCESS_FAULT = 0x7,
-	ECALL_FROM_U_MODE = 0x8,
-	ECALL_FROM_S_MODE = 0x9,
-	ECALL_FROM_M_MODE = 0xb,
-	INSTR_PAGE_FAULT = 0xc,
-	LOAD_PAGE_FAULT = 0xd,
-	STORE_PAGE_FAULT = 0xf,
 };
 
 #define ESP_RISCV_EXCEPTION_CAUSE(reg_val)  ((reg_val) & 0x1F)
@@ -89,36 +73,36 @@ enum esp_riscv_exception_cause {
 static int esp_riscv_debug_stubs_info_init(struct target *target,
 	target_addr_t ctrl_addr);
 
-static const char *esp_riscv_get_exception_reason(enum esp_riscv_exception_cause exception_code)
+static const char *esp_riscv_get_exception_reason(uint32_t exception_code)
 {
 	switch (ESP_RISCV_EXCEPTION_CAUSE(exception_code)) {
-	case INSTR_ADDR_MISALIGNED:
+	case CAUSE_MISALIGNED_FETCH:
 		return "Instruction address misaligned";
-	case PMP_INSTRUCTION_ACCESS_FAULT:
+	case CAUSE_FETCH_ACCESS:
 		return "PMP Instruction access fault";
-	case ILLEGAL_INSTRUCTION:
+	case CAUSE_ILLEGAL_INSTRUCTION:
 		return "Illegal Instruction";
-	case HARDWARE_BREAKPOINT:
+	case CAUSE_BREAKPOINT:
 		return "Hardware Breakpoint/Watchpoint or EBREAK";
-	case LOAD_ADDR_MISALIGNED:
+	case CAUSE_MISALIGNED_LOAD:
 		return "Load address misaligned";
-	case PMP_LOAD_ACCESS_FAULT:
+	case CAUSE_LOAD_ACCESS:
 		return "PMP Load access fault";
-	case STORE_ADDR_MISALIGNED:
+	case CAUSE_MISALIGNED_STORE:
 		return "Store address misaligned";
-	case PMP_STORE_ACCESS_FAULT:
+	case CAUSE_STORE_ACCESS:
 		return "PMP Store access fault";
-	case ECALL_FROM_U_MODE:
+	case CAUSE_USER_ECALL:
 		return "ECALL from U-mode";
-	case ECALL_FROM_S_MODE:
+	case CAUSE_SUPERVISOR_ECALL:
 		return "ECALL from S-mode";
-	case ECALL_FROM_M_MODE:
+	case CAUSE_MACHINE_ECALL:
 		return "ECALL from M-mode";
-	case INSTR_PAGE_FAULT:
+	case CAUSE_FETCH_PAGE_FAULT:
 		return "Instruction page fault";
-	case LOAD_PAGE_FAULT:
+	case CAUSE_LOAD_PAGE_FAULT:
 		return "Load page fault";
-	case STORE_PAGE_FAULT:
+	case CAUSE_STORE_PAGE_FAULT:
 		return "Store page fault";
 	}
 	return "Unknown exception cause";
@@ -150,7 +134,7 @@ static void esp_riscv_print_exception_reason(struct target *target)
 	if (mcause & BIT(31) || ESP_RISCV_EXCEPTION_CAUSE(mcause) == 0)
 		return;
 
-	if (ESP_RISCV_EXCEPTION_CAUSE(mcause) == ILLEGAL_INSTRUCTION) {
+	if (ESP_RISCV_EXCEPTION_CAUSE(mcause) == CAUSE_ILLEGAL_INSTRUCTION) {
 		riscv_reg_t mtval;
 		result = riscv_reg_get(target, &mtval, CSR_MTVAL + GDB_REGNO_CSR0);
 		if (result != ERROR_OK) {
