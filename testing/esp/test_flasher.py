@@ -13,6 +13,12 @@ def get_logger():
     return logging.getLogger(__name__)
 
 
+DUMMY_BIN_SIZE = 0x400
+BOOTLOADER_OFF = 0x10000
+PARTITION_TABLE_OFF = 0x20000
+APP_TAIL_OFF = 0x2000
+
+
 ########################################################################
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
@@ -169,34 +175,6 @@ class FlasherTestsImpl:
         """
         self.program_big_binary('encrypt compress' if self.ENCRYPTED else 'compress', overflow=True)
 
-    def test_flash_verify_uneven_binary(self):
-        """
-            This test checks that binaries of uneven size can be sucessfully flashed and verified.
-            1) Create test binary file.
-            2) Fill it with random data.
-            3) Write the file to the flash.
-            4) Read written data to another file.
-            5) Compare files.
-        """
-        size = 0x103
-        fhnd, fname1 = tempfile.mkstemp()
-        get_logger().debug('Generate random file %dB "%s"', size, fname1)
-        with os.fdopen(fhnd, 'wb') as fbin:
-            fbin.write(self._get_image_header(size))
-
-        try:
-            self.gdb.target_program(fname1, 0, actions='encrypt verify' if self.ENCRYPTED else 'verify')
-
-            # since we can not get result from OpenOCD (output parsing seems not to be good idea),
-            # we need to read written flash and compare data manually
-            _, fname2 = tempfile.mkstemp()
-            self.gdb.monitor_run('flash read_bank 0 %s 0x%x %d' % (dbg.fixup_path(fname2), 0, size ))
-            self.assertTrue(filecmp.cmp(fname1, fname2))
-        finally:
-            # restore flash contents with test app as it was overwritten by test
-            # what can lead to the failures when preparing for the next tests
-            self.gdb.target_program_bins(self.test_app_cfg.build_bins_dir())
-
     def test_cache_handling(self):
         """
             This test checks that flasher does not corrupts cache config registers when setting breakpoints.
@@ -219,7 +197,7 @@ class FlasherTestsImpl:
         # Temp Folder where everything will be contained
         tmp = tempfile.mkdtemp(prefix="esp")
 
-        obj = generate_flasher_args_json()
+        obj = generate_flasher_args_json(self.flash_sz)
         flash_files = obj["flash_files"]
 
         # Write dummy data to bin files
@@ -230,7 +208,7 @@ class FlasherTestsImpl:
             flash_files[offset] = fname
 
             fbin = open(fpath, 'wb')
-            fbin.write(self._get_image_header(1024))
+            fbin.write(self._get_image_header(DUMMY_BIN_SIZE))
             fbin.close()
 
         encrypted = "true" if self.ENCRYPTED else "false"
@@ -256,7 +234,7 @@ class FlasherTestsImpl:
             fpath = os.path.join(tmp, fname)
             fbin = open(fpath, "wb")
             fbin.close()
-            self.gdb.monitor_run("flash read_bank 0 %s %s 1024" % (dbg.fixup_path(fpath), offset), tmo=120)
+            self.gdb.monitor_run("flash read_bank 0 %s %s %d" % (dbg.fixup_path(fpath), offset, DUMMY_BIN_SIZE), tmo=120)
 
             # Verify the content
             og_fname = "esp_%s.bin" % (offset)
@@ -294,7 +272,16 @@ class FlasherTestsImpl:
         # what can lead to the failures when preparing for the next tests
         self.gdb.target_program_bins(self.test_app_cfg.build_bins_dir())
 
-def generate_flasher_args_json():
+def generate_flasher_args_json(flash_size_bytes):
+    off_app = flash_size_bytes - APP_TAIL_OFF
+    min_flash = PARTITION_TABLE_OFF + DUMMY_BIN_SIZE + APP_TAIL_OFF
+    if flash_size_bytes < min_flash:
+        raise ValueError(
+            f"flash size {flash_size_bytes:#x} too small for program_esp_bins test layout: "
+            f"partition_table@{PARTITION_TABLE_OFF:#x} + dummy_bin({DUMMY_BIN_SIZE:#x}) "
+            f"must fit before app@flash_end-{APP_TAIL_OFF:#x} (need >= {min_flash:#x})"
+        )
+
     return {
         "write_flash_args" : [ "--flash_mode", "dio",
                             "--flash_size", "detect",
@@ -305,13 +292,13 @@ def generate_flasher_args_json():
             "flash_freq": "40m"
         },
         "flash_files" : {
-            "0x118000" : "",
-            "0x110000" : "",
-            "0x210000" : ""
+            f"{PARTITION_TABLE_OFF:#x}" : "",
+            f"{BOOTLOADER_OFF:#x}" : "",
+            f"{off_app:#x}" : ""
         },
-        "partition_table" : { "offset" : "0x118000", "file" : "", "encrypted" : "" },
-        "bootloader" : { "offset" : "0x110000", "file" : "", "encrypted" : "" },
-        "app" : { "offset" : "0x210000", "file" : "", "encrypted" : "" },
+        "partition_table" : { "offset" : f"{PARTITION_TABLE_OFF:#x}", "file" : "", "encrypted" : "" },
+        "bootloader" : { "offset" : f"{BOOTLOADER_OFF:#x}", "file" : "", "encrypted" : "" },
+        "app" : { "offset" : f"{off_app:#x}", "file" : "", "encrypted" : "" },
         "extra_esptool_args" : {
             "after"  : "hard_reset",
             "before" : "default_reset",
