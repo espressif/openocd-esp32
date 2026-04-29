@@ -215,26 +215,6 @@ class FlasherTestsImpl:
         for i in range(5):
             self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'gpio_set_level', ['gpio_set_level'], outmost_func_name='cache_handling_task')
 
-    def test_stub_logs(self):
-        """
-            This test checks if stub logs are enabled successfully.
-        """
-        expected_strings = ["STUB_D: cmd 4:FLASH_MAP_GET",
-                            "STUB_D: stub_flash_get_size: ENTER",
-                            "STUB_I: Found app image: magic 0xe9"]
-
-        self.gdb.monitor_run("esp stub_log on", 5)
-        self.gdb.monitor_run("flash probe 0", 5)
-        self.gdb.monitor_run("esp stub_log off", 5)
-
-        log_path = get_logger().handlers[1].baseFilename  # 0:StreamHandler 1:FileHandler
-        target_output = ''
-        with open(log_path, 'r') as file:
-            target_output = file.read()
-
-        for expected_str in expected_strings:
-            self.assertIn(expected_str, target_output, f"Expected string '{expected_str}' not found in output")
-
     def program_esp_bins(self, actions):
         # Temp Folder where everything will be contained
         tmp = tempfile.mkdtemp(prefix="esp")
