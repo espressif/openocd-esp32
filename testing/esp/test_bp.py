@@ -433,7 +433,7 @@ class DebuggerBreakpointTestsDualEncrypted(DebuggerGenericTestAppTestsDualEncryp
     """ Breakpoint test cases on encrypted flash in dual core mode
     """
     def setUp(self):
-        DebuggerGenericTestAppTestsDual.setUp(self)
+        DebuggerGenericTestAppTestsDualEncrypted.setUp(self)
         BreakpointTestsImpl.setUp(self)
 
     def test_2cores_concurrently_hit_bps(self):
@@ -454,7 +454,7 @@ class DebuggerBreakpointTestsSingleEncrypted(DebuggerGenericTestAppTestsSingleEn
     """ Breakpoint test cases on encrypted flash in single core mode
     """
     def setUp(self):
-        DebuggerGenericTestAppTestsSingle.setUp(self)
+        DebuggerGenericTestAppTestsSingleEncrypted.setUp(self)
         BreakpointTestsImpl.setUp(self)
 
 class DebuggerWatchpointTestsDual(DebuggerGenericTestAppTestsDual, WatchpointTestsImpl):
@@ -479,39 +479,57 @@ class DebuggerWatchpointTestsSingleEncrypted(DebuggerGenericTestAppTestsSingleEn
     """
     pass
 
-class DebuggerFlashBreakpointTestsSingle(DebuggerBreakpointTestsSingle):
-    """ Breakpoint tests with extra flash breakpoints
+class FlashBreakpointTestsImpl(BreakpointTestsImpl):
+    """ BreakpointTestsImpl variant that pre-occupies all HW breakpoint
+        slots, so the breakpoints exercised by the inherited tests are
+        installed as flash breakpoints.
     """
 
+    def setUp(self):
+        self.fill_hw_bps(keep_avail=0)
+        self.bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
+
+    @unittest.skip('not applicable')
+    def test_bp_in_rom(self):
+        pass
+
+    @unittest.skip('not applicable')
+    def test_appcpu_early_hw_bps(self):
+        pass
+
+class DebuggerFlashBreakpointTestsSingle(DebuggerGenericTestAppTestsSingle, FlashBreakpointTestsImpl):
+    """ Breakpoint tests with extra flash breakpoints (single core)
+    """
     def setUp(self):
         DebuggerGenericTestAppTestsSingle.setUp(self)
-        self.fill_hw_bps(keep_avail=0)
-        self.bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
+        FlashBreakpointTestsImpl.setUp(self)
 
-    @unittest.skip('not applicable')
-    def test_bp_in_rom(self):
-        pass
-
-    @unittest.skip('not applicable')
-    def test_appcpu_early_hw_bps(self):
-        pass
-
-class DebuggerFlashBreakpointTestsDual(DebuggerBreakpointTestsDual):
-    """ Breakpoint tests with extra flash breakpoints
+class DebuggerFlashBreakpointTestsDual(DebuggerGenericTestAppTestsDual, FlashBreakpointTestsImpl):
+    """ Breakpoint tests with extra flash breakpoints (dual core)
     """
-
     def setUp(self):
         DebuggerGenericTestAppTestsDual.setUp(self)
-        self.fill_hw_bps(keep_avail=0)
-        self.bps = ['app_main', 'gpio_set_direction', 'gpio_set_level', 'vTaskDelay']
+        FlashBreakpointTestsImpl.setUp(self)
 
-    @unittest.skip('not applicable')
-    def test_bp_in_rom(self):
-        pass
+    def test_2cores_concurrently_hit_bps(self):
+        two_cores_concurrently_hit_bps(self)
 
-    @unittest.skip('not applicable')
-    def test_appcpu_early_hw_bps(self):
-        pass
+class DebuggerFlashBreakpointTestsSingleEncrypted(DebuggerGenericTestAppTestsSingleEncrypted, FlashBreakpointTestsImpl):
+    """ Breakpoint tests with extra flash breakpoints on encrypted flash (single core)
+    """
+    def setUp(self):
+        DebuggerGenericTestAppTestsSingleEncrypted.setUp(self)
+        FlashBreakpointTestsImpl.setUp(self)
+
+class DebuggerFlashBreakpointTestsDualEncrypted(DebuggerGenericTestAppTestsDualEncrypted, FlashBreakpointTestsImpl):
+    """ Breakpoint tests with extra flash breakpoints on encrypted flash (dual core)
+    """
+    def setUp(self):
+        DebuggerGenericTestAppTestsDualEncrypted.setUp(self)
+        FlashBreakpointTestsImpl.setUp(self)
+
+    def test_2cores_concurrently_hit_bps(self):
+        two_cores_concurrently_hit_bps(self)
 
 class DebuggerTestsSingle4MB(DebuggerGenericTestAppTestsSingle):
     """ Base class to run tests with a single core 4MB flash config
