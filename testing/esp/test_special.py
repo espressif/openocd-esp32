@@ -275,7 +275,7 @@ class DebuggerSpecialTestsImpl:
                                 break
                     self.assertTrue(found_line_count)
             else:
-               self.assertTrue(expected_strings[i] in target_output)
+                self.assertTrue(expected_strings[i] in target_output)
             self.gdb.target_reset()
             self.add_bp('app_main')
             self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
