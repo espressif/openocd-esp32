@@ -184,7 +184,7 @@ tests_esp32c61_idf5.5.x:
     - job: fetch_gcov
   variables:
     CHIP_NAME: "esp32c61"
-    TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p test_*.*Single"
+    TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p test_*.*Single4MB test_*.*Single"
 
 tests_esp32h2_idf5.5.x:
   extends: .tests_v5.5.x_riscv_template

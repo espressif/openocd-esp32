@@ -224,7 +224,7 @@ tests_esp32c61:
       optional: true
   variables:
     CHIP_NAME: "esp32c61"
-    TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p test_*.*Single"
+    TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p est_*.*Single4MB test_*.*Single"
 
 tests_esp32h2:
   extends: .tests_master_riscv_template
