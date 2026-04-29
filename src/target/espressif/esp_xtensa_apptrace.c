@@ -238,7 +238,7 @@ int esp_xtensa_apptrace_data_read(struct target *target,
 	uint32_t tmp = XTENSA_APPTRACE_HOST_CONNECT | XTENSA_APPTRACE_BLOCK_ID(block_id) | XTENSA_APPTRACE_BLOCK_LEN(0);
 	uint8_t unal_bytes[4];
 	uint32_t target_crc16;
-	const int MAX_TRIES = 5;
+	const int MAX_TRIES = target->state != TARGET_DEBUG_RUNNING ? 5 : 20;
 	enum target_state old_state = TARGET_UNKNOWN;
 
 	int res = esp_xtensa_apptrace_debug_reg_read(target, XTENSA_APPTRACE_CRC_REG, &target_crc16);
@@ -552,7 +552,7 @@ static int esp_xtensa_apptrace_buffs_write(struct target *target,
 	bool data)
 {
 	struct xtensa *xtensa = target_to_xtensa(target);
-	const int MAX_TRIES = 5;
+	const int MAX_TRIES = target->state != TARGET_DEBUG_RUNNING ? 5 : 20;
 	int res = ERROR_OK;
 	uint32_t tmp = XTENSA_APPTRACE_HOST_CONNECT |
 		(data ? XTENSA_APPTRACE_HOST_DATA : 0) | XTENSA_APPTRACE_BLOCK_ID(block_id) |
