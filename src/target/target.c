@@ -668,19 +668,6 @@ static int no_mmu(struct target *target, bool *enabled)
 	return ERROR_OK;
 }
 
-/**
- * Reset the @c examined flag for the given target.
- */
-static inline void target_reset_examined(struct target *target)
-{
-	target->examined = false;
-}
-
-static inline void target_reset_active_polled(struct target *target)
-{
-	target->active_polled = false;
-}
-
 static int default_examine(struct target *target)
 {
 	return ERROR_OK;

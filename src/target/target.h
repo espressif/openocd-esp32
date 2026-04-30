@@ -497,6 +497,22 @@ static inline void target_set_examined(struct target *target)
 }
 
 /**
+ * Reset the @c examined flag for the given target.
+ */
+static inline void target_reset_examined(struct target *target)
+{
+	target->examined = false;
+}
+
+/**
+ * Reset the @c active_polled flag for the given target.
+ */
+static inline void target_reset_active_polled(struct target *target)
+{
+	target->active_polled = false;
+}
+
+/**
  * Add the @a breakpoint for @a target.
  *
  * This routine is a wrapper for target->type->add_breakpoint.
