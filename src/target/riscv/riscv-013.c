@@ -2858,7 +2858,7 @@ static int riscv013_get_hart_state(struct target *target, enum riscv_hart_state 
 		/* ESPRESSIF OCD-1018 */
 		if (r->on_reset)
 			r->on_reset(target);
-		if (strcmp(target->cmd_name, "esp32p4.lp.cpu")) {
+		if (strcmp(target->cmd_name, "esp32p4.lp.cpu") && strcmp(target->cmd_name, "esp32s31.lp.cpu")) {
 			/* assume target running after reset, causes issue for p4 lpcore */
 			*state = RISCV_STATE_RUNNING;
 			return ERROR_OK;
