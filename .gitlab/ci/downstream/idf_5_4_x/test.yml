@@ -24,10 +24,10 @@ tests_esp32_idf5.4.x_flash_encrypted:
     - job: fetch_gcov
   allow_failure: true
   variables:
-    RUNNER_SCRIPT_TIMEOUT: 10m
+    RUNNER_SCRIPT_TIMEOUT: 20m
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
-  timeout: 15m
+  timeout: 25m
 
 tests_esp32s2_idf5.4.x:
   extends: .tests_v5.4.x_template

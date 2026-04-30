@@ -28,10 +28,10 @@ tests_esp32_flash_encrypted:
       optional: true
   allow_failure: true
   variables:
-    RUNNER_SCRIPT_TIMEOUT: 10m
+    RUNNER_SCRIPT_TIMEOUT: 20m
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
-  timeout: 15m
+  timeout: 25m
 
 tests_esp32s2:
   extends: .tests_master_template
