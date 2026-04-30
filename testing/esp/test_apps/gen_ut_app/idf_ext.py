@@ -9,7 +9,7 @@ import tempfile
 
 def get_config_names(config_dir):
     config_names = os.listdir(config_dir)
-    if os.getenv('IDF_TARGET') not in ['esp32p4', 'esp32c5', 'esp32c6']:
+    if os.getenv('IDF_TARGET') not in ['esp32p4', 'esp32c5', 'esp32c6', 'esp32s31']:
         config_names = [cfg for cfg in config_names if 'lpcore' not in cfg]
     return config_names
 
