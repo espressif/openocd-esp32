@@ -107,7 +107,7 @@ static void log_puts(enum log_levels level,
 	const char *function,
 	const char *string)
 {
-	char *f;
+	const char *f;
 
 	if (!log_output) {
 		/* log_init() not called yet; print on DEFAULT_LOG_OUTPUT */
