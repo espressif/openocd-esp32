@@ -540,7 +540,7 @@ class DebuggerTestsSingle4MB(DebuggerGenericTestAppTestsSingle):
         self.test_app_cfg.bin_dir = os.path.join('output', 'single_core_4MB')
         self.test_app_cfg.build_dir = os.path.join('builds', 'single_core_4MB')
 
-@only_for_chip(['esp32c2', 'esp32c6', 'esp32h2', 'esp32h21', 'esp32s31', 'esp32c61'])
+@only_for_chip(['esp32c2', 'esp32c6', 'esp32h2', 'esp32h21', 'esp32s31', 'esp32c61', 'esp32p4', 'esp32h4'])
 class FlashTestsSingle4MB(DebuggerTestsSingle4MB, BreakpointTestsImpl):
     """ Breakpoint test cases via GDB in single core mode with 4MB flash config
     """
@@ -558,7 +558,7 @@ class DebuggerTestsDual4MB(DebuggerGenericTestAppTestsDual):
         self.test_app_cfg.bin_dir = os.path.join('output', 'default_4MB')
         self.test_app_cfg.build_dir = os.path.join('builds', 'default_4MB')
 
-@only_for_chip(['esp32s31'])
+@only_for_chip(['esp32s31', 'esp32p4', 'esp32h4'])
 class FlashTestsDual4MB(DebuggerTestsDual4MB, BreakpointTestsImpl):
     """ Breakpoint test cases via GDB in dual core mode with 4MB flash config
     """
