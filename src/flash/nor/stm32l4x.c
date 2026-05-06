@@ -1884,7 +1884,7 @@ static int stm32l4_read_idcode(struct flash_bank *bank, uint32_t *id)
 	struct target *target = bank->target;
 
 	/* try reading possible IDCODE registers, in the following order */
-	uint32_t dbgmcu_idcode[] = {DBGMCU_IDCODE_L4_G4, DBGMCU_IDCODE_G0, DBGMCU_IDCODE_L5};
+	uint32_t dbgmcu_idcode[] = {DBGMCU_IDCODE_L4_G4, DBGMCU_IDCODE_L5, DBGMCU_IDCODE_G0};
 
 	for (unsigned int i = 0; i < ARRAY_SIZE(dbgmcu_idcode); i++) {
 		retval = target_read_u32(target, dbgmcu_idcode[i], id);
