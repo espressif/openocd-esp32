@@ -572,7 +572,6 @@ class PsramTestAppTestsSingle(DebuggerGenericTestAppTests):
         self.test_app_cfg.bin_dir = os.path.join('output', 'psram_single')
         self.test_app_cfg.build_dir = os.path.join('builds', 'psram_single')
 
-
 class PsramTestsDual(PsramTestAppTestsDual, PsramTestsImpl):
     """ Test cases via GDB in dual core mode
     """
@@ -593,4 +592,47 @@ class PsramTestsSingle(PsramTestAppTestsSingle, PsramTestsImpl):
 
     def tearDown(self):
         PsramTestAppTestsSingle.tearDown(self)
+        PsramTestsImpl.tearDown(self)
+
+class PsramTestAppTestsDual32MB(DebuggerGenericTestAppTests):
+    """ Base class to run tests which use PSRAM test app in dual core mode
+    """
+
+    def __init__(self, methodName='runTest'):
+        super(PsramTestAppTestsDual32MB, self).__init__(methodName)
+        self.test_app_cfg.bin_dir = os.path.join('output', 'psram_dual_32MB')
+        self.test_app_cfg.build_dir = os.path.join('builds', 'psram_dual_32MB')
+
+
+class PsramTestAppTestsSingle32MB(DebuggerGenericTestAppTests):
+    """ Base class to run tests which use PSRAM test app in single core mode
+    """
+
+    def __init__(self, methodName='runTest'):
+        super(PsramTestAppTestsSingle32MB, self).__init__(methodName)
+        self.test_app_cfg.bin_dir = os.path.join('output', 'psram_single_32MB')
+        self.test_app_cfg.build_dir = os.path.join('builds', 'psram_single_32MB')
+
+@only_for_chip(["esp32s3"])
+class PsramTestsDual32MB(PsramTestAppTestsDual32MB, PsramTestsImpl):
+    """ Test cases via GDB in dual core mode
+    """
+    def setUp(self):
+        PsramTestAppTestsDual32MB.setUp(self)
+        PsramTestsImpl.setUp(self)
+
+    def tearDown(self):
+        PsramTestAppTestsDual32MB.tearDown(self)
+        PsramTestsImpl.tearDown(self)
+
+@only_for_chip(["esp32s3"])
+class PsramTestsSingle32MB(PsramTestAppTestsSingle32MB, PsramTestsImpl):
+    """ Test cases via GDB in single core mode
+    """
+    def setUp(self):
+        PsramTestAppTestsSingle32MB.setUp(self)
+        PsramTestsImpl.setUp(self)
+
+    def tearDown(self):
+        PsramTestAppTestsSingle32MB.tearDown(self)
         PsramTestsImpl.tearDown(self)

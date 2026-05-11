@@ -88,6 +88,14 @@ tests_esp32s3_dual_usj:
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32s3-builtin -p test_*.*Dual -e test_*.PsramTests* *.*.test_big_binary *.*.test_big_binary_compressed"
 
+tests_esp32s3_dual_32mb:
+  extends: tests_esp32s3_dual
+  tags:
+    - esp32s3_32mb
+    - jtag
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual32MB test_flasher.*Dual"
+
 tests_esp32s3_single:
   extends: .tests_master_template
   needs:
@@ -111,6 +119,14 @@ tests_esp32s3_single_usj:
     - usb_serial_jtag
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32s3-builtin -p test_*.*Single -e test_*.PsramTests* *.*.test_big_binary *.*.test_big_binary_compressed"
+
+tests_esp32s3_single_32mb:
+  extends: tests_esp32s3_single
+  tags:
+    - esp32s3_32mb
+    - jtag
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single32MB test_flasher.*Single"
 
 tests_esp32c2:
   extends: .tests_master_riscv_template

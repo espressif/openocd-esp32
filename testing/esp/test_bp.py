@@ -566,3 +566,61 @@ class FlashTestsDual4MB(DebuggerTestsDual4MB, BreakpointTestsImpl):
     def setUp(self):
         DebuggerTestsDual4MB.setUp(self)
         BreakpointTestsImpl.setUp(self)
+
+class DebuggerTestsSingle32MB(DebuggerGenericTestAppTestsSingle):
+    """ Base class to run tests with a single core 32MB flash config
+    """
+
+    def __init__(self, methodName='runTest'):
+        super(DebuggerTestsSingle32MB, self).__init__(methodName)
+        self.test_app_cfg.bin_dir = os.path.join('output', 'single_core_32MB')
+        self.test_app_cfg.build_dir = os.path.join('builds', 'single_core_32MB')
+
+@only_for_chip(['esp32s3'])
+class DebuggerBreakpointTestsSingle32MB(DebuggerTestsSingle32MB, BreakpointTestsImpl):
+    """ Breakpoint test cases via GDB in single core mode with 32MB flash config
+    """
+
+    def setUp(self):
+        DebuggerTestsSingle32MB.setUp(self)
+        BreakpointTestsImpl.setUp(self)
+
+class DebuggerTestsDual32MB(DebuggerGenericTestAppTestsDual):
+    """ Base class to run tests with a dual core 32MB flash config
+    """
+
+    def __init__(self, methodName='runTest'):
+        super(DebuggerTestsDual32MB, self).__init__(methodName)
+        self.test_app_cfg.bin_dir = os.path.join('output', 'default_32MB')
+        self.test_app_cfg.build_dir = os.path.join('builds', 'default_32MB')
+
+@only_for_chip(['esp32s3'])
+class DebuggerBreakpointTestsDual32MB(DebuggerTestsDual32MB, BreakpointTestsImpl):
+    """ Breakpoint test cases via GDB in dual core mode with 32MB flash config
+    """
+
+    def setUp(self):
+        DebuggerTestsDual32MB.setUp(self)
+        BreakpointTestsImpl.setUp(self)
+
+    def test_2cores_concurrently_hit_bps(self):
+        two_cores_concurrently_hit_bps(self)
+
+@only_for_chip(['esp32s3'])
+class DebuggerFlashBreakpointTestsSingle32MB(DebuggerTestsSingle32MB, FlashBreakpointTestsImpl):
+    """ Breakpoint tests with extra flash breakpoints (single core)
+    """
+    def setUp(self):
+        DebuggerTestsSingle32MB.setUp(self)
+        FlashBreakpointTestsImpl.setUp(self)
+
+@only_for_chip(['esp32s3'])
+class DebuggerFlashBreakpointTestsDual32MB(DebuggerTestsDual32MB, FlashBreakpointTestsImpl):
+    """ Breakpoint tests with extra flash breakpoints (dual core)
+    """
+    def setUp(self):
+        DebuggerTestsDual32MB.setUp(self)
+        FlashBreakpointTestsImpl.setUp(self)
+
+    def test_2cores_concurrently_hit_bps(self):
+        two_cores_concurrently_hit_bps(self)

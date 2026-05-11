@@ -18,7 +18,7 @@ build_test_app_esp32s3_idf5.5.x:
   variables:
     CHIP_NAME: "esp32s3"
     TOOLCHAIN_PREFIX: "xtensa-esp32s3"
-    TEST_APP_CONFIGS: "default svtrace_dual apptrace_gcov_dual psram_dual single_core svtrace_single apptrace_gcov_single psram_single multi_app_images_single multi_app_images_dual default_freertos_list_integrity single_core_freertos_list_integrity"
+    TEST_APP_CONFIGS: "default default_32MB svtrace_dual apptrace_gcov_dual psram_dual psram_dual_32MB single_core single_core_32MB svtrace_single apptrace_gcov_single psram_single psram_single_32MB multi_app_images_single multi_app_images_dual default_freertos_list_integrity single_core_freertos_list_integrity"
     TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
   extends: .build_idf55x_test_app_template
 

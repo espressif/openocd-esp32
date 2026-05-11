@@ -65,6 +65,14 @@ tests_esp32s3_idf5.3.x_dual:
     CHIP_NAME: "esp32s3"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual"
 
+tests_esp32s3_idf5.3.x_dual_32mb:
+  extends: tests_esp32s3_idf5.3.x_dual
+  tags:
+    - esp32s3_32mb
+    - jtag
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual32MB test_flasher.*Dual"
+
 tests_esp32s3_idf5.3.x_single:
   extends: .tests_v5.3.x_template
   needs:
@@ -77,6 +85,14 @@ tests_esp32s3_idf5.3.x_single:
     CHIP_NAME: "esp32s3"
     OOCD_CMDS: "set ESP_ONLYCPU 1"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
+
+tests_esp32s3_idf5.3.x_single_32mb:
+  extends: tests_esp32s3_idf5.3.x_single
+  tags:
+    - esp32s3_32mb
+    - jtag
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single32MB test_flasher.*Single"
 
 tests_esp32c2_idf5.3.x:
   extends: .tests_v5.3.x_riscv_template
