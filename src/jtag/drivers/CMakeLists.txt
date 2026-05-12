@@ -117,6 +117,10 @@ if(BUILD_CH347)
     target_sources(ocdjtagdrivers PRIVATE ch347.c)
 endif()
 
+if(BUILD_CKLINK)
+    target_sources(ocdjtagdrivers PRIVATE cklink.c)
+endif()
+
 if(BUILD_ESP_USB_JTAG)
     target_sources(ocdjtagdrivers PRIVATE esp_usb_jtag.c)
 endif()
@@ -190,6 +194,10 @@ endif()
 
 if(BUILD_SYSFSGPIO)
     target_sources(ocdjtagdrivers PRIVATE sysfsgpio.c)
+endif()
+
+if(BUILD_XVC)
+    target_sources(ocdjtagdrivers PRIVATE xvc.c)
 endif()
 
 if(BUILD_XLNX_XVC)
