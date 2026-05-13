@@ -575,6 +575,8 @@ class DebuggerTestsSingle32MB(DebuggerGenericTestAppTestsSingle):
         super(DebuggerTestsSingle32MB, self).__init__(methodName)
         self.test_app_cfg.bin_dir = os.path.join('output', 'single_core_32MB')
         self.test_app_cfg.build_dir = os.path.join('builds', 'single_core_32MB')
+        self.test_app_cfg.pt_off = 0x1008000
+        self.test_app_cfg.app_off = 0x1010000
 
 @only_for_chip(['esp32s3'])
 class DebuggerBreakpointTestsSingle32MB(DebuggerTestsSingle32MB, BreakpointTestsImpl):
@@ -593,6 +595,8 @@ class DebuggerTestsDual32MB(DebuggerGenericTestAppTestsDual):
         super(DebuggerTestsDual32MB, self).__init__(methodName)
         self.test_app_cfg.bin_dir = os.path.join('output', 'default_32MB')
         self.test_app_cfg.build_dir = os.path.join('builds', 'default_32MB')
+        self.test_app_cfg.pt_off = 0x1008000
+        self.test_app_cfg.app_off = 0x1010000
 
 @only_for_chip(['esp32s3'])
 class DebuggerBreakpointTestsDual32MB(DebuggerTestsDual32MB, BreakpointTestsImpl):
