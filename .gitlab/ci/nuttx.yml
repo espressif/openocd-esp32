@@ -1,16 +1,19 @@
 build_nuttx_app:
   stage: build_nuttx
   trigger:
-    project: idf/apache/esp-nuttx-apps
+    project: idf/apache/incubator-nuttx
+    branch: master
     strategy: depend
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
   allow_failure: true
   needs: []
-  parallel:
-    matrix:
-      - TRIGGER_JOB: [openocd-esp32, openocd-esp32s2, openocd-esp32s3, openocd-esp32c3, openocd-esp32c6, openocd-esp32h2]
-
+  variables:
+    CI_BOARD_FILTER: "esp32-devkitc esp32s2-saola-1 esp32s3-devkit esp32c3-devkit esp32c6-devkitc esp32h2-devkit esp32p4-function-ev-board"
+    CI_ESP_APPS_TEST_FILTER: "openocd"
+    CI_SKIP_MAIN_CI: "true"
+    CI_SKIP_QEMU_TESTS: "true"
+    CI_SKIP_HW_TESTS: "true"
+    CI_SKIP_SMOKE_TEST: "true"
+    CI_SAVE_ELF_AND_MAP: "true"
 
 # nuttx build environment is nuttx/build-env-v5.5
 .test_nuttx_template:
@@ -39,9 +42,10 @@ build_nuttx_app:
     - job: build_linux_armhf_test
     - job: build_nuttx_app
       artifacts: false
-    - project: idf/apache/esp-nuttx-apps
-      job: build_openocd_${CHIP_NAME}
+    - project: idf/apache/incubator-nuttx
+      job: "${NUTTX_BOARD} custom-config 1/1"
       ref: master
+      artifacts: true
   script:
     - !reference [.export_toolchain, script]
     - mkdir -p $TEST_RUN_DIR/$NUTTX_APP_NAME
@@ -60,6 +64,7 @@ test_nuttx_esp32:
     - .test_nuttx_template
   variables:
     CHIP_NAME: esp32
+    NUTTX_BOARD: "esp32-devkitc"
     TEST_BOARD: "esp32-wrover-kit-3.3v"
 
 test_nuttx_esp32s2:
@@ -67,6 +72,7 @@ test_nuttx_esp32s2:
     - .test_nuttx_template
   variables:
     CHIP_NAME: esp32s2
+    NUTTX_BOARD: "esp32s2-saola-1"
     TEST_BOARD: "esp32s2-devkitj"
 
 test_nuttx_esp32s3:
@@ -74,6 +80,7 @@ test_nuttx_esp32s3:
     - .test_nuttx_template
   variables:
     CHIP_NAME: esp32s3
+    NUTTX_BOARD: "esp32s3-devkit"
     TEST_BOARD: "esp32s3-ftdi"
 
 test_nuttx_esp32c3:
@@ -81,6 +88,7 @@ test_nuttx_esp32c3:
     - .test_nuttx_riscv_template
   variables:
     CHIP_NAME: esp32c3
+    NUTTX_BOARD: "esp32c3-devkit"
     TEST_BOARD: "esp32c3-ftdi"
 
 test_nuttx_esp32c6:
@@ -91,6 +99,7 @@ test_nuttx_esp32c6:
     - usb_serial_jtag
   variables:
     CHIP_NAME: esp32c6
+    NUTTX_BOARD: "esp32c6-devkitc"
     TEST_BOARD: "esp32c6-builtin"
 
 test_nuttx_esp32h2:
@@ -101,4 +110,17 @@ test_nuttx_esp32h2:
     - usb_serial_jtag
   variables:
     CHIP_NAME: esp32h2
+    NUTTX_BOARD: "esp32h2-devkit"
     TEST_BOARD: "esp32h2-builtin"
+
+test_nuttx_esp32p4:
+  extends:
+    - .test_nuttx_riscv_template
+  tags:
+    - esp32p4
+    - usb_serial_jtag
+    - eco6
+  variables:
+    CHIP_NAME: esp32p4
+    NUTTX_BOARD: "esp32p4-function-ev-board"
+    TEST_BOARD: "esp32p4-builtin"

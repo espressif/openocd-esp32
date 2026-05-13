@@ -62,8 +62,8 @@
     - *run_tests_linux_snippet
 
 .copy_nuttx_files_snippet: &copy_nuttx_files_snippet |
-  mv nuttx.merged.bin $TEST_RUN_DIR/$NUTTX_APP_NAME/$NUTTX_APP_NAME.bin
-  mv nuttx $TEST_RUN_DIR/$NUTTX_APP_NAME/$NUTTX_APP_NAME.elf
+  mv nuttx_merged_openocd_apps.bin $TEST_RUN_DIR/$NUTTX_APP_NAME/$NUTTX_APP_NAME.bin
+  mv nuttx_openocd_apps.elf  $TEST_RUN_DIR/$NUTTX_APP_NAME/$NUTTX_APP_NAME.elf
 
 .copy_nuttx_files:
   script:
