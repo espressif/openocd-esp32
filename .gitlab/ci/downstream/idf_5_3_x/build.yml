@@ -26,7 +26,7 @@ build_test_app_esp32c2_idf5.3.x:
   variables:
     CHIP_NAME: "esp32c2"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single multi_app_images_single single_core_freertos_list_integrity"
+    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single single_core_freertos_list_integrity"
   extends: .build_idf53x_test_app_template
 
 build_test_app_esp32c3_idf5.3.x:

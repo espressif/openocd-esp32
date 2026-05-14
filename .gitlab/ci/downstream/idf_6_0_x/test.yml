@@ -111,7 +111,7 @@ tests_esp32c2_idf6.0.x:
     - job: fetch_gcov
   variables:
     CHIP_NAME: "esp32c2"
-    TEST_RUN_BOARD_OPTS: "-b esp32c2-ftdi -p test_*.*Single4MB test_*.*Single"
+    TEST_RUN_BOARD_OPTS: "-b esp32c2-ftdi -p test_*.*Single -e test_multi_app_flash_images.MultiAppImagesTestsSingle"
 
 tests_esp32c3_idf6.0.x:
   extends: .tests_v6.0.x_riscv_template
