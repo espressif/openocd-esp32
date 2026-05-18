@@ -69,7 +69,7 @@
 
 .tests_master_template:
   extends: .tests_template
-  image: $CI_DOCKER_REGISTRY/target-test-env-v6.1:1
+  image: ${CI_REGISTRY}/ci/images/idf-v6.1-target-test:1
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     ESP_GDB_TOOLCHAIN: "${ESP_V6_1X_XTENSA_GDB_TOOLCHAIN}"
@@ -87,7 +87,7 @@
 
 .tests_v6.0.x_template:
   extends: .tests_template
-  image: $CI_DOCKER_REGISTRY/target-test-env-v6.0:2
+  image: ${CI_REGISTRY}/ci/images/idf-v6.0-target-test:1
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     ESP_GDB_TOOLCHAIN: "${ESP_V6_0X_XTENSA_GDB_TOOLCHAIN}"
@@ -105,7 +105,7 @@
 
 .tests_v5.5.x_template:
   extends: .tests_template
-  image: $CI_DOCKER_REGISTRY/target-test-env-v5.5:2
+  image: ${CI_REGISTRY}/ci/images/idf-v5.5-target-test:1
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_5X_XTENSA_GDB_TOOLCHAIN}"
@@ -123,7 +123,7 @@
 
 .tests_v5.4.x_template:
   extends: .tests_template
-  image: $CI_DOCKER_REGISTRY/target-test-env-v5.4:2
+  image: ${CI_REGISTRY}/ci/images/idf-v5.4-target-test:1
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_4X_XTENSA_GDB_TOOLCHAIN}"
@@ -141,7 +141,7 @@
 
 .tests_v5.3.x_template:
   extends: .tests_template
-  image: $CI_DOCKER_REGISTRY/target-test-env-v5.3:1
+  image: ${CI_REGISTRY}/ci/images/idf-v5.3-target-test:1
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_3X_XTENSA_GDB_TOOLCHAIN}"
@@ -159,7 +159,7 @@
 
 .tests_v5.2.x_template:
   extends: .tests_template
-  image: $CI_DOCKER_REGISTRY/target-test-env-v5.2:2
+  image: ${CI_REGISTRY}/ci/images/idf-v5.2-target-test:1
   variables:
     CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
     TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.2.x"

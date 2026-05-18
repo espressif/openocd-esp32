@@ -96,7 +96,7 @@ tests_on_linux:
 
 .test_board_detector_template:
   stage: test_host
-  image: $CI_DOCKER_REGISTRY/target-test-env-v5.5:2
+  image: ${CI_REGISTRY}/ci/images/idf-v5.5-target-test:1
   tags:
     - $CHIP_NAME
     - $JTAG_IFACE

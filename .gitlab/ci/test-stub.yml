@@ -35,7 +35,7 @@ build_stub_images:
 
 .test_stublib_template:
   stage: stub_build_test
-  image: $CI_DOCKER_REGISTRY/target-test-env-v6.0:2
+  image: ${CI_REGISTRY}/ci/images/idf-v6.0-target-test:1
   <<: *stub_tests_rules
   tags:
     - $CHIP_NAME
