@@ -1307,20 +1307,20 @@ int esp_algo_flash_breakpoint_add(struct target *target, struct esp_flash_breakp
 	image_close(&run.image.image);
 	if (ret != ERROR_OK) {
 		LOG_ERROR("%s: Failed to run flasher stub (%d)!", target_name(target), ret);
-		destroy_mem_param(&mp[0]);
-		destroy_mem_param(&mp[1]);
-		sw_bp->oocd_bp = NULL;
-		return ret;
+		goto cleanup;
 	}
 	if (run.ret_code <= 0) {
 		LOG_ERROR("%s: Failed to set bp (%" PRId32 ")!", target_name(target), run.ret_code);
-		destroy_mem_param(&mp[0]);
-		destroy_mem_param(&mp[1]);
-		sw_bp->oocd_bp = NULL;
-		return ERROR_FAIL;
+		ret = ERROR_FAIL;
+		goto cleanup;
 	}
 	/* insn_sz0 + inst0 + insn_sz1 + inst1 + insn_sz2 + inst2 + ... insn_szn + instn */
-	assert((uint8_t)run.ret_code == num_bps * sizeof(struct esp_flash_stub_bp_instructions));
+	if ((uint8_t)run.ret_code != num_bps * sizeof(struct esp_flash_stub_bp_instructions)) {
+		LOG_ERROR("%s: Unexpected stub return size (%" PRId32 ", expected %zu)!",
+			target_name(target), run.ret_code, num_bps * sizeof(struct esp_flash_stub_bp_instructions));
+		ret = ERROR_FAIL;
+		goto cleanup;
+	}
 	struct esp_flash_stub_bp_instructions *bp_insts = (struct esp_flash_stub_bp_instructions *)mp[1].value;
 	for (size_t slot = 0; slot < num_bps; ++slot) {
 		sw_bp[slot].insn_sz = bp_insts[slot].size;
@@ -1337,10 +1337,11 @@ int esp_algo_flash_breakpoint_add(struct target *target, struct esp_flash_breakp
 			sw_bp[slot].insn[3],
 			sw_bp[slot].insn_sz);
 	}
+
+cleanup:
 	destroy_mem_param(&mp[0]);
 	destroy_mem_param(&mp[1]);
-
-	return ERROR_OK;
+	return ret;
 }
 
 int esp_algo_flash_breakpoint_remove(struct target *target, struct esp_flash_breakpoint *sw_bp, size_t num_bps)

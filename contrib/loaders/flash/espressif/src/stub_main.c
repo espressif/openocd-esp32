@@ -400,7 +400,6 @@ static uint8_t stub_flash_set_bp(const uint32_t *bp_addr_pair,
 	uint32_t sect_addr = ALIGN_DOWN(bp_flash_addr, sector_size);
 	uint32_t off = bp_flash_addr & (sector_size - 1);
 	uint32_t aligned_bp = bp_flash_addr & ~0x3UL;
-	uint32_t bp_off = bp_flash_addr - aligned_bp;
 
 	STUB_LOGD("set bp flash addr: %x, virt addr: %x, offset: %d, inst_buff_size: %d\n",
 		sect_addr, bp_virt_addr, off, inst_buff_size);
@@ -446,6 +445,7 @@ static uint8_t stub_flash_set_bp(const uint32_t *bp_addr_pair,
 	stub_lib_cache_start();
 
 	/* Verify the break instruction is written correctly */
+	uint32_t bp_off = bp_flash_addr - aligned_bp;
 	rc = stub_lib_mmu_read_flash(aligned_bp, insn_sect, 8);
 	if (rc != STUB_LIB_OK) {
 		STUB_LOGE("set_bp: flash readback failed (%d) @ %x\n", rc, bp_flash_addr);
