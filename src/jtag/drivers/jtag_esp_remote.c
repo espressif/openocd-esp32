@@ -110,8 +110,6 @@ static char *server_address = NULL;
 static int sockfd;
 static struct sockaddr_in serv_addr;
 
-static int usb_vid = 0;
-static int usb_pid = 0;
 static struct libusb_device_handle *usb_device = NULL;
 
 static int s_read_bits_queued = 0;
@@ -627,8 +625,8 @@ static int jtag_esp_remote_init_tcp(void)
 
 static int jtag_esp_remote_init_usb(void)
 {
-	const uint16_t vids[] = { usb_vid, 0 };		/* must be null terminated */
-	const uint16_t pids[] = { usb_pid, 0 };		/* must be null terminated */
+	const uint16_t *vids = adapter_usb_get_vids();
+	const uint16_t *pids = adapter_usb_get_pids();
 	int r = jtag_libusb_open(vids, pids, NULL, &usb_device, NULL);
 	if (r != ERROR_OK) {
 		if (r == ERROR_FAIL)
@@ -738,24 +736,6 @@ COMMAND_HANDLER(jtag_esp_remote_protocol)
 	return ERROR_FAIL;
 }
 
-COMMAND_HANDLER(jtag_esp_remote_vid_pid)
-{
-	if (esp_remote_protocol != ESP_REMOTE_USB) {
-		LOG_ERROR("USB protocol must be set up for jtag_esp_remote_vid_pid");
-		return ERROR_FAIL;
-	}
-
-	if (CMD_ARGC < 2) {
-		LOG_ERROR("You need to supply the vendor and product IDs");
-		return ERROR_FAIL;
-	}
-
-	COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], usb_vid);
-	COMMAND_PARSE_NUMBER(int, CMD_ARGV[1], usb_pid);
-	LOG_INFO("VID set to 0x%x and PID to 0x%x", usb_vid, usb_pid);
-	return ERROR_OK;
-}
-
 COMMAND_HANDLER(jtag_esp_remote_set_port)
 {
 	if (esp_remote_protocol != ESP_REMOTE_TCP) {
@@ -801,13 +781,6 @@ static const struct command_registration jtag_esp_remote_command_handlers[] = {
 		.handler = &jtag_esp_remote_protocol,
 		.mode = COMMAND_CONFIG,
 		.help = "set communication protocol for ESP remote driver (tcp or usb)",
-		.usage = "description_string",
-	},
-	{
-		.name = "jtag_esp_remote_vid_pid",
-		.handler = &jtag_esp_remote_vid_pid,
-		.mode = COMMAND_CONFIG,
-		.help = "set vendor ID and product ID for ESP remote driver over USB",
 		.usage = "description_string",
 	},
 	{

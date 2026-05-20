@@ -247,6 +247,12 @@ proc "espusbjtag vid_pid" args {
 	eval adapter usb vid_pid $args
 }
 
+lappend _telnet_autocomplete_skip "jtag_esp_remote_vid_pid"
+proc "jtag_esp_remote_vid_pid" args {
+	echo "DEPRECATED! use 'adapter usb vid_pid' not 'jtag_esp_remote_vid_pid'"
+	eval adapter usb vid_pid $args
+}
+
 
 lappend _telnet_autocomplete_skip ftdi_location
 proc ftdi_location args {
