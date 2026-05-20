@@ -4193,7 +4193,7 @@ static void write_string(FILE *f, char *s)
 
 typedef unsigned char UNIT[2];  /* unit of profiling */
 
-static void write_gmon_hist(FILE *f, const uint32_t *samples, uint32_t sample_num,
+static void write_gmon_hist(FILE *f, const uint32_t *samples, const uint32_t *counts, uint32_t sample_num,
 			float sample_rate, struct target *target)
 {
 	uint32_t min = samples[0];
@@ -4225,21 +4225,11 @@ static void write_gmon_hist(FILE *f, const uint32_t *samples, uint32_t sample_nu
 	write_string(f, "s");
 
 	/*append binary memory gmon.out profile_hist_data (profile_hist_data + profile_hist_hdr.hist_size) */
-	bool saturated_once = false;
 	for (uint32_t i = 0, bidx = 0; bidx < address_space; bidx += sizeof(UNIT)) {
-		uint32_t val = i;
+		uint32_t val = 0;
 		uint32_t bmax = min + bidx + sizeof(UNIT);
 		while (i < sample_num && samples[i] < bmax)
-			++i;
-		val = i - val;
-
-		if (val > UINT16_MAX) {
-			val = UINT16_MAX;
-			if (!saturated_once)
-				LOG_WARNING("profiler bucket saturated, will read as 65535");
-			saturated_once = true;
-		}
-
+			val += counts[i++];
 		uint8_t data[2];
 		h_u16_to_le(data, val);
 		write_data(f, data, 2);
@@ -4247,10 +4237,9 @@ static void write_gmon_hist(FILE *f, const uint32_t *samples, uint32_t sample_nu
 }
 
 /* Dump a gmon.out histogram file. */
-static void write_gmon(const uint32_t *samples, uint32_t sample_num, const char *filename,
-			struct target *target, uint32_t duration_ms)
+static void write_gmon(const uint32_t *samples, const uint32_t *counts, uint32_t sample_num, const char *filename,
+			struct target *target, uint32_t duration_ms, float sample_rate)
 {
-	float sample_rate = sample_num / (duration_ms / 1000.0);
 	FILE *f = fopen(filename, "wb");
 	if (!f)
 		return;
@@ -4260,19 +4249,31 @@ static void write_gmon(const uint32_t *samples, uint32_t sample_num, const char 
 	write_long(f, 0, target); /* padding */
 	write_long(f, 0, target); /* padding */
 
-	while (sample_num) {
-		/* if address gap exceeds this, make another histogram */
-		const uint32_t MAX_GAP = 32;
-
-		/* figure out bucket size */
-		uint32_t max = samples[0];
+	while (sample_num > 0) {
 		uint32_t this_pass = 1;
-		while (this_pass < sample_num && samples[this_pass] - max < MAX_GAP)
-			max = samples[this_pass++];
+		const uint32_t bucket_max = UINT16_MAX;
 
-		write_gmon_hist(f, samples, this_pass, sample_rate, target);
+		if (counts[0] > bucket_max) {
+			/* if the next sample has more than UINT16_MAX hits, write it in one-address histograms */
+			uint32_t remaining = counts[0];
+			while (remaining > bucket_max) {
+				write_gmon_hist(f, samples, &bucket_max, 1, sample_rate, target);
+				remaining -= bucket_max;
+			}
+			write_gmon_hist(f, samples, &remaining, 1, sample_rate, target);
+		} else {
+			/* if address gap exceeds this, make another histogram */
+			const uint32_t MAX_GAP = 32;
 
+			/* figure out bucket size */
+			uint32_t max = samples[0];
+			while (this_pass < sample_num && samples[this_pass] - max < MAX_GAP && counts[this_pass] <= bucket_max)
+				max = samples[this_pass++];
+
+			write_gmon_hist(f, samples, counts, this_pass, sample_rate, target);
+		}
 		samples += this_pass;
+		counts += this_pass;
 		sample_num -= this_pass;
 	}
 
@@ -4385,8 +4386,29 @@ COMMAND_HANDLER(handle_profile_command)
 	if (num_of_samples) {
 		qsort(samples, num_of_samples, sizeof(samples[0]), compare_pc32);
 
-		write_gmon(samples, num_of_samples, CMD_ARGV[1], target, duration_ms);
+		uint32_t *counts = malloc(sizeof(uint32_t) * num_of_samples);
+		if (!counts) {
+			LOG_ERROR("No memory to store sample counts.");
+			free(samples);
+			return ERROR_FAIL;
+		}
+		counts[0] = 1;
+		uint32_t num_unique_samples = 1;
+		for (uint32_t in = 1; in < num_of_samples; ++in) {
+			uint32_t sample = samples[in];
+			if (sample != samples[num_unique_samples - 1]) {
+				samples[num_unique_samples] = sample;
+				counts[num_unique_samples] = 1;
+				num_unique_samples++;
+			} else {
+				counts[num_unique_samples - 1]++;
+			}
+		}
+
+		float sample_rate = num_of_samples / (duration_ms / 1000.0);
+		write_gmon(samples, counts, num_unique_samples, CMD_ARGV[1], target, duration_ms, sample_rate);
 		command_print(CMD, "Wrote %s", CMD_ARGV[1]);
+		free(counts);
 	} else {
 		command_print(CMD, "Wrote no samples");
 	}
