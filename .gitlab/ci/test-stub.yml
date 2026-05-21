@@ -17,6 +17,7 @@ build_stub_images:
   artifacts:
     paths:
       - contrib/loaders/flash/espressif/images/
+    when: always
   script:
     - ESP_STUB_LIB_PATH=contrib/loaders/flash/espressif/esp-stub-lib
     - ESP_STUB_LIB_URL=https://github.com/espressif/esp-stub-lib.git
