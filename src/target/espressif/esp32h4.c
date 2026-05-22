@@ -47,7 +47,7 @@
 #define ESP32H4_ASSIST_DEBUG_CPU0_MON_REG       0x60002000
 #define ESP32H4_ASSIST_DEBUG_CPU_OFFSET         0x88
 
-#define ESP32H4_EFUSE_HW_REV_ADDR               0x600B184c
+#define ESP32H4_EFUSE_HW_REV_ADDR               0x600B1850
 
 /* components/soc/esp32H4/include/soc/reset_reasons.h */
 enum esp32h4_reset_reason {
