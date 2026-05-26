@@ -413,7 +413,7 @@ class DebuggerSpecialTestsImpl:
             self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, f, run_bt=False)
 
 @only_for_chip(["esp32", "esp32s2", "esp32s3", "esp32c5", "esp32c61", "esp32p4", "esp32h4", "esp32s31"])
-@idf_ver_min_for_chip("6.0", ["esp32p4"])
+@skip_for_chip(["esp32s31"], "skipped - OCD-1382")
 class PsramTestsImpl:
     """ PSRAM specific test cases generic for dual and single core modes
     """
