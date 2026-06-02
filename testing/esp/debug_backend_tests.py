@@ -784,6 +784,14 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         if self.uart_reader:
             self.uart_reader.resume()
 
+    def alive_sleep(self, seconds, step=0.1):
+        start = time.time()
+        while time.time() < start + seconds:
+            # poll GDB
+            resp = self.gdb._gdbmi.get_gdb_response(0, raise_error_on_timeout=False)
+            self.gdb._parse_mi_resp(resp, new_tgt_state=None)
+            time.sleep(step)
+
 class DebuggerGenericTestAppTests(DebuggerTestAppTests):
     """ Base class to run tests which use generic test app
     """

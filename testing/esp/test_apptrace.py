@@ -9,7 +9,6 @@ import time
 import tempfile
 import sys
 import traceback
-from time import sleep
 
 idf_path = os.getenv('IDF_PATH')
 if idf_path:
@@ -92,7 +91,7 @@ class ApptraceTestsImpl:
         poll_period_ms = 0
         self.oocd.apptrace_start("%s %d 800 10" % (trace_src, poll_period_ms))
         self.resume_exec()
-        sleep(1) #  let it works some time
+        self.alive_sleep(1) #  let it works some time
         self.stop_exec()
         self.gdb.target_reset()
 
@@ -111,7 +110,7 @@ class ApptraceTestsImpl:
         self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
         self.select_sub_test(self.id())
         self.resume_exec()
-        sleep(2) #  let it works some time
+        self.alive_sleep(2) #  let it works some time
         self.oocd.apptrace_stop();
         lines_after_reset = []
         get_logger().debug('lines_after_reset:')
