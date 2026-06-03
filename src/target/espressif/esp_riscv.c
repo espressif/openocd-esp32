@@ -796,6 +796,48 @@ static bool esp_riscv_algo_should_save_reg(struct target *target, struct reg *r)
 	return true;
 }
 
+/* Force the given PMA entry to NAPOT RWX. Used to work around the ROM's
+ * riscv_pma_init_cfg() leaving the HP RAM entry without the X bit. The CSR
+ * save/restore path of esp_riscv_start_algorithm() puts the original value
+ * back after the algorithm completes (the chip's pma_cfg<n>/pma_addr<n> are
+ * declared in chip_specific_registers with save_restore = true).
+ *
+ * Skips the override if X is already set so a second call after the ROM has
+ * advanced to riscv_pma_flash_boot_cfg() is a no-op.
+ */
+int esp_riscv_pma_force_napot_rwx(struct target *target,
+	unsigned int entry,
+	uint64_t napot_addr,
+	uint64_t napot_cfg)
+{
+	enum gdb_regno cfg_regno = GDB_REGNO_CSR0 + ESP_RISCV_CSR_PMACFG0 + entry;
+	enum gdb_regno addr_regno = GDB_REGNO_CSR0 + ESP_RISCV_CSR_PMAADDR0 + entry;
+
+	riscv_reg_t cfg_val;
+	int ret = riscv_reg_get(target, &cfg_val, cfg_regno);
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to read pma_cfg%u (%d)", entry, ret);
+		return ret;
+	}
+	if (cfg_val & ESP_RISCV_PMA_CFG_X) {
+		LOG_TARGET_DEBUG(target, "pma_cfg%u already grants X, skipping override", entry);
+		return ERROR_OK;
+	}
+
+	ret = riscv_reg_set(target, addr_regno, napot_addr);
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to set pma_addr%u (%d)", entry, ret);
+		return ret;
+	}
+	ret = riscv_reg_set(target, cfg_regno, napot_cfg);
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to set pma_cfg%u (%d)", entry, ret);
+		return ret;
+	}
+	LOG_TARGET_DEBUG(target, "PMA entry %u forced to NAPOT RWX", entry);
+	return ERROR_OK;
+}
+
 int esp_riscv_start_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
@@ -886,8 +928,11 @@ int esp_riscv_start_algorithm(struct target *target,
 	}
 
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
-	if (esp_riscv->pre_algorithm) {
-		retval = esp_riscv->pre_algorithm(target);
+	if (esp_riscv->stub_pma_entry) {
+		retval = esp_riscv_pma_force_napot_rwx(target,
+			esp_riscv->stub_pma_entry->index,
+			esp_riscv->stub_pma_entry->napot_addr,
+			esp_riscv->stub_pma_entry->napot_cfg);
 		if (retval != ERROR_OK)
 			return retval;
 	}

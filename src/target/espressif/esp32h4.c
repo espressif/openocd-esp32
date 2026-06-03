@@ -40,6 +40,22 @@
 
 #define ESP32H4_ADDR_IS_DRAM(addr)	((addr) >= ESP32H4_DRAM_LOW && (addr) <  ESP32H4_DRAM_HIGH)
 
+/* PMA entry 14 covers the HP RAM region (0x40800000..0x40880000, 512 KB).
+ * See esp_riscv_pma_force_napot_rwx() in esp_riscv.c for the rationale.
+ *   pmaaddr14 = (0x40800000 | 0x3FFFF) >> 2 = 0x1020FFFF
+ *   pmacfg14  = PMA_NAPOT | PMA_EN | PMA_R | PMA_W | PMA_X = 0xC000001D
+ */
+#define ESP32H4_PMA_ENTRY_NUM                   16
+#define ESP32H4_PMA_ENTRY_RAM                   (ESP32H4_PMA_ENTRY_NUM - 2)
+#define ESP32H4_PMA_RAM_NAPOT_ADDR              0x1020FFFFUL
+#define ESP32H4_PMA_RAM_NAPOT_CFG_RWX           0xC000001DUL
+
+static const struct esp_riscv_pma_entry esp32h4_stub_pma_entry = {
+	.index      = ESP32H4_PMA_ENTRY_RAM,
+	.napot_addr = ESP32H4_PMA_RAM_NAPOT_ADDR,
+	.napot_cfg  = ESP32H4_PMA_RAM_NAPOT_CFG_RWX,
+};
+
 /* max supported hw breakpoint and watchpoint count */
 #define ESP32H4_BP_NUM                          3
 #define ESP32H4_WP_NUM                          3
@@ -228,6 +244,7 @@ static int esp32h4_target_create(struct target *target)
 	esp_riscv->is_dram_address = esp32h4_is_idram_address;
 	esp_riscv->is_iram_address = esp32h4_is_idram_address;
 	esp_riscv->examine_end = esp32h4_examine_end;
+	esp_riscv->stub_pma_entry = &esp32h4_stub_pma_entry;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;

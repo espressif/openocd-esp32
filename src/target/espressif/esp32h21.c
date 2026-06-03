@@ -41,6 +41,22 @@
 #define ESP32H21_DRAM_LOW        0x40800000
 #define ESP32H21_DRAM_HIGH       0x40850000
 
+/* PMA entry 14 covers the HP RAM region (0x40800000..0x40880000, 512 KB).
+ * See esp_riscv_pma_force_napot_rwx() in esp_riscv.c for the rationale.
+ *   pmaaddr14 = (0x40800000 | 0x3FFFF) >> 2 = 0x1020FFFF
+ *   pmacfg14  = PMA_NAPOT | PMA_EN | PMA_R | PMA_W | PMA_X = 0xC000001D
+ */
+#define ESP32H21_PMA_ENTRY_NUM        16
+#define ESP32H21_PMA_ENTRY_RAM        (ESP32H21_PMA_ENTRY_NUM - 2)
+#define ESP32H21_PMA_RAM_NAPOT_ADDR   0x1020FFFFUL
+#define ESP32H21_PMA_RAM_NAPOT_CFG_RWX 0xC000001DUL
+
+static const struct esp_riscv_pma_entry esp32h21_stub_pma_entry = {
+	.index      = ESP32H21_PMA_ENTRY_RAM,
+	.napot_addr = ESP32H21_PMA_RAM_NAPOT_ADDR,
+	.napot_cfg  = ESP32H21_PMA_RAM_NAPOT_CFG_RWX,
+};
+
 enum esp32h21_reset_reason {
 	ESP32H21_CHIP_POWER_ON_RESET     = 0x01,	/* Vbat power on reset */
 	ESP32H21_RTC_SW_SYS_RESET        = 0x03,	/* Software reset digital core */
@@ -201,6 +217,7 @@ static int esp32h21_target_create(struct target *target)
 	esp_riscv->is_dram_address = esp32h21_is_idram_address;
 	esp_riscv->is_iram_address = esp32h21_is_idram_address;
 	esp_riscv->examine_end = esp32h21_examine_end;
+	esp_riscv->stub_pma_entry = &esp32h21_stub_pma_entry;
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;
