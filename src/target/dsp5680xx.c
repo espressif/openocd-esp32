@@ -33,18 +33,9 @@ static int dsp5680xx_execute_queue(void)
  */
 static int reset_jtag(void)
 {
-	enum tap_state states[2];
-
-	const char *cp = "RESET";
-
-	states[0] = tap_state_by_name(cp);
-	int retval = jtag_add_statemove(states[0]);
+	int retval = jtag_add_statemove(TAP_RESET);
 	if (retval != ERROR_OK)
 		return retval;
-	retval = jtag_execute_queue();
-	if (retval != ERROR_OK)
-		return retval;
-	jtag_add_pathmove(0, states + 1);
 	return jtag_execute_queue();
 }
 
