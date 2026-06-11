@@ -519,6 +519,10 @@ void jtag_add_pathmove(unsigned int num_states, const enum tap_state *path)
 {
 	enum tap_state cur_state = cmd_queue_cur_state;
 
+	// quit if there is nothing to do
+	if (num_states == 0)
+		return;
+
 	/* the last state has to be a stable state */
 	if (!tap_is_state_stable(path[num_states - 1])) {
 		LOG_ERROR("BUG: TAP path doesn't finish in a stable state");
