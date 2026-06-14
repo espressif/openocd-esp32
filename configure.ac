@@ -48,6 +48,8 @@ AC_TYPE_LONG_LONG_INT
 AC_SEARCH_LIBS([ioperm], [ioperm])
 AC_SEARCH_LIBS([dlopen], [dl])
 AC_SEARCH_LIBS([openpty], [util])
+# Older versions of Linux put clock_gettime in librt
+AC_SEARCH_LIBS([clock_gettime], [rt])
 
 AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([elf.h])
@@ -95,6 +97,7 @@ AC_C_BIGENDIAN
 AC_CHECK_FUNCS([strndup])
 AC_CHECK_FUNCS([strnlen])
 AC_CHECK_FUNCS([gettimeofday])
+AC_CHECK_FUNCS([clock_gettime])
 AC_CHECK_FUNCS([usleep])
 AC_CHECK_FUNCS([realpath])
 AC_CHECK_FUNCS([mallinfo])

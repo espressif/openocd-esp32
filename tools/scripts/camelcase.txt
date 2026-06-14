@@ -170,6 +170,8 @@ MsgWaitForMultipleObjects
 PeekMessage
 PeekNamedPipe
 QuadPart
+QueryPerformanceCounter
+QueryPerformanceFrequency
 SetConsoleCtrlHandler
 Sleep
 WaitForSingleObject
