@@ -249,10 +249,7 @@ COMMAND_HANDLER(handle_pld_devices_command)
 COMMAND_HANDLER(handle_pld_load_command)
 {
 	int retval;
-	struct timeval start, end, duration;
 	struct pld_device *p;
-
-	gettimeofday(&start, NULL);
 
 	if (CMD_ARGC < 2)
 		return ERROR_COMMAND_SYNTAX_ERROR;
@@ -279,19 +276,20 @@ COMMAND_HANDLER(handle_pld_load_command)
 		return ERROR_PLD_FILE_LOAD_FAILED;
 	}
 
+	struct duration load_time;
+	duration_start(&load_time);
+
 	retval = p->driver->load(p, CMD_ARGV[1]);
 	if (retval != ERROR_OK) {
 		command_print(CMD, "failed loading file %s to pld device %s",
 			CMD_ARGV[1], CMD_ARGV[0]);
 		return retval;
-	} else {
-		gettimeofday(&end, NULL);
-		timeval_subtract(&duration, &end, &start);
-
-		command_print(CMD, "loaded file %s to pld device %s in %jis %jius",
-			CMD_ARGV[1], CMD_ARGV[0],
-			(intmax_t)duration.tv_sec, (intmax_t)duration.tv_usec);
 	}
+
+	duration_measure(&load_time);
+
+	command_print(CMD, "loaded file %s to pld device %s in %f s",
+		CMD_ARGV[1], CMD_ARGV[0], duration_elapsed(&load_time));
 
 	return ERROR_OK;
 }
