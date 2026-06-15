@@ -574,7 +574,7 @@ int embeddedice_send(struct arm_jtag *jtag_info, uint32_t *data, uint32_t size)
 /**
  * Poll DCC control register until read or write handshake completes.
  */
-int embeddedice_handshake(struct arm_jtag *jtag_info, int hsbit, uint32_t timeout)
+int embeddedice_handshake(struct arm_jtag *jtag_info, int hsbit, uint32_t timeout_ms)
 {
 	struct scan_field fields[3];
 	uint8_t field0_in[4];
@@ -582,8 +582,6 @@ int embeddedice_handshake(struct arm_jtag *jtag_info, int hsbit, uint32_t timeou
 	uint8_t field2_out[1];
 	int retval;
 	uint32_t hsact;
-	struct timeval now;
-	struct timeval timeout_end;
 
 	if (hsbit == EICE_COMM_CTRL_WBIT)
 		hsact = 1;
@@ -616,8 +614,8 @@ int embeddedice_handshake(struct arm_jtag *jtag_info, int hsbit, uint32_t timeou
 	fields[2].in_value = NULL;
 
 	jtag_add_dr_scan(jtag_info->tap, 3, fields, TAP_IDLE);
-	gettimeofday(&timeout_end, NULL);
-	timeval_add_time(&timeout_end, 0, timeout * 1000);
+
+	int64_t then = timeval_ms() + timeout_ms;
 	do {
 		jtag_add_dr_scan(jtag_info->tap, 3, fields, TAP_IDLE);
 		retval = jtag_execute_queue();
@@ -627,8 +625,7 @@ int embeddedice_handshake(struct arm_jtag *jtag_info, int hsbit, uint32_t timeou
 		if (buf_get_u32(field0_in, hsbit, 1) == hsact)
 			return ERROR_OK;
 
-		gettimeofday(&now, NULL);
-	} while (timeval_compare(&now, &timeout_end) <= 0);
+	} while (timeval_ms() <= then);
 
 	LOG_ERROR("embeddedice handshake timeout");
 	return ERROR_TARGET_TIMEOUT;

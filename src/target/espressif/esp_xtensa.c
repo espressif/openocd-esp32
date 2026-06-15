@@ -394,7 +394,6 @@ int esp_xtensa_breakpoint_remove(struct target *target, struct breakpoint *break
 int esp_xtensa_profiling(struct target *target, uint32_t *samples,
 	uint32_t max_num_samples, uint32_t *num_samples, uint32_t seconds)
 {
-	struct timeval timeout, now;
 	struct xtensa *xtensa = target_to_xtensa(target);
 	int retval = ERROR_OK;
 	int res;
@@ -403,8 +402,7 @@ int esp_xtensa_profiling(struct target *target, uint32_t *samples,
 	#define MIN_PASS 200
 	#define MAX_PASS 1000
 
-	gettimeofday(&timeout, NULL);
-	timeval_add_time(&timeout, seconds, 0);
+	int64_t then = timeval_ms() + seconds * 1000LL;
 
 	uint8_t buf[sizeof(uint32_t) * MAX_PASS];
 
@@ -449,8 +447,7 @@ int esp_xtensa_profiling(struct target *target, uint32_t *samples,
 			uint32_t sample32 = buf_get_u32(buf + i * sizeof(uint32_t), 0, 32);
 			samples[sample_count++] = sample32;
 		}
-		gettimeofday(&now, NULL);
-		if (sample_count >= max_num_samples || timeval_compare(&now, &timeout) > 0) {
+		if (sample_count >= max_num_samples || timeval_ms() > then) {
 			LOG_TARGET_INFO(target, "Profiling completed. %" PRIu32 " samples.", sample_count);
 			break;
 		}

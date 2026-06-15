@@ -101,7 +101,6 @@ static void unexport_sysfs_gpio(int gpio)
  */
 static int setup_sysfs_gpio(int gpio, int is_output, int init_high)
 {
-	struct timeval timeout, now;
 	char buf[40];
 	char gpiostr[5];
 	int ret;
@@ -121,16 +120,15 @@ static int setup_sysfs_gpio(int gpio, int is_output, int init_high)
 		}
 	}
 
-	gettimeofday(&timeout, NULL);
-	timeval_add_time(&timeout, 0, 500000);
+	// 500 ms timeout
+	int64_t then = timeval_ms() + 500;
 
 	snprintf(buf, sizeof(buf), "/sys/class/gpio/gpio%d/direction", gpio);
 	for (;;) {
 		ret = open_write_close(buf, is_output ? (init_high ? "high" : "low") : "in");
 		if (ret >= 0 || errno != EACCES)
 			break;
-		gettimeofday(&now, NULL);
-		if (timeval_compare(&now, &timeout) >= 0)
+		if (timeval_ms() >= then)
 			break;
 		jtag_sleep(10000);
 	}
@@ -146,8 +144,7 @@ static int setup_sysfs_gpio(int gpio, int is_output, int init_high)
 		ret = open(buf, O_RDWR | O_NONBLOCK | O_SYNC);
 		if (ret >= 0 || errno != EACCES)
 			break;
-		gettimeofday(&now, NULL);
-		if (timeval_compare(&now, &timeout) >= 0)
+		if (timeval_ms() >= then)
 			break;
 		jtag_sleep(10000);
 	}

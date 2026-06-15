@@ -2370,7 +2370,6 @@ void cortex_m_deinit_target(struct target *target)
 int cortex_m_profiling(struct target *target, uint32_t *samples,
 			      uint32_t max_num_samples, uint32_t *num_samples, uint32_t seconds)
 {
-	struct timeval timeout, now;
 	struct armv7m_common *armv7m = target_to_armv7m(target);
 	uint32_t reg_value;
 	int retval;
@@ -2385,8 +2384,7 @@ int cortex_m_profiling(struct target *target, uint32_t *samples,
 		return target_profiling_default(target, samples, max_num_samples, num_samples, seconds);
 	}
 
-	gettimeofday(&timeout, NULL);
-	timeval_add_time(&timeout, seconds, 0);
+	int64_t then = timeval_ms() + seconds * 1000LL;
 
 	LOG_TARGET_INFO(target, "Starting Cortex-M profiling. Sampling DWT_PCSR as fast as we can...");
 
@@ -2422,8 +2420,7 @@ int cortex_m_profiling(struct target *target, uint32_t *samples,
 		}
 
 
-		gettimeofday(&now, NULL);
-		if (sample_count >= max_num_samples || timeval_compare(&now, &timeout) > 0) {
+		if (sample_count >= max_num_samples || timeval_ms() > then) {
 			LOG_TARGET_INFO(target, "Profiling completed. %" PRIu32 " samples.", sample_count);
 			break;
 		}

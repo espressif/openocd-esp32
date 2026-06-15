@@ -2370,10 +2370,7 @@ static int target_gdb_fileio_end_default(struct target *target,
 int target_profiling_default(struct target *target, uint32_t *samples,
 		uint32_t max_num_samples, uint32_t *num_samples, uint32_t seconds)
 {
-	struct timeval timeout, now;
-
-	gettimeofday(&timeout, NULL);
-	timeval_add_time(&timeout, seconds, 0);
+	int64_t then = timeval_ms() + seconds * 1000LL;
 
 	LOG_INFO("Starting profiling. Halting and resuming the"
 			" target as often as we can...");
@@ -2404,8 +2401,7 @@ int target_profiling_default(struct target *target, uint32_t *samples,
 		if (retval != ERROR_OK)
 			break;
 
-		gettimeofday(&now, NULL);
-		if ((sample_count >= max_num_samples) || timeval_compare(&now, &timeout) >= 0) {
+		if (sample_count >= max_num_samples || timeval_ms() >= then) {
 			LOG_INFO("Profiling completed. %" PRIu32 " samples.", sample_count);
 			break;
 		}
