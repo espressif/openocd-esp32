@@ -29,8 +29,8 @@ int timeval_compare(const struct timeval *x, const struct timeval *y);
 int64_t timeval_ms(void);
 
 struct duration {
-	struct timeval start;
-	struct timeval elapsed;
+	int64_t start_ms;
+	int64_t elapsed_ms;
 };
 
 /** Update the duration->start field to start the @a duration measurement. */

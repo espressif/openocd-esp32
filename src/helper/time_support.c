@@ -70,31 +70,39 @@ int timeval_compare(const struct timeval *x, const struct timeval *y)
 
 int duration_start(struct duration *duration)
 {
-	if (gettimeofday(&duration->start, NULL) != 0)
+	int64_t now = timeval_ms();
+
+	if (now < 0)
 		return ERROR_FAIL;
+
+	duration->start_ms = now;
 
 	return ERROR_OK;
 }
 
 int duration_measure(struct duration *duration)
 {
-	struct timeval end;
-	if (gettimeofday(&end, NULL) != 0)
+	int64_t now = timeval_ms();
+
+	if (now < 0)
 		return ERROR_FAIL;
 
-	timeval_subtract(&duration->elapsed, &end, &duration->start);
+	duration->elapsed_ms = now - duration->start_ms;
 
 	return ERROR_OK;
 }
 
 float duration_elapsed(const struct duration *duration)
 {
-	float t = duration->elapsed.tv_sec;
-	t += (float)duration->elapsed.tv_usec / 1000000.0;
-	return t;
+	return ((float)duration->elapsed_ms) / 1000;
 }
 
 float duration_kbps(const struct duration *duration, size_t count)
 {
-	return count / (1024.0 * duration_elapsed(duration));
+	int64_t elapsed_ms = duration->elapsed_ms;
+
+	if (elapsed_ms == 0)
+		elapsed_ms = 1;
+
+	return 1000 * count / (1024 * (float)elapsed_ms);
 }
