@@ -51,21 +51,6 @@ struct timeval {
 
 #endif
 
-/* gettimeofday() */
-#ifndef HAVE_GETTIMEOFDAY
-
-#ifdef _WIN32
-struct timezone {
-	int tz_minuteswest;
-	int tz_dsttime;
-};
-#endif
-struct timezone;
-
-int gettimeofday(struct timeval *tv, struct timezone *tz);
-
-#endif
-
 void *clear_malloc(size_t size);
 void *fill_malloc(size_t size);
 

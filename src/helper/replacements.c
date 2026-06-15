@@ -59,51 +59,6 @@ void *fill_malloc(size_t size)
 #include <winsock2.h>
 #endif
 
-/* replacements for gettimeofday */
-#ifndef HAVE_GETTIMEOFDAY
-
-/* Windows */
-#ifdef _WIN32
-
-#ifndef __GNUC__
-#define EPOCHFILETIME (116444736000000000i64)
-#else
-#define EPOCHFILETIME (116444736000000000LL)
-#endif
-
-int gettimeofday(struct timeval *tv, struct timezone *tz)
-{
-	FILETIME ft;
-	LARGE_INTEGER li;
-	__int64 t;
-	static int tzflag;
-
-	if (tv) {
-		GetSystemTimeAsFileTime(&ft);
-		li.LowPart  = ft.dwLowDateTime;
-		li.HighPart = ft.dwHighDateTime;
-		t  = li.QuadPart;					/* In 100-nanosecond intervals */
-		t -= EPOCHFILETIME;					/* Offset to the Epoch time */
-		t /= 10;							/* In microseconds */
-		tv->tv_sec  = (long)(t / 1000000);
-		tv->tv_usec = (long)(t % 1000000);
-	}
-
-	if (tz) {
-		if (!tzflag) {
-			_tzset();
-			tzflag++;
-		}
-		tz->tz_minuteswest = _timezone / 60;
-		tz->tz_dsttime = _daylight;
-	}
-
-	return 0;
-}
-#endif	/* _WIN32 */
-
-#endif	/* HAVE_GETTIMEOFDAY */
-
 #ifndef HAVE_STRNLEN
 size_t strnlen(const char *s, size_t maxlen)
 {

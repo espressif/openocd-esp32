@@ -96,7 +96,6 @@ AC_C_BIGENDIAN
 
 AC_CHECK_FUNCS([strndup])
 AC_CHECK_FUNCS([strnlen])
-AC_CHECK_FUNCS([gettimeofday])
 AC_CHECK_FUNCS([clock_gettime])
 AC_CHECK_FUNCS([usleep])
 AC_CHECK_FUNCS([realpath])

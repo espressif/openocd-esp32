@@ -161,7 +161,6 @@ CreateFile
 CloseHandle
 FormatMessage
 GetModuleFileName
-GetSystemTimeAsFileTime
 GetTickCount
 GetVersionEx
 HighPart
@@ -179,8 +178,6 @@ WSACleanup
 WSAGetLastError
 WSASetLastError
 WSAStartup
-dwHighDateTime
-dwLowDateTime
 dwPlatformId
 dwOSVersionInfoSize
 
