@@ -50,7 +50,8 @@
 #define ESP32H4_PMA_RAM_NAPOT_ADDR              0x1020FFFFUL
 #define ESP32H4_PMA_RAM_NAPOT_CFG_RWX           0xC000001DUL
 
-static const struct esp_riscv_pma_entry esp32h4_stub_pma_entry = {
+//TODO: Make static when CSRs are supported. OCD-1143
+const struct esp_riscv_pma_entry esp32h4_stub_pma_entry = {
 	.index      = ESP32H4_PMA_ENTRY_RAM,
 	.napot_addr = ESP32H4_PMA_RAM_NAPOT_ADDR,
 	.napot_cfg  = ESP32H4_PMA_RAM_NAPOT_CFG_RWX,
@@ -244,7 +245,7 @@ static int esp32h4_target_create(struct target *target)
 	esp_riscv->is_dram_address = esp32h4_is_idram_address;
 	esp_riscv->is_iram_address = esp32h4_is_idram_address;
 	esp_riscv->examine_end = esp32h4_examine_end;
-	esp_riscv->stub_pma_entry = &esp32h4_stub_pma_entry;
+	esp_riscv->stub_pma_entry = NULL; //Enable when CSRs are supported. OCD-1143
 
 	if (esp_riscv_alloc_trigger_addr(target) != ERROR_OK)
 		return ERROR_FAIL;
