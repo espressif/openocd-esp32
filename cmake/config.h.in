@@ -313,6 +313,9 @@
 /* Define if the system has the type 'unsigned long long int'. */
 #cmakedefine HAVE_UNSIGNED_LONG_LONG_INT
 
+/* Define if you have Capstone disassembly framework. */
+#cmakedefine HAVE_CAPSTONE
+
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */
 #cmakedefine WORDS_BIGENDIAN

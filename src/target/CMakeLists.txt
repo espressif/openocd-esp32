@@ -80,7 +80,6 @@ target_sources(target PRIVATE
 	armv8_dpm.c
 	armv8_opcodes.c
 	aarch64.c
-	a64_disassembler.c
 	armv8.c
 	armv8_cache.c
 )
@@ -165,7 +164,6 @@ target_sources(target PRIVATE
 	armv7a_cache_l2x.h
 	armv7a_mmu.h
 	arm_disassembler.h
-	a64_disassembler.h
 	arm_opcodes.h
 	arm_simulator.h
 	arm_semihosting.h
@@ -243,6 +241,10 @@ target_sources(target PRIVATE
 if(HAVE_CAPSTONE)
 	target_include_directories(target PRIVATE ${CAPSTONE_INCLUDE_DIRS})
 	target_link_libraries(target PRIVATE ${CAPSTONE_LINK_LIBRARIES})
+	target_sources(target PRIVATE
+		oocd_capstone.c
+		oocd_capstone.h
+	)
 endif()
 
 # sub targets of openocd-target library
