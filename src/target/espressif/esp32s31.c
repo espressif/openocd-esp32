@@ -191,7 +191,7 @@ static const struct esp_flash_breakpoint_ops esp32s31_flash_brp_ops = {
 	.breakpoint_remove = esp_algo_flash_breakpoint_remove,
 };
 
-/* TODO: add missing CSRs */
+/* TODO: add missing CSRs OCD-1298 */
 static const char *esp32s31_csrs[] = {
 	"mie", "mcause", "mip", "mtvt", "mnxti",
 	"mscratchcsw", "mscratchcswl",
