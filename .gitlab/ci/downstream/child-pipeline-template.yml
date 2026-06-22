@@ -43,7 +43,7 @@ fetch_gdb:
       ref: $TRIGGERED_BY_GDB_PIPELINE_BRANCH
       artifacts: true
   rules:
-    - if: '$TRIGGERED_BY_GDB_PIPELINE_BRANCH != "" && $CI_IDF_VERSION == "6_1"'
+    - if: '$TRIGGERED_BY_GDB_PIPELINE_BRANCH != "" && $CI_IDF_VERSION == "6_2"'
   script:
     - mv dist gdb
     - cd gdb
@@ -102,7 +102,7 @@ dummy_job:
     - build
     - brew
   rules:
-    - if: '$CI_FULL_RUN == "0" && $CI_IDF_VERSION != "6_1"'
+    - if: '$CI_FULL_RUN == "0" && $CI_IDF_VERSION != "6_2"'
 
 include:
   - '.gitlab/ci/downstream/build-test-app-template.yml'
