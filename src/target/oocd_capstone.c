@@ -29,15 +29,24 @@ static struct {
 } all_archs[] = {
 	{ "arm", CS_ARCH_ARM, CS_MODE_ARM },
 	{ "armbe", CS_ARCH_ARM, CS_MODE_ARM | CS_MODE_BIG_ENDIAN },
-	{ "arm64", CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN },
-	{ "arm64be", CS_ARCH_ARM64, CS_MODE_BIG_ENDIAN },
 	{ "cortexm", CS_ARCH_ARM, CS_MODE_ARM | CS_MODE_THUMB | CS_MODE_MCLASS },
 	{ "thumb", CS_ARCH_ARM, CS_MODE_ARM | CS_MODE_THUMB },
 
+#if CS_API_MAJOR < 6
+	{ "arm64", CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN },
+	{ "arm64be", CS_ARCH_ARM64, CS_MODE_BIG_ENDIAN },
 #if CS_API_MAJOR >= 5
 	{ "riscv32", CS_ARCH_RISCV, CS_MODE_RISCV32 | CS_MODE_RISCVC },
 	{ "riscv64", CS_ARCH_RISCV, CS_MODE_RISCV64 | CS_MODE_RISCVC },
-#endif /* CS_API_MAJOR >= 5 */
+#endif
+#endif /* CS_API_MAJOR < 6 */
+
+#if CS_API_MAJOR >= 6
+	{ "arm64", CS_ARCH_AARCH64, CS_MODE_LITTLE_ENDIAN },
+	{ "arm64be", CS_ARCH_AARCH64, CS_MODE_BIG_ENDIAN },
+	{ "riscv32", CS_ARCH_RISCV, CS_MODE_RISCV32 | CS_MODE_RISCV_C },
+	{ "riscv64", CS_ARCH_RISCV, CS_MODE_RISCV64 | CS_MODE_RISCV_C },
+#endif /* CS_API_MAJOR >= 6 */
 };
 
 int oocd_cs_list_insn_types(struct command_invocation *cmd)
