@@ -102,7 +102,7 @@
   ./bootstrap
   mkdir _build && pushd _build/
   ../configure --prefix=$PWD/../$DIST_INSTALLED_DIR --host=${CONF_HOST} $OPENOCD_CONFIGURE_OPTS CC=${HOST_CC}
-  make -j `nproc`
+  make -j "${NPROC:-$(nproc)}"
   MAKEFLAGS= make ${INSTALL_TARGET}
   popd
 
@@ -274,11 +274,13 @@ build_windows_win32:
   extends: .build_windows_template
   variables:
     PLATFORM_NAME: "win32"
+    NPROC: 1
 
 build_windows_win64:
   extends: .build_windows_template
   variables:
     PLATFORM_NAME: "win64"
+    NPROC: 1
 
 build_windows_arm64:
   extends: .build_windows_template
