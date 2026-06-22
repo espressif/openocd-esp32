@@ -131,7 +131,6 @@ static const char *esp32h4_get_reset_reason(uint32_t reset_reason_reg_val, int s
 	return "Unknown reset cause";
 }
 
-// TODO: Test and close OCD-1140
 static void esp32h4_print_reset_reason(struct target *target, uint32_t reset_reason_reg_val)
 {
 	if (target->coreid == 0) {
@@ -195,23 +194,29 @@ static const struct esp_flash_breakpoint_ops esp32h4_flash_brp_ops = {
 	.breakpoint_remove = esp_algo_flash_breakpoint_remove,
 };
 
-// TODO: check if the CSRs are correct OCD-1143
 static const char *esp32h4_csrs[] = {
-	"mie", "mcause", "mip", "mtvt", "mnxti",
-	"mscratchcsw", "mscratchcswl",
-	"mcycle", "minstret", "mcounteren", "mcountinhibit",
-	"mhpmcounter8", "mhpmcounter9", "mhpmcounter13", "mhpmevent8", "mhpmevent9", "mhpmevent13",
-	"mcycleh", "minstreth", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
-	"tdata3", "tinfo", "mcontext",// "mintstatus",
-	"mclicbase", "mxstatus", "mhcr", "mhint", "mraddr", "mexstatus",
-	"mnmicause", "mnmipc", "mcpuid", "cpu_testbus_ctrl", "pm_user",
+	"mie", "mip", "jvt", "mtvt", "mcontext", "tdata3", "tinfo",
+	"fflags", "frm", "fcsr",
+	"mnxti", "mscratchcsw", "mscratchcswl", "utvt", "unxti",
+	"mcycle", "mcycleh", "minstret", "minstreth",
+	"mhpmevent8", "mhpmevent9", "mhpmevent13",
+	"mhpmcounter8", "mhpmcounter9", "mhpmcounter13", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
+	"mcounteren", "mcountinhibit",
+	"ustatus", "utvec", "uepc", "ucause",
 	"gpio_oen_user", "gpio_in_user", "gpio_out_user",
 	"pma_cfg0", "pma_cfg1", "pma_cfg2", "pma_cfg3", "pma_cfg4", "pma_cfg5",
 	"pma_cfg6", "pma_cfg7", "pma_cfg8", "pma_cfg9", "pma_cfg10", "pma_cfg11",
 	"pma_cfg12", "pma_cfg13", "pma_cfg14", "pma_cfg15", "pma_addr0", "pma_addr1",
 	"pma_addr2", "pma_addr3", "pma_addr4", "pma_addr5", "pma_addr6", "pma_addr7",
 	"pma_addr8", "pma_addr9", "pma_addr10", "pma_addr11", "pma_addr12", "pma_addr13",
-	"pma_addr14", "pma_addr15",
+	"pma_addr14", "pma_addr15", "mxstatus", "mhcr", "mhint", "mexstatus",
+	"mclicbase", "mraddr", "mintthresh", "uscratch",  "uintthresh", "uclicbase",
+};
+
+static const char *esp32h4_ro_csrs[] = {
+	"csr_mintstatus", "mcpuid", "csr_uintstatus",
+	"cycle", "time", "instreth", "cycleh", "instret", "timeh",
+	"hpmcounter8", "hpmcounter9", "hpmcounter13", "hpmcounter8h", "hpmcounter9h", "hpmcounter13h",
 };
 
 static struct esp_riscv_reg_class esp32h4_registers[] = {
@@ -219,6 +224,10 @@ static struct esp_riscv_reg_class esp32h4_registers[] = {
 		.reg_array = esp32h4_csrs,
 		.reg_array_size = ARRAY_SIZE(esp32h4_csrs),
 		.save_restore = true
+	},
+	{
+		.reg_array = esp32h4_ro_csrs,
+		.reg_array_size = ARRAY_SIZE(esp32h4_ro_csrs),
 	},
 };
 
