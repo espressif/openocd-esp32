@@ -38,14 +38,26 @@ function(check_toolchain_version COMPILER MIN_VERSION)
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
 
-    if(result EQUAL 0)
-        string(REGEX MATCH "esp-[0-9]+\\.[0-9]+\\.[0-9]+_[0-9]+" toolchain_version ${gcc_output})
-        if(toolchain_version VERSION_GREATER_EQUAL ${MIN_VERSION})
-            message(STATUS "Found Toolchain version: ${toolchain_version} (>= ${MIN_VERSION})")
-        else()
-            message(FATAL_ERROR "Toolchain version too old! Found: ${toolchain_version}, but minimum required: ${MIN_VERSION}")
-        endif()
-    else()
+    if(NOT result EQUAL 0)
         message(FATAL_ERROR "Failed to run ${COMPILER} --version: ${gcc_error}")
+    endif()
+
+    string(REGEX MATCH "esp-[0-9]+\\.[0-9]+\\.[0-9]+_[0-9]+" toolchain_version ${gcc_output})
+    if(NOT toolchain_version)
+        message(FATAL_ERROR "Could not determine toolchain version from: ${gcc_output}")
+    endif()
+
+    # CMake's VERSION_* operators only parse a leading numeric version, so the
+    # "esp-" prefix would make every comparison evaluate against 0. Normalize
+    # "esp-16.1.0_20260609" -> "16.1.0.20260609" so the date breaks ties.
+    string(REGEX REPLACE "^esp-" "" found_version "${toolchain_version}")
+    string(REPLACE "_" "." found_version "${found_version}")
+    string(REGEX REPLACE "^esp-" "" min_version "${MIN_VERSION}")
+    string(REPLACE "_" "." min_version "${min_version}")
+
+    if(found_version VERSION_GREATER_EQUAL min_version)
+        message(STATUS "Found toolchain ${toolchain_version} (>= required ${MIN_VERSION})")
+    else()
+        message(FATAL_ERROR "Toolchain version too old! Found: ${toolchain_version}, but minimum required: ${MIN_VERSION}")
     endif()
 endfunction()
