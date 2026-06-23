@@ -1,7 +1,7 @@
-tests_esp32_idf5.5.x:
-  extends: .tests_v5.5.x_template
+tests_esp32_idf6.1.x:
+  extends: .tests_v6.1.x_template
   needs:
-    - job: build_test_app_esp32_idf5.5.x
+    - job: build_test_app_esp32_idf6.1.x
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
@@ -11,12 +11,12 @@ tests_esp32_idf5.5.x:
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -e test_*.*Encrypted"
 
-tests_esp32_idf5.5.x_flash_encrypted:
-  extends: .tests_v5.5.x_template
+tests_esp32_idf6.1.x_flash_encrypted:
+  extends: .tests_v6.1.x_template
   tags:
     - test_jtag_arm_flash_encryption
   needs:
-    - job: build_test_app_esp32_idf5.5.x
+    - job: build_test_app_esp32_idf6.1.x
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
@@ -29,10 +29,10 @@ tests_esp32_idf5.5.x_flash_encrypted:
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
   timeout: 25m
 
-tests_esp32s2_idf5.5.x:
-  extends: .tests_v5.5.x_template
+tests_esp32s2_idf6.1.x:
+  extends: .tests_v6.1.x_template
   needs:
-    - job: build_test_app_esp32s2_idf5.5.x
+    - job: build_test_app_esp32s2_idf6.1.x
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
@@ -42,12 +42,12 @@ tests_esp32s2_idf5.5.x:
     CHIP_NAME: "esp32s2"
     TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*Single"
 
-tests_esp32s2_idf5.5.x_flash_encrypted:
-  extends: .tests_v5.5.x_template
+tests_esp32s2_idf6.1.x_flash_encrypted:
+  extends: .tests_v6.1.x_template
   tags:
     - test_jtag_arm_flash_encryption_esp32s2
   needs:
-    - job: build_test_app_esp32s2_idf5.5.x
+    - job: build_test_app_esp32s2_idf6.1.x
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
@@ -57,10 +57,10 @@ tests_esp32s2_idf5.5.x_flash_encrypted:
     CHIP_NAME: "esp32s2"
     TEST_RUN_BOARD_OPTS: "-b esp32s2-devkitj -p test_*.*SingleEncrypted"
 
-tests_esp32s3_idf5.5.x_dual:
-  extends: .tests_v5.5.x_template
+tests_esp32s3_idf6.1.x_dual:
+  extends: .tests_v6.1.x_template
   needs:
-    - job: build_test_app_esp32s3_idf5.5.x
+    - job: build_test_app_esp32s3_idf6.1.x
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
@@ -70,26 +70,18 @@ tests_esp32s3_idf5.5.x_dual:
     CHIP_NAME: "esp32s3"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual"
 
-tests_esp32s3_idf5.5.x_dual_usj:
-  extends: tests_esp32s3_idf5.5.x_dual
-  tags:
-    - esp32s3
-    - usb_serial_jtag
-  variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32s3-builtin -p test_*.*Dual -e test_*.PsramTests* *.*.test_big_binary *.*.test_big_binary_compressed"
-
-tests_esp32s3_idf5.5.x_dual_32mb:
-  extends: tests_esp32s3_idf5.5.x_dual
+tests_esp32s3_idf6.1.x_dual_32mb:
+  extends: tests_esp32s3_idf6.1.x_dual
   tags:
     - esp32s3_32mb
     - jtag
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual32MB test_flasher.*Dual"
 
-tests_esp32s3_idf5.5.x_single:
-  extends: .tests_v5.5.x_template
+tests_esp32s3_idf6.1.x_single:
+  extends: .tests_v6.1.x_template
   needs:
-    - job: build_test_app_esp32s3_idf5.5.x
+    - job: build_test_app_esp32s3_idf6.1.x
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
@@ -100,26 +92,18 @@ tests_esp32s3_idf5.5.x_single:
     OOCD_CMDS: "set ESP_ONLYCPU 1"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
 
-tests_esp32s3_idf5.5.x_single_usj:
-  extends: tests_esp32s3_idf5.5.x_single
-  tags:
-    - esp32s3
-    - usb_serial_jtag
-  variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32s3-builtin -p test_*.*Single -e test_*.PsramTests* *.*.test_big_binary *.*.test_big_binary_compressed"
-
-tests_esp32s3_idf5.5.x_single_32mb:
-  extends: tests_esp32s3_idf5.5.x_single
+tests_esp32s3_idf6.1.x_single_32mb:
+  extends: tests_esp32s3_idf6.1.x_single
   tags:
     - esp32s3_32mb
     - jtag
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single32MB test_flasher.*Single"
 
-tests_esp32c2_idf5.5.x:
-  extends: .tests_v5.5.x_riscv_template
+tests_esp32c2_idf6.1.x:
+  extends: .tests_v6.1.x_riscv_template
   needs:
-    - job: build_test_app_esp32c2_idf5.5.x
+    - job: build_test_app_esp32c2_idf6.1.x
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
@@ -129,10 +113,10 @@ tests_esp32c2_idf5.5.x:
     CHIP_NAME: "esp32c2"
     TEST_RUN_BOARD_OPTS: "-b esp32c2-ftdi -p test_*.*Single -e test_multi_app_flash_images.MultiAppImagesTestsSingle"
 
-tests_esp32c3_idf5.5.x:
-  extends: .tests_v5.5.x_riscv_template
+tests_esp32c3_idf6.1.x:
+  extends: .tests_v6.1.x_riscv_template
   needs:
-    - job: build_test_app_esp32c3_idf5.5.x
+    - job: build_test_app_esp32c3_idf6.1.x
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
@@ -142,12 +126,12 @@ tests_esp32c3_idf5.5.x:
     CHIP_NAME: "esp32c3"
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*Single"
 
-tests_esp32c3_idf5.5.x_flash_encrypted:
-  extends: .tests_v5.5.x_riscv_template
+tests_esp32c3_idf6.1.x_flash_encrypted:
+  extends: .tests_v6.1.x_riscv_template
   tags:
     - test_jtag_arm_flash_encryption_esp32c3
   needs:
-    - job: build_test_app_esp32c3_idf5.5.x
+    - job: build_test_app_esp32c3_idf6.1.x
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
@@ -157,13 +141,13 @@ tests_esp32c3_idf5.5.x_flash_encrypted:
     CHIP_NAME: "esp32c3"
     TEST_RUN_BOARD_OPTS: "-b esp32c3-ftdi -p test_*.*SingleEncrypted"
 
-tests_esp32c5_idf5.5.x:
-  extends: .tests_v5.5.x_riscv_template
+tests_esp32c5_idf6.1.x:
+  extends: .tests_v6.1.x_riscv_template
   tags:
     - esp32c5
     - usb_serial_jtag
   needs:
-    - job: build_test_app_esp32c5_idf5.5.x
+    - job: build_test_app_esp32c5_idf6.1.x
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
@@ -173,18 +157,18 @@ tests_esp32c5_idf5.5.x:
     CHIP_NAME: "esp32c5"
     TEST_RUN_BOARD_OPTS: "-b esp32c5-builtin -p test_*.*Single"
 
-tests_esp32c5_lpcore_idf5.5.x:
-  extends: tests_esp32c5_idf5.5.x
+tests_esp32c5_idf6.1.x_lpcore:
+  extends: tests_esp32c5_idf6.1.x
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32c5-lpcore-builtin -p test_*.LpCore*"
 
-tests_esp32c6_idf5.5.x:
-  extends: .tests_v5.5.x_riscv_template
+tests_esp32c6_idf6.1.x:
+  extends: .tests_v6.1.x_riscv_template
   tags:
     - esp32c6
     - usb_serial_jtag
   needs:
-    - job: build_test_app_esp32c6_idf5.5.x
+    - job: build_test_app_esp32c6_idf6.1.x
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
@@ -194,21 +178,21 @@ tests_esp32c6_idf5.5.x:
     CHIP_NAME: "esp32c6"
     TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single"
 
-tests_esp32c6_lpcore_idf5.5.x:
-  extends: tests_esp32c6_idf5.5.x
+tests_esp32c6_idf6.1.x_lpcore:
+  extends: tests_esp32c6_idf6.1.x
   retry:
     max: 2
   allow_failure: true
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32c6-lpcore-builtin -p test_*.LpCore*"
 
-tests_esp32c61_idf5.5.x:
-  extends: .tests_v5.5.x_riscv_template
+tests_esp32c61_idf6.1.x:
+  extends: .tests_v6.1.x_riscv_template
   tags:
     - esp32c61
     - usb_serial_jtag
   needs:
-    - job: build_test_app_esp32c61_idf5.5.x
+    - job: build_test_app_esp32c61_idf6.1.x
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
@@ -218,13 +202,13 @@ tests_esp32c61_idf5.5.x:
     CHIP_NAME: "esp32c61"
     TEST_RUN_BOARD_OPTS: "-b esp32c61-builtin -p test_*.*Single4MB test_*.*Single"
 
-tests_esp32h2_idf5.5.x:
-  extends: .tests_v5.5.x_riscv_template
+tests_esp32h2_idf6.1.x:
+  extends: .tests_v6.1.x_riscv_template
   tags:
     - esp32h2
     - usb_serial_jtag
   needs:
-    - job: build_test_app_esp32h2_idf5.5.x
+    - job: build_test_app_esp32h2_idf6.1.x
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
@@ -234,14 +218,14 @@ tests_esp32h2_idf5.5.x:
     CHIP_NAME: "esp32h2"
     TEST_RUN_BOARD_OPTS: "-b esp32h2-builtin -p test_*.*Single4MB test_*.*Single"
 
-tests_esp32p4_idf5.5.x:
-  extends: .tests_v5.5.x_riscv_template
+tests_esp32p4_idf6.1.x:
+  extends: .tests_v6.1.x_riscv_template
   tags:
     - esp32p4
     - jtag
     - eco6
   needs:
-    - job: build_test_app_esp32p4_idf5.5.x
+    - job: build_test_app_esp32p4_idf6.1.x
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
@@ -251,54 +235,48 @@ tests_esp32p4_idf5.5.x:
     CHIP_NAME: "esp32p4"
     TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.*Encrypted"
 
-tests_esp32p4_lpcore_idf5.5.x:
-  extends: tests_esp32p4_idf5.5.x
+tests_esp32p4_idf6.1.x_lpcore:
+  extends: tests_esp32p4_idf6.1.x
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
 
-tests_esp32p4_idf5.5.x_usj:
-  extends: tests_esp32p4_idf5.5.x
-  tags:
-    - esp32p4
-    - usb_serial_jtag
-    - eco6
-  variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
-
-tests_esp32p4_idf5.5.x_lpcore_usj:
-  extends: tests_esp32p4_idf5.5.x_usj
-  variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-builtin -p test_*.LpCore*"
-
-tests_esp32p4_rev1_idf5.5.x:
-  extends: tests_esp32p4_idf5.5.x
+tests_esp32p4_rev1_idf6.1.x:
+  extends: tests_esp32p4_idf6.1.x
   tags:
     - esp32p4
     - jtag
     - eco4
   needs:
-    - job: build_test_app_esp32p4_rev1_idf5.5.x
+    - job: build_test_app_esp32p4_rev1_idf6.1.x
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_arm64_test
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
     - job: fetch_gcov
 
-tests_esp32p4_rev1_lpcore_idf5.5.x:
-  extends: tests_esp32p4_rev1_idf5.5.x
+tests_esp32p4_rev1_lpcore_idf6.1.x:
+  extends: tests_esp32p4_rev1_idf6.1.x
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
 
-tests_esp32p4_rev1_idf5.5.x_usj:
-  extends: tests_esp32p4_rev1_idf5.5.x
+tests_esp32s31_idf6.1.x:
+  extends: .tests_v6.1.x_riscv_template
   tags:
-    - esp32p4
+    - esp32s31
     - usb_serial_jtag
-    - eco4
+  needs:
+    - job: build_test_app_esp32s31_idf6.1.x
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_armhf_test
+    - job: fetch_gcov
+  allow_failure: true
   variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
+    CHIP_NAME: "esp32s31"
+    TEST_RUN_BOARD_OPTS: "-b esp32s31-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
 
-tests_esp32p4_rev1_idf5.5.x_lpcore_usj:
-  extends: tests_esp32p4_rev1_idf5.5.x_usj
+tests_esp32s31_lpcore_idf6.1.x:
+  extends: tests_esp32s31_idf6.1.x
   variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-builtin -p test_*.LpCore*"
+    TEST_RUN_BOARD_OPTS: "-b esp32s31-lpcore-builtin -p test_*.LpCore*"

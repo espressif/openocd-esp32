@@ -1,0 +1,84 @@
+build_test_app_esp32_idf6.1.x:
+  variables:
+    CHIP_NAME: "esp32"
+    TOOLCHAIN_PREFIX: "xtensa-esp32"
+    TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
+    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single psram_single default default_encrypted svtrace_dual apptrace_gcov_dual psram_dual multi_app_images_single multi_app_images_dual default_freertos_list_integrity single_core_freertos_list_integrity"
+  extends: .build_idf61x_test_app_template
+
+build_test_app_esp32s2_idf6.1.x:
+  variables:
+    CHIP_NAME: "esp32s2"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s2"
+    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single psram_single multi_app_images_single single_core_freertos_list_integrity"
+    TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
+  extends: .build_idf61x_test_app_template
+
+build_test_app_esp32s3_idf6.1.x:
+  variables:
+    CHIP_NAME: "esp32s3"
+    TOOLCHAIN_PREFIX: "xtensa-esp32s3"
+    TEST_APP_CONFIGS: "default default_32MB svtrace_dual apptrace_gcov_dual psram_dual psram_dual_32MB single_core single_core_32MB svtrace_single apptrace_gcov_single psram_single psram_single_32MB multi_app_images_single multi_app_images_dual default_freertos_list_integrity single_core_freertos_list_integrity"
+    TEST_APP_BUILD_TOOLCHAIN_PREFIX: xtensa-esp
+  extends: .build_idf61x_test_app_template
+
+build_test_app_esp32c2_idf6.1.x:
+  variables:
+    CHIP_NAME: "esp32c2"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single single_core_freertos_list_integrity"
+  extends: .build_idf61x_test_app_template
+
+build_test_app_esp32c3_idf6.1.x:
+  variables:
+    CHIP_NAME: "esp32c3"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    TEST_APP_CONFIGS: "single_core single_core_encrypted svtrace_single apptrace_gcov_single multi_app_images_single single_core_freertos_list_integrity"
+  extends: .build_idf61x_test_app_template
+
+build_test_app_esp32c5_idf6.1.x:
+  variables:
+    CHIP_NAME: "esp32c5"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    TEST_APP_CONFIGS: "single_core svtrace_single apptrace_gcov_single psram_single lpcore_single multi_app_images_single single_core_freertos_list_integrity"
+  extends: .build_idf61x_test_app_template
+
+build_test_app_esp32c6_idf6.1.x:
+  variables:
+    CHIP_NAME: "esp32c6"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single lpcore_single multi_app_images_single single_core_freertos_list_integrity single_core_preloaded_stub"
+  extends: .build_idf61x_test_app_template
+
+build_test_app_esp32c61_idf6.1.x:
+  variables:
+    CHIP_NAME: "esp32c61"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single psram_single multi_app_images_single single_core_freertos_list_integrity"
+  extends: .build_idf61x_test_app_template
+
+build_test_app_esp32h2_idf6.1.x:
+  variables:
+    CHIP_NAME: "esp32h2"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single multi_app_images_single single_core_freertos_list_integrity single_core_preloaded_stub"
+  extends: .build_idf61x_test_app_template
+
+build_test_app_esp32p4_idf6.1.x:
+  variables:
+    CHIP_NAME: "esp32p4"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    TEST_APP_CONFIGS: "default default_4MB svtrace_dual apptrace_gcov_dual psram_dual lpcore_dual single_core single_core_4MB svtrace_single apptrace_gcov_single psram_single lpcore_single multi_app_images_single multi_app_images_dual default_freertos_list_integrity single_core_freertos_list_integrity"
+  extends: .build_idf61x_test_app_template
+
+build_test_app_esp32p4_rev1_idf6.1.x:
+  variables:
+    CHIP_VARIANT: "eco4"
+  extends: build_test_app_esp32p4_idf6.1.x
+
+build_test_app_esp32s31_idf6.1.x:
+  variables:
+    CHIP_NAME: "esp32s31"
+    TOOLCHAIN_PREFIX: "riscv32-esp"
+    TEST_APP_CONFIGS: "default default_4MB svtrace_dual apptrace_gcov_dual psram_dual default_freertos_list_integrity lpcore_dual single_core single_core_4MB svtrace_single apptrace_gcov_single psram_single single_core_freertos_list_integrity lpcore_single multi_app_images_single multi_app_images_dual"
+  extends: .build_idf61x_test_app_template

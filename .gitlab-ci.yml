@@ -272,6 +272,7 @@ coverage_reports:
     - job: 5.4.x_run_test_pipeline
     - job: 5.5.x_run_test_pipeline
     - job: 6.0.x_run_test_pipeline
+    - job: 6.1.x_run_test_pipeline
     - job: master_run_test_pipeline
     # NuttX
     - job: test_nuttx_esp32
@@ -339,6 +340,7 @@ runtime_reports:
     - job: 5.4.x_run_test_pipeline
     - job: 5.5.x_run_test_pipeline
     - job: 6.0.x_run_test_pipeline
+    - job: 6.1.x_run_test_pipeline
     - job: master_run_test_pipeline
   when: always
   artifacts:

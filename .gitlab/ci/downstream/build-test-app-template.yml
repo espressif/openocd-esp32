@@ -222,6 +222,12 @@
     BUILD_TEST_APP_DIR: "build_test_app_${CHIP_NAME}_idf6.0.x"
   extends: .build_test_app_template
 
+.build_idf61x_test_app_template:
+  variables:
+    TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF6_1_RELEASE_DOCKER_IMAGE}"
+    BUILD_TEST_APP_DIR: "build_test_app_${CHIP_NAME}_idf6.1.x"
+  extends: .build_test_app_template
+
 .build_idf_master_test_app_template:
   variables:
     TEST_APP_IDF_DOCKER_IMAGE: "${TEST_APP_IDF_LATEST_DOCKER_IMAGE}"

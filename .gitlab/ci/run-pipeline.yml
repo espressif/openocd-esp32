@@ -65,6 +65,17 @@
   variables:
     CI_IDF_VERSION: "6_0"
 
+6.1.x_run_test_pipeline:
+  extends: .run_test_pipeline
+  trigger:
+    include:
+      - local: '.gitlab/ci/downstream/child-pipeline-template.yml'
+      - local: '.gitlab/ci/downstream/idf_6_1_x/build.yml'
+      - local: '.gitlab/ci/downstream/idf_6_1_x/test.yml'
+    strategy: depend
+  variables:
+    CI_IDF_VERSION: "6_1"
+
 master_run_test_pipeline:
   extends: .run_test_pipeline
   trigger:

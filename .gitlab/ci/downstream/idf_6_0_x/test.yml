@@ -70,14 +70,6 @@ tests_esp32s3_idf6.0.x_dual:
     CHIP_NAME: "esp32s3"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Dual"
 
-tests_esp32s3_idf6.0.x_dual_usj:
-  extends: tests_esp32s3_idf6.0.x_dual
-  tags:
-    - esp32s3
-    - usb_serial_jtag
-  variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32s3-builtin -p test_*.*Dual -e test_*.PsramTests* *.*.test_big_binary *.*.test_big_binary_compressed"
-
 tests_esp32s3_idf6.0.x_dual_32mb:
   extends: tests_esp32s3_idf6.0.x_dual
   tags:
@@ -99,14 +91,6 @@ tests_esp32s3_idf6.0.x_single:
     CHIP_NAME: "esp32s3"
     OOCD_CMDS: "set ESP_ONLYCPU 1"
     TEST_RUN_BOARD_OPTS: "-b esp32s3-ftdi -p test_*.*Single"
-
-tests_esp32s3_idf6.0.x_single_usj:
-  extends: tests_esp32s3_idf6.0.x_single
-  tags:
-    - esp32s3
-    - usb_serial_jtag
-  variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32s3-builtin -p test_*.*Single -e test_*.PsramTests* *.*.test_big_binary *.*.test_big_binary_compressed"
 
 tests_esp32s3_idf6.0.x_single_32mb:
   extends: tests_esp32s3_idf6.0.x_single
@@ -256,20 +240,6 @@ tests_esp32p4_idf6.0.x_lpcore:
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
 
-tests_esp32p4_idf6.0.x_usj:
-  extends: tests_esp32p4_idf6.0.x
-  tags:
-    - esp32p4
-    - usb_serial_jtag
-    - eco6
-  variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
-
-tests_esp32p4_idf6.0.x_lpcore_usj:
-  extends: tests_esp32p4_idf6.0.x_usj
-  variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-builtin -p test_*.LpCore*"
-
 tests_esp32p4_rev1_idf6.0.x:
   extends: tests_esp32p4_idf6.0.x
   tags:
@@ -283,24 +253,8 @@ tests_esp32p4_rev1_idf6.0.x:
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
     - job: fetch_gcov
-    - job: fetch_gdb
-      optional: true
 
 tests_esp32p4_rev1_lpcore_idf6.0.x:
   extends: tests_esp32p4_rev1_idf6.0.x
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
-
-tests_esp32p4_rev1_idf6.0.x_usj:
-  extends: tests_esp32p4_rev1_idf6.0.x
-  tags:
-    - esp32p4
-    - usb_serial_jtag
-    - eco4
-  variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
-
-tests_esp32p4_rev1_idf6.0.x_lpcore_usj:
-  extends: tests_esp32p4_rev1_idf6.0.x_usj
-  variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-builtin -p test_*.LpCore*"
