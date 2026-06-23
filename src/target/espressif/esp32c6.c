@@ -338,6 +338,7 @@ struct target_type esp32c6_target = {
 	.assert_reset = esp_riscv_assert_reset,
 	.deassert_reset = riscv_deassert_reset,
 
+	.memory_ready = esp_riscv_memory_ready,
 	.read_memory = esp32c6_read_memory,
 	.write_memory = esp32c6_write_memory,
 

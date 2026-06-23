@@ -832,6 +832,7 @@ struct target_type esp32p4_target = {
 
 	.read_memory = esp32p4_read_memory,
 	.write_memory = esp32p4_write_memory,
+	.memory_ready = esp_riscv_memory_ready,
 
 	.checksum_memory = riscv_checksum_memory,
 

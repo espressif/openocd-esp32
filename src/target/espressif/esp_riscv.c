@@ -250,6 +250,8 @@ int esp_riscv_examine(struct target *target)
 		return ret;
 
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	if (esp_riscv->examine_end)
+		esp_riscv->examine_end(target);
 
 	/*
 		RISCV code initializes all registers upon target examination.
@@ -1095,6 +1097,11 @@ int esp_riscv_smp_run_func_image(struct target *target, struct esp_algorithm_run
 	int res = esp_algorithm_run_func_image_va(run_target, run, num_args, ap);
 	va_end(ap);
 	return res;
+}
+
+bool esp_riscv_memory_ready(struct target *target)
+{
+	return true;
 }
 
 int esp_riscv_read_memory(struct target *target, target_addr_t address,
