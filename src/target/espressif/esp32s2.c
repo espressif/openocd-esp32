@@ -677,6 +677,13 @@ static const struct command_registration esp32s2_command_handlers[] = {
 	COMMAND_REGISTRATION_DONE
 };
 
+static int esp32s2_insn_set(struct command_invocation *cmd,
+	struct target *target, const char **insn_set)
+{
+	*insn_set = "xtensa_s2";
+	return ERROR_OK;
+}
+
 /* Holds methods for Xtensa targets. */
 struct target_type esp32s2_target = {
 	.name = "esp32s2",
@@ -724,4 +731,5 @@ struct target_type esp32s2_target = {
 
 	.commands = esp32s2_command_handlers,
 	.profiling = esp_xtensa_profiling,
+	.insn_set = esp32s2_insn_set,
 };
