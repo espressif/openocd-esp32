@@ -304,7 +304,7 @@ TEST_DECL(abort_ex, "test_special.DebuggerSpecialTests*.test_exception_abort")
 	abort();
 }
 
-#if CONFIG_IDF_TARGET_ESP32P4 || CONFIG_IDF_TARGET_ESP32S3
+#if CONFIG_IDF_TARGET_ESP32P4 || CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32S31
 #if CONFIG_IDF_TARGET_ARCH_RISCV
 static inline void pie_multiply() {
     __asm__ __volatile__ ("esp.vmulas.u16.qacc q0, q1");
@@ -399,7 +399,7 @@ ut_result_t special_test_do(int test_num, int core_num)
         xTaskCreatePinnedToCore(TEST_ENTRY(gh264_psram_check), "gh264_psram_check_task", 4096, NULL, 5, NULL, core_num);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(psram_with_flash_breakpoints), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(psram_with_flash_breakpoints), "psram_task", 4096, NULL, 5, NULL, core_num);
-#if CONFIG_IDF_TARGET_ESP32P4 || CONFIG_IDF_TARGET_ESP32S3
+#if CONFIG_IDF_TARGET_ESP32P4 || CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32S31
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(pie_registers), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(pie_registers), "pie_registers", 4096, NULL, 5, NULL, core_num);
 #endif

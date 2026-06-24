@@ -280,7 +280,7 @@ class DebuggerSpecialTestsImpl:
             self.add_bp('app_main')
             self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
 
-    @only_for_chip(['esp32p4', 'esp32s3'])
+    @only_for_chip(['esp32p4', 'esp32s3', 'esp32s31'])
     def test_pie_registers(self):
         """
             This test checks that PIE registers are accessed correctly.
@@ -478,6 +478,10 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
     """ Test cases for single core mode
     """
 
+    @skip_for_chip(['esp32s31'], "not applicable")
+    def test_pie_registers(self):
+        super(DebuggerGenericTestAppTestsSingle, self).test_pie_registers()
+
     def test_gdb_regs_mapping(self):
         """
             This test checks that GDB and OpenOCD has identical registers mapping.
@@ -543,6 +547,10 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
                 # set to reasonable value, because GDB tries to read memory @ pc
                 set_reg_and_check(reg, 0x40000400)
                 continue
+
+            if reg == 'q0' and testee_info.chip == 'esp32s31':
+                # pie registers are only accessible from cpu1 on esp32s31
+                break
 
             set_reg_and_check(reg, 0)
             set_reg_and_check(reg, 0xffffffff)
