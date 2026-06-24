@@ -1447,11 +1447,13 @@ static int gdb_get_register_packet(struct connection *connection,
 		!reg_list[reg_num]->exist || reg_list[reg_num]->hidden) {
 		free(reg_list);
 		/* Espressif - do not return ERROR_SERVER_REMOTE_CLOSED here.
-		 * We have to handle case with different register sets within a SMP group for LP cores.
+		 * We have to handle case with different register sets within an SMP group for LP cores,
+		 * and ESP32-S31 PIE registers.
 		 * As GDB only gets a single register description, it can ask for non-existent registers.
+		 * Respond with "x" packet to signal unavailable register value.
 		 */
 		LOG_DEBUG("gdb requested a non-existing register (reg_num=%d)", reg_num);
-		gdb_put_packet(connection, "E01", 3);
+		gdb_put_packet(connection, "xx", 2);
 		return ERROR_OK;
 	}
 
