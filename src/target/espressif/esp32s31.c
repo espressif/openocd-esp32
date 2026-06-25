@@ -191,12 +191,17 @@ static const struct esp_flash_breakpoint_ops esp32s31_flash_brp_ops = {
 	.breakpoint_remove = esp_algo_flash_breakpoint_remove,
 };
 
-/* TODO: add missing CSRs OCD-1298 */
 static const char *esp32s31_csrs[] = {
-	"mie", "mcause", "mip", "mtvt", "mnxti",
-	"mscratchcsw", "mscratchcswl",
-	"mcycle", "minstret", "mcounteren", "mcountinhibit",
-	"tdata3", "tinfo", "mcontext",
+	"medeleg", "mie", "mip", "jvt", "mtvt", "mcontext", "tdata3", "tinfo",
+	"scontext", "sstatus", "stvec", "stvt", "sscratch", "sepc", "scause", "stval", "snxti",
+	"mnxti", "mscratchcsw", "mscratchcswl", "utvt", "unxti",
+	"mcycle", "mcycleh", "minstret", "minstreth",
+	"mhpmevent8", "mhpmevent9", "mhpmevent13",
+	"mhpmcounter8", "mhpmcounter9", "mhpmcounter13", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
+	"mcounteren", "mcountinhibit", "scounteren",
+	"cycle", "time", "instreth", "cycleh", "instret", "timeh",
+	"hpmcounter8", "hpmcounter9", "hpmcounter13", "hpmcounter8h", "hpmcounter9h", "hpmcounter13h",
+	"satp",
 };
 
 static struct esp_riscv_reg_class esp32s31_registers[] = {
