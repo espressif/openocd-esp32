@@ -202,9 +202,6 @@ static const char *esp32h4_csrs[] = {
 	"mhpmevent8", "mhpmevent9", "mhpmevent13",
 	"mhpmcounter8", "mhpmcounter9", "mhpmcounter13", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
 	"mcounteren", "mcountinhibit",
-};
-
-static const char *esp32h4_ro_csrs[] = {
 	"cycle", "time", "instreth", "cycleh", "instret", "timeh",
 	"hpmcounter8", "hpmcounter9", "hpmcounter13", "hpmcounter8h", "hpmcounter9h", "hpmcounter13h",
 };
@@ -213,11 +210,6 @@ static struct esp_riscv_reg_class esp32h4_registers[] = {
 	{
 		.reg_array = esp32h4_csrs,
 		.reg_array_size = ARRAY_SIZE(esp32h4_csrs),
-		.save_restore = true
-	},
-	{
-		.reg_array = esp32h4_ro_csrs,
-		.reg_array_size = ARRAY_SIZE(esp32h4_ro_csrs),
 	},
 };
 

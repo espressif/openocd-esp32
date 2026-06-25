@@ -202,7 +202,6 @@ static struct esp_riscv_reg_class esp32c61_registers[] = {
 	{
 		.reg_array = esp32c61_csrs,
 		.reg_array_size = ARRAY_SIZE(esp32c61_csrs),
-		.save_restore = true
 	},
 	{
 		.reg_array = esp32c61_user_counter_csrs,

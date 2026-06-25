@@ -55,7 +55,6 @@ struct esp_riscv_pma_entry {
 struct esp_riscv_reg_class {
 	const char **reg_array;
 	size_t reg_array_size;
-	bool save_restore;
 	unsigned int reg_width;
 	struct reg_arch_type *reg_arch_type;
 	struct reg_data_type *reg_data_type;
@@ -84,7 +83,6 @@ struct esp_riscv_common {
 	size_t chip_specific_registers_size;
 	bool (*is_iram_address)(target_addr_t addr);
 	bool (*is_dram_address)(target_addr_t addr);
-	bool minimal_save_restore;
 	int (*examine_end)(struct target *target);
 	/* Optional PMA entry forced before each algorithm/stub run; NULL when not needed.
 	 * See esp_riscv_pma_force_napot_rwx(). */

@@ -224,10 +224,6 @@ static const char *esp_riscv_csrs[] = {
 	"pmpaddr8", "pmpaddr9", "pmpaddr10", "pmpaddr11", "pmpaddr12", "pmpaddr13", "pmpaddr14", "pmpaddr15",
 	"tselect", "tdata1", "tdata2", "tcontrol",
 	"dcsr", "dpc", "dscratch0", "dscratch1",
-};
-
-/* Read only registers */
-static const char *esp_riscv_ro_csrs[] = {
 	"mvendorid", "marchid", "mimpid", "mhartid",
 };
 
@@ -261,21 +257,14 @@ int esp_riscv_examine(struct target *target)
 		{
 			.reg_array = esp_riscv_gprs,
 			.reg_array_size = ARRAY_SIZE(esp_riscv_gprs),
-			.save_restore = true
 		},
 		{
 			.reg_array = esp_riscv_fprs,
 			.reg_array_size = ARRAY_SIZE(esp_riscv_fprs),
-			.save_restore = true
 		},
 		{
 			.reg_array = esp_riscv_csrs,
 			.reg_array_size = ARRAY_SIZE(esp_riscv_csrs),
-			.save_restore = true
-		},
-		{
-			.reg_array = esp_riscv_ro_csrs,
-			.reg_array_size = ARRAY_SIZE(esp_riscv_ro_csrs)
 		},
 	};
 
@@ -292,7 +281,6 @@ int esp_riscv_examine(struct target *target)
 			if (!reg_class)
 				continue;
 			reg->exist = true;
-			reg->caller_save = reg_class->save_restore;
 			if (reg_class->reg_arch_type)
 				reg->type = reg_class->reg_arch_type;
 			if (reg_class->reg_width) {
@@ -788,20 +776,19 @@ static bool esp_riscv_algo_should_save_reg(struct target *target, struct reg *r)
 			return true;
 	}
 
-	if (!r->caller_save)
-		return false;
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	if (esp_riscv->stub_pma_entry &&
+			(r->number == GDB_REGNO_CSR0 + esp_riscv->stub_pma_entry->index + ESP_RISCV_CSR_PMACFG0
+			|| r->number == GDB_REGNO_CSR0 + esp_riscv->stub_pma_entry->index + ESP_RISCV_CSR_PMAADDR0))
+		return true;
 
-	if (r->number > GDB_REGNO_PC && target_to_esp_riscv(target)->minimal_save_restore)
-		return false;
-
-	return true;
+	return r->number <= GDB_REGNO_PC;
 }
 
 /* Force the given PMA entry to NAPOT RWX. Used to work around the ROM's
  * riscv_pma_init_cfg() leaving the HP RAM entry without the X bit. The CSR
  * save/restore path of esp_riscv_start_algorithm() puts the original value
- * back after the algorithm completes (the chip's pma_cfg<n>/pma_addr<n> are
- * declared in chip_specific_registers with save_restore = true).
+ * back after the algorithm completes.
  *
  * Skips the override if X is already set so a second call after the ROM has
  * advanced to riscv_pma_flash_boot_cfg() is a no-op.
@@ -858,7 +845,6 @@ int esp_riscv_start_algorithm(struct target *target,
 		number <= max_saved_reg && number < target->reg_cache->num_regs; number++) {
 		struct reg *r = &target->reg_cache->reg_list[number];
 
-		algorithm_info->valid_saved_registers[r->number] = r->exist;
 		if (!esp_riscv_algo_should_save_reg(target, r))
 			continue;
 
@@ -1031,7 +1017,7 @@ int esp_riscv_wait_algorithm(struct target *target,
 		number <= max_saved_reg && number < target->reg_cache->num_regs; number++) {
 		struct reg *r = &target->reg_cache->reg_list[number];
 
-		if (!algorithm_info->valid_saved_registers[r->number] || !esp_riscv_algo_should_save_reg(target, r))
+		if (!esp_riscv_algo_should_save_reg(target, r))
 			continue;
 
 		LOG_TARGET_DEBUG(target, "restore %s", r->name);
@@ -1192,23 +1178,6 @@ int esp_riscv_get_gdb_reg_list(struct target *target,
 	return ERROR_FAIL;
 }
 
-static COMMAND_HELPER(esp_riscv_parse_cmd_minimal_save_restore, struct target *target)
-{
-	if (CMD_ARGC != 1)
-		return ERROR_COMMAND_SYNTAX_ERROR;
-
-	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
-	COMMAND_PARSE_BOOL(CMD_ARGV[0], esp_riscv->minimal_save_restore, "on", "off");
-	LOG_DEBUG("Algorithm save/restare configuration: %s",  esp_riscv->minimal_save_restore ? "minimal" : "full");
-
-	return ERROR_OK;
-}
-
-COMMAND_HANDLER(esp_riscv_minimal_save_restore)
-{
-	return CALL_COMMAND_HANDLER(esp_riscv_parse_cmd_minimal_save_restore, get_current_target(CMD_CTX));
-}
-
 COMMAND_HANDLER(esp_riscv_halted_command)
 {
 	if (CMD_ARGC != 0)
@@ -1244,13 +1213,6 @@ const struct command_registration esp_riscv_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.help = "Handles halted event and prints exception reason",
 		.usage = "",
-	},
-	{
-		.name = "minimal_save_restore",
-		.handler = esp_riscv_minimal_save_restore,
-		.mode = COMMAND_ANY,
-		.help = "Only save/restore GPRs when running algorithms",
-		.usage = "<'on'|'off'>",
 	},
 	COMMAND_REGISTRATION_DONE
 };
