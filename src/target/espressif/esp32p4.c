@@ -221,6 +221,7 @@ static const struct esp_flash_breakpoint_ops esp32p4_flash_brp_ops = {
 
 static const char *esp32p4_csrs[] = {
 	"mie", "mcause", "mip", "mtvt", "mnxti", "jvt",
+	"utvt", "unxti",
 	"mscratchcsw", "mscratchcswl",
 	"mcycle", "minstret", "mcounteren", "mcountinhibit",
 	"mhpmcounter8", "mhpmcounter9", "mhpmcounter13", "mhpmevent8", "mhpmevent9", "mhpmevent13",
@@ -279,22 +280,48 @@ static int esp32p4_examine_end(struct target *target)
 	}
 	esp_riscv->pie_temp_mem = target->working_area_phys - ESP32P4_NON_CACHEABLE_OFFSET;
 
+	static const char *esp32p4_rev1_csrs[] = {"mnmicause", "mnmipc", "mintstatus", ""};
+	static const char *esp32p4_rev3_csrs[] = {
+		"ustatus", "utvec", "uscratch", "uepc", "ucause",
+		"mintthresh", "uintthresh", "uclicbase", "utvt", "unxti",
+		"csr_mintstatus", "csr_uintstatus", "uhwloop_state_reg",
+		""
+	};
+	const char **esp32p4_missing_regs = target->hw_rev < 300 ? esp32p4_rev3_csrs : esp32p4_rev1_csrs;
 	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
 		const char *reg_name = target->reg_cache->reg_list[i].name;
-		if ((target->hw_rev < 300
-				&& !strcmp(reg_name, "csr_mintstatus")) ||
-			(target->hw_rev >= 300
-				&& (!strcmp(reg_name, "mnmicause")
-					|| !strcmp(reg_name, "mnmipc")
-					|| !strcmp(reg_name, "mintstatus")))) {
-			target->reg_cache->reg_list[i].exist = false;
-			free(target->reg_cache->reg_list[i].value);
-			target->reg_cache->reg_list[i].value = NULL;
+		for (int j = 0; strlen(esp32p4_missing_regs[j]); ++j) {
+			if (!strcmp(reg_name, esp32p4_missing_regs[j])) {
+				target->reg_cache->reg_list[i].exist = false;
+				free(target->reg_cache->reg_list[i].value);
+				target->reg_cache->reg_list[i].value = NULL;
+			}
 		}
 	}
 
 	return ERROR_OK;
 }
+
+static int esp32p4_user_counter_get(struct reg *reg)
+{
+	struct target *target = ((riscv_reg_info_t *)(reg->arch_info))->target;
+	if (target->hw_rev < 300)
+		return esp_riscv_user_counter_type.get(reg);
+	return target->reg_cache->reg_list[GDB_REGNO_A0].type->get(reg);
+}
+
+static int esp32p4_user_counter_set(struct reg *reg, uint8_t *buf)
+{
+	struct target *target = ((riscv_reg_info_t *)(reg->arch_info))->target;
+	if (target->hw_rev < 300)
+		return esp_riscv_user_counter_type.set(reg, buf);
+	return target->reg_cache->reg_list[GDB_REGNO_A0].type->set(reg, buf);
+}
+
+struct reg_arch_type esp32p4_user_counter_type = {
+	.get = esp32p4_user_counter_get,
+	.set = esp32p4_user_counter_set
+};
 
 static struct esp_riscv_reg_class esp32p4_registers[] = {
 	{
@@ -304,7 +331,7 @@ static struct esp_riscv_reg_class esp32p4_registers[] = {
 	{
 		.reg_array = esp32p4_user_counter_csrs,
 		.reg_array_size = ARRAY_SIZE(esp32p4_user_counter_csrs),
-		.reg_arch_type = &esp_riscv_user_counter_type
+		.reg_arch_type = &esp32p4_user_counter_type
 	},
 };
 
