@@ -727,6 +727,7 @@ int riscv_reg_impl_expose_csrs(const struct target *target)
 			if (riscv_reg_impl_set_exist(target, regno, /*exist*/ true) != ERROR_OK)
 				return ERROR_FAIL;
 			/* ESPRESSIF */
+			reg->custom = true;
 			LOG_TARGET_DEBUG_IO(target, "Exposing additional CSR %d (name=%s)",
 					csr_number, reg->name);
 		}

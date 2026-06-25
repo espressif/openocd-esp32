@@ -224,8 +224,6 @@ static const char *esp_riscv_csrs[] = {
 	"pmpaddr8", "pmpaddr9", "pmpaddr10", "pmpaddr11", "pmpaddr12", "pmpaddr13", "pmpaddr14", "pmpaddr15",
 	"tselect", "tdata1", "tdata2", "tcontrol",
 	"dcsr", "dpc", "dscratch0", "dscratch1",
-	"mpcer",  "mpcmr", "mpccr",
-	"cpu_gpio_oen", "cpu_gpio_in", "cpu_gpio_out",
 };
 
 /* Read only registers */
@@ -284,7 +282,8 @@ int esp_riscv_examine(struct target *target)
 	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
 		if (target->reg_cache->reg_list[i].exist) {
 			struct reg *reg = &target->reg_cache->reg_list[i];
-			reg->exist = false;
+			if (!reg->custom && reg->number < GDB_REGNO_COUNT)
+				reg->exist = false;
 			const struct esp_riscv_reg_class *reg_class = esp_riscv_find_reg_class(reg->name,
 				esp_riscv_registers, ARRAY_SIZE(esp_riscv_registers));
 			if (!reg_class)

@@ -139,6 +139,8 @@ struct reg {
 	/* Pointer to architecture-specific info for this register. */
 	void *arch_info;
 	const struct reg_arch_type *type;
+	/* Espressif - used to indicate custom exposed registers */
+	bool custom;
 };
 
 struct reg_cache {

@@ -228,18 +228,6 @@ static const char *esp32p4_csrs[] = {
 	"mcycleh", "minstreth", "mhpmcounter8h", "mhpmcounter9h", "mhpmcounter13h",
 	"tdata3", "tinfo", "mcontext", "mintstatus",
 	"fflags", "frm", "fcsr",
-	"csr_mintstatus", "mclicbase", "mxstatus", "mhcr", "mhint", "mraddr", "mexstatus",
-	"mnmicause", "mnmipc", "mcpuid", "cpu_testbus_ctrl", "pm_user",
-	"gpio_oen_user", "gpio_in_user", "gpio_out_user",
-	"pma_cfg0", "pma_cfg1", "pma_cfg2", "pma_cfg3", "pma_cfg4", "pma_cfg5",
-	"pma_cfg6", "pma_cfg7", "pma_cfg8", "pma_cfg9", "pma_cfg10", "pma_cfg11",
-	"pma_cfg12", "pma_cfg13", "pma_cfg14", "pma_cfg15", "pma_addr0", "pma_addr1",
-	"pma_addr2", "pma_addr3", "pma_addr4", "pma_addr5", "pma_addr6", "pma_addr7",
-	"pma_addr8", "pma_addr9", "pma_addr10", "pma_addr11", "pma_addr12", "pma_addr13",
-	"pma_addr14", "pma_addr15",
-	"mext_ill_reg", "mhwloop_state_reg", "mext_pie_status",
-	"ldpc0", "ldpc1", "stpc0", "stpc1", "stpc2",
-	"ldtval0", "ldtval1", "sttval0", "sttval1", "sttval2",
 };
 
 static const char *esp32p4_user_counter_csrs[] = {

@@ -170,13 +170,6 @@ static const struct esp_flash_breakpoint_ops esp32h2_flash_brp_ops = {
 
 static const char *esp32h2_csrs[] = {
 	"mideleg", "medeleg", "mie", "mip",
-	"ustatus", "uie", "utvec", "uepc", "ucause", "utval", "uip",
-	"pma_cfg0", "pma_cfg1", "pma_cfg2", "pma_cfg3", "pma_cfg4", "pma_cfg5",
-	"pma_cfg6", "pma_cfg7", "pma_cfg8", "pma_cfg9", "pma_cfg10", "pma_cfg11",
-	"pma_cfg12", "pma_cfg13", "pma_cfg14", "pma_cfg15", "pma_addr0", "pma_addr1",
-	"pma_addr2", "pma_addr3", "pma_addr4", "pma_addr5", "pma_addr6", "pma_addr7",
-	"pma_addr8", "pma_addr9", "pma_addr10", "pma_addr11", "pma_addr12", "pma_addr13",
-	"pma_addr14", "pma_addr15",
 };
 
 static struct esp_riscv_reg_class esp32h2_registers[] = {
