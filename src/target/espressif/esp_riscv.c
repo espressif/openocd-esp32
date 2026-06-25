@@ -20,6 +20,7 @@
 #include <target/smp.h>
 #include <target/semihosting_common.h>
 #include <rtos/rtos.h>
+#include <target/riscv/program.h>
 #include <target/riscv/riscv.h>
 #include <target/riscv/riscv_reg.h>
 #include <target/riscv/encoding.h>
@@ -227,82 +228,31 @@ static const char *esp_riscv_csrs[] = {
 	"mvendorid", "marchid", "mimpid", "mhartid",
 };
 
-static const struct esp_riscv_reg_class *esp_riscv_find_reg_class(const char *reg_name,
-	const struct esp_riscv_reg_class *classes, unsigned int num_classes)
-{
-	for (unsigned int i = 0; i < num_classes; i++)
-		for (unsigned int j = 0; j < classes[i].reg_array_size; j++)
-			if (!strcmp(reg_name, classes[i].reg_array[j]))
-				return &classes[i];
-	return NULL;
-}
+static const char *esp_riscv_hwloop_csrs[] = {
+	"uhwloop0_start_addr", "uhwloop0_end_addr", "uhwloop0_count",
+	"uhwloop1_start_addr", "uhwloop1_end_addr", "uhwloop1_count",
+	"shwloop0_start_addr", "shwloop0_end_addr", "shwloop0_count",
+	"shwloop1_start_addr", "shwloop1_end_addr", "shwloop1_count",
+	"mhwloop0_start_addr", "mhwloop0_end_addr", "mhwloop0_count",
+	"mhwloop1_start_addr", "mhwloop1_end_addr", "mhwloop1_count",
+};
 
-int esp_riscv_examine(struct target *target)
-{
-	int ret = riscv_target.examine(target);
-	if (ret != ERROR_OK)
-		return ret;
+static const char *esp_riscv_fpu_csrs[] = {
+	"fxcr",
+};
 
-	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
-	if (esp_riscv->examine_end)
-		esp_riscv->examine_end(target);
+static const char *esp_riscv_pie_movx_regs[] = {
+	"sar", "sar_byte", "fft_bit_width", "cfg",
+};
 
-	/*
-		RISCV code initializes all registers upon target examination.
-		Espressif chips don't support all of them.
-		Disable not supported registers and avoid writing to read only registers during algorithm run
-	*/
+static const char *esp_riscv_pie_vec_regs[] = {
+	"qacc_l_l", "qacc_l_h", "qacc_h_l", "qacc_h_h", "ua_state",
+	"q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7",
+};
 
-	struct esp_riscv_reg_class esp_riscv_registers[] = {
-		{
-			.reg_array = esp_riscv_gprs,
-			.reg_array_size = ARRAY_SIZE(esp_riscv_gprs),
-		},
-		{
-			.reg_array = esp_riscv_fprs,
-			.reg_array_size = ARRAY_SIZE(esp_riscv_fprs),
-		},
-		{
-			.reg_array = esp_riscv_csrs,
-			.reg_array_size = ARRAY_SIZE(esp_riscv_csrs),
-		},
-	};
-
-	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
-		if (target->reg_cache->reg_list[i].exist) {
-			struct reg *reg = &target->reg_cache->reg_list[i];
-			if (!reg->custom && reg->number < GDB_REGNO_COUNT)
-				reg->exist = false;
-			const struct esp_riscv_reg_class *reg_class = esp_riscv_find_reg_class(reg->name,
-				esp_riscv_registers, ARRAY_SIZE(esp_riscv_registers));
-			if (!reg_class)
-				reg_class = esp_riscv_find_reg_class(reg->name,
-					esp_riscv->chip_specific_registers, esp_riscv->chip_specific_registers_size);
-			if (!reg_class)
-				continue;
-			reg->exist = true;
-			if (reg_class->reg_arch_type)
-				reg->type = reg_class->reg_arch_type;
-			if (reg_class->reg_width) {
-				reg->size = reg_class->reg_width;
-				free(reg->value);
-				reg->value = calloc(1, DIV_ROUND_UP(reg->size, 8));
-			}
-			if (reg_class->reg_data_type)
-				reg->reg_data_type = reg_class->reg_data_type;
-		}
-	}
-
-	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
-		struct reg *reg = &target->reg_cache->reg_list[i];
-		if (!reg->exist) {
-			free(reg->value);
-			reg->value = NULL;
-		}
-	}
-
-	return ERROR_OK;
-}
+static const char *esp_riscv_pie_xacc_regs[] = {
+	"xacc",
+};
 
 int esp_riscv_csr_access_enable(struct reg *reg, uint8_t *buf, enum gdb_regno enable_reg,
 	riscv_reg_t enable_field_mask, riscv_reg_t enable_field_off, riscv_reg_t enable_field_on)
@@ -350,10 +300,379 @@ static int esp_riscv_fpu_csr_set(struct reg *reg, uint8_t *buf)
 	return esp_riscv_csr_access_enable(reg, buf, GDB_REGNO_MSTATUS, MSTATUS_FS, 0, 1);
 }
 
-struct reg_arch_type esp_riscv_fpu_csr_type = {
+static struct reg_arch_type esp_riscv_fpu_csr_type = {
 	.get = esp_riscv_fpu_csr_get,
 	.set = esp_riscv_fpu_csr_set
 };
+
+#define HWLOOP_STATE_OFF      0
+#define HWLOOP_STATE_INIT     1
+#define HWLOOP_STATE_MASK     3
+#define CSR_MHWLOOP_STATE_REG 2033
+
+static int esp_riscv_hwloop_csr_get(struct reg *reg)
+{
+	return esp_riscv_csr_access_enable(reg, NULL, GDB_REGNO_CSR0 + CSR_MHWLOOP_STATE_REG,
+		HWLOOP_STATE_MASK, HWLOOP_STATE_OFF, HWLOOP_STATE_INIT);
+}
+
+static int esp_riscv_hwloop_csr_set(struct reg *reg, uint8_t *buf)
+{
+	return esp_riscv_csr_access_enable(reg, buf, GDB_REGNO_CSR0 + CSR_MHWLOOP_STATE_REG,
+		HWLOOP_STATE_MASK, HWLOOP_STATE_OFF, HWLOOP_STATE_INIT);
+}
+
+static struct reg_arch_type esp_riscv_hwloop_reg_type = {
+	.get = esp_riscv_hwloop_csr_get,
+	.set = esp_riscv_hwloop_csr_set
+};
+
+#define PIE_STATE_OFF		0
+#define PIE_STATE_INIT		1
+#define PIE_STATE_MASK		3
+#define CSR_MEXT_PIE_STATUS 2034
+
+struct pie_inst_table {
+	const char *name;
+	riscv_insn_t write_inst;
+	riscv_insn_t read_inst;
+	bool is_ldst_inst;
+};
+
+/*
+Bellow tables contain instruction values for PIE register access.
+Instructions using register s0 were selected:
+
+ESP.MOVX.[W|R].[CFG|SAR|SAR.BYTES|FFT.BIT.WIDTH] s0
+ESP.[LD|ST].UA.STATE.IP s0, 0
+ESP.[LD|ST].QACC.[H|L].[H|L].128.IP s0, 0
+ESP.[ST.U.XACC|LD.XACC].IP s0, 0
+ESP.[VLD|VST].128.IP q[0-7], s0, 0
+
+Can regenerate using tooolchain with xespv support e.g.:
+riscv32-esp-elf-as -march=rv32imac_xespv -mespv-spec=[2p1|2p2] tmp.S -o tmp.elf
+*/
+
+static const struct pie_inst_table pie_v2p1_regs[] = {
+	{ "sar", 0x90b0005f, 0x80b0005f, false },
+	{ "sar_byte", 0x98b0005f, 0x88b0005f, false },
+	{ "fft_bit_width", 0x94d0005f, 0x84d0005f, false },
+	{ "cfg", 0x90d0005f, 0x80d0005f, false },
+	{ "ua_state", 0x2000413b, 0xa000413b, true },
+	{ "xacc", 0x2000433b, 0x200041bb, true },
+	{ "qacc_h_l", 0x6000403b, 0xe000403b, true },
+	{ "qacc_h_h", 0x4000403b, 0xc000403b, true },
+	{ "qacc_l_l", 0x2000403b, 0xa000403b, true },
+	{ "qacc_l_h", 0x0000403b, 0x8000403b, true },
+	{ "q0", 0x0200203b, 0x8200203b, true },
+	{ "q1", 0x0200243b, 0x8200243b, true },
+	{ "q2", 0x0200283b, 0x8200283b, true },
+	{ "q3", 0x02002c3b, 0x82002c3b, true },
+	{ "q4", 0x0200303b, 0x8200303b, true },
+	{ "q5", 0x0200343b, 0x8200343b, true },
+	{ "q6", 0x0200383b, 0x8200383b, true },
+	{ "q7", 0x02003c3b, 0x82003c3b, true },
+	{ 0 },
+};
+
+static const struct pie_inst_table pie_v2p2_regs[] = {
+	{ "sar", 0x90c0201b, 0x80c0201b, false },
+	{ "sar_byte", 0x98c0201b, 0x88c0201b, false },
+	{ "fft_bit_width", 0x9480201b, 0x8480201b, false },
+	{ "cfg", 0x9080201b, 0x8080201b, false },
+	{ "ua_state", 0x0010011f, 0x1010011f, true },
+	{ "xacc", 0x0010031f, 0x0010019f, true },
+	{ "qacc_h_l", 0x0810001f, 0x1810001f, true },
+	{ "qacc_h_h", 0x0800001f, 0x1800001f, true },
+	{ "qacc_l_l", 0x0010001f, 0x1010001f, true },
+	{ "qacc_l_h", 0x0000001f, 0x1000001f, true },
+	{ "q0", 0x0310001f, 0x8310001f, true },
+	{ "q1", 0x0310041f, 0x8310041f, true },
+	{ "q2", 0x0310081f, 0x8310081f, true },
+	{ "q3", 0x03100c1f, 0x83100c1f, true },
+	{ "q4", 0x0310101f, 0x8310101f, true },
+	{ "q5", 0x0310141f, 0x8310141f, true },
+	{ "q6", 0x0310181f, 0x8310181f, true },
+	{ "q7", 0x03101c1f, 0x83101c1f, true },
+	{ 0 },
+};
+
+static int execute_pie_inst(struct target *target, riscv_insn_t inst)
+{
+	struct riscv_program program;
+	riscv_program_init(&program, target);
+	if (riscv_program_insert(&program, inst) != ERROR_OK)
+		return ERROR_FAIL;
+	return riscv_program_exec(&program, target);
+}
+
+static int pie_movx_access(struct target *target, struct reg *reg, uint8_t *buf, riscv_insn_t inst)
+{
+	riscv_reg_t reg_val;
+	if (buf) {
+		reg_val = buf_get_u64(buf, 0, riscv_xlen(target));
+		riscv_reg_set(target, GDB_REGNO_S0, reg_val);
+		riscv_reg_flush_all(target);
+	}
+	int ret = execute_pie_inst(target, inst);
+	if (ret != ERROR_OK)
+		return ret;
+	if (!buf) {
+		target->reg_cache->reg_list[GDB_REGNO_S0].valid = false;
+		target->reg_cache->reg_list[GDB_REGNO_S0].dirty = false;
+		riscv_reg_get(target, &reg_val, GDB_REGNO_S0);
+	}
+	buf_set_u64(reg->value, 0, reg->size, reg_val);
+	return ERROR_OK;
+}
+
+static int pie_ldst_access(struct target *target, struct reg *reg, uint8_t *buf, riscv_insn_t inst)
+{
+	uint8_t saved_mem[16];
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	target_addr_t temp_mem = esp_riscv->pie_temp_mem;
+	riscv_reg_set(target, GDB_REGNO_S0, temp_mem);
+	riscv_reg_flush_all(target);
+	target_read_memory(target, temp_mem, 4, 4, saved_mem);
+	if (buf)
+		target_write_memory(target, temp_mem, 1, DIV_ROUND_UP(reg->size, 8), buf);
+	int ret = execute_pie_inst(target, inst);
+	if (ret == ERROR_OK) {
+		target_read_memory(target, temp_mem, 1, DIV_ROUND_UP(reg->size, 8), reg->value);
+		reg->valid = true; // these can be set cacheable
+	}
+	target_write_memory(target, temp_mem, 4, 4, saved_mem);
+	return ret;
+}
+
+static int esp_riscv_pie_access(struct reg *reg, uint8_t *buf)
+{
+	struct target *target = ((riscv_reg_info_t *)(reg->arch_info))->target;
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	const struct pie_inst_table *pie_inst_table = esp_riscv->pie_version == PIE_V2P1 ? pie_v2p1_regs : pie_v2p2_regs;
+	riscv_insn_t inst = 0;
+	bool is_ldst_inst = false;
+	for (size_t i = 0; pie_inst_table[i].name; i++) {
+		if (!strcmp(reg->name, pie_inst_table[i].name)) {
+			inst = buf ? pie_inst_table[i].write_inst : pie_inst_table[i].read_inst;
+			is_ldst_inst = pie_inst_table[i].is_ldst_inst;
+			break;
+		}
+	}
+	if (inst == 0)
+		return ERROR_FAIL;
+
+	riscv_reg_t reg_val_s0, reg_val_pie;
+	riscv_reg_get(target, &reg_val_s0, GDB_REGNO_S0);
+	riscv_reg_get(target, &reg_val_pie, GDB_REGNO_CSR0 + CSR_MEXT_PIE_STATUS);
+	int state = get_field(reg_val_pie, PIE_STATE_MASK);
+	if (state == PIE_STATE_OFF)
+		riscv_reg_set(target, GDB_REGNO_CSR0 + CSR_MEXT_PIE_STATUS, reg_val_pie | PIE_STATE_INIT);
+
+	int ret = (is_ldst_inst ? pie_ldst_access : pie_movx_access) (target, reg, buf, inst);
+
+	riscv_reg_set(target, GDB_REGNO_S0, reg_val_s0);
+	if (state == PIE_STATE_OFF)
+		riscv_reg_set(target, GDB_REGNO_CSR0 + CSR_MEXT_PIE_STATUS, reg_val_pie);
+	return ret;
+}
+
+static int esp_riscv_pie_get(struct reg *reg)
+{
+	return esp_riscv_pie_access(reg, NULL);
+}
+
+static int esp_riscv_pie_set(struct reg *reg, uint8_t *buf)
+{
+	return esp_riscv_pie_access(reg, buf);
+}
+
+static struct reg_arch_type esp_riscv_pie_reg_type = {
+	.get = esp_riscv_pie_get,
+	.set = esp_riscv_pie_set
+};
+
+static struct reg_data_type type_int8 = { .type = REG_TYPE_INT8, .id = "int8" };
+static struct reg_data_type type_int32 = { .type = REG_TYPE_INT32, .id = "int32" };
+static struct reg_data_type type_int64 = { .type = REG_TYPE_INT64, .id = "int64" };
+static struct reg_data_type type_uint128 = { .type = REG_TYPE_UINT128, .id = "uint128" };
+
+static struct reg_data_type_vector type_v5i8 = {
+	.type = &type_int8,
+	.count = 5
+};
+
+static struct reg_data_type_vector type_v4i32 = {
+	.type = &type_int32,
+	.count = 4
+};
+
+static struct reg_data_type_vector type_v2i64 = {
+	.type = &type_int64,
+	.count = 2
+};
+
+static struct reg_data_type reg_type_v5i8 = {
+	.type = REG_TYPE_ARCH_DEFINED,
+	.id = "v5_int8",
+	.type_class = REG_TYPE_CLASS_VECTOR,
+	.reg_type_vector = &type_v5i8,
+};
+
+static struct reg_data_type reg_type_v4i32 = {
+	.type = REG_TYPE_ARCH_DEFINED,
+	.id = "v4_int32",
+	.type_class = REG_TYPE_CLASS_VECTOR,
+	.reg_type_vector = &type_v4i32,
+};
+
+static struct reg_data_type reg_type_v2i64 = {
+	.type = REG_TYPE_ARCH_DEFINED,
+	.id = "v2_int64",
+	.type_class = REG_TYPE_CLASS_VECTOR,
+	.reg_type_vector = &type_v2i64,
+};
+
+static struct reg_data_type_union_field type_vec40[] = {
+	{"v5_int8", &reg_type_v5i8, type_vec40 + 1},
+	{"int64", &type_int64, NULL},
+};
+
+static struct reg_data_type_union_field type_vec128[] = {
+	{"v4_int32", &reg_type_v4i32, type_vec128 + 1},
+	{"v2_int64", &reg_type_v2i64, type_vec128 + 2},
+	{"uint128", &type_uint128, NULL},
+};
+
+static struct reg_data_type_union type_vec40_union = {
+	.fields = type_vec40
+};
+
+static struct reg_data_type_union type_vec128_union = {
+	.fields = type_vec128
+};
+
+static struct reg_data_type reg_type_vector40 = {
+	.type = REG_TYPE_ARCH_DEFINED,
+	.id = "vector40",
+	.type_class = REG_TYPE_CLASS_UNION,
+	.reg_type_union = &type_vec40_union,
+};
+
+static struct reg_data_type reg_type_vector128 = {
+	.type = REG_TYPE_ARCH_DEFINED,
+	.id = "vector128",
+	.type_class = REG_TYPE_CLASS_UNION,
+	.reg_type_union = &type_vec128_union,
+};
+
+static const struct esp_riscv_reg_class *esp_riscv_find_reg_class(const char *reg_name,
+	const struct esp_riscv_reg_class *classes, unsigned int num_classes)
+{
+	for (unsigned int i = 0; i < num_classes; i++)
+		for (unsigned int j = 0; j < classes[i].reg_array_size; j++)
+			if (!strcmp(reg_name, classes[i].reg_array[j]))
+				return &classes[i];
+	return NULL;
+}
+
+int esp_riscv_examine(struct target *target)
+{
+	int ret = riscv_target.examine(target);
+	if (ret != ERROR_OK)
+		return ret;
+
+	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
+	esp_riscv->pie_version = PIE_V2P2;
+	esp_riscv->pie_temp_mem = target->working_area_phys;
+	if (esp_riscv->examine_end)
+		esp_riscv->examine_end(target);
+
+	/*
+		RISCV code initializes all registers upon target examination.
+		Espressif chips don't support all of them.
+		Disable not supported registers and avoid writing to read only registers during algorithm run
+	*/
+
+	struct esp_riscv_reg_class esp_riscv_registers[] = {
+		{
+			.reg_array = esp_riscv_gprs,
+			.reg_array_size = ARRAY_SIZE(esp_riscv_gprs),
+		},
+		{
+			.reg_array = esp_riscv_fprs,
+			.reg_array_size = ARRAY_SIZE(esp_riscv_fprs),
+		},
+		{
+			.reg_array = esp_riscv_csrs,
+			.reg_array_size = ARRAY_SIZE(esp_riscv_csrs),
+		},
+		{
+			.reg_array = esp_riscv_fpu_csrs,
+			.reg_array_size = ARRAY_SIZE(esp_riscv_fpu_csrs),
+			.reg_arch_type = &esp_riscv_fpu_csr_type
+		},
+		{
+			.reg_array = esp_riscv_hwloop_csrs,
+			.reg_array_size = ARRAY_SIZE(esp_riscv_hwloop_csrs),
+			.reg_arch_type = &esp_riscv_hwloop_reg_type
+		},
+		{
+			.reg_array = esp_riscv_pie_movx_regs,
+			.reg_array_size = ARRAY_SIZE(esp_riscv_pie_movx_regs),
+			.reg_arch_type = &esp_riscv_pie_reg_type
+		},
+		{
+			.reg_array = esp_riscv_pie_xacc_regs,
+			.reg_array_size = ARRAY_SIZE(esp_riscv_pie_xacc_regs),
+			.reg_width = 64,
+			.reg_arch_type = &esp_riscv_pie_reg_type,
+			.reg_data_type = &reg_type_vector40
+		},
+		{
+			.reg_array = esp_riscv_pie_vec_regs,
+			.reg_array_size = ARRAY_SIZE(esp_riscv_pie_vec_regs),
+			.reg_width = 128,
+			.reg_arch_type = &esp_riscv_pie_reg_type,
+			.reg_data_type = &reg_type_vector128
+		},
+	};
+
+	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
+		if (target->reg_cache->reg_list[i].exist) {
+			struct reg *reg = &target->reg_cache->reg_list[i];
+			if (!reg->custom && reg->number < GDB_REGNO_COUNT)
+				reg->exist = false;
+			const struct esp_riscv_reg_class *reg_class = esp_riscv_find_reg_class(reg->name,
+				esp_riscv_registers, ARRAY_SIZE(esp_riscv_registers));
+			if (!reg_class)
+				reg_class = esp_riscv_find_reg_class(reg->name,
+					esp_riscv->chip_specific_registers, esp_riscv->chip_specific_registers_size);
+			if (!reg_class)
+				continue;
+			reg->exist = true;
+			if (reg_class->reg_arch_type)
+				reg->type = reg_class->reg_arch_type;
+			if (reg_class->reg_width) {
+				reg->size = reg_class->reg_width;
+				free(reg->value);
+				reg->value = calloc(1, DIV_ROUND_UP(reg->size, 8));
+			}
+			if (reg_class->reg_data_type)
+				reg->reg_data_type = reg_class->reg_data_type;
+		}
+	}
+
+	for (unsigned int i = 0; i < target->reg_cache->num_regs; i++) {
+		struct reg *reg = &target->reg_cache->reg_list[i];
+		if (!reg->exist) {
+			free(reg->value);
+			reg->value = NULL;
+		}
+	}
+
+	return ERROR_OK;
+}
 
 int esp_riscv_poll(struct target *target)
 {

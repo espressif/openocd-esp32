@@ -60,8 +60,9 @@ struct esp_riscv_reg_class {
 	struct reg_data_type *reg_data_type;
 };
 
-extern struct reg_arch_type esp_riscv_fpu_csr_type;
 extern struct reg_arch_type esp_riscv_user_counter_type;
+
+enum pie_version {PIE_V2P1, PIE_V2P2};
 
 struct esp_riscv_common {
 	/* should be first, will be accessed by riscv generic code */
@@ -87,6 +88,8 @@ struct esp_riscv_common {
 	/* Optional PMA entry forced before each algorithm/stub run; NULL when not needed.
 	 * See esp_riscv_pma_force_napot_rwx(). */
 	const struct esp_riscv_pma_entry *stub_pma_entry;
+	enum pie_version pie_version;
+	target_addr_t pie_temp_mem;
 };
 
 static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *target)
