@@ -1463,12 +1463,20 @@ static int esp32_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx)
 					}
 				}
 				old_block_id = target_state[fired_target_num].block_id;
+				/* keep reading as long as data arrives. Restart the idle timeout so a
+				 * large final bytes are not lost before the TRACE_STOP record is read
+				 */
+				if (duration_start(&wait_time) != ERROR_OK) {
+					LOG_ERROR("Failed to restart trace stop timeout measurement!");
+					return ERROR_FAIL;
+				}
 			}
 		}
 		if (duration_measure(&wait_time) != ERROR_OK) {
 			LOG_ERROR("Failed to start trace stop timeout measurement!");
 			return ERROR_FAIL;
 		}
+		/* idle timeout: time since the last block was read */
 		const float stop_tmo = LOG_LEVEL_IS(LOG_LVL_DEBUG) ? 30.0 : 0.5;
 		if (duration_elapsed(&wait_time) >= stop_tmo) {
 			LOG_INFO("Stop waiting for the last data due to timeout.");
