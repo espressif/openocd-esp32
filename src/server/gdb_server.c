@@ -2562,7 +2562,8 @@ static int smp_reg_list_noread(struct target *target,
 				}
 			}
 			if (!found) {
-				LOG_TARGET_WARNING(head->target, "Register %s does not exist, which is part of an SMP group where "
+				/* Espressif */
+				LOG_TARGET_DEBUG(head->target, "Register %s does not exist, which is part of an SMP group where "
 					    "this register does exist.", a->name);
 			}
 		}

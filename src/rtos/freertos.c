@@ -1412,7 +1412,7 @@ static int freertos_get_thread_reg(struct rtos *rtos, int64_t thread_id,
 
 		struct reg *reg = register_get_by_number(curr->reg_cache, reg_num, true);
 		if (!reg) {
-			LOG_TARGET_ERROR(curr, "Couldn't find register %" PRIu32 " in thread %" PRId64, reg_num, thread_id);
+			LOG_TARGET_DEBUG(curr, "Couldn't find register %" PRIu32 " in thread %" PRId64, reg_num, thread_id);
 			return ERROR_FAIL;
 		}
 
