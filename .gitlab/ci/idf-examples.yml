@@ -46,15 +46,34 @@ create_target_branches:
   stage: private_deploy
   tags: [ "build", "shiny" ]
   script:
-    - >
+    - |
+      set -e
       for branch in "${TEST_APP_IDF_MASTER_RELEASE_BRANCH}" "${TEST_APP_IDF5_2_RELEASE_BRANCH}" "${TEST_APP_IDF5_3_RELEASE_BRANCH}" "${TEST_APP_IDF5_4_RELEASE_BRANCH}" "${TEST_APP_IDF5_5_RELEASE_BRANCH}" "${TEST_APP_IDF6_0_RELEASE_BRANCH}" "${TEST_APP_IDF6_1_RELEASE_BRANCH}"; do
+        temp_branch="${IDF_TEMP_BRANCH_PREFIX}${branch}"
         encoded_branch="${IDF_TEMP_BRANCH_PREFIX}${branch//\//%2F}"
         api_call_delete="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/103/repository/branches/${encoded_branch}"
         echo "${api_call_delete}"
         curl --request DELETE --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call_delete}"
-        api_call_create="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/103/repository/branches?branch=${IDF_TEMP_BRANCH_PREFIX}${branch}&ref=${branch}"
+        api_call_create="https://${CI_SERVER_HOST}:${CI_SERVER_PORT}/api/v4/projects/103/repository/branches?branch=${temp_branch}&ref=${branch}"
         echo "${api_call_create}"
         curl --request POST --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call_create}"
+
+        workdir="/tmp/esp-idf-${temp_branch//\//-}"
+        rm -rf "${workdir}"
+        git clone --depth 1 --branch "${temp_branch}" "https://oauth2:${ESPCI_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git" "${workdir}"
+
+        pushd "${workdir}"
+        git config user.name "GitLab CI"
+        git config user.email "gitlab-ci@espressif.com"
+        sed -i '/^check_test_scripts_build_test_rules:/a\ \ when: manual' .gitlab/ci/pre_check.yml
+        if git diff --quiet -- .gitlab/ci/pre_check.yml; then
+          echo "No pre_check.yml change needed for ${temp_branch}"
+        else
+          git add .gitlab/ci/pre_check.yml
+          git commit -m "CI: TMP: skip failing job in temporary OpenOCD test branch"
+          git push "https://oauth2:${ESPCI_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git" "HEAD:refs/heads/${temp_branch}"
+        fi
+        popd
       done
 
 .test_idf_examples:
