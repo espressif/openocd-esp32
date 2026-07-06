@@ -141,140 +141,140 @@ __code struct usb_string_descriptor *__code en_string_descriptors[3] = {
 	&strproduct,
 	&strserialnumber
 };
-void sudav_isr(void)__interrupt SUDAV_ISR
+void sudav_isr(void)__interrupt(SUDAV_ISR)
 {
 	EXIF &= ~0x10;  /* Clear USBINT: Main global interrupt */
 	USBIRQ = SUDAVI;
 	EP0CS |= HSNAK;
 	usb_handle_setup_data();
 }
-void sof_isr(void)__interrupt	SOF_ISR
+void sof_isr(void)__interrupt(SOF_ISR)
 {
 }
-void sutok_isr(void)__interrupt	SUTOK_ISR
+void sutok_isr(void)__interrupt(SUTOK_ISR)
 {
 }
-void suspend_isr(void)__interrupt	SUSPEND_ISR
+void suspend_isr(void)__interrupt(SUSPEND_ISR)
 {
 }
-void usbreset_isr(void)__interrupt	USBRESET_ISR
+void usbreset_isr(void)__interrupt(USBRESET_ISR)
 {
 }
-void highspeed_isr(void)__interrupt	HIGHSPEED_ISR
+void highspeed_isr(void)__interrupt(HIGHSPEED_ISR)
 {
 }
-void ep0ack_isr(void)__interrupt	EP0ACK_ISR
+void ep0ack_isr(void)__interrupt(EP0ACK_ISR)
 {
 }
-void stub_isr(void)__interrupt	STUB_ISR
+void stub_isr(void)__interrupt(STUB_ISR)
 {
 }
-void ep0in_isr(void)__interrupt	EP0IN_ISR
+void ep0in_isr(void)__interrupt(EP0IN_ISR)
 {
 }
-void ep0out_isr(void)__interrupt	EP0OUT_ISR
+void ep0out_isr(void)__interrupt(EP0OUT_ISR)
 {
 }
-void ep1in_isr(void)__interrupt	EP1IN_ISR
+void ep1in_isr(void)__interrupt(EP1IN_ISR)
 {
 }
-void ep1out_isr(void)__interrupt	EP1OUT_ISR
+void ep1out_isr(void)__interrupt(EP1OUT_ISR)
 {
 }
-void ep2_isr(void)__interrupt	EP2_ISR
+void ep2_isr(void)__interrupt(EP2_ISR)
 {
 }
-void ep4_isr(void)__interrupt	EP4_ISR
+void ep4_isr(void)__interrupt(EP4_ISR)
 {
 }
-void ep6_isr(void)__interrupt	EP6_ISR
+void ep6_isr(void)__interrupt(EP6_ISR)
 {
 	REVCTL = 0;     /* REVCTL.0 and REVCTL.1 set to 0 */
 	i2c_recieve();  /* Execute I2C communication */
 	EXIF &= ~0x10;  /* Clear USBINT: Main global interrupt */
 	EPIRQ = 0x40;	/* Clear individual EP6OUT IRQ */
 }
-void ep8_isr(void)__interrupt	EP8_ISR
+void ep8_isr(void)__interrupt(EP8_ISR)
 {
 	EXIF &= ~0x10;		/* Clear USBINT: Main global interrupt */
 	EPIRQ = 0x80;		/* Clear individual EP8IN IRQ */
 }
-void ibn_isr(void)__interrupt	IBN_ISR
+void ibn_isr(void)__interrupt(IBN_ISR)
 {
 }
-void ep0pingnak_isr(void)__interrupt	EP0PINGNAK_ISR
+void ep0pingnak_isr(void)__interrupt(EP0PINGNAK_ISR)
 {
 }
-void ep1pingnak_isr(void)__interrupt	EP1PINGNAK_ISR
+void ep1pingnak_isr(void)__interrupt(EP1PINGNAK_ISR)
 {
 }
-void ep2pingnak_isr(void)__interrupt	EP2PINGNAK_ISR
+void ep2pingnak_isr(void)__interrupt(EP2PINGNAK_ISR)
 {
 }
-void ep4pingnak_isr(void)__interrupt	EP4PINGNAK_ISR
+void ep4pingnak_isr(void)__interrupt(EP4PINGNAK_ISR)
 {
 }
-void ep6pingnak_isr(void)__interrupt	EP6PINGNAK_ISR
+void ep6pingnak_isr(void)__interrupt(EP6PINGNAK_ISR)
 {
 }
-void ep8pingnak_isr(void)__interrupt	EP8PINGNAK_ISR
+void ep8pingnak_isr(void)__interrupt(EP8PINGNAK_ISR)
 {
 }
-void errorlimit_isr(void)__interrupt	ERRORLIMIT_ISR
+void errorlimit_isr(void)__interrupt(ERRORLIMIT_ISR)
 {
 }
-void ep2piderror_isr(void)__interrupt	EP2PIDERROR_ISR
+void ep2piderror_isr(void)__interrupt(EP2PIDERROR_ISR)
 {
 }
-void ep4piderror_isr(void)__interrupt	EP4PIDERROR_ISR
+void ep4piderror_isr(void)__interrupt(EP4PIDERROR_ISR)
 {
 }
-void ep6piderror_isr(void)__interrupt	EP6PIDERROR_ISR
+void ep6piderror_isr(void)__interrupt(EP6PIDERROR_ISR)
 {
 }
-void ep8piderror_isr(void)__interrupt	EP8PIDERROR_ISR
+void ep8piderror_isr(void)__interrupt(EP8PIDERROR_ISR)
 {
 }
-void ep2pflag_isr(void)__interrupt	EP2PFLAG_ISR
+void ep2pflag_isr(void)__interrupt(EP2PFLAG_ISR)
 {
 }
-void ep4pflag_isr(void)__interrupt	EP4PFLAG_ISR
+void ep4pflag_isr(void)__interrupt(EP4PFLAG_ISR)
 {
 }
-void ep6pflag_isr(void)__interrupt	EP6PFLAG_ISR
+void ep6pflag_isr(void)__interrupt(EP6PFLAG_ISR)
 {
 }
-void ep8pflag_isr(void)__interrupt	EP8PFLAG_ISR
+void ep8pflag_isr(void)__interrupt(EP8PFLAG_ISR)
 {
 }
-void ep2eflag_isr(void)__interrupt	EP2EFLAG_ISR
+void ep2eflag_isr(void)__interrupt(EP2EFLAG_ISR)
 {
 }
-void ep4eflag_isr(void)__interrupt	EP4EFLAG_ISR
+void ep4eflag_isr(void)__interrupt(EP4EFLAG_ISR)
 {
 }
-void ep6eflag_isr(void)__interrupt	EP6EFLAG_ISR
+void ep6eflag_isr(void)__interrupt(EP6EFLAG_ISR)
 {
 }
-void ep8eflag_isr(void)__interrupt	EP8EFLAG_ISR
+void ep8eflag_isr(void)__interrupt(EP8EFLAG_ISR)
 {
 }
-void ep2fflag_isr(void)__interrupt	EP2FFLAG_ISR
+void ep2fflag_isr(void)__interrupt(EP2FFLAG_ISR)
 {
 }
-void ep4fflag_isr(void)__interrupt	EP4FFLAG_ISR
+void ep4fflag_isr(void)__interrupt(EP4FFLAG_ISR)
 {
 }
-void ep6fflag_isr(void)__interrupt	EP6FFLAG_ISR
+void ep6fflag_isr(void)__interrupt(EP6FFLAG_ISR)
 {
 }
-void ep8fflag_isr(void)__interrupt	EP8FFLAG_ISR
+void ep8fflag_isr(void)__interrupt(EP8FFLAG_ISR)
 {
 }
-void gpifcomplete_isr(void)__interrupt	GPIFCOMPLETE_ISR
+void gpifcomplete_isr(void)__interrupt(GPIFCOMPLETE_ISR)
 {
 }
-void gpifwaveform_isr(void)__interrupt	GPIFWAVEFORM_ISR
+void gpifwaveform_isr(void)__interrupt(GPIFWAVEFORM_ISR)
 {
 }
 
