@@ -23,7 +23,7 @@
 
 // #define PRINTF_DEBUG
 
-volatile __xdata __at 0xE6B8 struct setup_data setup_data;
+volatile __xdata __at(0xE6B8) struct setup_data setup_data;
 
 /* Define number of endpoints (except Control Endpoint 0) in a central place.
  * Be sure to include the necessary endpoint descriptors!

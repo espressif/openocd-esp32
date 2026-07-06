@@ -125,7 +125,7 @@ struct setup_data {
 	uint16_t wlength;		/**< Number of bytes to transfer in data stage. */
 };
 
-extern volatile __xdata __at 0xE6B8 struct setup_data setup_data;
+extern volatile __xdata __at(0xE6B8) struct setup_data setup_data;
 
 /*
  * USB Request Types (bmRequestType): See USB 2.0 Spec
