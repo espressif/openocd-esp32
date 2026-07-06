@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 fd_set
+FILE
 Jim_Cmd
 Jim_CmdProc
 Jim_DelCmdProc
