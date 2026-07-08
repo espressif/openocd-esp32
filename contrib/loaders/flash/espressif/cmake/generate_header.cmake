@@ -197,6 +197,17 @@ foreach(COMMAND ${COMMANDS})
         "	.dram_len = ESP_STUB_${COMMAND_UPPER}_DRAM_LEN${SUFFIX_UPPER},\n"
         "};\n\n"
     )
+
+    if("${COMMAND}" STREQUAL "cmd_flash_idf_binary")
+        set(IDF_IMAGE_HEADER "${OUTPUT_DIR}/stub_flash_idf_image.h")
+        file(WRITE ${IDF_IMAGE_HEADER}
+            "/* SPDX-License-Identifier: GPL-2.0-or-later */\n\n"
+            "#define OPENOCD_STUB_BSS_SIZE 0x${BSS_SIZE}UL\n"
+            "#define OPENOCD_STUB_STACK_SIZE ${ESP_STUB_STACK_SIZE}\n"
+            "#define OPENOCD_STUB_PARAM_SIZE 512\n"
+            "#define OPENOCD_STUB_BP_SECTOR_SIZE 4096\n"
+        )
+    endif()
 endforeach()
 
 file(APPEND ${HEADER_FILE} "static const struct command_map s_cmd_map${SUFFIX}[ESP_STUB_CMD_FLASH_MAX_ID + 1] = {\n")

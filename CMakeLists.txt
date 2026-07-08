@@ -34,10 +34,10 @@ install(FILES tools/esp_problems_hints.yml DESTINATION ${pkgdatadir}/espressif/t
 
 install(FILES contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_idf_binary_code.inc DESTINATION ${pkgdatadir}/espressif/stub_bins/esp32c6)
 install(FILES contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_idf_binary_data.inc DESTINATION ${pkgdatadir}/espressif/stub_bins/esp32c6)
-install(FILES contrib/loaders/flash/espressif/images/esp32c6/stub_image.h DESTINATION ${pkgdatadir}/espressif/stub_bins/esp32c6)
+install(FILES contrib/loaders/flash/espressif/images/esp32c6/stub_flash_idf_image.h DESTINATION ${pkgdatadir}/espressif/stub_bins/esp32c6)
 install(FILES contrib/loaders/flash/espressif/images/esp32h2/stub_cmd_flash_idf_binary_code.inc DESTINATION ${pkgdatadir}/espressif/stub_bins/esp32h2)
 install(FILES contrib/loaders/flash/espressif/images/esp32h2/stub_cmd_flash_idf_binary_data.inc DESTINATION ${pkgdatadir}/espressif/stub_bins/esp32h2)
-install(FILES contrib/loaders/flash/espressif/images/esp32h2/stub_image.h DESTINATION ${pkgdatadir}/espressif/stub_bins/esp32h2)
+install(FILES contrib/loaders/flash/espressif/images/esp32h2/stub_flash_idf_image.h DESTINATION ${pkgdatadir}/espressif/stub_bins/esp32h2)
 
 get_property(ulink_firmware TARGET ocdjtagdrivers PROPERTY ULINK_FIRMWARE)
 if(BUILD_JLINK)
