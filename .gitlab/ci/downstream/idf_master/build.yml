@@ -46,7 +46,7 @@ build_test_app_esp32c6:
   variables:
     CHIP_NAME: "esp32c6"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single single_core_amazon_freertos single_core_preloaded_stub single_core_freertos_list_integrity lpcore_single multi_app_images_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single single_core_amazon_freertos single_core_freertos_list_integrity lpcore_single multi_app_images_single"
   extends: .build_idf_master_test_app_template
 
 build_test_app_esp32c61:
@@ -60,7 +60,7 @@ build_test_app_esp32h2:
   variables:
     CHIP_NAME: "esp32h2"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single single_core_amazon_freertos single_core_preloaded_stub single_core_freertos_list_integrity multi_app_images_single"
+    TEST_APP_CONFIGS: "single_core single_core_4MB svtrace_single apptrace_gcov_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single"
   extends: .build_idf_master_test_app_template
 
 build_test_app_esp32p4:

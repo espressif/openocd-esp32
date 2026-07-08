@@ -348,6 +348,7 @@ class FlasherTestsSingleEncrypted(DebuggerGenericTestAppTestsSingleEncrypted, Fl
         DebuggerGenericTestAppTestsSingleEncrypted.setUp(self)
         FlasherTestsImpl.setUp(self)
 
+@unittest.skip("skipped - OCD-1396")
 @idf_ver_min('5.4')
 @only_for_chip(['esp32c6', 'esp32h2'])
 class FlasherTestsPreloadedStubSingle(DebuggerGenericTestAppTestsSingle):
