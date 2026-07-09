@@ -32,9 +32,6 @@ struct stub_runtime_state {
 	void *cache_state;
 };
 
-/* Filled by stub_trap_handler */
-volatile union esp_stub_trap_record g_stub_trap_record;
-
 #define __maybe_unused __attribute__((unused))
 
 /* --- Includes and globals --- */

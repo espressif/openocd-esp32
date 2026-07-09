@@ -39,13 +39,10 @@ set(SRC_FILES
 if(ESP_TARGET IN_LIST XTENSA_TARGETS)
     list(APPEND SRC_FILES
         ${SRC_DIR}/apptrace/src/apptrace_hw_xtensa.c
-        ${SRC_DIR}/exception/stub_trap_xtensa_vectors.S
     )
 else()
     list(APPEND SRC_FILES
         ${SRC_DIR}/apptrace/src/apptrace_hw_riscv.c
-        ${SRC_DIR}/exception/stub_trap_riscv.c
-        ${SRC_DIR}/exception/stub_trap_riscv_entry.S
     )
 endif()
 
@@ -173,6 +170,14 @@ foreach(COMMAND ${COMMANDS})
     )
 
     target_link_libraries(${TARGET_ELF} PRIVATE ${ESP_STUB_LIB})
+
+    # Build and link the trap/exception handler only for commands whose macro set includes STUB_LOG_ENABLED
+    if("STUB_LOG_ENABLED" IN_LIST COMMAND_DEFINES)
+        set(STUB_TRAP_LIB stub_trap-${COMMAND})
+        add_subdirectory(src/exception exception-${COMMAND})
+        target_link_libraries(${TARGET_ELF} PRIVATE ${STUB_TRAP_LIB})
+        target_link_options(${TARGET_ELF} PRIVATE -Wl,--undefined=stub_trap_entry)
+    endif()
 
     list(APPEND ALL_TARGETS ${TARGET_ELF})
 

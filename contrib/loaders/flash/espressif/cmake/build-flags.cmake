@@ -36,7 +36,6 @@ set(COMMON_LINKER_FLAGS
     "-lgcc"
     "-Wl,--end-group"
     "-Wl,--undefined=s_esp_stub_desc"
-    "-Wl,--undefined=stub_trap_entry"
     "-Werror=lto-type-mismatch"
 )
 
