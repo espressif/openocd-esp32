@@ -24,14 +24,14 @@ dist_esptools_DATA = \
 
 esp32c6stubsdir = $(pkgdatadir)/espressif/stub_bins/esp32c6
 dist_esp32c6stubs_DATA = \
-	contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_idf_binary_code.inc \
-	contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_idf_binary_data.inc \
+	contrib/loaders/flash/espressif/images/esp32c6/stub_flash_idf_binary_code.inc \
+	contrib/loaders/flash/espressif/images/esp32c6/stub_flash_idf_binary_data.inc \
 	contrib/loaders/flash/espressif/images/esp32c6/stub_flash_idf_image.h
 
 esp32h2stubsdir = $(pkgdatadir)/espressif/stub_bins/esp32h2
 dist_esp32h2stubs_DATA = \
-	contrib/loaders/flash/espressif/images/esp32h2/stub_cmd_flash_idf_binary_code.inc \
-	contrib/loaders/flash/espressif/images/esp32h2/stub_cmd_flash_idf_binary_data.inc \
+	contrib/loaders/flash/espressif/images/esp32h2/stub_flash_idf_binary_code.inc \
+	contrib/loaders/flash/espressif/images/esp32h2/stub_flash_idf_binary_data.inc \
 	contrib/loaders/flash/espressif/images/esp32h2/stub_flash_idf_image.h
 
 SUBDIRS =

@@ -52,48 +52,48 @@ endif()
 # Define command names. Should be the same order as the commands in the esp_stub.h file
 set(COMMANDS
     # Test commands
-    "cmd_test1"
-    "cmd_recv_from_host"
-    "cmd_send_to_host"
+    "test1"
+    "recv_from_host"
+    "send_to_host"
 
     # Flash commands
-    "cmd_flash_read"
-    "cmd_flash_write"
-    "cmd_flash_erase"
-    "cmd_flash_erase_check"
-    "cmd_flash_map_get"
-    "cmd_flash_bp_set"
-    "cmd_flash_bp_clear"
-    "cmd_flash_write_deflated"
-    "cmd_flash_calc_hash"
-    "cmd_flash_clock_configure"
+    "flash_read"
+    "flash_write"
+    "flash_erase"
+    "flash_erase_check"
+    "flash_map_get"
+    "flash_bp_set"
+    "flash_bp_clear"
+    "flash_write_deflated"
+    "flash_calc_hash"
+    "flash_clock_configure"
 
     # Command groups. Combined with the flash commands
-    "cmd_flash_multi_command"
-    "cmd_flash_idf_binary"
-    "cmd_test_all"
+    "flash_multi_command"
+    "flash_idf_binary"
+    "test_all"
 )
 
 # Define enabled macros for each command
 define_property(GLOBAL PROPERTY COMMAND_MACROS)
 # Test commands
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_test1 STUB_CMD_TEST1)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_recv_from_host STUB_CMD_RECV_FROM_HOST)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_send_to_host STUB_CMD_SEND_TO_HOST)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:test1 STUB_CMD_TEST1)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:recv_from_host STUB_CMD_RECV_FROM_HOST)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:send_to_host STUB_CMD_SEND_TO_HOST)
 # Flash commands
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_flash_read STUB_CMD_FLASH_READ)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_flash_write STUB_CMD_FLASH_WRITE)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_flash_erase STUB_CMD_FLASH_ERASE)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_flash_erase_check STUB_CMD_FLASH_ERASE_CHECK)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_flash_map_get STUB_CMD_FLASH_MAP_GET)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_flash_bp_set STUB_CMD_FLASH_BP_SET)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_flash_bp_clear STUB_CMD_FLASH_BP_CLEAR)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_flash_write_deflated STUB_CMD_FLASH_WRITE_DEFLATED)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_flash_calc_hash STUB_CMD_FLASH_CALC_HASH)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_flash_clock_configure STUB_CMD_FLASH_CLOCK_CONFIGURE)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_flash_multi_command STUB_CMD_FLASH_MULTI_COMMAND)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_flash_idf_binary STUB_CMD_FLASH_IDF_BINARY)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:cmd_test_all
+set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_read STUB_CMD_FLASH_READ)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_write STUB_CMD_FLASH_WRITE)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_erase STUB_CMD_FLASH_ERASE)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_erase_check STUB_CMD_FLASH_ERASE_CHECK)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_map_get STUB_CMD_FLASH_MAP_GET)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_bp_set STUB_CMD_FLASH_BP_SET)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_bp_clear STUB_CMD_FLASH_BP_CLEAR)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_write_deflated STUB_CMD_FLASH_WRITE_DEFLATED)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_calc_hash STUB_CMD_FLASH_CALC_HASH)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_clock_configure STUB_CMD_FLASH_CLOCK_CONFIGURE)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_multi_command STUB_CMD_FLASH_MULTI_COMMAND)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_idf_binary STUB_CMD_FLASH_IDF_BINARY)
+set_property(GLOBAL PROPERTY COMMAND_MACROS:test_all
     STUB_CMD_TEST1
     STUB_CMD_RECV_FROM_HOST
     STUB_CMD_SEND_TO_HOST

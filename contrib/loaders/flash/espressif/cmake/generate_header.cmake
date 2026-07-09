@@ -44,7 +44,11 @@ file(WRITE ${HEADER_FILE} "/* SPDX-License-Identifier: Apache-2.0 OR MIT */
 ")
 
 foreach(COMMAND ${COMMANDS})
-    string(TOUPPER ${COMMAND} COMMAND_UPPER)
+    # The COMMANDS list carries no "cmd_" prefix, so file names and C symbols are
+    # generated without it. Enum values and #define names, however, live in the
+    # ESP_STUB_CMD_* namespace shared with include/esp_stub.h and OpenOCD sources,
+    # so reintroduce the "cmd_" prefix only when building those identifiers.
+    string(TOUPPER "cmd_${COMMAND}" COMMAND_UPPER)
     set(STUB_ELF "${CMAKE_CURRENT_BINARY_DIR}/stub_${ESP_TARGET}_${COMMAND}.elf")
     set(CODE_SECTION "${OUTPUT_DIR}/stub_${COMMAND}_code${SUFFIX}.inc")
     set(DATA_SECTION "${OUTPUT_DIR}/stub_${COMMAND}_data${SUFFIX}.inc")
@@ -198,7 +202,7 @@ foreach(COMMAND ${COMMANDS})
         "};\n\n"
     )
 
-    if("${COMMAND}" STREQUAL "cmd_flash_idf_binary")
+    if("${COMMAND}" STREQUAL "flash_idf_binary")
         set(IDF_IMAGE_HEADER "${OUTPUT_DIR}/stub_flash_idf_image.h")
         file(WRITE ${IDF_IMAGE_HEADER}
             "/* SPDX-License-Identifier: GPL-2.0-or-later */\n\n"
@@ -212,7 +216,7 @@ endforeach()
 
 file(APPEND ${HEADER_FILE} "static const struct command_map s_cmd_map${SUFFIX}[ESP_STUB_CMD_FLASH_MAX_ID + 1] = {\n")
 foreach(COMMAND ${COMMANDS})
-    string(TOUPPER ${COMMAND} COMMAND_UPPER)
+    string(TOUPPER "cmd_${COMMAND}" COMMAND_UPPER)
     file(APPEND ${HEADER_FILE}
         "	{ESP_STUB_${COMMAND_UPPER}, &s_esp_stub_${COMMAND}_cfg${SUFFIX}},\n"
     )

@@ -7,7 +7,7 @@
 
 #define ESP_STUB_STACK_SIZE 1024
 
-// cmd_test1 definitions
+// test1 definitions
 #define ESP_STUB_CMD_TEST1_BSS_SIZE 0x000080UL
 #define ESP_STUB_CMD_TEST1_IRAM_ORG 0x40800000UL
 #define ESP_STUB_CMD_TEST1_IRAM_LEN 0x00004000UL
@@ -20,20 +20,20 @@
 #define ESP_STUB_CMD_TEST1_TRAP_RECORD_ADDR 0x4080404cUL
 #define ESP_STUB_CMD_TEST1_TRAP_ENTRY_ADDR 0x40800200UL
 
-static const uint8_t s_esp_flasher_stub_cmd_test1_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_test1_code.inc"
+static const uint8_t s_esp_flasher_stub_test1_code[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_test1_code.inc"
 };
 
-static const uint8_t s_esp_flasher_stub_cmd_test1_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_test1_data.inc"
+static const uint8_t s_esp_flasher_stub_test1_data[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_test1_data.inc"
 };
 
-static const struct esp_flasher_stub_config s_esp_stub_cmd_test1_cfg = {
-	.name = "cmd_test1",
-	.code = s_esp_flasher_stub_cmd_test1_code,
-	.code_sz = sizeof(s_esp_flasher_stub_cmd_test1_code),
-	.data = s_esp_flasher_stub_cmd_test1_data,
-	.data_sz = sizeof(s_esp_flasher_stub_cmd_test1_data),
+static const struct esp_flasher_stub_config s_esp_stub_test1_cfg = {
+	.name = "test1",
+	.code = s_esp_flasher_stub_test1_code,
+	.code_sz = sizeof(s_esp_flasher_stub_test1_code),
+	.data = s_esp_flasher_stub_test1_data,
+	.data_sz = sizeof(s_esp_flasher_stub_test1_data),
 	.entry_addr = ESP_STUB_CMD_TEST1_ENTRY_ADDR,
 	.bss_sz = ESP_STUB_CMD_TEST1_BSS_SIZE,
 	.apptrace_ctrl_addr = ESP_STUB_CMD_TEST1_APPTRACE_CTRL_ADDR,
@@ -48,7 +48,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_test1_cfg = {
 	.dram_len = ESP_STUB_CMD_TEST1_DRAM_LEN,
 };
 
-// cmd_recv_from_host definitions
+// recv_from_host definitions
 #define ESP_STUB_CMD_RECV_FROM_HOST_BSS_SIZE 0x0000c4UL
 #define ESP_STUB_CMD_RECV_FROM_HOST_IRAM_ORG 0x40800000UL
 #define ESP_STUB_CMD_RECV_FROM_HOST_IRAM_LEN 0x00004000UL
@@ -61,20 +61,20 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_test1_cfg = {
 #define ESP_STUB_CMD_RECV_FROM_HOST_TRAP_RECORD_ADDR 0x4080408cUL
 #define ESP_STUB_CMD_RECV_FROM_HOST_TRAP_ENTRY_ADDR 0x40800400UL
 
-static const uint8_t s_esp_flasher_stub_cmd_recv_from_host_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_recv_from_host_code.inc"
+static const uint8_t s_esp_flasher_stub_recv_from_host_code[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_recv_from_host_code.inc"
 };
 
-static const uint8_t s_esp_flasher_stub_cmd_recv_from_host_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_recv_from_host_data.inc"
+static const uint8_t s_esp_flasher_stub_recv_from_host_data[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_recv_from_host_data.inc"
 };
 
-static const struct esp_flasher_stub_config s_esp_stub_cmd_recv_from_host_cfg = {
-	.name = "cmd_recv_from_host",
-	.code = s_esp_flasher_stub_cmd_recv_from_host_code,
-	.code_sz = sizeof(s_esp_flasher_stub_cmd_recv_from_host_code),
-	.data = s_esp_flasher_stub_cmd_recv_from_host_data,
-	.data_sz = sizeof(s_esp_flasher_stub_cmd_recv_from_host_data),
+static const struct esp_flasher_stub_config s_esp_stub_recv_from_host_cfg = {
+	.name = "recv_from_host",
+	.code = s_esp_flasher_stub_recv_from_host_code,
+	.code_sz = sizeof(s_esp_flasher_stub_recv_from_host_code),
+	.data = s_esp_flasher_stub_recv_from_host_data,
+	.data_sz = sizeof(s_esp_flasher_stub_recv_from_host_data),
 	.entry_addr = ESP_STUB_CMD_RECV_FROM_HOST_ENTRY_ADDR,
 	.bss_sz = ESP_STUB_CMD_RECV_FROM_HOST_BSS_SIZE,
 	.apptrace_ctrl_addr = ESP_STUB_CMD_RECV_FROM_HOST_APPTRACE_CTRL_ADDR,
@@ -89,7 +89,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_recv_from_host_cfg = 
 	.dram_len = ESP_STUB_CMD_RECV_FROM_HOST_DRAM_LEN,
 };
 
-// cmd_send_to_host definitions
+// send_to_host definitions
 #define ESP_STUB_CMD_SEND_TO_HOST_BSS_SIZE 0x0000c5UL
 #define ESP_STUB_CMD_SEND_TO_HOST_IRAM_ORG 0x40800000UL
 #define ESP_STUB_CMD_SEND_TO_HOST_IRAM_LEN 0x00004000UL
@@ -102,20 +102,20 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_recv_from_host_cfg = 
 #define ESP_STUB_CMD_SEND_TO_HOST_TRAP_RECORD_ADDR 0x4080408cUL
 #define ESP_STUB_CMD_SEND_TO_HOST_TRAP_ENTRY_ADDR 0x40800500UL
 
-static const uint8_t s_esp_flasher_stub_cmd_send_to_host_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_send_to_host_code.inc"
+static const uint8_t s_esp_flasher_stub_send_to_host_code[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_send_to_host_code.inc"
 };
 
-static const uint8_t s_esp_flasher_stub_cmd_send_to_host_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_send_to_host_data.inc"
+static const uint8_t s_esp_flasher_stub_send_to_host_data[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_send_to_host_data.inc"
 };
 
-static const struct esp_flasher_stub_config s_esp_stub_cmd_send_to_host_cfg = {
-	.name = "cmd_send_to_host",
-	.code = s_esp_flasher_stub_cmd_send_to_host_code,
-	.code_sz = sizeof(s_esp_flasher_stub_cmd_send_to_host_code),
-	.data = s_esp_flasher_stub_cmd_send_to_host_data,
-	.data_sz = sizeof(s_esp_flasher_stub_cmd_send_to_host_data),
+static const struct esp_flasher_stub_config s_esp_stub_send_to_host_cfg = {
+	.name = "send_to_host",
+	.code = s_esp_flasher_stub_send_to_host_code,
+	.code_sz = sizeof(s_esp_flasher_stub_send_to_host_code),
+	.data = s_esp_flasher_stub_send_to_host_data,
+	.data_sz = sizeof(s_esp_flasher_stub_send_to_host_data),
 	.entry_addr = ESP_STUB_CMD_SEND_TO_HOST_ENTRY_ADDR,
 	.bss_sz = ESP_STUB_CMD_SEND_TO_HOST_BSS_SIZE,
 	.apptrace_ctrl_addr = ESP_STUB_CMD_SEND_TO_HOST_APPTRACE_CTRL_ADDR,
@@ -130,7 +130,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_send_to_host_cfg = {
 	.dram_len = ESP_STUB_CMD_SEND_TO_HOST_DRAM_LEN,
 };
 
-// cmd_flash_read definitions
+// flash_read definitions
 #define ESP_STUB_CMD_FLASH_READ_BSS_SIZE 0x0000f0UL
 #define ESP_STUB_CMD_FLASH_READ_IRAM_ORG 0x40800000UL
 #define ESP_STUB_CMD_FLASH_READ_IRAM_LEN 0x00004000UL
@@ -143,20 +143,20 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_send_to_host_cfg = {
 #define ESP_STUB_CMD_FLASH_READ_TRAP_RECORD_ADDR 0x408040b4UL
 #define ESP_STUB_CMD_FLASH_READ_TRAP_ENTRY_ADDR 0x40800700UL
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_read_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_read_code.inc"
+static const uint8_t s_esp_flasher_stub_flash_read_code[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_read_code.inc"
 };
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_read_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_read_data.inc"
+static const uint8_t s_esp_flasher_stub_flash_read_data[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_read_data.inc"
 };
 
-static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_read_cfg = {
-	.name = "cmd_flash_read",
-	.code = s_esp_flasher_stub_cmd_flash_read_code,
-	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_read_code),
-	.data = s_esp_flasher_stub_cmd_flash_read_data,
-	.data_sz = sizeof(s_esp_flasher_stub_cmd_flash_read_data),
+static const struct esp_flasher_stub_config s_esp_stub_flash_read_cfg = {
+	.name = "flash_read",
+	.code = s_esp_flasher_stub_flash_read_code,
+	.code_sz = sizeof(s_esp_flasher_stub_flash_read_code),
+	.data = s_esp_flasher_stub_flash_read_data,
+	.data_sz = sizeof(s_esp_flasher_stub_flash_read_data),
 	.entry_addr = ESP_STUB_CMD_FLASH_READ_ENTRY_ADDR,
 	.bss_sz = ESP_STUB_CMD_FLASH_READ_BSS_SIZE,
 	.apptrace_ctrl_addr = ESP_STUB_CMD_FLASH_READ_APPTRACE_CTRL_ADDR,
@@ -171,7 +171,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_read_cfg = {
 	.dram_len = ESP_STUB_CMD_FLASH_READ_DRAM_LEN,
 };
 
-// cmd_flash_write definitions
+// flash_write definitions
 #define ESP_STUB_CMD_FLASH_WRITE_BSS_SIZE 0x0000e4UL
 #define ESP_STUB_CMD_FLASH_WRITE_IRAM_ORG 0x40800000UL
 #define ESP_STUB_CMD_FLASH_WRITE_IRAM_LEN 0x00004000UL
@@ -184,20 +184,20 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_read_cfg = {
 #define ESP_STUB_CMD_FLASH_WRITE_TRAP_RECORD_ADDR 0x408040a0UL
 #define ESP_STUB_CMD_FLASH_WRITE_TRAP_ENTRY_ADDR 0x40800600UL
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_write_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_write_code.inc"
+static const uint8_t s_esp_flasher_stub_flash_write_code[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_write_code.inc"
 };
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_write_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_write_data.inc"
+static const uint8_t s_esp_flasher_stub_flash_write_data[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_write_data.inc"
 };
 
-static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_write_cfg = {
-	.name = "cmd_flash_write",
-	.code = s_esp_flasher_stub_cmd_flash_write_code,
-	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_write_code),
-	.data = s_esp_flasher_stub_cmd_flash_write_data,
-	.data_sz = sizeof(s_esp_flasher_stub_cmd_flash_write_data),
+static const struct esp_flasher_stub_config s_esp_stub_flash_write_cfg = {
+	.name = "flash_write",
+	.code = s_esp_flasher_stub_flash_write_code,
+	.code_sz = sizeof(s_esp_flasher_stub_flash_write_code),
+	.data = s_esp_flasher_stub_flash_write_data,
+	.data_sz = sizeof(s_esp_flasher_stub_flash_write_data),
 	.entry_addr = ESP_STUB_CMD_FLASH_WRITE_ENTRY_ADDR,
 	.bss_sz = ESP_STUB_CMD_FLASH_WRITE_BSS_SIZE,
 	.apptrace_ctrl_addr = ESP_STUB_CMD_FLASH_WRITE_APPTRACE_CTRL_ADDR,
@@ -212,7 +212,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_write_cfg = {
 	.dram_len = ESP_STUB_CMD_FLASH_WRITE_DRAM_LEN,
 };
 
-// cmd_flash_erase definitions
+// flash_erase definitions
 #define ESP_STUB_CMD_FLASH_ERASE_BSS_SIZE 0x000080UL
 #define ESP_STUB_CMD_FLASH_ERASE_IRAM_ORG 0x40800000UL
 #define ESP_STUB_CMD_FLASH_ERASE_IRAM_LEN 0x00004000UL
@@ -225,20 +225,20 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_write_cfg = {
 #define ESP_STUB_CMD_FLASH_ERASE_TRAP_RECORD_ADDR 0x40804050UL
 #define ESP_STUB_CMD_FLASH_ERASE_TRAP_ENTRY_ADDR 0x40800300UL
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_erase_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_erase_code.inc"
+static const uint8_t s_esp_flasher_stub_flash_erase_code[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_erase_code.inc"
 };
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_erase_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_erase_data.inc"
+static const uint8_t s_esp_flasher_stub_flash_erase_data[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_erase_data.inc"
 };
 
-static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_erase_cfg = {
-	.name = "cmd_flash_erase",
-	.code = s_esp_flasher_stub_cmd_flash_erase_code,
-	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_erase_code),
-	.data = s_esp_flasher_stub_cmd_flash_erase_data,
-	.data_sz = sizeof(s_esp_flasher_stub_cmd_flash_erase_data),
+static const struct esp_flasher_stub_config s_esp_stub_flash_erase_cfg = {
+	.name = "flash_erase",
+	.code = s_esp_flasher_stub_flash_erase_code,
+	.code_sz = sizeof(s_esp_flasher_stub_flash_erase_code),
+	.data = s_esp_flasher_stub_flash_erase_data,
+	.data_sz = sizeof(s_esp_flasher_stub_flash_erase_data),
 	.entry_addr = ESP_STUB_CMD_FLASH_ERASE_ENTRY_ADDR,
 	.bss_sz = ESP_STUB_CMD_FLASH_ERASE_BSS_SIZE,
 	.apptrace_ctrl_addr = ESP_STUB_CMD_FLASH_ERASE_APPTRACE_CTRL_ADDR,
@@ -253,7 +253,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_erase_cfg = {
 	.dram_len = ESP_STUB_CMD_FLASH_ERASE_DRAM_LEN,
 };
 
-// cmd_flash_erase_check definitions
+// flash_erase_check definitions
 #define ESP_STUB_CMD_FLASH_ERASE_CHECK_BSS_SIZE 0x0000acUL
 #define ESP_STUB_CMD_FLASH_ERASE_CHECK_IRAM_ORG 0x40800000UL
 #define ESP_STUB_CMD_FLASH_ERASE_CHECK_IRAM_LEN 0x00004000UL
@@ -266,20 +266,20 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_erase_cfg = {
 #define ESP_STUB_CMD_FLASH_ERASE_CHECK_TRAP_RECORD_ADDR 0x40804084UL
 #define ESP_STUB_CMD_FLASH_ERASE_CHECK_TRAP_ENTRY_ADDR 0x40800500UL
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_erase_check_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_erase_check_code.inc"
+static const uint8_t s_esp_flasher_stub_flash_erase_check_code[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_erase_check_code.inc"
 };
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_erase_check_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_erase_check_data.inc"
+static const uint8_t s_esp_flasher_stub_flash_erase_check_data[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_erase_check_data.inc"
 };
 
-static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_erase_check_cfg = {
-	.name = "cmd_flash_erase_check",
-	.code = s_esp_flasher_stub_cmd_flash_erase_check_code,
-	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_erase_check_code),
-	.data = s_esp_flasher_stub_cmd_flash_erase_check_data,
-	.data_sz = sizeof(s_esp_flasher_stub_cmd_flash_erase_check_data),
+static const struct esp_flasher_stub_config s_esp_stub_flash_erase_check_cfg = {
+	.name = "flash_erase_check",
+	.code = s_esp_flasher_stub_flash_erase_check_code,
+	.code_sz = sizeof(s_esp_flasher_stub_flash_erase_check_code),
+	.data = s_esp_flasher_stub_flash_erase_check_data,
+	.data_sz = sizeof(s_esp_flasher_stub_flash_erase_check_data),
 	.entry_addr = ESP_STUB_CMD_FLASH_ERASE_CHECK_ENTRY_ADDR,
 	.bss_sz = ESP_STUB_CMD_FLASH_ERASE_CHECK_BSS_SIZE,
 	.apptrace_ctrl_addr = ESP_STUB_CMD_FLASH_ERASE_CHECK_APPTRACE_CTRL_ADDR,
@@ -294,7 +294,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_erase_check_cfg
 	.dram_len = ESP_STUB_CMD_FLASH_ERASE_CHECK_DRAM_LEN,
 };
 
-// cmd_flash_map_get definitions
+// flash_map_get definitions
 #define ESP_STUB_CMD_FLASH_MAP_GET_BSS_SIZE 0x0000acUL
 #define ESP_STUB_CMD_FLASH_MAP_GET_IRAM_ORG 0x40800000UL
 #define ESP_STUB_CMD_FLASH_MAP_GET_IRAM_LEN 0x00004000UL
@@ -307,20 +307,20 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_erase_check_cfg
 #define ESP_STUB_CMD_FLASH_MAP_GET_TRAP_RECORD_ADDR 0x40804080UL
 #define ESP_STUB_CMD_FLASH_MAP_GET_TRAP_ENTRY_ADDR 0x40800600UL
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_map_get_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_map_get_code.inc"
+static const uint8_t s_esp_flasher_stub_flash_map_get_code[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_map_get_code.inc"
 };
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_map_get_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_map_get_data.inc"
+static const uint8_t s_esp_flasher_stub_flash_map_get_data[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_map_get_data.inc"
 };
 
-static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_map_get_cfg = {
-	.name = "cmd_flash_map_get",
-	.code = s_esp_flasher_stub_cmd_flash_map_get_code,
-	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_map_get_code),
-	.data = s_esp_flasher_stub_cmd_flash_map_get_data,
-	.data_sz = sizeof(s_esp_flasher_stub_cmd_flash_map_get_data),
+static const struct esp_flasher_stub_config s_esp_stub_flash_map_get_cfg = {
+	.name = "flash_map_get",
+	.code = s_esp_flasher_stub_flash_map_get_code,
+	.code_sz = sizeof(s_esp_flasher_stub_flash_map_get_code),
+	.data = s_esp_flasher_stub_flash_map_get_data,
+	.data_sz = sizeof(s_esp_flasher_stub_flash_map_get_data),
 	.entry_addr = ESP_STUB_CMD_FLASH_MAP_GET_ENTRY_ADDR,
 	.bss_sz = ESP_STUB_CMD_FLASH_MAP_GET_BSS_SIZE,
 	.apptrace_ctrl_addr = ESP_STUB_CMD_FLASH_MAP_GET_APPTRACE_CTRL_ADDR,
@@ -335,7 +335,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_map_get_cfg = {
 	.dram_len = ESP_STUB_CMD_FLASH_MAP_GET_DRAM_LEN,
 };
 
-// cmd_flash_bp_set definitions
+// flash_bp_set definitions
 #define ESP_STUB_CMD_FLASH_BP_SET_BSS_SIZE 0x0000b4UL
 #define ESP_STUB_CMD_FLASH_BP_SET_IRAM_ORG 0x40800000UL
 #define ESP_STUB_CMD_FLASH_BP_SET_IRAM_LEN 0x00004000UL
@@ -348,20 +348,20 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_map_get_cfg = {
 #define ESP_STUB_CMD_FLASH_BP_SET_TRAP_RECORD_ADDR 0x40804080UL
 #define ESP_STUB_CMD_FLASH_BP_SET_TRAP_ENTRY_ADDR 0x40800600UL
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_bp_set_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_bp_set_code.inc"
+static const uint8_t s_esp_flasher_stub_flash_bp_set_code[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_bp_set_code.inc"
 };
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_bp_set_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_bp_set_data.inc"
+static const uint8_t s_esp_flasher_stub_flash_bp_set_data[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_bp_set_data.inc"
 };
 
-static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_bp_set_cfg = {
-	.name = "cmd_flash_bp_set",
-	.code = s_esp_flasher_stub_cmd_flash_bp_set_code,
-	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_bp_set_code),
-	.data = s_esp_flasher_stub_cmd_flash_bp_set_data,
-	.data_sz = sizeof(s_esp_flasher_stub_cmd_flash_bp_set_data),
+static const struct esp_flasher_stub_config s_esp_stub_flash_bp_set_cfg = {
+	.name = "flash_bp_set",
+	.code = s_esp_flasher_stub_flash_bp_set_code,
+	.code_sz = sizeof(s_esp_flasher_stub_flash_bp_set_code),
+	.data = s_esp_flasher_stub_flash_bp_set_data,
+	.data_sz = sizeof(s_esp_flasher_stub_flash_bp_set_data),
 	.entry_addr = ESP_STUB_CMD_FLASH_BP_SET_ENTRY_ADDR,
 	.bss_sz = ESP_STUB_CMD_FLASH_BP_SET_BSS_SIZE,
 	.apptrace_ctrl_addr = ESP_STUB_CMD_FLASH_BP_SET_APPTRACE_CTRL_ADDR,
@@ -376,7 +376,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_bp_set_cfg = {
 	.dram_len = ESP_STUB_CMD_FLASH_BP_SET_DRAM_LEN,
 };
 
-// cmd_flash_bp_clear definitions
+// flash_bp_clear definitions
 #define ESP_STUB_CMD_FLASH_BP_CLEAR_BSS_SIZE 0x0000b4UL
 #define ESP_STUB_CMD_FLASH_BP_CLEAR_IRAM_ORG 0x40800000UL
 #define ESP_STUB_CMD_FLASH_BP_CLEAR_IRAM_LEN 0x00004000UL
@@ -389,20 +389,20 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_bp_set_cfg = {
 #define ESP_STUB_CMD_FLASH_BP_CLEAR_TRAP_RECORD_ADDR 0x40804080UL
 #define ESP_STUB_CMD_FLASH_BP_CLEAR_TRAP_ENTRY_ADDR 0x40800600UL
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_bp_clear_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_bp_clear_code.inc"
+static const uint8_t s_esp_flasher_stub_flash_bp_clear_code[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_bp_clear_code.inc"
 };
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_bp_clear_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_bp_clear_data.inc"
+static const uint8_t s_esp_flasher_stub_flash_bp_clear_data[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_bp_clear_data.inc"
 };
 
-static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_bp_clear_cfg = {
-	.name = "cmd_flash_bp_clear",
-	.code = s_esp_flasher_stub_cmd_flash_bp_clear_code,
-	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_bp_clear_code),
-	.data = s_esp_flasher_stub_cmd_flash_bp_clear_data,
-	.data_sz = sizeof(s_esp_flasher_stub_cmd_flash_bp_clear_data),
+static const struct esp_flasher_stub_config s_esp_stub_flash_bp_clear_cfg = {
+	.name = "flash_bp_clear",
+	.code = s_esp_flasher_stub_flash_bp_clear_code,
+	.code_sz = sizeof(s_esp_flasher_stub_flash_bp_clear_code),
+	.data = s_esp_flasher_stub_flash_bp_clear_data,
+	.data_sz = sizeof(s_esp_flasher_stub_flash_bp_clear_data),
 	.entry_addr = ESP_STUB_CMD_FLASH_BP_CLEAR_ENTRY_ADDR,
 	.bss_sz = ESP_STUB_CMD_FLASH_BP_CLEAR_BSS_SIZE,
 	.apptrace_ctrl_addr = ESP_STUB_CMD_FLASH_BP_CLEAR_APPTRACE_CTRL_ADDR,
@@ -417,7 +417,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_bp_clear_cfg = 
 	.dram_len = ESP_STUB_CMD_FLASH_BP_CLEAR_DRAM_LEN,
 };
 
-// cmd_flash_write_deflated definitions
+// flash_write_deflated definitions
 #define ESP_STUB_CMD_FLASH_WRITE_DEFLATED_BSS_SIZE 0x0000e4UL
 #define ESP_STUB_CMD_FLASH_WRITE_DEFLATED_IRAM_ORG 0x40800000UL
 #define ESP_STUB_CMD_FLASH_WRITE_DEFLATED_IRAM_LEN 0x00004000UL
@@ -430,20 +430,20 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_bp_clear_cfg = 
 #define ESP_STUB_CMD_FLASH_WRITE_DEFLATED_TRAP_RECORD_ADDR 0x408040acUL
 #define ESP_STUB_CMD_FLASH_WRITE_DEFLATED_TRAP_ENTRY_ADDR 0x40800700UL
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_write_deflated_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_write_deflated_code.inc"
+static const uint8_t s_esp_flasher_stub_flash_write_deflated_code[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_write_deflated_code.inc"
 };
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_write_deflated_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_write_deflated_data.inc"
+static const uint8_t s_esp_flasher_stub_flash_write_deflated_data[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_write_deflated_data.inc"
 };
 
-static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_write_deflated_cfg = {
-	.name = "cmd_flash_write_deflated",
-	.code = s_esp_flasher_stub_cmd_flash_write_deflated_code,
-	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_write_deflated_code),
-	.data = s_esp_flasher_stub_cmd_flash_write_deflated_data,
-	.data_sz = sizeof(s_esp_flasher_stub_cmd_flash_write_deflated_data),
+static const struct esp_flasher_stub_config s_esp_stub_flash_write_deflated_cfg = {
+	.name = "flash_write_deflated",
+	.code = s_esp_flasher_stub_flash_write_deflated_code,
+	.code_sz = sizeof(s_esp_flasher_stub_flash_write_deflated_code),
+	.data = s_esp_flasher_stub_flash_write_deflated_data,
+	.data_sz = sizeof(s_esp_flasher_stub_flash_write_deflated_data),
 	.entry_addr = ESP_STUB_CMD_FLASH_WRITE_DEFLATED_ENTRY_ADDR,
 	.bss_sz = ESP_STUB_CMD_FLASH_WRITE_DEFLATED_BSS_SIZE,
 	.apptrace_ctrl_addr = ESP_STUB_CMD_FLASH_WRITE_DEFLATED_APPTRACE_CTRL_ADDR,
@@ -458,7 +458,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_write_deflated_
 	.dram_len = ESP_STUB_CMD_FLASH_WRITE_DEFLATED_DRAM_LEN,
 };
 
-// cmd_flash_calc_hash definitions
+// flash_calc_hash definitions
 #define ESP_STUB_CMD_FLASH_CALC_HASH_BSS_SIZE 0x000184UL
 #define ESP_STUB_CMD_FLASH_CALC_HASH_IRAM_ORG 0x40800000UL
 #define ESP_STUB_CMD_FLASH_CALC_HASH_IRAM_LEN 0x00004000UL
@@ -471,20 +471,20 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_write_deflated_
 #define ESP_STUB_CMD_FLASH_CALC_HASH_TRAP_RECORD_ADDR 0x40804158UL
 #define ESP_STUB_CMD_FLASH_CALC_HASH_TRAP_ENTRY_ADDR 0x40800500UL
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_calc_hash_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_calc_hash_code.inc"
+static const uint8_t s_esp_flasher_stub_flash_calc_hash_code[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_calc_hash_code.inc"
 };
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_calc_hash_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_calc_hash_data.inc"
+static const uint8_t s_esp_flasher_stub_flash_calc_hash_data[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_calc_hash_data.inc"
 };
 
-static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_calc_hash_cfg = {
-	.name = "cmd_flash_calc_hash",
-	.code = s_esp_flasher_stub_cmd_flash_calc_hash_code,
-	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_calc_hash_code),
-	.data = s_esp_flasher_stub_cmd_flash_calc_hash_data,
-	.data_sz = sizeof(s_esp_flasher_stub_cmd_flash_calc_hash_data),
+static const struct esp_flasher_stub_config s_esp_stub_flash_calc_hash_cfg = {
+	.name = "flash_calc_hash",
+	.code = s_esp_flasher_stub_flash_calc_hash_code,
+	.code_sz = sizeof(s_esp_flasher_stub_flash_calc_hash_code),
+	.data = s_esp_flasher_stub_flash_calc_hash_data,
+	.data_sz = sizeof(s_esp_flasher_stub_flash_calc_hash_data),
 	.entry_addr = ESP_STUB_CMD_FLASH_CALC_HASH_ENTRY_ADDR,
 	.bss_sz = ESP_STUB_CMD_FLASH_CALC_HASH_BSS_SIZE,
 	.apptrace_ctrl_addr = ESP_STUB_CMD_FLASH_CALC_HASH_APPTRACE_CTRL_ADDR,
@@ -499,7 +499,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_calc_hash_cfg =
 	.dram_len = ESP_STUB_CMD_FLASH_CALC_HASH_DRAM_LEN,
 };
 
-// cmd_flash_clock_configure definitions
+// flash_clock_configure definitions
 #define ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE_BSS_SIZE 0x000080UL
 #define ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE_IRAM_ORG 0x40800000UL
 #define ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE_IRAM_LEN 0x00004000UL
@@ -512,20 +512,20 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_calc_hash_cfg =
 #define ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE_TRAP_RECORD_ADDR 0x4080405cUL
 #define ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE_TRAP_ENTRY_ADDR 0x40800200UL
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_clock_configure_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_clock_configure_code.inc"
+static const uint8_t s_esp_flasher_stub_flash_clock_configure_code[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_clock_configure_code.inc"
 };
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_clock_configure_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_clock_configure_data.inc"
+static const uint8_t s_esp_flasher_stub_flash_clock_configure_data[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_clock_configure_data.inc"
 };
 
-static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_clock_configure_cfg = {
-	.name = "cmd_flash_clock_configure",
-	.code = s_esp_flasher_stub_cmd_flash_clock_configure_code,
-	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_clock_configure_code),
-	.data = s_esp_flasher_stub_cmd_flash_clock_configure_data,
-	.data_sz = sizeof(s_esp_flasher_stub_cmd_flash_clock_configure_data),
+static const struct esp_flasher_stub_config s_esp_stub_flash_clock_configure_cfg = {
+	.name = "flash_clock_configure",
+	.code = s_esp_flasher_stub_flash_clock_configure_code,
+	.code_sz = sizeof(s_esp_flasher_stub_flash_clock_configure_code),
+	.data = s_esp_flasher_stub_flash_clock_configure_data,
+	.data_sz = sizeof(s_esp_flasher_stub_flash_clock_configure_data),
 	.entry_addr = ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE_ENTRY_ADDR,
 	.bss_sz = ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE_BSS_SIZE,
 	.apptrace_ctrl_addr = ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE_APPTRACE_CTRL_ADDR,
@@ -540,7 +540,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_clock_configure
 	.dram_len = ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE_DRAM_LEN,
 };
 
-// cmd_flash_multi_command definitions
+// flash_multi_command definitions
 #define ESP_STUB_CMD_FLASH_MULTI_COMMAND_BSS_SIZE 0x0000b4UL
 #define ESP_STUB_CMD_FLASH_MULTI_COMMAND_IRAM_ORG 0x40800000UL
 #define ESP_STUB_CMD_FLASH_MULTI_COMMAND_IRAM_LEN 0x00004000UL
@@ -553,20 +553,20 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_clock_configure
 #define ESP_STUB_CMD_FLASH_MULTI_COMMAND_TRAP_RECORD_ADDR 0x408040c0UL
 #define ESP_STUB_CMD_FLASH_MULTI_COMMAND_TRAP_ENTRY_ADDR 0x40800a00UL
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_multi_command_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_multi_command_code.inc"
+static const uint8_t s_esp_flasher_stub_flash_multi_command_code[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_multi_command_code.inc"
 };
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_multi_command_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_multi_command_data.inc"
+static const uint8_t s_esp_flasher_stub_flash_multi_command_data[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_multi_command_data.inc"
 };
 
-static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_multi_command_cfg = {
-	.name = "cmd_flash_multi_command",
-	.code = s_esp_flasher_stub_cmd_flash_multi_command_code,
-	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_multi_command_code),
-	.data = s_esp_flasher_stub_cmd_flash_multi_command_data,
-	.data_sz = sizeof(s_esp_flasher_stub_cmd_flash_multi_command_data),
+static const struct esp_flasher_stub_config s_esp_stub_flash_multi_command_cfg = {
+	.name = "flash_multi_command",
+	.code = s_esp_flasher_stub_flash_multi_command_code,
+	.code_sz = sizeof(s_esp_flasher_stub_flash_multi_command_code),
+	.data = s_esp_flasher_stub_flash_multi_command_data,
+	.data_sz = sizeof(s_esp_flasher_stub_flash_multi_command_data),
 	.entry_addr = ESP_STUB_CMD_FLASH_MULTI_COMMAND_ENTRY_ADDR,
 	.bss_sz = ESP_STUB_CMD_FLASH_MULTI_COMMAND_BSS_SIZE,
 	.apptrace_ctrl_addr = ESP_STUB_CMD_FLASH_MULTI_COMMAND_APPTRACE_CTRL_ADDR,
@@ -581,33 +581,33 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_multi_command_c
 	.dram_len = ESP_STUB_CMD_FLASH_MULTI_COMMAND_DRAM_LEN,
 };
 
-// cmd_flash_idf_binary definitions
+// flash_idf_binary definitions
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_BSS_SIZE 0x0000b4UL
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_IRAM_ORG 0x40800000UL
-#define ESP_STUB_CMD_FLASH_IDF_BINARY_IRAM_LEN 0x00004000UL
-#define ESP_STUB_CMD_FLASH_IDF_BINARY_DRAM_ORG 0x40804000UL
-#define ESP_STUB_CMD_FLASH_IDF_BINARY_DRAM_LEN 0x00020000UL
+#define ESP_STUB_CMD_FLASH_IDF_BINARY_IRAM_LEN 0x00000c00UL
+#define ESP_STUB_CMD_FLASH_IDF_BINARY_DRAM_ORG 0x40800c00UL
+#define ESP_STUB_CMD_FLASH_IDF_BINARY_DRAM_LEN 0x00000400UL
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_ENTRY_ADDR 0x408008bcUL
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_APPTRACE_CTRL_ADDR 0x0UL
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_LOG_ADDR 0x0UL
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_LOG_SIZE 0x0UL
-#define ESP_STUB_CMD_FLASH_IDF_BINARY_TRAP_RECORD_ADDR 0x408040c0UL
+#define ESP_STUB_CMD_FLASH_IDF_BINARY_TRAP_RECORD_ADDR 0x40800cc0UL
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_TRAP_ENTRY_ADDR 0x40800a00UL
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_idf_binary_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_idf_binary_code.inc"
+static const uint8_t s_esp_flasher_stub_flash_idf_binary_code[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_idf_binary_code.inc"
 };
 
-static const uint8_t s_esp_flasher_stub_cmd_flash_idf_binary_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_flash_idf_binary_data.inc"
+static const uint8_t s_esp_flasher_stub_flash_idf_binary_data[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_flash_idf_binary_data.inc"
 };
 
-static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_idf_binary_cfg = {
-	.name = "cmd_flash_idf_binary",
-	.code = s_esp_flasher_stub_cmd_flash_idf_binary_code,
-	.code_sz = sizeof(s_esp_flasher_stub_cmd_flash_idf_binary_code),
-	.data = s_esp_flasher_stub_cmd_flash_idf_binary_data,
-	.data_sz = sizeof(s_esp_flasher_stub_cmd_flash_idf_binary_data),
+static const struct esp_flasher_stub_config s_esp_stub_flash_idf_binary_cfg = {
+	.name = "flash_idf_binary",
+	.code = s_esp_flasher_stub_flash_idf_binary_code,
+	.code_sz = sizeof(s_esp_flasher_stub_flash_idf_binary_code),
+	.data = s_esp_flasher_stub_flash_idf_binary_data,
+	.data_sz = sizeof(s_esp_flasher_stub_flash_idf_binary_data),
 	.entry_addr = ESP_STUB_CMD_FLASH_IDF_BINARY_ENTRY_ADDR,
 	.bss_sz = ESP_STUB_CMD_FLASH_IDF_BINARY_BSS_SIZE,
 	.apptrace_ctrl_addr = ESP_STUB_CMD_FLASH_IDF_BINARY_APPTRACE_CTRL_ADDR,
@@ -622,7 +622,7 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_idf_binary_cfg 
 	.dram_len = ESP_STUB_CMD_FLASH_IDF_BINARY_DRAM_LEN,
 };
 
-// cmd_test_all definitions
+// test_all definitions
 #define ESP_STUB_CMD_TEST_ALL_BSS_SIZE 0x0021ebUL
 #define ESP_STUB_CMD_TEST_ALL_IRAM_ORG 0x40800000UL
 #define ESP_STUB_CMD_TEST_ALL_IRAM_LEN 0x00004000UL
@@ -635,20 +635,20 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_flash_idf_binary_cfg 
 #define ESP_STUB_CMD_TEST_ALL_TRAP_RECORD_ADDR 0x40805b5cUL
 #define ESP_STUB_CMD_TEST_ALL_TRAP_ENTRY_ADDR 0x40802500UL
 
-static const uint8_t s_esp_flasher_stub_cmd_test_all_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_test_all_code.inc"
+static const uint8_t s_esp_flasher_stub_test_all_code[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_test_all_code.inc"
 };
 
-static const uint8_t s_esp_flasher_stub_cmd_test_all_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c6/stub_cmd_test_all_data.inc"
+static const uint8_t s_esp_flasher_stub_test_all_data[] = {
+#include "contrib/loaders/flash/espressif/images/esp32c6/stub_test_all_data.inc"
 };
 
-static const struct esp_flasher_stub_config s_esp_stub_cmd_test_all_cfg = {
-	.name = "cmd_test_all",
-	.code = s_esp_flasher_stub_cmd_test_all_code,
-	.code_sz = sizeof(s_esp_flasher_stub_cmd_test_all_code),
-	.data = s_esp_flasher_stub_cmd_test_all_data,
-	.data_sz = sizeof(s_esp_flasher_stub_cmd_test_all_data),
+static const struct esp_flasher_stub_config s_esp_stub_test_all_cfg = {
+	.name = "test_all",
+	.code = s_esp_flasher_stub_test_all_code,
+	.code_sz = sizeof(s_esp_flasher_stub_test_all_code),
+	.data = s_esp_flasher_stub_test_all_data,
+	.data_sz = sizeof(s_esp_flasher_stub_test_all_data),
 	.entry_addr = ESP_STUB_CMD_TEST_ALL_ENTRY_ADDR,
 	.bss_sz = ESP_STUB_CMD_TEST_ALL_BSS_SIZE,
 	.apptrace_ctrl_addr = ESP_STUB_CMD_TEST_ALL_APPTRACE_CTRL_ADDR,
@@ -664,20 +664,20 @@ static const struct esp_flasher_stub_config s_esp_stub_cmd_test_all_cfg = {
 };
 
 static const struct command_map s_cmd_map[ESP_STUB_CMD_FLASH_MAX_ID + 1] = {
-	{ESP_STUB_CMD_TEST1, &s_esp_stub_cmd_test1_cfg},
-	{ESP_STUB_CMD_RECV_FROM_HOST, &s_esp_stub_cmd_recv_from_host_cfg},
-	{ESP_STUB_CMD_SEND_TO_HOST, &s_esp_stub_cmd_send_to_host_cfg},
-	{ESP_STUB_CMD_FLASH_READ, &s_esp_stub_cmd_flash_read_cfg},
-	{ESP_STUB_CMD_FLASH_WRITE, &s_esp_stub_cmd_flash_write_cfg},
-	{ESP_STUB_CMD_FLASH_ERASE, &s_esp_stub_cmd_flash_erase_cfg},
-	{ESP_STUB_CMD_FLASH_ERASE_CHECK, &s_esp_stub_cmd_flash_erase_check_cfg},
-	{ESP_STUB_CMD_FLASH_MAP_GET, &s_esp_stub_cmd_flash_map_get_cfg},
-	{ESP_STUB_CMD_FLASH_BP_SET, &s_esp_stub_cmd_flash_bp_set_cfg},
-	{ESP_STUB_CMD_FLASH_BP_CLEAR, &s_esp_stub_cmd_flash_bp_clear_cfg},
-	{ESP_STUB_CMD_FLASH_WRITE_DEFLATED, &s_esp_stub_cmd_flash_write_deflated_cfg},
-	{ESP_STUB_CMD_FLASH_CALC_HASH, &s_esp_stub_cmd_flash_calc_hash_cfg},
-	{ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE, &s_esp_stub_cmd_flash_clock_configure_cfg},
-	{ESP_STUB_CMD_FLASH_MULTI_COMMAND, &s_esp_stub_cmd_flash_multi_command_cfg},
-	{ESP_STUB_CMD_FLASH_IDF_BINARY, &s_esp_stub_cmd_flash_idf_binary_cfg},
-	{ESP_STUB_CMD_TEST_ALL, &s_esp_stub_cmd_test_all_cfg},
+	{ESP_STUB_CMD_TEST1, &s_esp_stub_test1_cfg},
+	{ESP_STUB_CMD_RECV_FROM_HOST, &s_esp_stub_recv_from_host_cfg},
+	{ESP_STUB_CMD_SEND_TO_HOST, &s_esp_stub_send_to_host_cfg},
+	{ESP_STUB_CMD_FLASH_READ, &s_esp_stub_flash_read_cfg},
+	{ESP_STUB_CMD_FLASH_WRITE, &s_esp_stub_flash_write_cfg},
+	{ESP_STUB_CMD_FLASH_ERASE, &s_esp_stub_flash_erase_cfg},
+	{ESP_STUB_CMD_FLASH_ERASE_CHECK, &s_esp_stub_flash_erase_check_cfg},
+	{ESP_STUB_CMD_FLASH_MAP_GET, &s_esp_stub_flash_map_get_cfg},
+	{ESP_STUB_CMD_FLASH_BP_SET, &s_esp_stub_flash_bp_set_cfg},
+	{ESP_STUB_CMD_FLASH_BP_CLEAR, &s_esp_stub_flash_bp_clear_cfg},
+	{ESP_STUB_CMD_FLASH_WRITE_DEFLATED, &s_esp_stub_flash_write_deflated_cfg},
+	{ESP_STUB_CMD_FLASH_CALC_HASH, &s_esp_stub_flash_calc_hash_cfg},
+	{ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE, &s_esp_stub_flash_clock_configure_cfg},
+	{ESP_STUB_CMD_FLASH_MULTI_COMMAND, &s_esp_stub_flash_multi_command_cfg},
+	{ESP_STUB_CMD_FLASH_IDF_BINARY, &s_esp_stub_flash_idf_binary_cfg},
+	{ESP_STUB_CMD_TEST_ALL, &s_esp_stub_test_all_cfg},
 };
