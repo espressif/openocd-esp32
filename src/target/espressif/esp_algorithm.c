@@ -114,7 +114,9 @@ char *hexdump(uint8_t *buf, int size)
 
 static int esp_algorithm_calculate_stack_usage(struct target *target, struct esp_algorithm_stub *stub)
 {
-	if (!stub || stub->stack->address == 0)
+	/* stub->stack (working area) is only allocated on the normal load path; the
+	 * preloaded/on-board paths set stack_addr directly and leave stack == NULL. */
+	if (!stub || !stub->stack || stub->stack->address == 0)
 		return ERROR_FAIL;
 
 	uint8_t *stack_content = calloc(1, stub->stack->size);
