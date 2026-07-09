@@ -19,17 +19,15 @@ add_compile_options(${TARGET_COMPILER_FLAGS})
 add_link_options(${TARGET_LINKER_FLAGS})
 add_compile_definitions(${COMMON_COMPILE_DEFS})
 
+# Default per-target linker layout. The flash_idf_binary command overrides this
+# below with the constrained -idf.ld layout when the target provides one.
 if(DEFINED ESP_TARGET_REV)
-    set(LINKER_SCRIPTS
-        ${CMAKE_CURRENT_LIST_DIR}/ld/${ESP_TARGET}-${ESP_TARGET_REV}.ld
-        ${CMAKE_CURRENT_LIST_DIR}/ld/common.ld
-    )
+    set(TARGET_LD_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/ld/${ESP_TARGET}-${ESP_TARGET_REV}.ld)
 else()
-    set(LINKER_SCRIPTS
-        ${CMAKE_CURRENT_LIST_DIR}/ld/${ESP_TARGET}.ld
-        ${CMAKE_CURRENT_LIST_DIR}/ld/common.ld
-    )
+    set(TARGET_LD_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/ld/${ESP_TARGET}.ld)
 endif()
+set(TARGET_IDF_LD_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/ld/${ESP_TARGET}-idf.ld)
+set(COMMON_LD_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/ld/common.ld)
 
 set(SRC_DIR "${CMAKE_CURRENT_LIST_DIR}/src")
 set(SRC_FILES
@@ -142,7 +140,13 @@ foreach(COMMAND ${COMMANDS})
         PRIVATE ${PRIV_INCLUDE_DIRS}
     )
 
-    foreach(script ${LINKER_SCRIPTS})
+    if("${COMMAND}" STREQUAL "flash_idf_binary" AND EXISTS ${TARGET_IDF_LD_SCRIPT})
+        set(CMD_LINKER_SCRIPTS ${TARGET_IDF_LD_SCRIPT} ${COMMON_LD_SCRIPT})
+    else()
+        set(CMD_LINKER_SCRIPTS ${TARGET_LD_SCRIPT} ${COMMON_LD_SCRIPT})
+    endif()
+
+    foreach(script ${CMD_LINKER_SCRIPTS})
         target_link_options(${TARGET_ELF} PRIVATE -T${script})
     endforeach()
 
