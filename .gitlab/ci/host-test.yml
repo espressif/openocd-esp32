@@ -34,7 +34,7 @@ test_on_windows_arm64:
   needs:
     - job: build_windows_arm64
   variables:
-    PLATFORM_NAME: "windows-arm64"
+    PLATFORM_NAME: "win-arm64"
   timeout: 10m
 
 test_on_macos:
