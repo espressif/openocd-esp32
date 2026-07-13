@@ -371,7 +371,7 @@ class Gdb(object):
 
     @staticmethod
     def extract_exec_addr(addr_val):
-        sval_re = re.search('(.*)[<](.*)[>]', addr_val)
+        sval_re = re.search('([x0-9A-Fa-f]+) <.*>', addr_val)
         if sval_re:
             return int(sval_re.group(1), 0)
         return int(addr_val, 0)

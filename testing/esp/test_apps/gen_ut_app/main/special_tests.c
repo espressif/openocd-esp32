@@ -360,6 +360,63 @@ TEST_DECL(pie_registers, "test_special.DebuggerSpecialTests*.test_pie_registers"
 }
 #endif
 
+#if CONFIG_IDF_TARGET_ARCH_XTENSA
+// Additional padding after to ensure each sample_func will end in a different histogram.
+// Higher #len increases number of buckets in the histogram and proportion of time spent
+// in the function compared to overhead.
+#define MAKE_SAMPLE_FUNCTION(num, len) \
+static void sample_func##num() { \
+    __asm__ __volatile__ ( \
+        ".rept " #len "\n" \
+        "nop\n" \
+        ".endr\n" \
+        "retw.n\n" \
+        ".rept 32\n" \
+        "ill\n" \
+        ".endr\n" \
+    ); \
+}
+
+MAKE_SAMPLE_FUNCTION(1, 100)
+MAKE_SAMPLE_FUNCTION(2, 100)
+MAKE_SAMPLE_FUNCTION(3, 100)
+MAKE_SAMPLE_FUNCTION(4, 100)
+MAKE_SAMPLE_FUNCTION(5, 100)
+
+TEST_DECL(sample_simple, "test_special.DebuggerSpecialTests*.test_sample_simple*")
+{
+    for (uint64_t i = 0; i < 1000000; i++) {
+        sample_func1();
+        if (i % 2 == 0)
+            sample_func2();
+        if (i % 4 == 0)
+            sample_func3();
+        if (i % 8 == 0)
+            sample_func4();
+        if (i % 16 == 0)
+            sample_func5();
+    }
+
+    TEST_BREAK_LBL(sample_simple_done);
+}
+
+// less buckets to induce bucket overrun, but only for one function
+MAKE_SAMPLE_FUNCTION(6, 1)
+MAKE_SAMPLE_FUNCTION(7, 1)
+
+TEST_DECL(sample_large_bucket, "test_special.DebuggerSpecialTests*.test_sample_large_bucket")
+{
+    while (1) {
+        sample_func6();
+        sample_func6();
+        sample_func6();
+        sample_func6();
+        sample_func6();
+        sample_func7();
+    }
+}
+#endif
+
 ut_result_t special_test_do(int test_num, int core_num)
 {
     if (core_num < 0 || core_num >= portNUM_PROCESSORS)
@@ -394,6 +451,10 @@ ut_result_t special_test_do(int test_num, int core_num)
         xTaskCreatePinnedToCore(TEST_ENTRY(pseudo_debug_ex), "pseudo_debug_ex", 2048, NULL, 5, NULL, core_num);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(pseudo_coprocessor_ex), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(pseudo_coprocessor_ex), "pseudo_coprocessor_ex", 2048, NULL, 5, NULL, core_num);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(sample_simple), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(sample_simple), "sample_simple", 2048, NULL, 5, NULL, core_num);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(sample_large_bucket), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(sample_large_bucket), "sample_large_bucket", 2048, NULL, 5, NULL, core_num);
 #endif
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(gh264_psram_check), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(gh264_psram_check), "gh264_psram_check_task", 4096, NULL, 5, NULL, core_num);

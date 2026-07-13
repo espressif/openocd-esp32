@@ -39,29 +39,16 @@ class DebuggerSpecialTestsImpl:
         rev2 = int(match.group(1)) * 100 + int(match.group(2))
         self.assertEqual(rev, rev2)
 
-    @only_for_arch(['xtensa'])
-    def test_sample(self):
-        """
-            This test checks PC samples captured using OpenOCD's profile commands
-            1) Select appropriate sub-test number on target.
-            2) Execute the command while the target is running.
-            3) Check program continues uninterrupted.
-            4) Interpret profiled samples using gprof and check results.
-        """
-        profile_time = 3
-
-        self.select_sub_test("blink")
+    def _do_sampling(self, profile_time, options=''):
+        self.oocd.cmd_exec("targets %s" % self.oocd.targets()[self.CORES_NUM - 1])
         self.resume_exec()
-        self.oocd.cmd_exec(f"profile {profile_time} test_sample.gprof")
+        self.oocd.cmd_exec(f"profile {profile_time} test_sample.gprof {options}")
 
-        # Check execution continues uninterrupted
-        state, _ = self.gdb.get_target_state()
-        self.assertTrue(state == dbg.TARGET_STATE_RUNNING)
-        self.stop_exec()
-        bps = ['gpio_set_level', 'vTaskDelay']
-        for f in bps:
-            self.add_bp(f)
-            self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, f, run_bt=False)
+        for i in range(profile_time):
+            state, _ = self.gdb.get_target_state()
+            if state != dbg.TARGET_STATE_RUNNING:
+                break
+            self.alive_sleep(1)
 
         orig_elf = self.test_app_cfg.build_app_elf_path()
         patched_elf = orig_elf + '.gprof'
@@ -74,15 +61,82 @@ class DebuggerSpecialTestsImpl:
         proc = subprocess.run(cmd, capture_output=True)
         proc.check_returncode()
 
-        def parse_gprof_line(line):
-            items = line.split()
-            return (float(items[0]), float(items[1]), float(items[2]), items[3])
+        get_logger().debug(proc.stdout.decode('UTF-8'))
+        lines = proc.stdout.decode('UTF-8').split('\n')
+        lines = [x for x in lines if 'sample_func' in x]
+        return lines
+
+    def _parse_gprof_line(self, line):
+        items = line.split()
+        # (percentage of samples, cummulative runtime, runtime spent in the function, function name)
+        return (float(items[0]), float(items[1]), float(items[2]), items[3])
+
+    @only_for_arch(['xtensa'])
+    def test_sample_simple(self):
+        """
+            This test checks PC samples captured using OpenOCD's profile commands.
+            1) Select appropriate sub-test number on target.
+            2) Execute the profile command while the target is running.
+            3) Interpret profiled samples using gprof and check results.
+            4) For the 5 tested functions, each should have half the number of samples of the previous one.
+        """
+        profile_time = 10
+        self.add_bp('sample_simple_done')
+        lines = self._do_sampling(profile_time)
 
         # Check results
-        lines = proc.stdout.decode('UTF-8').split('\n')
-        top_perc, _, top_t, top_f = parse_gprof_line(lines[5])
-        self.assertTrue(abs(top_t / top_perc * 100 - profile_time) < profile_time / 10)
-        self.assertEqual(top_f, "esp_cpu_wait_for_intr")
+        self.assertEqual(len(lines), 5)
+        prev_perc = None
+        for i in range(5):
+            perc, _, _, f = self._parse_gprof_line(lines[i])
+            self.assertEqual(f, f"sample_func{i + 1}")
+            if prev_perc is not None:
+                self.assertTrue(abs(2 * perc - prev_perc) < 10)
+            prev_perc = perc
+
+    @only_for_arch(['xtensa'])
+    def test_sample_simple_with_range(self):
+        """
+            This test checks PC samples captured using OpenOCD's profile commands, with specified range.
+            1) Select appropriate sub-test number on target.
+            2) Execute the profile command while the target is running.
+            3) Interpret profiled samples using gprof and check results.
+            4) From the 5 tested functions, only selected 2 should be reported.
+        """
+        profile_time = 10
+        self.add_bp('sample_simple_done')
+        start = self.gdb.extract_exec_addr(self.gdb.data_eval_expr('sample_func2'))
+        end = self.gdb.extract_exec_addr(self.gdb.data_eval_expr('sample_func4'))
+        lines = self._do_sampling(profile_time, f'{start} {end}')
+
+        # Check results
+        self.assertEqual(len(lines), 2)
+        perc1, _, _, f = self._parse_gprof_line(lines[0])
+        self.assertEqual(f, f"sample_func2")
+        perc2, _, _, f = self._parse_gprof_line(lines[1])
+        self.assertEqual(f, f"sample_func3")
+        self.assertTrue(abs(2 * perc2 - perc1) < 10)
+
+    @only_for_arch(['xtensa'])
+    def test_sample_large_bucket(self):
+        """
+            This test checks PC samples captured using OpenOCD's profile commands, in case of bucket overrun.
+            The test checks expected sample proportion for two functions with the overrun and without,
+            to ensure the overrun is processed correctly.
+            1) Select appropriate sub-test number on target.
+            2) Execute the profile command while the target is running.
+            3) Interpret profiled samples using gprof and check results 
+        """
+        profile_time = 10
+        lines = self._do_sampling(profile_time)
+
+        # Check results
+        self.assertEqual(len(lines), 2)
+        perc1, _, _, f = self._parse_gprof_line(lines[0])
+        self.assertEqual(f, f"sample_func6")
+        perc2, _, _, f = self._parse_gprof_line(lines[1])
+        self.assertEqual(f, f"sample_func7")
+        self.assertTrue(abs(5 * perc2 - perc1) < 10)
 
     def test_restart_debug_from_crash(self):
         """
