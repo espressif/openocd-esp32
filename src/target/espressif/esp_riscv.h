@@ -89,7 +89,6 @@ struct esp_riscv_common {
 	 * See esp_riscv_pma_force_napot_rwx(). */
 	const struct esp_riscv_pma_entry *stub_pma_entry;
 	enum pie_version pie_version;
-	target_addr_t pie_temp_mem;
 };
 
 static inline struct esp_riscv_common *target_to_esp_riscv(const struct target *target)

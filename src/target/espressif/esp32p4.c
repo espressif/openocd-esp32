@@ -306,8 +306,8 @@ static int esp32p4_examine_end(struct target *target)
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 	if (target->hw_rev >= 300) {
 		target_free_all_working_areas(target); // Free the default working area
-		target->working_area_phys = ESP32P4_IRAM0_NON_CACHEABLE_ADDR_LOW + 0x80000;
-		target->working_area_virt = ESP32P4_IRAM0_NON_CACHEABLE_ADDR_LOW + 0x80000;
+		target->working_area_phys = ESP32P4_IRAM0_CACHEABLE_ADDR_LOW + 0x80000;
+		target->working_area_virt = ESP32P4_IRAM0_CACHEABLE_ADDR_LOW + 0x80000;
 		target->working_area_size = 0x24000;
 		target->backup_working_area = 1;
 		target->working_area_phys_spec = true;
@@ -316,7 +316,6 @@ static int esp32p4_examine_end(struct target *target)
 	} else {
 		esp_riscv->pie_version = PIE_V2P1;
 	}
-	esp_riscv->pie_temp_mem = target->working_area_phys - ESP32P4_NON_CACHEABLE_OFFSET;
 
 	static const char *esp32p4_rev1_csrs[] = {"mnmicause", "mnmipc", "mintstatus", ""};
 	static const char *esp32p4_rev3_csrs[] = {

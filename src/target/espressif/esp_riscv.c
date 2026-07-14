@@ -429,8 +429,7 @@ static int pie_movx_access(struct target *target, struct reg *reg, uint8_t *buf,
 static int pie_ldst_access(struct target *target, struct reg *reg, uint8_t *buf, riscv_insn_t inst)
 {
 	uint8_t saved_mem[16];
-	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
-	target_addr_t temp_mem = esp_riscv->pie_temp_mem;
+	target_addr_t temp_mem = target->working_area_phys;
 	riscv_reg_set(target, GDB_REGNO_S0, temp_mem);
 	riscv_reg_flush_all(target);
 	target_read_memory(target, temp_mem, 4, 4, saved_mem);
@@ -584,7 +583,6 @@ int esp_riscv_examine(struct target *target)
 
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 	esp_riscv->pie_version = PIE_V2P2;
-	esp_riscv->pie_temp_mem = target->working_area_phys;
 	if (esp_riscv->examine_end)
 		esp_riscv->examine_end(target);
 
