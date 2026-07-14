@@ -451,6 +451,15 @@ int esp_xtensa_profiling(struct target *target, uint32_t *samples,
 			LOG_TARGET_INFO(target, "Profiling completed. %" PRIu32 " samples.", sample_count);
 			break;
 		}
+		res = xtensa_dm_core_status_read(&xtensa->dbg_mod);
+		if (res != ERROR_OK) {
+			LOG_TARGET_ERROR(target, "Failed to read core status!");
+			return res;
+		}
+		if (xtensa_is_stopped(target)) {
+			LOG_TARGET_INFO(target, "Target became halted, stop profiling. %" PRIu32 " samples.", sample_count);
+			break;
+		}
 	}
 
 	*num_samples = sample_count;
