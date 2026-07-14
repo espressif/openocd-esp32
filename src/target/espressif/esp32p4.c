@@ -91,9 +91,6 @@
 #define ESP32P4_ADDR_IN_CACHE_REGION(addr) (ESP32P4_ADDR_IS_L2MEM(addr) || \
 	ESP32P4_ADDR_IS_EXMEM(addr) || ESP32P4_ADDR_IS_HPROM(addr))
 
-#define ESP32P4_ADDR_IS_CACHEABLE(addr) (ESP32P4_ADDR_IS_IRAM_CACHEABLE(addr) || \
-	ESP32P4_ADDR_IS_EXRAM_CACHEABLE(addr) || ESP32P4_ADDR_IS_HPROM_CACHEABLE(addr))
-
 
 #define ESP32P4_TCM_ADDR_LOW                    0x30100000U
 #define ESP32P4_TCM_ADDR_HIGH                   0x30102000U
@@ -459,20 +456,7 @@ static int esp32p4_read_memory(struct target *target, target_addr_t address,
 		return ERROR_OK;
 	}
 
-	/* OpenOCD can not read from cacheable address through sysbus on ECO5. */
-	if (ESP32P4_ADDR_IS_CACHEABLE(address) && target->state == TARGET_RUNNING)
-		address = ESP32P4_NON_CACHEABLE_ADDR(address);
-
 	return esp_riscv_read_memory(target, address, size, count, buffer);
-}
-
-static int esp32p4_write_memory(struct target *target, target_addr_t address,
-	uint32_t size, uint32_t count, const uint8_t *buffer)
-{
-	if (ESP32P4_ADDR_IS_CACHEABLE(address) && target->state == TARGET_RUNNING)
-		address = ESP32P4_NON_CACHEABLE_ADDR(address);
-
-	return esp_riscv_write_memory(target, address, size, count, buffer);
 }
 
 static int esp32p4_get_gdb_memory_map(struct target *target, struct target_memory_map *memory_map)
@@ -530,7 +514,7 @@ struct target_type esp32p4_target = {
 	.deassert_reset = riscv_deassert_reset,
 
 	.read_memory = esp32p4_read_memory,
-	.write_memory = esp32p4_write_memory,
+	.write_memory = esp_riscv_write_memory,
 	.memory_ready = esp_riscv_memory_ready,
 
 	.checksum_memory = riscv_checksum_memory,
