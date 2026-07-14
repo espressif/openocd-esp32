@@ -110,7 +110,7 @@ class DebuggerSpecialTestsImpl:
         self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay0'])
         self.clear_bps()
 
-    @skip_for_chip(["esp32c61"], "skipped - OCD-1390")
+    @skip_for_chip(["esp32c61", "esp32h4"], "skipped - OCD-1390")
     def test_debugging_works_after_hw_reset(self):
         """
             This test checks that debugging works after HW reset.
@@ -147,7 +147,7 @@ class DebuggerSpecialTestsImpl:
             # watchpoint hit on read var in 'target_bp_func2'
             self.run_to_bp_and_check_location(dbg.TARGET_STOP_REASON_SIGTRAP, 'target_bp_func2', 'target_wp_var2_2')
 
-    @skip_for_chip(["esp32c5"], "skipped - OCD-1391")
+    @skip_for_chip(["esp32c5", "esp32h4"], "skipped - OCD-1391")
     def test_debugging_works_after_esptool_flash(self):
         """
             This test checks that debugging works after flashing with esptool.
@@ -373,6 +373,7 @@ class DebuggerSpecialTestsImpl:
             state = self.oocd.target_state(targets[i])
             self.assertEqual(state, 'running')
 
+    @skip_for_chip(["esp32h4"], "skipped - OCD-1399")
     def test_cores_states_after_esptool_connection(self):
         """
             This test checks that cores are in running or halted state after esptool connection.
