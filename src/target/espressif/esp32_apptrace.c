@@ -1330,6 +1330,7 @@ static int esp32_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx)
 	struct esp32_sysview_cmd_data *cmd_data = ctx->cmd_priv;
 	uint8_t cmds[] = { SEGGER_SYSVIEW_COMMAND_ID_STOP };
 	struct duration wait_time;
+	struct duration total_time;
 
 	struct esp32_apptrace_block *block = esp32_apptrace_free_block_get(ctx);
 	if (!block) {
@@ -1369,24 +1370,13 @@ static int esp32_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx)
 			return res;
 		}
 	}
-	/* stop tracing and ack target data */
-	res = esp_apptrace_usr_block_write(ctx->hw, ctx->cpus[fired_target_num], target_state[fired_target_num].block_id,
-		cmds,
-		sizeof(cmds));
-	if (res != ERROR_OK) {
-		LOG_ERROR("sysview: Failed to stop tracing!");
-		return res;
-	}
-	if (ctx->cores_num > 1) {
-		empty_target_num = fired_target_num ? 0 : 1;
-		/* ack target data on another CPU */
-		res = ctx->hw->ctrl_reg_write(ctx->cpus[empty_target_num], target_state[fired_target_num].block_id,
-			0 /*target data ack*/,
-			true /*host connected*/,
-			false /*no host data*/);
+	/* Stop tracing and ack target data on every core */
+	for (unsigned int k = 0; k < ctx->cores_num; k++) {
+		res = esp_apptrace_usr_block_write(ctx->hw, ctx->cpus[k], target_state[k].block_id,
+			cmds,
+			sizeof(cmds));
 		if (res != ERROR_OK) {
-			LOG_ERROR("sysview: Failed to ack data on target '%s' (%d)!",
-				target_name(ctx->cpus[empty_target_num]), res);
+			LOG_ERROR("sysview: Failed to stop tracing on '%s'!", target_name(ctx->cpus[k]));
 			return res;
 		}
 	}
@@ -1410,6 +1400,12 @@ static int esp32_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx)
 	old_block_id = target_state[fired_target_num].block_id;
 	if (duration_start(&wait_time) != ERROR_OK) {
 		LOG_ERROR("Failed to start trace stop timeout measurement!");
+		return ERROR_FAIL;
+	}
+
+	/* Check for total deadline */
+	if (duration_start(&total_time) != ERROR_OK) {
+		LOG_ERROR("Failed to start trace stop deadline measurement!");
 		return ERROR_FAIL;
 	}
 
@@ -1476,10 +1472,16 @@ static int esp32_sysview_stop(struct esp32_apptrace_cmd_ctx *ctx)
 			LOG_ERROR("Failed to start trace stop timeout measurement!");
 			return ERROR_FAIL;
 		}
-		/* idle timeout: time since the last block was read */
+		/* idle timeout: stop if no new block arrives */
 		const float stop_tmo = LOG_LEVEL_IS(LOG_LVL_DEBUG) ? 30.0 : 0.5;
 		if (duration_elapsed(&wait_time) >= stop_tmo) {
 			LOG_INFO("Stop waiting for the last data due to timeout.");
+			break;
+		}
+		/* Check for total deadline */
+		const float total_tmo = LOG_LEVEL_IS(LOG_LVL_DEBUG) ? 30.0 : 5.0;
+		if (duration_measure(&total_time) == ERROR_OK && duration_elapsed(&total_time) >= total_tmo) {
+			LOG_WARNING("sysview: TRACE_STOP not seen within %.1f s, forcing stop.", total_tmo);
 			break;
 		}
 	}
