@@ -866,9 +866,8 @@ static int freertos_get_tasks_details(struct target *target,
 				(uint64_t *)&rtos->thread_details[index].threadid);
 
 			if (retval != ERROR_OK) {
-				LOG_WARNING(
-					"Error reading thread list item object in FreeRTOS thread list!");
-				break;	/* stop list processing */
+				LOG_WARNING("Error reading thread list item object in FreeRTOS thread list!");
+				return retval;	/* Stop the walk instead of moving to the next list */
 			}
 
 			LOG_DEBUG(
@@ -968,9 +967,8 @@ static int freertos_get_tasks_details(struct target *target,
 				&list_elem_ptr);
 
 			if (retval != ERROR_OK) {
-				LOG_WARNING(
-					"Error reading next thread item location in FreeRTOS thread list!");
-				break;	/* stop list processing */
+				LOG_WARNING("Error reading next thread item location in FreeRTOS thread list!");
+				return retval;	/* Stop the walk instead of moving to the next list */
 			}
 
 			LOG_DEBUG(
