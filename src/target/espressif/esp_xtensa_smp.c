@@ -338,12 +338,12 @@ static int esp_xtensa_smp_update_halt_gdb(struct target *target, bool *need_resu
 		/* avoid auto-resume after syscall, it will be done later */
 		esp_xtensa_smp->other_core_does_resume = true;
 		/* avoid recursion in esp_xtensa_smp_poll() */
-		curr->smp = 0;
+		curr->smp = false;
 		if (esp_xtensa_smp->chip_ops->poll)
 			ret = esp_xtensa_smp->chip_ops->poll(curr);
 		else
 			ret = esp_xtensa_smp_poll(curr);
-		curr->smp = 1;
+		curr->smp = true;
 		if (ret != ERROR_OK)
 			return ret;
 		esp_xtensa_smp->other_core_does_resume = false;
@@ -394,9 +394,9 @@ static int esp_xtensa_smp_resume_cores(struct target *target,
 		/* in single-core mode disabled core cannot be examined, but need to be resumed too*/
 		if ((curr != target) && (curr->state != TARGET_RUNNING) && target_was_examined(curr)) {
 			/*  resume current address, not in SMP mode */
-			curr->smp = 0;
+			curr->smp = false;
 			int res = esp_xtensa_smp_resume(curr, true, 0, handle_breakpoints, debug_execution);
-			curr->smp = 1;
+			curr->smp = true;
 			if (res != ERROR_OK)
 				return res;
 		}

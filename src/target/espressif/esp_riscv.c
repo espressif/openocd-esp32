@@ -1074,8 +1074,8 @@ static int esp_riscv_on_halt(struct target *target)
 
 static int esp_riscv_single_hart_poll(struct target *target)
 {
-	int smp = target->smp;
-	target->smp = 0;
+	bool smp = target->smp;
+	target->smp = false;
 	int res = riscv_openocd_poll(target);
 	target->smp = smp;
 	return res;
