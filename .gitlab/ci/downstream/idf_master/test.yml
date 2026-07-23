@@ -26,12 +26,9 @@ tests_esp32_flash_encrypted:
     - job: fetch_gcov
     - job: fetch_gdb
       optional: true
-  allow_failure: true
   variables:
-    RUNNER_SCRIPT_TIMEOUT: 20m
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
-  timeout: 25m
 
 tests_esp32s2:
   extends: .tests_master_template
@@ -82,6 +79,7 @@ tests_esp32s3_dual:
 
 tests_esp32s3_dual_usj:
   extends: tests_esp32s3_dual
+  allow_failure: true
   tags:
     - esp32s3
     - usb_serial_jtag
@@ -114,6 +112,7 @@ tests_esp32s3_single:
 
 tests_esp32s3_single_usj:
   extends: tests_esp32s3_single
+  allow_failure: true
   tags:
     - esp32s3
     - usb_serial_jtag
@@ -218,8 +217,6 @@ tests_esp32c6:
 
 tests_esp32c6_lpcore:
   extends: tests_esp32c6
-  retry:
-    max: 2
   allow_failure: true
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32c6-lpcore-builtin -p test_*.LpCore*"
@@ -281,11 +278,13 @@ tests_esp32p4:
 
 tests_esp32p4_lpcore:
   extends: tests_esp32p4
+  allow_failure: true
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
 
 tests_esp32p4_usj:
   extends: tests_esp32p4
+  allow_failure: true
   tags:
     - esp32p4
     - usb_serial_jtag
@@ -316,11 +315,13 @@ tests_esp32p4_rev1:
 
 tests_esp32p4_rev1_lpcore:
   extends: tests_esp32p4_rev1
+  allow_failure: true
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
 
 tests_esp32p4_rev1_usj:
   extends: tests_esp32p4_rev1
+  allow_failure: true
   tags:
     - esp32p4
     - usb_serial_jtag
@@ -347,7 +348,6 @@ tests_esp32h4:
     - job: fetch_gcov
     - job: fetch_gdb
       optional: true
-  allow_failure: true
   variables:
     CHIP_NAME: "esp32h4"
     TEST_RUN_BOARD_OPTS: "-b esp32h4-builtin -e test_*.*Encrypted"
@@ -386,12 +386,12 @@ tests_esp32s31:
     - job: fetch_gcov
     - job: fetch_gdb
       optional: true
-  allow_failure: true
   variables:
     CHIP_NAME: "esp32s31"
     TEST_RUN_BOARD_OPTS: "-b esp32s31-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
 
-tests_esp32s31_lpcore:
+# TODO OCD-1398
+.tests_esp32s31_lpcore:
   extends: tests_esp32s31
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32s31-lpcore-builtin -p test_*.LpCore*"

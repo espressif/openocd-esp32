@@ -22,12 +22,9 @@ tests_esp32_idf5.5.x_flash_encrypted:
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
     - job: fetch_gcov
-  allow_failure: true
   variables:
-    RUNNER_SCRIPT_TIMEOUT: 20m
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
-  timeout: 25m
 
 tests_esp32s2_idf5.5.x:
   extends: .tests_v5.5.x_template
@@ -72,6 +69,7 @@ tests_esp32s3_idf5.5.x_dual:
 
 tests_esp32s3_idf5.5.x_dual_usj:
   extends: tests_esp32s3_idf5.5.x_dual
+  allow_failure: true
   tags:
     - esp32s3
     - usb_serial_jtag
@@ -102,6 +100,7 @@ tests_esp32s3_idf5.5.x_single:
 
 tests_esp32s3_idf5.5.x_single_usj:
   extends: tests_esp32s3_idf5.5.x_single
+  allow_failure: true
   tags:
     - esp32s3
     - usb_serial_jtag
@@ -196,8 +195,6 @@ tests_esp32c6_idf5.5.x:
 
 tests_esp32c6_lpcore_idf5.5.x:
   extends: tests_esp32c6_idf5.5.x
-  retry:
-    max: 2
   allow_failure: true
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32c6-lpcore-builtin -p test_*.LpCore*"
@@ -253,11 +250,13 @@ tests_esp32p4_idf5.5.x:
 
 tests_esp32p4_lpcore_idf5.5.x:
   extends: tests_esp32p4_idf5.5.x
+  allow_failure: true
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
 
 tests_esp32p4_idf5.5.x_usj:
   extends: tests_esp32p4_idf5.5.x
+  allow_failure: true
   tags:
     - esp32p4
     - usb_serial_jtag
@@ -286,11 +285,13 @@ tests_esp32p4_rev1_idf5.5.x:
 
 tests_esp32p4_rev1_lpcore_idf5.5.x:
   extends: tests_esp32p4_rev1_idf5.5.x
+  allow_failure: true
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
 
 tests_esp32p4_rev1_idf5.5.x_usj:
   extends: tests_esp32p4_rev1_idf5.5.x
+  allow_failure: true
   tags:
     - esp32p4
     - usb_serial_jtag

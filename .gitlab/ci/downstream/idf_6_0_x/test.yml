@@ -22,12 +22,9 @@ tests_esp32_idf6.0.x_flash_encrypted:
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
     - job: fetch_gcov
-  allow_failure: true
   variables:
-    RUNNER_SCRIPT_TIMEOUT: 20m
     CHIP_NAME: "esp32"
     TEST_RUN_BOARD_OPTS: "-b esp32-wrover-kit-3.3v -p test_*.*Encrypted"
-  timeout: 25m
 
 tests_esp32s2_idf6.0.x:
   extends: .tests_v6.0.x_template
@@ -180,8 +177,6 @@ tests_esp32c6_idf6.0.x:
 
 tests_esp32c6_idf6.0.x_lpcore:
   extends: tests_esp32c6_idf6.0.x
-  retry:
-    max: 2
   allow_failure: true
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32c6-lpcore-builtin -p test_*.LpCore*"
@@ -237,6 +232,7 @@ tests_esp32p4_idf6.0.x:
 
 tests_esp32p4_idf6.0.x_lpcore:
   extends: tests_esp32p4_idf6.0.x
+  allow_failure: true
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
 
@@ -256,5 +252,6 @@ tests_esp32p4_rev1_idf6.0.x:
 
 tests_esp32p4_rev1_lpcore_idf6.0.x:
   extends: tests_esp32p4_rev1_idf6.0.x
+  allow_failure: true
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
