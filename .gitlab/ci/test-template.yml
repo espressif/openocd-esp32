@@ -10,6 +10,8 @@
   artifacts:
     paths:
       - $TEST_RUN_DIR/debug_backend_tests.log
+      - $TEST_RUN_DIR/oocd.log*
+      - $TEST_RUN_DIR/gdb_logs*
       - $TEST_RUN_DIR/esp_cov_files
       - $TEST_RUN_DIR/sanitizer_errors.log
     reports:

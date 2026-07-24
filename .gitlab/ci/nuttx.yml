@@ -27,16 +27,6 @@ build_nuttx_app:
     OOCD_CMDS: "set ESP_RTOS nuttx,set ESP_ONLYCPU 1"
     IDF_RELEASE_TAG: "other"
     TEST_RUN_BOARD_OPTS: "-b ${TEST_BOARD} -p test_nuttx -e *.*Encrypted"
-  artifacts:
-    paths:
-      - $TEST_RUN_DIR/debug_backend_tests.log
-      - $TEST_RUN_DIR/esp_cov_files
-      - $TEST_RUN_DIR/sanitizer_errors.log
-    reports:
-      junit:
-        - $TEST_RUN_DIR/results/*
-    when: always
-    expire_in: 1 week
   needs:
     - job: build_linux_arm64_test
     - job: build_linux_armhf_test

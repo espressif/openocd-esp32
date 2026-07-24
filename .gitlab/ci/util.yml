@@ -49,8 +49,20 @@
   export DIST_DIR=${PWD}/${TEST_RUN_DIR}/${DIST_INSTALLED_DIR}
   export PYTHONPATH=$PWD/${TEST_RUN_DIR}:$PWD/testing/esp/py_debug_backend
   echo "CHIP_TEST_TOOLCHAIN: ${CHIP_TEST_TOOLCHAIN}"
+  export LOG_OPTIONS="-d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log -tr x -to $PWD/$TEST_RUN_DIR/results -ol $PWD/$TEST_RUN_DIR/oocd.log"
+  if [ ! -z "$TEST_LOG_LEVEL" ]; then
+    if (( "$TEST_LOG_LEVEL" > 0 )); then
+      export LOG_OPTIONS="$LOG_OPTIONS -gl $PWD/$TEST_RUN_DIR/gdb_logs"
+    fi
+    if (( "$TEST_LOG_LEVEL" > 1 )); then
+      export LOG_OPTIONS="$LOG_OPTIONS -lu"
+    fi
+    if (( "$TEST_LOG_LEVEL" > 2 )); then
+      export LOG_OPTIONS="$LOG_OPTIONS -w 3"
+    fi
+  fi
   set +e
-  testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -t ${CHIP_TEST_TOOLCHAIN}-elf- -d 4 -l $PWD/$TEST_RUN_DIR/debug_backend_tests.log -tr x -to $PWD/$TEST_RUN_DIR/results $TEST_RUN_EXTRA_OPTS -c "${OOCD_CMDS}"
+  testing/esp/run_tests.py -o $DIST_DIR/bin/openocd -s $DIST_DIR/share/openocd/scripts -a $PWD/$TEST_RUN_DIR -t ${CHIP_TEST_TOOLCHAIN}-elf- $LOG_OPTIONS $TEST_RUN_EXTRA_OPTS -c "${OOCD_CMDS}"
   export EXIT=$?
   if [[ $SCHEDULE_TYPE == "run_sanitizer_tests" ]] ; then
     grep -i -e".*sanitizer" -e"runtime error" ${TEST_RUN_DIR}/debug_backend_tests.log > ${TEST_RUN_DIR}/sanitizer_errors.log || true
