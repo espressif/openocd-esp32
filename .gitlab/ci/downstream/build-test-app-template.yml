@@ -141,6 +141,16 @@
     ${TOOLCHAIN_PREFIX}-elf-objcopy --rename-section .flash.text=.text ${elf_path} ${elf_path}.gprof
   done
 
+.fetch_stub_bins: &fetch_stub_bins |
+  if [ "${FETCH_STUB_BINS:-0}" = "1" ]; then
+    OOCD_DIST_NAME=$(cat "${CI_PROJECT_DIR}/${DIST_ART_DIR}/dist_name_linux-arm64-test")
+    mkdir -p "${CI_PROJECT_DIR}/pipeline_openocd"
+    tar -C "${CI_PROJECT_DIR}/pipeline_openocd" -x -m -f "${CI_PROJECT_DIR}/${DIST_ART_DIR}/${OOCD_DIST_NAME}"
+    export OPENOCD_SCRIPTS="${CI_PROJECT_DIR}/pipeline_openocd/${DIST_INSTALLED_DIR}/share/openocd/scripts"
+    echo "Overriding OPENOCD_SCRIPTS=${OPENOCD_SCRIPTS} (pipeline-built OpenOCD)"
+    ls -la "${OPENOCD_SCRIPTS}/../espressif/stub_bins/${CHIP_NAME}"
+  fi
+
 .build_test_app_template:
   image: ${TEST_APP_IDF_DOCKER_IMAGE}
   tags:
@@ -174,6 +184,7 @@
     expire_in: 2 weeks
   script:
     - *prepare_test_app_build
+    - *fetch_stub_bins
     - *do_build_test_app
     - *finish_test_app_build
     - *prepare_espytrace_package
