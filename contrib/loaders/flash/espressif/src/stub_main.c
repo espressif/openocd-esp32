@@ -765,13 +765,13 @@ static const struct stub_cmd_handler cmd_handlers[] = {
 	#ifdef STUB_CMD_FLASH_ERASE_CHECK
 	{ESP_STUB_CMD_FLASH_ERASE_CHECK, "CMD_FLASH_ERASE_CHECK", handle_flash_erase_check},
 	#endif
-	#if defined(STUB_CMD_FLASH_MAP_GET) || defined(STUB_CMD_FLASH_MULTI_COMMAND) || defined(STUB_CMD_FLASH_IDF_BINARY)
+	#if defined(STUB_CMD_FLASH_MAP_GET) || defined(STUB_CMD_FLASH_IDF_BINARY)
 	{ESP_STUB_CMD_FLASH_MAP_GET, "CMD_FLASH_MAP_GET", handle_flash_map_get},
 	#endif
-	#if defined(STUB_CMD_FLASH_BP_SET) || defined(STUB_CMD_FLASH_MULTI_COMMAND) || defined(STUB_CMD_FLASH_IDF_BINARY)
+	#if defined(STUB_CMD_FLASH_BP_SET) || defined(STUB_CMD_FLASH_IDF_BINARY)
 	{ESP_STUB_CMD_FLASH_BP_SET, "CMD_FLASH_BP_SET", handle_flash_bp_set},
 	#endif
-	#if defined(STUB_CMD_FLASH_BP_CLEAR) || defined(STUB_CMD_FLASH_MULTI_COMMAND) || defined(STUB_CMD_FLASH_IDF_BINARY)
+	#if defined(STUB_CMD_FLASH_BP_CLEAR) || defined(STUB_CMD_FLASH_IDF_BINARY)
 	{ESP_STUB_CMD_FLASH_BP_CLEAR, "CMD_FLASH_BP_CLEAR", handle_flash_bp_clear},
 	#endif
 	#ifdef STUB_CMD_FLASH_WRITE_DEFLATED

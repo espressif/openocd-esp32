@@ -52,11 +52,11 @@ static const struct esp_flasher_stub_config *esp32p4_get_stub(struct flash_bank 
 	case ESP_STUB_CMD_FLASH_MAP_GET:
 	case ESP_STUB_CMD_FLASH_BP_SET:
 	case ESP_STUB_CMD_FLASH_BP_CLEAR:
-		/* TODO: return multi_command config only when stub preloaded code running */
-		return map[ESP_STUB_CMD_FLASH_MULTI_COMMAND].config;
+		return map[ESP_STUB_CMD_FLASH_IDF_BINARY].config;
 	default:
-		return map[cmd].config;
+		break;
 	}
+	return map[cmd].config;
 }
 
 /* flash bank <bank_name> esp32 <base> <size> 0 0 <target#>

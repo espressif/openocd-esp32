@@ -67,7 +67,6 @@ set(COMMANDS
     "flash_clock_configure"
 
     # Command groups. Combined with the flash commands
-    "flash_multi_command"
     "flash_idf_binary"
     "test_all"
 )
@@ -89,7 +88,6 @@ set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_bp_clear STUB_CMD_FLASH_BP_CLE
 set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_write_deflated STUB_CMD_FLASH_WRITE_DEFLATED)
 set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_calc_hash STUB_CMD_FLASH_CALC_HASH)
 set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_clock_configure STUB_CMD_FLASH_CLOCK_CONFIGURE)
-set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_multi_command STUB_CMD_FLASH_MULTI_COMMAND)
 set_property(GLOBAL PROPERTY COMMAND_MACROS:flash_idf_binary STUB_CMD_FLASH_IDF_BINARY)
 set_property(GLOBAL PROPERTY COMMAND_MACROS:test_all
     STUB_CMD_TEST1

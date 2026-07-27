@@ -540,47 +540,6 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_clock_configure_cfg
 	.dram_len = ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE_DRAM_LEN,
 };
 
-// flash_multi_command definitions
-#define ESP_STUB_CMD_FLASH_MULTI_COMMAND_BSS_SIZE 0x00002eUL
-#define ESP_STUB_CMD_FLASH_MULTI_COMMAND_IRAM_ORG 0x40380000UL
-#define ESP_STUB_CMD_FLASH_MULTI_COMMAND_IRAM_LEN 0x00004000UL
-#define ESP_STUB_CMD_FLASH_MULTI_COMMAND_DRAM_ORG 0x3fca4000UL
-#define ESP_STUB_CMD_FLASH_MULTI_COMMAND_DRAM_LEN 0x00020000UL
-#define ESP_STUB_CMD_FLASH_MULTI_COMMAND_ENTRY_ADDR 0x403805f8UL
-#define ESP_STUB_CMD_FLASH_MULTI_COMMAND_APPTRACE_CTRL_ADDR 0x0UL
-#define ESP_STUB_CMD_FLASH_MULTI_COMMAND_LOG_ADDR 0x0UL
-#define ESP_STUB_CMD_FLASH_MULTI_COMMAND_LOG_SIZE 0x0UL
-#define ESP_STUB_CMD_FLASH_MULTI_COMMAND_TRAP_RECORD_ADDR 0x0UL
-#define ESP_STUB_CMD_FLASH_MULTI_COMMAND_TRAP_ENTRY_ADDR 0x0UL
-
-static const uint8_t s_esp_flasher_stub_flash_multi_command_code[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c2/stub_flash_multi_command_code.inc"
-};
-
-static const uint8_t s_esp_flasher_stub_flash_multi_command_data[] = {
-#include "contrib/loaders/flash/espressif/images/esp32c2/stub_flash_multi_command_data.inc"
-};
-
-static const struct esp_flasher_stub_config s_esp_stub_flash_multi_command_cfg = {
-	.name = "flash_multi_command",
-	.code = s_esp_flasher_stub_flash_multi_command_code,
-	.code_sz = sizeof(s_esp_flasher_stub_flash_multi_command_code),
-	.data = s_esp_flasher_stub_flash_multi_command_data,
-	.data_sz = sizeof(s_esp_flasher_stub_flash_multi_command_data),
-	.entry_addr = ESP_STUB_CMD_FLASH_MULTI_COMMAND_ENTRY_ADDR,
-	.bss_sz = ESP_STUB_CMD_FLASH_MULTI_COMMAND_BSS_SIZE,
-	.apptrace_ctrl_addr = ESP_STUB_CMD_FLASH_MULTI_COMMAND_APPTRACE_CTRL_ADDR,
-	.stack_default_sz = ESP_STUB_STACK_SIZE,
-	.log_buff_addr = ESP_STUB_CMD_FLASH_MULTI_COMMAND_LOG_ADDR,
-	.log_buff_size = ESP_STUB_CMD_FLASH_MULTI_COMMAND_LOG_SIZE,
-	.trap_record_addr = ESP_STUB_CMD_FLASH_MULTI_COMMAND_TRAP_RECORD_ADDR,
-	.trap_entry_addr = ESP_STUB_CMD_FLASH_MULTI_COMMAND_TRAP_ENTRY_ADDR,
-	.iram_org = ESP_STUB_CMD_FLASH_MULTI_COMMAND_IRAM_ORG,
-	.iram_len = ESP_STUB_CMD_FLASH_MULTI_COMMAND_IRAM_LEN,
-	.dram_org = ESP_STUB_CMD_FLASH_MULTI_COMMAND_DRAM_ORG,
-	.dram_len = ESP_STUB_CMD_FLASH_MULTI_COMMAND_DRAM_LEN,
-};
-
 // flash_idf_binary definitions
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_BSS_SIZE 0x00002eUL
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_IRAM_ORG 0x40380000UL
@@ -677,7 +636,6 @@ static const struct command_map s_cmd_map[ESP_STUB_CMD_FLASH_MAX_ID + 1] = {
 	{ESP_STUB_CMD_FLASH_WRITE_DEFLATED, &s_esp_stub_flash_write_deflated_cfg},
 	{ESP_STUB_CMD_FLASH_CALC_HASH, &s_esp_stub_flash_calc_hash_cfg},
 	{ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE, &s_esp_stub_flash_clock_configure_cfg},
-	{ESP_STUB_CMD_FLASH_MULTI_COMMAND, &s_esp_stub_flash_multi_command_cfg},
 	{ESP_STUB_CMD_FLASH_IDF_BINARY, &s_esp_stub_flash_idf_binary_cfg},
 	{ESP_STUB_CMD_TEST_ALL, &s_esp_stub_test_all_cfg},
 };
