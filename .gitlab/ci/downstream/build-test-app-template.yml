@@ -190,7 +190,9 @@
     - *prepare_espytrace_package
     - *prepare_sysview_config
     - *prepare_gprof_compatible_elfs
-  needs: []
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_linux_arm64_test
   rules:
     - if: '$CI_FULL_RUN == "1" || $UT_GET_IDF_VER == "0"'
       when: always

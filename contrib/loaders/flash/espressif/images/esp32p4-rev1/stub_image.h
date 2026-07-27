@@ -21,11 +21,11 @@
 #define ESP_STUB_CMD_TEST1_TRAP_ENTRY_ADDR_REV1 0x0UL
 
 static const uint8_t s_esp_flasher_stub_test1_code_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_test1_code_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_test1_code.inc"
 };
 
 static const uint8_t s_esp_flasher_stub_test1_data_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_test1_data_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_test1_data.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_test1_cfg_rev1 = {
@@ -62,11 +62,11 @@ static const struct esp_flasher_stub_config s_esp_stub_test1_cfg_rev1 = {
 #define ESP_STUB_CMD_RECV_FROM_HOST_TRAP_ENTRY_ADDR_REV1 0x0UL
 
 static const uint8_t s_esp_flasher_stub_recv_from_host_code_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_recv_from_host_code_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_recv_from_host_code.inc"
 };
 
 static const uint8_t s_esp_flasher_stub_recv_from_host_data_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_recv_from_host_data_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_recv_from_host_data.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_recv_from_host_cfg_rev1 = {
@@ -103,11 +103,11 @@ static const struct esp_flasher_stub_config s_esp_stub_recv_from_host_cfg_rev1 =
 #define ESP_STUB_CMD_SEND_TO_HOST_TRAP_ENTRY_ADDR_REV1 0x0UL
 
 static const uint8_t s_esp_flasher_stub_send_to_host_code_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_send_to_host_code_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_send_to_host_code.inc"
 };
 
 static const uint8_t s_esp_flasher_stub_send_to_host_data_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_send_to_host_data_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_send_to_host_data.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_send_to_host_cfg_rev1 = {
@@ -144,11 +144,11 @@ static const struct esp_flasher_stub_config s_esp_stub_send_to_host_cfg_rev1 = {
 #define ESP_STUB_CMD_FLASH_READ_TRAP_ENTRY_ADDR_REV1 0x0UL
 
 static const uint8_t s_esp_flasher_stub_flash_read_code_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_read_code_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_read_code.inc"
 };
 
 static const uint8_t s_esp_flasher_stub_flash_read_data_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_read_data_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_read_data.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_flash_read_cfg_rev1 = {
@@ -185,11 +185,11 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_read_cfg_rev1 = {
 #define ESP_STUB_CMD_FLASH_WRITE_TRAP_ENTRY_ADDR_REV1 0x0UL
 
 static const uint8_t s_esp_flasher_stub_flash_write_code_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_write_code_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_write_code.inc"
 };
 
 static const uint8_t s_esp_flasher_stub_flash_write_data_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_write_data_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_write_data.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_flash_write_cfg_rev1 = {
@@ -226,11 +226,11 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_write_cfg_rev1 = {
 #define ESP_STUB_CMD_FLASH_ERASE_TRAP_ENTRY_ADDR_REV1 0x0UL
 
 static const uint8_t s_esp_flasher_stub_flash_erase_code_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_erase_code_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_erase_code.inc"
 };
 
 static const uint8_t s_esp_flasher_stub_flash_erase_data_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_erase_data_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_erase_data.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_flash_erase_cfg_rev1 = {
@@ -267,11 +267,11 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_erase_cfg_rev1 = {
 #define ESP_STUB_CMD_FLASH_ERASE_CHECK_TRAP_ENTRY_ADDR_REV1 0x0UL
 
 static const uint8_t s_esp_flasher_stub_flash_erase_check_code_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_erase_check_code_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_erase_check_code.inc"
 };
 
 static const uint8_t s_esp_flasher_stub_flash_erase_check_data_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_erase_check_data_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_erase_check_data.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_flash_erase_check_cfg_rev1 = {
@@ -308,11 +308,11 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_erase_check_cfg_rev
 #define ESP_STUB_CMD_FLASH_MAP_GET_TRAP_ENTRY_ADDR_REV1 0x0UL
 
 static const uint8_t s_esp_flasher_stub_flash_map_get_code_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_map_get_code_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_map_get_code.inc"
 };
 
 static const uint8_t s_esp_flasher_stub_flash_map_get_data_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_map_get_data_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_map_get_data.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_flash_map_get_cfg_rev1 = {
@@ -349,11 +349,11 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_map_get_cfg_rev1 = 
 #define ESP_STUB_CMD_FLASH_BP_SET_TRAP_ENTRY_ADDR_REV1 0x0UL
 
 static const uint8_t s_esp_flasher_stub_flash_bp_set_code_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_bp_set_code_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_bp_set_code.inc"
 };
 
 static const uint8_t s_esp_flasher_stub_flash_bp_set_data_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_bp_set_data_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_bp_set_data.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_flash_bp_set_cfg_rev1 = {
@@ -390,11 +390,11 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_bp_set_cfg_rev1 = {
 #define ESP_STUB_CMD_FLASH_BP_CLEAR_TRAP_ENTRY_ADDR_REV1 0x0UL
 
 static const uint8_t s_esp_flasher_stub_flash_bp_clear_code_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_bp_clear_code_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_bp_clear_code.inc"
 };
 
 static const uint8_t s_esp_flasher_stub_flash_bp_clear_data_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_bp_clear_data_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_bp_clear_data.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_flash_bp_clear_cfg_rev1 = {
@@ -431,11 +431,11 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_bp_clear_cfg_rev1 =
 #define ESP_STUB_CMD_FLASH_WRITE_DEFLATED_TRAP_ENTRY_ADDR_REV1 0x0UL
 
 static const uint8_t s_esp_flasher_stub_flash_write_deflated_code_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_write_deflated_code_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_write_deflated_code.inc"
 };
 
 static const uint8_t s_esp_flasher_stub_flash_write_deflated_data_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_write_deflated_data_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_write_deflated_data.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_flash_write_deflated_cfg_rev1 = {
@@ -472,11 +472,11 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_write_deflated_cfg_
 #define ESP_STUB_CMD_FLASH_CALC_HASH_TRAP_ENTRY_ADDR_REV1 0x0UL
 
 static const uint8_t s_esp_flasher_stub_flash_calc_hash_code_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_calc_hash_code_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_calc_hash_code.inc"
 };
 
 static const uint8_t s_esp_flasher_stub_flash_calc_hash_data_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_calc_hash_data_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_calc_hash_data.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_flash_calc_hash_cfg_rev1 = {
@@ -513,11 +513,11 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_calc_hash_cfg_rev1 
 #define ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE_TRAP_ENTRY_ADDR_REV1 0x0UL
 
 static const uint8_t s_esp_flasher_stub_flash_clock_configure_code_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_clock_configure_code_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_clock_configure_code.inc"
 };
 
 static const uint8_t s_esp_flasher_stub_flash_clock_configure_data_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_clock_configure_data_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_clock_configure_data.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_flash_clock_configure_cfg_rev1 = {
@@ -554,11 +554,11 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_clock_configure_cfg
 #define ESP_STUB_CMD_FLASH_MULTI_COMMAND_TRAP_ENTRY_ADDR_REV1 0x0UL
 
 static const uint8_t s_esp_flasher_stub_flash_multi_command_code_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_multi_command_code_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_multi_command_code.inc"
 };
 
 static const uint8_t s_esp_flasher_stub_flash_multi_command_data_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_multi_command_data_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_multi_command_data.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_flash_multi_command_cfg_rev1 = {
@@ -584,9 +584,9 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_multi_command_cfg_r
 // flash_idf_binary definitions
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_BSS_SIZE_REV1 0x000037UL
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_IRAM_ORG_REV1 0x8ff00000UL
-#define ESP_STUB_CMD_FLASH_IDF_BINARY_IRAM_LEN_REV1 0x00004000UL
-#define ESP_STUB_CMD_FLASH_IDF_BINARY_DRAM_ORG_REV1 0x8ff04000UL
-#define ESP_STUB_CMD_FLASH_IDF_BINARY_DRAM_LEN_REV1 0x00020000UL
+#define ESP_STUB_CMD_FLASH_IDF_BINARY_IRAM_LEN_REV1 0x00001000UL
+#define ESP_STUB_CMD_FLASH_IDF_BINARY_DRAM_ORG_REV1 0x8ff01000UL
+#define ESP_STUB_CMD_FLASH_IDF_BINARY_DRAM_LEN_REV1 0x00001000UL
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_ENTRY_ADDR_REV1 0x8ff00c22UL
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_APPTRACE_CTRL_ADDR_REV1 0x0UL
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_LOG_ADDR_REV1 0x0UL
@@ -595,11 +595,11 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_multi_command_cfg_r
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_TRAP_ENTRY_ADDR_REV1 0x0UL
 
 static const uint8_t s_esp_flasher_stub_flash_idf_binary_code_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_idf_binary_code_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_idf_binary_code.inc"
 };
 
 static const uint8_t s_esp_flasher_stub_flash_idf_binary_data_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_idf_binary_data_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_flash_idf_binary_data.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_flash_idf_binary_cfg_rev1 = {
@@ -636,11 +636,11 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_idf_binary_cfg_rev1
 #define ESP_STUB_CMD_TEST_ALL_TRAP_ENTRY_ADDR_REV1 0x8ff02800UL
 
 static const uint8_t s_esp_flasher_stub_test_all_code_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_test_all_code_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_test_all_code.inc"
 };
 
 static const uint8_t s_esp_flasher_stub_test_all_data_rev1[] = {
-#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_test_all_data_rev1.inc"
+#include "contrib/loaders/flash/espressif/images/esp32p4-rev1/stub_test_all_data.inc"
 };
 
 static const struct esp_flasher_stub_config s_esp_stub_test_all_cfg_rev1 = {

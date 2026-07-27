@@ -32,12 +32,13 @@ install(DIRECTORY contrib/libdcc DESTINATION ${pkgdatadir}/contrib)
 install(FILES tools/esp_detect_config.py DESTINATION ${pkgdatadir}/espressif/tools)
 install(FILES tools/esp_problems_hints.yml DESTINATION ${pkgdatadir}/espressif/tools)
 
-install(FILES contrib/loaders/flash/espressif/images/esp32c6/stub_flash_idf_binary_code.inc DESTINATION ${pkgdatadir}/espressif/stub_bins/esp32c6)
-install(FILES contrib/loaders/flash/espressif/images/esp32c6/stub_flash_idf_binary_data.inc DESTINATION ${pkgdatadir}/espressif/stub_bins/esp32c6)
-install(FILES contrib/loaders/flash/espressif/images/esp32c6/stub_flash_idf_image.h DESTINATION ${pkgdatadir}/espressif/stub_bins/esp32c6)
-install(FILES contrib/loaders/flash/espressif/images/esp32h2/stub_flash_idf_binary_code.inc DESTINATION ${pkgdatadir}/espressif/stub_bins/esp32h2)
-install(FILES contrib/loaders/flash/espressif/images/esp32h2/stub_flash_idf_binary_data.inc DESTINATION ${pkgdatadir}/espressif/stub_bins/esp32h2)
-install(FILES contrib/loaders/flash/espressif/images/esp32h2/stub_flash_idf_image.h DESTINATION ${pkgdatadir}/espressif/stub_bins/esp32h2)
+foreach(target esp32c5 esp32c6 esp32c61 esp32h2 esp32h4 esp32h21 esp32p4 esp32p4-rev1 esp32s31)
+	install(FILES
+		contrib/loaders/flash/espressif/images/${target}/stub_flash_idf_binary_code.inc
+		contrib/loaders/flash/espressif/images/${target}/stub_flash_idf_binary_data.inc
+		contrib/loaders/flash/espressif/images/${target}/stub_flash_idf_image.h
+		DESTINATION ${pkgdatadir}/espressif/stub_bins/${target})
+endforeach()
 
 get_property(ulink_firmware TARGET ocdjtagdrivers PROPERTY ULINK_FIRMWARE)
 if(BUILD_JLINK)

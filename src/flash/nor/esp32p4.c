@@ -48,7 +48,15 @@ static const struct esp_flasher_stub_config *esp32p4_get_stub(struct flash_bank 
 
 	if (esp_info->stub_log_enabled)
 		return map[ESP_STUB_CMD_TEST_ALL].config;
-	return map[cmd].config;
+	switch (cmd) {
+	case ESP_STUB_CMD_FLASH_MAP_GET:
+	case ESP_STUB_CMD_FLASH_BP_SET:
+	case ESP_STUB_CMD_FLASH_BP_CLEAR:
+		/* TODO: return multi_command config only when stub preloaded code running */
+		return map[ESP_STUB_CMD_FLASH_MULTI_COMMAND].config;
+	default:
+		return map[cmd].config;
+	}
 }
 
 /* flash bank <bank_name> esp32 <base> <size> 0 0 <target#>
@@ -70,7 +78,7 @@ FLASH_BANK_COMMAND_HANDLER(esp32p4_flash_bank_command)
 		esp32p4_is_irom_address,
 		esp32p4_is_drom_address,
 		esp32p4_get_stub,
-		false);
+		true);
 	if (ret != ERROR_OK) {
 		free(esp32p4_info);
 		return ret;

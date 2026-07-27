@@ -50,8 +50,8 @@ foreach(COMMAND ${COMMANDS})
     # so reintroduce the "cmd_" prefix only when building those identifiers.
     string(TOUPPER "cmd_${COMMAND}" COMMAND_UPPER)
     set(STUB_ELF "${CMAKE_CURRENT_BINARY_DIR}/stub_${ESP_TARGET}_${COMMAND}.elf")
-    set(CODE_SECTION "${OUTPUT_DIR}/stub_${COMMAND}_code${SUFFIX}.inc")
-    set(DATA_SECTION "${OUTPUT_DIR}/stub_${COMMAND}_data${SUFFIX}.inc")
+    set(CODE_SECTION "${OUTPUT_DIR}/stub_${COMMAND}_code.inc")
+    set(DATA_SECTION "${OUTPUT_DIR}/stub_${COMMAND}_data.inc")
 
     # Extract code section
     execute_process(
@@ -173,10 +173,10 @@ foreach(COMMAND ${COMMANDS})
         "#define ESP_STUB_${COMMAND_UPPER}_TRAP_RECORD_ADDR${SUFFIX_UPPER} 0x${TRAP_RECORD_ADDR}UL\n"
         "#define ESP_STUB_${COMMAND_UPPER}_TRAP_ENTRY_ADDR${SUFFIX_UPPER} 0x${TRAP_ENTRY_ADDR}UL\n\n"
         "static const uint8_t s_esp_flasher_stub_${COMMAND}_code${SUFFIX}[] = {\n"
-        "#include \"contrib/loaders/flash/espressif/${IMAGE_DIR}/${TARGET_DIR}/stub_${COMMAND}_code${SUFFIX}.inc\"\n"
+        "#include \"contrib/loaders/flash/espressif/${IMAGE_DIR}/${TARGET_DIR}/stub_${COMMAND}_code.inc\"\n"
         "};\n\n"
         "static const uint8_t s_esp_flasher_stub_${COMMAND}_data${SUFFIX}[] = {\n"
-        "#include \"contrib/loaders/flash/espressif/${IMAGE_DIR}/${TARGET_DIR}/stub_${COMMAND}_data${SUFFIX}.inc\"\n"
+        "#include \"contrib/loaders/flash/espressif/${IMAGE_DIR}/${TARGET_DIR}/stub_${COMMAND}_data.inc\"\n"
         "};\n\n"
     )
 

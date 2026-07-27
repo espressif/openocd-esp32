@@ -12,6 +12,7 @@
 #include <helper/align.h>
 #include <target/algorithm.h>
 #include <target/target.h>
+#include <rtos/rtos.h>
 #include "esp_algorithm.h"
 #include "esp_riscv.h"
 #include "esp_xtensa.h"
@@ -440,6 +441,15 @@ int esp_algorithm_check_preloaded_image(struct target *target, struct esp_algori
 
 	run->run_preloaded_binary = false;
 
+	/* The preloaded stub image is an ESP-IDF (FreeRTOS) feature. For other RTOSes
+	 * there is no preloaded image, so load the stub from jtag directly. */
+	if (target->rtos && target->rtos->type && strcmp(target->rtos->type->name, "FreeRTOS")) {
+		LOG_TARGET_DEBUG(target, "Not an ESP-IDF app, stub flasher will be loaded from jtag.");
+		return ERROR_FAIL;
+	}
+
+	LOG_DEBUG("Checking preloaded image at 0x%" PRIX32, run->image.iram_org);
+
 	int retval = target_read_buffer(target, run->image.iram_org, ESP_STUB_FLASHER_DESC_SIZE, buffer);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Failed to read stub description!");
@@ -456,6 +466,8 @@ int esp_algorithm_check_preloaded_image(struct target *target, struct esp_algori
 			magic_num, stub_version, idf_key);
 		LOG_WARNING("Expected stub code magic_num(0x%" PRIX32 ") stub_version(%" PRIX32 ") idf_key(%" PRIX32 ")",
 			ESP_STUB_FLASHER_MAGIC_NUM, ESP_STUB_FLASHER_VERSION, ESP_STUB_FLASHER_IDF_KEY);
+		LOG_INFO("Stub flasher will be loaded to the target's memory.\n"
+			"Enable CONFIG_ESP_DEBUG_INCLUDE_OCD_STUB_BINS to run preloaded stub code and speed up debugging.");
 		return ERROR_FAIL;
 	}
 

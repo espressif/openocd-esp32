@@ -23,10 +23,11 @@ add_compile_definitions(${COMMON_COMPILE_DEFS})
 # below with the constrained -idf.ld layout when the target provides one.
 if(DEFINED ESP_TARGET_REV)
     set(TARGET_LD_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/ld/${ESP_TARGET}-${ESP_TARGET_REV}.ld)
+    set(TARGET_IDF_LD_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/ld/${ESP_TARGET}-${ESP_TARGET_REV}-idf.ld)
 else()
     set(TARGET_LD_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/ld/${ESP_TARGET}.ld)
+    set(TARGET_IDF_LD_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/ld/${ESP_TARGET}-idf.ld)
 endif()
-set(TARGET_IDF_LD_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/ld/${ESP_TARGET}-idf.ld)
 set(COMMON_LD_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/ld/common.ld)
 
 set(SRC_DIR "${CMAKE_CURRENT_LIST_DIR}/src")

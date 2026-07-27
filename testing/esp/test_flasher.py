@@ -348,15 +348,7 @@ class FlasherTestsSingleEncrypted(DebuggerGenericTestAppTestsSingleEncrypted, Fl
         DebuggerGenericTestAppTestsSingleEncrypted.setUp(self)
         FlasherTestsImpl.setUp(self)
 
-@idf_ver_min('5.4')
-@only_for_chip(['esp32c6', 'esp32h2'])
-class FlasherTestsPreloadedStubSingle(DebuggerGenericTestAppTestsSingle):
-
-    def __init__(self, methodName='runTest'):
-        super(FlasherTestsPreloadedStubSingle, self).__init__(methodName)
-        self.test_app_cfg.bin_dir = os.path.join('output', 'single_core_preloaded_stub')
-        self.test_app_cfg.build_dir = os.path.join('builds', 'single_core_preloaded_stub')
-
+class FlasherTestsPreloadedStubImpl:
     def test_preloaded_stub_binary(self):
         """
             This test checks if stub codes already loaded to the targets and functioning as expected.
@@ -394,3 +386,21 @@ class FlasherTestsPreloadedStubSingle(DebuggerGenericTestAppTestsSingle):
         # Always check common functionality regardless of preloaded vs fresh load
         for expected_str in common_expected_strings:
             self.assertIn(expected_str, target_output, f"Expected string '{expected_str}' not found in output")
+
+@idf_ver_min('5.4')
+@only_for_chip(['esp32c5', 'esp32c6', 'esp32c61', 'esp32h2', 'esp32h4', 'esp32h21', 'esp32p4', 'esp32s31'])
+class FlasherTestsPreloadedStubSingle(DebuggerGenericTestAppTestsSingle, FlasherTestsPreloadedStubImpl):
+
+    def __init__(self, methodName='runTest'):
+        super(FlasherTestsPreloadedStubSingle, self).__init__(methodName)
+        self.test_app_cfg.bin_dir = os.path.join('output', 'single_core_preloaded_stub')
+        self.test_app_cfg.build_dir = os.path.join('builds', 'single_core_preloaded_stub')
+
+@idf_ver_min('5.4')
+@only_for_chip(['esp32h4', 'esp32p4', 'esp32s31'])
+class FlasherTestsPreloadedStubDual(DebuggerGenericTestAppTestsDual, FlasherTestsPreloadedStubImpl):
+
+    def __init__(self, methodName='runTest'):
+        super(DebuggerGenericTestAppTestsDual, self).__init__(methodName)
+        self.test_app_cfg.bin_dir = os.path.join('output', 'default_preloaded_stub')
+        self.test_app_cfg.build_dir = os.path.join('builds', 'default_preloaded_stub')
