@@ -2,6 +2,6 @@
 /* SPDX-FileCopyrightText: 2026 Espressif Systems (Shanghai) CO LTD */
 
 MEMORY {
-	iram : org = 0x40800000, len = 0x800
-	dram : org = 0x40800800, len = 0x800
+	iram : org = 0x40800000, len = 0x1000
+	dram : org = 0x40801000, len = 0x1000
 }
