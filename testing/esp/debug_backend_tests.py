@@ -542,6 +542,7 @@ class DebuggerTestsBase(unittest.TestCase, GDBUtils):
         self.assertEqual(rsn, dbg.TARGET_STOP_REASON_FN_FINISHED)
 
 
+main_reached = False
 
 class DebuggerTestAppTests(DebuggerTestsBase):
     """ Base class for tests which need special app running on target
@@ -552,7 +553,6 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         self.test_app_cfg = DebuggerTestAppConfig()
         self.bpns = []
         self.wps = {}
-        self.main_reached = False
 
     def setUp(self):
         """ Setup test.
@@ -565,6 +565,7 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         self.select_sub_test(self.id())
 
     def tearDown(self):
+        self.stop_exec()
         self.clear_bps()
         self.clear_wps()
         self.oocd.process_lazy_bps()
@@ -582,10 +583,12 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
         bp = self.gdb.add_bp(self.test_app_cfg.entry_point, hw=True)
         self.resume_exec()
+        global main_reached
         try:
             rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
+            self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
         except:
-            if not self.main_reached:
+            if not main_reached:
                 self.gdb.disconnect()
                 self.oocd.stop()
                 if self.uart_reader:
@@ -594,14 +597,7 @@ class DebuggerTestAppTests(DebuggerTestsBase):
                 subprocess.run(cmd)
                 os._exit(os.EX_TEMPFAIL)
             raise
-        self.main_reached = True
-        # workarounds for strange debugger's behaviour
-        if rsn == dbg.TARGET_STOP_REASON_SIGINT:
-            get_logger().warning('Unexpected SIGINT during setup! Apply workaround...')
-            cur_frame = self.gdb.get_current_frame()
-            self.resume_exec()
-            rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 10)
-        self.assertEqual(rsn, dbg.TARGET_STOP_REASON_BP)
+        main_reached = True
         frame = self.gdb.get_current_frame()
         self.assertEqual(frame['func'], self.test_app_cfg.entry_point)
         self.gdb.delete_bp(bp)

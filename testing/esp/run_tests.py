@@ -371,9 +371,6 @@ def dbg_start(toolchain, oocd, oocd_tcl, oocd_cfg_files, oocd_cfg_cmds, debug_oo
     try:
         # reset the board if it is stuck from the previous test run
         _oocd_inst.cmd_exec('reset halt')
-        # Enable GDB fix
-        # TODO: Remove
-        os.environ["ESP_XTENSA_GDB_PRIV_REGS_FIX"] = "1"
         gdb_utils = debug_backend_tests.GDBUtils()
         _gdb_inst = gdb_utils.create_gdb(chip_name, target_triple, toolchain, log_level,
                                             log_stream, log_file, gdb_log, debug_oocd)
