@@ -586,12 +586,16 @@ class DebuggerSpecialTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerSpec
             if reg == "timeh":
                 continue
 
-            if reg == 'mexstatus':
-                # this register is not safe to write
+            if reg in ['mexstatus', 'priv']:
+                # these registers are not safe to write
                 set_reg_and_check(reg, None)
                 continue
 
-            if reg == 'pc':
+            if reg in ['dscratch0', 'dscratch1']:
+                # need not retain value between abstract commands
+                continue
+
+            if reg in ['pc', 'dpc']:
                 # set to reasonable value, because GDB tries to read memory @ pc
                 set_reg_and_check(reg, 0x40000400)
                 continue
