@@ -460,8 +460,12 @@ int esp_algorithm_check_preloaded_image(struct target *target, struct esp_algori
 	uint32_t stub_version = target_buffer_get_u32(target, buffer + ESP_STUB_FLASHER_DESC_MAGIC_VERSION);
 	uint32_t idf_key = target_buffer_get_u32(target, buffer + ESP_STUB_FLASHER_DESC_IDF_KEY);
 
+	static bool logged_warning;
 	if (magic_num != ESP_STUB_FLASHER_MAGIC_NUM || stub_version != ESP_STUB_FLASHER_VERSION
 		|| idf_key != ESP_STUB_FLASHER_IDF_KEY) {
+		if (logged_warning)
+			return ERROR_FAIL;
+		logged_warning = true;
 		LOG_WARNING("Installed stub code magic_num(0x%" PRIX32 ") stub_version(%" PRIX32 ") idf_key(%" PRIX32 ")",
 			magic_num, stub_version, idf_key);
 		LOG_WARNING("Expected stub code magic_num(0x%" PRIX32 ") stub_version(%" PRIX32 ") idf_key(%" PRIX32 ")",
