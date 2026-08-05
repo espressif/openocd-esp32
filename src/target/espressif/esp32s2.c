@@ -410,8 +410,9 @@ static int esp32s2_arch_state(struct target *target)
 static int esp32s2_read_hw_rev(struct target *target)
 {
 	static uint32_t hw_rev;
+	static bool hw_rev_read;
 
-	if (hw_rev != 0) {
+	if (hw_rev_read) {
 		target->hw_rev = hw_rev;
 		return ERROR_OK;
 	}
@@ -433,6 +434,7 @@ static int esp32s2_read_hw_rev(struct target *target)
 
 	hw_rev = 100 * major_rev + minor_rev;
 	target->hw_rev = hw_rev;
+	hw_rev_read = true;
 	LOG_TARGET_INFO(target, "Chip revision v%u.%u", major_rev, minor_rev);
 
 	return ERROR_OK;

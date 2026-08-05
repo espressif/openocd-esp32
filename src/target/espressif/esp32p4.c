@@ -236,8 +236,9 @@ static const char *esp32p4_user_counter_csrs[] = {
 static int esp32p4_read_hw_rev(struct target *target)
 {
 	static uint32_t hw_rev;
+	static bool hw_rev_read;
 
-	if (hw_rev != 0) {
+	if (hw_rev_read) {
 		target->hw_rev = hw_rev;
 		return ERROR_OK;
 	}
@@ -253,6 +254,7 @@ static int esp32p4_read_hw_rev(struct target *target)
 
 	hw_rev = 100 * major + minor;
 	target->hw_rev = hw_rev;
+	hw_rev_read = true;
 	LOG_TARGET_INFO(target, "Chip revision v%u.%u", major, minor);
 
 	return ERROR_OK;
