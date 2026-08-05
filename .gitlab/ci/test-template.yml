@@ -175,21 +175,3 @@
     CHIP_TEST_TOOLCHAIN: "riscv32-esp"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_3X_RISCV_GDB_TOOLCHAIN}"
     TOOLCHAIN_PREFIX: "riscv32-esp"
-
-.tests_v5.2.x_template:
-  extends: .tests_template
-  image: ${CI_REGISTRY}/ci/images/idf-v5.2-target-test:1
-  variables:
-    CHIP_TEST_TOOLCHAIN: "xtensa-${CHIP_NAME}"
-    TEST_RUN_DIR: "build_test_app_${CHIP_NAME}_idf5.2.x"
-    ESP_GDB_TOOLCHAIN: "${ESP_V5_2X_XTENSA_GDB_TOOLCHAIN}"
-    TOOLCHAIN_PREFIX: "xtensa-esp"
-    ESP_TOOLCHAIN: "${ESP_V5_2X_TOOLCHAIN_VER}"
-    IDF_RELEASE_TAG: "${TEST_APP_IDF5_2_X_RELEASE_TAG}"
-
-.tests_v5.2.x_riscv_template:
-  extends: .tests_v5.2.x_template
-  variables:
-    CHIP_TEST_TOOLCHAIN: "riscv32-esp"
-    ESP_GDB_TOOLCHAIN: "${ESP_V5_2X_RISCV_GDB_TOOLCHAIN}"
-    TOOLCHAIN_PREFIX: "riscv32-esp"

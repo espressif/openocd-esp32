@@ -1,13 +1,8 @@
 file(GLOB GEN_UT_SRCS "*.c" "*.S")
-if("$ENV{ESP_IDF_VERSION}" STREQUAL "5.2")
-	idf_component_register(SRCS ${GEN_UT_SRCS}
-						   INCLUDE_DIRS ".")
-else()
-	idf_component_register(SRCS ${GEN_UT_SRCS}
-						   PRIV_REQUIRES vfs esp_driver_gptimer spi_flash app_trace
-						   REQUIRES ulp
-						   INCLUDE_DIRS ".")
-endif()
+idf_component_register(SRCS ${GEN_UT_SRCS}
+						PRIV_REQUIRES vfs esp_driver_gptimer spi_flash app_trace
+						REQUIRES ulp
+						INCLUDE_DIRS ".")
 
 file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}/ut_idf_ver.h" idf_ver_header_path)
 file(TO_NATIVE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/get_idf_ver.py" idf_ver_script)

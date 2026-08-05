@@ -10,17 +10,6 @@
     SCHEDULE_TYPE: $SCHEDULE_TYPE
     CI_FULL_RUN: $CI_FULL_RUN
 
-5.2.x_run_test_pipeline:
-  extends: .run_test_pipeline
-  trigger:
-    include:
-      - local: '.gitlab/ci/downstream/child-pipeline-template.yml'
-      - local: '.gitlab/ci/downstream/idf_5_2_x/build.yml'
-      - local: '.gitlab/ci/downstream/idf_5_2_x/test.yml'
-    strategy: depend
-  variables:
-    CI_IDF_VERSION: "5_2"
-
 5.3.x_run_test_pipeline:
   extends: .run_test_pipeline
   trigger:

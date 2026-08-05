@@ -267,7 +267,6 @@ coverage_reports:
     when: always
     expire_in: 1 week
   needs:
-    - job: 5.2.x_run_test_pipeline
     - job: 5.3.x_run_test_pipeline
     - job: 5.4.x_run_test_pipeline
     - job: 5.5.x_run_test_pipeline
@@ -335,7 +334,6 @@ runtime_reports:
   tags:
     - build
   needs:
-    - job: 5.2.x_run_test_pipeline
     - job: 5.3.x_run_test_pipeline
     - job: 5.4.x_run_test_pipeline
     - job: 5.5.x_run_test_pipeline
