@@ -21,7 +21,7 @@
   export BATCH_BUILD=1
   export V=0
 
-  IDF_REPO_URL="https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf.git"
+  IDF_REPO_URL="http://gitmirror.brew:6688/${CI_SERVER_HOST}:${CI_SERVER_PORT}/espressif/esp-idf"
 
   # -----------------------------
   # Decide custom IDF branch (based on docker image + vars)
