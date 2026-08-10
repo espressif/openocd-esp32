@@ -21,6 +21,27 @@ TEST_DECL(restart_debug_from_crash, "test_special.DebuggerSpecialTests*.test_res
     *p = 0; TEST_BREAK_LOC(crash);
 }
 
+void stack_protection_test(void)
+{
+    int always = 1;
+    __attribute__((unused)) uint32_t buf[512];
+    while (always) {
+        stack_protection_test();
+    }
+}
+
+TEST_DECL(panic_stack_protection, "test_special.DebuggerSpecialTests*.test_panic_stack_protection")
+{
+    ESP_LOGI(TAG, "Start stack crash task on core %d", xPortGetCoreID());
+    stack_protection_test(); TEST_BREAK_LOC(crash);
+}
+
+TEST_DECL(panic_cache_error, "test_special.DebuggerSpecialTests*.test_panic_cache_error")
+{
+    ESP_LOGI(TAG, "Start cache crash task on core %d", xPortGetCoreID());
+    spi_flash_disable_interrupts_caches_and_other_cpu();
+}
+
 TEST_DECL(cache_handling, "test_flasher.FlasherTests*.test_cache_handling")
 {
     int count = 0;
@@ -425,6 +446,10 @@ ut_result_t special_test_do(int test_num, int core_num)
         xTaskCreatePinnedToCore(TEST_ENTRY(target_bp_wp), "target_bp_wp_task", 4096, NULL, 5, NULL, core_num);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(restart_debug_from_crash), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(restart_debug_from_crash), "crash_task", 2048, NULL, 5, NULL, core_num);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(panic_stack_protection), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(panic_stack_protection), "panic_stack_protection_task", 2048, NULL, 5, NULL, core_num);
+    } else if (TEST_ID_MATCH(TEST_ID_PATTERN(panic_cache_error), test_num)) {
+        xTaskCreatePinnedToCore(TEST_ENTRY(panic_cache_error), "panic_cache_error_task", 2048, NULL, 5, NULL, core_num);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(cache_handling), test_num)) {
         xTaskCreatePinnedToCore(TEST_ENTRY(cache_handling), "cache_check_task", 4096, NULL, 5, NULL, core_num);
     } else if (TEST_ID_MATCH(TEST_ID_PATTERN(wp_reconfigure_by_program), test_num)) {

@@ -225,6 +225,23 @@ class DebuggerSpecialTestsImpl:
         self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_SIGTRAP, 'restart_debug_from_crash_task', ['crash'], outmost_func_name='restart_debug_from_crash_task')
         self.prepare_app_for_debugging(self.test_app_cfg.app_off)
 
+    @only_for_arch(['riscv32'])
+    def test_panic_stack_protection(self):
+        """
+            This test checks that OpenOCD stops when stack protection panic happens:
+        """
+        self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_SIGTRAP, 'stack_protection_test', ['crash'], outmost_func_name='panic_stack_protection_task')
+        self.prepare_app_for_debugging(self.test_app_cfg.app_off)
+
+    def test_panic_cache_error(self):
+        """
+            This test checks that OpenOCD stops when cache error panic happens:
+        """
+        self.resume_exec()
+        rsn = self.gdb.wait_target_state(dbg.TARGET_STATE_STOPPED, 5)
+        self.assertEqual(rsn, dbg.TARGET_STOP_REASON_SIGTRAP)
+        self.prepare_app_for_debugging(self.test_app_cfg.app_off)
+
     def _debug_image(self):
         self.select_sub_test("blink")
         # Filling HW breakpoints slots to make test using SW flash breakpoints
