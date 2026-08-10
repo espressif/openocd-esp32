@@ -2834,6 +2834,10 @@ static int gdb_generate_thread_list(struct target *target, char **thread_list_ou
 			if (!thread_detail->exists)
 				continue;
 
+			if (thread_detail->thread_name_str &&
+					find_nonprint_char(thread_detail->thread_name_str, strlen(thread_detail->thread_name_str)))
+				thread_detail->thread_name_str = NULL;
+
 			if (thread_detail->thread_name_str)
 				xml_printf(&retval, &thread_list, &pos, &size,
 					   "<thread id=\"%" PRIx64 "\" name=\"%s\">",
@@ -2857,6 +2861,10 @@ static int gdb_generate_thread_list(struct target *target, char **thread_list_ou
 
 			xml_printf(&retval, &thread_list, &pos, &size,
 				   "</thread>\n");
+		}
+		if (rtos->current_threadid != -1 && rtos->thread_count == 0) {
+			xml_printf(&retval, &thread_list, &pos, &size,
+				"<thread id=\"%" PRIx64 "\"></thread>\n", rtos->current_threadid);
 		}
 	}
 

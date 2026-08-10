@@ -165,7 +165,7 @@ class DebuggerSpecialTestsImpl:
         self.run_to_bp_and_check(dbg.TARGET_STOP_REASON_BP, 'vTaskDelay', ['vTaskDelay0'])
         self.clear_bps()
 
-    @skip_for_chip(["esp32c61", "esp32h4"], "skipped - OCD-1390")
+    @skip_for_chip(["esp32h4"], "skipped - OCD-1399")
     def test_debugging_works_after_hw_reset(self):
         """
             This test checks that debugging works after HW reset.

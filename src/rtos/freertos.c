@@ -1117,9 +1117,7 @@ static int freertos_update_threads(struct rtos *rtos)
 		return freertos_update_extra_details(target);
 	}
 
-	threadid_t temp = rtos->current_thread;
 	rtos_free_threadlist(rtos);
-	rtos->current_thread = temp;
 
 	/* read scheduler running */
 	uint32_t scheduler_running;
@@ -1509,7 +1507,6 @@ static int freertos_post_reset_cleanup(struct target *target)
 		/* wipe out previous thread details if any */
 		rtos_free_threadlist(target->rtos);
 	}
-	target->rtos->current_threadid = -1;
 	rtos_data->thread_counter = 0;
 	free(rtos_data->esp_symbols);
 	rtos_data->esp_symbols = NULL;

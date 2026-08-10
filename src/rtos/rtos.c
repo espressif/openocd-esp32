@@ -736,8 +736,8 @@ void rtos_free_threadlist(struct rtos *rtos)
 		free(rtos->thread_details);
 		rtos->thread_details = NULL;
 		rtos->thread_count = 0;
-		rtos->current_threadid = -1;
-		rtos->current_thread = 0;
+		/* Espressif - do not clean current thread here, it could have been already reported to GDB.
+		   Failing to include the same ID in thread list can result in GDB shutting down on an assert. */
 	}
 }
 
