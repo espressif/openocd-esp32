@@ -214,6 +214,18 @@ static int hwthread_update_threads(struct rtos *rtos)
 
 static int hwthread_smp_init(struct target *target)
 {
+	struct rtos *rtos = target->rtos;
+	struct target_list *head;
+	/* use one of rtos instance for both target */
+	foreach_smp_target(head, target->smp_targets) {
+		struct target *curr = head->target;
+		if (curr->rtos != rtos) {
+			/*  remap smp target on rtos  */
+			free(curr->rtos);
+			curr->rtos = rtos;
+		}
+	}
+
 	return hwthread_update_threads(target->rtos);
 }
 
