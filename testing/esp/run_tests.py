@@ -376,8 +376,8 @@ def dbg_start(toolchain, oocd, oocd_tcl, oocd_cfg_files, oocd_cfg_cmds, debug_oo
                                             log_stream, log_file, gdb_log, debug_oocd)
         _gdb_inst.connect(tmo=connect_tmo)
     except Exception as e:
-        _oocd_inst.stop()
         if type(e) == dbg.DebuggerTargetStateTimeoutError:
+            _oocd_inst.stop()
             sys.exit(os.EX_TEMPFAIL)
         raise e
 

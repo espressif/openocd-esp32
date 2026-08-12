@@ -148,7 +148,8 @@ class Oocd(threading.Thread):
     def stop(self):
         self._logger.debug('Close TCL conn')
         try:
-            self._tcl_send("exit")
+            if self._oocd_proc.poll() is None:
+                self._tcl_send("exit")
             self._tcl_sock.close()
         except:
             self._tcl_sock.shutdown(socket.SHUT_RDWR)
