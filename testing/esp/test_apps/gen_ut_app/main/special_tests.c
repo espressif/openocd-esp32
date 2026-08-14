@@ -201,7 +201,11 @@ TEST_DECL(pseudo_debug_ex, "test_special.DebuggerSpecialTests*.test_exception_ps
         ".global exception_bp_5\n" \
         ".type   exception_bp_5,@function\n" \
         "exception_bp_5:\n" \
-        "call0 _DebugExceptionVector\n" \
+        "movi    a0,1\n" \
+        "wsr     a0,EXCCAUSE\n" \
+        "movi    a0,exception_bp_5\n" \
+        "wsr     a0,EPC1\n" \
+        "call0   _xt_panic\n" \
     );
 }
 
@@ -213,7 +217,9 @@ TEST_DECL(pseudo_coprocessor_ex, "test_special.DebuggerSpecialTests*.test_except
         "exception_bp_6:\n" \
         "movi    a0,4\n" \
         "wsr     a0,EXCCAUSE\n" \
-        "call0   _xt_panic \n" \
+        "movi    a0,exception_bp_6\n" \
+        "wsr     a0,EPC1\n" \
+        "call0   _xt_panic\n" \
     );
 }
 
