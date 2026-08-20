@@ -38,6 +38,7 @@ class DebuggerSpecialTestsImpl:
         match = re.search(r'\(revision v(\d+).(\d+)\)', proc.stdout.decode('UTF-8'))
         rev2 = int(match.group(1)) * 100 + int(match.group(2))
         self.assertEqual(rev, rev2)
+        time.sleep(2.0) # some extra time for openocd to recover after hw reset
 
     def _do_sampling(self, profile_time, options=''):
         self.oocd.cmd_exec("targets %s" % self.oocd.targets()[self.CORES_NUM - 1])
