@@ -3531,6 +3531,8 @@ static int target_fill_mem(struct target *target,
 		return ERROR_FAIL;
 	}
 
+	int retval = ERROR_OK;
+
 	for (unsigned int i = 0; i < chunk_size; i++) {
 		switch (data_size) {
 		case 8:
@@ -3546,11 +3548,11 @@ static int target_fill_mem(struct target *target,
 			target_buffer_set_u8(target, target_buf + i * data_size, b);
 			break;
 		default:
-			exit(-1);
+			LOG_ERROR("Unsupported data size %u", data_size);
+			retval = ERROR_FAIL;
+			goto err;
 		}
 	}
-
-	int retval = ERROR_OK;
 
 	for (unsigned int x = 0; x < c; x += chunk_size) {
 		unsigned int current;
@@ -3568,6 +3570,7 @@ static int target_fill_mem(struct target *target,
 			break;
 		}
 	}
+err:
 	free(target_buf);
 
 	return retval;
