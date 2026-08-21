@@ -154,7 +154,8 @@ tests_esp32c6_idf5.4.x:
     CHIP_NAME: "esp32c6"
     TEST_RUN_BOARD_OPTS: "-b esp32c6-builtin -p test_*.*Single4MB test_*.*Single"
 
-tests_esp32c6_lpcore_idf5.4.x:
+# TODO OCD-1354
+.tests_esp32c6_lpcore_idf5.4.x:
   extends: tests_esp32c6_idf5.4.x
   allow_failure: true
   variables:

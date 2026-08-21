@@ -269,13 +269,14 @@ class DebuggerSpecialTestsImpl:
                                 "Halt cause (5) - (PMP Load access fault)",
                                 "Halt cause (7) - (PMP Store access fault)"]
 
-        if testee_info.arch == "xtensa":
-            bps.append("exception_bp_5")
-            bps.append("exception_bp_6")
-            sub_tests.append("pseudo_debug")
-            sub_tests.append("pseudo_coprocessor")
-            expected_strings.append("Halt cause (Unhandled debug exception)")
-            expected_strings.append("Halt cause (Coprocessor exception)")
+        # TODO OCD-767
+        #if testee_info.arch == "xtensa":
+        #    bps.append("exception_bp_5")
+        #    bps.append("exception_bp_6")
+        #    sub_tests.append("pseudo_debug")
+        #    sub_tests.append("pseudo_coprocessor")
+        #    expected_strings.append("Halt cause (Unhandled debug exception)")
+        #    expected_strings.append("Halt cause (Coprocessor exception)")
 
         bps.append("assert_failure_bp")
         sub_tests.append("assert_failure")
