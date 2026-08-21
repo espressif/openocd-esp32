@@ -95,7 +95,7 @@ static int str9x_build_block_list(struct flash_bank *bank)
 		break;
 	default:
 		LOG_ERROR("BUG: unknown bank->size encountered");
-		exit(-1);
+		return ERROR_FAIL;
 	}
 
 	num_sectors = b0_sectors + b1_sectors;
@@ -142,9 +142,12 @@ FLASH_BANK_COMMAND_HANDLER(str9x_flash_bank_command)
 	str9x_info = malloc(sizeof(struct str9x_flash_bank));
 	bank->driver_priv = str9x_info;
 
-	str9x_build_block_list(bank);
-
-	return ERROR_OK;
+	int retval = str9x_build_block_list(bank);
+	if (retval != ERROR_OK) {
+		free(bank->driver_priv);
+		bank->driver_priv = NULL;
+	}
+	return retval;
 }
 
 static int str9x_protect_check(struct flash_bank *bank)

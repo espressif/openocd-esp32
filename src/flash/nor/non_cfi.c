@@ -455,7 +455,7 @@ static const struct non_cfi non_cfi_flashes[] = {
 	}
 };
 
-void cfi_fixup_non_cfi(struct flash_bank *bank)
+int cfi_fixup_non_cfi(struct flash_bank *bank)
 {
 	unsigned int mask;
 	struct cfi_flash_bank *cfi_info = bank->driver_priv;
@@ -474,7 +474,7 @@ void cfi_fixup_non_cfi(struct flash_bank *bank)
 
 	/* only fixup jedec flashes found in table */
 	if (!non_cfi->mfr)
-		return;
+		return ERROR_OK;
 
 	cfi_info->not_cfi = true;
 
@@ -544,6 +544,7 @@ void cfi_fixup_non_cfi(struct flash_bank *bank)
 		cfi_info->pri_ext = pri_ext;
 	} else if ((cfi_info->pri_id == 0x1) || (cfi_info->pri_id == 0x3)) {
 		LOG_ERROR("BUG: non-CFI flashes using the Intel commandset are not yet supported");
-		exit(-1);
+		return ERROR_NOT_IMPLEMENTED;
 	}
+	return ERROR_OK;
 }

@@ -2607,7 +2607,9 @@ int cfi_probe(struct flash_bank *bank)
 		return retval;
 
 	/* check device/manufacturer ID for known non-CFI flashes. */
-	cfi_fixup_non_cfi(bank);
+	retval = cfi_fixup_non_cfi(bank);
+	if (retval != ERROR_OK)
+		return retval;
 
 	/* query only if this is a CFI compatible flash,
 	 * otherwise the relevant info has already been filled in
