@@ -3539,26 +3539,25 @@ static int read_memory_bus_v1(struct target *target, const struct riscv_mem_acce
 				log_memory_access(read_addr, sbvalue, size, true);
 			}
 			riscv_batch_free(batch);
-			/* Verify SBADDRESS matches expected value after batch execution. */
 			if (increment) {
 				uint32_t sbcs_read = 0;
 				if (read_sbcs_nonbusy(target, &sbcs_read) != ERROR_OK)
 					return ERROR_FAIL;
 				if (get_field(sbcs_read, DM_SBCS_SBBUSYERROR)) {
-					if (dm_write(target, DM_SBCS, sbcs_read | DM_SBCS_SBBUSYERROR) != ERROR_OK)
+					/* We read while the target was busy. */
+					LOG_TARGET_DEBUG(target, "Sbbusyerror encountered during system bus read.");
+					if (dm_write(target, DM_SBCS, sbcs_read | DM_SBCS_SBBUSYERROR | DM_SBCS_SBERROR) != ERROR_OK)
 						return ERROR_FAIL;
-				}
-				target_addr_t current_address = sb_read_address(target);
-				target_addr_t expected_address = address + (i + chunk + 1) * size;
-				if (current_address != expected_address) {
-					LOG_TARGET_DEBUG(target,
-						"SBADDRESS mismatch after batch: expected 0x%" TARGET_PRIxADDR
-						", got 0x%" TARGET_PRIxADDR, expected_address, current_address);
-					if (riscv_scan_increase_delay(&info->learned_delays, RISCV_DELAY_SYSBUS_READ) != ERROR_OK)
+					if (target->state == TARGET_HALTED
+							&& riscv_scan_increase_delay(&info->learned_delays, RISCV_DELAY_SYSBUS_READ) != ERROR_OK)
 						return ERROR_FAIL;
 					if (sb_write_address(target, address + i * size, RISCV_DELAY_SYSBUS_READ) != ERROR_OK)
 						return ERROR_FAIL;
 					continue;
+				}
+				if (get_field(sbcs_read, DM_SBCS_SBERROR)) {
+					dm_write(target, DM_SBCS, DM_SBCS_SBERROR);
+					return ERROR_FAIL;
 				}
 			}
 			i += chunk;
@@ -3605,11 +3604,14 @@ static int read_memory_bus_v1(struct target *target, const struct riscv_mem_acce
 							buffer + current_address - address) != ERROR_OK)
 					return ERROR_FAIL;
 			}
-
-			int res = riscv_scan_increase_delay(&info->learned_delays,
-					RISCV_DELAY_SYSBUS_READ);
-			if (res != ERROR_OK)
-				return res;
+			/* Espressif - dont increase delay when we retry if the target is running.
+			   The delay can reach high values and slow down later operations. */
+			if (target->state == TARGET_HALTED) {
+				int res = riscv_scan_increase_delay(&info->learned_delays,
+						RISCV_DELAY_SYSBUS_READ);
+				if (res != ERROR_OK)
+					return res;
+			}
 			continue;
 		}
 
