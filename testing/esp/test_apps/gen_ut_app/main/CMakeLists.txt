@@ -1,6 +1,6 @@
 file(GLOB GEN_UT_SRCS "*.c" "*.S")
 idf_component_register(SRCS ${GEN_UT_SRCS}
-						PRIV_REQUIRES vfs esp_driver_gptimer spi_flash app_trace
+						PRIV_REQUIRES vfs esp_driver_gptimer spi_flash app_trace esp_psram
 						REQUIRES ulp
 						INCLUDE_DIRS ".")
 
