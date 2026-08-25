@@ -72,27 +72,53 @@
 #define ESP32P4_HPROM_NON_CACHEABLE_ADDR_LOW     ESP32P4_NON_CACHEABLE_ADDR(ESP32P4_HPROM_CACHEABLE_ADDR_LOW)
 #define ESP32P4_HPROM_NON_CACHEABLE_ADDR_HIGH    ESP32P4_NON_CACHEABLE_ADDR(ESP32P4_HPROM_CACHEABLE_ADDR_HIGH)
 
-#define ESP32P4_ADDR_IS_EXRAM_CACHEABLE(addr)    ((addr) >= ESP32P4_EXRAM_CACHEABLE_ADDR_LOW && \
-	(addr) < ESP32P4_EXRAM_CACHEABLE_ADDR_HIGH)
-#define ESP32P4_ADDR_IS_EXRAM_NONCACHEABLE(addr) ((addr) >= (ESP32P4_EXRAM_NON_CACHEABLE_ADDR_LOW) && \
-	(addr) < (ESP32P4_EXRAM_NON_CACHEABLE_ADDR_HIGH))
-#define ESP32P4_ADDR_IS_EXMEM(addr) (ESP32P4_ADDR_IS_EXRAM_NONCACHEABLE(addr) || ESP32P4_ADDR_IS_EXRAM_CACHEABLE(addr))
-
-#define ESP32P4_ADDR_IS_IRAM_CACHEABLE(addr)      ((addr) >= ESP32P4_IRAM0_CACHEABLE_ADDR_LOW && \
-	(addr) < ESP32P4_IRAM0_CACHEABLE_ADDR_HIGH)
-#define ESP32P4_ADDR_IS_IRAM_NONCACHEABLE(addr)   ((addr) >= (ESP32P4_IRAM0_NON_CACHEABLE_ADDR_LOW) && \
-	(addr) < (ESP32P4_IRAM0_NON_CACHEABLE_ADDR_HIGH))
-#define ESP32P4_ADDR_IS_L2MEM(addr) (ESP32P4_ADDR_IS_IRAM_NONCACHEABLE(addr) || ESP32P4_ADDR_IS_IRAM_CACHEABLE(addr))
-
-#define ESP32P4_ADDR_IS_HPROM_CACHEABLE(addr)      ((addr) >= ESP32P4_HPROM_CACHEABLE_ADDR_LOW && \
-	(addr) < ESP32P4_HPROM_CACHEABLE_ADDR_HIGH)
-#define ESP32P4_ADDR_IS_HPROM_NONCACHEABLE(addr)   ((addr) >= (ESP32P4_HPROM_NON_CACHEABLE_ADDR_LOW) && \
-	(addr) < (ESP32P4_HPROM_NON_CACHEABLE_ADDR_HIGH))
-#define ESP32P4_ADDR_IS_HPROM(addr) (ESP32P4_ADDR_IS_HPROM_NONCACHEABLE(addr) || ESP32P4_ADDR_IS_HPROM_CACHEABLE(addr))
-
 #define ESP32P4_TCM_ADDR_LOW                    0x30100000U
 #define ESP32P4_TCM_ADDR_HIGH                   0x30102000U
-#define ESP32P4_ADDR_IS_TCMEM(addr) ((addr) >= ESP32P4_TCM_ADDR_LOW && (addr) < ESP32P4_TCM_ADDR_HIGH)
+
+static inline bool esp32p4_addr_is_exram_cacheable(target_addr_t addr)
+{
+	return addr >= ESP32P4_EXRAM_CACHEABLE_ADDR_LOW && addr < ESP32P4_EXRAM_CACHEABLE_ADDR_HIGH;
+}
+
+static inline bool esp32p4_addr_is_exram_noncacheable(target_addr_t addr)
+{
+	return addr >= ESP32P4_EXRAM_NON_CACHEABLE_ADDR_LOW && addr < ESP32P4_EXRAM_NON_CACHEABLE_ADDR_HIGH;
+}
+
+static inline bool esp32p4_addr_is_iram_cacheable(target_addr_t addr)
+{
+	return addr >= ESP32P4_IRAM0_CACHEABLE_ADDR_LOW && addr < ESP32P4_IRAM0_CACHEABLE_ADDR_HIGH;
+}
+
+static inline bool esp32p4_addr_is_iram_noncacheable(target_addr_t addr)
+{
+	return addr >= ESP32P4_IRAM0_NON_CACHEABLE_ADDR_LOW && addr < ESP32P4_IRAM0_NON_CACHEABLE_ADDR_HIGH;
+}
+
+static inline bool esp32p4_addr_is_l2mem(target_addr_t addr)
+{
+	return esp32p4_addr_is_iram_noncacheable(addr) || esp32p4_addr_is_iram_cacheable(addr);
+}
+
+static inline bool esp32p4_addr_is_hprom_cacheable(target_addr_t addr)
+{
+	return addr >= ESP32P4_HPROM_CACHEABLE_ADDR_LOW && addr < ESP32P4_HPROM_CACHEABLE_ADDR_HIGH;
+}
+
+static inline bool esp32p4_addr_is_hprom_noncacheable(target_addr_t addr)
+{
+	return addr >= ESP32P4_HPROM_NON_CACHEABLE_ADDR_LOW && addr < ESP32P4_HPROM_NON_CACHEABLE_ADDR_HIGH;
+}
+
+static inline bool esp32p4_addr_is_flash_cacheable(target_addr_t addr)
+{
+	return addr >= ESP32P4_FLASH_CACHEABLE_ADDR_LOW && addr < ESP32P4_FLASH_CACHEABLE_ADDR_HIGH;
+}
+
+static inline bool esp32p4_addr_is_tcmem(target_addr_t addr)
+{
+	return addr >= ESP32P4_TCM_ADDR_LOW && addr < ESP32P4_TCM_ADDR_HIGH;
+}
 
 #define ESP32P4_RESERVED_ADDR_LOW               0x00000000U
 #define ESP32P4_RESERVED_ADDR_HIGH              0x300FFFFFU
@@ -195,28 +221,22 @@ static void esp32p4_print_reset_reason(struct target *target, uint32_t reset_rea
 
 static bool esp32p4_is_idram_address(target_addr_t addr)
 {
-	return ESP32P4_ADDR_IS_L2MEM(addr) || ESP32P4_ADDR_IS_TCMEM(addr);
-}
-
-/* External flash sits behind the same cache block. No non-cacheable alias. */
-static inline bool esp32p4_addr_is_flash_cacheable(target_addr_t addr)
-{
-	return addr >= ESP32P4_FLASH_CACHEABLE_ADDR_LOW && addr < ESP32P4_FLASH_CACHEABLE_ADDR_HIGH;
+	return esp32p4_addr_is_l2mem(addr) || esp32p4_addr_is_tcmem(addr);
 }
 
 static bool esp32p4_is_cacheable_address(target_addr_t addr)
 {
-	return ESP32P4_ADDR_IS_IRAM_CACHEABLE(addr) ||
-		ESP32P4_ADDR_IS_EXRAM_CACHEABLE(addr) ||
-		ESP32P4_ADDR_IS_HPROM_CACHEABLE(addr) ||
+	return esp32p4_addr_is_iram_cacheable(addr) ||
+		esp32p4_addr_is_exram_cacheable(addr) ||
+		esp32p4_addr_is_hprom_cacheable(addr) ||
 		esp32p4_addr_is_flash_cacheable(addr);
 }
 
 static bool esp32p4_is_noncacheable_address(target_addr_t addr)
 {
-	return ESP32P4_ADDR_IS_IRAM_NONCACHEABLE(addr) ||
-		ESP32P4_ADDR_IS_EXRAM_NONCACHEABLE(addr) ||
-		ESP32P4_ADDR_IS_HPROM_NONCACHEABLE(addr);
+	return esp32p4_addr_is_iram_noncacheable(addr) ||
+		esp32p4_addr_is_exram_noncacheable(addr) ||
+		esp32p4_addr_is_hprom_noncacheable(addr);
 }
 
 static bool esp32p4_is_reserved_address(target_addr_t addr)
