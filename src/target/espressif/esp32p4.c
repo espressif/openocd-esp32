@@ -55,6 +55,8 @@
 #define ESP32P4_CACHE_MAP_L1_CACHE (ESP32P4_CACHE_MAP_L1_ICACHE | ESP32P4_CACHE_MAP_L1_DCACHE)
 #define ESP32P4_CACHE_MAP_ALL (ESP32P4_CACHE_MAP_L1_CACHE | ESP32P4_CACHE_MAP_L2_CACHE)
 
+#define ESP32P4_FLASH_CACHEABLE_ADDR_LOW        0x40000000U
+#define ESP32P4_FLASH_CACHEABLE_ADDR_HIGH       0x44000000U
 #define ESP32P4_EXRAM_CACHEABLE_ADDR_LOW        0x48000000U
 #define ESP32P4_EXRAM_CACHEABLE_ADDR_HIGH       0x4BFFFFFFU
 #define ESP32P4_IRAM0_CACHEABLE_ADDR_LOW        0x4ff00000U
@@ -196,11 +198,18 @@ static bool esp32p4_is_idram_address(target_addr_t addr)
 	return ESP32P4_ADDR_IS_L2MEM(addr) || ESP32P4_ADDR_IS_TCMEM(addr);
 }
 
+/* External flash sits behind the same cache block. No non-cacheable alias. */
+static inline bool esp32p4_addr_is_flash_cacheable(target_addr_t addr)
+{
+	return addr >= ESP32P4_FLASH_CACHEABLE_ADDR_LOW && addr < ESP32P4_FLASH_CACHEABLE_ADDR_HIGH;
+}
+
 static bool esp32p4_is_cacheable_address(target_addr_t addr)
 {
 	return ESP32P4_ADDR_IS_IRAM_CACHEABLE(addr) ||
 		ESP32P4_ADDR_IS_EXRAM_CACHEABLE(addr) ||
-		ESP32P4_ADDR_IS_HPROM_CACHEABLE(addr);
+		ESP32P4_ADDR_IS_HPROM_CACHEABLE(addr) ||
+		esp32p4_addr_is_flash_cacheable(addr);
 }
 
 static bool esp32p4_is_noncacheable_address(target_addr_t addr)
