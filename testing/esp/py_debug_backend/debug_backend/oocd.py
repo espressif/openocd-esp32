@@ -4,7 +4,10 @@ import socket
 import threading
 import time
 import re
-from pytest_embedded_jtag._telnetlib.telnetlib import Telnet # python 3.13 removed telnetlib, use this instead
+try:
+    from pytest_embedded_jtag._telnetlib.telnetlib import Telnet
+except ModuleNotFoundError:
+    from telnetlib import Telnet
 from .defs import *
 from . import log
 
