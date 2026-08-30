@@ -151,6 +151,9 @@
 /* 0 if you don't want Espressif JTAG Programmer */
 #cmakedefine01 BUILD_ESP_USB_JTAG
 
+/* 0 if you don't want Qualcomm Embedded USB Debugger */
+#cmakedefine01 BUILD_EUD
+
 /* 0 if you don't want Andes JTAG Programmer */
 #cmakedefine01 BUILD_AICE
 

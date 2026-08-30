@@ -58,6 +58,7 @@ target_sources(nor PRIVATE
 	lpc2900.c
 	lpcspifi.c
 	max32xxx.c
+	max32xxx_qspi.c
 	mdr.c
 	msp432.c
 	mrvlqspi.c
@@ -108,6 +109,8 @@ target_sources(nor PRIVATE
 	cfi.h
 	driver.h
 	imp.h
+	max32xxx_options.h
+	max32xxx_qspi_common_defs.h
 	non_cfi.h
 	ocl.h
 	sfdp.h

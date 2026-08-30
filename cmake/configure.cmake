@@ -175,7 +175,7 @@ if(GCC_WEXTRA)
         "-Wno-unused-parameter"
         "-Wbad-function-cast"
         "-Wcast-align"
-        "-Wredundant-decls"
+        "-Wno-redundant-decls"
         "-Wpointer-arith"
         "-Wundef"
     )
@@ -326,6 +326,7 @@ if(NOT use_libusb1)
     set(BUILD_RLINK OFF CACHE BOOL "" FORCE)
     set(BUILD_USBPROG OFF CACHE BOOL "" FORCE)
     set(BUILD_ESP_USB_JTAG OFF CACHE BOOL "" FORCE)
+    set(BUILD_EUD OFF CACHE BOOL "" FORCE)
     set(BUILD_AICE OFF CACHE BOOL "" FORCE)
     set(BUILD_CH347 OFF CACHE BOOL "" FORCE)
     set(BUILD_CKLINK OFF CACHE BOOL "" FORCE)

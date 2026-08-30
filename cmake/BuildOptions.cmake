@@ -58,6 +58,7 @@ option(BUILD_CKLINK "T-Head CK-Link JTAG Probe" ON)
 option(BUILD_FTDI_CJTAG "cJTAG (OScan1, JScan3) tunneled thru MPSSE" ON)
 option(BUILD_USBPROG "USBProg JTAG Programmer" ON)
 option(BUILD_ESP_USB_JTAG "Espressif JTAG Programmer" ON)
+option(BUILD_EUD "Qualcomm Embedded USB Debugger" ON)
 
 # Deprecated USB1 Adapters
 option(BUILD_AICE "Andes JTAG Programmer" OFF)

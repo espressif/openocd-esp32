@@ -125,6 +125,10 @@ if(BUILD_ESP_USB_JTAG)
     target_sources(ocdjtagdrivers PRIVATE esp_usb_jtag.c)
 endif()
 
+if(BUILD_EUD)
+    target_sources(ocdjtagdrivers PRIVATE eud.c)
+endif()
+
 if(BUILD_USBPROG)
     target_sources(ocdjtagdrivers PRIVATE usbprog.c)
 endif()
