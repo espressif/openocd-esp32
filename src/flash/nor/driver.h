@@ -219,8 +219,12 @@ struct flash_driver {
 	int (*auto_probe)(struct flash_bank *bank);
 
 	/**
-	 * Deallocates private driver structures.
-	 * Use default_flash_free_driver_priv() to simply free(bank->driver_priv)
+	 * Deallocates private driver structures at exit.
+	 *
+	 * If the driver does not use driver_priv and keeps it NULL
+	 * or allocates just one memory block referenced in driver_priv,
+	 * set the method to NULL: default_flash_free_driver_priv() will
+	 * simply free(bank->driver_priv) at exit.
 	 *
 	 * @param bank - the bank being destroyed
 	 */

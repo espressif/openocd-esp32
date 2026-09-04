@@ -221,7 +221,7 @@ void flash_free_all_banks(void)
 		if (bank->driver->free_driver_priv)
 			bank->driver->free_driver_priv(bank);
 		else
-			LOG_WARNING("Flash driver of %s does not support free_driver_priv()", bank->name);
+			default_flash_free_driver_priv(bank);
 
 		free(bank->sectors);
 		free(bank->prot_blocks);
