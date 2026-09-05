@@ -149,6 +149,9 @@ struct flash_driver {
 	 * "bank->base + offset", while the physical address is
 	 * dependent upon current target MMU mappings.
 	 *
+	 * If the flash does not need device specific verification,
+	 * set method to NULL and default_flash_verify() will be used.
+	 *
 	 * @param bank The bank to verify
 	 * @param buffer The data bytes to verify against.
 	 * @param offset The offset into the chip to verify.

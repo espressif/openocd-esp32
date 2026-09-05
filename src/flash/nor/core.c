@@ -129,8 +129,10 @@ int flash_driver_verify(struct flash_bank *bank,
 {
 	int retval;
 
-	retval = bank->driver->verify ? bank->driver->verify(bank, buffer, offset, count) :
-		default_flash_verify(bank, buffer, offset, count);
+	if (bank->driver->verify)
+		retval = bank->driver->verify(bank, buffer, offset, count);
+	else
+		retval = default_flash_verify(bank, buffer, offset, count);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("verify failed in bank at " TARGET_ADDR_FMT " starting at 0x%8.8" PRIx32,
 			bank->base, offset);
