@@ -11,43 +11,6 @@ def get_logger():
     """
     return logging.getLogger(__name__)
 
-def extract_rom_symbols(symbols_file):
-    """
-    Extract ROM ELF symbols section from symbols file into a temporary file.
-    Skips comment lines (starting with #).
-    Args:
-        symbols_file: Path to the original symbols file
-    Returns:
-        Path to the temporary file containing ROM symbols
-    """
-    import tempfile
-
-    in_rom_section = False
-    rom_section = []
-
-    with open(symbols_file, 'r') as f:
-        for line in f:
-            line = line.strip()
-
-            if line.startswith('#'):
-                continue
-
-            if line == "define target hookpost-remote":
-                in_rom_section = True
-                continue
-
-            if line == "end" and in_rom_section:
-                rom_section.append(line)
-                in_rom_section = False
-                break
-
-            if in_rom_section:
-                rom_section.append(line)
-
-    with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
-        f.write('\n'.join(rom_section))
-        return f.name
-
 ########################################################################
 #                         TESTS IMPLEMENTATION                         #
 ########################################################################
@@ -225,41 +188,24 @@ class BreakpointTestsImpl:
             self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, 'test_timer_isr_func', run_bt=run_bt)
             self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, 'test_timer_isr_ram_func', run_bt=run_bt)
 
-    @skip_for_chip(['esp32p4', 'esp32h4', 'esp32h21'], 'rom-elf files are not released yet')
     def test_bp_in_rom(self):
         """
         This test checks that breakpoints in ROM functions work correctly
         1) Select appropriate sub-test number on target.
-        2) Set breakpoints in ROM functions (ets_printf, ets_delay_us).
+        2) Set HW breakpoints at ROM wrapper functions from the app ELF (ets_printf, ets_delay_us).
         3) Resume target and wait for breakpoints to hit.
-        4) Check that target has stopped in the right place.
+        4) Check that PC is at the ROM trampoline address.
         5) Repeat steps 3-4 3 times.
         """
-        symbols_file = os.path.join(self.test_app_cfg.build_bins_dir(), 'gdbinit', 'symbols')
-        if not os.path.exists(symbols_file):
-            self.fail(f"ROM symbols file not found at {symbols_file}")
+        self.select_sub_test(self.id())
+        self.bps = ['ets_printf', 'ets_delay_us']
+        for f in self.bps:
+            addr = self.gdb.extract_exec_addr(self.gdb.data_eval_expr('&%s' % f))
+            self.add_bp('*%#x' % addr, hw=True)
 
-
-        rom_symbols_file = None
-        try:
-            rom_symbols_file = extract_rom_symbols(symbols_file)
-            self.gdb.console_cmd_run(f"source {rom_symbols_file}")
-
-            self.select_sub_test(self.id())
-            self.bps = ['ets_printf', 'ets_delay_us']
-            for f in self.bps:
-                self.add_bp(f)
-
-            for i in range(3):
-                self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, 'ets_printf', check_line=False)
-                self.run_to_bp_and_check_basic(dbg.TARGET_STOP_REASON_BP, 'ets_delay_us', check_line=False)
-
-        finally:
-            self.clear_bps()
-            self.gdb.exec_file_set('')
-            self.gdb.exec_file_set(self.test_app_cfg.build_app_elf_path())
-            if rom_symbols_file and os.path.exists(rom_symbols_file):
-                os.unlink(rom_symbols_file)
+        for i in range(3):
+            self.run_to_bp_label('ets_printf')
+            self.run_to_bp_label('ets_delay_us')
 
 
 class WatchpointTestsImpl:
