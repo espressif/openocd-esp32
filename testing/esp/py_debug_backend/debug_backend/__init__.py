@@ -40,6 +40,7 @@ def create_gdb(chip_name=None,
                log_level=None,
                log_stream_handler=None,
                log_file_handler=None,
+               tmo_scale_factor=None,
                scope=None):
     """
         Creates GDB instance for specified chip name.
@@ -68,6 +69,8 @@ def create_gdb(chip_name=None,
         gdb_init_args['log_stream_handler'] = log_stream_handler
     if log_file_handler is not None:
         gdb_init_args['log_file_handler'] = log_file_handler
+    if tmo_scale_factor is not None:
+        gdb_init_args['tmo_scale_factor'] = tmo_scale_factor
     if target_triple:
         # interpret `target_triple` as normal target triple like `xtensa-esp32s2-elf`
         arch,vendor,sys,_ = _parse_target_triple(target_triple)

@@ -232,11 +232,11 @@ class GdbEspXtensa(GdbEspImpl, GdbXtensa):
     """
 
     def __init__(self, gdb_path, remote_target='127.0.0.1:3333', extended_remote_mode=False, gdb_log_folder=None,
-                 log_level=None, log_stream_handler=None, log_file_handler=None):
+                 log_level=None, log_stream_handler=None, log_file_handler=None, tmo_scale_factor=1):
         GdbXtensa.__init__(self, gdb_path=gdb_path, remote_target=remote_target,
                                            extended_remote_mode=extended_remote_mode, gdb_log_folder=gdb_log_folder,
                                            log_level=log_level, log_stream_handler=log_stream_handler,
-                                           log_file_handler=log_file_handler)
+                                           log_file_handler=log_file_handler, tmo_scale_factor=tmo_scale_factor)
         GdbEspImpl.__init__(self)
 
     def get_thread_info(self, thread_id=None):
@@ -253,20 +253,20 @@ class GdbEspRiscv(GdbEspImpl, GdbRiscv):
     """
 
     def __init__(self, gdb_path, remote_target='127.0.0.1:3333', extended_remote_mode=False, gdb_log_folder=None,
-                 log_level=None, log_stream_handler=None, log_file_handler=None):
+                 log_level=None, log_stream_handler=None, log_file_handler=None, tmo_scale_factor=1):
         GdbRiscv.__init__(self, gdb_path=gdb_path, remote_target=remote_target,
                                            extended_remote_mode=extended_remote_mode, gdb_log_folder=gdb_log_folder,
                                            log_level=log_level, log_stream_handler=log_stream_handler,
-                                           log_file_handler=log_file_handler)
+                                           log_file_handler=log_file_handler, tmo_scale_factor=tmo_scale_factor)
         GdbEspImpl.__init__(self)
 
 class GdbEspRiscv32(GdbEspRiscv):
 
     def __init__(self, gdb_path='riscv32-esp-elf-gdb', remote_target='127.0.0.1:3333', extended_remote_mode=False,
-                 gdb_log_folder=None, log_level=None, log_stream_handler=None, log_file_handler=None):
+                 gdb_log_folder=None, log_level=None, log_stream_handler=None, log_file_handler=None, tmo_scale_factor=1):
         GdbEspRiscv.__init__(self, gdb_path=gdb_path, remote_target=remote_target,
                                          extended_remote_mode=extended_remote_mode,
                                          gdb_log_folder=gdb_log_folder, log_level=log_level,
                                          log_stream_handler=log_stream_handler,
-                                         log_file_handler=log_file_handler)
+                                         log_file_handler=log_file_handler, tmo_scale_factor=tmo_scale_factor)
         self.gdb_set('arch', 'riscv:rv32')

@@ -21,7 +21,8 @@ class Gdb(object):
                  gdb_log_folder=None,
                  log_level=None,
                  log_stream_handler=None,
-                 log_file_handler=None):
+                 log_file_handler=None,
+                 tmo_scale_factor=1):
         """
             Constructor.
 
@@ -44,7 +45,7 @@ class Gdb(object):
             log_file_handler : logging.Handler
                 Logging file handler for this object.
         """
-        self.tmo_scale_factor = 1
+        self.tmo_scale_factor = tmo_scale_factor
         self._remote_target = remote_target
         self._extended_remote_mode = extended_remote_mode
         self._logger = log.logger_init("Gdb", log_level, log_stream_handler, log_file_handler)

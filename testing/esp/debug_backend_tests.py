@@ -133,6 +133,13 @@ class GDBUtils:
 
     def create_gdb(self, chip_name, target_triple, toolchain, log_level, log_stream, log_file, gdb_log, debug_oocd):
         remote_tmo = 10
+        tmo_scale_factor = 1
+        if debug_oocd > 2:
+            tmo_scale_factor = 5
+        elif os.getenv('TEST_SANITIZERS'):
+            tmo_scale_factor = 10
+        else:
+            tmo_scale_factor = 3
         _gdb_inst = dbg.create_gdb(chip_name=chip_name,
                             target_triple=target_triple,
                             gdb_path='%sgdb' % toolchain,
@@ -140,14 +147,9 @@ class GDBUtils:
                             log_level=log_level,
                             log_stream_handler=log_stream,
                             log_file_handler=log_file,
-                            gdb_log_folder=gdb_log)
+                            gdb_log_folder=gdb_log,
+                            tmo_scale_factor=tmo_scale_factor)
 
-        if debug_oocd > 2:
-            _gdb_inst.tmo_scale_factor = 5
-        elif os.getenv('TEST_SANITIZERS'):
-            _gdb_inst.tmo_scale_factor = 10
-        else:
-            _gdb_inst.tmo_scale_factor = 3
         _gdb_inst.gdb_set('remotetimeout', '%d' % remote_tmo)
 
         return _gdb_inst
