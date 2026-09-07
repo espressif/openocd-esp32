@@ -29,6 +29,23 @@ def get_logger():
     return logging.getLogger(__name__)
 
 
+def run_esptool(port, *args, cwd=None, capture_output=False):
+    """ Run esptool.py with the given arguments.
+
+        If the call fails, check whether port is available.
+    """
+    cmd = ['esptool.py', '-p', port, *args]
+    proc = subprocess.run(cmd, cwd=cwd, capture_output=capture_output)
+    if proc.returncode == 0:
+        return proc
+    retry_cmd = ['esptool.py', '-p', port, 'chip_id']
+    retry_proc = subprocess.run(retry_cmd)
+    if retry_proc.returncode != 0:
+        get_logger().error('port %s not responsive after esptool call, aborting remaining tests', port)
+        os._exit(os.EX_TEMPFAIL)
+    return proc
+
+
 class IdfVersion:
     """ Wrapper class for IDF version
         Keeps IDF ver as 4 bytes int. Format is: x.3.0.2, the most significant byte is not used.
@@ -593,8 +610,7 @@ class DebuggerTestAppTests(DebuggerTestsBase):
                 self.oocd.stop()
                 if self.uart_reader:
                     self.uart_reader.stop()
-                cmd = ['esptool.py', '-p', self.port_names[0], '--no-stub', 'chip_id']
-                subprocess.run(cmd)
+                run_esptool(self.port_names[0], '--no-stub', 'chip_id')
                 os._exit(os.EX_TEMPFAIL)
             raise
         main_reached = True
@@ -774,11 +790,12 @@ class DebuggerTestAppTests(DebuggerTestsBase):
         # avoid simultaneous access to UART with SerialReader
         if self.uart_reader:
             self.uart_reader.pause()
-        cmd = ['esptool.py', '-p', port, 'chip_id']
-        proc = subprocess.run(cmd)
-        proc.check_returncode()
-        if self.uart_reader:
-            self.uart_reader.resume()
+        try:
+            proc = run_esptool(port, 'chip_id')
+            proc.check_returncode()
+        finally:
+            if self.uart_reader:
+                self.uart_reader.resume()
 
     def alive_sleep(self, seconds, step=0.1):
         start = time.time()

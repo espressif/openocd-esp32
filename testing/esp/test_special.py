@@ -30,11 +30,12 @@ class DebuggerSpecialTestsImpl:
         # avoid simultaneous access to UART with SerialReader
         if self.uart_reader:
             self.uart_reader.pause()
-        cmd = ['esptool.py', '-p', self.port_names[0], 'chip_id']
-        proc = subprocess.run(cmd, capture_output=True)
-        proc.check_returncode()
-        if self.uart_reader:
-            self.uart_reader.resume()
+        try:
+            proc = run_esptool(self.port_names[0], 'chip_id', capture_output=True)
+            proc.check_returncode()
+        finally:
+            if self.uart_reader:
+                self.uart_reader.resume()
         match = re.search(r'\(revision v(\d+).(\d+)\)', proc.stdout.decode('UTF-8'))
         rev2 = int(match.group(1)) * 100 + int(match.group(2))
         self.assertEqual(rev, rev2)
@@ -215,22 +216,23 @@ class DebuggerSpecialTestsImpl:
         self.select_sub_test("blink")
         self.resume_exec()
         time.sleep(2.0)
-        tested_args = [('-p', port) for port in self.port_names]
         with open(os.path.join(self.test_app_cfg.build_bins_dir(), 'flasher_args.json'), 'rb') as f:
             args = json.load(f)
             # replace all arguments with'-' with '_', for compatibility with both esptool v4/v5
             flasher_args = [x.replace('-','_').replace('__','--') for x in args['write_flash_args']]
             for addr, bin in args['flash_files'].items():
                 flasher_args += [addr, bin]
-        for esptool_args in tested_args:
+        for port in self.port_names:
             # avoid simultaneous access to UART with SerialReader
             if self.uart_reader:
                 self.uart_reader.pause()
-            cmd = ['esptool.py', *esptool_args, 'write_flash', *flasher_args]
-            proc = subprocess.run(cmd, cwd=self.test_app_cfg.build_bins_dir())
-            proc.check_returncode()
-            if self.uart_reader:
-                self.uart_reader.resume()
+            try:
+                proc = run_esptool(port, 'write_flash', *flasher_args,
+                                   cwd=self.test_app_cfg.build_bins_dir())
+                proc.check_returncode()
+            finally:
+                if self.uart_reader:
+                    self.uart_reader.resume()
             time.sleep(2.0)
             self.stop_exec()
             self.prepare_app_for_debugging(self.test_app_cfg.app_off)

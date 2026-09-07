@@ -508,7 +508,7 @@ def main():
                             log_lev, ch, fh, args.gdb_log_folder, args.no_gdb, args.oocd_log_file)
     except RuntimeError:
         # flash an app and try again
-        import json, subprocess
+        import json
         output_dir = None
         for dir, _, files in os.walk(os.getcwd()):
             if dir.endswith('single_core') and 'flasher_args.json' in files:
@@ -524,8 +524,9 @@ def main():
                 flasher_args += [addr, bin]
         if board_uart_reader:
             board_uart_reader.stop()
-        cmd = ['esptool.py', '-p', args.serial_ports[0], '--no-stub', 'write_flash', *flasher_args]
-        proc = subprocess.run(cmd, cwd=output_dir)
+        proc = debug_backend_tests.run_esptool(
+            args.serial_ports[0], '--no-stub', 'write_flash', *flasher_args,
+            cwd=output_dir)
         proc.check_returncode()
         # flashing succeeded, return special code EX_TEMPFAIL (75), configured in CI to retry the job
         sys.exit(os.EX_TEMPFAIL)
