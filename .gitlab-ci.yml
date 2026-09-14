@@ -282,6 +282,9 @@ coverage_reports:
     - job: test_nuttx_esp32h2
   when: always
   script:
+    # Clear stale coverage data, keep the nuttx artifacts provided by 'needs'
+    - find . -maxdepth 1 -name 'build_test_app*' ! -name '*_nuttx_test' -exec rm -rf {} +
+    - rm -rf cov_from_jobs cov_infos lcov_html_report
     # Fetch artifacts from downstream
     - >
       api_call="${GITLAB_API_URL}/pipelines/${CI_PIPELINE_ID}/bridges";
@@ -297,21 +300,23 @@ coverage_reports:
           api_call="${GITLAB_API_URL}/jobs/${test}/artifacts";
           echo "${api_call}";
           curl --header "PRIVATE-TOKEN: ${ESPCI_TOKEN}" "${api_call}" -o artifacts.zip;
-          unzip artifacts.zip || echo "No valid artifacts for ${test}";
+          mkdir -p cov_from_jobs/${test};
+          unzip artifacts.zip -d cov_from_jobs/${test} || echo "No valid artifacts for ${test}";
         done;
       done;
     - mkdir -p cov_infos
     - mkdir -p dist
-    # Below lines copies all .info files into cov_infos folder
+    # Below lines create an .info file in cov_infos for every collected esp_cov_files folder
     - >
-      folder_list=$(ls -d build_test_app*);
+      folder_list=$(find . -type d -name esp_cov_files);
       for each_folder in $folder_list ;
       do
-        if [[ -e ${PWD}/${each_folder}/esp_cov_files/gcov && -d ${each_folder}/esp_cov_files ]]; then
-          lcov --gcov-tool ${PWD}/${each_folder}/esp_cov_files/gcov --capture --directory ${each_folder}/esp_cov_files --output-file ${each_folder}/${each_folder}.info;
+        if [[ -e ${PWD}/${each_folder}/gcov ]]; then
+          info_name=$(echo ${each_folder#./} | tr '/' '_');
+          lcov --gcov-tool ${PWD}/${each_folder}/gcov --capture --directory ${each_folder} --output-file cov_infos/${info_name}.info;
         fi
       done
-    - cp `find . -wholename "./build_test_app*/*.info" -size +0` cov_infos
+    - find cov_infos -name '*.info' -size 0 -delete
     - ls -la cov_infos/
     # Creating a html report of coverage files.
     - genhtml --ignore-errors source cov_infos/*.info -o lcov_html_report/
