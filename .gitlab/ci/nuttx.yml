@@ -109,7 +109,7 @@ test_nuttx_esp32p4:
   tags:
     - esp32p4
     - usb_serial_jtag
-    - eco6
+    - rev_default
   variables:
     CHIP_NAME: esp32p4
     NUTTX_BOARD: "esp32p4-function-ev-board"

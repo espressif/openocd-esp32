@@ -219,7 +219,7 @@ tests_esp32p4_idf6.0.x:
   tags:
     - esp32p4
     - jtag
-    - eco6
+    - rev_default
   needs:
     - job: build_test_app_esp32p4_idf6.0.x
     - pipeline: $PARENT_PIPELINE_ID
@@ -240,9 +240,8 @@ tests_esp32p4_idf6.0.x_lpcore:
 tests_esp32p4_rev1_idf6.0.x:
   extends: tests_esp32p4_idf6.0.x
   tags:
-    - esp32p4
+    - esp32p4_rev1
     - jtag
-    - eco4
   needs:
     - job: build_test_app_esp32p4_rev1_idf6.0.x
     - pipeline: $PARENT_PIPELINE_ID

@@ -263,7 +263,7 @@ tests_esp32p4:
   tags:
     - esp32p4
     - jtag
-    - eco6
+    - rev_default
   needs:
     - job: build_test_app_esp32p4
     - pipeline: $PARENT_PIPELINE_ID
@@ -289,7 +289,7 @@ tests_esp32p4_usj:
   tags:
     - esp32p4
     - usb_serial_jtag
-    - eco6
+    - rev_default
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
 
@@ -301,9 +301,8 @@ tests_esp32p4_lpcore_usj:
 tests_esp32p4_rev1:
   extends: tests_esp32p4
   tags:
-    - esp32p4
+    - esp32p4_rev1
     - jtag
-    - eco4
   needs:
     - job: build_test_app_esp32p4_rev1
     - pipeline: $PARENT_PIPELINE_ID
@@ -324,9 +323,8 @@ tests_esp32p4_rev1_usj:
   extends: tests_esp32p4_rev1
   allow_failure: true
   tags:
-    - esp32p4
+    - esp32p4_rev1
     - usb_serial_jtag
-    - eco4
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
 
