@@ -1529,6 +1529,8 @@ COMMAND_HANDLER(esp_riscv_halted_command)
 		return ERROR_FAIL;
 	}
 
+	if (!target_was_examined(target))
+		return ERROR_OK;
 	return esp_riscv_on_halt(target);
 }
 
