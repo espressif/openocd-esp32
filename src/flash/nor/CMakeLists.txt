@@ -7,6 +7,7 @@ target_sources(nor PRIVATE
 	tcl.c
 	aduc702x.c
 	aducm360.c
+	am13e230x.c
 	ambiqmicro.c
 	artery.c
 	at91sam4.c
