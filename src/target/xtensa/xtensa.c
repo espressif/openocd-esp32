@@ -2422,7 +2422,7 @@ int xtensa_poll(struct target *target)
 		LOG_TARGET_DEBUG(target, "not powered 0x%" PRIX32 "%ld",
 			xtensa->dbg_mod.core_status.dsr,
 			xtensa->dbg_mod.core_status.dsr & OCDDSR_STOPPED);
-		target->state = TARGET_UNKNOWN;
+		target->state = TARGET_UNAVAILABLE;
 		if (xtensa->come_online_probes_num == 0) {
 			LOG_TARGET_INFO(target, "Target is not online, polling stopped.");
 			LOG_TARGET_INFO(target, "Will be re-examined after 'reset halt'.");

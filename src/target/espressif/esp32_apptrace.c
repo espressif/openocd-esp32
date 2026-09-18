@@ -721,7 +721,7 @@ static int esp32_apptrace_safe_halt_targets(struct esp32_apptrace_cmd_ctx *ctx,
 	/* halt all CPUs */
 	LOG_DEBUG("Halt all targets!");
 	for (unsigned int k = 0; k < ctx->cores_num; k++) {
-		if (!target_was_examined(ctx->cpus[k]))
+		if (!target_was_examined(ctx->cpus[k]) || ctx->cpus[k]->state == TARGET_UNAVAILABLE)
 			continue;
 		if (ctx->cpus[k]->state == TARGET_HALTED)
 			continue;
