@@ -346,11 +346,8 @@ static void riscv013_dm_free(struct target *target)
 static struct riscv_debug_reg_ctx get_riscv_debug_reg_ctx(const struct target *target)
 {
 	if (!target_was_examined(target)) {
-		/* ESPRESSIF: Fix error: missing braces around initializer [-Werror=missing-braces] */
 		const struct riscv_debug_reg_ctx default_context = {
-			.XLEN = {0},
-			.DXLEN = {0},
-			.abits = {0},
+			.XLEN = { 0 }
 		};
 		return default_context;
 	}
