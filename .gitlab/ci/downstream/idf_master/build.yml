@@ -83,7 +83,6 @@ build_test_app_esp32p4_rev1:
 build_test_app_esp32h4:
   variables:
     CHIP_NAME: "esp32h4"
-    TEST_APP_IDF_COMMIT: "22ade8b843e4ed32cb8e6158cc0e1bdbeaff0de8"
     TOOLCHAIN_PREFIX: "riscv32-esp"
     TEST_APP_CONFIGS: "default default_4MB apptrace_gcov_dual svtrace_dual psram_dual default_amazon_freertos default_freertos_list_integrity multi_app_images_dual default_preloaded_stub single_core single_core_4MB svtrace_single apptrace_gcov_single psram_single single_core_amazon_freertos single_core_freertos_list_integrity multi_app_images_single single_core_preloaded_stub"
     FETCH_STUB_BINS: "1"
