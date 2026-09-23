@@ -102,7 +102,7 @@ int esp_dbgstubs_table_read(struct target *target, struct esp_dbg_stubs *dbg_stu
 		}
 	}
 	if (dbg_stubs->entries_count < table_size - ESP_DBG_STUB_CONTROL_DATA)
-		LOG_WARNING("Not full dbg stub table %d of %d", dbg_stubs->entries_count,
+		LOG_DEBUG("Not full dbg stub table %d of %d", dbg_stubs->entries_count,
 			table_size - ESP_DBG_STUB_CONTROL_DATA);
 
 	return ERROR_OK;
