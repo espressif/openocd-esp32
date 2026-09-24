@@ -376,7 +376,8 @@ int esp_common_process_lazy_flash_breakpoints(struct target *target)
 	return ret;
 }
 
-static int esp_common_halt_target(struct target *target, enum target_state *old_state)
+/* Halts the target if needed and reports its previous state for esp_common_restore_target_state(). */
+int esp_common_halt_target(struct target *target, enum target_state *old_state)
 {
 	*old_state = target->state;
 	if (target->state != TARGET_HALTED) {
@@ -393,6 +394,18 @@ static int esp_common_halt_target(struct target *target, enum target_state *old_
 	}
 
 	return ERROR_OK;
+}
+
+/* Restores the state saved by esp_common_halt_target(), resuming a target that was running. */
+int esp_common_restore_target_state(struct target *target, enum target_state old_state)
+{
+	if (old_state != TARGET_RUNNING)
+		return ERROR_OK;
+
+	int ret = target_resume(target, true, 0, true, false);
+	if (ret != ERROR_OK)
+		LOG_TARGET_ERROR(target, "Failed to resume target (%d)!", ret);
+	return ret;
 }
 
 /* TODO: Prefer keeping OpenOCD default and not change it in the C code.
@@ -420,14 +433,7 @@ int esp_common_handle_gdb_detach(struct target *target)
 	if (ret != ERROR_OK)
 		return ret;
 
-	if (old_state == TARGET_RUNNING) {
-		ret = target_resume(target, 1, 0, 1, 0);
-		if (ret != ERROR_OK) {
-			LOG_TARGET_ERROR(target, "Failed to resume target after flash BPs removal (%d)!", ret);
-			return ret;
-		}
-	}
-	return ERROR_OK;
+	return esp_common_restore_target_state(target, old_state);
 }
 
 static int esp_common_handle_flash_breakpoints(struct target *target)
@@ -450,14 +456,7 @@ static int esp_common_handle_flash_breakpoints(struct target *target)
 	if (ret != ERROR_OK)
 		return ret;
 
-	if (old_state == TARGET_RUNNING) {
-		ret = target_resume(target, 1, 0, 1, 0);
-		if (ret != ERROR_OK) {
-			LOG_TARGET_ERROR(target, "Failed to resume target after processing flash BPs (%d)!", ret);
-			return ret;
-		}
-	}
-	return ERROR_OK;
+	return esp_common_restore_target_state(target, old_state);
 }
 
 void esp_common_assist_debug_monitor_disable(struct target *target, uint32_t address, uint32_t *value)
