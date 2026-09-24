@@ -351,8 +351,7 @@ tests_esp32h4:
     CHIP_NAME: "esp32h4"
     TEST_RUN_BOARD_OPTS: "-b esp32h4-builtin -e test_*.*Encrypted"
 
-# TODO missing runner
-.tests_esp32h21:
+tests_esp32h21:
   extends: .tests_master_riscv_template
   tags:
     - esp32h21
@@ -366,10 +365,9 @@ tests_esp32h4:
     - job: fetch_gcov
     - job: fetch_gdb
       optional: true
-  allow_failure: true
   variables:
     CHIP_NAME: "esp32h21"
-    TEST_RUN_BOARD_OPTS: "-b esp32h21-builtin -p test_*.*Single4MB test_*.*Single -e *.*.test_big_binary *.*.test_big_binary_compressed"
+    TEST_RUN_BOARD_OPTS: "-b esp32h21-builtin -p test_*.*Single4MB test_*.*Single"
 
 tests_esp32s31:
   extends: .tests_master_riscv_template
