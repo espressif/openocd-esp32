@@ -108,6 +108,26 @@ int esp_dbgstubs_table_read(struct target *target, struct esp_dbg_stubs *dbg_stu
 	return ERROR_OK;
 }
 
+static bool esp_common_has_dbg_stubs(struct target *target)
+{
+	const struct esp_dbg_stubs *dbg_stubs = &target_to_esp_common(target)->dbg_stubs;
+	return dbg_stubs->base && dbg_stubs->entries_count > 0;
+}
+
+struct target *esp_common_dbg_stubs_target(struct target *target)
+{
+	if (!target->smp)
+		return esp_common_has_dbg_stubs(target) ? target : NULL;
+
+	struct target_list *head;
+	foreach_smp_target(head, target->smp_targets) {
+		struct target *curr = head->target;
+		if (target_was_examined(curr) && curr->state != TARGET_UNAVAILABLE && esp_common_has_dbg_stubs(curr))
+			return curr;
+	}
+	return NULL;
+}
+
 struct target *esp_common_get_halted_target(struct target *target, int32_t coreid)
 {
 	struct target_list *head;

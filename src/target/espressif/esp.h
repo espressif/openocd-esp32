@@ -154,6 +154,8 @@ int esp_common_handle_gdb_detach(struct target *target);
 int esp_common_process_flash_breakpoints_command(struct command_invocation *cmd);
 int esp_common_disable_lazy_breakpoints_command(struct command_invocation *cmd);
 int esp_dbgstubs_table_read(struct target *target, struct esp_dbg_stubs *dbg_stubs);
+/* Returns the target that knows the debug stubs table (on SMP, the core that reported it), or NULL. */
+struct target *esp_common_dbg_stubs_target(struct target *target);
 
 void esp_common_assist_debug_monitor_disable(struct target *target, uint32_t address, uint32_t *value);
 void esp_common_assist_debug_monitor_restore(struct target *target, uint32_t address, uint32_t value);

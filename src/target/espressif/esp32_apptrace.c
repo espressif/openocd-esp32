@@ -2403,41 +2403,6 @@ static int esp_gcov_poll(struct target *target, void *priv)
 	return res;
 }
 
-static struct esp_dbg_stubs *get_stubs_from_target(struct target **target)
-{
-	struct esp_dbg_stubs *dbg_stubs = NULL;
-	struct xtensa *xtensa = (*target)->arch_info;
-	bool xtensa_arch;
-
-	if (xtensa->common_magic == XTENSA_COMMON_MAGIC) {
-		xtensa_arch = true;
-	} else if (xtensa->common_magic == RISCV_COMMON_MAGIC) {
-		xtensa_arch = false;
-	} else {
-		LOG_ERROR("Unsupported target arch!");
-		return NULL;
-	}
-
-	if ((*target)->smp) {
-		struct target_list *head;
-		struct target *curr;
-		foreach_smp_target(head, (*target)->smp_targets) {
-			curr = head->target;
-			dbg_stubs = xtensa_arch ? &(target_to_esp_xtensa(curr)->esp.dbg_stubs) :
-				&(target_to_esp_riscv(curr)->esp.dbg_stubs);
-			if (target_was_examined(curr) && curr->state != TARGET_UNAVAILABLE && dbg_stubs->base &&
-				dbg_stubs->entries_count > 0) {
-				*target = curr;
-				break;
-			}
-		}
-	} else {
-		dbg_stubs = xtensa_arch ? &(target_to_esp_xtensa(*target)->esp.dbg_stubs) :
-			&(target_to_esp_riscv(*target)->esp.dbg_stubs);
-	}
-	return dbg_stubs;
-}
-
 COMMAND_HANDLER(esp32_cmd_gcov)
 {
 	static struct esp32_apptrace_cmd_ctx s_at_cmd_ctx;
@@ -2516,8 +2481,9 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 			esp_gcov_cmd_cleanup(&s_at_cmd_ctx);
 			return res;
 		}
-		struct esp_dbg_stubs *dbg_stubs = get_stubs_from_target(&run_target);
-		if (!dbg_stubs || dbg_stubs->entries_count < 1 || dbg_stubs->ctl_data.data_alloc == 0) {
+		run_target = esp_common_dbg_stubs_target(target);
+		struct esp_dbg_stubs *dbg_stubs = run_target ? &target_to_esp_common(run_target)->dbg_stubs : NULL;
+		if (!dbg_stubs || dbg_stubs->ctl_data.data_alloc == 0) {
 			command_print(CMD, "No dbg stubs found!");
 			esp_gcov_cmd_cleanup(&s_at_cmd_ctx);
 			return ERROR_FAIL;
