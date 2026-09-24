@@ -29,6 +29,8 @@ class FlasherTestsImpl:
     def setUp(self):
         self.gdb.monitor_run('flash probe 0', tmo=10)
         self.flash_sz = self.get_flash_banks()[0][1]
+        if testee_info.chip not in ['esp32s3'] and self.flash_sz > 0x1000000:
+            self.flash_sz = 0x1000000  # 16MB max for chips without 32MB flash support
 
     def _get_image_header(self, len, magic=0xe9, chip_id=None, min_rev=0, max_rev=0xffff):
         if chip_id is None:
