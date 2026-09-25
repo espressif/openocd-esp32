@@ -35,6 +35,7 @@
 
 /* ASSIST_DEBUG registers */
 #define ESP32H21_ASSIST_DEBUG_CPU0_MON_REG       0x600C2000
+#define ESP32H21_EFUSE_HW_REV_ADDR               0x600B4058
 
 #define ESP32H21_IROM_MASK_LOW   0x40000000
 #define ESP32H21_IROM_MASK_HIGH  0x40020000
@@ -145,9 +146,14 @@ static int esp32h21_read_hw_rev(struct target *target)
 		return ERROR_OK;
 	}
 
-	// Fixed to 0 for now
-	unsigned int major = 0;
-	unsigned int minor = 0;
+	int ret = target_read_u32(target, ESP32H21_EFUSE_HW_REV_ADDR, &hw_rev);
+	if (ret != ERROR_OK) {
+		LOG_TARGET_ERROR(target, "Failed to read HW rev (%d)", ret);
+		return ret;
+	}
+
+	unsigned int major = (hw_rev >> 8) & 0x03;
+	unsigned int minor = (hw_rev >> 4) & 0x0F;
 
 	hw_rev = 100 * major + minor;
 	target->hw_rev = hw_rev;
