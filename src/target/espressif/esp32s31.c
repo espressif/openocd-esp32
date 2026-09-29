@@ -20,6 +20,7 @@
 
 #include "esp_semihosting.h"
 #include "esp_riscv_apptrace.h"
+#include "esp_riscv_trace.h"
 #include "esp_riscv.h"
 
 #define ESP32S31_LP_AONCLKRST_BASE                    0x20701000
@@ -296,6 +297,11 @@ static const struct command_registration esp32s31_command_handlers[] = {
 		.name = "esp",
 		.usage = "",
 		.chain = esp32_apptrace_command_handlers,
+	},
+	{
+		.name = "esp",
+		.usage = "",
+		.chain = esp_riscv_trace_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE
 };

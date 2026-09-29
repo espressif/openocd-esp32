@@ -21,6 +21,7 @@
 
 #include "esp_semihosting.h"
 #include "esp_riscv_apptrace.h"
+#include "esp_riscv_trace.h"
 #include "esp_riscv.h"
 
 /* reset cause */
@@ -325,6 +326,11 @@ static const struct command_registration esp32h4_command_handlers[] = {
 		.name = "esp",
 		.usage = "",
 		.chain = esp32_apptrace_command_handlers,
+	},
+	{
+		.name = "esp",
+		.usage = "",
+		.chain = esp_riscv_trace_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE
 };

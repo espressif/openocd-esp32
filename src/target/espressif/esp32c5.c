@@ -20,6 +20,7 @@
 
 #include "esp_semihosting.h"
 #include "esp_riscv_apptrace.h"
+#include "esp_riscv_trace.h"
 #include "esp_riscv.h"
 
 #define ESP32C5_LP_CLKRST_BASE                  0x600B0400
@@ -297,6 +298,11 @@ static const struct command_registration esp32c5_command_handlers[] = {
 		.name = "esp",
 		.usage = "",
 		.chain = esp32_apptrace_command_handlers,
+	},
+	{
+		.name = "esp",
+		.usage = "",
+		.chain = esp_riscv_trace_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE
 };

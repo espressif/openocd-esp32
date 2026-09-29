@@ -30,7 +30,7 @@
 /**
  * Debug stubs table entries IDs
  *
- * @note Must be in sync with ESP-IDF version in dbg_stubs.h
+ * @note Must be in sync with ESP-IDF version in esp_dbg_stubs.h
  */
 enum esp_dbg_stub_id {
 	ESP_DBG_STUB_MAGIC_NUM,
@@ -39,6 +39,7 @@ enum esp_dbg_stub_id {
 	ESP_DBG_STUB_ENTRY_FIRST, /*< Stubs descriptor entry */
 	ESP_DBG_STUB_ENTRY_GCOV = ESP_DBG_STUB_ENTRY_FIRST,	/*< GCOV entry */
 	ESP_DBG_STUB_ENTRY_CAPABILITIES,
+	ESP_DBG_STUB_ENTRY_RISCV_TRACE,	/*< RISC-V trace encoder descriptor */
 	/* add new stub entries here */
 	ESP_DBG_STUB_ENTRY_MAX,
 };
