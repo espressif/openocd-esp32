@@ -32,6 +32,8 @@ target_sources(espressif PRIVATE
 	esp_riscv_trace.h
 	esp_riscv_trace_desc.c
 	esp_riscv_trace_desc.h
+	esp_riscv_trace_file.c
+	esp_riscv_trace_file.h
 	esp32_apptrace.c
 	esp32_apptrace.h
 	esp32_sysview.c

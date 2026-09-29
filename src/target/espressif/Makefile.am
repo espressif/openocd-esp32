@@ -31,6 +31,8 @@ noinst_LTLIBRARIES += %D%/libespressif.la
 		%D%/esp_riscv_trace.h \
 		%D%/esp_riscv_trace_desc.c \
 		%D%/esp_riscv_trace_desc.h \
+		%D%/esp_riscv_trace_file.c \
+		%D%/esp_riscv_trace_file.h \
 		%D%/esp32_apptrace.c \
 		%D%/esp32_apptrace.h \
 		%D%/esp32_sysview.c \

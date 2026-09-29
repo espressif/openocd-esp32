@@ -15,6 +15,9 @@
 #include "esp_riscv.h"
 #include "esp_riscv_trace.h"
 #include "esp_riscv_trace_desc.h"
+#include "esp_riscv_trace_file.h"
+
+#define ESP_RISCV_TRACE_UNKNOWN_MS      (-1)
 
 static const char *const s_ocd_mode_str[] = { "none", "stream", "loop", NULL };
 static const char *const s_ocd_state_str[] = { "idle", "streaming", "looping", "stopped", "overrun", "error", NULL };
@@ -53,6 +56,64 @@ static void format_resync(char *buf, size_t size, const struct esp_riscv_trace_s
 	}
 }
 
+/* Formats bytes per second as "N B/s" or "N.N KiB/s". */
+static void format_rate(char *buf, size_t size, uint64_t bytes, int64_t ms)
+{
+	uint64_t bps = bytes * 1000 / (uint64_t)ms;
+	if (bps < 1024)
+		snprintf(buf, size, "%" PRIu64 " B/s", bps);
+	else
+		snprintf(buf, size, "%" PRIu64 ".%" PRIu64 " KiB/s", bps / 1024, bps % 1024 * 10 / 1024);
+}
+
+/* Logs one core of a written trace file. The rate is shown only when captured_ms is known. */
+static void log_core_stats(const struct esp_riscv_trace_snapshot_core_desc *core, bool wrapped, int64_t captured_ms)
+{
+	const char *lost = core->fifo_overflow ? ", FIFO overflow: packets were lost" : "";
+	char resync[40];
+	char rate[32] = "";
+
+	format_resync(resync, sizeof(resync), core);
+	if (!core->head_valid) {
+		LOG_INFO("  core %u: head unknown, %" PRIu32 " bytes written as is, %s%s",
+			core->core_id, core->capacity, resync, lost);
+	} else if (wrapped) {
+		LOG_INFO("  core %u: head %" PRIu32 "/%" PRIu32 ", wrapped, %s%s",
+			core->core_id, core->head_offset, core->capacity, resync, lost);
+	} else {
+		if (captured_ms > 0)
+			format_rate(rate, sizeof(rate), core->head_offset, captured_ms);
+		LOG_INFO("  core %u: head %" PRIu32 "/%" PRIu32 ", %" PRIu32 "%% full%s%s, %s%s",
+			core->core_id, core->head_offset, core->capacity,
+			(uint32_t)((uint64_t)core->head_offset * 100 / core->capacity),
+			captured_ms > 0 ? ", " : "", rate, resync, lost);
+	}
+}
+
+/* Writes the stopped cores of core_mask to an .esptrace file and logs per-core stats. captured_ms is
+ * the capture time, or ESP_RISCV_TRACE_UNKNOWN_MS. */
+static int write_trace_file(struct target *target, const char *path, uint32_t core_mask, uint32_t end_status,
+	int64_t captured_ms)
+{
+	struct esp_riscv_trace_target_state state;
+	int res = esp_riscv_trace_read_target_state(target, &state);
+	if (res != ERROR_OK)
+		return res;
+
+	uint32_t written_mask;
+	uint32_t wrapped_mask;
+	res = esp_riscv_trace_file_write(target, &state, path, core_mask, end_status, &written_mask, &wrapped_mask);
+	if (res != ERROR_OK)
+		return res;
+
+	for (unsigned int i = 0; i < state.snap.core_count; i++) {
+		const struct esp_riscv_trace_snapshot_core_desc *core = &state.cores[i];
+		if (written_mask & BIT(core->core_id))
+			log_core_stats(core, wrapped_mask & BIT(core->core_id), captured_ms);
+	}
+	return ERROR_OK;
+}
+
 static const char *packet_format_str(uint8_t format)
 {
 	switch (format) {
@@ -68,6 +129,16 @@ static struct target *get_trace_target(struct command_invocation *cmd)
 	if (!target)
 		command_print(cmd, "Debug stubs table not found. Reset the target with OpenOCD connected.");
 	return target;
+}
+
+COMMAND_HANDLER(esp_riscv_trace_cmd_dump)
+{
+	if (CMD_ARGC != 1)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	struct target *target = get_trace_target(CMD);
+	if (!target)
+		return ERROR_FAIL;
+	return write_trace_file(target, CMD_ARGV[0], UINT32_MAX, ESPTRACE_END_OK, ESP_RISCV_TRACE_UNKNOWN_MS);
 }
 
 COMMAND_HANDLER(esp_riscv_trace_cmd_info)
@@ -153,6 +224,13 @@ static const struct command_registration esp_riscv_trace_subcommand_handlers[] =
 		.mode = COMMAND_EXEC,
 		.help = "Show RISC-V trace encoder state",
 		.usage = "",
+	},
+	{
+		.name = "dump",
+		.handler = esp_riscv_trace_cmd_dump,
+		.mode = COMMAND_EXEC,
+		.help = "Write the stopped RISC-V trace buffers to an .esptrace file",
+		.usage = "<file>",
 	},
 	COMMAND_REGISTRATION_DONE
 };
