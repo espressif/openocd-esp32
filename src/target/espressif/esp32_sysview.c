@@ -223,6 +223,7 @@ static uint16_t esp_sysview_get_predef_payload_len(uint16_t id, uint8_t *pkt)
 		break;
 	case SYSVIEW_EVTID_TASK_STOP_READY:
 	case SYSVIEW_EVTID_SYSTIME_US:
+	case SYSVIEW_EVTID_DATA_SAMPLE:
 		/*2*ENCODE_U32 */
 		esp_sysview_decode_u32(&ptr);
 		esp_sysview_decode_u32(&ptr);
