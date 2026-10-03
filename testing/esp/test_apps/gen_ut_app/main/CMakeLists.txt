@@ -1,6 +1,11 @@
 file(GLOB GEN_UT_SRCS "*.c" "*.S")
+set(gen_ut_priv_requires vfs esp_driver_gptimer spi_flash app_trace esp_psram)
+# Adds the RISC-V trace driver to the minimal build. Older IDF versions do not have it.
+if(EXISTS "$ENV{IDF_PATH}/components/esp_riscv_trace")
+	list(APPEND gen_ut_priv_requires esp_riscv_trace)
+endif()
 idf_component_register(SRCS ${GEN_UT_SRCS}
-						PRIV_REQUIRES vfs esp_driver_gptimer spi_flash app_trace esp_psram
+						PRIV_REQUIRES ${gen_ut_priv_requires}
 						REQUIRES ulp
 						INCLUDE_DIRS ".")
 
