@@ -12809,6 +12809,44 @@ Cross-profiling feature is related to GCC, see @url{https://gcc.gnu.org/onlinedo
 @end itemize
 @end deffn
 
+@deffn {Command} {esp riscv_trace} (info)
+Shows the RISC-V trace encoder state read from the target: the ABI versions of the OpenOCD
+control descriptor and the trace snapshot, the app ELF SHA-256, and for each traced core its
+buffer, write position, FIFO status and capture state. While an OpenOCD capture runs, it also
+shows the capture file and the elapsed time. The commands below need a chip with a RISC-V trace
+encoder and an application built with @code{CONFIG_ESP_RISCV_TRACE_OPENOCD}.
+@end deffn
+
+@deffn {Command} {esp riscv_trace} (dump <file>)
+Writes the buffers of the stopped trace cores to an @file{.esptrace} file, together with the
+trace snapshot and the app ELF SHA-256. Use it after the application stopped its capture, after
+@command{esp riscv_trace stop}, or after a panic. It is refused while an OpenOCD capture runs.
+@end deffn
+
+@deffn {Command} {esp riscv_trace} (start <loop|stream> <file> [<duration_ms> [<core_mask>]])
+Starts a trace capture controlled by OpenOCD. OpenOCD halts the target briefly to run a firmware
+function and then restores its previous state. A capture the application started is stopped and
+its data is discarded.
+@itemize @bullet
+@item @code{loop} - The encoder uses its buffer as a ring and keeps the latest trace. The data is
+read when the capture stops.
+@item @code{stream} - Not supported yet.
+@item @code{file} - The @file{.esptrace} file written when the capture stops.
+@item @code{duration_ms} - Stops the capture after this time. 0 or omitted means until
+@command{esp riscv_trace stop}.
+@item @code{core_mask} - Cores to capture, for example 0x2 for core 1 only. Defaults to every
+traced core.
+@end itemize
+Not available when the application starts tracing at boot (@code{CONFIG_ESP_RISCV_TRACE_AUTOSTART}).
+Use @command{esp riscv_trace dump} instead.
+@end deffn
+
+@deffn {Command} {esp riscv_trace} (stop)
+Stops the capture started with @command{esp riscv_trace start} and writes its file. The encoder
+stays stopped afterwards. After a panic the capture is written without running firmware code,
+and the target stays halted. A target reset drops a running capture without writing a file.
+@end deffn
+
 @deffn {Command} {esp32 flashbootstrap} (none|1.8|3.3|high|low)
 This is ESP32 specific command. It allows to take care on
 @uref{https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/jtag-debugging/tips-and-quirks.html#why-to-set-spi-flash-voltage-in-openocd-configuration, flash bootstrapping configuration}
