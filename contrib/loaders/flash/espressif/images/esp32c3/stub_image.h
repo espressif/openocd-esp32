@@ -336,7 +336,7 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_map_get_cfg = {
 };
 
 // flash_bp_set definitions
-#define ESP_STUB_CMD_FLASH_BP_SET_BSS_SIZE 0x00002eUL
+#define ESP_STUB_CMD_FLASH_BP_SET_BSS_SIZE 0x00002fUL
 #define ESP_STUB_CMD_FLASH_BP_SET_IRAM_ORG 0x40380000UL
 #define ESP_STUB_CMD_FLASH_BP_SET_IRAM_LEN 0x00004000UL
 #define ESP_STUB_CMD_FLASH_BP_SET_DRAM_ORG 0x3fc84000UL
@@ -377,7 +377,7 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_bp_set_cfg = {
 };
 
 // flash_bp_clear definitions
-#define ESP_STUB_CMD_FLASH_BP_CLEAR_BSS_SIZE 0x00002eUL
+#define ESP_STUB_CMD_FLASH_BP_CLEAR_BSS_SIZE 0x00002fUL
 #define ESP_STUB_CMD_FLASH_BP_CLEAR_IRAM_ORG 0x40380000UL
 #define ESP_STUB_CMD_FLASH_BP_CLEAR_IRAM_LEN 0x00004000UL
 #define ESP_STUB_CMD_FLASH_BP_CLEAR_DRAM_ORG 0x3fc84000UL
@@ -541,7 +541,7 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_clock_configure_cfg
 };
 
 // flash_idf_binary definitions
-#define ESP_STUB_CMD_FLASH_IDF_BINARY_BSS_SIZE 0x00002eUL
+#define ESP_STUB_CMD_FLASH_IDF_BINARY_BSS_SIZE 0x00002fUL
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_IRAM_ORG 0x40380000UL
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_IRAM_LEN 0x00004000UL
 #define ESP_STUB_CMD_FLASH_IDF_BINARY_DRAM_ORG 0x3fc84000UL

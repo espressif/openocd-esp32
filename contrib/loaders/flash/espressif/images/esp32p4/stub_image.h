@@ -8,7 +8,7 @@
 #define ESP_STUB_STACK_SIZE 1024
 
 // test1 definitions
-#define ESP_STUB_CMD_TEST1_BSS_SIZE 0x000002UL
+#define ESP_STUB_CMD_TEST1_BSS_SIZE 0x000003UL
 #define ESP_STUB_CMD_TEST1_IRAM_ORG 0x4ff80000UL
 #define ESP_STUB_CMD_TEST1_IRAM_LEN 0x00004000UL
 #define ESP_STUB_CMD_TEST1_DRAM_ORG 0x4ff84000UL
@@ -49,7 +49,7 @@ static const struct esp_flasher_stub_config s_esp_stub_test1_cfg = {
 };
 
 // recv_from_host definitions
-#define ESP_STUB_CMD_RECV_FROM_HOST_BSS_SIZE 0x000040UL
+#define ESP_STUB_CMD_RECV_FROM_HOST_BSS_SIZE 0x000044UL
 #define ESP_STUB_CMD_RECV_FROM_HOST_IRAM_ORG 0x4ff80000UL
 #define ESP_STUB_CMD_RECV_FROM_HOST_IRAM_LEN 0x00004000UL
 #define ESP_STUB_CMD_RECV_FROM_HOST_DRAM_ORG 0x4ff84000UL
@@ -90,7 +90,7 @@ static const struct esp_flasher_stub_config s_esp_stub_recv_from_host_cfg = {
 };
 
 // send_to_host definitions
-#define ESP_STUB_CMD_SEND_TO_HOST_BSS_SIZE 0x000041UL
+#define ESP_STUB_CMD_SEND_TO_HOST_BSS_SIZE 0x000045UL
 #define ESP_STUB_CMD_SEND_TO_HOST_IRAM_ORG 0x4ff80000UL
 #define ESP_STUB_CMD_SEND_TO_HOST_IRAM_LEN 0x00004000UL
 #define ESP_STUB_CMD_SEND_TO_HOST_DRAM_ORG 0x4ff84000UL
@@ -172,7 +172,7 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_read_cfg = {
 };
 
 // flash_write definitions
-#define ESP_STUB_CMD_FLASH_WRITE_BSS_SIZE 0x000060UL
+#define ESP_STUB_CMD_FLASH_WRITE_BSS_SIZE 0x000064UL
 #define ESP_STUB_CMD_FLASH_WRITE_IRAM_ORG 0x4ff80000UL
 #define ESP_STUB_CMD_FLASH_WRITE_IRAM_LEN 0x00004000UL
 #define ESP_STUB_CMD_FLASH_WRITE_DRAM_ORG 0x4ff84000UL
@@ -213,7 +213,7 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_write_cfg = {
 };
 
 // flash_erase definitions
-#define ESP_STUB_CMD_FLASH_ERASE_BSS_SIZE 0x000002UL
+#define ESP_STUB_CMD_FLASH_ERASE_BSS_SIZE 0x000003UL
 #define ESP_STUB_CMD_FLASH_ERASE_IRAM_ORG 0x4ff80000UL
 #define ESP_STUB_CMD_FLASH_ERASE_IRAM_LEN 0x00004000UL
 #define ESP_STUB_CMD_FLASH_ERASE_DRAM_ORG 0x4ff84000UL
@@ -418,7 +418,7 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_bp_clear_cfg = {
 };
 
 // flash_write_deflated definitions
-#define ESP_STUB_CMD_FLASH_WRITE_DEFLATED_BSS_SIZE 0x000060UL
+#define ESP_STUB_CMD_FLASH_WRITE_DEFLATED_BSS_SIZE 0x000064UL
 #define ESP_STUB_CMD_FLASH_WRITE_DEFLATED_IRAM_ORG 0x4ff80000UL
 #define ESP_STUB_CMD_FLASH_WRITE_DEFLATED_IRAM_LEN 0x00004000UL
 #define ESP_STUB_CMD_FLASH_WRITE_DEFLATED_DRAM_ORG 0x4ff84000UL
@@ -500,7 +500,7 @@ static const struct esp_flasher_stub_config s_esp_stub_flash_calc_hash_cfg = {
 };
 
 // flash_clock_configure definitions
-#define ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE_BSS_SIZE 0x000002UL
+#define ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE_BSS_SIZE 0x000003UL
 #define ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE_IRAM_ORG 0x4ff80000UL
 #define ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE_IRAM_LEN 0x00004000UL
 #define ESP_STUB_CMD_FLASH_CLOCK_CONFIGURE_DRAM_ORG 0x4ff84000UL
