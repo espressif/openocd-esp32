@@ -208,10 +208,36 @@ static const char *esp32h4_csrs[] = {
 	"hpmcounter8", "hpmcounter9", "hpmcounter13", "hpmcounter8h", "hpmcounter9h", "hpmcounter13h",
 };
 
+static const char *esp32h4_dsp_csrs[] = {
+	"dsp_status", "xacc_l", "xacc_h", "sar",
+};
+
+#define CSR_DSP_STATE 0x7f3
+
+static int esp32h4_dsp_get(struct reg *reg)
+{
+	return esp_riscv_csr_access_enable(reg, NULL, GDB_REGNO_CSR0 + CSR_DSP_STATE, 1, 0, 1);
+}
+
+static int esp32h4_dsp_set(struct reg *reg, uint8_t *buf)
+{
+	return esp_riscv_csr_access_enable(reg, buf, GDB_REGNO_CSR0 + CSR_DSP_STATE, 1, 0, 1);
+}
+
+struct reg_arch_type esp32h4_dsp_type = {
+	.get = esp32h4_dsp_get,
+	.set = esp32h4_dsp_set
+};
+
 static struct esp_riscv_reg_class esp32h4_registers[] = {
 	{
 		.reg_array = esp32h4_csrs,
 		.reg_array_size = ARRAY_SIZE(esp32h4_csrs),
+	},
+	{
+		.reg_array = esp32h4_dsp_csrs,
+		.reg_array_size = ARRAY_SIZE(esp32h4_dsp_csrs),
+		.reg_arch_type = &esp32h4_dsp_type
 	},
 };
 

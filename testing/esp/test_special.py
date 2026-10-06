@@ -331,6 +331,47 @@ class DebuggerSpecialTestsImpl:
             self.add_bp('app_main')
             self.run_to_bp(dbg.TARGET_STOP_REASON_BP, 'app_main')
 
+    @only_for_chip(['esp32h4'])
+    def test_dsp_registers(self):
+        core_id = self.CORES_NUM - 1
+        _, threads_info = self.gdb.get_thread_info()
+        for t in threads_info:
+            if f'Running @CPU{core_id}' in t['details']:
+                self.gdb.set_thread(int(t['id'], 10))
+                break
+        a0 = 0x40810000 # address in RAM
+        a1 = random.getrandbits(32)
+        a2 = random.getrandbits(32)
+        a3 = random.getrandbits(32)
+        sar = random.randint(0, 32) # 6 bit but clamped at 32 max value
+        xacc_l = random.getrandbits(32)
+        xacc_h = random.getrandbits(32)
+        self.gdb.set_reg('a0', a0)
+        self.gdb.set_reg('a1', a1)
+        self.gdb.set_reg('a2', a2)
+        self.gdb.set_reg('a3', a3)
+        self.gdb.set_reg('xacc_l', xacc_l)
+        self.gdb.set_reg('xacc_h', xacc_h)
+        self.gdb.set_reg('sar', sar)
+        self.gdb.set_reg('dsp_state', 1)
+        self.oocd.cmd_exec(f'{self.oocd.targets()[core_id]} riscv exec_progbuf 0x6cb5765b') # esp.msus16x2.st a0,a1,a2,a3
+        self.gdb.console_cmd_run('flushregs')
+        self.assertEqual(self.gdb.get_reg('a0'), a0 + 4)
+        val = int(self.oocd.cmd_exec(f'mdw {a0}').split()[1], 16)
+        self.assertEqual(a2, val)
+        def signed16(x):
+            x &= 0xffff
+            return x - 0x10000 if x & 0x8000 else x
+        xacc = xacc_l + (xacc_h << 32) - ((signed16(a1 >> 16) * signed16(a3 >> 16)) >> sar) - ((signed16(a1) * signed16(a3)) >> sar)
+        x1 = self.gdb.get_reg('xacc_l')
+        x2 = self.gdb.get_reg('xacc_h')
+        if x1 < 0:
+            x1 = 0x100000000 + x1
+        if x2 < 0:
+            x2 = 0x100000000 + x2
+        self.assertEqual(x1, xacc & 0xffffffff)
+        self.assertEqual(x2, xacc >> 32)
+
     @only_for_chip(['esp32p4', 'esp32s3', 'esp32s31'])
     def test_pie_registers(self):
         """
