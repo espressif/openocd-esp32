@@ -642,10 +642,9 @@ int esp_riscv_examine(struct target *target)
 			if (!reg->custom && reg->number < GDB_REGNO_COUNT)
 				reg->exist = false;
 			const struct esp_riscv_reg_class *reg_class = esp_riscv_find_reg_class(reg->name,
-				esp_riscv_registers, ARRAY_SIZE(esp_riscv_registers));
+				esp_riscv->chip_specific_registers, esp_riscv->chip_specific_registers_size);
 			if (!reg_class)
-				reg_class = esp_riscv_find_reg_class(reg->name,
-					esp_riscv->chip_specific_registers, esp_riscv->chip_specific_registers_size);
+				reg_class = esp_riscv_find_reg_class(reg->name, esp_riscv_registers, ARRAY_SIZE(esp_riscv_registers));
 			if (!reg_class)
 				continue;
 			reg->exist = true;
