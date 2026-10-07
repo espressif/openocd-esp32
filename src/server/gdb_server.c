@@ -1282,6 +1282,23 @@ static int gdb_get_reg_value_as_str(struct target *target, char *tstr, struct re
 	return ERROR_FAIL;
 }
 
+/* In SMP mode, the core running the thread selected by GDB (Hg) can differ from
+ * the gdb_service target, which is only updated when the target halts. */
+static struct target *gdb_get_thread_target(struct connection *connection)
+{
+	struct target *target = get_target_from_connection(connection);
+	struct target *thread_target;
+
+	if (!target->rtos || target->rtos->current_threadid <= 0)
+		return target;
+
+	if (target->rtos->gdb_target_for_threadid(connection, target->rtos->current_threadid,
+			&thread_target) != ERROR_OK)
+		return target;
+
+	return thread_target;
+}
+
 static int gdb_get_registers_packet(struct connection *connection,
 		char const *packet, int packet_size)
 {
@@ -1300,6 +1317,8 @@ static int gdb_get_registers_packet(struct connection *connection,
 
 	if ((target->rtos) && (rtos_get_gdb_reg_list(connection) == ERROR_OK))
 		return ERROR_OK;
+
+	target = gdb_get_thread_target(connection);
 
 	/*  `target_get_gdb_reg_list()` should read registers from target,
 		but it can happen that packet is received when target is running.
@@ -1362,7 +1381,7 @@ static int gdb_get_registers_packet(struct connection *connection,
 static int gdb_set_registers_packet(struct connection *connection,
 		char const *packet, int packet_size)
 {
-	struct target *target = get_target_from_connection(connection);
+	struct target *target = gdb_get_thread_target(connection);
 	int i;
 	struct reg **reg_list;
 	int reg_list_size;
@@ -1439,6 +1458,8 @@ static int gdb_get_register_packet(struct connection *connection,
 	if ((target->rtos) && (rtos_get_gdb_reg(connection, reg_num) == ERROR_OK))
 		return ERROR_OK;
 
+	target = gdb_get_thread_target(connection);
+
 	retval = target_get_gdb_reg_list_noread(target, &reg_list, &reg_list_size,
 			REG_CLASS_ALL);
 	if (retval != ERROR_OK)
@@ -1504,6 +1525,8 @@ static int gdb_set_register_packet(struct connection *connection,
 		gdb_put_packet(connection, "OK", 2);
 		return ERROR_OK;
 	}
+
+	target = gdb_get_thread_target(connection);
 
 	retval = target_get_gdb_reg_list_noread(target, &reg_list, &reg_list_size,
 			REG_CLASS_ALL);

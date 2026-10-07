@@ -131,8 +131,28 @@ class DebuggerThreadsTestsImpl:
 class DebuggerThreadsTestsDual(DebuggerGenericTestAppTestsDual, DebuggerThreadsTestsImpl):
     """ Test cases in dual core mode
     """
-    # no special tests for single core mode yet
-    pass
+
+    def test_thread_registers_write_other_core(self):
+        """
+            This test checks that registers written by GDB go to the core running the selected thread:
+            1) Target is halted in app_main, selects the thread running on the other core
+            2) Writes a register and checks that only that core was changed
+        """
+        self.oocd.cmd_exec("targets %s" % self.oocd.targets()[0])
+        # use arX for xtensa because aX only get updated after a step
+        regs = [f'ar{i}' if testee_info.arch == 'xtensa' else f'a{i}' for i in range(8)]
+        for i in range(len(regs)):
+            self.gdb.set_reg(regs[i], i)
+        _, threads_info = self.gdb.get_thread_info()
+        for t in threads_info:
+            if 'Running @CPU1' in t['details']:
+                self.gdb.set_thread(int(t['id'], 10))
+        for i in range(len(regs)):
+            self.gdb.set_reg(regs[i], i + 1)
+            self.assertEqual(self.oocd.get_reg(regs[i]), i)
+        self.oocd.cmd_exec("targets %s" % self.oocd.targets()[1])
+        for i in range(len(regs)):
+            self.assertEqual(self.oocd.get_reg(regs[i]), i + 1)
 
 class DebuggerThreadsTestsSingle(DebuggerGenericTestAppTestsSingle, DebuggerThreadsTestsImpl):
     """ Test cases in single core mode
