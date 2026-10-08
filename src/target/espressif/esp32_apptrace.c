@@ -994,8 +994,17 @@ static int esp32_apptrace_handle_trace_block(struct esp32_apptrace_cmd_ctx *ctx,
 	/* process user blocks one by one */
 	while (processed < block->data_len) {
 		LOG_DEBUG("Process usr block %" PRId32 "/%" PRId32, processed, block->data_len);
+		if (block->data_len - processed < hdr_sz) {
+			LOG_ERROR("Truncated user block header at %" PRIu32 "/%" PRIu32, processed, block->data_len);
+			return ERROR_FAIL;
+		}
 		/* process user block */
 		uint32_t usr_len = esp32_apptrace_usr_block_check(ctx, block->data + processed);
+		if (usr_len > block->data_len - processed - hdr_sz) {
+			LOG_ERROR("User block size %" PRIu32 " exceeds trace block at %" PRIu32 "/%" PRIu32,
+				usr_len, processed, block->data_len);
+			return ERROR_FAIL;
+		}
 		int core_id = ctx->trace_format.core_id_get(ctx->target, block->data + processed);
 		/* process user data */
 		int res = ctx->process_data(ctx, core_id, block->data + processed + hdr_sz, usr_len);

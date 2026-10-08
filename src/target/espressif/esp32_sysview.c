@@ -27,6 +27,7 @@ struct esp_sysview_target2host_hdr {
 #define SYSVIEW_WR_SIZE_OFFSET          1
 
 #define SYNC_BYTES_COUNT                10
+#define SYSVIEW_U32_MAX_ENC_LEN         5
 
 static int esp_sysview_trace_header_write(struct esp32_apptrace_cmd_ctx *ctx);
 static int esp32_sysview_core_id_get(struct target *target, uint8_t *hdr_buf);
@@ -176,43 +177,61 @@ static void sysview_encode_u32(uint8_t **dest, uint32_t val)
 	*dest = sv_ptr;
 }
 
-static uint32_t esp_sysview_decode_u32(uint8_t **ptr)
+static int esp_sysview_decode_u32(uint8_t **ptr, const uint8_t *end, uint32_t *val)
 {
-	uint32_t val = 0;
-	for (int k = 0;; k++, (*ptr)++) {
-		if (**ptr & 0x80) {
-			val |= (uint32_t)(**ptr & ~0x80) << 7 * k;
-		} else {
-			val |= (uint32_t)**ptr << 7 * k;
-			(*ptr)++;
-			break;
+	uint32_t v = 0;
+	uint8_t *p = *ptr;
+
+	for (unsigned int k = 0; k < SYSVIEW_U32_MAX_ENC_LEN; k++) {
+		if (p >= end)
+			return ERROR_FAIL;
+		uint8_t b = *p++;
+		v |= (uint32_t)(b & 0x7F) << (7 * k);
+		if (!(b & 0x80)) {
+			*ptr = p;
+			if (val)
+				*val = v;
+			return ERROR_OK;
 		}
 	}
-	return val;
+	return ERROR_FAIL;
 }
 
-static uint16_t esp_sysview_decode_plen(uint8_t **ptr)
+static int esp_sysview_skip_u32(uint8_t **ptr, const uint8_t *end, unsigned int num)
 {
-	uint16_t payload_len = 0;
+	for (unsigned int i = 0; i < num; i++) {
+		if (esp_sysview_decode_u32(ptr, end, NULL) != ERROR_OK)
+			return ERROR_FAIL;
+	}
+	return ERROR_OK;
+}
+
+static int esp_sysview_decode_plen(uint8_t **ptr, const uint8_t *end, uint32_t *payload_len)
+{
 	uint8_t *p = *ptr;
+
+	if (p >= end)
+		return ERROR_FAIL;
 	/* here pkt points to encoded payload length */
 	if (*p & 0x80) {
-		payload_len = *(p + 1);	/* higher part */
-		payload_len = (payload_len << 7) | (*p & ~0x80);/* lower 7 bits */
+		if (end - p < 2)
+			return ERROR_FAIL;
+		*payload_len = ((uint32_t)p[1] << 7) | (p[0] & 0x7F);
 		p += 2;	/* payload len (2 bytes) */
 	} else {
-		payload_len = *p;
+		*payload_len = *p;
 		p++;	/* payload len (1 byte) */
 	}
 	*ptr = p;
 
-	return payload_len;
+	return ERROR_OK;
 }
 
-static uint16_t esp_sysview_get_predef_payload_len(uint16_t id, uint8_t *pkt)
+static int esp_sysview_get_predef_payload_len(uint16_t id, uint8_t *pkt, const uint8_t *end, uint32_t *len)
 {
-	uint16_t len;
 	uint8_t *ptr = pkt;
+	unsigned int u32_num = 0;
+	bool has_str = false;
 
 	switch (id) {
 	case SYSVIEW_EVTID_OVERFLOW:
@@ -225,36 +244,27 @@ static uint16_t esp_sysview_get_predef_payload_len(uint16_t id, uint8_t *pkt)
 	case SYSVIEW_EVTID_USER_STOP:
 	case SYSVIEW_EVTID_TIMER_ENTER:
 		/*ENCODE_U32 */
-		esp_sysview_decode_u32(&ptr);
-		len = ptr - pkt;
+		u32_num = 1;
 		break;
 	case SYSVIEW_EVTID_TASK_STOP_READY:
 	case SYSVIEW_EVTID_SYSTIME_US:
 	case SYSVIEW_EVTID_DATA_SAMPLE:
 		/*2*ENCODE_U32 */
-		esp_sysview_decode_u32(&ptr);
-		esp_sysview_decode_u32(&ptr);
-		len = ptr - pkt;
+		u32_num = 2;
 		break;
 	case SYSVIEW_EVTID_SYSDESC:
 		/*str(128 + 1) */
-		len = *ptr + 1;
+		has_str = true;
 		break;
 	case SYSVIEW_EVTID_TASK_INFO:
 	case SYSVIEW_EVTID_MODULEDESC:
 		/*2*ENCODE_U32 + str */
-		esp_sysview_decode_u32(&ptr);
-		esp_sysview_decode_u32(&ptr);
-		/* TODO: add support for strings longer then 255 bytes */
-		len = ptr - pkt + *ptr + 1;
+		u32_num = 2;
+		has_str = true;
 		break;
 	case SYSVIEW_EVTID_STACK_INFO:
 		/*4*ENCODE_U32 */
-		esp_sysview_decode_u32(&ptr);
-		esp_sysview_decode_u32(&ptr);
-		esp_sysview_decode_u32(&ptr);
-		esp_sysview_decode_u32(&ptr);
-		len = ptr - pkt;
+		u32_num = 4;
 		break;
 	case SYSVIEW_EVTID_ISR_EXIT:
 	case SYSVIEW_EVTID_TASK_STOP_EXEC:
@@ -263,63 +273,84 @@ static uint16_t esp_sysview_get_predef_payload_len(uint16_t id, uint8_t *pkt)
 	case SYSVIEW_EVTID_IDLE:
 	case SYSVIEW_EVTID_ISR_TO_SCHEDULER:
 	case SYSVIEW_EVTID_TIMER_EXIT:
-		len = 0;
 		break;
 
 	/*case SYSVIEW_EVTID_NOP: */
 	default:
 		LOG_ERROR("sysview: Unsupported predef event %d!", id);
-		len = 0;
 	}
-	return len;
+
+	if (esp_sysview_skip_u32(&ptr, end, u32_num) != ERROR_OK)
+		return ERROR_FAIL;
+	*len = ptr - pkt;
+	if (has_str) {
+		if (ptr >= end)
+			return ERROR_FAIL;
+		/* TODO: add support for strings longer then 255 bytes */
+		*len += *ptr + 1;
+	}
+	return ERROR_OK;
 }
 
-static uint16_t esp_sysview_parse_packet(uint8_t *pkt_buf,
+static int esp_sysview_parse_packet(uint8_t *pkt_buf,
+	uint32_t buf_len,
+	uint16_t *event_id,
 	uint32_t *pkt_len,
 	unsigned int *pkt_core_id,
 	uint32_t *delta,
 	uint32_t *delta_len)
 {
 	uint8_t *pkt = pkt_buf;
-	uint16_t event_id = 0, payload_len = 0;
+	const uint8_t *end = pkt_buf + buf_len;
+	uint16_t id = 0;
+	uint32_t payload_len = 0;
+	int res;
 
 	*pkt_core_id = 0;
 	*pkt_len = 0;
+	if (buf_len == 0)
+		return ERROR_FAIL;
 	/* 1-2 byte of message type, 0-2  byte of payload length, payload, 1-5 bytes of timestamp. */
 	if (*pkt & 0x80) {
+		if (buf_len < 2)
+			return ERROR_FAIL;
 		if (*(pkt + 1) & (1 << 6)) {
 			*(pkt + 1) &= ~(1 << 6);	/* clear core_id bit */
 			*pkt_core_id = 1;
 		}
-		event_id = *(pkt + 1) & ~(1 << 6);	/* higher part */
-		event_id = (event_id << 7) | (*pkt & ~0x80);	/* lower 7 bits */
+		id = *(pkt + 1) & ~(1 << 6);	/* higher part */
+		id = (id << 7) | (*pkt & ~0x80);	/* lower 7 bits */
 		pkt += 2;	/* event_id (2 bytes) */
 		/* here pkt points to encoded payload length */
-		payload_len = esp_sysview_decode_plen(&pkt);
+		res = esp_sysview_decode_plen(&pkt, end, &payload_len);
 	} else {
 		if (*pkt & (1 << 6)) {
 			*pkt &= ~(1 << 6);	/* clear core_id bit */
 			*pkt_core_id = 1;
 		}
 		/* event_id (1 byte) */
-		event_id = *pkt & ~(1 << 6);
+		id = *pkt & ~(1 << 6);
 		pkt++;
-		if (event_id < 24)
-			payload_len = esp_sysview_get_predef_payload_len(event_id, pkt);
+		if (id < 24)
+			res = esp_sysview_get_predef_payload_len(id, pkt, end, &payload_len);
 		else
-			payload_len = esp_sysview_decode_plen(&pkt);
+			res = esp_sysview_decode_plen(&pkt, end, &payload_len);
 	}
+	if (res != ERROR_OK || payload_len > (uint32_t)(end - pkt))
+		return ERROR_FAIL;
 	pkt += payload_len;
 	uint8_t *delta_start = pkt;
-	*delta = esp_sysview_decode_u32(&pkt);
+	if (esp_sysview_decode_u32(&pkt, end, delta) != ERROR_OK)
+		return ERROR_FAIL;
 	*delta_len = pkt - delta_start;
 	*pkt_len = pkt - pkt_buf;
+	*event_id = id;
 	LOG_DEBUG("sysview: evt %d len %d plen %d dlen %d",
-		event_id,
+		id,
 		*pkt_len,
 		payload_len,
 		*delta_len);
-	return event_id;
+	return ERROR_OK;
 }
 
 bool esp32_sysview_all_stopped(struct esp32_apptrace_cmd_ctx *ctx)
@@ -503,12 +534,7 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 {
 	struct esp32_sysview_cmd_data *cmd_data = ctx->cmd_priv;
 
-	LOG_DEBUG("sysview: Read from target %d bytes [%x %x %x %x]",
-		data_len,
-		data[0],
-		data[1],
-		data[2],
-		data[3]);
+	LOG_DEBUG("sysview: Read from target %d bytes", data_len);
 	int res;
 	uint32_t processed = 0;
 	if (core_id >= ctx->cores_num) {
@@ -558,19 +584,22 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 		unsigned int pkt_core_id;
 		uint32_t delta_len = 0;
 		uint32_t pkt_len = 0, delta = 0;
-		uint16_t event_id = esp_sysview_parse_packet(data + processed,
+		uint16_t event_id = 0;
+		res = esp_sysview_parse_packet(data + processed,
+			data_len - processed,
+			&event_id,
 			&pkt_len,
 			&pkt_core_id,
 			&delta,
 			&delta_len);
-		LOG_DEBUG("sysview: Process packet: core %d, %d id, %d bytes [%x %x %x %x]",
+		if (res != ERROR_OK) {
+			LOG_ERROR("sysview: Malformed packet at offset %u of %u bytes", processed, data_len);
+			return res;
+		}
+		LOG_DEBUG("sysview: Process packet: core %d, %d id, %d bytes",
 			pkt_core_id,
 			event_id,
-			pkt_len,
-			data[processed + 0],
-			data[processed + 1],
-			data[processed + 2],
-			data[processed + 3]);
+			pkt_len);
 		res = esp32_sysview_process_packet(ctx,
 			pkt_core_id,
 			event_id,
