@@ -561,11 +561,11 @@ int esp32_apptrace_cmd_ctx_cleanup(struct esp32_apptrace_cmd_ctx *cmd_ctx)
 	do { \
 		if ((_arg_) == 0 && (_start_) == (_end_)) { \
 			command_print(_cmd_, "Invalid '" # _arg_ "' arg!"); \
-			return;	\
+			return ERROR_COMMAND_ARGUMENT_INVALID; \
 		} \
 	} while (0)
 
-void esp32_apptrace_cmd_args_parse(struct esp32_apptrace_cmd_ctx *cmd_ctx,
+int esp32_apptrace_cmd_args_parse(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 	struct command_invocation *cmd,
 	struct esp32_apptrace_cmd_data *cmd_data,
 	const char **argv,
@@ -592,6 +592,7 @@ void esp32_apptrace_cmd_args_parse(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 			}
 		}
 	}
+	return ERROR_OK;
 }
 
 static int esp32_apptrace_core_id_get(struct target *target, uint8_t *hdr_buf)
@@ -636,9 +637,18 @@ static int esp32_apptrace_cmd_init(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 	cmd_ctx->stop_tmo = -1.0;	/* infinite */
 	cmd_data->max_len = UINT32_MAX;
 	cmd_data->poll_period = 0 /*ms*/;
-	if (argc > 1)
+	if (argc > 1) {
 		/* parse remaining args */
-		esp32_apptrace_cmd_args_parse(cmd_ctx, cmd, cmd_data, &argv[1], argc - 1);
+		res = esp32_apptrace_cmd_args_parse(cmd_ctx, cmd, cmd_data, &argv[1], argc - 1);
+		if (res != ERROR_OK) {
+			esp32_apptrace_dest_cleanup(&cmd_data->data_dest, 1);
+			free(cmd_data);
+			cmd_ctx->cmd_priv = NULL;
+			cmd_ctx->running = 0;
+			esp32_apptrace_cmd_ctx_cleanup(cmd_ctx);
+			return res;
+		}
+	}
 
 	LOG_USER("App trace params: from %d cores, size %" PRId32 " bytes, stop_tmo %g s, poll period %" PRId32
 		" ms, wait_rst %d, skip %" PRId32 " bytes", cmd_ctx->cores_num,

@@ -78,11 +78,17 @@ int esp32_sysview_cmd_init(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 	cmd_ctx->stop_tmo = -1.0;	/* infinite */
 	if (argc > dests_num) {
 		/* parse remaining args */
-		esp32_apptrace_cmd_args_parse(cmd_ctx,
+		res = esp32_apptrace_cmd_args_parse(cmd_ctx,
 			cmd,
 			&cmd_data->apptrace,
 			&argv[dests_num],
 			argc - dests_num);
+		if (res != ERROR_OK) {
+			esp32_apptrace_dest_cleanup(cmd_data->data_dests, core_num);
+			free(cmd_data);
+			cmd_ctx->cmd_priv = NULL;
+			goto on_error;
+		}
 	}
 	LOG_USER("App trace params: from %d cores, size %u bytes, stop_tmo %g s, "
 		"poll period %u ms, wait_rst %d, skip %u bytes",

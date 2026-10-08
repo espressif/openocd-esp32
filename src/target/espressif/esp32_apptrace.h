@@ -111,7 +111,7 @@ struct esp32_apptrace_cmd_data {
 
 int esp32_apptrace_cmd_ctx_init(struct esp32_apptrace_cmd_ctx *cmd_ctx, struct command_invocation *cmd, int mode);
 int esp32_apptrace_cmd_ctx_cleanup(struct esp32_apptrace_cmd_ctx *cmd_ctx);
-void esp32_apptrace_cmd_args_parse(struct esp32_apptrace_cmd_ctx *cmd_ctx,
+int esp32_apptrace_cmd_args_parse(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 	struct command_invocation *cmd,
 	struct esp32_apptrace_cmd_data *cmd_data,
 	const char **argv,
