@@ -79,6 +79,7 @@ int esp32_sysview_cmd_init(struct esp32_apptrace_cmd_ctx *cmd_ctx,
 	if (argc > dests_num) {
 		/* parse remaining args */
 		esp32_apptrace_cmd_args_parse(cmd_ctx,
+			cmd,
 			&cmd_data->apptrace,
 			&argv[dests_num],
 			argc - dests_num);

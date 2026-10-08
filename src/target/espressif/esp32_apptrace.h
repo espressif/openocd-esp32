@@ -90,7 +90,7 @@ struct esp32_apptrace_cmd_ctx {
 	uint32_t max_trace_block_sz;
 	struct esp32_apptrace_format trace_format;
 	int (*process_data)(struct esp32_apptrace_cmd_ctx *ctx, unsigned int core_id, uint8_t *data, uint32_t data_len);
-	void (*auto_clean)(struct esp32_apptrace_cmd_ctx *ctx);
+	int (*auto_clean)(struct esp32_apptrace_cmd_ctx *ctx);
 	uint32_t tot_len;
 	uint32_t raw_tot_len;
 	float stop_tmo;
@@ -99,7 +99,6 @@ struct esp32_apptrace_cmd_ctx {
 	struct duration idle_time;
 	void *cmd_priv;
 	struct target *target;
-	struct command_invocation *cmd;
 };
 
 struct esp32_apptrace_cmd_data {
@@ -113,6 +112,7 @@ struct esp32_apptrace_cmd_data {
 int esp32_apptrace_cmd_ctx_init(struct esp32_apptrace_cmd_ctx *cmd_ctx, struct command_invocation *cmd, int mode);
 int esp32_apptrace_cmd_ctx_cleanup(struct esp32_apptrace_cmd_ctx *cmd_ctx);
 void esp32_apptrace_cmd_args_parse(struct esp32_apptrace_cmd_ctx *cmd_ctx,
+	struct command_invocation *cmd,
 	struct esp32_apptrace_cmd_data *cmd_data,
 	const char **argv,
 	int argc);
