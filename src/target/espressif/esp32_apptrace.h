@@ -14,6 +14,11 @@
 
 #define ESP32_APPTRACE_MAX_CORES_NUM 2
 
+#define ESP32_APPTRACE_DUMP_BYTES_NUM 4
+/* Two hex digits plus a space or the terminating NUL */
+#define ESP32_APPTRACE_DUMP_CHARS_PER_BYTE 3
+#define ESP32_APPTRACE_DUMP_STR_SIZE(_n_) ((_n_) * ESP32_APPTRACE_DUMP_CHARS_PER_BYTE)
+
 struct esp32_apptrace_hw {
 	uint32_t max_block_id;
 	uint32_t (*max_block_size_get)(struct target *target);
@@ -123,6 +128,7 @@ int esp_apptrace_usr_block_write(const struct esp32_apptrace_hw *hw, struct targ
 	const uint8_t *data,
 	uint32_t size);
 uint8_t *esp_apptrace_usr_block_get(struct target *target, uint8_t *buffer, uint32_t *size);
+void esp32_apptrace_bytes_str(char *str, size_t str_size, const uint8_t *data, uint32_t len);
 
 extern const struct command_registration esp32_apptrace_command_handlers[];
 

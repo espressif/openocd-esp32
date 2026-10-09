@@ -533,8 +533,12 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 	uint32_t data_len)
 {
 	struct esp32_sysview_cmd_data *cmd_data = ctx->cmd_priv;
+	char bytes[ESP32_APPTRACE_DUMP_STR_SIZE(ESP32_APPTRACE_DUMP_BYTES_NUM)];
 
-	LOG_DEBUG("sysview: Read from target %d bytes", data_len);
+	if (LOG_LEVEL_IS(LOG_LVL_DEBUG)) {
+		esp32_apptrace_bytes_str(bytes, sizeof(bytes), data, data_len);
+		LOG_DEBUG("sysview: Read from target %d bytes [%s]", data_len, bytes);
+	}
 	int res;
 	uint32_t processed = 0;
 	if (core_id >= ctx->cores_num) {
@@ -551,9 +555,9 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 		LOG_DEBUG("sysview: Process %d sync bytes", SYSVIEW_SYNC_LEN);
 		uint8_t sync_seq[SYSVIEW_SYNC_LEN] = { 0x0 }; // All zeros
 		if (memcmp(data, sync_seq, SYSVIEW_SYNC_LEN) != 0) {
-			LOG_ERROR("sysview: Invalid init seq [%x %x %x %x %x %x %x %x %x %x]",
-				data[0], data[1], data[2], data[3], data[4], data[5], data[6],
-				data[7], data[8], data[9]);
+			char seq_str[ESP32_APPTRACE_DUMP_STR_SIZE(SYSVIEW_SYNC_LEN)];
+			esp32_apptrace_bytes_str(seq_str, sizeof(seq_str), data, SYSVIEW_SYNC_LEN);
+			LOG_ERROR("sysview: Invalid init seq [%s]", seq_str);
 			return ERROR_FAIL;
 		}
 		res = cmd_data->data_dests[core_id].write(cmd_data->data_dests[core_id].priv,
@@ -593,13 +597,18 @@ int esp32_sysview_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 			&delta,
 			&delta_len);
 		if (res != ERROR_OK) {
-			LOG_ERROR("sysview: Malformed packet at offset %u of %u bytes", processed, data_len);
+			esp32_apptrace_bytes_str(bytes, sizeof(bytes), data + processed, data_len - processed);
+			LOG_ERROR("sysview: Malformed packet at offset %u of %u bytes [%s]", processed, data_len, bytes);
 			return res;
 		}
-		LOG_DEBUG("sysview: Process packet: core %d, %d id, %d bytes",
-			pkt_core_id,
-			event_id,
-			pkt_len);
+		if (LOG_LEVEL_IS(LOG_LVL_DEBUG)) {
+			esp32_apptrace_bytes_str(bytes, sizeof(bytes), data + processed, data_len - processed);
+			LOG_DEBUG("sysview: Process packet: core %d, %d id, %d bytes [%s]",
+				pkt_core_id,
+				event_id,
+				pkt_len,
+				bytes);
+		}
 		res = esp32_sysview_process_packet(ctx,
 			pkt_core_id,
 			event_id,

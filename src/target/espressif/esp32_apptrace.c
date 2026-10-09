@@ -942,6 +942,15 @@ static int esp32_apptrace_get_data_info(struct esp32_apptrace_cmd_ctx *ctx,
 	return ERROR_OK;
 }
 
+void esp32_apptrace_bytes_str(char *str, size_t str_size, const uint8_t *data, uint32_t len)
+{
+	size_t off = 0;
+
+	str[0] = '\0';
+	for (uint32_t i = 0; i < len && i < str_size / ESP32_APPTRACE_DUMP_CHARS_PER_BYTE; i++)
+		off += snprintf(str + off, str_size - off, i ? " %x" : "%x", data[i]);
+}
+
 static int esp32_apptrace_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 	unsigned int core_id,
 	uint8_t *data,
@@ -949,8 +958,11 @@ static int esp32_apptrace_process_data(struct esp32_apptrace_cmd_ctx *ctx,
 {
 	struct esp32_apptrace_cmd_data *cmd_data = ctx->cmd_priv;
 
-	LOG_DEBUG("Got block %" PRId32 " bytes [%x %x...%x %x]", data_len, data[12], data[13],
-		data[data_len - 2], data[data_len - 1]);
+	if (LOG_LEVEL_IS(LOG_LVL_DEBUG)) {
+		char bytes[ESP32_APPTRACE_DUMP_STR_SIZE(ESP32_APPTRACE_DUMP_BYTES_NUM)];
+		esp32_apptrace_bytes_str(bytes, sizeof(bytes), data, data_len);
+		LOG_DEBUG("Got block %" PRIu32 " bytes [%s]", data_len, bytes);
+	}
 	if (ctx->tot_len + data_len > cmd_data->skip_len) {
 		uint32_t wr_idx = 0, wr_chunk_len = data_len;
 		if (ctx->tot_len < cmd_data->skip_len) {
