@@ -68,8 +68,10 @@ target_sources(nor PRIVATE
 	non_cfi.c
 	npcx.c
 	nrf5.c
+	nrf54.c
 	numicro.c
 	ocl.c
+	pac55xx.c
 	pic32mx.c
 	psoc4.c
 	psoc5lp.c
