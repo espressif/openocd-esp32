@@ -85,7 +85,7 @@
 
 .tests_master_template:
   extends: .tests_template
-  image: ${CI_REGISTRY}/ci/images/idf-v6.2-target-test:1
+  image: ${TEST_IDF_MASTER_DOCKER_IMAGE}
   variables:
     ESP_GDB_TOOLCHAIN: "${ESP_V6_2X_XTENSA_GDB_TOOLCHAIN}"
     ESP_TOOLCHAIN: "${ESP_V6_2X_TOOLCHAIN_VER}"
@@ -99,7 +99,7 @@
 
 .tests_v6.1.x_template:
   extends: .tests_template
-  image: ${CI_REGISTRY}/ci/images/idf-v6.1-target-test:1
+  image: ${TEST_IDF6_1_RELEASE_DOCKER_IMAGE}
   variables:
     ESP_GDB_TOOLCHAIN: "${ESP_V6_1X_XTENSA_GDB_TOOLCHAIN}"
     ESP_TOOLCHAIN: "${ESP_V6_1X_TOOLCHAIN_VER}"
@@ -113,7 +113,7 @@
 
 .tests_v6.0.x_template:
   extends: .tests_template
-  image: ${CI_REGISTRY}/ci/images/idf-v6.0-target-test:1
+  image: ${TEST_IDF6_0_RELEASE_DOCKER_IMAGE}
   variables:
     ESP_GDB_TOOLCHAIN: "${ESP_V6_0X_XTENSA_GDB_TOOLCHAIN}"
     ESP_TOOLCHAIN: "${ESP_V6_0X_TOOLCHAIN_VER}"
@@ -127,7 +127,7 @@
 
 .tests_v5.5.x_template:
   extends: .tests_template
-  image: ${CI_REGISTRY}/ci/images/idf-v5.5-target-test:1
+  image: ${TEST_IDF5_5_RELEASE_DOCKER_IMAGE}
   variables:
     ESP_GDB_TOOLCHAIN: "${ESP_V5_5X_XTENSA_GDB_TOOLCHAIN}"
     ESP_TOOLCHAIN: "${ESP_V5_5X_TOOLCHAIN_VER}"
@@ -141,7 +141,7 @@
 
 .tests_v5.4.x_template:
   extends: .tests_template
-  image: ${CI_REGISTRY}/ci/images/idf-v5.4-target-test:1
+  image: ${TEST_IDF5_4_RELEASE_DOCKER_IMAGE}
   variables:
     ESP_GDB_TOOLCHAIN: "${ESP_V5_4X_XTENSA_GDB_TOOLCHAIN}"
     ESP_TOOLCHAIN: "${ESP_V5_4X_TOOLCHAIN_VER}"
@@ -155,7 +155,7 @@
 
 .tests_v5.3.x_template:
   extends: .tests_template
-  image: ${CI_REGISTRY}/ci/images/idf-v5.3-target-test:1
+  image: ${TEST_IDF5_3_RELEASE_DOCKER_IMAGE}
   variables:
     ESP_GDB_TOOLCHAIN: "${ESP_V5_3X_XTENSA_GDB_TOOLCHAIN}"
     ESP_TOOLCHAIN: "${ESP_V5_3X_TOOLCHAIN_VER}"
