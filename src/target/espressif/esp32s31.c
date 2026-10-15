@@ -346,4 +346,5 @@ struct target_type esp32s31_target = {
 	.commands = esp32s31_command_handlers,
 
 	.address_bits = riscv_xlen_nonconst,
+	.insn_set = esp_riscv_insn_set,
 };

@@ -46,6 +46,13 @@ static struct {
 	{ "arm64be", CS_ARCH_AARCH64, CS_MODE_BIG_ENDIAN },
 	{ "riscv32", CS_ARCH_RISCV, CS_MODE_RISCV32 | CS_MODE_RISCV_C },
 	{ "riscv64", CS_ARCH_RISCV, CS_MODE_RISCV64 | CS_MODE_RISCV_C },
+	/* Espressif RISC-V ISAs commonly include C, Zcmp/Zcmt, A, F, Zba/Zbb/Zbs
+	 * TODO: vendor extensions aren't decoded here, GDB can be used instead.
+	 */
+	{ "esp_riscv", CS_ARCH_RISCV, CS_MODE_RISCV32 | CS_MODE_RISCV_C |
+		CS_MODE_RISCV_ZCMP_ZCMT_ZCE | CS_MODE_RISCV_A |
+		CS_MODE_RISCV_FD | CS_MODE_RISCV_ZBA |
+		CS_MODE_RISCV_ZBB | CS_MODE_RISCV_ZBS },
 	{ "xtensa", CS_ARCH_XTENSA, CS_MODE_XTENSA_ESP32 },
 	{ "xtensa_s2", CS_ARCH_XTENSA, CS_MODE_XTENSA_ESP32S2 },
 	{ "xtensa_8266", CS_ARCH_XTENSA, CS_MODE_XTENSA_ESP8266 },

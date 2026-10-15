@@ -168,6 +168,7 @@ int esp_riscv_assert_reset(struct target *target);
 int esp_riscv_get_gdb_reg_list(struct target *target,
 		struct reg **reg_list[], int *reg_list_size,
 		enum target_register_class reg_class);
+int esp_riscv_insn_set(struct command_invocation *cmd, struct target *target, const char **insn_set);
 
 extern const struct command_registration esp_riscv_command_handlers[];
 

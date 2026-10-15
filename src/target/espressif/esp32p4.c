@@ -584,4 +584,5 @@ struct target_type esp32p4_target = {
 	.commands = esp32p4_command_handlers,
 
 	.address_bits = riscv_xlen_nonconst,
+	.insn_set = esp_riscv_insn_set,
 };

@@ -201,6 +201,12 @@ static bool esp_riscv_is_bp_set_by_program(struct target *target)
 	return false;
 }
 
+int esp_riscv_insn_set(struct command_invocation *cmd, struct target *target, const char **insn_set)
+{
+	*insn_set = "esp_riscv";
+	return ERROR_OK;
+}
+
 /* General purpose registers */
 static const char *esp_riscv_gprs[] = {
 	"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "fp", "s1",
