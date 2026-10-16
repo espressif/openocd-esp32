@@ -41,6 +41,45 @@ class DebuggerSpecialTestsImpl:
         self.assertEqual(rev, rev2)
         time.sleep(2.0) # some extra time for openocd to recover after hw reset
 
+    def test_disassemble_simple(self):
+        """
+            This test checks Capstone-backed 'disassemble' at the current PC.
+            1) Verify Capstone is available and the expected ISA name is listed.
+            2) Disassemble a few instructions; the first should look like a
+               function prologue (Xtensa: entry; RISC-V: stack adjust / save ra).
+            3) Remaining instructions should have a valid encoded size
+               (Xtensa: 2 or 3 bytes; RISC-V: 2 or 4 bytes).
+        """
+        arch_list = self.oocd.cmd_exec('disassemble list')
+        self.assertNotIn('Capstone library not present', arch_list)
+        if testee_info.arch == 'xtensa':
+            self.assertIn('xtensa', arch_list)
+            expected_mnems = ('entry',)
+            expected_sizes = (2, 3)
+        else:
+            self.assertIn('riscv32', arch_list)
+            # cm.push/cm.pop: Zcmp code-size prologues used by ESP-IDF RISC-V
+            expected_mnems = ('addi', 'c.addi', 'c.addi16sp', 'sw', 'c.swsp',
+                              'sd', 'c.sdsp', 'cm.push', 'cm.pop')
+            expected_sizes = (2, 4)
+
+        pc = int(self.gdb.get_reg('pc'))
+        out = self.oocd.cmd_exec('disassemble 0x%x 5' % pc)
+        get_logger().debug('disassemble:\n%s', out)
+        self.assertNotIn('Capstone library not present', out)
+        self.assertNotIn('Instruction-set detection not implemented', out)
+        self.assertNotIn('not supported by Capstone', out)
+
+        lines = out.strip().splitlines()
+        self.assertEqual(len(lines), 5)
+
+        # Capstone print format: "0xADDR  xx xx\tmnemonic[\toperands]"
+        mnem = lines[0].split('\t')[1].split()[0]
+        self.assertIn(mnem, expected_mnems)
+        for ln in lines:
+            insn_size = len(ln.split('\t')[0].split()) - 1
+            self.assertIn(insn_size, expected_sizes)
+
     def _do_sampling(self, profile_time, options=''):
         self.oocd.cmd_exec("targets %s" % self.oocd.targets()[self.CORES_NUM - 1])
         self.resume_exec()
