@@ -27,8 +27,6 @@ build_wheels:
       artifacts: true
     - job: build_linux_armhf
       artifacts: true
-    - job: build_linux_armel
-      artifacts: true
     - job: build_linux_arm64
       artifacts: true
     - job: build_windows_win32

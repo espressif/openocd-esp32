@@ -25,7 +25,6 @@ PLATFORM_MAP = {
     "linux-amd64": "manylinux_2_17_x86_64.manylinux2014_x86_64",
     "linux-arm64": "manylinux_2_17_aarch64.manylinux2014_aarch64",
     "linux-armhf": "manylinux_2_17_armv7l.manylinux2014_armv7l",
-    "linux-armel": "linux_armv6l",
     "macos": "macosx_10_9_x86_64",
     "macos-arm64": "macosx_11_0_arm64",
     "win32": "win32",
