@@ -1,4 +1,19 @@
+# OOCD_SKIP_TEST_CHIPS: optional CI/CD variable, slash-delimited RE2 regex,
+# hardware test jobs whose CHIP_NAME matches are skipped.
+.oocd_skip_test_chips_rules:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    - if: '$OOCD_SKIP_TEST_CHIPS == null'
+      when: on_success
+    - if: '$OOCD_SKIP_TEST_CHIPS == ""'
+      when: on_success
+    - if: '$CHIP_NAME =~ $OOCD_SKIP_TEST_CHIPS'
+      when: never
+    - when: on_success
+
 .tests_template:
+  extends: .oocd_skip_test_chips_rules
   tags:
     - $CHIP_NAME
     - jtag
