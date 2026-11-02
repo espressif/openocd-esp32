@@ -1963,7 +1963,7 @@ static char *esp_gcov_filename_alloc(struct esp32_gcov_cmd_data *cmd_data, const
 		 * path can contain mixed Windows and Unix and */
 		/* can look like
 		 * `c:\esp\esp-idf\examples\system\gcov\build/esp-idf/main/CMakeFiles/__idf_main.dir/gcov_example.c.gcda` */
-		char *tmp = strpbrk(striped_fname + 1, DIR_SEPARATORS);
+		const char *tmp = strpbrk(striped_fname + 1, DIR_SEPARATORS);
 		if (!tmp)
 			break;
 		striped_fname = tmp;
