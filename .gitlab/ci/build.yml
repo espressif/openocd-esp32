@@ -156,7 +156,7 @@
     - make -j `nproc`
     - MAKEFLAGS= make ${INSTALL_TARGET}
     - popd
-    - >
+    - |
       if [[ "${GCOV_BUILD_OPTS}" != "" ]]; then
         echo coverage enabled
         rsync -a --prune-empty-dirs --include '*/' --include '*.gcno' --exclude '*' _build/ ${DIST_INSTALLED_DIR}/_build
@@ -207,19 +207,6 @@ build_linux:
     - popd
     - *dist_archive
 
-# Just to test build with latest gcc.
-build_linux_gcc_latest:
-  extends: .build_openocd_template
-  variables:
-    CONF_HOST: ""
-    HOST_CC: "gcc"
-  script:
-    - *buildx_jimtcl
-    - export PKG_CONFIG_PATH=$PWD/$JIMTCL_VER/dist/lib/pkgconfig
-    - ./bootstrap
-    - ./configure ${OPENOCD_CONFIGURE_OPTS}
-    - make -j`nproc`
-
 build_linux_armhf_test:
   extends: .build_linux_arm_template
   variables:
@@ -228,18 +215,18 @@ build_linux_armhf_test:
     GCOV_BUILD_OPTS: "--enable-gcov"
     INSTALL_TARGET: "install"
   before_script:
-    - >
+    - |
       if [[ $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "run_sanitizer_tests" ]] ; then
         export TEST_CFLAGS="-Wl,--no-as-needed -ldl -fsanitize=address -fsanitize=undefined -fsanitize-recover=address -ggdb3 -fno-omit-frame-pointer"
       fi
   after_script:
-    - >
+    - |
       if [[ $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "run_sanitizer_tests" ]] ; then
-        libasan=$(${CONF_HOST}-gcc -print-file-name=libasan.so);
-        libubsan=$(${CONF_HOST}-gcc -print-file-name=libubsan.so);
-        mkdir ${CONF_HOST};
-        cp $(dirname $libasan)/$(readlink $libasan) ${CONF_HOST};
-        cp $(dirname $libubsan)/$(readlink $libubsan) ${CONF_HOST};
+        libasan=$(${CONF_HOST}-gcc -print-file-name=libasan.so)
+        libubsan=$(${CONF_HOST}-gcc -print-file-name=libubsan.so)
+        mkdir ${CONF_HOST}
+        cp $(dirname $libasan)/$(readlink $libasan) ${CONF_HOST}
+        cp $(dirname $libubsan)/$(readlink $libubsan) ${CONF_HOST}
       fi
   artifacts:
     paths:

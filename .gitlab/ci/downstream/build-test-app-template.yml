@@ -187,6 +187,7 @@
     - *finish_test_app_build
     - *prepare_espytrace_package
     - *prepare_sysview_config
+    - !reference [.set_toolchain_prefixes, script]
     - *prepare_gprof_compatible_elfs
   needs:
     - pipeline: $PARENT_PIPELINE_ID

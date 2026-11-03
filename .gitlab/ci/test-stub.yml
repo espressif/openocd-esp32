@@ -61,20 +61,20 @@ build_stub_images:
     - job: build_linux_armhf_test
   before_script:
     - pip install unittest-xml-reporting --no-deps
-    - >
-      machine="$(uname -m)";
+    - |
+      machine="$(uname -m)"
       if [[ "$machine" == "armv7l" ]] ; then
-        export PLATFORM_NAME="linux-armhf-test";
+        export PLATFORM_NAME="linux-armhf-test"
       elif [[ "$machine" == "aarch64" ]] ; then
-        export PLATFORM_NAME="linux-arm64-test";
-      fi;
-      echo "PLATFORM_NAME: ${PLATFORM_NAME}";
-    - >
+        export PLATFORM_NAME="linux-arm64-test"
+      fi
+      echo "PLATFORM_NAME: ${PLATFORM_NAME}"
+    - |
       if [[ -n "${MERGED_BIN}" && -f "${MERGED_BIN}" ]]; then
-        echo "Flashing ${MERGED_BIN} to target via ${ESPTOOL_PORT}";
-        esptool -s -p ${ESPTOOL_PORT} --chip ${CHIP_NAME} write-flash 0x0 ${MERGED_BIN};
-        echo "Waiting for target to boot...";
-        sleep 1;
+        echo "Flashing ${MERGED_BIN} to target via ${ESPTOOL_PORT}"
+        esptool -s -p ${ESPTOOL_PORT} --chip ${CHIP_NAME} write-flash 0x0 ${MERGED_BIN}
+        echo "Waiting for target to boot..."
+        sleep 1
       fi
   script:
     - mkdir ${TEST_RUN_DIR}

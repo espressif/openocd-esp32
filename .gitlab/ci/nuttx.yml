@@ -45,9 +45,7 @@ build_nuttx_app:
 .test_nuttx_riscv_template:
   extends: .test_nuttx_template
   variables:
-    TOOLCHAIN_PREFIX: "riscv32-esp"
     ESP_GDB_TOOLCHAIN: "${ESP_V5_5X_RISCV_GDB_TOOLCHAIN}"
-    CHIP_TEST_TOOLCHAIN: "riscv32-esp"
 
 test_nuttx_esp32:
   extends:
