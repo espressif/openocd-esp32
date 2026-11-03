@@ -70,14 +70,15 @@
   popd
 
 .buildx_libjaylink: &buildx_libjaylink |
-  export LIBJAYLINK_VER=libjaylink-0.3.1
+  export LIBJAYLINK_VER=libjaylink-0.5.0
   wget -nv https://dl.espressif.com/dl/$LIBJAYLINK_VER.tar.gz -O $LIBJAYLINK_VER.tar.gz
   tar xzf $LIBJAYLINK_VER.tar.gz && rm $LIBJAYLINK_VER.tar.gz
   pushd $LIBJAYLINK_VER
-  if [ $PLATFORM_NAME == "win-arm64" ]; then
-    patch -p1 < ../.gitlab/ci/patches/win_arm64/libjaylink.patch
-  fi
   ./autogen.sh
+  # libjaylink 0.5.0 uses inet_ntop(); MinGW only declares it when targeting Vista+.
+  case "${CONF_HOST}" in
+    *mingw*) export CPPFLAGS="${CPPFLAGS:+$CPPFLAGS }-D_WIN32_WINNT=0x0600" ;;
+  esac
   ./configure --prefix=$PWD/dist --host=${CONF_HOST} --disable-shared CC=${HOST_CC}
   make
   make install
