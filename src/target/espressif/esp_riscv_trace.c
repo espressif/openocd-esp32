@@ -24,6 +24,12 @@
 #define ESP_RISCV_TRACE_STUB_RETRY_MS   10
 #define ESP_RISCV_TRACE_UNKNOWN_MS      (-1)
 
+/* PT 1.0 encoder trigger register, the same on every PT 1.0 chip (ESP32-C6, ESP32-H2, ESP32-H21) */
+#define ESP_RISCV_TRACE_PT10_TRIGGER_REG         0x600C0020
+#define ESP_RISCV_TRACE_PT10_TRIGGER_ON          BIT(0)
+#define ESP_RISCV_TRACE_PT10_TRIGGER_OFF         BIT(1)
+#define ESP_RISCV_TRACE_PT10_TRIGGER_RESTART_ENA BIT(3)
+
 /* One OpenOCD capture at a time. */
 struct esp_riscv_trace_session {
 	bool active;
@@ -34,6 +40,8 @@ struct esp_riscv_trace_session {
 	uint32_t stop_func;
 	uint32_t duration_ms;  /* 0 = until the stop command */
 	int64_t start_ms;      /* Host time when the capture started */
+	/* PT 1.0 requires stopping the encoder before halting the hart. */
+	bool stop_encoder_before_halt;
 };
 
 static struct esp_riscv_trace_session s_session;
@@ -233,18 +241,24 @@ static int session_reset_cb(struct target *target, enum target_reset_mode reset_
 	return ERROR_OK;
 }
 
-static void session_begin(struct target *target, char *file, uint32_t stop_func, uint32_t core_mask,
-	uint32_t duration_ms)
+static void session_begin(struct target *target, char *file, const struct esp_riscv_trace_target_state *state,
+	uint32_t core_mask, uint32_t duration_ms)
 {
 	static bool reset_cb_registered;
 
 	s_session.active = true;
 	s_session.target = target;
 	s_session.file = file;
-	s_session.stop_func = stop_func;
+	s_session.stop_func = state->ocd.hdr.stop;
 	s_session.core_mask = core_mask;
 	s_session.duration_ms = duration_ms;
 	s_session.start_ms = timeval_ms();
+	s_session.stop_encoder_before_halt = false;
+	for (unsigned int i = 0; i < state->snap.core_count; i++) {
+		const struct esp_riscv_trace_snapshot_core_desc *core = &state->cores[i];
+		if ((core_mask & BIT(core->core_id)) && core->packet_format == RVTS_PACKET_FORMAT_PT10)
+			s_session.stop_encoder_before_halt = true;
+	}
 	if (!reset_cb_registered) {
 		int res = target_register_reset_callback(session_reset_cb, NULL);
 		reset_cb_registered = (res == ERROR_OK);
@@ -300,6 +314,24 @@ static int session_read_frozen(struct target *target, uint32_t *frozen, uint32_t
 	return ERROR_OK;
 }
 
+/* Stops a PT 1.0 encoder while the target runs, so tracing during the coming halt does not overwrite
+ * the capture. PT 1.0 chips are single-core. A failure is logged and the stop function still stops the
+ * encoder. */
+static void session_stop_pt10_encoder(struct target *target)
+{
+	uint32_t trigger;
+	int res = target_read_u32(target, ESP_RISCV_TRACE_PT10_TRIGGER_REG, &trigger);
+	if (res != ERROR_OK) {
+		LOG_WARNING("Cannot read the RISC-V trace trigger register. The halt may overwrite the capture.");
+		return;
+	}
+	trigger &= ~(ESP_RISCV_TRACE_PT10_TRIGGER_ON | ESP_RISCV_TRACE_PT10_TRIGGER_RESTART_ENA);
+	trigger |= ESP_RISCV_TRACE_PT10_TRIGGER_OFF;
+	res = target_write_u32(target, ESP_RISCV_TRACE_PT10_TRIGGER_REG, trigger);
+	if (res != ERROR_OK)
+		LOG_WARNING("Cannot write the RISC-V trace trigger register. The halt may overwrite the capture.");
+}
+
 /* Stops the session cores and writes the file while the target stays halted, so the app cannot
  * restart tracing before the buffers are copied. If the stop function fails, the session stays and
  * the stop can be run again. After a panic the firmware must not run, so frozen cores are written
@@ -312,6 +344,9 @@ static int session_finish(const char *reason)
 	}
 
 	struct target *target = s_session.target;
+	if (s_session.stop_encoder_before_halt && target->state == TARGET_RUNNING)
+		session_stop_pt10_encoder(target);
+
 	enum target_state old_state;
 	int res = trace_halt(target, &old_state);
 	if (res != ERROR_OK)
@@ -506,7 +541,7 @@ COMMAND_HANDLER(esp_riscv_trace_cmd_start)
 		free(file);
 		return res != ERROR_OK ? res : ERROR_FAIL;
 	}
-	session_begin(target, file, state.ocd.hdr.stop, core_mask, duration_ms);
+	session_begin(target, file, &state, core_mask, duration_ms);
 
 	res = trace_resume(target, old_state);
 	if (res == ERROR_OK && duration_ms) {
