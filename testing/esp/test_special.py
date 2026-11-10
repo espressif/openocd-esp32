@@ -50,6 +50,7 @@ class DebuggerSpecialTestsImpl:
             3) Remaining instructions should have a valid encoded size
                (Xtensa: 2 or 3 bytes; RISC-V: 2 or 4 bytes).
         """
+        self.oocd.cmd_exec("targets %s" % self.oocd.targets()[0])
         arch_list = self.oocd.cmd_exec('disassemble list')
         self.assertNotIn('Capstone library not present', arch_list)
         if testee_info.arch == 'xtensa':
