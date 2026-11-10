@@ -8,3 +8,4 @@ test_apps/gen_ut_app/managed_components
 *.gcov
 results/
 build/
+test_apps/riscv_trace

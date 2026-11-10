@@ -1,7 +1,6 @@
 import hashlib
 import logging
 import os
-import shutil
 import struct
 import tempfile
 import debug_backend as dbg
@@ -96,12 +95,15 @@ class RiscvTraceTestsImpl:
     """ Tests for OpenOCD control of the RISC-V trace encoder ("esp riscv_trace" commands).
     """
     def setUp(self):
-        self.trace_dir = tempfile.mkdtemp(prefix='riscv_trace_')
+        # Kept after the test so CI can upload the captures. Each run, including a retry, gets its own directory.
+        trace_root = os.path.join(test_apps_dir, 'riscv_trace')
+        os.makedirs(trace_root, exist_ok=True)
+        self.trace_dir = tempfile.mkdtemp(prefix='%s.%s_' % (type(self).__name__, self._testMethodName),
+                                          dir=trace_root)
 
     def tearDown(self):
         # Ends a capture that a failed test left running
         self.oocd.cmd_exec('esp riscv_trace stop')
-        shutil.rmtree(self.trace_dir, ignore_errors=True)
 
     def trace_path(self, name):
         return os.path.join(self.trace_dir, name)

@@ -29,6 +29,7 @@
       - $TEST_RUN_DIR/gdb_logs*
       - $TEST_RUN_DIR/esp_cov_files
       - $TEST_RUN_DIR/sanitizer_errors.log
+      - $TEST_RUN_DIR/riscv_trace
     reports:
       junit:
         - $TEST_RUN_DIR/results/*
