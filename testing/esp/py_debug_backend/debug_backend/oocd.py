@@ -211,11 +211,14 @@ class Oocd(threading.Thread):
         cmd_sent = cmd_sent.encode('utf-8')
         self._tn.write(cmd_sent)
         resp = b''
-        while not resp.endswith(b'> '):
+        # an async log line redraws the prompt, so wait for the prompt after the echoed command
+        while True:
             resp += self._tn.read_until(b'>')
             resp += self._tn.read_very_eager()
-        # remove all '\r' first
-        resp = resp.replace(b'\r', b'')
+            # remove all '\r' first
+            resp = resp.replace(b'\r', b'')
+            if cmd_sent in resp and resp.endswith(b'> '):
+                break
         # command we sent will be echoed back - remove it
         index_start = resp.find(cmd_sent)
         if index_start >= 0:
