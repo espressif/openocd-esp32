@@ -356,7 +356,7 @@ static int esp32p4_user_counter_set(struct reg *reg, uint8_t *buf)
 	return target->reg_cache->reg_list[GDB_REGNO_A0].type->set(reg, buf);
 }
 
-struct reg_arch_type esp32p4_user_counter_type = {
+static struct reg_arch_type esp32p4_user_counter_type = {
 	.get = esp32p4_user_counter_get,
 	.set = esp32p4_user_counter_set
 };

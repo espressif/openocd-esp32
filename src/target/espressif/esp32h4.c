@@ -225,7 +225,7 @@ static int esp32h4_dsp_set(struct reg *reg, uint8_t *buf)
 	return esp_riscv_csr_access_enable(reg, buf, GDB_REGNO_CSR0 + CSR_DSP_STATE, 1, 0, 1);
 }
 
-struct reg_arch_type esp32h4_dsp_type = {
+static struct reg_arch_type esp32h4_dsp_type = {
 	.get = esp32h4_dsp_get,
 	.set = esp32h4_dsp_set
 };

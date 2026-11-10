@@ -155,6 +155,7 @@ static int stub_run(struct target *target, uint32_t func_addr, uint32_t core_mas
 {
 	struct esp_riscv_common *esp_riscv = target_to_esp_riscv(target);
 	const struct esp_dbg_stubs_ctl_data *ctl = &esp_riscv->esp.dbg_stubs.ctl_data;
+	*ret_code = 0;
 	if (ctl->tramp_addr == 0 || ctl->min_stack_addr == 0) {
 		LOG_ERROR("Debug stubs have no trampoline or stack");
 		return ERROR_FAIL;

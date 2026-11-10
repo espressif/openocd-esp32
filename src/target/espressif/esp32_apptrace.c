@@ -2473,7 +2473,6 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 		}
 		esp_gcov_poll(target, &s_at_cmd_ctx);
 	} else {
-		struct target *run_target = target;
 		/* connect and halt target, debug stubs info will be read if this is the first time target is halted */
 		res = esp32_apptrace_connect_targets(&s_at_cmd_ctx, true, false);
 		if (res != ERROR_OK) {
@@ -2481,7 +2480,7 @@ COMMAND_HANDLER(esp32_cmd_gcov)
 			esp_gcov_cmd_cleanup(&s_at_cmd_ctx);
 			return res;
 		}
-		run_target = esp_common_dbg_stubs_target(target);
+		struct target *run_target = esp_common_dbg_stubs_target(target);
 		struct esp_dbg_stubs *dbg_stubs = run_target ? &target_to_esp_common(run_target)->dbg_stubs : NULL;
 		if (!dbg_stubs || dbg_stubs->ctl_data.data_alloc == 0) {
 			command_print(CMD, "No dbg stubs found!");
