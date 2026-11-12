@@ -41,6 +41,40 @@ class DebuggerSpecialTestsImpl:
         self.assertEqual(rev, rev2)
         time.sleep(2.0) # some extra time for openocd to recover after hw reset
 
+    def test_mac_cmd(self):
+        """
+            This test checks that esp_get_mac matches the MAC address reported by esptool.
+        """
+        mac_hex_output = self.oocd.cmd_exec("esp_get_mac")
+        mac_formatted_output = self.oocd.cmd_exec("esp_get_mac format")
+
+        # avoid simultaneous access to UART with SerialReader
+        if self.uart_reader:
+            self.uart_reader.pause()
+        try:
+            proc = run_esptool(self.port_names[0], 'read_mac', capture_output=True)
+            proc.check_returncode()
+        finally:
+            if self.uart_reader:
+                self.uart_reader.resume()
+
+        output = proc.stdout.decode('UTF-8')
+        match = re.search(
+            r'(?m)^\s*(?:BASE )?MAC:\s*((?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2})\s*$',
+            output)
+        self.assertIsNotNone(match, output)
+        mac_formatted_expected = match.group(1).lower()
+        mac_hex_expected = "0x0000" + mac_formatted_expected.replace(":", "")
+        mac_hex_match = re.search(r'(?m)^\s*(0x[0-9a-fA-F]{16})\s*$', mac_hex_output)
+        mac_formatted_match = re.search(
+            r'(?m)^\s*((?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2})\s*$',
+            mac_formatted_output)
+        self.assertIsNotNone(mac_hex_match, mac_hex_output)
+        self.assertIsNotNone(mac_formatted_match, mac_formatted_output)
+        self.assertEqual(mac_hex_match.group(1).lower(), mac_hex_expected)
+        self.assertEqual(mac_formatted_match.group(1).lower(), mac_formatted_expected)
+        time.sleep(2.0) # allow openocd to recover after esptool reset
+
     def test_disassemble_simple(self):
         """
             This test checks Capstone-backed 'disassemble' at the current PC.
