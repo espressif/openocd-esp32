@@ -349,7 +349,8 @@ tests_esp32h4:
       optional: true
   variables:
     CHIP_NAME: "esp32h4"
-    TEST_RUN_BOARD_OPTS: "-b esp32h4-builtin -e test_*.*Encrypted"
+    # TODO enable PSRAM when compatible board is installed in the runner
+    TEST_RUN_BOARD_OPTS: "-b esp32h4-builtin -e test_*.*Encrypted test_*.PsramTests*"
 
 tests_esp32h21:
   extends: .tests_master_riscv_template
