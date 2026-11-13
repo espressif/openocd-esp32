@@ -523,7 +523,7 @@ class DebuggerTestsSingle32MB(DebuggerGenericTestAppTestsSingle):
         self.test_app_cfg.pt_off = 0x1008000
         self.test_app_cfg.app_off = 0x1010000
 
-@only_for_chip(['esp32s3'])
+@only_for_chip(['esp32s3', 'esp32p4'])
 class DebuggerBreakpointTestsSingle32MB(DebuggerTestsSingle32MB, BreakpointTestsImpl):
     """ Breakpoint test cases via GDB in single core mode with 32MB flash config
     """
@@ -543,7 +543,7 @@ class DebuggerTestsDual32MB(DebuggerGenericTestAppTestsDual):
         self.test_app_cfg.pt_off = 0x1008000
         self.test_app_cfg.app_off = 0x1010000
 
-@only_for_chip(['esp32s3'])
+@only_for_chip(['esp32s3', 'esp32p4'])
 class DebuggerBreakpointTestsDual32MB(DebuggerTestsDual32MB, BreakpointTestsImpl):
     """ Breakpoint test cases via GDB in dual core mode with 32MB flash config
     """
@@ -555,7 +555,7 @@ class DebuggerBreakpointTestsDual32MB(DebuggerTestsDual32MB, BreakpointTestsImpl
     def test_2cores_concurrently_hit_bps(self):
         two_cores_concurrently_hit_bps(self)
 
-@only_for_chip(['esp32s3'])
+@only_for_chip(['esp32s3', 'esp32p4'])
 class DebuggerFlashBreakpointTestsSingle32MB(DebuggerTestsSingle32MB, FlashBreakpointTestsImpl):
     """ Breakpoint tests with extra flash breakpoints (single core)
     """
@@ -563,7 +563,7 @@ class DebuggerFlashBreakpointTestsSingle32MB(DebuggerTestsSingle32MB, FlashBreak
         DebuggerTestsSingle32MB.setUp(self)
         FlashBreakpointTestsImpl.setUp(self)
 
-@only_for_chip(['esp32s3'])
+@only_for_chip(['esp32s3', 'esp32p4'])
 class DebuggerFlashBreakpointTestsDual32MB(DebuggerTestsDual32MB, FlashBreakpointTestsImpl):
     """ Breakpoint tests with extra flash breakpoints (dual core)
     """

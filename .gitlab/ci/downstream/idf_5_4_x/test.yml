@@ -191,7 +191,7 @@ tests_esp32p4_idf5.4.x:
     - job: fetch_gcov
   variables:
     CHIP_NAME: "esp32p4"
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.*Encrypted"
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.*Encrypted test_*.*32MB"
 
 tests_esp32p4_lpcore_idf5.4.x:
   extends: tests_esp32p4_idf5.4.x

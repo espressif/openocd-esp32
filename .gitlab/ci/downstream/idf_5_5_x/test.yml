@@ -247,13 +247,22 @@ tests_esp32p4_idf5.5.x:
     - job: fetch_gcov
   variables:
     CHIP_NAME: "esp32p4"
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.*Encrypted"
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.*Encrypted test_*.*32MB"
 
 tests_esp32p4_lpcore_idf5.5.x:
   extends: tests_esp32p4_idf5.5.x
   allow_failure: true
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
+
+tests_esp32p4_idf5.5.x_32mb:
+  extends: tests_esp32p4_idf5.5.x
+  tags:
+    - esp32p4_32mb
+    - jtag
+    - rev_default
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -p test_*.*Dual32MB test_*.*Single32MB test_flasher.*Dual test_flasher.*Single"
 
 tests_esp32p4_idf5.5.x_usj:
   extends: tests_esp32p4_idf5.5.x
@@ -263,7 +272,7 @@ tests_esp32p4_idf5.5.x_usj:
     - usb_serial_jtag
     - rev_default
   variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted test_*.*32MB *.*.test_big_binary *.*.test_big_binary_compressed"
 
 tests_esp32p4_idf5.5.x_lpcore_usj:
   extends: tests_esp32p4_idf5.5.x_usj
@@ -282,6 +291,8 @@ tests_esp32p4_rev1_idf5.5.x:
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
     - job: fetch_gcov
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.*Encrypted test_*.*32MB"
 
 tests_esp32p4_rev1_lpcore_idf5.5.x:
   extends: tests_esp32p4_rev1_idf5.5.x
@@ -296,7 +307,7 @@ tests_esp32p4_rev1_idf5.5.x_usj:
     - esp32p4_rev1
     - usb_serial_jtag
   variables:
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted *.*.test_big_binary *.*.test_big_binary_compressed"
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-builtin -e test_*.*Encrypted test_*.*32MB *.*.test_big_binary *.*.test_big_binary_compressed"
 
 tests_esp32p4_rev1_idf5.5.x_lpcore_usj:
   extends: tests_esp32p4_rev1_idf5.5.x_usj

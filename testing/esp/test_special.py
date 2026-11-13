@@ -789,7 +789,7 @@ class PsramTestAppTestsSingle32MB(DebuggerGenericTestAppTests):
         self.test_app_cfg.bin_dir = os.path.join('output', 'psram_single_32MB')
         self.test_app_cfg.build_dir = os.path.join('builds', 'psram_single_32MB')
 
-@only_for_chip(["esp32s3"])
+@only_for_chip(["esp32s3", "esp32p4"])
 class PsramTestsDual32MB(PsramTestAppTestsDual32MB, PsramTestsImpl):
     """ Test cases via GDB in dual core mode
     """
@@ -801,7 +801,7 @@ class PsramTestsDual32MB(PsramTestAppTestsDual32MB, PsramTestsImpl):
         PsramTestAppTestsDual32MB.tearDown(self)
         PsramTestsImpl.tearDown(self)
 
-@only_for_chip(["esp32s3"])
+@only_for_chip(["esp32s3", "esp32p4"])
 class PsramTestsSingle32MB(PsramTestAppTestsSingle32MB, PsramTestsImpl):
     """ Test cases via GDB in single core mode
     """

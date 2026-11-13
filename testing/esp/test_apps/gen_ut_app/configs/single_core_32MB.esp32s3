@@ -1,0 +1,2 @@
+# Required for 32MB quad flash above 16MB (ignored when OCTAL flash is enabled)
+CONFIG_ESPTOOLPY_OCT_FLASH=y

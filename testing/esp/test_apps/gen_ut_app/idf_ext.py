@@ -9,6 +9,10 @@ import tempfile
 
 def get_config_names(config_dir):
     config_names = os.listdir(config_dir)
+    # Per-target overlays live beside configs as NAME.IDF_TARGET (e.g.
+    # single_core_32MB.esp32s3) and must not appear as standalone configs.
+    config_names = [cfg for cfg in config_names
+                    if not re.search(r'\.esp32[a-z0-9]*$', cfg)]
     if os.getenv('IDF_TARGET') not in ['esp32p4', 'esp32c5', 'esp32c6', 'esp32s31']:
         config_names = [cfg for cfg in config_names if 'lpcore' not in cfg]
     return config_names
@@ -54,9 +58,19 @@ def create_temp_sdkconfig(project_path, config_name):
         sdkconfig_temp.write(b"\n")
         sdkconfig_temp.write(sdkconfig_config_file.read())
 
+    # Optional per-target overlay, e.g. configs/single_core_32MB.esp32s3
+    # (OCT flash on S3 while quad 32-bit map stays in the shared 32MB config).
+    if idf_target:
+        sdkconfig_config_target = os.path.join(project_path, "configs",
+                                               f"{config_name}.{idf_target}")
+        if os.path.exists(sdkconfig_config_target):
+            with open(sdkconfig_config_target, "rb") as sdkconfig_config_target_file:
+                sdkconfig_temp.write(b"\n")
+                sdkconfig_temp.write(sdkconfig_config_target_file.read())
+
     sdkconfig_temp.flush()
     sdkconfig_temp.close()
-    
+
     return sdkconfig_temp.name
 
 def action_extensions(base_actions, project_path=os.getcwd()):

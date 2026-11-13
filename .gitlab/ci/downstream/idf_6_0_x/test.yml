@@ -229,13 +229,22 @@ tests_esp32p4_idf6.0.x:
     - job: fetch_gcov
   variables:
     CHIP_NAME: "esp32p4"
-    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.*Encrypted"
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.*Encrypted test_*.*32MB"
 
 tests_esp32p4_idf6.0.x_lpcore:
   extends: tests_esp32p4_idf6.0.x
   allow_failure: true
   variables:
     TEST_RUN_BOARD_OPTS: "-b esp32p4-lpcore-ftdi -p test_*.LpCore*"
+
+tests_esp32p4_idf6.0.x_32mb:
+  extends: tests_esp32p4_idf6.0.x
+  tags:
+    - esp32p4_32mb
+    - jtag
+    - rev_default
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -p test_*.*Dual32MB test_*.*Single32MB test_flasher.*Dual test_flasher.*Single"
 
 tests_esp32p4_rev1_idf6.0.x:
   extends: tests_esp32p4_idf6.0.x
@@ -249,6 +258,8 @@ tests_esp32p4_rev1_idf6.0.x:
     - pipeline: $PARENT_PIPELINE_ID
       job: build_linux_armhf_test
     - job: fetch_gcov
+  variables:
+    TEST_RUN_BOARD_OPTS: "-b esp32p4-ftdi -e test_*.*Encrypted test_*.*32MB"
 
 tests_esp32p4_rev1_lpcore_idf6.0.x:
   extends: tests_esp32p4_rev1_idf6.0.x
