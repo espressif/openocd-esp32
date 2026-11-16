@@ -328,8 +328,13 @@ struct target_type esp32s31_target = {
 	.memory_ready = esp_riscv_memory_ready,
 	.read_memory = esp_riscv_read_memory,
 	.write_memory = esp_riscv_write_memory,
+	.read_phys_memory = riscv_read_phys_memory,
+	.write_phys_memory = riscv_write_phys_memory,
 
 	.checksum_memory = riscv_checksum_memory,
+
+	.mmu = riscv_mmu,
+	.virt2phys = riscv_virt2phys,
 
 	.get_gdb_arch = riscv_get_gdb_arch,
 	.get_gdb_reg_list = riscv_get_gdb_reg_list,

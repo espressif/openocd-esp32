@@ -3234,7 +3234,7 @@ static int riscv_mmu_impl(struct target *target,
 	return ERROR_OK;
 }
 
-static int riscv_mmu(struct target *target, bool *enabled)
+int riscv_mmu(struct target *target, bool *enabled)
 {
 	assert(target);
 	assert(enabled);
@@ -3242,6 +3242,10 @@ static int riscv_mmu(struct target *target, bool *enabled)
 	*enabled = false;
 
 	if (!riscv_virt2phys_mode_is_sw(target))
+		return ERROR_OK;
+
+	/* ESPRESSIF: translation needs register access; skip while running. */
+	if (target->state != TARGET_HALTED)
 		return ERROR_OK;
 
 	enum riscv_priv_mode mode = RISCV_MODE_M;
@@ -3460,13 +3464,21 @@ static int riscv_virt2phys_v(struct target *target, target_addr_t virtual, targe
 	return ERROR_OK;
 }
 
-static int riscv_virt2phys(struct target *target, target_addr_t virtual, target_addr_t *physical)
+int riscv_virt2phys(struct target *target, target_addr_t virtual, target_addr_t *physical)
 {
 	/* TODO: translate the address in the other modes as well. */
 	if (!riscv_virt2phys_mode_is_sw(target)) {
 		*physical = virtual;
 		LOG_TARGET_DEBUG(target, "Address translation is off. 0x%" TARGET_PRIxADDR
 				" -> 0x%" TARGET_PRIxADDR, virtual, *physical);
+		return ERROR_OK;
+	}
+
+	/* ESPRESSIF: translation needs register access; skip while running. */
+	if (target->state != TARGET_HALTED) {
+		*physical = virtual;
+		LOG_TARGET_DEBUG(target, "Target not halted; skipping translation. 0x%"
+				TARGET_PRIxADDR " -> 0x%" TARGET_PRIxADDR, virtual, *physical);
 		return ERROR_OK;
 	}
 
@@ -3539,7 +3551,7 @@ static int check_virt_memory_access(struct target *target, target_addr_t address
 	return ERROR_OK;
 }
 
-static int riscv_read_phys_memory(struct target *target, target_addr_t phys_address,
+int riscv_read_phys_memory(struct target *target, target_addr_t phys_address,
 			uint32_t size, uint32_t count, uint8_t *buffer)
 {
 	const struct riscv_mem_access_args args = {
@@ -3554,7 +3566,7 @@ static int riscv_read_phys_memory(struct target *target, target_addr_t phys_addr
 	return r->access_memory(target, args);
 }
 
-static int riscv_write_phys_memory(struct target *target, target_addr_t phys_address,
+int riscv_write_phys_memory(struct target *target, target_addr_t phys_address,
 			uint32_t size, uint32_t count, const uint8_t *buffer)
 {
 	const struct riscv_mem_access_args args = {
@@ -3582,13 +3594,14 @@ static int riscv_rw_memory(struct target *target, struct riscv_mem_access_args a
 	}
 
 	struct riscv_info *r = riscv_info(target);
-	/* ESPRESSIF */
-	if (target->state != TARGET_HALTED)
-		return r->access_memory(target, args);
 
 	args.mode = RISCV_MODE_M;
 
 	if (riscv_virt2phys_mode_is_off(target))
+		return r->access_memory(target, args);
+
+	/* ESPRESSIF: translation needs register access; skip while running. */
+	if (target->state != TARGET_HALTED)
 		return r->access_memory(target, args);
 
 	enum riscv_priv_mode mode = RISCV_MODE_M;

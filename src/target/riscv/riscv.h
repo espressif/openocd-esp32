@@ -532,6 +532,12 @@ int riscv_read_by_any_size(struct target *target, target_addr_t address, uint32_
 int riscv_write_by_any_size(struct target *target, target_addr_t address, uint32_t size, uint8_t *buffer);
 
 /* ESPRESSIF: we exported some functions for the common esp_riscv target */
+int riscv_mmu(struct target *target, bool *enabled);
+int riscv_virt2phys(struct target *target, target_addr_t virtual, target_addr_t *physical);
+int riscv_read_phys_memory(struct target *target, target_addr_t phys_address,
+		uint32_t size, uint32_t count, uint8_t *buffer);
+int riscv_write_phys_memory(struct target *target, target_addr_t phys_address,
+		uint32_t size, uint32_t count, const uint8_t *buffer);
 int riscv_assert_reset(struct target *target);
 int riscv_deassert_reset(struct target *target);
 int riscv_checksum_memory(struct target *target,
