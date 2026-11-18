@@ -733,7 +733,7 @@ static __maybe_unused int handle_flash_clock_configure(va_list ap)
 
 	if (new_cpu_freq == -1) {
 		// set to max frequency
-		//stub_lib_clock_init();
+		stub_lib_clock_init();
 	}
 
 	// TODO: return the previous frequency before boost
@@ -859,6 +859,9 @@ int stub_main(int cmd, ...)
 	/* zero bss */
 	for (uint32_t *p = &_bss_start; p < &_bss_end; p++)
 		*p = 0;
+
+	/* ROM delays need the performance counter, which is still stopped when the CPU is halted at the reset vector */
+	stub_lib_clock_enable_perf_counter();
 
 	va_start(ap, cmd);
 
