@@ -847,7 +847,7 @@ int esp_algo_flash_write(struct flash_bank *bank, const uint8_t *buffer,
 		stack_size += ESP_STUB_IFLATOR_SIZE;
 	}
 
-	run.timeout_ms = esp_info->compression ? ESP_FLASH_WR_DEFLATE_TMO : 0;
+	run.timeout_ms = esp_info->compression ? ESP_FLASH_WR_DEFLATE_TMO : ESP_FLASH_RW_TMO;
 	run.stack_size = stack_size + ESP_STUB_UNZIP_BUFF_SIZE + esp_info->stub_hw->stack_data_pool_size;
 	run.usr_func = esp_algo_flash_rw_do;
 	run.usr_func_arg = &wr_state;
