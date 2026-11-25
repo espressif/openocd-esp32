@@ -541,7 +541,6 @@ class DebuggerSpecialTestsImpl:
 
         reg_len = 128
         if testee_info.arch == "xtensa":
-            reg_len = 64 # test lower 64bits only as we cannot set higher values from GDB yet
             def get_qacc():
                 return int160_to_v4_int40(self.gdb.get_reg('qacc_h')) + int160_to_v4_int40(self.gdb.get_reg('qacc_l'))
 
@@ -550,13 +549,19 @@ class DebuggerSpecialTestsImpl:
                 self.gdb.set_reg('qacc_l', '0')
                 self.assertEqual(sum(get_qacc()), 0)
 
+            def set_q_reg(name, val):
+                # GDB cannot assign a 128-bit scalar literal directly; build it from two 64-bit halves.
+                lo = val & ((1 << 64) - 1)
+                hi = (val >> 64) & ((1 << 64) - 1)
+                self.gdb.set_reg(name, f'((typeof(${name})){lo:#x}) | (((typeof(${name})){hi:#x}) << 64)')
+                self.gdb.console_cmd_run('flushregs')
+                self.assertEqual(self.gdb.get_reg(name), val)
+
             def set_q0(val):
-                self.gdb.set_reg('q0', hex(val))
-                self.assertEqual(self.gdb.get_reg('q0'), val)
+                set_q_reg('q0', val)
 
             def set_q1(val):
-                self.gdb.set_reg('q1', hex(val))
-                self.assertEqual(self.gdb.get_reg('q1'), val)
+                set_q_reg('q1', val)
         else:
             def get_qacc():
                 qacc = self.gdb.get_reg('qacc_l_l.v2_int64') + self.gdb.get_reg('qacc_l_h.v2_int64') \
