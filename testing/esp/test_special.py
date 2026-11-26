@@ -115,6 +115,69 @@ class DebuggerSpecialTestsImpl:
             insn_size = len(ln.split('\t')[0].split()) - 1
             self.assertIn(insn_size, expected_sizes)
 
+    @only_for_chip(['esp32s31'])
+    def test_riscv_virt2phys_sv32(self):
+        """
+            Verify OpenOCD software Sv32 translation against identity accesses.
+            Carve page-aligned pages under the halted hart's stack for the page
+            tables and a payload page (no chip-specific RAM addresses), map a
+            non-identity VA to that payload, then:
+              1) write the payload via virt2phys_mode off (identity / physical),
+              2) read the same data via the VA with virt2phys_mode sw,
+              3) write a different value via the VA with sw,
+              4) read it back via off at the physical address.
+        """
+        tgt = self.oocd.targets()[self.CORES_NUM - 1]
+        self.oocd.cmd_exec('targets %s' % tgt)
+
+        # Sv32 walk: satp -> root_table[0] -> second_table[0] -> pa.
+        # VA 0 uses entry 0 in both tables, so no VPN bit slicing is needed.
+        page_size = 0x1000
+        # RISC-V PTE low bits: V=valid, R/W/X=permissions, A=accessed, D=dirty.
+        # A non-leaf has only V (points at the next table); a leaf has R/W/X too.
+        pte_valid = 0x1
+        pte_read = 0x2
+        pte_write = 0x4
+        pte_exec = 0x8
+        pte_accessed = 0x40
+        pte_dirty = 0x80
+        va = 0
+        val_a = 0xA5A5A5A5
+        val_b = 0x5A5A5A5A
+
+        sp = self.oocd.get_reg('sp')
+        pa = (sp & ~(page_size - 1)) - page_size
+        second_table = pa - page_size
+        root_table = second_table - page_size
+
+        # Bits[31:10] hold the next PPN; bits[9:0] are the flags above.
+        root_entry = ((second_table >> 12) << 10) | pte_valid
+        leaf_entry = ((pa >> 12) << 10) | (
+            pte_valid | pte_read | pte_write | pte_exec | pte_accessed | pte_dirty)
+        self.oocd.cmd_exec('mww 0x%x 0x%x' % (root_table, root_entry))
+        self.oocd.cmd_exec('mww 0x%x 0x%x' % (second_table, leaf_entry))
+
+        # Enable Sv32 at root_table; S-mode so OpenOCD uses satp (not bare M-mode).
+        self.oocd.set_reg('satp', '0x%x' % ((1 << 31) | (root_table >> 12)))
+        dcsr = self.oocd.get_reg('dcsr')
+        self.oocd.set_reg('dcsr', '0x%x' % ((dcsr & ~0x3) | 0x1))
+
+        try:
+            # Write through identity addressing, read through translated VA.
+            self.oocd.cmd_exec('riscv virt2phys_mode off')
+            self.oocd.cmd_exec('mww 0x%x 0x%x' % (pa, val_a))
+            self.oocd.cmd_exec('riscv virt2phys_mode sw')
+            mdw = self.oocd.cmd_exec('mdw 0x%x 1' % va)
+            self.assertRegex(mdw, r'(?i)0x0*%x\s*:\s*0*%x' % (va, val_a))
+
+            # Write through translated VA, read back through identity addressing.
+            self.oocd.cmd_exec('mww 0x%x 0x%x' % (va, val_b))
+            self.oocd.cmd_exec('riscv virt2phys_mode off')
+            mdw = self.oocd.cmd_exec('mdw 0x%x 1' % pa)
+            self.assertRegex(mdw, r'(?i)0x0*%x\s*:\s*0*%x' % (pa, val_b))
+        finally:
+            self.oocd.cmd_exec('riscv virt2phys_mode sw')
+
     def _do_sampling(self, profile_time, options=''):
         self.oocd.cmd_exec("targets %s" % self.oocd.targets()[self.CORES_NUM - 1])
         self.resume_exec()
